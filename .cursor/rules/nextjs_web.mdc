@@ -1,0 +1,35 @@
+---
+description: Next.js App Router conventions for storefront, My Garage, visual parts catalog, B2B portal
+globs: apps/web/**/*.{ts,tsx,js,jsx}
+alwaysApply: false
+---
+
+# Next.js Web Conventions
+
+## App Router
+- Use App Router (`app/` directory). Server Components by default; `'use client'` only when needed.
+- Route groups: `(storefront)`, `(b2b-portal)`, `(my-garage)`, `(admin)`.
+- API routes under `app/api/v1/` — thin handlers delegating to `packages/shared/` logic.
+
+## Performance (Visual Parts Catalog)
+- Diagram images: use `next/image` with WebP/AVIF, lazy loading, and blur placeholders.
+- Interactive canvas: render base diagram as `<img>` with absolutely-positioned SVG/bounding-box overlays.
+- Bounding boxes from `part_fitment` spatial data — highlight on hover, open add-to-cart modal on click.
+- Search: delegate to Meilisearch/PostgreSQL FTS via `/api/v1/store/search` — support 4-way search (part number, VIN, model variant, PNC category).
+
+## Multi-Currency Display
+- Always show currency alongside amounts. Dual USD/ZiG display where ContiPay settlement requires it.
+- Never assume USD — read `currency` field from API responses.
+
+## State Management
+- Server state: React Query / TanStack Query with Supabase client.
+- Client state: Zustand or React Context for cart, active garage vehicle, UI preferences.
+- "My Garage" vehicle selection silently filters all search paths to fitment-compatible parts.
+
+## Styling
+- Use design tokens from `packages/ui/`. Invoke `/ui-ux-pro-max` skill for intentional typography/color/motion.
+- Mobile-first responsive design. Catalog canvas must work on tablet and desktop.
+
+## Security
+- No service_role key in client bundles. All data access through RLS-protected Supabase queries.
+- No HTML5 QR scanning — web app does not scan QR codes (mobile bridges only).

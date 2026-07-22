@@ -1,0 +1,44 @@
+---
+description: Supabase migrations, RLS policies, edge functions, typed client generation
+globs: supabase/**/*,packages/supabase-client/**/*
+alwaysApply: false
+---
+
+# Supabase Backend Rules
+
+## Migrations
+- All schema changes via version-controlled migrations in `supabase/migrations/`.
+- Never manage schema through the Supabase dashboard alone.
+- One migration per logical change. Name: `YYYYMMDDHHMMSS_descriptive_name.sql`.
+- Include RLS policies in the same migration as table creation.
+
+## RLS Mandate
+Every table MUST have RLS enabled with appropriate policies before being considered done:
+```sql
+ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
+-- Policies for SELECT, INSERT, UPDATE (if needed), DELETE (if needed)
+```
+- Customer data: users see only their own rows (`auth.uid() = user_id`).
+- Staff data: role-based via `staff_roles` lookup table.
+- Financial data: restricted to finance/admin roles.
+- No table ships with RLS disabled.
+
+## Edge Functions
+- Deno/TypeScript in `supabase/functions/`.
+- Use for: ContiPay webhook handling, SMS triggers, inventory transfer approvals, demand forecasting.
+- Never put business logic only in edge functions — core logic lives in `packages/shared/`.
+
+## Typed Client
+- Generate types: `supabase gen types typescript --local > packages/supabase-client/src/database.types.ts`
+- Hand-written query helpers in `packages/supabase-client/src/queries/`.
+- Never use `any` for database row types.
+
+## Realtime
+- GPS delivery tracking: `delivery_locations` table with Realtime enabled.
+- Inventory transfer approvals: Realtime subscription for dual-authorization workflow.
+- Use `supabase.channel()` with row-level filters, not broad table subscriptions.
+
+## Storage
+- Diagram images: `catalog-diagrams` bucket (public read).
+- Staff ID cards: `staff-ids` bucket (authenticated read only).
+- Payslips: `payslips` bucket (owner read only).

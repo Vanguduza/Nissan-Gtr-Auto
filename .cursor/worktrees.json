@@ -1,0 +1,8 @@
+{
+  "setup-worktree": [
+    "echo 'Setting up worktree for Nissan GTR Auto ERP'",
+    "if [ -f package.json ]; then pnpm install 2>/dev/null || npm install 2>/dev/null || true; fi",
+    "if [ -f $ROOT_WORKTREE_PATH/.env.local ] && [ ! -f .env.local ]; then cp $ROOT_WORKTREE_PATH/.env.local .env.local; fi",
+    "if [ -f $ROOT_WORKTREE_PATH/supabase/config.toml ] && [ ! -f supabase/config.toml ]; then cp -r $ROOT_WORKTREE_PATH/supabase/config.toml supabase/ 2>/dev/null || true; fi"
+  ]
+}

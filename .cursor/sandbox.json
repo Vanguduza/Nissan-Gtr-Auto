@@ -1,0 +1,27 @@
+{
+  "network": {
+    "allowedDomains": [
+      "registry.npmjs.org",
+      "registry.yarnpkg.com",
+      "*.supabase.co",
+      "api.github.com",
+      "github.com",
+      "raw.githubusercontent.com",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "repo.maven.apache.org",
+      "dl.google.com",
+      "services.gradle.org",
+      "plugins.gradle.org",
+      "developer.apple.com",
+      "contipay.co.zw"
+    ]
+  },
+  "filesystem": {
+    "readOnly": [
+      ".env",
+      ".env.local",
+      ".env.production"
+    ]
+  }
+}

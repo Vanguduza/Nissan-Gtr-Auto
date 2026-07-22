@@ -1,0 +1,5 @@
+{
+  "install": "echo 'Nissan GTR Auto ERP — Cloud Agent environment setup' && if command -v supabase &>/dev/null; then echo 'Supabase CLI: available'; else echo 'Supabase CLI: not installed — install via https://supabase.com/docs/guides/cli'; fi && if command -v node &>/dev/null; then echo \"Node: $(node --version)\"; fi && if command -v python3 &>/dev/null; then echo \"Python: $(python3 --version)\"; fi",
+  "start": "supabase start 2>/dev/null || echo 'Supabase local not started — run supabase start manually'",
+  "terminals": []
+}
