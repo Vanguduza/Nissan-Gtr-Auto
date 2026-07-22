@@ -1,0 +1,60 @@
+# Nissan GTR Auto ERP — Global Laws
+# These rules apply to ALL agents across ALL lanes unless a path-specific
+# .cursor/rules/*.mdc file provides a more specific override.
+
+## Hard Exclusions (NEVER implement, scaffold, or leave TODOs for)
+
+- NO ZIMRA integration of any kind. No FDMS connections, no fiscalisation QR codes,
+  no ZIMRA payload compilation, no mTLS fiscal device logic in checkout, invoicing, or receipts.
+  Invoices are standard tax-agnostic documents.
+- NO tax calculation or tax-authority integration in Payroll. No PAYE, no NSSA POBS/APWCS/ZIMDEF,
+  no statutory remittance forms (P4/P4A), no tax brackets. Payroll computes gross pay from
+  attendance/hours/salary structure only, with manual/custom deduction line items.
+
+## Bridge-First Rule
+
+Any camera, QR, Bluetooth printer, biometric sensor, or GPS access MUST go through an isolated
+native bridge module under `bridges/`, never a browser/WebView API. No HTML5 QR scanning libraries.
+Route hardware work to @hardware_mobile_agent.
+
+## Supabase RLS Mandate
+
+Every table gets Row Level Security policies before being considered "done". No table ships open.
+New migrations must include RLS policies in the same migration file.
+
+## Multi-Currency Awareness
+
+All money fields carry an explicit currency (`USD` | `ZIG`). Where converted, store the exchange rate
+applied at time of transaction. Never silently assume USD.
+
+## Ledger Immutability
+
+Financial ledger entries are append-only. Corrections happen via reversing/contra entries, never
+edits or deletes. Every entry stores who posted it and when.
+
+## Quarantine Returns Protocol
+
+Faulty-item returns debit "Sales Returns & Allowances" (contra-revenue) and credit the customer's
+AR/store credit. The returned SKU goes to a Quarantine warehouse — never a direct exchange.
+
+## Core Charge Handling
+
+Parent-child cart schema splits deposit/core-charge lines from the physical part's price at cart
+insertion. Revenue and COGS must remain accurate.
+
+## Token & Context Discipline
+
+1. Load skills only when their trigger condition matches the current task.
+2. Stay within your agent lane (see rufler.yaml). Cross-lane work routes to named agents.
+3. Propose targeted diffs/patches for existing files — full-file output only for new files.
+4. Check claude-mem for prior schema decisions and exclusions before re-deriving from blueprints.
+5. Reference relevant sub-sections of long specs rather than re-quoting entire sections.
+6. Batch related migrations, rule updates, or skill edits into single passes.
+
+## Code Conventions
+
+- Match existing naming, types, and abstractions in the surrounding code.
+- Minimize scope — simplest correct diff wins.
+- Shared business logic lives in `packages/shared/`, never duplicated per app.
+- Data pipeline (`data-pipeline/`) is independent of client app builds.
+- Supabase migrations are version-controlled, never dashboard-only.

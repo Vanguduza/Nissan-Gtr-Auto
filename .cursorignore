@@ -1,0 +1,66 @@
+# Build artifacts
+**/build/
+**/dist/
+**/.next/
+**/.turbo/
+**/out/
+
+# Dependencies
+**/node_modules/
+**/.pnpm-store/
+
+# Mobile build caches
+**/.gradle/
+**/DerivedData/
+**/*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+**/local.properties
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Generated types (re-index from source)
+packages/supabase-client/src/database.types.ts
+
+# Data pipeline output (large files)
+data-pipeline/output/
+data-pipeline/cache/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Environment files (secrets)
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Test coverage
+**/coverage/
+**/.nyc_output/
+
+# Lock files (large, low signal for agents)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+**/Podfile.lock
+**/gradle.lockfile
+
+# Binary / media assets (index metadata only)
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.webp
+**/*.ico
+**/*.pdf
+**/*.woff
+**/*.woff2
+**/*.ttf
+
+# Logs
+**/*.log
+**/logs/

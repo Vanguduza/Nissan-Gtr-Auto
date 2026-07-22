@@ -1,0 +1,117 @@
+# Nissan GTR Auto ERP — Ruflo Swarm Topology
+# Path-routed agent lanes. Each agent reads/writes ONLY within its assigned paths
+# unless explicitly routed to by name (cross-cutting agents).
+
+version: 1
+project: nissan-gtr-auto-erp
+
+agents:
+  web_agent:
+    description: Next.js storefront, My Garage, visual parts catalog, B2B portal
+    paths:
+      - apps/web/**
+      - packages/ui/**
+    shared_read:
+      - packages/shared/**
+      - packages/supabase-client/**
+      - .cursorrules
+      - AGENTS.md
+
+  ios_agent:
+    description: iOS customer app (Swift/SwiftUI)
+    paths:
+      - apps/ios/**
+    shared_read:
+      - packages/shared/**
+      - packages/supabase-client/**
+      - bridges/ios/**
+      - .cursorrules
+      - AGENTS.md
+
+  android_agent:
+    description: Android customer app (Kotlin)
+    paths:
+      - apps/android-customer/**
+    shared_read:
+      - packages/shared/**
+      - packages/supabase-client/**
+      - bridges/android/**
+      - .cursorrules
+      - AGENTS.md
+
+  management_app_agent:
+    description: Android management/sales app (POS, receiving, warehouse, HR, finance, dispatch)
+    paths:
+      - apps/android-management/**
+    shared_read:
+      - packages/shared/**
+      - packages/supabase-client/**
+      - bridges/android/**
+      - .cursorrules
+      - AGENTS.md
+
+  hardware_mobile_agent:
+    description: Cross-cutting native bridges (QR, printer, biometric, GPS) — invoked explicitly
+    paths:
+      - bridges/**
+    shared_read:
+      - .cursorrules
+      - .claude/skills/qr_inventory_workflow.md
+      - AGENTS.md
+    invoke_only: true
+
+  backend_agent:
+    description: Supabase schema, migrations, edge functions, typed API client
+    paths:
+      - supabase/**
+      - packages/supabase-client/**
+    shared_read:
+      - packages/shared/**
+      - .cursorrules
+      - .claude/skills/accounting_ledger.md
+      - AGENTS.md
+
+  data_pipeline_agent:
+    description: Scraping/parsing infrastructure (Nissan FAST, catalog ingestion)
+    paths:
+      - data-pipeline/**
+    shared_read:
+      - .claude/skills/nissan_fast_parser.md
+      - .claude/skills/parts_catalog_ingestion.md
+      - .cursorrules
+      - AGENTS.md
+
+  finance_agent:
+    description: Ledger schema, financial statements, reporting logic (cross-cutting)
+    paths:
+      - supabase/migrations/*ledger*
+      - supabase/migrations/*account*
+      - supabase/migrations/*finance*
+      - packages/shared/src/ledger/**
+      - packages/shared/src/finance/**
+    shared_read:
+      - .claude/skills/accounting_ledger.md
+      - .cursor/rules/finance_ledger.mdc
+      - .cursorrules
+      - AGENTS.md
+    invoke_only: true
+
+routing:
+  # Explicit routing examples — use these @mentions in Composer/Agent prompts
+  qr_scanner: hardware_mobile_agent
+  bluetooth_printer: hardware_mobile_agent
+  biometric_auth: hardware_mobile_agent
+  gps_tracking: hardware_mobile_agent
+  journal_entry: finance_agent
+  financial_report: finance_agent
+  chart_of_accounts: finance_agent
+  nissan_fast_parse: data_pipeline_agent
+  catalog_scrape: data_pipeline_agent
+
+context_discipline:
+  - Load skills only when trigger conditions match (see .claude/skills/ headers)
+  - Read files inside own lane + shared packages only
+  - Cross-lane work routes to named cross-cutting agents, never widens default scope
+  - Prefer targeted diffs over full-file regeneration
+  - Check claude-mem for prior decisions before re-reading blueprint PDFs
+  - Batch related schema/config changes into single passes

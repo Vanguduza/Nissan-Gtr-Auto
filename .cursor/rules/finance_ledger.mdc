@@ -1,0 +1,52 @@
+---
+description: Double-entry bookkeeping, Chart of Accounts, financial statements, ledger immutability
+globs: supabase/migrations/*{ledger,account,finance,journal}*,packages/shared/src/{ledger,finance}/**/*
+alwaysApply: false
+---
+
+# Finance & Ledger Rules
+
+## Double-Entry Core
+Every transaction (sale, return, stock receipt, payroll run, expense) generates balanced Journal Entries
+against a configurable Chart of Accounts modeled on ERPNext's ledger design.
+
+## Chart of Accounts
+- Hierarchical structure: Asset → Liability → Equity → Income → Expense.
+- Plain-language names alongside standard ledger codes (e.g., "Money in the Bank (1100)").
+- Configurable per business — provide sensible Nissan parts distributor defaults.
+
+## Journal Entry Rules
+- Every entry must balance (total debits = total credits).
+- Entries are **append-only**. Corrections via reversing/contra entries, never UPDATE/DELETE.
+- Store: `posted_by` (user UUID), `posted_at` (timestamptz), `currency`, `exchange_rate_applied`.
+- Multi-currency: store original currency + converted amount + rate at transaction time.
+
+## Financial Statements (On-Demand)
+Generate for any date range, in both USD and ZiG:
+- Income Statement (P&L)
+- Balance Sheet
+- Cash Flow Statement
+- Trial Balance
+
+Exchange-rate consolidation, not tax-driven.
+
+## Quarantine Returns Protocol
+1. Debit "Sales Returns & Allowances" (contra-revenue)
+2. Credit customer's AR / store credit
+3. Move returned SKU from saleable stock → Quarantine warehouse
+4. Never allow direct item exchange (corrupts COGS)
+
+## Core Charge Handling
+- `cart_items.is_core_charge` identifies deposit lines
+- `cart_items.parent_item_id` links core charge to physical part
+- Split at cart insertion — never bundle into unit price
+
+## Simplicity Layer
+- Guided "close the books" wizard for non-accountants
+- Sanity-check warnings: unbalanced entries, unusually large variances
+- Surface warnings in UI before posting
+
+## Explicit Exclusions
+- NO tax computation anywhere in this module
+- NO ZIMRA / FDMS integration
+- NO tax-authority payloads on invoices

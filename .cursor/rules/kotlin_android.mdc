@@ -1,0 +1,31 @@
+---
+description: Android/Kotlin conventions for customer and management apps — CameraX, offline-first sync, Compose patterns
+globs: apps/android-*/**/*.{kt,kts},bridges/android/**/*
+alwaysApply: false
+---
+
+# Kotlin / Android Conventions
+
+## Architecture
+- Use Jetpack Compose for UI. ViewModels hold state; repositories handle data access.
+- Offline-first via PowerSync + Supabase. Local SQLite is source of truth during connectivity drops; sync on reconnect.
+- Never inline hardware access in screen/view code — import from `bridges/android/`.
+
+## CameraX (QR Scanning)
+- QR scanning lives in `bridges/android/qr-scanner/`, exposed as a composable wrapper or Activity result contract.
+- Decode payload format: `gtr://part/{OEM}?batch={BATCH}` — pass decoded OEM part number back to shared UI layer.
+- No ZXing/HTML5/browser-based scanners.
+
+## Bluetooth Printing (ESC/POS)
+- Print jobs route through `bridges/android/escpos-printer/`.
+- Receiving clerk triggers print from management app after stock receipt QR generation.
+
+## Sync Rules
+- Conflict resolution: server-wins for financial data, last-write-wins for non-critical UI preferences.
+- Queue mutations locally when offline; replay in FIFO order on reconnect.
+- Never cache service_role keys in the app — use anon key + RLS.
+
+## Testing
+- Unit tests for ViewModels and repositories.
+- Instrumented tests for bridge modules (camera, printer).
+- Use `./gradlew :app:testDebugUnitTest` before marking work done.

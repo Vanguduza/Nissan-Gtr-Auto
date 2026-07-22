@@ -1,0 +1,34 @@
+---
+description: Swift/SwiftUI conventions for iOS customer app — AVFoundation bridges, offline-first sync
+globs: apps/ios/**/*.{swift},bridges/ios/**/*
+alwaysApply: false
+---
+
+# Swift / iOS Conventions
+
+## Architecture
+- SwiftUI for UI. Observable ViewModels with `@Observable` macro (iOS 17+).
+- Offline-first via PowerSync + Supabase. Local persistence during connectivity drops.
+- Never inline hardware access in View code — import from `bridges/ios/`.
+
+## AVFoundation (QR Scanning)
+- QR scanning lives in `bridges/ios/QRScanner/`, exposed as a SwiftUI `UIViewControllerRepresentable`.
+- Decode payload format: `gtr://part/{OEM}?batch={BATCH}` — pass decoded OEM part number to shared layer.
+- No third-party HTML5/browser-based QR libraries.
+
+## Biometric Auth
+- Face ID / Touch ID via `bridges/ios/BiometricAuth/`.
+- Used for staff POS/warehouse login alongside TOTP QR codes.
+
+## GPS Tracking
+- Location polling every ~5 seconds via `bridges/ios/LocationTracker/`.
+- Push coordinates to Supabase Realtime for delivery tracking.
+
+## Sync Rules
+- Same conflict resolution as Android: server-wins for financial, last-write-wins for preferences.
+- Never embed service_role keys — anon key + RLS only.
+
+## Testing
+- XCTest for ViewModels and business logic.
+- UI tests for critical flows (search, add to cart, scan).
+- Run `xcodebuild test -scheme GTRCustomer -destination 'platform=iOS Simulator,name=iPhone 16'` before marking done.

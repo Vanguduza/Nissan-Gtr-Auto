@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "permissions": {
+    "allow": [
+      "git status",
+      "git diff",
+      "git log",
+      "git add",
+      "git commit",
+      "git push",
+      "git checkout",
+      "git branch",
+      "pnpm install",
+      "pnpm test",
+      "pnpm build",
+      "pnpm lint",
+      "npm install",
+      "npm test",
+      "supabase start",
+      "supabase stop",
+      "supabase status",
+      "supabase db reset",
+      "supabase db lint",
+      "supabase gen types",
+      "supabase functions serve",
+      "python -m pytest",
+      "ruff check",
+      "ruff format",
+      "./gradlew test",
+      "./gradlew assembleDebug",
+      "xcodebuild test"
+    ],
+    "deny": [
+      "supabase db push --linked",
+      "supabase functions deploy",
+      "DROP DATABASE",
+      "DROP SCHEMA",
+      "TRUNCATE",
+      "rm -rf /"
+    ],
+    "block_instructions": [
+      "Never use service_role key in client-side code",
+      "Never modify journal_entries with UPDATE or DELETE",
+      "Never implement ZIMRA, FDMS, or payroll tax logic",
+      "Never use HTML5 or browser-based QR scanning",
+      "Never deploy to production without explicit user approval"
+    ]
+  }
+}

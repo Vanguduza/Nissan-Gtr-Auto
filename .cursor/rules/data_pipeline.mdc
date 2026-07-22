@@ -1,0 +1,48 @@
+---
+description: Scraping etiquette, Nissan FAST parsing, catalog ingestion pipeline, JSON schema conformance
+globs: data-pipeline/**/*
+alwaysApply: false
+---
+
+# Data Pipeline Rules
+
+## Independence
+The data pipeline is a distinct, independently runnable component. Client apps (`apps/*`) must NOT
+depend on it at build time. Output is ingested into Supabase via batch import scripts.
+
+## Scraping Etiquette
+- Respect `robots.txt` on target sites.
+- Implement retry with exponential backoff (base 2s, max 60s, 5 retries).
+- Rotate proxies when rate-limited (configurable proxy pool in `data-pipeline/config/`).
+- Rate limit: max 1 request/second per domain unless robots.txt permits more.
+- User-Agent: identify as `GTR-Auto-CatalogBot/1.0 (+https://nissangtrauto.co.zw/bot)`.
+- Cache responses locally to avoid re-scraping unchanged pages.
+
+## Nissan FAST EPC Parsing
+- Hierarchy: Model Variant → Engine/Chassis Code → Sub-Assembly → Diagram.
+- VIN prefix decoding → chassis_code, engine_code, production_year.
+- 5-digit PNC codes → category/subcategory mapping.
+- 10-digit OEM part numbers with supersession chain (`superseded_by`).
+
+## Catalog Asset Pipeline
+- Scrape diagram images (PNG/JPG) from reference sites (Amayama, 7zap, PartSouq).
+- Extract X/Y/width/height bounding-box coordinates as JSON.
+- Store base images in Supabase Storage; spatial data in Postgres (`part_fitment`).
+
+## Output Schema
+All pipeline output must conform to the JSON schema in `data-pipeline/schemas/`:
+- `vehicle_master.schema.json`
+- `pnc_categories.schema.json`
+- `part_fitment.schema.json`
+- `diagram_assets.schema.json`
+
+Validate output with `jsonschema` before import.
+
+## Indexing
+Push aggregated hierarchy into Meilisearch (or configured search index) after import.
+Support 4-way search: part number, VIN, model variant, PNC category.
+
+## Python Conventions
+- Python 3.11+. Use `playwright` for JS-rendered pages, `beautifulsoup4` for static HTML.
+- Type hints on all functions. `ruff` for linting, `pytest` for tests.
+- Run via `python -m data_pipeline.<module>` — no implicit `__main__` side effects.

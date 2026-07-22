@@ -1,0 +1,86 @@
+# Nissan GTR Auto ERP — Agent Instructions
+
+## Project Overview
+
+Composable ERP for Nissan spare-parts distribution. Polyglot monorepo with one Supabase backend and four client surfaces. See `README.md` for architecture and `rufler.yaml` for agent lane assignments.
+
+## Hard Exclusions (Standing Rules)
+
+- **NO ZIMRA** — no FDMS, fiscalisation, mTLS fiscal devices, tax-authority payloads.
+- **NO payroll tax** — no PAYE, NSSA, statutory remittance forms. Gross pay + manual deductions only.
+
+## Before You Start
+
+1. Check **claude-mem** for prior schema decisions, naming conventions, and exclusions.
+2. Identify your agent lane in `rufler.yaml` — stay within it unless explicitly routed.
+3. Load domain skills from `.claude/skills/` only when trigger conditions match your task.
+4. Read path-specific rules in `.cursor/rules/*.mdc` for the directory you're editing.
+
+## Agent Lanes
+
+| Agent | Paths | Invoke |
+|-------|-------|--------|
+| `@web_agent` | `apps/web/`, `packages/ui/` | Storefront, catalog, B2B |
+| `@ios_agent` | `apps/ios/` | iOS customer app |
+| `@android_agent` | `apps/android-customer/` | Android customer app |
+| `@management_app_agent` | `apps/android-management/` | POS, warehouse, HR, finance |
+| `@hardware_mobile_agent` | `bridges/` | QR, printer, biometric, GPS |
+| `@backend_agent` | `supabase/`, `packages/supabase-client/` | Schema, migrations, edge functions |
+| `@data_pipeline_agent` | `data-pipeline/` | Scraping, FAST parsing |
+| `@finance_agent` | Ledger, accounts, finance | Journal entries, reports |
+
+## Global Laws (from `.cursorrules`)
+
+- **Bridge-First:** Hardware access only through `bridges/` — never browser/WebView APIs.
+- **RLS Mandate:** Every table gets RLS policies before being "done".
+- **Ledger Immutability:** Append-only journal entries; corrections via reversing entries.
+- **Multi-Currency:** Explicit currency on all money fields; store exchange rate at transaction time.
+
+## Run Commands
+
+> Apps not yet scaffolded. Commands will be added per-app as they are created.
+
+```bash
+# Supabase local dev
+supabase start
+supabase db reset          # Apply all migrations locally
+supabase gen types typescript --local > packages/supabase-client/src/database.types.ts
+
+# Data pipeline
+cd data-pipeline && python -m pytest
+
+# Web (when scaffolded)
+cd apps/web && pnpm dev
+
+# Android (when scaffolded)
+cd apps/android-customer && ./gradlew assembleDebug
+cd apps/android-management && ./gradlew assembleDebug
+
+# iOS (when scaffolded)
+cd apps/ios && xcodebuild -scheme GTRCustomer -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+## Testing Expectations
+
+- Backend: migration tests, RLS policy tests, edge function unit tests.
+- Web: component tests (Vitest), E2E (Playwright) for critical flows.
+- Mobile: unit tests for ViewModels, instrumented tests for bridges.
+- Finance: journal entry balance validation, statement generation accuracy.
+
+## PR Checklist
+
+Before opening a PR, verify:
+- [ ] No ZIMRA or payroll tax references introduced
+- [ ] No HTML5/browser QR scanning added
+- [ ] New tables have RLS policies in the migration
+- [ ] Changes stay within agent lane (or cross-cutting agent was invoked)
+- [ ] Targeted diffs, not full-file rewrites of existing code
+- [ ] Shared logic in `packages/shared/`, not duplicated per app
+
+## Cloud Agent Instructions
+
+When running as a Cloud Agent:
+- Use `.cursor/environment.json` for environment setup.
+- Run tests before marking work complete.
+- Commit and push to `cursor/<descriptive-name>-ad25` branches.
+- Create draft PRs via the PR management tool.

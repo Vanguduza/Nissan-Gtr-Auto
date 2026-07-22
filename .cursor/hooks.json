@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/format.sh",
+        "description": "Auto-format edited files"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/guard-prod.sh",
+        "failClosed": true,
+        "description": "Block production database and deployment commands"
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": ".cursor/hooks/run-changed-tests.sh",
+        "description": "Run tests for changed areas after subagent completes"
+      }
+    ]
+  }
+}
