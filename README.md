@@ -55,7 +55,7 @@ This repo is designed for **path-routed polyglot multi-agent development** in Cu
 | `.cursor/rules/*.mdc` | Path-specific rules (auto-applied per directory) |
 | `.claude/skills/*.md` | Deep domain skills (loaded only when trigger conditions match) |
 | `AGENTS.md` | Repo-wide agent instructions (run commands, conventions) |
-| `.cursor/agents/` | Specialist subagents (RLS auditor, verifier, hardware bridge) |
+| `.cursor/agents/` | Specialist subagents (planner, manager, security, verifier, RLS, hardware) |
 | `.cursor/BUGBOT.md` | PR review rules for Bugbot |
 | `.cursor/hooks.json` | Lifecycle hooks (format, prod guards, test gates) |
 
@@ -96,7 +96,7 @@ Beyond the core setup prompt, this repo also includes:
 
 - **`.cursorignore`** — excludes build artifacts, caches, and generated files from indexing
 - **Nested `AGENTS.md`** — per-app run/test instructions (add as apps are scaffolded)
-- **Subagents** — `supabase-rls-auditor`, `verifier`, `hardware-bridge-specialist`
+- **Subagents** — `planner`, `manager`, `security-reviewer`, `verifier`, `supabase-rls-auditor`, `hardware-bridge-specialist` (see `docs/AGENT_TEAM.md`)
 - **Bugbot rules** — ERP-specific PR review gates (RLS required, no ZIMRA references)
 - **Hooks** — format-on-edit, production URL guards, migration test triggers
 - **Cloud environment** — `.cursor/environment.json` (optional; used only by Cloud Agents)

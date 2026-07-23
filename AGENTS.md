@@ -103,7 +103,7 @@ See `docs/LOCAL_DEVELOPMENT.md` for clone, open, and toolchain steps.
 
 When working locally:
 - Use Agent / Composer in the IDE against this repo root.
-- Invoke lane agents via prompts (`@backend_agent`, etc.) and subagents (`/verifier`).
+- Prefer `/manager` for multi-step features; invoke lane agents and `/planner`, `/security-reviewer`, `/verifier` by phase.
 - Run Supabase, Node, Xcode, and Android Studio toolchains on the host.
 - Commit on `cursor/<descriptive-name>-ad25` branches and open PRs as usual.
 
