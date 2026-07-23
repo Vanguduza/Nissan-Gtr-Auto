@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "diagram_assets.schema.json",
+  "title": "diagram_assets",
+  "type": "object",
+  "required": ["storage_path", "pnc_code", "chassis_code"],
+  "additionalProperties": false,
+  "properties": {
+    "storage_path": { "type": "string", "minLength": 1 },
+    "pnc_code": { "type": "string", "maxLength": 8 },
+    "chassis_code": { "type": "string", "maxLength": 32 },
+    "engine_code": { "type": "string", "maxLength": 32 },
+    "content_type": { "type": "string", "enum": ["image/png", "image/jpeg", "image/webp"] },
+    "source_url": { "type": "string" }
+  }
+}

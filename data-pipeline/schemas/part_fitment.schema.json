@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "part_fitment.schema.json",
+  "title": "part_fitment",
+  "type": "object",
+  "required": ["oem_part_number"],
+  "additionalProperties": false,
+  "properties": {
+    "oem_part_number": {
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^[0-9A-Z]{5}-[0-9A-Z]{5}$"
+    },
+    "pnc_code": { "type": "string", "maxLength": 8 },
+    "chassis_code": { "type": "string", "maxLength": 32 },
+    "engine_code": { "type": "string", "maxLength": 32 },
+    "superseded_by": { "type": "string", "maxLength": 32 },
+    "bbox_x": { "type": "number" },
+    "bbox_y": { "type": "number" },
+    "bbox_width": { "type": "number" },
+    "bbox_height": { "type": "number" },
+    "diagram_path": { "type": "string" }
+  }
+}
