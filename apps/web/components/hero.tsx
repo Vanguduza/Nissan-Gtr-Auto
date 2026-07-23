@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { VehicleSelector } from "@/components/vehicle-selector";
 import styles from "./hero.module.css";
 
-/** Compact promo band under shop chrome — not a full-bleed art landing. */
+/** Compact promo band under shop chrome — AutoDoc-style vehicle entry on the right. */
 export function StorefrontHero() {
   return (
     <section className={styles.promo} aria-label="Nissan GTR Auto">
@@ -12,28 +13,23 @@ export function StorefrontHero() {
             Find the right part. Order from counter stock.
           </h1>
           <p className={styles.lede}>
-            Search by part number, VIN, model, or PNC — then check fitment from
-            My Garage before you buy.
+            Select maker → model → generation → engine, or search by OEM / VIN.
+            Fitment stays scoped from My Garage.
           </p>
           <div className={styles.cta}>
             <Link href="/search" className={styles.primary}>
               Search parts
             </Link>
-            <Link href="/vehicle" className={styles.secondary}>
-              Select vehicle
+            <Link href="/account/garage" className={styles.secondary}>
+              My Garage
             </Link>
           </div>
         </div>
         <div className={`${styles.vehicleCard} gtr-rise-delay`} aria-labelledby="vehicle-entry">
           <h2 id="vehicle-entry" className={styles.vehicleTitle}>
-            Shop by vehicle
+            Find parts for your vehicle
           </h2>
-          <p className={styles.vehicleLede}>
-            Save a Nissan in My Garage to scope catalog and search to fitment.
-          </p>
-          <Link href="/account/garage" className={styles.vehicleCta}>
-            Open My Garage
-          </Link>
+          <VehicleSelector />
         </div>
       </div>
     </section>
