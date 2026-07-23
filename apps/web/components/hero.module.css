@@ -63,8 +63,11 @@
   justify-content: center;
   min-height: 2.55rem;
   padding: 0 1.15rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   border-radius: 2px;
   transition: transform var(--gtr-hover), background var(--gtr-hover),
     border-color var(--gtr-hover);
