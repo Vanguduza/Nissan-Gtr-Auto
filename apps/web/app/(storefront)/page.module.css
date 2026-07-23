@@ -1,33 +1,163 @@
-.below {
-  padding: clamp(2rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2.5rem);
-  background: var(--gtr-chalk);
+.section,
+.sectionAlt {
+  width: min(1120px, 100%);
+  margin-inline: auto;
+  padding: clamp(1.75rem, 4vw, 2.75rem) clamp(0.85rem, 3vw, 1.5rem);
+}
+
+.sectionAlt {
+  background: #fff;
+  width: 100%;
+  max-width: none;
+  padding-inline: 0;
+}
+
+.sectionAlt > .sectionHead,
+.sectionAlt > .tableWrap,
+.sectionAlt > :global(*) {
+  width: min(1120px, 100%);
+  margin-inline: auto;
+  padding-inline: clamp(0.85rem, 3vw, 1.5rem);
+}
+
+.sectionAlt > .tableWrap {
+  padding-bottom: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+.sectionHead {
+  margin-bottom: 1.1rem;
 }
 
 .sectionTitle {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-size: clamp(1.45rem, 2.6vw, 1.85rem);
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--gtr-steel);
 }
 
 .sectionLede {
-  margin: 0.5rem 0 1.25rem;
-  max-width: 40ch;
-  color: rgba(18, 21, 28, 0.7);
+  margin: 0.4rem 0 0;
+  max-width: 48ch;
+  color: rgba(18, 21, 28, 0.68);
+  line-height: 1.45;
+}
+
+.catGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.catTile {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem 1.05rem;
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.1);
+  border-left: 3px solid var(--gtr-red);
+  border-radius: 2px;
+  transition: border-color var(--gtr-hover), box-shadow var(--gtr-hover);
+}
+
+.catTile:hover,
+.catTile:focus-visible {
+  border-color: rgba(200, 16, 46, 0.45);
+  box-shadow: 0 1px 0 rgba(18, 21, 28, 0.06);
+}
+
+.catLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gtr-steel);
+}
+
+.catBlurb {
+  font-size: 0.9rem;
+  color: rgba(18, 21, 28, 0.6);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid rgba(18, 21, 28, 0.1);
+  border-radius: 2px;
+  background: #fff;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.08);
+}
+
+.table th {
+  background: var(--gtr-steel);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table tbody tr:hover td {
+  background: rgba(232, 236, 241, 0.45);
+}
+
+.sku {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.moneyUsd {
+  color: var(--gtr-usd);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.moneyZig {
+  color: var(--gtr-zig);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowCta {
+  display: inline-flex;
+  padding: 0.3rem 0.65rem;
+  background: var(--gtr-red);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 2px;
 }
 
 .page {
-  padding: 2rem clamp(1rem, 4vw, 2.5rem) 3rem;
-  max-width: 52rem;
+  width: min(1120px, 100%);
+  margin-inline: auto;
+  padding: 1.75rem clamp(0.85rem, 3vw, 1.5rem) 3rem;
 }
 
 .title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-size: clamp(1.75rem, 3.2vw, 2.25rem);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -35,10 +165,10 @@
 }
 
 .lede {
-  margin: 0.75rem 0 1.5rem;
-  max-width: 42ch;
+  margin: 0.65rem 0 1.35rem;
+  max-width: 48ch;
   line-height: 1.5;
-  color: rgba(18, 21, 28, 0.75);
+  color: rgba(18, 21, 28, 0.72);
 }
 
 .muted {
@@ -60,4 +190,27 @@
   margin-top: 1.5rem;
   padding: 1rem 0;
   border-top: 1px solid rgba(18, 21, 28, 0.12);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 800px) {
+  .catGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .catGrid {
+    grid-template-columns: 1fr;
+  }
 }
