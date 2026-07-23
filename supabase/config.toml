@@ -33,8 +33,9 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
+# Local only. Production Auth site URL: https://nissangtrauto.co.zw
 site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["http://127.0.0.1:3000"]
+additional_redirect_urls = ["http://127.0.0.1:3000", "https://nissangtrauto.co.zw", "https://www.nissangtrauto.co.zw"]
 enable_signup = true
 
 [auth.email]

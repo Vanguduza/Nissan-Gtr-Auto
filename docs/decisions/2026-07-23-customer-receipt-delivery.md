@@ -39,6 +39,7 @@ This channel is **separate from manager ops SMS** (`docs/decisions/2026-07-23-ma
 
 - `customer_receipt_outbox` (or extend notification outbox with `audience = customer`) — channels: `sms` \| `email` \| `whatsapp`
 - PDF generated server-side → Storage (private bucket) → signed download URL for SMS/WhatsApp link
+- Public receipt links use company domain **`https://nissangtrauto.co.zw`** (see `docs/decisions/2026-07-23-company-domain.md`)
 - Idempotent: one SMS + one email + one WhatsApp per `(document_type, document_id, channel)` unless explicit resend
 - Domain emit from Phase 5 sales post: e.g. `customer_receipt_requested`
 
