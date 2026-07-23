@@ -3,20 +3,20 @@
   "hooks": {
     "afterFileEdit": [
       {
-        "command": ".cursor/hooks/format.sh",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/format.ps1",
         "description": "Auto-format edited files"
       }
     ],
     "beforeShellExecution": [
       {
-        "command": ".cursor/hooks/guard-prod.sh",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/guard-prod.ps1",
         "failClosed": true,
         "description": "Block production database and deployment commands"
       }
     ],
     "subagentStop": [
       {
-        "command": ".cursor/hooks/run-changed-tests.sh",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/run-changed-tests.ps1",
         "description": "Run tests for changed areas after subagent completes"
       }
     ]
