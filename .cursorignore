@@ -64,3 +64,11 @@ yarn.lock
 # Logs
 **/*.log
 **/logs/
+
+# Skill test fixtures / vendor noise (keep SKILL.md searchable)
+.cursor/skills/**/scripts/tests/
+.cursor/skills/**/LICENSE.txt
+**/__pycache__/
+
+# Local MCP secrets (use mcp.json.example)
+.cursor/mcp.json
