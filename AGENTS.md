@@ -20,6 +20,8 @@ Composable ERP for Nissan spare-parts distribution. Polyglot monorepo with one S
 
 ## Agent team (quality × speed ÷ tokens)
 
+**Roadmap source of truth:** [`docs/plans/2026-07-23-master-erp-development.md`](docs/plans/2026-07-23-master-erp-development.md)
+
 Use **on-demand** specialists — do not load all roles every turn. Full playbook: `docs/AGENT_TEAM.md` / `/sdlc-pipeline`.
 
 ```
