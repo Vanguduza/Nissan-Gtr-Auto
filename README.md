@@ -76,12 +76,13 @@ This repo is designed for **path-routed polyglot multi-agent development** in Cu
 
 | Tool | Status | Purpose |
 |------|--------|---------|
-| [claude-mem](https://github.com/thedotmack/claude-mem) | **Recommended** | Persistent memory across sessions — schema decisions, exclusions, lane boundaries |
-| [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | **Recommended** | Design-direction skill for storefront, My Garage, visual catalog |
-| [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) | Optional | Backend workflow automations (low-stock triggers, SMS marketing) — skip if n8n not in ops stack |
+| [claude-mem](https://github.com/thedotmack/claude-mem) | **Install on host** | Persistent memory across sessions — run `scripts/windows/install-claude-mem.ps1` |
+| [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | **Installed** (explicit `/ui-ux-pro-max`) | Design-direction skill for storefront, My Garage, visual catalog |
+| Domain skills | **Installed** | `.cursor/skills/` — ledger, QR, FAST parser, catalog, ERPNext parity, token-discipline |
+| [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) | Optional | Copy `.cursor/mcp.json.example` → `mcp.json` if you use n8n |
 | ECC + Ruflo | **Configured** | Base orchestration layer (`rufler.yaml`, path-routed lanes) |
 
-Install claude-mem early — it is the backbone of context discipline across long multi-session builds.
+Full install steps: [`docs/TOOLING_SETUP.md`](docs/TOOLING_SETUP.md). Install claude-mem early — it is the backbone of context discipline across long multi-session builds.
 
 ### Development mode: Local-first
 
