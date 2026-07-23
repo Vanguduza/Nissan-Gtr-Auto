@@ -1,6 +1,6 @@
 # Phase 7 — Data pipeline + search index
 
-- Status: **draft** (ready for coding)
+- Status: **in progress** (first slice scaffold landed)
 - Lane(s): `@data_pipeline_agent` (primary); thin `@backend_agent` only for schema/Storage/search API gaps
 - Skills needed: `/nissan-fast-parser`, `/parts-catalog-ingestion`
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 7 (L246–261)

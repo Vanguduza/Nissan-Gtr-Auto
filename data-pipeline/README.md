@@ -1,0 +1,76 @@
+# Data pipeline — Nissan GTR Auto ERP catalog
+
+Independent Python batch pipeline: parse Nissan FAST-like exports, validate against JSON Schema, and idempotently import into Supabase catalog tables.
+
+**Not coupled to client apps** — `apps/web` and mobile builds do not import this package at build time.
+
+## Requirements
+
+- Python ≥ 3.11
+- `pip install -e ".[dev]"` from this directory
+
+Optional live import:
+
+```bash
+pip install -e ".[supabase]"
+export SUPABASE_URL=...
+export SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+## Layout
+
+| Path | Purpose |
+|------|---------|
+| `data_pipeline/validate.py` | JSON Schema validation (fail closed) |
+| `data_pipeline/parse_fast.py` | FAST-like JSON → catalog tables |
+| `data_pipeline/import_catalog.py` | Idempotent upsert (in-memory or Supabase) |
+| `data_pipeline/search_index.py` | Offline search contract smoke tests |
+| `schemas/` | JSON Schemas mirroring DB columns |
+| `fixtures/navara_d40_yd25/` | Navara D40 / YD25 sample pack (storefront demo OEMs) |
+| `tests/` | pytest suite |
+
+## Idempotency keys
+
+| Table | Natural key |
+|-------|-------------|
+| `vehicle_master` | `vin_prefix` + `chassis_code` + `engine_code` + `production_year` + `model_variant` |
+| `pnc_categories` | `pnc_code` |
+| `part_fitment` | `oem_part_number` + `chassis_code` + `engine_code` + `pnc_code` |
+| `oe_cross_refs` | `oem_part_number` + `oe_number` + `brand` |
+
+Matching unique indexes are in migration `20260724010000_catalog_search_fts.sql`.
+
+## Commands
+
+```bash
+cd data-pipeline
+
+# Install
+pip install -e ".[dev]"
+
+# Validate fixture pack (default) or explicit paths
+python -m data_pipeline.validate
+python -m data_pipeline.validate fixtures/navara_d40_yd25
+
+# Dry-run import (in-memory; no Supabase required)
+python -m data_pipeline.import_catalog
+
+# Live import (service role)
+python -m data_pipeline.import_catalog --live
+
+# Tests
+pytest
+```
+
+## Search
+
+Production search is exposed via Supabase RPC `search_catalog(p_mode, p_query)` with modes `part | vin | model | pnc`. **Meilisearch is deferred** — see `docs/decisions/2026-07-24-search-index-interim-pg-fts.md`.
+
+Offline tests use `data_pipeline.search_index.CatalogIndex` to smoke-test the same response shapes.
+
+## Fixture OEMs (storefront demo alignment)
+
+- `15208-65F0C` — oil filter
+- `40206-EA00A` — front brake disc
+- `21410-JF00A` — water pump (supersedes `21010-JF00A`)
+- `16546-00Q0A` — air filter
