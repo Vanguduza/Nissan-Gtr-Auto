@@ -450,7 +450,7 @@ BEGIN
   END IF;
 
   PERFORM public.emit_domain_event(
-    'order_completed',
+    CASE WHEN v_inv.doc_type = 'credit_note' THEN 'return_completed' ELSE 'order_completed' END,
     'receipt:' || p_invoice_id::text,
     jsonb_build_object('invoice_id', p_invoice_id),
     auth.uid(),
@@ -541,7 +541,7 @@ BEGIN
       'invoice:limit:' || v_inv::text,
       jsonb_build_object('invoice_id', v_inv, 'reason', 'credit_limit')
     );
-    RAISE EXCEPTION 'credit limit exceeded; invoice % created on_hold', v_inv;
+    RETURN v_inv;
   END IF;
 
   INSERT INTO public.sales_invoices (
