@@ -1,0 +1,40 @@
+# Nissan GTR Auto ERP — gitignore
+
+# Secrets / local MCP
+.env
+.env.*
+!.env.example
+.cursor/mcp.json
+
+# Dependencies & builds
+node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+.turbo/
+out/
+coverage/
+
+# Mobile
+.gradle/
+DerivedData/
+*.xcuserstate
+local.properties
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Data pipeline outputs
+data-pipeline/output/
+data-pipeline/cache/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.log
+
+# Python
+__pycache__/
+.venv/
