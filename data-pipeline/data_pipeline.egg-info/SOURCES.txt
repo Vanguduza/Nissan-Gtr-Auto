@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+data_pipeline/__init__.py
+data_pipeline/import_catalog.py
+data_pipeline/parse_fast.py
+data_pipeline/search_index.py
+data_pipeline/validate.py
+data_pipeline.egg-info/PKG-INFO
+data_pipeline.egg-info/SOURCES.txt
+data_pipeline.egg-info/dependency_links.txt
+data_pipeline.egg-info/requires.txt
+data_pipeline.egg-info/top_level.txt
+tests/test_import_catalog.py
+tests/test_parse_fast.py
+tests/test_search_index.py
+tests/test_validate.py

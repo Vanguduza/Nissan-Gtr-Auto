@@ -1,0 +1,8 @@
+jsonschema>=4.21
+
+[dev]
+pytest>=8.0
+ruff>=0.4
+
+[supabase]
+supabase>=2.4
