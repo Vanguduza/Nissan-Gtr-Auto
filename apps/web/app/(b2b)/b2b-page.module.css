@@ -1,0 +1,30 @@
+.meta {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+}
+
+.meta div {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.12);
+}
+
+.meta dt {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(18, 21, 28, 0.5);
+}
+
+.meta dd {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+}
+
+.usd {
+  color: var(--gtr-usd);
+}
+
+.zig {
+  color: var(--gtr-zig);
+}
