@@ -249,9 +249,17 @@ Phases **6 ∥ 7** and **9 ∥ 8** may overlap only when file paths do not confl
 
 ## Phase 13 — Payments, SMS, demand forecasting
 
-- **Lanes:** `@backend_agent`, `@web_agent`
-- **Build:** ContiPay (EcoCash, Visa 3DS, ZimSwitch), dual-currency settlement display; SMS promos tied to My Garage; forecasting → requisition suggestions
-- **Acceptance:** Secrets in server only; no ZIMRA fiscal payloads on receipts
+- **Lanes:** `@backend_agent`, `@web_agent`, `@management_app_agent` (recipient prefs)
+- **Build:**
+  - ContiPay (EcoCash, Visa 3DS, ZimSwitch), dual-currency settlement display
+  - **Manager key-event SMS** (required): order received/completed, payment received, delivery completed — to **selected managers** only (opt-in prefs). See `docs/decisions/2026-07-23-manager-sms-key-events.md`
+  - Marketing SMS promos tied to My Garage (separate from ops alerts)
+  - Forecasting → requisition suggestions
+- **Acceptance:**
+  - [ ] Secrets in server only; no ZIMRA fiscal payloads on receipts
+  - [ ] Domain events (or outbox) for order/payment/delivery fire once per occurrence
+  - [ ] Only managers with that event enabled receive SMS
+  - [ ] Failed sends retried/logged without duplicate spam on success path
 - **Gate:** `/security-reviewer` → `/verifier`
 
 ---
