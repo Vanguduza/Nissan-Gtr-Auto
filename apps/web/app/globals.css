@@ -3,11 +3,14 @@
   --gtr-red-ink: #ffffff;
   --gtr-steel: #12151c;
   --gtr-steel-lift: #1e2430;
+  --gtr-silver: #c0c5ce;
+  --gtr-silver-dim: #8b929e;
   --gtr-mist: #e8ecf1;
   --gtr-chalk: #f7f8fa;
   --gtr-accent: #0b6e4f;
   --gtr-usd: #0b6e4f;
   --gtr-zig: #b45309;
+  --gtr-hover: 180ms ease-out;
   --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-body: "Source Sans 3", "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
