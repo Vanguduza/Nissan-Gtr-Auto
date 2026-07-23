@@ -208,17 +208,20 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 - **Lane:** `@web_agent`
 - **Skills:** `/ui-ux-pro-max` (explicit), `/parts-catalog-ingestion` (consume only)
+- **Domain:** Production host `https://nissangtrauto.co.zw` (`docs/decisions/2026-07-23-company-domain.md`); local `http://127.0.0.1:3000`
 - **Build:**
   - Next.js App Router scaffold in `apps/web`
   - Route groups: storefront, My Garage, B2B, (staff read-only as needed)
   - Catalog canvas (bounding boxes), 4-way search UI against API/index
   - Auth-facing pages; cart checkout to Phase 5 APIs (respect price list + credit hold)
+  - `NEXT_PUBLIC_SITE_URL` for absolute links (receipts, auth redirects)
 - **Acceptance:**
   - [ ] `pnpm --filter web dev` runs
   - [ ] Design tokens from `@gtr/ui` (no Inter+purple default)
   - [ ] My Garage filters search
   - [ ] B2B sees correct price list
   - [ ] No browser QR libraries
+  - [ ] Prod config documents `nissangtrauto.co.zw`
 - **Paths:** `apps/web/`, `packages/ui/`, `pnpm-workspace` include `apps/*`
 - **Gate:** `/security-reviewer` → `/verifier`
 
