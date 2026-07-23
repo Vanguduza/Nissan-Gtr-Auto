@@ -79,6 +79,16 @@ Intake from operational + ERPNext-pattern review. Each item is scheduled below; 
 | Loyalty / points | Optional; after store credit works |
 | Attachments + doc timeline comments | Soft requirement from Phase 5 onward if cheap |
 
+### AutoDoc shop adopt (customer storefront)
+
+Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re-derive).
+
+| Bucket | Items | Phases |
+|--------|-------|--------|
+| Adopt soon | Fitment browse + sticky garage vehicle; make/model/engine + VIN; OEM search + OE cross-refs; PDP photos/specs/OE/fitment; honest stock; brand/category facets; core-charge on PDP; USD\|ZiG; click & collect vs dispatch; order status/tracking; WhatsApp/ask-counter CTA | **7**, then **10** / **13** |
+| Later | Alternatives strip; wishlist/back-in-stock; returns portal; garage service reminders; compare; kits; loyalty; reviews; customer apps | **11** / **15** / **16** |
+| Skip | UK plate lookup; marketplace; pan-EU logistics branding; huge DIY Club; browser QR; ZIMRA | Never |
+
 ---
 
 ## Phase map
@@ -211,6 +221,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 - **Skills:** `/ui-ux-pro-max` (explicit), `/parts-catalog-ingestion` (consume only)
 - **Domain:** Production host `https://nissangtrauto.co.zw` (`docs/decisions/2026-07-23-company-domain.md`); local `http://127.0.0.1:3000`
 - **Design:** `docs/decisions/2026-07-23-storefront-autodoc-logo.md` — AutoDoc-inspired IA + official logo
+- **Feature adopt list:** `docs/decisions/2026-07-23-autodoc-shop-features.md` (adopt soon → Phase 7/10/13; later → 11/15/16; skip plate/marketplace/DIY Club/browser QR/ZIMRA)
 - **Build:**
   - Next.js App Router scaffold in `apps/web` (`@gtr/web`)
   - Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(auth)`
@@ -232,6 +243,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 - **Lane:** `@data_pipeline_agent`
 - **Skills:** `/nissan-fast-parser`, `/parts-catalog-ingestion`
+- **Shop adopt (Phase 7 slice):** fitment-aware browse data, VIN/make/model/engine search, OEM + OE cross-refs, PDP specs/fitment payloads, brand/category facets — see `docs/decisions/2026-07-23-autodoc-shop-features.md`
 - **Build:**
   - Python project under `data-pipeline/`
   - FAST parse → fitment JSON; diagram scrape → bbox JSON
@@ -241,7 +253,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
   - [ ] Schema-validated pipeline output
   - [ ] Idempotent import
   - [ ] Search supports part / VIN / model / PNC paths
-- **Out of scope:** Live production scrapers without rate limits/robots respect
+- **Out of scope:** Live production scrapers without rate limits/robots respect; AutoDoc skip list (plate lookup, marketplace, browser QR, ZIMRA)
 - **Gate:** `/verifier` (pipeline tests)
 
 ---
