@@ -21,6 +21,11 @@ export {
 } from "./inventory/qr.js";
 export type { ValuationMethod } from "./inventory/types.js";
 export {
+  RECON_VARIANCE_THRESHOLD_SETTING_KEY,
+  type StockReconciliationScope,
+  type StockReconciliationStatus,
+} from "./inventory/reconciliation.js";
+export {
   SMS_EVENT_CODES,
   isSmsEventCode,
   emitDomainEventArgs,
