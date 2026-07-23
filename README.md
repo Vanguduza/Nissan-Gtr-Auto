@@ -107,14 +107,22 @@ See `docs/CURSOR_BEST_PRACTICES.md` for the full extended playbook.
 
 ## Development
 
-> Apps are not yet scaffolded. Prefer **local Cursor Desktop** (see `docs/LOCAL_DEVELOPMENT.md`).
+> Phase 1 foundation is in place (`packages/*`, `supabase/migrations`).  
+> Prefer **local Cursor Desktop** (see `docs/LOCAL_DEVELOPMENT.md`).
+>
+> ```powershell
+> pnpm install
+> supabase start   # requires Docker + Supabase CLI
+> supabase db reset
+> pnpm db:types
+> ```
 >
 > Execution order:
 >
 > 1. Orchestration files (done)
 > 2. External tooling — ui-ux-pro-max + domain skills (done); run claude-mem host install (`docs/TOOLING_SETUP.md`)
-> 3. Supabase schema (Chart of Accounts, ledger, vehicle_master, inventory)
-> 4. Financial module
+> 3. Supabase schema foundation (done — apply with `supabase db reset`)
+> 4. Scaffold Next.js `apps/web` **or** deepen finance posting flows
 > 5. Hardware bridges (QR + printer) — **local only** (needs devices/SDK)
 > 6. Data pipeline + visual catalog
 > 7. ERPNext parity checklist
