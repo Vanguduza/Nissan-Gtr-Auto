@@ -33,9 +33,9 @@ const productStubs = [
     zig: "—",
   },
   {
-    sku: "92110-EB300",
-    name: "Condenser fan assembly",
-    usd: "156.00",
+    sku: "21410-JF00A",
+    name: "Water pump assembly",
+    usd: "142.00",
     zig: "—",
   },
 ];
