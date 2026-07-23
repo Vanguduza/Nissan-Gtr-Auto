@@ -255,7 +255,10 @@ export type Database = {
           generated_at: string
           id: string
           oem_part_number: string
+          payload: string | null
           printed_at: string | null
+          stock_batch_id: string | null
+          stock_entry_line_id: string | null
           stock_item_id: string | null
           valuation_method: Database["public"]["Enums"]["valuation_method"]
         }
@@ -264,7 +267,10 @@ export type Database = {
           generated_at?: string
           id?: string
           oem_part_number: string
+          payload?: string | null
           printed_at?: string | null
+          stock_batch_id?: string | null
+          stock_entry_line_id?: string | null
           stock_item_id?: string | null
           valuation_method?: Database["public"]["Enums"]["valuation_method"]
         }
@@ -273,16 +279,79 @@ export type Database = {
           generated_at?: string
           id?: string
           oem_part_number?: string
+          payload?: string | null
           printed_at?: string | null
+          stock_batch_id?: string | null
+          stock_entry_line_id?: string | null
           stock_item_id?: string | null
           valuation_method?: Database["public"]["Enums"]["valuation_method"]
         }
         Relationships: [
           {
+            foreignKeyName: "inventory_qr_codes_stock_batch_id_fkey"
+            columns: ["stock_batch_id"]
+            isOneToOne: false
+            referencedRelation: "stock_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_qr_codes_stock_entry_line_id_fkey"
+            columns: ["stock_entry_line_id"]
+            isOneToOne: false
+            referencedRelation: "stock_entry_lines"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_qr_codes_stock_item_id_fkey"
             columns: ["stock_item_id"]
             isOneToOne: false
             referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_uom_conversions: {
+        Row: {
+          factor: number
+          from_uom_id: string
+          id: string
+          stock_item_id: string
+          to_uom_id: string
+        }
+        Insert: {
+          factor: number
+          from_uom_id: string
+          id?: string
+          stock_item_id: string
+          to_uom_id: string
+        }
+        Update: {
+          factor?: number
+          from_uom_id?: string
+          id?: string
+          stock_item_id?: string
+          to_uom_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_uom_conversions_from_uom_id_fkey"
+            columns: ["from_uom_id"]
+            isOneToOne: false
+            referencedRelation: "uoms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_uom_conversions_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_uom_conversions_to_uom_id_fkey"
+            columns: ["to_uom_id"]
+            isOneToOne: false
+            referencedRelation: "uoms"
             referencedColumns: ["id"]
           },
         ]
@@ -666,26 +735,231 @@ export type Database = {
           },
         ]
       }
+      stock_batches: {
+        Row: {
+          batch_code: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          id: string
+          qty_on_hand: number
+          received_at: string
+          stock_item_id: string
+          unit_cost: number
+          valuation_method: Database["public"]["Enums"]["valuation_method"]
+          warehouse_id: string
+        }
+        Insert: {
+          batch_code: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          qty_on_hand?: number
+          received_at?: string
+          stock_item_id: string
+          unit_cost?: number
+          valuation_method?: Database["public"]["Enums"]["valuation_method"]
+          warehouse_id: string
+        }
+        Update: {
+          batch_code?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          qty_on_hand?: number
+          received_at?: string
+          stock_item_id?: string
+          unit_cost?: number
+          valuation_method?: Database["public"]["Enums"]["valuation_method"]
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_batches_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_batches_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_number: string | null
+          entry_type: Database["public"]["Enums"]["stock_entry_type"]
+          first_approved_at: string | null
+          first_approver_id: string | null
+          from_warehouse_id: string | null
+          id: string
+          notes: string | null
+          posted_at: string | null
+          second_approved_at: string | null
+          second_approver_id: string | null
+          status: Database["public"]["Enums"]["stock_entry_status"]
+          to_warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_number?: string | null
+          entry_type: Database["public"]["Enums"]["stock_entry_type"]
+          first_approved_at?: string | null
+          first_approver_id?: string | null
+          from_warehouse_id?: string | null
+          id?: string
+          notes?: string | null
+          posted_at?: string | null
+          second_approved_at?: string | null
+          second_approver_id?: string | null
+          status?: Database["public"]["Enums"]["stock_entry_status"]
+          to_warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_number?: string | null
+          entry_type?: Database["public"]["Enums"]["stock_entry_type"]
+          first_approved_at?: string | null
+          first_approver_id?: string | null
+          from_warehouse_id?: string | null
+          id?: string
+          notes?: string | null
+          posted_at?: string | null
+          second_approved_at?: string | null
+          second_approver_id?: string | null
+          status?: Database["public"]["Enums"]["stock_entry_status"]
+          to_warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_entries_from_warehouse_id_fkey"
+            columns: ["from_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_entries_to_warehouse_id_fkey"
+            columns: ["to_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_entry_lines: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"] | null
+          id: string
+          qty: number
+          qty_base: number
+          stock_batch_id: string | null
+          stock_entry_id: string
+          stock_item_id: string
+          unit_cost: number | null
+          uom_id: string
+          valuation_method: Database["public"]["Enums"]["valuation_method"]
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"] | null
+          id?: string
+          qty: number
+          qty_base: number
+          stock_batch_id?: string | null
+          stock_entry_id: string
+          stock_item_id: string
+          unit_cost?: number | null
+          uom_id: string
+          valuation_method?: Database["public"]["Enums"]["valuation_method"]
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"] | null
+          id?: string
+          qty?: number
+          qty_base?: number
+          stock_batch_id?: string | null
+          stock_entry_id?: string
+          stock_item_id?: string
+          unit_cost?: number | null
+          uom_id?: string
+          valuation_method?: Database["public"]["Enums"]["valuation_method"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_entry_lines_stock_batch_id_fkey"
+            columns: ["stock_batch_id"]
+            isOneToOne: false
+            referencedRelation: "stock_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_entry_lines_stock_entry_id_fkey"
+            columns: ["stock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "stock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_entry_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_entry_lines_uom_id_fkey"
+            columns: ["uom_id"]
+            isOneToOne: false
+            referencedRelation: "uoms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_items: {
         Row: {
+          base_uom_id: string | null
           created_at: string
           description: string | null
           id: string
           oem_part_number: string
+          requires_serial: boolean
         }
         Insert: {
+          base_uom_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           oem_part_number: string
+          requires_serial?: boolean
         }
         Update: {
+          base_uom_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           oem_part_number?: string
+          requires_serial?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stock_items_base_uom_id_fkey"
+            columns: ["base_uom_id"]
+            isOneToOne: false
+            referencedRelation: "uoms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_levels: {
         Row: {
@@ -734,6 +1008,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stock_serials: {
+        Row: {
+          created_at: string
+          id: string
+          serial_number: string
+          status: string
+          stock_batch_id: string | null
+          stock_entry_line_id: string | null
+          stock_item_id: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          serial_number: string
+          status?: string
+          stock_batch_id?: string | null
+          stock_entry_line_id?: string | null
+          stock_item_id: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          serial_number?: string
+          status?: string
+          stock_batch_id?: string | null
+          stock_entry_line_id?: string | null
+          stock_item_id?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_serials_stock_batch_id_fkey"
+            columns: ["stock_batch_id"]
+            isOneToOne: false
+            referencedRelation: "stock_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_serials_stock_entry_line_id_fkey"
+            columns: ["stock_entry_line_id"]
+            isOneToOne: false
+            referencedRelation: "stock_entry_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_serials_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_serials_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      uoms: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       vehicle_master: {
         Row: {
@@ -797,8 +1154,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _adjust_stock_level: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_delta: number
+          p_item: string
+          p_unit_cost: number
+          p_valuation: Database["public"]["Enums"]["valuation_method"]
+          p_warehouse: string
+        }
+        Returns: undefined
+      }
       _assert_journal_balanced: {
         Args: { p_entry_id: string }
+        Returns: undefined
+      }
+      _consume_fifo_batches: {
+        Args: { p_item: string; p_qty_base: number; p_warehouse: string }
         Returns: undefined
       }
       _line_usd_equiv: {
@@ -809,6 +1181,8 @@ export type Database = {
         }
         Returns: number
       }
+      _require_warehouse_staff: { Args: never; Returns: undefined }
+      approve_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
       assign_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
@@ -816,7 +1190,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      build_qr_payload: {
+        Args: {
+          p_batch_code: string
+          p_oem: string
+          p_valuation: Database["public"]["Enums"]["valuation_method"]
+        }
+        Returns: string
+      }
       clear_bank_matches: { Args: { p_match_ids: string[] }; Returns: number }
+      convert_to_base_uom: {
+        Args: { p_from_uom_id: string; p_qty: number; p_stock_item_id: string }
+        Returns: number
+      }
       create_journal_draft: {
         Args: {
           p_currency: Database["public"]["Enums"]["currency_code"]
@@ -824,6 +1210,15 @@ export type Database = {
           p_entry_date: string
           p_exchange_rate: number
           p_lines: Json
+        }
+        Returns: string
+      }
+      create_stock_transfer: {
+        Args: {
+          p_from_warehouse_id: string
+          p_lines: Json
+          p_notes: string
+          p_to_warehouse_id: string
         }
         Returns: string
       }
@@ -868,6 +1263,15 @@ export type Database = {
         }
         Returns: string
       }
+      post_return_to_quarantine: {
+        Args: { p_from_warehouse_id: string; p_lines: Json; p_notes: string }
+        Returns: string
+      }
+      post_stock_receipt: {
+        Args: { p_lines: Json; p_notes: string; p_to_warehouse_id: string }
+        Returns: string
+      }
+      reject_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
       report_balance_sheet: {
         Args: {
           p_as_of?: string
@@ -948,6 +1352,13 @@ export type Database = {
         | "sales"
         | "dispatcher"
         | "hr"
+      stock_entry_status:
+        | "draft"
+        | "pending_approval"
+        | "posted"
+        | "cancelled"
+        | "rejected"
+      stock_entry_type: "receipt" | "transfer" | "issue"
       valuation_method: "FIFO" | "AVG"
     }
     CompositeTypes: {
@@ -1093,6 +1504,14 @@ export const Constants = {
         "dispatcher",
         "hr",
       ],
+      stock_entry_status: [
+        "draft",
+        "pending_approval",
+        "posted",
+        "cancelled",
+        "rejected",
+      ],
+      stock_entry_type: ["receipt", "transfer", "issue"],
       valuation_method: ["FIFO", "AVG"],
     },
   },

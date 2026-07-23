@@ -152,27 +152,12 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ---
 
-## Phase 4 — Inventory operations + QR + UOM
+## Phase 4 — Inventory operations + QR + UOM (done)
 
-- **Lanes:** `@backend_agent`; `@hardware_mobile_agent` for bridge **contracts only**
-- **Skills:** `/qr-inventory-workflow`
-- **Build:**
-  - Stock receipt → batch → `inventory_qr_codes` payload `gtr://part/...`
-  - Dual-authorization warehouse transfer workflow
-  - FIFO/AVG valuation movements
-  - Serial numbers for high-value/warranty assemblies
-  - Quarantine routing on returns (data path)
-  - **UOM conversions** (e.g. box ↔ each) on receipt, transfer, and sale qty
-  - Stock Entry–style movement types: Receipt / Transfer / Issue (data model)
-- **Acceptance:**
-  - [ ] Receipt creates QR rows
-  - [ ] Transfer requires dual auth before stock mutates
-  - [ ] Returns never exchange into saleable without Quarantine
-  - [ ] Valuation method persisted per batch
-  - [ ] Qty posted in base UOM; alternate UOM converts correctly
-- **Paths:** `supabase/`, `packages/shared/`, `bridges/**` interfaces only
-- **Out of scope:** Physical printer/camera (Phase 12); bin locations (Phase 16)
-- **Gate:** `/security-reviewer` → `/verifier`
+**Child plan:** `docs/plans/2026-07-23-phase4-inventory-ops.md`  
+**Migration:** `20260723220000_inventory_ops.sql`
+
+**Exit criteria:** Receipt→batch→QR `gtr://part/…`; dual-auth transfer; UOM; serials; quarantine return path; bridge contracts only.
 
 ---
 
@@ -435,9 +420,8 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`/manager`:** open **Phase 4** (Inventory ops + QR + UOM).
-2. **`/planner`:** child plan `docs/plans/YYYY-MM-DD-phase4-inventory-ops.md`.
-3. **`@backend_agent`:** implement Phase 4 (bridge contracts only for hardware).
-4. Gates: `/security-reviewer` → `/verifier`.
+1. **`/manager`:** open **Phase 4b** (cycle count) or **Phase 5** (sales) — prefer 4b only if warehouse ops need counts before POS; otherwise Phase 5 unblocks storefront.
+2. **`/planner`:** child plan for chosen phase.
+3. Gates: `/security-reviewer` → `/verifier`.
 
-Phase 2–3 complete. Phase 4b (cycle count) follows once receipt/transfer APIs are stable.
+Phases 2–4 complete.

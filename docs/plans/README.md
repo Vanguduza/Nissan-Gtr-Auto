@@ -6,6 +6,7 @@
 | [`2026-07-23-phase1-monorepo-supabase.md`](./2026-07-23-phase1-monorepo-supabase.md) | Phase 1 child (done) |
 | [`2026-07-23-phase2-auth-roles.md`](./2026-07-23-phase2-auth-roles.md) | Phase 2 child (done) |
 | [`2026-07-23-phase3-finance-core.md`](./2026-07-23-phase3-finance-core.md) | Phase 3 child (done) |
+| [`2026-07-23-phase4-inventory-ops.md`](./2026-07-23-phase4-inventory-ops.md) | Phase 4 child (done) |
 | [`2026-07-23-phase4-inventory-ops.md`](./2026-07-23-phase4-inventory-ops.md) | Phase 4 child (inventory ops + QR + UOM) |
 
 ## Process
