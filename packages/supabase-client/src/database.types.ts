@@ -214,6 +214,173 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_price_overrides: {
+        Row: {
+          core_charge: number | null
+          customer_id: string
+          id: string
+          stock_item_id: string
+          unit_price: number
+        }
+        Insert: {
+          core_charge?: number | null
+          customer_id: string
+          id?: string
+          stock_item_id: string
+          unit_price: number
+        }
+        Update: {
+          core_charge?: number | null
+          customer_id?: string
+          id?: string
+          stock_item_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_price_overrides_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_price_overrides_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_receipt_outbox: {
+        Row: {
+          attempt_count: number
+          channel: Database["public"]["Enums"]["receipt_channel"]
+          created_at: string
+          document_id: string
+          document_type: string
+          download_url: string | null
+          id: string
+          last_error: string | null
+          pdf_storage_path: string | null
+          recipient: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["receipt_outbox_status"]
+          summary_body: string
+        }
+        Insert: {
+          attempt_count?: number
+          channel: Database["public"]["Enums"]["receipt_channel"]
+          created_at?: string
+          document_id: string
+          document_type: string
+          download_url?: string | null
+          id?: string
+          last_error?: string | null
+          pdf_storage_path?: string | null
+          recipient: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["receipt_outbox_status"]
+          summary_body: string
+        }
+        Update: {
+          attempt_count?: number
+          channel?: Database["public"]["Enums"]["receipt_channel"]
+          created_at?: string
+          document_id?: string
+          document_type?: string
+          download_url?: string | null
+          id?: string
+          last_error?: string | null
+          pdf_storage_path?: string | null
+          recipient?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["receipt_outbox_status"]
+          summary_body?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_receipt_outbox_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          created_at: string
+          credit_hold: boolean
+          credit_limit: number
+          currency: Database["public"]["Enums"]["currency_code"]
+          display_name: string
+          email: string | null
+          email_receipts: boolean
+          id: string
+          open_balance: number
+          phone_e164: string | null
+          price_list_id: string | null
+          profile_id: string | null
+          sms_receipts: boolean
+          updated_at: string
+          whatsapp_e164: string | null
+          whatsapp_receipts: boolean
+        }
+        Insert: {
+          created_at?: string
+          credit_hold?: boolean
+          credit_limit?: number
+          currency?: Database["public"]["Enums"]["currency_code"]
+          display_name: string
+          email?: string | null
+          email_receipts?: boolean
+          id?: string
+          open_balance?: number
+          phone_e164?: string | null
+          price_list_id?: string | null
+          profile_id?: string | null
+          sms_receipts?: boolean
+          updated_at?: string
+          whatsapp_e164?: string | null
+          whatsapp_receipts?: boolean
+        }
+        Update: {
+          created_at?: string
+          credit_hold?: boolean
+          credit_limit?: number
+          currency?: Database["public"]["Enums"]["currency_code"]
+          display_name?: string
+          email?: string | null
+          email_receipts?: boolean
+          id?: string
+          open_balance?: number
+          phone_e164?: string | null
+          price_list_id?: string | null
+          profile_id?: string | null
+          sms_receipts?: boolean
+          updated_at?: string
+          whatsapp_e164?: string | null
+          whatsapp_receipts?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_price_list_fk"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "price_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       domain_events: {
         Row: {
           actor_user_id: string | null
@@ -591,6 +758,203 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_cart_lines: {
+        Row: {
+          cart_id: string
+          created_at: string
+          id: string
+          is_core_charge: boolean
+          line_total: number
+          parent_line_id: string | null
+          qty: number
+          qty_base: number
+          qty_fulfilled: number
+          stock_item_id: string
+          unit_price: number
+          uom_id: string
+        }
+        Insert: {
+          cart_id: string
+          created_at?: string
+          id?: string
+          is_core_charge?: boolean
+          line_total: number
+          parent_line_id?: string | null
+          qty: number
+          qty_base: number
+          qty_fulfilled?: number
+          stock_item_id: string
+          unit_price: number
+          uom_id: string
+        }
+        Update: {
+          cart_id?: string
+          created_at?: string
+          id?: string
+          is_core_charge?: boolean
+          line_total?: number
+          parent_line_id?: string | null
+          qty?: number
+          qty_base?: number
+          qty_fulfilled?: number
+          stock_item_id?: string
+          unit_price?: number
+          uom_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_cart_lines_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "pos_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_cart_lines_parent_line_id_fkey"
+            columns: ["parent_line_id"]
+            isOneToOne: false
+            referencedRelation: "pos_cart_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_cart_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_cart_lines_uom_id_fkey"
+            columns: ["uom_id"]
+            isOneToOne: false
+            referencedRelation: "uoms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_carts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string | null
+          document_number: string | null
+          exchange_rate_applied: number
+          id: string
+          status: string
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          status?: string
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          status?: string
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_carts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_carts_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_list_items: {
+        Row: {
+          core_charge: number
+          id: string
+          price_list_id: string
+          stock_item_id: string
+          unit_price: number
+        }
+        Insert: {
+          core_charge?: number
+          id?: string
+          price_list_id: string
+          stock_item_id: string
+          unit_price: number
+        }
+        Update: {
+          core_charge?: number
+          id?: string
+          price_list_id?: string
+          stock_item_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_list_items_price_list_id_fkey"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "price_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_list_items_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_lists: {
+        Row: {
+          code: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -614,6 +978,195 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sales_invoice_lines: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          is_core_charge: boolean
+          line_total: number
+          parent_line_id: string | null
+          qty: number
+          qty_base: number
+          qty_fulfilled: number
+          stock_batch_id: string | null
+          stock_item_id: string
+          unit_price: number
+          uom_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          is_core_charge?: boolean
+          line_total: number
+          parent_line_id?: string | null
+          qty: number
+          qty_base: number
+          qty_fulfilled?: number
+          stock_batch_id?: string | null
+          stock_item_id: string
+          unit_price: number
+          uom_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          is_core_charge?: boolean
+          line_total?: number
+          parent_line_id?: string | null
+          qty?: number
+          qty_base?: number
+          qty_fulfilled?: number
+          stock_batch_id?: string | null
+          stock_item_id?: string
+          unit_price?: number
+          uom_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoice_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_parent_line_id_fkey"
+            columns: ["parent_line_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoice_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_stock_batch_id_fkey"
+            columns: ["stock_batch_id"]
+            isOneToOne: false
+            referencedRelation: "stock_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_uom_id_fkey"
+            columns: ["uom_id"]
+            isOneToOne: false
+            referencedRelation: "uoms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_invoices: {
+        Row: {
+          amount_paid: number
+          cart_id: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_email: string | null
+          customer_id: string | null
+          customer_phone_e164: string | null
+          customer_whatsapp_e164: string | null
+          doc_type: Database["public"]["Enums"]["sales_doc_type"]
+          document_number: string | null
+          exchange_rate_applied: number
+          id: string
+          journal_entry_id: string | null
+          posted_at: string | null
+          posted_by: string | null
+          return_against_id: string | null
+          status: Database["public"]["Enums"]["sales_doc_status"]
+          subtotal: number
+          total: number
+          warehouse_id: string
+        }
+        Insert: {
+          amount_paid?: number
+          cart_id?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_phone_e164?: string | null
+          customer_whatsapp_e164?: string | null
+          doc_type?: Database["public"]["Enums"]["sales_doc_type"]
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          journal_entry_id?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          return_against_id?: string | null
+          status?: Database["public"]["Enums"]["sales_doc_status"]
+          subtotal?: number
+          total?: number
+          warehouse_id: string
+        }
+        Update: {
+          amount_paid?: number
+          cart_id?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_phone_e164?: string | null
+          customer_whatsapp_e164?: string | null
+          doc_type?: Database["public"]["Enums"]["sales_doc_type"]
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          journal_entry_id?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          return_against_id?: string | null
+          status?: Database["public"]["Enums"]["sales_doc_status"]
+          subtotal?: number
+          total?: number
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoices_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "pos_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_return_against_id_fkey"
+            columns: ["return_against_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sms_event_catalog: {
         Row: {
@@ -1181,7 +1734,21 @@ export type Database = {
         }
         Returns: number
       }
+      _require_sales_staff: { Args: never; Returns: undefined }
       _require_warehouse_staff: { Args: never; Returns: undefined }
+      add_cart_line: {
+        Args: {
+          p_cart_id: string
+          p_qty: number
+          p_stock_item_id: string
+          p_uom_id: string
+        }
+        Returns: string
+      }
+      add_cart_line_from_qr: {
+        Args: { p_cart_id: string; p_qr_payload: string; p_qty?: number }
+        Returns: string
+      }
       approve_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
       assign_staff_role: {
         Args: {
@@ -1198,6 +1765,7 @@ export type Database = {
         }
         Returns: string
       }
+      checkout_pos_cart: { Args: { p_cart_id: string }; Returns: string }
       clear_bank_matches: { Args: { p_match_ids: string[] }; Returns: number }
       convert_to_base_uom: {
         Args: { p_from_uom_id: string; p_qty: number; p_stock_item_id: string }
@@ -1210,6 +1778,14 @@ export type Database = {
           p_entry_date: string
           p_exchange_rate: number
           p_lines: Json
+        }
+        Returns: string
+      }
+      create_pos_cart: {
+        Args: {
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_customer_id?: string
+          p_warehouse_id: string
         }
         Returns: string
       }
@@ -1231,6 +1807,10 @@ export type Database = {
           p_payload?: Json
         }
         Returns: string
+      }
+      enqueue_customer_receipts: {
+        Args: { p_invoice_id: string }
+        Returns: number
       }
       has_staff_role: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
@@ -1261,6 +1841,10 @@ export type Database = {
           p_exchange_rate: number
           p_lines: Json
         }
+        Returns: string
+      }
+      post_return_credit_note: {
+        Args: { p_invoice_id: string; p_lines: Json }
         Returns: string
       }
       post_return_to_quarantine: {
@@ -1326,6 +1910,14 @@ export type Database = {
           debit_usd: number
         }[]
       }
+      resolve_item_price: {
+        Args: { p_customer_id: string; p_stock_item_id: string }
+        Returns: {
+          core_charge: number
+          currency: Database["public"]["Enums"]["currency_code"]
+          unit_price: number
+        }[]
+      }
       reverse_journal: {
         Args: { p_description?: string; p_entry_id: string }
         Returns: string
@@ -1343,6 +1935,16 @@ export type Database = {
       bank_recon_status: "open" | "matched" | "cleared"
       currency_code: "USD" | "ZIG"
       journal_status: "draft" | "posted"
+      receipt_channel: "sms" | "email" | "whatsapp"
+      receipt_outbox_status:
+        | "pending"
+        | "rendering"
+        | "sending"
+        | "sent"
+        | "failed"
+        | "cancelled"
+      sales_doc_status: "draft" | "posted" | "cancelled" | "on_hold"
+      sales_doc_type: "invoice" | "credit_note"
       sms_event_priority: "low" | "normal" | "high"
       sms_outbox_status: "pending" | "sending" | "sent" | "failed" | "cancelled"
       staff_role:
@@ -1494,6 +2096,17 @@ export const Constants = {
       bank_recon_status: ["open", "matched", "cleared"],
       currency_code: ["USD", "ZIG"],
       journal_status: ["draft", "posted"],
+      receipt_channel: ["sms", "email", "whatsapp"],
+      receipt_outbox_status: [
+        "pending",
+        "rendering",
+        "sending",
+        "sent",
+        "failed",
+        "cancelled",
+      ],
+      sales_doc_status: ["draft", "posted", "cancelled", "on_hold"],
+      sales_doc_type: ["invoice", "credit_note"],
       sms_event_priority: ["low", "normal", "high"],
       sms_outbox_status: ["pending", "sending", "sent", "failed", "cancelled"],
       staff_role: [

@@ -179,33 +179,12 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ---
 
-## Phase 5 — Sales, cart, invoices, commercial controls
+## Phase 5 — Sales, cart, invoices, commercial controls (done)
 
-- **Lanes:** `@backend_agent`, `@management_app_agent` (API contracts)
-- **Skills:** `/accounting-ledger` (sale/return patterns)
-- **Build:**
-  - Cart with core-charge parent/child lines
-  - Sales invoice + credit note + return-against-invoice
-  - Draft → Submit → Cancel on sales docs; naming series (e.g. `SINV-`)
-  - Counter/POS scan → resolve part → cart (API)
-  - Post sale/return journals via Phase 3 RPC
-  - **Price lists** (retail / B2B / fleet) + customer default price list
-  - **Customer-specific pricing** overrides (simple rules; not full ERPNext engine)
-  - **Credit limit + credit hold** → blocks submit / emits `order_on_hold`
-  - **Backorders / partial fulfill** — order lines open qty; fulfill when stock available
-  - Soft: attachments + comment timeline on invoice if low-cost
-  - **Customer receipt emit** (no gateway yet): on invoice/return post, enqueue customer receipt job per `docs/decisions/2026-07-23-customer-receipt-delivery.md` (SMS summary + PDF link; email/WhatsApp PDF)
-- **Acceptance:**
-  - [ ] Core charge split at cart insert
-  - [ ] Return links to originating invoice/batch
-  - [ ] Journals posted for sale/return/COGS
-  - [ ] Price list resolves before cart total
-  - [ ] Over-limit customer cannot submit without override role
-  - [ ] Partial fulfill leaves open qty / backorder state
-  - [ ] Emits domain events: `order_received`, `order_completed`, `order_on_hold`, …
-  - [ ] Posted sale/return enqueues customer receipt outbox rows (pending) when phone/email/WhatsApp present
-- **Out of scope:** ContiPay capture (Phase 13), PDF render/send providers (Phase 13), HTML5 QR, warranty UI (Phase 5b)
-- **Gate:** `/security-reviewer` → `/verifier`
+**Child plan:** `docs/plans/2026-07-23-phase5-sales-pos.md`  
+**Migration:** `20260723230000_sales_pos.sql`
+
+**Exit criteria:** Cart + core charges; invoice/CN; price lists/credit hold; QR→cart RPC; journals; customer_receipt_outbox enqueue; manager order/return events.
 
 ---
 
@@ -429,8 +408,8 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`/manager`:** open **Phase 4b** (cycle count) or **Phase 5** (sales) — prefer 4b only if warehouse ops need counts before POS; otherwise Phase 5 unblocks storefront.
-2. **`/planner`:** child plan for chosen phase.
+1. **`/manager`:** open **Phase 6** (web storefront) — Phase 5 APIs are ready; or **Phase 4b** cycle count if warehouse needs it first.
+2. Prefer **Phase 6** to unblock customer UX; 5b warranty can follow in parallel on a worktree.
 3. Gates: `/security-reviewer` → `/verifier`.
 
-Phases 2–4 complete.
+Phases 2–5 complete (4b still pending).
