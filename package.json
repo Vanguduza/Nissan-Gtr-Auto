@@ -11,8 +11,8 @@
     "typecheck": "pnpm -r run typecheck",
     "db:start": "npx supabase start",
     "db:reset": "npx supabase db reset",
-    "db:types": "npx supabase gen types typescript --local -o packages/supabase-client/src/database.types.ts",
-    "db:types:linked": "npx supabase gen types typescript --linked -o packages/supabase-client/src/database.types.ts"
+    "db:types": "npx supabase gen types typescript --local > packages/supabase-client/src/database.types.ts",
+    "db:types:linked": "npx supabase gen types typescript --linked > packages/supabase-client/src/database.types.ts"
   },
   "engines": {
     "node": ">=20"
