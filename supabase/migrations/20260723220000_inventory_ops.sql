@@ -604,17 +604,6 @@ BEGIN
       v_line.stock_item_id, v_entry.to_warehouse_id, v_line.qty_base,
       v_val, COALESCE(v_cost, 0), COALESCE(v_currency, 'USD')
     );
-
-    UPDATE public.stock_serials
-    SET warehouse_id = v_entry.to_warehouse_id,
-        stock_batch_id = v_batch,
-        status = CASE
-          WHEN (SELECT is_quarantine FROM public.warehouses WHERE id = v_entry.to_warehouse_id)
-          THEN 'quarantine' ELSE 'in_stock'
-        END
-    WHERE stock_item_id = v_line.stock_item_id
-      AND warehouse_id = v_entry.from_warehouse_id
-      AND status IN ('in_stock', 'quarantine');
   END LOOP;
 
   UPDATE public.stock_entries
