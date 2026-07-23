@@ -32,7 +32,6 @@ export function SearchFourWay({
     e.preventDefault();
     const query = q.trim();
     if (!query) return;
-    // Phase 7 replaces stub with Meilisearch / API
     router.push(`/search?mode=${mode}&q=${encodeURIComponent(query)}`);
   }
 
@@ -88,7 +87,8 @@ export function SearchFourWay({
       </div>
       {!isHeader ? (
         <p className={styles.hint}>
-          Index-backed results land in Phase 7 — UI path is live now.
+          Sign in for live catalog results. Part hits link to product pages when
+          stocked in demo data.
         </p>
       ) : null}
     </form>
