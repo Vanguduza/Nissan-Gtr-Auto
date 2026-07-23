@@ -8,3 +8,10 @@ export {
   type JournalEntryInput,
   type JournalLineInput,
 } from "./ledger/journal.js";
+export {
+  SMS_EVENT_CODES,
+  isSmsEventCode,
+  emitDomainEventArgs,
+  type SmsEventCode,
+  type EmitDomainEventInput,
+} from "./notifications/sms-events.js";
