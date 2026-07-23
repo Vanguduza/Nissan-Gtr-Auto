@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vehicle_master.schema.json",
+  "title": "vehicle_master",
+  "type": "object",
+  "required": ["chassis_code", "model_variant"],
+  "additionalProperties": false,
+  "properties": {
+    "vin_prefix": { "type": "string", "maxLength": 12 },
+    "chassis_code": { "type": "string", "maxLength": 32 },
+    "engine_code": { "type": "string", "maxLength": 32 },
+    "production_year": { "type": "integer", "minimum": 1980, "maximum": 2100 },
+    "model_variant": { "type": "string", "minLength": 1 }
+  }
+}

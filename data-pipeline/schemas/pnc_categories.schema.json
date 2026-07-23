@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pnc_categories.schema.json",
+  "title": "pnc_categories",
+  "type": "object",
+  "required": ["pnc_code", "category_name"],
+  "additionalProperties": false,
+  "properties": {
+    "pnc_code": { "type": "string", "maxLength": 8, "pattern": "^[0-9]{5}$" },
+    "category_name": { "type": "string", "minLength": 1 },
+    "subcategory_name": { "type": "string" }
+  }
+}

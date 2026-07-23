@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data_pipeline"
+version = "0.1.0"
+description = "Nissan GTR Auto ERP — FAST catalog parse, validate, and import"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "jsonschema>=4.21",
+]
+
+[project.optional-dependencies]
+supabase = ["supabase>=2.4"]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["data_pipeline*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
