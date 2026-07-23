@@ -1,17 +1,17 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Metadata } from "next";
-import { Barlow_Condensed, Source_Sans_3 } from "next/font/google";
+import { Source_Sans_3, Titillium_Web } from "next/font/google";
 import "./globals.css";
 
-const display = Barlow_Condensed({
+const display = Titillium_Web({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["600", "700"],
   variable: "--font-display-loaded",
 });
 
 const body = Source_Sans_3({
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "600", "700"],
   variable: "--font-body-loaded",
 });
 
@@ -25,14 +25,14 @@ export const metadata: Metadata = {
     template: "%s · Nissan GTR Auto",
   },
   description:
-    "Genuine Nissan spare parts for Zimbabwe — fitment search, My Garage, and B2B supply.",
+    "Nissan spare parts for Zimbabwe — fitment search, My Account, My Garage, and B2B.",
   icons: {
     icon: "/brand/logo.png",
     apple: "/brand/logo.png",
   },
   openGraph: {
     title: "Nissan GTR Auto",
-    description: "Spare parts distribution · nissangtrauto.co.zw",
+    description: "Spare parts · nissangtrauto.co.zw",
     url: siteUrl,
     siteName: "Nissan GTR Auto",
     images: [{ url: "/brand/logo.png", alt: "Nissan GTR Auto" }],
