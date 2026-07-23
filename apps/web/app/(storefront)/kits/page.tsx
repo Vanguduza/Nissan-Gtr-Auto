@@ -1,5 +1,5 @@
 import Link from "next/link";
-import styles from "./(storefront)/page.module.css";
+import styles from "../page.module.css";
 
 export const metadata = { title: "Kits" };
 
