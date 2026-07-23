@@ -25,6 +25,10 @@
   font-family: var(--font-display);
 }
 
+.header .modes {
+  margin-bottom: 0.35rem;
+}
+
 .mode,
 .modeActive {
   border: 1px solid rgba(18, 21, 28, 0.18);
