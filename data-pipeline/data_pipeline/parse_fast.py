@@ -35,51 +35,59 @@ def parse_fast_document(doc: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     vin_prefix = doc.get("vin_prefix")
 
     vehicles.append(
-        {
-            "vin_prefix": vin_prefix,
-            "chassis_code": chassis_code,
-            "engine_code": engine_code,
-            "production_year": production_year,
-            "model_variant": model_variant,
-        }
+        _omit_none(
+            {
+                "vin_prefix": vin_prefix,
+                "chassis_code": chassis_code,
+                "engine_code": engine_code,
+                "production_year": production_year,
+                "model_variant": model_variant,
+            }
+        )
     )
 
     for assembly in doc.get("assemblies", []):
         pnc_code = assembly["pnc_code"]
-        pnc_map[pnc_code] = {
-            "pnc_code": pnc_code,
-            "category_name": assembly["category_name"],
-            "subcategory_name": assembly.get("subcategory_name"),
-        }
+        pnc_map[pnc_code] = _omit_none(
+            {
+                "pnc_code": pnc_code,
+                "category_name": assembly["category_name"],
+                "subcategory_name": assembly.get("subcategory_name"),
+            }
+        )
 
         diagram_path = assembly.get("diagram_path")
         if diagram_path:
             diagrams.append(
-                {
-                    "storage_path": diagram_path,
-                    "pnc_code": pnc_code,
-                    "chassis_code": chassis_code,
-                    "engine_code": engine_code,
-                    "content_type": assembly.get("diagram_content_type", "image/png"),
-                    "source_url": assembly.get("diagram_source_url"),
-                }
+                _omit_none(
+                    {
+                        "storage_path": diagram_path,
+                        "pnc_code": pnc_code,
+                        "chassis_code": chassis_code,
+                        "engine_code": engine_code,
+                        "content_type": assembly.get("diagram_content_type", "image/png"),
+                        "source_url": assembly.get("diagram_source_url"),
+                    }
+                )
             )
 
         for part in assembly.get("parts", []):
             oem = part["oem_part_number"]
             fitments.append(
-                {
-                    "oem_part_number": oem,
-                    "pnc_code": pnc_code,
-                    "chassis_code": chassis_code,
-                    "engine_code": engine_code,
-                    "superseded_by": part.get("superseded_by"),
-                    "bbox_x": part.get("bbox_x"),
-                    "bbox_y": part.get("bbox_y"),
-                    "bbox_width": part.get("bbox_width"),
-                    "bbox_height": part.get("bbox_height"),
-                    "diagram_path": diagram_path,
-                }
+                _omit_none(
+                    {
+                        "oem_part_number": oem,
+                        "pnc_code": pnc_code,
+                        "chassis_code": chassis_code,
+                        "engine_code": engine_code,
+                        "superseded_by": part.get("superseded_by"),
+                        "bbox_x": part.get("bbox_x"),
+                        "bbox_y": part.get("bbox_y"),
+                        "bbox_width": part.get("bbox_width"),
+                        "bbox_height": part.get("bbox_height"),
+                        "diagram_path": diagram_path,
+                    }
+                )
             )
 
     # Infer PNC rows for parts missing explicit assembly metadata
