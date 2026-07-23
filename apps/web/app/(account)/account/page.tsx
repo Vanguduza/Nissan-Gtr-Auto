@@ -3,6 +3,12 @@ import { AccountNav } from "@/components/account-nav";
 import styles from "@/components/account.module.css";
 
 const cards = [
+  {
+    href: "/account/profile",
+    label: "Personal details",
+    blurb: "Name & contact",
+  },
+  { href: "/account/addresses", label: "Addresses", blurb: "Delivery & billing" },
   { href: "/account/garage", label: "My Garage", blurb: "Vehicles & fitment" },
   { href: "/account/orders", label: "Orders", blurb: "Status & tracking" },
   { href: "/account/wishlist", label: "Wishlist", blurb: "Saved parts" },

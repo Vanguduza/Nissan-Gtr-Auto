@@ -3,6 +3,8 @@ import styles from "@/components/account.module.css";
 
 const nav = [
   { href: "/account", label: "Overview", exact: true },
+  { href: "/account/profile", label: "Personal details" },
+  { href: "/account/addresses", label: "Addresses" },
   { href: "/account/garage", label: "My Garage" },
   { href: "/account/orders", label: "Orders & tracking" },
   { href: "/account/wishlist", label: "Wishlist" },
