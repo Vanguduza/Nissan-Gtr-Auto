@@ -227,7 +227,13 @@ BEGIN
     );
   END LOOP;
 
-  RETURN public.post_journal(v_new_id);
+  PERFORM public._assert_journal_balanced(v_new_id);
+
+  UPDATE public.journal_entries
+  SET status = 'posted', posted_at = now(), posted_by = COALESCE(auth.uid(), posted_by)
+  WHERE id = v_new_id;
+
+  RETURN v_new_id;
 END;
 $$;
 
