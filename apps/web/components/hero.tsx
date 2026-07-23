@@ -19,7 +19,7 @@ export function StorefrontHero() {
             <Link href="/search" className={styles.primary}>
               Search parts
             </Link>
-            <Link href="/garage" className={styles.secondary}>
+            <Link href="/vehicle" className={styles.secondary}>
               Select vehicle
             </Link>
           </div>
@@ -31,7 +31,7 @@ export function StorefrontHero() {
           <p className={styles.vehicleLede}>
             Save a Nissan in My Garage to scope catalog and search to fitment.
           </p>
-          <Link href="/garage" className={styles.vehicleCta}>
+          <Link href="/account/garage" className={styles.vehicleCta}>
             Open My Garage
           </Link>
         </div>
