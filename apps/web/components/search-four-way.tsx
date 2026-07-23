@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import type { SearchMode } from "@/lib/catalog-search";
 import styles from "./search-four-way.module.css";
 
 const modes = [
@@ -9,19 +10,21 @@ const modes = [
   { id: "vin", label: "VIN" },
   { id: "model", label: "Model" },
   { id: "pnc", label: "PNC" },
-] as const;
-
-type Mode = (typeof modes)[number]["id"];
+] as const satisfies ReadonlyArray<{ id: SearchMode; label: string }>;
 
 export function SearchFourWay({
   variant = "panel",
+  initialMode = "part",
+  initialQuery = "",
 }: {
   /** panel = page body; header = dense AutoDoc-style chrome search */
   variant?: "panel" | "header" | "compact";
+  initialMode?: SearchMode;
+  initialQuery?: string;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("part");
-  const [q, setQ] = useState("");
+  const [mode, setMode] = useState<SearchMode>(initialMode);
+  const [q, setQ] = useState(initialQuery);
   const isHeader = variant === "header";
   const idPrefix = isHeader ? "gtr-hdr" : "gtr-search";
 
