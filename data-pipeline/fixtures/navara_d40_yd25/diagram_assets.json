@@ -1,0 +1,30 @@
+[
+  {
+    "storage_path": "navara-d40/15208-oil-filter.png",
+    "pnc_code": "15208",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "content_type": "image/png"
+  },
+  {
+    "storage_path": "navara-d40/40206-brake-disc.png",
+    "pnc_code": "40206",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "content_type": "image/png"
+  },
+  {
+    "storage_path": "navara-d40/21410-water-pump.png",
+    "pnc_code": "21410",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "content_type": "image/png"
+  },
+  {
+    "storage_path": "navara-d40/16546-air-filter.png",
+    "pnc_code": "16546",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "content_type": "image/png"
+  }
+]

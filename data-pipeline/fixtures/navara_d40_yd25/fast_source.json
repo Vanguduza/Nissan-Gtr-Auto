@@ -1,0 +1,78 @@
+{
+  "model_variant": "Nissan Navara D40 · YD25",
+  "chassis_code": "D40",
+  "engine_code": "YD25",
+  "production_year": 2010,
+  "vin_prefix": "MNTCCND40",
+  "assemblies": [
+    {
+      "pnc_code": "15208",
+      "category_name": "Filters",
+      "subcategory_name": "Oil filter",
+      "diagram_path": "navara-d40/15208-oil-filter.png",
+      "diagram_content_type": "image/png",
+      "parts": [
+        {
+          "oem_part_number": "15208-65F0C",
+          "bbox_x": 120.5,
+          "bbox_y": 84.0,
+          "bbox_width": 48.0,
+          "bbox_height": 62.0
+        }
+      ]
+    },
+    {
+      "pnc_code": "40206",
+      "category_name": "Brakes",
+      "subcategory_name": "Front brake disc",
+      "diagram_path": "navara-d40/40206-brake-disc.png",
+      "parts": [
+        {
+          "oem_part_number": "40206-EA00A",
+          "bbox_x": 200.0,
+          "bbox_y": 150.0,
+          "bbox_width": 90.0,
+          "bbox_height": 90.0
+        }
+      ]
+    },
+    {
+      "pnc_code": "21410",
+      "category_name": "Cooling",
+      "subcategory_name": "Water pump",
+      "diagram_path": "navara-d40/21410-water-pump.png",
+      "parts": [
+        {
+          "oem_part_number": "21410-JF00A",
+          "bbox_x": 310.0,
+          "bbox_y": 220.0,
+          "bbox_width": 70.0,
+          "bbox_height": 55.0
+        },
+        {
+          "oem_part_number": "21010-JF00A",
+          "superseded_by": "21410-JF00A",
+          "bbox_x": 305.0,
+          "bbox_y": 215.0,
+          "bbox_width": 72.0,
+          "bbox_height": 58.0
+        }
+      ]
+    },
+    {
+      "pnc_code": "16546",
+      "category_name": "Filters",
+      "subcategory_name": "Air filter",
+      "diagram_path": "navara-d40/16546-air-filter.png",
+      "parts": [
+        {
+          "oem_part_number": "16546-00Q0A",
+          "bbox_x": 88.0,
+          "bbox_y": 44.0,
+          "bbox_width": 120.0,
+          "bbox_height": 80.0
+        }
+      ]
+    }
+  ]
+}

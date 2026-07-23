@@ -1,0 +1,58 @@
+[
+  {
+    "oem_part_number": "15208-65F0C",
+    "pnc_code": "15208",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "bbox_x": 120.5,
+    "bbox_y": 84.0,
+    "bbox_width": 48.0,
+    "bbox_height": 62.0,
+    "diagram_path": "navara-d40/15208-oil-filter.png"
+  },
+  {
+    "oem_part_number": "40206-EA00A",
+    "pnc_code": "40206",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "bbox_x": 200.0,
+    "bbox_y": 150.0,
+    "bbox_width": 90.0,
+    "bbox_height": 90.0,
+    "diagram_path": "navara-d40/40206-brake-disc.png"
+  },
+  {
+    "oem_part_number": "21410-JF00A",
+    "pnc_code": "21410",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "bbox_x": 310.0,
+    "bbox_y": 220.0,
+    "bbox_width": 70.0,
+    "bbox_height": 55.0,
+    "diagram_path": "navara-d40/21410-water-pump.png"
+  },
+  {
+    "oem_part_number": "21010-JF00A",
+    "pnc_code": "21410",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "superseded_by": "21410-JF00A",
+    "bbox_x": 305.0,
+    "bbox_y": 215.0,
+    "bbox_width": 72.0,
+    "bbox_height": 58.0,
+    "diagram_path": "navara-d40/21410-water-pump.png"
+  },
+  {
+    "oem_part_number": "16546-00Q0A",
+    "pnc_code": "16546",
+    "chassis_code": "D40",
+    "engine_code": "YD25",
+    "bbox_x": 88.0,
+    "bbox_y": 44.0,
+    "bbox_width": 120.0,
+    "bbox_height": 80.0,
+    "diagram_path": "navara-d40/16546-air-filter.png"
+  }
+]
