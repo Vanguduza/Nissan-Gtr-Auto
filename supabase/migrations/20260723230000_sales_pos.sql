@@ -449,13 +449,15 @@ BEGIN
     v_count := v_count + 1;
   END IF;
 
-  PERFORM public.emit_domain_event(
-    CASE WHEN v_inv.doc_type = 'credit_note' THEN 'return_completed' ELSE 'order_completed' END,
-    'receipt:' || p_invoice_id::text,
-    jsonb_build_object('invoice_id', p_invoice_id),
-    auth.uid(),
-    NULL
-  );
+  IF v_inv.doc_type = 'invoice' THEN
+    PERFORM public.emit_domain_event(
+      'order_completed',
+      'receipt:' || p_invoice_id::text,
+      jsonb_build_object('invoice_id', p_invoice_id),
+      auth.uid(),
+      NULL
+    );
+  END IF;
 
   RETURN v_count;
 END;
