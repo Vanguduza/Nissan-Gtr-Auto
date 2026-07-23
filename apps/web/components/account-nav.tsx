@@ -1,5 +1,5 @@
 import Link from "next/link";
-import styles from "./account.module.css";
+import styles from "@/components/account.module.css";
 
 const nav = [
   { href: "/account", label: "Overview", exact: true },
