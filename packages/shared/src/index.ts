@@ -27,3 +27,4 @@ export {
   type SmsEventCode,
   type EmitDomainEventInput,
 } from "./notifications/sms-events.js";
+export { buildCustomerReceiptSmsSummary } from "./notifications/customer-receipt.js";
