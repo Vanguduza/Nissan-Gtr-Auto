@@ -10,10 +10,16 @@ Supabase Dashboard → **Project Settings → API**:
 
 | Env var | Which value |
 |---------|-------------|
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | `anon` `public` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` | `anon` / publishable |
 | `SUPABASE_SERVICE_KEY` | `service_role` (server only) |
 
-Put them in **`.env.local`** (already has the URL). Never commit `.env.local`.
+**Database** (optional direct SQL / some CLI flows):
+
+| Env var | Which value |
+|---------|-------------|
+| `DATABASE_URL` | `postgresql://postgres:YOUR_PASSWORD@db.gylrgwqyuiwkyykardwc.supabase.co:5432/postgres` |
+
+Password: Dashboard → **Project Settings → Database** → Database password (or reset). Put the full URL only in **`.env.local`** — never commit or paste the password in chat.
 
 ## 2. Link CLI & push migrations
 
