@@ -112,11 +112,30 @@ In the opened repo, these should auto-load:
 
 ---
 
+## 9. Auth seed + typed client (Phase 2)
+
+**Local reset** (Docker required) loads `supabase/seed.sql` automatically (`[db.seed]` in `config.toml`):
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@gtr.local` | `local-dev-admin` | admin |
+| `finance@gtr.local` | `local-dev-finance` | finance |
+| `warehouse@gtr.local` | `local-dev-warehouse` | warehouse |
+
+```bash
+pnpm db:start
+pnpm db:reset
+pnpm db:types          # local Docker
+# or after linking remote:
+pnpm db:types:linked
+```
+
+Commit `packages/supabase-client/src/database.types.ts` whenever migrations change public schema. **Never** put `service_role` in client packages — only anon via `createBrowserClient`.
+
+RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`
+
+---
+
 ## Next work after switching
 
-Once local, the same execution order applies (now with full toolchains):
-
-1. Merge PR #1 if not already on `main`
-2. Scaffold monorepo + Supabase schema
-3. Shared packages + web app
-4. Native apps / bridges (local only — needs Xcode/Android Studio)
+Once local, follow `docs/plans/2026-07-23-master-erp-development.md` (Phase 2+).
