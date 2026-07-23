@@ -39,6 +39,157 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_periods: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          locked_at: string | null
+          locked_by: string | null
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          locked_at?: string | null
+          locked_by?: string | null
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: []
+      }
+      bank_recon_matches: {
+        Row: {
+          id: string
+          journal_entry_line_id: string
+          matched_at: string
+          matched_by: string | null
+          statement_line_id: string
+        }
+        Insert: {
+          id?: string
+          journal_entry_line_id: string
+          matched_at?: string
+          matched_by?: string | null
+          statement_line_id: string
+        }
+        Update: {
+          id?: string
+          journal_entry_line_id?: string
+          matched_at?: string
+          matched_by?: string | null
+          statement_line_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_recon_matches_journal_entry_line_id_fkey"
+            columns: ["journal_entry_line_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entry_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_recon_matches_statement_line_id_fkey"
+            columns: ["statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          line_date: string
+          statement_id: string
+          status: Database["public"]["Enums"]["bank_recon_status"]
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_date: string
+          statement_id: string
+          status?: Database["public"]["Enums"]["bank_recon_status"]
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_date?: string
+          statement_id?: string
+          status?: Database["public"]["Enums"]["bank_recon_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statements: {
+        Row: {
+          account_code: string
+          closing_balance: number
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          document_number: string | null
+          id: string
+          opening_balance: number
+          statement_date: string
+        }
+        Insert: {
+          account_code: string
+          closing_balance?: number
+          created_at?: string
+          created_by?: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          document_number?: string | null
+          id?: string
+          opening_balance?: number
+          statement_date: string
+        }
+        Update: {
+          account_code?: string
+          closing_balance?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          document_number?: string | null
+          id?: string
+          opening_balance?: number
+          statement_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statements_account_code_fkey"
+            columns: ["account_code"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["account_type"]
@@ -140,6 +291,7 @@ export type Database = {
         Row: {
           currency: Database["public"]["Enums"]["currency_code"]
           description: string | null
+          document_number: string | null
           entry_date: string
           exchange_rate_applied: number | null
           id: string
@@ -147,10 +299,12 @@ export type Database = {
           posted_at: string
           posted_by: string | null
           reverses_entry_id: string | null
+          status: Database["public"]["Enums"]["journal_status"]
         }
         Insert: {
           currency: Database["public"]["Enums"]["currency_code"]
           description?: string | null
+          document_number?: string | null
           entry_date?: string
           exchange_rate_applied?: number | null
           id?: string
@@ -158,10 +312,12 @@ export type Database = {
           posted_at?: string
           posted_by?: string | null
           reverses_entry_id?: string | null
+          status?: Database["public"]["Enums"]["journal_status"]
         }
         Update: {
           currency?: Database["public"]["Enums"]["currency_code"]
           description?: string | null
+          document_number?: string | null
           entry_date?: string
           exchange_rate_applied?: number | null
           id?: string
@@ -169,6 +325,7 @@ export type Database = {
           posted_at?: string
           posted_by?: string | null
           reverses_entry_id?: string | null
+          status?: Database["public"]["Enums"]["journal_status"]
         }
         Relationships: [
           {
@@ -266,6 +423,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      naming_series: {
+        Row: {
+          current_value: number
+          description: string | null
+          pad_length: number
+          prefix: string
+          updated_at: string
+        }
+        Insert: {
+          current_value?: number
+          description?: string | null
+          pad_length?: number
+          prefix: string
+          updated_at?: string
+        }
+        Update: {
+          current_value?: number
+          description?: string | null
+          pad_length?: number
+          prefix?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       part_fitment: {
         Row: {
@@ -616,12 +797,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _assert_journal_balanced: {
+        Args: { p_entry_id: string }
+        Returns: undefined
+      }
+      _line_usd_equiv: {
+        Args: {
+          p_amount: number
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_rate: number
+        }
+        Returns: number
+      }
       assign_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
           p_user_id: string
         }
         Returns: undefined
+      }
+      clear_bank_matches: { Args: { p_match_ids: string[] }; Returns: number }
+      create_journal_draft: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_description: string
+          p_entry_date: string
+          p_exchange_rate: number
+          p_lines: Json
+        }
+        Returns: string
       }
       emit_domain_event: {
         Args: {
@@ -637,7 +841,91 @@ export type Database = {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
       }
+      is_period_locked: { Args: { p_date: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      lock_accounting_period: {
+        Args: { p_period_id: string }
+        Returns: undefined
+      }
+      next_series_value: { Args: { p_prefix: string }; Returns: string }
+      post_journal: { Args: { p_entry_id: string }; Returns: string }
+      post_journal_entry: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_description: string
+          p_entry_date: string
+          p_exchange_rate: number
+          p_lines: Json
+        }
+        Returns: string
+      }
+      post_opening_balances: {
+        Args: {
+          p_as_of: string
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_exchange_rate: number
+          p_lines: Json
+        }
+        Returns: string
+      }
+      report_balance_sheet: {
+        Args: {
+          p_as_of?: string
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+        }
+        Returns: {
+          account_code: string
+          account_name: string
+          account_type: Database["public"]["Enums"]["account_type"]
+          balance: number
+          balance_usd: number
+        }[]
+      }
+      report_cash_flow: {
+        Args: {
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          amount_usd: number
+          label: string
+          section: string
+        }[]
+      }
+      report_profit_and_loss: {
+        Args: {
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          account_code: string
+          account_name: string
+          account_type: Database["public"]["Enums"]["account_type"]
+          amount: number
+          amount_usd: number
+        }[]
+      }
+      report_trial_balance: {
+        Args: {
+          p_as_of?: string
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+        }
+        Returns: {
+          account_code: string
+          account_name: string
+          account_type: Database["public"]["Enums"]["account_type"]
+          credit: number
+          credit_usd: number
+          debit: number
+          debit_usd: number
+        }[]
+      }
+      reverse_journal: {
+        Args: { p_description?: string; p_entry_id: string }
+        Returns: string
+      }
       revoke_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
@@ -648,7 +936,9 @@ export type Database = {
     }
     Enums: {
       account_type: "asset" | "liability" | "equity" | "income" | "expense"
+      bank_recon_status: "open" | "matched" | "cleared"
       currency_code: "USD" | "ZIG"
+      journal_status: "draft" | "posted"
       sms_event_priority: "low" | "normal" | "high"
       sms_outbox_status: "pending" | "sending" | "sent" | "failed" | "cancelled"
       staff_role:
@@ -790,7 +1080,9 @@ export const Constants = {
   public: {
     Enums: {
       account_type: ["asset", "liability", "equity", "income", "expense"],
+      bank_recon_status: ["open", "matched", "cleared"],
       currency_code: ["USD", "ZIG"],
+      journal_status: ["draft", "posted"],
       sms_event_priority: ["low", "normal", "high"],
       sms_outbox_status: ["pending", "sending", "sent", "failed", "cancelled"],
       staff_role: [

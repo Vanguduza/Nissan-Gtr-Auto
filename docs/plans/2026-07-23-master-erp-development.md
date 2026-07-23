@@ -88,8 +88,8 @@ Intake from operational + ERPNext-pattern review. Each item is scheduled below; 
 | 1 | Monorepo + schema foundation | `@backend_agent` | 0 | **Done** |
 | 1b | Manager SMS event catalog + outbox | `@backend_agent` | 1 | **Done** (gateway later) |
 | 2 | Auth, roles, typed client | `@backend_agent` | 1 | **Done** |
-| 3 | Finance core + period/bank/naming | `@finance_agent`, `@backend_agent` | 2 | Next |
-| 4 | Inventory ops (receipt, transfer, QR, UOM) | `@backend_agent`, `@hardware_mobile_agent` | 2 | Pending |
+| 3 | Finance core + period/bank/naming | `@finance_agent`, `@backend_agent` | 2 | **Done** |
+| 4 | Inventory ops (receipt, transfer, QR, UOM) | `@backend_agent`, `@hardware_mobile_agent` | 2 | Next |
 | 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | Pending |
 | 5 | Sales / POS / cart / invoices / commercial | `@backend_agent`, `@management_app_agent` | 3, 4 | Pending |
 | 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | Pending |
@@ -143,30 +143,12 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ---
 
-## Phase 3 — Finance core + period, bank, naming
+## Phase 3 — Finance core + period, bank, naming (done)
 
-- **Lanes:** `@finance_agent` (logic), `@backend_agent` (migrations/RPC)
-- **Skills:** `/accounting-ledger`
-- **Build:**
-  - Post journal RPC (balanced, append-only); Draft → Submit for journals
-  - Reversing entry helper (Cancel path)
-  - Trial Balance, P&L, Balance Sheet, Cash Flow (USD/ZiG consolidation via stored rates)
-  - **Opening balances** import/post for go-live
-  - **Period lock / close-the-books** (block posts into locked periods)
-  - **Document naming series** service (configurable prefixes + sequence; used by later modules)
-  - **Bank reconciliation** data model + RPC (match ledger cash/bank lines to statement lines; dual currency)
-- **Acceptance:**
-  - [ ] Unbalanced post rejected
-  - [ ] UPDATE/DELETE on journal_* still blocked
-  - [ ] Statements match sample fixtures
-  - [ ] Opening balances produce correct trial balance
-  - [ ] Locked period rejects new posts
-  - [ ] Naming series allocates unique numbers under concurrency
-  - [ ] Bank recon can clear matched lines without tax fields
-  - [ ] No tax fields anywhere
-- **Paths:** `supabase/migrations/`, `supabase/functions/` or RPC, `packages/shared/src/ledger/`
-- **Out of scope:** Full finance UI (later on management/web)
-- **Gate:** `/security-reviewer` → `/verifier`
+**Child plan:** `docs/plans/2026-07-23-phase3-finance-core.md`  
+**Migrations:** `20260723210000_finance_core.sql`, `20260723211000_finance_report_auth.sql`
+
+**Exit criteria:** Draft/post/reverse RPCs; TB/P&L/BS/CF; opening balances; period lock; naming series; bank recon model; no tax fields.
 
 ---
 
