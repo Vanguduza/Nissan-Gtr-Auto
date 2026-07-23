@@ -49,10 +49,21 @@ UK plate · marketplace · pan-EU branding · DIY Club · HTML5 QR · ZIMRA
 
 ### Fonts & styles
 
-- **Display / chrome:** Titillium Web (AutoDoc-dense UI)
-- **Body:** Source Sans 3
+- **Display / chrome:** Titillium Web via `next/font` → `--font-display-loaded`
+- **Body:** Source Sans 3 via `next/font` → `--font-body-loaded`
+- **Wiring:** CSS uses `var(--font-*-loaded)` first; never rely on an unloaded `"Titillium Web"` string alone
 - **Palette:** steel `#12151C`, red `#C8102E`, silver `#C0C5CE`, chalk content ground
 - Avoid Inter / purple / cream-serif / broadsheet
+
+### Account personal data
+
+- `/account/profile` — name + contact details
+- `/account/addresses` — delivery / billing addresses
+- My Garage remains `/account/garage`
+
+### Vehicle selector
+
+Sequential cascading selects: maker → model → generation → engine (each list filtered by prior choice). VIN alternate path. No UK plate lookup.
 
 ## Consequences
 
