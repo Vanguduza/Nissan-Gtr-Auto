@@ -31,8 +31,8 @@ export const tokens = {
     },
   },
   font: {
-    display: '"Titillium Web", "Arial Narrow", sans-serif',
-    body: '"Source Sans 3", "Segoe UI", sans-serif',
+    display: 'var(--font-display-loaded), "Arial Narrow", "Helvetica Neue", sans-serif',
+    body: 'var(--font-body-loaded), "Segoe UI", "Helvetica Neue", sans-serif',
     mono: '"IBM Plex Mono", ui-monospace, monospace',
   },
   space: {
