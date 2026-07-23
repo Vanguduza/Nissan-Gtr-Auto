@@ -1,5 +1,8 @@
 # Nissan GTR Auto — Composable ERP
 
+**Production domain:** [nissangtrauto.co.zw](https://nissangtrauto.co.zw)  
+(Decision: `docs/decisions/2026-07-23-company-domain.md`)
+
 Multi-platform, composable ERP for Nissan spare-parts distribution. One Supabase (PostgreSQL) backend, four client surfaces:
 
 | Surface | Stack | Path |
