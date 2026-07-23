@@ -18,6 +18,23 @@ Composable ERP for Nissan spare-parts distribution. Polyglot monorepo with one S
 5. For UI design on web/mobile, invoke `/ui-ux-pro-max` explicitly — do not auto-load the full design suite.
 6. Tooling install status: `docs/TOOLING_SETUP.md`.
 
+## Agent team (quality × speed ÷ tokens)
+
+Use **on-demand** specialists — do not load all roles every turn. Full playbook: `docs/AGENT_TEAM.md` / `/sdlc-pipeline`.
+
+```
+/manager → /planner → @coding_lane → /security-reviewer → /verifier
+```
+
+| Role | Invoke | Notes |
+|------|--------|-------|
+| Manager | `/manager` | Sequences; no product code |
+| Planning | `/planner` | Writes `docs/plans/` only |
+| Coding | `@web_agent` / `@backend_agent` / … | One lane per task |
+| Security | `/security-reviewer` | Diff-scoped; RLS deep-dive via `/supabase-rls-auditor` |
+| Testing | `/verifier` | Tests + exclusions + lane checks |
+| Hardware | `/hardware-bridge-specialist` | QR / printer / biometric / GPS |
+
 ## Agent Lanes
 
 | Agent | Paths | Invoke |
