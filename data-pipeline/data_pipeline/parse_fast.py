@@ -12,6 +12,10 @@ from data_pipeline.validate import validate_bundle
 FASTRecord = dict[str, Any]
 
 
+def _omit_none(row: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in row.items() if v is not None}
+
+
 def _pnc_from_oem(oem: str) -> str:
     """First five digits of OEM prefix map to PNC (Nissan convention)."""
     return oem.split("-", 1)[0]
