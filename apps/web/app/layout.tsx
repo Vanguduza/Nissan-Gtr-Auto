@@ -26,11 +26,16 @@ export const metadata: Metadata = {
   },
   description:
     "Genuine Nissan spare parts for Zimbabwe — fitment search, My Garage, and B2B supply.",
+  icons: {
+    icon: "/brand/logo.png",
+    apple: "/brand/logo.png",
+  },
   openGraph: {
     title: "Nissan GTR Auto",
     description: "Spare parts distribution · nissangtrauto.co.zw",
     url: siteUrl,
     siteName: "Nissan GTR Auto",
+    images: [{ url: "/brand/logo.png", alt: "Nissan GTR Auto" }],
   },
 };
 
