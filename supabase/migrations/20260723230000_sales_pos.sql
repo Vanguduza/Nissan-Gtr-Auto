@@ -511,7 +511,7 @@ BEGIN
         'invoice:hold:' || v_inv::text,
         jsonb_build_object('invoice_id', v_inv, 'reason', 'credit_hold')
       );
-      RAISE EXCEPTION 'customer on credit hold; invoice % created on_hold', v_inv;
+      RETURN v_inv;
     END IF;
   END IF;
 
