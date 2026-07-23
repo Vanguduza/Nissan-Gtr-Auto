@@ -57,8 +57,8 @@ export function SiteHeader() {
           </div>
 
           <nav className={styles.actions} aria-label="Account">
-            <Link href="/garage" className={styles.action}>
-              <span className={styles.actionLabel}>My Garage</span>
+            <Link href="/account" className={styles.action}>
+              <span className={styles.actionLabel}>My Account</span>
             </Link>
             <Link href="/cart" className={styles.actionCart}>
               <span className={styles.actionLabel}>Cart</span>
