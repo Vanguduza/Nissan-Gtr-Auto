@@ -1,20 +1,42 @@
-.below {
-  padding: clamp(2rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2.5rem);
-  background: var(--gtr-chalk);
+.page {
+  padding: clamp(6rem, 12vh, 8rem) clamp(1rem, 4vw, 2.5rem) 3rem;
+  max-width: 52rem;
 }
 
-.sectionTitle {
+.title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-size: clamp(2rem, 4vw, 2.75rem);
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--gtr-steel);
 }
 
-.sectionLede {
-  margin: 0.5rem 0 1.25rem;
-  max-width: 40ch;
-  color: rgba(18, 21, 28, 0.7);
+.lede {
+  margin: 0.75rem 0 1.5rem;
+  max-width: 42ch;
+  line-height: 1.5;
+  color: rgba(18, 21, 28, 0.75);
+}
+
+.muted {
+  color: rgba(18, 21, 28, 0.55);
+  line-height: 1.5;
+}
+
+.button {
+  display: inline-flex;
+  margin-top: 1rem;
+  padding: 0.65rem 1.15rem;
+  background: var(--gtr-red);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 2px;
+}
+
+.resultStub {
+  margin-top: 1.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid rgba(18, 21, 28, 0.12);
 }

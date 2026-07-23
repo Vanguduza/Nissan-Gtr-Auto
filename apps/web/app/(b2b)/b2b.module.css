@@ -1,0 +1,14 @@
+.shell {
+  min-height: 100dvh;
+  background: var(--gtr-mist);
+}
+
+.topBar {
+  position: relative;
+  min-height: 4.5rem;
+  background: var(--gtr-steel);
+}
+
+.topBar header {
+  position: relative;
+}
