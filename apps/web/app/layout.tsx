@@ -1,18 +1,25 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { Source_Sans_3, Titillium_Web } from "next/font/google";
 import "./globals.css";
 
+/**
+ * next/font emits hashed family names on these CSS variables.
+ * globals.css must use var(--font-display-loaded) / var(--font-body-loaded)
+ * — never a bare "Titillium Web" string (that face is never registered).
+ */
 const display = Titillium_Web({
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["400", "600", "700"],
   variable: "--font-display-loaded",
+  display: "swap",
 });
 
 const body = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-body-loaded",
+  display: "swap",
 });
 
 const siteUrl =
@@ -43,17 +50,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body
-        style={
-          {
-            "--font-display": "var(--font-display-loaded), var(--font-display)",
-            "--font-body": "var(--font-body-loaded), var(--font-body)",
-          } as CSSProperties
-        }
-      >
-        {children}
-      </body>
+    <html
+      lang="en"
+      className={`${display.variable} ${body.variable}`}
+    >
+      <body className={body.className}>{children}</body>
     </html>
   );
 }
