@@ -422,6 +422,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 | Mobile before APIs | Phases 11–12 blocked on 5–6 API contracts |
 | Scraper legal/ops issues | Pipeline etiquette rules; prefer licensed FAST sources |
 | SMS without events | Phases 5/10/13 emit outbox events early; prefs + send in Phase 13 |
+| Customer receipts forgotten | Phase 5 enqueues; Phase 13 sends SMS+PDF link and email/WhatsApp PDF (`customer-receipt-delivery` decision) |
 | Partial fulfill / DN vs invoice confusion | Child plan for Phase 10 must pick bill-from-DN vs DN-from-invoice once |
 
 ---
