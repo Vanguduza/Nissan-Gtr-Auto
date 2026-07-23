@@ -39,7 +39,14 @@ export default function SignupPage() {
   return (
     <div className={styles.shell}>
       <Link href="/" className={styles.brand}>
-        Nissan GTR Auto
+        <Image
+          src="/brand/logo.png"
+          alt="Nissan GTR Auto"
+          width={88}
+          height={88}
+          className={styles.brandLogo}
+          priority
+        />
       </Link>
       <form className={styles.form} onSubmit={onSubmit}>
         <h1 className={styles.title}>Create account</h1>
