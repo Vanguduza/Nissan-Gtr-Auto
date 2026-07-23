@@ -2,7 +2,8 @@
 
 - Domain (prod): https://nissangtrauto.co.zw
 - Lane: `@web_agent`
-- Design: `@gtr/ui` tokens + brand-first hero (no Inter/purple defaults)
+- Design: AutoDoc-inspired spare-parts chrome + official logo (`public/brand/logo.png`); tokens from `@gtr/ui` (steel / silver / `#C8102E`)
+- Decision: `docs/decisions/2026-07-23-storefront-autodoc-logo.md`
 - **No browser QR libraries**
 
 ```bash
@@ -10,7 +11,9 @@ pnpm install
 pnpm --filter @gtr/web dev
 ```
 
-Copy root `.env.example` values into `apps/web/.env.local` (or repo `.env.local` if using Next load from root via dotenv — prefer `apps/web/.env.local`):
+Open http://127.0.0.1:3000
+
+Copy root `.env.example` values into `apps/web/.env.local`:
 
 ```
 NEXT_PUBLIC_SITE_URL=https://nissangtrauto.co.zw

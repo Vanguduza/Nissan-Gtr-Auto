@@ -33,3 +33,4 @@ What agents must not re-litigate.
 | `2026-07-23-manager-sms-key-events.md` | Manager ops SMS catalog |
 | `2026-07-23-customer-receipt-delivery.md` | Customer SMS summary + PDF via email/WhatsApp |
 | `2026-07-23-company-domain.md` | Public domain `nissangtrauto.co.zw` |
+| `2026-07-23-storefront-autodoc-logo.md` | AutoDoc-inspired shop IA + official logo |
