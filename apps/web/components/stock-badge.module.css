@@ -1,0 +1,31 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.in_stock {
+  background: color-mix(in srgb, var(--gtr-stock-in) 18%, white);
+  color: var(--gtr-stock-in);
+}
+
+.low {
+  background: color-mix(in srgb, var(--gtr-stock-low) 18%, white);
+  color: var(--gtr-stock-low);
+}
+
+.backorder {
+  background: #e5e7eb;
+  color: var(--gtr-stock-bo);
+}
+
+.counter_only {
+  background: var(--gtr-steel-lift);
+  color: #fff;
+}
