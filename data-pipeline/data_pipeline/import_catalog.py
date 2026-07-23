@@ -164,15 +164,25 @@ def import_supabase(bundle: dict[str, list[dict[str, Any]]], *, url: str, key: s
     mem = InMemoryCatalogStore()
     result = import_catalog(bundle, store=mem, validate=True)
 
-    for row in bundle.get("vehicle_master", []):
-        client.table("vehicle_master").upsert(row, on_conflict="vin_prefix,chassis_code,engine_code,production_year,model_variant").execute()
+    def _upsert_rows(table: str, rows: list[dict[str, Any]], key_fields: tuple[str, ...]) -> None:
+        for row in rows:
+            q = client.table(table).select("*")
+            for field in key_fields:
+                value = row.get(field)
+                if value is None:
+                    q = q.is_(field, "null")
+                else:
+                    q = q.eq(field, value)
+            existing = q.limit(1).execute().data
+            if existing:
+                client.table(table).update(row).eq("id", existing[0]["id"]).execute()
+            else:
+                client.table(table).insert(row).execute()
+
+    _upsert_rows("vehicle_master", bundle.get("vehicle_master", []), VEHICLE_KEY)
     for row in bundle.get("pnc_categories", []):
         client.table("pnc_categories").upsert(row, on_conflict="pnc_code").execute()
-    for row in bundle.get("part_fitment", []):
-        client.table("part_fitment").upsert(
-            row,
-            on_conflict="oem_part_number,chassis_code,engine_code,pnc_code",
-        ).execute()
+    _upsert_rows("part_fitment", bundle.get("part_fitment", []), FITMENT_KEY)
 
     return result
 
