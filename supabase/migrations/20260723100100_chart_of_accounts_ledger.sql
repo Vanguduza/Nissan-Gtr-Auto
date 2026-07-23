@@ -1,4 +1,4 @@
--- Chart of Accounts + append-only journal ledger
+﻿-- Chart of Accounts + append-only journal ledger
 
 CREATE TABLE public.chart_of_accounts (
   code VARCHAR(10) PRIMARY KEY,
@@ -52,19 +52,19 @@ $$;
 
 CREATE TRIGGER journal_entries_no_update
   BEFORE UPDATE ON public.journal_entries
-  FOR EACH ROW EXECUTE FUNCTION public.forbid_ledger_mutation();
+  FOR EACH ROW EXECUTE PROCEDURE public.forbid_ledger_mutation();
 
 CREATE TRIGGER journal_entries_no_delete
   BEFORE DELETE ON public.journal_entries
-  FOR EACH ROW EXECUTE FUNCTION public.forbid_ledger_mutation();
+  FOR EACH ROW EXECUTE PROCEDURE public.forbid_ledger_mutation();
 
 CREATE TRIGGER journal_entry_lines_no_update
   BEFORE UPDATE ON public.journal_entry_lines
-  FOR EACH ROW EXECUTE FUNCTION public.forbid_ledger_mutation();
+  FOR EACH ROW EXECUTE PROCEDURE public.forbid_ledger_mutation();
 
 CREATE TRIGGER journal_entry_lines_no_delete
   BEFORE DELETE ON public.journal_entry_lines
-  FOR EACH ROW EXECUTE FUNCTION public.forbid_ledger_mutation();
+  FOR EACH ROW EXECUTE PROCEDURE public.forbid_ledger_mutation();
 
 -- Balance check on insert of lines is application-level; optional DB constraint via deferred trigger later.
 
@@ -96,3 +96,4 @@ CREATE POLICY journal_lines_select_finance
 CREATE POLICY journal_lines_insert_finance
   ON public.journal_entry_lines FOR INSERT TO authenticated
   WITH CHECK (public.has_staff_role(ARRAY['admin', 'finance']::public.staff_role[]));
+

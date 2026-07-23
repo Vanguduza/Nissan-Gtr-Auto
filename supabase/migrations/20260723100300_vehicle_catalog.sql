@@ -1,4 +1,4 @@
--- Vehicle master + PNC + part fitment (catalog foundation)
+﻿-- Vehicle master + PNC + part fitment (catalog foundation)
 
 CREATE TABLE public.vehicle_master (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -69,3 +69,4 @@ CREATE POLICY part_fitment_staff_write
   ON public.part_fitment FOR ALL TO authenticated
   USING (public.has_staff_role(ARRAY['admin', 'warehouse', 'sales']::public.staff_role[]))
   WITH CHECK (public.has_staff_role(ARRAY['admin', 'warehouse']::public.staff_role[]));
+

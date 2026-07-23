@@ -1,4 +1,4 @@
--- Seed Chart of Accounts + Quarantine warehouse
+﻿-- Seed Chart of Accounts + Quarantine warehouse
 -- No tax / ZIMRA accounts
 
 INSERT INTO public.chart_of_accounts (code, name, account_type) VALUES
@@ -21,3 +21,4 @@ INSERT INTO public.warehouses (code, name, is_quarantine) VALUES
   ('MAIN', 'Main Store', false),
   ('QUAR', 'Quarantine', true)
 ON CONFLICT (code) DO NOTHING;
+
