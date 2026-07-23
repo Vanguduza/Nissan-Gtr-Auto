@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AccountNav } from "@/components/account-nav";
-import styles from "../account.module.css";
+import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Orders" };
 

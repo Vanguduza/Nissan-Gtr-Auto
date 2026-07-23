@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AccountNav } from "@/components/account-nav";
-import styles from "./account.module.css";
+import styles from "@/components/account.module.css";
 
 const cards = [
   { href: "/account/garage", label: "My Garage", blurb: "Vehicles & fitment" },

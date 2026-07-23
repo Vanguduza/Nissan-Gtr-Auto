@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AccountNav } from "@/components/account-nav";
 import { DEMO_PRODUCTS } from "@/lib/shop-demo";
 import { PriceDual } from "@/components/price-dual";
-import styles from "../account.module.css";
+import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Compare" };
 
