@@ -1,4 +1,4 @@
-﻿-- Warehouses + inventory (includes Quarantine)
+-- Warehouses + inventory (includes Quarantine)
 
 CREATE TABLE public.warehouses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

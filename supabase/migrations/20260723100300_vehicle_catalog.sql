@@ -1,4 +1,4 @@
-﻿-- Vehicle master + PNC + part fitment (catalog foundation)
+-- Vehicle master + PNC + part fitment (catalog foundation)
 
 CREATE TABLE public.vehicle_master (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

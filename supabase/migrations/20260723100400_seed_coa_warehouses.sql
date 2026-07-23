@@ -1,4 +1,4 @@
-﻿-- Seed Chart of Accounts + Quarantine warehouse
+-- Seed Chart of Accounts + Quarantine warehouse
 -- No tax / ZIMRA accounts
 
 INSERT INTO public.chart_of_accounts (code, name, account_type) VALUES
