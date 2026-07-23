@@ -9,9 +9,9 @@ const links = [
   { href: "/cart", label: "Cart" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   return (
-    <header className={styles.header}>
+    <header className={overlay ? styles.headerOverlay : styles.headerSolid}>
       <Link href="/" className={styles.brand}>
         Nissan GTR Auto
       </Link>
