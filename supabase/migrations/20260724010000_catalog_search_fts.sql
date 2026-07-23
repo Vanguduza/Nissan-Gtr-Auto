@@ -287,6 +287,7 @@ BEGIN
           ) ORDER BY pf.oem_part_number), '[]'::jsonb)
           FROM public.part_fitment pf
           WHERE pf.pnc_code = pc.pnc_code
+          LIMIT 40
         ) AS fitments
       FROM public.pnc_categories pc
       WHERE pc.search_vector @@ v_tsquery
@@ -305,7 +306,9 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.search_catalog(text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.search_catalog(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.search_catalog(text, text) TO service_role;
 
 COMMENT ON FUNCTION public.search_catalog IS
   'Interim 4-way catalog search via PostgreSQL FTS. Meilisearch indexing deferred.';
