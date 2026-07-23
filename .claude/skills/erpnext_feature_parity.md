@@ -1,6 +1,14 @@
+---
+name: erpnext-feature-parity
+description: ERPNext feature parity checklist adapted to Supabase for Nissan GTR Auto ERP. Use when evaluating completeness, planning modules, or comparing against ERPNext concepts.
+disable-model-invocation: true
+---
+
 # ERPNext Feature Parity Checklist
 
-> **Trigger:** Load only when evaluating feature completeness, planning new ERP modules, or comparing implementation against ERPNext concepts.
+> **Trigger:** Load only when evaluating feature completeness, planning new ERP modules, or comparing implementation against ERPNext concepts. Invoke explicitly with `/erpnext-feature-parity`.
+>
+> Master plan: `docs/plans/2026-07-23-master-erp-development.md` (gap register + phases).
 
 ## Adapted to Supabase/Postgres Stack
 
@@ -9,11 +17,18 @@ Replicate these ERPNext concepts while respecting Section 0 exclusions (no ZIMRA
 ### Backend Structure
 - [ ] Metadata-driven, API-first backend structure
 - [ ] Role-based permissions per module
+- [ ] Document naming series
+- [ ] Draft → Submit → Cancel (submitted immutable)
 
 ### Accounting
 - [ ] Chart of Accounts + Journal Entry double-entry ledger
 - [ ] On-demand financial reports (P&L, Balance Sheet, Cash Flow, Trial Balance)
 - [ ] Multi-currency (USD/ZiG) with exchange rate tracking
+- [ ] Opening balances
+- [ ] Period lock / close-the-books
+- [ ] Bank reconciliation (dual currency)
+- [ ] Payment Entry with multi-invoice allocation
+- [ ] Store credit issue/redeem
 - [ ] ~~Tax/GST modules~~ — **EXCLUDED per Section 0**
 
 ### Inventory
@@ -21,44 +36,45 @@ Replicate these ERPNext concepts while respecting Section 0 exclusions (no ZIMRA
 - [ ] Warehouse-to-warehouse stock transfer with dual-authorization approval
 - [ ] Serial number tracking for high-value/warranty-relevant assemblies
 - [ ] Quarantine warehouse for returns (never direct exchange)
+- [ ] UOM conversions
+- [ ] Stock reconciliation / cycle count
+- [ ] Landed cost into batch valuation
+- [ ] Bin / location within warehouse (Phase 16)
+- [ ] Kits / BOM sell (Phase 16)
+- [ ] Consignment stock (Phase 16)
 
 ### Sales
 - [ ] Sales Invoice / Credit Note / Return Against Invoice linkage
 - [ ] Core charge parent-child cart schema
 - [ ] Item variants and supersession (`superseded_by` on `part_fitment`)
+- [ ] Price lists + customer-specific pricing
+- [ ] Credit limit / customer hold
+- [ ] Backorders / partial fulfill
+- [ ] Warranty / serial claims
+- [ ] Loyalty / points (Phase 16, optional)
 
 ### Procurement
 - [ ] Supplier Portal for purchase order tracking and reconciliation
+- [ ] Material Request → PO
+- [ ] RFQ → supplier quotation → PO
+- [ ] Blanket / contract POs
 - [ ] Automated supplier requisitions (AI demand forecasting)
 
 ### HR (Simplified — No Tax)
-- [ ] Biometric/QR staff identity (facial hash, fingerprint, TOTP QR)
-- [ ] Attendance capture feeding payroll hours
-- [ ] Gross pay from attendance/hours/salary structure
-- [ ] Manual/custom deduction line items
-- [ ] Payslip export
-- [ ] ~~PAYE/NSSA/statutory remittance~~ — **EXCLUDED per Section 0**
+- [ ] Biometric/QR staff identity
+- [ ] Attendance → payroll hours (gross + manual deductions only)
+- [ ] ~~PAYE/NSSA/statutory remittance~~ — **EXCLUDED**
 
-### Logistics
-- [ ] Live GPS delivery tracking (5-second polling, Supabase Realtime)
-- [ ] Tamper-evident inventory transfers (dual-signature approval)
-
-### E-Commerce
-- [ ] Visual parts catalog with 4-way search
-- [ ] "My Garage" vehicle profiles
-- [ ] Multi-currency payments via ContiPay (EcoCash, Visa 3DS, ZimSwitch)
-- [ ] Targeted SMS marketing matched to garage vehicles
-
-### Mobile
-- [ ] Offline-first sync (PowerSync + Supabase)
-- [ ] Native QR scanning (Bridge-First — no HTML5)
-- [ ] Bluetooth thermal printer (ESC/POS bridge)
+### Logistics / E-Commerce / Mobile
+- [ ] Pick list / pack
+- [ ] Delivery Note linked to order/invoice policy
+- [ ] GPS delivery tracking, ContiPay, visual catalog, My Garage, PowerSync offline, Bridge-First QR
 
 ## Verification at Each Milestone
 
-Before marking any module done, re-verify:
-- [ ] No ZIMRA references anywhere in codebase
-- [ ] No payroll tax logic anywhere in codebase
-- [ ] No HTML5/browser-based QR scanning
-- [ ] Every new table has RLS policies
-- [ ] No agent operated outside its lane without explicit routing
+- [ ] No ZIMRA references
+- [ ] No payroll tax logic
+- [ ] No HTML5/browser QR scanning
+- [ ] Every new table has RLS
+- [ ] Agents stayed in lane (or cross-cutting agent was invoked)
+- [ ] Gap register must-haves either done or deferred by written decision
