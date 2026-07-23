@@ -9,6 +9,12 @@ export {
   type JournalLineInput,
 } from "./ledger/journal.js";
 export {
+  reverseJournalLines,
+  createOpeningBalanceLines,
+  toJournalRpcLines,
+  type OpeningBalanceLine,
+} from "./ledger/reverse.js";
+export {
   SMS_EVENT_CODES,
   isSmsEventCode,
   emitDomainEventArgs,
