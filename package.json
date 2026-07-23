@@ -9,6 +9,7 @@
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck",
+    "dev:web": "pnpm --filter @gtr/web dev",
     "db:start": "npx supabase start",
     "db:reset": "npx supabase db reset",
     "db:types": "npx supabase gen types typescript --local > packages/supabase-client/src/database.types.ts",
