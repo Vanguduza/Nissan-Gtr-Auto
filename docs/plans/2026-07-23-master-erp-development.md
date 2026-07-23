@@ -104,7 +104,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | Pending |
 | 5 | Sales / POS / cart / invoices / commercial | `@backend_agent`, `@management_app_agent` | 3, 4 | **Done** |
 | 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | Next |
-| 6 | Web storefront + My Garage + catalog UI | `@web_agent` | 2, 4, 5 (read APIs) | **Done** (scaffold; index Phase 7) |
+| 6 | Web storefront + My Account (Garage) + AutoDoc IA | `@web_agent` | 2, 4, 5 (read APIs) | **Done** (stub data; index Phase 7) |
 | 7 | Data pipeline + search index | `@data_pipeline_agent` | 1, 6 (canvas can stub) | Next |
 | 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | Pending |
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | Pending |
