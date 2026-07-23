@@ -20,9 +20,6 @@
 supabase/.branches/
 supabase/.temp/
 
-# Generated types (re-index from source)
-packages/supabase-client/src/database.types.ts
-
 # Data pipeline output (large files)
 data-pipeline/output/
 data-pipeline/cache/
