@@ -1,49 +1,52 @@
 {
-  "version": 1,
-  "permissions": {
-    "allow": [
-      "git status",
-      "git diff",
-      "git log",
-      "git add",
-      "git commit",
-      "git push",
-      "git checkout",
-      "git branch",
-      "pnpm install",
-      "pnpm test",
-      "pnpm build",
-      "pnpm lint",
-      "npm install",
-      "npm test",
-      "supabase start",
-      "supabase stop",
-      "supabase status",
-      "supabase db reset",
-      "supabase db lint",
-      "supabase gen types",
-      "supabase functions serve",
-      "python -m pytest",
-      "ruff check",
-      "ruff format",
-      "./gradlew test",
-      "./gradlew assembleDebug",
-      "xcodebuild test"
-    ],
-    "deny": [
-      "supabase db push --linked",
-      "supabase functions deploy",
-      "DROP DATABASE",
-      "DROP SCHEMA",
-      "TRUNCATE",
-      "rm -rf /"
+  "terminalAllowlist": [
+    "git status",
+    "git diff",
+    "git log",
+    "git show",
+    "git add",
+    "git commit",
+    "git push",
+    "git fetch",
+    "git pull",
+    "git checkout",
+    "git switch",
+    "git branch",
+    "git stash",
+    "git remote",
+    "git rev-parse",
+    "git restore",
+    "git tag",
+    "pnpm",
+    "npm",
+    "npx",
+    "supabase",
+    "python",
+    "pytest",
+    "uv",
+    "docker",
+    "docker-compose",
+    "ruff",
+    "./gradlew",
+    "gradlew",
+    "xcodebuild"
+  ],
+  "mcpAllowlist": [
+    "*:*"
+  ],
+  "autoRun": {
+    "allow_instructions": [
+      "Allow routine local project work: supabase (local), pnpm/npm/npx, pytest, uv, docker, ruff, gradle, xcodebuild, and non-destructive git (status, diff, log, add, commit, push without force, branch, checkout).",
+      "Allow package installs, local DB reset/lint/typegen, and running unit or integration tests in this workspace."
     ],
     "block_instructions": [
-      "Never use service_role key in client-side code",
-      "Never modify journal_entries with UPDATE or DELETE",
-      "Never implement ZIMRA, FDMS, or payroll tax logic",
-      "Never use HTML5 or browser-based QR scanning",
-      "Never deploy to production without explicit user approval"
+      "Block git force-push (git push --force / -f) and any rewrite of shared/main history.",
+      "Block DROP DATABASE, DROP SCHEMA, and destructive TRUNCATE against production or shared databases.",
+      "Block ZIMRA, FDMS, fiscalisation, or payroll tax (PAYE/NSSA) implementation or tooling.",
+      "Block production deploys and misuse of production secrets or service_role keys in client code (supabase db push --linked, functions deploy to prod, deploy.*prod).",
+      "Block HTML5/browser QR scanning libraries; hardware must stay bridge-first.",
+      "Block UPDATE/DELETE on journal_entries; ledger corrections must use reversing entries only.",
+      "Especially for delete operations and production-linked commands, reject so the user can review."
     ]
   }
 }
