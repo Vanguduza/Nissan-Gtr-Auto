@@ -233,6 +233,7 @@ BEGIN
           LEFT JOIN public.pnc_categories pc ON pc.pnc_code = pf.pnc_code
           WHERE pf.chassis_code = vm.chassis_code
             AND (vm.engine_code IS NULL OR pf.engine_code = vm.engine_code)
+          LIMIT 40
         ) AS fitments
       FROM public.vehicle_master vm
       WHERE upper(coalesce(vm.vin_prefix, '')) <> ''
