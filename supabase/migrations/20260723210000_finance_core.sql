@@ -481,11 +481,20 @@ RETURNS TABLE (
   debit_usd NUMERIC,
   credit_usd NUMERIC
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
+BEGIN
+  IF NOT (
+    auth.role() = 'service_role'
+    OR public.has_staff_role(ARRAY['admin', 'finance']::public.staff_role[])
+  ) THEN
+    RAISE EXCEPTION 'finance or admin role required';
+  END IF;
+
+  RETURN QUERY
   SELECT
     c.code,
     c.name,
@@ -503,6 +512,7 @@ AS $$
    AND (p_currency IS NULL OR e.currency = p_currency)
   GROUP BY c.code, c.name, c.account_type
   ORDER BY c.code;
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.report_profit_and_loss(
