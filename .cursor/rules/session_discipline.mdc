@@ -11,3 +11,4 @@ alwaysApply: true
 4. Targeted diffs for existing files. Full files only when new.
 5. Never introduce ZIMRA, payroll tax, or HTML5/browser QR scanning.
 6. After non-trivial work, run `/verifier`. After migrations, run `/supabase-rls-auditor`.
+7. Non-trivial features: `/manager` or `/planner` first — then one coding lane — then `/security-reviewer` — then `/verifier`. Do not run all roles in one prompt.
