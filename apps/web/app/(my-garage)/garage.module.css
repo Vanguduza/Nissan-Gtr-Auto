@@ -1,0 +1,14 @@
+.shell {
+  min-height: 100dvh;
+  background:
+    linear-gradient(180deg, #1e2430 0%, #12151c 28%, var(--gtr-chalk) 28%);
+}
+
+.topBar {
+  position: relative;
+  min-height: 4.5rem;
+}
+
+.topBar header {
+  position: relative;
+}
