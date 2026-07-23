@@ -46,92 +46,103 @@ export default function HomePage() {
       <StorefrontHero />
 
       <section className={styles.section} aria-labelledby="cats-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="cats-heading" className={styles.sectionTitle}>
-            Popular categories
-          </h2>
-          <p className={styles.sectionLede}>
-            Browse like a parts counter — pick a group, then refine by vehicle.
-          </p>
+        <div className={styles.band}>
+          <div className={styles.sectionHead}>
+            <h2 id="cats-heading" className={styles.sectionTitle}>
+              Popular categories
+            </h2>
+            <p className={styles.sectionLede}>
+              Browse like a parts counter — pick a group, then refine by vehicle.
+            </p>
+          </div>
+          <ul className={styles.catGrid}>
+            {categoryTiles.map((c) => (
+              <li key={c.href}>
+                <Link href={c.href} className={styles.catTile}>
+                  <span className={styles.catLabel}>{c.label}</span>
+                  <span className={styles.catBlurb}>{c.blurb}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className={styles.catGrid}>
-          {categoryTiles.map((c) => (
-            <li key={c.href}>
-              <Link href={c.href} className={styles.catTile}>
-                <span className={styles.catLabel}>{c.label}</span>
-                <span className={styles.catBlurb}>{c.blurb}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
       </section>
 
       <section className={styles.sectionAlt} aria-labelledby="list-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="list-heading" className={styles.sectionTitle}>
-            Parts list preview
-          </h2>
-          <p className={styles.sectionLede}>
-            Product-list mental model — live stock & price lists bind in later
-            phases.
-          </p>
-        </div>
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">OEM / SKU</th>
-                <th scope="col">Description</th>
-                <th scope="col">USD</th>
-                <th scope="col">ZiG</th>
-                <th scope="col">
-                  <span className={styles.srOnly}>Action</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {productStubs.map((p) => (
-                <tr key={p.sku}>
-                  <td>
-                    <code className={styles.sku}>{p.sku}</code>
-                  </td>
-                  <td>{p.name}</td>
-                  <td className={styles.moneyUsd}>{p.usd}</td>
-                  <td className={styles.moneyZig}>{p.zig}</td>
-                  <td>
-                    <Link href={`/search?mode=part&q=${encodeURIComponent(p.sku)}`} className={styles.rowCta}>
-                      View
-                    </Link>
-                  </td>
+        <div className={styles.band}>
+          <div className={styles.sectionHead}>
+            <h2 id="list-heading" className={styles.sectionTitle}>
+              Parts list preview
+            </h2>
+            <p className={styles.sectionLede}>
+              Product-list mental model — live stock & price lists bind in later
+              phases.
+            </p>
+          </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">OEM / SKU</th>
+                  <th scope="col">Description</th>
+                  <th scope="col">USD</th>
+                  <th scope="col">ZiG</th>
+                  <th scope="col">
+                    <span className={styles.srOnly}>Action</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {productStubs.map((p) => (
+                  <tr key={p.sku}>
+                    <td>
+                      <code className={styles.sku}>{p.sku}</code>
+                    </td>
+                    <td>{p.name}</td>
+                    <td className={styles.moneyUsd}>{p.usd}</td>
+                    <td className={styles.moneyZig}>{p.zig}</td>
+                    <td>
+                      <Link
+                        href={`/search?mode=part&q=${encodeURIComponent(p.sku)}`}
+                        className={styles.rowCta}
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
       <section className={styles.section} aria-labelledby="search-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="search-heading" className={styles.sectionTitle}>
-            Four-way parts search
-          </h2>
-          <p className={styles.sectionLede}>
-            Part number, VIN, model, or PNC — same contract as the header search.
-          </p>
+        <div className={styles.band}>
+          <div className={styles.sectionHead}>
+            <h2 id="search-heading" className={styles.sectionTitle}>
+              Four-way parts search
+            </h2>
+            <p className={styles.sectionLede}>
+              Part number, VIN, model, or PNC — same contract as the header search.
+            </p>
+          </div>
+          <SearchFourWay />
         </div>
-        <SearchFourWay />
       </section>
 
       <section className={styles.sectionAlt} aria-labelledby="catalog-heading">
-        <div className={styles.sectionHead}>
-          <h2 id="catalog-heading" className={styles.sectionTitle}>
-            Visual catalog
-          </h2>
-          <p className={styles.sectionLede}>
-            Diagram hotspots will open fitment-accurate parts lists.
-          </p>
+        <div className={styles.band}>
+          <div className={styles.sectionHead}>
+            <h2 id="catalog-heading" className={styles.sectionTitle}>
+              Visual catalog
+            </h2>
+            <p className={styles.sectionLede}>
+              Diagram hotspots will open fitment-accurate parts lists.
+            </p>
+          </div>
+          <CatalogCanvasStub />
         </div>
-        <CatalogCanvasStub />
       </section>
     </>
   );
