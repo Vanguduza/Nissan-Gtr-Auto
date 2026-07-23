@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { SearchMode } from "@/lib/catalog-search";
 import styles from "./search-four-way.module.css";
 
@@ -27,6 +27,11 @@ export function SearchFourWay({
   const [q, setQ] = useState(initialQuery);
   const isHeader = variant === "header";
   const idPrefix = isHeader ? "gtr-hdr" : "gtr-search";
+
+  useEffect(() => {
+    setMode(initialMode);
+    setQ(initialQuery);
+  }, [initialMode, initialQuery]);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
