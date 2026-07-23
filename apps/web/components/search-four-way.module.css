@@ -1,0 +1,76 @@
+.panel,
+.compact {
+  width: min(40rem, 100%);
+}
+
+.panel {
+  padding: 1.25rem 0 0;
+}
+
+.modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.mode,
+.modeActive {
+  border: 1px solid rgba(18, 21, 28, 0.18);
+  background: transparent;
+  color: var(--gtr-steel);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.modeActive {
+  background: var(--gtr-steel);
+  color: #fff;
+  border-color: var(--gtr-steel);
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(18, 21, 28, 0.2);
+  border-radius: 2px;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  background: #fff;
+}
+
+.submit {
+  border: 0;
+  border-radius: 2px;
+  background: var(--gtr-red);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  padding: 0 1.1rem;
+  cursor: pointer;
+}
+
+.hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(18, 21, 28, 0.55);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
