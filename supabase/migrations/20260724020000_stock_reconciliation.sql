@@ -857,6 +857,17 @@ INSERT INTO public.naming_series (prefix, description, pad_length) VALUES
   ('SRE-', 'Stock reconciliation', 5)
 ON CONFLICT (prefix) DO NOTHING;
 
+INSERT INTO public.sms_event_catalog (code, description, category, priority) VALUES
+  ('stock_reconciliation_posted', 'Stock reconciliation posted', 'inventory', 'normal'),
+  (
+    'stock_reconciliation_pending_approval',
+    'Stock reconciliation awaiting dual authorization',
+    'inventory',
+    'high'
+  ),
+  ('stock_reconciliation_cancelled', 'Stock reconciliation cancelled', 'inventory', 'normal')
+ON CONFLICT (code) DO NOTHING;
+
 -- ---------------------------------------------------------------------------
 -- RLS
 -- ---------------------------------------------------------------------------
