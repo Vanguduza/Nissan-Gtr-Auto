@@ -127,6 +127,8 @@
   min-height: 2.4rem;
   padding: 0 1rem;
   align-items: center;
+  justify-content: center;
+  border: 0;
   background: var(--gtr-red);
   color: #fff;
   font-family: var(--font-display);
@@ -135,11 +137,10 @@
   text-transform: uppercase;
   border-radius: 2px;
   font-size: 0.8rem;
+  cursor: pointer;
 }
 
-.btnGhost {
-  composes: btn;
-  background: transparent;
-  color: var(--gtr-red);
-  border: 1px solid var(--gtr-red);
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
