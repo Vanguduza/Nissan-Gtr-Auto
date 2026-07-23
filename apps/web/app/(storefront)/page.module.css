@@ -147,6 +147,72 @@
   padding: 1.75rem clamp(0.85rem, 3vw, 1.5rem) 3rem;
 }
 
+.bandPad {
+  width: min(var(--gtr-shop-max, 1120px), 100%);
+  margin-inline: auto;
+  padding: 1.75rem clamp(0.85rem, 3vw, 1.5rem) 3rem;
+}
+
+.simpleList {
+  margin: 0;
+  padding-left: 1.15rem;
+  line-height: 1.7;
+}
+
+.simpleList a {
+  color: var(--gtr-red);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.plp {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 800px) {
+  .plp {
+    grid-template-columns: 1fr;
+  }
+}
+
+.facets {
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.1);
+  border-radius: 2px;
+  padding: 0.85rem 1rem;
+  height: fit-content;
+}
+
+.facets h2 {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.facetGroup {
+  margin-bottom: 0.85rem;
+}
+
+.facetGroup p {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgba(18, 21, 28, 0.5);
+}
+
+.facetGroup label {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
 .title {
   margin: 0;
   font-family: var(--font-display);
