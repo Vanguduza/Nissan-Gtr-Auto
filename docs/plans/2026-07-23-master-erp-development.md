@@ -194,6 +194,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
   - **Credit limit + credit hold** → blocks submit / emits `order_on_hold`
   - **Backorders / partial fulfill** — order lines open qty; fulfill when stock available
   - Soft: attachments + comment timeline on invoice if low-cost
+  - **Customer receipt emit** (no gateway yet): on invoice/return post, enqueue customer receipt job per `docs/decisions/2026-07-23-customer-receipt-delivery.md` (SMS summary + PDF link; email/WhatsApp PDF)
 - **Acceptance:**
   - [ ] Core charge split at cart insert
   - [ ] Return links to originating invoice/batch
@@ -202,7 +203,8 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
   - [ ] Over-limit customer cannot submit without override role
   - [ ] Partial fulfill leaves open qty / backorder state
   - [ ] Emits domain events: `order_received`, `order_completed`, `order_on_hold`, …
-- **Out of scope:** ContiPay capture (Phase 13), HTML5 QR, warranty UI (Phase 5b)
+  - [ ] Posted sale/return enqueues customer receipt outbox rows (pending) when phone/email/WhatsApp present
+- **Out of scope:** ContiPay capture (Phase 13), PDF render/send providers (Phase 13), HTML5 QR, warranty UI (Phase 5b)
 - **Gate:** `/security-reviewer` → `/verifier`
 
 ---
