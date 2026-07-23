@@ -1,12 +1,16 @@
 {
-  "network": {
-    "allowedDomains": [
+  "type": "workspace_readwrite",
+  "enableSharedBuildCache": true,
+  "networkPolicy": {
+    "default": "allow",
+    "allow": [
       "registry.npmjs.org",
       "registry.yarnpkg.com",
       "*.supabase.co",
       "api.github.com",
       "github.com",
       "raw.githubusercontent.com",
+      "*.githubusercontent.com",
       "pypi.org",
       "files.pythonhosted.org",
       "repo.maven.apache.org",
@@ -14,14 +18,10 @@
       "services.gradle.org",
       "plugins.gradle.org",
       "developer.apple.com",
-      "contipay.co.zw"
-    ]
-  },
-  "filesystem": {
-    "readOnly": [
-      ".env",
-      ".env.local",
-      ".env.production"
-    ]
+      "contipay.co.zw",
+      "*.docker.io",
+      "ghcr.io"
+    ],
+    "deny": []
   }
 }
