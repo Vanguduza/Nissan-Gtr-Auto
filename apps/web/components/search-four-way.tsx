@@ -13,10 +13,17 @@ const modes = [
 
 type Mode = (typeof modes)[number]["id"];
 
-export function SearchFourWay({ compact = false }: { compact?: boolean }) {
+export function SearchFourWay({
+  variant = "panel",
+}: {
+  /** panel = page body; header = dense AutoDoc-style chrome search */
+  variant?: "panel" | "header" | "compact";
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("part");
   const [q, setQ] = useState("");
+  const isHeader = variant === "header";
+  const idPrefix = isHeader ? "gtr-hdr" : "gtr-search";
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -28,7 +35,13 @@ export function SearchFourWay({ compact = false }: { compact?: boolean }) {
 
   return (
     <form
-      className={compact ? styles.compact : styles.panel}
+      className={
+        isHeader
+          ? styles.header
+          : variant === "compact"
+            ? styles.compact
+            : styles.panel
+      }
       onSubmit={onSubmit}
       aria-label="Parts search"
     >
@@ -47,11 +60,11 @@ export function SearchFourWay({ compact = false }: { compact?: boolean }) {
         ))}
       </div>
       <div className={styles.row}>
-        <label className={styles.srOnly} htmlFor="gtr-search-q">
+        <label className={styles.srOnly} htmlFor={`${idPrefix}-q`}>
           Search query
         </label>
         <input
-          id="gtr-search-q"
+          id={`${idPrefix}-q`}
           className={styles.input}
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -62,7 +75,7 @@ export function SearchFourWay({ compact = false }: { compact?: boolean }) {
                 ? "e.g. Navara D40"
                 : mode === "pnc"
                   ? "PNC code"
-                  : "OEM part number"
+                  : "OEM part number or keyword"
           }
           autoComplete="off"
         />
@@ -70,9 +83,11 @@ export function SearchFourWay({ compact = false }: { compact?: boolean }) {
           Search
         </button>
       </div>
-      <p className={styles.hint}>
-        Index-backed results land in Phase 7 — UI path is live now.
-      </p>
+      {!isHeader ? (
+        <p className={styles.hint}>
+          Index-backed results land in Phase 7 — UI path is live now.
+        </p>
+      ) : null}
     </form>
   );
 }

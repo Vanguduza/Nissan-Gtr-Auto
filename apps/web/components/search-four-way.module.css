@@ -1,17 +1,31 @@
 .panel,
-.compact {
-  width: min(40rem, 100%);
+.compact,
+.header {
+  width: 100%;
 }
 
 .panel {
+  max-width: 40rem;
   padding: 1.25rem 0 0;
+}
+
+.compact {
+  max-width: 40rem;
+}
+
+.header {
+  max-width: none;
 }
 
 .modes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: 0.75rem;
+  gap: 0.3rem;
+  margin-bottom: 0.45rem;
+}
+
+.header .modes {
+  margin-bottom: 0.35rem;
 }
 
 .mode,
@@ -20,8 +34,8 @@
   background: transparent;
   color: var(--gtr-steel);
   font: inherit;
-  font-size: 0.9rem;
-  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  padding: 0.28rem 0.65rem;
   border-radius: 2px;
   cursor: pointer;
 }
@@ -32,9 +46,20 @@
   border-color: var(--gtr-steel);
 }
 
+.header .mode {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.header .modeActive {
+  background: var(--gtr-red);
+  border-color: var(--gtr-red);
+  color: #fff;
+}
+
 .row {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .input {
@@ -47,6 +72,17 @@
   background: #fff;
 }
 
+.header .input {
+  border-color: transparent;
+  min-height: 2.55rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.header .input:focus {
+  outline: 2px solid var(--gtr-red);
+  outline-offset: 0;
+}
+
 .submit {
   border: 0;
   border-radius: 2px;
@@ -56,6 +92,16 @@
   font-weight: 600;
   padding: 0 1.1rem;
   cursor: pointer;
+  transition: background var(--gtr-hover);
+}
+
+.submit:hover,
+.submit:focus-visible {
+  background: #e01234;
+}
+
+.header .submit {
+  min-width: 5.5rem;
 }
 
 .hint {
