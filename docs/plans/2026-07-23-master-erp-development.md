@@ -89,8 +89,8 @@ Intake from operational + ERPNext-pattern review. Each item is scheduled below; 
 | 1b | Manager SMS event catalog + outbox | `@backend_agent` | 1 | **Done** (gateway later) |
 | 2 | Auth, roles, typed client | `@backend_agent` | 1 | **Done** |
 | 3 | Finance core + period/bank/naming | `@finance_agent`, `@backend_agent` | 2 | **Done** |
-| 4 | Inventory ops (receipt, transfer, QR, UOM) | `@backend_agent`, `@hardware_mobile_agent` | 2 | Next |
-| 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | Pending |
+| 4 | Inventory ops (receipt, transfer, QR, UOM) | `@backend_agent`, `@hardware_mobile_agent` | 2 | **Done** |
+| 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | Next |
 | 5 | Sales / POS / cart / invoices / commercial | `@backend_agent`, `@management_app_agent` | 3, 4 | Pending |
 | 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | Pending |
 | 6 | Web storefront + My Garage + catalog UI | `@web_agent` | 2, 4, 5 (read APIs) | Pending |
