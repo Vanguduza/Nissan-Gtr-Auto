@@ -435,9 +435,9 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`/manager`:** open **Phase 3** (Finance core + period/bank/naming).
-2. **`/planner`:** child plan `docs/plans/YYYY-MM-DD-phase3-finance-core.md`.
-3. **`@finance_agent` + `@backend_agent`:** implement Phase 3.
+1. **`/manager`:** open **Phase 4** (Inventory ops + QR + UOM).
+2. **`/planner`:** child plan `docs/plans/YYYY-MM-DD-phase4-inventory-ops.md`.
+3. **`@backend_agent`:** implement Phase 4 (bridge contracts only for hardware).
 4. Gates: `/security-reviewer` → `/verifier`.
 
-Do not start Phase 6 web UI until Phase 2 exit criteria pass (auth + types — **done**). Phase 3 and 4 may be sequenced tightly after Phase 2.
+Phase 2–3 complete. Phase 4b (cycle count) follows once receipt/transfer APIs are stable.
