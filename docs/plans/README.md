@@ -4,6 +4,7 @@
 |------|------|
 | [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) | **Source of truth** for whole-ERP phasing (includes distributor gap register → Phases 3–16) |
 | [`2026-07-23-phase1-monorepo-supabase.md`](./2026-07-23-phase1-monorepo-supabase.md) | Phase 1 child (done) |
+| [`2026-07-23-phase2-auth-roles.md`](./2026-07-23-phase2-auth-roles.md) | Phase 2 child (done) |
 
 ## Process
 
