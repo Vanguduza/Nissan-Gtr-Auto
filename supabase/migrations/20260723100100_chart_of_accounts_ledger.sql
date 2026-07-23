@@ -1,4 +1,4 @@
-﻿-- Chart of Accounts + append-only journal ledger
+-- Chart of Accounts + append-only journal ledger
 
 CREATE TABLE public.chart_of_accounts (
   code VARCHAR(10) PRIMARY KEY,
