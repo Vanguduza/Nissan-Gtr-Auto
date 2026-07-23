@@ -103,7 +103,7 @@ export default function HomePage() {
                     <td className={styles.moneyZig}>{p.zig}</td>
                     <td>
                       <Link
-                        href={`/search?mode=part&q=${encodeURIComponent(p.sku)}`}
+                        href={`/parts/${encodeURIComponent(p.sku)}`}
                         className={styles.rowCta}
                       >
                         View
