@@ -1,4 +1,4 @@
-# Catalog search — PG FTS interim, Storage, OE cross-refs
+-- Catalog search — PG FTS interim, Storage, OE cross-refs
 -- Meilisearch is deferred; see docs/decisions/2026-07-24-search-index-interim-pg-fts.md
 
 -- ---------------------------------------------------------------------------
