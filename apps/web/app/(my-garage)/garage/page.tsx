@@ -1,5 +1,5 @@
-import styles from "../(storefront)/page.module.css";
-import local from "./garage-page.module.css";
+import styles from "../../(storefront)/page.module.css";
+import local from "../garage-page.module.css";
 
 export const metadata = { title: "My Garage" };
 

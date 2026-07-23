@@ -1,28 +1,37 @@
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import styles from "./hero.module.css";
 
+/** Compact promo band under shop chrome — not a full-bleed art landing. */
 export function StorefrontHero() {
   return (
-    <section className={styles.hero} aria-label="Nissan GTR Auto">
-      <div className={styles.plane} aria-hidden />
-      <div className={styles.grain} aria-hidden />
-      <SiteHeader overlay />
-      <div className={styles.content}>
-        <p className={`${styles.brand} gtr-rise`}>Nissan GTR Auto</p>
-        <div className={`${styles.rule} gtr-rise-delay`} aria-hidden />
-        <h1 className={`${styles.headline} gtr-rise-delay`}>
-          Parts that fit. Delivered across Zimbabwe.
-        </h1>
-        <p className={`${styles.lede} gtr-rise-delay-2`}>
-          Search by VIN, model, PNC, or part number — then order from counter
-          stock with dual-currency clarity.
-        </p>
-        <div className={`${styles.cta} gtr-rise-delay-2`}>
-          <Link href="/search" className={styles.primary}>
-            Find parts
-          </Link>
-          <Link href="/garage" className={styles.secondary}>
+    <section className={styles.promo} aria-label="Nissan GTR Auto">
+      <div className={styles.inner}>
+        <div className={`${styles.copy} gtr-rise`}>
+          <p className={styles.kicker}>Nissan spare parts · Zimbabwe</p>
+          <h1 className={styles.headline}>
+            Find the right part. Order from counter stock.
+          </h1>
+          <p className={styles.lede}>
+            Search by part number, VIN, model, or PNC — then check fitment from
+            My Garage before you buy.
+          </p>
+          <div className={styles.cta}>
+            <Link href="/search" className={styles.primary}>
+              Search parts
+            </Link>
+            <Link href="/garage" className={styles.secondary}>
+              Select vehicle
+            </Link>
+          </div>
+        </div>
+        <div className={`${styles.vehicleCard} gtr-rise-delay`} aria-labelledby="vehicle-entry">
+          <h2 id="vehicle-entry" className={styles.vehicleTitle}>
+            Shop by vehicle
+          </h2>
+          <p className={styles.vehicleLede}>
+            Save a Nissan in My Garage to scope catalog and search to fitment.
+          </p>
+          <Link href="/garage" className={styles.vehicleCta}>
             Open My Garage
           </Link>
         </div>

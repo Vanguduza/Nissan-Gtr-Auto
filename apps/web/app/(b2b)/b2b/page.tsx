@@ -1,5 +1,5 @@
-import styles from "../(storefront)/page.module.css";
-import local from "./b2b-page.module.css";
+import styles from "../../(storefront)/page.module.css";
+import local from "../b2b-page.module.css";
 
 export const metadata = { title: "B2B" };
 
