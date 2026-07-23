@@ -1,4 +1,4 @@
--- Phase 1 foundation: enums, profiles, staff roles
+﻿-- Phase 1 foundation: enums, profiles, staff roles
 -- Exclusions: no ZIMRA, no payroll-tax fields
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -83,3 +83,4 @@ CREATE POLICY staff_roles_admin_write
   ON public.staff_roles FOR ALL TO authenticated
   USING (public.has_staff_role(ARRAY['admin']::public.staff_role[]))
   WITH CHECK (public.has_staff_role(ARRAY['admin']::public.staff_role[]));
+

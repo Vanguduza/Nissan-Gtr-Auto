@@ -1,4 +1,4 @@
--- Warehouses + inventory (includes Quarantine)
+﻿-- Warehouses + inventory (includes Quarantine)
 
 CREATE TABLE public.warehouses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,3 +84,4 @@ CREATE POLICY inventory_qr_staff_all
 CREATE POLICY inventory_qr_select_staff
   ON public.inventory_qr_codes FOR SELECT TO authenticated
   USING (public.is_staff());
+
