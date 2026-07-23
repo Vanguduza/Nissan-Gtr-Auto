@@ -28,9 +28,13 @@ cd "C:\Users\j\Desktop\nissan gtr"
 npx supabase login
 npx supabase link --project-ref gylrgwqyuiwkyykardwc
 npx supabase db push
-npx supabase gen types typescript --project-id gylrgwqyuiwkyykardwc > packages/supabase-client/src/database.types.ts
+# Prefer workspace scripts after link:
+pnpm db:types:linked
+# equivalent:
+# npx supabase gen types typescript --linked > packages/supabase-client/src/database.types.ts
 ```
 
+**Phase 2 auth:** migration `20260723200000_auth_profiles_roles.sql` (signup → profiles, `assign_staff_role` / `revoke_staff_role`). Local staff users live only in `supabase/seed.sql` (not applied by `db push`).
 ## 3. Safety
 
 - Clients: **anon** key only (`packages/supabase-client` browser helper).
