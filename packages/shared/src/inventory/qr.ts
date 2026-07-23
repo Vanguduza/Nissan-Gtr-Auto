@@ -11,7 +11,7 @@ export function buildInventoryQrPayload(params: {
   if (!oem || !batch) {
     throw new Error("oemPartNumber and batchCode are required");
   }
-  return `gtr://part/${oem}?batch=${encodeURIComponent(batch)}&valuation=${params.valuation}`;
+  return `gtr://part/${oem}?batch=${batch}&valuation=${params.valuation}`;
 }
 
 export function parseInventoryQrPayload(payload: string): {
@@ -26,8 +26,8 @@ export function parseInventoryQrPayload(payload: string): {
     throw new Error(`Invalid inventory QR payload: ${payload}`);
   }
   return {
-    oemPartNumber: decodeURIComponent(m[1]),
-    batchCode: decodeURIComponent(m[2]),
+    oemPartNumber: m[1],
+    batchCode: m[2],
     valuation: m[3] as ValuationMethod,
   };
 }
