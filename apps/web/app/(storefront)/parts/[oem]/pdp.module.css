@@ -1,0 +1,144 @@
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 1.5rem;
+  width: min(var(--gtr-shop-max), 100%);
+  margin: 0 auto;
+  padding: 1.25rem clamp(0.85rem, 3vw, 1.5rem) 2.5rem;
+}
+
+@media (max-width: 860px) {
+  .wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gallery {
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.1);
+  border-radius: 2px;
+  min-height: 16rem;
+}
+
+.photo {
+  min-height: 16rem;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(145deg, var(--gtr-mist), #fff 55%, var(--gtr-steel-lift) 160%);
+  color: rgba(18, 21, 28, 0.45);
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.info {
+  display: grid;
+  gap: 0.65rem;
+  align-content: start;
+}
+
+.brand {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(18, 21, 28, 0.5);
+  font-weight: 700;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  text-transform: uppercase;
+}
+
+.oem {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.priceRow {
+  margin-top: 0.25rem;
+}
+
+.core {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  background: color-mix(in srgb, var(--gtr-zig) 12%, white);
+  border-left: 3px solid var(--gtr-zig);
+  font-size: 0.9rem;
+}
+
+.fitment {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.add,
+.wish {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: 0 1rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  border-radius: 2px;
+}
+
+.add {
+  background: var(--gtr-red);
+  color: #fff;
+}
+
+.wish {
+  border: 1px solid rgba(18, 21, 28, 0.25);
+  background: #fff;
+}
+
+.block {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(18, 21, 28, 0.1);
+}
+
+.block h2 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.block ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.muted {
+  margin: 0;
+  color: rgba(18, 21, 28, 0.55);
+  font-size: 0.9rem;
+}
+
+.alts {
+  list-style: none;
+  padding: 0;
+}
+
+.alts a {
+  color: var(--gtr-red);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
