@@ -11,10 +11,12 @@ Composable ERP for Nissan spare-parts distribution. Polyglot monorepo with one S
 
 ## Before You Start
 
-1. Check **claude-mem** for prior schema decisions, naming conventions, and exclusions.
+1. Check **claude-mem** and `docs/decisions/` for prior schema decisions, naming conventions, and exclusions.
 2. Identify your agent lane in `rufler.yaml` — stay within it unless explicitly routed.
-3. Load domain skills from `.claude/skills/` only when trigger conditions match your task.
+3. Load domain skills from `.cursor/skills/` only when trigger conditions match (see skill descriptions). Prefer `/token-discipline` over reloading blueprints.
 4. Read path-specific rules in `.cursor/rules/*.mdc` for the directory you're editing.
+5. For UI design on web/mobile, invoke `/ui-ux-pro-max` explicitly — do not auto-load the full design suite.
+6. Tooling install status: `docs/TOOLING_SETUP.md`.
 
 ## Agent Lanes
 

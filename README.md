@@ -112,7 +112,7 @@ See `docs/CURSOR_BEST_PRACTICES.md` for the full extended playbook.
 > Execution order:
 >
 > 1. Orchestration files (done)
-> 2. Install external tooling (claude-mem, ui-ux-pro-max) in Cursor Desktop
+> 2. External tooling — ui-ux-pro-max + domain skills (done); run claude-mem host install (`docs/TOOLING_SETUP.md`)
 > 3. Supabase schema (Chart of Accounts, ledger, vehicle_master, inventory)
 > 4. Financial module
 > 5. Hardware bridges (QR + printer) — **local only** (needs devices/SDK)
