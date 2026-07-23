@@ -21,6 +21,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Allow Git Credential Manager to prompt when needed (first push / expired token)
+$env:GCM_INTERACTIVE = "auto"
+
 # Ensure Git for Windows is on PATH for this process
 $gitCandidates = @(
   "$env:ProgramFiles\Git\cmd",
