@@ -11,7 +11,8 @@
     "typecheck": "pnpm -r run typecheck",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
-    "db:types": "supabase gen types typescript --local > packages/supabase-client/src/database.types.ts"
+    "db:types": "supabase gen types typescript --local > packages/supabase-client/src/database.types.ts",
+    "db:types:linked": "supabase gen types typescript --linked > packages/supabase-client/src/database.types.ts"
   },
   "engines": {
     "node": ">=20"
