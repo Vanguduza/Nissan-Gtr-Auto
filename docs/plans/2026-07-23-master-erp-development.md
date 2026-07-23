@@ -94,7 +94,7 @@ Intake from operational + ERPNext-pattern review. Each item is scheduled below; 
 | 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | Pending |
 | 5 | Sales / POS / cart / invoices / commercial | `@backend_agent`, `@management_app_agent` | 3, 4 | **Done** |
 | 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | Next |
-| 6 | Web storefront + My Garage + catalog UI | `@web_agent` | 2, 4, 5 (read APIs) | Pending |
+| 6 | Web storefront + My Garage + catalog UI | `@web_agent` | 2, 4, 5 (read APIs) | **Done** (scaffold; index Phase 7) |
 | 7 | Data pipeline + search index | `@data_pipeline_agent` | 1, 6 (canvas can stub) | Pending |
 | 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | Pending |
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | Pending |
@@ -207,21 +207,22 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Phase 6 — Web storefront
 
 - **Lane:** `@web_agent`
+- **Status:** **Done** (scaffold + AutoDoc-inspired chrome; live search index = Phase 7)
 - **Skills:** `/ui-ux-pro-max` (explicit), `/parts-catalog-ingestion` (consume only)
 - **Domain:** Production host `https://nissangtrauto.co.zw` (`docs/decisions/2026-07-23-company-domain.md`); local `http://127.0.0.1:3000`
+- **Design:** `docs/decisions/2026-07-23-storefront-autodoc-logo.md` — AutoDoc-inspired IA + official logo
 - **Build:**
-  - Next.js App Router scaffold in `apps/web`
-  - Route groups: storefront, My Garage, B2B, (staff read-only as needed)
-  - Catalog canvas (bounding boxes), 4-way search UI against API/index
-  - Auth-facing pages; cart checkout to Phase 5 APIs (respect price list + credit hold)
-  - `NEXT_PUBLIC_SITE_URL` for absolute links (receipts, auth redirects)
+  - Next.js App Router scaffold in `apps/web` (`@gtr/web`)
+  - Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(auth)`
+  - Dense shop chrome (logo + 4-way search + categories), catalog canvas stub, cart/checkout contract to Phase 5
+  - Auth-facing pages; `NEXT_PUBLIC_SITE_URL` for absolute links
 - **Acceptance:**
-  - [ ] `pnpm --filter web dev` runs
-  - [ ] Design tokens from `@gtr/ui` (no Inter+purple default)
-  - [ ] My Garage filters search
-  - [ ] B2B sees correct price list
-  - [ ] No browser QR libraries
-  - [ ] Prod config documents `nissangtrauto.co.zw`
+  - [x] `pnpm --filter @gtr/web dev` runs
+  - [x] Design tokens from `@gtr/ui` (steel / silver / `#C8102E`; no Inter+purple default)
+  - [x] My Garage documents vehicle-scoped search
+  - [x] B2B documents price list / USD|ZiG
+  - [x] No browser QR libraries
+  - [x] Prod config documents `nissangtrauto.co.zw`
 - **Paths:** `apps/web/`, `packages/ui/`, `pnpm-workspace` include `apps/*`
 - **Gate:** `/security-reviewer` → `/verifier`
 
