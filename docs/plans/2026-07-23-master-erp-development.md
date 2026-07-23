@@ -453,9 +453,9 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`/manager`:** open **Phase 2** (Auth, roles, typed client).
-2. **`/planner`:** emit child plan `docs/plans/YYYY-MM-DD-phase2-auth-roles.md` if more detail needed.
-3. **`@backend_agent`:** implement Phase 2.
-4. Gates: `/supabase-rls-auditor` → `/security-reviewer` → `/verifier`.
+1. **`/manager`:** open **Phase 3** (Finance core + period/bank/naming).
+2. **`/planner`:** child plan `docs/plans/YYYY-MM-DD-phase3-finance-core.md`.
+3. **`@finance_agent` + `@backend_agent`:** implement Phase 3.
+4. Gates: `/security-reviewer` → `/verifier`.
 
-Do not start Phase 6 web UI until Phase 2 exit criteria pass (auth + types). Phase 3 and 4 may be sequenced tightly after Phase 2. When planning Phase 3+, pull acceptance lines from the **Distributor gap register** so naming series, period lock, and Draft/Submit land before sales volume.
+Do not start Phase 6 web UI until Phase 2 exit criteria pass (auth + types — **done**). Phase 3 and 4 may be sequenced tightly after Phase 2.
