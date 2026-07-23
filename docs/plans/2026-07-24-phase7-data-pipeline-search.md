@@ -13,12 +13,12 @@ Greenfield `data-pipeline/`: parse/validate FAST (+ fixture diagrams) → idempo
 
 ## Acceptance criteria
 
-- [ ] Python project under `data-pipeline/` runs independently (no client-app build dependency)
-- [ ] JSON Schema–validated outputs for `vehicle_master`, `pnc_categories`, `part_fitment`, `diagram_assets`
-- [ ] Idempotent import into Supabase tables (+ diagram objects to Storage)
-- [ ] Search supports part / VIN / model / PNC paths (contracts match Phase 6 `/search` modes)
-- [ ] Shop Phase 7 slice data available: fitment browse payloads, VIN + make/model/engine, OEM + supersession/OE refs, PDP fitment/specs-shaped rows, brand/category (PNC) facets
-- [ ] pytest covers schema validate + import idempotency + search path smoke
+- [x] Python project under `data-pipeline/` runs independently (no client-app build dependency)
+- [x] JSON Schema–validated outputs for `vehicle_master`, `pnc_categories`, `part_fitment`, `diagram_assets`
+- [x] Idempotent import into Supabase tables (+ diagram objects to Storage) — dry-run + optional `--live`; Storage upload follow-on
+- [x] Search supports part / VIN / model / PNC paths (contracts match Phase 6 `/search` modes) — PG FTS RPC + fixture index
+- [x] Shop Phase 7 slice data available: fitment browse payloads, VIN + make/model/engine, OEM + supersession/OE refs, PDP fitment/specs-shaped rows, brand/category (PNC) facets — Navara D40 fixture pack
+- [x] pytest covers schema validate + import idempotency + search path smoke
 - [ ] `/verifier` green; no ZIMRA / payroll tax / HTML5 QR
 
 ## Search decision (recommend)

@@ -245,7 +245,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Phase 7 — Data pipeline + search
 
-- **Status:** Planned
+- **Status:** In progress (scaffold — pipeline + PG FTS RPC; Meili deferred)
 - **Child plan:** [`docs/plans/2026-07-24-phase7-data-pipeline-search.md`](./2026-07-24-phase7-data-pipeline-search.md)
 - **Lane:** `@data_pipeline_agent` (+ thin `@backend_agent` for Storage/FTS/OE schema if needed)
 - **Skills:** `/nissan-fast-parser`, `/parts-catalog-ingestion`
@@ -257,9 +257,9 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
   - Import jobs to Supabase Storage + tables
   - Meilisearch (or PG FTS interim) + search API
 - **Acceptance:**
-  - [ ] Schema-validated pipeline output
-  - [ ] Idempotent import
-  - [ ] Search supports part / VIN / model / PNC paths
+  - [x] Schema-validated pipeline output
+  - [x] Idempotent import
+  - [x] Search supports part / VIN / model / PNC paths (PG FTS interim)
 - **Out of scope:** Live production scrapers without rate limits/robots respect; AutoDoc skip list (plate lookup, marketplace, browser QR, ZIMRA)
 - **Gate:** `/verifier` (pipeline tests)
 
