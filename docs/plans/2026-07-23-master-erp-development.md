@@ -85,8 +85,8 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 
 | Bucket | Items | Phases |
 |--------|-------|--------|
-| Adopt soon | Fitment browse + sticky garage vehicle; make/model/engine + VIN; OEM search + OE cross-refs; PDP photos/specs/OE/fitment; honest stock; brand/category facets; core-charge on PDP; USD\|ZiG; click & collect vs dispatch; order status/tracking; WhatsApp/ask-counter CTA | **7**, then **10** / **13** |
-| Later | Alternatives strip; wishlist/back-in-stock; returns portal; garage service reminders; compare; kits; loyalty; reviews; customer apps | **11** / **15** / **16** |
+| Adopt soon | Fitment browse + sticky garage vehicle; make/model/engine + VIN; OEM search + OE cross-refs; PDP photos/specs/OE/fitment; honest stock; brand/category facets; core-charge on PDP; USD\|ZiG; click & collect vs dispatch; order status/tracking; WhatsApp/ask-counter CTA | **UI in Phase 6**; live data **7** / **10** / **13** |
+| Later | Alternatives strip; wishlist/back-in-stock; returns portal; garage service reminders; compare; kits; loyalty; reviews; customer apps | **UI under `/account` + `/kits`**; live **11** / **15** / **16** |
 | Skip | UK plate lookup; marketplace; pan-EU logistics branding; huge DIY Club; browser QR; ZIMRA | Never |
 
 ---
