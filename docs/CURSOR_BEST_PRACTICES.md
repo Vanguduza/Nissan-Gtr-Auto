@@ -10,13 +10,14 @@ Extended playbook beyond the core setup prompt. These practices complement `rufl
 Path-specific rules in `.cursor/rules/*.mdc` use `alwaysApply: false` with descriptive `description` fields. Cursor loads them only when the agent judges them relevant — keeping web sessions lean even with 30+ module rules.
 
 ### Scoped Skills with `paths`
+Repo-wide skills live under `.cursor/skills/` (domain ERP skills + ui-ux-pro-max suite + `token-discipline`).
 As apps are scaffolded, add nested skills under each app directory:
 ```
-.cursor/skills/                    # repo-wide (release, ERP domain)
+.cursor/skills/                    # repo-wide (ERP domain + design)
 apps/web/.cursor/skills/           # deploy-web, supabase-types
 apps/ios/.cursor/skills/           # xcode-test, app-store
 ```
-Use `disable-model-invocation: true` on heavy skills (ui-ux-pro-max) so they load only via explicit `/skill-name` invocation.
+Heavy design skills already use `disable-model-invocation: true` so they load only via explicit `/ui-ux-pro-max` (etc.). See `docs/TOOLING_SETUP.md`.
 
 ### `.cursorignore` for Indexing Hygiene
 Excludes build artifacts, caches, generated types, and large binary assets from Cursor's codebase index. Reindex after changes: Command Palette → "Reindex".

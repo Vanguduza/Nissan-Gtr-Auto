@@ -47,9 +47,12 @@ insertion. Revenue and COGS must remain accurate.
 1. Load skills only when their trigger condition matches the current task.
 2. Stay within your agent lane (see rufler.yaml). Cross-lane work routes to named agents.
 3. Propose targeted diffs/patches for existing files — full-file output only for new files.
-4. Check claude-mem for prior schema decisions and exclusions before re-deriving from blueprints.
+4. Check claude-mem and `docs/decisions/` for prior schema decisions before re-deriving from blueprints.
 5. Reference relevant sub-sections of long specs rather than re-quoting entire sections.
 6. Batch related migrations, rule updates, or skill edits into single passes.
+7. Heavy design skills (ui-ux-pro-max, brand, slides, design-system) are explicit-invoke only — never load them for non-UI tasks.
+8. Prefer progressive memory search (index → timeline → details) over dumping full histories into context.
+9. See `/token-discipline` and `.cursor/rules/session_discipline.mdc`.
 
 ## Code Conventions
 
