@@ -1,0 +1,13 @@
+---
+description: Always-on token and lane discipline for Nissan GTR Auto ERP (short)
+alwaysApply: true
+---
+
+# Session Discipline (Always On)
+
+1. Identify your `rufler.yaml` lane before reading code. Stay in-lane.
+2. Do not load blueprint PDFs or all skills. Use `/token-discipline`, `docs/decisions/`, and claude-mem search first.
+3. Heavy design skills (`/ui-ux-pro-max`, brand, slides) are explicit-invoke only.
+4. Targeted diffs for existing files. Full files only when new.
+5. Never introduce ZIMRA, payroll tax, or HTML5/browser QR scanning.
+6. After non-trivial work, run `/verifier`. After migrations, run `/supabase-rls-auditor`.
