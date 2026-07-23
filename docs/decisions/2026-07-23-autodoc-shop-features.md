@@ -1,69 +1,60 @@
 # Decision: AutoDoc shop-feature adoption
 
-- **Date:** 2026-07-23
+- **Date:** 2026-07-23 (amended same day — full soon+later committed to storefront IA)
 - **Status:** Accepted
 - **Lane:** `@web_agent` (primary); `@data_pipeline_agent` (fitment/search); Phase 10/13 lanes for fulfillment & receipts
-- **Related:** `2026-07-23-storefront-autodoc-logo.md` (IA/chrome only)
+- **Related:** `2026-07-23-storefront-autodoc-logo.md`
 
 ## Context
 
-AutoDoc-style spare-parts shop UX is the reference for *which customer-facing capabilities to prioritize*, not a mandate to copy their product. Scaffold chrome already exists (Phase 6); live catalog/search and fulfillment close the gap. Agents must not re-derive adopt / later / skip from competitor research.
+AutoDoc-style spare-parts shop UX is the reference for customer-facing capabilities. **Adopt soon** and **adopt later** are both scheduled into the storefront / account module (UI shells now; live data as phases land). Skip list unchanged.
 
 ## Decision
 
-Prioritize shop capabilities as below. Do not implement UK-market, marketplace, or excluded hardware/fiscal patterns.
+### My Account module
 
-### Adopt soon (mostly Phase 7; then 10 / 13)
+**My Garage** lives under **My Account** (`/account/garage`), not a top-level nav peer. Account hub: `/account`.
 
-| Capability | Notes / phase |
-|------------|---------------|
-| Fitment-aware browse + sticky garage vehicle | Phase 7 index + Phase 6 garage UX |
-| Make / model / engine + VIN entry | Phase 7 search paths |
-| OEM / part search + OE cross-refs | Phase 7 |
-| PDP: photos, specs, OE, fitment | Phase 7 data + `@web_agent` PDP |
-| Honest stock states | Inventory read APIs; no fake “always in stock” |
-| Brand / category facets | Phase 7 facets |
-| Core-charge on PDP | Parent-child cart; Phase 5 contract |
-| USD \| ZiG prices | Explicit currency; rate at transaction |
-| Click & collect vs dispatch | Phase 10 logistics modes |
-| Order status / tracking | Phase 10 / 13 |
-| WhatsApp / ask-counter CTA | Align with customer-receipt WhatsApp path (Phase 13) |
+### Adopt soon — storefront IA
 
-### Later (Phases 11 / 15 / 16 as noted)
+| Capability | Route / surface |
+|------------|-----------------|
+| Fitment-aware browse + sticky garage vehicle | Sticky bar sitewide; filters PLP/PDP |
+| Make / model / engine + VIN | `/vehicle` + header search modes |
+| OEM search + OE cross-refs | `/search`, PDP OE tab |
+| PDP: photos, specs, OE, fitment, core charge, stock, USD\|ZiG | `/parts/[oem]` |
+| Honest stock states | Stock badge component |
+| Brand / category facets | `/catalog` PLP |
+| Click & collect vs dispatch | Checkout / `/account/orders` fulfillment choice |
+| Order status / tracking | `/account/orders`, `/account/orders/[id]` |
+| WhatsApp / ask-counter CTA | Shared CTA on PDP + account |
 
-| Capability | Phase hint |
-|------------|------------|
-| Alternatives strip | 15 polish or post-7 enrichment |
-| Wishlist / back-in-stock notify | 15 / 16 |
-| Returns portal (customer) | 15; Quarantine protocol still applies |
-| Garage service reminders | 15 / 16 |
-| Compare | 15 |
-| Kits | 16 |
-| Loyalty | 16 |
-| Reviews | 15 / 16 |
-| Customer apps (iOS / Android) | 11 |
+### Adopt later — under My Account (or shop)
 
-### Skip (never schedule from AutoDoc parity)
+| Capability | Route |
+|------------|-------|
+| Wishlist / back-in-stock | `/account/wishlist` |
+| Returns portal | `/account/returns` |
+| Garage service reminders | `/account/garage` (reminders panel) |
+| Compare | `/account/compare` |
+| Kits | `/kits` |
+| Loyalty | `/account/loyalty` |
+| Reviews | On PDP (stub) + `/account/reviews` |
+| Alternatives strip | On PDP |
+| Customer apps | Phase 11 (link from account) |
 
-| Capability | Why |
-|------------|-----|
-| UK plate lookup | Wrong market; VIN + make/model/engine only |
-| Marketplace (3P sellers) | Single-distributor ERP |
-| Pan-EU logistics branding | Local click & collect / dispatch |
-| Huge DIY Club / content hub | Out of scope for ERP storefront |
-| Browser / HTML5 QR | Bridge-First only |
-| ZIMRA / fiscalisation | Hard exclusion |
+### Skip (never)
 
-## Phase mapping (summary)
+UK plate · marketplace · pan-EU branding · DIY Club · HTML5 QR · ZIMRA
 
-| Bucket | Phases |
-|--------|--------|
-| Adopt soon | **7** (catalog/search/fitment/PDP data), then **10** (fulfillment modes, tracking), **13** (payments/receipts/WhatsApp CTA) |
-| Later | **11** (customer apps), **15** (parity polish), **16** (kits, loyalty, extras) |
-| Skip | Global out of scope — do not add to gap register |
+### Fonts & styles
+
+- **Display / chrome:** Titillium Web (AutoDoc-dense UI)
+- **Body:** Source Sans 3
+- **Palette:** steel `#12151C`, red `#C8102E`, silver `#C0C5CE`, chalk content ground
+- Avoid Inter / purple / cream-serif / broadsheet
 
 ## Consequences
 
-- Storefront work after Phase 6 scaffold follows this list; do not reopen “should we build marketplace / plate lookup / DIY Club?”
-- `@web_agent` binds UI to Phase 7 search/fitment APIs; does not invent browser QR or ZIMRA.
-- Phase 16 kits/loyalty already cover the overlapping “later” AutoDoc extras — no duplicate gap rows required beyond this decision.
+- Agents implement account + shop routes above; do not re-litigate Garage as top-level-only.
+- Backend binding follows Phases 7 / 10 / 13 / 16; UI may ship stubbed.
