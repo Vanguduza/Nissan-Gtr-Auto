@@ -1,0 +1,131 @@
+.hero {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  align-items: end;
+  overflow: hidden;
+  color: var(--gtr-red-ink);
+  background: var(--gtr-steel);
+}
+
+.plane {
+  position: absolute;
+  inset: -8%;
+  background:
+    radial-gradient(ellipse 80% 55% at 70% 20%, rgba(200, 16, 46, 0.35), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 15% 80%, rgba(11, 110, 79, 0.18), transparent 50%),
+    linear-gradient(145deg, #0a0c11 0%, #1a2030 48%, #12151c 100%);
+  animation: gtr-drift 18s ease-in-out alternate infinite;
+  will-change: transform;
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-image: repeating-linear-gradient(
+    -12deg,
+    transparent 0 2px,
+    rgba(255, 255, 255, 0.03) 2px 3px
+  );
+  pointer-events: none;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  width: min(42rem, 100%);
+  padding: clamp(6.5rem, 14vh, 9rem) clamp(1rem, 4vw, 2.5rem)
+    clamp(2.5rem, 8vh, 4.5rem);
+}
+
+.brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.75rem, 9vw, 5.5rem);
+  line-height: 0.92;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.rule {
+  width: 4.5rem;
+  height: 3px;
+  margin: 1.1rem 0 1.35rem;
+  background: var(--gtr-red);
+  transform-origin: left center;
+  animation: gtr-line 520ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.35rem, 3.2vw, 1.85rem);
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  max-width: 18ch;
+}
+
+.lede {
+  margin: 1rem 0 0;
+  max-width: 36ch;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 1.75rem;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 2px;
+  transition: transform 180ms ease-out, background 180ms ease-out,
+    border-color 180ms ease-out;
+}
+
+.primary {
+  background: var(--gtr-red);
+  color: var(--gtr-red-ink);
+}
+
+.primary:hover,
+.primary:focus-visible {
+  transform: translateY(-1px);
+  background: #e01234;
+}
+
+.secondary {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.secondary:hover,
+.secondary:focus-visible {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plane {
+    animation: none;
+  }
+
+  .rule {
+    animation: none;
+    transform: none;
+  }
+}
