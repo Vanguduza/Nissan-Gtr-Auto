@@ -154,6 +154,7 @@ Phases **6 ∥ 7** and **9 ∥ 8** may overlap only when file paths do not confl
   - [ ] Core charge split at cart insert
   - [ ] Return links to originating invoice/batch
   - [ ] Journals posted for sale/return/COGS
+  - [ ] Emits domain/outbox events: `order_received`, `order_completed` (for Phase 13 manager SMS)
 - **Out of scope:** ContiPay capture (Phase 13), HTML5 QR
 - **Gate:** `/security-reviewer` → `/verifier`
 
