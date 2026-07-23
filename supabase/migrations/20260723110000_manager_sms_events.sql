@@ -79,10 +79,8 @@ CREATE TRIGGER domain_events_no_delete
   BEFORE DELETE ON public.domain_events
   FOR EACH ROW EXECUTE PROCEDURE public.forbid_domain_event_mutation();
 
-/**
- * Record a domain event and enqueue SMS rows for opted-in managers.
- * Safe to call before SMS provider exists (rows stay pending).
- */
+-- Record a domain event and enqueue SMS for opted-in managers.
+-- Safe before SMS provider exists (rows stay pending).
 CREATE OR REPLACE FUNCTION public.emit_domain_event(
   p_event_code TEXT,
   p_dedupe_key TEXT,
@@ -100,6 +98,10 @@ DECLARE
   v_body TEXT;
   v_desc TEXT;
 BEGIN
+  IF auth.role() = 'authenticated' AND NOT public.is_staff() THEN
+    RAISE EXCEPTION 'Only staff or service role may emit domain events';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM public.sms_event_catalog c
     WHERE c.code = p_event_code AND c.is_active
@@ -109,11 +111,9 @@ BEGIN
 
   INSERT INTO public.domain_events (event_code, dedupe_key, payload, actor_user_id)
   VALUES (p_event_code, p_dedupe_key, COALESCE(p_payload, '{}'::jsonb), p_actor_user_id)
-  ON CONFLICT (event_code, dedupe_key) DO UPDATE
-    SET payload = EXCLUDED.payload
+  ON CONFLICT (event_code, dedupe_key) DO NOTHING
   RETURNING id INTO v_event_id;
 
-  -- ON CONFLICT DO UPDATE still returns id; for pure conflict no-op re-select
   IF v_event_id IS NULL THEN
     SELECT id INTO v_event_id
     FROM public.domain_events
