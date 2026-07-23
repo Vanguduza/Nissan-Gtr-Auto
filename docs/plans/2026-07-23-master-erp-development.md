@@ -220,7 +220,7 @@ Phases **6 ∥ 7** and **9 ∥ 8** may overlap only when file paths do not confl
 
 - **Lanes:** `@backend_agent`, `@management_app_agent`, `@hardware_mobile_agent` (GPS bridge contract)
 - **Build:** Delivery jobs, ~5s location ingest, Realtime for dispatcher/customer maps (MapLibre)
-- **Acceptance:** Trail stored with retention policy; role-gated reads
+- **Acceptance:** Trail stored with retention policy; role-gated reads; emits `delivery_completed` outbox event for manager SMS
 - **Gate:** `/security-reviewer` → `/verifier`
 
 ---
@@ -299,6 +299,7 @@ Phases **6 ∥ 7** and **9 ∥ 8** may overlap only when file paths do not confl
 | Schema thrash | Decisions in `docs/decisions/`; Phase 1–3 stabilize finance/inventory first |
 | Mobile before APIs | Phases 11–12 blocked on 5–6 API contracts |
 | Scraper legal/ops issues | Pipeline etiquette rules; prefer licensed FAST sources |
+| SMS without events | Phases 5/10/13 emit outbox events early; prefs + send in Phase 13 |
 
 ---
 
