@@ -92,8 +92,11 @@
   border-radius: 2px;
   background: var(--gtr-red);
   color: #fff;
-  font: inherit;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   padding: 0 1.1rem;
   cursor: pointer;
   transition: background var(--gtr-hover);
