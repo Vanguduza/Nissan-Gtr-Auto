@@ -3,15 +3,6 @@
   padding: clamp(1.75rem, 4vw, 2.75rem) 0;
 }
 
-.section > .sectionHead,
-.section > .catGrid,
-.section > :is(form),
-.section > :global([class*="catalog"]) {
-  width: min(1120px, 100%);
-  margin-inline: auto;
-  padding-inline: clamp(0.85rem, 3vw, 1.5rem);
-}
-
 .section {
   background: var(--gtr-chalk);
 }
