@@ -58,7 +58,7 @@ CREATE POLICY profiles_update_own
   USING (id = auth.uid())
   WITH CHECK (
     id = auth.uid()
-    AND is_staff = (SELECT p.is_staff FROM public.profiles p WHERE p.id = auth.uid())
+    AND is_staff = public.is_staff()
   );
 
 -- Fail-closed admin RPCs (service_role OR admin staff role only)
