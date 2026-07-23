@@ -245,9 +245,12 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Phase 7 — Data pipeline + search
 
-- **Lane:** `@data_pipeline_agent`
+- **Status:** Planned
+- **Child plan:** [`docs/plans/2026-07-24-phase7-data-pipeline-search.md`](./2026-07-24-phase7-data-pipeline-search.md)
+- **Lane:** `@data_pipeline_agent` (+ thin `@backend_agent` for Storage/FTS/OE schema if needed)
 - **Skills:** `/nissan-fast-parser`, `/parts-catalog-ingestion`
 - **Shop adopt (Phase 7 slice):** fitment-aware browse data, VIN/make/model/engine search, OEM + OE cross-refs, PDP specs/fitment payloads, brand/category facets — see `docs/decisions/2026-07-23-autodoc-shop-features.md`
+- **Search decision (child):** PG FTS interim; Meilisearch deferred — ADR `docs/decisions/2026-07-24-search-index-interim-pg-fts.md` during implement
 - **Build:**
   - Python project under `data-pipeline/`
   - FAST parse → fitment JSON; diagram scrape → bbox JSON
@@ -428,7 +431,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`/manager`:** open **Phase 7** (data pipeline + search index) — storefront UI is scaffolded; search/catalog need the index.
+1. **`/manager`:** execute **Phase 7** child plan [`2026-07-24-phase7-data-pipeline-search.md`](./2026-07-24-phase7-data-pipeline-search.md) — storefront UI is scaffolded; search/catalog need the index.
 2. Optional parallel: **Phase 4b** cycle count or **Phase 5b** warranty on a worktree.
 3. Gates: `/verifier` (pipeline) → advance.
 
