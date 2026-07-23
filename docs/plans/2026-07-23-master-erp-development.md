@@ -102,7 +102,7 @@ Intake from operational + ERPNext-pattern review. Each item is scheduled below; 
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | Pending |
 | 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | Pending |
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending |
-| 13 | Payments allocation, ContiPay, SMS, forecast | `@backend_agent`, `@web_agent` | 5, 6 | Pending |
+| 13 | Payments, ContiPay, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | Pending |
 | 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | Pending |
 | 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | Pending |
 | 16 | Distributor extras (bins, kits, consignment, loyalty) | `@backend_agent` + UI lanes | 15 or after 8/13 | Pending |
@@ -344,7 +344,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ---
 
-## Phase 13 — Payments allocation, ContiPay, SMS, forecasting
+## Phase 13 — Payments, ContiPay, manager SMS, customer receipts, forecasting
 
 - **Lanes:** `@backend_agent`, `@web_agent`, `@management_app_agent` (recipient prefs)
 - **Build:**
@@ -352,14 +352,19 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
   - **Payment Entry** — allocate cash/bank/ContiPay/store-credit across one or many invoices (partial OK)
   - **Store credit** from refunds / overpayments; redeemable at POS/checkout
   - **Manager key-event SMS** (required): full catalog in `docs/decisions/2026-07-23-manager-sms-key-events.md`
-  - Marketing SMS promos tied to My Garage (separate from ops alerts)
+  - **Customer transaction receipts** (required): `docs/decisions/2026-07-23-customer-receipt-delivery.md`
+    - SMS: transaction **summary** + **PDF download link at bottom**
+    - Same PDF via **email and/or WhatsApp**
+    - Server-side PDF (no ZIMRA/fiscal); signed Storage URL; outbox retry; idempotent per doc+channel
+  - Marketing SMS promos tied to My Garage (separate from ops alerts and receipts)
   - Forecasting → Material Request / requisition suggestions
 - **Acceptance:**
   - [ ] Secrets in server only; no ZIMRA fiscal payloads on receipts
   - [ ] Payment allocation clears AR correctly (multi-invoice, multi-currency)
   - [ ] Store credit issue/redeem posts balanced journals
   - [ ] Domain events for order/payment/delivery fire once per occurrence
-  - [ ] Only managers with that event enabled receive SMS
+  - [ ] Only managers with that event enabled receive ops SMS
+  - [ ] Customer SMS summary includes PDF link; email/WhatsApp deliver PDF when contact present
   - [ ] Failed sends retried/logged without duplicate spam on success path
 - **Gate:** `/security-reviewer` → `/verifier`
 
