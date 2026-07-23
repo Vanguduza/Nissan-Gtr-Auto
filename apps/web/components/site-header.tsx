@@ -14,6 +14,7 @@ const categories = [
   { href: "/catalog?cat=cooling", label: "Cooling" },
   { href: "/catalog?cat=body", label: "Body" },
   { href: "/catalog?cat=transmission", label: "Drivetrain" },
+  { href: "/kits", label: "Kits" },
 ];
 
 export function SiteHeader() {

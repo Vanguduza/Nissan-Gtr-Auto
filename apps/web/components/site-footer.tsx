@@ -29,7 +29,9 @@ export function SiteFooter() {
           <p className={styles.mark}>Nissan GTR Auto · nissangtrauto.co.zw</p>
           <nav className={styles.links} aria-label="Footer">
             <Link href="/catalog">Catalog</Link>
-            <Link href="/garage">My Garage</Link>
+            <Link href="/account">My Account</Link>
+            <Link href="/account/garage">My Garage</Link>
+            <Link href="/kits">Kits</Link>
             <Link href="/b2b">B2B</Link>
             <Link href="/login">Sign in</Link>
           </nav>
