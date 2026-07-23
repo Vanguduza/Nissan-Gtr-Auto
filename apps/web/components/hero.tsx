@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SiteHeader } from "@/components/site-header";
 import styles from "./hero.module.css";
 
 export function StorefrontHero() {
@@ -6,6 +7,7 @@ export function StorefrontHero() {
     <section className={styles.hero} aria-label="Nissan GTR Auto">
       <div className={styles.plane} aria-hidden />
       <div className={styles.grain} aria-hidden />
+      <SiteHeader overlay />
       <div className={styles.content}>
         <p className={`${styles.brand} gtr-rise`}>Nissan GTR Auto</p>
         <div className={`${styles.rule} gtr-rise-delay`} aria-hidden />
