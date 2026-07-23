@@ -1,0 +1,86 @@
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1.5rem;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(ellipse 70% 50% at 80% 0%, rgba(200, 16, 46, 0.2), transparent),
+    var(--gtr-steel);
+  color: #fff;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.form {
+  width: min(22rem, 100%);
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2px;
+}
+
+.title {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.input {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+}
+
+.submit {
+  margin-top: 0.35rem;
+  border: 0;
+  border-radius: 2px;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  background: var(--gtr-red);
+  color: #fff;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.alt {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.alt a {
+  text-decoration: underline;
+}

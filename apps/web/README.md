@@ -1,10 +1,21 @@
-# apps/web
+# apps/web — Nissan GTR Auto storefront
 
-Next.js customer storefront, My Garage, visual parts catalog, B2B portal.
-
+- Domain (prod): https://nissangtrauto.co.zw
 - Lane: `@web_agent`
-- Rules: `.cursor/rules/nextjs_web.mdc`
-- Design: invoke `/ui-ux-pro-max` before major UI work
-- Shared: `packages/shared`, `packages/ui`, `packages/supabase-client`
+- Design: `@gtr/ui` tokens + brand-first hero (no Inter/purple defaults)
+- **No browser QR libraries**
 
-Scaffold status: placeholder (not yet initialized).
+```bash
+pnpm install
+pnpm --filter @gtr/web dev
+```
+
+Copy root `.env.example` values into `apps/web/.env.local` (or repo `.env.local` if using Next load from root via dotenv — prefer `apps/web/.env.local`):
+
+```
+NEXT_PUBLIC_SITE_URL=https://nissangtrauto.co.zw
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(auth)`.
