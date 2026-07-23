@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { VehicleSelector } from "@/components/vehicle-selector";
-import styles from "./(storefront)/page.module.css";
+import styles from "../page.module.css";
 
 export const metadata = { title: "Select vehicle" };
 
