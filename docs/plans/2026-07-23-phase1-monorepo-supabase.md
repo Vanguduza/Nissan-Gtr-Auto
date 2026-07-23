@@ -1,8 +1,9 @@
 # Phase 1 — Monorepo + Supabase foundation
 
-- Status: in progress
+- Status: **done** (in-repo; apply DB locally)
 - Lane(s): @backend_agent (primary), packages scaffolding
 - Skills: /accounting-ledger (schema only)
+- Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 1
 
 ## Goal
 
