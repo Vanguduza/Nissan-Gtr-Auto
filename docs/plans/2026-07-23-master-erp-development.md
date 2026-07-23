@@ -45,7 +45,8 @@ Ship a multi-platform composable ERP for Nissan spare-parts distribution (one Su
 | Phase | Name | Primary lane(s) | Depends on | Status |
 |------:|------|-----------------|------------|--------|
 | 0 | Orchestration & tooling | repo / docs | — | **Done** |
-| 1 | Monorepo + schema foundation | `@backend_agent` | 0 | **Done** (apply DB locally) |
+| 1 | Monorepo + schema foundation | `@backend_agent` | 0 | **Done** |
+| 1b | Manager SMS event catalog + outbox | `@backend_agent` | 1 | **Done** (gateway later) |
 | 2 | Auth, roles, typed client | `@backend_agent` | 1 | Next |
 | 3 | Finance core (posting + statements) | `@finance_agent`, `@backend_agent` | 2 | Pending |
 | 4 | Inventory ops (receipt, transfer, QR data) | `@backend_agent`, `@hardware_mobile_agent` | 2 | Pending |
@@ -77,6 +78,15 @@ Phases **6 ∥ 7** and **9 ∥ 8** may overlap only when file paths do not confl
 
 **Exit criteria:** pnpm packages; migrations for CoA, ledger, warehouses (Quarantine), inventory, vehicle/PNC/fitment; RLS + seed.  
 **Local remaining:** `supabase start && supabase db reset && pnpm db:types`.
+
+---
+
+## Phase 1b — Manager SMS events (early)
+
+**Decision:** `docs/decisions/2026-07-23-manager-sms-key-events.md`  
+**Migration:** `supabase/migrations/20260723110000_manager_sms_events.sql`
+
+**Exit criteria:** Full event catalog seeded; `domain_events` + `sms_outbox` + prefs; RPC `emit_domain_event`; shared `SMS_EVENT_CODES`. SMS provider **not** required yet.
 
 ---
 
