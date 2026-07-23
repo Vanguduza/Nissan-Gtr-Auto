@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from "react";
 import type { Metadata } from "next";
 import { Barlow_Condensed, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
@@ -35,7 +36,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body
@@ -43,7 +44,7 @@ export default function RootLayout({
           {
             "--font-display": "var(--font-display-loaded), var(--font-display)",
             "--font-body": "var(--font-body-loaded), var(--font-body)",
-          } as React.CSSProperties
+          } as CSSProperties
         }
       >
         {children}
