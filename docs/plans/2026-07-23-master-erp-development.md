@@ -245,7 +245,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Phase 7 — Data pipeline + search
 
-- **Status:** In progress (scaffold — pipeline + PG FTS RPC; Meili deferred)
+- **Status:** **Done** (first slice — pipeline + PG FTS RPC; Meili deferred; storefront bind follow-on)
 - **Child plan:** [`docs/plans/2026-07-24-phase7-data-pipeline-search.md`](./2026-07-24-phase7-data-pipeline-search.md)
 - **Lane:** `@data_pipeline_agent` (+ thin `@backend_agent` for Storage/FTS/OE schema if needed)
 - **Skills:** `/nissan-fast-parser`, `/parts-catalog-ingestion`
@@ -431,8 +431,8 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`/manager`:** execute **Phase 7** child plan [`2026-07-24-phase7-data-pipeline-search.md`](./2026-07-24-phase7-data-pipeline-search.md) — storefront UI is scaffolded; search/catalog need the index.
+1. **`@web_agent`:** bind Phase 6 `/search` (+ PLP/PDP) to `search_catalog` RPC after migration apply + fixture import.
 2. Optional parallel: **Phase 4b** cycle count or **Phase 5b** warranty on a worktree.
-3. Gates: `/verifier` (pipeline) → advance.
+3. Apply migration: `supabase db reset` (or migration up) → import: `cd data-pipeline && python -m data_pipeline.import_catalog --live`.
 
-Phases 2–6 complete (4b still pending). Run storefront: `pnpm dev:web`.
+Phases 2–7 first slice complete (4b/5b still pending). Pipeline tests: `cd data-pipeline && pytest`. Storefront: `pnpm dev:web`.

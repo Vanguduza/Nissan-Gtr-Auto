@@ -38,3 +38,5 @@ Thumbs.db
 # Python
 __pycache__/
 .venv/
+*.egg-info/
+data-pipeline/.venv/
