@@ -217,20 +217,24 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Phase 6 — Web storefront
 
 - **Lane:** `@web_agent`
-- **Status:** **Done** (scaffold + AutoDoc-inspired chrome; live search index = Phase 7)
+- **Status:** **Done** (scaffold + AutoDoc chrome; adopt-soon + adopt-later IA under My Account; live data = Phases 7/10/13/16)
 - **Skills:** `/ui-ux-pro-max` (explicit), `/parts-catalog-ingestion` (consume only)
 - **Domain:** Production host `https://nissangtrauto.co.zw` (`docs/decisions/2026-07-23-company-domain.md`); local `http://127.0.0.1:3000`
 - **Design:** `docs/decisions/2026-07-23-storefront-autodoc-logo.md` — AutoDoc-inspired IA + official logo
-- **Feature adopt list:** `docs/decisions/2026-07-23-autodoc-shop-features.md` (adopt soon → Phase 7/10/13; later → 11/15/16; skip plate/marketplace/DIY Club/browser QR/ZIMRA)
+- **Feature adopt list:** `docs/decisions/2026-07-23-autodoc-shop-features.md` — soon+later UI committed; skip plate/marketplace/DIY Club/browser QR/ZIMRA
+- **Fonts:** Titillium Web (display) + Source Sans 3 (body); steel / red / silver tokens in `@gtr/ui`
 - **Build:**
   - Next.js App Router scaffold in `apps/web` (`@gtr/web`)
-  - Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(auth)`
-  - Dense shop chrome (logo + 4-way search + categories), catalog canvas stub, cart/checkout contract to Phase 5
+  - Route groups: `(storefront)`, `(account)`, `(b2b)`, `(auth)`; `/garage` → `/account/garage`
+  - Dense shop chrome, sticky garage bar, PLP facets, PDP, vehicle selector, kits stub
+  - **My Account** hub: garage, orders/tracking, wishlist, returns, compare, loyalty, reviews, apps
+  - Cart fulfillment choice (click & collect vs dispatch); WhatsApp CTA on PDP
   - Auth-facing pages; `NEXT_PUBLIC_SITE_URL` for absolute links
 - **Acceptance:**
   - [x] `pnpm --filter @gtr/web dev` runs
-  - [x] Design tokens from `@gtr/ui` (steel / silver / `#C8102E`; no Inter+purple default)
-  - [x] My Garage documents vehicle-scoped search
+  - [x] Design tokens from `@gtr/ui` (Titillium + Source Sans 3; steel / silver / `#C8102E`)
+  - [x] My Garage under My Account (`/account/garage`)
+  - [x] Adopt-soon + adopt-later routes scaffolded (stub data until Phase 7+)
   - [x] B2B documents price list / USD|ZiG
   - [x] No browser QR libraries
   - [x] Prod config documents `nissangtrauto.co.zw`
