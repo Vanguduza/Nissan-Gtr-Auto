@@ -1,4 +1,5 @@
-import type { CurrencyCode, Money } from "../index.js";
+import type { CurrencyCode, Money } from "../money.js";
+import { assertCurrency } from "../money.js";
 
 export interface JournalLineInput {
   accountCode: string;
@@ -43,6 +44,8 @@ export function saleJournalLines(params: {
   inventoryAccount?: string;
   cashOrArAccount?: "1100" | "1200";
 }): JournalLineInput[] {
+  assertCurrency(params.revenue.currency);
+  assertCurrency(params.cogs.currency);
   const cashOrAr = params.cashOrArAccount ?? "1200";
   const inventory = params.inventoryAccount ?? "1300";
   const lines: JournalLineInput[] = [
