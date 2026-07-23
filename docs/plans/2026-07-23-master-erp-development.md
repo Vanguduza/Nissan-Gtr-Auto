@@ -412,8 +412,8 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`/manager`:** open **Phase 6** (web storefront) — Phase 5 APIs are ready; or **Phase 4b** cycle count if warehouse needs it first.
-2. Prefer **Phase 6** to unblock customer UX; 5b warranty can follow in parallel on a worktree.
-3. Gates: `/security-reviewer` → `/verifier`.
+1. **`/manager`:** open **Phase 7** (data pipeline + search index) — storefront UI is scaffolded; search/catalog need the index.
+2. Optional parallel: **Phase 4b** cycle count or **Phase 5b** warranty on a worktree.
+3. Gates: `/verifier` (pipeline) → advance.
 
-Phases 2–5 complete (4b still pending).
+Phases 2–6 complete (4b still pending). Run storefront: `pnpm dev:web`.
