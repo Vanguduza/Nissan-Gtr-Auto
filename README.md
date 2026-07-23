@@ -83,6 +83,12 @@ This repo is designed for **path-routed polyglot multi-agent development** in Cu
 
 Install claude-mem early — it is the backbone of context discipline across long multi-session builds.
 
+### Development mode: Local-first
+
+**Primary workflow is Cursor Desktop on your machine.** Cloud Agents are optional for long/overnight tasks only.
+
+→ **Switch / set up local:** [`docs/LOCAL_DEVELOPMENT.md`](docs/LOCAL_DEVELOPMENT.md)
+
 ### Additional Cursor Best Practices
 
 Beyond the core setup prompt, this repo also includes:
@@ -92,7 +98,7 @@ Beyond the core setup prompt, this repo also includes:
 - **Subagents** — `supabase-rls-auditor`, `verifier`, `hardware-bridge-specialist`
 - **Bugbot rules** — ERP-specific PR review gates (RLS required, no ZIMRA references)
 - **Hooks** — format-on-edit, production URL guards, migration test triggers
-- **Cloud environment** — `.cursor/environment.json` for reproducible Cloud Agent VMs
+- **Cloud environment** — `.cursor/environment.json` (optional; used only by Cloud Agents)
 - **Worktrees** — `.cursor/worktrees.json` for parallel platform development
 - **Permissions/sandbox** — safe agent execution boundaries
 
@@ -100,13 +106,15 @@ See `docs/CURSOR_BEST_PRACTICES.md` for the full extended playbook.
 
 ## Development
 
-> Apps are not yet scaffolded. Follow the execution order in the setup prompt:
+> Apps are not yet scaffolded. Prefer **local Cursor Desktop** (see `docs/LOCAL_DEVELOPMENT.md`).
+>
+> Execution order:
 >
 > 1. Orchestration files (done)
-> 2. Install external tooling (claude-mem, ui-ux-pro-max)
+> 2. Install external tooling (claude-mem, ui-ux-pro-max) in Cursor Desktop
 > 3. Supabase schema (Chart of Accounts, ledger, vehicle_master, inventory)
 > 4. Financial module
-> 5. Hardware bridges (QR + printer)
+> 5. Hardware bridges (QR + printer) — **local only** (needs devices/SDK)
 > 6. Data pipeline + visual catalog
 > 7. ERPNext parity checklist
 > 8. Supporting capabilities (ContiPay, GPS, offline sync, etc.)

@@ -77,10 +77,22 @@ Before opening a PR, verify:
 - [ ] Targeted diffs, not full-file rewrites of existing code
 - [ ] Shared logic in `packages/shared/`, not duplicated per app
 
-## Cloud Agent Instructions
+## Local-First (Default)
 
-When running as a Cloud Agent:
+Primary development happens in **Cursor Desktop** on a developer's machine.
+See `docs/LOCAL_DEVELOPMENT.md` for clone, open, and toolchain steps.
+
+When working locally:
+- Use Agent / Composer in the IDE against this repo root.
+- Invoke lane agents via prompts (`@backend_agent`, etc.) and subagents (`/verifier`).
+- Run Supabase, Node, Xcode, and Android Studio toolchains on the host.
+- Commit on `cursor/<descriptive-name>-ad25` branches and open PRs as usual.
+
+## Cloud Agent Instructions (Optional)
+
+Only when intentionally using a remote Cloud Agent:
 - Use `.cursor/environment.json` for environment setup.
+- Prefer Cloud Agents for long schema/docs/backend passes — not for iOS/Android/hardware.
 - Run tests before marking work complete.
 - Commit and push to `cursor/<descriptive-name>-ad25` branches.
 - Create draft PRs via the PR management tool.
