@@ -92,8 +92,7 @@ export function SearchFourWay({
       </div>
       {!isHeader ? (
         <p className={styles.hint}>
-          Sign in for live catalog results. Part hits link to product pages when
-          stocked in demo data.
+          Sign in for live catalog results. OEM hits link through to part pages.
         </p>
       ) : null}
     </form>
