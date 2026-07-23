@@ -28,7 +28,7 @@ export default function AccountPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>My Account</h1>
         <p className={styles.lede}>
-          Manage vehicles, orders, wishlist, returns, and loyalty — My Garage
+          Personal details, addresses, vehicles, orders, and loyalty — My Garage
           lives here.
         </p>
         <div className={styles.cardGrid}>
