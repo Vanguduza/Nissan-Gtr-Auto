@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Block dangerous production commands.
-# Called by Cursor beforeShellExecution hook with failClosed: true.
+# Cursor beforeShellExecution: JSON in on stdin, JSON out on stdout.
 
 set -euo pipefail
 
-COMMAND="${1:-}"
+input=$(cat || true)
+COMMAND=$(printf '%s' "$input" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
 
 BLOCKED_PATTERNS=(
   "supabase db push.*--linked"
@@ -22,21 +23,20 @@ BLOCKED_PATTERNS=(
 )
 
 for pattern in "${BLOCKED_PATTERNS[@]}"; do
-  if echo "$COMMAND" | grep -qiE "$pattern"; then
-    echo "BLOCKED: Command matches production guard pattern: $pattern"
-    echo "Command was: $COMMAND"
-    exit 1
+  if [ -n "$COMMAND" ] && echo "$COMMAND" | grep -qiE "$pattern"; then
+    printf '{"permission":"deny","user_message":"BLOCKED: Command matches production guard pattern: %s","agent_message":"BLOCKED: Command matches production guard pattern: %s"}' "$pattern" "$pattern"
+    exit 0
   fi
 done
 
-# Block if SUPABASE_URL points to production (not localhost)
 if [ -n "${SUPABASE_URL:-}" ]; then
   if ! echo "$SUPABASE_URL" | grep -qE "localhost|127\.0\.0\.1"; then
-    if echo "$COMMAND" | grep -qiE "supabase db (reset|push|migrate)"; then
-      echo "BLOCKED: Supabase command against non-local URL: $SUPABASE_URL"
-      exit 1
+    if [ -n "$COMMAND" ] && echo "$COMMAND" | grep -qiE "supabase db (reset|push|migrate)"; then
+      printf '{"permission":"deny","user_message":"BLOCKED: Supabase command against non-local URL","agent_message":"BLOCKED: Supabase command against non-local URL: %s"}' "$SUPABASE_URL"
+      exit 0
     fi
   fi
 fi
 
+echo '{ "permission": "allow" }'
 exit 0
