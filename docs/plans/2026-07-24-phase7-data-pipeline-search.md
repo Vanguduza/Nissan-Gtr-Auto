@@ -1,6 +1,6 @@
 # Phase 7 — Data pipeline + search index
 
-- Status: **done** (first slice; Meili deferred; Phase 6 live bind follow-on) (first slice scaffold landed)
+- Status: **done** (first slice; Meili deferred; Phase 6 live bind follow-on)
 - Lane(s): `@data_pipeline_agent` (primary); thin `@backend_agent` only for schema/Storage/search API gaps
 - Skills needed: `/nissan-fast-parser`, `/parts-catalog-ingestion`
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 7 (L246–261)
@@ -19,7 +19,8 @@ Greenfield `data-pipeline/`: parse/validate FAST (+ fixture diagrams) → idempo
 - [x] Search supports part / VIN / model / PNC paths (contracts match Phase 6 `/search` modes) — PG FTS RPC + fixture index
 - [x] Shop Phase 7 slice data available: fitment browse payloads, VIN + make/model/engine, OEM + supersession/OE refs, PDP fitment/specs-shaped rows, brand/category (PNC) facets — Navara D40 fixture pack
 - [x] pytest covers schema validate + import idempotency + search path smoke
-- [ ] `/verifier` green; no ZIMRA / payroll tax / HTML5 QR
+- [x] `/verifier` green; no ZIMRA / payroll tax / HTML5 QR
+- [x] `/security-reviewer` + `/supabase-rls-auditor` (REVOKE PUBLIC fixed; RLS PASS)
 
 ## Search decision (recommend)
 
