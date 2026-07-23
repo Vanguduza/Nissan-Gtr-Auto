@@ -87,8 +87,8 @@ Intake from operational + ERPNext-pattern review. Each item is scheduled below; 
 | 0 | Orchestration & tooling | repo / docs | — | **Done** |
 | 1 | Monorepo + schema foundation | `@backend_agent` | 0 | **Done** |
 | 1b | Manager SMS event catalog + outbox | `@backend_agent` | 1 | **Done** (gateway later) |
-| 2 | Auth, roles, typed client | `@backend_agent` | 1 | Next |
-| 3 | Finance core + period/bank/naming | `@finance_agent`, `@backend_agent` | 2 | Pending |
+| 2 | Auth, roles, typed client | `@backend_agent` | 1 | **Done** |
+| 3 | Finance core + period/bank/naming | `@finance_agent`, `@backend_agent` | 2 | Next |
 | 4 | Inventory ops (receipt, transfer, QR, UOM) | `@backend_agent`, `@hardware_mobile_agent` | 2 | Pending |
 | 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | Pending |
 | 5 | Sales / POS / cart / invoices / commercial | `@backend_agent`, `@management_app_agent` | 3, 4 | Pending |
@@ -134,23 +134,12 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ---
 
-## Phase 2 — Auth, roles, typed client
+## Phase 2 — Auth, roles, typed client (done)
 
-- **Lane:** `@backend_agent`
-- **Skills:** none required
-- **Build:**
-  - Auth signup/login hooks → `profiles` row
-  - Staff role assignment admin path
-  - Regenerate `database.types.ts`
-  - Seed script for local admin/finance/warehouse users (dev only)
-- **Acceptance (≤8):**
-  - [ ] New user gets `profiles` row
-  - [ ] `has_staff_role` / `is_staff` work in RLS smoke tests
-  - [ ] No service_role in client packages
-  - [ ] Types generated and committed process documented
-- **Paths:** `supabase/`, `packages/supabase-client/`, optional `supabase/seed.sql`
-- **Out of scope:** UI login screens (Phase 6/11)
-- **Gate:** `/supabase-rls-auditor` → `/security-reviewer` → `/verifier`
+**Child plan:** `docs/plans/2026-07-23-phase2-auth-roles.md`  
+**Migrations:** `20260723200000_auth_profiles_roles.sql`, `20260723201000_auth_is_staff_hardening.sql`
+
+**Exit criteria:** Signup → profiles; `assign_staff_role` / `revoke_staff_role`; `is_staff` not client-escalatable; types generated; local seed users.
 
 ---
 
