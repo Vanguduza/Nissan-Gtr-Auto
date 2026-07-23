@@ -86,6 +86,7 @@ Default **enabled for subscription UI** (managers still must opt in). Priority h
 - Every catalog browse, cart line add, GPS ping, successful login
 - Marketing/My Garage promos (separate marketing SMS channel)
 - ZIMRA / fiscal / tax messages (forbidden)
+- **Customer sale receipts** — separate channel: see `docs/decisions/2026-07-23-customer-receipt-delivery.md` (summary SMS + PDF link; PDF via email/WhatsApp)
 
 ## Rules
 

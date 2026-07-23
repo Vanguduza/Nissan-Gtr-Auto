@@ -67,6 +67,7 @@ Intake from operational + ERPNext-pattern review. Each item is scheduled below; 
 | Pick / pack / Delivery Note | 10 | Pick List / Delivery Note |
 | Payment Entry → invoice allocation | 13 | Payment Entry |
 | Store credit (refund path) | 13 | Payment Entry / Credit Note link |
+| **Customer receipt SMS + PDF (email/WhatsApp)** | 5 emit / 13 send | — (not ERPNext; local requirement) |
 
 ### Later distributor extras (Phase 16)
 
