@@ -17,8 +17,10 @@
   --gtr-zig: #b45309;
   --gtr-hover: 150ms ease-out;
   --gtr-shop-max: 1120px;
-  --font-display: "Titillium Web", "Arial Narrow", sans-serif;
-  --font-body: "Source Sans 3", "Segoe UI", sans-serif;
+  /* Prefer next/font variables; fall back if not injected */
+  --font-display: var(--font-display-loaded), "Arial Narrow", "Helvetica Neue",
+    sans-serif;
+  --font-body: var(--font-body-loaded), "Segoe UI", "Helvetica Neue", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
@@ -36,7 +38,7 @@ body {
   margin: 0;
   min-height: 100dvh;
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--gtr-steel);
   background: var(--gtr-chalk);
@@ -55,16 +57,23 @@ img {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
 h1,
 h2,
-h3 {
+h3,
+h4 {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+button {
+  font-family: var(--font-display);
 }
 
 @keyframes gtr-rise {
@@ -82,8 +91,13 @@ h3 {
   animation: gtr-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.gtr-rise-delay {
+  animation: gtr-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .gtr-rise {
+  .gtr-rise,
+  .gtr-rise-delay {
     animation: none;
   }
 }
