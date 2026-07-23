@@ -19,4 +19,14 @@ export function createBrowserClient(
   });
 }
 
+/** Admin RPC args — call via `supabase.rpc('assign_staff_role', …)`. */
+export function assignStaffRoleArgs(userId: string, role: Database["public"]["Enums"]["staff_role"]) {
+  return { p_user_id: userId, p_role: role } as const;
+}
+
+export function revokeStaffRoleArgs(userId: string, role: Database["public"]["Enums"]["staff_role"]) {
+  return { p_user_id: userId, p_role: role } as const;
+}
+
 export type { Database, SupabaseClient };
+export type StaffRole = Database["public"]["Enums"]["staff_role"];
