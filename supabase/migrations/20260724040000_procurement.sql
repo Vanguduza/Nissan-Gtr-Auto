@@ -855,29 +855,12 @@ BEGIN
   );
 
   FOR v_row IN
-    SELECT grl.*
+    SELECT grl.*, pol.unit_price AS po_unit_price
     FROM public.goods_receipt_lines grl
+    JOIN public.purchase_order_lines pol ON pol.id = grl.purchase_order_line_id
     WHERE grl.goods_receipt_id = p_goods_receipt_id
     ORDER BY grl.created_at, grl.id
   LOOP
-    SELECT sel.id INTO v_sel
-    FROM public.stock_entry_lines sel
-    WHERE sel.stock_entry_id = v_entry
-      AND sel.stock_item_id = v_row.stock_item_id
-      AND sel.qty = v_row.qty
-      AND sel.stock_entry_line_id IS NULL
-    ORDER BY sel.created_at
-    LIMIT 1;
-
-    -- match without alias typo: use v_sel.id
-    SELECT sel.id INTO v_sel.id
-    FROM public.stock_entry_lines sel
-    WHERE sel.stock_entry_id = v_entry
-      AND sel.stock_item_id = v_row.stock_item_id
-      AND sel.qty = v_row.qty
-    ORDER BY sel.created_at
-    LIMIT 1;
-
     UPDATE public.goods_receipt_lines grl
     SET
       stock_entry_line_id = (
@@ -887,21 +870,20 @@ BEGIN
           AND sel.stock_item_id = grl.stock_item_id
           AND sel.qty = grl.qty
           AND sel.id NOT IN (
-            SELECT stock_entry_line_id FROM public.goods_receipt_lines
-            WHERE goods_receipt_id = p_goods_receipt_id
-              AND stock_entry_line_id IS NOT NULL
+            SELECT g2.stock_entry_line_id
+            FROM public.goods_receipt_lines g2
+            WHERE g2.goods_receipt_id = p_goods_receipt_id
+              AND g2.stock_entry_line_id IS NOT NULL
           )
         ORDER BY sel.created_at
         LIMIT 1
       ),
       price_variance_pct = CASE
-        WHEN pol.unit_price > 0 THEN
-          abs(grl.unit_cost - pol.unit_price) / pol.unit_price
+        WHEN v_row.po_unit_price > 0 THEN
+          abs(grl.unit_cost - v_row.po_unit_price) / v_row.po_unit_price
         ELSE NULL
       END
-    FROM public.purchase_order_lines pol
-    WHERE grl.id = v_row.id
-      AND pol.id = grl.purchase_order_line_id;
+    WHERE grl.id = v_row.id;
 
     UPDATE public.purchase_order_lines pol
     SET qty_received = qty_received + v_row.qty
