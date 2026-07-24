@@ -3,6 +3,8 @@ package co.zw.nissangtr.customer.rpc
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
@@ -10,6 +12,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -22,17 +25,45 @@ import kotlinx.serialization.json.put
  * Live supabase-kt [RpcClient] for cart / orders / garage / pay-initiate RPCs.
  *
  * Uses anon key + Auth session (never hardcode JWTs). Payment: RPC create only — no PSP crypto.
+ * Session persistence: auth-kt default Android session manager (Settings / SharedPreferences).
  */
 class SupabaseRpcClient(
     val client: SupabaseClient,
 ) : RpcClient {
 
-    /** GoTrue Auth plugin — sign-in or [importAccessToken] before authenticated RPCs. */
+    /** GoTrue Auth plugin — [signInWithEmail] (preferred) or [importAccessToken] fallback. */
     val auth: Auth get() = client.auth
 
+    /** Hot flow of GoTrue session state (persisted across process restarts). */
+    val sessionStatus: Flow<SessionStatus> get() = auth.sessionStatus
+
     /**
-     * Import an existing access token (e.g. from a future login screen).
-     * Prefer real sign-in flows when Auth UI exists — do not embed JWTs in source.
+     * Email/password sign-in via GoTrue. Session is stored by the SDK session manager —
+     * never put passwords or JWTs in BuildConfig.
+     */
+    suspend fun signInWithEmail(email: String, password: String) {
+        require(email.isNotBlank()) { "email required" }
+        require(password.isNotBlank()) { "password required" }
+        auth.signInWith(Email) {
+            this.email = email.trim()
+            this.password = password
+        }
+    }
+
+    /** Clears the persisted GoTrue session. */
+    suspend fun signOut() {
+        auth.signOut()
+    }
+
+    fun currentUserEmail(): String? =
+        auth.currentSessionOrNull()?.user?.email
+
+    fun isSignedIn(): Boolean =
+        auth.currentSessionOrNull() != null
+
+    /**
+     * Fallback: import an existing access token when a custom auth path cannot use
+     * [signInWithEmail]. Prefer real sign-in — do not embed JWTs in source.
      */
     suspend fun importAccessToken(
         accessToken: String,
