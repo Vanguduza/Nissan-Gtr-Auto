@@ -1,7 +1,7 @@
 # GTR Management — Android
 
 Staff/management shell with feature modules for POS, warehouse, dispatch, and HR attendance.
-Thin Compose scaffolds for **HR clock** and **logistics pick/DN** — not App Store polish.
+Thin Compose scaffolds for **HR clock** and **logistics pick/DN/delivery tracking** — not App Store polish.
 
 ## Prerequisites
 
@@ -13,13 +13,14 @@ Thin Compose scaffolds for **HR clock** and **logistics pick/DN** — not App St
 
 | Module | Package | Role |
 |--------|---------|------|
-| `:app` | `co.zw.nissangtr.management` | Launcher + route shell + auth gate |
+| `:app` | `co.zw.nissangtr.management` | Launcher + route shell + auth gate + GPS Activity attach |
 | `:core:rpc` | `…management.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
 | `:feature:auth` | `…management.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
 | `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
-| `:feature:dispatch` | `…management.dispatch` | Pick list + DN list/create/submit |
+| `:feature:dispatch` | `…management.dispatch` | Pick/DN + delivery job Start/Stop GPS |
 | `:feature:pos` | `…management.pos` | POS placeholder (empty) |
 | `:feature:warehouse` | `…management.warehouse` | Warehouse placeholder (empty) |
+| `:location-tracker` | `…bridges.location` | Included from `bridges/android/location-tracker` (consume only) |
 
 ## Screens (scaffolds)
 
@@ -27,9 +28,21 @@ Thin Compose scaffolds for **HR clock** and **logistics pick/DN** — not App St
 |--------|--------|-------------|
 | `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
-| `DispatchScreen` | `:feature:dispatch` | `create_pick_list`, `confirm_pick_lines`, `create_delivery_note`, `submit_delivery_note` |
+| `DispatchScreen` | `:feature:dispatch` | pick/DN + `create_delivery_job`, `update_delivery_job_status`, `ingest_delivery_location` |
 
-Also named (not yet on UI): `cancel_delivery_note`, `create_delivery_job`, `update_delivery_job_status`, `ingest_delivery_location` (bridge-only).
+Also named: `cancel_delivery_note` (RPC wired; not a dedicated button).
+
+## Delivery GPS (Bridge-First)
+
+1. `MainActivity` owns `FusedLocationGpsBridge`, calls `attachActivity` in `onResume`, and forwards
+   `onRequestPermissionsResult` for `REQUEST_LOCATION`.
+2. Driver opens **Logistics — Pick / DN / Track**.
+3. Select submitted DN → **Create job** → **Mark dispatched** (or paste an existing job UUID).
+4. **Start tracking** → bridge `requestLocationPermission` + `watchPosition` → client throttle ≥5s →
+   `toDeliveryLocationIngest` → `ingest_delivery_location` (Fake or Live RPC).
+5. **Stop tracking** → `GpsWatchHandle.stop()` (stops FGS).
+
+Compose never calls FusedLocation / `LocationManager` directly — only ViewModel → bridge.
 
 ## RPC binding: Fake vs Live
 
@@ -39,6 +52,14 @@ Also named (not yet on UI): `cancel_delivery_note`, `create_delivery_job`, `upda
 |------|------|----------------|
 | **Live** | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `rpc.forceFake` ≠ `true` | `SupabaseRpcClient` (supabase-kt BOM **3.1.1**: postgrest-kt + auth-kt) |
 | **Fake** | URL/key missing, or `rpc.forceFake=true` | `FakeRpcClient` (in-memory) |
+
+### Ingest coverage
+
+| RPC | Fake | Live |
+|-----|------|------|
+| `ingest_delivery_location` | Validates lat/lng; increments `ingestedLocationCount`; returns UUID | `postgrest.rpc` with `p_delivery_job_id`, `p_lat`, `p_lng`, `p_recorded_at?`, `p_accuracy_m?` |
+| `create_delivery_job` | In-memory job map (allows draft DN for scaffold) | Live RPC (requires submitted DN) |
+| `update_delivery_job_status` | Updates in-memory status | Live RPC (`dispatched` / `completed` / `failed`) |
 
 ### Switch / env
 
@@ -103,16 +124,19 @@ See `.env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY` only. Optional: `rpc.for
 cd apps/android-management
 ./gradlew assembleDebug          # macOS/Linux
 .\gradlew.bat assembleDebug      # Windows
+
+# Throttle unit test
+.\gradlew.bat :feature:dispatch:testDebugUnitTest
 ```
 
 ## Shared client (no duplicated pricing)
 
 - `@gtr/supabase-client` — typed staff RPCs later
 - `@gtr/shared` — money / cart / ledger helpers — **no duplicate pricing in app modules**
-- Hardware: `bridges/` contracts only
+- Hardware: `bridges/` contracts only (GPS via `:location-tracker`)
 
 ## Build status (this environment)
 
 | Target | Status |
 |--------|--------|
-| `assembleDebug` | **Not run** — host has no JDK on `PATH` / `JAVA_HOME`. Source + Gradle deps landed; assemble with JDK 17+ and Android SDK. |
+| `assembleDebug` | Run with JDK 17+ and Android SDK after wiring. |
