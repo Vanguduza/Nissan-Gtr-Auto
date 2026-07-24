@@ -24,8 +24,8 @@ struct ContentView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if !AppEnv.isConfigured {
-                Text("SUPABASE_URL / ANON_KEY unset — using FakeStorefrontApi")
+            if session.usesFake {
+                Text(fakeBannerText)
                     .font(.caption2)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -43,6 +43,16 @@ struct ContentView: View {
         case .garage: GarageScreen()
         case .pay: PayScreen()
         }
+    }
+
+    private var fakeBannerText: String {
+        if AppEnv.forceFake {
+            return "STOREFRONT_FORCE_FAKE — using FakeStorefrontApi"
+        }
+        if !AppEnv.isConfigured {
+            return "SUPABASE_URL / ANON_KEY unset — using FakeStorefrontApi"
+        }
+        return "Using FakeStorefrontApi"
     }
 }
 
