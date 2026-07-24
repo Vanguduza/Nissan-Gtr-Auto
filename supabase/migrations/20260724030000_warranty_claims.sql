@@ -42,11 +42,15 @@ CREATE TABLE public.warranty_claims (
     stock_serial_id IS NOT NULL OR sales_invoice_id IS NOT NULL
   ),
   CONSTRAINT warranty_claim_resolution_when_decided CHECK (
-    (status IN ('open', 'closed') AND resolution IS NULL)
+    (status = 'open' AND resolution IS NULL)
     OR (status = 'rejected' AND resolution = 'reject_only')
     OR (
       status = 'approved'
       AND resolution IN ('replacement', 'credit_note', 'return_only')
+    )
+    OR (
+      status = 'closed'
+      AND resolution IN ('replacement', 'credit_note', 'return_only', 'reject_only')
     )
   )
 );
