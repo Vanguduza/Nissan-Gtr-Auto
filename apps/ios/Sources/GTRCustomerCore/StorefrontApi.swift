@@ -239,111 +239,21 @@ public final class FakeStorefrontApi: StorefrontApi {
     }
 }
 
-/// Documented live client — RPC / edge names match web; requires Supabase Swift SDK wiring on Mac.
+/// Factory — Fake when env missing / force-fake; Live when URL + anon present.
 ///
-/// Until the SDK is linked, calls throw describing the target RPC.
-/// No ContiPay/Paynow secrets or HMAC live in the app binary.
-@MainActor
-public final class LiveStorefrontApi: StorefrontApi {
-    public init() {}
-
-    public func createCart(
-        warehouseId _: UUID,
-        currency _: StorefrontCurrency,
-        fulfillmentMode _: FulfillmentMode,
-        exchangeRate _: Decimal
-    ) async throws -> UUID {
-        try requireConfigured()
-        throw StorefrontError.message(
-            "Live: rpc create_customer_cart(p_warehouse_id, p_currency, p_fulfillment_mode, p_exchange_rate) — wire supabase-swift."
-        )
-    }
-
-    public func addCartLine(
-        cartId _: UUID,
-        stockItemId _: UUID,
-        uomId _: UUID,
-        qty _: Decimal
-    ) async throws -> UUID {
-        try requireConfigured()
-        throw StorefrontError.message(
-            "Live: rpc add_customer_cart_line(p_cart_id, p_stock_item_id, p_uom_id, p_qty)."
-        )
-    }
-
-    public func checkoutCart(cartId _: UUID) async throws -> UUID {
-        try requireConfigured()
-        throw StorefrontError.message("Live: rpc checkout_customer_cart(p_cart_id).")
-    }
-
-    public func loadOpenCart() async throws -> CartSummary? {
-        try requireConfigured()
-        throw StorefrontError.message(
-            "Live: select pos_carts where channel=storefront status=open (RLS own rows)."
-        )
-    }
-
-    public func listOrders() async throws -> [CustomerOrder] {
-        try requireConfigured()
-        throw StorefrontError.message(
-            "Live: select sales_invoices doc_type=invoice (RLS own) — detail via get_customer_order."
-        )
-    }
-
-    public func getOrder(invoiceId _: UUID) async throws -> CustomerOrder {
-        try requireConfigured()
-        throw StorefrontError.message("Live: rpc get_customer_order(p_invoice_id).")
-    }
-
-    public func listGarage() async throws -> [GarageVehicle] {
-        try requireConfigured()
-        throw StorefrontError.message(
-            "Live: select customer_garage_vehicles (RLS own)."
-        )
-    }
-
-    public func upsertGarage(_: GarageVehicleInput) async throws -> UUID {
-        try requireConfigured()
-        throw StorefrontError.message("Live: rpc upsert_customer_garage_vehicle(...).")
-    }
-
-    public func deleteGarage(id _: UUID) async throws {
-        try requireConfigured()
-        throw StorefrontError.message("Live: rpc delete_customer_garage_vehicle(p_id).")
-    }
-
-    public func createContipayIntent(
-        invoiceId _: UUID,
-        method _: ContipayMethod
-    ) async throws -> PaymentIntentResult {
-        try requireConfigured()
-        throw StorefrontError.message(
-            "Live: prefer functions.invoke contipay-initiate; fallback rpc create_customer_contipay_intent — no client PSP crypto."
-        )
-    }
-
-    public func createPaynowIntent(
-        invoiceId _: UUID,
-        method _: PaynowMethod
-    ) async throws -> PaymentIntentResult {
-        try requireConfigured()
-        throw StorefrontError.message(
-            "Live: prefer functions.invoke paynow-initiate; fallback rpc create_customer_paynow_intent — no client PSP crypto."
-        )
-    }
-
-    private func requireConfigured() throws {
-        guard AppEnv.isConfigured else { throw StorefrontError.notConfigured }
-    }
-}
-
-/// Factory — Fake when env missing (scaffold default); Live when URL + anon key present.
+/// Live uses URLSession PostgREST (`POST …/rest/v1/rpc/{name}`) so Windows scaffolds
+/// need no supabase-swift resolve. On macOS you may later swap the transport for SPM
+/// supabase-swift without changing `StorefrontApi` call sites.
 @MainActor
 public enum StorefrontApiFactory {
     public static func make() -> any StorefrontApi {
-        if AppEnv.isConfigured {
-            return LiveStorefrontApi()
+        guard AppEnv.prefersLive else {
+            return FakeStorefrontApi()
         }
-        return FakeStorefrontApi()
+        do {
+            return try LiveStorefrontApi()
+        } catch {
+            return FakeStorefrontApi()
+        }
     }
 }
