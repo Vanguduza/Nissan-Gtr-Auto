@@ -1387,4 +1387,176 @@ BEGIN
 END;
 $$;
 
--- PATCH_MARKER_RPCS
+CREATE OR REPLACE FUNCTION public._post_stock_reconciliation(p_reconciliation_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_recon public.stock_reconciliations%ROWTYPE;
+  v_line RECORD;
+  v_wh_quar BOOLEAN;
+  v_inv_acct TEXT;
+  v_delta NUMERIC;
+  v_batch UUID;
+  v_batch_code TEXT;
+  v_write_up NUMERIC;
+  v_write_down NUMERIC;
+  v_lines JSONB := '[]'::jsonb;
+  v_journal UUID;
+  v_rate NUMERIC;
+BEGIN
+  PERFORM public._recon_begin_rpc();
+  PERFORM public._require_warehouse_staff();
+
+  SELECT * INTO v_recon
+  FROM public.stock_reconciliations
+  WHERE id = p_reconciliation_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'reconciliation not found: %', p_reconciliation_id;
+  END IF;
+  IF v_recon.status NOT IN ('draft', 'pending_approval') THEN
+    RAISE EXCEPTION 'reconciliation not submittable (status=%)', v_recon.status;
+  END IF;
+  IF v_recon.status = 'pending_approval' THEN
+    IF v_recon.first_approver_id IS NULL OR v_recon.second_approver_id IS NULL THEN
+      RAISE EXCEPTION 'dual-auth approvers required before posting';
+    END IF;
+    IF v_recon.first_approver_id = v_recon.second_approver_id THEN
+      RAISE EXCEPTION 'second approver must be a different staff user';
+    END IF;
+  END IF;
+
+  IF public.is_period_locked(CURRENT_DATE) THEN
+    RAISE EXCEPTION 'accounting period is locked for today';
+  END IF;
+
+  PERFORM public._recon_assert_single_currency(p_reconciliation_id);
+
+  SELECT is_quarantine INTO v_wh_quar
+  FROM public.warehouses
+  WHERE id = v_recon.warehouse_id;
+
+  IF v_wh_quar IS NULL THEN
+    RAISE EXCEPTION 'warehouse not found';
+  END IF;
+
+  v_inv_acct := CASE WHEN v_wh_quar THEN '1310' ELSE '1300' END;
+
+  FOR v_line IN
+    SELECT *
+    FROM public.stock_reconciliation_lines
+    WHERE stock_reconciliation_id = p_reconciliation_id
+      AND variance_qty <> 0
+  LOOP
+    v_delta := v_line.variance_qty;
+
+    IF v_delta > 0 THEN
+      v_batch_code := public.next_series_value('BATCH-');
+      INSERT INTO public.stock_batches (
+        batch_code, stock_item_id, warehouse_id, valuation_method,
+        unit_cost, currency, qty_on_hand
+      )
+      VALUES (
+        v_batch_code,
+        v_line.stock_item_id,
+        v_recon.warehouse_id,
+        v_line.valuation_method,
+        v_line.unit_cost,
+        v_line.currency,
+        v_delta
+      )
+      RETURNING id INTO v_batch;
+
+      UPDATE public.stock_reconciliation_lines
+      SET stock_batch_id = v_batch
+      WHERE id = v_line.id;
+
+      PERFORM public._adjust_stock_level(
+        v_line.stock_item_id,
+        v_recon.warehouse_id,
+        v_delta,
+        v_line.valuation_method,
+        v_line.unit_cost,
+        v_line.currency
+      );
+    ELSE
+      PERFORM public._consume_fifo_batches(
+        v_line.stock_item_id,
+        v_recon.warehouse_id,
+        abs(v_delta)
+      );
+
+      PERFORM public._adjust_stock_level(
+        v_line.stock_item_id,
+        v_recon.warehouse_id,
+        v_delta,
+        v_line.valuation_method,
+        v_line.unit_cost,
+        v_line.currency
+      );
+    END IF;
+  END LOOP;
+
+  SELECT
+    COALESCE(round(SUM(CASE WHEN variance_qty > 0 THEN variance_qty * unit_cost ELSE 0 END), 2), 0),
+    COALESCE(round(SUM(CASE WHEN variance_qty < 0 THEN abs(variance_qty) * unit_cost ELSE 0 END), 2), 0)
+  INTO v_write_up, v_write_down
+  FROM public.stock_reconciliation_lines
+  WHERE stock_reconciliation_id = p_reconciliation_id
+    AND variance_qty <> 0;
+
+  IF v_write_up > 0 THEN
+    v_lines := v_lines || jsonb_build_array(
+      jsonb_build_object('account_code', v_inv_acct, 'debit', v_write_up, 'credit', 0),
+      jsonb_build_object('account_code', '5100', 'debit', 0, 'credit', v_write_up)
+    );
+  END IF;
+  IF v_write_down > 0 THEN
+    v_lines := v_lines || jsonb_build_array(
+      jsonb_build_object('account_code', '5100', 'debit', v_write_down, 'credit', 0),
+      jsonb_build_object('account_code', v_inv_acct, 'debit', 0, 'credit', v_write_down)
+    );
+  END IF;
+
+  v_rate := CASE
+    WHEN v_recon.currency = 'USD' THEN COALESCE(v_recon.exchange_rate_applied, 1)
+    ELSE v_recon.exchange_rate_applied
+  END;
+
+  IF jsonb_array_length(v_lines) > 0 THEN
+    v_journal := public._post_journal_entry_inventory(
+      CURRENT_DATE,
+      format('Stock reconciliation %s', COALESCE(v_recon.document_number, p_reconciliation_id::text)),
+      v_recon.currency,
+      v_rate,
+      v_lines
+    );
+  END IF;
+
+  UPDATE public.stock_reconciliations
+  SET
+    status = 'posted',
+    journal_entry_id = v_journal,
+    posted_at = now(),
+    variance_value_abs = public._recon_compute_variance_value(p_reconciliation_id)
+  WHERE id = p_reconciliation_id;
+
+  PERFORM public.emit_domain_event(
+    'stock_reconciliation_posted',
+    'stock_reconciliation:' || p_reconciliation_id::text,
+    jsonb_build_object(
+      'stock_reconciliation_id', p_reconciliation_id,
+      'warehouse_id', v_recon.warehouse_id,
+      'journal_entry_id', v_journal,
+      'variance_value_abs', public._recon_compute_variance_value(p_reconciliation_id)
+    )
+  );
+
+  RETURN p_reconciliation_id;
+END;
+$$;
+
