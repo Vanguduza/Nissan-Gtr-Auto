@@ -106,11 +106,9 @@ export function SupplierQuoteForm({ rfqId }: { rfqId: string }) {
   }, [refresh]);
 
   useEffect(() => {
-    if (currency === "ZIG" && exchangeRate === "1") {
-      setExchangeRate(String(zigExchangeRate()));
-    }
     if (currency === "USD") setExchangeRate("1");
-  }, [currency, exchangeRate]);
+    else setExchangeRate(String(zigExchangeRate()));
+  }, [currency]);
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
