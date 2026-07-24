@@ -41,14 +41,17 @@ export {
   PAYMENT_ENTRY_STATUSES,
   CONTIPAY_METHODS,
   CONTIPAY_INTENT_STATUSES,
+  PAYNOW_METHODS,
+  PAYNOW_INTENT_STATUSES,
   toAllocatePaymentArgs,
   type PaymentTender,
   type PaymentEntryStatus,
   type ContiPayMethod,
   type ContiPayIntentStatus,
+  type PaynowMethod,
+  type PaynowIntentStatus,
   type PaymentAllocationInput,
-} from "./payments/types.js";
-export {
+} from "./payments/types.js";export {
   WARRANTY_CLAIM_STATUSES,
   WARRANTY_CLAIM_RESOLUTIONS,
   WARRANTY_CLAIM_DOCUMENT_PREFIX,
