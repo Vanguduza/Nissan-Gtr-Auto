@@ -82,7 +82,6 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
       style: mapStyleUrl(),
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
-      attributionControl: true,
     });
     map.addControl(
       new NavigationControl({ showCompass: false }),
