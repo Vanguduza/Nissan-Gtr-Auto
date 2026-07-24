@@ -1,26 +1,69 @@
-# GTR Customer — Android (Phase 11 scaffold)
+# GTR Customer — Android
 
-Minimal Kotlin Compose shell. **No feature screens** until customer storefront APIs exist.
+Customer shell with thin Compose scaffolds for **cart**, **orders**, **My Garage**, and
+**ContiPay / Paynow intent create** — mirroring web AuthZ RPCs in `apps/web/lib/customer-storefront.ts`.
 
 ## Prerequisites
 
 - JDK 17+
-- Android SDK (API 34) + Android Studio or cmdline-tools
-- First-time wrapper (if `gradle/wrapper/gradle-wrapper.jar` missing):
+- Android SDK (API 34)
+- Wrapper jar (if missing): `gradle wrapper --gradle-version 8.7`
 
-```bash
-cd apps/android-customer
-gradle wrapper --gradle-version 8.7
+## Module layout
+
+| Module | Package | Role |
+|--------|---------|------|
+| `:app` | `co.zw.nissangtr.customer` | Launcher + route shell |
+| `:core:rpc` | `…customer.rpc` | `RpcClient` + `FakeRpcClient` + `RpcNames` |
+| `:feature:cart` | `…customer.cart` | Create / add line / checkout |
+| `:feature:orders` | `…customer.orders` | Invoice list + `get_customer_order` |
+| `:feature:garage` | `…customer.garage` | Upsert / delete / list vehicles |
+| `:feature:pay` | `…customer.pay` | ContiPay + Paynow intent create |
+
+## Screens (scaffolds)
+
+| Screen | Module | RPCs |
+|--------|--------|------|
+| `CartScreen` | `:feature:cart` | `create_customer_cart`, `add_customer_cart_line`, `checkout_customer_cart` |
+| `OrdersScreen` | `:feature:orders` | `get_customer_order` (+ own-invoice SELECT) |
+| `GarageScreen` | `:feature:garage` | `upsert_customer_garage_vehicle`, `delete_customer_garage_vehicle` |
+| `PayIntentScreen` | `:feature:pay` | `create_customer_contipay_intent`, `create_customer_paynow_intent` |
+
+## RPC binding: stub vs live
+
+**Current (stub):** `MainActivity` injects `FakeRpcClient` — in-memory UUIDs / lists so screens
+compile and exercise flows without the Supabase Kotlin SDK.
+
+**Live (TODO):** implement `RpcClient` with supabase-kt:
+
+```kotlin
+client.postgrest.rpc(RpcNames.CREATE_CUSTOMER_CART, mapOf(
+  "p_warehouse_id" to warehouseId,
+  "p_currency" to currency.rpcValue,
+  "p_fulfillment_mode" to fulfillmentMode.rpcValue,
+  "p_exchange_rate" to exchangeRate,
+))
 ```
+
+Wire from `BuildConfig.SUPABASE_URL` / `SUPABASE_ANON_KEY`. Cart-line / invoice / garage **lists**
+use PostgREST + RLS (same as web), not mutation RPCs.
+
+Canonical names live in `core/rpc/.../RpcNames.kt` — keep in sync with web +
+`supabase/migrations/20260724130000_customer_storefront_authz.sql`.
+
+Payment intents: **create only** (intent UUID). No PSP crypto/secrets in the app; settle stays
+webhook / service_role.
+
+## Exclusions
+
+- No ZIMRA / fiscal QR
+- No HTML5 / WebView QR — Bridge-First (`bridges/`) when camera scanning is added
+- No payroll tax (customer app)
+- No real ContiPay / Paynow HMAC or private keys
 
 ## Env placeholders
 
-Copy `.env.example` → local `.env` (gitignored) or set in `local.properties` / BuildConfig later:
-
-| Variable | Purpose |
-|----------|---------|
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Public anon key only |
+See `.env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY` only.
 
 ## Run
 
@@ -30,27 +73,14 @@ cd apps/android-customer
 .\gradlew.bat assembleDebug      # Windows
 ```
 
-Install debug APK via Android Studio **Run**, or `adb install app/build/outputs/apk/debug/app-debug.apk`.
-
 ## Shared client (no duplicated pricing)
 
-- Types / query helpers: `@gtr/supabase-client` (`packages/supabase-client`)
-- Money, cart, QR helpers: `@gtr/shared` (`packages/shared`)
-- Do **not** reimplement pricing or core-charge split in Kotlin — port or call shared logic later.
-
-QR / camera: Bridge-First via `bridges/` only. **No** HTML5 / WebView / ML Kit-in-app QR without a `bridges/android/` implementation.
-
-## Blockers (before feature bind)
-
-1. Customer-facing cart/checkout RPCs (or RLS + grants) distinct from staff POS, or documented reuse with AuthZ.
-2. Customer SELECT on own invoices / order status (+ optional DN/job summary) without staff role.
-3. Customer payment-intent path (or “pay at counter / web-only” decision in `docs/decisions/`).
-4. Optional: My Garage / wishlist live tables if parity with web `/account` stubs is required.
-
-See [`docs/plans/2026-07-24-phase11-12-mobile-scaffold.md`](../../docs/plans/2026-07-24-phase11-12-mobile-scaffold.md).
+- `@gtr/supabase-client` — typed customer RPCs later
+- `@gtr/shared` — money / cart / core-charge helpers — **no duplicate pricing in app modules**
+- Hardware: `bridges/` contracts only
 
 ## Build status (this environment)
 
 | Target | Status |
 |--------|--------|
-| `assembleDebug` | **Stub-only here** — no JDK / Android SDK on scaffold host; project files + wrapper props committed for when toolchain exists |
+| `assembleDebug` | **Source-ready** — host may lack JDK / Android SDK; assemble when toolchain is present |
