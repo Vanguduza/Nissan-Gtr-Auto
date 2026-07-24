@@ -3,17 +3,12 @@ package co.zw.nissangtr.customer.rpc
 /**
  * Thin customer RPC boundary for Compose screens.
  *
- * **Live binding (TODO):** replace [FakeRpcClient] with a Supabase Kotlin implementation:
- * ```
- * client.postgrest.rpc(RpcNames.CREATE_CUSTOMER_CART, mapOf(
- *   "p_warehouse_id" to warehouseId,
- *   "p_currency" to currency.rpcValue,
- *   "p_fulfillment_mode" to fulfillmentMode.rpcValue,
- *   "p_exchange_rate" to exchangeRate,
- * )).decodeAs<String>()
- * ```
+ * **Live:** [SupabaseRpcClient] via [RpcClientFactory] when `SUPABASE_URL` +
+ * `SUPABASE_ANON_KEY` are set (override with `rpc.forceFake=true`).
+ * **Fallback:** [FakeRpcClient].
+ *
  * List reads (open cart lines, own invoices, garage) use PostgREST / RLS —
- * not mutation RPCs — once supabase-kt is wired.
+ * not mutation RPCs.
  *
  * Payment intents: create only (no real PSP crypto). Settle stays webhook.
  * QR: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
@@ -35,12 +30,12 @@ interface RpcClient {
 
     suspend fun checkoutCustomerCart(cartId: String): String
 
-    /** Scaffold helper — live: SELECT open storefront cart + lines. */
+    /** Live: SELECT open storefront cart + lines via PostgREST + RLS. */
     suspend fun getOpenCart(): CartSummary?
 
     suspend fun getCustomerOrder(invoiceId: String): CustomerOrder
 
-    /** Scaffold list — live: SELECT sales_invoices own rows via RLS. */
+    /** Live: SELECT sales_invoices own rows via RLS. */
     suspend fun listOwnInvoices(): List<InvoiceSummary>
 
     suspend fun createCustomerContipayIntent(
@@ -55,7 +50,7 @@ interface RpcClient {
         metadataJson: String = "{}",
     ): PaymentIntentResult
 
-    /** Scaffold list — live: SELECT customer_garage_vehicles own rows. */
+    /** Live: SELECT customer_garage_vehicles own rows. */
     suspend fun listGarageVehicles(): List<GarageVehicle>
 
     suspend fun upsertCustomerGarageVehicle(input: GarageVehicleInput): String

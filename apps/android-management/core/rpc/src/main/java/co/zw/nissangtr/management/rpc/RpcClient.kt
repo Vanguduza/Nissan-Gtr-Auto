@@ -3,16 +3,10 @@ package co.zw.nissangtr.management.rpc
 /**
  * Thin staff RPC boundary for management Compose screens.
  *
- * **Live binding (TODO):** replace [FakeRpcClient] with a Supabase Kotlin implementation:
- * ```
- * // supabase-kt (when added to :app / :core:rpc):
- * client.postgrest.rpc(RpcNames.CLOCK_ATTENDANCE, mapOf(
- *   "p_employee_id" to employeeId,
- *   "p_event_type" to eventType.rpcValue,
- *   "p_occurred_at" to null,
- *   "p_notes" to notes,
- * )).decodeAs<String>()
- * ```
+ * **Live:** [SupabaseRpcClient] via [RpcClientFactory] when `SUPABASE_URL` +
+ * `SUPABASE_ANON_KEY` are set (override with `rpc.forceFake=true`).
+ * **Fallback:** [FakeRpcClient].
+ *
  * Reads (DN/pick list lists) use PostgREST `from("delivery_notes")` / PowerSync
  * bucket `by_staff_dispatch` — not mutation RPCs.
  *
@@ -25,10 +19,10 @@ interface RpcClient {
         notes: String? = null,
     ): String
 
-    /** Scaffold list — live: SELECT delivery_notes WHERE status IN ('draft','submitted'). */
+    /** Live: SELECT delivery_notes via PostgREST + RLS. */
     suspend fun listDeliveryNotes(): List<DeliveryNoteSummary>
 
-    /** Scaffold list — live: SELECT pick_lists open drafts. */
+    /** Live: SELECT pick_lists via PostgREST + RLS. */
     suspend fun listPickLists(): List<PickListSummary>
 
     suspend fun createPickList(salesInvoiceId: String, linesJson: String? = null): String
