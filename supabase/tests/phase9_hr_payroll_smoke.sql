@@ -124,6 +124,12 @@ BEGIN
 
   PERFORM public._test_set_auth_uid(v_admin);
 
+  -- Idempotent: clear prior smoke attendance for the day
+  DELETE FROM public.attendance_events
+  WHERE employee_id = v_emp
+    AND occurred_at >= v_day::timestamptz
+    AND occurred_at < (v_day + 1)::timestamptz;
+
   -- Clock in/out: 8 hours on period day
   PERFORM public.clock_attendance(
     v_emp,
