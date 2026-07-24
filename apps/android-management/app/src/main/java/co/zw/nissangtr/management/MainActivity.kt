@@ -21,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import co.zw.nissangtr.bridges.location.FusedLocationGpsBridge
+import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.management.auth.AuthGate
 import co.zw.nissangtr.management.auth.AuthModule
 import co.zw.nissangtr.management.dispatch.DispatchModule
@@ -44,10 +46,16 @@ private enum class ManagementRoute {
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
  * Live requires GoTrue email/password session via [AuthGate].
  * Money/pricing: @gtr/shared. Hardware: bridges/ contracts only.
+ *
+ * GPS: [FusedLocationGpsBridge] — Activity attachment + permission result forwarding.
  */
 class MainActivity : ComponentActivity() {
+
+    private lateinit var gpsBridge: FusedLocationGpsBridge
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        gpsBridge = FusedLocationGpsBridge(this)
         listOf(AuthModule.id, PosModule.id, WarehouseModule.id, DispatchModule.id, HrModule.id)
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
@@ -66,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
                         ManagementApp(
                             rpc = rpc,
+                            gps = gpsBridge,
                             liveRpc = live,
                             signedInEmail = email,
                             onSignOut = onSignOut,
@@ -75,11 +84,42 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        if (::gpsBridge.isInitialized) {
+            gpsBridge.attachActivity(this)
+        }
+    }
+
+    override fun onPause() {
+        if (::gpsBridge.isInitialized) {
+            gpsBridge.detachActivity()
+        }
+        super.onPause()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        @Suppress("DEPRECATION")
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (!::gpsBridge.isInitialized) return
+        if (requestCode == FusedLocationGpsBridge.REQUEST_LOCATION ||
+            requestCode == FusedLocationGpsBridge.REQUEST_BACKGROUND_LOCATION
+        ) {
+            gpsBridge.onPermissionResult()
+        }
+    }
 }
 
 @Composable
 private fun ManagementApp(
     rpc: RpcClient,
+    gps: GpsBridge,
     liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
@@ -99,6 +139,7 @@ private fun ManagementApp(
         )
         ManagementRoute.Dispatch -> DispatchScreen(
             rpc = rpc,
+            gps = gps,
             onBack = { route = ManagementRoute.Home },
         )
     }
@@ -146,7 +187,7 @@ private fun ManagementHome(
         Button(
             onClick = onDispatch,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Logistics — Pick / DN") }
+        ) { Text("Logistics — Pick / DN / Track") }
         Text(
             "Auth: GoTrue signInWith(Email). No payroll tax. Bridge-First for QR/GPS.",
             style = MaterialTheme.typography.bodySmall,
