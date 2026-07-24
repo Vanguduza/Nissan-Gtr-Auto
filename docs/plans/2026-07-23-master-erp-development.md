@@ -434,7 +434,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 **Done**
 - Docker + `npx supabase db reset` GREEN through `20260724060000_rfq_blanket.sql`.
 - Phase 6 search bind **done**; 4b / 5b / 8 smokes **PASS** (via `…51000` fixes).
-- Phase 8b migration + smoke on disk; plan **implemented (backend)**; reset applied 8b.
+- Phase 8b migration + smoke on disk; **`/verifier` PASS** (acceptance + RLS + exclusions); local DB at `20260724060000`.
 
 **In progress**
 1. **`@backend_agent`:** extend procurement mutation guards to RFQ / supplier quotation tables (Phase 8 `20260724061000` applied locally through Phase 8 only; **8b tables not yet guarded** — security follow-up from Phase 8 review).
