@@ -237,7 +237,7 @@ BEGIN
   BEGIN
     PERFORM public.create_blanket_release(
       v_blanket,
-      jsonb_build_array(jsonb_build_object('blanket_line_id', v_blanket_line, 'qty', 10)),
+      jsonb_build_array(jsonb_build_object('blanket_line_id', v_blanket_line, 'qty', 3)),
       'Should fail value'
     );
     RAISE EXCEPTION 'smoke fail: over-value release was allowed';
