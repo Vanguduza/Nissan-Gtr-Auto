@@ -1,0 +1,2 @@
+﻿components/staff-delivery-live-map.tsx(4,8): error TS1192: Module '"C:/Users/j/Desktop/nissan gtr/node_modules/.pnpm/maplibre-gl@6.0.0/node_modules/maplibre-gl/dist/maplibre-gl"' has no default export.
+EXIT:2
