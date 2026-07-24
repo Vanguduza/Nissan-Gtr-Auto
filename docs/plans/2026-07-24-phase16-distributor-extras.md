@@ -1,6 +1,6 @@
 # Phase 16 — Distributor extras (bins, kits, consignment, loyalty)
 
-- Status: **slice 1 done** (bins); slices 2–5 pending
+- Status: **slices 1–2 done** (bins, kits); slices 3–5 pending
 - Lane(s): `@backend_agent` (primary — schema/RPC/RLS); UI follow-on `@web_agent` / `@management_app_agent` via child tickets
 - Skills needed: `/token-discipline`; `/accounting-ledger` for consignment revenue timing + loyalty liability if points post to CoA
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) § Phase 16 + Later distributor extras
@@ -15,7 +15,7 @@ Ship ordered backend child slices for bin locations, kit/BOM sell, consignment s
 | Order | Slice | Migration slot (suggested) | Notes |
 |------:|-------|----------------------------|-------|
 | 1 | Bin / location within warehouse | `20260724120000_warehouse_bins.sql` | **Done** — RLS + CRUD RPCs + pick-path hints; smoke `phase16_bins_smoke.sql` |
-| 2 | Kits / BOM sell | next | Kit SKU and/or explode components at sale; core-charge rules unchanged |
+| 2 | Kits / BOM sell | `20260724121000_kits_bom_sell.sql` (+ `…20500_pick_path_hints_authz.sql`) | **Done** — stocked vs explode; no double stock/COGS; smoke `phase16_kits_smoke.sql` |
 | 3 | Consignment stock | next | Supplier-owned or customer-held; **no premature revenue** |
 | 4 | Loyalty / points (optional) | last | Only after store credit (Phase 13) proven; liability account if ledger-backed |
 | 5 | Attachments + doc timeline (soft) | anytime if cheap | Skip if not needed for AC |
@@ -33,9 +33,22 @@ One child plan or ticket per slice; do not combine all four in one mega-migratio
 - [x] No ZIMRA / payroll tax / HTML5 QR
 - [x] UI follow-on: `@management_app_agent` — bin CRUD + pick-path hints on pick lists (not blocking backend)
 
-## Acceptance criteria (remaining slices 2–5)
+### Slice 2 acceptance (kits / BOM)
 
-- [ ] Migration(s) after `20260724110000`/`20260724111000` reservation; RLS in same file(s)
+- [x] Migrations: `supabase/migrations/20260724120500_pick_path_hints_authz.sql` (DEFINER staff gate) + `supabase/migrations/20260724121000_kits_bom_sell.sql` (RLS in same file)
+- [x] `item_kits` / `item_kit_components` + RPCs (`create_item_kit` / `update_item_kit` / `add_kit_component` / `remove_kit_component`); Draft→Submit N/A (BOM master data)
+- [x] `sell_mode=explode`: cart header (revenue, `issues_stock=false`) + zero-price component lines (`issues_stock=true`); kit SKU stock untouched; COGS from components only
+- [x] `sell_mode=stocked`: kit SKU line only (BOM not exploded); COGS from kit SKU only; components unchanged
+- [x] Core-charge parent-child unchanged (core attaches to kit header)
+- [x] `add_cart_line` / `checkout_pos_cart` / `create_pick_list` honour `issues_stock` (no double-count)
+- [x] Smoke: `supabase/tests/phase16_kits_smoke.sql` (PASS via docker exec)
+- [x] Types regen note: `supabase gen types typescript --local > packages/supabase-client/src/database.types.ts` (follow-on)
+- [x] No ZIMRA / payroll tax / HTML5 QR; no consignment/loyalty
+- [x] UI follow-on: `@web_agent` / `@management_app_agent` — kit BOM CRUD + sell (not blocking backend)
+
+## Acceptance criteria (remaining slices 3–5)
+
+- [ ] Migration(s) after kits (`20260724121000`); RLS in same file(s)
 - [ ] Transactional docs use Draft → Submit → Cancel pattern where applicable; ledger append-only (reversing entries only)
 - [ ] Money fields carry `USD`\|`ZIG` + `exchange_rate_applied` when converted
 - [ ] Smoke SQL for the slice; types regen note for `packages/supabase-client/`
