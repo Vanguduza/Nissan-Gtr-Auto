@@ -1,6 +1,6 @@
 # Phase 4b — Stock reconciliation / cycle count
 
-- Status: **pending**
+- Status: **implemented** (smoke + `/supabase-rls-auditor` + `/security-reviewer` gates pending)
 - Lane(s): `@backend_agent` (primary); `@management_app_agent` (RPC/API contracts only — no full Android UI)
 - Skills needed: `/qr-inventory-workflow` (count scan later); `/accounting-ledger` (write-up/write-down journals)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 4b
