@@ -730,9 +730,7 @@ BEGIN
   -- Undo AR application on redeem
   IF v_row.movement = 'redeem' AND v_row.sales_invoice_id IS NOT NULL THEN
     UPDATE public.sales_invoices
-    SET
-      amount_paid = GREATEST(0, amount_paid - v_row.money_value),
-      updated_at = now()
+    SET amount_paid = GREATEST(0, amount_paid - v_row.money_value)
     WHERE id = v_row.sales_invoice_id;
 
     UPDATE public.customers
