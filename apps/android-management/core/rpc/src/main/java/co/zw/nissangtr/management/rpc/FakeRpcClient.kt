@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * In-memory stub so HR / dispatch screens compile and exercise flows without
- * the Supabase Kotlin SDK. Swap for a live client that calls [RpcNames].
+ * a configured Supabase project. Live: [SupabaseRpcClient] via [RpcClientFactory].
  *
  * Documented live RPC → param map:
  * - [RpcNames.CLOCK_ATTENDANCE]: p_employee_id, p_event_type, p_occurred_at?, p_notes?
