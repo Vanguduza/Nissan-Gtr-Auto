@@ -10,7 +10,8 @@ type NavItem = {
 const nav: NavItem[] = [
   { href: "/staff", label: "Hub", exact: true },
   { href: "/staff/hr", label: "HR" },
-  { href: "/staff/logistics", label: "Logistics" },
+  { href: "/staff/logistics", label: "Logistics", exact: true },
+  { href: "/staff/logistics/tracking", label: "Live map" },
 ];
 
 export function StaffNav({ current }: { current: string }) {
