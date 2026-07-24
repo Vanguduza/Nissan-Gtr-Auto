@@ -106,9 +106,9 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | **Done** (smokes PASS) |
 | 6 | Web storefront + My Account (Garage) + AutoDoc IA | `@web_agent` | 2, 4, 5 (read APIs) | **Done** (+ live `/search` bind) |
 | 7 | Data pipeline + search index | `@data_pipeline_agent` | 1, 6 (canvas can stub) | **Done** (PG FTS interim; Meili later) |
-| 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | **Done** (smokes PASS; mutation-guards follow-up) |
-| 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done (backend)** — verifier PASS; mutation guards + web UI follow-on |
-| 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | Pending |
+| 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | **Done** (smokes PASS; mutation guards `…61000`/`…63000`) |
+| 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done (backend)** — guards `…62000`/`…63000`; security+verifier PASS; web UI follow-on |
+| 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **In progress** |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | Pending |
 | 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | Pending |
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending |
@@ -432,23 +432,23 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Docker + `npx supabase db reset` GREEN through `20260724060000_rfq_blanket.sql`.
-- Phase 6 search bind **done**; 4b / 5b / 8 smokes **PASS** (via `…51000` fixes).
-- Phase 8b migration + smoke on disk; **`/verifier` PASS** (acceptance + RLS + exclusions); local DB at `20260724060000`.
+- Docker + `npx supabase db reset` GREEN through `20260724063000_procurement_end_rpc.sql`.
+- Phase 6 search bind; 4b / 5b / 8 / 8b smokes **PASS** (manager reset; `docker exec … psql`).
+- Procurement mutation guards: `…61000` (MR/PO/GRN/LCV), `…62000` (RFQ/quotes), `…63000` (depth-aware begin/end GUC).
+- Phase 8b: **`/security-reviewer` PASS**, **`/verifier` PASS** (backend). Optional residual: REVOKE table DML grants from `authenticated`.
 
 **In progress**
-1. **`@backend_agent`:** extend procurement mutation guards to RFQ / supplier quotation tables (Phase 8 `20260724061000` applied locally through Phase 8 only; **8b tables not yet guarded** — security follow-up from Phase 8 review).
-2. **`@web_agent`:** RFQ compare + supplier quote pages (optional follow-on per Phase 8b plan).
-3. Phase 9 plan ready: `docs/plans/2026-07-24-phase9-hr-gross-payroll.md` — implement after guards (same `supabase/` lane).
+1. **Phase 9** HR gross payroll — plan `docs/plans/2026-07-24-phase9-hr-gross-payroll.md` → `@backend_agent` implement.
+2. **`@web_agent` (optional):** RFQ compare + supplier quote pages.
 
 **Next**
-1. Land guards migration + smokes → `/security-reviewer` on guards delta.
-2. Phase 9 HR (gross only; **no payroll tax**) → security → verifier.
-3. Phase 10 logistics → 13 payments/receipts; defer mobile 11–12.
+1. Finish Phase 9 → `/security-reviewer` → `/verifier`.
+2. Phase 10 logistics → 13 payments/receipts; defer mobile 11–12.
 
 **Blockers / notes**
 - Serialize DB apply (manager-owned reset only).
 - 5b: Quarantine transfer may stay `pending_approval` after claim approve — accepted for now.
+- Smokes are not fully idempotent without reset (supplier codes); prefer reset or unique codes.
 - No commits (user did not request).
 
 Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
