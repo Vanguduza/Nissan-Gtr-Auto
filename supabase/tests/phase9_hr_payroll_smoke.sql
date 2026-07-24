@@ -97,14 +97,26 @@ BEGIN
     WHERE id = v_emp;
   END IF;
 
-  v_struct := public.upsert_salary_structure(
-    v_emp,
-    'hourly',
-    10.0000,  -- USD/hour
-    'USD',
-    v_day - 30,
-    NULL
-  );
+  SELECT id INTO v_struct
+  FROM public.salary_structures
+  WHERE employee_id = v_emp
+    AND is_active
+    AND pay_type = 'hourly'
+    AND rate = 10.0000
+    AND currency = 'USD'
+  ORDER BY effective_from DESC
+  LIMIT 1;
+
+  IF v_struct IS NULL THEN
+    v_struct := public.upsert_salary_structure(
+      v_emp,
+      'hourly',
+      10.0000,  -- USD/hour
+      'USD',
+      v_day - 30,
+      NULL
+    );
+  END IF;
 
   IF v_struct IS NULL THEN
     RAISE EXCEPTION 'smoke fail: salary structure not created';
