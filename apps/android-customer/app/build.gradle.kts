@@ -1,6 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+fun localProp(name: String): String {
+    val local = Properties()
+    val f = rootProject.file("local.properties")
+    if (f.exists()) {
+        f.inputStream().use { local.load(it) }
+    }
+    return local.getProperty(name)
+        ?: (project.findProperty(name) as? String)
+        ?: ""
 }
 
 android {
@@ -13,9 +26,15 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0-scaffold"
-        // Placeholders — override via local.properties / CI secrets; never commit real keys.
-        buildConfigField("String", "SUPABASE_URL", "\"${project.findProperty("SUPABASE_URL") ?: ""}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${project.findProperty("SUPABASE_ANON_KEY") ?: ""}\"")
+        // Placeholders — set via local.properties / CI; never commit real keys.
+        // Names align with root `.env.example` (and web `NEXT_PUBLIC_SUPABASE_*`).
+        buildConfigField("String", "SUPABASE_URL", "\"${localProp("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")
+        buildConfigField(
+            "boolean",
+            "RPC_FORCE_FAKE",
+            localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
+        )
     }
 
     buildTypes {
