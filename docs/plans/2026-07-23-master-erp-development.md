@@ -377,6 +377,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 - **Lanes:** mobile lanes + `@backend_agent`
 - **Build:** PowerSync (or chosen sync) for POS/dispatch/cycle count; CI (lint/test/migrate); Bugbot required on `main`; performance pass
 - **Acceptance:** Offline sale queues and syncs; CI green on PR
+- **Split Done:** must-now (CI + stubs + hardening) landed — see [`2026-07-24-phase14-offline-ci-hardening.md`](./2026-07-24-phase14-offline-ci-hardening.md); E2E offline sale + device performance wait on Phases 11–12
 - **Gate:** `/verifier` + Bugbot
 
 ---
