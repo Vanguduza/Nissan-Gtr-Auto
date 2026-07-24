@@ -5,7 +5,8 @@ import Foundation
 /// RPC names match web `apps/web/lib/customer-storefront.ts` and AuthZ migration.
 /// Session: uses anon key as Bearer by default; AuthZ customer RPCs require a
 /// **customer user JWT** (`customers.profile_id = auth.uid()`). Pass via
-/// `SUPABASE_ACCESS_TOKEN` or `setAccessToken(_:)` once sign-in exists.
+/// GoTrue sign-in → `setAccessToken(_:)`, restored `AuthTokenStore`, or
+/// scheme env `SUPABASE_ACCESS_TOKEN`.
 /// No ContiPay/Paynow secrets or HMAC in the app binary.
 @MainActor
 public final class LiveStorefrontApi: StorefrontApi {
@@ -46,7 +47,8 @@ public final class LiveStorefrontApi: StorefrontApi {
         )
     }
 
-    /// Import a customer JWT after sign-in (do not hardcode tokens in source).
+    /// Import a customer JWT after GoTrue sign-in (do not hardcode tokens in source).
+    /// Empty string clears to the anon key (signed-out Bearer).
     public func setAccessToken(_ token: String) {
         client.accessToken = token.isEmpty ? AppEnv.supabaseAnonKey : token
     }
