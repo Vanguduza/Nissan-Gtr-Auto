@@ -18,6 +18,7 @@ coverage/
 
 # Mobile
 .gradle/
+.build/
 DerivedData/
 *.xcuserstate
 local.properties
