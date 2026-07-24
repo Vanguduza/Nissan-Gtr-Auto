@@ -1,0 +1,19 @@
+#!/bin/sh
+# Gradle start-up script (scaffold).
+# Requires gradle-wrapper.jar — generate with: gradle wrapper --gradle-version 8.7
+
+APP_HOME=$(cd "$(dirname "$0")" && pwd)
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+if [ ! -f "$CLASSPATH" ]; then
+  echo "Missing gradle-wrapper.jar. Run: gradle wrapper --gradle-version 8.7"
+  exit 1
+fi
+
+if [ -n "$JAVA_HOME" ]; then
+  JAVACMD=$JAVA_HOME/bin/java
+else
+  JAVACMD=java
+fi
+
+exec "$JAVACMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
