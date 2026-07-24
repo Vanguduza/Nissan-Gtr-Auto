@@ -12,12 +12,12 @@ Staff RFQ → invite suppliers → collect quotations → compare and award → 
 
 ## Acceptance criteria
 
-- [ ] Quotation compare selects a winner → creates PO (lines/prices from winning quote; currency + `exchange_rate_applied`)
-- [ ] Blanket release cannot exceed remaining qty **or** remaining value (atomic check; reject over-release)
-- [ ] RLS: suppliers see only their RFQ invite + own quotation rows (not peers’)
-- [ ] RFQ / quotation / blanket docs use Draft→Submit→Cancel; naming series (`RFQ-`, `SQ-`, `BPO-` or equiv.)
-- [ ] Money fields: explicit `USD`|`ZIG` + rate at transaction time
-- [ ] RLS on every new table in the **same** migration; no ZIMRA / payroll tax / HTML5 QR
+- [x] Quotation compare selects a winner → creates PO (lines/prices from winning quote; currency + `exchange_rate_applied`)
+- [x] Blanket release cannot exceed remaining qty **or** remaining value (atomic check; reject over-release)
+- [x] RLS: suppliers see only their RFQ invite + own quotation rows (not peers’)
+- [x] RFQ / quotation / blanket docs use Draft→Submit→Cancel; naming series (`RFQ-`, `SQ-`, `BPO-` or equiv.)
+- [x] Money fields: explicit `USD`|`ZIG` + rate at transaction time
+- [x] RLS on every new table in the **same** migration; no ZIMRA / payroll tax / HTML5 QR
 
 ## Reuse (do not reinvent)
 
@@ -60,11 +60,11 @@ Staff RFQ → invite suppliers → collect quotations → compare and award → 
 
 ## Ordered tasks (`@backend_agent`)
 
-1. [ ] Migration: `rfqs` + lines + supplier invites + series + staff/supplier RLS
-2. [ ] Supplier quotations header/lines + submit RPC; supplier-scoped RLS (own rows only)
-3. [ ] `award_quotation_to_po` — winner → PO lines/prices; smoke: compare→PO
-4. [ ] Blanket PO flag/header + remaining qty/value + `create_blanket_release` with over-release reject
-5. [ ] Smoke SQL: peer-quote denial; over-release deny; cancel restore remaining
+1. [x] Migration: `rfqs` + lines + supplier invites + series + staff/supplier RLS
+2. [x] Supplier quotations header/lines + submit RPC; supplier-scoped RLS (own rows only)
+3. [x] `award_quotation_to_po` — winner → PO lines/prices; smoke: compare→PO
+4. [x] Blanket PO flag/header + remaining qty/value + `create_blanket_release` with over-release reject
+5. [x] Smoke SQL: peer-quote denial; over-release deny; cancel restore remaining
 6. [ ] Regen types; brief RPC note for `@web_agent`
 
 ## Gate
