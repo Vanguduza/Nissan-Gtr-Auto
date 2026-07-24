@@ -249,7 +249,7 @@ BEGIN
   SELECT quantity INTO v_qty_a2
   FROM public.stock_levels WHERE stock_item_id = v_comp_a AND warehouse_id = v_main;
 
-  v_cart := public.create_pos_cart(v_main, NULL, 'USD');
+  v_cart := public.create_pos_cart(v_main, NULL::uuid, 'USD'::public.currency_code);
   PERFORM public.add_cart_line(v_cart, v_stocked_kit, v_uom, 1);
 
   SELECT count(*)::int INTO v_comp_cnt
