@@ -17,7 +17,6 @@ import {
   jsonResponse,
   pollPaynowStatus,
   sha256Hex,
-  timingSafeEqualStr,
   verifyPaynowMessageHash,
 } from "../_shared/payment_edge.ts";
 
@@ -49,7 +48,6 @@ Deno.serve(async (req) => {
           fields[k.toLowerCase()] = v == null ? "" : String(v);
         }
       } catch {
-        // form body without verification in local stub
         for (const part of (raw || "").split("&")) {
           const eq = part.indexOf("=");
           if (eq === -1) continue;
@@ -61,18 +59,7 @@ Deno.serve(async (req) => {
     } else {
       const verified = await verifyPaynowMessageHash(raw, key);
       if (!verified.ok) {
-        // Also accept legacy header-only local tests that mistakenly used x-paynow-hash
-        // with body hash missing — still require real field hash when present.
-        const hashHeader = (req.headers.get("x-paynow-hash") ?? "")
-          .trim()
-          .toUpperCase();
-        if (hashHeader && !verified.fields.hash) {
-          // No body hash: reject — real Paynow always includes hash in body.
-          return jsonResponse({ error: "invalid or missing Paynow hash" }, 401);
-        }
-        if (!verified.ok) {
-          return jsonResponse({ error: "invalid or missing Paynow hash" }, 401);
-        }
+        return jsonResponse({ error: "invalid or missing Paynow hash" }, 401);
       }
       fields = verified.fields;
 
@@ -81,19 +68,15 @@ Deno.serve(async (req) => {
       if (pollurl) {
         try {
           const polled = await pollPaynowStatus(pollurl, key);
-          // Prefer poll status when hash-verified.
           if (polled.status) fields = { ...fields, ...polled };
         } catch (pollErr) {
           console.warn("paynow-webhook: poll confirm failed", String(pollErr));
-          // Continue with verified webhook payload.
         }
       }
     }
 
     const external_ref =
-      fields.reference?.trim() ||
-      fields.external_ref?.trim() ||
-      "";
+      fields.reference?.trim() || fields.external_ref?.trim() || "";
     const status = fields.status ?? "";
     const success = localUnverified
       ? fields.success !== "false" && status.toLowerCase() !== "failed"
