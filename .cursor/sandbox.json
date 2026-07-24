@@ -19,6 +19,8 @@
       "plugins.gradle.org",
       "developer.apple.com",
       "contipay.co.zw",
+      "www.paynow.co.zw",
+      "paynow.co.zw",
       "*.docker.io",
       "ghcr.io"
     ],
