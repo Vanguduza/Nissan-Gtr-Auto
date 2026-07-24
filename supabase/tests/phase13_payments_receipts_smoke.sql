@@ -1,4 +1,4 @@
--- Phase 13 payments / ContiPay / receipts / SMS / forecast smoke
+-- Phase 13 payments / ContiPay / Paynow / receipts / SMS / forecast smoke
 -- Run via: docker exec -i supabase_db_… psql -U postgres < this file
 -- Exclusions: no ZIMRA / FDMS / fiscal / payroll tax strings in receipt path.
 
@@ -36,6 +36,7 @@ DECLARE
   v_cr NUMERIC;
   v_intent UUID;
   v_pe_cp UUID;
+  v_pe_pn UUID;
   v_sc_bal NUMERIC;
   v_ledger UUID;
   v_art UUID;
