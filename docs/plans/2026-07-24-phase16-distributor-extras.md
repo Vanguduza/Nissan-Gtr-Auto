@@ -1,6 +1,6 @@
 # Phase 16 — Distributor extras (bins, kits, consignment, loyalty)
 
-- Status: **slices 1–3 done** (bins, kits, consignment); slices 4–5 pending
+- Status: **backend Done** (slices 1–4: bins, kits, consignment, loyalty); slice 5 attachments skipped (soft)
 - Lane(s): `@backend_agent` (primary — schema/RPC/RLS); UI follow-on `@web_agent` / `@management_app_agent` via child tickets
 - Skills needed: `/token-discipline`; `/accounting-ledger` for consignment revenue timing + loyalty liability if points post to CoA
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) § Phase 16 + Later distributor extras
