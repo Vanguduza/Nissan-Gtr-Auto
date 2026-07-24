@@ -1,6 +1,6 @@
 # Customer storefront AuthZ / API
 
-- Status: draft
+- Status: implemented
 - Lane(s): `@backend_agent` (primary); `@web_agent` (follow-on bind); `@finance_agent` only if Payment Entry shape drifts
 - Skills needed: `/token-discipline`; `/accounting-ledger` only if settle/JE touched (prefer none)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) — Immediate handoff “Customer storefront AuthZ”
@@ -13,13 +13,13 @@ Give authenticated customers customer-scoped cart/checkout, own-invoice SELECT, 
 
 ## Acceptance criteria
 
-- [ ] Customer can open/mutate/checkout a cart bound to `customers.profile_id = auth.uid()`; staff POS RPCs unchanged and still `_require_sales_staff`
-- [ ] Customer SELECT (RLS and/or RPC) on own `sales_invoices` / lines + lightweight order-status summary; cross-customer denied
-- [ ] `create_customer_contipay_intent` / `create_customer_paynow_intent` (or equivalent) succeed only for caller-owned unpaid invoices; settle stays service_role/webhook
-- [ ] Multi-currency `USD`|`ZIG` + `exchange_rate_applied` preserved on cart/invoice/intent paths
-- [ ] Minimal My Garage table(s) + RLS/RPC for sticky fitment (adopt-soon); wishlist/returns portal deferred
-- [ ] Migration(s) after `20260724123000`; RLS on every new table; smoke SQL passes
-- [ ] Exclusion grep clean (no ZIMRA, payroll tax, HTML5 QR); types regen in `packages/supabase-client`
+- [x] Customer can open/mutate/checkout a cart bound to `customers.profile_id = auth.uid()`; staff POS RPCs unchanged and still `_require_sales_staff`
+- [x] Customer SELECT (RLS and/or RPC) on own `sales_invoices` / lines + lightweight order-status summary; cross-customer denied
+- [x] `create_customer_contipay_intent` / `create_customer_paynow_intent` (or equivalent) succeed only for caller-owned unpaid invoices; settle stays service_role/webhook
+- [x] Multi-currency `USD`|`ZIG` + `exchange_rate_applied` preserved on cart/invoice/intent paths
+- [x] Minimal My Garage table(s) + RLS/RPC for sticky fitment (adopt-soon); wishlist/returns portal deferred
+- [x] Migration(s) after `20260724123000`; RLS on every new table; smoke SQL passes
+- [x] Exclusion grep clean (no ZIMRA, payroll tax, HTML5 QR); types regen in `packages/supabase-client`
 
 ## Tables / RPCs (extend, don’t duplicate)
 
