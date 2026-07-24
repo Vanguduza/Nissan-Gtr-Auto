@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * In-memory stub so cart / orders / garage / pay screens compile and exercise
- * flows without the Supabase Kotlin SDK. Swap for a live client that calls [RpcNames].
+ * flows without a configured Supabase project. Live: [SupabaseRpcClient] via [RpcClientFactory].
  *
  * Documented live RPC → param map (mirrors web + migration):
  * - [RpcNames.CREATE_CUSTOMER_CART]: p_warehouse_id, p_currency?, p_fulfillment_mode?, p_exchange_rate?
