@@ -26,8 +26,8 @@ DECLARE
   v_uom UUID;
   v_item UUID;
   v_admin UUID := 'a0000000-0000-4000-8000-000000000001';
-  v_supplier_user UUID := 'b0000000-0000-4000-8000-000000000010';
-  v_other_user UUID := 'b0000000-0000-4000-8000-000000000011';
+  v_supplier_user UUID := 'b0000000-0000-4000-8000-000000000020';
+  v_other_user UUID := 'b0000000-0000-4000-8000-000000000021';
   v_supplier UUID;
   v_other_supplier UUID;
   v_rfq UUID;
