@@ -41,15 +41,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Align with .cursor/BUGBOT.md — scan implementation paths only
-          # (docs / .cursor / plans intentionally mention exclusions).
-          ROOTS=(apps packages supabase/functions supabase/migrations bridges data-pipeline)
+          # Align with .cursor/BUGBOT.md.
+          # Client / bridge / pipeline: any ZIMRA / payroll-tax / HTML5-QR string is a fail.
+          # Migrations/tests may document denials ("no ZIMRA", deny-regex) — those live under
+          # supabase/ and are covered by Bugbot + verifier, not this string gate.
+          # Edge functions: fail on integration-shaped hits (URLs, SDKs, HTML5 QR libs).
           FAIL=0
           scan() {
             local label="$1"
             local pattern="$2"
+            shift 2
             local hits
-            hits=$(rg -n -i --glob '!**/*.md' "$pattern" "${ROOTS[@]}" 2>/dev/null || true)
+            hits=$(rg -n -i --glob '!**/*.md' "$pattern" "$@" 2>/dev/null || true)
             if [[ -n "$hits" ]]; then
               echo "::error::Exclusion hit ($label):"
               echo "$hits"
@@ -58,9 +61,12 @@ jobs:
               echo "OK: no matches for $label"
             fi
           }
-          scan "ZIMRA/FDMS/fiscal" 'zimra|fdms|fiscali[sz]'
-          scan "payroll tax (PAYE/NSSA/…)" 'paye\b|nssa|pobs|apwcs|zimdef|\bp4a?\b'
-          scan "HTML5 / browser QR" 'html5-qrcode|Html5Qrcode|barcode-detector|jsqr\b|@zxing/browser'
+          CLIENT_ROOTS=(apps packages bridges data-pipeline)
+          scan "ZIMRA/FDMS/fiscal (client)" 'zimra|fdms|fiscali[sz]' "${CLIENT_ROOTS[@]}"
+          scan "payroll tax (client)" 'paye\b|nssa|pobs|apwcs|zimdef|\bp4a?\b' "${CLIENT_ROOTS[@]}"
+          scan "HTML5 / browser QR (client)" 'html5-qrcode|Html5Qrcode|barcode-detector|jsqr\b|@zxing/browser' "${CLIENT_ROOTS[@]}"
+          scan "ZIMRA/FDMS SDK/URL (edge)" 'zimra\.(gov|com)|fdms\.|/fiscali[sz]|@zimra/' supabase/functions
+          scan "HTML5 / browser QR (edge+migrations)" 'html5-qrcode|Html5Qrcode|@zxing/browser' supabase/functions supabase/migrations
           if [[ "$FAIL" -ne 0 ]]; then
             exit 1
           fi
