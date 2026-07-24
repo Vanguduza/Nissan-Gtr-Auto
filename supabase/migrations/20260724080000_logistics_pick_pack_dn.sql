@@ -1224,6 +1224,8 @@ BEGIN
     RAISE EXCEPTION 'admin or service_role required to purge delivery locations';
   END IF;
 
+  PERFORM public._logistics_begin_rpc();
+
   DELETE FROM public.delivery_locations
   WHERE ingested_at < now() - p_older_than;
 
