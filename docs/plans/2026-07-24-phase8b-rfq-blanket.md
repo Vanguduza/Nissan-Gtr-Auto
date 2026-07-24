@@ -1,6 +1,6 @@
 # Phase 8b — RFQ, quotations, blanket POs
 
-- Status: implemented (backend)
+- Status: **backend verified** (`/verifier` PASS on acceptance + RLS + exclusions; smoke PASS on fresh reset). **Not closed:** procurement mutation guards for RFQ/quote tables (`…61000` extension — Phase 8 security follow-up); `@web_agent` UI follow-on.
 - Lane(s): `@backend_agent` (primary); `@web_agent` (thin RFQ/quote compare + blanket release UI — **follow-on**)
 - Skills needed: (none) — reuse Phase 8 procurement patterns; `/accounting-ledger` only if release posts valuation (prefer defer to existing PO→GRN)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 8b
