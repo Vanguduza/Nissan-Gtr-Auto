@@ -1,10 +1,10 @@
 # Phase 15 — ERPNext parity audit + polish
 
-- Status: draft
+- Status: **Done** (docs-first audit 2026-07-24)
 - Lane(s): `/manager` (sequence), `/verifier` (gates); polish fixes routed to owning lanes (`@backend_agent`, `@web_agent`, …)
 - Skills needed: `/erpnext-feature-parity` (explicit invoke), `/token-discipline`
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) § Phase 15 + Distributor gap register
-- Depends: Phase 14 **must-now** ideally ([`…phase14-offline-ci-hardening.md`](./2026-07-24-phase14-offline-ci-hardening.md)); **this plan may scaffold audit docs after the Phase 14 plan exists** (already true)
+- Depends: Phase 14 **must-now** Done ([`…phase14-offline-ci-hardening.md`](./2026-07-24-phase14-offline-ci-hardening.md))
 
 ## Goal
 
@@ -12,14 +12,14 @@ Run a docs-first ERPNext parity audit: checklist path, exclusion grep, gap-regis
 
 ## Acceptance criteria
 
-- [ ] Checklist working copy under `docs/` (e.g. `docs/parity/erpnext-checklist.md`) derived from `.cursor/skills/erpnext-feature-parity/SKILL.md` — mark Done / Gap / Deferred / Excluded per item
-- [ ] Exclusion grep runbook + evidence: no ZIMRA/FDMS/fiscal; no PAYE/NSSA/statutory payroll tax; no HTML5/browser QR (align CI from Phase 14 if present)
-- [ ] Gap register **must-haves** (master §§ Must-have Phases 3–13) each: Done, or deferred via new `docs/decisions/YYYY-MM-DD-*.md`
-- [ ] Phase 16 items (bins, kits, consignment, loyalty, attachments) listed as **explicitly deferred** — not failed AC
-- [ ] Operator runbooks index (short): finance period close, stock recon, POS checkout, pick/pack/DN, payment allocation, receipt/SMS drain — paths to existing smoke SQL / Edge README
-- [ ] Polish backlog: ≤ small targeted fixes only; each ticket names a single coding lane
-- [ ] `/verifier` PASS on exclusions + lane checks after polish landings
-- [ ] Master Phase 15 status updated when audit complete
+- [x] Checklist working copy under `docs/` (e.g. `docs/parity/erpnext-checklist.md`) derived from `.cursor/skills/erpnext-feature-parity/SKILL.md` — mark Done / Gap / Deferred / Excluded per item
+- [x] Exclusion grep runbook + evidence: no ZIMRA/FDMS/fiscal; no PAYE/NSSA/statutory payroll tax; no HTML5/browser QR (align CI from Phase 14 if present) — `docs/parity/exclusion-evidence.md`
+- [x] Gap register **must-haves** (master §§ Must-have Phases 3–13) each: Done, or deferred via new `docs/decisions/YYYY-MM-DD-*.md` — all 18 Done; no deferral decision needed
+- [x] Phase 16 items (bins, kits, consignment, loyalty, attachments) listed as **explicitly deferred** — not failed AC
+- [x] Operator runbooks index (short): finance period close, stock recon, POS checkout, pick/pack/DN, payment allocation, receipt/SMS drain — paths to existing smoke SQL / Edge README — `docs/runbooks/README.md`
+- [x] Polish backlog: ≤ small targeted fixes only; each ticket names a single coding lane — empty actionable list (`docs/parity/polish-backlog.md`)
+- [x] `/verifier` PASS on exclusions + lane checks after polish landings — exclusion evidence CLEAN; no polish code landings (docs-only)
+- [x] Master Phase 15 status updated when audit complete
 
 ## Paths in scope
 
