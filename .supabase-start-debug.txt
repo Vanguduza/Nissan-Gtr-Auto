@@ -1,0 +1,31 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+npm warn Unknown project config "shamefully-hoist". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+npm warn Unknown project config "strict-peer-dependencies". This will stop working in the next major version of npm. 
+See `npm help npmrc` for supported config options.
+npm warn Unknown project config "auto-install-peers". This will stop working in the next major version of npm. See 
+`npm help npmrc` for supported config options.
+open C:\Users\j\.supabase\profile: The system cannot find the file specified.
+Supabase CLI 2.109.1
+Using profile: supabase (supabase.co)
+WARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.
+Loading project ref from file: supabase\.temp\project-ref
+ db Skipped - Image is already present locally 
+ gateway Skipped - Image is already present locally 
+ imgProxy Skipped - Image is already present locally 
+ edgeRuntime Skipped - Image is already present locally 
+ auth Skipped - Image is already present locally 
+ mailpit Skipped - Image is already present locally 
+ studio Skipped - Image is already present locally 
+ storage Skipped - Image is already present locally 
+ pgmeta Skipped - Image is already present locally 
+ api Skipped - Image is already present locally 
+ realtime Skipped - Image is already present locally 
+Starting database...
