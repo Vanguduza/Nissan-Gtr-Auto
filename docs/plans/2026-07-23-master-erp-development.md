@@ -434,23 +434,24 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`; seed now includes storefront customers (apply via manager `db reset` when convenient).
+**Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`. Local storefront seeds **applied** (`supabase/seed.sql` → `auth.users` + `profiles` + `customers.profile_id`); verified on local Supabase (no reset needed — migrations already current).
 
 **Done this wave**
 1. iOS: GoTrue email/password → JWT → `LiveStorefrontApi`; persist UserDefaults; Live gates tabs
 2. Android customer + management: `:feature:auth` + `signInWithEmail`; session via auth-kt; Live gates app
-3. Seed: `storefront-a@` / `storefront-b@gtr.local` / `local-dev-customer` + `customers.profile_id` link; `docs/LOCAL_DEVELOPMENT.md` §9
+3. Seed: `storefront-a@` / `storefront-b@gtr.local` / `local-dev-customer` + `customers.profile_id` link; `docs/LOCAL_DEVELOPMENT.md` §9 — **confirmed on local DB**
 4. Verifier PASS — no hardcoded JWTs; Fake bypass OK; no PSP crypto
 
-**Still follow-on**
-1. Real ContiPay/Paynow HMAC + merchant secrets (env only)
+**Still follow-on** (remaining)
+1. **PSP env secrets only (user-provided):** ContiPay/Paynow HMAC + merchant secrets — set in local/edge env; do not commit
 2. Native assemble on JDK/Xcode hosts; iOS Keychain before prod
 3. PDP photos / Meili / PowerSync / native bridge impls
 
 **In progress:** None.
 
 **Blockers / notes**
-- No commits. Run `npx supabase db reset` once to load seeded customers.
+- No commits. Seeds already on local; no `db reset` required unless wiping data.
 - Staff: `admin@` / `warehouse@` / `finance@gtr.local` — see LOCAL_DEVELOPMENT.md
+- Storefront sign-in: `storefront-a@gtr.local` or `storefront-b@gtr.local` / `local-dev-customer` against `http://127.0.0.1:54321` + anon key
 
 Commands: `pnpm dev:web`; mobile Live needs URL+anon + sign-in.
