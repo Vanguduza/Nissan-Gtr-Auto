@@ -759,6 +759,7 @@ GRANT INSERT, UPDATE, DELETE ON TABLE public.customer_garage_vehicles TO service
 REVOKE ALL ON FUNCTION public._current_customer_id() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._storefront_rpc_active() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._storefront_rpc_enter() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._storefront_rpc_exit() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._assert_customer_owns_open_cart(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._assert_customer_owns_invoice(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._require_cart_mutate(UUID) FROM PUBLIC;
@@ -801,6 +802,7 @@ GRANT EXECUTE ON FUNCTION public.delete_customer_garage_vehicle(UUID) TO authent
 
 -- Helpers stay internal (no grant to authenticated beyond _current_customer_id for RLS)
 REVOKE ALL ON FUNCTION public._storefront_rpc_enter() FROM authenticated;
+REVOKE ALL ON FUNCTION public._storefront_rpc_exit() FROM authenticated;
 REVOKE ALL ON FUNCTION public._assert_customer_owns_open_cart(UUID) FROM authenticated;
 REVOKE ALL ON FUNCTION public._assert_customer_owns_invoice(UUID) FROM authenticated;
 REVOKE ALL ON FUNCTION public._require_cart_mutate(UUID) FROM authenticated;
