@@ -35,3 +35,4 @@ What agents must not re-litigate.
 | `2026-07-23-company-domain.md` | Public domain `nissangtrauto.co.zw` |
 | `2026-07-23-storefront-autodoc-logo.md` | AutoDoc-inspired shop IA + official logo |
 | `2026-07-23-autodoc-shop-features.md` | AutoDoc shop adopt / later / skip + phases |
+| `2026-07-24-paynow-payment-rail.md` | Paynow + ContiPay payment rails (Phase 13) |
