@@ -45,7 +45,7 @@ class AuthSessionViewModel(
                     is SessionStatus.Authenticated ->
                         AuthGateState.SignedIn(status.session.user?.email)
                     is SessionStatus.NotAuthenticated -> AuthGateState.NeedsSignIn
-                    is SessionStatus.RefreshFailure -> AuthGateState.Checking
+                    is SessionStatus.RefreshFailure -> AuthGateState.NeedsSignIn
                 }
             }
         }
