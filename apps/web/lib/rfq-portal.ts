@@ -113,7 +113,7 @@ export async function searchStockItems(
   if (q.length < 2) return { ok: true, data: [] };
   const { data, error } = await client
     .from("stock_items")
-    .select("id, oem_part_number, description, default_uom_id")
+    .select("id, oem_part_number, description, base_uom_id")
     .or(`oem_part_number.ilike.%${q}%,description.ilike.%${q}%`)
     .limit(20);
   if (error) return { ok: false, error: error.message };

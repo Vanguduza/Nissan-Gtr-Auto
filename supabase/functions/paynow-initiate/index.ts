@@ -34,8 +34,9 @@ Deno.serve(async (req) => {
 
     const integrationId = Deno.env.get("PAYNOW_INTEGRATION_ID");
     const integrationKey = Deno.env.get("PAYNOW_INTEGRATION_KEY");
+    const secretsMissing = !integrationId || !integrationKey;
     const localStub = isLocalUnverifiedAllowed("PAYNOW_ALLOW_UNVERIFIED_LOCAL");
-    if (!integrationId || !integrationKey) {
+    if (secretsMissing) {
       if (!localStub) {
         return jsonResponse(
           {
@@ -64,6 +65,9 @@ Deno.serve(async (req) => {
       settlement_amount,
       settlement_exchange_rate,
       metadata,
+      return_url,
+      cancel_url,
+      result_url,
     } = body ?? {};
 
     if (!method) {
@@ -76,6 +80,12 @@ Deno.serve(async (req) => {
         cors,
       );
     }
+
+    const pMetadata = mergeRedirectMetadata(metadata, {
+      return_url,
+      cancel_url,
+      result_url,
+    });
 
     // User-scoped client — never service_role on initiate.
     const supabase = createClient(
@@ -93,7 +103,7 @@ Deno.serve(async (req) => {
           p_settlement_currency: settlement_currency ?? null,
           p_settlement_amount: settlement_amount ?? null,
           p_settlement_exchange_rate: settlement_exchange_rate ?? null,
-          p_metadata: metadata ?? {},
+          p_metadata: pMetadata,
         })
       : await supabase.rpc("create_paynow_intent", {
           p_external_ref: external_ref,
@@ -105,19 +115,27 @@ Deno.serve(async (req) => {
           p_settlement_currency: settlement_currency ?? null,
           p_settlement_amount: settlement_amount ?? null,
           p_settlement_exchange_rate: settlement_exchange_rate ?? null,
-          p_metadata: metadata ?? {},
+          p_metadata: pMetadata,
         });
 
     if (error) {
       return jsonResponse({ error: error.message }, 400, cors);
     }
 
+    const checkoutUrl =
+      secretsMissing && typeof return_url === "string" && return_url.trim()
+        ? stubCheckoutUrl(return_url.trim(), "paynow", String(data))
+        : null;
+
     return jsonResponse(
       {
         intent_id: data,
         status: "pending",
+        checkout_url: checkoutUrl,
         poll_url: null,
-        return_url_hint: "https://nissangtrauto.co.zw",
+        return_url: typeof return_url === "string" ? return_url : null,
+        cancel_url: typeof cancel_url === "string" ? cancel_url : null,
+        result_url: typeof result_url === "string" ? result_url : null,
         stub: true,
       },
       200,
