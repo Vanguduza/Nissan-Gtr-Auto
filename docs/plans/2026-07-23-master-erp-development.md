@@ -110,7 +110,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done (backend)** — guards `…62000`/`…63000`; security+verifier PASS; web UI follow-on |
 | 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **Done (backend)** — `…70000`/`…71000`; security+verifier PASS; management UI follow-on |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | **Done (backend)** — `…80000`/`…81000`; security+verifier PASS; bridge/UI follow-on |
-| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | **Scaffold Done** — feature bind blocked (no customer cart/invoice/pay APIs) |
+| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | **Scaffold Done** — storefront AuthZ unblocked; feature screens still deferred |
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | **Scaffold Done** — bridge contracts only; native impl + screens deferred |
 | 13 | Payments, ContiPay **+ Paynow**, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **Done (backend)** — `…90000`–`…100000`; security+verifier PASS; UI/real PSP keys follow-on |
 | 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | **Done (must-now)** — CI + PowerSync stubs + hardening docs; mobile SDK deferred to 11–12 |
@@ -434,19 +434,22 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Phases **0–10, 13–16** Done (backend/must-now/audit). **11–12 scaffold Done**. DB through `20260724123000`.
+**Master plan status:** Phases **0–10, 13–16** Done. **11–12 scaffold Done**. Customer storefront AuthZ + web bind Done. DB through `20260724130000_customer_storefront_authz.sql`.
 
-**In progress**
-1. **Customer storefront AuthZ** — planner → `@backend_agent` → security → verifier (unblocks web checkout + later mobile feature bind).
+**Done this wave**
+1. Customer AuthZ — plan `docs/plans/2026-07-24-customer-storefront-authz.md`, decision `docs/decisions/2026-07-24-customer-self-pay.md`, migration `…130000`, smoke PASS; security+verifier PASS.
+2. `@web_agent` bind — cart → checkout → ContiPay/Paynow intents, own orders, My Garage; typecheck OK.
 
-**Next**
-1. Finish customer cart/invoice/pay AuthZ APIs + smoke.
-2. `@web_agent` bind live checkout/payment tenders where stubs remain.
-3. Native bridges / PowerSync client / management UI remain follow-on.
+**Still follow-on (not blocking AuthZ)**
+1. PDP live catalog (demo OEM set); PSP checkout_url redirect polish; wishlist/returns UI.
+2. Management UI (HR/logistics/bins) + RFQ supplier portal.
+3. Native bridge impl + PowerSync client; full iOS/Android feature screens (APIs now largely unblocked for cart/order/pay/garage).
+4. Production ContiPay/Paynow HMAC + merchant secrets (env only).
+
+**In progress:** None.
 
 **Blockers / notes**
 - Serialize `supabase db reset` (manager-owned).
 - No commits (user did not request).
-- Customer mobile feature bind blocked until this AuthZ slice lands.
 
-Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
+Commands: `pnpm dev:web`; smokes via `docker exec … psql` (`customer_storefront_authz_smoke.sql`).
