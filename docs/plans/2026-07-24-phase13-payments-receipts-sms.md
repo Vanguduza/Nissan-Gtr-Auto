@@ -73,7 +73,7 @@ Wire Payment Entry (multi-invoice, multi-tender, dual-currency), ContiPay **and 
 ## Smoke expectations
 
 1. Post invoice → `create_payment_entry` partial cash → `amount_paid` up; AR JE balanced; second payment clears; over-allocate denied.
-2. ContiPay intent → stub/webhook settle → payment posted; `payment_received` in `domain_events` + `sms_outbox` only for enabled managers; duplicate webhook no double post.
+2. ContiPay / Paynow intent → stub/webhook settle → payment posted; `payment_received` in `domain_events` + `sms_outbox` only for enabled managers; duplicate webhook no double post.
 3. Refund/overpay → store credit issue (`2200`); redeem on next PE; balance never negative.
 4. Seed `customer_receipt_outbox` pending → worker generates PDF (no fiscal markers) → SMS body ends with `nissangtrauto.co.zw` link; email/WhatsApp rows `sent`; re-run does not duplicate successful channels.
 5. Stub SMS gateway marks manager outbox `sent`/`failed` with retries; prefs-off manager gets no row.
@@ -82,7 +82,7 @@ Wire Payment Entry (multi-invoice, multi-tender, dual-currency), ContiPay **and 
 ## Handoff
 
 1. Implement schema/RPCs/edge stubs + smoke in `@backend_agent` (`/accounting-ledger` for JE shape)
-2. `/supabase-rls-auditor` → `/security-reviewer` (ContiPay webhook, signed URLs, PII on receipts/SMS)
+2. `/supabase-rls-auditor` → `/security-reviewer` (ContiPay + Paynow webhook, signed URLs, PII on receipts/SMS)
 3. `@web_agent` receipt download route + settlement display; `@management_app_agent` SMS prefs
 4. `/verifier` (exclusions + no secrets in client)
 5. `/manager` done gate
