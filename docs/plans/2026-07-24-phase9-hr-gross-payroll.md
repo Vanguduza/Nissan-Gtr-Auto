@@ -62,7 +62,7 @@ Ship staff identity, attendance (manual clock), and **gross-only** payroll runs 
 2. [x] Attendance events + `clock_attendance` RPC (manual in/out; period hour rollup helper)
 3. [x] Payroll run/lines + manual deduction lines; `compute` / `submit` / `cancel` (gross − manual only)
 4. [x] Payslip export + Storage policy; emit `payroll_run_ready`; smoke SQL (formula + RLS denial)
-5. [ ] Regen types; brief handoff note for `@management_app_agent` HR screens
+5. [x] Regen types; brief handoff note for `@management_app_agent` HR screens
 6. [ ] `/supabase-rls-auditor` → `/security-reviewer` → `/verifier` → `/manager` done gate
 
 ## Handoff
