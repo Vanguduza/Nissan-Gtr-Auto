@@ -2250,7 +2250,15 @@ export type Database = {
         Args: { p_lines: Json; p_notes: string; p_to_warehouse_id: string }
         Returns: string
       }
+      post_stock_issue: {
+        Args: { p_from_warehouse_id: string; p_lines: Json; p_notes: string }
+        Returns: string
+      }
       reject_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
+      reject_warranty_claim: {
+        Args: { p_claim_id: string; p_reason?: string }
+        Returns: string
+      }
       report_balance_sheet: {
         Args: {
           p_as_of?: string
@@ -2370,6 +2378,12 @@ export type Database = {
       stock_entry_type: "receipt" | "transfer" | "issue"
       stock_reconciliation_scope: "full" | "partial"
       valuation_method: "FIFO" | "AVG"
+      warranty_claim_resolution:
+        | "replacement"
+        | "credit_note"
+        | "return_only"
+        | "reject_only"
+      warranty_claim_status: "open" | "approved" | "rejected" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2535,6 +2549,13 @@ export const Constants = {
       stock_entry_type: ["receipt", "transfer", "issue"],
       stock_reconciliation_scope: ["full", "partial"],
       valuation_method: ["FIFO", "AVG"],
+      warranty_claim_resolution: [
+        "replacement",
+        "credit_note",
+        "return_only",
+        "reject_only",
+      ],
+      warranty_claim_status: ["open", "approved", "rejected", "closed"],
     },
   },
 } as const
