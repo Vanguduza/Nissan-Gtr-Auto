@@ -31,3 +31,7 @@ export function revokeStaffRoleArgs(userId: string, role: Database["public"]["En
 export type { Database, SupabaseClient };
 export type StaffRole = Database["public"]["Enums"]["staff_role"];
 export type ProcurementDocStatus = Database["public"]["Enums"]["procurement_doc_status"];
+
+/** Staff: `create_rfq` → `submit_rfq`; suppliers: `upsert_supplier_quotation` → `submit_supplier_quotation`; award: `award_quotation_to_po`. */
+export type RfqRow = Database["public"]["Tables"]["rfqs"]["Row"];
+export type SupplierQuotationRow = Database["public"]["Tables"]["supplier_quotations"]["Row"];
