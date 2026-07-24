@@ -130,14 +130,6 @@ export async function loadCatalogProduct(
     primaryFit?.subcategory_name ??
     null;
 
-  const supersessions = [
-    ...new Set(
-      fitments.data
-        .map((f) => f /* superseded collected below */)
-        .flatMap(() => [] as string[]),
-    ),
-  ];
-
   const { data: fitRows } = await client
     .from("part_fitment")
     .select("superseded_by")
@@ -151,7 +143,6 @@ export async function loadCatalogProduct(
     ...new Set([
       ...(xrefs.data ?? []).map((x) => x.oe_number),
       ...superseded,
-      ...supersessions,
     ]),
   ].filter((n) => n.toLowerCase() !== item.oem_part_number.toLowerCase());
 
