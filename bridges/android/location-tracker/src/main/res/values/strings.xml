@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gtr_location_tracking_channel">Delivery tracking</string>
+    <string name="gtr_location_tracking_channel_desc">Shows while a delivery job is tracked in the background.</string>
+    <string name="gtr_location_tracking_title">Delivery tracking active</string>
+    <string name="gtr_location_tracking_body">Sharing location for the active delivery job.</string>
+</resources>
