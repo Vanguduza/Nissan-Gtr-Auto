@@ -434,18 +434,25 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Phases **0–10, 13–16** Done. Customer AuthZ + polish Done. DB through `20260724130000`.
+**Master plan status:** Backend phases Done. Customer AuthZ + polish Done. **Staff HR/logistics UI + thin mobile screens Done** (this wave). DB through `20260724130000`.
 
-**In progress**
-1. Staff HR attendance + logistics DN UI (`@web_agent` + android-management shell screens)
-2. Thin customer mobile screens (iOS/Android) for cart/orders/garage/pay-initiate
+**Done this wave**
+1. Web staff: `/staff`, `/staff/hr` (clock + hours), `/staff/logistics` (pick→DN→job) — typecheck OK
+2. Android management: `:feature:hr` + dispatch screens via `FakeRpcClient` / `RpcNames`
+3. iOS customer: Cart / Orders / Garage / Pay tabs + `StorefrontApi` Fake/Live stubs
+4. Android customer: cart/orders/garage/pay features + `FakeRpcClient`
+5. No real ContiPay/Paynow crypto (intent id / stub only)
 
-**Next**
-1. Gate with `/verifier` (typecheck / structure)
-2. Leave real PSP crypto to env secrets (document only)
+**Still follow-on**
+1. Wire live supabase-kt / supabase-swift on mobile (replace Fake)
+2. Real PSP provider HMAC + merchant secrets (env only)
+3. PDP photos / Meili / PowerSync client / blanket PO UI
+4. Native bridge implementations (contracts ready)
+
+**In progress:** None.
 
 **Blockers / notes**
-- No commits. No ZIMRA / payroll tax / HTML5 QR.
-- Native builds may be stub-only without JDK/Xcode on this host.
+- No commits (user did not request).
+- Native `assembleDebug` / Xcode need host toolchains.
 
-Commands: `pnpm dev:web`.
+Commands: `pnpm dev:web` — staff at `/staff`; RFQ `/procurement` `/supplier`.
