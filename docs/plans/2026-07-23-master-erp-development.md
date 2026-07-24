@@ -432,23 +432,23 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Docker + **`npx supabase db reset` GREEN** through `20260724051000_smoke_fixes_recon_price_supplier.sql`.
-- Phase 6 search bind **done** (`/verifier` PASS).
-- Phases **4b / 5b / 8** migrations + smokes **PASS** (`docker exec … psql`):
-  - `phase4b_reconciliation_smoke.sql`
-  - `phase5b_warranty_smoke.sql`
-  - `phase8_procurement_smoke.sql`
-- Child plan Phase 8b: `docs/plans/2026-07-24-phase8b-rfq-blanket.md` (draft).
+- Docker + `npx supabase db reset` GREEN through `20260724060000_rfq_blanket.sql`.
+- Phase 6 search bind **done**; 4b / 5b / 8 smokes **PASS** (via `…51000` fixes).
+- Phase 8b migration + smoke on disk; plan **implemented (backend)**; reset applied 8b.
 
-**In progress / Next**
-1. **`@backend_agent`:** implement Phase 8b per `2026-07-24-phase8b-rfq-blanket.md` → RLS/security/verifier.
-2. Regen `packages/supabase-client` types (`npx supabase gen types typescript --local`).
-3. Optional parallel: Phase 9 HR plan+schema (gross only; **no payroll tax**) on non-conflicting paths; `@web_agent` supplier portal.
-4. Then Phase 10 logistics → 13 payments/receipts; defer mobile 11–12 until APIs solid.
+**In progress**
+1. Run `phase8b_rfq_blanket_smoke.sql` → then `/security-reviewer` + `/verifier` on 8b.
+2. **`@backend_agent`:** procurement mutation guards (`…61000`, parity with 4b/5b) — security blocker from Phase 8 review ([Security review Phase 8 + guards](de233cdf-53ec-4a8a-bb7a-efd4032ef880)).
+3. Phase 9 plan ready: `docs/plans/2026-07-24-phase9-hr-gross-payroll.md` — implement after guards (same `supabase/` lane).
+
+**Next**
+1. Close 8b + procurement-guards gates → mark 8/8b Done.
+2. Phase 9 HR (gross only; **no payroll tax**) → security → verifier.
+3. Phase 10 logistics → 13 payments/receipts; defer mobile 11–12.
 
 **Blockers / notes**
-- Serialize DB apply (no parallel agent `db reset`).
-- 5b nuance: return transfer may be `pending_approval` while claim approved — accepted for now; tighten later if ops require posted QUAR before approve.
-- No commits this session (user did not request).
+- Serialize DB apply (manager-owned reset only).
+- 5b: Quarantine transfer may stay `pending_approval` after claim approve — accepted for now.
+- No commits (user did not request).
 
-Commands: `pnpm dev:web`; `cd data-pipeline && pytest`.
+Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
