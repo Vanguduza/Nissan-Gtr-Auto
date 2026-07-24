@@ -21,6 +21,9 @@
 		A1000000000000000000000C /* PayScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* PayScreen.swift */; };
 		A1000000000000000000000D /* PostgrestClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PostgrestClient.swift */; };
 		A1000000000000000000000E /* LiveStorefrontApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* LiveStorefrontApi.swift */; };
+		A1000000000000000000000F /* GoTrueAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* GoTrueAuthClient.swift */; };
+		A10000000000000000000023 /* AuthTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* AuthTokenStore.swift */; };
+		A10000000000000000000024 /* SignInScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SignInScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
