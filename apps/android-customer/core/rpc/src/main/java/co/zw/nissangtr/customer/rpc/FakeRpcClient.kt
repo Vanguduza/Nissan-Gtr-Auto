@@ -155,9 +155,9 @@ class FakeRpcClient : RpcClient {
 
     override suspend fun getCustomerOrder(invoiceId: String): CustomerOrder {
         require(invoiceId.isNotBlank())
+        // TODO(live): supabase.rpc(RpcNames.GET_CUSTOMER_ORDER, …)
         return orders[invoiceId]
             ?: error("order not found for ${RpcNames.GET_CUSTOMER_ORDER}")
-        // TODO(live): supabase.rpc(RpcNames.GET_CUSTOMER_ORDER, …)
     }
 
     override suspend fun listOwnInvoices(): List<InvoiceSummary> =
