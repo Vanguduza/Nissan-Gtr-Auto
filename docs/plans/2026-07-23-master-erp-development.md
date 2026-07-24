@@ -442,15 +442,15 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 | Phase | Notes |
 |------:|-------|
 | 11–12 | Mobile — stub/scaffold only until API contracts validated; full apps deferred |
-| 14 | **In progress** — plan `docs/plans/2026-07-24-phase14-offline-ci-hardening.md` (CI/hardening now; PowerSync client → after 11–12) |
-| 15 | ERPNext parity audit |
-| 16 | Distributor extras (bins/kits/consignment/loyalty) |
+| 14 | Must-now **Done**; PowerSync client / E2E offline → after 11–12 |
+| 16 | Distributor extras (bins/kits/consignment/loyalty) — unlocked after Phase 15 audit |
 
-**In progress**
-1. Phase 14 must-now: CI + exclusion/smoke gates + PowerSync stubs → `@backend_agent` → security → verifier.
+**Done (recent)**
+1. Phase 14 must-now (CI + exclusion/smoke + PowerSync stubs + hardening docs).
+2. Phase 15 parity audit — must-haves 18/18 Done; exclusions CLEAN; Phase 16 explicitly deferred.
 
 **Next**
-1. Finish 14 → plan+implement 15 → 16.
+1. Phase 16 child plan + implement extras (or parallel 11–12 scaffold).
 2. Parallel-safe: 11–12 scaffold plans (no full mobile until contracts listed).
 
 **Blockers / notes**
