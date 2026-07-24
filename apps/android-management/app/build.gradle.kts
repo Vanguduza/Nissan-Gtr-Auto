@@ -44,10 +44,11 @@ android {
 }
 
 dependencies {
-    // Placeholder feature modules — empty packages; no screens wired.
+    implementation(project(":core:rpc"))
     implementation(project(":feature:pos"))
     implementation(project(":feature:warehouse"))
     implementation(project(":feature:dispatch"))
+    implementation(project(":feature:hr"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
@@ -55,6 +56,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
     implementation("androidx.core:core-ktx:1.13.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
