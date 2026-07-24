@@ -1873,6 +1873,135 @@ export type Database = {
         }
         Relationships: []
       }
+      warranty_claims: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          credit_note_id: string | null
+          currency: Database["public"]["Enums"]["currency_code"] | null
+          customer_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          document_number: string
+          id: string
+          notes: string | null
+          quarantine_stock_entry_id: string | null
+          reject_reason: string | null
+          replacement_stock_entry_id: string | null
+          resolution: Database["public"]["Enums"]["warranty_claim_resolution"] | null
+          sales_invoice_id: string | null
+          status: Database["public"]["Enums"]["warranty_claim_status"]
+          stock_batch_id: string | null
+          stock_item_id: string | null
+          stock_serial_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"] | null
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          document_number: string
+          id?: string
+          notes?: string | null
+          quarantine_stock_entry_id?: string | null
+          reject_reason?: string | null
+          replacement_stock_entry_id?: string | null
+          resolution?: Database["public"]["Enums"]["warranty_claim_resolution"] | null
+          sales_invoice_id?: string | null
+          status?: Database["public"]["Enums"]["warranty_claim_status"]
+          stock_batch_id?: string | null
+          stock_item_id?: string | null
+          stock_serial_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"] | null
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          document_number?: string
+          id?: string
+          notes?: string | null
+          quarantine_stock_entry_id?: string | null
+          reject_reason?: string | null
+          replacement_stock_entry_id?: string | null
+          resolution?: Database["public"]["Enums"]["warranty_claim_resolution"] | null
+          sales_invoice_id?: string | null
+          status?: Database["public"]["Enums"]["warranty_claim_status"]
+          stock_batch_id?: string | null
+          stock_item_id?: string | null
+          stock_serial_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_claims_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_quarantine_stock_entry_id_fkey"
+            columns: ["quarantine_stock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "stock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_replacement_stock_entry_id_fkey"
+            columns: ["replacement_stock_entry_id"]
+            isOneToOne: false
+            referencedRelation: "stock_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_stock_batch_id_fkey"
+            columns: ["stock_batch_id"]
+            isOneToOne: false
+            referencedRelation: "stock_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_stock_serial_id_fkey"
+            columns: ["stock_serial_id"]
+            isOneToOne: false
+            referencedRelation: "stock_serials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouses: {
         Row: {
           code: string
