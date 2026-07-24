@@ -125,8 +125,7 @@ VALUES
   ('c0000000-0000-4000-8000-0000000000a1', 'Storefront A', false),
   ('c0000000-0000-4000-8000-0000000000b2', 'Storefront B', false)
 ON CONFLICT (id) DO UPDATE
-SET full_name = EXCLUDED.full_name,
-    is_staff = EXCLUDED.is_staff;
+SET full_name = EXCLUDED.full_name;
 
 -- Role grants (sync trigger sets is_staff) — staff only; storefront users stay non-staff
 INSERT INTO public.staff_roles (user_id, role) VALUES
