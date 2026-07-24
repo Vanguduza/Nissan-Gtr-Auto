@@ -759,6 +759,14 @@ BEGIN
 
   FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
   LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM public.purchase_order_lines pol
+      WHERE pol.id = (v_line ->> 'purchase_order_line_id')::uuid
+        AND pol.purchase_order_id = p_purchase_order_id
+    ) THEN
+      RAISE EXCEPTION 'invalid PO line for GRN: %', v_line ->> 'purchase_order_line_id';
+    END IF;
+
     INSERT INTO public.goods_receipt_lines (
       goods_receipt_id,
       purchase_order_line_id,
@@ -779,10 +787,6 @@ BEGIN
     FROM public.purchase_order_lines pol
     WHERE pol.id = (v_line ->> 'purchase_order_line_id')::uuid
       AND pol.purchase_order_id = p_purchase_order_id;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'invalid PO line for GRN';
-    END IF;
   END LOOP;
 
   RETURN v_grn;
