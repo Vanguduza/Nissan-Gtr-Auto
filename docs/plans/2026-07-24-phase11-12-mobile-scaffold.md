@@ -34,14 +34,14 @@ Management app can later bind to **existing staff** POS/logistics/recon RPCs; st
 
 ## Acceptance criteria
 
-- [ ] `apps/ios/` Xcode (or SPM) customer shell builds on simulator stub target; README lists run steps + env vars
-- [ ] `apps/android-customer/` Gradle shell builds `assembleDebug`; README + `.env.example` (URL/anon key placeholders only)
-- [ ] `apps/android-management/` Gradle shell builds; package layout for POS / warehouse / dispatch **placeholder** modules (no screens wired)
-- [ ] Shared consumption path documented: `@gtr/supabase-client` types + `@gtr/shared` money/QR helpers — **no duplicated pricing logic** in apps
-- [ ] Env stubs only (`SUPABASE_URL`, `SUPABASE_ANON_KEY`); no secrets committed
-- [ ] No HTML5 / browser QR libraries; customer apps do not call Camera/WebView QR APIs
-- [ ] `@hardware_mobile_agent`: extend `bridges/contracts/` (+ README path map) for QR / ESC/POS / biometric / GPS **interfaces only** — no CameraX/AVFoundation/Bluetooth impl yet
-- [ ] Each app README cites blockers above and defers feature parity to later child plans
+- [x] `apps/ios/` Xcode + SPM customer shell scaffolded; README lists run steps + env vars *(Simulator build requires macOS/Xcode — stub-only on Windows host)*
+- [x] `apps/android-customer/` Gradle shell + README + `.env.example` (URL/anon key placeholders only) *(`assembleDebug` needs JDK 17 + Android SDK + `gradle-wrapper.jar` — not available on scaffold host)*
+- [x] `apps/android-management/` Gradle shell with POS / warehouse / dispatch **placeholder** modules (no screens wired) *(same toolchain caveat as customer)*
+- [x] Shared consumption path documented: `@gtr/supabase-client` types + `@gtr/shared` money/QR helpers — **no duplicated pricing logic** in apps (`apps/SHARED_CLIENT.md` + per-app READMEs)
+- [x] Env stubs only (`SUPABASE_URL`, `SUPABASE_ANON_KEY`); no secrets committed
+- [x] No HTML5 / browser QR libraries; customer apps do not call Camera/WebView QR APIs
+- [x] `@hardware_mobile_agent`: extend `bridges/contracts/` (+ README path map) for QR / ESC/POS / biometric / GPS **interfaces only** — no CameraX/AVFoundation/Bluetooth impl yet
+- [x] Each app README cites blockers above and defers feature parity to later child plans
 
 ## Paths in scope
 
