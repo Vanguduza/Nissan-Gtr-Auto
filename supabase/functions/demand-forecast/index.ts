@@ -1,11 +1,19 @@
 /**
  * Optional demand-forecast edge stub → generate_forecast_suggestions RPC.
+ *
+ * AuthZ: requires header x-worker-secret matching env WORKER_SHARED_SECRET
+ * (refuse 401 if missing/wrong). Local stub only: WORKER_ALLOW_UNVERIFIED_LOCAL=1
+ * when WORKER_SHARED_SECRET is unset. Never commit real secrets.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertWorkerSecret } from "../_shared/worker_auth.ts";
 
 Deno.serve(async (req) => {
   try {
+    const denied = assertWorkerSecret(req);
+    if (denied) return denied;
+
     const body = await req.json();
     const warehouseId = body.warehouse_id as string;
     const horizonDays = Number(body.horizon_days ?? 30);
