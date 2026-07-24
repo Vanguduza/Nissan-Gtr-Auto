@@ -13,13 +13,13 @@ Wire storefront `/search` (and minimal PLP/PDP link-through if results need a de
 
 ## Acceptance criteria
 
-- [ ] `/search` with `mode` ∈ `part|vin|model|pnc` + `q` calls `search_catalog` (authenticated session)
-- [ ] Empty query / empty results render gracefully (no crash, clear empty state)
-- [ ] RPC/network errors show a non-fatal error state
-- [ ] Missing Supabase env (`createWebClient()` null) keeps stub fallback only — no fake success
-- [ ] Result rows link to existing PLP/PDP routes when an OEM/id is present (minimal; no redesign)
-- [ ] No HTML5/browser QR; no ZIMRA; no Meili client
-- [ ] `/verifier` green (security light unless secrets introduced)
+- [x] `/search` with `mode` ∈ `part|vin|model|pnc` + `q` calls `search_catalog` (authenticated session)
+- [x] Empty query / empty results render gracefully (no crash, clear empty state)
+- [x] RPC/network errors show a non-fatal error state
+- [x] Missing Supabase env (`createWebClient()` null) keeps stub fallback only — no fake success
+- [x] Result rows link to existing PLP/PDP routes when an OEM/id is present (minimal; no redesign)
+- [x] No HTML5/browser QR; no ZIMRA; no Meili client
+- [x] `/verifier` green (security light unless secrets introduced)
 
 ## Paths in scope
 
