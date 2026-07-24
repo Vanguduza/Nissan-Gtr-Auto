@@ -33,3 +33,10 @@ export {
   type EmitDomainEventInput,
 } from "./notifications/sms-events.js";
 export { buildCustomerReceiptSmsSummary } from "./notifications/customer-receipt.js";
+export {
+  WARRANTY_CLAIM_STATUSES,
+  WARRANTY_CLAIM_RESOLUTIONS,
+  WARRANTY_CLAIM_DOCUMENT_PREFIX,
+  type WarrantyClaimStatus,
+  type WarrantyClaimResolution,
+} from "./warranty/claims.js";

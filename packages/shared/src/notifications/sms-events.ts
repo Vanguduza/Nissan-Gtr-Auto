@@ -37,6 +37,10 @@ export const SMS_EVENT_CODES = [
   "cash_drawer_variance",
   "staff_no_show",
   "payroll_run_ready",
+  "warranty_claim_opened",
+  "warranty_claim_approved",
+  "warranty_claim_rejected",
+  "warranty_claim_closed",
 ] as const;
 
 export type SmsEventCode = (typeof SMS_EVENT_CODES)[number];
