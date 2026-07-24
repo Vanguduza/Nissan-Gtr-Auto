@@ -255,45 +255,47 @@ export function StaffHrPanel() {
         </div>
       </fieldset>
 
-      <form className={styles.fieldset} onSubmit={(e) => void onLookupHours(e)}>
+      <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Hours in period</legend>
-        <div className={styles.formGrid}>
-          <label className={styles.field}>
-            From
-            <input
-              type="date"
-              value={periodStart}
-              onChange={(e) => setPeriodStart(e.target.value)}
-              disabled={busy}
-              required
-            />
-          </label>
-          <label className={styles.field}>
-            To
-            <input
-              type="date"
-              value={periodEnd}
-              onChange={(e) => setPeriodEnd(e.target.value)}
-              disabled={busy}
-              required
-            />
-          </label>
-        </div>
-        <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
-          <button
-            type="submit"
-            className={styles.btn}
-            disabled={busy || !employeeId}
-          >
-            Look up hours
-          </button>
-          {hours != null ? (
-            <p className={styles.formStatus}>
-              {hours.toFixed(2)} hours in range
-            </p>
-          ) : null}
-        </div>
-      </form>
+        <form onSubmit={(e) => void onLookupHours(e)}>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              From
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+                disabled={busy}
+                required
+              />
+            </label>
+            <label className={styles.field}>
+              To
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+                disabled={busy}
+                required
+              />
+            </label>
+          </div>
+          <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
+            <button
+              type="submit"
+              className={styles.btn}
+              disabled={busy || !employeeId}
+            >
+              Look up hours
+            </button>
+            {hours != null ? (
+              <p className={styles.formStatus}>
+                {hours.toFixed(2)} hours in range
+              </p>
+            ) : null}
+          </div>
+        </form>
+      </fieldset>
 
       {message ? (
         <p className={styles.lede} role="status">
