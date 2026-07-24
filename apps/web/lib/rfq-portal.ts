@@ -7,6 +7,8 @@ import type {
 } from "@gtr/supabase-client";
 import { requireSession, type StorefrontResult } from "@/lib/customer-storefront";
 
+export type { RfqRow, SupplierQuotationRow, ProcurementDocStatus };
+
 export type CurrencyCode = Database["public"]["Enums"]["currency_code"];
 
 export type RfqLineRow = Database["public"]["Tables"]["rfq_lines"]["Row"] & {
