@@ -132,7 +132,8 @@ pnpm db:types:linked
 
 Commit `packages/supabase-client/src/database.types.ts` whenever migrations change public schema. **Never** put `service_role` in client packages — only anon via `createBrowserClient`.
 
-RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`
+RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`  
+CI RLS gate + Bugbot/secrets checklist: `docs/HARDENING.md` (`phase14_ci_smoke.sql` via `docker exec … psql`).
 
 ---
 
