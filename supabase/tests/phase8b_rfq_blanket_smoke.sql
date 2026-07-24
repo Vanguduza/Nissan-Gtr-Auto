@@ -1,4 +1,9 @@
 -- Phase 8b RFQ + blanket smoke (postgres). Requires seed users, MAIN/EA, Phase 8 procurement.
+-- Dedicated auth profile UUIDs (do NOT reuse phase8 / seed fixtures):
+--   b0000000-0000-4000-8000-000000000020 = P8b primary supplier user
+--   b0000000-0000-4000-8000-000000000021 = P8b other supplier user
+-- Phase 8 smoke uses …010; phase2 customer uses …099 — keep 8b on …020/…021 so
+-- sequential `phase8` then `phase8b` after db reset does not hit suppliers_profile_id_key.
 
 CREATE OR REPLACE FUNCTION public._test_set_auth_uid(p_uid UUID)
 RETURNS void
