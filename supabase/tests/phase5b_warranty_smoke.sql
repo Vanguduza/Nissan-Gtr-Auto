@@ -54,6 +54,14 @@ BEGIN
     )
   );
 
+  INSERT INTO public.price_list_items (price_list_id, stock_item_id, unit_price, core_charge)
+  SELECT pl.id, v_item, 25, 0
+  FROM public.price_lists pl
+  WHERE pl.is_default AND pl.is_active
+  LIMIT 1
+  ON CONFLICT (price_list_id, stock_item_id) DO UPDATE
+  SET unit_price = 25, core_charge = 0;
+
   v_cart := public.create_pos_cart(v_main, NULL, 'USD');
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 1);
   v_inv := public.checkout_pos_cart(v_cart);
