@@ -109,7 +109,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | **Done** (smokes PASS; mutation guards `…61000`/`…63000`) |
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done (backend)** — guards `…62000`/`…63000`; security+verifier PASS; web UI follow-on |
 | 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **Done (backend)** — `…70000`/`…71000`; security+verifier PASS; management UI follow-on |
-| 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | Pending |
+| 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | Backend done (UI/GPS deferred) |
 | 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | Pending |
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending |
 | 13 | Payments, ContiPay, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | Pending |
@@ -315,11 +315,11 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
   - Delivery jobs, ~5s location ingest, Realtime for dispatcher/customer maps (MapLibre)
   - Emit `delivery_*` outbox events
 - **Acceptance:**
-  - [ ] Pick/pack cannot over-pick open qty
-  - [ ] DN submit issues stock; cancel reverses
-  - [ ] Trail stored with retention policy; role-gated reads
-  - [ ] Emits `delivery_dispatched` / `delivery_completed` / `delivery_failed`
-- **Gate:** `/security-reviewer` → `/verifier`
+  - [x] Pick/pack cannot over-pick open qty
+  - [x] DN submit issues stock; cancel reverses
+  - [x] Trail stored with retention policy; role-gated reads
+  - [x] Emits `delivery_dispatched` / `delivery_completed` / `delivery_failed`
+- **Gate:** `/security-reviewer` → `/verifier` (UI + GPS bridge still follow-on)
 
 ---
 

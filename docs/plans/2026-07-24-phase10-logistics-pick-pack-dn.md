@@ -1,6 +1,6 @@
 # Phase 10 — Logistics / pick-pack / DN / GPS
 
-- Status: draft
+- Status: backend done (UI/GPS bridge follow-on)
 - Lane(s): `@backend_agent` (primary); `@hardware_mobile_agent` (GPS bridge contract follow-on); `@management_app_agent` (UI follow-on)
 - Skills needed: (none for schema slice; `/qr-inventory-workflow` only if pick confirms via QR — defer to Phase 12 UI)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 10
