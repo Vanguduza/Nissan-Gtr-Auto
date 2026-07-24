@@ -2,8 +2,8 @@ package co.zw.nissangtr.management.rpc
 
 /**
  * Canonical Postgres RPC names for management surfaces.
- * Live binding: `supabase.postgrest.rpc(RpcNames.X, params)`.
- * Supabase Kotlin SDK is not wired yet — see [FakeRpcClient].
+ * Live: [SupabaseRpcClient] → `client.postgrest.rpc(RpcNames.X, params)`.
+ * Fallback: [FakeRpcClient].
  */
 object RpcNames {
     // Phase 9 HR (gross payroll only — no PAYE/NSSA UI)

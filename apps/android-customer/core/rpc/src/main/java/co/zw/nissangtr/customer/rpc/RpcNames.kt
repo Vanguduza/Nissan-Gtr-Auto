@@ -2,8 +2,8 @@ package co.zw.nissangtr.customer.rpc
 
 /**
  * Canonical Postgres RPC names mirroring web `apps/web/lib/customer-storefront.ts`.
- * Live binding: `supabase.postgrest.rpc(RpcNames.X, params)`.
- * Supabase Kotlin SDK is not wired yet — see [FakeRpcClient].
+ * Live: [SupabaseRpcClient] → `client.postgrest.rpc(RpcNames.X, params)`.
+ * Fallback: [FakeRpcClient].
  */
 object RpcNames {
     const val CREATE_CUSTOMER_CART = "create_customer_cart"
