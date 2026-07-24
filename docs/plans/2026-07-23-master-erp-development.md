@@ -110,8 +110,8 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done (backend)** — guards `…62000`/`…63000`; security+verifier PASS; web UI follow-on |
 | 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **Done (backend)** — `…70000`/`…71000`; security+verifier PASS; management UI follow-on |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | **Done (backend)** — `…80000`/`…81000`; security+verifier PASS; bridge/UI follow-on |
-| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | Pending — scaffold plan (contracts insufficient for thin clients) |
-| 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending — scaffold + bridge contracts in 11–12 plan |
+| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | **Scaffold Done** — feature bind blocked (no customer cart/invoice/pay APIs) |
+| 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | **Scaffold Done** — bridge contracts only; native impl + screens deferred |
 | 13 | Payments, ContiPay **+ Paynow**, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **Done (backend)** — `…90000`–`…100000`; security+verifier PASS; UI/real PSP keys follow-on |
 | 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | **Done (must-now)** — CI + PowerSync stubs + hardening docs; mobile SDK deferred to 11–12 |
 | 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | **Done** (audit) — `docs/parity/`, `docs/runbooks/`; plan `…phase15-parity-audit.md` |
@@ -434,29 +434,28 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Done**
-- Preferred API queue **8b → 9 → 10 → 13** gated (security+verifier PASS). DB through `20260724100000` (+ grants `…110000`).
-- Phase 13 docs + decision include **Paynow** rail alongside ContiPay (`docs/decisions/2026-07-24-paynow-payment-rail.md`, plan `…phase13-payments-receipts-sms.md`).
-- Phase 14 must-now + Phase 15 parity audit (see Remaining / Done recent below).
+**Master plan status:** Phases **0–10, 13–16** Done (backend/must-now/audit as applicable). **11–12 scaffold Done**; feature mobile deferred. DB reset GREEN through `20260724123000_loyalty_points.sql`.
 
-**Remaining Pending**
-| Phase | Notes |
-|------:|-------|
-| 11–12 | Mobile — stub/scaffold only until API contracts validated; full apps deferred |
-| 14 | Must-now **Done**; PowerSync client / E2E offline → after 11–12 |
-| 16 | Distributor extras backend **Done**; UI follow-on (bins/kits/consignment/loyalty) |
+**Done this wave**
+- Phase 14 must-now: CI (`.github/workflows/ci.yml`), PowerSync stubs, `docs/HARDENING.md`, grants fix `…110000`
+- Phase 15 parity audit: `docs/parity/`, `docs/runbooks/` — verifier PASS
+- Phase 16 backend: bins `…120000`, kits `…21000`, consignment `…22000`, loyalty `…23000` — smokes PASS; security PASS per slice
+- Phase 11–12 scaffolds: `apps/ios`, `apps/android-customer`, `apps/android-management`, `bridges/contracts` — verifier PASS (native build needs toolchains)
+- Paynow reflected in Phase 13 plan + `docs/decisions/2026-07-24-paynow-payment-rail.md`
 
-**Done (recent)**
-1. Phase 14 must-now (CI + exclusion/smoke + PowerSync stubs + hardening docs).
-2. Phase 15 parity audit — must-haves 18/18 Done; exclusions CLEAN.
-3. Phase 16 backend — bins, kits, consignment, loyalty (attachments skipped); smokes PASS.
+**Smokes after reset:** phase2, 13, 14, 16 bins/kits/consignment/loyalty — all PASS
 
-**Next**
-1. Phase 16 UI follow-on (`@web_agent` / `@management_app_agent`) or parallel 11–12 scaffold.
-2. Parallel-safe: 11–12 scaffold plans (no full mobile until contracts listed).
+**Remaining follow-ons (not blocking master backend)**
+1. UI: web RFQ/receipts; management HR/logistics/bins/kits; real ContiPay/Paynow HMAC + merchant secrets (env only)
+2. Customer storefront API slice → then 11–12 feature bind
+3. Native bridges impl + PowerSync client SDK
+4. Optional: attachments/doc timeline (Phase 16 soft skip)
+
+**In progress:** None — whole master backend/scaffold queue complete for standing order.
 
 **Blockers / notes**
 - Serialize `supabase db reset` (manager-owned).
 - No commits (user did not request).
+- Customer mobile feature bind blocked until cart/invoice/pay customer AuthZ exists.
 
 Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
