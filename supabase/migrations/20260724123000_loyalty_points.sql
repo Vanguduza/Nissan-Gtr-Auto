@@ -611,9 +611,7 @@ BEGIN
   );
 
   UPDATE public.sales_invoices
-  SET
-    amount_paid = amount_paid + v_money,
-    updated_at = now()
+  SET amount_paid = amount_paid + v_money
   WHERE id = v_inv.id;
 
   UPDATE public.customers
