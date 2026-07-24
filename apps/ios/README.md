@@ -2,14 +2,38 @@
 
 SwiftUI customer shell with thin Cart / Orders / Garage / Pay screens bound to the same storefront AuthZ RPCs as web (`apps/web/lib/customer-storefront.ts`).
 
-## Stub vs live
+## Fake vs Live switch
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Fake** (`FakeStorefrontApi`) | `SUPABASE_URL` / `SUPABASE_ANON_KEY` unset (default on Windows / scaffold) | In-memory demo cart, orders, garage, pay intents — no network |
-| **Live** (`LiveStorefrontApi`) | Both env vars set | Documents exact RPC / edge names; throws until supabase-swift is wired on macOS |
+| **Fake** (`FakeStorefrontApi`) | `SUPABASE_URL` / `SUPABASE_ANON_KEY` unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents — no network |
+| **Live** (`LiveStorefrontApi`) | Both URL + anon set and force-fake off | Real HTTP: `POST {url}/rest/v1/rpc/{name}` + table selects + edge pay-initiate |
 
-Toolbar badge shows **Fake** or **Live**. Pay shows intent id + stub redirect message only — **no ContiPay/Paynow crypto or secrets in the app**.
+`StorefrontApiFactory.make()` picks the implementation. Toolbar badge shows **Fake** or **Live**.
+
+```text
+# Live (scheme env / Secrets.xcconfig — never commit secrets)
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+
+# Optional force Fake while keeping URL configured
+STOREFRONT_FORCE_FAKE=1
+```
+
+Pay shows intent id + checkout URL when the edge returns one — **no ContiPay/Paynow crypto or secrets in the app**.
+
+### Session / AuthZ
+
+Live sends `apikey` + `Authorization: Bearer {token}` on every call.
+
+| Token | Source | Notes |
+|-------|--------|-------|
+| Anon (default) | `SUPABASE_ANON_KEY` | Scaffold default; customer AuthZ RPCs need a real user JWT |
+| Customer JWT | `SUPABASE_ACCESS_TOKEN` or `LiveStorefrontApi.setAccessToken` | Required for `create_customer_cart` etc. (`customers.profile_id = auth.uid()`) |
+
+Sign-in UI is not wired yet — use a short-lived access token from GoTrue for device testing, then replace with proper auth.
+
+Transport is **URLSession PostgREST**, not supabase-swift SPM (avoids package resolve on Windows). RPC / edge names match web; swap the transport later on macOS if desired (`Package.swift` notes the optional dependency).
 
 ## Screens
 
@@ -18,18 +42,18 @@ Toolbar badge shows **Fake** or **Live**. Pay shows intent id + stub redirect me
 | Cart | Create cart, add demo line, checkout |
 | Orders | List + detail (`get_customer_order`) |
 | Garage | Upsert / delete vehicles |
-| Pay | ContiPay or Paynow create-intent → intent id / stub deep link |
+| Pay | ContiPay or Paynow create-intent → intent id / checkout URL |
 
 ## AuthZ / RPC map (match web)
 
-Requires **authenticated** session and a `customers` row with `profile_id = auth.uid()`. Peer invoices/carts denied. Settle remains **service_role / webhook only**.
+Requires **authenticated** customer session and a `customers` row with `profile_id = auth.uid()`. Peer invoices/carts denied. Settle remains **service_role / webhook only**.
 
 | Client method | Supabase RPC / edge | Notes |
 |---------------|---------------------|--------|
 | `createCart` | `create_customer_cart` | `p_warehouse_id`, `p_currency`, `p_fulfillment_mode`, `p_exchange_rate` |
 | `addCartLine` | `add_customer_cart_line` | `p_cart_id`, `p_stock_item_id`, `p_uom_id`, `p_qty` |
 | `checkoutCart` | `checkout_customer_cart` | → invoice UUID |
-| `loadOpenCart` | RLS `pos_carts` | `channel=storefront`, `status=open`, own rows |
+| `loadOpenCart` | RLS `pos_carts` + `pos_cart_lines` | `channel=storefront`, `status=open`, own rows |
 | `listOrders` | RLS `sales_invoices` | Own invoices; detail via RPC |
 | `getOrder` | `get_customer_order` | `p_invoice_id` → customer-safe JSONB |
 | `listGarage` | RLS `customer_garage_vehicles` | Own rows |
@@ -44,8 +68,8 @@ Migration: `supabase/migrations/20260724130000_customer_storefront_authz.sql`. D
 
 ```
 apps/ios/
-  Package.swift                          # SPM: GTRCustomerCore
-  Sources/GTRCustomerCore/               # AppEnv, StorefrontApi, models
+  Package.swift                          # SPM: GTRCustomerCore (no supabase-swift required)
+  Sources/GTRCustomerCore/               # AppEnv, StorefrontApi, PostgrestClient, Live…
   GTRCustomer/                           # SwiftUI app + Features/*
   GTRCustomer.xcodeproj/
 ```
@@ -53,7 +77,7 @@ apps/ios/
 ## Prerequisites
 
 - macOS with Xcode 16+ (iOS Simulator) to build the app target
-- This host may lack Xcode — scaffold stays conceptually buildable; Fake mode needs no backend
+- This host may lack Xcode — core sources stay conceptually buildable; Fake mode needs no backend
 
 ## Env placeholders
 
@@ -63,6 +87,8 @@ Copy `.env.example` into Xcode scheme environment variables or a local `Secrets.
 |----------|---------|
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Public anon key only — never service role |
+| `SUPABASE_ACCESS_TOKEN` | Optional customer JWT for AuthZ (until sign-in UI) |
+| `STOREFRONT_FORCE_FAKE` | `1` / `true` → Fake even when URL+anon set |
 
 No PSP keys in the client. ContiPay / Paynow secrets stay in Edge Function env only.
 
@@ -97,6 +123,7 @@ swift build
 
 | Target | Status |
 |--------|--------|
-| Xcode / Simulator | **Stub-only on Windows** — requires macOS + Xcode |
+| Xcode / Simulator | Requires macOS + Xcode |
 | SPM `swift build` | Requires Swift toolchain (typically macOS) |
-| Feature UI | Present; Fake API runnable conceptually without network |
+| Live HTTP | Implemented via URLSession PostgREST; needs URL+anon (+ customer JWT for AuthZ) |
+| Feature UI | Present; Fake API runnable without network |
