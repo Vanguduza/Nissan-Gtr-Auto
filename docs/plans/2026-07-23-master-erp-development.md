@@ -432,23 +432,21 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Docker engine OK; local API often up at `http://127.0.0.1:54321` (Realtime/analytics may stay stopped — non-blocking).
+- Docker engine OK; **`npx supabase db reset` GREEN** (API `http://127.0.0.1:54321`). Realtime/analytics may stay stopped — non-blocking.
 - Phase 6 search bind → `search_catalog`: plan `2026-07-24-phase6-search-bind.md` **done**; `/verifier` PASS; typed RPC polish done.
-- Migrations on disk (ordered):
-  - `20260724020000_stock_reconciliation.sql` (4b)
-  - `20260724030000_warranty_claims.sql` (5b)
-  - `20260724040000_stock_recon_mutation_guards.sql` (4b security blocker fix — GUC triggers)
-  - `20260724041000_warranty_mutation_guards.sql` (5b same-class fix)
-  - `20260724050000_procurement.sql` (Phase 8 — renamed from colliding `…40000_procurement`)
+- Migrations applied in order through Phase 8:
+  - `…20000_stock_reconciliation.sql` (4b)
+  - `…30000_warranty_claims.sql` (5b)
+  - `…40000_stock_recon_mutation_guards.sql` (4b GUC triggers)
+  - `…41000_warranty_mutation_guards.sql` (5b GUC triggers; BOM fixed)
+  - `…50000_procurement.sql` (Phase 8)
 - Child plans: 4b, 5b, 6-search-bind, 8-procurement under `docs/plans/`.
-- Security: 4b RLS auditor **PASS** (warnings); 4b security **blocker** addressed by guards migration; 5b security **FAIL** until warranty guards + re-review (pending transfer Quarantine nuance remains **high**).
 
 **In progress / verify next**
-1. **Single-owner** `npx supabase db reset` (avoid parallel agent resets — they SIGTERM each other, exit 143).
-2. Run smokes: `npx supabase db query --file supabase/tests/phase4b_reconciliation_smoke.sql` (+ 5b, 8).
-3. `/verifier` on 4b+5b after reset green; re-run `/security-reviewer` on warranty guards.
-4. Mark Phase 8 plan **implemented**; regen types; `/supabase-rls-auditor` → `/security-reviewer` → `/verifier` on procurement.
-5. Optional: `@web_agent` supplier portal read slice after 8 gates.
+1. Run smokes: `phase4b_reconciliation_smoke.sql`, `phase5b_warranty_smoke.sql`, `phase8_procurement_smoke.sql` via `npx supabase db query --file …`
+2. `/verifier` on 4b+5b+8; re-run `/security-reviewer` + `/supabase-rls-auditor` on guards + procurement.
+3. Mark phase map 4b/5b/8 **Done** when gates pass; regen `database.types.ts`.
+4. Optional: `@web_agent` supplier portal read slice after 8 gates.
 
 **Next queue (after 4b/5b/8 gates)**
 1. Phase 8b RFQ/blanket — `/planner` then `@backend_agent`
@@ -456,9 +454,8 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 3. Prefer **8→10→13** APIs before mobile **11–12**
 
 **Blockers**
-- Concurrent `supabase db reset` / `stop` from multiple agents races Docker (exit 143 / Realtime seed flake). **Serialize** DB apply under `/manager` only.
-- `20260724041000_warranty_mutation_guards.sql` may have a UTF-8 **BOM** (`syntax error near ﻿`) — strip BOM then re-reset.
-- 5b: approve→`pending_approval` quarantine transfer vs immediate replacement issue — product decision still open (security **high**).
+- Serialize DB apply under `/manager` only (parallel agent resets race Docker).
+- 5b product decision: approve→`pending_approval` quarantine transfer vs immediate replacement issue (security **high** — document or fix before Phase 5b “done”).
 - No commits this session (user did not request).
 
-Commands: `pnpm dev:web` (`.env.local` with local anon key); `cd data-pipeline && pytest`.
+Commands: `pnpm dev:web`; `cd data-pipeline && pytest`.
