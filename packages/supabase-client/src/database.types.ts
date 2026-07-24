@@ -2286,6 +2286,10 @@ export type Database = {
         Args: { p_period_id: string }
         Returns: undefined
       }
+      link_supplier_profile: {
+        Args: { p_profile_id: string; p_supplier_id: string }
+        Returns: undefined
+      }
       next_series_value: { Args: { p_prefix: string }; Returns: string }
       open_warranty_claim: {
         Args: {
@@ -2413,6 +2417,22 @@ export type Database = {
       search_catalog: {
         Args: { p_mode: string; p_query: string }
         Returns: Json
+      }
+      submit_goods_receipt: {
+        Args: { p_goods_receipt_id: string }
+        Returns: string
+      }
+      submit_landed_cost_voucher: {
+        Args: { p_landed_cost_voucher_id: string }
+        Returns: string
+      }
+      submit_material_request: {
+        Args: { p_material_request_id: string }
+        Returns: string
+      }
+      submit_purchase_order: {
+        Args: { p_purchase_order_id: string }
+        Returns: string
       }
       submit_stock_reconciliation: {
         Args: { p_reconciliation_id: string }
