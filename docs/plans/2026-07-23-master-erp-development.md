@@ -457,6 +457,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 **Blockers**
 - Concurrent `supabase db reset` / `stop` from multiple agents races Docker (exit 143 / Realtime seed flake). **Serialize** DB apply under `/manager` only.
+- `20260724041000_warranty_mutation_guards.sql` may have a UTF-8 **BOM** (`syntax error near ﻿`) — strip BOM then re-reset.
 - 5b: approve→`pending_approval` quarantine transfer vs immediate replacement issue — product decision still open (security **high**).
 - No commits this session (user did not request).
 
