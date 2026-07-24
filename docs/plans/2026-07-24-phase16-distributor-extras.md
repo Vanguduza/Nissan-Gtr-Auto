@@ -17,8 +17,8 @@ Ship ordered backend child slices for bin locations, kit/BOM sell, consignment s
 | 1 | Bin / location within warehouse | `20260724120000_warehouse_bins.sql` | **Done** — RLS + CRUD RPCs + pick-path hints; smoke `phase16_bins_smoke.sql` |
 | 2 | Kits / BOM sell | `20260724121000_kits_bom_sell.sql` (+ `…20500_pick_path_hints_authz.sql`) | **Done** — stocked vs explode; no double stock/COGS; smoke `phase16_kits_smoke.sql` |
 | 3 | Consignment stock | `20260724122000_consignment_stock.sql` | **Done** — supplier-owned + customer-held; revenue only on `recognize_sale`; smoke `phase16_consignment_smoke.sql` |
-| 4 | Loyalty / points (optional) | last | Only after store credit (Phase 13) proven; liability account if ledger-backed |
-| 5 | Attachments + doc timeline (soft) | anytime if cheap | Skip if not needed for AC |
+| 4 | Loyalty / points (optional) | `20260724123000_loyalty_points.sql` | **Done** — ledger-backed pts; CoA **2210** liability; smoke `phase16_loyalty_smoke.sql` |
+| 5 | Attachments + doc timeline (soft) | — | **Skipped** (not needed for AC) |
 
 One child plan or ticket per slice; do not combine all four in one mega-migration.
 
