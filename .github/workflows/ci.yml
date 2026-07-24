@@ -37,6 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install ripgrep
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
       - name: Scan code paths for excluded integrations
         shell: bash
         run: |
@@ -52,7 +54,8 @@ jobs:
             local pattern="$2"
             shift 2
             local hits
-            hits=$(rg -n -i --glob '!**/*.md' "$pattern" "$@" 2>/dev/null || true)
+            hits=$(rg -n -i --glob '!**/*.md' --glob '!**/.venv/**' --glob '!**/node_modules/**' \
+              "$pattern" "$@" 2>/dev/null || true)
             if [[ -n "$hits" ]]; then
               echo "::error::Exclusion hit ($label):"
               echo "$hits"
@@ -61,12 +64,23 @@ jobs:
               echo "OK: no matches for $label"
             fi
           }
-          CLIENT_ROOTS=(apps packages bridges data-pipeline)
-          scan "ZIMRA/FDMS/fiscal (client)" 'zimra|fdms|fiscali[sz]' "${CLIENT_ROOTS[@]}"
-          scan "payroll tax (client)" 'paye\b|nssa|pobs|apwcs|zimdef|\bp4a?\b' "${CLIENT_ROOTS[@]}"
-          scan "HTML5 / browser QR (client)" 'html5-qrcode|Html5Qrcode|barcode-detector|jsqr\b|@zxing/browser' "${CLIENT_ROOTS[@]}"
-          scan "ZIMRA/FDMS SDK/URL (edge)" 'zimra\.(gov|com)|fdms\.|/fiscali[sz]|@zimra/' supabase/functions
-          scan "HTML5 / browser QR (edge+migrations)" 'html5-qrcode|Html5Qrcode|@zxing/browser' supabase/functions supabase/migrations
+          # Omit data-pipeline/.venv; scan package source + tests + schemas only.
+          CLIENT_ROOTS=(apps packages bridges data-pipeline/data_pipeline data-pipeline/tests data-pipeline/schemas)
+          # Skip missing roots (apps may be partial early on).
+          EXISTING=()
+          for r in "${CLIENT_ROOTS[@]}"; do
+            [[ -e "$r" ]] && EXISTING+=("$r")
+          done
+          scan "ZIMRA/FDMS/fiscal (client)" 'zimra|fdms|fiscali[sz]' "${EXISTING[@]}"
+          scan "payroll tax (client)" 'paye\b|nssa|pobs|apwcs|zimdef|\bp4a?\b' "${EXISTING[@]}"
+          scan "HTML5 / browser QR (client)" 'html5-qrcode|Html5Qrcode|barcode-detector|jsqr\b|@zxing/browser' "${EXISTING[@]}"
+          if [[ -d supabase/functions ]]; then
+            scan "ZIMRA/FDMS SDK/URL (edge)" 'zimra\.(gov|com)|fdms\.|/fiscali[sz]|@zimra/' supabase/functions
+            scan "HTML5 / browser QR (edge)" 'html5-qrcode|Html5Qrcode|@zxing/browser' supabase/functions
+          fi
+          if [[ -d supabase/migrations ]]; then
+            scan "HTML5 / browser QR (migrations)" 'html5-qrcode|Html5Qrcode|@zxing/browser' supabase/migrations
+          fi
           if [[ "$FAIL" -ne 0 ]]; then
             exit 1
           fi
