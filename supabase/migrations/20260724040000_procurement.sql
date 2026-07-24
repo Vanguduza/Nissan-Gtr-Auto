@@ -801,12 +801,9 @@ SET search_path = public
 AS $$
 DECLARE
   v_grn public.goods_receipts%ROWTYPE;
-  v_st public.procurement_doc_status;
   v_receipt_lines JSONB := '[]'::jsonb;
   v_row RECORD;
   v_entry UUID;
-  v_sel RECORD;
-  v_po_price NUMERIC;
   v_var_pct NUMERIC;
   v_tolerance CONSTANT NUMERIC := 0.05;
   v_mismatch BOOLEAN := false;
