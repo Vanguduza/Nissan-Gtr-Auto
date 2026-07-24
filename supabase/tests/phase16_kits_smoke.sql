@@ -150,7 +150,7 @@ BEGIN
   SELECT COALESCE(quantity, 0) INTO v_qty_kit
   FROM public.stock_levels WHERE stock_item_id = v_kit_item AND warehouse_id = v_main;
 
-  v_cart := public.create_pos_cart(v_main, NULL, 'USD');
+  v_cart := public.create_pos_cart(v_main, NULL::uuid, 'USD'::public.currency_code);
   PERFORM public.add_cart_line(v_cart, v_kit_item, v_uom, 1);
 
   SELECT count(*)::int INTO v_core_cnt
