@@ -20,13 +20,23 @@ type Props = {
   live: boolean;
 };
 
+type TrailGeoJSON = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    properties: Record<string, never>;
+    geometry: {
+      type: "LineString";
+      coordinates: [number, number][];
+    };
+  }>;
+};
+
 function toLngLat(point: DeliveryLocationPoint): [number, number] {
   return [point.lng, point.lat];
 }
 
-function trailFeatureCollection(
-  points: DeliveryLocationPoint[],
-): GeoJSON.FeatureCollection {
+function trailFeatureCollection(points: DeliveryLocationPoint[]): TrailGeoJSON {
   if (points.length < 2) {
     return { type: "FeatureCollection", features: [] };
   }
@@ -54,6 +64,7 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const readyRef = useRef(false);
+  const fittedJobKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -65,7 +76,10 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
       zoom: DEFAULT_ZOOM,
       attributionControl: true,
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      "top-right",
+    );
     mapRef.current = map;
 
     map.on("load", () => {
@@ -89,6 +103,7 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
 
     return () => {
       readyRef.current = false;
+      fittedJobKeyRef.current = null;
       markerRef.current?.remove();
       markerRef.current = null;
       map.remove();
@@ -110,6 +125,7 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
       if (!last) {
         markerRef.current?.remove();
         markerRef.current = null;
+        fittedJobKeyRef.current = null;
         return;
       }
 
@@ -122,12 +138,19 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
         markerRef.current.setLngLat(lngLat);
       }
 
-      if (points.length === 1) {
-        map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13) });
-      } else if (points.length > 1) {
-        const bounds = new maplibregl.LngLatBounds(lngLat, lngLat);
-        for (const p of points) bounds.extend(toLngLat(p));
-        map.fitBounds(bounds, { padding: 48, maxZoom: 16, duration: 600 });
+      const jobKey = last.delivery_job_id;
+      const firstPaint = fittedJobKeyRef.current !== jobKey;
+      if (firstPaint) {
+        fittedJobKeyRef.current = jobKey;
+        if (points.length === 1) {
+          map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13) });
+        } else {
+          const bounds = new maplibregl.LngLatBounds(lngLat, lngLat);
+          for (const p of points) bounds.extend(toLngLat(p));
+          map.fitBounds(bounds, { padding: 48, maxZoom: 16, duration: 600 });
+        }
+      } else {
+        map.panTo(lngLat, { duration: 400 });
       }
     };
 
