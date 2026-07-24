@@ -1,6 +1,6 @@
 # Live map delivery tracking
 
-- Status: draft
+- Status: done (session slice; AuthZ b)
 - Lane(s): `@hardware_mobile_agent` → `@management_app_agent` → `@web_agent` (optional `@backend_agent` only for customer RPC)
 - Skills needed: (none required; Bridge-First via `bridges/contracts/gps.ts`)
 - Related: `docs/plans/2026-07-24-phase10-logistics-pick-pack-dn.md`, master Phase 10/12 + Immediate handoff
@@ -31,14 +31,14 @@ Rationale: Phase 10 RLS already staff-selects `delivery_locations` (`admin`\|`wa
 
 ## Acceptance criteria
 
-- [ ] Android `bridges/android/location-tracker/` implements `GpsBridge` (FusedLocationProvider, permissions, foreground service if background watch required)
-- [ ] iOS `bridges/ios/LocationTracker/` implements `GpsBridge` (CoreLocation, permissions)
-- [ ] Bridge yields `GpsCoordinate` only — **no** network/Supabase inside bridge; caller maps via `toDeliveryLocationIngest`
-- [ ] Management Android: start/stop tracking on active delivery job; client-side ≥~5s throttle; call `ingest_delivery_location` (live or fake client)
-- [ ] Web `/staff/logistics` (or sub-route): MapLibre map for selected job; Realtime filter on `delivery_locations`; staff-gated; **no** browser geolocation
-- [ ] Customer apps: **skip** live map under (b); status-only remains; if (a) later — thin screen + RPC only
-- [ ] Master Immediate handoff updated after slice; no commits unless user asks
-- [ ] `/security-reviewer` on location AuthZ; `/verifier` confirms no HTML5 geolocation / no ZIMRA / Bridge-First
+- [x] Android `bridges/android/location-tracker/` implements `GpsBridge` (FusedLocationProvider, permissions, foreground service if background watch required)
+- [x] iOS `bridges/ios/LocationTracker/` implements `GpsBridge` (CoreLocation, permissions)
+- [x] Bridge yields `GpsCoordinate` only — **no** network/Supabase inside bridge; caller maps via `toDeliveryLocationIngest`
+- [x] Management Android: start/stop tracking on active delivery job; client-side ≥~5s throttle; call `ingest_delivery_location` (live or fake client)
+- [x] Web `/staff/logistics` (or sub-route): MapLibre map for selected job; Realtime filter on `delivery_locations`; staff-gated; **no** browser geolocation
+- [x] Customer apps: **skip** live map under (b); status-only remains; if (a) later — thin screen + RPC only
+- [x] Master Immediate handoff updated after slice; no commits unless user asks
+- [x] `/security-reviewer` on location AuthZ; `/verifier` confirms no HTML5 geolocation / no ZIMRA / Bridge-First
 
 ## Lane sequence (one-session priority)
 
