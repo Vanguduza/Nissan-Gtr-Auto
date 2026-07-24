@@ -25,8 +25,8 @@ import co.zw.nissangtr.management.dispatch.DispatchScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.pos.PosModule
-import co.zw.nissangtr.management.rpc.FakeRpcClient
 import co.zw.nissangtr.management.rpc.RpcClient
+import co.zw.nissangtr.management.rpc.RpcClientFactory
 import co.zw.nissangtr.management.warehouse.WarehouseModule
 
 private enum class ManagementRoute {
@@ -37,7 +37,7 @@ private enum class ManagementRoute {
 
 /**
  * Management shell. Feature screens are thin scaffolds over [RpcClient]
- * (FakeRpcClient until Supabase Kotlin SDK is wired).
+ * ([RpcClientFactory]: Live [co.zw.nissangtr.management.rpc.SupabaseRpcClient] or Fake).
  * Money/pricing: @gtr/shared. Hardware: bridges/ contracts only.
  */
 class MainActivity : ComponentActivity() {
@@ -45,12 +45,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Keep placeholder modules on the compile classpath.
         listOf(PosModule.id, WarehouseModule.id, DispatchModule.id, HrModule.id)
-        // TODO(live): build SupabaseRpcClient from BuildConfig.SUPABASE_URL / ANON_KEY
-        val rpc: RpcClient = FakeRpcClient()
+        val live = RpcClientFactory.isLive(
+            BuildConfig.SUPABASE_URL,
+            BuildConfig.SUPABASE_ANON_KEY,
+            BuildConfig.RPC_FORCE_FAKE,
+        )
+        val rpc: RpcClient = RpcClientFactory.create(
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
+            forceFake = BuildConfig.RPC_FORCE_FAKE,
+        )
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ManagementApp(rpc = rpc)
+                    ManagementApp(rpc = rpc, liveRpc = live)
                 }
             }
         }
@@ -58,10 +66,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun ManagementApp(rpc: RpcClient) {
+private fun ManagementApp(rpc: RpcClient, liveRpc: Boolean) {
     var route by remember { mutableStateOf(ManagementRoute.Home) }
     when (route) {
         ManagementRoute.Home -> ManagementHome(
+            liveRpc = liveRpc,
             onHr = { route = ManagementRoute.HrClock },
             onDispatch = { route = ManagementRoute.Dispatch },
         )
@@ -78,6 +87,7 @@ private fun ManagementApp(rpc: RpcClient) {
 
 @Composable
 private fun ManagementHome(
+    liveRpc: Boolean,
     onHr: () -> Unit,
     onDispatch: () -> Unit,
 ) {
@@ -94,6 +104,11 @@ private fun ManagementHome(
             "Modules: ${PosModule.id}, ${WarehouseModule.id}, ${DispatchModule.id}, ${HrModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
+        Text(
+            if (liveRpc) "RPC: Live (supabase-kt)"
+            else "RPC: Fake (set SUPABASE_URL + SUPABASE_ANON_KEY)",
+            style = MaterialTheme.typography.bodySmall,
+        )
         Button(
             onClick = onHr,
             modifier = Modifier.fillMaxWidth(),
@@ -103,7 +118,7 @@ private fun ManagementHome(
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Logistics — Pick / DN") }
         Text(
-            "RPC: FakeRpcClient stub (see core:rpc). No payroll tax. Bridge-First for QR/GPS.",
+            "Auth session via GoTrue after login — no hardcoded JWTs. No payroll tax. Bridge-First for QR/GPS.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )
