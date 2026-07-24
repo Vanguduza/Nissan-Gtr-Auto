@@ -2218,6 +2218,19 @@ export type Database = {
         }
         Returns: string
       }
+      create_purchase_order: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_exchange_rate: number
+          p_expected_date?: string
+          p_lines: Json
+          p_material_request_id?: string
+          p_notes?: string
+          p_supplier_id: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       create_stock_reconciliation_draft: {
         Args: {
           p_currency?: Database["public"]["Enums"]["currency_code"]
