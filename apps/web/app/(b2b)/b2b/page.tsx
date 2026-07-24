@@ -1,5 +1,6 @@
 import styles from "../../(storefront)/page.module.css";
 import local from "../b2b-page.module.css";
+import Link from "next/link";
 
 export const metadata = { title: "B2B" };
 
@@ -25,6 +26,12 @@ export default function B2bPage() {
           </dd>
         </div>
       </dl>
+      <p className={styles.lede} style={{ marginTop: "1.25rem" }}>
+        Procurement:{" "}
+        <Link href="/procurement/rfqs">staff RFQs</Link>
+        {" · "}
+        <Link href="/supplier/rfqs">supplier quotations</Link>
+      </p>
     </div>
   );
 }
