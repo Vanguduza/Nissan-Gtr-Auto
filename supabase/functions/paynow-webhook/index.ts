@@ -1,8 +1,6 @@
 /**
- * Paynow result/status webhook settle stub.
- * Env: PAYNOW_INTEGRATION_KEY — verify Paynow hash in production; never commit.
- * Contract: POST JSON with external_ref (or reference), optional status/success,
- * allocations, dual-currency settlement fields. Idempotent via payload_hash.
+ * Paynow webhook / result settle stub.
+ * Env: PAYNOW_INTEGRATION_KEY (hash verify) — never commit real values.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -18,11 +16,10 @@ async function sha256Hex(input: string): Promise<string> {
 Deno.serve(async (req) => {
   try {
     const raw = await req.text();
-    const integrationKey = Deno.env.get("PAYNOW_INTEGRATION_KEY");
-    const hash = req.headers.get("x-paynow-hash") ?? "";
+    const key = Deno.env.get("PAYNOW_INTEGRATION_KEY");
+    const hashHeader = req.headers.get("x-paynow-hash") ?? "";
 
-    // Stub verify: if key configured, require non-empty hash header (real Paynow hash TBD).
-    if (integrationKey && !hash) {
+    if (key && !hashHeader) {
       return new Response(JSON.stringify({ error: "missing hash" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
@@ -30,11 +27,8 @@ Deno.serve(async (req) => {
     }
 
     const payload = JSON.parse(raw || "{}");
-    const external_ref = payload.external_ref ?? payload.reference ?? payload.reference_;
-    const success =
-      payload.success !== false &&
-      payload.status !== "failed" &&
-      payload.status !== "Cancelled";
+    const external_ref = payload.external_ref ?? payload.reference ?? payload.pollurl;
+    const success = payload.success !== false && payload.status !== "failed";
     const allocations = payload.allocations ?? null;
     const payload_hash = await sha256Hex(raw);
 
