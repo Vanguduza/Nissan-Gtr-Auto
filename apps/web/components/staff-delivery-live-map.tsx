@@ -139,7 +139,7 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
 
       const lngLat = toLngLat(last);
       if (!markerRef.current) {
-        markerRef.current = new maplibregl.Marker({ color: "#C8102E" })
+        markerRef.current = new Marker({ color: "#C8102E" })
           .setLngLat(lngLat)
           .addTo(map);
       } else {
@@ -153,7 +153,7 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
         if (points.length === 1) {
           map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13) });
         } else {
-          const bounds = new maplibregl.LngLatBounds(lngLat, lngLat);
+          const bounds = new LngLatBounds(lngLat, lngLat);
           for (const p of points) bounds.extend(toLngLat(p));
           map.fitBounds(bounds, { padding: 48, maxZoom: 16, duration: 600 });
         }
