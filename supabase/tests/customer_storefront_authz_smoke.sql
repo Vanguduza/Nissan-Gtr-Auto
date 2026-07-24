@@ -125,13 +125,21 @@ BEGIN
     )
   );
 
-  INSERT INTO public.customers (display_name, currency, profile_id)
-  VALUES ('Storefront Customer A', 'USD', v_cust_a_user)
-  RETURNING id INTO v_cust_a;
+  SELECT id INTO v_cust_a FROM public.customers WHERE profile_id = v_cust_a_user
+  ORDER BY created_at ASC LIMIT 1;
+  IF v_cust_a IS NULL THEN
+    INSERT INTO public.customers (display_name, currency, profile_id)
+    VALUES ('Storefront Customer A', 'USD', v_cust_a_user)
+    RETURNING id INTO v_cust_a;
+  END IF;
 
-  INSERT INTO public.customers (display_name, currency, profile_id)
-  VALUES ('Storefront Customer B', 'USD', v_cust_b_user)
-  RETURNING id INTO v_cust_b;
+  SELECT id INTO v_cust_b FROM public.customers WHERE profile_id = v_cust_b_user
+  ORDER BY created_at ASC LIMIT 1;
+  IF v_cust_b IS NULL THEN
+    INSERT INTO public.customers (display_name, currency, profile_id)
+    VALUES ('Storefront Customer B', 'USD', v_cust_b_user)
+    RETURNING id INTO v_cust_b;
+  END IF;
 
   -- -----------------------------------------------------------------------
   -- 1) Customer A: cart → core-charge split → checkout → own invoice
