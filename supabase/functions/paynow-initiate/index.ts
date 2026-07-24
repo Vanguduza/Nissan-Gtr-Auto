@@ -1,7 +1,8 @@
 /**
  * Paynow initiate stub.
  * Secrets: PAYNOW_INTEGRATION_ID, PAYNOW_INTEGRATION_KEY — Edge Function env only.
- * Requires staff JWT; uses anon + user JWT so create_paynow_intent staff gate applies.
+ * Staff JWT → create_paynow_intent; customer JWT + sales_invoice_id →
+ * create_customer_paynow_intent (own unpaid invoices only). Settle stays webhook.
  * Local stub without secrets: PAYNOW_ALLOW_UNVERIFIED_LOCAL=1
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -56,39 +57,54 @@ Deno.serve(async (req) => {
       currency = "USD",
       exchange_rate = 1,
       customer_id,
+      sales_invoice_id,
       settlement_currency,
       settlement_amount,
       settlement_exchange_rate,
       metadata,
     } = body ?? {};
 
-    if (!external_ref || !method || !amount) {
+    if (!method) {
+      return jsonResponse({ error: "method required" }, 400, cors);
+    }
+    if (!sales_invoice_id && (!external_ref || !amount)) {
       return jsonResponse(
-        { error: "external_ref, method, amount required" },
+        { error: "external_ref, method, amount required (or sales_invoice_id for customer self-pay)" },
         400,
         cors,
       );
     }
 
-    // User-scoped client — never service_role on initiate (staff RPC gate must apply).
+    // User-scoped client — never service_role on initiate.
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data, error } = await supabase.rpc("create_paynow_intent", {
-      p_external_ref: external_ref,
-      p_method: method,
-      p_amount: amount,
-      p_currency: currency,
-      p_exchange_rate: exchange_rate,
-      p_customer_id: customer_id ?? null,
-      p_settlement_currency: settlement_currency ?? null,
-      p_settlement_amount: settlement_amount ?? null,
-      p_settlement_exchange_rate: settlement_exchange_rate ?? null,
-      p_metadata: metadata ?? {},
-    });
+    const { data, error } = sales_invoice_id
+      ? await supabase.rpc("create_customer_paynow_intent", {
+          p_sales_invoice_id: sales_invoice_id,
+          p_method: method,
+          p_external_ref: external_ref ?? null,
+          p_amount: amount ?? null,
+          p_settlement_currency: settlement_currency ?? null,
+          p_settlement_amount: settlement_amount ?? null,
+          p_settlement_exchange_rate: settlement_exchange_rate ?? null,
+          p_metadata: metadata ?? {},
+        })
+      : await supabase.rpc("create_paynow_intent", {
+          p_external_ref: external_ref,
+          p_method: method,
+          p_amount: amount,
+          p_currency: currency,
+          p_exchange_rate: exchange_rate,
+          p_customer_id: customer_id ?? null,
+          p_settlement_currency: settlement_currency ?? null,
+          p_settlement_amount: settlement_amount ?? null,
+          p_settlement_exchange_rate: settlement_exchange_rate ?? null,
+          p_metadata: metadata ?? {},
+        });
 
     if (error) {
       return jsonResponse({ error: error.message }, 400, cors);
