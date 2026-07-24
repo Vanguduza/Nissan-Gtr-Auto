@@ -24,28 +24,18 @@ Absolute URLs are built from `window.location.origin` in the browser, else `NEXT
    - `return_url`, `cancel_url` (Paynow also `result_url`)
    - `metadata` mirroring those URLs + `channel: storefront`
 2. If the edge response includes a non-null `checkout_url` (or Paynow `poll_url`), the cart / order UI **redirects** the browser there.
-3. Otherwise keep the intent-created message and stay on the order page (current stub: edge returns `checkout_url: null`).
+3. Otherwise keep the intent-created message and stay on the order page.
 4. RPC fallback `create_customer_*_intent` stores the same URLs in `p_metadata` when edge is unavailable.
 
-## Secrets (never commit values)
+### Local stub `checkout_url` (secrets unset)
 
-| Env | Where | Purpose |
-|-----|--------|---------|
-| `CONTIPAY_API_KEY`, `CONTIPAY_MERCHANT_ID`, ContiPay HMAC secret | Edge Function env only | Real initiate + webhook verify |
-| `PAYNOW_INTEGRATION_ID`, `PAYNOW_INTEGRATION_KEY` | Edge Function env only | Real initiate + hash verify |
-| `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` | Local edge only | Stub without secrets |
-| `NEXT_PUBLIC_SITE_URL` | Web app | Public origin for return/cancel links — **not** a secret |
+With `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` and no merchant keys, initiate still creates the intent, merges redirect URLs into `p_metadata`, echoes `return_url` / `cancel_url` / `result_url` in the JSON response, and — when `return_url` is present — sets:
 
-Do not put ContiPay / Paynow keys in `NEXT_PUBLIC_*`, migrations, or this doc.
+`checkout_url = {return_url}&psp=contipay|paynow&stub=1&intent_id={uuid}`
 
-## Backend follow-up (`@backend_agent`)
+(existing `?invoice=` query preserved). Web can redirect to `/checkout/return` without real PSP keys. Settlement remains webhook-only; stub redirect does **not** mark paid.
 
-Edge stubs today accept `metadata` but **do not** read top-level `return_url` / `cancel_url` / `result_url`, and always return `checkout_url: null` / `poll_url: null`. When merchant keys land:
-
-1. Destructure `return_url`, `cancel_url`, `result_url` in `contipay-initiate` / `paynow-initiate`.
-2. Pass them to the provider create-session API; echo the hosted `checkout_url` (or Paynow redirect/poll URL) in the JSON response.
-3. Persist return URLs on intent `metadata` (already merged by customer RPCs) — no new secrets in DB.
-4. Optional: dedicated `return_url` column only if webhook reconciliation needs indexed lookup; metadata is enough for the storefront slice.
+When merchant keys land: pass the same URLs to the provider create-session API and replace stub `checkout_url` with the hosted session URL. Optional dedicated `return_url` column only if webhook reconciliation needs indexed lookup; metadata is enough for the storefront slice.
 
 ## Exclusions
 
