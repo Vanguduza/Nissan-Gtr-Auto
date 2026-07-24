@@ -142,6 +142,19 @@ BEGIN
   );
   PERFORM public.submit_supplier_quotation(v_quote);
 
+  -- Direct UPDATE on submitted quotation must fail (trigger guard)
+  BEGIN
+    UPDATE public.supplier_quotations
+    SET notes = 'direct tamper'
+    WHERE id = v_quote;
+    RAISE EXCEPTION 'smoke fail: direct UPDATE on submitted quote was allowed';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%use procurement RPCs%' THEN
+        RAISE;
+      END IF;
+  END;
+
   PERFORM public._test_set_auth_uid(v_other_user);
   v_other_quote := public.upsert_supplier_quotation(
     v_rfq,
