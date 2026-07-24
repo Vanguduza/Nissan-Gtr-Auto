@@ -65,18 +65,29 @@ class FusedLocationGpsBridge(
             }
             val activity = activityRef?.get()
                 ?: return@withContext LocationPermissionStatus.NOT_DETERMINED
-            val permissions = buildList {
-                add(Manifest.permission.ACCESS_FINE_LOCATION)
-                add(Manifest.permission.ACCESS_COARSE_LOCATION)
-            }.toTypedArray()
-            ActivityCompat.requestPermissions(
-                activity,
-                permissions,
-                REQUEST_LOCATION,
-            )
-            // Result arrives asynchronously via Activity; re-check after host resumes.
-            resolvePermissionStatus()
+            suspendCancellableCoroutine { cont ->
+                LocationPermissionRelay.arm(cont)
+                cont.invokeOnCancellation { LocationPermissionRelay.cancel() }
+                val permissions = arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                )
+                ActivityCompat.requestPermissions(
+                    activity,
+                    permissions,
+                    REQUEST_LOCATION,
+                )
+            }
         }
+
+    /**
+     * Call from the host Activity when requestCode matches [REQUEST_LOCATION]
+     * (or from Activity Result callback). Completes a pending
+     * [requestLocationPermission] suspension.
+     */
+    fun onPermissionResult() {
+        LocationPermissionRelay.complete(resolvePermissionStatus())
+    }
 
     /**
      * Request background location after fine is granted (Android 10+).
