@@ -228,6 +228,8 @@ BEGIN
   -- Direct mutation on submitted PO must be denied (RLS + triggers)
   PERFORM public._test_set_auth_uid('a0000000-0000-4000-8000-000000000001');
   SET LOCAL role authenticated;
+  -- Belt-and-suspenders: clear GUC left by prior RPCs in this DO transaction
+  PERFORM set_config('app.procurement_rpc', '', true);
 
   BEGIN
     UPDATE public.purchase_orders

@@ -143,6 +143,8 @@ BEGIN
   PERFORM public.submit_supplier_quotation(v_quote);
 
   -- Direct UPDATE on submitted quotation must fail (trigger guard)
+  -- Belt-and-suspenders: clear GUC left by prior RPCs in this DO transaction
+  PERFORM set_config('app.procurement_rpc', '', true);
   BEGIN
     UPDATE public.supplier_quotations
     SET notes = 'direct tamper'
