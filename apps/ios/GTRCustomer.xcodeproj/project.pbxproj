@@ -19,6 +19,8 @@
 		A1000000000000000000000A /* OrdersScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* OrdersScreen.swift */; };
 		A1000000000000000000000B /* GarageScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001B /* GarageScreen.swift */; };
 		A1000000000000000000000C /* PayScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* PayScreen.swift */; };
+		A1000000000000000000000D /* PostgrestClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PostgrestClient.swift */; };
+		A1000000000000000000000E /* LiveStorefrontApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* LiveStorefrontApi.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
