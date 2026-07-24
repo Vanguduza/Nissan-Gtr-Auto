@@ -219,6 +219,63 @@ class SupabaseRpcClient(
             buildJsonObject { put("p_delivery_note_id", deliveryNoteId) },
         ).decodeAs<String>()
 
+    override suspend fun createDeliveryJob(
+        deliveryNoteId: String,
+        assigneeUserId: String?,
+        etaAt: String?,
+        notes: String?,
+    ): String {
+        require(deliveryNoteId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_DELIVERY_JOB,
+            buildJsonObject {
+                put("p_delivery_note_id", deliveryNoteId)
+                if (assigneeUserId.isNullOrBlank()) put("p_assignee_user_id", JsonNull)
+                else put("p_assignee_user_id", assigneeUserId)
+                if (etaAt.isNullOrBlank()) put("p_eta_at", JsonNull)
+                else put("p_eta_at", etaAt)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun updateDeliveryJobStatus(
+        deliveryJobId: String,
+        status: DeliveryJobStatus,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.UPDATE_DELIVERY_JOB_STATUS,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                put("p_status", status.rpcValue)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun ingestDeliveryLocation(
+        deliveryJobId: String,
+        lat: Double,
+        lng: Double,
+        recordedAt: String?,
+        accuracyM: Double?,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.INGEST_DELIVERY_LOCATION,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                put("p_lat", lat)
+                put("p_lng", lng)
+                if (recordedAt.isNullOrBlank()) put("p_recorded_at", JsonNull)
+                else put("p_recorded_at", recordedAt)
+                if (accuracyM == null) put("p_accuracy_m", JsonNull)
+                else put("p_accuracy_m", accuracyM)
+            },
+        ).decodeAs<String>()
+    }
+
     companion object {
         fun create(supabaseUrl: String, supabaseAnonKey: String): SupabaseRpcClient {
             val client = createSupabaseClient(

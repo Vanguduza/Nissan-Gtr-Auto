@@ -126,4 +126,61 @@ class FakeRpcClient : RpcClient {
         // TODO(live): supabase.rpc(RpcNames.CANCEL_DELIVERY_NOTE, …)
         return deliveryNoteId
     }
+
+    override suspend fun createDeliveryJob(
+        deliveryNoteId: String,
+        assigneeUserId: String?,
+        etaAt: String?,
+        notes: String?,
+    ): String {
+        require(deliveryNoteId.isNotBlank())
+        val dn = deliveryNotes.find { it.id == deliveryNoteId }
+            ?: DeliveryNoteSummary(
+                id = deliveryNoteId,
+                documentNumber = "DN-EXT",
+                salesInvoiceId = "",
+                status = "submitted",
+            )
+        require(dn.status == "submitted" || dn.status == "draft") {
+            // Fake allows draft for scaffold demos; live requires submitted.
+            "delivery job requires DN"
+        }
+        val id = UUID.randomUUID().toString()
+        jobSeq.getAndIncrement()
+        deliveryJobs[id] = deliveryNoteId to "pending"
+        return id
+    }
+
+    override suspend fun updateDeliveryJobStatus(
+        deliveryJobId: String,
+        status: DeliveryJobStatus,
+    ): String {
+        val current = deliveryJobs[deliveryJobId]
+            ?: (deliveryJobId to "pending").also { deliveryJobs[deliveryJobId] = it }
+        require(current.second !in listOf("completed", "failed")) {
+            "terminal delivery job cannot change status"
+        }
+        deliveryJobs[deliveryJobId] = current.first to status.rpcValue
+        return deliveryJobId
+    }
+
+    override suspend fun ingestDeliveryLocation(
+        deliveryJobId: String,
+        lat: Double,
+        lng: Double,
+        recordedAt: String?,
+        accuracyM: Double?,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        require(lat in -90.0..90.0) { "lat out of range" }
+        require(lng in -180.0..180.0) { "lng out of range" }
+        val job = deliveryJobs[deliveryJobId]
+        if (job != null) {
+            require(job.second !in listOf("completed", "failed")) {
+                "cannot ingest locations for terminal job"
+            }
+        }
+        ingestedLocationCount.incrementAndGet()
+        return UUID.randomUUID().toString()
+    }
 }

@@ -443,9 +443,10 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 4. Verifier PASS — no hardcoded JWTs; Fake bypass OK; no PSP crypto
 
 **Still follow-on** (remaining)
-1. **PSP env secrets only (user-provided):** ContiPay/Paynow HMAC + merchant secrets — set in local/edge env; do not commit
-2. Native assemble on JDK/Xcode hosts; iOS Keychain before prod
-3. PDP photos / Meili / PowerSync / native bridge impls
+1. **Thin surfaces + WhatsApp bot:** see [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md) (UI fill-in backlog; Meta Cloud API parts-finder + human handoff)
+2. **PSP env secrets only (user-provided):** ContiPay/Paynow HMAC + merchant secrets — set in local/edge env; do not commit
+3. Native assemble on JDK/Xcode hosts; iOS Keychain before prod
+4. PDP photos / Meili / PowerSync / native bridge impls
 
 **In progress:** None.
 
