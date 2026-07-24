@@ -94,7 +94,7 @@ export function StaffDeliveryTrackingPanel() {
       setPoints(initial.data);
     })();
 
-    const channel = subscribeDeliveryLocationInserts(client, jobId, (point) => {
+    const channel = deliveryLocationInsertChannel(client, jobId, (point) => {
       setPoints((prev) => mergePoint(prev, point));
     });
 
@@ -102,7 +102,9 @@ export function StaffDeliveryTrackingPanel() {
       if (cancelled) return;
       setLive(status === "SUBSCRIBED");
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        setMessage(`Realtime ${status.toLowerCase()} — check staff session / RLS.`);
+        setMessage(
+          `Realtime ${status.toLowerCase()} — check staff session / RLS.`,
+        );
       }
     });
 
