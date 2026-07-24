@@ -71,6 +71,8 @@ For complex features, use the sequence:
 
 Enable via Dashboard → Bugbot → connect GitHub → require `Cursor Bugbot` check on `main`.
 
+Ops checklist (secrets, RLS CI gate, local vs Actions smoke): [`docs/HARDENING.md`](./HARDENING.md). PR CI: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
 ### Pre-Push Review
 Before pushing: `/review-bugbot` then `/review-security` to catch issues before CI.
 
