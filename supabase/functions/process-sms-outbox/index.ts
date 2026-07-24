@@ -1,12 +1,20 @@
 /**
  * Drain manager sms_outbox via stub gateway (RPC).
  * Real provider secrets (e.g. SMS_GATEWAY_API_KEY) stay in Edge env only.
+ *
+ * AuthZ: requires header x-worker-secret matching env WORKER_SHARED_SECRET
+ * (refuse 401 if missing/wrong). Local stub only: WORKER_ALLOW_UNVERIFIED_LOCAL=1
+ * when WORKER_SHARED_SECRET is unset. Never commit real secrets.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertWorkerSecret } from "../_shared/worker_auth.ts";
 
 Deno.serve(async (req) => {
   try {
+    const denied = assertWorkerSecret(req);
+    if (denied) return denied;
+
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const limit = Number(body.limit ?? 50);
     const stubSuccess = body.stub_success !== false;
