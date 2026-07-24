@@ -1,7 +1,6 @@
 /**
- * Paynow edge initiate stub.
- * Secrets: PAYNOW_INTEGRATION_ID, PAYNOW_INTEGRATION_KEY — Edge Function secrets only.
- * Never commit real credentials. Real Paynow initiate + pollhash in Phase 13 follow-on.
+ * Paynow initiate stub.
+ * Secrets: PAYNOW_INTEGRATION_ID, PAYNOW_INTEGRATION_KEY — Edge Function env only.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -72,13 +71,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Stub: real Paynow create + redirect/poll URL goes here.
     return new Response(
       JSON.stringify({
         intent_id: data,
         status: "pending",
-        checkout_url: null,
         poll_url: null,
+        return_url_hint: "https://nissangtrauto.co.zw",
         stub: true,
       }),
       { headers: { ...cors, "Content-Type": "application/json" } },
