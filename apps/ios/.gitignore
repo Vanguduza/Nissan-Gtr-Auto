@@ -1,0 +1,7 @@
+# Local secrets — do not commit
+.env
+Secrets.xcconfig
+*.xcuserstate
+xcuserdata/
+DerivedData/
+.build/
