@@ -71,7 +71,7 @@ public func toDeliveryLocationIngest(
     )
 }
 
-public protocol GpsWatchHandle: AnyObject, Sendable {
+public protocol GpsWatchHandle: AnyObject {
     func stop() async
 }
 
