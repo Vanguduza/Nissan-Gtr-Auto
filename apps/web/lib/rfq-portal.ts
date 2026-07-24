@@ -159,22 +159,42 @@ export async function loadRfqDetail(
   if (invitesRes.error) return { ok: false, error: invitesRes.error.message };
   if (quotesRes.error) return { ok: false, error: quotesRes.error.message };
 
+  const lines: RfqLineRow[] = (linesRes.data ?? []).map((row) => ({
+    ...(row as Omit<RfqLineRow, "stock_items">),
+    stock_items: asSingle(
+      (row as { stock_items?: RfqLineRow["stock_items"] | RfqLineRow["stock_items"][] })
+        .stock_items,
+    ),
+  }));
+
+  const invites: RfqDetail["invites"] = (invitesRes.data ?? []).map((row) => {
+    const r = row as {
+      supplier_id: string;
+      suppliers?: { code: string; name: string } | { code: string; name: string }[] | null;
+    };
+    return {
+      supplier_id: r.supplier_id,
+      suppliers: asSingle(r.suppliers),
+    };
+  });
+
+  const quotations: QuotationWithSupplier[] = (quotesRes.data ?? []).map((row) => {
+    const r = row as SupplierQuotationRow & {
+      suppliers?: QuotationWithSupplier["suppliers"] | QuotationWithSupplier["suppliers"][] | null;
+    };
+    return {
+      ...r,
+      suppliers: asSingle(r.suppliers),
+    };
+  });
+
   return {
     ok: true,
     data: {
       rfq: rfqRes.data,
-      lines: (linesRes.data ?? []).map((row) => ({
-        ...row,
-        stock_items: asSingle(row.stock_items),
-      })) as RfqLineRow[],
-      invites: (invitesRes.data ?? []).map((row) => ({
-        supplier_id: row.supplier_id,
-        suppliers: asSingle(row.suppliers),
-      })),
-      quotations: (quotesRes.data ?? []).map((row) => ({
-        ...row,
-        suppliers: asSingle(row.suppliers),
-      })) as QuotationWithSupplier[],
+      lines,
+      invites,
+      quotations,
     },
   };
 }
