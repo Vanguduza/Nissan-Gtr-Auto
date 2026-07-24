@@ -436,32 +436,34 @@ export function StaffLogisticsPanel() {
         )}
       </fieldset>
 
-      <form className={styles.fieldset} onSubmit={(e) => void onCreateJob(e)}>
+      <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>4 · Delivery job</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
           Requires a submitted DN. Dispatcher/admin via{" "}
           <code>create_delivery_job</code>.
         </p>
-        <label className={styles.field}>
-          Notes (optional)
-          <input
-            type="text"
-            value={jobNotes}
-            onChange={(e) => setJobNotes(e.target.value)}
-            disabled={busy}
-            placeholder="Route notes"
-          />
-        </label>
-        <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
-          <button
-            type="submit"
-            className={styles.btn}
-            disabled={busy || !deliveryNoteId}
-          >
-            Create delivery job
-          </button>
-        </div>
-      </form>
+        <form onSubmit={(e) => void onCreateJob(e)}>
+          <label className={styles.field}>
+            Notes (optional)
+            <input
+              type="text"
+              value={jobNotes}
+              onChange={(e) => setJobNotes(e.target.value)}
+              disabled={busy}
+              placeholder="Route notes"
+            />
+          </label>
+          <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
+            <button
+              type="submit"
+              className={styles.btn}
+              disabled={busy || !deliveryNoteId}
+            >
+              Create delivery job
+            </button>
+          </div>
+        </form>
+      </fieldset>
 
       {message ? (
         <p className={styles.lede} role="status">
