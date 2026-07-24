@@ -432,23 +432,22 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Docker + `npx supabase db reset` GREEN through `20260724063000_procurement_end_rpc.sql`.
-- Phase 6 search bind; 4b / 5b / 8 / 8b smokes **PASS** (manager reset; `docker exec … psql`).
-- Procurement mutation guards: `…61000` (MR/PO/GRN/LCV), `…62000` (RFQ/quotes), `…63000` (depth-aware begin/end GUC).
-- Phase 8b: **`/security-reviewer` PASS**, **`/verifier` PASS** (backend). Optional residual: REVOKE table DML grants from `authenticated`.
+- Docker + `npx supabase db reset` GREEN through `20260724071000_hr_attendance_hours_authz.sql`.
+- Phases 4b / 5b / 8 / 8b / **9** smokes **PASS** (`docker exec … psql`).
+- Phase 8/8b mutation guards `…61000`–`…63000`; security+verifier PASS.
+- Phase 9 HR gross payroll `…70000` + AuthZ `…71000`; **`/security-reviewer` PASS**, **`/verifier` PASS**. No payroll tax / ZIMRA.
 
 **In progress**
-1. **Phase 9** HR gross payroll — plan `docs/plans/2026-07-24-phase9-hr-gross-payroll.md` → `@backend_agent` implement.
-2. **`@web_agent` (optional):** RFQ compare + supplier quote pages.
+1. **Phase 10** logistics — need `/planner` child plan then `@backend_agent` (+ hardware later).
+2. Optional `@web_agent`: RFQ/supplier portal; `@management_app_agent`: HR UI.
 
 **Next**
-1. Finish Phase 9 → `/security-reviewer` → `/verifier`.
-2. Phase 10 logistics → 13 payments/receipts; defer mobile 11–12.
+1. `/planner` → `docs/plans/2026-07-24-phase10-*.md` → implement → security → verifier.
+2. Phase 13 payments/receipts; defer mobile 11–12 until APIs solid.
 
 **Blockers / notes**
 - Serialize DB apply (manager-owned reset only).
-- 5b: Quarantine transfer may stay `pending_approval` after claim approve — accepted for now.
-- Smokes are not fully idempotent without reset (supplier codes); prefer reset or unique codes.
+- Smokes not fully idempotent without reset.
 - No commits (user did not request).
 
 Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
