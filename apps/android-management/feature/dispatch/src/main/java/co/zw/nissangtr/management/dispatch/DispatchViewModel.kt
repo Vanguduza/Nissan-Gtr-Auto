@@ -376,7 +376,10 @@ class DispatchViewModel(
         val handle = watchHandle
         watchHandle = null
         if (handle != null) {
-            viewModelScope.launch {
+            // viewModelScope is cancelled here — use a one-shot Main scope to stop FGS.
+            kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate,
+            ).launch {
                 runCatching { handle.stop() }
             }
         }
