@@ -21,7 +21,20 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`.
+Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`, `(staff)`.
+
+### Staff live delivery map
+
+- Route: `/staff/logistics/tracking` (admin / warehouse / dispatcher via existing RLS)
+- Library: **MapLibre GL JS** (`maplibre-gl`)
+- Env: `NEXT_PUBLIC_MAP_STYLE_URL` — MapLibre style JSON URL. If unset, uses public demo tiles (`https://demotiles.maplibre.org/style.json`) for local demos only.
+- Behavior: **subscribe-only** to Supabase Realtime `delivery_locations` filtered by selected `delivery_job_id`. No `navigator.geolocation` / HTML5 GPS / browser QR.
+
+Demo with Realtime:
+
+1. Staff creates a delivery job under `/staff/logistics`.
+2. Driver (management Android + GPS bridge) starts tracking → `ingest_delivery_location`.
+3. Open `/staff/logistics/tracking`, select the job — marker/trail updates on INSERTs.
 
 ### Phase 8b RFQ / supplier quotations
 

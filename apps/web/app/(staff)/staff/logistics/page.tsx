@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { StaffLogisticsPanel } from "@/components/staff-logistics-panel";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
@@ -12,7 +13,8 @@ export default function StaffLogisticsPage() {
         <h1 className={styles.title}>Logistics</h1>
         <p className={styles.lede}>
           Dispatch pick list → confirm lines → delivery note → optional
-          delivery job. Warehouse/dispatcher/admin staff only.
+          delivery job. Warehouse/dispatcher/admin staff only. Live GPS trail:{" "}
+          <Link href="/staff/logistics/tracking">Live map</Link>.
         </p>
         <StaffLogisticsPanel />
       </div>
