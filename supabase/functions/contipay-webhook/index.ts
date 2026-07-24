@@ -1,24 +1,30 @@
 /**
- * ContiPay webhook settle stub.
- * Env: CONTIPAY_WEBHOOK_HMAC_SECRET — verify signature; never commit.
+ * ContiPay webhook settle.
+ * Env: CONTIPAY_WEBHOOK_HMAC_SECRET — HMAC-SHA256(raw body) hex verify.
  * Local unverified settle: CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1 only when secret unset.
  * Does not trust webhook allocations for AR — ledger uses DB intent amount.
+ *
+ * Webhook signature: no public ContiPay merchant doc found for header name.
+ * Implemented as HMAC-SHA256 over raw body; compare to x-contipay-signature
+ * (also accepts x-signature / signature, optional sha256= prefix).
+ * Confirm with ContiPay when merchant keys arrive.
+ * Source note: https://github.com/njzw/contipay-js-client (acquire auth only).
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
+  contipayHmacSha256Hex,
+  contipaySignatureFromHeaders,
   isLocalUnverifiedAllowed,
   jsonResponse,
   sha256Hex,
-  stubContipayExpectedSig,
   timingSafeEqualStr,
 } from "../_shared/payment_edge.ts";
 
 Deno.serve(async (req) => {
   try {
     const raw = await req.text();
-    const hmacSecret = Deno.env.get("CONTIPAY_WEBHOOK_HMAC_SECRET");
-    const sig = (req.headers.get("x-contipay-signature") ?? "").trim().toLowerCase();
+    const hmacSecret = Deno.env.get("CONTIPAY_WEBHOOK_HMAC_SECRET")?.trim();
     const localUnverified =
       !hmacSecret && isLocalUnverifiedAllowed("CONTIPAY_ALLOW_UNVERIFIED_LOCAL");
 
@@ -36,19 +42,32 @@ Deno.serve(async (req) => {
         "contipay-webhook: unverified local stub (CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1)",
       );
     } else {
+      const sig = contipaySignatureFromHeaders(req).toLowerCase();
       if (!sig) {
         return jsonResponse({ error: "missing signature" }, 401);
       }
-      // STUB HMAC — replace with ContiPay-documented scheme when secrets arrive.
-      const expected = (await stubContipayExpectedSig(raw, hmacSecret)).toLowerCase();
+      const expected = (await contipayHmacSha256Hex(raw, hmacSecret)).toLowerCase();
       if (!timingSafeEqualStr(expected, sig)) {
         return jsonResponse({ error: "invalid signature" }, 401);
       }
     }
 
-    const payload = JSON.parse(raw || "{}");
-    const external_ref = payload.external_ref ?? payload.reference;
-    const success = payload.success !== false && payload.status !== "failed";
+    const payload = JSON.parse(raw || "{}") as Record<string, unknown>;
+    const external_ref = String(
+      payload.external_ref ??
+        payload.reference ??
+        (payload.transaction &&
+          typeof payload.transaction === "object" &&
+          (payload.transaction as { reference?: unknown }).reference) ??
+        "",
+    ).trim();
+    const status = String(payload.status ?? "").toLowerCase();
+    const success =
+      payload.success !== false &&
+      status !== "failed" &&
+      status !== "error" &&
+      status !== "cancelled" &&
+      status !== "canceled";
     const payload_hash = await sha256Hex(raw);
 
     if (!external_ref) {
@@ -63,13 +82,23 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase.rpc("mark_contipay_settled", {
       p_external_ref: external_ref,
       p_payload_hash: payload_hash,
-      p_provider_ref: payload.provider_ref ?? null,
+      p_provider_ref:
+        payload.provider_ref != null
+          ? String(payload.provider_ref)
+          : payload.id != null
+          ? String(payload.id)
+          : null,
       p_allocations: null,
       p_settlement_currency: null,
       p_settlement_amount: null,
       p_settlement_exchange_rate: null,
       p_success: success,
-      p_failure_reason: payload.failure_reason ?? null,
+      p_failure_reason:
+        payload.failure_reason != null
+          ? String(payload.failure_reason)
+          : !success
+          ? `ContiPay status: ${status || "failed"}`
+          : null,
     });
 
     if (error) {
@@ -79,7 +108,7 @@ Deno.serve(async (req) => {
     return jsonResponse({
       ok: true,
       result: data,
-      stub: true,
+      stub: false,
       unverified_local: localUnverified,
     });
   } catch (e) {
