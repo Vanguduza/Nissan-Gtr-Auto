@@ -194,6 +194,7 @@ DECLARE
   v_bal NUMERIC;
   v_new NUMERIC;
   v_id UUID;
+  v_prior public.store_credit_movement;
 BEGIN
   IF p_amount IS NULL OR p_amount <= 0 THEN
     RAISE EXCEPTION 'store credit amount must be > 0';
@@ -208,36 +209,26 @@ BEGIN
 
   IF p_movement = 'issue' THEN
     v_new := v_bal + p_amount;
-  ELSIF p_movement IN ('redeem', 'reverse') THEN
-    IF p_movement = 'redeem' AND v_bal < p_amount THEN
+  ELSIF p_movement = 'redeem' THEN
+    IF v_bal < p_amount THEN
       RAISE EXCEPTION 'store credit overdraw: balance % amount %', v_bal, p_amount;
     END IF;
-    -- reverse of an issue reduces balance; reverse of redeem increases — caller sets movement
-    IF p_movement = 'redeem' THEN
+    v_new := v_bal - p_amount;
+  ELSIF p_movement = 'reverse' THEN
+    IF p_reverses_ledger_id IS NULL THEN
+      RAISE EXCEPTION 'reverse requires reverses_ledger_id';
+    END IF;
+    SELECT movement INTO v_prior
+    FROM public.store_credit_ledger WHERE id = p_reverses_ledger_id;
+    IF v_prior = 'issue' THEN
+      IF v_bal < p_amount THEN
+        RAISE EXCEPTION 'cannot reverse store credit issue: insufficient balance';
+      END IF;
       v_new := v_bal - p_amount;
+    ELSIF v_prior = 'redeem' THEN
+      v_new := v_bal + p_amount;
     ELSE
-      -- reverse: if reversing an issue, debit liability (reduce); if reversing redeem, credit back
-      -- Caller passes signed intent via amount + whether reverses was issue/redeem.
-      -- Convention: reverse always restores prior: we look up prior movement.
-      DECLARE
-        v_prior public.store_credit_movement;
-      BEGIN
-        IF p_reverses_ledger_id IS NULL THEN
-          RAISE EXCEPTION 'reverse requires reverses_ledger_id';
-        END IF;
-        SELECT movement INTO v_prior
-        FROM public.store_credit_ledger WHERE id = p_reverses_ledger_id;
-        IF v_prior = 'issue' THEN
-          IF v_bal < p_amount THEN
-            RAISE EXCEPTION 'cannot reverse store credit issue: insufficient balance';
-          END IF;
-          v_new := v_bal - p_amount;
-        ELSIF v_prior = 'redeem' THEN
-          v_new := v_bal + p_amount;
-        ELSE
-          RAISE EXCEPTION 'cannot reverse a reverse ledger row';
-        END IF;
-      END;
+      RAISE EXCEPTION 'cannot reverse a reverse ledger row';
     END IF;
   ELSE
     RAISE EXCEPTION 'unknown store credit movement %', p_movement;
