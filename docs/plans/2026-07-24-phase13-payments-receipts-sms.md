@@ -41,7 +41,8 @@ Wire Payment Entry (multi-invoice, multi-tender, dual-currency), ContiPay **and 
   - `20260724094000_demand_forecast_suggestions.sql` — forecast suggestion table + RPC → MR hook
 - Edge functions (`supabase/functions/`): `contipay-initiate`, `contipay-webhook`, `paynow-initiate`, `paynow-webhook`, `process-sms-outbox` (stub OK), `process-customer-receipts` (PDF render + channel send), optional `demand-forecast`
 - `supabase/tests/phase13_payments_receipts_smoke.sql`
-- `packages/shared/` — payment/tender types, receipt summary builder, ContiPay + Paynow status enums (no secrets)- `packages/supabase-client/` — types regen
+- `packages/shared/` — payment/tender types, receipt summary builder, ContiPay + Paynow status enums (no secrets)
+- `packages/supabase-client/` — types regen
 - `@web_agent` follow-on: public receipt download route on company domain; checkout settlement display
 - `@management_app_agent` follow-on: manager SMS prefs UI; POS phone/email/WhatsApp already on invoice — prefs only
 
