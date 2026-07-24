@@ -54,8 +54,9 @@ interface RpcClient {
     ): String
 
     /**
-     * Bridge-only GPS trail point. Call after [co.zw.nissangtr.bridges.location.toDeliveryLocationIngest]
-     * with client-side ≥~5s throttle. Never from browser geolocation.
+     * Bridge-only GPS trail point. Map GpsCoordinate via bridge helper
+     * `toDeliveryLocationIngest`, with client-side ≥~5s throttle.
+     * Never from browser / WebView geolocation.
      */
     suspend fun ingestDeliveryLocation(
         deliveryJobId: String,
