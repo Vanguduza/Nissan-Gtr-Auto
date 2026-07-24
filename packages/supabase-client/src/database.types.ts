@@ -271,6 +271,134 @@ export type Database = {
         }
         Relationships: []
       }
+      contipay_payment_intents: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string | null
+          exchange_rate_applied: number
+          external_ref: string
+          failure_reason: string | null
+          id: string
+          last_webhook_at: string | null
+          metadata: Json
+          method: Database["public"]["Enums"]["contipay_method"]
+          payment_entry_id: string | null
+          provider_ref: string | null
+          settlement_amount: number | null
+          settlement_currency:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate: number | null
+          status: Database["public"]["Enums"]["contipay_intent_status"]
+          updated_at: string
+          webhook_payload_hash: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          exchange_rate_applied?: number
+          external_ref: string
+          failure_reason?: string | null
+          id?: string
+          last_webhook_at?: string | null
+          metadata?: Json
+          method: Database["public"]["Enums"]["contipay_method"]
+          payment_entry_id?: string | null
+          provider_ref?: string | null
+          settlement_amount?: number | null
+          settlement_currency?:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate?: number | null
+          status?: Database["public"]["Enums"]["contipay_intent_status"]
+          updated_at?: string
+          webhook_payload_hash?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          exchange_rate_applied?: number
+          external_ref?: string
+          failure_reason?: string | null
+          id?: string
+          last_webhook_at?: string | null
+          metadata?: Json
+          method?: Database["public"]["Enums"]["contipay_method"]
+          payment_entry_id?: string | null
+          provider_ref?: string | null
+          settlement_amount?: number | null
+          settlement_currency?:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate?: number | null
+          status?: Database["public"]["Enums"]["contipay_intent_status"]
+          updated_at?: string
+          webhook_payload_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contipay_payment_intents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contipay_payment_intents_payment_entry_id_fkey"
+            columns: ["payment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "payment_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contipay_webhook_events: {
+        Row: {
+          created_at: string
+          external_ref: string | null
+          id: string
+          intent_id: string | null
+          payload_hash: string
+          processed: boolean
+          result_note: string | null
+        }
+        Insert: {
+          created_at?: string
+          external_ref?: string | null
+          id?: string
+          intent_id?: string | null
+          payload_hash: string
+          processed?: boolean
+          result_note?: string | null
+        }
+        Update: {
+          created_at?: string
+          external_ref?: string | null
+          id?: string
+          intent_id?: string | null
+          payload_hash?: string
+          processed?: boolean
+          result_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contipay_webhook_events_intent_id_fkey"
+            columns: ["intent_id"]
+            isOneToOne: false
+            referencedRelation: "contipay_payment_intents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_price_overrides: {
         Row: {
           core_charge: number | null
@@ -321,6 +449,7 @@ export type Database = {
           id: string
           last_error: string | null
           pdf_storage_path: string | null
+          receipt_pdf_artifact_id: string | null
           recipient: string
           sent_at: string | null
           status: Database["public"]["Enums"]["receipt_outbox_status"]
@@ -336,6 +465,7 @@ export type Database = {
           id?: string
           last_error?: string | null
           pdf_storage_path?: string | null
+          receipt_pdf_artifact_id?: string | null
           recipient: string
           sent_at?: string | null
           status?: Database["public"]["Enums"]["receipt_outbox_status"]
@@ -351,6 +481,7 @@ export type Database = {
           id?: string
           last_error?: string | null
           pdf_storage_path?: string | null
+          receipt_pdf_artifact_id?: string | null
           recipient?: string
           sent_at?: string | null
           status?: Database["public"]["Enums"]["receipt_outbox_status"]
@@ -362,6 +493,13 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_receipt_outbox_receipt_pdf_artifact_id_fkey"
+            columns: ["receipt_pdf_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "receipt_pdf_artifacts"
             referencedColumns: ["id"]
           },
         ]
@@ -784,6 +922,70 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forecast_suggestions: {
+        Row: {
+          converted_at: string | null
+          created_at: string
+          horizon_days: number
+          id: string
+          material_request_id: string | null
+          on_hand: number
+          reason: Json
+          status: Database["public"]["Enums"]["forecast_suggestion_status"]
+          stock_item_id: string
+          suggested_qty: number
+          warehouse_id: string
+        }
+        Insert: {
+          converted_at?: string | null
+          created_at?: string
+          horizon_days?: number
+          id?: string
+          material_request_id?: string | null
+          on_hand?: number
+          reason?: Json
+          status?: Database["public"]["Enums"]["forecast_suggestion_status"]
+          stock_item_id: string
+          suggested_qty: number
+          warehouse_id: string
+        }
+        Update: {
+          converted_at?: string | null
+          created_at?: string
+          horizon_days?: number
+          id?: string
+          material_request_id?: string | null
+          on_hand?: number
+          reason?: Json
+          status?: Database["public"]["Enums"]["forecast_suggestion_status"]
+          stock_item_id?: string
+          suggested_qty?: number
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_suggestions_material_request_id_fkey"
+            columns: ["material_request_id"]
+            isOneToOne: false
+            referencedRelation: "material_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forecast_suggestions_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forecast_suggestions_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -1556,6 +1758,151 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pnc_categories"
             referencedColumns: ["pnc_code"]
+          },
+        ]
+      }
+      payment_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          exchange_rate_applied: number
+          id: string
+          payment_entry_id: string
+          sales_invoice_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          exchange_rate_applied?: number
+          id?: string
+          payment_entry_id: string
+          sales_invoice_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          exchange_rate_applied?: number
+          id?: string
+          payment_entry_id?: string
+          sales_invoice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_allocations_payment_entry_id_fkey"
+            columns: ["payment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "payment_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_entries: {
+        Row: {
+          amount: number
+          cancelled_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string
+          document_number: string | null
+          exchange_rate_applied: number
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          posted_at: string | null
+          posted_by: string | null
+          reversal_journal_entry_id: string | null
+          settlement_amount: number | null
+          settlement_currency:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate: number | null
+          status: Database["public"]["Enums"]["payment_entry_status"]
+          store_credit_issued: number
+          tender: Database["public"]["Enums"]["payment_tender"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id: string
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          reversal_journal_entry_id?: string | null
+          settlement_amount?: number | null
+          settlement_currency?:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate?: number | null
+          status?: Database["public"]["Enums"]["payment_entry_status"]
+          store_credit_issued?: number
+          tender: Database["public"]["Enums"]["payment_tender"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          reversal_journal_entry_id?: string | null
+          settlement_amount?: number | null
+          settlement_currency?:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate?: number | null
+          status?: Database["public"]["Enums"]["payment_entry_status"]
+          store_credit_issued?: number
+          tender?: Database["public"]["Enums"]["payment_tender"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_entries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_entries_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_entries_reversal_journal_entry_id_fkey"
+            columns: ["reversal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2360,6 +2707,59 @@ export type Database = {
           },
         ]
       }
+      receipt_pdf_artifacts: {
+        Row: {
+          byte_size: number | null
+          content_sha256: string | null
+          document_id: string
+          document_type: string
+          download_token: string
+          download_url: string
+          generated_at: string
+          generated_by: string | null
+          has_fiscal_payload: boolean
+          id: string
+          pdf_storage_path: string
+          signed_url_expires_at: string | null
+        }
+        Insert: {
+          byte_size?: number | null
+          content_sha256?: string | null
+          document_id: string
+          document_type: string
+          download_token: string
+          download_url: string
+          generated_at?: string
+          generated_by?: string | null
+          has_fiscal_payload?: boolean
+          id?: string
+          pdf_storage_path: string
+          signed_url_expires_at?: string | null
+        }
+        Update: {
+          byte_size?: number | null
+          content_sha256?: string | null
+          document_id?: string
+          document_type?: string
+          download_token?: string
+          download_url?: string
+          generated_at?: string
+          generated_by?: string | null
+          has_fiscal_payload?: boolean
+          id?: string
+          pdf_storage_path?: string
+          signed_url_expires_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_pdf_artifacts_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rfq_lines: {
         Row: {
           created_at: string
@@ -3062,6 +3462,8 @@ export type Database = {
           description: string | null
           id: string
           oem_part_number: string
+          reorder_point: number | null
+          reorder_qty: number | null
           requires_serial: boolean
         }
         Insert: {
@@ -3070,6 +3472,8 @@ export type Database = {
           description?: string | null
           id?: string
           oem_part_number: string
+          reorder_point?: number | null
+          reorder_qty?: number | null
           requires_serial?: boolean
         }
         Update: {
@@ -3078,6 +3482,8 @@ export type Database = {
           description?: string | null
           id?: string
           oem_part_number?: string
+          reorder_point?: number | null
+          reorder_qty?: number | null
           requires_serial?: boolean
         }
         Relationships: [
@@ -3345,6 +3751,131 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_credit_accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_credit_accounts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_credit_ledger: {
+        Row: {
+          account_id: string
+          amount: number
+          balance_after: number
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string
+          document_number: string | null
+          exchange_rate_applied: number
+          id: string
+          journal_entry_id: string | null
+          movement: Database["public"]["Enums"]["store_credit_movement"]
+          payment_entry_id: string | null
+          reason: string | null
+          reverses_ledger_id: string | null
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          balance_after: number
+          created_at?: string
+          created_by?: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          journal_entry_id?: string | null
+          movement: Database["public"]["Enums"]["store_credit_movement"]
+          payment_entry_id?: string | null
+          reason?: string | null
+          reverses_ledger_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          journal_entry_id?: string | null
+          movement?: Database["public"]["Enums"]["store_credit_movement"]
+          payment_entry_id?: string | null
+          reason?: string | null
+          reverses_ledger_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_credit_ledger_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "store_credit_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_credit_ledger_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_credit_ledger_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_credit_ledger_payment_entry_id_fkey"
+            columns: ["payment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "payment_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_credit_ledger_reverses_ledger_id_fkey"
+            columns: ["reverses_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "store_credit_ledger"
             referencedColumns: ["id"]
           },
         ]
@@ -3759,6 +4290,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      _append_store_credit: {
+        Args: {
+          p_amount: number
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_customer_id: string
+          p_exchange_rate: number
+          p_journal_entry_id: string
+          p_movement: Database["public"]["Enums"]["store_credit_movement"]
+          p_payment_entry_id: string
+          p_reason: string
+          p_reverses_ledger_id?: string
+        }
+        Returns: string
+      }
       _assert_journal_balanced: {
         Args: { p_entry_id: string }
         Returns: undefined
@@ -3771,6 +4316,13 @@ export type Database = {
       _consume_fifo_batches: {
         Args: { p_item: string; p_qty_base: number; p_warehouse: string }
         Returns: undefined
+      }
+      _ensure_store_credit_account: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_customer_id: string
+        }
+        Returns: string
       }
       _invoice_line_open_qty_base: {
         Args: { p_invoice_line_id: string }
@@ -3786,6 +4338,8 @@ export type Database = {
       }
       _logistics_begin_rpc: { Args: never; Returns: undefined }
       _logistics_rpc_active: { Args: never; Returns: boolean }
+      _payments_rpc_active: { Args: never; Returns: boolean }
+      _payments_rpc_enter: { Args: never; Returns: undefined }
       _payroll_begin_rpc: { Args: never; Returns: undefined }
       _payroll_rpc_active: { Args: never; Returns: boolean }
       _post_journal_entry_inventory: {
@@ -3826,6 +4380,7 @@ export type Database = {
       _require_dispatcher_staff: { Args: never; Returns: undefined }
       _require_hr_staff: { Args: never; Returns: undefined }
       _require_logistics_staff: { Args: never; Returns: undefined }
+      _require_payments_staff: { Args: never; Returns: undefined }
       _require_procurement_finance: { Args: never; Returns: undefined }
       _require_procurement_staff: { Args: never; Returns: undefined }
       _require_sales_staff: { Args: never; Returns: undefined }
@@ -3853,6 +4408,10 @@ export type Database = {
       }
       add_payroll_deduction: {
         Args: { p_amount: number; p_label: string; p_payroll_line_id: string }
+        Returns: string
+      }
+      allocate_payment: {
+        Args: { p_allocations: Json; p_payment_entry_id: string }
         Returns: string
       }
       approve_stock_reconciliation: {
@@ -3914,6 +4473,10 @@ export type Database = {
       }
       cancel_material_request: {
         Args: { p_material_request_id: string; p_notes?: string }
+        Returns: string
+      }
+      cancel_payment_entry: {
+        Args: { p_payment_entry_id: string }
         Returns: string
       }
       cancel_payroll_run: {
@@ -3991,6 +4554,21 @@ export type Database = {
         }
         Returns: string
       }
+      create_contipay_intent: {
+        Args: {
+          p_amount: number
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_customer_id?: string
+          p_exchange_rate?: number
+          p_external_ref: string
+          p_metadata?: Json
+          p_method: Database["public"]["Enums"]["contipay_method"]
+          p_settlement_amount?: number
+          p_settlement_currency?: Database["public"]["Enums"]["currency_code"]
+          p_settlement_exchange_rate?: number
+        }
+        Returns: string
+      }
       create_delivery_job: {
         Args: {
           p_assignee_user_id?: string
@@ -4050,6 +4628,28 @@ export type Database = {
           p_needed_by: string
           p_notes?: string
           p_warehouse_id: string
+        }
+        Returns: string
+      }
+      create_mr_from_forecast: {
+        Args: {
+          p_needed_by?: string
+          p_notes?: string
+          p_suggestion_ids: string[]
+        }
+        Returns: string
+      }
+      create_payment_entry: {
+        Args: {
+          p_amount: number
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_customer_id: string
+          p_exchange_rate?: number
+          p_notes?: string
+          p_settlement_amount?: number
+          p_settlement_currency?: Database["public"]["Enums"]["currency_code"]
+          p_settlement_exchange_rate?: number
+          p_tender: Database["public"]["Enums"]["payment_tender"]
         }
         Returns: string
       }
@@ -4140,6 +4740,10 @@ export type Database = {
       }
       current_employee_id: { Args: never; Returns: string }
       current_supplier_id: { Args: never; Returns: string }
+      drain_sms_outbox_batch: {
+        Args: { p_limit?: number; p_stub_success?: boolean }
+        Returns: number
+      }
       emit_domain_event: {
         Args: {
           p_actor_user_id?: string
@@ -4159,6 +4763,14 @@ export type Database = {
         Returns: number
       }
       export_payslip: { Args: { p_payroll_line_id: string }; Returns: string }
+      generate_forecast_suggestions: {
+        Args: {
+          p_default_reorder_qty?: number
+          p_horizon_days?: number
+          p_warehouse_id: string
+        }
+        Returns: number
+      }
       has_staff_role: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
@@ -4175,6 +4787,17 @@ export type Database = {
       }
       is_period_locked: { Args: { p_date: string }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      issue_store_credit: {
+        Args: {
+          p_amount: number
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_customer_id: string
+          p_debit_account?: string
+          p_exchange_rate?: number
+          p_reason?: string
+        }
+        Returns: string
+      }
       link_supplier_profile: {
         Args: { p_profile_id: string; p_supplier_id: string }
         Returns: undefined
@@ -4182,6 +4805,31 @@ export type Database = {
       lock_accounting_period: {
         Args: { p_period_id: string }
         Returns: undefined
+      }
+      mark_contipay_settled: {
+        Args: {
+          p_allocations?: Json
+          p_external_ref: string
+          p_failure_reason?: string
+          p_payload_hash: string
+          p_provider_ref?: string
+          p_settlement_amount?: number
+          p_settlement_currency?: Database["public"]["Enums"]["currency_code"]
+          p_settlement_exchange_rate?: number
+          p_success?: boolean
+        }
+        Returns: string
+      }
+      mark_receipt_pdf_ready: {
+        Args: {
+          p_byte_size?: number
+          p_content_sha256?: string
+          p_document_id: string
+          p_download_token?: string
+          p_expires_at?: string
+          p_storage_path: string
+        }
+        Returns: string
       }
       next_series_value: { Args: { p_prefix: string }; Returns: string }
       open_warranty_claim: {
@@ -4213,6 +4861,10 @@ export type Database = {
         }
         Returns: string
       }
+      post_payment_entry: {
+        Args: { p_payment_entry_id: string }
+        Returns: string
+      }
       post_return_credit_note: {
         Args: { p_invoice_id: string; p_lines: Json }
         Returns: string
@@ -4229,9 +4881,24 @@ export type Database = {
         Args: { p_lines: Json; p_notes: string; p_to_warehouse_id: string }
         Returns: string
       }
+      process_receipt_outbox_batch: {
+        Args: { p_limit?: number; p_stub_success?: boolean }
+        Returns: number
+      }
       purge_delivery_locations: {
         Args: { p_older_than?: string }
         Returns: number
+      }
+      redeem_store_credit: {
+        Args: {
+          p_amount: number
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_customer_id: string
+          p_exchange_rate?: number
+          p_notes?: string
+          p_sales_invoice_id?: string
+        }
+        Returns: string
       }
       reject_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
       reject_warranty_claim: {
@@ -4386,12 +5053,22 @@ export type Database = {
       account_type: "asset" | "liability" | "equity" | "income" | "expense"
       attendance_event_type: "clock_in" | "clock_out"
       bank_recon_status: "open" | "matched" | "cleared"
+      contipay_intent_status:
+        | "pending"
+        | "authorized"
+        | "settled"
+        | "failed"
+        | "cancelled"
+      contipay_method: "ecocash" | "visa" | "zimswitch"
       currency_code: "USD" | "ZIG"
       delivery_job_status: "pending" | "dispatched" | "completed" | "failed"
       delivery_note_status: "draft" | "submitted" | "cancelled"
       employee_status: "active" | "inactive" | "terminated"
+      forecast_suggestion_status: "open" | "converted" | "dismissed"
       fulfillment_mode: "immediate" | "dispatch"
       journal_status: "draft" | "posted"
+      payment_entry_status: "draft" | "posted" | "cancelled"
+      payment_tender: "cash" | "bank" | "contipay" | "store_credit"
       payroll_run_status: "draft" | "submitted" | "cancelled"
       pick_list_status: "draft" | "done" | "cancelled"
       procurement_doc_status: "draft" | "submitted" | "cancelled"
@@ -4423,6 +5100,7 @@ export type Database = {
         | "rejected"
       stock_entry_type: "receipt" | "transfer" | "issue"
       stock_reconciliation_scope: "full" | "partial"
+      store_credit_movement: "issue" | "redeem" | "reverse"
       valuation_method: "FIFO" | "AVG"
       warranty_claim_resolution:
         | "replacement"
@@ -4563,12 +5241,23 @@ export const Constants = {
       account_type: ["asset", "liability", "equity", "income", "expense"],
       attendance_event_type: ["clock_in", "clock_out"],
       bank_recon_status: ["open", "matched", "cleared"],
+      contipay_intent_status: [
+        "pending",
+        "authorized",
+        "settled",
+        "failed",
+        "cancelled",
+      ],
+      contipay_method: ["ecocash", "visa", "zimswitch"],
       currency_code: ["USD", "ZIG"],
       delivery_job_status: ["pending", "dispatched", "completed", "failed"],
       delivery_note_status: ["draft", "submitted", "cancelled"],
       employee_status: ["active", "inactive", "terminated"],
+      forecast_suggestion_status: ["open", "converted", "dismissed"],
       fulfillment_mode: ["immediate", "dispatch"],
       journal_status: ["draft", "posted"],
+      payment_entry_status: ["draft", "posted", "cancelled"],
+      payment_tender: ["cash", "bank", "contipay", "store_credit"],
       payroll_run_status: ["draft", "submitted", "cancelled"],
       pick_list_status: ["draft", "done", "cancelled"],
       procurement_doc_status: ["draft", "submitted", "cancelled"],
@@ -4603,6 +5292,7 @@ export const Constants = {
       ],
       stock_entry_type: ["receipt", "transfer", "issue"],
       stock_reconciliation_scope: ["full", "partial"],
+      store_credit_movement: ["issue", "redeem", "reverse"],
       valuation_method: ["FIFO", "AVG"],
       warranty_claim_resolution: [
         "replacement",

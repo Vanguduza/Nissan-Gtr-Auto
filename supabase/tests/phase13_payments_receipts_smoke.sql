@@ -242,6 +242,59 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: manager sms_outbox row missing for opted-in prefs';
   END IF;
 
+  -- 2b) Paynow intent → settle (idempotent duplicate webhook)
+  v_cart := public.create_pos_cart(v_main, v_cust, 'USD'::public.currency_code, 'immediate'::public.fulfillment_mode);
+  PERFORM public.add_cart_line(v_cart, v_item, v_uom, 1);
+  v_inv := public.checkout_pos_cart(v_cart);
+
+  v_intent := public.create_paynow_intent(
+    'P13-PN-' || v_inv::text,
+    'ecocash',
+    40,
+    'USD',
+    1,
+    v_cust,
+    'ZIG',
+    1200,
+    30
+  );
+
+  v_pe_pn := public.mark_paynow_settled(
+    'P13-PN-' || v_inv::text,
+    'hash-pn-' || v_inv::text,
+    'paynow-prov-1',
+    jsonb_build_array(jsonb_build_object('sales_invoice_id', v_inv, 'amount', 40)),
+    'ZIG',
+    1200,
+    30,
+    true,
+    NULL
+  );
+
+  IF v_pe_pn IS NULL THEN
+    RAISE EXCEPTION 'smoke fail: Paynow settle returned null';
+  END IF;
+
+  PERFORM public.mark_paynow_settled(
+    'P13-PN-' || v_inv::text,
+    'hash-pn-' || v_inv::text,
+    'paynow-prov-1',
+    jsonb_build_array(jsonb_build_object('sales_invoice_id', v_inv, 'amount', 40)),
+    'ZIG', 1200, 30, true, NULL
+  );
+
+  SELECT amount_paid INTO v_paid FROM public.sales_invoices WHERE id = v_inv;
+  IF v_paid <> 40 THEN
+    RAISE EXCEPTION 'smoke fail: Paynow double settle paid=%', v_paid;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.payment_entries
+    WHERE id = v_pe_pn AND tender = 'paynow' AND status = 'posted'
+  ) THEN
+    RAISE EXCEPTION 'smoke fail: Paynow payment entry not posted';
+  END IF;
+
   v_ledger := public.issue_store_credit(v_cust, 15, 'USD', 1, 'P13 refund', '1100');
   SELECT balance INTO v_sc_bal FROM public.store_credit_accounts WHERE customer_id = v_cust;
   IF v_sc_bal <> 15 THEN
@@ -357,7 +410,7 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: fiscal payload flag set';
   END IF;
 
-  RAISE NOTICE 'phase13_payments_receipts_smoke: PASS pe=% contipay=% sc=% art=% mr=% sms_drained=%',
-    v_pe, v_pe_cp, v_ledger, v_art, v_mr, v_sent;
+  RAISE NOTICE 'phase13_payments_receipts_smoke: PASS pe=% contipay=% paynow=% sc=% art=% mr=% sms_drained=%',
+    v_pe, v_pe_cp, v_pe_pn, v_ledger, v_art, v_mr, v_sent;
 END;
 $$;
