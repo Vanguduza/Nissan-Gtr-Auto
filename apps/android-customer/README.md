@@ -59,10 +59,30 @@ SUPABASE_ANON_KEY=your-anon-key
 
 ### Auth (no hardcoded JWTs)
 
-Live client installs GoTrue (`auth-kt`) with the **anon key** only. Authenticated RPCs need a session:
+Live client installs GoTrue (`auth-kt`) with the **anon key** only. Session is persisted by the
+SDK session manager (Android Settings / SharedPreferences) — never put passwords or JWTs in BuildConfig.
 
-- When login UI exists: `supabase.auth.signInWith(...)` (or your auth screen stub).
-- Until then: cast to `SupabaseRpcClient` and call `importAccessToken(accessToken)` with a token from a secure sign-in flow — **never** commit JWTs or put them in BuildConfig.
+| Mode | Behaviour |
+|------|-----------|
+| **Live** | `AuthGate` blocks until `signInWith(Email)`; JWT attaches to PostgREST/RPC automatically. Sign-out calls `auth.signOut()` and clears storage. |
+| **Fake** | Auth gate bypasses by default (`Continue without signing in` if optional login is shown). |
+
+Preferred API: `SupabaseRpcClient.signInWithEmail(email, password)` → `auth.signInWith(Email) { … }`.  
+Fallback only: `importAccessToken(accessToken)` if a custom flow cannot use Email sign-in.
+
+#### Local test users
+
+Staff seeds from [`docs/LOCAL_DEVELOPMENT.md`](../../docs/LOCAL_DEVELOPMENT.md) §9 / `supabase/seed.sql`
+(after `pnpm db:reset`). Useful for management; customer storefront RPCs need a **customer**
+(non-staff) account — seed.sql has **no** customer users today (sign up via web `/signup` or Auth admin).
+
+| Email | Password | Notes |
+|-------|----------|-------|
+| `admin@gtr.local` | `local-dev-admin` | staff admin (seed) |
+| `finance@gtr.local` | `local-dev-finance` | staff finance (seed) |
+| `warehouse@gtr.local` | `local-dev-warehouse` | staff warehouse (seed) |
+
+Dev-only passwords — never use in production.
 
 ### Pay
 
