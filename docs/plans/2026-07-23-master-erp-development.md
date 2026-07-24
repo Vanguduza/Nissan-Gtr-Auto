@@ -101,12 +101,12 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 2 | Auth, roles, typed client | `@backend_agent` | 1 | **Done** |
 | 3 | Finance core + period/bank/naming | `@finance_agent`, `@backend_agent` | 2 | **Done** |
 | 4 | Inventory ops (receipt, transfer, QR, UOM) | `@backend_agent`, `@hardware_mobile_agent` | 2 | **Done** |
-| 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | Pending |
+| 4b | Stock reconciliation / cycle count | `@backend_agent`, `@management_app_agent` | 4 | **Implemented** (RLS mutation-guard follow-up in flight) |
 | 5 | Sales / POS / cart / invoices / commercial | `@backend_agent`, `@management_app_agent` | 3, 4 | **Done** |
-| 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | Next |
-| 6 | Web storefront + My Account (Garage) + AutoDoc IA | `@web_agent` | 2, 4, 5 (read APIs) | **Done** (stub data; index Phase 7) |
+| 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | **Implemented** (gates in flight) |
+| 6 | Web storefront + My Account (Garage) + AutoDoc IA | `@web_agent` | 2, 4, 5 (read APIs) | **Done** (+ live `/search` bind) |
 | 7 | Data pipeline + search index | `@data_pipeline_agent` | 1, 6 (canvas can stub) | **Done** (PG FTS interim; Meili later) |
-| 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | Pending |
+| 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | **In progress** (child plan + implement) |
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | Pending |
 | 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | Pending |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | Pending |
