@@ -1,6 +1,6 @@
 -- Phase 8c follow-up: clear app.procurement_rpc after SECURITY DEFINER RPCs.
 -- Transaction-local GUC leaked across RPC returns inside long smoke DO blocks.
--- Nested RPCâ†’RPC (convert_material_request_to_po / award_quotation_to_po â†’ create_purchase_order)
+-- Nested RPC->RPC (convert_material_request_to_po / award_quotation_to_po -> create_purchase_order)
 -- uses app.procurement_rpc_depth so only the outermost end clears the flag.
 
 CREATE OR REPLACE FUNCTION public._procurement_begin_rpc()
@@ -35,6 +35,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public._procurement_begin_rpc() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._procurement_end_rpc() FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION public.create_material_request(
   p_warehouse_id UUID,
   p_needed_by DATE,
@@ -81,7 +82,8 @@ BEGIN
     );
   END LOOP;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_mr;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_mr;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -114,7 +116,8 @@ BEGIN
   SET status = 'submitted', submitted_at = now(), updated_at = now()
   WHERE id = p_material_request_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_material_request_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_material_request_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -144,7 +147,8 @@ BEGIN
     RAISE EXCEPTION 'material request not found: %', p_material_request_id;
   END IF;
   IF v_st = 'cancelled' THEN
-    PERFORM public._procurement_end_rpc();`n    RETURN p_material_request_id;
+    PERFORM public._procurement_end_rpc();
+    RETURN p_material_request_id;
   END IF;
 
   SELECT COALESCE(SUM(qty - qty_converted), 0) INTO v_open
@@ -165,7 +169,8 @@ BEGIN
     updated_at = now()
   WHERE id = p_material_request_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_material_request_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_material_request_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -245,7 +250,8 @@ BEGIN
     );
   END LOOP;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_po;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_po;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -289,7 +295,8 @@ BEGIN
     )
   );
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_purchase_order_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_purchase_order_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -324,7 +331,8 @@ BEGIN
   v_st := v_po.status;
 
   IF v_st = 'cancelled' THEN
-    PERFORM public._procurement_end_rpc();`n    RETURN p_purchase_order_id;
+    PERFORM public._procurement_end_rpc();
+    RETURN p_purchase_order_id;
   END IF;
 
   SELECT COALESCE(SUM(qty_received), 0) INTO v_recv
@@ -374,7 +382,8 @@ BEGIN
     updated_at = now()
   WHERE id = p_purchase_order_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_purchase_order_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_purchase_order_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -496,7 +505,8 @@ BEGIN
     RAISE EXCEPTION 'PO contains lines without MR linkage';
   END IF;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_po;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_po;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -579,7 +589,8 @@ BEGIN
       AND pol.purchase_order_id = p_purchase_order_id;
   END LOOP;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_grn;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_grn;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -605,7 +616,8 @@ BEGIN
     RAISE EXCEPTION 'goods receipt not found: %', p_goods_receipt_id;
   END IF;
   IF v_st = 'cancelled' THEN
-    PERFORM public._procurement_end_rpc();`n    RETURN p_goods_receipt_id;
+    PERFORM public._procurement_end_rpc();
+    RETURN p_goods_receipt_id;
   END IF;
   IF v_st <> 'draft' THEN
     RAISE EXCEPTION 'submitted GRNs are immutable; reverse stock separately';
@@ -615,7 +627,8 @@ BEGIN
   SET status = 'cancelled', cancelled_at = now(), updated_at = now()
   WHERE id = p_goods_receipt_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_goods_receipt_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_goods_receipt_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -751,7 +764,8 @@ BEGIN
     )
   );
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_goods_receipt_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_goods_receipt_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -852,7 +866,8 @@ BEGIN
     RAISE EXCEPTION 'charge total % must equal allocation total %', v_total_charges, v_total_alloc;
   END IF;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_lcv;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_lcv;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -928,7 +943,8 @@ BEGIN
     updated_at = now()
   WHERE id = p_landed_cost_voucher_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_landed_cost_voucher_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_landed_cost_voucher_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -959,7 +975,8 @@ BEGIN
     RAISE EXCEPTION 'landed cost voucher not found: %', p_landed_cost_voucher_id;
   END IF;
   IF v_lcv.status = 'cancelled' THEN
-    PERFORM public._procurement_end_rpc();`n    RETURN p_landed_cost_voucher_id;
+    PERFORM public._procurement_end_rpc();
+    RETURN p_landed_cost_voucher_id;
   END IF;
   IF v_lcv.status <> 'submitted' THEN
     RAISE EXCEPTION 'only submitted landed cost vouchers can be cancelled';
@@ -990,7 +1007,8 @@ BEGIN
     updated_at = now()
   WHERE id = p_landed_cost_voucher_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_landed_cost_voucher_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_landed_cost_voucher_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1072,7 +1090,8 @@ BEGIN
     );
   END LOOP;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_po;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_po;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1199,7 +1218,8 @@ BEGIN
   SET blanket_value_released = blanket_value_released + v_total_release, updated_at = now()
   WHERE id = p_blanket_purchase_order_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_release;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_release;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1258,7 +1278,8 @@ BEGIN
     VALUES (v_rfq, v_sup);
   END LOOP;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_rfq;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_rfq;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1291,7 +1312,8 @@ BEGIN
   SET status = 'submitted', submitted_at = now(), updated_at = now()
   WHERE id = p_rfq_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_rfq_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_rfq_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1318,7 +1340,8 @@ BEGIN
     RAISE EXCEPTION 'RFQ not found: %', p_rfq_id;
   END IF;
   IF v_st = 'cancelled' THEN
-    PERFORM public._procurement_end_rpc();`n    RETURN p_rfq_id;
+    PERFORM public._procurement_end_rpc();
+    RETURN p_rfq_id;
   END IF;
   IF v_awarded IS NOT NULL THEN
     RAISE EXCEPTION 'cannot cancel RFQ after award';
@@ -1328,7 +1351,8 @@ BEGIN
   SET status = 'cancelled', cancelled_at = now(), notes = COALESCE(p_notes, notes), updated_at = now()
   WHERE id = p_rfq_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_rfq_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_rfq_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1431,7 +1455,8 @@ BEGIN
     );
   END LOOP;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_sq;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_sq;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1471,7 +1496,8 @@ BEGIN
   SET status = 'submitted', submitted_at = now(), updated_at = now()
   WHERE id = p_supplier_quotation_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_supplier_quotation_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_supplier_quotation_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1498,7 +1524,8 @@ BEGIN
   END IF;
 
   IF v_sq.status = 'cancelled' THEN
-    PERFORM public._procurement_end_rpc();`n    RETURN p_supplier_quotation_id;
+    PERFORM public._procurement_end_rpc();
+    RETURN p_supplier_quotation_id;
   END IF;
 
   IF v_sq.supplier_id = public.current_supplier_id() THEN
@@ -1514,7 +1541,8 @@ BEGIN
   SET status = 'cancelled', cancelled_at = now(), notes = COALESCE(p_notes, notes), updated_at = now()
   WHERE id = p_supplier_quotation_id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN p_supplier_quotation_id;
+  PERFORM public._procurement_end_rpc();
+  RETURN p_supplier_quotation_id;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
@@ -1595,7 +1623,8 @@ BEGIN
   SET awarded_quotation_id = p_supplier_quotation_id, updated_at = now()
   WHERE id = v_rfq.id;
 
-  PERFORM public._procurement_end_rpc();`n  RETURN v_po;
+  PERFORM public._procurement_end_rpc();
+  RETURN v_po;
 EXCEPTION
   WHEN OTHERS THEN
     PERFORM public._procurement_end_rpc();
