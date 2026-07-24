@@ -1,6 +1,6 @@
 # Phase 8 — Procurement, suppliers, landed cost
 
-- Status: **implemented** (backend migration `@backend_agent`; gates + smoke pending manager `db reset`)
+- Status: **implemented** (core smoke green; supplier RLS smoke harness + gates pending)
 - Lane(s): `@backend_agent` (primary); `@web_agent` (thin supplier portal pages — **follow-on slice**)
 - Skills needed: `/accounting-ledger` (valuation journals); `/qr-inventory-workflow` (receipt→QR via Phase 4)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 8

@@ -1,6 +1,6 @@
 # Phase 5b — Warranty / serial claims
 
-- Status: **implemented** (pending local `supabase db reset` + smoke + gate agents)
+- Status: **implemented** (smoke blocked + gate agents pending)
 - Lane(s): `@backend_agent` (primary); `@management_app_agent` (RPC/API contracts only — full UI Phase 12)
 - Skills needed: (none required; `/qr-inventory-workflow` only if serial lookup via QR payload)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 5b
