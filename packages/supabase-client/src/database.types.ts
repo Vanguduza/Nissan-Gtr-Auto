@@ -2111,6 +2111,15 @@ export type Database = {
         Returns: string
       }
       approve_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
+      approve_warranty_claim: {
+        Args: {
+          p_claim_id: string
+          p_lines?: Json
+          p_replacement_lines?: Json
+          p_resolution: Database["public"]["Enums"]["warranty_claim_resolution"]
+        }
+        Returns: string
+      }
       assign_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
