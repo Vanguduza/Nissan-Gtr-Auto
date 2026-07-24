@@ -432,22 +432,21 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Docker + `npx supabase db reset` GREEN through `20260724071000_hr_attendance_hours_authz.sql`.
-- Phases 4b / 5b / 8 / 8b / **9** smokes **PASS** (`docker exec … psql`).
-- Phase 8/8b mutation guards `…61000`–`…63000`; security+verifier PASS.
-- Phase 9 HR gross payroll `…70000` + AuthZ `…71000`; **`/security-reviewer` PASS**, **`/verifier` PASS**. No payroll tax / ZIMRA.
+- Docker + `npx supabase db reset` GREEN through `20260724081000_logistics_mutation_guards.sql`.
+- Phases 4b / 5b / 8 / 8b / 9 / **10** smokes **PASS**.
+- Phase 9 HR `…70000`/`…71000`; Phase 10 logistics `…80000`/`…81000` — security+verifier PASS.
+- Queue preference held: 8b → 9 → 10 before mobile 11–12.
 
 **In progress**
-1. **Phase 10** logistics — need `/planner` child plan then `@backend_agent` (+ hardware later).
-2. Optional `@web_agent`: RFQ/supplier portal; `@management_app_agent`: HR UI.
+1. **Phase 13** payments / ContiPay / manager SMS / customer receipts / forecast — `/planner` then `@backend_agent`.
+2. Optional follow-ons: web RFQ portal; management HR/logistics UI; GPS bridge.
 
 **Next**
-1. `/planner` → `docs/plans/2026-07-24-phase10-*.md` → implement → security → verifier.
-2. Phase 13 payments/receipts; defer mobile 11–12 until APIs solid.
+1. `/planner` → Phase 13 child plan → implement → security → verifier.
+2. Defer mobile 11–12 until APIs solid.
 
 **Blockers / notes**
-- Serialize DB apply (manager-owned reset only).
-- Smokes not fully idempotent without reset.
+- Serialize DB apply (manager-owned reset only; occasional recreate flake — retry).
 - No commits (user did not request).
 
 Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
