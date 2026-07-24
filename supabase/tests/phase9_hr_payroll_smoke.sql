@@ -81,14 +81,21 @@ BEGIN
   PERFORM public._test_set_auth_uid(v_admin);
 
   -- Ensure admin can act as HR (admin is enough via _require_hr_staff)
-  v_emp := public.create_employee(
-    'P9-EMP-001',
-    'Phase9 Hourly Worker',
-    v_emp_user,
-    'emp-p9-smoke@gtr.local',
-    NULL,
-    v_day - 30
-  );
+  SELECT id INTO v_emp FROM public.employees WHERE employee_code = 'P9-EMP-001';
+  IF v_emp IS NULL THEN
+    v_emp := public.create_employee(
+      'P9-EMP-001',
+      'Phase9 Hourly Worker',
+      v_emp_user,
+      'emp-p9-smoke@gtr.local',
+      NULL,
+      v_day - 30
+    );
+  ELSE
+    UPDATE public.employees
+    SET user_id = v_emp_user, full_name = 'Phase9 Hourly Worker', status = 'active', updated_at = now()
+    WHERE id = v_emp;
+  END IF;
 
   v_struct := public.upsert_salary_structure(
     v_emp,
