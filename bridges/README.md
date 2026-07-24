@@ -1,12 +1,21 @@
 # Hardware bridges
 
-Phase 4 ships **contracts only** (`contracts/qr-inventory.ts`).
+**Contracts only** under `bridges/contracts/` — no CameraX, AVFoundation, Bluetooth ESC/POS, BiometricPrompt, or FusedLocation implementations in this phase.
 
-Native implementations (CameraX, AVFoundation, ESC/POS Bluetooth) are Phase 12 under:
+**Never** use browser/HTML5 QR libraries or WebView camera/geolocation APIs. Bridge-First: all hardware goes through native modules listed below.
 
-- `bridges/android/qr-scanner/`
-- `bridges/android/escpos-printer/`
-- `bridges/ios/QRScanner/`
-- `bridges/ios/escpos-printer/`
+## Contract path map
 
-**Never** use browser/HTML5 QR libraries.
+| Concern | Contract | Future Android impl | Future iOS impl |
+|---------|----------|---------------------|-----------------|
+| QR scan | `contracts/qr-inventory.ts` → `QrScannerBridge` | `bridges/android/qr-scanner/` | `bridges/ios/QRScanner/` |
+| ESC/POS label print | `contracts/qr-inventory.ts` → `EscPosPrinterBridge` | `bridges/android/escpos-printer/` | `bridges/ios/escpos-printer/` |
+| Biometric auth | `contracts/biometric.ts` → `BiometricBridge` | `bridges/android/biometric/` | `bridges/ios/Biometric/` |
+| GPS / delivery | `contracts/gps.ts` → `GpsBridge` | `bridges/android/gps/` | `bridges/ios/GPS/` |
+| Barrel export | `contracts/index.ts` | — | — |
+
+## Phase notes
+
+- Phase 4 introduced QR + ESC/POS contracts.
+- Phase 11–12 extends biometric + GPS contracts and documents this path map.
+- Native implementations remain a Phase 12 follow-on (management hardware lane), not part of the mobile scaffold slice.
