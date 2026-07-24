@@ -33,7 +33,7 @@ bucket_definitions:
       - SELECT sil.* FROM sales_invoice_lines sil
           INNER JOIN sales_invoices si ON si.id = sil.sales_invoice_id
         WHERE si.fulfillment_mode = 'dispatch' AND si.status = 'posted'
-      - SELECT * FROM pick_lists WHERE status IN ('draft', 'in_progress', 'completed')
+      - SELECT * FROM pick_lists WHERE status IN ('draft', 'done')
       - SELECT * FROM pick_list_lines WHERE true
       - SELECT * FROM delivery_notes WHERE status IN ('draft', 'submitted')
       - SELECT * FROM delivery_note_lines WHERE true

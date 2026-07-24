@@ -113,7 +113,8 @@
         "pick_list_id",
         "sales_invoice_line_id",
         "stock_item_id",
-        "qty_to_pick",
+        "uom_id",
+        "qty_requested",
         "qty_picked"
       ]
     },
