@@ -16,7 +16,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -275,15 +274,15 @@ class SupabaseRpcClient(
             return runCatching { metadataJson.parseToJsonElement(raw) }
                 .getOrElse { buildJsonObject { } }
         }
-
-        private fun kotlinx.serialization.json.JsonObjectBuilder.putNullable(
-            key: String,
-            value: String?,
-        ) {
-            if (value.isNullOrBlank()) put(key, JsonNull)
-            else put(key, value)
-        }
     }
+}
+
+private fun kotlinx.serialization.json.JsonObjectBuilder.putNullable(
+    key: String,
+    value: String?,
+) {
+    if (value.isNullOrBlank()) put(key, JsonNull)
+    else put(key, value)
 }
 
 @Serializable

@@ -119,11 +119,17 @@ class SupabaseRpcClient(
 
     override suspend fun createPickList(salesInvoiceId: String, linesJson: String?): String {
         require(salesInvoiceId.isNotBlank())
+        val linesElement = when {
+            linesJson.isNullOrBlank() -> JsonNull
+            else -> runCatching {
+                kotlinx.serialization.json.Json.parseToJsonElement(linesJson)
+            }.getOrElse { JsonNull }
+        }
         return client.postgrest.rpc(
             RpcNames.CREATE_PICK_LIST,
             buildJsonObject {
                 put("p_sales_invoice_id", salesInvoiceId)
-                put("p_lines", JsonNull)
+                put("p_lines", linesElement)
             },
         ).decodeAs<String>()
     }
