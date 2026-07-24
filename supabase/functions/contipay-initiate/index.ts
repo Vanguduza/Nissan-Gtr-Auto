@@ -1,29 +1,50 @@
 /**
  * ContiPay edge initiate stub.
- * Secrets: CONTIPAY_API_KEY, CONTIPAY_MERCHANT_ID — set in Edge Function secrets only.
- * Never commit real credentials.
+ * Secrets: CONTIPAY_API_KEY, CONTIPAY_MERCHANT_ID — Edge Function env only.
+ * Requires staff JWT; uses anon + user JWT so create_contipay_intent staff gate applies.
+ * Local stub without secrets: CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import {
+  corsHeaders,
+  isLocalUnverifiedAllowed,
+  jsonResponse,
+  requireBearerJwt,
+} from "../_shared/payment_edge.ts";
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
   }
 
   try {
+    const authHeader = requireBearerJwt(req);
+    if (!authHeader) {
+      return jsonResponse(
+        { error: "Authorization Bearer JWT required" },
+        401,
+        cors,
+      );
+    }
+
     const apiKey = Deno.env.get("CONTIPAY_API_KEY");
     const merchantId = Deno.env.get("CONTIPAY_MERCHANT_ID");
-    // Stub: require env names present in deploy docs; do not log secret values.
+    const localStub = isLocalUnverifiedAllowed("CONTIPAY_ALLOW_UNVERIFIED_LOCAL");
     if (!apiKey || !merchantId) {
+      if (!localStub) {
+        return jsonResponse(
+          {
+            error:
+              "CONTIPAY_API_KEY / CONTIPAY_MERCHANT_ID required (set CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1 for local stub only)",
+          },
+          503,
+          cors,
+        );
+      }
       console.warn(
-        "contipay-initiate: CONTIPAY_API_KEY / CONTIPAY_MERCHANT_ID not set (stub mode)",
+        "contipay-initiate: secrets unset — local stub via CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1",
       );
     }
 
@@ -42,15 +63,17 @@ Deno.serve(async (req) => {
     } = body ?? {};
 
     if (!external_ref || !method || !amount) {
-      return new Response(JSON.stringify({ error: "external_ref, method, amount required" }), {
-        status: 400,
-        headers: { ...cors, "Content-Type": "application/json" },
-      });
+      return jsonResponse(
+        { error: "external_ref, method, amount required" },
+        400,
+        cors,
+      );
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
     );
 
     const { data, error } = await supabase.rpc("create_contipay_intent", {
@@ -67,26 +90,20 @@ Deno.serve(async (req) => {
     });
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
-        headers: { ...cors, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: error.message }, 400, cors);
     }
 
-    // Stub provider redirect / checkout URL — real ContiPay API call goes here.
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         intent_id: data,
         status: "pending",
         checkout_url: null,
         stub: true,
-      }),
-      { headers: { ...cors, "Content-Type": "application/json" } },
+      },
+      200,
+      cors,
     );
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500,
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: String(e) }, 500, corsHeaders(req));
   }
 });
