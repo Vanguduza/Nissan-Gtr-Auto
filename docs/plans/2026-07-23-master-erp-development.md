@@ -432,21 +432,26 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Docker + `npx supabase db reset` GREEN through `20260724100000_payment_intent_settle_cancelled_guard.sql`.
-- Preferred queue complete: **8b → 9 → 10 → 13** (smokes PASS; security+verifier PASS each).
-- Phase 13: payments + store credit, ContiPay/Paynow stubs, receipts, SMS drain, forecast→MR; workers gated by `WORKER_SHARED_SECRET`.
+- Preferred API queue **8b → 9 → 10 → 13** gated (security+verifier PASS). DB through `20260724100000`.
+- Phase 13 docs + decision include **Paynow** rail alongside ContiPay (`docs/decisions/2026-07-24-paynow-payment-rail.md`, plan `…phase13-payments-receipts-sms.md`).
+
+**Remaining Pending**
+| Phase | Notes |
+|------:|-------|
+| 11–12 | Mobile — stub/scaffold only until API contracts validated; full apps deferred |
+| 14 | **In progress** — plan `docs/plans/2026-07-24-phase14-offline-ci-hardening.md` (CI/hardening now; PowerSync client → after 11–12) |
+| 15 | ERPNext parity audit |
+| 16 | Distributor extras (bins/kits/consignment/loyalty) |
 
 **In progress**
-- None on the preferred API queue.
+1. Phase 14 must-now: CI + exclusion/smoke gates + PowerSync stubs → `@backend_agent` → security → verifier.
 
-**Next** (pick one)
-1. Optional UI/bridge follow-ons: `@web_agent` (RFQ portal, receipt download), `@management_app_agent` (HR/logistics/SMS prefs), `@hardware_mobile_agent` (GPS).
-2. Mobile 11–12 when APIs are solid enough.
-3. Phase 14 offline/CI hardening, or 16 distributor extras.
-4. Production: real ContiPay/Paynow HMAC + merchant secrets (never commit).
+**Next**
+1. Finish 14 → plan+implement 15 → 16.
+2. Parallel-safe: 11–12 scaffold plans (no full mobile until contracts listed).
 
 **Blockers / notes**
-- Serialize DB apply (manager-owned reset only).
+- Serialize `supabase db reset` (manager-owned).
 - No commits (user did not request).
 
 Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
