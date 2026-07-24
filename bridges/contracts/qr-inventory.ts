@@ -1,6 +1,6 @@
 /**
- * Bridge contracts only — Phase 4. No CameraX / AVFoundation / HTML5 QR.
- * Implementations land in Phase 12 under bridges/android and bridges/ios.
+ * Bridge contracts only — Phase 11–12. No CameraX / AVFoundation / HTML5 QR.
+ * Implementations land under bridges/android and bridges/ios (see bridges/README.md).
  */
 
 export type QrScanResult = {
