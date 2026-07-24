@@ -24,10 +24,8 @@ DECLARE
   v_pe UUID;
   v_hash TEXT;
 BEGIN
-  IF auth.role() = 'authenticated' AND NOT public.has_staff_role(
-    ARRAY['admin', 'finance']::public.staff_role[]
-  ) THEN
-    RAISE EXCEPTION 'service role or finance/admin required for ContiPay settle';
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service_role required for ContiPay settle';
   END IF;
 
   PERFORM public._payments_rpc_enter();
@@ -177,10 +175,8 @@ DECLARE
   v_pe UUID;
   v_hash TEXT;
 BEGIN
-  IF auth.role() = 'authenticated' AND NOT public.has_staff_role(
-    ARRAY['admin', 'finance']::public.staff_role[]
-  ) THEN
-    RAISE EXCEPTION 'service role or finance/admin required for Paynow settle';
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service_role required for Paynow settle';
   END IF;
 
   PERFORM public._payments_rpc_enter();
@@ -307,3 +303,23 @@ BEGIN
   RETURN v_pe;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.mark_contipay_settled(
+  TEXT, TEXT, TEXT, JSONB, public.currency_code, NUMERIC, NUMERIC, BOOLEAN, TEXT
+) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.mark_contipay_settled(
+  TEXT, TEXT, TEXT, JSONB, public.currency_code, NUMERIC, NUMERIC, BOOLEAN, TEXT
+) FROM authenticated;
+REVOKE ALL ON FUNCTION public.mark_paynow_settled(
+  TEXT, TEXT, TEXT, JSONB, public.currency_code, NUMERIC, NUMERIC, BOOLEAN, TEXT
+) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.mark_paynow_settled(
+  TEXT, TEXT, TEXT, JSONB, public.currency_code, NUMERIC, NUMERIC, BOOLEAN, TEXT
+) FROM authenticated;
+
+GRANT EXECUTE ON FUNCTION public.mark_contipay_settled(
+  TEXT, TEXT, TEXT, JSONB, public.currency_code, NUMERIC, NUMERIC, BOOLEAN, TEXT
+) TO service_role;
+GRANT EXECUTE ON FUNCTION public.mark_paynow_settled(
+  TEXT, TEXT, TEXT, JSONB, public.currency_code, NUMERIC, NUMERIC, BOOLEAN, TEXT
+) TO service_role;
