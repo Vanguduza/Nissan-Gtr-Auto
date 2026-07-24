@@ -289,10 +289,10 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
   - Request for Quotation → supplier quotations → compare → create PO
   - **Blanket / contract POs** with call-off releases against remaining qty/value
 - **Acceptance:**
-  - [ ] Quotation compare selects winner → PO
-  - [ ] Blanket release cannot exceed remaining qty/value
-  - [ ] RLS: suppliers see only their RFQ/quote rows
-- **Gate:** `/supabase-rls-auditor` → `/security-reviewer` → `/verifier`
+  - [x] Quotation compare selects winner → PO
+  - [x] Blanket release cannot exceed remaining qty/value
+  - [x] RLS: suppliers see only their RFQ/quote rows
+- **Gate:** `/supabase-rls-auditor` → `/security-reviewer` → `/verifier` — **backend gate PASS** (2026-07-24); direct-table mutation guards still **pending** (same track as Phase 8 `…61000`)
 
 ---
 
@@ -437,12 +437,12 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 - Phase 8b migration + smoke on disk; plan **implemented (backend)**; reset applied 8b.
 
 **In progress**
-1. Run `phase8b_rfq_blanket_smoke.sql` → then `/security-reviewer` + `/verifier` on 8b.
-2. **`@backend_agent`:** procurement mutation guards (`…61000`, parity with 4b/5b) — security blocker from Phase 8 review ([Security review Phase 8 + guards](de233cdf-53ec-4a8a-bb7a-efd4032ef880)).
+1. **`@backend_agent`:** extend procurement mutation guards to RFQ / supplier quotation tables (Phase 8 `20260724061000` applied locally through Phase 8 only; **8b tables not yet guarded** — security follow-up from Phase 8 review).
+2. **`@web_agent`:** RFQ compare + supplier quote pages (optional follow-on per Phase 8b plan).
 3. Phase 9 plan ready: `docs/plans/2026-07-24-phase9-hr-gross-payroll.md` — implement after guards (same `supabase/` lane).
 
 **Next**
-1. Close 8b + procurement-guards gates → mark 8/8b Done.
+1. Land guards migration + smokes → `/security-reviewer` on guards delta.
 2. Phase 9 HR (gross only; **no payroll tax**) → security → verifier.
 3. Phase 10 logistics → 13 payments/receipts; defer mobile 11–12.
 
