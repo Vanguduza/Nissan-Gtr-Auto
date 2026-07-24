@@ -87,7 +87,7 @@ Cycle-count a warehouse (full or partial SKU set); on submit, set on-hand to cou
 2. Draft + line upsert RPCs (snapshot system qty; draft-only edits)
 3. Submit/approve path: threshold dual-auth; stock adjust; balanced `post_journal_entry`
 4. Cancel = reverse stock + `reverse_journal`
-5. Smoke SQL: write-down, write-up, dual-auth large variance, cancel reverse, RLS denial
+5. Smoke SQL: write-down, write-up, dual-auth large variance, cancel reverse, RLS denial *(partial: core paths pass; mutation/RLS sections need harness fix — see gate notes)*
 6. Regen `database.types.ts`; optional shared status/scope types
 7. Brief RPC contract note for `@management_app_agent` (params/returns only)
 
