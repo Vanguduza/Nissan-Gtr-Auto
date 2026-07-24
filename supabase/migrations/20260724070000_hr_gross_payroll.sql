@@ -1082,7 +1082,7 @@ CREATE POLICY payroll_runs_select_hr
       SELECT 1
       FROM public.payroll_lines l
       JOIN public.employees e ON e.id = l.employee_id
-      WHERE l.payroll_run_id = id AND e.user_id = auth.uid()
+      WHERE l.payroll_run_id = payroll_runs.id AND e.user_id = auth.uid()
     )
   );
 
