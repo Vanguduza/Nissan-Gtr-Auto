@@ -2140,6 +2140,7 @@ export type Database = {
         Returns: string
       }
       checkout_pos_cart: { Args: { p_cart_id: string }; Returns: string }
+      close_warranty_claim: { Args: { p_claim_id: string }; Returns: string }
       clear_bank_matches: { Args: { p_match_ids: string[] }; Returns: number }
       convert_to_base_uom: {
         Args: { p_from_uom_id: string; p_qty: number; p_stock_item_id: string }
@@ -2208,6 +2209,15 @@ export type Database = {
         Returns: undefined
       }
       next_series_value: { Args: { p_prefix: string }; Returns: string }
+      open_warranty_claim: {
+        Args: {
+          p_notes?: string
+          p_sales_invoice_id?: string
+          p_stock_batch_id?: string
+          p_stock_serial_id?: string
+        }
+        Returns: string
+      }
       post_journal: { Args: { p_entry_id: string }; Returns: string }
       post_journal_entry: {
         Args: {
