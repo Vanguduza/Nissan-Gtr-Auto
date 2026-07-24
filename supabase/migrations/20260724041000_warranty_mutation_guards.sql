@@ -1,4 +1,4 @@
-﻿-- Phase 5b follow-up: block direct warranty_claims mutation bypassing RPC state machine.
+-- Phase 5b follow-up: block direct warranty_claims mutation bypassing RPC state machine.
 -- SECURITY DEFINER RPCs set app.warranty_rpc=1 (transaction-local) before table writes.
 
 CREATE OR REPLACE FUNCTION public._warranty_rpc_active()
