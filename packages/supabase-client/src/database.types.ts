@@ -2251,6 +2251,17 @@ export type Database = {
         }
         Returns: string
       }
+      create_supplier: {
+        Args: {
+          p_code: string
+          p_default_currency?: Database["public"]["Enums"]["currency_code"]
+          p_email?: string
+          p_name: string
+          p_phone_e164?: string
+        }
+        Returns: string
+      }
+      current_supplier_id: { Args: never; Returns: string }
       emit_domain_event: {
         Args: {
           p_actor_user_id?: string
