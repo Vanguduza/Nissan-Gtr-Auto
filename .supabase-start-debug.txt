@@ -29,3 +29,64 @@ Loading project ref from file: supabase\.temp\project-ref
  api Skipped - Image is already present locally 
  realtime Skipped - Image is already present locally 
 Starting database...
+2026/07/24 04:58:40 PG Send: 
+{"Type":"StartupMessage","ProtocolVersion":196608,"Parameters":{"database":"postgres","user":"postgres"}}
+2026/07/24 04:58:40 PG Recv: {"Type":"AuthenticationSASL","AuthMechanisms":["SCRAM-SHA-256"]}
+2026/07/24 04:58:40 PG Send: 
+{"Type":"SASLInitialResponse","AuthMechanism":"SCRAM-SHA-256","Data":"n,,n=,r=OiXY4U3Y6PT53MTO6WTYP1u+"}
+2026/07/24 04:58:40 PG Recv: {"Type":"AuthenticationSASLContinue","Data":"r=OiXY4U3Y6PT53MTO6WTYP1u+LGECsCbeUbwG7gzIDug
+zGZ0M,s=m6uD/OdxXARsksWPxvmuvQ==,i=4096"}
+2026/07/24 04:58:40 PG Send: {"Type":"SASLResponse","Data":"c=biws,r=OiXY4U3Y6PT53MTO6WTYP1u+LGECsCbeUbwG7gzIDugzGZ0M,p
+=QwgCJYZonjNRY8NdyDBt52BtJ0S4Juj0FAZf9FMrHRg="}
+2026/07/24 04:58:40 PG Recv: {"Type":"AuthenticationSASLFinal","Data":"v=fOIiktGol53kslfvHXvK1euKR7ew47ZdJTPs6hvyn/Q="}
+2026/07/24 04:58:40 PG Recv: {"Type":"AuthenticationOK"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"in_hot_standby","Value":"off"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"integer_datetimes","Value":"on"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"TimeZone","Value":"UTC"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"IntervalStyle","Value":"postgres"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"is_superuser","Value":"off"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"application_name","Value":""}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"default_transaction_read_only","Value":"off"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"scram_iterations","Value":"4096"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"DateStyle","Value":"ISO, MDY"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"standard_conforming_strings","Value":"on"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"session_authorization","Value":"postgres"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"client_encoding","Value":"UTF8"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"server_version","Value":"17.6"}
+2026/07/24 04:58:40 PG Recv: {"Type":"ParameterStatus","Name":"server_encoding","Value":"UTF8"}
+2026/07/24 04:58:40 PG Recv: {"Type":"BackendKeyData","ProcessID":216,"SecretKey":1827763174}
+2026/07/24 04:58:40 PG Recv: {"Type":"ReadyForQuery","TxStatus":"I"}
+Initialising schema...
++ ulimit -n
++ '[' -n '' ']'
++ export ERL_CRASH_DUMP=/tmp/erl_crash.dump
++ ERL_CRASH_DUMP=/tmp/erl_crash.dump
++ '[' false = true ']'
++ [[ -n '' ]]
++ echo 'Running migrations'
++ sudo -E -u nobody /app/bin/migrate
+** (Ecto.ConstraintError) constraint error when attempting to insert struct:
+
+    * "schema_migrations_pkey" (unique_constraint)
+
+If you would like to stop this constraint violation from raising an
+exception and instead add it as an error to your changeset, please
+call `unique_constraint/3` on your changeset with the constraint
+`:name` as an option.
+
+The changeset has not defined any constraint.
+
+    (ecto 3.13.6) lib/ecto/repo/schema.ex:1052: anonymous fn/4 in Ecto.Repo.Schema.constraints_to_errors/3
+    (elixir 1.18.4) lib/enum.ex:1714: Enum."-map/2-lists^map/1-1-"/2
+    (ecto 3.13.6) lib/ecto/repo/schema.ex:1035: Ecto.Repo.Schema.constraints_to_errors/3
+    (ecto 3.13.6) lib/ecto/repo/schema.ex:1005: Ecto.Repo.Schema.apply/4
+    (ecto 3.13.6) lib/ecto/repo/schema.ex:500: anonymous fn/15 in Ecto.Repo.Schema.do_insert/4
+    (ecto_sql 3.13.2) lib/ecto/migrator.ex:338: anonymous fn/6 in Ecto.Migrator.async_migrate_maybe_in_transaction/7
+    (ecto_sql 3.13.2) lib/ecto/migrator.ex:352: Ecto.Migrator.run_maybe_in_transaction/5
+Stopping containers...
+2026/07/24 04:58:47 PG Send: {"Type":"Terminate"}
+Pruned containers: []
+Pruned volumes: []
+Pruned network: [supabase_network_gylrgwqyuiwkyykardwc]
+2026/07/24 04:58:58 HTTP POST: https://eu.i.posthog.com/batch/
+error running container: exit 1
