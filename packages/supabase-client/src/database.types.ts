@@ -2162,6 +2162,24 @@ export type Database = {
         Args: { p_from_uom_id: string; p_qty: number; p_stock_item_id: string }
         Returns: number
       }
+      convert_material_request_to_po: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_exchange_rate: number
+          p_line_ids?: string[]
+          p_material_request_id: string
+          p_supplier_id: string
+        }
+        Returns: string
+      }
+      create_goods_receipt: {
+        Args: {
+          p_lines: Json
+          p_notes?: string
+          p_purchase_order_id: string
+        }
+        Returns: string
+      }
       create_journal_draft: {
         Args: {
           p_currency: Database["public"]["Enums"]["currency_code"]
@@ -2169,6 +2187,26 @@ export type Database = {
           p_entry_date: string
           p_exchange_rate: number
           p_lines: Json
+        }
+        Returns: string
+      }
+      create_landed_cost_voucher: {
+        Args: {
+          p_allocations: Json
+          p_charges: Json
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_exchange_rate: number
+          p_goods_receipt_id: string
+          p_notes?: string
+        }
+        Returns: string
+      }
+      create_material_request: {
+        Args: {
+          p_lines: Json
+          p_needed_by: string
+          p_notes?: string
+          p_warehouse_id: string
         }
         Returns: string
       }
