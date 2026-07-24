@@ -57,12 +57,6 @@ BEGIN
   END IF;
 
   IF v_status <> 'draft' THEN
-    IF public._recon_rpc_active() AND TG_OP IN ('INSERT', 'UPDATE', 'DELETE') THEN
-      IF TG_OP = 'DELETE' THEN
-        RETURN OLD;
-      END IF;
-      RETURN NEW;
-    END IF;
     RAISE EXCEPTION 'stock_reconciliation_lines: parent must be draft (status=%)', v_status;
   END IF;
 
