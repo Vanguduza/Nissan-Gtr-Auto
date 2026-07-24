@@ -825,7 +825,6 @@ DECLARE
   v_cogs NUMERIC := 0;
   v_entry UUID;
   v_journal UUID;
-  v_issue_lines JSONB := '[]'::jsonb;
 BEGIN
   PERFORM public._logistics_begin_rpc();
   PERFORM public._require_logistics_staff();
