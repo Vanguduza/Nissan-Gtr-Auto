@@ -28,8 +28,8 @@ import co.zw.nissangtr.customer.orders.OrdersModule
 import co.zw.nissangtr.customer.orders.OrdersScreen
 import co.zw.nissangtr.customer.pay.PayIntentScreen
 import co.zw.nissangtr.customer.pay.PayModule
-import co.zw.nissangtr.customer.rpc.FakeRpcClient
 import co.zw.nissangtr.customer.rpc.RpcClient
+import co.zw.nissangtr.customer.rpc.RpcClientFactory
 
 private enum class CustomerRoute {
     Home,
@@ -41,7 +41,7 @@ private enum class CustomerRoute {
 
 /**
  * Customer shell. Feature screens are thin scaffolds over [RpcClient]
- * (FakeRpcClient until Supabase Kotlin SDK is wired).
+ * ([RpcClientFactory]: Live [co.zw.nissangtr.customer.rpc.SupabaseRpcClient] or Fake).
  * Money/pricing: @gtr/shared. Hardware QR: bridges/ only — never HTML5.
  */
 class MainActivity : ComponentActivity() {
@@ -49,12 +49,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Keep placeholder modules on the compile classpath.
         listOf(CartModule.id, OrdersModule.id, GarageModule.id, PayModule.id)
-        // TODO(live): build SupabaseRpcClient from BuildConfig.SUPABASE_URL / ANON_KEY
-        val rpc: RpcClient = FakeRpcClient()
+        val live = RpcClientFactory.isLive(
+            BuildConfig.SUPABASE_URL,
+            BuildConfig.SUPABASE_ANON_KEY,
+            BuildConfig.RPC_FORCE_FAKE,
+        )
+        val rpc: RpcClient = RpcClientFactory.create(
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
+            forceFake = BuildConfig.RPC_FORCE_FAKE,
+        )
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    CustomerApp(rpc = rpc)
+                    CustomerApp(rpc = rpc, liveRpc = live)
                 }
             }
         }
@@ -62,10 +70,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun CustomerApp(rpc: RpcClient) {
+private fun CustomerApp(rpc: RpcClient, liveRpc: Boolean) {
     var route by remember { mutableStateOf(CustomerRoute.Home) }
     when (route) {
         CustomerRoute.Home -> CustomerHome(
+            liveRpc = liveRpc,
             onCart = { route = CustomerRoute.Cart },
             onOrders = { route = CustomerRoute.Orders },
             onGarage = { route = CustomerRoute.Garage },
@@ -92,13 +101,12 @@ private fun CustomerApp(rpc: RpcClient) {
 
 @Composable
 private fun CustomerHome(
+    liveRpc: Boolean,
     onCart: () -> Unit,
     onOrders: () -> Unit,
     onGarage: () -> Unit,
     onPay: () -> Unit,
 ) {
-    val configured =
-        BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -113,8 +121,8 @@ private fun CustomerHome(
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
-            if (configured) "Supabase env present (live client TODO)"
-            else "Set SUPABASE_URL + SUPABASE_ANON_KEY for live bind",
+            if (liveRpc) "RPC: Live (supabase-kt)"
+            else "RPC: Fake (set SUPABASE_URL + SUPABASE_ANON_KEY)",
             style = MaterialTheme.typography.bodySmall,
         )
         Button(onClick = onCart, modifier = Modifier.fillMaxWidth()) {
@@ -130,7 +138,7 @@ private fun CustomerHome(
             Text("Pay — ContiPay / Paynow")
         }
         Text(
-            "RPC: FakeRpcClient stub (see core:rpc). Bridge-First for QR — no HTML5.",
+            "Auth session via GoTrue after login — no hardcoded JWTs. Bridge-First for QR.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )
