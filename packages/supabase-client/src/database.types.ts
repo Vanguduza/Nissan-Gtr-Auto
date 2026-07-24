@@ -2139,6 +2139,22 @@ export type Database = {
         Args: { p_notes?: string; p_reconciliation_id: string }
         Returns: string
       }
+      cancel_goods_receipt: {
+        Args: { p_goods_receipt_id: string }
+        Returns: string
+      }
+      cancel_landed_cost_voucher: {
+        Args: { p_landed_cost_voucher_id: string; p_notes?: string }
+        Returns: string
+      }
+      cancel_material_request: {
+        Args: { p_material_request_id: string; p_notes?: string }
+        Returns: string
+      }
+      cancel_purchase_order: {
+        Args: { p_notes?: string; p_purchase_order_id: string }
+        Returns: string
+      }
       checkout_pos_cart: { Args: { p_cart_id: string }; Returns: string }
       close_warranty_claim: { Args: { p_claim_id: string }; Returns: string }
       clear_bank_matches: { Args: { p_match_ids: string[] }; Returns: number }
