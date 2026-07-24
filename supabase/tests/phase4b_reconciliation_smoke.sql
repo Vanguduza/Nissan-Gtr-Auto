@@ -131,6 +131,37 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: write-up on-hand wrong (%)', v_qty;
   END IF;
 
+  -- Direct mutation on posted header/lines must be denied (RLS + triggers)
+  BEGIN
+    UPDATE public.stock_reconciliations
+    SET status = 'draft', first_approver_id = v_admin
+    WHERE id = v_recon;
+    RAISE EXCEPTION 'smoke fail: direct UPDATE on posted reconciliation should be denied';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%immutable%'
+        AND SQLERRM NOT LIKE '%reconciliation RPCs%'
+        AND SQLERRM NOT LIKE '%create_stock_reconciliation_draft%'
+      THEN
+        RAISE;
+      END IF;
+  END;
+
+  BEGIN
+    UPDATE public.stock_reconciliation_lines
+    SET counted_qty = 0
+    WHERE stock_reconciliation_id = v_recon;
+    RAISE EXCEPTION 'smoke fail: direct UPDATE on posted reconciliation lines should be denied';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%immutable%'
+        AND SQLERRM NOT LIKE '%reconciliation RPCs%'
+        AND SQLERRM NOT LIKE '%parent must be draft%'
+      THEN
+        RAISE;
+      END IF;
+  END;
+
   -- Dual-auth: force threshold to 0, submit large variance, approve as distinct user
   SELECT value_json INTO v_threshold
   FROM public.app_settings
