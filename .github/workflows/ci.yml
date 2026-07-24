@@ -1,0 +1,112 @@
+# Phase 14 CI — lint/typecheck, exclusion grep, migrate + SQL smoke (when Docker available)
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint / typecheck / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Package tests
+        run: pnpm test
+
+  exclusions:
+    name: Hard exclusions grep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan code paths for excluded integrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Align with .cursor/BUGBOT.md — scan implementation paths only
+          # (docs / .cursor / plans intentionally mention exclusions).
+          ROOTS=(apps packages supabase/functions supabase/migrations bridges data-pipeline)
+          FAIL=0
+          scan() {
+            local label="$1"
+            local pattern="$2"
+            local hits
+            hits=$(rg -n -i --glob '!**/*.md' "$pattern" "${ROOTS[@]}" 2>/dev/null || true)
+            if [[ -n "$hits" ]]; then
+              echo "::error::Exclusion hit ($label):"
+              echo "$hits"
+              FAIL=1
+            else
+              echo "OK: no matches for $label"
+            fi
+          }
+          scan "ZIMRA/FDMS/fiscal" 'zimra|fdms|fiscali[sz]'
+          scan "payroll tax (PAYE/NSSA/…)" 'paye\b|nssa|pobs|apwcs|zimdef|\bp4a?\b'
+          scan "HTML5 / browser QR" 'html5-qrcode|Html5Qrcode|barcode-detector|jsqr\b|@zxing/browser'
+          if [[ "$FAIL" -ne 0 ]]; then
+            exit 1
+          fi
+
+  db-smoke:
+    name: Migrate + SQL smoke
+    runs-on: ubuntu-latest
+    # Docker is available on GitHub-hosted Linux runners. Windows/local without
+    # Docker: use the documented docker-exec path in docs/HARDENING.md.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install deps (supabase CLI via npx)
+        run: pnpm install --frozen-lockfile
+      - name: Start Supabase (Docker)
+        run: npx supabase start
+      - name: Apply migrations + seed
+        run: npx supabase db reset --yes
+      - name: Resolve DB container
+        id: db
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME=$(docker ps --format '{{.Names}}' | grep -E 'supabase_db_' | head -n1)
+          if [[ -z "$NAME" ]]; then
+            echo "::error::No supabase_db_* container found"
+            exit 1
+          fi
+          echo "container=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Using DB container: $NAME"
+      - name: Run phase2 RLS smoke
+        run: |
+          docker exec -i "${{ steps.db.outputs.container }}" \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            < supabase/tests/phase2_rls_smoke.sql
+      - name: Run phase14 CI RLS gate
+        run: |
+          docker exec -i "${{ steps.db.outputs.container }}" \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            < supabase/tests/phase14_ci_smoke.sql
+      - name: Stop Supabase
+        if: always()
+        run: npx supabase stop --no-backup || true
