@@ -827,4 +827,136 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.submit_goods_receipt(p_goods_receipt_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_grn public.goods_receipts%ROWTYPE;
+  v_receipt_lines JSONB := '[]'::jsonb;
+  v_row RECORD;
+  v_entry UUID;
+  v_var_pct NUMERIC;
+  v_tolerance CONSTANT NUMERIC := 0.05;
+  v_mismatch BOOLEAN := false;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_staff();
+  PERFORM public._assert_procurement_period_open();
+
+  SELECT * INTO v_grn FROM public.goods_receipts WHERE id = p_goods_receipt_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'goods receipt not found: %', p_goods_receipt_id;
+  END IF;
+  IF v_grn.status <> 'draft' THEN
+    RAISE EXCEPTION 'only draft GRNs can be submitted';
+  END IF;
+
+  FOR v_row IN
+    SELECT grl.*, pol.unit_price AS po_unit_price, pol.qty_ordered, pol.qty_received
+    FROM public.goods_receipt_lines grl
+    JOIN public.purchase_order_lines pol ON pol.id = grl.purchase_order_line_id
+    WHERE grl.goods_receipt_id = p_goods_receipt_id
+  LOOP
+    IF v_row.qty_received + v_row.qty > v_row.qty_ordered THEN
+      RAISE EXCEPTION 'over-receipt on PO line %', v_row.purchase_order_line_id;
+    END IF;
+
+    IF v_row.po_unit_price > 0 THEN
+      v_var_pct := abs(v_row.unit_cost - v_row.po_unit_price) / v_row.po_unit_price;
+      IF v_var_pct > v_tolerance THEN
+        v_mismatch := true;
+      END IF;
+    END IF;
+
+    v_receipt_lines := v_receipt_lines || jsonb_build_array(
+      jsonb_build_object(
+        'stock_item_id', v_row.stock_item_id,
+        'uom_id', v_row.uom_id,
+        'qty', v_row.qty,
+        'unit_cost', v_row.unit_cost,
+        'currency', v_row.currency,
+        'valuation_method', 'FIFO'
+      )
+    );
+  END LOOP;
+
+  v_entry := public.post_stock_receipt(
+    v_grn.warehouse_id,
+    COALESCE(v_grn.notes, 'GRN ' || v_grn.document_number),
+    v_receipt_lines
+  );
+
+  FOR v_row IN
+    SELECT grl.*, pol.unit_price AS po_unit_price
+    FROM public.goods_receipt_lines grl
+    JOIN public.purchase_order_lines pol ON pol.id = grl.purchase_order_line_id
+    WHERE grl.goods_receipt_id = p_goods_receipt_id
+    ORDER BY grl.created_at, grl.id
+  LOOP
+    UPDATE public.goods_receipt_lines grl
+    SET
+      stock_entry_line_id = (
+        SELECT sel.id
+        FROM public.stock_entry_lines sel
+        WHERE sel.stock_entry_id = v_entry
+          AND sel.stock_item_id = grl.stock_item_id
+          AND sel.qty = grl.qty
+          AND sel.id NOT IN (
+            SELECT g2.stock_entry_line_id
+            FROM public.goods_receipt_lines g2
+            WHERE g2.goods_receipt_id = p_goods_receipt_id
+              AND g2.stock_entry_line_id IS NOT NULL
+          )
+        ORDER BY sel.created_at
+        LIMIT 1
+      ),
+      price_variance_pct = CASE
+        WHEN v_row.po_unit_price > 0 THEN
+          abs(grl.unit_cost - v_row.po_unit_price) / v_row.po_unit_price
+        ELSE NULL
+      END
+    WHERE grl.id = v_row.id;
+
+    UPDATE public.purchase_order_lines pol
+    SET qty_received = qty_received + v_row.qty
+    WHERE pol.id = v_row.purchase_order_line_id;
+  END LOOP;
+
+  UPDATE public.goods_receipts
+  SET
+    status = 'submitted',
+    stock_entry_id = v_entry,
+    submitted_at = now(),
+    updated_at = now()
+  WHERE id = p_goods_receipt_id;
+
+  IF v_mismatch THEN
+    PERFORM public.emit_domain_event(
+      'supplier_mismatch',
+      'goods_receipt:' || p_goods_receipt_id::text,
+      jsonb_build_object(
+        'goods_receipt_id', p_goods_receipt_id,
+        'purchase_order_id', v_grn.purchase_order_id,
+        'tolerance_pct', v_tolerance
+      )
+    );
+  END IF;
+
+  PERFORM public.emit_domain_event(
+    'po_received',
+    'goods_receipt:' || p_goods_receipt_id::text,
+    jsonb_build_object(
+      'goods_receipt_id', p_goods_receipt_id,
+      'purchase_order_id', v_grn.purchase_order_id,
+      'stock_entry_id', v_entry
+    )
+  );
+
+  RETURN p_goods_receipt_id;
+END;
+$$;
+
 -- PATCH_MARKER_RPCS
