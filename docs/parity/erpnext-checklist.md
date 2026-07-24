@@ -108,13 +108,13 @@ Citations are migration / smoke / edge paths only — no blueprint dumps.
 
 | Gap | Notes |
 |-----|-------|
-| Bin / location within warehouse | Shelf/bin pick path |
-| Kits / BOM sell | Kit SKU and/or explode components |
-| Consignment stock | Supplier-owned or customer-held |
-| Loyalty / points | Optional after store credit |
-| Attachments + doc timeline comments | Soft requirement if cheap |
+| Bin / location within warehouse | **Done (backend)** — `…120000_warehouse_bins.sql` |
+| Kits / BOM sell | **Done (backend)** — `…121000_kits_bom_sell.sql` |
+| Consignment stock | **Done (backend)** — `…122000_consignment_stock.sql` |
+| Loyalty / points | **Done (backend)** — `…123000_loyalty_points.sql`; CoA 2210 |
+| Attachments + doc timeline comments | Skipped (soft) |
 
-Child plan: `docs/plans/2026-07-24-phase16-distributor-extras.md` (when opened).
+Child plan: `docs/plans/2026-07-24-phase16-distributor-extras.md` — **backend Done**.
 
 ---
 
