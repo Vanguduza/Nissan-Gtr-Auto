@@ -2626,6 +2626,7 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
+      procurement_doc_status: ["draft", "submitted", "cancelled"],
       sales_doc_status: ["draft", "posted", "cancelled", "on_hold"],
       sales_doc_type: ["invoice", "credit_note"],
       sms_event_priority: ["low", "normal", "high"],
