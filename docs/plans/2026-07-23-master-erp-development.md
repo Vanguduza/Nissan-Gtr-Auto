@@ -112,7 +112,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | **Done (backend)** — `…80000`/`…81000`; security+verifier PASS; bridge/UI follow-on |
 | 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | Pending |
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending |
-| 13 | Payments, ContiPay, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **In progress** (plan ready) |
+| 13 | Payments, ContiPay **+ Paynow**, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **In progress** (plan ready) |
 | 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | Pending |
 | 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | Pending |
 | 16 | Distributor extras (bins, kits, consignment, loyalty) | `@backend_agent` + UI lanes | 15 or after 8/13 | Pending |
@@ -346,12 +346,12 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ---
 
-## Phase 13 — Payments, ContiPay, manager SMS, customer receipts, forecasting
+## Phase 13 — Payments, ContiPay + Paynow, manager SMS, customer receipts, forecasting
 
 - **Lanes:** `@backend_agent`, `@web_agent`, `@management_app_agent` (recipient prefs)
 - **Build:**
-  - ContiPay (EcoCash, Visa 3DS, ZimSwitch), dual-currency settlement display
-  - **Payment Entry** — allocate cash/bank/ContiPay/store-credit across one or many invoices (partial OK)
+  - ContiPay (EcoCash, Visa 3DS, ZimSwitch) **and Paynow** (ZW mobile money / card), dual-currency settlement display — decision `docs/decisions/2026-07-24-paynow-payment-rail.md`
+  - **Payment Entry** — allocate cash/bank/ContiPay/Paynow/store-credit across one or many invoices (partial OK)
   - **Store credit** from refunds / overpayments; redeemable at POS/checkout
   - **Manager key-event SMS** (required): full catalog in `docs/decisions/2026-07-23-manager-sms-key-events.md`
   - **Customer transaction receipts** (required): `docs/decisions/2026-07-23-customer-receipt-delivery.md`
@@ -438,11 +438,11 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 - Queue preference held: 8b → 9 → 10 before mobile 11–12.
 
 **In progress**
-1. **Phase 13** — plan `docs/plans/2026-07-24-phase13-payments-receipts-sms.md` → `@backend_agent` implement.
+1. **Phase 13** — plan `docs/plans/2026-07-24-phase13-payments-receipts-sms.md` → ContiPay **and Paynow** rails (Paynow stub live; real API keys/webhooks next) → `@backend_agent` implement.
 2. Optional follow-ons: web RFQ portal; management HR/logistics UI; GPS bridge.
 
 **Next**
-1. Implement Phase 13 → `/security-reviewer` → `/verifier`.
+1. Finish Phase 13 (wire real ContiPay + Paynow merchant secrets / webhooks) → `/security-reviewer` → `/verifier`.
 2. Defer mobile 11–12 until APIs solid.
 
 **Blockers / notes**

@@ -67,6 +67,39 @@ export default function CartPage() {
         </div>
       </section>
 
+      <section className={styles.fulfill} aria-labelledby="pay-heading">
+        <h2 id="pay-heading" className={styles.fulfillTitle}>
+          How will you pay?
+        </h2>
+        <div className={styles.fulfillOptions}>
+          <label className={styles.fulfillCard}>
+            <input type="radio" name="tender" value="cash" defaultChecked />
+            <span>
+              <strong>Cash / bank</strong>
+              <span className={styles.muted}>Counter or transfer</span>
+            </span>
+          </label>
+          <label className={styles.fulfillCard}>
+            <input type="radio" name="tender" value="contipay" />
+            <span>
+              <strong>ContiPay</strong>
+              <span className={styles.muted}>
+                EcoCash, Visa, ZimSwitch (Phase 13)
+              </span>
+            </span>
+          </label>
+          <label className={styles.fulfillCard}>
+            <input type="radio" name="tender" value="paynow" />
+            <span>
+              <strong>Paynow</strong>
+              <span className={styles.muted}>
+                Mobile money &amp; card (Phase 13 stub)
+              </span>
+            </span>
+          </label>
+        </div>
+      </section>
+
       <Link href="/search" className={styles.button}>
         Continue shopping
       </Link>
