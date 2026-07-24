@@ -21,20 +21,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
 
 /**
- * Scaffold: list DNs / pick lists + create pick → confirm → create DN → submit.
- * Phase 10 RPCs via [RpcClient]. No browser QR / GPS — Bridge-First later.
+ * Scaffold: list DNs / pick lists + create pick → confirm → create DN → submit,
+ * plus active delivery job Start/Stop GPS (Bridge-First via [gps]).
  */
 @Composable
 fun DispatchScreen(
     rpc: RpcClient,
+    gps: GpsBridge,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DispatchViewModel = viewModel(
-        factory = DispatchViewModel.factory(rpc),
+        factory = DispatchViewModel.factory(rpc, gps),
     ),
 ) {
     val state by viewModel.state.collectAsState()
@@ -46,14 +48,14 @@ fun DispatchScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Logistics — Pick / DN", style = MaterialTheme.typography.headlineSmall)
+        Text("Logistics — Pick / DN / Track", style = MaterialTheme.typography.headlineSmall)
         Text(
             "RPCs: ${RpcNames.CREATE_PICK_LIST}, ${RpcNames.CONFIRM_PICK_LINES}, " +
                 "${RpcNames.CREATE_DELIVERY_NOTE}, ${RpcNames.SUBMIT_DELIVERY_NOTE}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
-            "GPS: ${RpcNames.INGEST_DELIVERY_LOCATION} via bridges/ only (not this screen).",
+            "GPS: ${RpcNames.INGEST_DELIVERY_LOCATION} via bridges/location-tracker only.",
             style = MaterialTheme.typography.bodySmall,
         )
 
@@ -63,7 +65,7 @@ fun DispatchScreen(
             label = { Text("Sales invoice UUID") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy,
+            enabled = !state.busy && !state.tracking,
         )
         OutlinedTextField(
             value = state.invoiceLineId,
@@ -71,7 +73,7 @@ fun DispatchScreen(
             label = { Text("Invoice line UUID") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy,
+            enabled = !state.busy && !state.tracking,
         )
         OutlinedTextField(
             value = state.qty,
@@ -79,32 +81,76 @@ fun DispatchScreen(
             label = { Text("Qty (pick / DN line)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy,
+            enabled = !state.busy && !state.tracking,
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = viewModel::createPickList,
-                enabled = !state.busy,
+                enabled = !state.busy && !state.tracking,
             ) { Text("Create pick") }
             Button(
                 onClick = viewModel::confirmSelectedPick,
-                enabled = !state.busy,
+                enabled = !state.busy && !state.tracking,
             ) { Text("Confirm pick") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = viewModel::createDeliveryNote,
-                enabled = !state.busy,
+                enabled = !state.busy && !state.tracking,
             ) { Text("Create DN") }
             Button(
                 onClick = viewModel::submitSelectedDn,
-                enabled = !state.busy,
+                enabled = !state.busy && !state.tracking,
             ) { Text("Submit DN") }
             OutlinedButton(
                 onClick = viewModel::refresh,
                 enabled = !state.busy,
             ) { Text("Refresh") }
+        }
+
+        HorizontalDivider()
+        Text("Delivery tracking (driver)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Create job from submitted DN → Mark dispatched → Start tracking. " +
+                "Permission via bridge; ≥5s client throttle.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = state.deliveryJobId,
+            onValueChange = viewModel::onDeliveryJobIdChange,
+            label = { Text("Delivery job UUID") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !state.busy && !state.tracking,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = viewModel::createDeliveryJob,
+                enabled = !state.busy && !state.tracking,
+            ) { Text("Create job") }
+            Button(
+                onClick = viewModel::markJobDispatched,
+                enabled = !state.busy && !state.tracking,
+            ) { Text("Mark dispatched") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = viewModel::startTracking,
+                enabled = !state.busy && !state.tracking,
+            ) { Text("Start tracking") }
+            OutlinedButton(
+                onClick = viewModel::stopTracking,
+                enabled = state.tracking,
+            ) { Text("Stop tracking") }
+        }
+        if (state.tracking) {
+            Text(
+                "Tracking… ingests=${state.ingestCount}" +
+                    (state.lastLatLng?.let { " last=$it" } ?: "") +
+                    (state.lastIngestId?.let { " id=$it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
@@ -121,7 +167,7 @@ fun DispatchScreen(
                     if (selected) "  ✓" else "",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { viewModel.selectPickList(pl.id) }
+                    .clickable(enabled = !state.tracking) { viewModel.selectPickList(pl.id) }
                     .padding(vertical = 4.dp),
                 style = if (selected) {
                     MaterialTheme.typography.bodyLarge
@@ -140,7 +186,7 @@ fun DispatchScreen(
                     if (selected) "  ✓" else "",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { viewModel.selectDn(dn.id) }
+                    .clickable(enabled = !state.tracking) { viewModel.selectDn(dn.id) }
                     .padding(vertical = 4.dp),
                 style = if (selected) {
                     MaterialTheme.typography.bodyLarge
@@ -150,6 +196,11 @@ fun DispatchScreen(
             )
         }
 
-        OutlinedButton(onClick = onBack) { Text("Back") }
+        OutlinedButton(
+            onClick = {
+                if (state.tracking) viewModel.stopTracking()
+                onBack()
+            },
+        ) { Text("Back") }
     }
 }
