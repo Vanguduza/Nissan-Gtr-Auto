@@ -124,13 +124,12 @@ export async function confirmPickLines(
   pickListId: string,
   lines: { pick_list_line_id: string; qty_picked: number }[],
 ): Promise<StorefrontResult<string>> {
-  const payload = lines.map((l) => ({
-    pick_list_line_id: l.pick_list_line_id,
-    qty_picked: l.qty_picked,
-  })) as unknown as Json;
   const { data, error } = await client.rpc("confirm_pick_lines", {
     p_pick_list_id: pickListId,
-    p_lines: payload,
+    p_lines: lines.map((l) => ({
+      pick_list_line_id: l.pick_list_line_id,
+      qty_picked: l.qty_picked,
+    })),
   });
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "confirm_pick_lines returned no id." };
@@ -145,13 +144,12 @@ export async function createDeliveryNote(
     lines: { sales_invoice_line_id: string; qty: number }[];
   },
 ): Promise<StorefrontResult<string>> {
-  const payload = args.lines.map((l) => ({
-    sales_invoice_line_id: l.sales_invoice_line_id,
-    qty: l.qty,
-  })) as unknown as Json;
   const { data, error } = await client.rpc("create_delivery_note", {
     p_sales_invoice_id: args.salesInvoiceId,
-    p_lines: payload,
+    p_lines: args.lines.map((l) => ({
+      sales_invoice_line_id: l.sales_invoice_line_id,
+      qty: l.qty,
+    })),
     p_pick_list_id: args.pickListId || undefined,
   });
   if (error) return { ok: false, error: error.message };
