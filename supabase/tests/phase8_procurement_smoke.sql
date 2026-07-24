@@ -218,7 +218,9 @@ BEGIN
   PERFORM public.submit_purchase_order(v_po2);
 
   PERFORM public._test_set_auth_uid(v_supplier_user);
+  SET LOCAL role authenticated;
   SELECT count(*) INTO v_hidden FROM public.purchase_orders WHERE id = v_po2;
+  RESET ROLE;
   IF v_hidden <> 0 THEN
     RAISE EXCEPTION 'smoke fail: supplier saw other supplier PO';
   END IF;
