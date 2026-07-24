@@ -16,7 +16,7 @@ Ship ordered backend child slices for bin locations, kit/BOM sell, consignment s
 |------:|-------|----------------------------|-------|
 | 1 | Bin / location within warehouse | `20260724120000_warehouse_bins.sql` | **Done** — RLS + CRUD RPCs + pick-path hints; smoke `phase16_bins_smoke.sql` |
 | 2 | Kits / BOM sell | `20260724121000_kits_bom_sell.sql` (+ `…20500_pick_path_hints_authz.sql`) | **Done** — stocked vs explode; no double stock/COGS; smoke `phase16_kits_smoke.sql` |
-| 3 | Consignment stock | next | Supplier-owned or customer-held; **no premature revenue** |
+| 3 | Consignment stock | `20260724122000_consignment_stock.sql` | **Done** — supplier-owned + customer-held; revenue only on `recognize_sale`; smoke `phase16_consignment_smoke.sql` |
 | 4 | Loyalty / points (optional) | last | Only after store credit (Phase 13) proven; liability account if ledger-backed |
 | 5 | Attachments + doc timeline (soft) | anytime if cheap | Skip if not needed for AC |
 
@@ -46,9 +46,20 @@ One child plan or ticket per slice; do not combine all four in one mega-migratio
 - [x] No ZIMRA / payroll tax / HTML5 QR; no consignment/loyalty
 - [x] UI follow-on: `@web_agent` / `@management_app_agent` — kit BOM CRUD + sell (not blocking backend)
 
-## Acceptance criteria (remaining slices 3–5)
+### Slice 3 acceptance (consignment)
 
-- [ ] Migration(s) after kits (`20260724121000`); RLS in same file(s)
+- [x] Migration after kits: `supabase/migrations/20260724122000_consignment_stock.sql` (RLS in same file)
+- [x] CoA `1320` Inventory (Customer Consignment); supplier-owned memo qty until `take_ownership` (Dr 1300 / Cr 2100 — **no revenue**)
+- [x] Customer-held: `place_at_customer` reclass Dr 1320 / Cr 1300; `recognize_sale` is the **only** path that credits `4100`
+- [x] Draft → Submit → Cancel RPCs (`create_consignment_entry_draft` / `add_consignment_entry_line` / `submit_consignment_entry` / `cancel_consignment_entry`); ledger append-only via `_post_journal_entry_inventory` / `_reverse_journal_inventory`
+- [x] Smoke: `supabase/tests/phase16_consignment_smoke.sql` (PASS via docker exec)
+- [x] Types regen note: `supabase gen types typescript --local > packages/supabase-client/src/database.types.ts` (follow-on)
+- [x] No ZIMRA / payroll tax / HTML5 QR; no loyalty
+- [x] UI follow-on: `@management_app_agent` — consignment receive / place / take_ownership / sale (not blocking backend)
+
+## Acceptance criteria (remaining slices 4–5)
+
+- [ ] Migration(s) after consignment (`20260724122000`); RLS in same file(s)
 - [ ] Transactional docs use Draft → Submit → Cancel pattern where applicable; ledger append-only (reversing entries only)
 - [ ] Money fields carry `USD`\|`ZIG` + `exchange_rate_applied` when converted
 - [ ] Smoke SQL for the slice; types regen note for `packages/supabase-client/`
