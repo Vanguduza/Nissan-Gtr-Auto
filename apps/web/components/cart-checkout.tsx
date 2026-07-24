@@ -143,7 +143,14 @@ export function CartCheckout() {
         router.push(`/account/orders/${invoice.data}`);
         return;
       }
-      setMessage(`ContiPay intent ${intent.data} created.`);
+      if (intent.data.checkoutUrl) {
+        setBusy(false);
+        window.location.assign(intent.data.checkoutUrl);
+        return;
+      }
+      setMessage(
+        `ContiPay intent ${intent.data.intentId} created. Settlement confirms via webhook — or open the order to retry when a checkout URL is available.`,
+      );
     } else if (tender === "paynow") {
       const intent = await createCustomerPaynowIntent(client, invoice.data);
       if (!intent.ok) {
@@ -154,7 +161,14 @@ export function CartCheckout() {
         router.push(`/account/orders/${invoice.data}`);
         return;
       }
-      setMessage(`Paynow intent ${intent.data} created.`);
+      if (intent.data.checkoutUrl) {
+        setBusy(false);
+        window.location.assign(intent.data.checkoutUrl);
+        return;
+      }
+      setMessage(
+        `Paynow intent ${intent.data.intentId} created. Settlement confirms via webhook — or open the order to retry when a checkout URL is available.`,
+      );
     }
 
     setBusy(false);
