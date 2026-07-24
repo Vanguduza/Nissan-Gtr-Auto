@@ -42,6 +42,9 @@
 		A1000000000000000000001C /* PayScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000001D /* PostgrestClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PostgrestClient.swift; path = ../Sources/GTRCustomerCore/PostgrestClient.swift; sourceTree = "<group>"; };
 		A1000000000000000000001E /* LiveStorefrontApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LiveStorefrontApi.swift; path = ../Sources/GTRCustomerCore/LiveStorefrontApi.swift; sourceTree = "<group>"; };
+		A1000000000000000000001F /* GoTrueAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoTrueAuthClient.swift; path = ../Sources/GTRCustomerCore/GoTrueAuthClient.swift; sourceTree = "<group>"; };
+		A10000000000000000000021 /* AuthTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthTokenStore.swift; path = ../Sources/GTRCustomerCore/AuthTokenStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000022 /* SignInScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInScreen.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +90,7 @@
 		A10000000000000000000033 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				A10000000000000000000022 /* SignInScreen.swift */,
 				A10000000000000000000019 /* CartScreen.swift */,
 				A1000000000000000000001A /* OrdersScreen.swift */,
 				A1000000000000000000001B /* GarageScreen.swift */,
@@ -103,6 +107,8 @@
 				A10000000000000000000016 /* StorefrontApi.swift */,
 				A1000000000000000000001D /* PostgrestClient.swift */,
 				A1000000000000000000001E /* LiveStorefrontApi.swift */,
+				A1000000000000000000001F /* GoTrueAuthClient.swift */,
+				A10000000000000000000021 /* AuthTokenStore.swift */,
 				A10000000000000000000017 /* StorefrontFormat.swift */,
 			);
 			name = Core;
