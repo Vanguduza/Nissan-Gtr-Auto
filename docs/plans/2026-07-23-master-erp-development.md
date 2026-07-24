@@ -110,8 +110,8 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done (backend + thin web RFQ/quote)** — guards `…62000`/`…63000`; `/procurement` + `/supplier`; blanket web UI follow-on |
 | 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **Done (backend)** — `…70000`/`…71000`; security+verifier PASS; management UI follow-on |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | **Done (backend)** — `…80000`/`…81000`; security+verifier PASS; bridge/UI follow-on |
-| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | **Scaffold Done** — storefront AuthZ unblocked; feature screens still deferred |
-| 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | **Scaffold Done** — bridge contracts only; native impl + screens deferred |
+| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | **Thin screens Done** — Fake RPC; live SDK follow-on |
+| 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | **Thin HR/dispatch Done** — Fake RPC; bridge impl deferred |
 | 13 | Payments, ContiPay **+ Paynow**, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **Done (backend)** — `…90000`–`…100000`; security+verifier PASS; UI/real PSP keys follow-on |
 | 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | **Done (must-now)** — CI + PowerSync stubs + hardening docs; mobile SDK deferred to 11–12 |
 | 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | **Done** (audit) — `docs/parity/`, `docs/runbooks/`; plan `…phase15-parity-audit.md` |
