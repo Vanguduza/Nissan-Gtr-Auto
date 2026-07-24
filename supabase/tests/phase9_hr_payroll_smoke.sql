@@ -232,6 +232,16 @@ BEGIN
       END IF;
   END;
 
+  BEGIN
+    PERFORM public.add_payroll_deduction(v_line, 'tax withhold', 5);
+    RAISE EXCEPTION 'smoke fail: bare tax label should be rejected';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%statutory/tax deduction labels%' THEN
+        RAISE;
+      END IF;
+  END;
+
   -- Formula on run header
   IF NOT EXISTS (
     SELECT 1 FROM public.payroll_runs
