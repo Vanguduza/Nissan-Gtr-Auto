@@ -434,20 +434,25 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Phases **0–10, 13–16** Done. **11–12 scaffold Done**. Customer AuthZ + web bind Done. DB through `20260724130000`.
+**Master plan status:** Phases **0–10, 13–16** Done. **11–12 scaffold Done**. Customer AuthZ + web bind + polish wave Done. DB through `20260724130000` (no new migrations this wave).
 
-**In progress (polish)**
-1. `@web_agent` — PDP/catalog live bind + PSP return/redirect URLs
-2. Then RFQ/supplier portal slices; `@hardware_mobile_agent` bridge contract polish
+**Done this polish wave**
+1. PDP/catalog live bind — `stock_items` / fitment / price (auth); photo placeholder remains
+2. PSP return/cancel pages + edge stub `checkout_url` when secrets unset (`docs/storefront-psp-return-urls.md`)
+3. RFQ portal — `/procurement/*` (staff) + `/supplier/*` (supplier); Phase 8b RPCs
+4. Bridge contracts polished — QR/ESC/POS/biometric/GPS; no HTML5 QR; no native impl
+5. Verifier PASS (web typecheck + exclusions)
 
-**Next**
-1. Management UI follow-ons (HR/logistics) if time
-2. Mobile feature screens only where AuthZ unblocks (cart/order/pay/garage) — keep thin
-3. Production PSP HMAC keys (env only; document)
+**Still follow-on**
+1. Management Android/web HR/logistics/bins UI; blanket PO UI
+2. Real ContiPay/Paynow provider crypto + merchant secrets (env only)
+3. Thin mobile feature screens (APIs unblocked) — optional; shells remain default
+4. PDP photos / Meili / PowerSync client SDK
+
+**In progress:** None.
 
 **Blockers / notes**
 - Serialize `supabase db reset` (manager-owned).
 - No commits (user did not request).
-- Real ContiPay/Paynow crypto still needs merchant secrets in env.
 
-Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
+Commands: `pnpm dev:web`; RFQ at `/procurement` and `/supplier`; checkout return at `/checkout/return`.
