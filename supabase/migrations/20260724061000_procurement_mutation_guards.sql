@@ -517,4 +517,203 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.cancel_purchase_order(
+  p_purchase_order_id UUID,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_st public.procurement_doc_status;
+  v_recv NUMERIC;
+  v_po public.purchase_orders%ROWTYPE;
+  v_rel RECORD;
+  v_restore_value NUMERIC := 0;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_staff();
+  PERFORM public._assert_procurement_period_open();
+
+  SELECT * INTO v_po FROM public.purchase_orders WHERE id = p_purchase_order_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'purchase order not found: %', p_purchase_order_id;
+  END IF;
+  v_st := v_po.status;
+
+  IF v_st = 'cancelled' THEN
+    RETURN p_purchase_order_id;
+  END IF;
+
+  SELECT COALESCE(SUM(qty_received), 0) INTO v_recv
+  FROM public.purchase_order_lines
+  WHERE purchase_order_id = p_purchase_order_id;
+
+  IF v_recv > 0 THEN
+    RAISE EXCEPTION 'cannot cancel PO with receipts';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.goods_receipts gr
+    WHERE gr.purchase_order_id = p_purchase_order_id
+      AND gr.status = 'submitted'
+  ) THEN
+    RAISE EXCEPTION 'cannot cancel PO with submitted GRNs';
+  END IF;
+
+  IF v_po.blanket_parent_id IS NOT NULL THEN
+    PERFORM 1 FROM public.purchase_orders WHERE id = v_po.blanket_parent_id FOR UPDATE;
+
+    FOR v_rel IN
+      SELECT pol.qty_ordered, pol.blanket_parent_line_id
+      FROM public.purchase_order_lines pol
+      WHERE pol.purchase_order_id = p_purchase_order_id
+        AND pol.blanket_parent_line_id IS NOT NULL
+    LOOP
+      UPDATE public.purchase_order_lines
+      SET qty_released = qty_released - v_rel.qty_ordered
+      WHERE id = v_rel.blanket_parent_line_id;
+
+      UPDATE public.purchase_orders
+      SET
+        blanket_value_released = GREATEST(0, blanket_value_released - (v_rel.qty_ordered * (
+          SELECT unit_price FROM public.purchase_order_lines WHERE id = v_rel.blanket_parent_line_id
+        ))),
+        updated_at = now()
+      WHERE id = v_po.blanket_parent_id;
+    END LOOP;
+  END IF;
+
+  UPDATE public.purchase_orders
+  SET
+    status = 'cancelled',
+    cancelled_at = now(),
+    notes = COALESCE(p_notes, notes),
+    updated_at = now()
+  WHERE id = p_purchase_order_id;
+
+  RETURN p_purchase_order_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.convert_material_request_to_po(
+  p_material_request_id UUID,
+  p_supplier_id UUID,
+  p_currency public.currency_code,
+  p_exchange_rate NUMERIC,
+  p_line_ids UUID[] DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_mr public.material_requests%ROWTYPE;
+  v_po UUID;
+  v_lines JSONB := '[]'::jsonb;
+  v_row RECORD;
+  v_po_line UUID;
+  v_remaining NUMERIC;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_staff();
+  PERFORM public._assert_procurement_period_open();
+
+  SELECT * INTO v_mr FROM public.material_requests WHERE id = p_material_request_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'material request not found: %', p_material_request_id;
+  END IF;
+  IF v_mr.status <> 'submitted' THEN
+    RAISE EXCEPTION 'material request must be submitted before conversion';
+  END IF;
+
+  FOR v_row IN
+    SELECT mrl.*
+    FROM public.material_request_lines mrl
+    WHERE mrl.material_request_id = p_material_request_id
+      AND mrl.qty > mrl.qty_converted
+      AND (p_line_ids IS NULL OR mrl.id = ANY (p_line_ids))
+    ORDER BY mrl.line_no
+  LOOP
+    v_remaining := v_row.qty - v_row.qty_converted;
+    IF v_remaining <= 0 THEN
+      CONTINUE;
+    END IF;
+
+    v_lines := v_lines || jsonb_build_array(
+      jsonb_build_object(
+        'stock_item_id', v_row.stock_item_id,
+        'uom_id', v_row.uom_id,
+        'qty', v_remaining,
+        'unit_price', COALESCE(
+          (SELECT pli.unit_price
+           FROM public.price_list_items pli
+           JOIN public.price_lists pl ON pl.id = pli.price_list_id
+           WHERE pl.code = 'B2B' AND pli.stock_item_id = v_row.stock_item_id
+           LIMIT 1),
+          0
+        ),
+        'currency', p_currency,
+        'material_request_line_id', v_row.id
+      )
+    );
+  END LOOP;
+
+  IF jsonb_array_length(v_lines) = 0 THEN
+    RAISE EXCEPTION 'no open MR lines to convert';
+  END IF;
+
+  v_po := public.create_purchase_order(
+    p_supplier_id,
+    v_mr.warehouse_id,
+    p_currency,
+    p_exchange_rate,
+    v_lines,
+    format('Converted from %s', COALESCE(v_mr.document_number, v_mr.id::text)),
+    v_mr.needed_by,
+    p_material_request_id
+  );
+
+  FOR v_row IN
+    SELECT mrl.*
+    FROM public.material_request_lines mrl
+    WHERE mrl.material_request_id = p_material_request_id
+      AND mrl.qty > mrl.qty_converted
+      AND (p_line_ids IS NULL OR mrl.id = ANY (p_line_ids))
+    ORDER BY mrl.line_no
+  LOOP
+    v_remaining := v_row.qty - v_row.qty_converted;
+    SELECT pol.id INTO v_po_line
+    FROM public.purchase_order_lines pol
+    WHERE pol.purchase_order_id = v_po
+      AND pol.material_request_line_id = v_row.id
+    LIMIT 1;
+
+    IF v_po_line IS NULL THEN
+      RAISE EXCEPTION 'orphan PO line mapping for MR line %', v_row.id;
+    END IF;
+
+    UPDATE public.material_request_lines
+    SET
+      qty_converted = qty_converted + v_remaining,
+      purchase_order_line_id = v_po_line
+    WHERE id = v_row.id;
+  END LOOP;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.purchase_order_lines pol
+    WHERE pol.purchase_order_id = v_po
+      AND pol.material_request_line_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'PO contains lines without MR linkage';
+  END IF;
+
+  RETURN v_po;
+END;
+$$;
+
 -- PATCH_MARKER_RPCS
