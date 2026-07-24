@@ -14,7 +14,7 @@ struct CartScreen: View {
         List {
             Section {
                 if let cart {
-                    LabeledContent("Cart", value: cart.id.uuidString.prefix(8) + "…")
+                    LabeledContent("Cart", value: String(cart.id.uuidString.prefix(8)) + "…")
                     LabeledContent("Currency", value: cart.currency.rawValue)
                     LabeledContent("Fulfillment", value: StorefrontFormat.fulfillment(cart.fulfillmentMode))
                     ForEach(cart.lines) { line in

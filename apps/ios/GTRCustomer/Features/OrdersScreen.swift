@@ -18,7 +18,7 @@ struct OrdersScreen: View {
                     OrderDetailScreen(invoiceId: order.invoiceId)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(order.documentNumber ?? order.invoiceId.uuidString.prefix(8) + "…")
+                        Text(order.documentNumber ?? String(order.invoiceId.uuidString.prefix(8)) + "…")
                             .font(.headline)
                         Text("\(order.status) · \(StorefrontFormat.money(order.total, currency: order.currency))")
                             .font(.subheadline)
