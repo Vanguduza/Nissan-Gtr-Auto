@@ -16,7 +16,8 @@
  * or HTML5 Geolocation. FusedLocationProvider / CoreLocation only in impl dirs.
  *
  * Impl ownership (see bridges/README.md):
- *   bridges/android/location-tracker/ | bridges/ios/LocationTracker/
+ *   bridges/android/location-tracker/ → FusedLocationGpsBridge
+ *   bridges/ios/LocationTracker/      → CoreLocationGpsBridge
  */
 
 export type LocationPermissionStatus =

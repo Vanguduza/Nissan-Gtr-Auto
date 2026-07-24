@@ -29,8 +29,11 @@ Root `apps/android-management/build.gradle.kts` already applies
 val bridge = FusedLocationGpsBridge(context)
 bridge.attachActivity(activity) // required before requestLocationPermission()
 
+// In Activity.onRequestPermissionsResult (or Activity Result API):
+// if (requestCode == FusedLocationGpsBridge.REQUEST_LOCATION) bridge.onPermissionResult()
+
 val status = bridge.getLocationPermissionStatus()
-bridge.requestLocationPermission()
+val after = bridge.requestLocationPermission() // suspends until onPermissionResult()
 
 val once = bridge.getCurrentPosition()
 
