@@ -84,15 +84,16 @@ function isLocationPoint(value: unknown): value is DeliveryLocationPoint {
 }
 
 /**
- * Subscribe to INSERT-only Realtime on delivery_locations for one job.
- * Web map SUBSCRIBES only — never captures GPS in the browser.
+ * Build an INSERT-only Realtime channel for delivery_locations (one job).
+ * Caller must `.subscribe()` / `removeChannel`. Web map SUBSCRIBES only —
+ * never captures GPS in the browser.
  */
-export function subscribeDeliveryLocationInserts(
+export function deliveryLocationInsertChannel(
   client: SupabaseClient,
   deliveryJobId: string,
   onInsert: (point: DeliveryLocationPoint) => void,
 ): RealtimeChannel {
-  const channel = client
+  return client
     .channel(`delivery_locations:${deliveryJobId}`)
     .on(
       "postgres_changes",
@@ -107,8 +108,5 @@ export function subscribeDeliveryLocationInserts(
           onInsert(payload.new);
         }
       },
-    )
-    .subscribe();
-
-  return channel;
+    );
 }
