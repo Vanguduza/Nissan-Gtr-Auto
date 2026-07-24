@@ -492,6 +492,13 @@ BEGIN
     RAISE EXCEPTION 'customer profile required';
   END IF;
 
+  IF COALESCE(p_is_primary, false) THEN
+    UPDATE public.customer_garage_vehicles
+    SET is_primary = false, updated_at = now()
+    WHERE customer_id = v_cust AND is_primary
+      AND (p_id IS NULL OR id IS DISTINCT FROM p_id);
+  END IF;
+
   IF p_id IS NOT NULL THEN
     UPDATE public.customer_garage_vehicles
     SET
@@ -509,12 +516,6 @@ BEGIN
       RAISE EXCEPTION 'garage vehicle not found';
     END IF;
     RETURN v_id;
-  END IF;
-
-  IF COALESCE(p_is_primary, false) THEN
-    UPDATE public.customer_garage_vehicles
-    SET is_primary = false, updated_at = now()
-    WHERE customer_id = v_cust AND is_primary;
   END IF;
 
   INSERT INTO public.customer_garage_vehicles (
