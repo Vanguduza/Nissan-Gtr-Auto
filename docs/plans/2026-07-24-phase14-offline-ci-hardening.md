@@ -1,6 +1,6 @@
 # Phase 14 — Offline sync (PowerSync), hardening, CI
 
-- Status: draft
+- Status: **must-now Done** (backend/CI/docs); mobile client AC deferred to 11–12
 - Lane(s): `@backend_agent` (primary — CI, RLS/smoke gates, PowerSync stubs, hardening docs); mobile lanes **deferred** for client wiring
 - Skills needed: (none); `/token-discipline` at implement start
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 14
@@ -14,12 +14,12 @@ Ship backend/CI/docs-first hardening: GitHub Actions (lint/typecheck/migrate + s
 
 ### Must-now (backend / CI / docs)
 
-- [ ] `.github/workflows/` exists: PR CI runs `pnpm lint` + `pnpm typecheck` (and package tests where present); fails the job on non-zero exit
-- [ ] CI (or documented local-equivalent job) applies migrations via Supabase CLI / docker and runs a **smoke gate** (at least `phase2_rls_smoke.sql` + one recent domain smoke, or a thin `phase14_ci_smoke.sql` that asserts RLS enabled on public tables)
-- [ ] Exclusion grep job or step: no ZIMRA / payroll-tax / HTML5 QR strings introduced on PR paths (align with `.cursor/BUGBOT.md`)
-- [ ] Docs: Bugbot required check on `main` + security hardening checklist (secrets in Edge/CI env only; no inventing credential values; `WORKER_SHARED_SECRET` / payment env names cited, not values)
-- [ ] PowerSync **stubs**: checked-in sync rules / schema manifest for POS sale, dispatch/DN read models, cycle-count recon — no live client SDK wiring yet; no secrets in repo
-- [ ] If any new DB objects: migration(s) **after** `20260724100000` with RLS in the same file(s); types regen note for `packages/supabase-client/`
+- [x] `.github/workflows/` exists: PR CI runs `pnpm lint` + `pnpm typecheck` (and package tests where present); fails the job on non-zero exit
+- [x] CI (or documented local-equivalent job) applies migrations via Supabase CLI / docker and runs a **smoke gate** (at least `phase2_rls_smoke.sql` + one recent domain smoke, or a thin `phase14_ci_smoke.sql` that asserts RLS enabled on public tables)
+- [x] Exclusion grep job or step: no ZIMRA / payroll-tax / HTML5 QR strings introduced on PR paths (align with `.cursor/BUGBOT.md`)
+- [x] Docs: Bugbot required check on `main` + security hardening checklist (secrets in Edge/CI env only; no inventing credential values; `WORKER_SHARED_SECRET` / payment env names cited, not values)
+- [x] PowerSync **stubs**: checked-in sync rules / schema manifest for POS sale, dispatch/DN read models, cycle-count recon — no live client SDK wiring yet; no secrets in repo
+- [x] If any new DB objects: migration(s) **after** `20260724100000` with RLS in the same file(s); types regen note for `packages/supabase-client/` — **N/A** (file-only stubs; no `20260724110000` migration)
 
 ### Deferred-to-mobile (follow-on when 11–12 exist)
 
@@ -30,13 +30,12 @@ Ship backend/CI/docs-first hardening: GitHub Actions (lint/typecheck/migrate + s
 
 ## Paths in scope
 
-- `.github/workflows/ci.yml` (and optional `smoke.yml` / composite) — **new** (no workflows today)
-- `docs/` — hardening checklist + Bugbot enablement note (extend `docs/CURSOR_BEST_PRACTICES.md` and/or short `docs/HARDENING.md`); update master Phase 14 status when Done
-- `powersync/` or `supabase/powersync/` — rules YAML/SQL stubs + README (bucket/table allowlist for POS/dispatch/recon)
-- Optional migration after `20260724100000`:
-  - `20260724110000_powersync_publication_stubs.sql` — only if publication/replication helpers or sync metadata tables are required; otherwise keep stubs file-only
-- `supabase/tests/phase14_ci_smoke.sql` (optional thin gate) — or CI matrix calling existing `supabase/tests/phase*_smoke.sql`
-- `package.json` scripts only if CI needs a single entrypoint (e.g. `test:smoke` docs command) — no app scaffolds
+- `.github/workflows/ci.yml` — **landed**
+- `docs/HARDENING.md` + `docs/CURSOR_BEST_PRACTICES.md` Bugbot/hardening pointers; master Phase 14 split Done
+- `powersync/` — rules YAML + schema JSON stubs + README (POS / dispatch / recon)
+- Optional migration `20260724110000` — **not added** (file-only stubs)
+- `supabase/tests/phase14_ci_smoke.sql` — thin “all public tables have RLS” gate
+- `package.json` `test:smoke:docs` pointer
 
 ## Out of scope
 
@@ -52,27 +51,25 @@ Ship backend/CI/docs-first hardening: GitHub Actions (lint/typecheck/migrate + s
 | Gate | Expectation |
 |------|-------------|
 | Lint / typecheck | `pnpm lint` && `pnpm typecheck` green on PR |
-| Migrate | Fresh apply through latest migration (today: `20260724100000`; include any Phase 14 migration if added) |
-| RLS / smoke | At least phase2 RLS smoke; prefer also phase13 or a phase14 thin “all tables have RLS” assertion |
-| Exclusions | Grep/CI step + Bugbot rules; `/verifier` after implement |
-| Bugbot | Dashboard: require `Cursor Bugbot` on `main` (ops checklist item; not a code secret) |
+| Migrate | Fresh apply through latest migration (`20260724100000`; no Phase 14 DB migration) |
+| RLS / smoke | `phase2_rls_smoke.sql` + `phase14_ci_smoke.sql` in Actions `db-smoke` |
+| Exclusions | Grep job in CI + Bugbot rules; `/verifier` after implement |
+| Bugbot | Dashboard: require `Cursor Bugbot` on `main` (ops checklist in `docs/HARDENING.md`) |
 
-Local parity: `docker exec … psql` against `supabase/tests/*_smoke.sql` remains valid when Actions runners lack Docker — document both paths.
+Local parity: `docker exec … psql` — see `docs/HARDENING.md` §4.
 
 ## Migration naming (if any)
 
-Next free slot after `20260724100000_payment_intent_settle_cancelled_guard.sql`:
-
 | Timestamp | Suggested name | When needed |
 |-----------|----------------|-------------|
-| `20260724110000` | `powersync_publication_stubs.sql` | Only if DB-side publication / sync metadata / RLS helper objects are required |
-| `20260724111000` | (reserved) | Guard/RLS follow-up if 110000 lands non-trivial objects |
+| `20260724110000` | `powersync_publication_stubs.sql` | Only if DB-side publication / sync metadata required |
+| `20260724111000` | (reserved) | Guard/RLS follow-up if 110000 lands |
 
-Prefer **file-only** PowerSync stubs if no schema change is required.
+**Chose file-only** PowerSync stubs — no publication migration.
 
 ## Risks / exclusions
 
-- Master “depends on 11–12” must not block CI; document split Done criteria on parent when must-now lands
+- Master “depends on 11–12” must not block CI; split Done criteria documented on parent
 - PowerSync cloud URL/keys: env placeholders only; never commit
 - Sync must respect RLS — stubs define staff-scoped buckets; no open sync of ledger mutations from client without server RPCs
 - Ledger immutability: offline clients queue **RPC intents**, not direct JE edits
@@ -80,8 +77,8 @@ Prefer **file-only** PowerSync stubs if no schema change is required.
 
 ## Handoff
 
-1. Implement must-now in `@backend_agent` (CI + stubs + docs; optional migration)
-2. `/security-reviewer` (workflows, secrets handling, any new tables/RLS)
-3. `/verifier` (+ `/supabase-rls-auditor` if migration added)
+1. Implement must-now in `@backend_agent` — **done (must-now)**
+2. `/security-reviewer` (workflows, secrets handling)
+3. `/verifier` (no `/supabase-rls-auditor` — no new migration)
 4. `/manager` done-gate for must-now; schedule mobile PowerSync client as 11–12 follow-on child plan
 5. Then Phase 15 (or continue 14 deferred AC when mobile exists)
