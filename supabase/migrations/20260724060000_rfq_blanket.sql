@@ -207,38 +207,6 @@ SET search_path = public
 AS $$
 DECLARE
   v_st public.procurement_doc_status;
-BEGIN
-  PERFORM public._require_procurement_staff();
-  PERFORM public._assert_procurement_period_open();
-
-  SELECT status INTO v_st FROM public.rfqs WHERE id = p_rfq_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'RFQ not found: %', p_rfq_id;
-  END IF;
-  IF v_st = 'cancelled' THEN
-    RETURN p_rfq_id;
-  END IF;
-  IF v_st = 'submitted' AND awarded_quotation_id IS NOT NULL FROM public.rfqs WHERE id = p_rfq_id THEN
-    RAISE EXCEPTION 'cannot cancel RFQ after award';
-  END IF;
-
-  UPDATE public.rfqs
-  SET status = 'cancelled', cancelled_at = now(), notes = COALESCE(p_notes, notes), updated_at = now()
-  WHERE id = p_rfq_id;
-
-  RETURN p_rfq_id;
-END;
-$$;
-
--- Fix cancel_rfq syntax - the IF check was wrong
-CREATE OR REPLACE FUNCTION public.cancel_rfq(p_rfq_id UUID, p_notes TEXT DEFAULT NULL)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_st public.procurement_doc_status;
   v_awarded UUID;
 BEGIN
   PERFORM public._require_procurement_staff();
