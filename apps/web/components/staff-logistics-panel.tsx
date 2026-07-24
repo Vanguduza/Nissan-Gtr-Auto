@@ -120,7 +120,6 @@ export function StaffLogisticsPanel() {
   useEffect(() => {
     if (boot.kind !== "ready" || !pickListId) return;
     void loadLinesForPick(pickListId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when pick changes
   }, [boot.kind, pickListId]);
 
   async function onCreatePick(e: FormEvent) {
