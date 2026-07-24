@@ -1,4 +1,5 @@
 -- Deny settle of cancelled ContiPay / Paynow intents (security follow-up).
+-- Settle RPCs are service_role-only (edge webhooks); finance UI settles via edge.
 -- Ledger amount still comes from DB intent rows; no ZIMRA.
 
 CREATE OR REPLACE FUNCTION public.mark_contipay_settled(
