@@ -70,6 +70,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":feature:auth"))
     implementation(project(":feature:cart"))
     implementation(project(":feature:orders"))
     implementation(project(":feature:garage"))

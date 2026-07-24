@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "gtr-android-management"
 include(":app")
 include(":core:rpc")
+include(":feature:auth")
 include(":feature:pos")
 include(":feature:warehouse")
 include(":feature:dispatch")

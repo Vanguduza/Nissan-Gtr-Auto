@@ -4,8 +4,8 @@ package co.zw.nissangtr.management.rpc
  * Builds [RpcClient]: [SupabaseRpcClient] when URL + anon key are set and
  * [forceFake] is false; otherwise [FakeRpcClient].
  *
- * Auth: live client uses the anon key; JWT comes from GoTrue ([SupabaseRpcClient.auth]).
- * No hardcoded JWTs — call [SupabaseRpcClient.importAccessToken] or sign-in once login UI exists.
+ * Auth: live client uses the anon key; JWT comes from GoTrue ([SupabaseRpcClient.signInWithEmail]).
+ * No hardcoded JWTs — [SupabaseRpcClient.importAccessToken] is fallback only.
  */
 object RpcClientFactory {
     fun create(

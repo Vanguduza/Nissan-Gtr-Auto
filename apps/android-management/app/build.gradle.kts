@@ -65,6 +65,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":feature:auth"))
     implementation(project(":feature:pos"))
     implementation(project(":feature:warehouse"))
     implementation(project(":feature:dispatch"))
