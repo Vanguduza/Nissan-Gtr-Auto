@@ -18,12 +18,14 @@ Never invent or commit credential values. Store only in Supabase Edge secrets, G
 |----------|--------|--------|
 | `WORKER_SHARED_SECRET` | Edge (workers) | Header `x-worker-secret`; required outside local stub |
 | `WORKER_ALLOW_UNVERIFIED_LOCAL` | Local only | `1` only when secret unset; never production |
-| `CONTIPAY_API_KEY` | Edge | Initiate |
-| `CONTIPAY_MERCHANT_ID` | Edge | Initiate |
-| `CONTIPAY_WEBHOOK_HMAC_SECRET` | Edge | Webhook verify |
+| `CONTIPAY_API_KEY` | Edge | Initiate Basic Auth token |
+| `CONTIPAY_API_SECRET` | Edge | Initiate Basic Auth password (falls back to webhook HMAC secret) |
+| `CONTIPAY_MERCHANT_ID` | Edge | Initiate merchant code |
+| `CONTIPAY_WEBHOOK_HMAC_SECRET` | Edge | Webhook HMAC-SHA256(raw body) |
+| `CONTIPAY_MODE` / `CONTIPAY_API_BASE_URL` | Edge | live vs UAT base URL (optional) |
 | `CONTIPAY_ALLOW_UNVERIFIED_LOCAL` | Local only | Stub without secrets |
 | `PAYNOW_INTEGRATION_ID` | Edge | Initiate |
-| `PAYNOW_INTEGRATION_KEY` | Edge | Initiate + webhook hash |
+| `PAYNOW_INTEGRATION_KEY` | Edge | Initiate + webhook SHA512 field hash |
 | `PAYNOW_ALLOW_UNVERIFIED_LOCAL` | Local only | Stub without secrets |
 | `POWERSYNC_URL` | Mobile / connector | See `powersync/.env.example` |
 | `POWERSYNC_PUBLIC_KEY` | Mobile / connector | Public client key only |

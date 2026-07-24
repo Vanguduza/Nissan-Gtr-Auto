@@ -33,16 +33,21 @@ With `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` and
 
 `checkout_url = {return_url}&psp=contipay|paynow&stub=1&intent_id={uuid}`
 
-(existing `?invoice=` query preserved). Web can redirect to `/checkout/return` without real PSP keys. Settlement remains webhook-only; stub redirect does **not** mark paid.
+(existing `?invoice=` query preserved). Web can redirect to `/checkout/return` without real PSP keys. Settlement remains webhook-only; stub redirect does **not** mark paid. Response includes `stub: true`.
 
-When merchant keys land: pass the same URLs to the provider create-session API and replace stub `checkout_url` with the hosted session URL. Optional dedicated `return_url` column only if webhook reconciliation needs indexed lookup; metadata is enough for the storefront slice.
+### Real secrets present
+
+Edge calls ContiPay / Paynow APIs and returns the provider hosted `checkout_url` (Paynow also `poll_url`) with `stub: false`. ContiPay redirect initiate needs `phone` (or `metadata.phone` / `metadata.cell`) on the invoke body. Without secrets and without `*_ALLOW_UNVERIFIED_LOCAL=1`, initiate returns **503** (fail closed).
+
+Optional dedicated `return_url` column only if webhook reconciliation needs indexed lookup; metadata is enough for the storefront slice.
 
 ## Secrets (never commit values)
 
 | Env | Where | Purpose |
 |-----|--------|---------|
-| `CONTIPAY_API_KEY`, `CONTIPAY_MERCHANT_ID`, ContiPay HMAC secret | Edge Function env only | Real initiate + webhook verify |
-| `PAYNOW_INTEGRATION_ID`, `PAYNOW_INTEGRATION_KEY` | Edge Function env only | Real initiate + hash verify |
+| `CONTIPAY_API_KEY`, `CONTIPAY_API_SECRET`, `CONTIPAY_MERCHANT_ID` | Edge Function env only | Real initiate (Basic Auth PUT acquire) |
+| `CONTIPAY_WEBHOOK_HMAC_SECRET` | Edge Function env only | Webhook HMAC-SHA256 verify |
+| `PAYNOW_INTEGRATION_ID`, `PAYNOW_INTEGRATION_KEY` | Edge Function env only | Real initiate + SHA512 field-hash verify |
 | `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` | Local edge only | Stub without secrets |
 | `NEXT_PUBLIC_SITE_URL` | Web app | Public origin for return/cancel links — **not** a secret |
 
