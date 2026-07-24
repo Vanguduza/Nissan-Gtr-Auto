@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "gtr-android-customer"
 include(":app")
 include(":core:rpc")
+include(":feature:auth")
 include(":feature:cart")
 include(":feature:orders")
 include(":feature:garage")

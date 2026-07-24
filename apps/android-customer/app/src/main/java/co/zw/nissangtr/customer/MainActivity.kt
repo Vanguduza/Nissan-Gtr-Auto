@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import co.zw.nissangtr.customer.auth.AuthGate
+import co.zw.nissangtr.customer.auth.AuthModule
 import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
 import co.zw.nissangtr.customer.garage.GarageModule
@@ -30,6 +33,7 @@ import co.zw.nissangtr.customer.pay.PayIntentScreen
 import co.zw.nissangtr.customer.pay.PayModule
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcClientFactory
+import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
 
 private enum class CustomerRoute {
     Home,
@@ -41,14 +45,14 @@ private enum class CustomerRoute {
 
 /**
  * Customer shell. Feature screens are thin scaffolds over [RpcClient]
- * ([RpcClientFactory]: Live [co.zw.nissangtr.customer.rpc.SupabaseRpcClient] or Fake).
+ * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
+ * Live requires GoTrue email/password session via [AuthGate].
  * Money/pricing: @gtr/shared. Hardware QR: bridges/ only — never HTML5.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Keep placeholder modules on the compile classpath.
-        listOf(CartModule.id, OrdersModule.id, GarageModule.id, PayModule.id)
+        listOf(AuthModule.id, CartModule.id, OrdersModule.id, GarageModule.id, PayModule.id)
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
             BuildConfig.SUPABASE_ANON_KEY,
@@ -59,10 +63,18 @@ class MainActivity : ComponentActivity() {
             supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
             forceFake = BuildConfig.RPC_FORCE_FAKE,
         )
+        val supabase = rpc as? SupabaseRpcClient
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    CustomerApp(rpc = rpc, liveRpc = live)
+                    AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
+                        CustomerApp(
+                            rpc = rpc,
+                            liveRpc = live,
+                            signedInEmail = email,
+                            onSignOut = onSignOut,
+                        )
+                    }
                 }
             }
         }
@@ -70,11 +82,18 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun CustomerApp(rpc: RpcClient, liveRpc: Boolean) {
+private fun CustomerApp(
+    rpc: RpcClient,
+    liveRpc: Boolean,
+    signedInEmail: String?,
+    onSignOut: () -> Unit,
+) {
     var route by remember { mutableStateOf(CustomerRoute.Home) }
     when (route) {
         CustomerRoute.Home -> CustomerHome(
             liveRpc = liveRpc,
+            signedInEmail = signedInEmail,
+            onSignOut = onSignOut,
             onCart = { route = CustomerRoute.Cart },
             onOrders = { route = CustomerRoute.Orders },
             onGarage = { route = CustomerRoute.Garage },
@@ -102,6 +121,8 @@ private fun CustomerApp(rpc: RpcClient, liveRpc: Boolean) {
 @Composable
 private fun CustomerHome(
     liveRpc: Boolean,
+    signedInEmail: String?,
+    onSignOut: () -> Unit,
     onCart: () -> Unit,
     onOrders: () -> Unit,
     onGarage: () -> Unit,
@@ -117,7 +138,8 @@ private fun CustomerHome(
         Text("Nissan GTR Auto", style = MaterialTheme.typography.headlineMedium)
         Text("Customer app", style = MaterialTheme.typography.bodyMedium)
         Text(
-            "Modules: ${CartModule.id}, ${OrdersModule.id}, ${GarageModule.id}, ${PayModule.id}",
+            "Modules: ${AuthModule.id}, ${CartModule.id}, ${OrdersModule.id}, " +
+                "${GarageModule.id}, ${PayModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -125,6 +147,14 @@ private fun CustomerHome(
             else "RPC: Fake (set SUPABASE_URL + SUPABASE_ANON_KEY)",
             style = MaterialTheme.typography.bodySmall,
         )
+        if (signedInEmail != null) {
+            Text("Signed in: $signedInEmail", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+                Text("Sign out")
+            }
+        } else if (!liveRpc) {
+            Text("Fake mode — auth optional / bypassed", style = MaterialTheme.typography.bodySmall)
+        }
         Button(onClick = onCart, modifier = Modifier.fillMaxWidth()) {
             Text("Cart")
         }
@@ -138,7 +168,7 @@ private fun CustomerHome(
             Text("Pay — ContiPay / Paynow")
         }
         Text(
-            "Auth session via GoTrue after login — no hardcoded JWTs. Bridge-First for QR.",
+            "Auth: GoTrue signInWith(Email). Bridge-First for QR.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )

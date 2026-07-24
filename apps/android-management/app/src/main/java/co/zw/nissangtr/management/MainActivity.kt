@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import co.zw.nissangtr.management.auth.AuthGate
+import co.zw.nissangtr.management.auth.AuthModule
 import co.zw.nissangtr.management.dispatch.DispatchModule
 import co.zw.nissangtr.management.dispatch.DispatchScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
@@ -27,6 +30,7 @@ import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.pos.PosModule
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
+import co.zw.nissangtr.management.rpc.SupabaseRpcClient
 import co.zw.nissangtr.management.warehouse.WarehouseModule
 
 private enum class ManagementRoute {
@@ -37,14 +41,14 @@ private enum class ManagementRoute {
 
 /**
  * Management shell. Feature screens are thin scaffolds over [RpcClient]
- * ([RpcClientFactory]: Live [co.zw.nissangtr.management.rpc.SupabaseRpcClient] or Fake).
+ * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
+ * Live requires GoTrue email/password session via [AuthGate].
  * Money/pricing: @gtr/shared. Hardware: bridges/ contracts only.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Keep placeholder modules on the compile classpath.
-        listOf(PosModule.id, WarehouseModule.id, DispatchModule.id, HrModule.id)
+        listOf(AuthModule.id, PosModule.id, WarehouseModule.id, DispatchModule.id, HrModule.id)
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
             BuildConfig.SUPABASE_ANON_KEY,
@@ -55,10 +59,18 @@ class MainActivity : ComponentActivity() {
             supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
             forceFake = BuildConfig.RPC_FORCE_FAKE,
         )
+        val supabase = rpc as? SupabaseRpcClient
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ManagementApp(rpc = rpc, liveRpc = live)
+                    AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
+                        ManagementApp(
+                            rpc = rpc,
+                            liveRpc = live,
+                            signedInEmail = email,
+                            onSignOut = onSignOut,
+                        )
+                    }
                 }
             }
         }
@@ -66,11 +78,18 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun ManagementApp(rpc: RpcClient, liveRpc: Boolean) {
+private fun ManagementApp(
+    rpc: RpcClient,
+    liveRpc: Boolean,
+    signedInEmail: String?,
+    onSignOut: () -> Unit,
+) {
     var route by remember { mutableStateOf(ManagementRoute.Home) }
     when (route) {
         ManagementRoute.Home -> ManagementHome(
             liveRpc = liveRpc,
+            signedInEmail = signedInEmail,
+            onSignOut = onSignOut,
             onHr = { route = ManagementRoute.HrClock },
             onDispatch = { route = ManagementRoute.Dispatch },
         )
@@ -88,6 +107,8 @@ private fun ManagementApp(rpc: RpcClient, liveRpc: Boolean) {
 @Composable
 private fun ManagementHome(
     liveRpc: Boolean,
+    signedInEmail: String?,
+    onSignOut: () -> Unit,
     onHr: () -> Unit,
     onDispatch: () -> Unit,
 ) {
@@ -101,7 +122,8 @@ private fun ManagementHome(
         Text("Nissan GTR Auto", style = MaterialTheme.typography.headlineMedium)
         Text("Management app", style = MaterialTheme.typography.bodyMedium)
         Text(
-            "Modules: ${PosModule.id}, ${WarehouseModule.id}, ${DispatchModule.id}, ${HrModule.id}",
+            "Modules: ${AuthModule.id}, ${PosModule.id}, ${WarehouseModule.id}, " +
+                "${DispatchModule.id}, ${HrModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -109,6 +131,14 @@ private fun ManagementHome(
             else "RPC: Fake (set SUPABASE_URL + SUPABASE_ANON_KEY)",
             style = MaterialTheme.typography.bodySmall,
         )
+        if (signedInEmail != null) {
+            Text("Signed in: $signedInEmail", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+                Text("Sign out")
+            }
+        } else if (!liveRpc) {
+            Text("Fake mode — auth optional / bypassed", style = MaterialTheme.typography.bodySmall)
+        }
         Button(
             onClick = onHr,
             modifier = Modifier.fillMaxWidth(),
@@ -118,7 +148,7 @@ private fun ManagementHome(
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Logistics — Pick / DN") }
         Text(
-            "Auth session via GoTrue after login — no hardcoded JWTs. No payroll tax. Bridge-First for QR/GPS.",
+            "Auth: GoTrue signInWith(Email). No payroll tax. Bridge-First for QR/GPS.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )
