@@ -235,6 +235,3 @@ private data class PickListRow(
     @SerialName("sales_invoice_id") val salesInvoiceId: String,
     val status: String,
 )
-
-@Suppress("unused")
-private val unusedJsonObject: JsonObject? = null

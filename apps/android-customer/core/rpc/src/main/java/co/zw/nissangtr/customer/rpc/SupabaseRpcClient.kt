@@ -359,7 +359,3 @@ private data class CustomerOrderDto(
         deliveryNoteStatus = deliveryNoteStatus,
     )
 }
-
-// Silence unused import if ktor resolves via engine only
-@Suppress("unused")
-private val unusedJsonPrimitive: JsonPrimitive? = null
