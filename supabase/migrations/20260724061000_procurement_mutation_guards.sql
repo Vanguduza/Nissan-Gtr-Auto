@@ -959,4 +959,432 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.create_landed_cost_voucher(
+  p_goods_receipt_id UUID,
+  p_currency public.currency_code,
+  p_exchange_rate NUMERIC,
+  p_charges JSONB,
+  p_allocations JSONB,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_lcv UUID;
+  v_rate NUMERIC;
+  v_charge JSONB;
+  v_alloc JSONB;
+  v_batch UUID;
+  v_prior NUMERIC;
+  v_qty NUMERIC;
+  v_total_charges NUMERIC := 0;
+  v_total_alloc NUMERIC := 0;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_finance();
+
+  IF p_charges IS NULL OR jsonb_array_length(p_charges) = 0 THEN
+    RAISE EXCEPTION 'landed cost charges required';
+  END IF;
+  IF p_allocations IS NULL OR jsonb_array_length(p_allocations) = 0 THEN
+    RAISE EXCEPTION 'landed cost allocations required';
+  END IF;
+
+  v_rate := CASE
+    WHEN p_currency = 'USD' THEN COALESCE(p_exchange_rate, 1)
+    ELSE p_exchange_rate
+  END;
+
+  INSERT INTO public.landed_cost_vouchers (
+    document_number, goods_receipt_id, currency, exchange_rate_applied, notes, created_by
+  )
+  VALUES (
+    public.next_series_value('LCV-'),
+    p_goods_receipt_id,
+    p_currency,
+    v_rate,
+    p_notes,
+    auth.uid()
+  )
+  RETURNING id INTO v_lcv;
+
+  FOR v_charge IN SELECT * FROM jsonb_array_elements(p_charges)
+  LOOP
+    INSERT INTO public.landed_cost_charges (
+      landed_cost_voucher_id, charge_type, amount, currency
+    )
+    VALUES (
+      v_lcv,
+      v_charge ->> 'charge_type',
+      (v_charge ->> 'amount')::numeric,
+      COALESCE((v_charge ->> 'currency')::public.currency_code, p_currency)
+    );
+    v_total_charges := v_total_charges + (v_charge ->> 'amount')::numeric;
+  END LOOP;
+
+  FOR v_alloc IN SELECT * FROM jsonb_array_elements(p_allocations)
+  LOOP
+    v_batch := (v_alloc ->> 'stock_batch_id')::uuid;
+    SELECT unit_cost, qty_on_hand INTO v_prior, v_qty
+    FROM public.stock_batches WHERE id = v_batch;
+    IF NOT FOUND OR v_qty <= 0 THEN
+      RAISE EXCEPTION 'invalid batch for allocation: %', v_batch;
+    END IF;
+
+    INSERT INTO public.landed_cost_allocations (
+      landed_cost_voucher_id, stock_batch_id, allocated_amount,
+      prior_unit_cost, qty_on_hand_snapshot
+    )
+    VALUES (
+      v_lcv,
+      v_batch,
+      (v_alloc ->> 'allocated_amount')::numeric,
+      v_prior,
+      v_qty
+    );
+    v_total_alloc := v_total_alloc + (v_alloc ->> 'allocated_amount')::numeric;
+  END LOOP;
+
+  IF round(v_total_charges, 4) <> round(v_total_alloc, 4) THEN
+    RAISE EXCEPTION 'charge total % must equal allocation total %', v_total_charges, v_total_alloc;
+  END IF;
+
+  RETURN v_lcv;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.submit_landed_cost_voucher(p_landed_cost_voucher_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_lcv public.landed_cost_vouchers%ROWTYPE;
+  v_total NUMERIC := 0;
+  v_row RECORD;
+  v_journal UUID;
+  v_delta NUMERIC;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_finance();
+  PERFORM public._assert_procurement_period_open();
+
+  SELECT * INTO v_lcv FROM public.landed_cost_vouchers WHERE id = p_landed_cost_voucher_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'landed cost voucher not found: %', p_landed_cost_voucher_id;
+  END IF;
+  IF v_lcv.status <> 'draft' THEN
+    RAISE EXCEPTION 'only draft landed cost vouchers can be submitted';
+  END IF;
+
+  SELECT COALESCE(SUM(amount), 0) INTO v_total
+  FROM public.landed_cost_charges
+  WHERE landed_cost_voucher_id = p_landed_cost_voucher_id;
+
+  FOR v_row IN
+    SELECT * FROM public.landed_cost_allocations
+    WHERE landed_cost_voucher_id = p_landed_cost_voucher_id
+  LOOP
+    v_delta := v_row.allocated_amount / v_row.qty_on_hand_snapshot;
+    UPDATE public.stock_batches
+    SET unit_cost = round(v_row.prior_unit_cost + v_delta, 4)
+    WHERE id = v_row.stock_batch_id;
+  END LOOP;
+
+  v_journal := public._post_journal_entry_inventory(
+    CURRENT_DATE,
+    format('Landed cost %s', v_lcv.document_number),
+    v_lcv.currency,
+    v_lcv.exchange_rate_applied,
+    jsonb_build_array(
+      jsonb_build_object(
+        'account_code', '1300',
+        'debit', v_total,
+        'credit', 0,
+        'currency', v_lcv.currency
+      ),
+      jsonb_build_object(
+        'account_code', '2100',
+        'debit', 0,
+        'credit', v_total,
+        'currency', v_lcv.currency
+      )
+    )
+  );
+
+  UPDATE public.landed_cost_vouchers
+  SET
+    status = 'submitted',
+    journal_entry_id = v_journal,
+    submitted_at = now(),
+    updated_at = now()
+  WHERE id = p_landed_cost_voucher_id;
+
+  RETURN p_landed_cost_voucher_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.cancel_landed_cost_voucher(
+  p_landed_cost_voucher_id UUID,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_lcv public.landed_cost_vouchers%ROWTYPE;
+  v_row RECORD;
+  v_rev UUID;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_finance();
+  PERFORM public._assert_procurement_period_open();
+
+  SELECT * INTO v_lcv FROM public.landed_cost_vouchers WHERE id = p_landed_cost_voucher_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'landed cost voucher not found: %', p_landed_cost_voucher_id;
+  END IF;
+  IF v_lcv.status = 'cancelled' THEN
+    RETURN p_landed_cost_voucher_id;
+  END IF;
+  IF v_lcv.status <> 'submitted' THEN
+    RAISE EXCEPTION 'only submitted landed cost vouchers can be cancelled';
+  END IF;
+
+  FOR v_row IN
+    SELECT * FROM public.landed_cost_allocations
+    WHERE landed_cost_voucher_id = p_landed_cost_voucher_id
+  LOOP
+    UPDATE public.stock_batches
+    SET unit_cost = v_row.prior_unit_cost
+    WHERE id = v_row.stock_batch_id;
+  END LOOP;
+
+  IF v_lcv.journal_entry_id IS NOT NULL THEN
+    v_rev := public._reverse_journal_inventory(
+      v_lcv.journal_entry_id,
+      COALESCE(p_notes, format('Cancel %s', v_lcv.document_number))
+    );
+  END IF;
+
+  UPDATE public.landed_cost_vouchers
+  SET
+    status = 'cancelled',
+    reversal_journal_entry_id = v_rev,
+    cancelled_at = now(),
+    notes = COALESCE(p_notes, notes),
+    updated_at = now()
+  WHERE id = p_landed_cost_voucher_id;
+
+  RETURN p_landed_cost_voucher_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.create_blanket_purchase_order(
+  p_supplier_id UUID,
+  p_warehouse_id UUID,
+  p_currency public.currency_code,
+  p_exchange_rate NUMERIC,
+  p_blanket_max_value NUMERIC,
+  p_lines JSONB,
+  p_notes TEXT DEFAULT NULL,
+  p_expected_date DATE DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_po UUID;
+  v_line JSONB;
+  v_no INT := 0;
+  v_rate NUMERIC;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_staff();
+
+  IF p_blanket_max_value IS NULL OR p_blanket_max_value < 0 THEN
+    RAISE EXCEPTION 'blanket_max_value required';
+  END IF;
+  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
+    RAISE EXCEPTION 'blanket lines required';
+  END IF;
+
+  v_rate := CASE
+    WHEN p_currency = 'USD' THEN COALESCE(p_exchange_rate, 1)
+    ELSE p_exchange_rate
+  END;
+  IF p_currency = 'ZIG' AND (v_rate IS NULL OR v_rate <= 0) THEN
+    RAISE EXCEPTION 'positive exchange_rate required for ZIG';
+  END IF;
+
+  INSERT INTO public.purchase_orders (
+    document_number, supplier_id, warehouse_id, currency, exchange_rate_applied,
+    expected_date, notes, created_by, is_blanket, blanket_max_value
+  )
+  VALUES (
+    public.next_series_value('BPO-'),
+    p_supplier_id,
+    p_warehouse_id,
+    p_currency,
+    v_rate,
+    p_expected_date,
+    p_notes,
+    auth.uid(),
+    true,
+    p_blanket_max_value
+  )
+  RETURNING id INTO v_po;
+
+  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
+  LOOP
+    v_no := v_no + 1;
+    INSERT INTO public.purchase_order_lines (
+      purchase_order_id, line_no, stock_item_id, uom_id, qty_ordered, unit_price, currency
+    )
+    VALUES (
+      v_po,
+      v_no,
+      (v_line ->> 'stock_item_id')::uuid,
+      (v_line ->> 'uom_id')::uuid,
+      (v_line ->> 'qty')::numeric,
+      (v_line ->> 'unit_price')::numeric,
+      COALESCE((v_line ->> 'currency')::public.currency_code, p_currency)
+    );
+  END LOOP;
+
+  RETURN v_po;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.create_blanket_release(
+  p_blanket_purchase_order_id UUID,
+  p_lines JSONB,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_blanket public.purchase_orders%ROWTYPE;
+  v_release UUID;
+  v_line JSONB;
+  v_no INT := 0;
+  v_parent_line public.purchase_order_lines%ROWTYPE;
+  v_release_value NUMERIC := 0;
+  v_total_release NUMERIC := 0;
+  v_qty NUMERIC;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_staff();
+  PERFORM public._assert_procurement_period_open();
+
+  SELECT * INTO v_blanket FROM public.purchase_orders WHERE id = p_blanket_purchase_order_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'blanket PO not found: %', p_blanket_purchase_order_id;
+  END IF;
+  IF NOT v_blanket.is_blanket THEN
+    RAISE EXCEPTION 'purchase order is not a blanket contract';
+  END IF;
+  IF v_blanket.status <> 'submitted' THEN
+    RAISE EXCEPTION 'blanket PO must be submitted before release';
+  END IF;
+
+  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
+    RAISE EXCEPTION 'release lines required';
+  END IF;
+
+  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
+  LOOP
+    v_qty := (v_line ->> 'qty')::numeric;
+    IF v_qty IS NULL OR v_qty <= 0 THEN
+      RAISE EXCEPTION 'release qty must be positive';
+    END IF;
+
+    SELECT * INTO v_parent_line
+    FROM public.purchase_order_lines
+    WHERE id = (v_line ->> 'blanket_line_id')::uuid
+      AND purchase_order_id = p_blanket_purchase_order_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'blanket line not found: %', v_line ->> 'blanket_line_id';
+    END IF;
+
+    IF v_parent_line.qty_released + v_qty > v_parent_line.qty_ordered THEN
+      RAISE EXCEPTION 'release exceeds remaining qty on line %', v_parent_line.line_no;
+    END IF;
+
+    v_release_value := v_qty * v_parent_line.unit_price;
+    v_total_release := v_total_release + v_release_value;
+  END LOOP;
+
+  IF v_blanket.blanket_value_released + v_total_release > v_blanket.blanket_max_value THEN
+    RAISE EXCEPTION 'release exceeds remaining blanket value';
+  END IF;
+
+  INSERT INTO public.purchase_orders (
+    document_number, supplier_id, warehouse_id, currency, exchange_rate_applied,
+    notes, created_by, blanket_parent_id
+  )
+  VALUES (
+    public.next_series_value('PO-'),
+    v_blanket.supplier_id,
+    v_blanket.warehouse_id,
+    v_blanket.currency,
+    v_blanket.exchange_rate_applied,
+    p_notes,
+    auth.uid(),
+    p_blanket_purchase_order_id
+  )
+  RETURNING id INTO v_release;
+
+  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
+  LOOP
+    v_qty := (v_line ->> 'qty')::numeric;
+
+    SELECT * INTO v_parent_line
+    FROM public.purchase_order_lines
+    WHERE id = (v_line ->> 'blanket_line_id')::uuid
+      AND purchase_order_id = p_blanket_purchase_order_id
+    FOR UPDATE;
+
+    v_no := v_no + 1;
+    INSERT INTO public.purchase_order_lines (
+      purchase_order_id, line_no, stock_item_id, uom_id,
+      qty_ordered, unit_price, currency, blanket_parent_line_id
+    )
+    VALUES (
+      v_release,
+      v_no,
+      v_parent_line.stock_item_id,
+      v_parent_line.uom_id,
+      v_qty,
+      v_parent_line.unit_price,
+      v_parent_line.currency,
+      v_parent_line.id
+    );
+
+    UPDATE public.purchase_order_lines
+    SET qty_released = qty_released + v_qty
+    WHERE id = v_parent_line.id;
+  END LOOP;
+
+  UPDATE public.purchase_orders
+  SET blanket_value_released = blanket_value_released + v_total_release, updated_at = now()
+  WHERE id = p_blanket_purchase_order_id;
+
+  RETURN v_release;
+END;
+$$;
+
 -- PATCH_MARKER_RPCS
