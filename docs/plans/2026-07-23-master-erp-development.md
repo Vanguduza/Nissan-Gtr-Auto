@@ -431,8 +431,26 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-1. **`@web_agent`:** bind Phase 6 `/search` (+ PLP/PDP) to `search_catalog` RPC after migration apply + fixture import.
-2. Optional parallel: **Phase 4b** cycle count or **Phase 5b** warranty on a worktree.
-3. Apply migration: `supabase db reset` (or migration up) → import: `cd data-pipeline && python -m data_pipeline.import_catalog --live`.
+**Done**
+- Local Docker + `npx supabase db reset` green (API `http://127.0.0.1:54321`; realtime/analytics may stay stopped — non-blocking for schema work).
+- Phase 6 search bind → `search_catalog` — plan `2026-07-24-phase6-search-bind.md` **done**; `/verifier` PASS (`tsc` green).
+- Phase 4b migration `20260724020000_stock_reconciliation.sql` + smoke; Phase 5b `20260724030000_warranty_claims.sql` + smoke (both applied on reset).
+- Child plans: `2026-07-24-phase4b-stock-reconciliation.md`, `2026-07-24-phase5b-warranty-claims.md`, `2026-07-24-phase8-procurement.md`.
 
-Phases 2–7 first slice complete (4b/5b still pending). Pipeline tests: `cd data-pipeline && pytest`. Storefront: `pnpm dev:web`.
+**In progress**
+1. **`@backend_agent`:** Phase 4b RLS mutation-guard follow-up (security blocker: direct PostgREST bypass of dual-auth) — migration after `20260724030000`.
+2. **Gates:** `/security-reviewer` on 5b; `/verifier` on 4b after guard lands.
+3. **`@backend_agent`:** Phase 8 procurement implement per `2026-07-24-phase8-procurement.md`.
+
+**Next (unblocked queue)**
+1. Close 4b/5b done gates → mark phase map **Done**.
+2. Finish Phase 8 → RLS/security/verifier → optional `@web_agent` supplier portal slice.
+3. Phase 8b (RFQ/blanket) plan → implement; Phase 9 HR (no payroll tax) can parallel on non-conflicting paths.
+4. Prefer API phases **8→10→13** before mobile scaffolds **11–12**.
+5. Catalog fixture import when needed: `cd data-pipeline && python -m data_pipeline.import_catalog --live`.
+
+**Blockers**
+- Full `supabase start` sometimes flakes on Realtime seed (`tcp recv closed`); workaround: ensure DB healthy then `npx supabase db reset` (succeeds). Realtime optional until Phase 10 GPS.
+- No commits this session (user did not request).
+
+Pipeline: `cd data-pipeline && pytest`. Storefront: `pnpm dev:web` (+ `apps/web/.env.local` for local Supabase).

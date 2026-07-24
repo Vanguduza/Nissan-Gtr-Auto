@@ -62,7 +62,6 @@ function parseSearchCatalogResponse(raw: unknown): SearchCatalogResponse | null 
   return { mode, query, results };
 }
 
-/** RPC not yet in generated Database types — narrow local call. */
 export async function searchCatalog(
   client: SupabaseClient,
   mode: SearchMode,
@@ -71,13 +70,10 @@ export async function searchCatalog(
   | { ok: true; data: SearchCatalogResponse }
   | { ok: false; error: string }
 > {
-  const { data, error } = await client.rpc(
-    "search_catalog" as "assign_staff_role",
-    {
-      p_mode: mode,
-      p_query: query,
-    } as never,
-  );
+  const { data, error } = await client.rpc("search_catalog", {
+    p_mode: mode,
+    p_query: query,
+  });
 
   if (error) {
     return { ok: false, error: error.message };
