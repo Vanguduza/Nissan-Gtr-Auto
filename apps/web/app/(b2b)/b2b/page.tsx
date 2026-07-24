@@ -32,6 +32,14 @@ export default function B2bPage() {
         {" · "}
         <Link href="/supplier/rfqs">supplier quotations</Link>
       </p>
+      <p className={styles.lede} style={{ marginTop: "0.75rem" }}>
+        Staff ops:{" "}
+        <Link href="/staff">hub</Link>
+        {" · "}
+        <Link href="/staff/hr">HR attendance</Link>
+        {" · "}
+        <Link href="/staff/logistics">logistics DN</Link>
+      </p>
     </div>
   );
 }

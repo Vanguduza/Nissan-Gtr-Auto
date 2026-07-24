@@ -1,6 +1,7 @@
-# GTR Management — Android (Phase 12 scaffold)
+# GTR Management — Android
 
-Staff/management shell with **placeholder** feature modules for POS, warehouse, and dispatch. No screens wired; no HR/payroll UI.
+Staff/management shell with feature modules for POS, warehouse, dispatch, and HR attendance.
+Thin Compose scaffolds for **HR clock** and **logistics pick/DN** — not App Store polish.
 
 ## Prerequisites
 
@@ -12,12 +13,45 @@ Staff/management shell with **placeholder** feature modules for POS, warehouse, 
 
 | Module | Package | Role |
 |--------|---------|------|
-| `:app` | `co.zw.nissangtr.management` | Launcher shell |
+| `:app` | `co.zw.nissangtr.management` | Launcher + route shell |
+| `:core:rpc` | `…management.rpc` | `RpcClient` + `FakeRpcClient` + `RpcNames` |
+| `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
+| `:feature:dispatch` | `…management.dispatch` | Pick list + DN list/create/submit |
 | `:feature:pos` | `…management.pos` | POS placeholder (empty) |
 | `:feature:warehouse` | `…management.warehouse` | Warehouse placeholder (empty) |
-| `:feature:dispatch` | `…management.dispatch` | Dispatch placeholder (empty) |
 
-Modules are included in the Gradle graph and dependable from `:app`, but expose no UI yet.
+## Screens (scaffolds)
+
+| Screen | Module | RPCs |
+|--------|--------|------|
+| `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
+| `DispatchScreen` | `:feature:dispatch` | `create_pick_list`, `confirm_pick_lines`, `create_delivery_note`, `submit_delivery_note` |
+
+Also named (not yet on UI): `cancel_delivery_note`, `create_delivery_job`, `update_delivery_job_status`, `ingest_delivery_location` (bridge-only).
+
+## RPC binding: stub vs live
+
+**Current (stub):** `MainActivity` injects `FakeRpcClient` — in-memory UUIDs / lists so screens compile and exercise flows without the Supabase Kotlin SDK.
+
+**Live (TODO):** implement `RpcClient` with supabase-kt:
+
+```kotlin
+client.postgrest.rpc(RpcNames.CLOCK_ATTENDANCE, mapOf(
+  "p_employee_id" to employeeId,
+  "p_event_type" to eventType.rpcValue,
+  "p_notes" to notes,
+))
+```
+
+Wire from `BuildConfig.SUPABASE_URL` / `SUPABASE_ANON_KEY`. List reads use PostgREST / PowerSync bucket `by_staff_dispatch`, not mutation RPCs.
+
+Canonical names live in `core/rpc/.../RpcNames.kt`.
+
+## Exclusions
+
+- No ZIMRA / fiscal QR
+- No payroll tax UI (PAYE, NSSA, etc.) — clock only
+- No HTML5 / WebView QR or geolocation — Bridge-First (`bridges/`) for QR, ESC/POS, GPS (`ingest_delivery_location`)
 
 ## Env placeholders
 
@@ -35,22 +69,10 @@ cd apps/android-management
 
 - `@gtr/supabase-client` — typed staff RPCs later
 - `@gtr/shared` — money / cart / ledger helpers — **no duplicate pricing in app modules**
-- Hardware: `bridges/` contracts only (QR, ESC/POS, biometric, GPS)
-
-Management can later bind existing **staff** POS/logistics/recon RPCs — out of scope for this scaffold.
-
-## Blockers (feature bind)
-
-Customer-facing blockers from the Phase 11–12 plan do not block staff binding, but this scaffold still defers feature screens. Before shipping management features:
-
-- Confirm staff RLS / role gates for each surface
-- Native bridge implementations under `bridges/android/` (not browser QR)
-- No ZIMRA / payroll tax screens
-
-Customer storefront blockers (cart, invoice SELECT, payment intents) remain for customer apps — see plan.
+- Hardware: `bridges/` contracts only
 
 ## Build status (this environment)
 
 | Target | Status |
 |--------|--------|
-| `assembleDebug` | **Stub-only here** — no JDK / Android SDK on scaffold host |
+| `assembleDebug` | **Source-ready** — host may lack JDK / Android SDK; assemble when toolchain is present |
