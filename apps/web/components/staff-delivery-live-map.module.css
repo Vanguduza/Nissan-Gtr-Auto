@@ -1,0 +1,63 @@
+.wrap {
+  display: grid;
+  gap: 1rem;
+}
+
+.mapFrame {
+  position: relative;
+  width: 100%;
+  min-height: 22rem;
+  height: min(55vh, 28rem);
+  border: 1px solid rgba(18, 21, 28, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--gtr-mist, #f0f1f3);
+}
+
+.mapCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: baseline;
+  margin: 0;
+  font-size: 0.92rem;
+  color: rgba(18, 21, 28, 0.7);
+}
+
+.statusRow strong {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(18, 21, 28, 0.55);
+  margin-right: 0.35rem;
+}
+
+.emptyHint {
+  margin: 0;
+  color: rgba(18, 21, 28, 0.55);
+  font-size: 0.92rem;
+}
+
+.liveDot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #1a7f37;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.liveDotOff {
+  composes: liveDot;
+  background: rgba(18, 21, 28, 0.35);
+}
