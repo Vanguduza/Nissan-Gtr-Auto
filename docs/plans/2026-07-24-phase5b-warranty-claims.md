@@ -48,7 +48,12 @@ Light warranty claim against a sold serial and/or sales invoice (optional batch 
 3. `reject_warranty_claim(claim_id, reason)` — `open`→`rejected`
 4. `close_warranty_claim(claim_id)` — from `approved`|`rejected` → `closed` (idempotent guard)
 
-**Shipped:** migration `20260724030000_warranty_claims.sql`; helper `post_stock_issue` (ISS-) for replacement; smoke `supabase/tests/phase5b_warranty_smoke.sql`.
+**Shipped:** migration `20260724030000_warranty_claims.sql`; `20260724041000_warranty_mutation_guards.sql`; helper `post_stock_issue` (ISS-) for replacement; smoke `supabase/tests/phase5b_warranty_smoke.sql`.
+
+### Gate notes (`/verifier` 2026-07-24, post–`db reset`)
+
+- Smoke **failed** at `add_cart_line` → `resolve_item_price`: `column reference "currency" is ambiguous` (`20260723230000_sales_pos.sql` ~L208 — output column vs `price_lists.currency`). Blocks invoice-linked warranty path until fixed (qualify as `pl.currency` / rename OUT params).
+- Static review: tables, CHECK linkage, RPCs, quarantine path, mutation guards match acceptance above.
 
 ## Paths in scope
 

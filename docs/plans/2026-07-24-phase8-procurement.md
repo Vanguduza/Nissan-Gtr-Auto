@@ -70,12 +70,17 @@ Ship suppliers + PO/GRN linked to Phase 4 receipt→batch→QR, Material Request
 3. [x] GRN: receive against PO → `post_stock_receipt` / stock entry link → stock/QR; emit `po_received`
 4. [x] Material Request + convert-to-PO RPC (transactional; assert no orphan PO/MR lines)
 5. [x] Landed cost voucher: allocate freight/duty/other → batch `unit_cost` + valuation JE (USD|ZIG)
-6. [ ] Smoke SQL: PO→receipt→QR; LCV revalue+journal; MR→PO integrity; supplier RLS denial *(manager: `db reset` + run smoke)*
+6. [x] Smoke SQL: PO→receipt→QR; LCV revalue+journal; MR→PO integrity *(passed via `psql` pipe 2026-07-24)* — [ ] supplier RLS denial *(failed: superuser `DO $$` bypasses RLS; use non-bypass session or `FORCE ROW LEVEL SECURITY` in smoke)*
 7. [x] Regen `database.types.ts`; brief RPC note for `@web_agent` portal follow-on *(RPC/enum patch; full table regen after reset)*
 
 ## Gate
 
 `/supabase-rls-auditor` → `/security-reviewer` → `/verifier` → `/manager` done gate
+
+### Gate notes (`/verifier` 2026-07-24, post–`db reset`)
+
+- Smoke via `docker exec … psql`: MR→PO, GRN→posted stock entry, LCV revalue + cancel reversal **passed**; failed at supplier must-not-see-other-PO (`count=1`).
+- **Likely harness:** smoke runs as `postgres` (RLS bypass). Policies `purchase_orders_supplier_select` + `current_supplier_id()` look correct in migration; re-test under `authenticated` without bypass.
 
 ## Handoff
 

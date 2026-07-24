@@ -106,7 +106,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 5b | Warranty / serial claims | `@backend_agent` | 4, 5 | **Implemented** (verifier: smoke blocked by `resolve_item_price` bug) |
 | 6 | Web storefront + My Account (Garage) + AutoDoc IA | `@web_agent` | 2, 4, 5 (read APIs) | **Done** (+ live `/search` bind) |
 | 7 | Data pipeline + search index | `@data_pipeline_agent` | 1, 6 (canvas can stub) | **Done** (PG FTS interim; Meili later) |
-| 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | **In progress** (child plan + implement) |
+| 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | **Implemented** (verifier: core smoke OK; supplier RLS smoke harness + gates) |
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | Pending |
 | 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | Pending |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | Pending |
