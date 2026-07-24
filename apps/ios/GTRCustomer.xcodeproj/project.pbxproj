@@ -37,6 +37,8 @@
 		A1000000000000000000001A /* OrdersScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000001B /* GarageScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarageScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000001C /* PayScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000001D /* PostgrestClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PostgrestClient.swift; path = ../Sources/GTRCustomerCore/PostgrestClient.swift; sourceTree = "<group>"; };
+		A1000000000000000000001E /* LiveStorefrontApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LiveStorefrontApi.swift; path = ../Sources/GTRCustomerCore/LiveStorefrontApi.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +98,8 @@
 				A10000000000000000000013 /* AppEnv.swift */,
 				A10000000000000000000015 /* StorefrontModels.swift */,
 				A10000000000000000000016 /* StorefrontApi.swift */,
+				A1000000000000000000001D /* PostgrestClient.swift */,
+				A1000000000000000000001E /* LiveStorefrontApi.swift */,
 				A10000000000000000000017 /* StorefrontFormat.swift */,
 			);
 			name = Core;
@@ -180,6 +184,8 @@
 				A10000000000000000000003 /* AppEnv.swift in Sources */,
 				A10000000000000000000005 /* StorefrontModels.swift in Sources */,
 				A10000000000000000000006 /* StorefrontApi.swift in Sources */,
+				A1000000000000000000000D /* PostgrestClient.swift in Sources */,
+				A1000000000000000000000E /* LiveStorefrontApi.swift in Sources */,
 				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
