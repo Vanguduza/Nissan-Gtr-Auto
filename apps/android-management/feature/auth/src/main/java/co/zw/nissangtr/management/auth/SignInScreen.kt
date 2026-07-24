@@ -37,7 +37,7 @@ fun SignInScreen(
     modifier: Modifier = Modifier,
     title: String = "Sign in",
     subtitle: String = "Staff account",
-    viewModel: AuthSessionViewModel? = null,
+    sessionViewModel: AuthSessionViewModel? = null,
 ) {
     if (supabase == null) {
         FakeSignInPlaceholder(
@@ -50,7 +50,7 @@ fun SignInScreen(
         return
     }
 
-    val vm = viewModel
+    val vm = sessionViewModel
         ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
     val state by vm.signIn.collectAsState()
 
@@ -138,7 +138,7 @@ private fun FakeSignInPlaceholder(
 }
 
 /**
- * Live: block until Authenticated. Fake: bypass by default; optional login via [showFakeLogin].
+ * Live: block until Authenticated. Fake: bypass by default ([allowFakeSkip]).
  */
 @Composable
 fun AuthGate(
@@ -184,7 +184,7 @@ fun AuthGate(
                 allowSkip = false,
                 onSkip = {},
                 subtitle = "Staff account",
-                viewModel = vm,
+                sessionViewModel = vm,
             )
         }
         is AuthGateState.SignedIn -> {
