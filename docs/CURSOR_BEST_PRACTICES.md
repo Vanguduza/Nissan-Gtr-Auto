@@ -86,7 +86,7 @@ Settings → Agents → Agent Review. Quick/Deep review of local diff before pus
 
 ### Permissions & Sandbox
 - `.cursor/permissions.json` — allow/deny shell commands, block instructions for prod/ZIMRA/tax
-- `.cursor/sandbox.json` — network allowlist (npm, Supabase, PyPI, Gradle, Apple, ContiPay)
+- `.cursor/sandbox.json` — network allowlist (npm, Supabase, PyPI, Gradle, Apple, ContiPay, Paynow)
 
 ---
 
