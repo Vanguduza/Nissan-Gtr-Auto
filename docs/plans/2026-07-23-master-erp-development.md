@@ -114,7 +114,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending — scaffold + bridge contracts in 11–12 plan |
 | 13 | Payments, ContiPay **+ Paynow**, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **Done (backend)** — `…90000`–`…100000`; security+verifier PASS; UI/real PSP keys follow-on |
 | 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | **Done (must-now)** — CI + PowerSync stubs + hardening docs; mobile SDK deferred to 11–12 |
-| 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | **In progress** — plan `…phase15-parity-audit.md` |
+| 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | **Done** (audit) — `docs/parity/`, `docs/runbooks/`; plan `…phase15-parity-audit.md` |
 | 16 | Distributor extras (bins, kits, consignment, loyalty) | `@backend_agent` + UI lanes | 15 or after 8/13 | Pending — plan `…phase16-distributor-extras.md` |
 
 Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file paths do not conflict (use worktrees). **4b** may start once Phase 4 receipt/transfer APIs are stable.
@@ -384,9 +384,11 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Phase 15 — Parity audit & polish
 
+- **Status:** **Done** (docs-first audit 2026-07-24)
 - **Invoke:** `/erpnext-feature-parity`, `/manager`, `/verifier`
 - **Build:** Close checklist gaps that are in-scope (Phases 1–14 + gap register must-haves); docs; operator runbooks
 - **Acceptance:** Checklist complete except explicit exclusions + Phase 16 extras; exclusion grep clean; gap register must-haves checked off or deferred by written decision
+- **Artifacts:** `docs/parity/erpnext-checklist.md`, `docs/parity/exclusion-evidence.md`, `docs/parity/polish-backlog.md`, `docs/runbooks/README.md`
 
 ---
 
