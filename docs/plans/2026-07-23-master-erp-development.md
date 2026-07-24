@@ -438,11 +438,11 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 - Queue preference held: 8b → 9 → 10 before mobile 11–12.
 
 **In progress**
-1. **Phase 13** payments / ContiPay / manager SMS / customer receipts / forecast — `/planner` then `@backend_agent`.
+1. **Phase 13** — plan `docs/plans/2026-07-24-phase13-payments-receipts-sms.md` → `@backend_agent` implement.
 2. Optional follow-ons: web RFQ portal; management HR/logistics UI; GPS bridge.
 
 **Next**
-1. `/planner` → Phase 13 child plan → implement → security → verifier.
+1. Implement Phase 13 → `/security-reviewer` → `/verifier`.
 2. Defer mobile 11–12 until APIs solid.
 
 **Blockers / notes**
