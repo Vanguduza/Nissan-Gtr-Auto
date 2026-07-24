@@ -1,21 +1,21 @@
-# Phase 13 — Payments, ContiPay, manager SMS, customer receipts, forecast
+# Phase 13 — Payments, ContiPay + Paynow, manager SMS, customer receipts, forecast
 
 - Status: draft
 - Lane(s): `@backend_agent` (primary); `@finance_agent` (journal/allocation review); `@web_agent` (signed receipt download route + dual-currency settlement display); `@management_app_agent` (manager SMS prefs + POS contact capture follow-on)
-- Skills needed: `/accounting-ledger` (Payment Entry / store credit JEs); (none for ContiPay secrets — use env placeholders only)
+- Skills needed: `/accounting-ledger` (Payment Entry / store credit JEs); (none for ContiPay/Paynow secrets — use env placeholders only)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 13
-- Decisions: [`customer-receipt-delivery`](../decisions/2026-07-23-customer-receipt-delivery.md), [`manager-sms-key-events`](../decisions/2026-07-23-manager-sms-key-events.md), [`company-domain`](../decisions/2026-07-23-company-domain.md)
+- Decisions: [`customer-receipt-delivery`](../decisions/2026-07-23-customer-receipt-delivery.md), [`manager-sms-key-events`](../decisions/2026-07-23-manager-sms-key-events.md), [`company-domain`](../decisions/2026-07-23-company-domain.md), [`paynow-payment-rail`](../decisions/2026-07-24-paynow-payment-rail.md)
 - Prior: Phase 5 enqueue (`customer_receipt_outbox`, `enqueue_customer_receipts`); Phase 1b `sms_outbox` + `emit_domain_event`; CoA `1100` Cash & Bank, `1200` AR, `2200` Customer Deposits / Store Credit; Phase 8 `material_requests`
 
 ## Goal
 
-Wire Payment Entry (multi-invoice, multi-tender, dual-currency), ContiPay capture (server secrets only), manager SMS send from existing outbox, customer receipt PDF + SMS/email/WhatsApp delivery per decisions, and lightweight demand-forecast → Material Request suggestions — no ZIMRA/fiscal.
+Wire Payment Entry (multi-invoice, multi-tender, dual-currency), ContiPay **and Paynow** capture (server secrets only), manager SMS send from existing outbox, customer receipt PDF + SMS/email/WhatsApp delivery per decisions, and lightweight demand-forecast → Material Request suggestions — no ZIMRA/fiscal.
 
 ## Acceptance criteria
 
-- [ ] Payment Entry allocates cash / bank / ContiPay / store-credit across one or many invoices (partial OK); AR/`amount_paid` updates correctly in USD|ZIG with `exchange_rate_applied` stored
+- [ ] Payment Entry allocates cash / bank / ContiPay / Paynow / store-credit across one or many invoices (partial OK); AR/`amount_paid` updates correctly in USD|ZIG with `exchange_rate_applied` stored
 - [ ] Store credit issue (refund/overpay) and redeem post balanced, append-only journals (Dr/Cr via `2200` ↔ AR/Cash); no JE edits/deletes
-- [ ] ContiPay initiate + webhook settle EcoCash / Visa 3DS / ZimSwitch; secrets only in Edge Function env (never client or plan docs); dual-currency settlement display fields on payment/receipt
+- [ ] ContiPay initiate + webhook settle EcoCash / Visa 3DS / ZimSwitch; Paynow initiate + result/status settle (mobile money / card); secrets only in Edge Function env (never client or plan docs); dual-currency settlement display fields on payment/receipt
 - [ ] Manager ops SMS: worker drains `sms_outbox` for opted-in prefs only; gateway may be stubbed; idempotent `(event_code, dedupe_key)`; emits `payment_received` | `payment_failed` | `payment_partial` | `refund_issued` once per occurrence
 - [ ] Customer receipts: PDF (tax-agnostic, no fiscal QR) → private Storage → signed URL on `https://nissangtrauto.co.zw/...`; SMS = summary + PDF link at bottom; email/WhatsApp deliver same PDF when contact+pref present; idempotent per `(document_id, channel)` unless explicit resend
 - [ ] Failed sends: retry/log via outbox `attempt_count` / `last_error`; success path does not duplicate spam
