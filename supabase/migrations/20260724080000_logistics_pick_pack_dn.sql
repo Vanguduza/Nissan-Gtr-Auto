@@ -617,7 +617,6 @@ DECLARE
   v_qty_base NUMERIC;
   v_pl public.pick_list_lines%ROWTYPE;
   v_open NUMERIC;
-  v_other NUMERIC;
 BEGIN
   PERFORM public._logistics_begin_rpc();
   PERFORM public._require_logistics_staff();
