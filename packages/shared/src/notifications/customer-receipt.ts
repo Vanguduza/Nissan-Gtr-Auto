@@ -1,3 +1,5 @@
+const RECEIPT_HOST = "https://nissangtrauto.co.zw";
+
 /** Build SMS summary; Phase 13 appends PDF download URL at the bottom. */
 export function buildCustomerReceiptSmsSummary(params: {
   docLabel: string;
@@ -12,4 +14,13 @@ export function buildCustomerReceiptSmsSummary(params: {
     return `${base}\n${params.pdfDownloadUrl}`;
   }
   return base;
+}
+
+/** Public receipt download URL on company domain (signed/token route). */
+export function buildReceiptDownloadUrl(downloadToken: string): string {
+  const token = downloadToken.trim();
+  if (!token) {
+    throw new Error("downloadToken required");
+  }
+  return `${RECEIPT_HOST}/receipts/${token}`;
 }
