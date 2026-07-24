@@ -935,3 +935,13 @@ GRANT EXECUTE ON FUNCTION public.upsert_stock_reconciliation_lines(UUID, JSONB) 
 GRANT EXECUTE ON FUNCTION public.submit_stock_reconciliation(UUID) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.approve_stock_reconciliation(UUID) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.cancel_stock_reconciliation(UUID, TEXT) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- @management_app_agent RPC contracts (params / returns)
+-- create_stock_reconciliation_draft(warehouse, scope, item_ids?, notes?, currency?, exchange_rate?) → UUID
+-- upsert_stock_reconciliation_lines(reconciliation_id, lines JSONB [{stock_item_id, counted_qty}]) → INT
+-- submit_stock_reconciliation(reconciliation_id) → UUID (posted or pending_approval)
+-- approve_stock_reconciliation(reconciliation_id) → UUID (second distinct staff)
+-- cancel_stock_reconciliation(reconciliation_id, notes?) → UUID (posted only; reverses stock + journal)
+-- Smoke: docker exec -i supabase_db_* psql -U postgres -d postgres < supabase/tests/phase4b_reconciliation_smoke.sql
+-- Verify migration: npx supabase db reset && run smoke above
