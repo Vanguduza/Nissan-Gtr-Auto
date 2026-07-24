@@ -434,28 +434,19 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Phases **0–10, 13–16** Done (backend/must-now/audit as applicable). **11–12 scaffold Done**; feature mobile deferred. DB reset GREEN through `20260724123000_loyalty_points.sql`.
+**Master plan status:** Phases **0–10, 13–16** Done (backend/must-now/audit). **11–12 scaffold Done**. DB through `20260724123000`.
 
-**Done this wave**
-- Phase 14 must-now: CI (`.github/workflows/ci.yml`), PowerSync stubs, `docs/HARDENING.md`, grants fix `…110000`
-- Phase 15 parity audit: `docs/parity/`, `docs/runbooks/` — verifier PASS
-- Phase 16 backend: bins `…120000`, kits `…21000`, consignment `…22000`, loyalty `…23000` — smokes PASS; security PASS per slice
-- Phase 11–12 scaffolds: `apps/ios`, `apps/android-customer`, `apps/android-management`, `bridges/contracts` — verifier PASS (native build needs toolchains)
-- Paynow reflected in Phase 13 plan + `docs/decisions/2026-07-24-paynow-payment-rail.md`
+**In progress**
+1. **Customer storefront AuthZ** — planner → `@backend_agent` → security → verifier (unblocks web checkout + later mobile feature bind).
 
-**Smokes after reset:** phase2, 13, 14, 16 bins/kits/consignment/loyalty — all PASS
-
-**Remaining follow-ons (not blocking master backend)**
-1. UI: web RFQ/receipts; management HR/logistics/bins/kits; real ContiPay/Paynow HMAC + merchant secrets (env only)
-2. Customer storefront API slice → then 11–12 feature bind
-3. Native bridges impl + PowerSync client SDK
-4. Optional: attachments/doc timeline (Phase 16 soft skip)
-
-**In progress:** None — whole master backend/scaffold queue complete for standing order.
+**Next**
+1. Finish customer cart/invoice/pay AuthZ APIs + smoke.
+2. `@web_agent` bind live checkout/payment tenders where stubs remain.
+3. Native bridges / PowerSync client / management UI remain follow-on.
 
 **Blockers / notes**
 - Serialize `supabase db reset` (manager-owned).
 - No commits (user did not request).
-- Customer mobile feature bind blocked until cart/invoice/pay customer AuthZ exists.
+- Customer mobile feature bind blocked until this AuthZ slice lands.
 
 Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
