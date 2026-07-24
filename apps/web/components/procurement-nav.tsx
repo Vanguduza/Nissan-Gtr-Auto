@@ -1,7 +1,14 @@
 import Link from "next/link";
 import styles from "@/components/account.module.css";
 
-const nav = [
+type NavItem = {
+  href: string;
+  label: string;
+  exact?: boolean;
+  list?: boolean;
+};
+
+const nav: NavItem[] = [
   { href: "/procurement", label: "Overview", exact: true },
   { href: "/procurement/rfqs", label: "RFQs", list: true },
   { href: "/procurement/rfqs/new", label: "New RFQ", exact: true },
@@ -17,9 +24,9 @@ export function ProcurementNav({ current }: { current: string }) {
             ? current === item.href
             : item.list
               ? current === item.href ||
-                (current.startsWith(item.href + "/") &&
+                (current.startsWith(`${item.href}/`) &&
                   !current.startsWith("/procurement/rfqs/new"))
-              : current === item.href || current.startsWith(item.href + "/");
+              : current === item.href || current.startsWith(`${item.href}/`);
           return (
             <li key={item.href}>
               <Link
