@@ -6,7 +6,13 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   PERFORM set_config('request.jwt.claim.sub', p_uid::text, true);
+  PERFORM set_config(
+    'request.jwt.claims',
+    json_build_object('sub', p_uid::text, 'role', 'authenticated')::text,
+    true
+  );
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM set_config('role', 'authenticated', true);
 END;
 $$;
 
