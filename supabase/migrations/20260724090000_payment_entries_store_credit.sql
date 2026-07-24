@@ -329,7 +329,7 @@ DECLARE
   v_amt NUMERIC;
   v_sum NUMERIC := 0;
   v_open NUMERIC;
-  v_already NUMERIC;
+  v_draft_other NUMERIC;
 BEGIN
   PERFORM public._require_payments_staff();
   PERFORM public._payments_rpc_enter();
@@ -375,15 +375,14 @@ BEGIN
         v_inv.currency, v_pe.currency;
     END IF;
 
-    SELECT COALESCE(SUM(pa.amount), 0) INTO v_already
+    SELECT COALESCE(SUM(pa.amount), 0) INTO v_draft_other
     FROM public.payment_allocations pa
     JOIN public.payment_entries pe ON pe.id = pa.payment_entry_id
     WHERE pa.sales_invoice_id = v_inv.id
-      AND pe.status = 'posted';
+      AND pe.status = 'draft'
+      AND pe.id <> p_payment_entry_id;
 
-    v_open := v_inv.total - v_inv.amount_paid;
-    -- amount_paid should equal posted allocations; prefer open from totals
-    v_open := v_inv.total - GREATEST(v_inv.amount_paid, v_already);
+    v_open := v_inv.total - v_inv.amount_paid - v_draft_other;
 
     IF v_amt > v_open + 0.001 THEN
       RAISE EXCEPTION 'over-allocate denied: invoice % open % allocate %',
@@ -558,12 +557,6 @@ BEGIN
     posted_at = now(),
     updated_at = now()
   WHERE id = p_payment_entry_id;
-
-  -- Link JE on store-credit redeem ledger if needed (already written)
-  IF v_pe.tender = 'store_credit' THEN
-    -- ledger row exists without JE; append-only so leave as-is (JE linked on header)
-    NULL;
-  END IF;
 
   IF v_all_cleared AND v_sum > 0 AND v_overpay = 0 THEN
     v_event := 'payment_received';
