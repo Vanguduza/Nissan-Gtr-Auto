@@ -225,49 +225,36 @@ $$;
 -- Storefront checkout posts sale JE via shared checkout_pos_cart path.
 DO $$
 DECLARE
+  r RECORD;
   v_def TEXT;
-  v_old TEXT :=
-    'IF NOT (
-    auth.role() = ''service_role''
-    OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
-  ) THEN
-    RAISE EXCEPTION ''finance or admin role required'';
-  END IF;';
-  v_new TEXT :=
-    'IF NOT (
-    auth.role() = ''service_role''
-    OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
-    OR public._storefront_rpc_active()
-  ) THEN
-    RAISE EXCEPTION ''finance or admin role required'';
-  END IF;';
 BEGIN
-  SELECT pg_get_functiondef(p.oid) INTO v_def
-  FROM pg_proc p
-  JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname = 'public' AND p.proname = 'create_journal_draft'
-  LIMIT 1;
-
-  IF position('OR public._storefront_rpc_active()' IN v_def) = 0 THEN
-    IF position('finance or admin role required' IN v_def) = 0 THEN
-      RAISE EXCEPTION 'create_journal_draft patch failed: finance gate not found';
+  FOR r IN
+    SELECT p.oid, p.proname
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN ('create_journal_draft', 'post_journal')
+  LOOP
+    SELECT pg_get_functiondef(r.oid) INTO v_def;
+    IF position('OR public._storefront_rpc_active()' IN v_def) > 0 THEN
+      CONTINUE;
     END IF;
-    -- Normalize whitespace-insensitive replace via regex-like fixed form from live def
-    v_def := replace(
+    IF position('finance or admin role required' IN v_def) = 0 THEN
+      RAISE EXCEPTION '% patch failed: finance gate missing', r.proname;
+    END IF;
+    v_def := regexp_replace(
       v_def,
-      'OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
-  ) THEN
-    RAISE EXCEPTION ''finance or admin role required'';',
+      'OR public\.has_staff_role\(ARRAY\[''admin'', ''finance''\]::public\.staff_role\[\]\)\s*\) THEN',
       'OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
     OR public._storefront_rpc_active()
-  ) THEN
-    RAISE EXCEPTION ''finance or admin role required'';'
+  ) THEN',
+      1
     );
     IF position('OR public._storefront_rpc_active()' IN v_def) = 0 THEN
-      RAISE EXCEPTION 'create_journal_draft patch failed: replace miss';
+      RAISE EXCEPTION '% patch replace miss', r.proname;
     END IF;
     EXECUTE v_def;
-  END IF;
+  END LOOP;
 END;
 $$;
 
