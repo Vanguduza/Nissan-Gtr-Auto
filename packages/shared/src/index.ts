@@ -32,7 +32,22 @@ export {
   type SmsEventCode,
   type EmitDomainEventInput,
 } from "./notifications/sms-events.js";
-export { buildCustomerReceiptSmsSummary } from "./notifications/customer-receipt.js";
+export {
+  buildCustomerReceiptSmsSummary,
+  buildReceiptDownloadUrl,
+} from "./notifications/customer-receipt.js";
+export {
+  PAYMENT_TENDERS,
+  PAYMENT_ENTRY_STATUSES,
+  CONTIPAY_METHODS,
+  CONTIPAY_INTENT_STATUSES,
+  toAllocatePaymentArgs,
+  type PaymentTender,
+  type PaymentEntryStatus,
+  type ContiPayMethod,
+  type ContiPayIntentStatus,
+  type PaymentAllocationInput,
+} from "./payments/types.js";
 export {
   WARRANTY_CLAIM_STATUSES,
   WARRANTY_CLAIM_RESOLUTIONS,
