@@ -235,7 +235,7 @@ public enum StorefrontError: Error, LocalizedError, Sendable, Equatable {
         case .notConfigured:
             return "Set SUPABASE_URL + SUPABASE_ANON_KEY"
         case .notAuthenticated:
-            return "Sign in required — AuthZ RPCs need a customer user JWT (SUPABASE_ACCESS_TOKEN or setAccessToken)."
+            return "Sign in required — AuthZ RPCs need a customer user JWT (sign-in screen or SUPABASE_ACCESS_TOKEN)."
         case .message(let text):
             return text
         }
