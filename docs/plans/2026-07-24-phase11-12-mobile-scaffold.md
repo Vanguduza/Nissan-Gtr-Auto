@@ -1,6 +1,6 @@
 # Phase 11–12 — Mobile stub / scaffold
 
-- Status: draft
+- Status: scaffolded (2026-07-24) — project files landed; native `assembleDebug` / Xcode Simulator not verified on Windows scaffold host (no JDK/Android SDK/Xcode)
 - Lane(s): `@ios_agent`, `@android_agent` (Phase 11); `@management_app_agent` (Phase 12 app shell); `@hardware_mobile_agent` (**bridge contracts only**)
 - Skills needed: `/token-discipline`; `/qr-inventory-workflow` only if extending bridge contracts (not implementations)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) §§ Phase 11–12, Near-term sequencing (11–12 stub/scaffold)
