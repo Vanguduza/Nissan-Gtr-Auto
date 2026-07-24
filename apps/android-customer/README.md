@@ -98,4 +98,4 @@ cd apps/android-customer
 
 | Target | Status |
 |--------|--------|
-| `assembleDebug` | **Source-ready** — needs JDK 17+ / Android SDK; Gradle resolves supabase-kt from Maven Central |
+| `assembleDebug` | **Not run** — host has no JDK on `PATH` / `JAVA_HOME`. Source + Gradle deps landed; assemble with JDK 17+ and Android SDK. |
