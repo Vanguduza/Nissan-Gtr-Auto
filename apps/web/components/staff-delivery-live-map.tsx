@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from "maplibre-gl";
+import {
+  LngLatBounds,
+  Map as MapLibreMap,
+  Marker,
+  NavigationControl,
+  type GeoJSONSource,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import styles from "@/components/staff-delivery-live-map.module.css";
 import {
@@ -13,6 +19,8 @@ const TRAIL_SOURCE = "delivery-trail";
 const TRAIL_LAYER = "delivery-trail-line";
 const DEFAULT_CENTER: [number, number] = [31.0522, -17.8292]; // Harare
 const DEFAULT_ZOOM = 11;
+
+// Intentionally omit MapLibre GeolocateControl — web must never use browser GPS.
 
 type Props = {
   points: DeliveryLocationPoint[];
