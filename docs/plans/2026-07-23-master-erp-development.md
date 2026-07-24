@@ -435,8 +435,9 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Preferred API queue **8b → 9 → 10 → 13** gated (security+verifier PASS). DB through `20260724100000`.
+- Preferred API queue **8b → 9 → 10 → 13** gated (security+verifier PASS). DB through `20260724100000` (+ grants `…110000`).
 - Phase 13 docs + decision include **Paynow** rail alongside ContiPay (`docs/decisions/2026-07-24-paynow-payment-rail.md`, plan `…phase13-payments-receipts-sms.md`).
+- Phase 14 must-now + Phase 15 parity audit (see Remaining / Done recent below).
 
 **Remaining Pending**
 | Phase | Notes |
