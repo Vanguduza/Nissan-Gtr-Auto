@@ -1,6 +1,6 @@
 # Phase 13 — Payments, ContiPay + Paynow, manager SMS, customer receipts, forecast
 
-- Status: draft
+- Status: implemented (backend)
 - Lane(s): `@backend_agent` (primary); `@finance_agent` (journal/allocation review); `@web_agent` (signed receipt download route + dual-currency settlement display); `@management_app_agent` (manager SMS prefs + POS contact capture follow-on)
 - Skills needed: `/accounting-ledger` (Payment Entry / store credit JEs); (none for ContiPay/Paynow secrets — use env placeholders only)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 13
@@ -13,14 +13,22 @@ Wire Payment Entry (multi-invoice, multi-tender, dual-currency), ContiPay **and 
 
 ## Acceptance criteria
 
-- [ ] Payment Entry allocates cash / bank / ContiPay / Paynow / store-credit across one or many invoices (partial OK); AR/`amount_paid` updates correctly in USD|ZIG with `exchange_rate_applied` stored
-- [ ] Store credit issue (refund/overpay) and redeem post balanced, append-only journals (Dr/Cr via `2200` ↔ AR/Cash); no JE edits/deletes
-- [ ] ContiPay initiate + webhook settle EcoCash / Visa 3DS / ZimSwitch; Paynow initiate + result/status settle (mobile money / card); secrets only in Edge Function env (never client or plan docs); dual-currency settlement display fields on payment/receipt
-- [ ] Manager ops SMS: worker drains `sms_outbox` for opted-in prefs only; gateway may be stubbed; idempotent `(event_code, dedupe_key)`; emits `payment_received` | `payment_failed` | `payment_partial` | `refund_issued` once per occurrence
-- [ ] Customer receipts: PDF (tax-agnostic, no fiscal QR) → private Storage → signed URL on `https://nissangtrauto.co.zw/...`; SMS = summary + PDF link at bottom; email/WhatsApp deliver same PDF when contact+pref present; idempotent per `(document_id, channel)` unless explicit resend
-- [ ] Failed sends: retry/log via outbox `attempt_count` / `last_error`; success path does not duplicate spam
-- [ ] Forecast RPC/edge suggests reorder qty → `create_material_request` (or draft MR rows); no auto-PO without staff submit
-- [ ] RLS on every new table in same migration(s); exclusion grep clean (no ZIMRA / payroll tax / browser QR)
+- [x] Payment Entry allocates cash / bank / ContiPay / Paynow / store-credit across one or many invoices (partial OK); AR/`amount_paid` updates correctly in USD|ZIG with `exchange_rate_applied` stored
+- [x] Store credit issue (refund/overpay) and redeem post balanced, append-only journals (Dr/Cr via `2200` ↔ AR/Cash); no JE edits/deletes
+- [x] ContiPay initiate + webhook settle EcoCash / Visa 3DS / ZimSwitch; Paynow initiate + result/status settle (mobile money / card); secrets only in Edge Function env (never client or plan docs); dual-currency settlement display fields on payment/receipt
+- [x] Manager ops SMS: worker drains `sms_outbox` for opted-in prefs only; gateway may be stubbed; idempotent `(event_code, dedupe_key)`; emits `payment_received` | `payment_failed` | `payment_partial` | `refund_issued` once per occurrence
+- [x] Customer receipts: PDF (tax-agnostic, no fiscal QR) → private Storage → signed URL on `https://nissangtrauto.co.zw/...`; SMS = summary + PDF link at bottom; email/WhatsApp deliver same PDF when contact+pref present; idempotent per `(document_id, channel)` unless explicit resend
+- [x] Failed sends: retry/log via outbox `attempt_count` / `last_error`; success path does not duplicate spam
+- [x] Forecast RPC/edge suggests reorder qty → `create_material_request` (or draft MR rows); no auto-PO without staff submit
+- [x] RLS on every new table in same migration(s); exclusion grep clean (no ZIMRA / payroll tax / browser QR)
+
+## Implementation notes (2026-07-24)
+
+- Migrations `20260724090000`–`20260724095000` applied via `docker exec … psql` (no `db reset`).
+- Smoke `supabase/tests/phase13_payments_receipts_smoke.sql` **PASS** (cash partial/clear, ContiPay + Paynow idempotent settle, store credit, receipts, SMS drain, forecast→draft MR).
+- Edge stubs: `contipay-initiate`, `contipay-webhook`, `paynow-initiate`, `paynow-webhook`, `process-sms-outbox`, `process-customer-receipts`, `demand-forecast` (env placeholder secrets only).
+- Types regenerated in `packages/supabase-client/src/database.types.ts`.
+- Deferred UI: `@web_agent` receipt download route + settlement display; `@management_app_agent` SMS prefs UI.
 
 ## Paths in scope
 
