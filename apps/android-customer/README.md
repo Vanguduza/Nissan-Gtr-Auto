@@ -14,7 +14,7 @@ Customer shell with thin Compose scaffolds for **cart**, **orders**, **My Garage
 | Module | Package | Role |
 |--------|---------|------|
 | `:app` | `co.zw.nissangtr.customer` | Launcher + route shell |
-| `:core:rpc` | `…customer.rpc` | `RpcClient` + `FakeRpcClient` + `RpcNames` |
+| `:core:rpc` | `…customer.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
 | `:feature:cart` | `…customer.cart` | Create / add line / checkout |
 | `:feature:orders` | `…customer.orders` | Invoice list + `get_customer_order` |
 | `:feature:garage` | `…customer.garage` | Upsert / delete / list vehicles |
@@ -29,30 +29,45 @@ Customer shell with thin Compose scaffolds for **cart**, **orders**, **My Garage
 | `GarageScreen` | `:feature:garage` | `upsert_customer_garage_vehicle`, `delete_customer_garage_vehicle` |
 | `PayIntentScreen` | `:feature:pay` | `create_customer_contipay_intent`, `create_customer_paynow_intent` |
 
-## RPC binding: stub vs live
+## RPC binding: Fake vs Live
 
-**Current (stub):** `MainActivity` injects `FakeRpcClient` — in-memory UUIDs / lists so screens
-compile and exercise flows without the Supabase Kotlin SDK.
+`MainActivity` uses `RpcClientFactory`:
 
-**Live (TODO):** implement `RpcClient` with supabase-kt:
+| Mode | When | Implementation |
+|------|------|----------------|
+| **Live** | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `rpc.forceFake` ≠ `true` | `SupabaseRpcClient` (supabase-kt BOM **3.1.1**: postgrest-kt + auth-kt) |
+| **Fake** | URL/key missing, or `rpc.forceFake=true` | `FakeRpcClient` (in-memory) |
 
-```kotlin
-client.postgrest.rpc(RpcNames.CREATE_CUSTOMER_CART, mapOf(
-  "p_warehouse_id" to warehouseId,
-  "p_currency" to currency.rpcValue,
-  "p_fulfillment_mode" to fulfillmentMode.rpcValue,
-  "p_exchange_rate" to exchangeRate,
-))
+### Switch / env
+
+1. Copy `.env.example` values into **`local.properties`** (gitignored) at this project root:
+
+```properties
+sdk.dir=C\:\\Android\\sdk
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+# Optional debug override — always use Fake even when URL+key are set:
+# rpc.forceFake=true
 ```
 
-Wire from `BuildConfig.SUPABASE_URL` / `SUPABASE_ANON_KEY`. Cart-line / invoice / garage **lists**
-use PostgREST + RLS (same as web), not mutation RPCs.
+2. Same names as root `.env.example` / web `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   (Android BuildConfig fields are `SUPABASE_URL` / `SUPABASE_ANON_KEY` without the `NEXT_PUBLIC_` prefix).
 
-Canonical names live in `core/rpc/.../RpcNames.kt` — keep in sync with web +
+3. Rebuild so BuildConfig picks up properties: `.\gradlew.bat assembleDebug`
+
+### Auth (no hardcoded JWTs)
+
+Live client installs GoTrue (`auth-kt`) with the **anon key** only. Authenticated RPCs need a session:
+
+- When login UI exists: `supabase.auth.signInWith(...)` (or your auth screen stub).
+- Until then: cast to `SupabaseRpcClient` and call `importAccessToken(accessToken)` with a token from a secure sign-in flow — **never** commit JWTs or put them in BuildConfig.
+
+### Pay
+
+Intent **create only** (RPC → intent UUID). No ContiPay / Paynow HMAC, private keys, or PSP crypto in the app.
+
+Canonical names: `core/rpc/.../RpcNames.kt` — keep in sync with web +
 `supabase/migrations/20260724130000_customer_storefront_authz.sql`.
-
-Payment intents: **create only** (intent UUID). No PSP crypto/secrets in the app; settle stays
-webhook / service_role.
 
 ## Exclusions
 
@@ -63,7 +78,7 @@ webhook / service_role.
 
 ## Env placeholders
 
-See `.env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY` only.
+See `.env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY` only. Optional: `rpc.forceFake=true` in `local.properties`.
 
 ## Run
 
@@ -83,4 +98,4 @@ cd apps/android-customer
 
 | Target | Status |
 |--------|--------|
-| `assembleDebug` | **Source-ready** — host may lack JDK / Android SDK; assemble when toolchain is present |
+| `assembleDebug` | **Source-ready** — needs JDK 17+ / Android SDK; Gradle resolves supabase-kt from Maven Central |
