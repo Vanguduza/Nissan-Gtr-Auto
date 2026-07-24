@@ -153,6 +153,72 @@ BEGIN
 END;
 $$;
 
+-- Allow storefront checkout to emit order_* domain events (still blocks raw customer calls).
+CREATE OR REPLACE FUNCTION public.emit_domain_event(
+  p_event_code TEXT,
+  p_dedupe_key TEXT,
+  p_payload JSONB DEFAULT '{}'::jsonb,
+  p_actor_user_id UUID DEFAULT auth.uid(),
+  p_message_body TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_event_id UUID;
+  v_body TEXT;
+  v_desc TEXT;
+BEGIN
+  IF auth.role() = 'authenticated'
+     AND NOT public.is_staff()
+     AND NOT public._storefront_rpc_active() THEN
+    RAISE EXCEPTION 'Only staff or service role may emit domain events';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.sms_event_catalog c
+    WHERE c.code = p_event_code AND c.is_active
+  ) THEN
+    RAISE EXCEPTION 'Unknown or inactive event_code: %', p_event_code;
+  END IF;
+
+  INSERT INTO public.domain_events (event_code, dedupe_key, payload, actor_user_id)
+  VALUES (p_event_code, p_dedupe_key, COALESCE(p_payload, '{}'::jsonb), p_actor_user_id)
+  ON CONFLICT (event_code, dedupe_key) DO NOTHING
+  RETURNING id INTO v_event_id;
+
+  IF v_event_id IS NULL THEN
+    SELECT id INTO v_event_id
+    FROM public.domain_events
+    WHERE event_code = p_event_code AND dedupe_key = p_dedupe_key;
+  END IF;
+
+  SELECT description INTO v_desc FROM public.sms_event_catalog WHERE code = p_event_code;
+  v_body := COALESCE(
+    p_message_body,
+    format('GTR Auto: %s (%s)', v_desc, p_event_code)
+  );
+
+  INSERT INTO public.sms_outbox (
+    domain_event_id, event_code, recipient_user_id, phone_e164, body
+  )
+  SELECT
+    v_event_id,
+    p_event_code,
+    p.user_id,
+    p.phone_e164,
+    v_body
+  FROM public.manager_sms_preferences p
+  WHERE p.event_code = p_event_code
+    AND p.enabled = true
+  ON CONFLICT (domain_event_id, recipient_user_id) DO NOTHING;
+
+  RETURN v_event_id;
+END;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Customer cart RPCs (force ownership; reuse add/checkout)
 -- ---------------------------------------------------------------------------
