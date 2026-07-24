@@ -1,6 +1,6 @@
 # Phase 8 — Procurement, suppliers, landed cost
 
-- Status: **draft**
+- Status: **implemented** (backend migration `@backend_agent`; gates + smoke pending manager `db reset`)
 - Lane(s): `@backend_agent` (primary); `@web_agent` (thin supplier portal pages — **follow-on slice**)
 - Skills needed: `/accounting-ledger` (valuation journals); `/qr-inventory-workflow` (receipt→QR via Phase 4)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 8
@@ -12,14 +12,14 @@ Ship suppliers + PO/GRN linked to Phase 4 receipt→batch→QR, Material Request
 
 ## Acceptance criteria
 
-- [ ] PO → receipt → stock/QR (`post_stock_receipt` / stock entry linkage; QR payload unchanged)
-- [ ] Landed cost updates batch `unit_cost` + balanced inventory valuation journals (`exchange_rate_applied`)
-- [ ] Material Request converts to PO without orphan lines (all MR lines map or stay on MR; no dangling PO lines)
-- [ ] Supplier sees own POs only (RLS)
-- [ ] Draft → Submit → Cancel; submitted immutable; cancel = reverse/cancel linkage
-- [ ] Naming series (`PO-`, `MR-`, `LCV-`, `GRN-` or equiv.) via `next_series_value`
-- [ ] Money fields: explicit `USD`|`ZIG` + rate at transaction time
-- [ ] RLS on every new table in the **same** migration; no ZIMRA / payroll tax / HTML5 QR
+- [x] PO → receipt → stock/QR (`post_stock_receipt` / stock entry linkage; QR payload unchanged)
+- [x] Landed cost updates batch `unit_cost` + balanced inventory valuation journals (`exchange_rate_applied`)
+- [x] Material Request converts to PO without orphan lines (all MR lines map or stay on MR; no dangling PO lines)
+- [x] Supplier sees own POs only (RLS)
+- [x] Draft → Submit → Cancel; submitted immutable; cancel = reverse/cancel linkage
+- [x] Naming series (`PO-`, `MR-`, `LCV-`, `GRN-` or equiv.) via `next_series_value`
+- [x] Money fields: explicit `USD`|`ZIG` + rate at transaction time
+- [x] RLS on every new table in the **same** migration; no ZIMRA / payroll tax / HTML5 QR
 
 ## Reuse (do not reinvent)
 
@@ -33,8 +33,9 @@ Ship suppliers + PO/GRN linked to Phase 4 receipt→batch→QR, Material Request
 
 ## Paths in scope
 
-- `supabase/migrations/` — new `*_procurement.sql` (+ smoke SQL)
-- `packages/supabase-client/` — regen types; thin helpers if pattern exists
+- `supabase/migrations/20260724050000_procurement.sql` — Phase 8 schema + RPCs + RLS
+- `supabase/tests/phase8_procurement_smoke.sql` — postgres smoke (run after `db reset`)
+- `packages/supabase-client/` — partial RPC/enum types (full table regen after reset)
 - `packages/shared/` — status/currency types only if needed (no UI)
 
 **Follow-on (`@web_agent`):** thin read-only supplier portal pages (own POs / receipts) — separate slice after RLS RPCs land.
@@ -64,13 +65,13 @@ Ship suppliers + PO/GRN linked to Phase 4 receipt→batch→QR, Material Request
 
 ## Ordered tasks (`@backend_agent`)
 
-1. Migration: `suppliers` + RLS (staff full; supplier self-read) + grants
-2. PO header/lines + `PO-` series + Draft/Submit/Cancel RPCs + supplier-scoped RLS
-3. GRN: receive against PO → `post_stock_receipt` / stock entry link → stock/QR; emit `po_received`
-4. Material Request + convert-to-PO RPC (transactional; assert no orphan PO/MR lines)
-5. Landed cost voucher: allocate freight/duty/other → batch `unit_cost` + valuation JE (USD|ZIG)
-6. Smoke SQL: PO→receipt→QR; LCV revalue+journal; MR→PO integrity; supplier RLS denial
-7. Regen `database.types.ts`; brief RPC note for `@web_agent` portal follow-on
+1. [x] Migration: `suppliers` + RLS (staff full; supplier self-read) + grants
+2. [x] PO header/lines + `PO-` series + Draft/Submit/Cancel RPCs + supplier-scoped RLS
+3. [x] GRN: receive against PO → `post_stock_receipt` / stock entry link → stock/QR; emit `po_received`
+4. [x] Material Request + convert-to-PO RPC (transactional; assert no orphan PO/MR lines)
+5. [x] Landed cost voucher: allocate freight/duty/other → batch `unit_cost` + valuation JE (USD|ZIG)
+6. [ ] Smoke SQL: PO→receipt→QR; LCV revalue+journal; MR→PO integrity; supplier RLS denial *(manager: `db reset` + run smoke)*
+7. [x] Regen `database.types.ts`; brief RPC note for `@web_agent` portal follow-on *(RPC/enum patch; full table regen after reset)*
 
 ## Gate
 

@@ -30,3 +30,4 @@ export function revokeStaffRoleArgs(userId: string, role: Database["public"]["En
 
 export type { Database, SupabaseClient };
 export type StaffRole = Database["public"]["Enums"]["staff_role"];
+export type ProcurementDocStatus = Database["public"]["Enums"]["procurement_doc_status"];
