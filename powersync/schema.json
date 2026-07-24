@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GTR PowerSync client schema stub",
+  "description": "Phase 14 stub — column allowlist for POS / dispatch / cycle-count sync. Not auto-generated; regenerate when wiring SDK (Phases 11–12).",
+  "tables": {
+    "pos_carts": {
+      "bucket": "by_user_pos",
+      "columns": [
+        "id",
+        "document_number",
+        "customer_id",
+        "warehouse_id",
+        "currency",
+        "exchange_rate_applied",
+        "status",
+        "created_by",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "pos_cart_lines": {
+      "bucket": "by_user_pos",
+      "columns": [
+        "id",
+        "cart_id",
+        "stock_item_id",
+        "parent_line_id",
+        "is_core_charge",
+        "uom_id",
+        "qty",
+        "qty_base",
+        "unit_price",
+        "line_total",
+        "qty_fulfilled",
+        "created_at"
+      ]
+    },
+    "customers": {
+      "bucket": "by_user_pos",
+      "columns": [
+        "id",
+        "display_name",
+        "phone_e164",
+        "email",
+        "price_list_id",
+        "credit_limit",
+        "credit_hold",
+        "currency"
+      ]
+    },
+    "sales_invoices": {
+      "bucket": "by_staff_dispatch",
+      "columns": [
+        "id",
+        "doc_type",
+        "status",
+        "document_number",
+        "customer_id",
+        "warehouse_id",
+        "currency",
+        "exchange_rate_applied",
+        "fulfillment_mode",
+        "subtotal",
+        "created_at"
+      ]
+    },
+    "delivery_notes": {
+      "bucket": "by_staff_dispatch",
+      "columns": [
+        "id",
+        "sales_invoice_id",
+        "document_number",
+        "status",
+        "created_at",
+        "submitted_at"
+      ]
+    },
+    "delivery_note_lines": {
+      "bucket": "by_staff_dispatch",
+      "columns": [
+        "id",
+        "delivery_note_id",
+        "sales_invoice_line_id",
+        "stock_item_id",
+        "uom_id",
+        "qty",
+        "qty_base"
+      ]
+    },
+    "delivery_jobs": {
+      "bucket": "by_staff_dispatch",
+      "columns": [
+        "id",
+        "delivery_note_id",
+        "status",
+        "dispatched_at",
+        "completed_at"
+      ]
+    },
+    "delivery_locations": {
+      "bucket": "by_staff_dispatch",
+      "columns": ["id", "delivery_job_id", "lat", "lng", "recorded_at"],
+      "notes": "GPS points are bridge-fed only; no browser geolocation."
+    },
+    "pick_lists": {
+      "bucket": "by_staff_dispatch",
+      "columns": ["id", "sales_invoice_id", "status", "warehouse_id", "created_at"]
+    },
+    "pick_list_lines": {
+      "bucket": "by_staff_dispatch",
+      "columns": [
+        "id",
+        "pick_list_id",
+        "sales_invoice_line_id",
+        "stock_item_id",
+        "qty_to_pick",
+        "qty_picked"
+      ]
+    },
+    "stock_reconciliations": {
+      "bucket": "by_staff_cycle_count",
+      "columns": [
+        "id",
+        "warehouse_id",
+        "scope",
+        "status",
+        "currency",
+        "exchange_rate_applied",
+        "notes",
+        "created_at"
+      ]
+    },
+    "stock_reconciliation_lines": {
+      "bucket": "by_staff_cycle_count",
+      "columns": [
+        "id",
+        "stock_reconciliation_id",
+        "stock_item_id",
+        "system_qty",
+        "counted_qty",
+        "variance_qty"
+      ]
+    },
+    "stock_items": {
+      "buckets": ["by_user_pos", "by_staff_cycle_count"],
+      "columns": ["id", "oem_part_number", "description", "base_uom_id", "requires_serial"]
+    },
+    "stock_levels": {
+      "buckets": ["by_user_pos", "by_staff_cycle_count"],
+      "columns": ["warehouse_id", "stock_item_id", "qty_on_hand"]
+    },
+    "warehouses": {
+      "buckets": ["by_user_pos", "by_staff_dispatch", "by_staff_cycle_count"],
+      "columns": ["id", "code", "name"]
+    }
+  },
+  "offline_rpc_intents": [
+    "checkout_pos_cart",
+    "create_delivery_note",
+    "submit_delivery_note",
+    "create_stock_reconciliation_draft",
+    "upsert_stock_reconciliation_lines",
+    "submit_stock_reconciliation",
+    "approve_stock_reconciliation"
+  ],
+  "never_client_mutate": ["journal_entries", "journal_entry_lines"]
+}

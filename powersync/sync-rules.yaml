@@ -1,0 +1,61 @@
+# PowerSync sync rules stub — Nissan GTR Auto ERP (Phase 14)
+# Docs: https://docs.powersync.com/usage/sync-rules
+# No secrets. Staff-scoped buckets only. Mutations go through Supabase RPCs, not client JE writes.
+#
+# Token claims expected (from Supabase JWT / custom auth connector):
+#   request.jwt.claims.sub  → auth user id
+# Staff membership is enforced server-side via RLS; buckets below are read models + draft work docs.
+
+bucket_definitions:
+  # --- POS sale (carts → invoice via RPC checkout) ---
+  by_user_pos:
+    parameters: SELECT request.user_id() AS user_id
+    data:
+      - SELECT * FROM pos_carts WHERE created_by = bucket.user_id AND status = 'open'
+      - SELECT pcl.* FROM pos_cart_lines pcl
+          INNER JOIN pos_carts pc ON pc.id = pcl.cart_id
+        WHERE pc.created_by = bucket.user_id AND pc.status = 'open'
+      - SELECT * FROM customers WHERE true
+      - SELECT * FROM price_lists WHERE is_active = true
+      - SELECT * FROM price_list_items WHERE true
+      - SELECT * FROM customer_price_overrides WHERE true
+      - SELECT id, oem_part_number, description, base_uom_id, requires_serial FROM stock_items WHERE true
+      - SELECT * FROM uoms WHERE true
+      - SELECT * FROM warehouses WHERE true
+      - SELECT warehouse_id, stock_item_id, qty_on_hand FROM stock_levels WHERE true
+
+  # --- Dispatch / delivery notes (read models + open jobs) ---
+  by_staff_dispatch:
+    # Connector should only issue this bucket to warehouse|dispatcher|sales|admin staff.
+    parameters: SELECT request.user_id() AS user_id
+    data:
+      - SELECT * FROM sales_invoices WHERE fulfillment_mode = 'dispatch' AND status = 'posted'
+      - SELECT sil.* FROM sales_invoice_lines sil
+          INNER JOIN sales_invoices si ON si.id = sil.sales_invoice_id
+        WHERE si.fulfillment_mode = 'dispatch' AND si.status = 'posted'
+      - SELECT * FROM pick_lists WHERE status IN ('draft', 'in_progress', 'completed')
+      - SELECT * FROM pick_list_lines WHERE true
+      - SELECT * FROM delivery_notes WHERE status IN ('draft', 'submitted')
+      - SELECT * FROM delivery_note_lines WHERE true
+      - SELECT * FROM delivery_jobs WHERE status IN ('pending', 'dispatched', 'completed', 'failed')
+      - SELECT * FROM delivery_locations WHERE true
+
+  # --- Cycle count / stock reconciliation ---
+  by_staff_cycle_count:
+    # Connector should only issue this bucket to warehouse|admin staff.
+    parameters: SELECT request.user_id() AS user_id
+    data:
+      - SELECT * FROM stock_reconciliations WHERE status IN ('draft', 'pending_approval')
+      - SELECT srl.* FROM stock_reconciliation_lines srl
+          INNER JOIN stock_reconciliations sr ON sr.id = srl.stock_reconciliation_id
+        WHERE sr.status IN ('draft', 'pending_approval')
+      - SELECT id, oem_part_number, description, base_uom_id FROM stock_items WHERE true
+      - SELECT warehouse_id, stock_item_id, qty_on_hand FROM stock_levels WHERE true
+      - SELECT * FROM warehouses WHERE true
+
+# Offline write path (not PowerSync upload tables — RPC intents only):
+#   POS: checkout_pos_cart / equivalent sales RPC
+#   Dispatch: create_delivery_note, submit_delivery_note, delivery job status RPCs
+#   Recon: create_stock_reconciliation_draft, upsert_stock_reconciliation_lines,
+#          submit_stock_reconciliation, approve_stock_reconciliation
+# Never sync-upload journal_entries / journal_entry_lines from the client.
