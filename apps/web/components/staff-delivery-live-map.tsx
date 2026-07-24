@@ -70,14 +70,14 @@ function trailFeatureCollection(points: DeliveryLocationPoint[]): TrailGeoJSON {
 export function StaffDeliveryLiveMap({ points, live }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const markerRef = useRef<maplibregl.Marker | null>(null);
+  const markerRef = useRef<Marker | null>(null);
   const readyRef = useRef(false);
   const fittedJobKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = new maplibregl.Map({
+    const map = new MapLibreMap({
       container: containerRef.current,
       style: mapStyleUrl(),
       center: DEFAULT_CENTER,
@@ -85,7 +85,7 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
       attributionControl: true,
     });
     map.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
+      new NavigationControl({ showCompass: false }),
       "top-right",
     );
     mapRef.current = map;
