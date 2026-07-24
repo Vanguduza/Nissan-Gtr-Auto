@@ -105,3 +105,44 @@ export function requireBearerJwt(req: Request): string | null {
 export function isLocalUnverifiedAllowed(envFlag: string): boolean {
   return Deno.env.get(envFlag) === "1";
 }
+
+/** Merge top-level redirect URLs into intent metadata for RPC persistence. */
+export function mergeRedirectMetadata(
+  metadata: unknown,
+  urls: {
+    return_url?: string | null;
+    cancel_url?: string | null;
+    result_url?: string | null;
+  },
+): Record<string, unknown> {
+  const base =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? { ...(metadata as Record<string, unknown>) }
+      : {};
+  if (urls.return_url) base.return_url = urls.return_url;
+  if (urls.cancel_url) base.cancel_url = urls.cancel_url;
+  if (urls.result_url) base.result_url = urls.result_url;
+  return base;
+}
+
+/**
+ * Local stub checkout URL: bounce to client return_url so storefront
+ * `/checkout/return` can exercise redirect without real PSP keys.
+ * Preserves existing query (e.g. invoice=) and adds psp/stub/intent_id.
+ */
+export function stubCheckoutUrl(
+  returnUrl: string,
+  psp: "contipay" | "paynow",
+  intentId: string,
+): string {
+  try {
+    const u = new URL(returnUrl);
+    u.searchParams.set("psp", psp);
+    u.searchParams.set("stub", "1");
+    u.searchParams.set("intent_id", intentId);
+    return u.toString();
+  } catch {
+    const sep = returnUrl.includes("?") ? "&" : "?";
+    return `${returnUrl}${sep}psp=${psp}&stub=1&intent_id=${encodeURIComponent(intentId)}`;
+  }
+}
