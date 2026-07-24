@@ -13,7 +13,7 @@ export default function CartPage() {
       <h1 className={styles.title}>Cart</h1>
       <p className={styles.lede}>
         Checkout calls Phase 5 POS APIs with core-charge split and dual-currency
-        totals. ContiPay lands in Phase 13.
+        totals. Digital rails (ContiPay and Paynow) land in Phase 13.
       </p>
 
       <div className={styles.tableWrap}>

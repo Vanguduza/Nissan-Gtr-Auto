@@ -108,7 +108,7 @@ BEGIN
   ON CONFLICT (user_id, event_code) DO UPDATE
   SET enabled = true, phone_e164 = EXCLUDED.phone_e164, updated_at = now();
 
-  v_cart := public.create_pos_cart(v_main, v_cust, 'USD');
+  v_cart := public.create_pos_cart(v_main, v_cust, 'USD'::public.currency_code);
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 2);
   v_inv := public.checkout_pos_cart(v_cart);
 
@@ -176,7 +176,7 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: invoice not cleared paid=% open=%', v_paid, v_open;
   END IF;
 
-  v_cart := public.create_pos_cart(v_main, v_cust, 'USD');
+  v_cart := public.create_pos_cart(v_main, v_cust, 'USD'::public.currency_code);
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 1);
   v_inv := public.checkout_pos_cart(v_cart);
 
@@ -247,7 +247,7 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: store credit balance expected 15 got %', v_sc_bal;
   END IF;
 
-  v_cart := public.create_pos_cart(v_main, v_cust, 'USD');
+  v_cart := public.create_pos_cart(v_main, v_cust, 'USD'::public.currency_code);
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 1);
   v_inv := public.checkout_pos_cart(v_cart);
 
