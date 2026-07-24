@@ -893,15 +893,6 @@ BEGIN
     UPDATE public.sales_invoice_lines
     SET qty_fulfilled = qty_fulfilled + v_line.qty_base
     WHERE id = v_line.sales_invoice_line_id;
-
-    v_issue_lines := v_issue_lines || jsonb_build_array(
-      jsonb_build_object(
-        'stock_item_id', v_line.stock_item_id,
-        'uom_id', v_line.uom_id,
-        'qty', v_line.qty,
-        'valuation_method', 'FIFO'
-      )
-    );
   END LOOP;
 
   -- Stock entry header for audit trail (levels already adjusted above)
