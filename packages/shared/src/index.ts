@@ -40,3 +40,16 @@ export {
   type WarrantyClaimStatus,
   type WarrantyClaimResolution,
 } from "./warranty/claims.js";
+export {
+  FULFILLMENT_MODES,
+  PICK_LIST_STATUSES,
+  DELIVERY_NOTE_STATUSES,
+  DELIVERY_JOB_STATUSES,
+  PICK_LIST_DOCUMENT_PREFIX,
+  DELIVERY_NOTE_DOCUMENT_PREFIX,
+  DELIVERY_JOB_DOCUMENT_PREFIX,
+  type FulfillmentMode,
+  type PickListStatus,
+  type DeliveryNoteStatus,
+  type DeliveryJobStatus,
+} from "./logistics/types.js";
