@@ -13,8 +13,9 @@ Customer shell with thin Compose scaffolds for **cart**, **orders**, **My Garage
 
 | Module | Package | Role |
 |--------|---------|------|
-| `:app` | `co.zw.nissangtr.customer` | Launcher + route shell |
+| `:app` | `co.zw.nissangtr.customer` | Launcher + route shell + auth gate |
 | `:core:rpc` | `…customer.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
+| `:feature:auth` | `…customer.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
 | `:feature:cart` | `…customer.cart` | Create / add line / checkout |
 | `:feature:orders` | `…customer.orders` | Invoice list + `get_customer_order` |
 | `:feature:garage` | `…customer.garage` | Upsert / delete / list vehicles |
@@ -22,8 +23,9 @@ Customer shell with thin Compose scaffolds for **cart**, **orders**, **My Garage
 
 ## Screens (scaffolds)
 
-| Screen | Module | RPCs |
-|--------|--------|------|
+| Screen | Module | RPCs / role |
+|--------|--------|-------------|
+| `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
 | `CartScreen` | `:feature:cart` | `create_customer_cart`, `add_customer_cart_line`, `checkout_customer_cart` |
 | `OrdersScreen` | `:feature:orders` | `get_customer_order` (+ own-invoice SELECT) |
 | `GarageScreen` | `:feature:garage` | `upsert_customer_garage_vehicle`, `delete_customer_garage_vehicle` |
