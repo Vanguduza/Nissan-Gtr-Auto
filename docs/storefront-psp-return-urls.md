@@ -37,6 +37,17 @@ With `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` and
 
 When merchant keys land: pass the same URLs to the provider create-session API and replace stub `checkout_url` with the hosted session URL. Optional dedicated `return_url` column only if webhook reconciliation needs indexed lookup; metadata is enough for the storefront slice.
 
+## Secrets (never commit values)
+
+| Env | Where | Purpose |
+|-----|--------|---------|
+| `CONTIPAY_API_KEY`, `CONTIPAY_MERCHANT_ID`, ContiPay HMAC secret | Edge Function env only | Real initiate + webhook verify |
+| `PAYNOW_INTEGRATION_ID`, `PAYNOW_INTEGRATION_KEY` | Edge Function env only | Real initiate + hash verify |
+| `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` | Local edge only | Stub without secrets |
+| `NEXT_PUBLIC_SITE_URL` | Web app | Public origin for return/cancel links — **not** a secret |
+
+Do not put ContiPay / Paynow keys in `NEXT_PUBLIC_*`, migrations, or this doc.
+
 ## Exclusions
 
 No ZIMRA / fiscal QR; no HTML5 QR; no client-side HMAC with merchant keys.
