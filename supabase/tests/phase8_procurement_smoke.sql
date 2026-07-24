@@ -188,13 +188,16 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: LCV cancel missing reversal journal';
   END IF;
 
-  -- Supplier RLS: own PO visible, other supplier PO not
+  -- Supplier RLS: own PO visible, other supplier PO not (as authenticated, not postgres superuser)
   PERFORM public._test_set_auth_uid(v_supplier_user);
+  SET LOCAL role authenticated;
 
   SELECT count(*) INTO v_visible FROM public.purchase_orders WHERE id = v_po;
   IF v_visible <> 1 THEN
     RAISE EXCEPTION 'smoke fail: supplier cannot see own PO (count=%)', v_visible;
   END IF;
+
+  RESET ROLE;
 
   PERFORM public._test_set_auth_uid('a0000000-0000-4000-8000-000000000001');
   v_po2 := public.create_purchase_order(
