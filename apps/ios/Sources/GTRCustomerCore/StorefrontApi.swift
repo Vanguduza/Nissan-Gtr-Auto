@@ -10,7 +10,8 @@ import Foundation
 /// - `upsert_customer_garage_vehicle` / `delete_customer_garage_vehicle`
 /// - `create_customer_contipay_intent` / `create_customer_paynow_intent`
 ///   (prefer edge `contipay-initiate` / `paynow-initiate`; RPC fallback — no client PSP crypto)
-public protocol StorefrontApi: Sendable {
+@MainActor
+public protocol StorefrontApi: AnyObject {
     func createCart(
         warehouseId: UUID,
         currency: StorefrontCurrency,
@@ -222,14 +223,6 @@ public final class FakeStorefrontApi: StorefrontApi {
     }
 
     private func stubIntent(invoiceId: UUID, rail: PaymentRail) throws -> PaymentIntentResult {
-        _ = try orders.first(where: { $0.invoiceId == invoiceId }).map { _ in () }
-            ?? { throw StorefrontError.message("Order not found.") }()
-        // Ensure order exists
-        _ = try {
-            guard orders.contains(where: { $0.invoiceId == invoiceId }) else {
-                throw StorefrontError.message("Order not found.")
-            }
-        }()
         guard orders.contains(where: { $0.invoiceId == invoiceId }) else {
             throw StorefrontError.message("Order not found.")
         }
@@ -248,9 +241,10 @@ public final class FakeStorefrontApi: StorefrontApi {
 
 /// Documented live client — RPC / edge names match web; requires Supabase Swift SDK wiring on Mac.
 ///
-/// Until the SDK is linked, calls throw `notConfigured` / `message` describing the target RPC.
+/// Until the SDK is linked, calls throw describing the target RPC.
 /// No ContiPay/Paynow secrets or HMAC live in the app binary.
-public struct LiveStorefrontApi: StorefrontApi {
+@MainActor
+public final class LiveStorefrontApi: StorefrontApi {
     public init() {}
 
     public func createCart(
@@ -344,8 +338,8 @@ public struct LiveStorefrontApi: StorefrontApi {
 }
 
 /// Factory — Fake when env missing (scaffold default); Live when URL + anon key present.
+@MainActor
 public enum StorefrontApiFactory {
-    @MainActor
     public static func make() -> any StorefrontApi {
         if AppEnv.isConfigured {
             return LiveStorefrontApi()
