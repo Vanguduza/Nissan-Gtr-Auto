@@ -434,25 +434,30 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`. Local storefront seeds **applied** (`supabase/seed.sql` → `auth.users` + `profiles` + `customers.profile_id`); verified on local Supabase (no reset needed — migrations already current).
+**Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`. **Live map delivery tracking** slice Done (bridges + management ingest + staff MapLibre) — plan [`2026-07-24-live-map-delivery-tracking.md`](./2026-07-24-live-map-delivery-tracking.md). Local storefront seeds **applied**; migrations already current.
 
 **Done this wave**
-1. iOS: GoTrue email/password → JWT → `LiveStorefrontApi`; persist UserDefaults; Live gates tabs
-2. Android customer + management: `:feature:auth` + `signInWithEmail`; session via auth-kt; Live gates app
-3. Seed: `storefront-a@` / `storefront-b@gtr.local` / `local-dev-customer` + `customers.profile_id` link; `docs/LOCAL_DEVELOPMENT.md` §9 — **confirmed on local DB**
-4. Verifier PASS — no hardcoded JWTs; Fake bypass OK; no PSP crypto
+1. **GPS bridges:** `bridges/android/location-tracker/` (FusedLocation + FGS) + `bridges/ios/LocationTracker/` (CoreLocation) per `bridges/contracts/gps.ts` — emit coordinates only; no Supabase in bridge
+2. **Management Android:** Dispatch Start/Stop tracking → ≥5s throttle → `ingest_delivery_location` (Fake + Live); `:location-tracker` Gradle wire-up
+3. **Web staff live map:** `/staff/logistics/tracking` — MapLibre GL + Realtime subscribe on `delivery_locations` (no browser GPS)
+4. AuthZ **(b):** staff/dispatcher + driver ingest; customer remains **status-only** (no customer location RPC this slice)
+5. `/security-reviewer` — no blocking under (b); `/verifier` PASS (exclusions + Bridge-First)
 
 **Still follow-on** (remaining)
-1. **Thin surfaces + WhatsApp bot:** see [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md) (UI fill-in backlog; Meta Cloud API parts-finder + human handoff)
+1. **Thin surfaces + WhatsApp bot:** see [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md)
 2. **PSP env secrets only (user-provided):** ContiPay/Paynow HMAC + merchant secrets — set in local/edge env; do not commit
-3. Native assemble on JDK/Xcode hosts; iOS Keychain before prod
-4. PDP photos / Meili / PowerSync / native bridge impls
+3. Native assemble on JDK/Xcode hosts; device GPS + FGS permission flows; iOS Keychain before prod
+4. Production map tiles: set `NEXT_PUBLIC_MAP_STYLE_URL` (demo demotiles OK locally)
+5. Optional AuthZ **(a):** customer own-job last-point RPC + RLS + decision doc — deferred
+6. Optional ingest harden: assignee-bound `ingest_delivery_location`; explicit staff-role gate on tracking page
+7. PDP photos / Meili / PowerSync / remaining QR·ESC/POS·biometric bridge polish
 
 **In progress:** None.
 
 **Blockers / notes**
-- No commits. Seeds already on local; no `db reset` required unless wiping data.
+- No commits required by this slice unless user asks.
 - Staff: `admin@` / `warehouse@` / `finance@gtr.local` — see LOCAL_DEVELOPMENT.md
 - Storefront sign-in: `storefront-a@gtr.local` or `storefront-b@gtr.local` / `local-dev-customer` against `http://127.0.0.1:54321` + anon key
+- Demo: create job on `/staff/logistics` → management Start tracking → open `/staff/logistics/tracking`
 
-Commands: `pnpm dev:web`; mobile Live needs URL+anon + sign-in.
+Commands: `pnpm dev:web`; mobile Live needs URL+anon + sign-in; management needs JDK 17+ for assemble.
