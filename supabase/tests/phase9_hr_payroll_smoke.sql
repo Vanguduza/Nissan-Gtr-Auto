@@ -153,6 +153,35 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: expected 8 hours, got %', v_hours;
   END IF;
 
+  -- Non-HR non-self must not read another employee's hours
+  PERFORM public._test_set_auth_uid(v_wh);
+  BEGIN
+    PERFORM public.attendance_hours_in_period(
+      v_emp,
+      v_day::timestamptz,
+      (v_day + 1)::timestamptz
+    );
+    RAISE EXCEPTION 'smoke fail: warehouse attendance_hours_in_period for other emp should throw';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%admin/hr role or own employee record required%' THEN
+        RAISE;
+      END IF;
+  END;
+
+  -- Self may read own hours
+  PERFORM public._test_set_auth_uid(v_emp_user);
+  v_hours := public.attendance_hours_in_period(
+    v_emp,
+    v_day::timestamptz,
+    (v_day + 1)::timestamptz
+  );
+  IF v_hours IS DISTINCT FROM 8 THEN
+    RAISE EXCEPTION 'smoke fail: employee self hours expected 8, got %', v_hours;
+  END IF;
+
+  PERFORM public._test_set_auth_uid(v_admin);
+
   -- Payroll run for the day
   v_run := public.create_payroll_run(v_day, v_day, 'USD', 1, 'P9 smoke run');
   PERFORM public.compute_payroll_run(v_run, ARRAY[v_emp]);

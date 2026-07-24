@@ -1,4 +1,4 @@
--- Phase 9 follow-up: AuthZ on attendance_hours_in_period + tighter label tighten.
+-- Phase 9 follow-up: AuthZ on attendance_hours_in_period + deduction label tighten.
 -- HARD exclusions unchanged: NO PAYE/NSSA/statutory engines, NO ZIMRA.
 
 -- ---------------------------------------------------------------------------
@@ -66,12 +66,12 @@ GRANT EXECUTE ON FUNCTION public.attendance_hours_in_period(UUID, TIMESTAMPTZ, T
 -- (SECURITY DEFINER RPC still inserts as owner)
 -- ---------------------------------------------------------------------------
 REVOKE INSERT ON public.attendance_events FROM authenticated;
--- Keep SELECT/UPDATE/DELETE for RLS-gated HR (and self SELECT)
 GRANT SELECT, UPDATE, DELETE ON public.attendance_events TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.attendance_events TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- Tighten add_payroll_deduction deny-regex: bare tax / zimra / fiscal
+-- (body otherwise identical to 20260724070000)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.add_payroll_deduction(
   p_payroll_line_id UUID,
@@ -84,25 +84,23 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_id UUID;
   v_line public.payroll_lines%ROWTYPE;
   v_run public.payroll_runs%ROWTYPE;
-  v_amt NUMERIC;
+  v_id UUID;
+  v_ded NUMERIC;
 BEGIN
-  PERFORM public._require_hr_staff();
   PERFORM public._payroll_begin_rpc();
+  PERFORM public._require_hr_staff();
 
   IF p_label IS NULL OR length(trim(p_label)) = 0 THEN
     RAISE EXCEPTION 'deduction label required';
   END IF;
-
-  IF p_amount IS NULL OR p_amount <= 0 THEN
-    RAISE EXCEPTION 'deduction amount must be > 0';
-  END IF;
-
   -- Reject labels that imply statutory tax calc / authority remittance
   IF lower(p_label) ~ '(paye|nssa|pobs|apwcs|zimdef|statutory|tax.?bracket|p4a?|\ytax\y|zimra|fiscal)' THEN
     RAISE EXCEPTION 'statutory/tax deduction labels are not allowed; use manual labels only';
+  END IF;
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'deduction amount must be > 0';
   END IF;
 
   SELECT * INTO v_line FROM public.payroll_lines WHERE id = p_payroll_line_id FOR UPDATE;
@@ -115,36 +113,28 @@ BEGIN
     RAISE EXCEPTION 'deductions only allowed on draft payroll runs';
   END IF;
 
-  v_amt := ROUND(p_amount, 4);
-
   INSERT INTO public.payroll_deduction_lines (
-    payroll_line_id, label, amount, currency, created_by
+    payroll_line_id, label, amount, currency
   )
   VALUES (
-    p_payroll_line_id, trim(p_label), v_amt, v_line.currency, auth.uid()
+    p_payroll_line_id, trim(p_label), p_amount, v_line.currency
   )
   RETURNING id INTO v_id;
 
+  SELECT COALESCE(SUM(amount), 0) INTO v_ded
+  FROM public.payroll_deduction_lines
+  WHERE payroll_line_id = p_payroll_line_id;
+
+  IF v_ded > v_line.gross_amount THEN
+    RAISE EXCEPTION 'deductions (%) exceed gross (%)', v_ded, v_line.gross_amount;
+  END IF;
+
   UPDATE public.payroll_lines
-  SET
-    deductions_amount = deductions_amount + v_amt,
-    net_amount = gross_amount - (deductions_amount + v_amt),
-    updated_at = now()
+  SET deductions_amount = v_ded,
+      net_amount = gross_amount - v_ded
   WHERE id = p_payroll_line_id;
 
-  UPDATE public.payroll_runs pr
-  SET
-    total_deductions = (
-      SELECT COALESCE(SUM(l.deductions_amount), 0)
-      FROM public.payroll_lines l WHERE l.payroll_run_id = pr.id
-    ),
-    total_net = (
-      SELECT COALESCE(SUM(l.net_amount), 0)
-      FROM public.payroll_lines l WHERE l.payroll_run_id = pr.id
-    ),
-    updated_at = now()
-  WHERE pr.id = v_run.id;
-
+  PERFORM public._refresh_payroll_run_totals(v_line.payroll_run_id);
   RETURN v_id;
 END;
 $$;
