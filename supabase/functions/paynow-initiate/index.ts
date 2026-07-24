@@ -1,27 +1,50 @@
 /**
  * Paynow initiate stub.
  * Secrets: PAYNOW_INTEGRATION_ID, PAYNOW_INTEGRATION_KEY — Edge Function env only.
+ * Requires staff JWT; uses anon + user JWT so create_paynow_intent staff gate applies.
+ * Local stub without secrets: PAYNOW_ALLOW_UNVERIFIED_LOCAL=1
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import {
+  corsHeaders,
+  isLocalUnverifiedAllowed,
+  jsonResponse,
+  requireBearerJwt,
+} from "../_shared/payment_edge.ts";
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
   }
 
   try {
+    const authHeader = requireBearerJwt(req);
+    if (!authHeader) {
+      return jsonResponse(
+        { error: "Authorization Bearer JWT required" },
+        401,
+        cors,
+      );
+    }
+
     const integrationId = Deno.env.get("PAYNOW_INTEGRATION_ID");
     const integrationKey = Deno.env.get("PAYNOW_INTEGRATION_KEY");
+    const localStub = isLocalUnverifiedAllowed("PAYNOW_ALLOW_UNVERIFIED_LOCAL");
     if (!integrationId || !integrationKey) {
+      if (!localStub) {
+        return jsonResponse(
+          {
+            error:
+              "PAYNOW_INTEGRATION_ID / PAYNOW_INTEGRATION_KEY required (set PAYNOW_ALLOW_UNVERIFIED_LOCAL=1 for local stub only)",
+          },
+          503,
+          cors,
+        );
+      }
       console.warn(
-        "paynow-initiate: PAYNOW_INTEGRATION_ID / PAYNOW_INTEGRATION_KEY not set (stub mode)",
+        "paynow-initiate: secrets unset — local stub via PAYNOW_ALLOW_UNVERIFIED_LOCAL=1",
       );
     }
 
@@ -40,15 +63,18 @@ Deno.serve(async (req) => {
     } = body ?? {};
 
     if (!external_ref || !method || !amount) {
-      return new Response(JSON.stringify({ error: "external_ref, method, amount required" }), {
-        status: 400,
-        headers: { ...cors, "Content-Type": "application/json" },
-      });
+      return jsonResponse(
+        { error: "external_ref, method, amount required" },
+        400,
+        cors,
+      );
     }
 
+    // User-scoped client — never service_role on initiate (staff RPC gate must apply).
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
     );
 
     const { data, error } = await supabase.rpc("create_paynow_intent", {
@@ -65,26 +91,21 @@ Deno.serve(async (req) => {
     });
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
-        headers: { ...cors, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: error.message }, 400, cors);
     }
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         intent_id: data,
         status: "pending",
         poll_url: null,
         return_url_hint: "https://nissangtrauto.co.zw",
         stub: true,
-      }),
-      { headers: { ...cors, "Content-Type": "application/json" } },
+      },
+      200,
+      cors,
     );
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500,
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: String(e) }, 500, corsHeaders(req));
   }
 });
