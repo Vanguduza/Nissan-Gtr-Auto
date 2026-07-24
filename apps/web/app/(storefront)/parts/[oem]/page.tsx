@@ -59,9 +59,7 @@ export default async function PartPage({
           Fitment vs garage vehicle: <strong>Compatible (demo)</strong>
         </p>
         <div className={styles.actions}>
-          <Link href="/cart" className={styles.add}>
-            Add to cart
-          </Link>
+          <AddToCartButton oem={p.oem} />
           <Link href="/account/wishlist" className={styles.wish}>
             Wishlist
           </Link>
