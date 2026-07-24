@@ -51,7 +51,8 @@ public protocol StorefrontApi: Sendable {
 }
 
 /// In-memory Fake for Simulator / Windows scaffold — no network.
-public actor FakeStorefrontApi: StorefrontApi {
+@MainActor
+public final class FakeStorefrontApi: StorefrontApi {
     private var cart: CartSummary?
     private var orders: [CustomerOrder] = []
     private var garage: [GarageVehicle] = []
@@ -210,18 +211,28 @@ public actor FakeStorefrontApi: StorefrontApi {
         invoiceId: UUID,
         method _: ContipayMethod
     ) async throws -> PaymentIntentResult {
-        try await stubIntent(invoiceId: invoiceId, rail: .contipay)
+        try stubIntent(invoiceId: invoiceId, rail: .contipay)
     }
 
     public func createPaynowIntent(
         invoiceId: UUID,
         method _: PaynowMethod
     ) async throws -> PaymentIntentResult {
-        try await stubIntent(invoiceId: invoiceId, rail: .paynow)
+        try stubIntent(invoiceId: invoiceId, rail: .paynow)
     }
 
-    private func stubIntent(invoiceId: UUID, rail: PaymentRail) async throws -> PaymentIntentResult {
-        _ = try await getOrder(invoiceId: invoiceId)
+    private func stubIntent(invoiceId: UUID, rail: PaymentRail) throws -> PaymentIntentResult {
+        _ = try orders.first(where: { $0.invoiceId == invoiceId }).map { _ in () }
+            ?? { throw StorefrontError.message("Order not found.") }()
+        // Ensure order exists
+        _ = try {
+            guard orders.contains(where: { $0.invoiceId == invoiceId }) else {
+                throw StorefrontError.message("Order not found.")
+            }
+        }()
+        guard orders.contains(where: { $0.invoiceId == invoiceId }) else {
+            throw StorefrontError.message("Order not found.")
+        }
         let intentId = UUID()
         let url = URL(
             string: "gtr-customer://checkout/return?invoice=\(invoiceId.uuidString)&psp=\(rail.rawValue)&stub=1&intent_id=\(intentId.uuidString)"
