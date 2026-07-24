@@ -1388,3 +1388,4 @@ GRANT EXECUTE ON FUNCTION public.cancel_landed_cost_voucher(UUID, TEXT) TO authe
 -- @web_agent follow-on: supplier portal read-only via RLS policies above + RPC list:
 -- create_purchase_order / submit / cancel / create_goods_receipt / submit_goods_receipt
 -- convert_material_request_to_po / landed cost finance RPCs (finance role only)
+-- Smoke: supabase/tests/phase8_procurement_smoke.sql (after db reset)
