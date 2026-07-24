@@ -65,7 +65,7 @@ Staff RFQ → invite suppliers → collect quotations → compare and award → 
 3. [x] `award_quotation_to_po` — winner → PO lines/prices; smoke: compare→PO
 4. [x] Blanket PO flag/header + remaining qty/value + `create_blanket_release` with over-release reject
 5. [x] Smoke SQL: peer-quote denial; over-release deny; cancel restore remaining
-6. [ ] Regen types; brief RPC note for `@web_agent`
+6. [x] Regen types; brief RPC note for `@web_agent`
 
 ## Gate
 
