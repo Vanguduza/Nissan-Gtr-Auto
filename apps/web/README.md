@@ -21,4 +21,15 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(auth)`.
+Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`.
+
+### Phase 8b RFQ / supplier quotations
+
+Thin auth-gated portal (anon client + session; RLS enforces staff vs supplier):
+
+| Role | Routes | Actions |
+|------|--------|---------|
+| Staff | `/procurement`, `/procurement/rfqs`, `/procurement/rfqs/new`, `/procurement/rfqs/[id]` | `create_rfq`, `submit_rfq`, `award_quotation_to_po` |
+| Supplier | `/supplier`, `/supplier/rfqs`, `/supplier/rfqs/[id]` | list invited RFQs; `upsert_supplier_quotation`, `submit_supplier_quotation` |
+
+Blanket PO UI is not in this slice.
