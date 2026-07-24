@@ -26,7 +26,7 @@ export type StockItemOption = {
   id: string;
   oem_part_number: string;
   description: string | null;
-  default_uom_id: string | null;
+  base_uom_id: string | null;
 };
 
 export type RfqCreateLine = {
