@@ -1,6 +1,6 @@
 # Phase 16 — Distributor extras (bins, kits, consignment, loyalty)
 
-- Status: draft
+- Status: **slice 1 done** (bins); slices 2–5 pending
 - Lane(s): `@backend_agent` (primary — schema/RPC/RLS); UI follow-on `@web_agent` / `@management_app_agent` via child tickets
 - Skills needed: `/token-discipline`; `/accounting-ledger` for consignment revenue timing + loyalty liability if points post to CoA
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) § Phase 16 + Later distributor extras
@@ -14,7 +14,7 @@ Ship ordered backend child slices for bin locations, kit/BOM sell, consignment s
 
 | Order | Slice | Migration slot (suggested) | Notes |
 |------:|-------|----------------------------|-------|
-| 1 | Bin / location within warehouse | `20260724120000`+ | After Phase 14 reserved `…110000` / `…111000`; pick-path hints |
+| 1 | Bin / location within warehouse | `20260724120000_warehouse_bins.sql` | **Done** — RLS + CRUD RPCs + pick-path hints; smoke `phase16_bins_smoke.sql` |
 | 2 | Kits / BOM sell | next | Kit SKU and/or explode components at sale; core-charge rules unchanged |
 | 3 | Consignment stock | next | Supplier-owned or customer-held; **no premature revenue** |
 | 4 | Loyalty / points (optional) | last | Only after store credit (Phase 13) proven; liability account if ledger-backed |
@@ -22,7 +22,17 @@ Ship ordered backend child slices for bin locations, kit/BOM sell, consignment s
 
 One child plan or ticket per slice; do not combine all four in one mega-migration.
 
-## Acceptance criteria (per slice)
+### Slice 1 acceptance (bins)
+
+- [x] Migration after `20260724110000`: `supabase/migrations/20260724120000_warehouse_bins.sql` (RLS in same file)
+- [x] Master-data CRUD via RPCs (`create_warehouse_bin` / `update_warehouse_bin` / `deactivate_warehouse_bin` / `set_stock_level_bin`); Draft→Submit N/A (bins are not transactional docs)
+- [x] Optional `bin_id` on `stock_levels` + `stock_entry_lines`; receipt lines accept `bin_id`; cross-warehouse bin rejected; Quarantine return path unchanged
+- [x] Pick-path hints: `pick_path_seq` + `get_pick_path_hints`; `pick_list_lines.suggested_bin_id` stamped on create
+- [x] Smoke: `supabase/tests/phase16_bins_smoke.sql`
+- [x] No ZIMRA / payroll tax / HTML5 QR
+- [x] UI follow-on: `@management_app_agent` — bin CRUD + pick-path hints on pick lists (not blocking backend)
+
+## Acceptance criteria (remaining slices 2–5)
 
 - [ ] Migration(s) after `20260724110000`/`20260724111000` reservation; RLS in same file(s)
 - [ ] Transactional docs use Draft → Submit → Cancel pattern where applicable; ledger append-only (reversing entries only)
