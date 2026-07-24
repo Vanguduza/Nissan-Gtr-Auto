@@ -161,11 +161,13 @@ Child plan: `docs/plans/2026-07-24-phase16-distributor-extras.md` (when opened).
 
 ## Skill checklist summary counts
 
+Working-copy rows (logistics composite expanded for clarity):
+
 | Status | Count | Notes |
 |--------|------:|-------|
-| Done | 39 | Backend capability + verification gates |
+| Done | 43 | Incl. verification gates |
 | Gap | 0 | — |
-| Deferred | 8 | Phase 16×5 + biometric/QR staff (12) + PowerSync client (11–12) + native Bridge QR (12) — Phase 16 table lists 5; HR/mobile add 3 |
+| Deferred | 7 | bins, kits, consignment, loyalty; biometric staff (12); PowerSync client (11–12); native Bridge QR (12) |
 | Excluded | 2 | Tax/GST; PAYE/NSSA (standing — never Done-as-feature) |
 
-Deferred detail: Phase 16 (bins, kits, consignment, loyalty, attachments) + biometric staff identity (12) + PowerSync client (11–12) + native Bridge QR (12) = **8**.
+Phase 16 register also defers **attachments + doc timeline** (not a separate skill checkbox row above).
