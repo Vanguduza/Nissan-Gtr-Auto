@@ -225,6 +225,26 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: supplier saw other supplier PO';
   END IF;
 
+  -- Direct mutation on submitted PO must be denied (RLS + triggers)
+  PERFORM public._test_set_auth_uid('a0000000-0000-4000-8000-000000000001');
+  SET LOCAL role authenticated;
+
+  BEGIN
+    UPDATE public.purchase_orders
+    SET status = 'draft', notes = 'smoke bypass'
+    WHERE id = v_po;
+    RAISE EXCEPTION 'smoke fail: direct UPDATE on submitted PO should be denied';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%immutable%'
+        AND SQLERRM NOT LIKE '%procurement RPCs%'
+      THEN
+        RAISE;
+      END IF;
+  END;
+
+  RESET ROLE;
+
   RAISE NOTICE 'phase8_procurement_smoke: PASS po=% grn=% lcv=%', v_po, v_grn, v_lcv;
 END;
 $$;
