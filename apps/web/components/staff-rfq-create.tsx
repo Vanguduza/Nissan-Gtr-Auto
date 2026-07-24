@@ -76,8 +76,10 @@ export function StaffRfqCreate() {
       return;
     }
     setBoot({ kind: "ready", warehouses: wh.data, suppliers: sup.data });
-    if (wh.data[0] && !warehouseId) setWarehouseId(wh.data[0].id);
-  }, [warehouseId]);
+    if (wh.data[0]) {
+      setWarehouseId((prev) => prev || wh.data[0].id);
+    }
+  }, []);
 
   useEffect(() => {
     void refresh();
