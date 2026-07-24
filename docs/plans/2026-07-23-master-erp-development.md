@@ -444,7 +444,7 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 |------:|-------|
 | 11–12 | Mobile — stub/scaffold only until API contracts validated; full apps deferred |
 | 14 | Must-now **Done**; PowerSync client / E2E offline → after 11–12 |
-| 16 | Distributor extras (bins/kits/consignment/loyalty) — unlocked after Phase 15 audit |
+| 16 | Distributor extras backend **Done**; UI follow-on (bins/kits/consignment/loyalty) |
 
 **Done (recent)**
 1. Phase 14 must-now (CI + exclusion/smoke + PowerSync stubs + hardening docs).

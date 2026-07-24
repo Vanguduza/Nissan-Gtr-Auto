@@ -64,7 +64,7 @@ Citations are migration / smoke / edge paths only — no blueprint dumps.
 | Credit limit / customer hold | Done | `credit_limit`, `on_hold` in `…230000` |
 | Backorders / partial fulfill | Done | `qty_fulfilled` on invoice lines (`…230000`) + pick/DN partials (`…80000_logistics_pick_pack_dn.sql`) |
 | Warranty / serial claims | Done | `…30000_warranty_claims.sql`, `…41000_warranty_mutation_guards.sql`; smoke `phase5b_warranty_smoke.sql` |
-| Loyalty / points | Deferred | **Phase 16** (optional after store credit) |
+| Loyalty / points | Done (backend) | `…123000_loyalty_points.sql`; CoA 2210 liability; smoke `phase16_loyalty_smoke.sql`; UI follow-on |
 
 ---
 

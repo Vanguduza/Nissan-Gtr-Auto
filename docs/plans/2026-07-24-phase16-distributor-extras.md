@@ -57,14 +57,29 @@ One child plan or ticket per slice; do not combine all four in one mega-migratio
 - [x] No ZIMRA / payroll tax / HTML5 QR; no loyalty
 - [x] UI follow-on: `@management_app_agent` — consignment receive / place / take_ownership / sale (not blocking backend)
 
-## Acceptance criteria (remaining slices 4–5)
+### Slice 4 acceptance (loyalty / points)
 
-- [ ] Migration(s) after consignment (`20260724122000`); RLS in same file(s)
-- [ ] Transactional docs use Draft → Submit → Cancel pattern where applicable; ledger append-only (reversing entries only)
-- [ ] Money fields carry `USD`\|`ZIG` + `exchange_rate_applied` when converted
-- [ ] Smoke SQL for the slice; types regen note for `packages/supabase-client/`
-- [ ] No ZIMRA / payroll tax / HTML5 QR
-- [ ] UI follow-on ticket named (web and/or management) — not blocking backend Done if API complete
+- [x] Migration after consignment: `supabase/migrations/20260724123000_loyalty_points.sql` (RLS in same file)
+- [x] CoA **2210** Loyalty Points Liability + **5350** Loyalty Program Expense; earn Dr 5350 / Cr 2210; redeem Dr 2210 / Cr 1200; expire Dr 2210 / Cr 5350
+- [x] `loyalty_accounts` / `loyalty_ledger` (append-only) + RPCs (`earn_loyalty_points` / `earn_loyalty_from_spend` / `redeem_loyalty_points` / `expire_loyalty_points` / `reverse_loyalty_movement` / `get_loyalty_balance` / `set_loyalty_program_settings`)
+- [x] Money fields: `money_value` + `currency` + `exchange_rate_applied` (ZIG requires rate); liability per point from settings
+- [x] Smoke: `supabase/tests/phase16_loyalty_smoke.sql` (PASS via docker exec)
+- [x] Shared types: `packages/shared/src/loyalty/types.ts`; types regen note for `packages/supabase-client/`
+- [x] No ZIMRA / payroll tax / HTML5 QR
+- [x] UI follow-on: `@web_agent` — `/account/loyalty` (not blocking backend)
+
+### Slice 5 (attachments / timeline)
+
+- [x] **Skipped** — soft AC; not required for Phase 16 backend Done
+
+## Acceptance criteria (Phase 16 backend)
+
+- [x] Migrations after Phase 14/15 timestamps; RLS in same file(s)
+- [x] Transactional docs use Draft → Submit → Cancel where applicable; loyalty uses immediate RPCs + reversing entries (store-credit pattern)
+- [x] Money fields carry `USD`\|`ZIG` + `exchange_rate_applied` when converted
+- [x] Smoke SQL per slice; types regen note for `packages/supabase-client/`
+- [x] No ZIMRA / payroll tax / HTML5 QR
+- [x] UI follow-on tickets named — not blocking backend Done
 
 ## Paths in scope
 
