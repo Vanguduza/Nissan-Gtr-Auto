@@ -434,25 +434,18 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Backend phases Done. Customer AuthZ + polish Done. **Staff HR/logistics UI + thin mobile screens Done** (this wave). DB through `20260724130000`.
+**Master plan status:** Backend + polish + thin mobile/staff UI Done. DB through `20260724130000`.
 
-**Done this wave**
-1. Web staff: `/staff`, `/staff/hr` (clock + hours), `/staff/logistics` (pick→DN→job) — typecheck OK
-2. Android management: `:feature:hr` + dispatch screens via `FakeRpcClient` / `RpcNames`
-3. iOS customer: Cart / Orders / Garage / Pay tabs + `StorefrontApi` Fake/Live stubs
-4. Android customer: cart/orders/garage/pay features + `FakeRpcClient`
-5. No real ContiPay/Paynow crypto (intent id / stub only)
+**In progress**
+1. Live Supabase client wiring — supabase-kt (Android customer + management) + supabase-swift (iOS); FakeRpc remains fallback
+2. No PSP provider crypto; env URL/anon placeholders only
 
-**Still follow-on**
-1. Wire live supabase-kt / supabase-swift on mobile (replace Fake)
-2. Real PSP provider HMAC + merchant secrets (env only)
-3. PDP photos / Meili / PowerSync client / blanket PO UI
-4. Native bridge implementations (contracts ready)
-
-**In progress:** None.
+**Next**
+1. `/verifier` on exclusions/lane after wiring
+2. Real PSP HMAC when merchant secrets exist (env only)
 
 **Blockers / notes**
-- No commits (user did not request).
-- Native `assembleDebug` / Xcode need host toolchains.
+- No commits. Native builds may skip if JDK/Xcode missing.
+- Do not invent ContiPay/Paynow crypto.
 
-Commands: `pnpm dev:web` — staff at `/staff`; RFQ `/procurement` `/supplier`.
+Commands: `pnpm dev:web`; staff `/staff`; see app READMEs for Fake vs Live switch.
