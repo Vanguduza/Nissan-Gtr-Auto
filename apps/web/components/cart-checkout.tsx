@@ -112,20 +112,15 @@ export function CartCheckout() {
         return;
       }
       cartId = created.data.id;
-      await refresh();
     }
 
-    const lines =
-      status.kind === "ready" && status.cart?.id === cartId
-        ? status.lines
-        : (await loadCartLines(client, cartId)).ok
-          ? (await loadCartLines(client, cartId) as Extract<
-              Awaited<ReturnType<typeof loadCartLines>>,
-              { ok: true }
-            >).data
-          : [];
-
-    if (!lines.length) {
+    const linesResult = await loadCartLines(client, cartId);
+    if (!linesResult.ok) {
+      setMessage(linesResult.error);
+      setBusy(false);
+      return;
+    }
+    if (!linesResult.data.length) {
       setMessage("Add a part before checkout.");
       setBusy(false);
       return;
