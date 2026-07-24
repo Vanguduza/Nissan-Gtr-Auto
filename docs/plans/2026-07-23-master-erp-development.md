@@ -434,18 +434,23 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Backend + polish + thin mobile/staff UI Done. DB through `20260724130000`.
+**Master plan status:** Backend + polish + thin UI + **live mobile Supabase clients** Done. DB through `20260724130000`.
 
-**In progress**
-1. Live Supabase client wiring — supabase-kt (Android customer + management) + supabase-swift (iOS); FakeRpc remains fallback
-2. No PSP provider crypto; env URL/anon placeholders only
+**Done this wave**
+1. Android customer + management: `SupabaseRpcClient` (supabase-kt BOM 3.1.1) + `RpcClientFactory`; Fake when URL/anon empty or `rpc.forceFake=true`
+2. iOS: `LiveStorefrontApi` via URLSession PostgREST/edge (Windows-friendly); Fake when unset or `STOREFRONT_FORCE_FAKE`
+3. Verifier PASS — exclusions clean; no PSP crypto/secrets; Fake vs Live documented
 
-**Next**
-1. `/verifier` on exclusions/lane after wiring
-2. Real PSP HMAC when merchant secrets exist (env only)
+**Still follow-on**
+1. Customer/staff **sign-in UI** on mobile to supply user JWT (AuthZ needs session beyond anon)
+2. Real ContiPay/Paynow HMAC + merchant secrets (env only)
+3. `assembleDebug` / Xcode on hosts with JDK 17+ / macOS
+4. PDP photos / Meili / PowerSync / native bridge impls
+
+**In progress:** None.
 
 **Blockers / notes**
-- No commits. Native builds may skip if JDK/Xcode missing.
-- Do not invent ContiPay/Paynow crypto.
+- No commits (user did not request).
+- Live mode needs `SUPABASE_URL` + anon in `local.properties` / env; customer RPCs need user JWT after login.
 
-Commands: `pnpm dev:web`; staff `/staff`; see app READMEs for Fake vs Live switch.
+Commands: `pnpm dev:web`; see `apps/*/README.md` for Fake vs Live.
