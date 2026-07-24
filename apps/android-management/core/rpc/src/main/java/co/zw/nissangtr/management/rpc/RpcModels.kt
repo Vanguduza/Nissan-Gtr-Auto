@@ -30,3 +30,10 @@ data class ConfirmPickLineInput(
     val salesInvoiceLineId: String? = null,
     val qtyPicked: Double,
 )
+
+/** Mirrors `public.delivery_job_status` (RPC cannot revert to pending). */
+enum class DeliveryJobStatus(val rpcValue: String) {
+    DISPATCHED("dispatched"),
+    COMPLETED("completed"),
+    FAILED("failed"),
+}
