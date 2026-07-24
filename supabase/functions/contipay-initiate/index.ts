@@ -11,7 +11,9 @@ import {
   corsHeaders,
   isLocalUnverifiedAllowed,
   jsonResponse,
+  mergeRedirectMetadata,
   requireBearerJwt,
+  stubCheckoutUrl,
 } from "../_shared/payment_edge.ts";
 
 Deno.serve(async (req) => {
@@ -32,8 +34,9 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get("CONTIPAY_API_KEY");
     const merchantId = Deno.env.get("CONTIPAY_MERCHANT_ID");
+    const secretsMissing = !apiKey || !merchantId;
     const localStub = isLocalUnverifiedAllowed("CONTIPAY_ALLOW_UNVERIFIED_LOCAL");
-    if (!apiKey || !merchantId) {
+    if (secretsMissing) {
       if (!localStub) {
         return jsonResponse(
           {
@@ -62,6 +65,9 @@ Deno.serve(async (req) => {
       settlement_amount,
       settlement_exchange_rate,
       metadata,
+      return_url,
+      cancel_url,
+      result_url,
     } = body ?? {};
 
     if (!method) {
@@ -74,6 +80,12 @@ Deno.serve(async (req) => {
         cors,
       );
     }
+
+    const pMetadata = mergeRedirectMetadata(metadata, {
+      return_url,
+      cancel_url,
+      result_url,
+    });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -90,7 +102,7 @@ Deno.serve(async (req) => {
           p_settlement_currency: settlement_currency ?? null,
           p_settlement_amount: settlement_amount ?? null,
           p_settlement_exchange_rate: settlement_exchange_rate ?? null,
-          p_metadata: metadata ?? {},
+          p_metadata: pMetadata,
         })
       : await supabase.rpc("create_contipay_intent", {
           p_external_ref: external_ref,
@@ -102,18 +114,26 @@ Deno.serve(async (req) => {
           p_settlement_currency: settlement_currency ?? null,
           p_settlement_amount: settlement_amount ?? null,
           p_settlement_exchange_rate: settlement_exchange_rate ?? null,
-          p_metadata: metadata ?? {},
+          p_metadata: pMetadata,
         });
 
     if (error) {
       return jsonResponse({ error: error.message }, 400, cors);
     }
 
+    const checkoutUrl =
+      secretsMissing && typeof return_url === "string" && return_url.trim()
+        ? stubCheckoutUrl(return_url.trim(), "contipay", String(data))
+        : null;
+
     return jsonResponse(
       {
         intent_id: data,
         status: "pending",
-        checkout_url: null,
+        checkout_url: checkoutUrl,
+        return_url: typeof return_url === "string" ? return_url : null,
+        cancel_url: typeof cancel_url === "string" ? cancel_url : null,
+        result_url: typeof result_url === "string" ? result_url : null,
         stub: true,
       },
       200,
