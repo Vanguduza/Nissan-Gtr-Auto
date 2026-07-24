@@ -51,7 +51,8 @@ export {
   type PaynowMethod,
   type PaynowIntentStatus,
   type PaymentAllocationInput,
-} from "./payments/types.js";export {
+} from "./payments/types.js";
+export {
   WARRANTY_CLAIM_STATUSES,
   WARRANTY_CLAIM_RESOLUTIONS,
   WARRANTY_CLAIM_DOCUMENT_PREFIX,
