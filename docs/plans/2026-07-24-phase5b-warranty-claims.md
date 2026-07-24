@@ -1,11 +1,12 @@
 # Phase 5b — Warranty / serial claims
 
-- Status: **draft**
+- Status: **implemented** (pending local `supabase db reset` + smoke + gate agents)
 - Lane(s): `@backend_agent` (primary); `@management_app_agent` (RPC/API contracts only — full UI Phase 12)
 - Skills needed: (none required; `/qr-inventory-workflow` only if serial lookup via QR payload)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 5b
 - Prior: Phase 4 serials/quarantine (`20260723220000_inventory_ops.sql`); Phase 5 invoices/CN (`20260723230000_sales_pos.sql`)
 - Decisions: [`2026-07-23-manager-sms-key-events.md`](../decisions/2026-07-23-manager-sms-key-events.md) (`serial_moved`, `return_*`, `quarantine_received`)
+- RPC contract: [`docs/contracts/warranty-claims-rpc.md`](../contracts/warranty-claims-rpc.md)
 
 ## Goal
 
@@ -13,14 +14,14 @@ Light warranty claim against a sold serial and/or sales invoice (optional batch 
 
 ## Acceptance criteria
 
-- [ ] Claim create requires `stock_serial_id` **or** `sales_invoice_id` (or both); reject if neither
-- [ ] Status workflow: `open` → `approved` | `rejected` → `closed` (no skip; reject cannot approve later without new claim)
-- [ ] Approved return-to-stock uses `post_return_to_quarantine` / CN Quarantine path — never MAIN/saleable direct
-- [ ] Approved replacement issues from saleable stock (separate movement); returned unit still Quarantine-first
-- [ ] Optional link to `post_return_credit_note` when financial credit chosen
-- [ ] RLS on claim tables in same migration; staff write, finance read
-- [ ] Emit cheap domain events: claim open/approve/reject; reuse `quarantine_received` / `serial_moved` / `return_*` on stock/CN side
-- [ ] No ZIMRA / fiscal / warranty-authority tax payloads; no payroll tax; Bridge-First
+- [x] Claim create requires `stock_serial_id` **or** `sales_invoice_id` (or both); reject if neither
+- [x] Status workflow: `open` → `approved` | `rejected` → `closed` (no skip; reject cannot approve later without new claim)
+- [x] Approved return-to-stock uses `post_return_to_quarantine` / CN Quarantine path — never MAIN/saleable direct
+- [x] Approved replacement issues from saleable stock (separate movement); returned unit still Quarantine-first
+- [x] Optional link to `post_return_credit_note` when financial credit chosen
+- [x] RLS on claim tables in same migration; staff write, finance read
+- [x] Emit cheap domain events: claim open/approve/reject; reuse `quarantine_received` / `serial_moved` / `return_*` on stock/CN side
+- [x] No ZIMRA / fiscal / warranty-authority tax payloads; no payroll tax; Bridge-First
 
 ## Reuse (do not reinvent)
 
@@ -46,6 +47,8 @@ Light warranty claim against a sold serial and/or sales invoice (optional batch 
 2. `approve_warranty_claim(claim_id, resolution, lines?)` — `open`→`approved`; if return-to-stock → Quarantine RPC; if replacement → issue saleable; if credit → `post_return_credit_note`; emit events
 3. `reject_warranty_claim(claim_id, reason)` — `open`→`rejected`
 4. `close_warranty_claim(claim_id)` — from `approved`|`rejected` → `closed` (idempotent guard)
+
+**Shipped:** migration `20260724030000_warranty_claims.sql`; helper `post_stock_issue` (ISS-) for replacement; smoke `supabase/tests/phase5b_warranty_smoke.sql`.
 
 ## Paths in scope
 
