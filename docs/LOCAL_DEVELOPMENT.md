@@ -121,6 +121,8 @@ In the opened repo, these should auto-load:
 | `admin@gtr.local` | `local-dev-admin` | admin |
 | `finance@gtr.local` | `local-dev-finance` | finance |
 | `warehouse@gtr.local` | `local-dev-warehouse` | warehouse |
+| `storefront-a@gtr.local` | `local-dev-customer` | customer (`profiles.id` = `customers.profile_id` = `c0000000-0000-4000-8000-0000000000a1`) |
+| `storefront-b@gtr.local` | `local-dev-customer` | customer (`profiles.id` = `customers.profile_id` = `c0000000-0000-4000-8000-0000000000b2`) |
 
 ```bash
 pnpm db:start

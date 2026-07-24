@@ -4,9 +4,11 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Fixed UUIDs for local smoke tests / docs
--- admin:    a0000000-0000-4000-8000-000000000001
--- finance:  a0000000-0000-4000-8000-000000000002
--- warehouse:a0000000-0000-4000-8000-000000000003
+-- admin:       a0000000-0000-4000-8000-000000000001
+-- finance:     a0000000-0000-4000-8000-000000000002
+-- warehouse:   a0000000-0000-4000-8000-000000000003
+-- storefront-a:c0000000-0000-4000-8000-0000000000a1  (customer row c100…a1)
+-- storefront-b:c0000000-0000-4000-8000-0000000000b2  (customer row c100…b2)
 
 DO $$
 DECLARE
@@ -34,6 +36,18 @@ BEGIN
           'warehouse@gtr.local',
           'Local Warehouse',
           'local-dev-warehouse'
+        ),
+        (
+          'c0000000-0000-4000-8000-0000000000a1'::uuid,
+          'storefront-a@gtr.local',
+          'Storefront A',
+          'local-dev-customer'
+        ),
+        (
+          'c0000000-0000-4000-8000-0000000000b2'::uuid,
+          'storefront-b@gtr.local',
+          'Storefront B',
+          'local-dev-customer'
         )
     ) AS t(id, email, full_name, plain_password)
   LOOP
@@ -107,13 +121,38 @@ INSERT INTO public.profiles (id, full_name, is_staff)
 VALUES
   ('a0000000-0000-4000-8000-000000000001', 'Local Admin', false),
   ('a0000000-0000-4000-8000-000000000002', 'Local Finance', false),
-  ('a0000000-0000-4000-8000-000000000003', 'Local Warehouse', false)
+  ('a0000000-0000-4000-8000-000000000003', 'Local Warehouse', false),
+  ('c0000000-0000-4000-8000-0000000000a1', 'Storefront A', false),
+  ('c0000000-0000-4000-8000-0000000000b2', 'Storefront B', false)
 ON CONFLICT (id) DO UPDATE
-SET full_name = EXCLUDED.full_name;
+SET full_name = EXCLUDED.full_name,
+    is_staff = EXCLUDED.is_staff;
 
--- Role grants (sync trigger sets is_staff)
+-- Role grants (sync trigger sets is_staff) — staff only; storefront users stay non-staff
 INSERT INTO public.staff_roles (user_id, role) VALUES
   ('a0000000-0000-4000-8000-000000000001', 'admin'),
   ('a0000000-0000-4000-8000-000000000002', 'finance'),
   ('a0000000-0000-4000-8000-000000000003', 'warehouse')
 ON CONFLICT DO NOTHING;
+
+-- Storefront customers linked to auth profiles (same UUIDs as customer_storefront_authz_smoke)
+INSERT INTO public.customers (id, display_name, email, currency, profile_id)
+VALUES
+  (
+    'c1000000-0000-4000-8000-0000000000a1',
+    'Storefront Customer A',
+    'storefront-a@gtr.local',
+    'USD',
+    'c0000000-0000-4000-8000-0000000000a1'
+  ),
+  (
+    'c1000000-0000-4000-8000-0000000000b2',
+    'Storefront Customer B',
+    'storefront-b@gtr.local',
+    'USD',
+    'c0000000-0000-4000-8000-0000000000b2'
+  )
+ON CONFLICT (id) DO UPDATE
+SET display_name = EXCLUDED.display_name,
+    email = EXCLUDED.email,
+    profile_id = EXCLUDED.profile_id;
