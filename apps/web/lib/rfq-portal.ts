@@ -48,9 +48,17 @@ export type QuoteLineInput = {
 export type RfqDetail = {
   rfq: RfqRow;
   lines: RfqLineRow[];
-  invites: { supplier_id: string; suppliers: { code: string; name: string } | null }[];
+  invites: {
+    supplier_id: string;
+    suppliers: { code: string; name: string } | null;
+  }[];
   quotations: QuotationWithSupplier[];
 };
+
+function asSingle<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
 
 export { requireSession };
 
@@ -155,9 +163,18 @@ export async function loadRfqDetail(
     ok: true,
     data: {
       rfq: rfqRes.data,
-      lines: (linesRes.data ?? []) as RfqLineRow[],
-      invites: (invitesRes.data ?? []) as RfqDetail["invites"],
-      quotations: (quotesRes.data ?? []) as QuotationWithSupplier[],
+      lines: (linesRes.data ?? []).map((row) => ({
+        ...row,
+        stock_items: asSingle(row.stock_items),
+      })) as RfqLineRow[],
+      invites: (invitesRes.data ?? []).map((row) => ({
+        supplier_id: row.supplier_id,
+        suppliers: asSingle(row.suppliers),
+      })),
+      quotations: (quotesRes.data ?? []).map((row) => ({
+        ...row,
+        suppliers: asSingle(row.suppliers),
+      })) as QuotationWithSupplier[],
     },
   };
 }
