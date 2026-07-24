@@ -716,4 +716,115 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.create_goods_receipt(
+  p_purchase_order_id UUID,
+  p_lines JSONB,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_po public.purchase_orders%ROWTYPE;
+  v_grn UUID;
+  v_line JSONB;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_staff();
+
+  SELECT * INTO v_po FROM public.purchase_orders WHERE id = p_purchase_order_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'purchase order not found: %', p_purchase_order_id;
+  END IF;
+  IF v_po.status <> 'submitted' THEN
+    RAISE EXCEPTION 'purchase order must be submitted';
+  END IF;
+
+  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
+    RAISE EXCEPTION 'GRN lines required';
+  END IF;
+
+  INSERT INTO public.goods_receipts (
+    document_number, purchase_order_id, supplier_id, warehouse_id, notes, created_by
+  )
+  VALUES (
+    public.next_series_value('GRN-'),
+    p_purchase_order_id,
+    v_po.supplier_id,
+    v_po.warehouse_id,
+    p_notes,
+    auth.uid()
+  )
+  RETURNING id INTO v_grn;
+
+  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM public.purchase_order_lines pol
+      WHERE pol.id = (v_line ->> 'purchase_order_line_id')::uuid
+        AND pol.purchase_order_id = p_purchase_order_id
+    ) THEN
+      RAISE EXCEPTION 'invalid PO line for GRN: %', v_line ->> 'purchase_order_line_id';
+    END IF;
+
+    INSERT INTO public.goods_receipt_lines (
+      goods_receipt_id,
+      purchase_order_line_id,
+      stock_item_id,
+      uom_id,
+      qty,
+      unit_cost,
+      currency
+    )
+    SELECT
+      v_grn,
+      pol.id,
+      pol.stock_item_id,
+      pol.uom_id,
+      (v_line ->> 'qty')::numeric,
+      COALESCE((v_line ->> 'unit_cost')::numeric, pol.unit_price),
+      COALESCE((v_line ->> 'currency')::public.currency_code, pol.currency)
+    FROM public.purchase_order_lines pol
+    WHERE pol.id = (v_line ->> 'purchase_order_line_id')::uuid
+      AND pol.purchase_order_id = p_purchase_order_id;
+  END LOOP;
+
+  RETURN v_grn;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.cancel_goods_receipt(p_goods_receipt_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_st public.procurement_doc_status;
+BEGIN
+  PERFORM public._procurement_begin_rpc();
+  PERFORM public._require_procurement_staff();
+  PERFORM public._assert_procurement_period_open();
+
+  SELECT status INTO v_st FROM public.goods_receipts WHERE id = p_goods_receipt_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'goods receipt not found: %', p_goods_receipt_id;
+  END IF;
+  IF v_st = 'cancelled' THEN
+    RETURN p_goods_receipt_id;
+  END IF;
+  IF v_st <> 'draft' THEN
+    RAISE EXCEPTION 'submitted GRNs are immutable; reverse stock separately';
+  END IF;
+
+  UPDATE public.goods_receipts
+  SET status = 'cancelled', cancelled_at = now(), updated_at = now()
+  WHERE id = p_goods_receipt_id;
+
+  RETURN p_goods_receipt_id;
+END;
+$$;
+
 -- PATCH_MARKER_RPCS
