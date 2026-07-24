@@ -1,6 +1,6 @@
 # Phase 6 — Bind storefront search to `search_catalog`
 
-- Status: draft
+- Status: done
 - Lane(s): `@web_agent` (primary); one-line `@backend_agent` only if types lack `search_catalog`
 - Skills needed: (none)
 - Parent: Immediate handoff #1 / Phase 7 follow-on ([`2026-07-24-phase7-data-pipeline-search.md`](./2026-07-24-phase7-data-pipeline-search.md))
