@@ -13,8 +13,9 @@ Thin Compose scaffolds for **HR clock** and **logistics pick/DN** — not App St
 
 | Module | Package | Role |
 |--------|---------|------|
-| `:app` | `co.zw.nissangtr.management` | Launcher + route shell |
+| `:app` | `co.zw.nissangtr.management` | Launcher + route shell + auth gate |
 | `:core:rpc` | `…management.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
+| `:feature:auth` | `…management.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
 | `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
 | `:feature:dispatch` | `…management.dispatch` | Pick list + DN list/create/submit |
 | `:feature:pos` | `…management.pos` | POS placeholder (empty) |
@@ -22,8 +23,9 @@ Thin Compose scaffolds for **HR clock** and **logistics pick/DN** — not App St
 
 ## Screens (scaffolds)
 
-| Screen | Module | RPCs |
-|--------|--------|------|
+| Screen | Module | RPCs / role |
+|--------|--------|-------------|
+| `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
 | `DispatchScreen` | `:feature:dispatch` | `create_pick_list`, `confirm_pick_lines`, `create_delivery_note`, `submit_delivery_note` |
 
@@ -57,10 +59,29 @@ SUPABASE_ANON_KEY=your-anon-key
 
 ### Auth (no hardcoded JWTs)
 
-Live client installs GoTrue (`auth-kt`) with the **anon key** only. Staff RPCs need a session:
+Live client installs GoTrue (`auth-kt`) with the **anon key** only. Session is persisted by the
+SDK session manager (Android Settings / SharedPreferences) — never put passwords or JWTs in BuildConfig.
 
-- When login UI exists: `supabase.auth.signInWith(...)` (or your auth screen stub).
-- Until then: cast to `SupabaseRpcClient` and call `importAccessToken(accessToken)` from a secure sign-in flow — **never** commit JWTs or put them in BuildConfig.
+| Mode | Behaviour |
+|------|-----------|
+| **Live** | `AuthGate` blocks until `signInWith(Email)`; JWT attaches to PostgREST/RPC automatically. Sign-out calls `auth.signOut()` and clears storage. |
+| **Fake** | Auth gate bypasses by default (`Continue without signing in` if optional login is shown). |
+
+Preferred API: `SupabaseRpcClient.signInWithEmail(email, password)` → `auth.signInWith(Email) { … }`.  
+Fallback only: `importAccessToken(accessToken)` if a custom flow cannot use Email sign-in.
+
+#### Local test users (staff)
+
+From [`docs/LOCAL_DEVELOPMENT.md`](../../docs/LOCAL_DEVELOPMENT.md) §9 / `supabase/seed.sql`
+(after `pnpm db:reset`):
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@gtr.local` | `local-dev-admin` | admin |
+| `finance@gtr.local` | `local-dev-finance` | finance |
+| `warehouse@gtr.local` | `local-dev-warehouse` | warehouse |
+
+Dev-only passwords — never use in production. `seed.sql` has no separate customer accounts.
 
 List reads use PostgREST / PowerSync bucket `by_staff_dispatch`, not mutation RPCs.
 
