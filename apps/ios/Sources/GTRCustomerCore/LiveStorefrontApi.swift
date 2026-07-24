@@ -358,7 +358,7 @@ private struct PosCartRow: Decodable {
         currency = try c.decodeIfPresent(StorefrontCurrency.self, forKey: .currency) ?? .USD
         fulfillmentMode = try c.decodeIfPresent(FulfillmentMode.self, forKey: .fulfillmentMode) ?? .immediate
         exchangeRateApplied = try c.decodeIfPresent(FlexibleDecimal.self, forKey: .exchangeRateApplied)
-            ?? FlexibleDecimal(fixed: 1)
+            ?? FlexibleDecimal(1)
         status = try c.decodeIfPresent(String.self, forKey: .status) ?? "open"
     }
 }

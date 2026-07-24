@@ -186,6 +186,10 @@ enum JSONValue {
 struct FlexibleDecimal: Decodable, Sendable {
     let value: Decimal
 
+    init(_ value: Decimal) {
+        self.value = value
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let d = try? container.decode(Double.self) {
