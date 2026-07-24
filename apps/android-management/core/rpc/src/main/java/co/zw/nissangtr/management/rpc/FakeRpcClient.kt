@@ -156,7 +156,7 @@ class FakeRpcClient : RpcClient {
         status: DeliveryJobStatus,
     ): String {
         val current = deliveryJobs[deliveryJobId]
-            ?: (deliveryJobId to "pending").also { deliveryJobs[deliveryJobId] = it }
+            ?: ("unknown" to "pending").also { deliveryJobs[deliveryJobId] = it }
         require(current.second !in listOf("completed", "failed")) {
             "terminal delivery job cannot change status"
         }

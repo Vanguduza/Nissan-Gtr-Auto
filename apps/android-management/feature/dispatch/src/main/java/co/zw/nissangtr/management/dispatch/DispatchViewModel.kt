@@ -3,7 +3,12 @@ package co.zw.nissangtr.management.dispatch
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import co.zw.nissangtr.bridges.location.GpsBridge
+import co.zw.nissangtr.bridges.location.GpsWatchHandle
+import co.zw.nissangtr.bridges.location.LocationPermissionStatus
+import co.zw.nissangtr.bridges.location.toDeliveryLocationIngest
 import co.zw.nissangtr.management.rpc.ConfirmPickLineInput
+import co.zw.nissangtr.management.rpc.DeliveryJobStatus
 import co.zw.nissangtr.management.rpc.DeliveryNoteSummary
 import co.zw.nissangtr.management.rpc.DnLineInput
 import co.zw.nissangtr.management.rpc.PickListSummary
@@ -14,6 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class DispatchUiState(
     val deliveryNotes: List<DeliveryNoteSummary> = emptyList(),
@@ -23,16 +30,31 @@ data class DispatchUiState(
     val qty: String = "1",
     val selectedPickListId: String? = null,
     val selectedDnId: String? = null,
+    /** Active delivery job for GPS trail (staff/driver). */
+    val deliveryJobId: String = "",
+    val tracking: Boolean = false,
+    val lastIngestId: String? = null,
+    val lastLatLng: String? = null,
+    val ingestCount: Int = 0,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
 
+/**
+ * Pick/DN logistics + Bridge-First delivery GPS.
+ * Compose only calls start/stop — all FusedLocation work stays in [GpsBridge].
+ */
 class DispatchViewModel(
     private val rpc: RpcClient,
+    private val gps: GpsBridge,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DispatchUiState())
     val state: StateFlow<DispatchUiState> = _state.asStateFlow()
+
+    private val throttle = DeliveryLocationIngestThrottle()
+    private val ingestMutex = Mutex()
+    private var watchHandle: GpsWatchHandle? = null
 
     init {
         refresh()
@@ -46,6 +68,9 @@ class DispatchViewModel(
 
     fun onQtyChange(v: String) =
         _state.update { it.copy(qty = v) }
+
+    fun onDeliveryJobIdChange(v: String) =
+        _state.update { it.copy(deliveryJobId = v, error = null) }
 
     fun selectPickList(id: String) =
         _state.update { it.copy(selectedPickListId = id) }
@@ -198,12 +223,172 @@ class DispatchViewModel(
         }
     }
 
+    /** Create a delivery job from the selected submitted DN. */
+    fun createDeliveryJob() {
+        val dnId = _state.value.selectedDnId
+        if (dnId.isNullOrBlank()) {
+            _state.update { it.copy(error = "Select a delivery note (submitted)") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val id = rpc.createDeliveryJob(deliveryNoteId = dnId)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        deliveryJobId = id,
+                        message = "${RpcNames.CREATE_DELIVERY_JOB} → $id",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "create delivery job failed")
+                }
+            }
+        }
+    }
+
+    fun markJobDispatched() {
+        val jobId = _state.value.deliveryJobId.trim()
+        if (jobId.isEmpty()) {
+            _state.update { it.copy(error = "Delivery job UUID required") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val id = rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        message = "${RpcNames.UPDATE_DELIVERY_JOB_STATUS} → dispatched ($id)",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "dispatch status failed")
+                }
+            }
+        }
+    }
+
+    /**
+     * Request location via bridge → watchPosition → throttle ≥5s → ingest RPC.
+     * No GPS logic in Compose beyond invoking this.
+     */
+    fun startTracking() {
+        val jobId = _state.value.deliveryJobId.trim()
+        if (jobId.isEmpty()) {
+            _state.update { it.copy(error = "Delivery job UUID required to track") }
+            return
+        }
+        if (_state.value.tracking) return
+
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val status = gps.requestLocationPermission()
+                if (status != LocationPermissionStatus.GRANTED &&
+                    status != LocationPermissionStatus.APPROXIMATE
+                ) {
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            error = "Location permission required ($status). Grant in system dialog.",
+                        )
+                    }
+                    return@launch
+                }
+
+                throttle.reset()
+                val handle = gps.watchPosition(
+                    onUpdate = { coord ->
+                        if (!throttle.tryAccept()) return@watchPosition
+                        viewModelScope.launch {
+                            ingestMutex.withLock {
+                                try {
+                                    val payload = toDeliveryLocationIngest(jobId, coord)
+                                    val id = rpc.ingestDeliveryLocation(
+                                        deliveryJobId = payload.deliveryJobId,
+                                        lat = payload.lat,
+                                        lng = payload.lng,
+                                        recordedAt = payload.recordedAt,
+                                        accuracyM = payload.accuracyM,
+                                    )
+                                    _state.update {
+                                        it.copy(
+                                            lastIngestId = id,
+                                            lastLatLng = "%.5f, %.5f".format(payload.lat, payload.lng),
+                                            ingestCount = it.ingestCount + 1,
+                                            message = "${RpcNames.INGEST_DELIVERY_LOCATION} → $id",
+                                            error = null,
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    _state.update {
+                                        it.copy(error = e.message ?: "ingest failed")
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    onError = { msg ->
+                        _state.update { it.copy(error = msg) }
+                    },
+                )
+                watchHandle = handle
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        tracking = true,
+                        message = "Tracking job $jobId (bridge GPS, ≥5s throttle)",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, tracking = false, error = e.message ?: "start tracking failed")
+                }
+            }
+        }
+    }
+
+    fun stopTracking() {
+        viewModelScope.launch {
+            val handle = watchHandle
+            watchHandle = null
+            try {
+                handle?.stop()
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "stop tracking failed") }
+            }
+            _state.update {
+                it.copy(
+                    tracking = false,
+                    busy = false,
+                    message = "Tracking stopped",
+                )
+            }
+        }
+    }
+
+    override fun onCleared() {
+        val handle = watchHandle
+        watchHandle = null
+        if (handle != null) {
+            viewModelScope.launch {
+                runCatching { handle.stop() }
+            }
+        }
+        super.onCleared()
+    }
+
     companion object {
-        fun factory(rpc: RpcClient): ViewModelProvider.Factory =
+        fun factory(rpc: RpcClient, gps: GpsBridge): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    DispatchViewModel(rpc) as T
+                    DispatchViewModel(rpc, gps) as T
             }
     }
 }
