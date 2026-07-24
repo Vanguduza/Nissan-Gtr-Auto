@@ -61,6 +61,7 @@ DROP POLICY IF EXISTS warranty_claims_delete_admin ON public.warranty_claims;
 
 REVOKE ALL ON FUNCTION public._warranty_rpc_active() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._warranty_begin_rpc() FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION public.open_warranty_claim(
   p_stock_serial_id UUID DEFAULT NULL,
   p_sales_invoice_id UUID DEFAULT NULL,
@@ -93,7 +94,7 @@ BEGIN
       RAISE EXCEPTION 'serial not found';
     END IF;
     IF v_serial.status IN ('quarantine', 'scrapped') THEN
-      RAISE EXCEPTION 'serial % is % â€” cannot open warranty claim', p_stock_serial_id, v_serial.status;
+      RAISE EXCEPTION 'serial % is % - cannot open warranty claim', p_stock_serial_id, v_serial.status;
     END IF;
     IF EXISTS (
       SELECT 1 FROM public.warranty_claims
@@ -193,7 +194,7 @@ BEGIN
 
   SELECT id INTO v_main FROM public.warehouses WHERE code = 'MAIN' AND is_active LIMIT 1;
 
-  -- Physical return â†’ Quarantine (skip when CN path will receive stock for same lines)
+  -- Physical return -> Quarantine (skip when CN path will receive stock for same lines)
   IF p_resolution <> 'credit_note' THEN
     v_return_lines := p_lines;
     IF v_return_lines IS NULL AND v_claim.stock_serial_id IS NOT NULL THEN
@@ -415,4 +416,3 @@ BEGIN
   RETURN p_claim_id;
 END;
 $$;
-
