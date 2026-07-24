@@ -3,8 +3,8 @@ import styles from "@/components/account.module.css";
 
 const nav = [
   { href: "/procurement", label: "Overview", exact: true },
-  { href: "/procurement/rfqs", label: "RFQs" },
-  { href: "/procurement/rfqs/new", label: "New RFQ" },
+  { href: "/procurement/rfqs", label: "RFQs", list: true },
+  { href: "/procurement/rfqs/new", label: "New RFQ", exact: true },
 ];
 
 export function ProcurementNav({ current }: { current: string }) {
@@ -15,7 +15,11 @@ export function ProcurementNav({ current }: { current: string }) {
         {nav.map((item) => {
           const active = item.exact
             ? current === item.href
-            : current === item.href || current.startsWith(item.href + "/");
+            : item.list
+              ? current === item.href ||
+                (current.startsWith(item.href + "/") &&
+                  !current.startsWith("/procurement/rfqs/new"))
+              : current === item.href || current.startsWith(item.href + "/");
           return (
             <li key={item.href}>
               <Link
