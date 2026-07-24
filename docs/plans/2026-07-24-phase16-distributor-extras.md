@@ -28,7 +28,8 @@ One child plan or ticket per slice; do not combine all four in one mega-migratio
 - [x] Master-data CRUD via RPCs (`create_warehouse_bin` / `update_warehouse_bin` / `deactivate_warehouse_bin` / `set_stock_level_bin`); Draft→Submit N/A (bins are not transactional docs)
 - [x] Optional `bin_id` on `stock_levels` + `stock_entry_lines`; receipt lines accept `bin_id`; cross-warehouse bin rejected; Quarantine return path unchanged
 - [x] Pick-path hints: `pick_path_seq` + `get_pick_path_hints`; `pick_list_lines.suggested_bin_id` stamped on create
-- [x] Smoke: `supabase/tests/phase16_bins_smoke.sql`
+- [x] Smoke: `supabase/tests/phase16_bins_smoke.sql` (PASS via docker exec)
+- [x] Types regen note: `supabase gen types typescript --local > packages/supabase-client/src/database.types.ts` (follow-on)
 - [x] No ZIMRA / payroll tax / HTML5 QR
 - [x] UI follow-on: `@management_app_agent` — bin CRUD + pick-path hints on pick lists (not blocking backend)
 
