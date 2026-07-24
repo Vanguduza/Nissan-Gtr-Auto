@@ -46,6 +46,15 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public._storefront_rpc_exit()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  PERFORM set_config('app.storefront_rpc', '', true);
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public._assert_customer_owns_open_cart(p_cart_id UUID)
 RETURNS void
 LANGUAGE plpgsql
@@ -326,10 +335,20 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_id UUID;
 BEGIN
   PERFORM public._storefront_rpc_enter();
-  PERFORM public._assert_customer_owns_open_cart(p_cart_id);
-  RETURN public.add_cart_line(p_cart_id, p_stock_item_id, p_uom_id, p_qty);
+  BEGIN
+    PERFORM public._assert_customer_owns_open_cart(p_cart_id);
+    v_id := public.add_cart_line(p_cart_id, p_stock_item_id, p_uom_id, p_qty);
+  EXCEPTION
+    WHEN OTHERS THEN
+      PERFORM public._storefront_rpc_exit();
+      RAISE;
+  END;
+  PERFORM public._storefront_rpc_exit();
+  RETURN v_id;
 END;
 $$;
 
@@ -339,10 +358,20 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_id UUID;
 BEGIN
   PERFORM public._storefront_rpc_enter();
-  PERFORM public._assert_customer_owns_open_cart(p_cart_id);
-  RETURN public.checkout_pos_cart(p_cart_id);
+  BEGIN
+    PERFORM public._assert_customer_owns_open_cart(p_cart_id);
+    v_id := public.checkout_pos_cart(p_cart_id);
+  EXCEPTION
+    WHEN OTHERS THEN
+      PERFORM public._storefront_rpc_exit();
+      RAISE;
+  END;
+  PERFORM public._storefront_rpc_exit();
+  RETURN v_id;
 END;
 $$;
 
