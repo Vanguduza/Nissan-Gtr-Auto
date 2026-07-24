@@ -28,7 +28,7 @@ Default **enabled for subscription UI** (managers still must opt in). Priority h
 
 | Code | When to text | Priority |
 |------|----------------|----------|
-| `payment_received` | Payment captured (ContiPay / cash / bank) | high |
+| `payment_received` | Payment captured (ContiPay / Paynow / cash / bank) | high |
 | `payment_failed` | Payment attempt failed | high |
 | `payment_partial` | Partial payment on invoice | normal |
 | `refund_issued` | Refund / store credit issued | high |
