@@ -199,7 +199,7 @@ BEGIN
     v_main,
     'USD',
     1,
-    100,
+    50,
     jsonb_build_array(
       jsonb_build_object('stock_item_id', v_item, 'uom_id', v_uom, 'qty', 20, 'unit_price', 5)
     ),
