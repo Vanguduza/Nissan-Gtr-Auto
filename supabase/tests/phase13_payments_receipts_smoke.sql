@@ -17,6 +17,26 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public._test_set_service_role(p_uid UUID DEFAULT NULL)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF p_uid IS NOT NULL THEN
+    PERFORM set_config('request.jwt.claim.sub', p_uid::text, true);
+  END IF;
+  PERFORM set_config(
+    'request.jwt.claims',
+    json_build_object(
+      'sub', COALESCE(current_setting('request.jwt.claim.sub', true), ''),
+      'role', 'service_role'
+    )::text,
+    true
+  );
+  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+END;
+$$;
+
 DO $$
 DECLARE
   v_admin UUID := 'a0000000-0000-4000-8000-000000000001';
