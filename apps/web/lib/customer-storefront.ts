@@ -290,32 +290,176 @@ export async function getCustomerOrder(
   return { ok: true, data: parsed };
 }
 
+export type PaymentIntentResult = {
+  intentId: string;
+  checkoutUrl: string | null;
+};
+
+/** Storefront return URL after ContiPay / Paynow hosted checkout (webhook still settles). */
+export function checkoutReturnUrl(invoiceId?: string): string {
+  const base = siteOrigin();
+  const q = invoiceId
+    ? `?invoice=${encodeURIComponent(invoiceId)}`
+    : "";
+  return `${base}/checkout/return${q}`;
+}
+
+/** Storefront cancel URL when the customer aborts PSP checkout. */
+export function checkoutCancelUrl(invoiceId?: string): string {
+  const base = siteOrigin();
+  const q = invoiceId
+    ? `?invoice=${encodeURIComponent(invoiceId)}`
+    : "";
+  return `${base}/checkout/cancel${q}`;
+}
+
+function siteOrigin(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+    "https://nissangtrauto.co.zw"
+  );
+}
+
+function parseEdgeIntent(raw: unknown): PaymentIntentResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const intentId =
+    typeof o.intent_id === "string"
+      ? o.intent_id
+      : typeof o.intentId === "string"
+        ? o.intentId
+        : null;
+  if (!intentId) return null;
+  const checkoutUrl =
+    typeof o.checkout_url === "string" && o.checkout_url.trim()
+      ? o.checkout_url.trim()
+      : typeof o.poll_url === "string" && o.poll_url.trim()
+        ? o.poll_url.trim()
+        : null;
+  return { intentId, checkoutUrl };
+}
+
+/**
+ * Create ContiPay intent via edge (preferred — may return checkout_url) or RPC fallback.
+ * Passes return/cancel URLs in body + metadata for provider wiring (secrets stay in edge env).
+ */
 export async function createCustomerContipayIntent(
   client: SupabaseClient,
   invoiceId: string,
   method: ContipayMethod = "ecocash",
-): Promise<StorefrontResult<string>> {
+): Promise<StorefrontResult<PaymentIntentResult>> {
+  const returnUrl = checkoutReturnUrl(invoiceId);
+  const cancelUrl = checkoutCancelUrl(invoiceId);
+  const metadata = {
+    sales_invoice_id: invoiceId,
+    channel: "storefront",
+    return_url: returnUrl,
+    cancel_url: cancelUrl,
+  };
+
+  const edge = await client.functions.invoke("contipay-initiate", {
+    body: {
+      sales_invoice_id: invoiceId,
+      method,
+      return_url: returnUrl,
+      cancel_url: cancelUrl,
+      metadata,
+    },
+  });
+
+  if (!edge.error && edge.data) {
+    const parsed = parseEdgeIntent(edge.data);
+    if (parsed) return { ok: true, data: parsed };
+    if (
+      edge.data &&
+      typeof edge.data === "object" &&
+      "error" in edge.data &&
+      typeof (edge.data as { error: unknown }).error === "string"
+    ) {
+      // Fall through to RPC when edge is stubbed/unavailable.
+    }
+  }
+
   const { data, error } = await client.rpc("create_customer_contipay_intent", {
     p_sales_invoice_id: invoiceId,
     p_method: method,
+    p_metadata: metadata,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    const edgeMsg =
+      edge.error?.message ??
+      (edge.data &&
+      typeof edge.data === "object" &&
+      "error" in edge.data
+        ? String((edge.data as { error: unknown }).error)
+        : null);
+    return {
+      ok: false,
+      error: edgeMsg ? `${error.message} (edge: ${edgeMsg})` : error.message,
+    };
+  }
   if (!data) return { ok: false, error: "ContiPay intent returned no id." };
-  return { ok: true, data };
+  return { ok: true, data: { intentId: data, checkoutUrl: null } };
 }
 
+/**
+ * Create Paynow intent via edge (preferred) or RPC fallback.
+ * return_url / result_url passed for provider redirect when edge accepts them.
+ */
 export async function createCustomerPaynowIntent(
   client: SupabaseClient,
   invoiceId: string,
   method: PaynowMethod = "ecocash",
-): Promise<StorefrontResult<string>> {
+): Promise<StorefrontResult<PaymentIntentResult>> {
+  const returnUrl = checkoutReturnUrl(invoiceId);
+  const cancelUrl = checkoutCancelUrl(invoiceId);
+  const metadata = {
+    sales_invoice_id: invoiceId,
+    channel: "storefront",
+    return_url: returnUrl,
+    cancel_url: cancelUrl,
+    result_url: returnUrl,
+  };
+
+  const edge = await client.functions.invoke("paynow-initiate", {
+    body: {
+      sales_invoice_id: invoiceId,
+      method,
+      return_url: returnUrl,
+      cancel_url: cancelUrl,
+      result_url: returnUrl,
+      metadata,
+    },
+  });
+
+  if (!edge.error && edge.data) {
+    const parsed = parseEdgeIntent(edge.data);
+    if (parsed) return { ok: true, data: parsed };
+  }
+
   const { data, error } = await client.rpc("create_customer_paynow_intent", {
     p_sales_invoice_id: invoiceId,
     p_method: method,
+    p_metadata: metadata,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    const edgeMsg =
+      edge.error?.message ??
+      (edge.data &&
+      typeof edge.data === "object" &&
+      "error" in edge.data
+        ? String((edge.data as { error: unknown }).error)
+        : null);
+    return {
+      ok: false,
+      error: edgeMsg ? `${error.message} (edge: ${edgeMsg})` : error.message,
+    };
+  }
   if (!data) return { ok: false, error: "Paynow intent returned no id." };
-  return { ok: true, data };
+  return { ok: true, data: { intentId: data, checkoutUrl: null } };
 }
 
 export async function listGarageVehicles(
