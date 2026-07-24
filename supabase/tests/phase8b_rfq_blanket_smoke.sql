@@ -60,6 +60,31 @@ BEGIN
   )
   VALUES (
     '00000000-0000-0000-0000-000000000000',
+    v_supplier_user,
+    'authenticated',
+    'authenticated',
+    'supplier-p8b@gtr.local',
+    crypt('local-dev-supplier', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Supplier P8b"}'::jsonb,
+    now(),
+    now(),
+    '', '', '', ''
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.profiles (id, full_name, is_staff)
+  VALUES (v_supplier_user, 'Supplier P8b', false)
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change
+  )
+  VALUES (
+    '00000000-0000-0000-0000-000000000000',
     v_other_user,
     'authenticated',
     'authenticated',
