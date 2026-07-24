@@ -110,12 +110,12 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done (backend)** — guards `…62000`/`…63000`; security+verifier PASS; web UI follow-on |
 | 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **Done (backend)** — `…70000`/`…71000`; security+verifier PASS; management UI follow-on |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | **Done (backend)** — `…80000`/`…81000`; security+verifier PASS; bridge/UI follow-on |
-| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | Pending |
-| 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending |
+| 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | Pending — scaffold plan (contracts insufficient for thin clients) |
+| 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | Pending — scaffold + bridge contracts in 11–12 plan |
 | 13 | Payments, ContiPay **+ Paynow**, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **Done (backend)** — `…90000`–`…100000`; security+verifier PASS; UI/real PSP keys follow-on |
 | 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | **Done (must-now)** — CI + PowerSync stubs + hardening docs; mobile SDK deferred to 11–12 |
-| 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | Pending |
-| 16 | Distributor extras (bins, kits, consignment, loyalty) | `@backend_agent` + UI lanes | 15 or after 8/13 | Pending |
+| 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | **In progress** — plan `…phase15-parity-audit.md` |
+| 16 | Distributor extras (bins, kits, consignment, loyalty) | `@backend_agent` + UI lanes | 15 or after 8/13 | Pending — plan `…phase16-distributor-extras.md` |
 
 Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file paths do not conflict (use worktrees). **4b** may start once Phase 4 receipt/transfer APIs are stable.
 
