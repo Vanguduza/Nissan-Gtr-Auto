@@ -25,6 +25,7 @@ AS $$
   SELECT c.id
   FROM public.customers c
   WHERE c.profile_id = auth.uid()
+  ORDER BY c.created_at ASC
   LIMIT 1;
 $$;
 
