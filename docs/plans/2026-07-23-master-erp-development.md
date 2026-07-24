@@ -443,9 +443,9 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 - Child plans: 4b, 5b, 6-search-bind, 8-procurement under `docs/plans/`.
 
 **In progress / verify next**
-1. Run smokes: `phase4b_reconciliation_smoke.sql`, `phase5b_warranty_smoke.sql`, `phase8_procurement_smoke.sql` via `npx supabase db query --file …`
-2. `/verifier` on 4b+5b+8; re-run `/security-reviewer` + `/supabase-rls-auditor` on guards + procurement.
-3. Mark phase map 4b/5b/8 **Done** when gates pass; regen `database.types.ts`.
+1. Fix smoke harness: reset `app.recon_rpc` between 4b steps; run RLS assertions as non-bypass role (8); fix `resolve_item_price` currency ambiguity (unblocks 5b).
+2. Re-run smokes via `docker exec … psql` pipe (not `supabase db query` on multi-statement files).
+3. Re-run `/supabase-rls-auditor` + `/security-reviewer` on guards + procurement; then mark 4b/5b/8 **Done** + regen `database.types.ts`.
 4. Optional: `@web_agent` supplier portal read slice after 8 gates.
 
 **Next queue (after 4b/5b/8 gates)**
