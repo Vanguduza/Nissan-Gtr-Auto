@@ -73,8 +73,12 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
       setMessage(result.error);
       return;
     }
+    if (result.data.checkoutUrl) {
+      window.location.assign(result.data.checkoutUrl);
+      return;
+    }
     setMessage(
-      `${rail === "contipay" ? "ContiPay" : "Paynow"} intent ${result.data} created. Settlement confirms via webhook.`,
+      `${rail === "contipay" ? "ContiPay" : "Paynow"} intent ${result.data.intentId} created. Settlement confirms via webhook — return URL is /checkout/return when the provider redirects.`,
     );
     await refresh();
   }
