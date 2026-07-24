@@ -217,6 +217,9 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: ContiPay intent null';
   END IF;
 
+  -- Settle RPCs are service_role-only (edge webhook path)
+  PERFORM public._test_set_service_role(v_admin);
+
   v_pe_cp := public.mark_contipay_settled(
     'P13-CP-' || v_inv::text,
     'hash-p13-' || v_inv::text,
@@ -262,7 +265,55 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: manager sms_outbox row missing for opted-in prefs';
   END IF;
 
+  -- Cancelled ContiPay intent must not settle
+  v_intent := public.create_contipay_intent(
+    'P13-CP-CXL-' || v_inv::text,
+    'ecocash',
+    40,
+    'USD',
+    1,
+    v_cust,
+    NULL, NULL, NULL
+  );
+  UPDATE public.contipay_payment_intents SET status = 'cancelled', updated_at = now()
+  WHERE id = v_intent;
+  BEGIN
+    PERFORM public.mark_contipay_settled(
+      'P13-CP-CXL-' || v_inv::text,
+      'hash-p13-cxl-' || v_inv::text,
+      NULL, NULL, NULL, NULL, NULL, true, NULL
+    );
+    RAISE EXCEPTION 'smoke fail: cancelled ContiPay intent settled';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+      IF SQLERRM NOT ILIKE '%cannot settle cancelled ContiPay%' THEN
+        RAISE EXCEPTION 'smoke fail: unexpected ContiPay cancel error: %', SQLERRM;
+      END IF;
+  END;
+
+  -- authenticated must not EXECUTE settle (grant revoked)
+  PERFORM public._test_set_auth_uid(v_admin);
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.mark_contipay_settled(
+      'nope', 'hash-authz', NULL, NULL, NULL, NULL, NULL, true, NULL
+    );
+    RESET ROLE;
+    RAISE EXCEPTION 'smoke fail: authenticated executed mark_contipay_settled';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RESET ROLE;
+    WHEN OTHERS THEN
+      RESET ROLE;
+      IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+      IF SQLERRM NOT ILIKE '%permission denied%' AND SQLERRM NOT ILIKE '%service_role required%' THEN
+        RAISE EXCEPTION 'smoke fail: unexpected ContiPay authz error: %', SQLERRM;
+      END IF;
+  END;
+
   -- 2b) Paynow intent → settle (idempotent duplicate webhook)
+  PERFORM public._test_set_auth_uid(v_admin);
   v_cart := public.create_pos_cart(v_main, v_cust, 'USD'::public.currency_code, 'immediate'::public.fulfillment_mode);
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 1);
   v_inv := public.checkout_pos_cart(v_cart);
@@ -278,6 +329,8 @@ BEGIN
     1200,
     30
   );
+
+  PERFORM public._test_set_service_role(v_admin);
 
   v_pe_pn := public.mark_paynow_settled(
     'P13-PN-' || v_inv::text,
@@ -314,6 +367,35 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'smoke fail: Paynow payment entry not posted';
   END IF;
+
+  -- Cancelled Paynow intent must not settle
+  v_intent := public.create_paynow_intent(
+    'P13-PN-CXL-' || v_inv::text,
+    'ecocash',
+    40,
+    'USD',
+    1,
+    v_cust,
+    NULL, NULL, NULL
+  );
+  UPDATE public.paynow_payment_intents SET status = 'cancelled', updated_at = now()
+  WHERE id = v_intent;
+  BEGIN
+    PERFORM public.mark_paynow_settled(
+      'P13-PN-CXL-' || v_inv::text,
+      'hash-pn-cxl-' || v_inv::text,
+      NULL, NULL, NULL, NULL, NULL, true, NULL
+    );
+    RAISE EXCEPTION 'smoke fail: cancelled Paynow intent settled';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+      IF SQLERRM NOT ILIKE '%cannot settle cancelled Paynow%' THEN
+        RAISE EXCEPTION 'smoke fail: unexpected Paynow cancel error: %', SQLERRM;
+      END IF;
+  END;
+
+  PERFORM public._test_set_auth_uid(v_admin);
 
   v_ledger := public.issue_store_credit(v_cust, 15, 'USD', 1, 'P13 refund', '1100');
   SELECT balance INTO v_sc_bal FROM public.store_credit_accounts WHERE customer_id = v_cust;
