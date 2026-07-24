@@ -218,6 +218,9 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: payroll_run_ready domain event missing';
   END IF;
 
+  -- Clear transaction-local RPC GUC so guards enforce (same as Phase 8 smokes)
+  PERFORM set_config('app.payroll_rpc', '', true);
+
   -- Direct mutation of submitted run must fail
   BEGIN
     UPDATE public.payroll_runs SET notes = 'hack' WHERE id = v_run;
