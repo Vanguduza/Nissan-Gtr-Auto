@@ -434,22 +434,20 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Phases **0–10, 13–16** Done. **11–12 scaffold Done**. Customer storefront AuthZ + web bind Done. DB through `20260724130000_customer_storefront_authz.sql`.
+**Master plan status:** Phases **0–10, 13–16** Done. **11–12 scaffold Done**. Customer AuthZ + web bind Done. DB through `20260724130000`.
 
-**Done this wave**
-1. Customer AuthZ — plan `docs/plans/2026-07-24-customer-storefront-authz.md`, decision `docs/decisions/2026-07-24-customer-self-pay.md`, migration `…130000`, smoke PASS; security+verifier PASS.
-2. `@web_agent` bind — cart → checkout → ContiPay/Paynow intents, own orders, My Garage; typecheck OK.
+**In progress (polish)**
+1. `@web_agent` — PDP/catalog live bind + PSP return/redirect URLs
+2. Then RFQ/supplier portal slices; `@hardware_mobile_agent` bridge contract polish
 
-**Still follow-on (not blocking AuthZ)**
-1. PDP live catalog (demo OEM set); PSP checkout_url redirect polish; wishlist/returns UI.
-2. Management UI (HR/logistics/bins) + RFQ supplier portal.
-3. Native bridge impl + PowerSync client; full iOS/Android feature screens (APIs now largely unblocked for cart/order/pay/garage).
-4. Production ContiPay/Paynow HMAC + merchant secrets (env only).
-
-**In progress:** None.
+**Next**
+1. Management UI follow-ons (HR/logistics) if time
+2. Mobile feature screens only where AuthZ unblocks (cart/order/pay/garage) — keep thin
+3. Production PSP HMAC keys (env only; document)
 
 **Blockers / notes**
 - Serialize `supabase db reset` (manager-owned).
 - No commits (user did not request).
+- Real ContiPay/Paynow crypto still needs merchant secrets in env.
 
-Commands: `pnpm dev:web`; smokes via `docker exec … psql` (`customer_storefront_authz_smoke.sql`).
+Commands: `pnpm dev:web`; smokes via `docker exec … psql`.
