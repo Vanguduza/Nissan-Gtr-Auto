@@ -434,18 +434,23 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Live mobile Supabase clients Done. DB through `20260724130000`.
+**Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`; seed now includes storefront customers (apply via manager `db reset` when convenient).
 
-**In progress**
-1. Mobile **sign-in / session** UI (iOS + Android customer; management if needed) → user JWT into live RPC clients
-2. Persist session; no PSP crypto
+**Done this wave**
+1. iOS: GoTrue email/password → JWT → `LiveStorefrontApi`; persist UserDefaults; Live gates tabs
+2. Android customer + management: `:feature:auth` + `signInWithEmail`; session via auth-kt; Live gates app
+3. Seed: `storefront-a@` / `storefront-b@gtr.local` / `local-dev-customer` + `customers.profile_id` link; `docs/LOCAL_DEVELOPMENT.md` §9
+4. Verifier PASS — no hardcoded JWTs; Fake bypass OK; no PSP crypto
 
-**Next**
-1. `/verifier` exclusions/lane
-2. Real PSP HMAC when merchant secrets exist (env only)
+**Still follow-on**
+1. Real ContiPay/Paynow HMAC + merchant secrets (env only)
+2. Native assemble on JDK/Xcode hosts; iOS Keychain before prod
+3. PDP photos / Meili / PowerSync / native bridge impls
+
+**In progress:** None.
 
 **Blockers / notes**
-- No commits. Skip failing native assemble if JDK/Xcode missing.
-- Local test users: see seed / app README after this wave.
+- No commits. Run `npx supabase db reset` once to load seeded customers.
+- Staff: `admin@` / `warehouse@` / `finance@gtr.local` — see LOCAL_DEVELOPMENT.md
 
-Commands: `pnpm dev:web`; Fake vs Live in app READMEs.
+Commands: `pnpm dev:web`; mobile Live needs URL+anon + sign-in.
