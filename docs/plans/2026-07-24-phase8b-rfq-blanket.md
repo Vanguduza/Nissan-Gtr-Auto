@@ -1,7 +1,7 @@
 # Phase 8b — RFQ, quotations, blanket POs
 
-- Status: **backend verified** (`/verifier` PASS on acceptance + RLS + exclusions; smoke PASS on fresh reset). **Not closed:** procurement mutation guards for RFQ/quote tables (`…61000` extension — Phase 8 security follow-up); `@web_agent` UI follow-on.
-- Lane(s): `@backend_agent` (primary); `@web_agent` (thin RFQ/quote compare + blanket release UI — **follow-on**)
+- Status: **backend verified** (`/verifier` PASS on acceptance + RLS + exclusions; smoke PASS on fresh reset). Guards `…62000`/`…63000` in place. **Web UI:** thin RFQ/quote portal shipped under `apps/web` (`/procurement/*`, `/supplier/*`) — see `apps/web/README.md`. Blanket release UI still follow-on.
+- Lane(s): `@backend_agent` (primary); `@web_agent` (thin RFQ/quote compare + blanket release UI)
 - Skills needed: (none) — reuse Phase 8 procurement patterns; `/accounting-ledger` only if release posts valuation (prefer defer to existing PO→GRN)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 8b
 - Prior: Phase 8 [`2026-07-24-phase8-procurement.md`](./2026-07-24-phase8-procurement.md) (`suppliers`, `purchase_orders` / lines, Draft→Submit→Cancel, supplier RLS)
@@ -18,6 +18,8 @@ Staff RFQ → invite suppliers → collect quotations → compare and award → 
 - [x] RFQ / quotation / blanket docs use Draft→Submit→Cancel; naming series (`RFQ-`, `SQ-`, `BPO-` or equiv.)
 - [x] Money fields: explicit `USD`|`ZIG` + rate at transaction time
 - [x] RLS on every new table in the **same** migration; no ZIMRA / payroll tax / HTML5 QR
+- [x] `@web_agent` thin RFQ/quote portal (staff create/submit/award + supplier upsert/submit)
+- [ ] Blanket remaining qty/value display in web UI (follow-on)
 
 ## Reuse (do not reinvent)
 
@@ -34,8 +36,9 @@ Staff RFQ → invite suppliers → collect quotations → compare and award → 
 - `supabase/tests/phase8b_rfq_blanket_smoke.sql` — award→PO; over-release deny; supplier RLS isolation
 - `packages/supabase-client/` — types regen / RPC stubs after reset
 - `packages/shared/` — status/enums only if needed
+- `apps/web/` — `/procurement/rfqs/*` (staff), `/supplier/rfqs/*` (supplier)
 
-**Follow-on (`@web_agent`):** staff compare UI + supplier quote submit/read; blanket remaining qty/value display.
+**Follow-on (`@web_agent`):** blanket remaining qty/value display.
 
 ## Tables / RPCs (sketch)
 
@@ -67,6 +70,12 @@ Staff RFQ → invite suppliers → collect quotations → compare and award → 
 5. [x] Smoke SQL: peer-quote denial; over-release deny; cancel restore remaining
 6. [x] Regen types; brief RPC note for `@web_agent`
 
+## Ordered tasks (`@web_agent`)
+
+1. [x] Staff RFQ list / create / submit / award pages
+2. [x] Supplier invited RFQ list + upsert/submit quotation
+3. [ ] Blanket remaining qty/value UI
+
 ## Gate
 
 `/supabase-rls-auditor` → `/security-reviewer` → `/verifier` → `/manager` done gate
@@ -75,5 +84,6 @@ Staff RFQ → invite suppliers → collect quotations → compare and award → 
 
 1. Implement in `@backend_agent`
 2. Gate above
-3. Optional: `@web_agent` RFQ compare + supplier quote pages
-4. `/manager` for Phase 8b done
+3. [x] `@web_agent` RFQ compare + supplier quote pages (thin slice)
+4. Optional: blanket remaining display
+5. `/manager` for Phase 8b done
