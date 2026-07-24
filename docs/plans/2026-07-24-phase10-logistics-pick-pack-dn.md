@@ -22,14 +22,14 @@ Ship pick/pack and Delivery Notes against **posted sales invoices**, with partia
 
 ## Acceptance criteria
 
-- [ ] Pick/pack cannot over-pick open qty vs posted invoice lines
-- [ ] DN submit (dispatch) issues stock + increments `qty_fulfilled`; cancel reverses stock (and COGS via reverse JE)
-- [ ] Immediate fulfillment unchanged: issue-at-checkout; no double-issue if DN created in error
-- [ ] Delivery jobs link DN → driver/dispatcher; status → dispatched / completed / failed
-- [ ] `delivery_locations` trail (~5s ingest contract); retention policy; role-gated reads (`dispatcher`|`warehouse`|`admin`; customer own-job only if exposed)
-- [ ] Emits `delivery_dispatched` / `delivery_completed` / `delivery_failed` via `emit_domain_event` (SMS send stays Phase 13)
-- [ ] RLS on every new table in same migration(s); no browser/WebView geolocation APIs
-- [ ] Smoke SQL: partial pick → DN → stock delta; over-pick denied; cancel reverses; event rows present
+- [x] Pick/pack cannot over-pick open qty vs posted invoice lines
+- [x] DN submit (dispatch) issues stock + increments `qty_fulfilled`; cancel reverses stock (and COGS via reverse JE)
+- [x] Immediate fulfillment unchanged: issue-at-checkout; no double-issue if DN created in error
+- [x] Delivery jobs link DN → driver/dispatcher; status → dispatched / completed / failed
+- [x] `delivery_locations` trail (~5s ingest contract); retention policy; role-gated reads (`dispatcher`|`warehouse`|`admin`; customer own-job only if exposed)
+- [x] Emits `delivery_dispatched` / `delivery_completed` / `delivery_failed` via `emit_domain_event` (SMS send stays Phase 13)
+- [x] RLS on every new table in same migration(s); no browser/WebView geolocation APIs
+- [x] Smoke SQL: partial pick → DN → stock delta; over-pick denied; cancel reverses; event rows present
 
 ## Paths in scope
 
