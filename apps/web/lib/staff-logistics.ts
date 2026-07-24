@@ -1,4 +1,4 @@
-import type { Json, SupabaseClient } from "@gtr/supabase-client";
+import type { SupabaseClient } from "@gtr/supabase-client";
 import {
   requireSession,
   type StorefrontResult,
