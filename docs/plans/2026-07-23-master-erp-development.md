@@ -448,10 +448,11 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 **Done (recent)**
 1. Phase 14 must-now (CI + exclusion/smoke + PowerSync stubs + hardening docs).
-2. Phase 15 parity audit — must-haves 18/18 Done; exclusions CLEAN; Phase 16 explicitly deferred.
+2. Phase 15 parity audit — must-haves 18/18 Done; exclusions CLEAN.
+3. Phase 16 backend — bins, kits, consignment, loyalty (attachments skipped); smokes PASS.
 
 **Next**
-1. Phase 16 child plan + implement extras (or parallel 11–12 scaffold).
+1. Phase 16 UI follow-on (`@web_agent` / `@management_app_agent`) or parallel 11–12 scaffold.
 2. Parallel-safe: 11–12 scaffold plans (no full mobile until contracts listed).
 
 **Blockers / notes**
