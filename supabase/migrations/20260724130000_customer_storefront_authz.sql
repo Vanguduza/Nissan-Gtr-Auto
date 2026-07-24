@@ -123,16 +123,17 @@ BEGIN
   WHERE n.nspname = 'public' AND p.proname = 'add_cart_line'
   LIMIT 1;
 
-  IF v_def IS NULL OR position('PERFORM public._require_sales_staff();' IN v_def) = 0 THEN
-    RAISE EXCEPTION 'add_cart_line patch failed: sales staff gate not found';
+  IF position('PERFORM public._require_cart_mutate(p_cart_id);' IN v_def) = 0 THEN
+    IF v_def IS NULL OR position('PERFORM public._require_sales_staff();' IN v_def) = 0 THEN
+      RAISE EXCEPTION 'add_cart_line patch failed: sales staff gate not found';
+    END IF;
+    v_def := replace(
+      v_def,
+      'PERFORM public._require_sales_staff();',
+      'PERFORM public._require_cart_mutate(p_cart_id);'
+    );
+    EXECUTE v_def;
   END IF;
-
-  v_def := replace(
-    v_def,
-    'PERFORM public._require_sales_staff();',
-    'PERFORM public._require_cart_mutate(p_cart_id);'
-  );
-  EXECUTE v_def;
 
   SELECT pg_get_functiondef(p.oid) INTO v_def
   FROM pg_proc p
@@ -140,16 +141,17 @@ BEGIN
   WHERE n.nspname = 'public' AND p.proname = 'checkout_pos_cart'
   LIMIT 1;
 
-  IF v_def IS NULL OR position('PERFORM public._require_sales_staff();' IN v_def) = 0 THEN
-    RAISE EXCEPTION 'checkout_pos_cart patch failed: sales staff gate not found';
+  IF position('PERFORM public._require_cart_mutate(p_cart_id);' IN v_def) = 0 THEN
+    IF v_def IS NULL OR position('PERFORM public._require_sales_staff();' IN v_def) = 0 THEN
+      RAISE EXCEPTION 'checkout_pos_cart patch failed: sales staff gate not found';
+    END IF;
+    v_def := replace(
+      v_def,
+      'PERFORM public._require_sales_staff();',
+      'PERFORM public._require_cart_mutate(p_cart_id);'
+    );
+    EXECUTE v_def;
   END IF;
-
-  v_def := replace(
-    v_def,
-    'PERFORM public._require_sales_staff();',
-    'PERFORM public._require_cart_mutate(p_cart_id);'
-  );
-  EXECUTE v_def;
 END;
 $$;
 
