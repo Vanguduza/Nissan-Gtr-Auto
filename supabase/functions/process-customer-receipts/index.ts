@@ -2,12 +2,20 @@
  * Customer receipt PDF stub + channel send drain.
  * Tax-agnostic; no ZIMRA/FDMS/fiscal QR. PDF links use nissangtrauto.co.zw.
  * Storage bucket: customer-receipts (private).
+ *
+ * AuthZ: requires header x-worker-secret matching env WORKER_SHARED_SECRET
+ * (refuse 401 if missing/wrong). Local stub only: WORKER_ALLOW_UNVERIFIED_LOCAL=1
+ * when WORKER_SHARED_SECRET is unset. Never commit real secrets.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertWorkerSecret } from "../_shared/worker_auth.ts";
 
 Deno.serve(async (req) => {
   try {
+    const denied = assertWorkerSecret(req);
+    if (denied) return denied;
+
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const documentId = body.document_id as string | undefined;
     const limit = Number(body.limit ?? 50);

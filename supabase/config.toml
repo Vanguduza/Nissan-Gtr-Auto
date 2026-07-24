@@ -44,3 +44,29 @@ enable_confirmations = false
 
 [analytics]
 enabled = false
+
+# Edge Functions — per-function JWT gate at the gateway.
+# Webhooks: verify_jwt = false (HMAC / provider signature in handler).
+# Workers: JWT may be on; handlers still require x-worker-secret (WORKER_SHARED_SECRET).
+# Initiate: verify_jwt = true (caller Bearer JWT).
+
+[functions.contipay-webhook]
+verify_jwt = false
+
+[functions.paynow-webhook]
+verify_jwt = false
+
+[functions.contipay-initiate]
+verify_jwt = true
+
+[functions.paynow-initiate]
+verify_jwt = true
+
+[functions.process-sms-outbox]
+verify_jwt = true
+
+[functions.process-customer-receipts]
+verify_jwt = true
+
+[functions.demand-forecast]
+verify_jwt = true
