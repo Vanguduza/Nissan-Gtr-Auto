@@ -11,14 +11,30 @@
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* ContentView.swift */; };
 		A10000000000000000000003 /* AppEnv.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* AppEnv.swift */; };
 		A10000000000000000000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* Assets.xcassets */; };
+		A10000000000000000000005 /* StorefrontModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* StorefrontModels.swift */; };
+		A10000000000000000000006 /* StorefrontApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* StorefrontApi.swift */; };
+		A10000000000000000000007 /* StorefrontFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* StorefrontFormat.swift */; };
+		A10000000000000000000008 /* StorefrontSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* StorefrontSession.swift */; };
+		A10000000000000000000009 /* CartScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* CartScreen.swift */; };
+		A1000000000000000000000A /* OrdersScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* OrdersScreen.swift */; };
+		A1000000000000000000000B /* GarageScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001B /* GarageScreen.swift */; };
+		A1000000000000000000000C /* PayScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* PayScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000010 /* GTRCustomer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GTRCustomer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000011 /* GTRCustomerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GTRCustomerApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		A10000000000000000000013 /* AppEnv.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnv.swift; sourceTree = "<group>"; };
+		A10000000000000000000013 /* AppEnv.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppEnv.swift; path = ../Sources/GTRCustomerCore/AppEnv.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10000000000000000000015 /* StorefrontModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StorefrontModels.swift; path = ../Sources/GTRCustomerCore/StorefrontModels.swift; sourceTree = "<group>"; };
+		A10000000000000000000016 /* StorefrontApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StorefrontApi.swift; path = ../Sources/GTRCustomerCore/StorefrontApi.swift; sourceTree = "<group>"; };
+		A10000000000000000000017 /* StorefrontFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StorefrontFormat.swift; path = ../Sources/GTRCustomerCore/StorefrontFormat.swift; sourceTree = "<group>"; };
+		A10000000000000000000018 /* StorefrontSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorefrontSession.swift; sourceTree = "<group>"; };
+		A10000000000000000000019 /* CartScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000001A /* OrdersScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdersScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000001B /* GarageScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarageScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000001C /* PayScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayScreen.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,7 +61,9 @@
 			children = (
 				A10000000000000000000011 /* GTRCustomerApp.swift */,
 				A10000000000000000000012 /* ContentView.swift */,
-				A10000000000000000000013 /* AppEnv.swift */,
+				A10000000000000000000018 /* StorefrontSession.swift */,
+				A10000000000000000000033 /* Features */,
+				A10000000000000000000034 /* Core */,
 				A10000000000000000000014 /* Assets.xcassets */,
 			);
 			path = GTRCustomer;
@@ -57,6 +75,28 @@
 				A10000000000000000000010 /* GTRCustomer.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000033 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000019 /* CartScreen.swift */,
+				A1000000000000000000001A /* OrdersScreen.swift */,
+				A1000000000000000000001B /* GarageScreen.swift */,
+				A1000000000000000000001C /* PayScreen.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000034 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000013 /* AppEnv.swift */,
+				A10000000000000000000015 /* StorefrontModels.swift */,
+				A10000000000000000000016 /* StorefrontApi.swift */,
+				A10000000000000000000017 /* StorefrontFormat.swift */,
+			);
+			name = Core;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -130,7 +170,15 @@
 			files = (
 				A10000000000000000000001 /* GTRCustomerApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
+				A10000000000000000000008 /* StorefrontSession.swift in Sources */,
+				A10000000000000000000009 /* CartScreen.swift in Sources */,
+				A1000000000000000000000A /* OrdersScreen.swift in Sources */,
+				A1000000000000000000000B /* GarageScreen.swift in Sources */,
+				A1000000000000000000000C /* PayScreen.swift in Sources */,
 				A10000000000000000000003 /* AppEnv.swift in Sources */,
+				A10000000000000000000005 /* StorefrontModels.swift in Sources */,
+				A10000000000000000000006 /* StorefrontApi.swift in Sources */,
+				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
