@@ -550,13 +550,3 @@ private struct CustomerOrderDTO: Decodable {
         )
     }
 }
-
-private extension FlexibleDecimal {
-    init(fixed: Decimal) {
-        self.init(value: fixed)
-    }
-
-    init(value: Decimal) {
-        self.value = value
-    }
-}
