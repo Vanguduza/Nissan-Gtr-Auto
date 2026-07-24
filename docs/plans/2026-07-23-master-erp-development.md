@@ -432,30 +432,23 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 ## Immediate handoff
 
 **Done**
-- Docker engine OK; **`npx supabase db reset` GREEN** (API `http://127.0.0.1:54321`). Realtime/analytics may stay stopped — non-blocking.
-- Phase 6 search bind → `search_catalog`: plan `2026-07-24-phase6-search-bind.md` **done**; `/verifier` PASS; typed RPC polish done.
-- Migrations applied in order through Phase 8:
-  - `…20000_stock_reconciliation.sql` (4b)
-  - `…30000_warranty_claims.sql` (5b)
-  - `…40000_stock_recon_mutation_guards.sql` (4b GUC triggers)
-  - `…41000_warranty_mutation_guards.sql` (5b GUC triggers; BOM fixed)
-  - `…50000_procurement.sql` (Phase 8)
-- Child plans: 4b, 5b, 6-search-bind, 8-procurement under `docs/plans/`.
+- Docker + **`npx supabase db reset` GREEN** through `20260724051000_smoke_fixes_recon_price_supplier.sql`.
+- Phase 6 search bind **done** (`/verifier` PASS).
+- Phases **4b / 5b / 8** migrations + smokes **PASS** (`docker exec … psql`):
+  - `phase4b_reconciliation_smoke.sql`
+  - `phase5b_warranty_smoke.sql`
+  - `phase8_procurement_smoke.sql`
+- Child plan Phase 8b: `docs/plans/2026-07-24-phase8b-rfq-blanket.md` (draft).
 
-**In progress / verify next**
-1. Fix smoke harness: reset `app.recon_rpc` between 4b steps; run RLS assertions as non-bypass role (8); fix `resolve_item_price` currency ambiguity (unblocks 5b).
-2. Re-run smokes via `docker exec … psql` pipe (not `supabase db query` on multi-statement files).
-3. Re-run `/supabase-rls-auditor` + `/security-reviewer` on guards + procurement; then mark 4b/5b/8 **Done** + regen `database.types.ts`.
-4. Optional: `@web_agent` supplier portal read slice after 8 gates.
+**In progress / Next**
+1. **`@backend_agent`:** implement Phase 8b per `2026-07-24-phase8b-rfq-blanket.md` → RLS/security/verifier.
+2. Regen `packages/supabase-client` types (`npx supabase gen types typescript --local`).
+3. Optional parallel: Phase 9 HR plan+schema (gross only; **no payroll tax**) on non-conflicting paths; `@web_agent` supplier portal.
+4. Then Phase 10 logistics → 13 payments/receipts; defer mobile 11–12 until APIs solid.
 
-**Next queue (after 4b/5b/8 gates)**
-1. Phase 8b RFQ/blanket — `/planner` then `@backend_agent`
-2. Phase 9 HR (gross only; **no payroll tax**) — can parallel if paths don’t collide
-3. Prefer **8→10→13** APIs before mobile **11–12**
-
-**Blockers**
-- Serialize DB apply under `/manager` only (parallel agent resets race Docker).
-- 5b product decision: approve→`pending_approval` quarantine transfer vs immediate replacement issue (security **high** — document or fix before Phase 5b “done”).
+**Blockers / notes**
+- Serialize DB apply (no parallel agent `db reset`).
+- 5b nuance: return transfer may be `pending_approval` while claim approved — accepted for now; tighten later if ops require posted QUAR before approve.
 - No commits this session (user did not request).
 
 Commands: `pnpm dev:web`; `cd data-pipeline && pytest`.
