@@ -205,7 +205,6 @@ export function GaragePanel() {
               <input
                 value={form.model}
                 onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-                required={!form.vin.trim()}
               />
             </label>
             <label className={styles.field}>
