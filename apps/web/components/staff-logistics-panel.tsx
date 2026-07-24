@@ -165,8 +165,7 @@ export function StaffLogisticsPanel() {
     await loadLinesForPick(pickListId);
   }
 
-  async function onCreateDn(e: FormEvent) {
-    e.preventDefault();
+  async function onCreateDn() {
     const client = createWebClient();
     if (!client || !pickListId) return;
     const pick = boot.kind === "ready"
@@ -398,7 +397,7 @@ export function StaffLogisticsPanel() {
             type="button"
             className={styles.btn}
             disabled={busy || !pickListId || pickLines.length === 0}
-            onClick={(e) => void onCreateDn(e as unknown as FormEvent)}
+            onClick={() => void onCreateDn()}
           >
             Create DN from pick
           </button>
