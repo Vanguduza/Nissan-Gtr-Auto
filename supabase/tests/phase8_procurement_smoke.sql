@@ -12,7 +12,6 @@ BEGIN
     true
   );
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
-  PERFORM set_config('role', 'authenticated', true);
 END;
 $$;
 
