@@ -96,8 +96,7 @@ export async function loadPickListLines(
     .select(
       "id, pick_list_id, sales_invoice_line_id, stock_item_id, qty_requested, qty_picked, stock_items(oem_part_number, description)",
     )
-    .eq("pick_list_id", pickListId)
-    .order("created_at");
+    .eq("pick_list_id", pickListId);
   if (error) return { ok: false, error: error.message };
   const rows = (data ?? []).map((row) => ({
     ...row,
