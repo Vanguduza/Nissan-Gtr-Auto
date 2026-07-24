@@ -222,6 +222,55 @@ BEGIN
 END;
 $$;
 
+-- Storefront checkout posts sale JE via shared checkout_pos_cart path.
+DO $$
+DECLARE
+  v_def TEXT;
+  v_old TEXT :=
+    'IF NOT (
+    auth.role() = ''service_role''
+    OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
+  ) THEN
+    RAISE EXCEPTION ''finance or admin role required'';
+  END IF;';
+  v_new TEXT :=
+    'IF NOT (
+    auth.role() = ''service_role''
+    OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
+    OR public._storefront_rpc_active()
+  ) THEN
+    RAISE EXCEPTION ''finance or admin role required'';
+  END IF;';
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO v_def
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'create_journal_draft'
+  LIMIT 1;
+
+  IF position('OR public._storefront_rpc_active()' IN v_def) = 0 THEN
+    IF position('finance or admin role required' IN v_def) = 0 THEN
+      RAISE EXCEPTION 'create_journal_draft patch failed: finance gate not found';
+    END IF;
+    -- Normalize whitespace-insensitive replace via regex-like fixed form from live def
+    v_def := replace(
+      v_def,
+      'OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
+  ) THEN
+    RAISE EXCEPTION ''finance or admin role required'';',
+      'OR public.has_staff_role(ARRAY[''admin'', ''finance'']::public.staff_role[])
+    OR public._storefront_rpc_active()
+  ) THEN
+    RAISE EXCEPTION ''finance or admin role required'';'
+    );
+    IF position('OR public._storefront_rpc_active()' IN v_def) = 0 THEN
+      RAISE EXCEPTION 'create_journal_draft patch failed: replace miss';
+    END IF;
+    EXECUTE v_def;
+  END IF;
+END;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Customer cart RPCs (force ownership; reuse add/checkout)
 -- ---------------------------------------------------------------------------
