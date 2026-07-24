@@ -6,8 +6,8 @@ SwiftUI customer shell with thin Cart / Orders / Garage / Pay screens bound to t
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Fake** (`FakeStorefrontApi`) | `SUPABASE_URL` / `SUPABASE_ANON_KEY` unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents — no network |
-| **Live** (`LiveStorefrontApi`) | Both URL + anon set and force-fake off | Real HTTP: `POST {url}/rest/v1/rpc/{name}` + table selects + edge pay-initiate |
+| **Fake** (`FakeStorefrontApi`) | `SUPABASE_URL` / `SUPABASE_ANON_KEY` unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents — no network; **sign-in skipped** |
+| **Live** (`LiveStorefrontApi`) | Both URL + anon set and force-fake off | Real HTTP + **email/password GoTrue sign-in** required before tabs |
 
 `StorefrontApiFactory.make()` picks the implementation. Toolbar badge shows **Fake** or **Live**.
 
@@ -28,17 +28,41 @@ Live sends `apikey` + `Authorization: Bearer {token}` on every call.
 
 | Token | Source | Notes |
 |-------|--------|-------|
-| Anon (default) | `SUPABASE_ANON_KEY` | Scaffold default; customer AuthZ RPCs need a real user JWT |
-| Customer JWT | `SUPABASE_ACCESS_TOKEN` or `LiveStorefrontApi.setAccessToken` | Required for `create_customer_cart` etc. (`customers.profile_id = auth.uid()`) |
+| Anon (default / signed-out) | `SUPABASE_ANON_KEY` | Customer AuthZ RPCs fail until a user JWT is set |
+| Customer JWT | Sign-in UI → `LiveStorefrontApi.setAccessToken` | GoTrue `POST /auth/v1/token?grant_type=password` |
+| Restored JWT | `AuthTokenStore` (UserDefaults) | access_token + refresh_token + email restored on launch |
+| Env override | `SUPABASE_ACCESS_TOKEN` | Optional bootstrap JWT (scheme env); skips sign-in until sign-out clears store |
 
-Sign-in UI is not wired yet — use a short-lived access token from GoTrue for device testing, then replace with proper auth.
+**Live gating:** main tabs stay behind `SignInScreen` until a session exists. **Sign out** clears UserDefaults and resets Bearer to anon. **Fake** skips the gate.
 
-Transport is **URLSession PostgREST**, not supabase-swift SPM (avoids package resolve on Windows). RPC / edge names match web; swap the transport later on macOS if desired (`Package.swift` notes the optional dependency).
+Transport is **URLSession** (PostgREST + GoTrue), not supabase-swift SPM (avoids package resolve on Windows). RPC / edge names match web.
+
+### Local test users
+
+Seed staff (not storefront customers) — see [`docs/LOCAL_DEVELOPMENT.md`](../../docs/LOCAL_DEVELOPMENT.md) §9:
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@gtr.local` | `local-dev-admin` | admin |
+| `finance@gtr.local` | `local-dev-finance` | finance |
+| `warehouse@gtr.local` | `local-dev-warehouse` | warehouse |
+
+`supabase/seed.sql` seeds **staff only** — no customer passwords there.
+
+Customer users for AuthZ smoke (`supabase/tests/customer_storefront_authz_smoke.sql`) — created when that smoke runs (not on plain `db reset`):
+
+| Email | Password |
+|-------|----------|
+| `storefront-a@gtr.local` | `local-dev-customer` |
+| `storefront-b@gtr.local` | `local-dev-customer` |
+
+Otherwise create a customer via **web signup** or **Supabase Dashboard → Authentication → Users**, then ensure a `customers` row with `profile_id = auth.uid()` (AuthZ RPCs require it).
 
 ## Screens
 
-| Tab | Actions |
-|-----|---------|
+| Tab / screen | Actions |
+|--------------|---------|
+| Sign in | Email + password → GoTrue JWT → `setAccessToken` |
 | Cart | Create cart, add demo line, checkout |
 | Orders | List + detail (`get_customer_order`) |
 | Garage | Upsert / delete vehicles |
@@ -69,7 +93,7 @@ Migration: `supabase/migrations/20260724130000_customer_storefront_authz.sql`. D
 ```
 apps/ios/
   Package.swift                          # SPM: GTRCustomerCore (no supabase-swift required)
-  Sources/GTRCustomerCore/               # AppEnv, StorefrontApi, PostgrestClient, Live…
+  Sources/GTRCustomerCore/               # AppEnv, auth, PostgrestClient, Live…
   GTRCustomer/                           # SwiftUI app + Features/*
   GTRCustomer.xcodeproj/
 ```
@@ -87,7 +111,7 @@ Copy `.env.example` into Xcode scheme environment variables or a local `Secrets.
 |----------|---------|
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Public anon key only — never service role |
-| `SUPABASE_ACCESS_TOKEN` | Optional customer JWT for AuthZ (until sign-in UI) |
+| `SUPABASE_ACCESS_TOKEN` | Optional bootstrap customer JWT (otherwise use Sign in) |
 | `STOREFRONT_FORCE_FAKE` | `1` / `true` → Fake even when URL+anon set |
 
 No PSP keys in the client. ContiPay / Paynow secrets stay in Edge Function env only.
@@ -125,5 +149,5 @@ swift build
 |--------|--------|
 | Xcode / Simulator | Requires macOS + Xcode |
 | SPM `swift build` | Requires Swift toolchain (typically macOS) |
-| Live HTTP | Implemented via URLSession PostgREST; needs URL+anon (+ customer JWT for AuthZ) |
-| Feature UI | Present; Fake API runnable without network |
+| Live HTTP | URLSession PostgREST + GoTrue password grant |
+| Feature UI | Present; Fake skips auth; Live gates on session |
