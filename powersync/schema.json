@@ -148,7 +148,7 @@
     },
     "stock_levels": {
       "buckets": ["by_user_pos", "by_staff_cycle_count"],
-      "columns": ["warehouse_id", "stock_item_id", "qty_on_hand"]
+      "columns": ["warehouse_id", "stock_item_id", "quantity"]
     },
     "warehouses": {
       "buckets": ["by_user_pos", "by_staff_dispatch", "by_staff_cycle_count"],
