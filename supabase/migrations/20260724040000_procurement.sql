@@ -612,7 +612,6 @@ DECLARE
   v_lines JSONB := '[]'::jsonb;
   v_row RECORD;
   v_po_line UUID;
-  v_line_no INT := 0;
   v_remaining NUMERIC;
 BEGIN
   PERFORM public._require_procurement_staff();
