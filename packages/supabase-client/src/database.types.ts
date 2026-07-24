@@ -5477,3 +5477,4 @@ export const Constants = {
   },
 } as const
 
+{"_tag":"Error","error":{"code":"UnknownError","message":"Timeout while shutting down PostHog. Some events may not have been sent."}}
