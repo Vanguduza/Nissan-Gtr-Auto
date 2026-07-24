@@ -236,7 +236,9 @@ export function SupplierQuoteForm({ rfqId }: { rfqId: string }) {
               Currency
               <select
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                onChange={(e) =>
+                  onCurrencyChange(e.target.value as CurrencyCode)
+                }
                 disabled={locked || !canQuote}
               >
                 <option value="USD">USD</option>
