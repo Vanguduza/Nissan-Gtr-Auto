@@ -38,4 +38,30 @@ interface RpcClient {
     suspend fun submitDeliveryNote(deliveryNoteId: String): String
 
     suspend fun cancelDeliveryNote(deliveryNoteId: String): String
+
+    /** Staff/dispatcher: create a delivery job from a submitted DN. */
+    suspend fun createDeliveryJob(
+        deliveryNoteId: String,
+        assigneeUserId: String? = null,
+        etaAt: String? = null,
+        notes: String? = null,
+    ): String
+
+    /** Staff/dispatcher: pending → dispatched | completed | failed. */
+    suspend fun updateDeliveryJobStatus(
+        deliveryJobId: String,
+        status: DeliveryJobStatus,
+    ): String
+
+    /**
+     * Bridge-only GPS trail point. Call after [co.zw.nissangtr.bridges.location.toDeliveryLocationIngest]
+     * with client-side ≥~5s throttle. Never from browser geolocation.
+     */
+    suspend fun ingestDeliveryLocation(
+        deliveryJobId: String,
+        lat: Double,
+        lng: Double,
+        recordedAt: String? = null,
+        accuracyM: Double? = null,
+    ): String
 }

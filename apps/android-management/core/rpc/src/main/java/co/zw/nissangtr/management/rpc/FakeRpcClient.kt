@@ -14,10 +14,17 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_DELIVERY_NOTE]: p_sales_invoice_id, p_lines, p_pick_list_id?
  * - [RpcNames.SUBMIT_DELIVERY_NOTE]: p_delivery_note_id
  * - [RpcNames.CANCEL_DELIVERY_NOTE]: p_delivery_note_id
+ * - [RpcNames.CREATE_DELIVERY_JOB]: p_delivery_note_id, p_assignee_user_id?, p_eta_at?, p_notes?
+ * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status
+ * - [RpcNames.INGEST_DELIVERY_LOCATION]: p_delivery_job_id, p_lat, p_lng, p_recorded_at?, p_accuracy_m?
  */
 class FakeRpcClient : RpcClient {
     private val dnSeq = AtomicInteger(1)
     private val plSeq = AtomicInteger(1)
+    private val jobSeq = AtomicInteger(1)
+    private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
+    /** Exposed for unit/demo checks — count of successful GPS ingests. */
+    val ingestedLocationCount: AtomicInteger = AtomicInteger(0)
     private val deliveryNotes = mutableListOf(
         DeliveryNoteSummary(
             id = "00000000-0000-4000-8000-0000000000d1",
