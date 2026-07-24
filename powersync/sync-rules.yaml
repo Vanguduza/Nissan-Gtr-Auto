@@ -22,7 +22,7 @@ bucket_definitions:
       - SELECT id, oem_part_number, description, base_uom_id, requires_serial FROM stock_items WHERE true
       - SELECT * FROM uoms WHERE true
       - SELECT * FROM warehouses WHERE true
-      - SELECT warehouse_id, stock_item_id, qty_on_hand FROM stock_levels WHERE true
+      - SELECT warehouse_id, stock_item_id, quantity FROM stock_levels WHERE true
 
   # --- Dispatch / delivery notes (read models + open jobs) ---
   by_staff_dispatch:
@@ -50,7 +50,7 @@ bucket_definitions:
           INNER JOIN stock_reconciliations sr ON sr.id = srl.stock_reconciliation_id
         WHERE sr.status IN ('draft', 'pending_approval')
       - SELECT id, oem_part_number, description, base_uom_id FROM stock_items WHERE true
-      - SELECT warehouse_id, stock_item_id, qty_on_hand FROM stock_levels WHERE true
+      - SELECT warehouse_id, stock_item_id, quantity FROM stock_levels WHERE true
       - SELECT * FROM warehouses WHERE true
 
 # Offline write path (not PowerSync upload tables — RPC intents only):
