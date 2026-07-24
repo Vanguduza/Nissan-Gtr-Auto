@@ -72,3 +72,13 @@ export {
   type DeliveryNoteStatus,
   type DeliveryJobStatus,
 } from "./logistics/types.js";
+export {
+  LOYALTY_MOVEMENTS,
+  LOYALTY_LIABILITY_ACCOUNT,
+  LOYALTY_EXPENSE_ACCOUNT,
+  toEarnLoyaltyPointsArgs,
+  toRedeemLoyaltyPointsArgs,
+  type LoyaltyMovement,
+  type EarnLoyaltyPointsInput,
+  type RedeemLoyaltyPointsInput,
+} from "./loyalty/types.js";
