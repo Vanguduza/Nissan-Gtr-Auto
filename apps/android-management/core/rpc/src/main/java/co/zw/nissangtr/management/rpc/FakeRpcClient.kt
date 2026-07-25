@@ -425,8 +425,14 @@ class FakeRpcClient : RpcClient {
         pickupLng: Double?,
         dropoffLat: Double?,
         dropoffLng: Double?,
-    ) {
+    ): String {
         require(deliveryJobId.isNotBlank())
+        require((pickupLat == null) == (pickupLng == null)) {
+            "pickup_lat and pickup_lng must both be set or both null"
+        }
+        require((dropoffLat == null) == (dropoffLng == null)) {
+            "dropoff_lat and dropoff_lng must both be set or both null"
+        }
         fun checkLat(v: Double?) {
             if (v != null) require(v in -90.0..90.0) { "lat out of range" }
         }
@@ -437,29 +443,42 @@ class FakeRpcClient : RpcClient {
         checkLng(pickupLng)
         checkLat(dropoffLat)
         checkLng(dropoffLng)
-        if (deliveryJobs[deliveryJobId] == null) {
+        val job = deliveryJobs[deliveryJobId]
+        require(job == null || job.second !in listOf("completed", "failed")) {
+            "cannot set geo on terminal delivery job"
+        }
+        if (job == null) {
             deliveryJobs[deliveryJobId] = "unknown" to "pending"
         }
-        val prev = jobCoords[deliveryJobId]
+        // Match Live: null pair clears that endpoint (no merge).
         jobCoords[deliveryJobId] = JobCoords(
-            pickupLat = pickupLat ?: prev?.pickupLat,
-            pickupLng = pickupLng ?: prev?.pickupLng,
-            dropoffLat = dropoffLat ?: prev?.dropoffLat,
-            dropoffLng = dropoffLng ?: prev?.dropoffLng,
+            pickupLat = pickupLat,
+            pickupLng = pickupLng,
+            dropoffLat = dropoffLat,
+            dropoffLng = dropoffLng,
         )
+        return deliveryJobId
     }
 
     override suspend fun updateDeliveryJobStatus(
         deliveryJobId: String,
         status: DeliveryJobStatus,
-    ): String {
+    ): UpdateDeliveryJobStatusResult {
         val current = deliveryJobs[deliveryJobId]
             ?: ("unknown" to "pending").also { deliveryJobs[deliveryJobId] = it }
         require(current.second !in listOf("completed", "failed")) {
             "terminal delivery job cannot change status"
         }
         deliveryJobs[deliveryJobId] = current.first to status.rpcValue
-        return deliveryJobId
+        val token = if (status == DeliveryJobStatus.DISPATCHED) {
+            "fake_track_" + deliveryJobId.replace("-", "").take(32).padEnd(32, '0')
+        } else {
+            null
+        }
+        return UpdateDeliveryJobStatusResult(
+            deliveryJobId = deliveryJobId,
+            trackToken = token,
+        )
     }
 
     override suspend fun ingestDeliveryLocation(
@@ -591,8 +610,8 @@ class FakeRpcClient : RpcClient {
         require(status == null || status !in listOf("completed", "failed")) {
             "cannot mint track token for terminal job"
         }
-        // Hex-like demo plaintext (64 chars)
-        return "fake_track_" + deliveryJobId.replace("-", "").take(32).padEnd(32, '0')
+        // Remint / rotate — different suffix so tests can distinguish from dispatch token.
+        return "fake_remint_" + deliveryJobId.replace("-", "").take(32).padEnd(32, '0')
     }
 
     override suspend fun generateDeliveryPodOtp(
