@@ -57,20 +57,21 @@ private enum class ManagementRoute {
  * Management shell. Feature screens are thin scaffolds over [RpcClient]
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
  * Live requires GoTrue email/password session via [AuthGate].
- * Money/pricing: @gtr/shared. Hardware: bridges/ only (GPS / QR / ESC/POS).
+ * Money/pricing: @gtr/shared. Hardware: bridges/ only (QR / ESC/POS).
  *
- * Bridges: [FusedLocationGpsBridge], [CameraxQrScannerBridge],
- * [BluetoothEscPosPrinterBridge] — Activity attachment + permission / scan results.
+ * Driver GPS FGS producer removed — sole producer is `apps/android-delivery`
+ * (Bridge-First location-tracker). Staff VIEW live last-point / ETA in dispatch.
+ *
+ * Bridges: [CameraxQrScannerBridge], [BluetoothEscPosPrinterBridge] —
+ * Activity attachment + permission / scan results.
  */
 class MainActivity : ComponentActivity() {
 
-    private lateinit var gpsBridge: FusedLocationGpsBridge
     private lateinit var qrBridge: CameraxQrScannerBridge
     private lateinit var printerBridge: BluetoothEscPosPrinterBridge
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        gpsBridge = FusedLocationGpsBridge(this)
         qrBridge = CameraxQrScannerBridge(this)
         printerBridge = BluetoothEscPosPrinterBridge(this)
         listOf(
@@ -98,12 +99,12 @@ class MainActivity : ComponentActivity() {
                     AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
                         ManagementApp(
                             rpc = rpc,
-                            gps = gpsBridge,
                             qr = qrBridge,
                             printer = printerBridge,
                             liveRpc = live,
                             signedInEmail = email,
                             onSignOut = onSignOut,
+                            supportPhone = BuildConfig.DELIVERY_SUPPORT_PHONE,
                         )
                     }
                 }
@@ -113,13 +114,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::gpsBridge.isInitialized) gpsBridge.attachActivity(this)
         if (::qrBridge.isInitialized) qrBridge.attachActivity(this)
         if (::printerBridge.isInitialized) printerBridge.attachActivity(this)
     }
 
     override fun onPause() {
-        if (::gpsBridge.isInitialized) gpsBridge.detachActivity()
         if (::qrBridge.isInitialized) qrBridge.detachActivity()
         if (::printerBridge.isInitialized) printerBridge.detachActivity()
         super.onPause()
@@ -134,9 +133,6 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
-            FusedLocationGpsBridge.REQUEST_LOCATION,
-            FusedLocationGpsBridge.REQUEST_BACKGROUND_LOCATION,
-            -> if (::gpsBridge.isInitialized) gpsBridge.onPermissionResult()
             CameraxQrScannerBridge.REQUEST_CAMERA,
             -> if (::qrBridge.isInitialized) qrBridge.onPermissionResult()
             BluetoothEscPosPrinterBridge.REQUEST_BLUETOOTH,
@@ -157,12 +153,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ManagementApp(
     rpc: RpcClient,
-    gps: GpsBridge,
     qr: QrScannerBridge,
     printer: EscPosPrinterBridge,
     liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
+    supportPhone: String,
 ) {
     var route by remember { mutableStateOf(ManagementRoute.Home) }
     var showChat by remember { mutableStateOf(!liveRpc) }
@@ -195,7 +191,7 @@ private fun ManagementApp(
         )
         ManagementRoute.Dispatch -> DispatchScreen(
             rpc = rpc,
-            gps = gps,
+            supportPhone = supportPhone,
             onBack = { route = ManagementRoute.Home },
         )
         ManagementRoute.Pos -> PosScreen(
@@ -270,7 +266,7 @@ private fun ManagementHome(
         Button(
             onClick = onDispatch,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Logistics — Pick / DN / Track") }
+        ) { Text("Logistics — Pick / DN / Dispatch") }
         if (showChat) {
             Button(
                 onClick = onChat,
@@ -284,7 +280,7 @@ private fun ManagementHome(
         }
         Text(
             "Auth: GoTrue signInWith(Email). No ZIMRA / payroll tax. " +
-                "Bridge-First for QR/printer/GPS. Money: explicit USD|ZIG.",
+                "Bridge-First for QR/printer. Driver GPS: delivery app only. Money: USD|ZIG.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )
