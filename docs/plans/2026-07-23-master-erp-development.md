@@ -442,15 +442,15 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 3. Storefront PSP callers: `return_url` / `cancel_url` only — see `docs/storefront-psp-return-urls.md`
 
 **Still follow-on** (remaining — priority order)
-1. **Receipts + manager SMS:** real PDF + SMS gateway + WhatsApp Cloud send (`_shared/whatsapp_cloud.ts`) — in progress
-2. **WhatsApp parts-finder bot:** plan [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md); decision treat Accepted
-3. POS / warehouse / receive / transfer / cycle UIs → existing RPCs
-4. QR + ESC/POS bridges (Android) + wire warehouse/POS
-5. Finance operator UI; warranty/returns/quarantine; account/B2B/loyalty; mobile Live-when-env; PDP media
-6. **PSP/messaging env secrets (user-provided):** ContiPay/Paynow/WhatsApp/SMS/email/map tiles — Edge/local env only; do not commit
+1. **WhatsApp parts-finder bot:** plan [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md) — in progress
+2. POS / warehouse / receive / transfer / cycle UIs → existing RPCs
+3. QR + ESC/POS bridges (Android) + wire warehouse/POS
+4. Finance operator UI; warranty/returns/quarantine; account/B2B/loyalty; mobile Live-when-env; PDP media
+5. Web receipt download route `nissangtrauto.co.zw/receipts/{token}` (WA uses Storage signed URL)
+6. **Env secrets (user-provided):** ContiPay/Paynow/WhatsApp/SMS/email/map tiles — Edge/local only; do not commit
 7. Native assemble on JDK/Xcode; production `NEXT_PUBLIC_MAP_STYLE_URL`
 
-**In progress:** Receipts PDF + SMS + WhatsApp Cloud delivery workers (`@backend_agent`).
+**In progress:** WhatsApp parts-finder bot Edge webhook (`@backend_agent`).
 
 **Blockers / notes**
 - No commits required by this slice unless user asks.
