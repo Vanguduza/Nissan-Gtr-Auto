@@ -1049,7 +1049,8 @@ export function StaffFinancePanel() {
               >
                 {boot.payments.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.document_number ?? p.id.slice(0, 8)} · {p.amount}{" "}
+                    {p.document_number ?? p.id.slice(0, 8)} ·{" "}
+                    {p.customers?.display_name ?? "Customer"} · {p.amount}{" "}
                     {p.currency}
                   </option>
                 ))}
