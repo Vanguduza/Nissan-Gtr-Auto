@@ -76,7 +76,7 @@ dependencies {
     implementation(project(":feature:hr"))
     implementation(project(":feature:chat"))
     // Host Activity attaches hardware bridges for permission / Activity results
-    implementation(project(":location-tracker"))
+    // (QR / ESC/POS). Driver GPS FGS removed — sole producer is android-delivery.
     implementation(project(":qr-scanner"))
     implementation(project(":escpos-printer"))
 
