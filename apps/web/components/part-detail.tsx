@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { CatalogCanvasStub } from "@/components/catalog-canvas-stub";
 import { PriceDual } from "@/components/price-dual";
@@ -13,6 +13,21 @@ import {
   loadCatalogProduct,
   type CatalogProduct,
 } from "@/lib/catalog-product";
+import {
+  addOemToCompare,
+  isOemInCompare,
+  removeOemFromCompare,
+} from "@/lib/compare-selection";
+import {
+  listApprovedReviewsForOem,
+  submitProductReview,
+  type ProductReviewRow,
+} from "@/lib/customer-reviews";
+import {
+  addWishlistItem,
+  isOemOnWishlist,
+  removeWishlistItem,
+} from "@/lib/customer-wishlist";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/parts/[oem]/pdp.module.css";
 
@@ -25,12 +40,21 @@ type Status =
 
 export function PartDetail({ oem }: { oem: string }) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
+  const [onWishlist, setOnWishlist] = useState(false);
+  const [inCompare, setInCompare] = useState(false);
+  const [reviews, setReviews] = useState<ProductReviewRow[]>([]);
+  const [wishBusy, setWishBusy] = useState(false);
+  const [reviewRating, setReviewRating] = useState("5");
+  const [reviewBody, setReviewBody] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
       setStatus({ kind: "loading" });
+      setActionMsg(null);
       const client = createWebClient();
       if (!client) {
         if (!cancelled) {
@@ -61,6 +85,15 @@ export function PartDetail({ oem }: { oem: string }) {
       }
 
       setStatus({ kind: "ready", product: result.data });
+      setInCompare(isOemInCompare(result.data.oem));
+
+      const [wish, approved] = await Promise.all([
+        isOemOnWishlist(client, result.data.oem),
+        listApprovedReviewsForOem(client, result.data.oem),
+      ]);
+      if (cancelled) return;
+      if (wish.ok) setOnWishlist(wish.data);
+      if (approved.ok) setReviews(approved.data);
     }
 
     void run();
@@ -68,6 +101,78 @@ export function PartDetail({ oem }: { oem: string }) {
       cancelled = true;
     };
   }, [oem]);
+
+  const toggleWishlist = useCallback(async (productOem: string) => {
+    setWishBusy(true);
+    setActionMsg(null);
+    const client = createWebClient();
+    if (!client) {
+      setActionMsg("Supabase is not configured.");
+      setWishBusy(false);
+      return;
+    }
+    if (onWishlist) {
+      const res = await removeWishlistItem(client, { oem: productOem });
+      setWishBusy(false);
+      if (!res.ok) {
+        setActionMsg(res.error);
+        return;
+      }
+      setOnWishlist(false);
+      setActionMsg("Removed from wishlist.");
+      return;
+    }
+    const res = await addWishlistItem(client, { oem: productOem });
+    setWishBusy(false);
+    if (!res.ok) {
+      setActionMsg(res.error);
+      return;
+    }
+    setOnWishlist(true);
+    setActionMsg("Saved to wishlist.");
+  }, [onWishlist]);
+
+  function toggleCompare(productOem: string) {
+    setActionMsg(null);
+    if (isOemInCompare(productOem)) {
+      removeOemFromCompare(productOem);
+      setInCompare(false);
+      setActionMsg("Removed from compare.");
+      return;
+    }
+    const res = addOemToCompare(productOem);
+    if (!res.ok) {
+      setActionMsg(res.error);
+      return;
+    }
+    setInCompare(true);
+    setActionMsg("Added to compare.");
+  }
+
+  async function onSubmitReview(e: FormEvent, productOem: string) {
+    e.preventDefault();
+    setReviewBusy(true);
+    setActionMsg(null);
+    const client = createWebClient();
+    if (!client) {
+      setActionMsg("Supabase is not configured.");
+      setReviewBusy(false);
+      return;
+    }
+    const n = Number(reviewRating);
+    const res = await submitProductReview(client, {
+      rating: n,
+      body: reviewBody.trim(),
+      oem: productOem,
+    });
+    setReviewBusy(false);
+    if (!res.ok) {
+      setActionMsg(res.error);
+      return;
+    }
+    setReviewBody("");
+    setActionMsg("Review submitted — pending moderation.");
+  }
 
   if (status.kind === "loading") {
     return (
@@ -198,12 +303,32 @@ export function PartDetail({ oem }: { oem: string }) {
         </div>
         <div className={styles.actions}>
           <AddToCartButton oem={p.oem} />
-          <Link href="/account/wishlist" className={styles.wish}>
-            Wishlist
+          <button
+            type="button"
+            className={styles.wish}
+            disabled={wishBusy}
+            onClick={() => void toggleWishlist(p.oem)}
+          >
+            {onWishlist ? "Remove wishlist" : "Wishlist"}
+          </button>
+          <button
+            type="button"
+            className={styles.wish}
+            onClick={() => toggleCompare(p.oem)}
+          >
+            {inCompare ? "Remove compare" : "Compare"}
+          </button>
+          <Link href="/account/compare" className={styles.wish}>
+            View compare
           </Link>
           <WhatsAppCta oem={p.oem} />
           <ChatEntryLink oem={p.oem} />
         </div>
+        {actionMsg ? (
+          <p className={styles.muted} role="status">
+            {actionMsg}
+          </p>
+        ) : null}
         <section className={styles.block}>
           <h2>Specs</h2>
           {p.specs.length ? (
@@ -248,7 +373,56 @@ export function PartDetail({ oem }: { oem: string }) {
         </section>
         <section className={styles.block}>
           <h2>Reviews</h2>
-          <p className={styles.muted}>No reviews yet — write one from My Account.</p>
+          {reviews.length === 0 ? (
+            <p className={styles.muted}>No approved reviews yet.</p>
+          ) : (
+            <ul>
+              {reviews.map((r) => (
+                <li key={r.id}>
+                  {r.rating}/5
+                  {r.body ? ` — ${r.body}` : ""}
+                  <span className={styles.muted}>
+                    {" "}
+                    · {new Date(r.created_at).toLocaleDateString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form
+            onSubmit={(e) => void onSubmitReview(e, p.oem)}
+            style={{ marginTop: "0.85rem" }}
+          >
+            <p className={styles.muted}>Write a review (pending moderation)</p>
+            <div className={styles.actions}>
+              <select
+                value={reviewRating}
+                onChange={(e) => setReviewRating(e.target.value)}
+                disabled={reviewBusy}
+                aria-label="Rating"
+              >
+                {[5, 4, 3, 2, 1].map((n) => (
+                  <option key={n} value={n}>
+                    {n} stars
+                  </option>
+                ))}
+              </select>
+              <input
+                value={reviewBody}
+                onChange={(e) => setReviewBody(e.target.value)}
+                placeholder="Optional comments"
+                disabled={reviewBusy}
+                style={{ flex: 1, minWidth: "8rem" }}
+              />
+              <button type="submit" className={styles.wish} disabled={reviewBusy}>
+                Submit
+              </button>
+            </div>
+          </form>
+          <p className={styles.muted}>
+            Or manage all reviews from{" "}
+            <Link href="/account/reviews">My Account</Link>.
+          </p>
         </section>
         <section className={styles.block}>
           <h2>Fulfillment</h2>
