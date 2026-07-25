@@ -1,3 +1,5 @@
+package co.zw.nissangtr.management.chat
+
 /**
  * Staff live-chat feature module.
  * Inbox filters + claim / reply / close via [co.zw.nissangtr.management.rpc.RpcClient]

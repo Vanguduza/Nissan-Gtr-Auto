@@ -22,6 +22,7 @@ include(":feature:pos")
 include(":feature:warehouse")
 include(":feature:dispatch")
 include(":feature:hr")
+include(":feature:chat")
 
 // Bridge-First — consume only; impl lives under bridges/
 include(":location-tracker")

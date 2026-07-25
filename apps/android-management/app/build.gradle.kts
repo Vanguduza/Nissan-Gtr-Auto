@@ -68,6 +68,7 @@ dependencies {
     implementation(project(":feature:warehouse"))
     implementation(project(":feature:dispatch"))
     implementation(project(":feature:hr"))
+    implementation(project(":feature:chat"))
     // Host Activity attaches hardware bridges for permission / Activity results
     implementation(project(":location-tracker"))
     implementation(project(":qr-scanner"))
