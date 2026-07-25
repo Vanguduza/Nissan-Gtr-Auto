@@ -1,0 +1,34 @@
+import Link from "next/link";
+import { StaffNav } from "@/components/staff-nav";
+import styles from "@/components/account.module.css";
+
+export const metadata = { title: "Staff · Warehouse" };
+
+export default function StaffWarehouseHubPage() {
+  return (
+    <div className={styles.shell}>
+      <StaffNav current="/staff/warehouse" />
+      <div className={styles.panel}>
+        <h1 className={styles.title}>Warehouse</h1>
+        <p className={styles.lede}>
+          Receive, dual-auth transfers, and cycle count. Warehouse staff only —
+          roles enforced by RPCs. Typed OEM/SKU input (QR via bridge later).
+        </p>
+        <div className={styles.cardGrid}>
+          <Link href="/staff/warehouse/receive" className={styles.card}>
+            <span className={styles.cardLabel}>Receive</span>
+            <span className={styles.cardBlurb}>post_stock_receipt</span>
+          </Link>
+          <Link href="/staff/warehouse/transfers" className={styles.card}>
+            <span className={styles.cardLabel}>Transfers</span>
+            <span className={styles.cardBlurb}>Create · approve · reject</span>
+          </Link>
+          <Link href="/staff/warehouse/cycle-count" className={styles.card}>
+            <span className={styles.cardLabel}>Cycle count</span>
+            <span className={styles.cardBlurb}>Reconciliation draft → post</span>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
