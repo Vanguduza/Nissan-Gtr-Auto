@@ -1,9 +1,8 @@
 # GTR Management — Android
 
-Staff/management shell with feature modules for POS, warehouse, dispatch, HR attendance,
-and staff live chat.
-Thin Compose scaffolds for **POS**, **warehouse**, **HR clock**, **logistics pick/DN/assignment**,
-and **staff chat inbox** — not App Store polish.
+Staff/management shell with feature modules for POS, warehouse (bins/consignment), procurement
+blankets, B2B credit, dispatch, HR attendance, and staff live chat.
+Thin Compose scaffolds — not App Store polish.
 
 ## Prerequisites
 
@@ -21,7 +20,9 @@ and **staff chat inbox** — not App Store polish.
 | `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
 | `:feature:dispatch` | `…management.dispatch` | Pick/DN + assign/route/panic + staff live view (no GPS producer) |
 | `:feature:pos` | `…management.pos` | Standalone sales till (search/catalog/checkout) + optional companion |
-| `:feature:warehouse` | `…management.warehouse` | Receive, dual-auth transfer, cycle-count + QR fill |
+| `:feature:warehouse` | `…management.warehouse` | Receive/transfer/cycle + bins/pick-path/labels + consignment |
+| `:feature:procurement` | `…management.procurement` | Blanket POs + releases + expiry/remaining alerts |
+| `:feature:credit` | `…management.credit` | B2B `set_customer_credit` (admin\|sales\|finance) |
 | `:feature:chat` | `…management.chat` | Staff inbox — open/mine/closed, claim/reply/close |
 | `:qr-scanner` | `…bridges.qr` | Included from `bridges/android/qr-scanner` |
 | `:escpos-printer` | `…bridges.escpos` | Included from `bridges/android/escpos-printer` |
@@ -31,22 +32,35 @@ and **staff chat inbox** — not App Store polish.
 | Screen | Module | RPCs / role |
 |--------|--------|-------------|
 | `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
-| `PosScreen` | `:feature:pos` | Sales home when role=sales only. Standalone: `search_catalog` → add line → `checkout_pos_cart` (+ receipt contacts + bind). Optional companion scan sessions + bridge QR. |
+| `PosScreen` | `:feature:pos` | Sales till + named-customer search → `create_pos_cart(p_customer_id)`. Standalone catalog + companion QR. |
 | `WarehouseScreen` | `:feature:warehouse` | receive / transfer / recon RPCs + Bridge QR → `lookupStockItemByOem` |
+| `BinsScreen` | `:feature:warehouse` | `create_warehouse_bin` / deactivate / `set_stock_level_bin` / `get_pick_path_hints` + ESC/POS bin labels |
+| `ConsignmentScreen` | `:feature:warehouse` | draft / add line / submit / cancel consignment RPCs |
+| `BlanketsScreen` | `:feature:procurement` | `create_blanket_purchase_order` / submit / release + expiry/remaining alerts |
+| `CreditScreen` | `:feature:credit` | `set_customer_credit` + PostgREST credit snapshot (explicit currency) |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
-| `DispatchScreen` | `:feature:dispatch` | pick/DN + `suggest_delivery_assignees` / `assign_delivery_job` / `optimize_driver_stops` / `get_delivery_track_point` / `mint_delivery_track_token` / `generate_delivery_pod_otp` + panic inbox |
-| `ChatScreen` | `:feature:chat` | `claim_chat_thread`, `post_chat_message`, `close_chat_thread`, `mark_chat_thread_read`, `chat_unread_count` + PostgREST lists |
+| `DispatchScreen` | `:feature:dispatch` | pick/DN + assign/route/panic + staff live view |
+| `ChatScreen` | `:feature:chat` | claim/reply/close + unread |
 
 Also named: `cancel_delivery_note` (RPC wired; not a dedicated button).
 
-**Role home:** sales-only → POS till as default (hub via “All modules”). Admin or warehouse → hub as home (POS still on hub). Fake mode uses role `sales` so POS is the Fake landing screen.
+**Role home:** sales-only → POS till as default (hub via “All modules”). Admin or warehouse → hub as home. Fake roles include admin/warehouse so hub is the Fake landing.
 
-Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**, **Chat** (RBAC: admin|sales|warehouse when Live).
+Home hub: **POS**, **Warehouse**, **Bins**, **Consignment**, **Blankets**, **Credit** (admin\|sales\|finance), **HR**, **Logistics**, **Chat**.
+
+### Fake shop-ops smoke (no Supabase)
+
+1. Launch with empty `SUPABASE_URL` / `SUPABASE_ANON_KEY` (or `rpc.forceFake=true`).
+2. Hub → **Procurement — Blanket POs** → see seeded BPO with expiry/remaining alerts → call-off release.
+3. Hub → **Bins** → refresh seeded bins → **Get pick-path hints** → optional MAC + Connect + Print label (fails soft if unpaired).
+4. Hub → **Consignment** → create draft / add line (use Fake stock/UOM UUIDs) / submit.
+5. Hub → **CRM — B2B credit** → search “Acme” → save limit/hold (currency on snapshot).
+6. Hub → **POS** → named customer search “Acme” → select → Open cart.
 
 ## Standalone POS demo (no pairing)
 
-1. Sign in as **sales** (Fake auto-lands on POS).
-2. Pick warehouse → **Open cart**.
+1. Open POS from hub (or sales-only Live lands on POS).
+2. Pick warehouse → named-customer search (optional) → **Open cart**.
 3. Search mode `part` (or vin/model/pnc) → **Search** → **Add** on a hit (resolves OEM → stock item).
 4. Optionally **Scan QR → add** on till (Bridge-First; no session required).
 5. Enter receipt email and/or WhatsApp E.164 → **Checkout**.
