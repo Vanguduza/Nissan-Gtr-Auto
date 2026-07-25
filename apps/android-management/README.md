@@ -31,7 +31,7 @@ and **staff chat inbox** — not App Store polish.
 | Screen | Module | RPCs / role |
 |--------|--------|-------------|
 | `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
-| `PosScreen` | `:feature:pos` | `create_pos_cart`, `add_cart_line`, `add_cart_line_from_qr`, `checkout_pos_cart` |
+| `PosScreen` | `:feature:pos` | Sales home when role=sales only. Standalone: `search_catalog` → add line → `checkout_pos_cart` (+ receipt contacts + bind). Optional companion scan sessions + bridge QR. |
 | `WarehouseScreen` | `:feature:warehouse` | receive / transfer / recon RPCs + Bridge QR → `lookupStockItemByOem` |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
 | `DispatchScreen` | `:feature:dispatch` | pick/DN + `suggest_delivery_assignees` / `assign_delivery_job` / `optimize_driver_stops` / `get_delivery_track_point` / `mint_delivery_track_token` / `generate_delivery_pod_otp` + panic inbox |
