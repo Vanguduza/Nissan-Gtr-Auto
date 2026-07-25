@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -117,7 +118,6 @@ class CameraxQrScannerBridge(
         val cont = scanContinuation
         scanContinuation = null
         cont?.resumeWithException(CancellationException("QR scan cancelled"))
-        activityRef?.get()?.finishActivity(REQUEST_SCAN)
         Unit
     }
 
