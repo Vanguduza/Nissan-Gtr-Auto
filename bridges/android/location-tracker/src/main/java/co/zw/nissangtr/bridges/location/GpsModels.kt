@@ -23,6 +23,11 @@ data class GpsCoordinate(
     val accuracyMeters: Float? = null,
     /** ISO-8601 timestamp from the device (maps to p_recorded_at). */
     val capturedAt: String,
+    /**
+     * Speed in m/s when the OS provides it (used for auto cadence).
+     * Not part of the RPC ingest payload.
+     */
+    val speedMetersPerSecond: Float? = null,
 )
 
 /**
@@ -55,9 +60,31 @@ interface GpsWatchHandle {
 }
 
 /**
+ * Battery-aware cadence for continuous delivery tracking.
+ * Mirrors bridges/contracts/gps.ts GpsWatchCadence.
+ */
+enum class GpsWatchCadence {
+    /** High accuracy, ~5s — aligns with server ingest rate limit. */
+    MOVING,
+    /** Balanced power, ~30s + distance filter. */
+    IDLE,
+    /** Switch MOVING ↔ IDLE from speed heuristics. */
+    AUTO,
+}
+
+data class GpsWatchOptions(
+    val cadence: GpsWatchCadence = GpsWatchCadence.AUTO,
+    /** Override min distance (meters) before Fused emits an update. */
+    val minDistanceMeters: Float? = null,
+)
+
+/**
  * Native GPS for delivery tracking.
  * Prefer [watchPosition] while a job is en route; throttle client-side (~5s)
  * before calling ingest_delivery_location. This bridge does not call Supabase.
+ *
+ * Offline: use [GpsPingBuffer] for a short in-memory hold; durable offline
+ * queue + flush is the **app** responsibility.
  */
 interface GpsBridge {
     suspend fun getLocationPermissionStatus(): LocationPermissionStatus
@@ -71,5 +98,6 @@ interface GpsBridge {
     suspend fun watchPosition(
         onUpdate: (GpsCoordinate) -> Unit,
         onError: ((String) -> Unit)? = null,
+        options: GpsWatchOptions = GpsWatchOptions(),
     ): GpsWatchHandle
 }
