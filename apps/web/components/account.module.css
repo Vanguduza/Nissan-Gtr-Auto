@@ -175,13 +175,8 @@
 
 .navSubList {
   list-style: none;
-  margin: 0 0 0.35rem;
-  padding: 0 0 0.15rem;
-}
-
-.navSubList {
-  margin-left: 0.35rem;
-  padding-left: 0.35rem;
+  margin: 0 0 0.35rem 0.35rem;
+  padding: 0 0 0.15rem 0.35rem;
   border-left: 1px solid rgba(18, 21, 28, 0.07);
 }
 
