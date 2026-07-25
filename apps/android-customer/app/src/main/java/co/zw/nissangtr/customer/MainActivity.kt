@@ -253,6 +253,7 @@ private fun CustomerApp(
             rpc = rpc,
             initialToken = trackToken,
             initialJobId = trackJobId,
+            sessionKey = trackSession,
             onBack = { route = trackReturn },
         )
     }
