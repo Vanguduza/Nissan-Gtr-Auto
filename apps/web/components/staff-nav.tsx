@@ -1,27 +1,21 @@
+"use client";
+
 import Link from "next/link";
 import styles from "@/components/account.module.css";
-
-type NavItem = {
-  href: string;
-  label: string;
-  exact?: boolean;
-};
-
-const nav: NavItem[] = [
-  { href: "/staff", label: "Hub", exact: true },
-  { href: "/staff/pos", label: "POS" },
-  { href: "/staff/warehouse", label: "Warehouse" },
-  { href: "/staff/hr", label: "HR" },
-  { href: "/staff/logistics", label: "Logistics", exact: true },
-  { href: "/staff/logistics/tracking", label: "Live map" },
-];
+import { useStaffAuth } from "@/components/staff-auth-context";
+import { filterNavForRoles, STAFF_NAV_ITEMS } from "@/lib/staff-auth";
 
 export function StaffNav({ current }: { current: string }) {
+  const ctx = useStaffAuth();
+  const items = ctx
+    ? filterNavForRoles(ctx.roles)
+    : STAFF_NAV_ITEMS.filter((i) => i.roles === "any");
+
   return (
     <nav className={styles.nav} aria-label="Staff">
       <p className={styles.navTitle}>Staff</p>
       <ul className={styles.navList}>
-        {nav.map((item) => {
+        {items.map((item) => {
           const active = item.exact
             ? current === item.href
             : current === item.href || current.startsWith(`${item.href}/`);
