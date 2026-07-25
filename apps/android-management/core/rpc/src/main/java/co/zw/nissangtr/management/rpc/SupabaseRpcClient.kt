@@ -241,11 +241,15 @@ class SupabaseRpcClient(
 
     override suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary> {
         require(cartId.isNotBlank())
-        return client.from("pos_cart_lines")
+        val rows = client.from("pos_cart_lines")
             .select(
-                Columns.raw(
-                    "id, stock_item_id, qty, unit_price, line_total, is_core_charge, " +
-                        "stock_items(oem_part_number)",
+                Columns.list(
+                    "id",
+                    "stock_item_id",
+                    "qty",
+                    "unit_price",
+                    "line_total",
+                    "is_core_charge",
                 ),
             ) {
                 filter { eq("cart_id", cartId) }
@@ -253,7 +257,34 @@ class SupabaseRpcClient(
                 limit(200)
             }
             .decodeList<PosCartLineRow>()
-            .map { it.toSummary() }
+
+        // Best-effort OEM labels (PostgREST embed not required).
+        val oemByItem = mutableMapOf<String, String>()
+        val itemIds = rows.map { it.stockItemId }.distinct()
+        for (itemId in itemIds.take(40)) {
+            runCatching {
+                client.from("stock_items")
+                    .select(Columns.list("id", "oem_part_number")) {
+                        filter { eq("id", itemId) }
+                        limit(1)
+                    }
+                    .decodeList<StockItemOemRow>()
+                    .firstOrNull()
+                    ?.let { oemByItem[it.id] = it.oemPartNumber }
+            }
+        }
+
+        return rows.map { row ->
+            PosCartLineSummary(
+                id = row.id,
+                stockItemId = row.stockItemId,
+                oemPartNumber = oemByItem[row.stockItemId],
+                qty = row.qty,
+                unitPrice = row.unitPrice,
+                lineTotal = row.lineTotal,
+                isCoreCharge = row.isCoreCharge,
+            )
+        }
     }
 
     override suspend fun getPosCartCustomerId(cartId: String): String? {
