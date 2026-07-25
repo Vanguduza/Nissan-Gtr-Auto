@@ -342,13 +342,7 @@ BEGIN
   SELECT id INTO v_uom FROM public.uoms WHERE code = 'EA' LIMIT 1;
   SELECT id INTO v_list FROM public.price_lists WHERE code = 'RETAIL' LIMIT 1;
 
-  INSERT INTO public.vehicle_master (
-    vin_prefix, chassis_code, engine_code, production_year, model_variant
-  )
-  VALUES ('MNTCCND40', 'D40', 'YD25', 2010, 'Nissan Navara D40 · YD25')
-  ON CONFLICT DO NOTHING;
-
-  -- vehicle_master has expression unique index — upsert via NOT EXISTS if conflict miss
+  -- vehicle_master natural key is an expression unique index — upsert via NOT EXISTS
   IF NOT EXISTS (
     SELECT 1 FROM public.vehicle_master
     WHERE COALESCE(vin_prefix, '') = 'MNTCCND40'
