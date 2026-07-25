@@ -4,7 +4,6 @@ import {
   Columns2,
   Gift,
   Heart,
-  iconSizeMd,
   iconSizeSm,
   iconStroke,
   LayoutGrid,
@@ -82,5 +81,3 @@ export const accountCardIcons: Record<string, LucideIcon> = {
   "/account/reviews": Star,
   "/account/apps": Smartphone,
 };
-
-export { iconSizeMd };
