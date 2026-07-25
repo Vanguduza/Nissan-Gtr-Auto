@@ -100,6 +100,7 @@ struct ChatScreen: View {
             }
         }
         .task { await refresh() }
+        .onAppear { Task { await refresh() } }
         .refreshable { await refresh() }
     }
 
