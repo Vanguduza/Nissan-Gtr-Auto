@@ -453,23 +453,24 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- Register Storage object metadata (bytes uploaded by seed_catalog_diagrams.mjs)
+  -- Register Storage object metadata (bytes uploaded by seed_catalog_diagrams.mjs).
+  -- owner left NULL: auth seed users do not exist yet at migration time.
   INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
   VALUES
     (
-      'catalog-diagrams', 'navara-d40/15208-oil-filter.png', v_admin, v_admin::text,
+      'catalog-diagrams', 'navara-d40/15208-oil-filter.png', NULL, NULL,
       jsonb_build_object('mimetype', 'image/png', 'size', 137, 'cacheControl', '3600')
     ),
     (
-      'catalog-diagrams', 'navara-d40/40206-brake-disc.png', v_admin, v_admin::text,
+      'catalog-diagrams', 'navara-d40/40206-brake-disc.png', NULL, NULL,
       jsonb_build_object('mimetype', 'image/png', 'size', 136, 'cacheControl', '3600')
     ),
     (
-      'catalog-diagrams', 'navara-d40/21410-water-pump.png', v_admin, v_admin::text,
+      'catalog-diagrams', 'navara-d40/21410-water-pump.png', NULL, NULL,
       jsonb_build_object('mimetype', 'image/png', 'size', 137, 'cacheControl', '3600')
     ),
     (
-      'catalog-diagrams', 'navara-d40/16546-air-filter.png', v_admin, v_admin::text,
+      'catalog-diagrams', 'navara-d40/16546-air-filter.png', NULL, NULL,
       jsonb_build_object('mimetype', 'image/png', 'size', 136, 'cacheControl', '3600')
     )
   ON CONFLICT (bucket_id, name) DO UPDATE
