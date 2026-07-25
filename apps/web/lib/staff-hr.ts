@@ -77,3 +77,38 @@ export async function attendanceHoursInPeriod(
   }
   return { ok: true, data: hours };
 }
+
+export type PayrollLineOption = {
+  id: string;
+  employee_id: string;
+  gross_pay: number;
+  currency: Database["public"]["Enums"]["currency_code"];
+  payroll_run_id: string;
+};
+
+export async function listOpenPayrollLines(
+  client: SupabaseClient,
+): Promise<StorefrontResult<PayrollLineOption[]>> {
+  const { data, error } = await client
+    .from("payroll_lines")
+    .select("id, employee_id, gross_pay, currency, payroll_run_id")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as PayrollLineOption[]) ?? [] };
+}
+
+/** Manual/custom deduction only — no PAYE/NSSA/statutory tax UI. */
+export async function addPayrollDeduction(
+  client: SupabaseClient,
+  args: { payrollLineId: string; label: string; amount: number },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("add_payroll_deduction", {
+    p_payroll_line_id: args.payrollLineId,
+    p_label: args.label,
+    p_amount: args.amount,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "add_payroll_deduction returned no id." };
+  return { ok: true, data };
+}

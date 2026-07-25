@@ -267,6 +267,11 @@ export function StaffWarehouseCycleCountPanel() {
 
   return (
     <div className={styles.form}>
+      <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+        Typed OEM / counted qty. QR cycle-count scan: use the management device
+        bridge. Currency on the draft is explicit <code>USD</code> |{" "}
+        <code>ZIG</code>.
+      </p>
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Create draft</legend>
         <form onSubmit={(e) => void onCreateDraft(e)}>
