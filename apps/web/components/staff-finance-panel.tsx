@@ -2809,6 +2809,7 @@ function StaffFinancePanelInner() {
                 : ""}
             </p>
             {arAging.invoice_aging_buckets.length ? (
+              <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -2829,6 +2830,7 @@ function StaffFinancePanelInner() {
                   ))}
                 </tbody>
               </table>
+              </div>
             ) : (
               <p className={styles.muted}>No open invoice aging buckets.</p>
             )}
