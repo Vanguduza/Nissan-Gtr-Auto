@@ -307,11 +307,13 @@ BEGIN
       END IF;
   END;
 
-  -- POD required to complete (dedicated delivery app P0)
+  -- POD required to complete (dedicated delivery app P0; P1 adds OTP)
+  v_otp := public.generate_delivery_pod_otp(v_job);
   PERFORM public.submit_delivery_pod(
     v_job,
     'pod/photos/phase10-smoke.jpg',
     'pod/signatures/phase10-smoke.png',
+    v_otp,
     'phase10 complete'
   );
 
