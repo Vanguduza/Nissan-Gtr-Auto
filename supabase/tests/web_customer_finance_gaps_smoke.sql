@@ -128,19 +128,25 @@ BEGIN
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 2);
   v_inv := public.checkout_pos_cart(v_cart);
 
-  -- Bank recon DML as finance
+  -- Bank recon DML as finance (RLS + table grants)
   PERFORM public._test_set_auth_uid(v_finance);
-  PERFORM set_config('role', 'authenticated', true);
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    INSERT INTO public.bank_statements (
+      account_code, currency, statement_date, opening_balance, closing_balance, created_by
+    )
+    VALUES ('1100', 'USD', CURRENT_DATE, 0, 100, v_finance)
+    RETURNING id INTO v_stmt;
 
-  INSERT INTO public.bank_statements (
-    account_code, currency, statement_date, opening_balance, closing_balance, created_by
-  )
-  VALUES ('1100', 'USD', CURRENT_DATE, 0, 100, v_finance)
-  RETURNING id INTO v_stmt;
-
-  INSERT INTO public.bank_statement_lines (statement_id, line_date, description, amount)
-  VALUES (v_stmt, CURRENT_DATE, 'smoke deposit', 100)
-  RETURNING id INTO v_line;
+    INSERT INTO public.bank_statement_lines (statement_id, line_date, description, amount)
+    VALUES (v_stmt, CURRENT_DATE, 'smoke deposit', 100)
+    RETURNING id INTO v_line;
+    RESET ROLE;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RESET ROLE;
+      RAISE;
+  END;
 
   SELECT jel.id INTO v_jel
   FROM public.journal_entry_lines jel
@@ -149,41 +155,65 @@ BEGIN
   LIMIT 1;
 
   IF v_jel IS NOT NULL THEN
-    INSERT INTO public.bank_recon_matches (statement_line_id, journal_entry_line_id, matched_by)
-    VALUES (v_line, v_jel, v_finance)
-    RETURNING id INTO v_match;
+    PERFORM public._test_set_auth_uid(v_finance);
+    BEGIN
+      SET LOCAL ROLE authenticated;
+      INSERT INTO public.bank_recon_matches (statement_line_id, journal_entry_line_id, matched_by)
+      VALUES (v_line, v_jel, v_finance)
+      RETURNING id INTO v_match;
 
-    UPDATE public.bank_statement_lines
-    SET status = 'matched'
-    WHERE id = v_line AND status = 'open';
+      UPDATE public.bank_statement_lines
+      SET status = 'matched'
+      WHERE id = v_line AND status = 'open';
+      RESET ROLE;
+    EXCEPTION
+      WHEN OTHERS THEN
+        RESET ROLE;
+        RAISE;
+    END;
   END IF;
 
-  -- Customer blocked from bank_statements (RLS or privilege)
+  -- Customer blocked from bank_statements
   PERFORM public._test_set_auth_uid(v_cust_user);
-  PERFORM set_config('role', 'authenticated', true);
   BEGIN
+    SET LOCAL ROLE authenticated;
     INSERT INTO public.bank_statements (
       account_code, currency, statement_date, opening_balance, closing_balance
     ) VALUES ('1100', 'USD', CURRENT_DATE, 0, 1);
+    RESET ROLE;
     RAISE EXCEPTION 'smoke fail: customer inserted bank_statements';
   EXCEPTION
     WHEN OTHERS THEN
+      RESET ROLE;
       IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
   END;
 
   -- Own profile UPDATE
-  UPDATE public.customers
-  SET phone_e164 = '+263771000099', sms_receipts = false, updated_at = now()
-  WHERE id = v_cust AND profile_id = v_cust_user;
+  PERFORM public._test_set_auth_uid(v_cust_user);
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    UPDATE public.customers
+    SET phone_e164 = '+263771000099', sms_receipts = false, updated_at = now()
+    WHERE id = v_cust AND profile_id = v_cust_user;
+    RESET ROLE;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RESET ROLE;
+      RAISE;
+  END;
 
   BEGIN
+    SET LOCAL ROLE authenticated;
     UPDATE public.customers SET credit_limit = 99999 WHERE id = v_cust;
+    RESET ROLE;
     RAISE EXCEPTION 'smoke fail: customer changed credit_limit';
   EXCEPTION
     WHEN OTHERS THEN
+      RESET ROLE;
       IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
   END;
 
+  PERFORM public._test_set_auth_uid(v_cust_user);
   v_updated := public.update_own_customer_profile(
     p_display_name := 'Return Cust Updated',
     p_email := 'cust-return-updated@gtr.local',
@@ -194,14 +224,23 @@ BEGIN
   END IF;
 
   -- Addresses
+  PERFORM public._test_set_auth_uid(v_cust_user);
   v_addr := public.upsert_customer_address(
     NULL, 'Home', '12 Smoke St', NULL, 'Harare', 'Harare', NULL, 'Zimbabwe', true
   );
 
   PERFORM public._test_set_auth_uid(v_peer_user);
-  SELECT count(*) INTO v_seen
-  FROM public.customer_addresses
-  WHERE id = v_addr;
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    SELECT count(*) INTO v_seen
+    FROM public.customer_addresses
+    WHERE id = v_addr;
+    RESET ROLE;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RESET ROLE;
+      RAISE;
+  END;
   IF v_seen <> 0 THEN
     RAISE EXCEPTION 'smoke fail: peer can see foreign address';
   END IF;
