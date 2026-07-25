@@ -93,6 +93,11 @@ export const STAFF_MODULE_ROLES = {
     "warehouse",
     "sales",
   ] as const satisfies readonly StaffRole[],
+  analytics: [
+    "admin",
+    "finance",
+    "sales",
+  ] as const satisfies readonly StaffRole[],
 } as const;
 
 export type PathAccess =
@@ -136,8 +141,21 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path.startsWith("/staff/warranty")) {
     return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
   }
+  if (path.startsWith("/staff/analytics")) {
+    return { kind: "roles", roles: ["admin", "finance", "sales"] };
+  }
 
   return { kind: "any" };
+}
+
+/** Alias for pathAccessFor role gates (plan / docs naming). */
+export function requiredRolesForPath(
+  pathname: string,
+): StaffRole[] | "any" | null {
+  const access = pathAccessFor(pathname);
+  if (access.kind === "forbidden_page") return null;
+  if (access.kind === "any") return "any";
+  return access.roles;
 }
 
 export function rolesAllow(
