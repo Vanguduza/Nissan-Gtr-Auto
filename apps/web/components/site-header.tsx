@@ -112,35 +112,6 @@ export function SiteHeader() {
 
   return (
     <header className={styles.chrome}>
-      <div className={styles.utility}>
-        <div className={styles.utilityInner}>
-          <p className={styles.utilityLeft}>
-            Counter stock · Harare · Nationwide dispatch
-          </p>
-          <p className={styles.utilityRight}>
-            Prices in <span className={styles.usd}>USD</span> /{" "}
-            <span className={styles.zig}>ZiG</span>
-            <span className={styles.sep} aria-hidden>
-              ·
-            </span>
-            <Link href="/b2b" className={styles.utilityLink}>
-              <Building2 size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
-              Trade account
-            </Link>
-            {showStaff ? (
-              <>
-                <span className={styles.sep} aria-hidden>
-                  ·
-                </span>
-                <Link href="/staff" className={styles.staffLink}>
-                  Staff
-                </Link>
-              </>
-            ) : null}
-          </p>
-        </div>
-      </div>
-
       <div className={styles.main}>
         <div className={styles.mainInner}>
           <Link href="/" className={styles.logoLink} aria-label="Nissan GTR Auto home">
