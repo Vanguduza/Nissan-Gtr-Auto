@@ -389,6 +389,23 @@ export function StaffDeliveryTrackingPanel() {
     pointsState.kind === "ready"
       ? pointsState.points
       : ([] as DeliveryLocationPoint[]);
+  const mapPoints: DeliveryLocationPoint[] =
+    points.length > 0
+      ? points
+      : trackPoint
+        ? [
+            {
+              id: `rpc-last:${trackPoint.delivery_job_id}`,
+              delivery_job_id: trackPoint.delivery_job_id,
+              lat: trackPoint.lat,
+              lng: trackPoint.lng,
+              accuracy_m: null,
+              recorded_at: trackPoint.recorded_at,
+              ingested_at: trackPoint.recorded_at,
+              source: "get_delivery_track_point",
+            },
+          ]
+        : [];
   const showMap = Boolean(jobId) && pointsState.kind !== "error";
   const etaLabel =
     formatEtaLabel(
