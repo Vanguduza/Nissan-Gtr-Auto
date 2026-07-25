@@ -11,7 +11,6 @@ import {
   useState,
 } from "react";
 import styles from "@/components/account.module.css";
-import { StaffModuleTabs, type StaffModuleTab } from "@/components/staff-module-tabs";
 import {
   addBankStatementLine,
   allocatePayment,
@@ -86,18 +85,18 @@ import {
 } from "@/lib/staff-finance";
 import { createWebClient } from "@/lib/supabase";
 
-const FINANCE_TABS: StaffModuleTab[] = [
-  { id: "petty-cash", label: "Petty cash" },
-  { id: "cash-sales", label: "Cash sales" },
-  { id: "online-sales", label: "Online sales" },
-  { id: "exchange-rate", label: "ZiG rate" },
-  { id: "journals", label: "Journals" },
-  { id: "requisitions", label: "Requisitions" },
-  { id: "payments", label: "Payments" },
-  { id: "reports", label: "Reports" },
-  { id: "bank-recon", label: "Bank recon" },
-  { id: "periods", label: "Periods" },
-];
+const FINANCE_TAB_IDS = [
+  "petty-cash",
+  "cash-sales",
+  "online-sales",
+  "exchange-rate",
+  "journals",
+  "requisitions",
+  "payments",
+  "reports",
+  "bank-recon",
+  "periods",
+] as const;
 
 const ACCOUNT_TAB_CODES: Record<string, { code: string; title: string }> = {
   "petty-cash": { code: "1110", title: "Petty Cash (1110)" },

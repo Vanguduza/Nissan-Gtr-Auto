@@ -1,5 +1,4 @@
 import { StaffAnalyticsPanel } from "@/components/staff-analytics-panel";
-import { StaffAnalyticsTabs } from "@/components/staff-analytics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
 
@@ -11,7 +10,6 @@ export default function StaffAnalyticsPage() {
       <StaffNav current="/staff/analytics" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Analytics</h1>
-        <StaffAnalyticsTabs active="kpis" />
         <StaffAnalyticsPanel />
       </div>
     </div>
