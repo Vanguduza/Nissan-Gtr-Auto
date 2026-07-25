@@ -1907,8 +1907,8 @@ export function StaffFinancePanel() {
         <legend className={styles.legend}>Accounting periods</legend>
         {/* No unlock_accounting_period RPC — locked periods stay locked. */}
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Create open periods via <code>accounting_periods</code>; lock with{" "}
-          <code>lock_accounting_period</code>.
+          Create open periods, then use the close wizard (optional TB check →
+          lock). Locked periods reject new posts.
         </p>
         <form onSubmit={(e) => void onCreatePeriod(e)}>
           <div className={styles.formGrid}>
@@ -1946,6 +1946,75 @@ export function StaffFinancePanel() {
             </button>
           </div>
         </form>
+
+        <div style={{ marginTop: "1rem" }}>
+          <p className={styles.legend} style={{ marginBottom: "0.5rem" }}>
+            Period close wizard
+          </p>
+          <ol className={styles.muted} style={{ margin: "0 0 0.75rem 1.1rem" }}>
+            <li>Pick an open period</li>
+            <li>Optional: run trial balance as of period end</li>
+            <li>Confirm lock (irreversible — no unlock RPC)</li>
+          </ol>
+          <div className={styles.formGrid}>
+            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+              Open period
+              <select
+                value={closePeriodId}
+                onChange={(e) => {
+                  setClosePeriodId(e.target.value);
+                  setCloseStep("pick");
+                  setCloseTbRows([]);
+                  setCloseTbOk(null);
+                }}
+                disabled={busy}
+              >
+                {boot.periods
+                  .filter((p) => !p.locked_at)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label} · {p.period_start} → {p.period_end}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </div>
+          <div className={styles.formActions}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || !closePeriodId}
+              onClick={() => void onCloseWizardTb()}
+            >
+              2. Run TB check
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || !closePeriodId}
+              onClick={() => setCloseStep("confirm")}
+            >
+              3. Review lock
+            </button>
+            {closeStep === "confirm" || closeStep === "tb" ? (
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy || !closePeriodId}
+                onClick={() => void onLockPeriod(closePeriodId)}
+              >
+                Lock period
+              </button>
+            ) : null}
+          </div>
+          {closeTbOk != null ? (
+            <p className={styles.muted} style={{ marginTop: "0.5rem" }}>
+              TB sanity: {closeTbOk ? "balanced (USD)" : "imbalanced — review"} ·{" "}
+              {closeTbRows.length} accounts
+            </p>
+          ) : null}
+        </div>
+
         {boot.periods.length ? (
           <ul className={styles.navList} style={{ marginTop: "1rem" }}>
             {boot.periods.map((p) => (
@@ -1957,7 +2026,11 @@ export function StaffFinancePanel() {
                     type="button"
                     className={styles.btnGhost}
                     disabled={busy}
-                    onClick={() => void onLockPeriod(p.id)}
+                    onClick={() => {
+                      setClosePeriodId(p.id);
+                      setCloseStep("confirm");
+                      void onLockPeriod(p.id);
+                    }}
                   >
                     Lock
                   </button>
