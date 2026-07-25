@@ -1,6 +1,6 @@
 package co.zw.nissangtr.management.warehouse
 
-/** Warehouse feature module — receive / transfers / cycle-count + Bridge QR fill. */
+/** Warehouse feature — receive / transfers / cycle-count + bins / consignment. */
 object WarehouseModule {
     const val id: String = "warehouse"
 }
