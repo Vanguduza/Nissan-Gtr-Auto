@@ -6,6 +6,30 @@ enum class AttendanceEventType(val rpcValue: String) {
     CLOCK_OUT("clock_out"),
 }
 
+/** Mirrors `public.currency_code` — never assume USD silently. */
+enum class CurrencyCode(val rpcValue: String) {
+    USD("USD"),
+    ZIG("ZIG"),
+}
+
+/** Mirrors `public.fulfillment_mode`. */
+enum class FulfillmentMode(val rpcValue: String) {
+    IMMEDIATE("immediate"),
+    DISPATCH("dispatch"),
+}
+
+/** Mirrors `public.valuation_method`. */
+enum class ValuationMethod(val rpcValue: String) {
+    FIFO("FIFO"),
+    AVG("AVG"),
+}
+
+/** Mirrors `public.stock_reconciliation_scope`. */
+enum class ReconciliationScope(val rpcValue: String) {
+    FULL("full"),
+    PARTIAL("partial"),
+}
+
 data class DeliveryNoteSummary(
     val id: String,
     val documentNumber: String,
@@ -37,3 +61,28 @@ enum class DeliveryJobStatus(val rpcValue: String) {
     COMPLETED("completed"),
     FAILED("failed"),
 }
+
+/** Line for [RpcNames.POST_STOCK_RECEIPT] `p_lines` JSONB. */
+data class ReceiptLineInput(
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+    val unitCost: Double,
+    val currency: CurrencyCode,
+    val valuationMethod: ValuationMethod = ValuationMethod.FIFO,
+    val serials: List<String>? = null,
+)
+
+/** Line for [RpcNames.CREATE_STOCK_TRANSFER] `p_lines` JSONB. */
+data class TransferLineInput(
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+    val valuationMethod: ValuationMethod = ValuationMethod.FIFO,
+)
+
+/** Line for [RpcNames.UPSERT_STOCK_RECONCILIATION_LINES] `p_lines` JSONB. */
+data class ReconciliationLineInput(
+    val stockItemId: String,
+    val countedQty: Double,
+)
