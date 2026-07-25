@@ -570,15 +570,41 @@ class FakeRpcClient : RpcClient {
         require(deliveryJobId.isNotBlank())
         val status = deliveryJobs[deliveryJobId]?.second ?: "dispatched"
         if (status != "dispatched") return null
+        val coords = jobCoords[deliveryJobId]
         return DeliveryTrackPoint(
             deliveryJobId = deliveryJobId,
-            lat = -17.8292,
-            lng = 31.0522,
+            lat = coords?.dropoffLat?.let { it + 0.01 } ?: -17.8292,
+            lng = coords?.dropoffLng?.let { it - 0.01 } ?: 31.0522,
             recordedAt = "2026-07-25T09:10:00Z",
             etaAt = "2026-07-25T09:45:00Z",
             etaSeconds = 2_100,
             status = status,
         )
+    }
+
+    override suspend fun mintDeliveryTrackToken(
+        deliveryJobId: String,
+        ttl: String?,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        val status = deliveryJobs[deliveryJobId]?.second
+        require(status == null || status !in listOf("completed", "failed")) {
+            "cannot mint track token for terminal job"
+        }
+        // Hex-like demo plaintext (64 chars)
+        return "fake_track_" + deliveryJobId.replace("-", "").take(32).padEnd(32, '0')
+    }
+
+    override suspend fun generateDeliveryPodOtp(
+        deliveryJobId: String,
+        ttl: String?,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        val status = deliveryJobs[deliveryJobId]?.second
+        require(status == "dispatched") {
+            "POD OTP requires dispatched job (status=${status ?: "missing"})"
+        }
+        return "042891"
     }
 
     override suspend fun listOpenPanicEvents(): List<PanicEventSummary> =
