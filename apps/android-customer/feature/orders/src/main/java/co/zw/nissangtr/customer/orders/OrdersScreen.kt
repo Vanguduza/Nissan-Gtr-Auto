@@ -86,17 +86,16 @@ fun OrdersScreen(
                 style = MaterialTheme.typography.bodySmall,
             )
             if (o.suggestsActiveDeliveryTrack()) {
-                val fakeJob = FakeRpcClient.activeJobIdForInvoice(o.invoiceId)
                 Text(
                     "Delivery may be active — track shows last point + ETA only (no trail).",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 OutlinedButton(
                     onClick = {
-                        onTrackDelivery(
-                            fakeJob,
-                            if (fakeJob != null) FakeRpcClient.SEED_TRACK_TOKEN else null,
-                        )
+                        val fake = rpc as? FakeRpcClient
+                        val jobId = fake?.let { FakeRpcClient.activeJobIdForInvoice(o.invoiceId) }
+                        val token = jobId?.let { FakeRpcClient.SEED_TRACK_TOKEN }
+                        onTrackDelivery(jobId, token)
                     },
                     enabled = !state.busy,
                     modifier = Modifier.fillMaxWidth(),

@@ -112,16 +112,6 @@ struct OrderDetailScreen: View {
                             .autocorrectionDisabled()
                             .font(.body.monospaced())
 
-                        NavigationLink(isActive: $tokenNavActive) {
-                            DeliveryTrackScreen(
-                                ref: .token(trackToken.trimmingCharacters(in: .whitespacesAndNewlines))
-                            )
-                        } label: {
-                            EmptyView()
-                        }
-                        .frame(width: 0, height: 0)
-                        .hidden()
-
                         Button("Track with token") {
                             let trimmed = trackToken.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard trimmed.count >= 8 else {
@@ -131,6 +121,11 @@ struct OrderDetailScreen: View {
                             status = nil
                             tokenNavActive = true
                         }
+                    }
+                    .navigationDestination(isPresented: $tokenNavActive) {
+                        DeliveryTrackScreen(
+                            ref: .token(trackToken.trimmingCharacters(in: .whitespacesAndNewlines))
+                        )
                     }
                 }
 
