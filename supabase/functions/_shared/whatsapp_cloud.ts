@@ -1,6 +1,7 @@
 /**
  * WhatsApp Cloud API client (Meta Graph).
- * Reused by process-customer-receipts (outbound PDF/text) and Batch 3 parts-finder bot.
+ * Reused by process-customer-receipts (outbound PDF/text) and whatsapp-webhook
+ * parts-finder bot (text only — do not send receipt PDFs from bot turns).
  *
  * Env:
  *   WHATSAPP_ACCESS_TOKEN       — permanent / system user token

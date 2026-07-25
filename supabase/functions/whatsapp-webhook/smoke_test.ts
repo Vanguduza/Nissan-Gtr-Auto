@@ -28,13 +28,14 @@ import {
 } from "./meta_auth.ts";
 import { HELP_TEXT, parseInboundText } from "./parse.ts";
 
-Deno.test("GET verify challenge succeeds with matching token", () => {
+Deno.test("GET verify challenge succeeds with matching token", async () => {
   const url = new URL(
     "https://example.test/functions/v1/whatsapp-webhook" +
       "?hub.mode=subscribe&hub.verify_token=secret-token&hub.challenge=12345",
   );
   const res = handleVerifyGet(url, "secret-token");
   assertEquals(res.status, 200);
+  assertEquals(await res.text(), "12345");
 });
 
 Deno.test("GET verify rejects wrong token", async () => {
