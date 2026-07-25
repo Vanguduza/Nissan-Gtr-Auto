@@ -357,7 +357,6 @@ private fun ManagementApp(
 
 @Composable
 private fun ManagementHome(
-    liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
     showChat: Boolean,

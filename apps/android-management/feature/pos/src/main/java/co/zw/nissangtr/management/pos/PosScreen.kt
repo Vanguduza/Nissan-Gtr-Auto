@@ -66,11 +66,6 @@ fun PosScreen(
             if (isSalesHome) "POS — Sales till" else "POS — Cart / Checkout",
             style = MaterialTheme.typography.headlineSmall,
         )
-        Text(
-            "Standalone: search → add → checkout (no pairing). " +
-                "Companion optional. QR via ${RpcNames.ADD_CART_LINE_FROM_QR} + bridge only.",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
