@@ -583,6 +583,7 @@ private struct CustomerOrderDTO: Decodable {
     let postedAt: Date?
     let pickListStatus: String?
     let deliveryNoteStatus: String?
+    let activeDeliveryJobId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case status, currency, subtotal, total
@@ -597,6 +598,8 @@ private struct CustomerOrderDTO: Decodable {
         case postedAt = "posted_at"
         case pickListStatus = "pick_list_status"
         case deliveryNoteStatus = "delivery_note_status"
+        case activeDeliveryJobId = "active_delivery_job_id"
+        case deliveryJobId = "delivery_job_id"
     }
 
     /// `get_customer_order` returns JSONB; invoice_id may arrive as string.
@@ -633,6 +636,18 @@ private struct CustomerOrderDTO: Decodable {
         postedAt = try c.decodeIfPresent(Date.self, forKey: .postedAt)
         pickListStatus = try c.decodeIfPresent(String.self, forKey: .pickListStatus)
         deliveryNoteStatus = try c.decodeIfPresent(String.self, forKey: .deliveryNoteStatus)
+        // Forward-compat: backend may add active_delivery_job_id or delivery_job_id later.
+        if let id = try? c.decodeIfPresent(UUID.self, forKey: .activeDeliveryJobId) {
+            activeDeliveryJobId = id
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .activeDeliveryJobId) {
+            activeDeliveryJobId = UUID(uuidString: s)
+        } else if let id = try? c.decodeIfPresent(UUID.self, forKey: .deliveryJobId) {
+            activeDeliveryJobId = id
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .deliveryJobId) {
+            activeDeliveryJobId = UUID(uuidString: s)
+        } else {
+            activeDeliveryJobId = nil
+        }
     }
 
     func toModel() -> CustomerOrder {
@@ -653,7 +668,67 @@ private struct CustomerOrderDTO: Decodable {
             cartId: cartId,
             postedAt: postedAt,
             pickListStatus: pickListStatus,
-            deliveryNoteStatus: deliveryNoteStatus
+            deliveryNoteStatus: deliveryNoteStatus,
+            activeDeliveryJobId: activeDeliveryJobId
+        )
+    }
+}
+
+/// Single-row DTO from `get_delivery_track_point` — never decode a trail.
+private struct DeliveryTrackPointDTO: Decodable {
+    let deliveryJobId: UUID
+    let lat: Double
+    let lng: Double
+    let recordedAt: Date
+    let etaAt: Date?
+    let etaSeconds: Int?
+    let status: String
+
+    enum CodingKeys: String, CodingKey {
+        case lat, lng, status
+        case deliveryJobId = "delivery_job_id"
+        case recordedAt = "recorded_at"
+        case etaAt = "eta_at"
+        case etaSeconds = "eta_seconds"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .deliveryJobId) {
+            deliveryJobId = id
+        } else if let s = try c.decode(String.self, forKey: .deliveryJobId),
+                  let id = UUID(uuidString: s) {
+            deliveryJobId = id
+        } else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .deliveryJobId,
+                in: c,
+                debugDescription: "delivery_job_id required"
+            )
+        }
+        lat = try c.decode(Double.self, forKey: .lat)
+        lng = try c.decode(Double.self, forKey: .lng)
+        recordedAt = try c.decodeIfPresent(Date.self, forKey: .recordedAt) ?? Date()
+        etaAt = try c.decodeIfPresent(Date.self, forKey: .etaAt)
+        if let n = try c.decodeIfPresent(Int.self, forKey: .etaSeconds) {
+            etaSeconds = n
+        } else if let d = try c.decodeIfPresent(Double.self, forKey: .etaSeconds) {
+            etaSeconds = Int(d)
+        } else {
+            etaSeconds = nil
+        }
+        status = try c.decodeIfPresent(String.self, forKey: .status) ?? "dispatched"
+    }
+
+    func toModel() -> DeliveryTrackPoint {
+        DeliveryTrackPoint(
+            deliveryJobId: deliveryJobId,
+            lat: lat,
+            lng: lng,
+            recordedAt: recordedAt,
+            etaAt: etaAt,
+            etaSeconds: etaSeconds,
+            status: status
         )
     }
 }
