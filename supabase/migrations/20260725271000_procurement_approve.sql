@@ -626,7 +626,7 @@ EXCEPTION
 END;
 $$;
 
--- Allow cancel of rejected? treat as no-op success when already rejected/cancelled
+-- Allow cancel when rejected (immutable terminal); approved/submitted still cancellable
 CREATE OR REPLACE FUNCTION public.cancel_purchase_order(
   p_purchase_order_id UUID,
   p_notes TEXT DEFAULT NULL
@@ -641,6 +641,7 @@ DECLARE
   v_recv NUMERIC;
   v_po public.purchase_orders%ROWTYPE;
   v_rel RECORD;
+  v_restore_value NUMERIC := 0;
 BEGIN
   PERFORM public._procurement_begin_rpc();
   PERFORM public._require_procurement_staff();
@@ -653,6 +654,7 @@ BEGIN
   v_st := v_po.status;
 
   IF v_st IN ('cancelled', 'rejected') THEN
+    PERFORM public._procurement_end_rpc();
     RETURN p_purchase_order_id;
   END IF;
 
@@ -724,7 +726,6 @@ AS $$
 DECLARE
   v_st public.procurement_doc_status;
   v_open NUMERIC;
-  v_total NUMERIC;
 BEGIN
   PERFORM public._procurement_begin_rpc();
   PERFORM public._require_procurement_staff();
@@ -735,17 +736,17 @@ BEGIN
     RAISE EXCEPTION 'material request not found: %', p_material_request_id;
   END IF;
   IF v_st IN ('cancelled', 'rejected') THEN
+    PERFORM public._procurement_end_rpc();
     RETURN p_material_request_id;
   END IF;
 
-  SELECT
-    COALESCE(SUM(qty - qty_converted), 0),
-    COALESCE(SUM(qty), 0)
-  INTO v_open, v_total
+  SELECT COALESCE(SUM(qty - qty_converted), 0) INTO v_open
   FROM public.material_request_lines
   WHERE material_request_id = p_material_request_id;
 
-  IF v_st IN ('submitted', 'approved') AND v_open < v_total THEN
+  IF v_st IN ('submitted', 'approved') AND v_open < (
+    SELECT COALESCE(SUM(qty), 0) FROM public.material_request_lines WHERE material_request_id = p_material_request_id
+  ) THEN
     RAISE EXCEPTION 'cannot cancel MR with converted lines';
   END IF;
 
