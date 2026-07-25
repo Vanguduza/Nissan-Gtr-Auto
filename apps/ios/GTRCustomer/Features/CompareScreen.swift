@@ -151,14 +151,7 @@ struct CompareScreen: View {
         busy = true
         defer { busy = false }
         do {
-            if preferGuest || usingGuestStore && preferGuest {
-                items = GuestCompareStore.asCompareItems()
-                // Prefer OEM remove for guest synthetic ids.
-                items = GuestCompareStore.removeOem(item.oemPartNumber).isEmpty
-                    ? []
-                    : GuestCompareStore.asCompareItems()
-                status = "Removed from GuestCompareStore"
-            } else if preferGuest {
+            if preferGuest {
                 _ = GuestCompareStore.removeOem(item.oemPartNumber)
                 items = GuestCompareStore.asCompareItems()
                 status = "Removed from GuestCompareStore"
@@ -173,14 +166,7 @@ struct CompareScreen: View {
                 status = "Removed via remove_customer_compare_item"
             }
         } catch {
-            // Guest path with broken branch — fall back to OEM remove.
-            if preferGuest {
-                _ = GuestCompareStore.removeOem(item.oemPartNumber)
-                items = GuestCompareStore.asCompareItems()
-                status = "Removed from GuestCompareStore"
-            } else {
-                status = error.localizedDescription
-            }
+            status = error.localizedDescription
         }
     }
 }
