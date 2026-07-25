@@ -3,8 +3,9 @@ package co.zw.nissangtr.management.dispatch
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Client-side gate before [co.zw.nissangtr.management.rpc.RpcNames.INGEST_DELIVERY_LOCATION].
- * Server also enforces ~5s; this avoids noisy RPC failures from FusedLocation bursts.
+ * Legacy client-side gate for ingest cadence (delivery app uses this pattern).
+ * Management dispatch no longer calls ingest — kept for unit tests / reference.
+ * Server also enforces ~5s on [co.zw.nissangtr.management.rpc.RpcNames.INGEST_DELIVERY_LOCATION].
  */
 class DeliveryLocationIngestThrottle(
     private val minIntervalMs: Long = DEFAULT_MIN_INTERVAL_MS,
