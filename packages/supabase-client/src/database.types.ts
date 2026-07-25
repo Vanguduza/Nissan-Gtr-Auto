@@ -6694,6 +6694,14 @@ export type Database = {
         Args: { p_requisition_id: string }
         Returns: string
       }
+      approve_material_request: {
+        Args: { p_material_request_id: string }
+        Returns: string
+      }
+      approve_purchase_order: {
+        Args: { p_purchase_order_id: string }
+        Returns: string
+      }
       assign_delivery_job: {
         Args: {
           p_assignee_user_id: string
