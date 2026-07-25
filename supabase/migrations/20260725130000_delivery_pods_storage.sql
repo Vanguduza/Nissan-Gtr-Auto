@@ -77,6 +77,14 @@ AS $$
         ARRAY['admin', 'warehouse', 'dispatcher']::public.staff_role[]
       )
       AND public._delivery_pod_job_id_from_path(p_name) IS NOT NULL
+    )
+    -- Assigned driver may read own job objects (upload RETURNING / retries).
+    OR EXISTS (
+      SELECT 1
+      FROM public.delivery_jobs dj
+      WHERE dj.id = public._delivery_pod_job_id_from_path(p_name)
+        AND dj.assignee_user_id = auth.uid()
+        AND public.has_staff_role(ARRAY['driver']::public.staff_role[])
     );
 $$;
 
@@ -85,7 +93,7 @@ COMMENT ON FUNCTION public._delivery_pod_job_id_from_path(TEXT) IS
 COMMENT ON FUNCTION public._can_write_delivery_pod_object(TEXT) IS
   'Assigned driver (non-terminal job) or dispatcher/admin/warehouse may INSERT/UPDATE.';
 COMMENT ON FUNCTION public._can_select_delivery_pod_object(TEXT) IS
-  'dispatcher/admin/warehouse (or service_role) may SELECT; customers and unassigned drivers denied.';
+  'dispatcher/admin/warehouse or assigned driver may SELECT; customers denied.';
 
 -- ---------------------------------------------------------------------------
 -- Bucket
