@@ -136,6 +136,8 @@ private fun ManagementApp(
             onSignOut = onSignOut,
             onHr = { route = ManagementRoute.HrClock },
             onDispatch = { route = ManagementRoute.Dispatch },
+            onPos = { route = ManagementRoute.Pos },
+            onWarehouse = { route = ManagementRoute.Warehouse },
         )
         ManagementRoute.HrClock -> ClockAttendanceScreen(
             rpc = rpc,
@@ -144,6 +146,14 @@ private fun ManagementApp(
         ManagementRoute.Dispatch -> DispatchScreen(
             rpc = rpc,
             gps = gps,
+            onBack = { route = ManagementRoute.Home },
+        )
+        ManagementRoute.Pos -> PosScreen(
+            rpc = rpc,
+            onBack = { route = ManagementRoute.Home },
+        )
+        ManagementRoute.Warehouse -> WarehouseScreen(
+            rpc = rpc,
             onBack = { route = ManagementRoute.Home },
         )
     }
@@ -156,6 +166,8 @@ private fun ManagementHome(
     onSignOut: () -> Unit,
     onHr: () -> Unit,
     onDispatch: () -> Unit,
+    onPos: () -> Unit,
+    onWarehouse: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -185,6 +197,14 @@ private fun ManagementHome(
             Text("Fake mode — auth optional / bypassed", style = MaterialTheme.typography.bodySmall)
         }
         Button(
+            onClick = onPos,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("POS — Cart / Checkout") }
+        Button(
+            onClick = onWarehouse,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Warehouse — Receive / Transfer / Cycle") }
+        Button(
             onClick = onHr,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("HR — Clock in / out") }
@@ -193,7 +213,8 @@ private fun ManagementHome(
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Logistics — Pick / DN / Track") }
         Text(
-            "Auth: GoTrue signInWith(Email). No payroll tax. Bridge-First for QR/GPS.",
+            "Auth: GoTrue signInWith(Email). No ZIMRA / payroll tax. Bridge-First for QR/GPS. " +
+                "Money: explicit USD|ZIG.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )

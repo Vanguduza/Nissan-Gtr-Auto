@@ -18,8 +18,8 @@ Thin Compose scaffolds for **HR clock** and **logistics pick/DN/delivery trackin
 | `:feature:auth` | `…management.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
 | `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
 | `:feature:dispatch` | `…management.dispatch` | Pick/DN + delivery job Start/Stop GPS |
-| `:feature:pos` | `…management.pos` | POS placeholder (empty) |
-| `:feature:warehouse` | `…management.warehouse` | Warehouse placeholder (empty) |
+| `:feature:pos` | `…management.pos` | Cart create / add line / checkout (typed UUIDs) |
+| `:feature:warehouse` | `…management.warehouse` | Receive, dual-auth transfer, cycle-count |
 | `:location-tracker` | `…bridges.location` | Included from `bridges/android/location-tracker` (consume only) |
 
 ## Screens (scaffolds)
@@ -27,10 +27,14 @@ Thin Compose scaffolds for **HR clock** and **logistics pick/DN/delivery trackin
 | Screen | Module | RPCs / role |
 |--------|--------|-------------|
 | `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
+| `PosScreen` | `:feature:pos` | `create_pos_cart`, `add_cart_line`, `checkout_pos_cart` |
+| `WarehouseScreen` | `:feature:warehouse` | receive / transfer / recon RPCs (see `RpcNames`) |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
 | `DispatchScreen` | `:feature:dispatch` | pick/DN + `create_delivery_job`, `update_delivery_job_status`, `ingest_delivery_location` |
 
 Also named: `cancel_delivery_note` (RPC wired; not a dedicated button).
+
+Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**.
 
 ## Delivery GPS (Bridge-First)
 
@@ -57,13 +61,18 @@ Compose never calls FusedLocation / `LocationManager` directly — only ViewMode
 
 | RPC | Fake | Live |
 |-----|------|------|
+| `create_pos_cart` / `add_cart_line` / `checkout_pos_cart` | In-memory UUIDs; open-cart set | `postgrest.rpc` (explicit `p_currency` USD\|ZIG) |
+| `post_stock_receipt` | Validates lines + currency | Live RPC (`p_lines` JSONB) |
+| `create_stock_transfer` / `approve` / `reject` | Pending-transfer set | Live RPC dual-auth |
+| `create_stock_reconciliation_draft` … `cancel` | Draft set; ZIG needs rate | Live RPC (scope + currency) |
 | `ingest_delivery_location` | Validates lat/lng; increments `ingestedLocationCount`; returns UUID | `postgrest.rpc` with `p_delivery_job_id`, `p_lat`, `p_lng`, `p_recorded_at?`, `p_accuracy_m?` |
 | `create_delivery_job` | In-memory job map (allows draft DN for scaffold) | Live RPC (requires submitted DN) |
 | `update_delivery_job_status` | Updates in-memory status | Live RPC (`dispatched` / `completed` / `failed`) |
 
 ### Switch / env
 
-1. Copy `.env.example` values into **`local.properties`** (gitignored) at this project root:
+1. Copy `.env.example` values into **`local.properties`** (gitignored) at this project root
+   (`apps/android-management/local.properties`):
 
 ```properties
 sdk.dir=C\:\\Android\\sdk
@@ -73,10 +82,9 @@ SUPABASE_ANON_KEY=your-anon-key
 # rpc.forceFake=true
 ```
 
-2. Same names as root `.env.example` / web `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   (Android BuildConfig fields are `SUPABASE_URL` / `SUPABASE_ANON_KEY` without the `NEXT_PUBLIC_` prefix).
-
-3. Rebuild so BuildConfig picks up properties: `.\gradlew.bat assembleDebug`
+When **both** `SUPABASE_URL` and `SUPABASE_ANON_KEY` are non-empty (and `rpc.forceFake` is not
+`true`), `RpcClientFactory` selects **Live** `SupabaseRpcClient`. Otherwise **Fake** remains so
+the app compiles and runs without keys.
 
 ### Auth (no hardcoded JWTs)
 
