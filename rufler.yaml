@@ -113,6 +113,7 @@ routing:
   bluetooth_printer: hardware_mobile_agent
   biometric_auth: hardware_mobile_agent
   gps_tracking: hardware_mobile_agent
+  delivery_driver_app: android_delivery_agent
   journal_entry: finance_agent
   financial_report: finance_agent
   chart_of_accounts: finance_agent
