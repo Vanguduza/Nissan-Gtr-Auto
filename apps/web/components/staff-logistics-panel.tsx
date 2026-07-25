@@ -440,8 +440,8 @@ export function StaffLogisticsPanel() {
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
           Requires a submitted DN. Dispatcher/admin via{" "}
           <code>create_delivery_job</code>. After dispatch, watch the trail on{" "}
-          <Link href="/staff/logistics/tracking">Live map</Link> (Realtime
-          subscribe only).
+          <Link href="/staff/logistics/tracking">Live tracking</Link>{" "}
+          (Realtime subscribe-only; GPS from Android management).
         </p>
         <form onSubmit={(e) => void onCreateJob(e)}>
           <label className={styles.field}>

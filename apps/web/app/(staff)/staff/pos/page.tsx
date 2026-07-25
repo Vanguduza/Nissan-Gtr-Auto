@@ -11,8 +11,9 @@ export default function StaffPosPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>POS</h1>
         <p className={styles.lede}>
-          Create cart, add OEM lines, checkout. Sales staff only — roles
-          enforced by RPCs. Typed OEM input (no browser QR).
+          Create cart, add OEM lines, checkout. Admin / sales / warehouse —
+          roles enforced by RPCs. Typed OEM input only; QR add-to-cart uses
+          the management device bridge.
         </p>
         <StaffPosPanel />
       </div>

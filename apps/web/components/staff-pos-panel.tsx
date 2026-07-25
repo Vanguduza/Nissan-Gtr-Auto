@@ -254,8 +254,9 @@ export function StaffPosPanel() {
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>1 · Open cart</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Typed OEM / stock id only — no browser QR. Currency is set on the cart
-          (<code>USD</code> | <code>ZIG</code>).
+          Typed OEM / stock id only. QR add-to-cart: use the management device
+          bridge. Currency is set on the cart (<code>USD</code> |{" "}
+          <code>ZIG</code>).
         </p>
         <form onSubmit={(e) => void onCreateCart(e)}>
           <div className={styles.formGrid}>

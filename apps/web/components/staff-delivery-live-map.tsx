@@ -192,7 +192,7 @@ export function StaffDeliveryLiveMap({ points, live }: Props) {
           </span>
         ) : (
           <span className={styles.emptyHint}>
-            Waiting for bridge-fed location inserts…
+            No points yet — waiting for Android management GPS inserts…
           </span>
         )}
       </p>

@@ -12,7 +12,8 @@ export default function StaffWarehouseHubPage() {
         <h1 className={styles.title}>Warehouse</h1>
         <p className={styles.lede}>
           Receive, dual-auth transfers, and cycle count. Warehouse staff only —
-          roles enforced by RPCs. Typed OEM/SKU input (QR via bridge later).
+          roles enforced by RPCs. Typed OEM / manual entry here; QR scan and
+          print use the management device bridge.
         </p>
         <div className={styles.cardGrid}>
           <Link href="/staff/warehouse/receive" className={styles.card}>
