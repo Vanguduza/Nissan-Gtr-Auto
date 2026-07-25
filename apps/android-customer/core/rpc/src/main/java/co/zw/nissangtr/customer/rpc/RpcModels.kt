@@ -178,3 +178,50 @@ fun DeliveryTrackPoint.etaLabel(): String? {
     val m = mins % 60
     return if (m == 0) "About $h h" else "About $h h $m min"
 }
+
+data class WishlistItem(
+    val id: String,
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String? = null,
+    val notifyWhenInStock: Boolean = false,
+    val createdAt: String? = null,
+)
+
+data class CompareItem(
+    val id: String,
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String? = null,
+    val createdAt: String? = null,
+)
+
+enum class ProductReviewStatus(val rpcValue: String) {
+    PENDING("pending"),
+    APPROVED("approved"),
+    REJECTED("rejected"),
+}
+
+data class ProductReview(
+    val id: String,
+    val stockItemId: String,
+    val oemPartNumber: String? = null,
+    val description: String? = null,
+    val rating: Int,
+    val body: String = "",
+    val status: ProductReviewStatus = ProductReviewStatus.PENDING,
+    val createdAt: String? = null,
+) {
+    val label: String
+        get() {
+            val oem = oemPartNumber ?: "Part"
+            val d = description?.trim()
+            return if (!d.isNullOrEmpty()) "$oem · $d" else oem
+        }
+}
+
+data class ProductReviewStats(
+    val stockItemId: String,
+    val avgRating: Double,
+    val reviewCount: Int,
+)
