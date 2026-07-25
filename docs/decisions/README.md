@@ -39,4 +39,5 @@ What agents must not re-litigate.
 | `2026-07-24-customer-self-pay.md` | Customer ContiPay/Paynow self-pay (not counter-only) |
 | `2026-07-25-web-management-parity-rbac.md` | Web `/staff` management fallback + nav RBAC; Bridge-First |
 | `2026-07-25-in-app-live-chat.md` | In-app live chat (Realtime); WA optional |
+| `2026-07-25-dedicated-delivery-app.md` | Dedicated driver Android app; assignment in management; privacy-safe customer track |
 | `2026-07-24-whatsapp-parts-finder-bot.md` | WhatsApp parts-finder bot (optional channel) |
