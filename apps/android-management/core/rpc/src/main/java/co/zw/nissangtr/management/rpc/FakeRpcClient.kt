@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.SUBMIT_DELIVERY_NOTE]: p_delivery_note_id
  * - [RpcNames.CANCEL_DELIVERY_NOTE]: p_delivery_note_id
  * - [RpcNames.CREATE_DELIVERY_JOB]: p_delivery_note_id, p_assignee_user_id?, p_eta_at?, p_notes?
+ * - setDeliveryJobCoords: Fake in-memory (Live needs set_delivery_job_geo RPC)
  * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status
  * - [RpcNames.INGEST_DELIVERY_LOCATION]: p_delivery_job_id, p_lat, p_lng, p_recorded_at?, p_accuracy_m?
  *   (management must not call from UI — delivery app sole producer)
@@ -34,6 +35,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.ASSIGN_DELIVERY_JOB]: p_delivery_job_id, p_assignee_user_id, p_override?
  * - [RpcNames.OPTIMIZE_DRIVER_STOPS]: p_driver_user_id
  * - [RpcNames.GET_DELIVERY_TRACK_POINT]: p_delivery_job_id (staff view)
+ * - [RpcNames.MINT_DELIVERY_TRACK_TOKEN]: p_delivery_job_id, p_ttl? → plaintext once
+ * - [RpcNames.GENERATE_DELIVERY_POD_OTP]: p_delivery_job_id, p_ttl? → 6-digit once
  * - listOpenPanicEvents / acknowledgePanicEvent: PostgREST panic_events
  * - [RpcNames.CLAIM_CHAT_THREAD] / [RpcNames.CLOSE_CHAT_THREAD] / [RpcNames.MARK_CHAT_THREAD_READ]: p_thread_id
  * - [RpcNames.POST_CHAT_MESSAGE]: p_thread_id, p_body
@@ -50,6 +53,8 @@ class FakeRpcClient : RpcClient {
     private val reconDrafts = mutableSetOf<String>()
     private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
     private val jobAssignees = mutableMapOf<String, String>() // jobId → driverUserId
+    /** jobId → (pickupLat, pickupLng, dropoffLat, dropoffLng) */
+    private val jobCoords = mutableMapOf<String, JobCoords>()
     private val panicEvents = mutableListOf(
         PanicEventSummary(
             id = OPEN_PANIC_ID,
