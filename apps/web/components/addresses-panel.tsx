@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import styles from "@/components/account.module.css";
 
@@ -15,39 +16,20 @@ type Address = {
   isDefault: boolean;
 };
 
-const seed: Address[] = [
-  {
-    id: "home",
-    label: "Home",
-    line1: "12 Borrowdale Road",
-    line2: "",
-    city: "Harare",
-    province: "Harare",
-    postal: "",
-    country: "Zimbabwe",
-    isDefault: true,
-  },
-  {
-    id: "workshop",
-    label: "Workshop",
-    line1: "Unit 4, Msasa Industrial",
-    line2: "Mutare Road",
-    city: "Harare",
-    province: "Harare",
-    postal: "",
-    country: "Zimbabwe",
-    isDefault: false,
-  },
-];
-
+/**
+ * No `customer_addresses` table (or profiles JSON) exists yet.
+ * Local-only CRUD until @backend_agent adds a table + RLS.
+ */
 export function AddressesPanel() {
-  const [addresses, setAddresses] = useState(seed);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [editing, setEditing] = useState<Address | null>(null);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(
+    "Addresses are not persisted yet — no customer_addresses table (or profiles JSON). @backend_agent gap.",
+  );
 
   function startNew() {
     setEditing({
-      id: `new-${Date.now()}`,
+      id: `local-${Date.now()}`,
       label: "",
       line1: "",
       line2: "",
@@ -57,7 +39,7 @@ export function AddressesPanel() {
       country: "Zimbabwe",
       isDefault: addresses.length === 0,
     });
-    setStatus("");
+    setStatus("Draft only — will not survive refresh until backend table exists.");
   }
 
   function onSave(e: FormEvent) {
@@ -77,70 +59,82 @@ export function AddressesPanel() {
       return next;
     });
     setEditing(null);
-    setStatus("Address saved (demo).");
+    setStatus(
+      "Saved in this session only. Persist requires customer_addresses (+ RLS) from @backend_agent.",
+    );
   }
 
   function makeDefault(id: string) {
     setAddresses((list) =>
       list.map((a) => ({ ...a, isDefault: a.id === id })),
     );
-    setStatus("Default delivery address updated (demo).");
+    setStatus("Default updated in this session only.");
   }
 
   function remove(id: string) {
     setAddresses((list) => list.filter((a) => a.id !== id));
-    setStatus("Address removed (demo).");
+    setStatus("Removed from this session only.");
   }
 
   return (
     <div className={styles.addrWrap}>
-      <ul className={styles.list}>
-        {addresses.map((a) => (
-          <li key={a.id}>
-            <strong>
-              {a.label}
-              {a.isDefault ? " · Default" : ""}
-            </strong>
-            <p className={styles.muted}>
-              {[a.line1, a.line2, a.city, a.province, a.country]
-                .filter(Boolean)
-                .join(", ")}
-            </p>
-            <div className={styles.addrActions}>
-              <button
-                type="button"
-                className={styles.btnGhost}
-                onClick={() => {
-                  setEditing(a);
-                  setStatus("");
-                }}
-              >
-                Edit
-              </button>
-              {!a.isDefault ? (
+      <p className={styles.muted} style={{ marginBottom: "1rem" }}>
+        Sign-in does not unlock address CRUD yet — schema gap. See{" "}
+        <Link href="/account/profile">profile</Link> for contact fields on{" "}
+        <code>customers</code>.
+      </p>
+
+      {addresses.length === 0 && !editing ? (
+        <p className={styles.muted}>No addresses in this session.</p>
+      ) : (
+        <ul className={styles.list}>
+          {addresses.map((a) => (
+            <li key={a.id}>
+              <strong>
+                {a.label}
+                {a.isDefault ? " · Default" : ""}
+              </strong>
+              <p className={styles.muted}>
+                {[a.line1, a.line2, a.city, a.province, a.country]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              <div className={styles.addrActions}>
                 <button
                   type="button"
                   className={styles.btnGhost}
-                  onClick={() => makeDefault(a.id)}
+                  onClick={() => {
+                    setEditing(a);
+                    setStatus("");
+                  }}
                 >
-                  Set default
+                  Edit
                 </button>
-              ) : null}
-              <button
-                type="button"
-                className={styles.btnGhost}
-                onClick={() => remove(a.id)}
-              >
-                Remove
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+                {!a.isDefault ? (
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() => makeDefault(a.id)}
+                  >
+                    Set default
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  onClick={() => remove(a.id)}
+                >
+                  Remove
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {!editing ? (
         <button type="button" className={styles.btn} onClick={startNew}>
-          Add address
+          Add address (session only)
         </button>
       ) : (
         <form className={styles.form} onSubmit={onSave}>
