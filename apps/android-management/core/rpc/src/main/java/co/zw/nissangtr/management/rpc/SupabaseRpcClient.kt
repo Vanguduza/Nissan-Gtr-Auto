@@ -495,6 +495,38 @@ class SupabaseRpcClient(
                 )
             }
         }
+
+        private fun List<ReceiptLineInput>.toReceiptJsonArray(): JsonArray = buildJsonArray {
+            forEach { line ->
+                add(
+                    buildJsonObject {
+                        put("stock_item_id", line.stockItemId)
+                        put("uom_id", line.uomId)
+                        put("qty", line.qty)
+                        put("unit_cost", line.unitCost)
+                        put("currency", line.currency.rpcValue)
+                        put("valuation_method", line.valuationMethod.rpcValue)
+                        val serials = line.serials
+                        if (!serials.isNullOrEmpty()) {
+                            put("serials", buildJsonArray { serials.forEach { add(it) } })
+                        }
+                    },
+                )
+            }
+        }
+
+        private fun List<TransferLineInput>.toTransferJsonArray(): JsonArray = buildJsonArray {
+            forEach { line ->
+                add(
+                    buildJsonObject {
+                        put("stock_item_id", line.stockItemId)
+                        put("uom_id", line.uomId)
+                        put("qty", line.qty)
+                        put("valuation_method", line.valuationMethod.rpcValue)
+                    },
+                )
+            }
+        }
     }
 }
 
