@@ -83,6 +83,7 @@ function DiagramFrame({
       aria-label="Parts diagram canvas"
     >
       <div className={`${styles.frame} ${styles.frameLive}`}>
+        {/* Storage public URL — next/image needs remotePatterns per project; use img. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className={styles.diagramImg}
