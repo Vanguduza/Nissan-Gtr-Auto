@@ -160,6 +160,7 @@ export function StaffAnalyticsSubscriptionsPanel() {
   }
 
   async function onActivate(id: string) {
+    if (!canMutate) return;
     const client = createWebClient();
     if (!client) return;
     setBusy(true);
@@ -193,135 +194,140 @@ export function StaffAnalyticsSubscriptionsPanel() {
       <p className={styles.muted}>
         Worker cron delivers due subs via email / WhatsApp. Interactive KPIs:{" "}
         <Link href="/staff/analytics">analytics</Link>.
+        {!canMutate
+          ? " Subscription changes require admin or finance; sales can view the list only."
+          : null}
       </p>
 
-      <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>
-          {editingId ? "Update subscription" : "New subscription"}
-        </legend>
-        <form onSubmit={onSubmit}>
-          <div className={styles.formGrid}>
-            <label className={styles.field}>
-              Cadence
-              <select
-                value={form.cadence}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    cadence: e.target.value as AiReportCadence,
-                  }))
-                }
-                disabled={busy}
-              >
-                {CADENCES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.field}>
-              Timezone
-              <input
-                value={form.timezone}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, timezone: e.target.value }))
-                }
-                disabled={busy}
-                placeholder="Africa/Harare"
-              />
-            </label>
-            <label className={styles.checkField}>
-              <input
-                type="checkbox"
-                checked={form.channelEmail}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, channelEmail: e.target.checked }))
-                }
-                disabled={busy}
-              />
-              Channel · email
-            </label>
-            <label className={styles.checkField}>
-              <input
-                type="checkbox"
-                checked={form.channelWhatsapp}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    channelWhatsapp: e.target.checked,
-                  }))
-                }
-                disabled={busy}
-              />
-              Channel · WhatsApp
-            </label>
-            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
-              Recipient emails (comma-separated)
-              <input
-                value={form.emails}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, emails: e.target.value }))
-                }
-                disabled={busy}
-                placeholder="ops@example.com, finance@example.com"
-              />
-            </label>
-            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
-              WhatsApp E.164 (comma-separated)
-              <input
-                value={form.whatsapp}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, whatsapp: e.target.value }))
-                }
-                disabled={busy}
-                placeholder="+263771234567"
-              />
-            </label>
-            <label className={styles.checkField}>
-              <input
-                type="checkbox"
-                checked={form.includeNarrative}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    includeNarrative: e.target.checked,
-                  }))
-                }
-                disabled={busy}
-              />
-              Include AI narrative (numeric-only if Gemini unavailable)
-            </label>
-            <label className={styles.checkField}>
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, active: e.target.checked }))
-                }
-                disabled={busy}
-              />
-              Active
-            </label>
-          </div>
-          <div className={styles.formActions}>
-            <button type="submit" className={styles.btn} disabled={busy}>
-              {editingId ? "Save changes" : "Create subscription"}
-            </button>
-            {editingId ? (
-              <button
-                type="button"
-                className={styles.btnGhost}
-                disabled={busy}
-                onClick={resetForm}
-              >
-                Cancel edit
+      {canMutate ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>
+            {editingId ? "Update subscription" : "New subscription"}
+          </legend>
+          <form onSubmit={onSubmit}>
+            <div className={styles.formGrid}>
+              <label className={styles.field}>
+                Cadence
+                <select
+                  value={form.cadence}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      cadence: e.target.value as AiReportCadence,
+                    }))
+                  }
+                  disabled={busy}
+                >
+                  {CADENCES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.field}>
+                Timezone
+                <input
+                  value={form.timezone}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, timezone: e.target.value }))
+                  }
+                  disabled={busy}
+                  placeholder="Africa/Harare"
+                />
+              </label>
+              <label className={styles.checkField}>
+                <input
+                  type="checkbox"
+                  checked={form.channelEmail}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, channelEmail: e.target.checked }))
+                  }
+                  disabled={busy}
+                />
+                Channel · email
+              </label>
+              <label className={styles.checkField}>
+                <input
+                  type="checkbox"
+                  checked={form.channelWhatsapp}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      channelWhatsapp: e.target.checked,
+                    }))
+                  }
+                  disabled={busy}
+                />
+                Channel · WhatsApp
+              </label>
+              <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+                Recipient emails (comma-separated)
+                <input
+                  value={form.emails}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, emails: e.target.value }))
+                  }
+                  disabled={busy}
+                  placeholder="ops@example.com, finance@example.com"
+                />
+              </label>
+              <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+                WhatsApp E.164 (comma-separated)
+                <input
+                  value={form.whatsapp}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, whatsapp: e.target.value }))
+                  }
+                  disabled={busy}
+                  placeholder="+263771234567"
+                />
+              </label>
+              <label className={styles.checkField}>
+                <input
+                  type="checkbox"
+                  checked={form.includeNarrative}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      includeNarrative: e.target.checked,
+                    }))
+                  }
+                  disabled={busy}
+                />
+                Include AI narrative (numeric-only if Gemini unavailable)
+              </label>
+              <label className={styles.checkField}>
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, active: e.target.checked }))
+                  }
+                  disabled={busy}
+                />
+                Active
+              </label>
+            </div>
+            <div className={styles.formActions}>
+              <button type="submit" className={styles.btn} disabled={busy}>
+                {editingId ? "Save changes" : "Create subscription"}
               </button>
-            ) : null}
-            {message ? <p className={styles.formStatus}>{message}</p> : null}
-          </div>
-        </form>
-      </fieldset>
+              {editingId ? (
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  disabled={busy}
+                  onClick={resetForm}
+                >
+                  Cancel edit
+                </button>
+              ) : null}
+              {message ? <p className={styles.formStatus}>{message}</p> : null}
+            </div>
+          </form>
+        </fieldset>
+      ) : null}
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Subscriptions</legend>
@@ -337,7 +343,7 @@ export function StaffAnalyticsSubscriptionsPanel() {
                 <th>Narrative</th>
                 <th>Status</th>
                 <th>Last run</th>
-                <th />
+                {canMutate ? <th /> : null}
               </tr>
             </thead>
             <tbody>
@@ -358,37 +364,39 @@ export function StaffAnalyticsSubscriptionsPanel() {
                       ? new Date(row.last_run_at).toLocaleString()
                       : "—"}
                   </td>
-                  <td>
-                    <div className={styles.addrActions}>
-                      <button
-                        type="button"
-                        className={styles.btnGhost}
-                        disabled={busy}
-                        onClick={() => loadIntoForm(row)}
-                      >
-                        Edit
-                      </button>
-                      {row.active ? (
+                  {canMutate ? (
+                    <td>
+                      <div className={styles.addrActions}>
                         <button
                           type="button"
                           className={styles.btnGhost}
                           disabled={busy}
-                          onClick={() => void onDeactivate(row.id)}
+                          onClick={() => loadIntoForm(row)}
                         >
-                          Deactivate
+                          Edit
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className={styles.btnGhost}
-                          disabled={busy}
-                          onClick={() => void onActivate(row.id)}
-                        >
-                          Activate
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                        {row.active ? (
+                          <button
+                            type="button"
+                            className={styles.btnGhost}
+                            disabled={busy}
+                            onClick={() => void onDeactivate(row.id)}
+                          >
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.btnGhost}
+                            disabled={busy}
+                            onClick={() => void onActivate(row.id)}
+                          >
+                            Activate
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
