@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { StaffModuleTabs, type StaffModuleTab } from "@/components/staff-module-tabs";
 
 const WAREHOUSE_TABS: StaffModuleTab[] = [
@@ -13,7 +12,11 @@ const WAREHOUSE_TABS: StaffModuleTab[] = [
     href: "/staff/warehouse/cycle-count",
   },
   { id: "bins", label: "Bins", href: "/staff/warehouse/bins" },
-  { id: "consignment", label: "Consignment", href: "/staff/warehouse/consignment" },
+  {
+    id: "consignment",
+    label: "Consignment",
+    href: "/staff/warehouse/consignment",
+  },
 ];
 
 export function StaffWarehouseTabs({ active }: { active: string }) {
@@ -23,23 +26,5 @@ export function StaffWarehouseTabs({ active }: { active: string }) {
       active={active}
       ariaLabel="Warehouse sections"
     />
-  );
-}
-
-/** Deep-link helper kept for overview cards. */
-export function warehouseTabHref(id: string): string {
-  const tab = WAREHOUSE_TABS.find((t) => t.id === id);
-  return tab?.href ?? "/staff/warehouse";
-}
-
-export function WarehouseOverviewLinks() {
-  return (
-    <>
-      {WAREHOUSE_TABS.filter((t) => t.id !== "hub").map((t) => (
-        <Link key={t.id} href={t.href!} className="sr-only">
-          {t.label}
-        </Link>
-      ))}
-    </>
   );
 }
