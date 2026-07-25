@@ -280,6 +280,21 @@ export function StaffFinancePanel() {
   }, [refresh]);
 
   useEffect(() => {
+    const meta = ACCOUNT_TAB_CODES[tab];
+    if (!meta || boot.kind !== "ready") {
+      setAccountLines([]);
+      return;
+    }
+    void (async () => {
+      const client = createWebClient();
+      if (!client) return;
+      const res = await listJournalLinesForAccount(client, meta.code);
+      if (res.ok) setAccountLines(res.data);
+      else setMessage(res.error);
+    })();
+  }, [tab, boot.kind]);
+
+  useEffect(() => {
     if (boot.kind !== "ready") return;
     const q = customerQuery.trim();
     if (q.length < 2) {
@@ -709,14 +724,58 @@ export function StaffFinancePanel() {
 
   return (
     <div className={styles.form}>
+      <StaffModuleTabs
+        tabs={FINANCE_TABS}
+        active={tab}
+        onChange={selectTab}
+        ariaLabel="Finance sections"
+      />
+
       {message ? (
         <p className={styles.formStatus} role="status">
           {message}
         </p>
       ) : null}
 
+      {ACCOUNT_TAB_CODES[tab] ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>
+            {ACCOUNT_TAB_CODES[tab].title}
+          </legend>
+          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+            Recent journal lines for this cash account. Post movements via the
+            Journals tab (debit/credit this code).
+          </p>
+          {accountLines.length === 0 ? (
+            <p className={styles.muted}>No lines yet for this account.</p>
+          ) : (
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Entry</th>
+                  <th>Debit</th>
+                  <th>Credit</th>
+                  <th>Currency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accountLines.map((l) => (
+                  <tr key={l.id}>
+                    <td>{l.journal_entry_id.slice(0, 8)}</td>
+                    <td>{Number(l.debit).toFixed(2)}</td>
+                    <td>{Number(l.credit).toFixed(2)}</td>
+                    <td>{l.currency}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </fieldset>
+      ) : null}
+
+      {tab === "journals" ? (
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>1 · Journal draft</legend>
+        <legend className={styles.legend}>Journal draft</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
           Balanced two-line draft via <code>create_journal_draft</code>, then{" "}
           <code>post_journal</code>. Amounts show explicit <code>USD</code> |{" "}
