@@ -686,10 +686,6 @@ export function StaffPosPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>4 · Optional phone companion</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Show a pairing code for the Android Scan companion. Web displays the
-          code only — no HTML5 / camera QR scanning.
-        </p>
         {pairing ? (
           <div style={{ marginBottom: "0.75rem" }}>
             <p

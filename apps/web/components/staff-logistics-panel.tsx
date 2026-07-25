@@ -276,10 +276,6 @@ export function StaffLogisticsPanel() {
     <div className={styles.form}>
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>1 · Create pick list</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Posted dispatch invoices only. Opens all remaining lines via{" "}
-          <code>create_pick_list</code>.
-        </p>
         {boot.invoices.length === 0 ? (
           <p className={styles.muted}>No posted dispatch invoices visible.</p>
         ) : (
