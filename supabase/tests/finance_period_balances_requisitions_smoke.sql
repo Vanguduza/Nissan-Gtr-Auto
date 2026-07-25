@@ -125,7 +125,7 @@ BEGIN
       IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
   END;
 
-  -- Phase B: float then spend → replenish amount
+  -- Phase B: float then spend → replenish amount (next day spend avoids txn-stable now())
   PERFORM public.post_journal_entry(
     CURRENT_DATE,
     'Smoke float 1110 from 1100',
@@ -141,7 +141,7 @@ BEGIN
   );
 
   PERFORM public.post_journal_entry(
-    CURRENT_DATE,
+    CURRENT_DATE + 1,
     'Smoke spend after float',
     'USD',
     1,
@@ -151,7 +151,7 @@ BEGIN
     ]'::jsonb
   );
 
-  v_replenish := public.compute_petty_cash_replenish_amount('USD', CURRENT_DATE);
+  v_replenish := public.compute_petty_cash_replenish_amount('USD', CURRENT_DATE + 1);
   IF v_replenish IS DISTINCT FROM 40 THEN
     RAISE EXCEPTION 'smoke fail: replenish expected 40 got %', v_replenish;
   END IF;
