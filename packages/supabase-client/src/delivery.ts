@@ -22,6 +22,7 @@ export const DELIVERY_RPC = {
   setDriverPresence: "set_driver_presence",
   suggestAssignees: "suggest_delivery_assignees",
   assignJob: "assign_delivery_job",
+  setJobGeo: "set_delivery_job_geo",
   ingestLocation: "ingest_delivery_location",
   getTrackPoint: "get_delivery_track_point",
   submitPod: "submit_delivery_pod",
@@ -34,6 +35,12 @@ export const DELIVERY_RPC = {
   raisePanic: "raise_delivery_panic",
   optimizeStops: "optimize_driver_stops",
 } as const;
+
+/** Result of `update_delivery_job_status` — track_token only on dispatch. */
+export type UpdateDeliveryJobStatusResult = {
+  delivery_job_id: string;
+  track_token?: string | null;
+};
 
 export type DriverPresenceRow =
   Database["public"]["Tables"]["driver_presence"]["Row"];

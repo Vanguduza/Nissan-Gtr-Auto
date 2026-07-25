@@ -48,6 +48,7 @@
 		A10000000000000000000021 /* AuthTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthTokenStore.swift; path = ../Sources/GTRCustomerCore/AuthTokenStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000022 /* SignInScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000027 /* ChatScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScreen.swift; sourceTree = "<group>"; };
+		A10000000000000000000029 /* DeliveryTrackScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryTrackScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000025 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Shared.xcconfig; path = Config/Shared.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 

@@ -1,8 +1,9 @@
 # GTR Customer — Android
 
 Customer shell with thin Compose scaffolds for **cart**, **orders**, **My Garage**,
-**ContiPay / Paynow intent create**, and **live chat** — mirroring web AuthZ RPCs in
-`apps/web/lib/customer-storefront.ts` and chat helpers in `apps/web/lib/chat.ts`.
+**ContiPay / Paynow intent create**, **live chat**, and **active delivery track** —
+mirroring web AuthZ RPCs in `apps/web/lib/customer-storefront.ts`, chat helpers in
+`apps/web/lib/chat.ts`, and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 
 ## Prerequisites
 

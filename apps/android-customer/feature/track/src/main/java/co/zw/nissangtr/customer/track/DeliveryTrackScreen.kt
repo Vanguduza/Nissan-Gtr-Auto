@@ -36,6 +36,7 @@ fun DeliveryTrackScreen(
     initialToken: String? = null,
     initialJobId: String? = null,
     viewModel: DeliveryTrackViewModel = viewModel(
+        key = "track|${initialToken.orEmpty()}|${initialJobId.orEmpty()}",
         factory = DeliveryTrackViewModel.factory(rpc, initialToken, initialJobId),
     ),
 ) {
