@@ -119,6 +119,12 @@ export const STAFF_MODULE_ROLES = {
     "finance",
     "sales",
   ] as const satisfies readonly StaffRole[],
+  crmCredit: [
+    "admin",
+    "sales",
+    "finance",
+  ] as const satisfies readonly StaffRole[],
+  crmReviews: ["admin", "sales"] as const satisfies readonly StaffRole[],
 } as const;
 
 export type PathAccess =
@@ -218,6 +224,20 @@ export function canAccessPath(
 
 export function filterNavForRoles(roles: StaffRole[]): StaffNavItem[] {
   return STAFF_NAV_ITEMS.filter((item) => rolesAllow(roles, item.roles));
+}
+
+/**
+ * Sales-only → POS workspace as home; admin/warehouse keep hub.
+ * Mirrors Android `ManagementHomeRoles.prefersPosHome`.
+ */
+export function prefersPosHome(roles: readonly StaffRole[]): boolean {
+  if (roles.some((r) => r === "admin" || r === "warehouse")) return false;
+  return roles.includes("sales");
+}
+
+/** Default staff landing after sign-in (no `next` override). */
+export function staffHomePath(roles: readonly StaffRole[]): string {
+  return prefersPosHome(roles) ? "/staff/pos" : "/staff";
 }
 
 export async function loadStaffContext(
