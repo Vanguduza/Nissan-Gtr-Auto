@@ -355,18 +355,15 @@ class SupabaseRpcClient(
         )
     }
 
-    override suspend fun chatUnreadCount(threadId: String?): Int {
-        val raw = client.postgrest.rpc(
+    override suspend fun chatUnreadCount(threadId: String?): Int =
+        client.postgrest.rpc(
             RpcNames.CHAT_UNREAD_COUNT,
             buildJsonObject {
                 if (threadId.isNullOrBlank()) put("p_thread_id", JsonNull)
                 else put("p_thread_id", threadId)
             },
-        )
-        return runCatching { raw.decodeAs<Int>() }
-            .recoverCatching { raw.decodeAs<Long>().toInt() }
-            .getOrDefault(0)
-    }
+        ).decodeAs<Int>()
+
 
     companion object {
         private val metadataJson = Json { ignoreUnknownKeys = true }
