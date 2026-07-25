@@ -432,7 +432,6 @@ private fun ModuleSubMenu(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(module.title, style = MaterialTheme.typography.headlineMedium)
-        Text("Sub-features", style = MaterialTheme.typography.bodyMedium)
         features.forEach { (label, feature) ->
             Button(
                 onClick = { onOpenFeature(feature) },
@@ -452,8 +451,8 @@ private fun featuresFor(module: HubModule): List<Pair<String, ManagementRoute>> 
     )
     HubModule.Warehouse -> listOf(
         "Receive / Transfer / Cycle" to ManagementRoute.Warehouse,
-        "Bins — Locations / pick-path / labels" to ManagementRoute.Bins,
-        "Consignment — Draft / submit" to ManagementRoute.Consignment,
+        "Bins" to ManagementRoute.Bins,
+        "Consignment" to ManagementRoute.Consignment,
     )
     HubModule.Procurement -> listOf(
         "Blanket POs" to ManagementRoute.Blankets,
@@ -465,13 +464,12 @@ private fun featuresFor(module: HubModule): List<Pair<String, ManagementRoute>> 
         "Clock in / out" to ManagementRoute.HrClock,
     )
     HubModule.Logistics -> listOf(
-        // Live track + panic inbox live on this screen (no separate Android routes).
-        "Pick / DN / Dispatch (track & panic)" to ManagementRoute.Dispatch,
+        "Pick / DN / Dispatch" to ManagementRoute.Dispatch,
     )
     HubModule.Fleet -> listOf(
-        "Plates / status" to ManagementRoute.Fleet,
+        "Vehicles" to ManagementRoute.Fleet,
     )
     HubModule.Chat -> listOf(
-        "Staff inbox" to ManagementRoute.Chat,
+        "Inbox" to ManagementRoute.Chat,
     )
 }
