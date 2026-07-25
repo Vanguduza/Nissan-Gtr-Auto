@@ -2,7 +2,7 @@
 
 - Date: 2026-07-24
 - Lane: `@backend_agent` (Edge webhook + service_role catalog search)
-- Status: Proposed
+- Status: Accepted
 - Related: [`customer-receipt-delivery`](./2026-07-23-customer-receipt-delivery.md), plan [`thin-surfaces-and-whatsapp-bot`](../plans/2026-07-24-thin-surfaces-and-whatsapp-bot.md)
 
 ## Decision
