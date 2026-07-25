@@ -88,6 +88,9 @@ interface RpcClient {
     /** Close companion scanner rights. */
     suspend fun revokePosScanSession(sessionId: String): String
 
+    /** Load cart_id for a claimed/open session (companion after claim). */
+    suspend fun getPosScanSessionCartId(sessionId: String): String?
+
     // --- Warehouse ---
 
     suspend fun postStockReceipt(

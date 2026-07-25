@@ -360,13 +360,18 @@ class PosViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val sessionId = rpc.claimPosScanSession(code)
+                val cartId = rpc.getPosScanSessionCartId(sessionId)
+                    ?: _state.value.cartId.trim().ifBlank { null }
                 _state.update {
                     it.copy(
                         busy = false,
                         companionSessionId = sessionId,
-                        // Claim returns session id; cart is known to owner — use till cart if same device demo
-                        companionCartId = it.cartId.ifBlank { it.companionCartId },
-                        message = "Session claimed — scan inventory QR via bridge",
+                        companionCartId = cartId.orEmpty(),
+                        message = if (cartId != null) {
+                            "Session claimed — cart $cartId — scan via bridge"
+                        } else {
+                            "Session claimed — paste cart UUID if scan fails"
+                        },
                     )
                 }
             } catch (e: Exception) {
