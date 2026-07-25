@@ -1230,6 +1230,71 @@ class FakeRpcClient : RpcClient {
         return updated
     }
 
+    override suspend fun listFleetVehicles(status: FleetVehicleStatus?): List<FleetVehicleSummary> {
+        return fleetVehicles
+            .filter { status == null || it.status == status }
+            .sortedBy { it.plate }
+    }
+
+    override suspend fun upsertFleetVehicle(
+        plate: String,
+        label: String?,
+        status: FleetVehicleStatus,
+        assignedDriverUserId: String?,
+        notes: String?,
+        id: String?,
+    ): String {
+        val normalized = plate.trim().uppercase()
+        require(normalized.isNotEmpty()) { "plate is required" }
+        val assignee = assignedDriverUserId?.trim()?.takeIf { it.isNotEmpty() }
+        if (assignee != null) {
+            require(assignee in knownDriverIds) {
+                "assigned_driver_user_id must have driver staff role (or be null)"
+            }
+        }
+        val cleanLabel = label?.trim()?.takeIf { it.isNotEmpty() }
+        val cleanNotes = notes?.trim()?.takeIf { it.isNotEmpty() }
+        if (id.isNullOrBlank()) {
+            require(fleetVehicles.none { it.plate == normalized }) {
+                "fleet plate already exists: $normalized"
+            }
+            val newId = UUID.randomUUID().toString()
+            fleetVehicles.add(
+                FleetVehicleSummary(
+                    id = newId,
+                    plate = normalized,
+                    label = cleanLabel,
+                    status = status,
+                    assignedDriverUserId = assignee,
+                    notes = cleanNotes,
+                ),
+            )
+            return newId
+        }
+        val idx = fleetVehicles.indexOfFirst { it.id == id }
+        require(idx >= 0) { "fleet vehicle not found" }
+        require(fleetVehicles.none { it.plate == normalized && it.id != id }) {
+            "fleet plate already exists: $normalized"
+        }
+        fleetVehicles[idx] = FleetVehicleSummary(
+            id = id,
+            plate = normalized,
+            label = cleanLabel,
+            status = status,
+            assignedDriverUserId = assignee,
+            notes = cleanNotes,
+        )
+        return id
+    }
+
+    override suspend fun setFleetVehicleStatus(id: String, status: FleetVehicleStatus): String {
+        require(id.isNotBlank())
+        val idx = fleetVehicles.indexOfFirst { it.id == id }
+        require(idx >= 0) { "fleet vehicle not found" }
+        fleetVehicles[idx] = fleetVehicles[idx].copy(status = status)
+        return id
+    }
+
     override suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary> {
         val uid = fakeStaffUserId
         return chatThreads.filter { t ->
@@ -1314,6 +1379,7 @@ class FakeRpcClient : RpcClient {
         const val FAKE_BIN_A_ID = "00000000-0000-4000-8000-0000000000ba"
         const val FAKE_BIN_B_ID = "00000000-0000-4000-8000-0000000000bb"
         const val FAKE_CONSIGNMENT_ID = "00000000-0000-4000-8000-0000000000n1"
+        const val FAKE_FLEET_VEHICLE_ID = "00000000-0000-4000-8000-0000000000fv"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"
