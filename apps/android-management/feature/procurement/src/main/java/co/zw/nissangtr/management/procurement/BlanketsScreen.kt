@@ -45,11 +45,6 @@ fun BlanketsScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("Blanket POs", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPCs: ${RpcNames.CREATE_BLANKET_PURCHASE_ORDER}, ${RpcNames.SUBMIT_PURCHASE_ORDER}, " +
-                "${RpcNames.CREATE_BLANKET_RELEASE}. Alerts: expiry ≤14d / remaining value ≤15% / qty ≤5.",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         Text("Create blanket", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(

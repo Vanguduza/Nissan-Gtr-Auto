@@ -43,10 +43,6 @@ fun ClockAttendanceScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("HR — Clock in / out", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPC: ${RpcNames.CLOCK_ATTENDANCE} (p_employee_id, p_event_type, p_notes?)",
-            style = MaterialTheme.typography.bodySmall,
-        )
         OutlinedTextField(
             value = state.employeeId,
             onValueChange = viewModel::onEmployeeIdChange,

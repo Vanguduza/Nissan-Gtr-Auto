@@ -57,18 +57,6 @@ fun DispatchScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("Logistics — Pick / DN / Dispatch", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPCs: ${RpcNames.CREATE_PICK_LIST}, ${RpcNames.CONFIRM_PICK_LINES}, " +
-                "${RpcNames.CREATE_DELIVERY_NOTE}, ${RpcNames.SUBMIT_DELIVERY_NOTE}",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            "GPS: view-only via ${RpcNames.GET_DELIVERY_TRACK_POINT}. " +
-                "Producer gated — drivers use apps/android-delivery " +
-                "(FGS → ${RpcNames.INGEST_DELIVERY_LOCATION}). " +
-                "ALLOW_DRIVER_GPS_PRODUCER=${DispatchViewModel.ALLOW_DRIVER_GPS_PRODUCER}.",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         OutlinedTextField(
             value = state.salesInvoiceId,

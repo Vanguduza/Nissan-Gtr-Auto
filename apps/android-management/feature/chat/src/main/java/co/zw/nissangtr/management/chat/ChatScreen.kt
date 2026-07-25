@@ -55,12 +55,6 @@ fun ChatScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text("Staff chat", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPCs: ${RpcNames.CLAIM_CHAT_THREAD}, ${RpcNames.POST_CHAT_MESSAGE}, " +
-                "${RpcNames.CLOSE_CHAT_THREAD}, ${RpcNames.MARK_CHAT_THREAD_READ}",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(state.pollNote, style = MaterialTheme.typography.bodySmall)
         if (state.unread > 0) {
             Text("Unread: ${state.unread}", style = MaterialTheme.typography.bodyMedium)
         }

@@ -46,12 +46,6 @@ fun BinsScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("Warehouse bins", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPCs: ${RpcNames.CREATE_WAREHOUSE_BIN}, ${RpcNames.DEACTIVATE_WAREHOUSE_BIN}, " +
-                "${RpcNames.SET_STOCK_LEVEL_BIN}, ${RpcNames.GET_PICK_PATH_HINTS}. " +
-                "Labels via ESC/POS bridge (fail-soft if unpaired).",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         if (state.warehouses.isNotEmpty()) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -49,12 +49,6 @@ fun FleetScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("Company fleet", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPCs: ${RpcNames.LIST_FLEET_VEHICLES}, ${RpcNames.UPSERT_FLEET_VEHICLE}, " +
-                "${RpcNames.SET_FLEET_VEHICLE_STATUS}. Not B2B FLEET price list / garage. " +
-                "No GPS on this screen.",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
