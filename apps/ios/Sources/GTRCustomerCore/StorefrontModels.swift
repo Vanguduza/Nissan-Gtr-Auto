@@ -169,9 +169,16 @@ public struct DeliveryTrackPoint: Sendable, Equatable, Identifiable {
 }
 
 /// How to call `get_delivery_track_point` — job id (owner JWT) and/or share token.
-public enum DeliveryTrackRef: Sendable, Equatable {
+public enum DeliveryTrackRef: Sendable, Equatable, Identifiable {
     case job(UUID)
     case token(String)
+
+    public var id: String {
+        switch self {
+        case .job(let id): return "job:\(id.uuidString)"
+        case .token(let t): return "token:\(t)"
+        }
+    }
 
     public var jobId: UUID? {
         if case .job(let id) = self { return id }

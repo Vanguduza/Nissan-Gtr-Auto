@@ -33,7 +33,7 @@ struct GTRCustomerApp: App {
         guard url.scheme == "gtr-customer" else { return nil }
         let host = (url.host ?? "").lowercased()
         let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
-        guard host == "track" || path == "track" || host.isEmpty && path.hasPrefix("track") else {
+        guard host == "track" || path == "track" || (host.isEmpty && path.hasPrefix("track")) else {
             return nil
         }
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -52,14 +52,5 @@ struct GTRCustomerApp: App {
             return .token(last)
         }
         return nil
-    }
-}
-
-extension DeliveryTrackRef: Identifiable {
-    public var id: String {
-        switch self {
-        case .job(let id): return "job:\(id.uuidString)"
-        case .token(let t): return "token:\(t)"
-        }
     }
 }
