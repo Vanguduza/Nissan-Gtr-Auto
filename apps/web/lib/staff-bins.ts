@@ -4,9 +4,9 @@ import {
   requireSession,
   searchStockItems,
   type StockItemOption,
-  type StorefrontResult,
   type WarehouseOption,
 } from "@/lib/staff-warehouse";
+import type { StorefrontResult } from "@/lib/customer-storefront";
 
 export {
   listWarehouses,
