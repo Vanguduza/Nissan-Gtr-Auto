@@ -18,6 +18,10 @@ Never invent or commit credential values. Store only in Supabase Edge secrets, G
 |----------|--------|--------|
 | `WORKER_SHARED_SECRET` | Edge (workers) | Header `x-worker-secret`; required outside local stub |
 | `WORKER_ALLOW_UNVERIFIED_LOCAL` | Local only | `1` only when secret unset; never production |
+| `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL` | Local only | `1` only when SMS/email OTP secrets unset; never production |
+| `AUTH_OTP_FROM_EMAIL` | Edge (optional) | From address fallback for auth OTP email |
+| `SMS_GATEWAY_API_KEY` / `SMS_GATEWAY_BASE_URL` / `SMS_GATEWAY_SENDER` | Edge | Real SMS OTP + receipt/manager SMS |
+| `EMAIL_API_KEY` / `RESEND_API_KEY` / `EMAIL_FROM` / `RECEIPT_FROM_EMAIL` | Edge | Real email OTP + receipt email |
 | `CONTIPAY_API_KEY` | Edge | Initiate Basic Auth token |
 | `CONTIPAY_API_SECRET` | Edge | Initiate Basic Auth password (falls back to webhook HMAC secret) |
 | `CONTIPAY_MERCHANT_ID` | Edge | Initiate merchant code |

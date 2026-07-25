@@ -91,3 +91,8 @@ verify_jwt = true
 # AuthZ = download_token lookup; service_role stays inside the function.
 [functions.receipt-download]
 verify_jwt = true
+
+# Customer signup/login OTP (email | phone). Fail-closed without gateway secrets;
+# AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset → stub code 000000 only.
+[functions.auth-otp]
+verify_jwt = false

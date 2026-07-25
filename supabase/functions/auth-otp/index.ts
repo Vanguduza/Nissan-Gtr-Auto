@@ -11,7 +11,6 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { encodeHex } from "jsr:@std/encoding@1/hex";
 import { jsonErr, jsonOk } from "../_shared/channel_env.ts";
 import {
   AUTH_OTP_STUB_CODE,
@@ -43,10 +42,16 @@ function normalizeE164(raw: unknown): string | null {
   return v;
 }
 
+function toHex(buf: ArrayBuffer): string {
+  return [...new Uint8Array(buf)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 async function hashCode(code: string): Promise<string> {
   const data = new TextEncoder().encode(code.trim());
   const digest = await crypto.subtle.digest("SHA-256", data);
-  return encodeHex(new Uint8Array(digest));
+  return toHex(digest);
 }
 
 function randomOtp(): string {
