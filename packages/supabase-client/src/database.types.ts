@@ -1020,6 +1020,54 @@ export type Database = {
           },
         ]
       }
+      customer_product_reviews: {
+        Row: {
+          body: string
+          created_at: string
+          customer_id: string
+          id: string
+          rating: number
+          status: Database["public"]["Enums"]["product_review_status"]
+          stock_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          rating: number
+          status?: Database["public"]["Enums"]["product_review_status"]
+          stock_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating?: number
+          status?: Database["public"]["Enums"]["product_review_status"]
+          stock_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_product_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_reviews_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_receipt_outbox: {
         Row: {
           attempt_count: number
