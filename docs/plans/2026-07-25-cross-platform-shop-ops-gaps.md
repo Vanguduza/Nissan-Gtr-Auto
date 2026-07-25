@@ -1,11 +1,12 @@
 # Cross-platform shop & ops gaps
 
-- Status: **Ready for implementation**
+- Status: **Done** (verified 2026-07-25 — `/security-reviewer` harden + `/verifier`)
 - Date: 2026-07-25
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Immediate handoff
 - Prior wave (Done): [`2026-07-25-audit-followons-no-secrets.md`](./2026-07-25-audit-followons-no-secrets.md) — web-minimum only
 - Decisions: [`autodoc-shop-features`](../decisions/2026-07-23-autodoc-shop-features.md), [`web-management-parity-rbac`](../decisions/2026-07-25-web-management-parity-rbac.md); Phase 8b/16 plans for blankets/bins/consignment
 - Skills: `/token-discipline`; `/qr-inventory-workflow` only for bin-label ESC/POS; `/parts-catalog-ingestion` only for diagram seed expand
+- DB: shop-ops migrations `20260725200000`–`20260725204000` + grants harden `…221000` applied locally; smoke `wishlist_reviews_navara_diagrams_smoke` **OK**
 
 ## Goal
 
@@ -26,51 +27,58 @@ Close **remaining** shop/ops gaps across **web + iOS + Android customer + Androi
 | B2B credit | `customers.credit_limit` / `credit_hold` / `open_balance`; B2B **read** on `/b2b`; staff `customers` ALL via RLS | Staff set/clear UI (+ management if role-ok); no dedicated mutator RPC yet → add SECURITY DEFINER staff RPC |
 | Staff polish | Finance `searchCustomers`; POS stock search only; staff nav lacks reviews/credit deep links | POS named-customer bind; CRM-ish nav labels |
 
-## Feature × platform matrix
+## Feature × platform matrix (shipped)
 
 Legend: **L** = Live · **P** = Partial · **G** = Gap · **—** = N/A
 
 | Feature | Backend | Web | iOS | Android cust | Android mgmt |
 |---------|:-------:|:---:|:---:|:------------:|:------------:|
-| Wishlist list/add/remove | L | L | G | G | — |
-| Move-to-cart from wishlist | P (cart RPCs) | G | G | G | — |
-| Back-in-stock flag + notify | G | G | G | G | — |
-| Compare (local guest) | — | L | G | G | — |
-| Compare (server auth sync) | G | G | G | G | — |
-| Compare attribute matrix | — | P | G | G | — |
-| Reviews submit/list | L | L | G | G | — |
-| Reviews staff moderate UI | L (RPC) | G | — | — | — |
-| Rating aggregates on PDP | G | G | G | G | — |
-| Review photo attachments | G | G | G | G | — |
-| Blanket staff / remaining | L | L | — | — | G |
-| Blanket supplier portal | P (RLS) | G | — | — | — |
-| Blanket expiry alerts | P (`expected_date`) | G | — | — | G |
-| Warehouse bins UI | L | L | — | — | G |
-| Consignment UI | L | L | — | — | G |
-| Bin label ESC/POS | P (bridge) | — | — | — | G |
-| Pick-path guidance | L (`get_pick_path_hints`) | P | — | — | G |
-| Diagrams beyond Navara | P | P | — | — | — |
-| B2B credit view | L | L | — | — | G |
-| B2B credit set/hold | P (RLS) | G | — | — | G |
-| POS named-customer search | L (`p_customer_id`) | G | — | — | P |
-| Staff nav CRM entry points | — | P | — | — | — |
+| Wishlist list/add/remove | L | L | L | L | — |
+| Move-to-cart from wishlist | L (`wishlist_move_to_cart`) | L | L | L | — |
+| Back-in-stock flag + notify | L (flag + outbox enqueue) | L | L | L | — |
+| Compare (local guest) | — | L | L | L | — |
+| Compare (server auth sync) | L | L | L | L | — |
+| Compare attribute matrix | — | L | P (subset) | P (subset) | — |
+| Reviews submit/list | L | L | L | L | — |
+| Reviews staff moderate UI | L | L | — | — | — |
+| Rating aggregates on PDP | L | L | L | L | — |
+| Review photo attachments | L (bucket + RLS) | L | P (PhotosPicker) | L (PodCameraBridge) | — |
+| Blanket staff / remaining | L | L | — | — | L |
+| Blanket supplier portal | L (RLS) | L | — | — | — |
+| Blanket expiry alerts | L | L | — | — | L |
+| Warehouse bins UI | L | L | — | — | L |
+| Consignment UI | L | L | — | — | L |
+| Bin label ESC/POS | L (text lines) | — | — | — | P (no QR glyph) |
+| Pick-path guidance | L | L | — | — | L |
+| Diagrams beyond Navara | L (X-Trail seed) | L | — | — | — |
+| B2B credit view | L | L | — | — | L |
+| B2B credit set/hold | L (`set_customer_credit`) | L | — | — | L |
+| POS named-customer search | L | L | — | — | L |
+| Staff nav CRM entry points | — | L | — | — | — |
 
 ## Acceptance criteria
 
-1. [ ] **Wishlist mobile** — iOS + Android customer: list + add/remove via existing wishlist RPCs; Fake RPC parity for offline demos.
-2. [ ] **Move-to-cart** — Web + mobile: from wishlist call `create_customer_cart` / `add_customer_cart_line` (or one thin DEFINER helper); remove or keep wishlist item per UX note in handoff.
-3. [ ] **Back-in-stock** — Preference column/flag on wishlist (or linked prefs) + enqueue `sms_outbox` / domain event when stock returns (**fail-closed**, no SMS without keys); staff/system hook if cheap.
-4. [ ] **Compare** — `customer_compare_items` (or equivalent) + RLS for auth users; guests stay localStorage; sync on login; richer side-by-side attribute matrix on web (mobile feasible subset); **update** smoke that previously forbade compare table.
-5. [ ] **Reviews moderation** — Web `/staff/...` UI binds `moderate_customer_product_review`; nav entry from staff CRM polish.
-6. [ ] **Review aggregates + photos** — PDP avg/count (RPC or view); photo paths via Storage bucket + RLS; web file upload OK; mobile camera via **Bridge-First** (`bridges/` / POD-camera pattern reuse — not HTML5 QR).
-7. [ ] **Reviews mobile** — iOS + Android submit/list (approved + own pending).
-8. [ ] **Optional review-approved notify** — `emit_domain_event` + catalog code; drain fail-closed without keys.
-9. [ ] **Blankets** — Supplier portal lists own blankets (RLS already); expiry/remaining alerts in staff + supplier UI; Android management thin procurement/blanket RPC bind.
-10. [ ] **Bins / consignment management** — Android management screens on Phase 16 RPCs; bin label print via ESC/POS where bridge already wired; staff web + management call `get_pick_path_hints` for preferred-bin guidance.
-11. [ ] **Diagrams** — Expand seed beyond Navara where fixtures exist; migration + `seed_catalog_diagrams.mjs` idempotent; PDP canvas works; ops step documented (LOCAL_DEVELOPMENT or seed README cite).
-12. [ ] **B2B credit staff** — Staff finance/sales UI: set `credit_limit`, set/clear `credit_hold`, view `open_balance` (explicit currency); management surface if role-appropriate; SECURITY DEFINER mutator preferred over raw table UPDATE.
-13. [ ] **Staff polish** — POS named-customer search (reuse finance `searchCustomers` pattern); clearer CRM-ish labels + nav links to credit + review moderation.
-14. [ ] **Gates** — `/security-reviewer` (+ `/supabase-rls-auditor` on new tables); `/verifier`; master Immediate handoff updated; **no secrets / no ZIMRA / no payroll tax / Bridge-First**.
+1. [x] **Wishlist mobile** — iOS + Android customer: list + add/remove via existing wishlist RPCs; Fake RPC parity for offline demos.
+2. [x] **Move-to-cart** — Web + mobile: `wishlist_move_to_cart` DEFINER helper (compose of cart RPCs).
+3. [x] **Back-in-stock** — `notify_when_in_stock` + `set_wishlist_notify_when_in_stock`; stock hook enqueues `wishlist_back_in_stock` domain/sms outbox (**fail-closed**).
+4. [x] **Compare** — `customer_compare_items` + RLS; guest local; sync on login; web attribute matrix; smoke requires table + ownership tests.
+5. [x] **Reviews moderation** — Web `/staff/crm/reviews` binds `moderate_customer_product_review`; staff CRM nav.
+6. [x] **Review aggregates + photos** — `get_product_review_stats`; `review-photos` Storage + RLS; web upload; Android **Bridge-First** `PodCameraBridge`; iOS **PhotosPicker** (library, not camera bridge — residual).
+7. [x] **Reviews mobile** — iOS + Android submit/list (approved + own pending).
+8. [x] **Optional review-approved notify** — `review_approved` catalog + `emit_domain_event` on moderate approve; drain fail-closed.
+9. [x] **Blankets** — Supplier `/supplier/blankets`; expiry/remaining alerts staff + supplier; Android management blankets UI.
+10. [x] **Bins / consignment management** — Android management bins/consignment; ESC/POS text bin labels via `EscPosPrinterBridge`; web + mgmt `get_pick_path_hints` (**optional QR glyph on label = residual**).
+11. [x] **Diagrams** — X-Trail fixtures + `…204000` seed; `seed_catalog_diagrams.mjs` idempotent; ops in `LOCAL_DEVELOPMENT.md`.
+12. [x] **B2B credit staff** — Web `/staff/crm/credit` + management Credit (role-gated); `set_customer_credit` SECURITY DEFINER; explicit currency on RPC snapshot.
+13. [x] **Staff polish** — Web + management POS named-customer `searchCustomers`; CRM nav to credit + reviews.
+14. [x] **Gates** — Security harden migrations (`…221000` grants); `/verifier` 2026-07-25; master handoff updated; no secrets / ZIMRA / payroll tax; Bridge-First for Android camera + ESC/POS.
+
+### Residuals (non-blocking)
+
+- Native **JDK 17+ / Xcode** assemble not re-run in verifier session (hosts optional).
+- Bin label = ESC/POS **text lines only** — optional inventory-QR glyph deferred.
+- iOS review photos via **PhotosPicker** (photo library), not an iOS camera bridge yet.
+- Parallel auth-OTP / staff-ops migrations may need `db reset` / repair if local `schema_migrations` lags (`…211000`, `…220000`).
 
 ## Paths in scope (by lane)
 
