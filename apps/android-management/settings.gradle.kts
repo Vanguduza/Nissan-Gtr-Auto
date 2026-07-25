@@ -23,6 +23,8 @@ include(":feature:warehouse")
 include(":feature:dispatch")
 include(":feature:hr")
 include(":feature:chat")
+include(":feature:procurement")
+include(":feature:credit")
 
 // Bridge-First — consume only; impl lives under bridges/
 // location-tracker intentionally NOT included — driver GPS producer is
