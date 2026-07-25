@@ -1,4 +1,5 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
+import type { StorefrontResult } from "@/lib/customer-storefront";
 import {
   loadSuppliers,
   loadWarehouses,
@@ -8,7 +9,6 @@ import {
   type StockItemOption,
   type SupplierOption,
   type WarehouseOption,
-  type StorefrontResult,
 } from "@/lib/rfq-portal";
 
 export { requireSession, loadSuppliers, loadWarehouses, searchStockItems };
