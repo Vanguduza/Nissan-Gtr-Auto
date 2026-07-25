@@ -98,7 +98,7 @@ BEGIN
     RAISE EXCEPTION 'customer profile required';
   END IF;
 
-  v_item := public._resolve_wishlist_stock_item(p_stock_item_id, p_oem_part_number);
+  v_item := public._resolve_customer_stock_item(p_stock_item_id, p_oem_part_number);
 
   INSERT INTO public.customer_wishlist_items (customer_id, stock_item_id)
   VALUES (v_cust, v_item)
@@ -139,7 +139,7 @@ BEGIN
     RETURN;
   END IF;
 
-  v_item := public._resolve_wishlist_stock_item(p_stock_item_id, p_oem_part_number);
+  v_item := public._resolve_customer_stock_item(p_stock_item_id, p_oem_part_number);
 
   DELETE FROM public.customer_wishlist_items
   WHERE customer_id = v_cust AND stock_item_id = v_item;
