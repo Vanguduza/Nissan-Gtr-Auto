@@ -245,10 +245,6 @@ function StaffNavInner({ current }: { current: string }) {
   );
 }
 
-function StaffNavFallback({ current }: { current: string }) {
-  return <StaffNavInner current={current} />;
-}
-
 /** Staff sidebar with expandable module → subfeature menus (RBAC-filtered). */
 export function StaffNav({ current }: { current: string }) {
   return (
