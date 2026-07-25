@@ -97,6 +97,17 @@ class FakeRpcClient : RpcClient {
             acknowledgedBy = null,
         ),
     )
+    private val fleetVehicles = mutableListOf(
+        FleetVehicleSummary(
+            id = FAKE_FLEET_VEHICLE_ID,
+            plate = "AB-1234",
+            label = "Van Alpha",
+            status = FleetVehicleStatus.ACTIVE,
+            assignedDriverUserId = FAKE_DRIVER_USER_ID,
+            notes = "Fake seed vehicle",
+        ),
+    )
+    private val knownDriverIds = setOf(FAKE_DRIVER_USER_ID, FAKE_DRIVER_USER_ID_2)
     /** Exposed for unit/demo checks — count of successful GPS ingests. */
     val ingestedLocationCount: AtomicInteger = AtomicInteger(0)
     private val deliveryNotes = mutableListOf(

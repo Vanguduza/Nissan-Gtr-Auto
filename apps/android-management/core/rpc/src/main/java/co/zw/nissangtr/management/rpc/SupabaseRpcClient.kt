@@ -1390,6 +1390,53 @@ class SupabaseRpcClient(
         return row.toSnapshot()
     }
 
+    override suspend fun listFleetVehicles(status: FleetVehicleStatus?): List<FleetVehicleSummary> {
+        return client.postgrest.rpc(
+            RpcNames.LIST_FLEET_VEHICLES,
+            buildJsonObject {
+                if (status == null) put("p_status", JsonNull)
+                else put("p_status", status.rpcValue)
+            },
+        ).decodeList<FleetVehicleRow>().map { it.toSummary() }
+    }
+
+    override suspend fun upsertFleetVehicle(
+        plate: String,
+        label: String?,
+        status: FleetVehicleStatus,
+        assignedDriverUserId: String?,
+        notes: String?,
+        id: String?,
+    ): String {
+        require(plate.isNotBlank()) { "plate is required" }
+        return client.postgrest.rpc(
+            RpcNames.UPSERT_FLEET_VEHICLE,
+            buildJsonObject {
+                put("p_plate", plate)
+                if (label.isNullOrBlank()) put("p_label", JsonNull) else put("p_label", label)
+                put("p_status", status.rpcValue)
+                if (assignedDriverUserId.isNullOrBlank()) {
+                    put("p_assigned_driver_user_id", JsonNull)
+                } else {
+                    put("p_assigned_driver_user_id", assignedDriverUserId)
+                }
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+                if (id.isNullOrBlank()) put("p_id", JsonNull) else put("p_id", id)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun setFleetVehicleStatus(id: String, status: FleetVehicleStatus): String {
+        require(id.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SET_FLEET_VEHICLE_STATUS,
+            buildJsonObject {
+                put("p_id", id)
+                put("p_status", status.rpcValue)
+            },
+        ).decodeAs<String>()
+    }
+
     companion object {
         private val UUID_REGEX =
             Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)
