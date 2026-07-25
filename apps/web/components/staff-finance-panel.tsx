@@ -1265,13 +1265,28 @@ export function StaffFinancePanel() {
               Currency
               <select
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                onChange={(e) => {
+                  const c = e.target.value as CurrencyCode;
+                  setCurrency(c);
+                  if (c === "ZIG") setExchangeRate(defaultZigRate());
+                }}
                 disabled={busy}
               >
                 <option value="USD">USD</option>
                 <option value="ZIG">ZIG</option>
               </select>
             </label>
+            {currency === "ZIG" ? (
+              <label className={styles.field}>
+                ZiG exchange rate
+                <input
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
+                  disabled={busy}
+                  inputMode="decimal"
+                />
+              </label>
+            ) : null}
             <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
               Description
               <input
@@ -1351,27 +1366,41 @@ export function StaffFinancePanel() {
 
         <p className={styles.muted} style={{ marginTop: "1rem" }}>
           Reverse posted journals via <code>reverse_journal</code> (ledger
-          immutability — contra entry, not edit).
+          immutability — contra entry, not edit). Reason required.
         </p>
+        {lastReversal ? (
+          <p className={styles.formStatus} role="status">
+            Last reversal:{" "}
+            <strong>
+              {lastReversal.documentNumber ??
+                `JE ${lastReversal.id.slice(0, 8)}…`}
+            </strong>{" "}
+            <span className={styles.muted}>({lastReversal.id})</span>
+          </p>
+        ) : null}
         <label className={styles.field} style={{ marginBottom: "0.5rem" }}>
-          Reversal reason (optional)
+          Reversal reason (required)
           <input
             value={reverseReason}
             onChange={(e) => setReverseReason(e.target.value)}
             disabled={busy}
-            placeholder="Reason / description"
+            placeholder="Why reverse this entry?"
+            required
           />
         </label>
         {posted.length ? (
           <ul className={styles.navList}>
             {posted.map((j) => (
               <li key={j.id} className={styles.muted}>
-                {j.document_number ?? `JE ${j.id.slice(0, 8)}`} · {j.currency} ·{" "}
-                {j.entry_date} · {j.description?.trim() || "No description"}{" "}
+                {j.document_number ?? `JE ${j.id.slice(0, 8)}`} · {j.currency}
+                {j.currency === "ZIG" && j.exchange_rate_applied != null
+                  ? ` @ ${j.exchange_rate_applied}`
+                  : ""}{" "}
+                · {j.entry_date} · {j.description?.trim() || "No description"}{" "}
                 <button
                   type="button"
                   className={styles.btnGhost}
-                  disabled={busy}
+                  disabled={busy || !reverseReason.trim()}
                   onClick={() => void onReverseJournal(j.id)}
                 >
                   Reverse
