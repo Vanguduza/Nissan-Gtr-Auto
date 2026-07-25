@@ -352,6 +352,32 @@ export function StaffFinancePanel() {
       const first = statements.data[0];
       return first?.account_code || accounts.data[0]?.code || "1100";
     });
+
+    const rate = await fetchZigExchangeRate(client);
+    const rateStr = String(rate);
+    setOfficialRate(rateStr);
+    setDailyRate(rateStr);
+    setExchangeRate(rateStr);
+    setQuickRate(rateStr);
+    setPayExchangeRate(rateStr);
+  }, []);
+
+  const loadZigRates = useCallback(async () => {
+    const client = createWebClient();
+    if (!client) return;
+    const [history, rate] = await Promise.all([
+      listZigExchangeRates(client),
+      fetchZigExchangeRate(client),
+    ]);
+    if (!history.ok) {
+      setMessage(history.error);
+      setRateHistory([]);
+      return;
+    }
+    setRateHistory(history.data);
+    const rateStr = String(rate);
+    setOfficialRate(rateStr);
+    setDailyRate((prev) => (prev.trim() ? prev : rateStr));
   }, []);
 
   const loadStatementDetail = useCallback(
