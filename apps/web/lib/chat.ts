@@ -1,4 +1,4 @@
-import type { RealtimeChannel, SupabaseClient } from "@gtr/supabase-client";
+import type { SupabaseClient } from "@gtr/supabase-client";
 import {
   CHAT_RPC,
   claimChatThreadArgs,
@@ -18,6 +18,8 @@ import type { StorefrontResult } from "@/lib/customer-storefront";
 export type { ChatMessage, ChatThread, ChatThreadKind, ChatThreadStatus };
 
 export type StaffChatFilter = "open" | "mine" | "closed";
+
+type RealtimeChannel = ReturnType<SupabaseClient["channel"]>;
 
 function isChatThread(row: unknown): row is ChatThread {
   if (!row || typeof row !== "object") return false;
