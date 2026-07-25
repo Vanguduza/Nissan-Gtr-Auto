@@ -68,6 +68,10 @@ export function StaffPosPanel() {
   const [pairing, setPairing] = useState<PosScanSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerHits, setCustomerHits] = useState<CustomerOption[]>([]);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerLabel, setCustomerLabel] = useState("");
   const pollRef = useRef<number | null>(null);
 
   const refreshCart = useCallback(async (cartId: string) => {
