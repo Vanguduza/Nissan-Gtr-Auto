@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.location.LocationPermissionStatus
 import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
-import co.zw.nissangtr.delivery.rpc.DeliveryJobStatus
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.GeofenceSuggestion
