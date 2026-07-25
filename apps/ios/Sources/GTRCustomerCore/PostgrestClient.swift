@@ -70,6 +70,22 @@ public final class PostgrestClient: @unchecked Sendable {
         }
     }
 
+    /// Like `rpcDecode` but treats empty / null / `[]` as an empty array (inactive track, etc.).
+    public func rpcDecodeArrayAllowEmpty<T: Decodable>(
+        _ name: String,
+        body: [String: Any] = [:]
+    ) async throws -> [T] {
+        let data = try await rpc(name, body: body)
+        if data.isEmpty || data == Data("null".utf8) || data == Data("[]".utf8) {
+            return []
+        }
+        do {
+            return try decoder.decode([T].self, from: data)
+        } catch {
+            throw StorefrontError.message("RPC \(name) decode failed: \(error.localizedDescription)")
+        }
+    }
+
     public func rpcUUID(_ name: String, body: [String: Any] = [:]) async throws -> UUID {
         let raw: String = try await rpcDecode(name, body: body)
         guard let id = UUID(uuidString: raw) else {
