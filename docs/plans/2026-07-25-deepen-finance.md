@@ -112,14 +112,14 @@ Migrations already in play: `…210000_finance_core`, `…211000_finance_report_
 
 | Item | Shipped | Deferred |
 |------|---------|----------|
-| Register quick-ops (journal templates) | | |
-| Multi-invoice allocate UI | | |
-| ZiG rate field | | |
-| TB + CSV exports | | |
-| Period close wizard | | |
-| Reverse polish | | |
-| Credit / aging bind | | |
+| Register quick-ops (journal templates) | Web (`staff-finance-panel`) | |
+| Multi-invoice allocate UI | Web | |
+| ZiG rate field | Web (journal / payment / quick-ops) | |
+| TB + CSV exports | Web | |
+| Period close wizard | Web | |
+| Reverse polish | Web | |
+| Credit / aging bind | Web (link + `kpi_ar_aging_snapshot`) | |
 | Till session schema | | N/A / deferred |
-| Cross-currency allocate | | |
-| Statement PDF | | |
-| Android Finance | | |
+| Cross-currency allocate | | Deferred |
+| Statement PDF | | Deferred |
+| Android Finance | | Deferred |
