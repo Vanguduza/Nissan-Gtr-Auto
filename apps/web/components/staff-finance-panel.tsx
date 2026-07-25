@@ -632,6 +632,10 @@ export function StaffFinancePanel() {
   }
 
   const drafts = boot.journals.filter((j) => j.status === "draft");
+  const posted = boot.journals.filter(
+    (j) => j.status === "posted" && !j.is_reversal,
+  );
+  const selectedStmt = boot.statements.find((s) => s.id === selectedStmtId);
 
   return (
     <div className={styles.form}>
