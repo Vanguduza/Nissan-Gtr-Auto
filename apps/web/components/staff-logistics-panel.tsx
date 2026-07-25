@@ -433,10 +433,8 @@ export function StaffLogisticsPanel() {
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>4 · Delivery job</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Requires a submitted DN. Dispatcher/admin via{" "}
-          <code>create_delivery_job</code>. Assign + mark dispatched on{" "}
-          <Link href="/staff/logistics/tracking">Live tracking</Link>{" "}
-          (Realtime subscribe-only; GPS from delivery Android app).
+          Requires a submitted DN. Assign and dispatch on{" "}
+          <Link href="/staff/logistics/tracking">Live tracking</Link>.
         </p>
         <form onSubmit={(e) => void onCreateJob(e)}>
           <label className={styles.field}>
