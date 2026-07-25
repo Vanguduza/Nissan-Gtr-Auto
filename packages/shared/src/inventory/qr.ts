@@ -1,4 +1,4 @@
-import type { ValuationMethod } from "./types.js";
+import type { ValuationMethod } from "./types";
 
 /** Canonical QR payload — Bridge-First scan/print only. */
 export function buildInventoryQrPayload(params: {
