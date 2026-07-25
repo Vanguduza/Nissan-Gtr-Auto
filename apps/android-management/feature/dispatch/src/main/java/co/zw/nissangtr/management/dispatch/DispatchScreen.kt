@@ -128,15 +128,82 @@ fun DispatchScreen(
             singleLine = true,
             enabled = !state.busy,
         )
+        Text(
+            "Pickup / dropoff (for suggest ranking + ETA). Fake stores; Live needs " +
+                "set_delivery_job_geo RPC (blocker).",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = state.pickupLat,
+                onValueChange = viewModel::onPickupLatChange,
+                label = { Text("Pickup lat") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedTextField(
+                value = state.pickupLng,
+                onValueChange = viewModel::onPickupLngChange,
+                label = { Text("Pickup lng") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = state.dropoffLat,
+                onValueChange = viewModel::onDropoffLatChange,
+                label = { Text("Dropoff lat") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedTextField(
+                value = state.dropoffLng,
+                onValueChange = viewModel::onDropoffLngChange,
+                label = { Text("Dropoff lng") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = viewModel::createDeliveryJob,
                 enabled = !state.busy,
             ) { Text("Create job") }
+            OutlinedButton(
+                onClick = viewModel::saveJobCoords,
+                enabled = !state.busy,
+            ) { Text("Save coords") }
             Button(
                 onClick = viewModel::markJobDispatched,
                 enabled = !state.busy,
             ) { Text("Mark dispatched") }
+        }
+        state.trackShareToken?.let { token ->
+            Text(
+                "Share track token (plaintext once):\n$token",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = viewModel::mintShareToken,
+                enabled = !state.busy,
+            ) { Text("Mint share token") }
+            OutlinedButton(
+                onClick = viewModel::generatePodOtp,
+                enabled = !state.busy,
+            ) { Text("Generate POD OTP") }
+        }
+        state.podOtp?.let { otp ->
+            Text(
+                "POD OTP (read to customer): $otp",
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
 
         HorizontalDivider()
@@ -168,11 +235,11 @@ fun DispatchScreen(
                 enabled = !state.busy,
             ) { Text("Override assign") }
         }
-        state.assigneeSuggestions.forEach { s ->
+        state.assigneeSuggestions.forEachIndexed { index, s ->
             val selected = s.userId == state.assigneeUserId
             val dist = s.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
             Text(
-                text = "${s.userId.take(8)}…  ${s.status}  dist=$dist  " +
+                text = "#${index + 1}  ${s.userId.take(8)}…  ${s.status}  dist=$dist  " +
                     "open=${s.openJobs}/${s.capacity}" +
                     if (selected) "  ✓" else "",
                 modifier = Modifier

@@ -280,7 +280,11 @@ class DispatchViewModel(
             try {
                 val id = rpc.createDeliveryJob(deliveryNoteId = dnId)
                 // Best-effort coords so suggest + ETA work (Fake stores; Live may fail closed).
-                val coordMsg = applyCoordsIfPossible(id)
+                val coordMsg = runCatching { applyCoordsIfPossible(id) }
+                    .fold(
+                        onSuccess = { it },
+                        onFailure = { e -> "coords skipped: ${e.message}" },
+                    )
                 _state.update {
                     it.copy(
                         busy = false,
