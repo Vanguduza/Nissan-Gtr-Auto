@@ -95,6 +95,29 @@
   color: #fff;
 }
 
+.phoneRow {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 0.95fr) 1.25fr;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.countrySelect {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  padding: 0.65rem 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  max-width: 100%;
+}
+
+.countrySelect option {
+  color: #111;
+  background: #fff;
+}
+
 .submit {
   margin-top: 0.35rem;
   border: 0;

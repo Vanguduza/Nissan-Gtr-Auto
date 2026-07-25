@@ -35,13 +35,23 @@ function LoginForm() {
 
   const [method, setMethod] = useState<LoginMethod>("email");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [countryOption, setCountryOption] = useState(
+    countryDialOptionValue(DEFAULT_COUNTRY_OPTION),
+  );
+  const [phoneNational, setPhoneNational] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const selectedDial =
+    parseCountryDialOption(countryOption)?.dial ?? DEFAULT_COUNTRY_DIAL;
+  const phoneE164 =
+    method === "phone" ? toE164(selectedDial, phoneNational) : null;
+
   const canSubmit =
-    method === "email" ? Boolean(email.trim()) : Boolean(phone.trim());
+    method === "email"
+      ? Boolean(email.trim())
+      : Boolean(nationalDigitsOnly(phoneNational));
 
   async function finishStaffRedirect(
     client: NonNullable<ReturnType<typeof createWebClient>>,
