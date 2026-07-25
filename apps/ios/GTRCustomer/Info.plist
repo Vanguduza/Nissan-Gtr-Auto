@@ -15,5 +15,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Attach product review photos from your library.</string>
 </dict>
 </plist>
