@@ -299,6 +299,79 @@ public final class LiveStorefrontApi: StorefrontApi {
         )
     }
 
+    // MARK: - Chat
+
+    public func listChatThreads() async throws -> [ChatThread] {
+        let rows: [ChatThreadRow] = try await client.selectDecode(
+            table: "chat_threads",
+            query: [
+                "select=id,customer_user_id,kind,status,subject,last_message_at,created_at",
+                "order=last_message_at.desc.nullslast",
+            ].joined(separator: "&")
+        )
+        return rows.map { $0.toModel() }
+    }
+
+    public func listChatMessages(threadId: UUID) async throws -> [ChatMessage] {
+        let rows: [ChatMessageRow] = try await client.selectDecode(
+            table: "chat_messages",
+            query: [
+                "select=id,thread_id,sender_user_id,sender_kind,body,created_at",
+                "thread_id=eq.\(threadId.uuidString.lowercased())",
+                "order=created_at.asc",
+            ].joined(separator: "&")
+        )
+        return rows.map { $0.toModel() }
+    }
+
+    public func startChatThread(_ input: StartChatThreadInput) async throws -> UUID {
+        let subject = input.subject?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = input.body?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try await client.rpcUUID(
+            RpcName.startChatThread,
+            body: [
+                "p_kind": input.kind.rawValue,
+                "p_subject": (subject?.isEmpty == false) ? subject! : NSNull(),
+                "p_body": (body?.isEmpty == false) ? body! : NSNull(),
+            ]
+        )
+    }
+
+    public func postChatMessage(threadId: UUID, body: String) async throws -> UUID {
+        try await client.rpcUUID(
+            RpcName.postChatMessage,
+            body: [
+                "p_thread_id": JSONValue.uuid(threadId),
+                "p_body": body,
+            ]
+        )
+    }
+
+    public func markChatThreadRead(threadId: UUID) async throws {
+        _ = try await client.rpc(
+            RpcName.markChatThreadRead,
+            body: ["p_thread_id": JSONValue.uuid(threadId)]
+        )
+    }
+
+    public func chatUnreadCount(threadId: UUID?) async throws -> Int {
+        let body: [String: Any] =
+            threadId.map { ["p_thread_id": JSONValue.uuid($0)] }
+            ?? ["p_thread_id": NSNull()]
+        // PostgREST may return a bare JSON number.
+        let data = try await client.rpc(RpcName.chatUnreadCount, body: body)
+        if let n = try? JSONDecoder().decode(Int.self, from: data) {
+            return n
+        }
+        if let d = try? JSONDecoder().decode(Double.self, from: data) {
+            return Int(d)
+        }
+        if let s = try? JSONDecoder().decode(String.self, from: data), let n = Int(s) {
+            return n
+        }
+        return 0
+    }
+
     // MARK: - Private
 
     private func tryEdgeIntent(
@@ -553,6 +626,114 @@ private struct CustomerOrderDTO: Decodable {
             postedAt: postedAt,
             pickListStatus: pickListStatus,
             deliveryNoteStatus: deliveryNoteStatus
+        )
+    }
+}
+
+private struct ChatThreadRow: Decodable {
+    let id: UUID
+    let customerUserId: UUID?
+    let kind: ChatThreadKind
+    let status: ChatThreadStatus
+    let subject: String?
+    let lastMessageAt: Date?
+    let createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, status, subject
+        case customerUserId = "customer_user_id"
+        case lastMessageAt = "last_message_at"
+        case createdAt = "created_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try Self.decodeUUID(c, key: .id)
+        customerUserId = try Self.decodeOptionalUUID(c, key: .customerUserId)
+        kind = try c.decodeIfPresent(ChatThreadKind.self, forKey: .kind) ?? .support
+        status = try c.decodeIfPresent(ChatThreadStatus.self, forKey: .status) ?? .open
+        subject = try c.decodeIfPresent(String.self, forKey: .subject)
+        lastMessageAt = try c.decodeIfPresent(Date.self, forKey: .lastMessageAt)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+    }
+
+    func toModel() -> ChatThread {
+        ChatThread(
+            id: id,
+            customerUserId: customerUserId,
+            kind: kind,
+            status: status,
+            subject: subject,
+            lastMessageAt: lastMessageAt,
+            createdAt: createdAt
+        )
+    }
+
+    private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
+        if let id = try? c.decode(UUID.self, forKey: key) { return id }
+        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
+    }
+
+    private static func decodeOptionalUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID? {
+        if let id = try? c.decodeIfPresent(UUID.self, forKey: key) { return id }
+        if let s = try c.decodeIfPresent(String.self, forKey: key) { return UUID(uuidString: s) }
+        return nil
+    }
+}
+
+private struct ChatMessageRow: Decodable {
+    let id: UUID
+    let threadId: UUID
+    let senderUserId: UUID?
+    let senderKind: ChatSenderKind
+    let body: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, body
+        case threadId = "thread_id"
+        case senderUserId = "sender_user_id"
+        case senderKind = "sender_kind"
+        case createdAt = "created_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let u = try? c.decode(UUID.self, forKey: .id) {
+            id = u
+        } else if let s = try c.decode(String.self, forKey: .id), let u = UUID(uuidString: s) {
+            id = u
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
+        }
+        if let u = try? c.decode(UUID.self, forKey: .threadId) {
+            threadId = u
+        } else if let s = try c.decode(String.self, forKey: .threadId), let u = UUID(uuidString: s) {
+            threadId = u
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .threadId, in: c, debugDescription: "thread_id required")
+        }
+        if let u = try? c.decodeIfPresent(UUID.self, forKey: .senderUserId) {
+            senderUserId = u
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .senderUserId) {
+            senderUserId = UUID(uuidString: s)
+        } else {
+            senderUserId = nil
+        }
+        senderKind = try c.decodeIfPresent(ChatSenderKind.self, forKey: .senderKind) ?? .customer
+        body = try c.decode(String.self, forKey: .body)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+    }
+
+    func toModel() -> ChatMessage {
+        ChatMessage(
+            id: id,
+            threadId: threadId,
+            senderUserId: senderUserId,
+            senderKind: senderKind,
+            body: body,
+            createdAt: createdAt
         )
     }
 }

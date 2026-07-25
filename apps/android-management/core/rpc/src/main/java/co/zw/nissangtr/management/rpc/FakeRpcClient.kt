@@ -4,7 +4,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * In-memory stub so HR / POS / warehouse / dispatch screens compile and exercise
+ * In-memory stub so HR / POS / warehouse / dispatch / chat screens compile and exercise
  * flows without a configured Supabase project. Live: [SupabaseRpcClient] via [RpcClientFactory].
  *
  * Documented live RPC → param map:
@@ -29,6 +29,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_DELIVERY_JOB]: p_delivery_note_id, p_assignee_user_id?, p_eta_at?, p_notes?
  * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status
  * - [RpcNames.INGEST_DELIVERY_LOCATION]: p_delivery_job_id, p_lat, p_lng, p_recorded_at?, p_accuracy_m?
+ * - [RpcNames.CLAIM_CHAT_THREAD] / [RpcNames.CLOSE_CHAT_THREAD] / [RpcNames.MARK_CHAT_THREAD_READ]: p_thread_id
+ * - [RpcNames.POST_CHAT_MESSAGE]: p_thread_id, p_body
+ * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
+ * - listStaffChatThreads / listChatMessages: PostgREST (not RPCs)
+ * - listMyStaffRoles: PostgREST staff_roles
  */
 class FakeRpcClient : RpcClient {
     private val dnSeq = AtomicInteger(1)
@@ -55,6 +60,82 @@ class FakeRpcClient : RpcClient {
             salesInvoiceId = "00000000-0000-4000-8000-0000000000i1",
             status = "draft",
         ),
+    )
+
+    private val fakeStaffUserId = FAKE_STAFF_USER_ID
+    private val chatThreads = mutableListOf(
+        ChatThreadSummary(
+            id = OPEN_THREAD_ID,
+            kind = "support",
+            status = "open",
+            subject = "Brake pads fitment",
+            assignedTo = null,
+            lastMessageAt = "2026-07-25T08:00:00Z",
+            createdAt = "2026-07-25T07:55:00Z",
+        ),
+        ChatThreadSummary(
+            id = MINE_THREAD_ID,
+            kind = "parts",
+            status = "assigned",
+            subject = "OEM 12345 stock?",
+            assignedTo = FAKE_STAFF_USER_ID,
+            lastMessageAt = "2026-07-25T08:10:00Z",
+            createdAt = "2026-07-25T08:05:00Z",
+        ),
+        ChatThreadSummary(
+            id = CLOSED_THREAD_ID,
+            kind = "support",
+            status = "closed",
+            subject = "Closed sample",
+            assignedTo = FAKE_STAFF_USER_ID,
+            lastMessageAt = "2026-07-24T12:00:00Z",
+            createdAt = "2026-07-24T11:00:00Z",
+        ),
+    )
+    private val chatMessages = mutableMapOf(
+        OPEN_THREAD_ID to mutableListOf(
+            ChatMessageSummary(
+                id = "00000000-0000-4000-8000-0000000000m1",
+                threadId = OPEN_THREAD_ID,
+                senderUserId = FAKE_CUSTOMER_USER_ID,
+                senderKind = "customer",
+                body = "Do you have front pads for GTR R35?",
+                createdAt = "2026-07-25T08:00:00Z",
+            ),
+        ),
+        MINE_THREAD_ID to mutableListOf(
+            ChatMessageSummary(
+                id = "00000000-0000-4000-8000-0000000000m2",
+                threadId = MINE_THREAD_ID,
+                senderUserId = FAKE_CUSTOMER_USER_ID,
+                senderKind = "customer",
+                body = "Is OEM 12345 in stock?",
+                createdAt = "2026-07-25T08:05:00Z",
+            ),
+            ChatMessageSummary(
+                id = "00000000-0000-4000-8000-0000000000m3",
+                threadId = MINE_THREAD_ID,
+                senderUserId = FAKE_STAFF_USER_ID,
+                senderKind = "staff",
+                body = "Checking warehouse now.",
+                createdAt = "2026-07-25T08:10:00Z",
+            ),
+        ),
+        CLOSED_THREAD_ID to mutableListOf(
+            ChatMessageSummary(
+                id = "00000000-0000-4000-8000-0000000000m4",
+                threadId = CLOSED_THREAD_ID,
+                senderUserId = FAKE_CUSTOMER_USER_ID,
+                senderKind = "customer",
+                body = "Thanks, resolved.",
+                createdAt = "2026-07-24T12:00:00Z",
+            ),
+        ),
+    )
+    private val chatUnread = mutableMapOf(
+        OPEN_THREAD_ID to 1,
+        MINE_THREAD_ID to 0,
+        CLOSED_THREAD_ID to 0,
     )
 
     override suspend fun clockAttendance(
