@@ -37,7 +37,7 @@ export default function SignupPage() {
     setBusy(true);
     setMessage(null);
     setLocalStubHint(null);
-    setOtpVerified(false);
+    setOtpProofToken(null);
     const client = createWebClient();
     if (!client) {
       setMessage("Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local");
@@ -86,7 +86,7 @@ export default function SignupPage() {
       setMessage(res.error);
       return;
     }
-    setOtpVerified(true);
+    setOtpProofToken(res.proofToken);
     if (!email.trim()) {
       setMessage(
         "Phone OTP verified. Add an email + password to create a storefront account (session requires Auth email).",
@@ -100,7 +100,7 @@ export default function SignupPage() {
 
   async function onCreateAccount(e: FormEvent) {
     e.preventDefault();
-    if (!otpVerified) {
+    if (!otpProofToken) {
       setMessage("Verify OTP before creating an account.");
       return;
     }
@@ -116,62 +116,28 @@ export default function SignupPage() {
       setBusy(false);
       return;
     }
-    const { error } = await client.auth.signUp({
+    const created = await completeAuthSignup(client, {
       email,
       password,
-      options: { data: { full_name: fullName } },
+      proofToken: otpProofToken,
+      fullName,
+      phoneE164: phone || null,
     });
-    if (error) {
+    if (!created.ok) {
       setBusy(false);
-      setMessage(error.message);
+      setMessage(created.error);
+      setOtpProofToken(null);
       return;
     }
 
-    // Persist phone_e164 via Edge verify with Bearer (new challenge after signup).
-    if (phone.trim()) {
-      const req = await requestAuthOtp(client, { phoneE164: phone });
-      if (req.ok) {
-        const code = req.stubCode || localStubHint || otpCode;
-        if (code) {
-          const v = await verifyAuthOtp(client, {
-            phoneE164: phone,
-            code,
-          });
-          if (!v.ok) {
-            setBusy(false);
-            setMessage(
-              `Account created, but phone link failed: ${v.error}. You can retry from profile.`,
-            );
-            const ctx = await loadStaffContext(client);
-            if (ctx.ok) {
-              router.replace(
-                postLoginPath(
-                  Boolean(ctx.data?.isStaff),
-                  null,
-                  ctx.data?.roles ?? [],
-                ),
-              );
-            }
-            return;
-          }
-        }
-      } else if (req.failClosed) {
-        setBusy(false);
-        setMessage(
-          `Account created. Phone OTP unavailable (fail-closed): ${req.error}`,
-        );
-        const ctx = await loadStaffContext(client);
-        if (ctx.ok) {
-          router.replace(
-            postLoginPath(
-              Boolean(ctx.data?.isStaff),
-              null,
-              ctx.data?.roles ?? [],
-            ),
-          );
-        }
-        return;
-      }
+    const { error: sessionErr } = await client.auth.setSession({
+      access_token: created.accessToken,
+      refresh_token: created.refreshToken,
+    });
+    if (sessionErr) {
+      setBusy(false);
+      setMessage(sessionErr.message);
+      return;
     }
 
     setBusy(false);
