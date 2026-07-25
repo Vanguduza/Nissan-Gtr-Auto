@@ -138,9 +138,19 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: path parse';
   END IF;
 
+  RAISE NOTICE 'pre-insert job=% status=% assignee=%',
+    v_job,
+    (SELECT status FROM public.delivery_jobs WHERE id = v_job),
+    (SELECT assignee_user_id FROM public.delivery_jobs WHERE id = v_job);
+
   -- Assigned driver can INSERT
   PERFORM public._test_set_auth_uid(v_driver);
+  RAISE NOTICE 'driver uid=% has_driver=% can_write=%',
+    auth.uid(),
+    public.has_staff_role(ARRAY['driver']::public.staff_role[]),
+    public._can_write_delivery_pod_object(v_photo);
   SET LOCAL ROLE authenticated;
+  RAISE NOTICE 'as role can_write=%', public._can_write_delivery_pod_object(v_photo);
   INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
   VALUES (
     'delivery-pods', v_photo, v_driver, v_driver::text,
