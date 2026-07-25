@@ -389,7 +389,7 @@ BEGIN
         AND c.account_code = v_fund
         AND c.credit > 0
     )
-  ORDER BY e.entry_date DESC, e.posted_at DESC NULLS LAST, e.id DESC
+  ORDER BY e.entry_date DESC, e.posted_at DESC NULLS LAST, e.ctid DESC
   LIMIT 1;
 
   -- Sum spends (credits to 1110) after that float.
