@@ -548,6 +548,7 @@ export function StaffFinancePanel() {
     setStmtLineAmount("");
     setStmtLineDesc("");
     setSelectedStmtId(res.data);
+    setSelectedStmtAccount(stmtAccount);
     await refresh();
     await loadStatementDetail(res.data, stmtAccount);
   }
@@ -577,7 +578,7 @@ export function StaffFinancePanel() {
     setMessage(`Line ${res.data.slice(0, 8)}… added.`);
     setAddLineAmount("");
     setAddLineDesc("");
-    await loadStatementDetail(selectedStmtId, stmtAccount);
+    await loadStatementDetail(selectedStmtId, selectedStmtAccount);
   }
 
   async function onMatchLine(e: FormEvent) {
@@ -599,7 +600,7 @@ export function StaffFinancePanel() {
       return;
     }
     setMessage(`Matched ${res.data.slice(0, 8)}…`);
-    await loadStatementDetail(selectedStmtId, stmtAccount);
+    await loadStatementDetail(selectedStmtId, selectedStmtAccount);
   }
 
   async function onClearMatch(matchId: string) {
@@ -614,7 +615,7 @@ export function StaffFinancePanel() {
       return;
     }
     setMessage(`Cleared ${res.data} match(es).`);
-    await loadStatementDetail(selectedStmtId, stmtAccount);
+    await loadStatementDetail(selectedStmtId, selectedStmtAccount);
   }
 
   if (boot.kind === "loading") {
