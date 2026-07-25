@@ -30,6 +30,7 @@ const staffNavIcons: Record<string, LucideIcon> = {
   "/staff/finance": Banknote,
   "/staff/logistics": Truck,
   "/staff/logistics/tracking": MapPinned,
+  "/staff/logistics/panic": Siren,
   "/staff/hr": Users,
   "/staff/warranty": ShieldCheck,
   "/staff/chat": MessageCircle,

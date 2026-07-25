@@ -35,6 +35,7 @@ export {
   Banknote,
   Truck,
   MapPinned,
+  Siren,
   Users,
   ShieldCheck,
   BarChart3,

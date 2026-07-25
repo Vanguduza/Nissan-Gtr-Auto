@@ -27,7 +27,12 @@ const HUB_CARDS: {
   {
     href: "/staff/logistics/tracking",
     label: "Live tracking",
-    blurb: "Realtime map · subscribe-only",
+    blurb: "Assign · ETA · map",
+  },
+  {
+    href: "/staff/logistics/panic",
+    label: "Panic inbox",
+    blurb: "Driver SOS · acknowledge",
   },
   {
     href: "/staff/warranty",

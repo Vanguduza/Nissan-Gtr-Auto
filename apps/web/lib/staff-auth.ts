@@ -136,7 +136,9 @@ export function pathAccessFor(pathname: string): PathAccess {
   }
   if (
     path === "/staff/logistics/tracking" ||
-    path.startsWith("/staff/logistics/tracking/")
+    path.startsWith("/staff/logistics/tracking/") ||
+    path === "/staff/logistics/panic" ||
+    path.startsWith("/staff/logistics/panic/")
   ) {
     return { kind: "roles", roles: ["admin", "warehouse", "dispatcher"] };
   }
