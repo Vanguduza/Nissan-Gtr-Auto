@@ -4,25 +4,42 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
+  addBankStatementLine,
   allocatePayment,
   cancelPaymentEntry,
+  clearBankMatches,
+  createAccountingPeriod,
   createJournalDraft,
   createPaymentEntry,
+  importBankStatement,
+  listAccountingPeriods,
+  listBankReconMatches,
+  listBankStatementLines,
+  listBankStatements,
   listChartAccounts,
   listDraftPayments,
   listJournalEntries,
+  listJournalLinesForAccount,
+  lockAccountingPeriod,
+  matchBankLine,
   postJournal,
   postPaymentEntry,
   reportBalanceSheet,
   reportCashFlow,
   reportProfitAndLoss,
   requireSession,
+  reverseJournal,
   zigExchangeRate,
   type AccountOption,
+  type AccountingPeriodOption,
   type BalanceSheetRow,
+  type BankReconMatchOption,
+  type BankStatementLineOption,
+  type BankStatementOption,
   type CashFlowRow,
   type CurrencyCode,
   type JournalEntryOption,
+  type JournalLineOption,
   type PaymentEntryOption,
   type PaymentTender,
   type PnLRow,
@@ -38,6 +55,8 @@ type Boot =
       accounts: AccountOption[];
       journals: JournalEntryOption[];
       payments: PaymentEntryOption[];
+      periods: AccountingPeriodOption[];
+      statements: BankStatementOption[];
     };
 
 type ReportKind = "pnl" | "bs" | "cf";
