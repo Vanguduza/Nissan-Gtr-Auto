@@ -7,59 +7,11 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.utility {
-  background: #0a0c10;
-  font-size: 0.78rem;
-  letter-spacing: 0.01em;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.utilityInner,
 .mainInner,
 .categoriesInner {
   width: min(1120px, 100%);
   margin-inline: auto;
   padding-inline: clamp(0.85rem, 3vw, 1.5rem);
-}
-
-.utilityInner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem 1rem;
-  min-height: 2rem;
-}
-
-.utilityLeft,
-.utilityRight {
-  margin: 0;
-}
-
-.utilityRight a {
-  color: var(--gtr-silver);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.staffLink {
-  opacity: 0.85;
-  letter-spacing: 0.02em;
-}
-
-.usd {
-  color: var(--gtr-usd);
-  font-weight: 600;
-}
-
-.zig {
-  color: var(--gtr-zig);
-  font-weight: 600;
-}
-
-.sep {
-  margin: 0 0.45rem;
-  opacity: 0.45;
 }
 
 .main {
@@ -112,12 +64,6 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-}
-
-.utilityLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
 }
 
 .action {
@@ -197,11 +143,6 @@
 }
 
 @media (max-width: 520px) {
-  .utilityInner {
-    justify-content: center;
-    text-align: center;
-  }
-
   .logoWord {
     display: none;
   }
