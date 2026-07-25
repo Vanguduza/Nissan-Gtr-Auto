@@ -417,7 +417,9 @@ export function StaffBlanketPanel() {
           </p>
         ) : (
           <ul className={styles.list}>
-            {boot.blankets.map((b) => (
+            {boot.blankets.map((b) => {
+              const alerts = blanketAlerts(b);
+              return (
               <li key={b.po.id}>
                 <strong>
                   {b.po.document_number ?? b.po.id.slice(0, 8)}
@@ -438,7 +440,22 @@ export function StaffBlanketPanel() {
                   {b.remainingQty}
                   {" / max "}
                   {Number(b.po.blanket_max_value ?? 0).toFixed(2)}
+                  {b.po.expected_date
+                    ? ` · expected ${b.po.expected_date.slice(0, 10)}`
+                    : ""}
                 </span>
+                {alerts.length > 0 ? (
+                  <ul className={styles.list}>
+                    {alerts.map((a) => (
+                      <li key={`${b.po.id}-${a.kind}-${a.message}`}>
+                        <span role="status">
+                          {a.severity === "critical" ? "Alert" : "Notice"}:{" "}
+                          {a.message}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 <ul className={styles.list}>
                   {b.lines.map((line) => {
                     const rem =
@@ -503,7 +520,8 @@ export function StaffBlanketPanel() {
                   ) : null}
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </fieldset>
