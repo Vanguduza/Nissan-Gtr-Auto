@@ -43,6 +43,7 @@ export {
   BarChart3,
   Bell,
   PackageSearch,
+  PackageCheck,
   X,
   type LucideIcon,
 } from "lucide-react";
