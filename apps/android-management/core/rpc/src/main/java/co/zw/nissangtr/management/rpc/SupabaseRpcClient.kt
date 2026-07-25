@@ -1859,6 +1859,25 @@ private data class CustomerCreditRpcRow(
     )
 }
 
+@Serializable
+private data class FleetVehicleRow(
+    val id: String,
+    val plate: String,
+    val label: String? = null,
+    val status: String,
+    @SerialName("assigned_driver_user_id") val assignedDriverUserId: String? = null,
+    val notes: String? = null,
+) {
+    fun toSummary() = FleetVehicleSummary(
+        id = id,
+        plate = plate,
+        label = label,
+        status = FleetVehicleStatus.fromRpc(status),
+        assignedDriverUserId = assignedDriverUserId,
+        notes = notes,
+    )
+}
+
 private fun parseCatalogSearchResult(
     raw: kotlinx.serialization.json.JsonObject,
     fallbackMode: CatalogSearchMode,
