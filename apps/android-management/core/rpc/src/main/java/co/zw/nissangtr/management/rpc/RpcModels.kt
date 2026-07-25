@@ -62,6 +62,16 @@ enum class DeliveryJobStatus(val rpcValue: String) {
     FAILED("failed"),
 }
 
+/**
+ * Result of [RpcNames.UPDATE_DELIVERY_JOB_STATUS] (jsonb).
+ * [trackToken] is present only on transition to dispatched — use for share UI;
+ * do not remint immediately (revokes SMS token).
+ */
+data class UpdateDeliveryJobStatusResult(
+    val deliveryJobId: String,
+    val trackToken: String? = null,
+)
+
 /** Row from [RpcNames.SUGGEST_DELIVERY_ASSIGNEES] (nearest + capacity + shift). */
 data class DeliveryAssigneeSuggestion(
     val userId: String,

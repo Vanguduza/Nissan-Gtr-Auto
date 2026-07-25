@@ -35,7 +35,14 @@ object RpcNames {
     const val SUBMIT_DELIVERY_NOTE = "submit_delivery_note"
     const val CANCEL_DELIVERY_NOTE = "cancel_delivery_note"
     const val CREATE_DELIVERY_JOB = "create_delivery_job"
+    /**
+     * Returns jsonb `{ delivery_job_id, track_token? }`.
+     * `track_token` only on transition to dispatched (single mint for SMS + share).
+     * Do NOT call [MINT_DELIVERY_TRACK_TOKEN] immediately after — that revokes the SMS token.
+     */
     const val UPDATE_DELIVERY_JOB_STATUS = "update_delivery_job_status"
+    /** Dispatcher: set pickup/dropoff for suggest ranking + Haversine ETA. */
+    const val SET_DELIVERY_JOB_GEO = "set_delivery_job_geo"
     /**
      * Location ingest (~5s). **Producer is apps/android-delivery only** —
      * management must not start FGS / call this from dispatch UI.
@@ -50,9 +57,8 @@ object RpcNames {
     /** Staff/customer last-point + ETA (active dispatched job). Not a GPS producer. */
     const val GET_DELIVERY_TRACK_POINT = "get_delivery_track_point"
     /**
-     * Returns share plaintext once. Call after Mark dispatched so dispatcher can
-     * copy/share (status RPC mints for notify but does not return plaintext).
-     * Re-mint revokes prior active tokens for the job.
+     * Intentional remint / rotate only. Revokes prior active tokens.
+     * After Mark dispatched, use `track_token` from [UPDATE_DELIVERY_JOB_STATUS].
      */
     const val MINT_DELIVERY_TRACK_TOKEN = "mint_delivery_track_token"
     /** Dispatcher/driver: 6-digit plaintext once (hash stored). Show/read to customer. */
