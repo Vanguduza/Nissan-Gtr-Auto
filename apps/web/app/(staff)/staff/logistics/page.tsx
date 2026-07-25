@@ -15,7 +15,7 @@ export default function StaffLogisticsPage() {
           Dispatch pick list → confirm lines → delivery note → optional
           delivery job. Warehouse/dispatcher/sales/admin. Live GPS trail
           (Realtime subscribe only — no browser GPS):{" "}
-          <Link href="/staff/logistics/tracking">Live map</Link>.
+          <Link href="/staff/logistics/tracking">Live tracking</Link>.
         </p>
         <StaffLogisticsPanel />
       </div>
