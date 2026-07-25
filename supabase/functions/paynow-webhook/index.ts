@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
     return jsonResponse({
       ok: true,
       result: data,
-      stub: false,
+      stub: localUnverified,
       unverified_local: localUnverified,
     });
   } catch (e) {
