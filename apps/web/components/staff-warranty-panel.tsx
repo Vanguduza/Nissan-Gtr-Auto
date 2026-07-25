@@ -389,10 +389,6 @@ export function StaffWarrantyPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>3 · Return to quarantine</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          <code>post_return_to_quarantine</code> — destination is always the
-          quarantine warehouse (never a direct exchange to saleable stock).
-        </p>
         <form onSubmit={(e) => void onQuarantine(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>

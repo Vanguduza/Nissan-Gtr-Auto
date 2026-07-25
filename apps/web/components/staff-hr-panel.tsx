@@ -276,10 +276,6 @@ export function StaffHrPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Clock</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Manual clock in/out via <code>clock_attendance</code>. No tax or
-          payroll computation here.
-        </p>
         <div className={styles.formActions}>
           <button
             type="button"
@@ -344,11 +340,6 @@ export function StaffHrPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Manual deduction</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Custom line via <code>add_payroll_deduction</code> only — no PAYE,
-          NSSA, or statutory remittance UI. Amount currency matches the payroll
-          line (<code>USD</code> | <code>ZIG</code>).
-        </p>
         <form onSubmit={(e) => void onAddDeduction(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>

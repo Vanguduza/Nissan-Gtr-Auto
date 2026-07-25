@@ -473,11 +473,6 @@ export function StaffDeliveryTrackingPanel() {
       {selectedJob ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Pickup / dropoff geo</legend>
-          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            Used by <code>suggest_delivery_assignees</code> and Haversine ETA.
-            Empty pair clears that endpoint. No browser GPS — enter coords
-            manually or from address tools.
-          </p>
           <div
             style={{
               display: "grid",
@@ -550,10 +545,6 @@ export function StaffDeliveryTrackingPanel() {
       {selectedJob ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Assign driver</legend>
-          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            Suggestions from <code>suggest_delivery_assignees</code> (presence,
-            capacity, distance). Use override to force an ineligible driver.
-          </p>
           {suggestError ? (
             <p className={styles.lede} role="alert">
               Suggest failed: {suggestError}

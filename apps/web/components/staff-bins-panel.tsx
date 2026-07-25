@@ -474,11 +474,6 @@ export function StaffBinsPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Pick-path guidance</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Calls <code>get_pick_path_hints</code> for preferred bins in walk
-          order. Leave SKU list empty to hint all stocked items with a bin in
-          this warehouse.
-        </p>
         <form onSubmit={(e) => void onLoadPickHints(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
