@@ -4,11 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  completeAuthLogin,
-  requestAuthOtp,
-  verifyAuthOtp,
-} from "@/lib/auth-otp";
+import { signInWithEmailOrPhone } from "@/lib/auth-otp";
 import { createWebClient } from "@/lib/supabase";
 import { loadStaffContext, postLoginPath } from "@/lib/staff-auth";
 import styles from "./auth.module.css";
@@ -18,24 +14,20 @@ function safeNext(raw: string | null): string | null {
   return raw;
 }
 
-type Mode = "password" | "otp";
-
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
 
-  const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpProofToken, setOtpProofToken] = useState<string | null>(null);
-  const [localStubHint, setLocalStubHint] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function finishStaffRedirect(client: NonNullable<ReturnType<typeof createWebClient>>) {
+  async function finishStaffRedirect(
+    client: NonNullable<ReturnType<typeof createWebClient>>,
+  ) {
     const ctx = await loadStaffContext(client);
     if (!ctx.ok) {
       setMessage(ctx.error);
@@ -54,7 +46,7 @@ function LoginForm() {
     router.replace(dest);
   }
 
-  async function onPasswordSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setMessage(null);
@@ -64,119 +56,14 @@ function LoginForm() {
       setBusy(false);
       return;
     }
-    const { error } = await client.auth.signInWithPassword({ email, password });
-    if (error) {
-      setBusy(false);
-      setMessage(error.message);
-      return;
-    }
-    await finishStaffRedirect(client);
-    setBusy(false);
-  }
-
-  async function onRequestOtp(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    setLocalStubHint(null);
-    setOtpProofToken(null);
-    const client = createWebClient();
-    if (!client) {
-      setMessage("Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local");
-      setBusy(false);
-      return;
-    }
-    const res = await requestAuthOtp(client, {
+    const loggedIn = await signInWithEmailOrPhone(client, {
       email: email || null,
       phoneE164: phone || null,
-    });
-    setBusy(false);
-    if (!res.ok) {
-      setMessage(
-        res.failClosed
-          ? `OTP unavailable: ${res.error}. Gateway keys missing and local stub is off — fail-closed.`
-          : res.error,
-      );
-      return;
-    }
-    if (res.stub && res.stubCode) {
-      // Server-returned stub only — never hardcode as a client default.
-      setLocalStubHint(res.stubCode);
-      setMessage("Local stub OTP enabled on server — enter the code shown below.");
-    } else {
-      setMessage("Code sent — check email and/or SMS.");
-    }
-  }
-
-  async function onVerifyOtp(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    const client = createWebClient();
-    if (!client) {
-      setMessage("Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local");
-      setBusy(false);
-      return;
-    }
-    const res = await verifyAuthOtp(client, {
-      email: email || null,
-      phoneE164: phone || null,
-      code: otpCode,
-    });
-    setBusy(false);
-    if (!res.ok) {
-      setMessage(
-        res.failClosed
-          ? `OTP verify refused: ${res.error}`
-          : res.error,
-      );
-      return;
-    }
-    setOtpProofToken(res.proofToken);
-    if (email.trim()) {
-      setMessage(
-        "OTP verified. Enter your password to open a session (server-gated).",
-      );
-    } else {
-      setMessage(
-        "OTP verified for phone. Email + password still required to open a session.",
-      );
-    }
-  }
-
-  async function onOtpPasswordContinue(e: FormEvent) {
-    e.preventDefault();
-    if (!otpProofToken) {
-      setMessage("Verify OTP first.");
-      return;
-    }
-    setBusy(true);
-    setMessage(null);
-    const client = createWebClient();
-    if (!client) {
-      setMessage("Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local");
-      setBusy(false);
-      return;
-    }
-    const loggedIn = await completeAuthLogin(client, {
-      email,
       password,
-      proofToken: otpProofToken,
-      phoneE164: phone || null,
     });
     if (!loggedIn.ok) {
       setBusy(false);
       setMessage(loggedIn.error);
-      setOtpProofToken(null);
-      return;
-    }
-    const { error: sessionErr } = await client.auth.setSession({
-      access_token: loggedIn.accessToken,
-      refresh_token: loggedIn.refreshToken,
-    });
-    if (sessionErr) {
-      setBusy(false);
-      setMessage(sessionErr.message);
       return;
     }
     await finishStaffRedirect(client);
@@ -191,146 +78,52 @@ function LoginForm() {
           Continue to <code>{next}</code> after sign-in.
         </p>
       ) : null}
+      <p className={styles.alt}>
+        Use the email or phone saved at registration, plus your password. OTP is
+        only for signup and confirming contacts — not for returning logins.
+      </p>
 
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <form onSubmit={(e) => void onSubmit(e)}>
+        <label className={styles.label}>
+          Email
+          <input
+            className={styles.input}
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </label>
+        <label className={styles.label}>
+          Phone (E.164) — optional if email is set
+          <input
+            className={styles.input}
+            type="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+263…"
+          />
+        </label>
+        <label className={styles.label}>
+          Password
+          <input
+            className={styles.input}
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </label>
         <button
-          type="button"
           className={styles.submit}
-          style={{
-            flex: 1,
-            opacity: mode === "password" ? 1 : 0.55,
-            marginTop: 0,
-          }}
-          onClick={() => {
-            setMode("password");
-            setMessage(null);
-          }}
+          type="submit"
+          disabled={busy || (!email.trim() && !phone.trim())}
         >
-          Password (staff)
+          {busy ? "Signing in…" : "Sign in"}
         </button>
-        <button
-          type="button"
-          className={styles.submit}
-          style={{
-            flex: 1,
-            opacity: mode === "otp" ? 1 : 0.55,
-            marginTop: 0,
-            background: mode === "otp" ? "var(--gtr-red)" : "rgba(255,255,255,0.15)",
-          }}
-          onClick={() => {
-            setMode("otp");
-            setMessage(null);
-          }}
-        >
-          Customer OTP
-        </button>
-      </div>
-
-      {mode === "password" ? (
-        <form onSubmit={(e) => void onPasswordSubmit(e)}>
-          <label className={styles.label}>
-            Email
-            <input
-              className={styles.input}
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </label>
-          <label className={styles.label}>
-            Password
-            <input
-              className={styles.input}
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
-          <button className={styles.submit} type="submit" disabled={busy}>
-            {busy ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
-      ) : (
-        <>
-          <form onSubmit={(e) => void onRequestOtp(e)}>
-            <p className={styles.alt}>
-              Email and/or phone. Server fail-closes without gateway keys unless
-              local stub flag is set.
-            </p>
-            <label className={styles.label}>
-              Email
-              <input
-                className={styles.input}
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-            <label className={styles.label}>
-              Phone (E.164)
-              <input
-                className={styles.input}
-                type="tel"
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+263…"
-              />
-            </label>
-            <button className={styles.submit} type="submit" disabled={busy}>
-              {busy ? "Requesting…" : "Request OTP"}
-            </button>
-          </form>
-
-          <form onSubmit={(e) => void onVerifyOtp(e)}>
-            <label className={styles.label}>
-              6-digit code
-              <input
-                className={styles.input}
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                autoComplete="one-time-code"
-                required
-              />
-            </label>
-            {localStubHint ? (
-              <p className={styles.alt}>
-                Server stub code (local only): <code>{localStubHint}</code>
-              </p>
-            ) : null}
-            <button className={styles.submit} type="submit" disabled={busy}>
-              {busy ? "Verifying…" : "Verify OTP"}
-            </button>
-          </form>
-
-          {otpProofToken ? (
-            <form onSubmit={(e) => void onOtpPasswordContinue(e)}>
-              <label className={styles.label}>
-                Password (open session)
-                <input
-                  className={styles.input}
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </label>
-              <button className={styles.submit} type="submit" disabled={busy || !email.trim()}>
-                {busy ? "Signing in…" : "Complete sign-in"}
-              </button>
-            </form>
-          ) : null}
-        </>
-      )}
+      </form>
 
       {message ? <p className={styles.message}>{message}</p> : null}
       <p className={styles.alt}>
