@@ -22,7 +22,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * Live supabase-kt [RpcClient] for HR clock + pick/DN logistics RPCs.
+ * Live supabase-kt [RpcClient] for HR, POS, warehouse, and pick/DN logistics RPCs.
  *
  * Uses anon key + Auth session (never hardcode JWTs). List reads via PostgREST + RLS.
  * Session persistence: auth-kt default Android session manager (Settings / SharedPreferences).
@@ -94,6 +94,198 @@ class SupabaseRpcClient(
                 put("p_employee_id", employeeId)
                 put("p_event_type", eventType.rpcValue)
                 put("p_occurred_at", JsonNull)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun createPosCart(
+        warehouseId: String,
+        currency: CurrencyCode,
+        fulfillmentMode: FulfillmentMode,
+        customerId: String?,
+    ): String {
+        require(warehouseId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_POS_CART,
+            buildJsonObject {
+                put("p_warehouse_id", warehouseId)
+                if (customerId.isNullOrBlank()) put("p_customer_id", JsonNull)
+                else put("p_customer_id", customerId)
+                put("p_currency", currency.rpcValue)
+                put("p_fulfillment_mode", fulfillmentMode.rpcValue)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun addCartLine(
+        cartId: String,
+        stockItemId: String,
+        uomId: String,
+        qty: Double,
+    ): String {
+        require(cartId.isNotBlank() && stockItemId.isNotBlank() && uomId.isNotBlank())
+        require(qty > 0)
+        return client.postgrest.rpc(
+            RpcNames.ADD_CART_LINE,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_stock_item_id", stockItemId)
+                put("p_uom_id", uomId)
+                put("p_qty", qty)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun checkoutPosCart(cartId: String): String {
+        require(cartId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CHECKOUT_POS_CART,
+            buildJsonObject { put("p_cart_id", cartId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun postStockReceipt(
+        toWarehouseId: String,
+        notes: String?,
+        lines: List<ReceiptLineInput>,
+    ): String {
+        require(toWarehouseId.isNotBlank())
+        require(lines.isNotEmpty())
+        return client.postgrest.rpc(
+            RpcNames.POST_STOCK_RECEIPT,
+            buildJsonObject {
+                put("p_to_warehouse_id", toWarehouseId)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+                put("p_lines", lines.toReceiptJsonArray())
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun createStockTransfer(
+        fromWarehouseId: String,
+        toWarehouseId: String,
+        notes: String?,
+        lines: List<TransferLineInput>,
+    ): String {
+        require(fromWarehouseId.isNotBlank() && toWarehouseId.isNotBlank())
+        require(fromWarehouseId != toWarehouseId)
+        require(lines.isNotEmpty())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_STOCK_TRANSFER,
+            buildJsonObject {
+                put("p_from_warehouse_id", fromWarehouseId)
+                put("p_to_warehouse_id", toWarehouseId)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+                put("p_lines", lines.toTransferJsonArray())
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun approveStockTransfer(entryId: String): String {
+        require(entryId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.APPROVE_STOCK_TRANSFER,
+            buildJsonObject { put("p_entry_id", entryId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun rejectStockTransfer(entryId: String): String {
+        require(entryId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.REJECT_STOCK_TRANSFER,
+            buildJsonObject { put("p_entry_id", entryId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun createStockReconciliationDraft(
+        warehouseId: String,
+        scope: ReconciliationScope,
+        currency: CurrencyCode,
+        itemIds: List<String>?,
+        notes: String?,
+        exchangeRate: Double?,
+    ): String {
+        require(warehouseId.isNotBlank())
+        if (scope == ReconciliationScope.PARTIAL) {
+            require(!itemIds.isNullOrEmpty())
+        }
+        val rate = when {
+            exchangeRate != null -> exchangeRate
+            currency == CurrencyCode.USD -> 1.0
+            else -> null
+        }
+        return client.postgrest.rpc(
+            RpcNames.CREATE_STOCK_RECONCILIATION_DRAFT,
+            buildJsonObject {
+                put("p_warehouse_id", warehouseId)
+                put("p_scope", scope.rpcValue)
+                if (itemIds.isNullOrEmpty()) put("p_item_ids", JsonNull)
+                else put("p_item_ids", buildJsonArray { itemIds.forEach { add(it) } })
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+                put("p_currency", currency.rpcValue)
+                if (rate == null) put("p_exchange_rate", JsonNull)
+                else put("p_exchange_rate", rate)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun upsertStockReconciliationLines(
+        reconciliationId: String,
+        lines: List<ReconciliationLineInput>,
+    ): Int {
+        require(reconciliationId.isNotBlank())
+        require(lines.isNotEmpty())
+        return client.postgrest.rpc(
+            RpcNames.UPSERT_STOCK_RECONCILIATION_LINES,
+            buildJsonObject {
+                put("p_reconciliation_id", reconciliationId)
+                put(
+                    "p_lines",
+                    buildJsonArray {
+                        lines.forEach { line ->
+                            add(
+                                buildJsonObject {
+                                    put("stock_item_id", line.stockItemId)
+                                    put("counted_qty", line.countedQty)
+                                },
+                            )
+                        }
+                    },
+                )
+            },
+        ).decodeAs<Int>()
+    }
+
+    override suspend fun submitStockReconciliation(reconciliationId: String): String {
+        require(reconciliationId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SUBMIT_STOCK_RECONCILIATION,
+            buildJsonObject { put("p_reconciliation_id", reconciliationId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun approveStockReconciliation(reconciliationId: String): String {
+        require(reconciliationId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.APPROVE_STOCK_RECONCILIATION,
+            buildJsonObject { put("p_reconciliation_id", reconciliationId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun cancelStockReconciliation(
+        reconciliationId: String,
+        notes: String?,
+    ): String {
+        require(reconciliationId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CANCEL_STOCK_RECONCILIATION,
+            buildJsonObject {
+                put("p_reconciliation_id", reconciliationId)
                 if (notes.isNullOrBlank()) put("p_notes", JsonNull)
                 else put("p_notes", notes)
             },
