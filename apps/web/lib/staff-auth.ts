@@ -45,6 +45,17 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
     roles: ["admin", "warehouse", "sales"],
   },
   {
+    href: "/staff/analytics",
+    label: "Analytics",
+    exact: true,
+    roles: ["admin", "finance", "sales"],
+  },
+  {
+    href: "/staff/analytics/subscriptions",
+    label: "Report subs",
+    roles: ["admin", "finance", "sales"],
+  },
+  {
     href: "/procurement",
     label: "Procurement",
     roles: ["admin", "warehouse", "finance"],
