@@ -162,8 +162,9 @@ CREATE OR REPLACE FUNCTION public._hash_delivery_pod_otp(p_code TEXT)
 RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public, extensions
 AS $$
-  SELECT encode(digest(convert_to(trim(p_code), 'UTF8'), 'sha256'), 'hex');
+  SELECT encode(extensions.digest(convert_to(trim(p_code), 'UTF8'), 'sha256'), 'hex');
 $$;
 
 CREATE OR REPLACE FUNCTION public._delivery_job_customer_contact(p_delivery_job_id UUID)
