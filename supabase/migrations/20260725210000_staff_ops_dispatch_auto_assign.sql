@@ -105,6 +105,62 @@ AS $$
   SELECT set_config('app.staff_ops_notify', '1', true);
 $$;
 
+CREATE OR REPLACE FUNCTION public._online_dispatch_auto_begin()
+RETURNS void
+LANGUAGE sql
+AS $$
+  SELECT set_config('app.online_dispatch_auto', '1', true);
+$$;
+
+CREATE OR REPLACE FUNCTION public._online_dispatch_auto_active()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT COALESCE(current_setting('app.online_dispatch_auto', true), '') = '1';
+$$;
+
+-- Allow system auto-ship to call logistics RPCs without escalating JWT roles.
+CREATE OR REPLACE FUNCTION public._require_logistics_staff()
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  IF public._online_dispatch_auto_active() THEN
+    RETURN;
+  END IF;
+  IF NOT (
+    auth.role() = 'service_role'
+    OR public.has_staff_role(
+      ARRAY['admin', 'warehouse', 'dispatcher', 'sales']::public.staff_role[]
+    )
+  ) THEN
+    RAISE EXCEPTION 'warehouse, dispatcher, sales, or admin role required';
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public._require_dispatcher_staff()
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  IF public._online_dispatch_auto_active() THEN
+    RETURN;
+  END IF;
+  IF NOT (
+    auth.role() = 'service_role'
+    OR public.has_staff_role(
+      ARRAY['admin', 'warehouse', 'dispatcher']::public.staff_role[]
+    )
+  ) THEN
+    RAISE EXCEPTION 'dispatcher, warehouse, or admin role required';
+  END IF;
+END;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
