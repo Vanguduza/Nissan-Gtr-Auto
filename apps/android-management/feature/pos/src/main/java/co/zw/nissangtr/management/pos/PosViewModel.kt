@@ -11,6 +11,7 @@ import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.rpc.CatalogPartHit
 import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.CurrencyCode
+import co.zw.nissangtr.management.rpc.CustomerOption
 import co.zw.nissangtr.management.rpc.FakeRpcClient
 import co.zw.nissangtr.management.rpc.FulfillmentMode
 import co.zw.nissangtr.management.rpc.PosCartLineSummary
@@ -38,6 +39,9 @@ data class PosUiState(
     val warehouses: List<WarehouseRef> = emptyList(),
     val warehouseId: String = "",
     val customerId: String = "",
+    val customerName: String = "",
+    val customerQuery: String = "",
+    val customerHits: List<CustomerOption> = emptyList(),
     val currency: CurrencyCode = CurrencyCode.USD,
     val fulfillmentMode: FulfillmentMode = FulfillmentMode.IMMEDIATE,
     val cartId: String = "",
