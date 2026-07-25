@@ -10,8 +10,8 @@ import {
   type PriceListRow,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
-import styles from "../(storefront)/page.module.css";
-import local from "./b2b-page.module.css";
+import styles from "@/app/(storefront)/page.module.css";
+import local from "@/app/(b2b)/b2b-page.module.css";
 
 type SampleRow = {
   stock_item_id: string;
