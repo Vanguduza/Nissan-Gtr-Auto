@@ -492,6 +492,11 @@ export function StaffFinancePanel() {
   }, [boot.kind, tab]);
 
   useEffect(() => {
+    if (boot.kind !== "ready" || tab !== "exchange-rate") return;
+    void loadZigRates();
+  }, [boot.kind, tab, loadZigRates]);
+
+  useEffect(() => {
     if (boot.kind !== "ready" || !allocPaymentId) {
       setOpenInvoices([]);
       return;
