@@ -1,6 +1,6 @@
 # Web management parity + RBAC
 
-- Status: draft
+- Status: done (security PASS + verifier PASS)
 - Lane(s): `@web_agent` (primary); `@backend_agent` only if RPC gaps
 - Skills: `/token-discipline` (Bridge-First via ADR; no `/ui-ux-pro-max` unless asked)
 - ADR: [`docs/decisions/2026-07-25-web-management-parity-rbac.md`](../decisions/2026-07-25-web-management-parity-rbac.md)

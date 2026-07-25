@@ -434,27 +434,27 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`. **Live map delivery tracking** slice Done (bridges + management ingest + staff MapLibre) — plan [`2026-07-24-live-map-delivery-tracking.md`](./2026-07-24-live-map-delivery-tracking.md). Local storefront seeds **applied**; migrations already current.
+**Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`. **Live map delivery tracking** slice Done. **Web management fallback + RBAC** Done — plan [`2026-07-25-web-management-parity-rbac.md`](./2026-07-25-web-management-parity-rbac.md); ADR [`docs/decisions/2026-07-25-web-management-parity-rbac.md`](../decisions/2026-07-25-web-management-parity-rbac.md). Local storefront seeds **applied**; migrations already current.
 
 **Done this wave**
 1. **GPS bridges + live map** (prior): Android/iOS location bridges; management ingest; staff MapLibre `/staff/logistics/tracking`
 2. **Real ContiPay + Paynow Edge adapters:** initiate/poll/webhook hash·HMAC (fail-closed without secrets; `*_ALLOW_UNVERIFIED_LOCAL=1` local only). Security PASS + verifier PASS. Webhook URL always server `defaultWebhookUrl` (never client `result_url`).
 3. Storefront PSP callers: `return_url` / `cancel_url` only — see `docs/storefront-psp-return-urls.md`
+4. **Web management fallback + RBAC:** `/staff` role-filtered nav + auth gate; POS/warehouse RPC shells; finance/warranty thin shells; Bridge-First (no browser QR/GPS). Security PASS + verifier PASS.
 
 **Still follow-on** (remaining — priority order)
 1. **WhatsApp parts-finder bot:** plan [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md) — in progress
-2. POS / warehouse / receive / transfer / cycle UIs → existing RPCs
-3. QR + ESC/POS bridges (Android) + wire warehouse/POS
-4. Finance operator UI; warranty/returns/quarantine; account/B2B/loyalty; mobile Live-when-env; PDP media
-5. Web receipt download route `nissangtrauto.co.zw/receipts/{token}` (WA uses Storage signed URL)
-6. **Env secrets (user-provided):** ContiPay/Paynow/WhatsApp/SMS/email/map tiles — Edge/local only; do not commit
-7. Native assemble on JDK/Xcode; production `NEXT_PUBLIC_MAP_STYLE_URL`
+2. QR + ESC/POS bridges (Android) + wire warehouse/POS
+3. Account/B2B/loyalty; mobile Live-when-env; PDP media; optional gate `/procurement` with same staff matrix
+4. Web receipt download route `nissangtrauto.co.zw/receipts/{token}` (WA uses Storage signed URL)
+5. **Env secrets (user-provided):** ContiPay/Paynow/WhatsApp/SMS/email/map tiles — Edge/local only; do not commit
+6. Native assemble on JDK/Xcode; production `NEXT_PUBLIC_MAP_STYLE_URL`
 
 **In progress:** WhatsApp parts-finder bot Edge webhook (`@backend_agent`).
 
 **Blockers / notes**
 - No commits required by this slice unless user asks.
-- Staff: `admin@` / `warehouse@` / `finance@gtr.local` — see LOCAL_DEVELOPMENT.md
+- Staff: `admin@` / `warehouse@` / `finance@gtr.local` — see LOCAL_DEVELOPMENT.md (smoke: finance hides POS; warehouse forbidden on `/staff/finance`)
 - Storefront sign-in: `storefront-a@gtr.local` or `storefront-b@gtr.local` / `local-dev-customer` against `http://127.0.0.1:54321` + anon key
 - Demo: create job on `/staff/logistics` → management Start tracking → open `/staff/logistics/tracking`
 
