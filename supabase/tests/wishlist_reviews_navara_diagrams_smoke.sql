@@ -56,6 +56,18 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: garage reminder table must not exist';
   END IF;
 
+  -- Internals: authenticated must not EXECUTE stock adjuster (DEFINER)
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.role_routine_grants
+    WHERE routine_schema = 'public'
+      AND routine_name = '_adjust_stock_level'
+      AND grantee IN ('PUBLIC', 'anon', 'authenticated')
+      AND privilege_type = 'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'smoke fail: PUBLIC/anon/authenticated must not EXECUTE _adjust_stock_level';
+  END IF;
+
   -- Compare table must exist with RLS
   IF to_regclass('public.customer_compare_items') IS NULL THEN
     RAISE EXCEPTION 'smoke fail: customer_compare_items missing';
