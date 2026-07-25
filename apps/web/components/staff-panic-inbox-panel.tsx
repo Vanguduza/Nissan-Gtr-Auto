@@ -37,7 +37,6 @@ export function StaffPanicInboxPanel() {
   const [unackedOnly, setUnackedOnly] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [live, setLive] = useState(false);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
