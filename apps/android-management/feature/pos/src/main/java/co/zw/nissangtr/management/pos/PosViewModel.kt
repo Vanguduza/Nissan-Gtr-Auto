@@ -3,6 +3,11 @@ package co.zw.nissangtr.management.pos
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import co.zw.nissangtr.bridges.escpos.BluetoothPermissionStatus
+import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
+import co.zw.nissangtr.bridges.escpos.EscPosReceiptLine
+import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
+import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.FulfillmentMode
 import co.zw.nissangtr.management.rpc.RpcClient
@@ -22,19 +27,25 @@ data class PosUiState(
     val stockItemId: String = "",
     val uomId: String = "",
     val qty: String = "1",
+    val printerMac: String = "",
+    val printerConnected: Boolean = false,
     val lastLineId: String? = null,
     val lastInvoiceId: String? = null,
+    val lastQrPayload: String? = null,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
 
 /**
- * Thin POS scaffold: create cart → add stock line (typed UUIDs) → checkout.
- * No HTML5 / browser QR — Bridge-First `add_cart_line_from_qr` is out of scope here.
+ * POS scaffold: create cart → add line (typed or Bridge-First QR) → checkout.
+ * Optional best-effort ESC/POS receipt when printer is paired/connected.
+ * No HTML5 / browser QR.
  */
 class PosViewModel(
     private val rpc: RpcClient,
+    private val qr: QrScannerBridge,
+    private val printer: EscPosPrinterBridge,
 ) : ViewModel() {
     private val _state = MutableStateFlow(PosUiState())
     val state: StateFlow<PosUiState> = _state.asStateFlow()
@@ -62,6 +73,9 @@ class PosViewModel(
 
     fun onQtyChange(v: String) =
         _state.update { it.copy(qty = v) }
+
+    fun onPrinterMacChange(v: String) =
+        _state.update { it.copy(printerMac = v) }
 
     fun createCart() {
         val warehouseId = _state.value.warehouseId.trim()
@@ -140,6 +154,77 @@ class PosViewModel(
         }
     }
 
+    /** CameraX scan → [RpcNames.ADD_CART_LINE_FROM_QR] with full raw payload. */
+    fun scanQrAddLine() {
+        val cartId = _state.value.cartId.trim()
+        val qty = _state.value.qty.trim().toDoubleOrNull() ?: 1.0
+        if (cartId.isEmpty()) {
+            _state.update { it.copy(error = "Cart UUID required before QR scan") }
+            return
+        }
+        if (qty <= 0) {
+            _state.update { it.copy(error = "Qty must be a positive number") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                ensureCamera()
+                val scan = qr.scanOnce()
+                val lineId = rpc.addCartLineFromQr(
+                    cartId = cartId,
+                    qrPayload = scan.rawValue,
+                    qty = qty,
+                )
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        lastLineId = lineId,
+                        lastQrPayload = scan.rawValue,
+                        message = "${RpcNames.ADD_CART_LINE_FROM_QR} → $lineId",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "QR add line failed")
+                }
+            }
+        }
+    }
+
+    fun connectPrinter() {
+        val mac = _state.value.printerMac.trim()
+        if (mac.isEmpty()) {
+            _state.update { it.copy(error = "Printer Bluetooth MAC required") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                ensureBluetooth()
+                if (printer is co.zw.nissangtr.bridges.escpos.BluetoothEscPosPrinterBridge) {
+                    printer.setPrinterAddress(mac)
+                }
+                printer.connect()
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        printerConnected = true,
+                        message = "ESC/POS printer connected ($mac)",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        printerConnected = false,
+                        error = e.message ?: "printer connect failed",
+                    )
+                }
+            }
+        }
+    }
+
     fun checkout() {
         val cartId = _state.value.cartId.trim()
         if (cartId.isEmpty()) {
@@ -150,11 +235,28 @@ class PosViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val invoiceId = rpc.checkoutPosCart(cartId)
+                var msg = "${RpcNames.CHECKOUT_POS_CART} → invoice $invoiceId"
+                // Best-effort receipt — never fails checkout if print fails.
+                if (printer.isConnected()) {
+                    try {
+                        printer.printReceiptLines(
+                            listOf(
+                                EscPosReceiptLine("GTR Auto POS", emphasis = true),
+                                EscPosReceiptLine("Invoice: $invoiceId"),
+                                EscPosReceiptLine("Currency: ${_state.value.currency.rpcValue}"),
+                                EscPosReceiptLine("Thank you"),
+                            ),
+                        )
+                        msg += " · receipt printed"
+                    } catch (pe: Exception) {
+                        msg += " · receipt print skipped (${pe.message})"
+                    }
+                }
                 _state.update {
                     it.copy(
                         busy = false,
                         lastInvoiceId = invoiceId,
-                        message = "${RpcNames.CHECKOUT_POS_CART} → invoice $invoiceId",
+                        message = msg,
                     )
                 }
             } catch (e: Exception) {
@@ -165,12 +267,36 @@ class PosViewModel(
         }
     }
 
+    private suspend fun ensureCamera() {
+        var status = qr.getCameraPermissionStatus()
+        if (status != CameraPermissionStatus.GRANTED) {
+            status = qr.requestCameraPermission()
+        }
+        if (status != CameraPermissionStatus.GRANTED) {
+            throw SecurityException("Camera permission required for QR scan ($status)")
+        }
+    }
+
+    private suspend fun ensureBluetooth() {
+        var status = printer.getBluetoothPermissionStatus()
+        if (status != BluetoothPermissionStatus.GRANTED) {
+            status = printer.requestBluetoothPermission()
+        }
+        if (status != BluetoothPermissionStatus.GRANTED) {
+            throw SecurityException("Bluetooth permission required ($status)")
+        }
+    }
+
     companion object {
-        fun factory(rpc: RpcClient): ViewModelProvider.Factory =
+        fun factory(
+            rpc: RpcClient,
+            qr: QrScannerBridge,
+            printer: EscPosPrinterBridge,
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    PosViewModel(rpc) as T
+                    PosViewModel(rpc, qr, printer) as T
             }
     }
 }
