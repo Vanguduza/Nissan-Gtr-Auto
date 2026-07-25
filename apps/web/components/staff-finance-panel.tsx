@@ -1343,7 +1343,7 @@ export function StaffFinancePanel() {
                 onChange={(e) => {
                   const c = e.target.value as CurrencyCode;
                   setCurrency(c);
-                  if (c === "ZIG") setExchangeRate(defaultZigRate());
+                  if (c === "ZIG") setExchangeRate(officialRate);
                 }}
                 disabled={busy}
               >
