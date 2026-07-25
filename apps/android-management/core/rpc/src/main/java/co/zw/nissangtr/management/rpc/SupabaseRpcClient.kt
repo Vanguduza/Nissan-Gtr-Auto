@@ -159,12 +159,50 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
-    override suspend fun checkoutPosCart(cartId: String): String {
+    override suspend fun checkoutPosCart(
+        cartId: String,
+        receiptEmail: String?,
+        receiptWhatsappE164: String?,
+        receiptPhoneE164: String?,
+    ): CheckoutPosResult {
         require(cartId.isNotBlank())
-        return client.postgrest.rpc(
+        val hadCustomer = getPosCartCustomerId(cartId) != null
+        val invoiceId = client.postgrest.rpc(
             RpcNames.CHECKOUT_POS_CART,
-            buildJsonObject { put("p_cart_id", cartId) },
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                if (receiptEmail.isNullOrBlank()) put("p_receipt_email", JsonNull)
+                else put("p_receipt_email", receiptEmail.trim())
+                if (receiptWhatsappE164.isNullOrBlank()) put("p_receipt_whatsapp_e164", JsonNull)
+                else put("p_receipt_whatsapp_e164", receiptWhatsappE164.trim())
+                if (receiptPhoneE164.isNullOrBlank()) put("p_receipt_phone_e164", JsonNull)
+                else put("p_receipt_phone_e164", receiptPhoneE164.trim())
+            },
         ).decodeAs<String>()
+
+        val inv = client.from("sales_invoices")
+            .select(
+                Columns.list(
+                    "id",
+                    "customer_id",
+                    "customer_email",
+                    "customer_whatsapp_e164",
+                ),
+            ) {
+                filter { eq("id", invoiceId) }
+                limit(1)
+            }
+            .decodeList<SalesInvoiceContactRow>()
+            .firstOrNull()
+
+        return CheckoutPosResult(
+            invoiceId = invoiceId,
+            customerId = inv?.customerId,
+            receiptEmail = inv?.customerEmail ?: receiptEmail?.trim()?.ifBlank { null },
+            receiptWhatsappE164 = inv?.customerWhatsappE164
+                ?: receiptWhatsappE164?.trim()?.ifBlank { null },
+            hadCustomerBeforeCheckout = hadCustomer,
+        )
     }
 
     override suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef {
@@ -185,6 +223,88 @@ class SupabaseRpcClient(
             uomId = row.baseUomId,
             oemPartNumber = row.oemPartNumber,
         )
+    }
+
+    override suspend fun searchCatalog(
+        mode: CatalogSearchMode,
+        query: String,
+    ): CatalogSearchResult {
+        val raw = client.postgrest.rpc(
+            RpcNames.SEARCH_CATALOG,
+            buildJsonObject {
+                put("p_mode", mode.rpcValue)
+                put("p_query", query.trim())
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonObject>()
+        return parseCatalogSearchResult(raw, mode, query.trim())
+    }
+
+    override suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary> {
+        require(cartId.isNotBlank())
+        return client.from("pos_cart_lines")
+            .select(
+                Columns.raw(
+                    "id, stock_item_id, qty, unit_price, line_total, is_core_charge, " +
+                        "stock_items(oem_part_number)",
+                ),
+            ) {
+                filter { eq("cart_id", cartId) }
+                order("created_at", Order.ASCENDING)
+                limit(200)
+            }
+            .decodeList<PosCartLineRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun getPosCartCustomerId(cartId: String): String? {
+        require(cartId.isNotBlank())
+        return client.from("pos_carts")
+            .select(Columns.list("customer_id")) {
+                filter { eq("id", cartId) }
+                limit(1)
+            }
+            .decodeList<PosCartCustomerRow>()
+            .firstOrNull()
+            ?.customerId
+    }
+
+    override suspend fun listWarehouses(): List<WarehouseRef> =
+        client.from("warehouses")
+            .select(Columns.list("id", "code", "name")) {
+                order("code", Order.ASCENDING)
+                limit(50)
+            }
+            .decodeList<WarehouseRow>()
+            .map { WarehouseRef(id = it.id, code = it.code, name = it.name) }
+
+    override suspend fun createPosScanSession(cartId: String): PosScanSessionCreated {
+        require(cartId.isNotBlank())
+        val row = client.postgrest.rpc(
+            RpcNames.CREATE_POS_SCAN_SESSION,
+            buildJsonObject { put("p_cart_id", cartId) },
+        ).decodeList<PosScanSessionRow>().firstOrNull()
+            ?: error("create_pos_scan_session returned empty")
+        return PosScanSessionCreated(
+            sessionId = row.sessionId,
+            pairingCode = row.pairingCode,
+            expiresAt = row.expiresAt,
+        )
+    }
+
+    override suspend fun claimPosScanSession(pairingCode: String): String {
+        require(pairingCode.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CLAIM_POS_SCAN_SESSION,
+            buildJsonObject { put("p_pairing_code", pairingCode.trim()) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun revokePosScanSession(sessionId: String): String {
+        require(sessionId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.REVOKE_POS_SCAN_SESSION,
+            buildJsonObject { put("p_session_id", sessionId) },
+        ).decodeAs<String>()
     }
 
     override suspend fun postStockReceipt(
