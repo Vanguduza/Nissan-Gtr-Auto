@@ -141,6 +141,23 @@ BEGIN
       END IF;
   END;
 
+  -- Reviews: oversized body rejected
+  PERFORM public._test_set_auth_uid(v_cust_a_user);
+  BEGIN
+    PERFORM public.submit_customer_product_review(
+      4::smallint, repeat('x', 4001), v_item, NULL
+    );
+    RAISE EXCEPTION 'smoke fail: oversized body should fail';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE '%smoke fail:%' THEN
+        RAISE;
+      END IF;
+      IF SQLERRM NOT LIKE '%4000%' THEN
+        RAISE EXCEPTION 'smoke fail: unexpected oversized body error: %', SQLERRM;
+      END IF;
+  END;
+
   -- Reviews: A submits pending
   PERFORM public._test_set_auth_uid(v_cust_a_user);
   v_review := public.submit_customer_product_review(
@@ -167,6 +184,26 @@ BEGIN
   IF v_seen <> 0 THEN
     RAISE EXCEPTION 'smoke fail: peer can read pending review';
   END IF;
+
+  -- Staff cannot rewrite body via table UPDATE (moderate RPC only)
+  PERFORM public._test_set_auth_uid(v_admin);
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    UPDATE public.customer_product_reviews
+    SET body = 'staff rewrite'
+    WHERE id = v_review;
+    IF FOUND THEN
+      RAISE EXCEPTION 'smoke fail: staff table UPDATE on body should be denied';
+    END IF;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE '%smoke fail:%' THEN
+        RAISE;
+      END IF;
+  END;
+  RESET ROLE;
 
   -- Staff approves
   PERFORM public._test_set_auth_uid(v_admin);
