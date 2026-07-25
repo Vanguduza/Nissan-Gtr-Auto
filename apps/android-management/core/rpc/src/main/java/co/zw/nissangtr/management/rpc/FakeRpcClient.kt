@@ -351,6 +351,7 @@ class FakeRpcClient : RpcClient {
     override suspend fun revokePosScanSession(sessionId: String): String {
         require(sessionId.isNotBlank())
         claimedSessions.remove(sessionId)
+        claimedSessionCarts.remove(sessionId)
         openScanSessions.entries.removeAll { it.value.first == sessionId }
         return sessionId
     }
