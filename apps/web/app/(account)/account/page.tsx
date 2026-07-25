@@ -6,7 +6,7 @@ import {
 import {
   iconSizeMd,
   iconStroke,
-  UserRound,
+  LayoutGrid,
 } from "@/components/icons";
 import styles from "@/components/account.module.css";
 
@@ -37,7 +37,7 @@ export default function AccountPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>
           <span className={styles.titleIcon} aria-hidden>
-            <UserRound size={iconSizeMd} strokeWidth={iconStroke} />
+            <LayoutGrid size={iconSizeMd} strokeWidth={iconStroke} />
           </span>
           My Account
         </h1>
