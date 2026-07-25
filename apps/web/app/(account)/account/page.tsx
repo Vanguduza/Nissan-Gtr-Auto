@@ -11,6 +11,7 @@ const cards = [
   { href: "/account/addresses", label: "Addresses", blurb: "Delivery & billing" },
   { href: "/account/garage", label: "My Garage", blurb: "Vehicles & fitment" },
   { href: "/account/orders", label: "Orders", blurb: "Status & tracking" },
+  { href: "/account/chat", label: "Live chat", blurb: "Support & parts" },
   { href: "/account/wishlist", label: "Wishlist", blurb: "Saved parts" },
   { href: "/account/returns", label: "Returns", blurb: "Quarantine path" },
   { href: "/account/compare", label: "Compare", blurb: "Side-by-side SKUs" },

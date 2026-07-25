@@ -7,6 +7,7 @@ const nav = [
   { href: "/account/addresses", label: "Addresses" },
   { href: "/account/garage", label: "My Garage" },
   { href: "/account/orders", label: "Orders & tracking" },
+  { href: "/account/chat", label: "Live chat" },
   { href: "/account/wishlist", label: "Wishlist" },
   { href: "/account/returns", label: "Returns" },
   { href: "/account/compare", label: "Compare" },
