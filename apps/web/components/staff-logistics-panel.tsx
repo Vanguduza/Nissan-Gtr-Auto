@@ -394,9 +394,7 @@ export function StaffLogisticsPanel() {
           </button>
         </div>
         {boot.deliveryNotes.length === 0 ? (
-          <p className={styles.muted} style={{ marginTop: "0.75rem" }}>
-            No delivery notes yet.
-          </p>
+          <p className={styles.emptyState}>No delivery notes yet.</p>
         ) : (
           <div style={{ marginTop: "0.85rem" }}>
             <label className={styles.field}>
@@ -457,7 +455,7 @@ export function StaffLogisticsPanel() {
       </fieldset>
 
       {message ? (
-        <p className={styles.lede} role="status">
+        <p className={styles.formStatus} role="status">
           {message}
         </p>
       ) : null}
