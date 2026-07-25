@@ -1,10 +1,11 @@
 /**
- * Session/localStorage compare tray — no DB table (backend slice).
- * Stores OEM part numbers; PDP / compare page resolve live catalog rows.
+ * Guest compare tray (localStorage). Auth users sync via customer-compare RPCs;
+ * localStorage still mirrors OEMs for PDP badges.
  */
 
 const STORAGE_KEY = "gtr.compare.oems";
-const MAX_COMPARE = 3;
+/** Matches `_customer_compare_max_items()` (8). */
+const MAX_COMPARE = 8;
 
 export function readCompareOems(): string[] {
   if (typeof window === "undefined") return [];
@@ -23,7 +24,7 @@ export function readCompareOems(): string[] {
   }
 }
 
-function writeCompareOems(oems: string[]) {
+export function writeCompareOems(oems: string[]) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(oems.slice(0, MAX_COMPARE)));
 }
