@@ -41,7 +41,7 @@ Sales staff run a **full POS client on a single device** (Android management or 
 | `add_cart_line_from_qr` (existing) | Companion (or native POS with bridge) scan path |
 | `checkout_pos_cart` (extend) | `p_receipt_email` / `p_receipt_whatsapp_e164`; bind helper; post + `enqueue_customer_receipts` — **identical for standalone and paired** |
 | `resolve_customer_for_receipt_contacts(...)` | Internal bind helper — see bind ADR |
-| Auth Edge / Auth hooks | OTP signup/login — email and/or phone; `profiles.phone_e164` |
+| Auth Edge / Auth hooks | OTP signup / contact confirm; password login (email or phone); `profiles.phone_e164` |
 
 ## Fail-closed OTP / receipt secrets
 
