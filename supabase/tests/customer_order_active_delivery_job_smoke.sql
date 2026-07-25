@@ -195,14 +195,14 @@ BEGIN
   PERFORM public._test_set_auth_uid(v_admin);
   PERFORM public.fail_delivery_job(
     v_job_dispatched,
+    'refused'::public.delivery_failure_reason,
     'customer refused',
-    'customer_refused'::public.delivery_failure_reason,
     false
   );
   PERFORM public.fail_delivery_job(
     v_job_pending,
-    'cancelled after peer job failed',
     'other'::public.delivery_failure_reason,
+    'cancelled after peer job failed',
     false
   );
 

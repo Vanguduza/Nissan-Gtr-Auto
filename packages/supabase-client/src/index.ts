@@ -82,6 +82,12 @@ export {
 } from "./chat";
 
 export {
+  GET_CUSTOMER_ORDER_RPC,
+  getCustomerOrderArgs,
+  type CustomerOrderPayload,
+} from "./storefront";
+
+export {
   DELIVERY_PODS_BUCKET,
   deliveryPodPhotoPath,
   deliveryPodSignaturePath,
