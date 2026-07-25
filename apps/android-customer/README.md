@@ -58,7 +58,9 @@ Deep links:
 |------|---------|
 | Intent extras | `track_token`, `track_job_id` |
 | Custom scheme | `gtrcustomer://track/{token}` |
-| HTTPS path | `https://<site>/track/{token}` |
+
+HTTPS SMS links open the web `/track/[token]` page unless App Links (concrete host) are added later.
+`MainActivity.parseTrackToken` still accepts `https://…/track/{token}` when delivered via VIEW intent.
 
 ### Fake demo (no Supabase)
 

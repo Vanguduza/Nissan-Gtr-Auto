@@ -72,7 +72,7 @@ class FakeRpcClient : RpcClient {
         lng = 31.0522,
         recordedAt = "2026-07-25T09:10:00Z",
         etaAt = "2026-07-25T09:11:00Z",
-        /** ~6 polls at 8s → terminal demo without waiting half an hour. */
+        // ~6 polls at 8s → terminal demo without waiting half an hour.
         etaSeconds = 48,
         status = "dispatched",
     )
