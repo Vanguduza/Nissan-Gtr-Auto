@@ -374,6 +374,32 @@ public final class LiveStorefrontApi: StorefrontApi {
         return 0
     }
 
+    // MARK: - Delivery track (last point + ETA only)
+
+    public func getDeliveryTrackPoint(_ ref: DeliveryTrackRef) async throws -> DeliveryTrackPoint? {
+        var body: [String: Any] = [:]
+        switch ref {
+        case .job(let id):
+            body["p_delivery_job_id"] = JSONValue.uuid(id)
+            body["p_token"] = NSNull()
+        case .token(let raw):
+            let token = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard token.count >= 8 else {
+                throw StorefrontError.message("Invalid track token.")
+            }
+            body["p_delivery_job_id"] = NSNull()
+            body["p_token"] = token
+        }
+
+        let rows: [DeliveryTrackPointDTO] = try await client.rpcDecode(
+            RpcName.getDeliveryTrackPoint,
+            body: body
+        )
+        // SECURITY: take at most one row — never accumulate a trail client-side.
+        guard let first = rows.first else { return nil }
+        return first.toModel()
+    }
+
     // MARK: - Private
 
     private func tryEdgeIntent(
