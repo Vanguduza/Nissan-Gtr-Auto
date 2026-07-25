@@ -1,20 +1,26 @@
-import type { SupabaseClient } from "@gtr/supabase-client";
+import {
+  DELIVERY_RPC,
+  assignDeliveryJobArgs,
+  optimizeDriverStopsArgs,
+  suggestDeliveryAssigneesArgs,
+  type SupabaseClient,
+} from "@gtr/supabase-client";
 import {
   requireSession,
   type StorefrontResult,
 } from "@/lib/customer-storefront";
+import { configuredMapStyleUrl } from "@/lib/customer-delivery-track";
 
-export { requireSession };
+export { requireSession, configuredMapStyleUrl };
 
 type RealtimeChannel = ReturnType<SupabaseClient["channel"]>;
 
-/** MapLibre demo style — OK for local demos; replace via NEXT_PUBLIC_MAP_STYLE_URL. */
+/** MapLibre demo style — OK for local staff demos; replace via NEXT_PUBLIC_MAP_STYLE_URL. */
 export const MAP_STYLE_DEMO_URL =
   "https://demotiles.maplibre.org/style.json";
 
 export function mapStyleUrl(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_MAP_STYLE_URL?.trim();
-  return fromEnv || MAP_STYLE_DEMO_URL;
+  return configuredMapStyleUrl() || MAP_STYLE_DEMO_URL;
 }
 
 export type DeliveryJobOption = {
@@ -24,6 +30,8 @@ export type DeliveryJobOption = {
   status: string;
   assignee_user_id: string | null;
   eta_at: string | null;
+  eta_seconds: number | null;
+  eta_source: string | null;
   notes: string | null;
   created_at: string;
 };
@@ -39,6 +47,28 @@ export type DeliveryLocationPoint = {
   source: string;
 };
 
+export type AssigneeSuggestion = {
+  user_id: string;
+  status: string;
+  capacity: number;
+  open_jobs: number;
+  distance_m: number | null;
+  last_lat: number | null;
+  last_lng: number | null;
+  last_seen_at: string | null;
+};
+
+export type PanicEventRow = {
+  id: string;
+  driver_user_id: string;
+  delivery_job_id: string | null;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+};
+
 const RECENT_POINTS_LIMIT = 500;
 
 export async function listDeliveryJobs(
@@ -47,7 +77,7 @@ export async function listDeliveryJobs(
   const { data, error } = await client
     .from("delivery_jobs")
     .select(
-      "id, document_number, delivery_note_id, status, assignee_user_id, eta_at, notes, created_at",
+      "id, document_number, delivery_note_id, status, assignee_user_id, eta_at, eta_seconds, eta_source, notes, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(40);
@@ -71,6 +101,122 @@ export async function fetchRecentDeliveryLocations(
   return { ok: true, data: (data as DeliveryLocationPoint[]) ?? [] };
 }
 
+export async function suggestDeliveryAssignees(
+  client: SupabaseClient,
+  deliveryJobId: string,
+  limit = 5,
+): Promise<StorefrontResult<AssigneeSuggestion[]>> {
+  const { data, error } = await client.rpc(
+    DELIVERY_RPC.suggestAssignees,
+    suggestDeliveryAssigneesArgs(deliveryJobId, limit),
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as AssigneeSuggestion[]) ?? [] };
+}
+
+export async function assignDeliveryJob(
+  client: SupabaseClient,
+  deliveryJobId: string,
+  assigneeUserId: string,
+  override = false,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc(
+    DELIVERY_RPC.assignJob,
+    assignDeliveryJobArgs(deliveryJobId, assigneeUserId, override),
+  );
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "assign_delivery_job returned no id." };
+  return { ok: true, data: data as string };
+}
+
+/**
+ * Mark job dispatched → backend mints track token + enqueues SMS outbox
+ * (`_notify_out_for_delivery`). Worker fail-closes without SMS_GATEWAY_API_KEY.
+ */
+export async function dispatchDeliveryJob(
+  client: SupabaseClient,
+  deliveryJobId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc(DELIVERY_RPC.updateJobStatus, {
+    p_delivery_job_id: deliveryJobId,
+    p_status: "dispatched",
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return { ok: false, error: "update_delivery_job_status returned no id." };
+  }
+  return { ok: true, data: data as string };
+}
+
+export async function optimizeDriverStops(
+  client: SupabaseClient,
+  driverUserId: string,
+): Promise<
+  StorefrontResult<
+    Array<{
+      delivery_job_id: string;
+      route_sequence: number;
+      distance_m: number | null;
+    }>
+  >
+> {
+  const { data, error } = await client.rpc(
+    DELIVERY_RPC.optimizeStops,
+    optimizeDriverStopsArgs(driverUserId),
+  );
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data:
+      (data as Array<{
+        delivery_job_id: string;
+        route_sequence: number;
+        distance_m: number | null;
+      }>) ?? [],
+  };
+}
+
+export async function listPanicEvents(
+  client: SupabaseClient,
+  opts?: { unackedOnly?: boolean; limit?: number },
+): Promise<StorefrontResult<PanicEventRow[]>> {
+  let q = client
+    .from("panic_events")
+    .select(
+      "id, driver_user_id, delivery_job_id, lat, lng, created_at, acknowledged_at, acknowledged_by",
+    )
+    .order("created_at", { ascending: false })
+    .limit(opts?.limit ?? 40);
+  if (opts?.unackedOnly) {
+    q = q.is("acknowledged_at", null);
+  }
+  const { data, error } = await q;
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as PanicEventRow[]) ?? [] };
+}
+
+export async function acknowledgePanicEvent(
+  client: SupabaseClient,
+  panicId: string,
+  staffUserId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client
+    .from("panic_events")
+    .update({
+      acknowledged_at: new Date().toISOString(),
+      acknowledged_by: staffUserId,
+    })
+    .eq("id", panicId)
+    .is("acknowledged_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data?.id) {
+    return { ok: false, error: "Panic already acknowledged or not found." };
+  }
+  return { ok: true, data: data.id };
+}
+
 function isLocationPoint(value: unknown): value is DeliveryLocationPoint {
   if (!value || typeof value !== "object") return false;
   const row = value as Record<string, unknown>;
@@ -80,6 +226,16 @@ function isLocationPoint(value: unknown): value is DeliveryLocationPoint {
     typeof row.lat === "number" &&
     typeof row.lng === "number" &&
     typeof row.recorded_at === "string"
+  );
+}
+
+function isPanicEvent(value: unknown): value is PanicEventRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === "string" &&
+    typeof row.driver_user_id === "string" &&
+    typeof row.created_at === "string"
   );
 }
 
@@ -109,4 +265,34 @@ export function deliveryLocationInsertChannel(
         }
       },
     );
+}
+
+/** Staff panic inbox — Realtime INSERT (and UPDATE for ack from other clients). */
+export function panicEventsChannel(
+  client: SupabaseClient,
+  handlers: {
+    onInsert?: (row: PanicEventRow) => void;
+    onUpdate?: (row: PanicEventRow) => void;
+  },
+): RealtimeChannel {
+  let channel = client.channel("panic_events:staff");
+  if (handlers.onInsert) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "panic_events" },
+      (payload) => {
+        if (isPanicEvent(payload.new)) handlers.onInsert?.(payload.new);
+      },
+    );
+  }
+  if (handlers.onUpdate) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "panic_events" },
+      (payload) => {
+        if (isPanicEvent(payload.new)) handlers.onUpdate?.(payload.new);
+      },
+    );
+  }
+  return channel;
 }
