@@ -1,11 +1,12 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
 import {
+  fetchZigExchangeRate,
   requireSession,
   zigExchangeRate,
   type StorefrontResult,
 } from "@/lib/customer-storefront";
 
-export { requireSession, zigExchangeRate };
+export { requireSession, zigExchangeRate, fetchZigExchangeRate };
 
 export type CurrencyCode = Database["public"]["Enums"]["currency_code"];
 export type PaymentTender = Database["public"]["Enums"]["payment_tender"];
