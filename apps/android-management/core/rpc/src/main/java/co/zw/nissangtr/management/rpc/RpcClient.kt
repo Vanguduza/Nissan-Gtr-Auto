@@ -20,7 +20,7 @@ interface RpcClient {
         notes: String? = null,
     ): String
 
-    // --- POS (typed stock_item / UOM — no HTML5 QR) ---
+    // --- POS (typed stock_item / UOM + Bridge-First QR — no HTML5 QR) ---
 
     suspend fun createPosCart(
         warehouseId: String,
@@ -36,7 +36,23 @@ interface RpcClient {
         qty: Double,
     ): String
 
+    /**
+     * Bridge-decoded inventory QR payload → cart line.
+     * Payload must match `gtr://part/{OEM}?batch=…&valuation=FIFO|AVG`.
+     */
+    suspend fun addCartLineFromQr(
+        cartId: String,
+        qrPayload: String,
+        qty: Double = 1.0,
+    ): String
+
     suspend fun checkoutPosCart(cartId: String): String
+
+    /**
+     * Resolve OEM (from parsed inventory QR) to stock_item + base UOM.
+     * Used by warehouse receive / cycle-count after bridge scan — not inside the bridge.
+     */
+    suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef
 
     // --- Warehouse ---
 
