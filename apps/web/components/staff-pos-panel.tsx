@@ -627,10 +627,6 @@ export function StaffPosPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>3 · Catalog browse</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          <code>search_catalog</code> → resolve OEM in stock →{" "}
-          <code>add_cart_line</code>. No scan session required.
-        </p>
         <form onSubmit={(e) => void onCatalogSearch(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>

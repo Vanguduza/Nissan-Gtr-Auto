@@ -383,9 +383,6 @@ export function StaffLogisticsPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>3 · Delivery note</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Build a draft DN from the active pick lines, then submit to issue stock.
-        </p>
         <div className={styles.formActions}>
           <button
             type="button"
