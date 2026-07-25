@@ -107,14 +107,19 @@ async function checkRateLimit(
   };
 }
 
+const SEARCH_QUERY_MAX = 256;
+
 async function runSearch(
   supabase: SupabaseClient,
   mode: string,
   query: string,
 ): Promise<unknown> {
+  const p_query = query.length > SEARCH_QUERY_MAX
+    ? query.slice(0, SEARCH_QUERY_MAX)
+    : query;
   const { data, error } = await supabase.rpc("search_catalog", {
     p_mode: mode,
-    p_query: query,
+    p_query,
   });
   if (error) throw new Error(error.message);
   return data;
