@@ -9,12 +9,16 @@ import {
   iconSizeSm,
   iconStroke,
   LayoutGrid,
+  LogIn,
   Menu,
   MessageCircle,
   Package,
   Search,
+  UserRound,
   X,
+  type LucideIcon,
 } from "@/components/icons";
+import { createWebClient, hasSupabaseEnv } from "@/lib/supabase";
 import styles from "./site-menu.module.css";
 
 const primaryLinks = [
@@ -28,13 +32,49 @@ const primaryLinks = [
   { href: "/b2b", label: "Trade account", Icon: Building2 },
 ] as const;
 
+const signedOutAuthLinks: { href: string; label: string; Icon: LucideIcon }[] =
+  [
+    { href: "/login", label: "Sign in", Icon: LogIn },
+    { href: "/signup", label: "Register", Icon: UserRound },
+  ];
+
+const signedInAuthLinks: { href: string; label: string; Icon: LucideIcon }[] = [
+  { href: "/account", label: "My Account", Icon: UserRound },
+];
+
 export function SiteMenu() {
   const [open, setOpen] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   const titleId = useId();
   const panelId = useId();
 
   const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((v) => !v), []);
+
+  useEffect(() => {
+    if (!hasSupabaseEnv()) return;
+    const client = createWebClient();
+    if (!client) return;
+
+    let cancelled = false;
+
+    async function refresh() {
+      if (!client) return;
+      const { data } = await client.auth.getSession();
+      if (cancelled) return;
+      setSignedIn(Boolean(data.session));
+    }
+
+    void refresh();
+    const { data: sub } = client.auth.onAuthStateChange(() => {
+      void refresh();
+    });
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -49,6 +89,8 @@ export function SiteMenu() {
       document.body.style.overflow = prev;
     };
   }, [open, close]);
+
+  const authLinks = signedIn ? signedInAuthLinks : signedOutAuthLinks;
 
   return (
     <div className={styles.wrap}>
@@ -99,6 +141,18 @@ export function SiteMenu() {
             <nav className={styles.nav} aria-label="Site menu">
               <ul className={styles.list}>
                 {primaryLinks.map(({ href, label, Icon }) => (
+                  <li key={href}>
+                    <Link href={href} className={styles.link} onClick={close}>
+                      <Icon
+                        size={iconSizeSm}
+                        strokeWidth={iconStroke}
+                        aria-hidden
+                      />
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+                {authLinks.map(({ href, label, Icon }) => (
                   <li key={href}>
                     <Link href={href} className={styles.link} onClick={close}>
                       <Icon
