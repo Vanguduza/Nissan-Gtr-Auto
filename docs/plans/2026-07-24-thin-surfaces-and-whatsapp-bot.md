@@ -32,15 +32,15 @@ Close the gap between a largely live backend (Phases 1–16) / configurable web 
 6. POS / warehouse management screens (empty)
 7. QR / print / biometric native bridges
 8. Finance UI
-9. Live chat (none) → addressed here via WhatsApp bot + human handoff
+9. Live chat (none) → ~~addressed here via WhatsApp bot + human handoff~~ **OVERRIDDEN** — see [`in-app-live-chat`](../decisions/2026-07-25-in-app-live-chat.md)
 
 ## WhatsApp bot — accepted approach
 
-- **Stack:** Meta Cloud API → `whatsapp-webhook` Edge Function → `search_catalog` via **service_role** + rate limits
+- **Stack:** Meta Cloud API → `whatsapp-webhook` Edge Function → `search_catalog` via privileged Edge server role + rate limits
 - **Modes:** `part` \| `vin` \| `model` \| `pnc`
 - **UX:** reply with top hits + deep-link to web PDP; escalate to human on same/counter number
 - **Separation:** customer **receipt** WhatsApp channel stays in `process-customer-receipts` / outbox — **not** bot dialog
-- **AuthZ:** do **not** `GRANT EXECUTE` on `search_catalog` to `anon`; bot only via service_role inside Edge
+- **AuthZ:** do **not** `GRANT EXECUTE` on `search_catalog` to `anon`; bot only via privileged Edge server role
 
 ### Meta setup checklist (ops; secrets in Edge env only)
 
@@ -53,7 +53,7 @@ Close the gap between a largely live backend (Phases 1–16) / configurable web 
 
 ## Acceptance criteria
 
-- [ ] Edge `whatsapp-webhook`: Meta verify + signed inbound; mode parse; `search_catalog` (service_role); outbound text + PDP deep-links; rate-limited; no anon RPC grant
+- [ ] Edge `whatsapp-webhook`: Meta verify + signed inbound; mode parse; `search_catalog` (privileged Edge role); outbound text + PDP deep-links; rate-limited; no anon RPC grant
 - [ ] Human handoff path (keyword or empty-results) points to configured counter/sales number
 - [ ] Receipt WhatsApp delivery unchanged and separate from bot conversation flow
 - [ ] Decision stub accepted or superseded before prod secrets
@@ -72,7 +72,7 @@ Close the gap between a largely live backend (Phases 1–16) / configurable web 
 
 - Full POS/warehouse/finance UI builds; QR/print/biometric bridge impls; GPS map product; canvas/photos pipeline
 - Turning Fake→Live defaults across mobile (separate bind work)
-- Live in-app chat widget; Meta ads / broadcast / commerce catalog sync
+- ~~Live in-app chat widget~~ (**OVERRIDDEN** — in-app chat ships; see ADR); Meta ads / broadcast / commerce catalog sync
 - Granting `search_catalog` to anon or embedding catalog search in client WA SDKs
 - Mixing receipt PDF send into bot dialog turns; ZIMRA / fiscal QR on any WA message
 - Real PSP secret values in repo
@@ -95,11 +95,13 @@ Close the gap between a largely live backend (Phases 1–16) / configurable web 
 | Mobile Live default | `@android_agent` / `@ios_agent` |
 | POS / warehouse / finance UI | `@management_app_agent` (+ `@finance_agent` for finance bind) |
 | QR / print / biometric | `@hardware_mobile_agent` |
+| In-app live chat | `@backend_agent` → `@web_agent` → mobile lanes — see [`2026-07-25-in-app-live-chat`](./2026-07-25-in-app-live-chat.md) |
 
 ## Handoff
 
 1. Accept decision stub → implement bot in **`@backend_agent`**
-2. `/supabase-rls-auditor` if any new tables; `/security-reviewer` (webhook auth, service_role, rate limits)
+2. `/supabase-rls-auditor` if any new tables; `/security-reviewer` (webhook auth, privileged Edge role, rate limits)
 3. `/verifier`
 4. `/manager` sequences thin-surface epics above one lane at a time
 5. Do not start product UI fill-ins in the same PR as the WhatsApp bot
+6. In-app live chat is a **separate** epic (not deferred to WhatsApp) — [`2026-07-25-in-app-live-chat`](./2026-07-25-in-app-live-chat.md)
