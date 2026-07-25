@@ -112,3 +112,28 @@ export async function setStockLevelBin(
   if (!data) return { ok: false, error: "set_stock_level_bin returned no id." };
   return { ok: true, data };
 }
+
+export type PickPathHint = {
+  stock_item_id: string;
+  oem_part_number: string;
+  bin_id: string;
+  bin_code: string;
+  bin_name: string;
+  aisle: string;
+  rack: string;
+  shelf: string;
+  pick_path_seq: number;
+  quantity: number;
+};
+
+export async function getPickPathHints(
+  client: SupabaseClient,
+  args: { warehouseId: string; stockItemIds?: string[] },
+): Promise<StorefrontResult<PickPathHint[]>> {
+  const { data, error } = await client.rpc("get_pick_path_hints", {
+    p_warehouse_id: args.warehouseId,
+    p_stock_item_ids: args.stockItemIds?.length ? args.stockItemIds : undefined,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as PickPathHint[]) ?? [] };
+}

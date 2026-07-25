@@ -31,6 +31,69 @@ export type BlanketSummary = {
   remainingQty: number;
 };
 
+export type BlanketAlert = {
+  kind: "expiry" | "remaining_value" | "remaining_qty";
+  severity: "warn" | "critical";
+  message: string;
+};
+
+const EXPIRY_WARN_DAYS = 14;
+const REMAINING_VALUE_PCT = 0.15;
+const REMAINING_QTY_FLOOR = 5;
+
+/** Expiry / remaining alerts for staff + supplier blanket UIs. */
+export function blanketAlerts(summary: BlanketSummary): BlanketAlert[] {
+  const alerts: BlanketAlert[] = [];
+  const maxValue = Number(summary.po.blanket_max_value ?? 0);
+  const remainingValue = summary.remainingValue;
+  const remainingQty = summary.remainingQty;
+
+  if (summary.po.expected_date) {
+    const due = new Date(summary.po.expected_date);
+    if (!Number.isNaN(due.getTime())) {
+      const days =
+        (due.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      if (days < 0) {
+        alerts.push({
+          kind: "expiry",
+          severity: "critical",
+          message: `Expected date passed (${summary.po.expected_date.slice(0, 10)})`,
+        });
+      } else if (days <= EXPIRY_WARN_DAYS) {
+        alerts.push({
+          kind: "expiry",
+          severity: "warn",
+          message: `Expires in ${Math.ceil(days)} day(s) (${summary.po.expected_date.slice(0, 10)})`,
+        });
+      }
+    }
+  }
+
+  if (maxValue > 0 && remainingValue / maxValue <= REMAINING_VALUE_PCT) {
+    alerts.push({
+      kind: "remaining_value",
+      severity: remainingValue <= 0 ? "critical" : "warn",
+      message: `Remaining value ${remainingValue.toFixed(2)} ${summary.po.currency} (${Math.round((remainingValue / maxValue) * 100)}% of max)`,
+    });
+  }
+
+  if (remainingQty > 0 && remainingQty <= REMAINING_QTY_FLOOR) {
+    alerts.push({
+      kind: "remaining_qty",
+      severity: "warn",
+      message: `Low remaining qty · ${remainingQty} left across lines`,
+    });
+  } else if (remainingQty <= 0 && summary.lines.length > 0) {
+    alerts.push({
+      kind: "remaining_qty",
+      severity: "critical",
+      message: "No remaining qty on blanket lines",
+    });
+  }
+
+  return alerts;
+}
+
 function asSingle<T>(value: T | T[] | null | undefined): T | null {
   if (value == null) return null;
   return Array.isArray(value) ? (value[0] ?? null) : value;

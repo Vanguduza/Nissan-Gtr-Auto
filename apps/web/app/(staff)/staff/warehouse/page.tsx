@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StaffNav } from "@/components/staff-nav";
+import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
 import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Staff · Warehouse" };
@@ -15,6 +16,7 @@ export default function StaffWarehouseHubPage() {
           roles enforced by RPCs. Typed OEM / manual entry here; QR scan and
           print use the management device bridge.
         </p>
+        <StaffWarehouseTabs active="hub" />
         <div className={styles.cardGrid}>
           <Link href="/staff/warehouse/receive" className={styles.card}>
             <span className={styles.cardLabel}>Receive</span>

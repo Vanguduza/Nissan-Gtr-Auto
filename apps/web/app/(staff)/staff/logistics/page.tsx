@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { StaffLogisticsPanel } from "@/components/staff-logistics-panel";
+import { StaffLogisticsTabs } from "@/components/staff-logistics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
 
@@ -12,13 +12,11 @@ export default function StaffLogisticsPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Logistics</h1>
         <p className={styles.lede}>
-          Dispatch pick list → confirm lines → delivery note → optional
-          delivery job. Warehouse/dispatcher/sales/admin. Assign, ETA, dispatch
-          notify, and live GPS (subscribe-only — no browser GPS):{" "}
-          <Link href="/staff/logistics/tracking">Live tracking</Link>
-          {" · "}
-          <Link href="/staff/logistics/panic">Panic inbox</Link>.
+          Dispatch pick list → confirm lines → delivery note → optional delivery
+          job. Online storefront orders auto-create picks and notify sales;
+          driver auto-assigns after prep.
         </p>
+        <StaffLogisticsTabs active="jobs" />
         <StaffLogisticsPanel />
       </div>
     </div>
