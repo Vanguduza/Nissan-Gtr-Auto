@@ -416,11 +416,17 @@ function parseEdgeIntent(raw: unknown): PaymentIntentResult | null {
 /**
  * Create ContiPay intent via edge (preferred — may return checkout_url) or RPC fallback.
  * Passes return/cancel URLs + customer phone (edge requires phone / metadata.cell).
+ * Optional ZiG settlement: invoice stays USD; gateway amount in ZiG at daily rate.
  */
 export async function createCustomerContipayIntent(
   client: SupabaseClient,
   invoiceId: string,
   method: ContipayMethod = "ecocash",
+  settlement?: {
+    currency: Currency;
+    amount: number;
+    exchangeRate: number;
+  },
 ): Promise<StorefrontResult<PaymentIntentResult>> {
   const returnUrl = checkoutReturnUrl(invoiceId);
   const cancelUrl = checkoutCancelUrl(invoiceId);
@@ -448,6 +454,13 @@ export async function createCustomerContipayIntent(
     cancel_url: cancelUrl,
     phone,
     cell: phone,
+    ...(settlement
+      ? {
+          settlement_currency: settlement.currency,
+          settlement_amount: settlement.amount,
+          settlement_exchange_rate: settlement.exchangeRate,
+        }
+      : {}),
   };
 
   const edge = await client.functions.invoke("contipay-initiate", {
@@ -458,6 +471,13 @@ export async function createCustomerContipayIntent(
       return_url: returnUrl,
       cancel_url: cancelUrl,
       metadata,
+      ...(settlement
+        ? {
+            settlement_currency: settlement.currency,
+            settlement_amount: settlement.amount,
+            settlement_exchange_rate: settlement.exchangeRate,
+          }
+        : {}),
     },
   });
 
@@ -478,6 +498,13 @@ export async function createCustomerContipayIntent(
     p_sales_invoice_id: invoiceId,
     p_method: method,
     p_metadata: metadata,
+    ...(settlement
+      ? {
+          p_settlement_currency: settlement.currency,
+          p_settlement_amount: settlement.amount,
+          p_settlement_exchange_rate: settlement.exchangeRate,
+        }
+      : {}),
   });
   if (error) {
     const edgeMsg =
