@@ -84,6 +84,12 @@ export function CartCheckout() {
       return;
     }
 
+    const customer = await loadOwnCustomer(client);
+    if (!customer.ok) {
+      setStatus({ kind: "error", message: customer.error });
+      return;
+    }
+
     if (cart.data) {
       setFulfillment(cart.data.fulfillment_mode);
       setCurrency(cart.data.currency === "ZIG" ? "ZIG" : "USD");
@@ -92,11 +98,21 @@ export function CartCheckout() {
         setStatus({ kind: "error", message: lines.error });
         return;
       }
-      setStatus({ kind: "ready", cart: cart.data, lines: lines.data });
+      setStatus({
+        kind: "ready",
+        cart: cart.data,
+        lines: lines.data,
+        customer: customer.data,
+      });
       return;
     }
 
-    setStatus({ kind: "ready", cart: null, lines: [] });
+    setStatus({
+      kind: "ready",
+      cart: null,
+      lines: [],
+      customer: customer.data,
+    });
   }, []);
 
   useEffect(() => {
@@ -149,6 +165,20 @@ export function CartCheckout() {
     if (!invoice.ok) {
       setMessage(invoice.error);
       setBusy(false);
+      return;
+    }
+
+    const { data: invRow } = await client
+      .from("sales_invoices")
+      .select("status")
+      .eq("id", invoice.data)
+      .maybeSingle();
+    if (invRow?.status === "on_hold") {
+      setBusy(false);
+      setMessage(
+        "Order created on hold (credit hold or over credit limit). Sales must clear it before fulfillment. Opening order…",
+      );
+      router.push(`/account/orders/${invoice.data}`);
       return;
     }
 

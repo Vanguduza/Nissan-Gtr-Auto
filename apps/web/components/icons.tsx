@@ -10,6 +10,7 @@ export {
   MessageCircle,
   LogIn,
   LogOut,
+  Menu,
   CircleDot,
   Filter,
   Cog,
@@ -42,6 +43,7 @@ export {
   BarChart3,
   Bell,
   PackageSearch,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
