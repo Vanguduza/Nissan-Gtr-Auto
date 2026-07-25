@@ -14,6 +14,7 @@ struct ChatScreen: View {
     @State private var status: String?
     @State private var busy = false
     @State private var startedThreadId: UUID?
+    @State private var showStartedThread = false
 
     var body: some View {
         List {
@@ -93,8 +94,10 @@ struct ChatScreen: View {
             }
         }
         .navigationTitle("Chat")
-        .navigationDestination(item: $startedThreadId) { id in
-            ChatThreadScreen(threadId: id)
+        .navigationDestination(isPresented: $showStartedThread) {
+            if let startedThreadId {
+                ChatThreadScreen(threadId: startedThreadId)
+            }
         }
         .task { await refresh() }
         .refreshable { await refresh() }
