@@ -3,9 +3,10 @@ import SwiftUI
 /// Customer live chat — thread list + start form (parity with web `/account/chat`).
 ///
 /// Transport: PostgREST RPCs / RLS selects via `StorefrontApi`. No supabase-swift
-/// Realtime on this URLSession scaffold — open threads poll every few seconds.
+/// Realtime (Phoenix WS is non-trivial without that SDK) — hardened polling instead.
 struct ChatScreen: View {
     @EnvironmentObject private var session: StorefrontSession
+    @Environment(\.scenePhase) private var scenePhase
     @State private var threads: [ChatThread] = []
     @State private var unread = 0
     @State private var kind: ChatThreadKind = .support
@@ -83,7 +84,7 @@ struct ChatScreen: View {
             }
 
             Section {
-                Text("Updates use short polling (no Realtime client on this scaffold). Pull to refresh anytime.")
+                Text("Open threads refresh on a short poll with backoff (no Realtime SDK). Pull to refresh anytime.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 if let status {
@@ -99,9 +100,13 @@ struct ChatScreen: View {
                 ChatThreadScreen(threadId: startedThreadId)
             }
         }
+        // Single owner for initial load — avoid `.onAppear` duplicate fetch.
         .task { await refresh() }
-        .onAppear { Task { await refresh() } }
         .refreshable { await refresh() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await refresh() }
+        }
     }
 
     private var whatsappURL: URL {
