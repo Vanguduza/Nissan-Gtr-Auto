@@ -302,10 +302,10 @@ export async function createAiReportSubscription(
   input: SubscriptionInput,
 ): Promise<StorefrontResult<string>> {
   const check = validateSubscriptionInput(input);
-  if (!check.ok) return check;
+  if (!check.ok) return { ok: false, error: check.error };
 
   const session = await requireSession(client);
-  if (!session.ok) return session;
+  if (!session.ok) return { ok: false, error: session.error };
 
   const emails = normalizeEmails(input.recipientEmails);
   const wa = normalizeWhatsapp(input.recipientWhatsappE164);
@@ -337,7 +337,7 @@ export async function updateAiReportSubscription(
   input: SubscriptionInput,
 ): Promise<StorefrontResult<true>> {
   const check = validateSubscriptionInput(input);
-  if (!check.ok) return check;
+  if (!check.ok) return { ok: false, error: check.error };
 
   const emails = normalizeEmails(input.recipientEmails);
   const wa = normalizeWhatsapp(input.recipientWhatsappE164);
