@@ -370,7 +370,7 @@ Deno.serve(async (req) => {
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const documentId = body.document_id as string | undefined;
-    const limit = Number(body.limit ?? 50);
+    const limit = Math.min(100, Math.max(1, Number(body.limit ?? 50) || 50));
     const localStub = allowLocalChannelStub();
     const supabase = serviceClient();
 
