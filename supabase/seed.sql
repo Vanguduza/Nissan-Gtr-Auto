@@ -155,3 +155,8 @@ ON CONFLICT (id) DO UPDATE
 SET display_name = EXCLUDED.display_name,
     email = EXCLUDED.email,
     profile_id = EXCLUDED.profile_id;
+
+-- After reset: upload Navara diagram PNG bytes into Storage (metadata + diagram_path
+-- come from migration 20260725180000). Requires SERVICE_ROLE from `supabase status`:
+--   set SUPABASE_SERVICE_ROLE_KEY=... && node supabase/seed_catalog_diagrams.mjs
+-- Fixtures: data-pipeline/fixtures/navara_d40_yd25/diagrams/navara-d40/*.png
