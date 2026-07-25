@@ -9,10 +9,51 @@ export type StaffContext = {
   roles: StaffRole[];
 };
 
+/** Nav + gate matrix — mirrors plan `2026-07-25-web-management-parity-rbac`. */
+export type StaffNavItem = {
+  href: string;
+  label: string;
+  exact?: boolean;
+  /** `"any"` = any authenticated staff (`is_staff`). */
+  roles: StaffRole[] | "any";
+};
+
+export const STAFF_NAV_ITEMS: StaffNavItem[] = [
+  { href: "/staff", label: "Hub", exact: true, roles: "any" },
+  { href: "/staff/pos", label: "POS", roles: ["admin", "warehouse", "sales"] },
+  {
+    href: "/staff/warehouse",
+    label: "Warehouse",
+    roles: ["admin", "warehouse"],
+  },
+  { href: "/staff/finance", label: "Finance", roles: ["admin", "finance"] },
+  {
+    href: "/staff/logistics",
+    label: "Logistics",
+    exact: true,
+    roles: ["admin", "warehouse", "sales", "dispatcher"],
+  },
+  {
+    href: "/staff/logistics/tracking",
+    label: "Live map",
+    roles: ["admin", "warehouse", "dispatcher"],
+  },
+  { href: "/staff/hr", label: "HR", roles: ["admin", "hr"] },
+  {
+    href: "/staff/warranty",
+    label: "Warranty",
+    roles: ["admin", "warehouse", "sales"],
+  },
+  {
+    href: "/procurement",
+    label: "Procurement",
+    roles: ["admin", "warehouse", "finance"],
+  },
+];
+
 /**
- * Role → module matrix (web management parity ADR).
- * Empty `roles` = any authenticated staff who can open `/staff`.
- * UI hide ≠ security — RLS / SECURITY DEFINER RPCs remain authoritative.
+ * Module → required roles (same matrix as nav/gates).
+ * Empty array = any staff. Prefer `STAFF_NAV_ITEMS` / `pathAccessFor` for UI.
  */
 export const STAFF_MODULE_ROLES = {
   hub: [] as const satisfies readonly StaffRole[],
@@ -43,99 +84,67 @@ export const STAFF_MODULE_ROLES = {
   ] as const satisfies readonly StaffRole[],
 } as const;
 
-export type StaffNavItem = {
-  href: string;
-  label: string;
-  exact?: boolean;
-  roles: readonly StaffRole[];
-};
-
-export const STAFF_NAV_ITEMS: StaffNavItem[] = [
-  { href: "/staff", label: "Hub", exact: true, roles: STAFF_MODULE_ROLES.hub },
-  { href: "/staff/pos", label: "POS", roles: STAFF_MODULE_ROLES.pos },
-  {
-    href: "/staff/warehouse",
-    label: "Warehouse",
-    roles: STAFF_MODULE_ROLES.warehouse,
-  },
-  {
-    href: "/staff/finance",
-    label: "Finance",
-    roles: STAFF_MODULE_ROLES.finance,
-  },
-  {
-    href: "/staff/logistics",
-    label: "Logistics",
-    exact: true,
-    roles: STAFF_MODULE_ROLES.logistics,
-  },
-  {
-    href: "/staff/logistics/tracking",
-    label: "Live map",
-    roles: STAFF_MODULE_ROLES.liveMap,
-  },
-  { href: "/staff/hr", label: "HR", roles: STAFF_MODULE_ROLES.hr },
-  {
-    href: "/staff/warranty",
-    label: "Warranty",
-    roles: STAFF_MODULE_ROLES.warranty,
-  },
-  {
-    href: "/procurement",
-    label: "Procurement",
-    roles: STAFF_MODULE_ROLES.procurement,
-  },
-];
-
-export function hasAnyStaffRole(
-  userRoles: readonly StaffRole[],
-  required: readonly StaffRole[],
-): boolean {
-  if (required.length === 0) return true;
-  return required.some((role) => userRoles.includes(role));
-}
-
-export function filterNavForRoles(roles: readonly StaffRole[]): StaffNavItem[] {
-  return STAFF_NAV_ITEMS.filter((item) => hasAnyStaffRole(roles, item.roles));
-}
-
 export type PathAccess =
   | { kind: "any" }
-  | { kind: "roles"; roles: readonly StaffRole[] }
+  | { kind: "roles"; roles: StaffRole[] }
   | { kind: "forbidden_page" };
 
-/** Most-specific module gate for a `/staff/*` path. */
+/**
+ * Most-specific module gate for a `/staff/*` path.
+ * Unknown `/staff/*` paths require any staff (hub-level).
+ */
 export function pathAccessFor(pathname: string): PathAccess {
-  const path = (pathname.split("?")[0] || pathname).replace(/\/$/, "") || "/";
+  const path = pathname.split("?")[0] || pathname;
   if (path === "/staff/forbidden") return { kind: "forbidden_page" };
   if (path === "/staff") return { kind: "any" };
 
   if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
-    return { kind: "roles", roles: STAFF_MODULE_ROLES.pos };
+    return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
   }
   if (path.startsWith("/staff/warehouse")) {
-    return { kind: "roles", roles: STAFF_MODULE_ROLES.warehouse };
+    return { kind: "roles", roles: ["admin", "warehouse"] };
   }
   if (path.startsWith("/staff/finance")) {
-    return { kind: "roles", roles: STAFF_MODULE_ROLES.finance };
+    return { kind: "roles", roles: ["admin", "finance"] };
   }
   if (
     path === "/staff/logistics/tracking" ||
     path.startsWith("/staff/logistics/tracking/")
   ) {
-    return { kind: "roles", roles: STAFF_MODULE_ROLES.liveMap };
+    return { kind: "roles", roles: ["admin", "warehouse", "dispatcher"] };
   }
   if (path === "/staff/logistics" || path.startsWith("/staff/logistics/")) {
-    return { kind: "roles", roles: STAFF_MODULE_ROLES.logistics };
+    return {
+      kind: "roles",
+      roles: ["admin", "warehouse", "sales", "dispatcher"],
+    };
   }
   if (path.startsWith("/staff/hr")) {
-    return { kind: "roles", roles: STAFF_MODULE_ROLES.hr };
+    return { kind: "roles", roles: ["admin", "hr"] };
   }
   if (path.startsWith("/staff/warranty")) {
-    return { kind: "roles", roles: STAFF_MODULE_ROLES.warranty };
+    return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
   }
 
   return { kind: "any" };
+}
+
+export function rolesAllow(
+  userRoles: StaffRole[],
+  required: StaffRole[] | "any",
+): boolean {
+  if (required === "any") return true;
+  if (userRoles.includes("admin")) return true;
+  return required.some((r) => userRoles.includes(r));
+}
+
+/** Alias used by GPS discoverability / thin callers. */
+export function hasAnyStaffRole(
+  userRoles: readonly StaffRole[],
+  required: readonly StaffRole[],
+): boolean {
+  if (required.length === 0) return true;
+  return rolesAllow([...userRoles], [...required]);
 }
 
 export function canAccessPath(
@@ -144,31 +153,13 @@ export function canAccessPath(
 ): boolean {
   if (!ctx.isStaff) return false;
   const access = pathAccessFor(pathname);
-  if (access.kind === "forbidden_page" || access.kind === "any") return true;
-  return hasAnyStaffRole(ctx.roles, access.roles);
+  if (access.kind === "forbidden_page") return true;
+  if (access.kind === "any") return true;
+  return rolesAllow(ctx.roles, access.roles);
 }
 
-/** Load `staff_roles` for the signed-in user (RLS: select own). */
-export async function fetchMyStaffRoles(
-  client: SupabaseClient,
-): Promise<StorefrontResult<StaffRole[]>> {
-  const { data: sessionData, error: sessionError } =
-    await client.auth.getSession();
-  if (sessionError) return { ok: false, error: sessionError.message };
-  if (!sessionData.session) {
-    return { ok: false, error: "Sign in to continue." };
-  }
-
-  const { data, error } = await client
-    .from("staff_roles")
-    .select("role")
-    .eq("user_id", sessionData.session.user.id);
-
-  if (error) return { ok: false, error: error.message };
-  return {
-    ok: true,
-    data: (data ?? []).map((row) => row.role as StaffRole),
-  };
+export function filterNavForRoles(roles: StaffRole[]): StaffNavItem[] {
+  return STAFF_NAV_ITEMS.filter((item) => rolesAllow(roles, item.roles));
 }
 
 export async function loadStaffContext(
@@ -188,14 +179,26 @@ export async function loadStaffContext(
   if (profileRes.error) return { ok: false, error: profileRes.error.message };
   if (rolesRes.error) return { ok: false, error: rolesRes.error.message };
 
+  const roles = (rolesRes.data ?? []).map((row) => row.role as StaffRole);
+
   return {
     ok: true,
     data: {
       userId,
       isStaff: Boolean(profileRes.data?.is_staff),
-      roles: (rolesRes.data ?? []).map((row) => row.role as StaffRole),
+      roles,
     },
   };
+}
+
+/** Load `staff_roles` for the signed-in user (RLS: select own). */
+export async function fetchMyStaffRoles(
+  client: SupabaseClient,
+): Promise<StorefrontResult<StaffRole[]>> {
+  const ctx = await loadStaffContext(client);
+  if (!ctx.ok) return ctx;
+  if (!ctx.data) return { ok: false, error: "Not signed in" };
+  return { ok: true, data: ctx.data.roles };
 }
 
 /** Thin wrapper around Postgres `has_staff_role` — prefer for gates; nav uses local roles. */

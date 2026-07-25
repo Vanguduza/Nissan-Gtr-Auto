@@ -138,12 +138,49 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun addCartLineFromQr(
+        cartId: String,
+        qrPayload: String,
+        qty: Double,
+    ): String {
+        require(cartId.isNotBlank() && qrPayload.isNotBlank())
+        require(qty > 0)
+        return client.postgrest.rpc(
+            RpcNames.ADD_CART_LINE_FROM_QR,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_qr_payload", qrPayload.trim())
+                put("p_qty", qty)
+            },
+        ).decodeAs<String>()
+    }
+
     override suspend fun checkoutPosCart(cartId: String): String {
         require(cartId.isNotBlank())
         return client.postgrest.rpc(
             RpcNames.CHECKOUT_POS_CART,
             buildJsonObject { put("p_cart_id", cartId) },
         ).decodeAs<String>()
+    }
+
+    override suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef {
+        val oem = oemPartNumber.trim()
+        require(oem.isNotBlank())
+        val row = client.from("stock_items")
+            .select(Columns.list("id", "base_uom_id", "oem_part_number")) {
+                filter {
+                    eq("oem_part_number", oem)
+                }
+                limit(1)
+            }
+            .decodeList<StockItemRow>()
+            .firstOrNull()
+            ?: throw IllegalStateException("unknown part $oem")
+        return StockItemRef(
+            stockItemId = row.id,
+            uomId = row.baseUomId,
+            oemPartNumber = row.oemPartNumber,
+        )
     }
 
     override suspend fun postStockReceipt(
