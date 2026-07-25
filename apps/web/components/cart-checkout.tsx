@@ -17,9 +17,11 @@ import {
   fulfillmentLabel,
   loadCartLines,
   loadOpenCart,
+  loadOwnCustomer,
   requireSession,
   type CartLineRow,
   type CartRow,
+  type CustomerRow,
   zigExchangeRate,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
