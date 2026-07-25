@@ -28,4 +28,5 @@ Zimbabwe users often prefer phone; email remains required for many B2B accounts.
 
 - Document env names only in HARDENING / `.env.example` — never commit secret values.
 - CI/smoke: without flag + without keys → OTP request fails; with flag → stub verify path works.
+- **Server gate:** `verify` returns a short-lived HMAC `proof_token`; `complete_signup` / `complete_login` consume it before minting sessions. Public GoTrue signup is disabled (`enable_signup = false`).
 - No ZIMRA; no payroll-tax identity flows.
