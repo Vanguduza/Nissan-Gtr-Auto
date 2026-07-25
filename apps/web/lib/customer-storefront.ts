@@ -531,6 +531,11 @@ export async function createCustomerPaynowIntent(
   client: SupabaseClient,
   invoiceId: string,
   method: PaynowMethod = "ecocash",
+  settlement?: {
+    currency: Currency;
+    amount: number;
+    exchangeRate: number;
+  },
 ): Promise<StorefrontResult<PaymentIntentResult>> {
   const returnUrl = checkoutReturnUrl(invoiceId);
   const cancelUrl = checkoutCancelUrl(invoiceId);
@@ -539,6 +544,13 @@ export async function createCustomerPaynowIntent(
     channel: "storefront",
     return_url: returnUrl,
     cancel_url: cancelUrl,
+    ...(settlement
+      ? {
+          settlement_currency: settlement.currency,
+          settlement_amount: settlement.amount,
+          settlement_exchange_rate: settlement.exchangeRate,
+        }
+      : {}),
   };
 
   const edge = await client.functions.invoke("paynow-initiate", {
@@ -548,6 +560,13 @@ export async function createCustomerPaynowIntent(
       return_url: returnUrl,
       cancel_url: cancelUrl,
       metadata,
+      ...(settlement
+        ? {
+            settlement_currency: settlement.currency,
+            settlement_amount: settlement.amount,
+            settlement_exchange_rate: settlement.exchangeRate,
+          }
+        : {}),
     },
   });
 
@@ -560,6 +579,13 @@ export async function createCustomerPaynowIntent(
     p_sales_invoice_id: invoiceId,
     p_method: method,
     p_metadata: metadata,
+    ...(settlement
+      ? {
+          p_settlement_currency: settlement.currency,
+          p_settlement_amount: settlement.amount,
+          p_settlement_exchange_rate: settlement.exchangeRate,
+        }
+      : {}),
   });
   if (error) {
     const edgeMsg =
