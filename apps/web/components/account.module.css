@@ -219,12 +219,29 @@
 }
 
 .panel {
-  background: var(--gtr-white);
-  border: 1px solid var(--staff-border);
+  background: color-mix(in srgb, var(--gtr-white) 94%, var(--gtr-mist));
+  border: 1px solid color-mix(in srgb, var(--gtr-steel) 12%, transparent);
   border-radius: var(--staff-radius);
   padding: 0;
-  box-shadow: var(--staff-shadow-md);
+  box-shadow:
+    var(--staff-shadow-md),
+    0 12px 40px rgba(18, 21, 28, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.75) inset;
   min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel::before {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--gtr-red) 0%,
+    color-mix(in srgb, var(--gtr-red) 55%, var(--gtr-steel)) 55%,
+    color-mix(in srgb, var(--gtr-steel) 35%, transparent) 100%
+  );
 }
 
 .pageHeader {
