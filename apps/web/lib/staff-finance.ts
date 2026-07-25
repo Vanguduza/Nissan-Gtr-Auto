@@ -799,85 +799,9 @@ async function financeRpc(
 }
 
 /** Untyped table query until database.types includes new finance tables. */
-function financeFrom(client: SupabaseClient, table: string) {
-  return (
-    client as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (col: string, val: string) => {
-            eq: (col: string, val: string) => {
-              eq: (col: string, val: string) => {
-                order: (
-                  col: string,
-                  opts?: { ascending?: boolean },
-                ) => {
-                  limit: (n: number) => PromiseLike<{
-                    data: unknown;
-                    error: { message: string } | null;
-                  }>;
-                  maybeSingle: () => PromiseLike<{
-                    data: unknown;
-                    error: { message: string } | null;
-                  }>;
-                };
-                maybeSingle: () => PromiseLike<{
-                  data: unknown;
-                  error: { message: string } | null;
-                }>;
-              };
-              order: (
-                col: string,
-                opts?: { ascending?: boolean },
-              ) => {
-                limit: (n: number) => PromiseLike<{
-                  data: unknown;
-                  error: { message: string } | null;
-                }>;
-              };
-              maybeSingle: () => PromiseLike<{
-                data: unknown;
-                error: { message: string } | null;
-              }>;
-            };
-            order: (
-              col: string,
-              opts?: { ascending?: boolean },
-            ) => {
-              limit: (n: number) => PromiseLike<{
-                data: unknown;
-                error: { message: string } | null;
-              }>;
-              maybeSingle: () => PromiseLike<{
-                data: unknown;
-                error: { message: string } | null;
-              }>;
-            };
-            maybeSingle: () => PromiseLike<{
-              data: unknown;
-              error: { message: string } | null;
-            }>;
-            limit: (n: number) => PromiseLike<{
-              data: unknown;
-              error: { message: string } | null;
-            }>;
-          };
-          order: (
-            col: string,
-            opts?: { ascending?: boolean },
-          ) => {
-            limit: (n: number) => PromiseLike<{
-              data: unknown;
-              error: { message: string } | null;
-            }>;
-          };
-          limit: (n: number) => PromiseLike<{
-            data: unknown;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-    }
-  ).from(table);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function financeFrom(client: SupabaseClient, table: string): any {
+  return (client as unknown as { from: (t: string) => unknown }).from(table);
 }
 
 export type AccountRegisterRow = {
