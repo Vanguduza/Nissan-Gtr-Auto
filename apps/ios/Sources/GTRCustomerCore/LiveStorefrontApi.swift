@@ -393,21 +393,12 @@ public final class LiveStorefrontApi: StorefrontApi {
             body["p_token"] = token
         }
 
-        // Empty / null = inactive, expired, or non-dispatched — not an error.
-        // SECURITY: decode at most one row; never accumulate a trail client-side.
-        let data = try await client.rpc(RpcName.getDeliveryTrackPoint, body: body)
-        if data.isEmpty || data == Data("null".utf8) || data == Data("[]".utf8) {
-            return nil
-        }
-        let rows: [DeliveryTrackPointDTO]
-        do {
-            rows = try JSONDecoder.storefront.decode([DeliveryTrackPointDTO].self, from: data)
-        } catch {
-            // Single-object responses are unexpected; treat as inactive rather than trail.
-            throw StorefrontError.message(
-                "RPC \(RpcName.getDeliveryTrackPoint) decode failed: \(error.localizedDescription)"
-            )
-        }
+        // Empty / null / [] = inactive, expired, or non-dispatched — not an error.
+        // SECURITY: take at most one row — never accumulate a trail client-side.
+        let rows: [DeliveryTrackPointDTO] = try await client.rpcDecodeArrayAllowEmpty(
+            RpcName.getDeliveryTrackPoint,
+            body: body
+        )
         guard let first = rows.first else { return nil }
         return first.toModel()
     }
