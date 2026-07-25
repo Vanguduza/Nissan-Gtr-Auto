@@ -45,6 +45,11 @@ const HUB_CARDS: {
     blurb: "Driver SOS · acknowledge",
   },
   {
+    href: "/staff/fleet",
+    label: "Company fleet",
+    blurb: "Plates · status · driver assign",
+  },
+  {
     href: "/staff/warranty",
     label: "Warranty claims",
     blurb: "Claims · quarantine return",
