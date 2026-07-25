@@ -134,18 +134,8 @@ export function B2bPricePanel() {
         <div>
           <dt>Currency</dt>
           <dd>
-            {list ? (
-              list.currency === "ZIG" ? (
-                <span className={local.zig}>ZiG</span>
-              ) : (
-                <span className={local.usd}>USD</span>
-              )
-            ) : (
-              <>
-                <span className={local.usd}>USD</span> /{" "}
-                <span className={local.zig}>ZiG</span>
-              </>
-            )}
+            <span className={local.usd}>USD</span>
+            <span className={styles.muted}> — catalog prices; ZiG at checkout</span>
           </dd>
         </div>
         <div>

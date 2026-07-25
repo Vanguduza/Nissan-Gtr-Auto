@@ -76,13 +76,6 @@ function buildMatrix(products: CatalogProduct[]): MatrixRow[] {
       ),
     },
     {
-      key: "zig",
-      label: "Price ZIG",
-      values: products.map((p) =>
-        p.zig != null ? p.zig.toFixed(2) : "—",
-      ),
-    },
-    {
       key: "core",
       label: "Core charge USD",
       values: products.map((p) =>
