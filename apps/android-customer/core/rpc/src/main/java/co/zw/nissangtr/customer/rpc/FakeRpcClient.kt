@@ -396,7 +396,7 @@ class FakeRpcClient : RpcClient {
         if (point.status != "dispatched") return null
         // Nudge last point each read so Fake demos look "live" (still one row, no trail).
         val n = trackTick.incrementAndGet()
-        val secs = (point.etaSeconds ?: 2_100).coerceAtLeast(0) - 8
+        val secs = (point.etaSeconds ?: 48).coerceAtLeast(0) - 8
         val next = point.copy(
             lat = -17.8292 + n * 0.00012,
             lng = 31.0522 + n * 0.00009,
@@ -416,29 +416,12 @@ class FakeRpcClient : RpcClient {
 
     /** Demo helper: force terminal so UI stops polling and clears coords. */
     fun simulateDeliveryComplete() {
-        fakeTrackPoint = fakeTrackPoint?.copy(status = "completed", etaSeconds = 0, etaAt = null)
-            ?: DeliveryTrackPoint(
-                deliveryJobId = SEED_ACTIVE_JOB_ID,
-                lat = -17.8292,
-                lng = 31.0522,
-                recordedAt = "2026-07-25T09:10:00Z",
-                etaAt = null,
-                etaSeconds = 0,
-                status = "completed",
-            )
+        fakeTrackPoint = seedTrackPoint().copy(status = "completed", etaSeconds = 0, etaAt = null)
     }
 
     /** Demo helper: reset seed active point for another Fake track session. */
     fun resetFakeTrackPoint() {
         trackTick.set(0)
-        fakeTrackPoint = DeliveryTrackPoint(
-            deliveryJobId = SEED_ACTIVE_JOB_ID,
-            lat = -17.8292,
-            lng = 31.0522,
-            recordedAt = "2026-07-25T09:10:00Z",
-            etaAt = "2026-07-25T09:45:00Z",
-            etaSeconds = 2_100,
-            status = "dispatched",
-        )
+        fakeTrackPoint = seedTrackPoint()
     }
 }
