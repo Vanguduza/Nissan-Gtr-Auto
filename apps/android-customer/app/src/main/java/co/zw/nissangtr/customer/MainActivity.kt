@@ -171,6 +171,7 @@ private fun CustomerApp(
     var trackToken by remember { mutableStateOf<String?>(null) }
     var trackJobId by remember { mutableStateOf<String?>(null) }
     var trackReturn by remember { mutableStateOf(CustomerRoute.Home) }
+    var trackSession by remember { mutableIntStateOf(0) }
     var lastLaunchSeq by remember { mutableIntStateOf(0) }
 
     fun openTrack(
@@ -185,6 +186,7 @@ private fun CustomerApp(
         trackJobId = jobId
         trackToken = token
         trackReturn = from
+        trackSession += 1
         route = CustomerRoute.Track
     }
 
