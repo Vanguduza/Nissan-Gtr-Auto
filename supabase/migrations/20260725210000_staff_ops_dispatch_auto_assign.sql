@@ -251,8 +251,10 @@ DECLARE
   v_pick UUID;
   v_line RECORD;
   v_bin UUID;
+  v_open NUMERIC;
   v_any BOOLEAN := false;
 BEGIN
+  PERFORM public._online_dispatch_auto_begin();
   PERFORM public._logistics_begin_rpc();
 
   SELECT * INTO v_inv
@@ -297,7 +299,12 @@ BEGIN
       AND qty_base > qty_fulfilled
     ORDER BY created_at
   LOOP
+    v_open := public._invoice_line_open_qty_base(v_line.id);
+    IF v_open <= 0 THEN
+      CONTINUE;
+    END IF;
     v_any := true;
+
     SELECT sl.bin_id INTO v_bin
     FROM public.stock_levels sl
     WHERE sl.stock_item_id = v_line.stock_item_id
@@ -309,7 +316,7 @@ BEGIN
     )
     VALUES (
       v_pick, v_line.id, v_line.stock_item_id, v_line.uom_id,
-      v_line.qty, v_line.qty_base - v_line.qty_fulfilled, v_bin
+      v_open, v_open, v_bin
     );
   END LOOP;
 
