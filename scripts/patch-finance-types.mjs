@@ -455,7 +455,7 @@ s = insertAfter(
 
 s = insertAfter(
   s,
-  '      fleet_vehicle_status: ["active", "in_service", "retired"],\n',
+  '      forecast_suggestion_status: ["open", "converted", "dismissed"],\n',
   `      finance_requisition_status: [
         "draft",
         "submitted",
