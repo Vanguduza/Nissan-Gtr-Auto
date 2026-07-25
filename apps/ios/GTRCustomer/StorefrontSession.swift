@@ -71,6 +71,19 @@ final class StorefrontSession: ObservableObject {
         )
         userEmail = session.email
         isSignedIn = true
+        await syncGuestCompareToServer()
+    }
+
+    /// Push guest UserDefaults OEMs into `add_customer_compare_item` after login (web parity).
+    func syncGuestCompareToServer() async {
+        let local = GuestCompareStore.readOems()
+        guard !local.isEmpty else { return }
+        for oem in local {
+            _ = try? await api.addCompareItem(stockItemId: nil, oem: oem)
+        }
+        if let listed = try? await api.listCompareItems() {
+            _ = GuestCompareStore.writeOems(listed.map(\.oemPartNumber))
+        }
     }
 
     func signOut() {
