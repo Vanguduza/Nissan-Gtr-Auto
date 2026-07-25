@@ -57,7 +57,9 @@ def parse_fast_document(doc: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
         )
 
         diagram_path = assembly.get("diagram_path")
-        if diagram_path:
+        if diagram_path and not any(d["storage_path"] == diagram_path for d in diagrams):
+            # Section-level diagrams are shared by several assemblies — dedupe
+            # by storage_path; the first assembly's PNC is the representative.
             diagrams.append(
                 _omit_none(
                     {
@@ -67,6 +69,7 @@ def parse_fast_document(doc: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
                         "engine_code": engine_code,
                         "content_type": assembly.get("diagram_content_type", "image/png"),
                         "source_url": assembly.get("diagram_source_url"),
+                        "provenance": assembly.get("diagram_provenance"),
                     }
                 )
             )
