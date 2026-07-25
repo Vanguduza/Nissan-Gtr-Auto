@@ -1,5 +1,6 @@
 package co.zw.nissangtr.management
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,8 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import co.zw.nissangtr.bridges.escpos.BluetoothEscPosPrinterBridge
+import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
 import co.zw.nissangtr.bridges.location.FusedLocationGpsBridge
 import co.zw.nissangtr.bridges.location.GpsBridge
+import co.zw.nissangtr.bridges.qr.CameraxQrScannerBridge
+import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.auth.AuthGate
 import co.zw.nissangtr.management.auth.AuthModule
 import co.zw.nissangtr.management.dispatch.DispatchModule
@@ -49,17 +54,22 @@ private enum class ManagementRoute {
  * Management shell. Feature screens are thin scaffolds over [RpcClient]
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
  * Live requires GoTrue email/password session via [AuthGate].
- * Money/pricing: @gtr/shared. Hardware: bridges/ contracts only.
+ * Money/pricing: @gtr/shared. Hardware: bridges/ only (GPS / QR / ESC/POS).
  *
- * GPS: [FusedLocationGpsBridge] — Activity attachment + permission result forwarding.
+ * Bridges: [FusedLocationGpsBridge], [CameraxQrScannerBridge],
+ * [BluetoothEscPosPrinterBridge] — Activity attachment + permission / scan results.
  */
 class MainActivity : ComponentActivity() {
 
     private lateinit var gpsBridge: FusedLocationGpsBridge
+    private lateinit var qrBridge: CameraxQrScannerBridge
+    private lateinit var printerBridge: BluetoothEscPosPrinterBridge
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         gpsBridge = FusedLocationGpsBridge(this)
+        qrBridge = CameraxQrScannerBridge(this)
+        printerBridge = BluetoothEscPosPrinterBridge(this)
         listOf(AuthModule.id, PosModule.id, WarehouseModule.id, DispatchModule.id, HrModule.id)
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
@@ -79,6 +89,8 @@ class MainActivity : ComponentActivity() {
                         ManagementApp(
                             rpc = rpc,
                             gps = gpsBridge,
+                            qr = qrBridge,
+                            printer = printerBridge,
                             liveRpc = live,
                             signedInEmail = email,
                             onSignOut = onSignOut,
@@ -91,15 +103,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::gpsBridge.isInitialized) {
-            gpsBridge.attachActivity(this)
-        }
+        if (::gpsBridge.isInitialized) gpsBridge.attachActivity(this)
+        if (::qrBridge.isInitialized) qrBridge.attachActivity(this)
+        if (::printerBridge.isInitialized) printerBridge.attachActivity(this)
     }
 
     override fun onPause() {
-        if (::gpsBridge.isInitialized) {
-            gpsBridge.detachActivity()
-        }
+        if (::gpsBridge.isInitialized) gpsBridge.detachActivity()
+        if (::qrBridge.isInitialized) qrBridge.detachActivity()
+        if (::printerBridge.isInitialized) printerBridge.detachActivity()
         super.onPause()
     }
 
@@ -111,11 +123,23 @@ class MainActivity : ComponentActivity() {
     ) {
         @Suppress("DEPRECATION")
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (!::gpsBridge.isInitialized) return
-        if (requestCode == FusedLocationGpsBridge.REQUEST_LOCATION ||
-            requestCode == FusedLocationGpsBridge.REQUEST_BACKGROUND_LOCATION
-        ) {
-            gpsBridge.onPermissionResult()
+        when (requestCode) {
+            FusedLocationGpsBridge.REQUEST_LOCATION,
+            FusedLocationGpsBridge.REQUEST_BACKGROUND_LOCATION,
+            -> if (::gpsBridge.isInitialized) gpsBridge.onPermissionResult()
+            CameraxQrScannerBridge.REQUEST_CAMERA,
+            -> if (::qrBridge.isInitialized) qrBridge.onPermissionResult()
+            BluetoothEscPosPrinterBridge.REQUEST_BLUETOOTH,
+            -> if (::printerBridge.isInitialized) printerBridge.onPermissionResult()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == CameraxQrScannerBridge.REQUEST_SCAN && ::qrBridge.isInitialized) {
+            qrBridge.onScanActivityResult(resultCode, data)
         }
     }
 }
@@ -124,6 +148,8 @@ class MainActivity : ComponentActivity() {
 private fun ManagementApp(
     rpc: RpcClient,
     gps: GpsBridge,
+    qr: QrScannerBridge,
+    printer: EscPosPrinterBridge,
     liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
@@ -150,10 +176,13 @@ private fun ManagementApp(
         )
         ManagementRoute.Pos -> PosScreen(
             rpc = rpc,
+            qr = qr,
+            printer = printer,
             onBack = { route = ManagementRoute.Home },
         )
         ManagementRoute.Warehouse -> WarehouseScreen(
             rpc = rpc,
+            qr = qr,
             onBack = { route = ManagementRoute.Home },
         )
     }
@@ -213,8 +242,8 @@ private fun ManagementHome(
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Logistics — Pick / DN / Track") }
         Text(
-            "Auth: GoTrue signInWith(Email). No ZIMRA / payroll tax. Bridge-First for QR/GPS. " +
-                "Money: explicit USD|ZIG.",
+            "Auth: GoTrue signInWith(Email). No ZIMRA / payroll tax. " +
+                "Bridge-First for QR/printer/GPS. Money: explicit USD|ZIG.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )
