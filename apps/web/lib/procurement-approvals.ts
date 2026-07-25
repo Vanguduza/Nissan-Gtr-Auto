@@ -23,27 +23,36 @@ export type PendingMaterialRequest = {
   lineCount: number;
 };
 
+function asSingle<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 export async function listSubmittedPurchaseOrders(
   client: ProcurementClient,
 ): Promise<StorefrontResult<PendingPurchaseOrder[]>> {
   const { data, error } = await client
     .from("purchase_orders")
-    .select(
-      "*, suppliers(code, name), warehouses(code, name)",
-    )
+    .select("*, suppliers ( code, name ), warehouses ( code, name )")
     .eq("status", "submitted")
     .order("submitted_at", { ascending: true });
   if (error) return { ok: false, error: error.message };
 
   const rows = (data ?? []).map((r) => {
     const row = r as PurchaseOrderRow & {
-      suppliers?: { code: string; name: string } | null;
-      warehouses?: { code: string; name: string } | null;
+      suppliers?:
+        | { code: string; name: string }
+        | { code: string; name: string }[]
+        | null;
+      warehouses?:
+        | { code: string; name: string }
+        | { code: string; name: string }[]
+        | null;
     };
     return {
       po: row,
-      supplier: row.suppliers ?? null,
-      warehouse: row.warehouses ?? null,
+      supplier: asSingle(row.suppliers),
+      warehouse: asSingle(row.warehouses),
     };
   });
   return { ok: true, data: rows };
@@ -54,19 +63,22 @@ export async function listSubmittedMaterialRequests(
 ): Promise<StorefrontResult<PendingMaterialRequest[]>> {
   const { data, error } = await client
     .from("material_requests")
-    .select("*, warehouses(code, name), material_request_lines(id)")
+    .select("*, warehouses ( code, name ), material_request_lines ( id )")
     .eq("status", "submitted")
     .order("submitted_at", { ascending: true });
   if (error) return { ok: false, error: error.message };
 
   const rows = (data ?? []).map((r) => {
     const row = r as MaterialRequestRow & {
-      warehouses?: { code: string; name: string } | null;
+      warehouses?:
+        | { code: string; name: string }
+        | { code: string; name: string }[]
+        | null;
       material_request_lines?: { id: string }[] | null;
     };
     return {
       mr: row,
-      warehouse: row.warehouses ?? null,
+      warehouse: asSingle(row.warehouses),
       lineCount: row.material_request_lines?.length ?? 0,
     };
   });

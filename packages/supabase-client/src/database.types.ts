@@ -7711,6 +7711,14 @@ export type Database = {
         Args: { p_reason?: string; p_requisition_id: string }
         Returns: string
       }
+      reject_material_request: {
+        Args: { p_material_request_id: string; p_reason?: string }
+        Returns: string
+      }
+      reject_purchase_order: {
+        Args: { p_purchase_order_id: string; p_reason?: string }
+        Returns: string
+      }
       reject_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
       reject_warranty_claim: {
         Args: { p_claim_id: string; p_reason?: string }
