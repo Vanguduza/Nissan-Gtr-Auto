@@ -62,7 +62,7 @@ class FakeRpcClient : RpcClient {
     private val chatLastRead = mutableMapOf<String, String>()
     private val fakeUserId = "00000000-0000-4000-8000-0000000000cu"
 
-    /** Fake active job → last point (single row only; no trail). */
+    /** Fake active job → last point (single row only; no trail). Nudged on each poll. */
     private var fakeTrackPoint: DeliveryTrackPoint? = DeliveryTrackPoint(
         deliveryJobId = SEED_ACTIVE_JOB_ID,
         lat = -17.8292,
@@ -72,6 +72,7 @@ class FakeRpcClient : RpcClient {
         etaSeconds = 2_100,
         status = "dispatched",
     )
+    private val trackTick = AtomicInteger(0)
 
     init {
         val seed = invoices.first()
