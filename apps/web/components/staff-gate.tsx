@@ -8,6 +8,7 @@ import styles from "@/components/account.module.css";
 import {
   canAccessPath,
   loadStaffContext,
+  prefersPosHome,
   staffLoginHref,
   type StaffContext,
 } from "@/lib/staff-auth";
