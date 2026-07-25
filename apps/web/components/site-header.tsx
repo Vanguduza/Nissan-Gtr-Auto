@@ -68,8 +68,8 @@ export function SiteHeader() {
             <Image
               src="/brand/logo.png"
               alt="Nissan GTR Auto"
-              width={72}
-              height={72}
+              width={96}
+              height={96}
               className={styles.logo}
               priority
             />
