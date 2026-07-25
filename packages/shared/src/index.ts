@@ -1,43 +1,43 @@
-export type { CurrencyCode, Money } from "./money.js";
-export { assertCurrency } from "./money.js";
-export { splitCoreCharge } from "./cart.js";
+export type { CurrencyCode, Money } from "./money";
+export { assertCurrency } from "./money";
+export { splitCoreCharge } from "./cart";
 export {
   assertBalanced,
   createJournalDraft,
   saleJournalLines,
   type JournalEntryInput,
   type JournalLineInput,
-} from "./ledger/journal.js";
+} from "./ledger/journal";
 export {
   reverseJournalLines,
   createOpeningBalanceLines,
   toJournalRpcLines,
   type OpeningBalanceLine,
-} from "./ledger/reverse.js";
+} from "./ledger/reverse";
 export {
   buildInventoryQrPayload,
   parseInventoryQrPayload,
   convertQtyToBase,
-} from "./inventory/qr.js";
-export type { ValuationMethod } from "./inventory/types.js";
+} from "./inventory/qr";
+export type { ValuationMethod } from "./inventory/types";
 export {
   RECON_VARIANCE_THRESHOLD_SETTING_KEY,
   type StockReconciliationScope,
   type StockReconciliationStatus,
-} from "./inventory/reconciliation.js";
+} from "./inventory/reconciliation";
 export {
   SMS_EVENT_CODES,
   isSmsEventCode,
   emitDomainEventArgs,
   type SmsEventCode,
   type EmitDomainEventInput,
-} from "./notifications/sms-events.js";
+} from "./notifications/sms-events";
 export {
   buildCustomerReceiptSmsSummary,
   buildCustomerReceiptEmailSubject,
   buildCustomerReceiptEmailBody,
   buildReceiptDownloadUrl,
-} from "./notifications/customer-receipt.js";
+} from "./notifications/customer-receipt";
 export {
   PAYMENT_TENDERS,
   PAYMENT_ENTRY_STATUSES,
@@ -53,14 +53,14 @@ export {
   type PaynowMethod,
   type PaynowIntentStatus,
   type PaymentAllocationInput,
-} from "./payments/types.js";
+} from "./payments/types";
 export {
   WARRANTY_CLAIM_STATUSES,
   WARRANTY_CLAIM_RESOLUTIONS,
   WARRANTY_CLAIM_DOCUMENT_PREFIX,
   type WarrantyClaimStatus,
   type WarrantyClaimResolution,
-} from "./warranty/claims.js";
+} from "./warranty/claims";
 export {
   FULFILLMENT_MODES,
   PICK_LIST_STATUSES,
@@ -73,7 +73,7 @@ export {
   type PickListStatus,
   type DeliveryNoteStatus,
   type DeliveryJobStatus,
-} from "./logistics/types.js";
+} from "./logistics/types";
 export {
   LOYALTY_MOVEMENTS,
   LOYALTY_LIABILITY_ACCOUNT,
@@ -83,7 +83,7 @@ export {
   type LoyaltyMovement,
   type EarnLoyaltyPointsInput,
   type RedeemLoyaltyPointsInput,
-} from "./loyalty/types.js";
+} from "./loyalty/types";
 export {
   CHAT_THREAD_KINDS,
   CHAT_THREAD_STATUSES,

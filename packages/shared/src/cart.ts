@@ -1,5 +1,5 @@
-import type { Money } from "./money.js";
-import { assertCurrency } from "./money.js";
+import type { Money } from "./money";
+import { assertCurrency } from "./money";
 
 /**
  * Split a cart line into physical part price + optional core-charge deposit.

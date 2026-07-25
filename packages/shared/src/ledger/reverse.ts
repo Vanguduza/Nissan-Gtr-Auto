@@ -1,5 +1,5 @@
 import type { CurrencyCode } from "../money.js";
-import { assertBalanced, type JournalLineInput } from "./journal.js";
+import { assertBalanced, type JournalLineInput } from "./journal";
 
 /** Swap debit/credit for a reversing entry (Cancel path). */
 export function reverseJournalLines(lines: JournalLineInput[]): JournalLineInput[] {

@@ -2,7 +2,7 @@
  * Dedicated delivery app RPC helpers + row types.
  * Plan: docs/plans/2026-07-25-dedicated-delivery-app.md
  */
-import type { Database } from "./database.types.js";
+import type { Database } from "./database.types";
 
 export const DELIVERY_PODS_BUCKET = "delivery-pods" as const;
 
