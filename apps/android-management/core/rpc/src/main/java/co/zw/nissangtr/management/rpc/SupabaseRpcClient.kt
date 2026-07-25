@@ -573,7 +573,7 @@ class SupabaseRpcClient(
                     "acknowledged_by",
                 ),
             ) {
-                filter { isExact("acknowledged_at", null) }
+                filter { exact("acknowledged_at", null) }
                 order("created_at", Order.DESCENDING)
                 limit(50)
             }
