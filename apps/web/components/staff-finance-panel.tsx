@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
+import { StaffModuleTabs, type StaffModuleTab } from "@/components/staff-module-tabs";
 import {
   addBankStatementLine,
   allocatePayment,
@@ -48,6 +49,23 @@ import {
 } from "@/lib/staff-finance";
 import { createWebClient } from "@/lib/supabase";
 
+const FINANCE_TABS: StaffModuleTab[] = [
+  { id: "petty-cash", label: "Petty cash" },
+  { id: "cash-sales", label: "Cash sales" },
+  { id: "online-sales", label: "Online sales" },
+  { id: "journals", label: "Journals" },
+  { id: "payments", label: "Payments" },
+  { id: "reports", label: "Reports" },
+  { id: "bank-recon", label: "Bank recon" },
+  { id: "periods", label: "Periods" },
+];
+
+const ACCOUNT_TAB_CODES: Record<string, { code: string; title: string }> = {
+  "petty-cash": { code: "1110", title: "Petty Cash (1110)" },
+  "cash-sales": { code: "1120", title: "Cash Sales Till (1120)" },
+  "online-sales": { code: "1130", title: "Online Payment Clearing (1130)" },
+};
+
 type Boot =
   | { kind: "loading" }
   | { kind: "auth" }
@@ -73,9 +91,25 @@ function monthStartInput(): string {
 }
 
 export function StaffFinancePanel() {
+  const [tab, setTab] = useState("journals");
+  const [accountLines, setAccountLines] = useState<JournalLineOption[]>([]);
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t && FINANCE_TABS.some((x) => x.id === t)) setTab(t);
+  }, []);
+
+  function selectTab(id: string) {
+    setTab(id);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", id);
+    window.history.replaceState({}, "", url);
+  }
 
   const [entryDate, setEntryDate] = useState(todayInput);
   const [description, setDescription] = useState("");
