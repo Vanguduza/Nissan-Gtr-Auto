@@ -59,12 +59,6 @@ fun WarehouseScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("Warehouse", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPCs: ${RpcNames.POST_STOCK_RECEIPT}, ${RpcNames.CREATE_STOCK_TRANSFER}, " +
-                "${RpcNames.APPROVE_STOCK_TRANSFER}, ${RpcNames.REJECT_STOCK_TRANSFER}, " +
-                "${RpcNames.CREATE_STOCK_RECONCILIATION_DRAFT}, …",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             WarehouseTab.entries.forEach { section ->
