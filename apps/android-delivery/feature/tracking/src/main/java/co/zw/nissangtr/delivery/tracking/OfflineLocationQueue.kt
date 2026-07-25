@@ -60,7 +60,8 @@ class OfflineLocationQueue(
                             deliveryJobId = o.getString("jobId"),
                             lat = o.getDouble("lat"),
                             lng = o.getDouble("lng"),
-                            recordedAt = o.optString("recordedAt", null).takeIf { it.isNotBlank() },
+                            recordedAt = if (o.isNull("recordedAt")) null
+                            else o.optString("recordedAt").takeIf { it.isNotBlank() },
                             accuracyM = if (o.has("accuracyM") && !o.isNull("accuracyM")) {
                                 o.getDouble("accuracyM")
                             } else null,
