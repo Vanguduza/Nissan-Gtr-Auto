@@ -151,6 +151,18 @@ export function pathAccessFor(pathname: string): PathAccess {
     return { kind: "roles", roles: ["admin", "finance"] };
   }
   if (
+    path === "/staff/crm/credit" ||
+    path.startsWith("/staff/crm/credit/")
+  ) {
+    return { kind: "roles", roles: ["admin", "sales", "finance"] };
+  }
+  if (
+    path === "/staff/crm/reviews" ||
+    path.startsWith("/staff/crm/reviews/")
+  ) {
+    return { kind: "roles", roles: ["admin", "sales"] };
+  }
+  if (
     path === "/staff/logistics/tracking" ||
     path.startsWith("/staff/logistics/tracking/") ||
     path === "/staff/logistics/panic" ||
@@ -298,11 +310,13 @@ export function staffLoginHref(returnPath: string): string {
 
 /**
  * After password sign-in: staff land on management, not the storefront.
+ * Sales-only default = `/staff/pos`; admin/warehouse = hub.
  * Honor `next` only for staff surfaces (`/staff`, `/procurement`).
  */
 export function postLoginPath(
   isStaff: boolean,
   next: string | null | undefined,
+  roles: readonly StaffRole[] = [],
 ): string {
   const path = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
   if (isStaff) {
@@ -313,9 +327,11 @@ export function postLoginPath(
         path === "/procurement" ||
         path.startsWith("/procurement/"))
     ) {
+      // Bare hub → POS for sales-only (same as default home).
+      if (path === "/staff" && prefersPosHome(roles)) return "/staff/pos";
       return path;
     }
-    return "/staff";
+    return staffHomePath(roles);
   }
   return path ?? "/account";
 }

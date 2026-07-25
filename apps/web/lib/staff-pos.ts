@@ -1,10 +1,17 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
+import { receiptContactsForCheckout } from "@gtr/shared";
 import {
   requireSession,
   type StorefrontResult,
 } from "@/lib/customer-storefront";
+import {
+  searchCatalog,
+  type PartHit,
+  type SearchMode,
+} from "@/lib/catalog-search";
 
 export { requireSession };
+export type { SearchMode, PartHit };
 
 export type CurrencyCode = Database["public"]["Enums"]["currency_code"];
 export type FulfillmentMode = Database["public"]["Enums"]["fulfillment_mode"];
@@ -29,9 +36,42 @@ export type PosCartLineRow =
     stock_items?: { oem_part_number: string; description: string | null } | null;
   };
 
+export type PosScanSession = {
+  sessionId: string;
+  pairingCode: string;
+  expiresAt: string;
+};
+
+export type CheckoutPosResult = {
+  invoiceId: string;
+  customerId: string | null;
+  receiptEmail: string | null;
+  receiptWhatsappE164: string | null;
+  hadCustomerBeforeCheckout: boolean;
+  bindMessage: string;
+};
+
 function asSingle<T>(value: T | T[] | null | undefined): T | null {
   if (value == null) return null;
   return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+export function checkoutBindMessage(args: {
+  hadCustomerBeforeCheckout: boolean;
+  customerId: string | null;
+  receiptEmail: string | null;
+  receiptWhatsappE164: string | null;
+}): string {
+  if (args.hadCustomerBeforeCheckout && args.customerId) {
+    return "Customer was already on cart";
+  }
+  if (args.customerId) {
+    return "Bound to registered / trade account";
+  }
+  if (args.receiptEmail || args.receiptWhatsappE164) {
+    return "Walk-in — no unique account match (link manually if needed)";
+  }
+  return "Walk-in — no receipt contacts";
 }
 
 export async function listSaleableWarehouses(
@@ -74,6 +114,47 @@ export async function searchStockItems(
     .limit(20);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data as StockItemOption[]) ?? [] };
+}
+
+/** Catalog browse via `search_catalog` (standalone — no scan session). */
+export async function searchPosCatalog(
+  client: SupabaseClient,
+  mode: SearchMode,
+  query: string,
+): Promise<StorefrontResult<PartHit[]>> {
+  const q = query.trim();
+  if (q.length < 2) return { ok: true, data: [] };
+  const res = await searchCatalog(client, mode, q);
+  if (!res.ok) return res;
+
+  const parts: PartHit[] = [];
+  for (const hit of res.data.results) {
+    if (hit.type === "part") {
+      parts.push(hit);
+    } else if (hit.type === "vehicle" || hit.type === "pnc") {
+      for (const f of hit.fitments ?? []) {
+        if (f.type === "part") parts.push(f);
+      }
+    }
+  }
+  return { ok: true, data: parts };
+}
+
+export async function lookupStockItemByOem(
+  client: SupabaseClient,
+  oemPartNumber: string,
+): Promise<StorefrontResult<StockItemOption>> {
+  const oem = oemPartNumber.trim();
+  if (!oem) return { ok: false, error: "OEM required." };
+  const { data, error } = await client
+    .from("stock_items")
+    .select("id, oem_part_number, description, base_uom_id")
+    .eq("oem_part_number", oem)
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: `Unknown part ${oem} — not in stock_items.` };
+  return { ok: true, data: data as StockItemOption };
 }
 
 export async function createPosCart(
@@ -148,14 +229,119 @@ export async function addCartLine(
   return { ok: true, data };
 }
 
+/** Add catalog OEM hit → stock_items resolve → add_cart_line (no session). */
+export async function addCatalogPartToCart(
+  client: SupabaseClient,
+  args: { cartId: string; oemPartNumber: string; qty: number },
+): Promise<StorefrontResult<string>> {
+  const item = await lookupStockItemByOem(client, args.oemPartNumber);
+  if (!item.ok) return item;
+  if (!item.data.base_uom_id) {
+    return { ok: false, error: "Selected item has no base UOM." };
+  }
+  return addCartLine(client, {
+    cartId: args.cartId,
+    stockItemId: item.data.id,
+    uomId: item.data.base_uom_id,
+    qty: args.qty,
+  });
+}
+
 export async function checkoutPosCart(
   client: SupabaseClient,
-  cartId: string,
-): Promise<StorefrontResult<string>> {
+  args: {
+    cartId: string;
+    receiptEmail?: string | null;
+    receiptWhatsappE164?: string | null;
+    receiptPhoneE164?: string | null;
+  },
+): Promise<StorefrontResult<CheckoutPosResult>> {
+  const cartRes = await loadPosCart(client, args.cartId);
+  if (!cartRes.ok) return cartRes;
+  const hadCustomerBeforeCheckout = Boolean(cartRes.data?.customer_id);
+
+  const contacts = receiptContactsForCheckout({
+    email: args.receiptEmail,
+    whatsappE164: args.receiptWhatsappE164,
+    phoneE164: args.receiptPhoneE164,
+  });
+
   const { data, error } = await client.rpc("checkout_pos_cart", {
-    p_cart_id: cartId,
+    p_cart_id: args.cartId,
+    p_receipt_email: contacts.p_receipt_email ?? undefined,
+    p_receipt_whatsapp_e164: contacts.p_receipt_whatsapp_e164 ?? undefined,
+    p_receipt_phone_e164: contacts.p_receipt_phone_e164 ?? undefined,
   });
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "checkout_pos_cart returned no id." };
+
+  const { data: inv, error: invErr } = await client
+    .from("sales_invoices")
+    .select("id, customer_id, customer_email, customer_whatsapp_e164")
+    .eq("id", data)
+    .maybeSingle();
+  if (invErr) return { ok: false, error: invErr.message };
+
+  const customerId = inv?.customer_id ?? null;
+  const receiptEmail =
+    inv?.customer_email ?? contacts.p_receipt_email ?? null;
+  const receiptWhatsappE164 =
+    inv?.customer_whatsapp_e164 ?? contacts.p_receipt_whatsapp_e164 ?? null;
+
+  return {
+    ok: true,
+    data: {
+      invoiceId: data,
+      customerId,
+      receiptEmail,
+      receiptWhatsappE164,
+      hadCustomerBeforeCheckout,
+      bindMessage: checkoutBindMessage({
+        hadCustomerBeforeCheckout,
+        customerId,
+        receiptEmail,
+        receiptWhatsappE164,
+      }),
+    },
+  };
+}
+
+/** Optional companion: display pairing code only (phone claims + scans via bridge). */
+export async function createPosScanSession(
+  client: SupabaseClient,
+  cartId: string,
+): Promise<StorefrontResult<PosScanSession>> {
+  const { data, error } = await client.rpc("create_pos_scan_session", {
+    p_cart_id: cartId,
+  });
+  if (error) return { ok: false, error: error.message };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") {
+    return { ok: false, error: "create_pos_scan_session returned no row." };
+  }
+  const r = row as {
+    session_id: string;
+    pairing_code: string;
+    expires_at: string;
+  };
+  return {
+    ok: true,
+    data: {
+      sessionId: r.session_id,
+      pairingCode: r.pairing_code,
+      expiresAt: r.expires_at,
+    },
+  };
+}
+
+export async function revokePosScanSession(
+  client: SupabaseClient,
+  sessionId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("revoke_pos_scan_session", {
+    p_session_id: sessionId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "revoke_pos_scan_session returned no id." };
   return { ok: true, data };
 }

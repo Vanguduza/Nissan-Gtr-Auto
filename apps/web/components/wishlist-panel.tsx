@@ -5,7 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
   listWishlistItems,
+  moveWishlistItemToCart,
   removeWishlistItem,
+  setWishlistNotifyWhenInStock,
   type WishlistItemRow,
 } from "@/lib/customer-wishlist";
 import { requireSession } from "@/lib/customer-storefront";
@@ -67,6 +69,55 @@ export function WishlistPanel() {
     await refresh();
   }
 
+  async function onToggleNotify(item: WishlistItemRow) {
+    setBusy(true);
+    setMessage(null);
+    const client = createWebClient();
+    if (!client) {
+      setMessage("Supabase is not configured.");
+      setBusy(false);
+      return;
+    }
+    const next = !item.notify_when_in_stock;
+    const result = await setWishlistNotifyWhenInStock(client, {
+      notify: next,
+      wishlistId: item.id,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setMessage(result.error);
+      return;
+    }
+    setMessage(
+      next
+        ? "Notify when back in stock — on."
+        : "Back-in-stock notify — off.",
+    );
+    await refresh();
+  }
+
+  async function onMoveToCart(item: WishlistItemRow) {
+    setBusy(true);
+    setMessage(null);
+    const client = createWebClient();
+    if (!client) {
+      setMessage("Supabase is not configured.");
+      setBusy(false);
+      return;
+    }
+    const result = await moveWishlistItemToCart(client, {
+      wishlistId: item.id,
+      removeFromWishlist: true,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setMessage(result.error);
+      return;
+    }
+    setMessage("Moved to cart.");
+    await refresh();
+  }
+
   if (status.kind === "loading") {
     return <p className={styles.muted}>Loading wishlist…</p>;
   }
@@ -96,6 +147,10 @@ export function WishlistPanel() {
         <Link href="/catalog" className={styles.btnGhost}>
           catalog
         </Link>
+        .{" "}
+        <Link href="/cart" className={styles.btnGhost}>
+          View cart
+        </Link>
         .
       </p>
     );
@@ -115,6 +170,7 @@ export function WishlistPanel() {
               <span className={styles.muted}>
                 OEM <code>{oem}</code> · saved{" "}
                 {new Date(item.created_at).toLocaleDateString()}
+                {item.notify_when_in_stock ? " · notify on restock" : ""}
               </span>
               <br />
               <Link
@@ -123,6 +179,24 @@ export function WishlistPanel() {
               >
                 Open
               </Link>{" "}
+              <button
+                type="button"
+                className={styles.btn}
+                disabled={busy}
+                onClick={() => void onMoveToCart(item)}
+              >
+                Move to cart
+              </button>{" "}
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() => void onToggleNotify(item)}
+              >
+                {item.notify_when_in_stock
+                  ? "Stop restock notify"
+                  : "Notify when in stock"}
+              </button>{" "}
               <button
                 type="button"
                 className={styles.btnGhost}

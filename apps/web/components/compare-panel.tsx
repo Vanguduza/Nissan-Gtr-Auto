@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
 import styles from "@/components/account.module.css";
 import {
-  clearCompare,
-  MAX_COMPARE,
-  readCompareOems,
-  removeOemFromCompare,
-} from "@/lib/compare-selection";
+  clearCompareTray,
+  removeOemFromCompareTray,
+  syncLocalCompareToServer,
+} from "@/lib/customer-compare";
+import { MAX_COMPARE, readCompareOems } from "@/lib/compare-selection";
 import {
+  fitmentLabel,
   loadCatalogProduct,
   type CatalogProduct,
 } from "@/lib/catalog-product";
@@ -20,18 +21,114 @@ import { createWebClient } from "@/lib/supabase";
 
 type Status =
   | { kind: "loading" }
-  | { kind: "auth" }
+  | { kind: "auth"; oems: string[] }
   | { kind: "error"; message: string }
   | { kind: "ready"; products: CatalogProduct[]; missing: string[] };
+
+type MatrixRow = {
+  key: string;
+  label: string;
+  values: (string | null)[];
+};
+
+function buildMatrix(products: CatalogProduct[]): MatrixRow[] {
+  const fitmentSummary = (p: CatalogProduct) => {
+    const labels = [
+      ...new Set(
+        p.fitments.map(fitmentLabel).filter((label) => label.length > 0),
+      ),
+    ];
+    if (!labels.length) return "—";
+    return labels.slice(0, 3).join("; ") + (labels.length > 3 ? "…" : "");
+  };
+
+  return [
+    {
+      key: "oem",
+      label: "OEM",
+      values: products.map((p) => p.oem),
+    },
+    {
+      key: "name",
+      label: "Name",
+      values: products.map((p) => p.name),
+    },
+    {
+      key: "brand",
+      label: "Brand",
+      values: products.map((p) => p.brand),
+    },
+    {
+      key: "category",
+      label: "Category",
+      values: products.map((p) => p.category ?? "—"),
+    },
+    {
+      key: "stock",
+      label: "Stock",
+      values: products.map((p) => p.stock.replace("_", " ")),
+    },
+    {
+      key: "usd",
+      label: "Price USD",
+      values: products.map((p) =>
+        p.usd != null ? p.usd.toFixed(2) : "On request",
+      ),
+    },
+    {
+      key: "zig",
+      label: "Price ZIG",
+      values: products.map((p) =>
+        p.zig != null ? p.zig.toFixed(2) : "—",
+      ),
+    },
+    {
+      key: "core",
+      label: "Core charge USD",
+      values: products.map((p) =>
+        p.coreCharge > 0 ? p.coreCharge.toFixed(2) : "—",
+      ),
+    },
+    {
+      key: "fitments",
+      label: "Fitments",
+      values: products.map((p) => fitmentSummary(p)),
+    },
+    {
+      key: "specs",
+      label: "Specs",
+      values: products.map((p) =>
+        p.specs.length ? p.specs.slice(0, 4).join("; ") : "—",
+      ),
+    },
+    {
+      key: "oe",
+      label: "OE cross-refs",
+      values: products.map((p) =>
+        p.replaces.length ? p.replaces.slice(0, 4).join(", ") : "—",
+      ),
+    },
+    {
+      key: "alts",
+      label: "Alternatives",
+      values: products.map((p) =>
+        p.alternatives.length
+          ? p.alternatives
+              .slice(0, 3)
+              .map((a) => a.oem)
+              .join(", ")
+          : "—",
+      ),
+    },
+  ];
+}
 
 export function ComparePanel() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [oems, setOems] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const selected = readCompareOems();
-    setOems(selected);
-
     const client = createWebClient();
     if (!client) {
       setStatus({
@@ -42,9 +139,15 @@ export function ComparePanel() {
     }
     const session = await requireSession(client);
     if (!session.ok) {
-      setStatus({ kind: "auth" });
+      const guest = readCompareOems();
+      setOems(guest);
+      setStatus({ kind: "auth", oems: guest });
       return;
     }
+
+    const synced = await syncLocalCompareToServer(client);
+    const selected = synced.ok ? synced.data : readCompareOems();
+    setOems(selected);
 
     if (selected.length === 0) {
       setStatus({ kind: "ready", products: [], missing: [] });
@@ -67,13 +170,29 @@ export function ComparePanel() {
     void refresh();
   }, [refresh]);
 
-  function onRemove(oem: string) {
-    removeOemFromCompare(oem);
+  const matrix = useMemo(
+    () =>
+      status.kind === "ready" && status.products.length > 0
+        ? buildMatrix(status.products)
+        : [],
+    [status],
+  );
+
+  async function onRemove(oem: string) {
+    setBusy(true);
+    const client = createWebClient();
+    const session = client ? await requireSession(client) : null;
+    await removeOemFromCompareTray(client, oem, !!session?.ok);
+    setBusy(false);
     void refresh();
   }
 
-  function onClear() {
-    clearCompare();
+  async function onClear() {
+    setBusy(true);
+    const client = createWebClient();
+    const session = client ? await requireSession(client) : null;
+    await clearCompareTray(client, !!session?.ok);
+    setBusy(false);
     void refresh();
   }
 
@@ -83,9 +202,13 @@ export function ComparePanel() {
   if (status.kind === "auth") {
     return (
       <p className={styles.lede}>
-        <Link href="/login?next=/account/compare">Sign in</Link> to load live
-        catalog rows for your selected SKUs. Selection is kept in this browser
-        ({oems.length || readCompareOems().length} saved).
+        <Link href="/login?next=/account/compare">Sign in</Link> to sync compare
+        to your account and load live catalog rows. Guest selection stays in
+        this browser ({status.oems.length || oems.length} saved
+        {status.oems.length
+          ? `: ${status.oems.slice(0, 4).join(", ")}${status.oems.length > 4 ? "…" : ""}`
+          : ""}
+        ).
       </p>
     );
   }
@@ -104,7 +227,8 @@ export function ComparePanel() {
     return (
       <p className={styles.muted}>
         No SKUs selected (max {MAX_COMPARE}). Add parts from a PDP with Compare,
-        then return here.
+        then return here. Signed-in lists sync via server RPCs; guests use
+        browser storage.
       </p>
     );
   }
@@ -112,7 +236,12 @@ export function ComparePanel() {
   return (
     <div>
       <div className={styles.formActions} style={{ marginBottom: "1rem" }}>
-        <button type="button" className={styles.btnGhost} onClick={onClear}>
+        <button
+          type="button"
+          className={styles.btnGhost}
+          disabled={busy}
+          onClick={() => void onClear()}
+        >
           Clear all
         </button>
       </div>
@@ -121,6 +250,56 @@ export function ComparePanel() {
           Could not load: {status.missing.join(", ")}
         </p>
       ) : null}
+
+      {matrix.length > 0 ? (
+        <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
+          <table
+            style={{ width: "100%", fontSize: "0.88rem", borderCollapse: "collapse" }}
+            aria-label="Compare attribute matrix"
+          >
+            <thead>
+              <tr>
+                <th align="left" style={{ padding: "0.35rem 0.5rem" }}>
+                  Attribute
+                </th>
+                {status.products.map((p) => (
+                  <th
+                    key={p.id}
+                    align="left"
+                    style={{ padding: "0.35rem 0.5rem", minWidth: "9rem" }}
+                  >
+                    <code>{p.oem}</code>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matrix.map((row) => (
+                <tr key={row.key}>
+                  <td
+                    style={{
+                      padding: "0.35rem 0.5rem",
+                      fontWeight: 600,
+                      verticalAlign: "top",
+                    }}
+                  >
+                    {row.label}
+                  </td>
+                  {row.values.map((v, i) => (
+                    <td
+                      key={`${row.key}-${status.products[i]?.id ?? i}`}
+                      style={{ padding: "0.35rem 0.5rem", verticalAlign: "top" }}
+                    >
+                      {v}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
       <div className={styles.cardGrid}>
         {status.products.map((p) => (
           <div key={p.id} className={styles.card}>
@@ -149,7 +328,8 @@ export function ComparePanel() {
             <button
               type="button"
               className={styles.btnGhost}
-              onClick={() => onRemove(p.oem)}
+              disabled={busy}
+              onClick={() => void onRemove(p.oem)}
             >
               Remove
             </button>
