@@ -509,6 +509,93 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun suggestDeliveryAssignees(
+        deliveryJobId: String,
+        limit: Int,
+    ): List<DeliveryAssigneeSuggestion> {
+        require(deliveryJobId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SUGGEST_DELIVERY_ASSIGNEES,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                put("p_limit", limit.coerceIn(1, 50))
+            },
+        ).decodeList<AssigneeSuggestionRow>().map { it.toSummary() }
+    }
+
+    override suspend fun assignDeliveryJob(
+        deliveryJobId: String,
+        assigneeUserId: String,
+        override: Boolean,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        require(assigneeUserId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.ASSIGN_DELIVERY_JOB,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                put("p_assignee_user_id", assigneeUserId)
+                put("p_override", override)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun optimizeDriverStops(driverUserId: String): List<OptimizedDriverStop> {
+        require(driverUserId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.OPTIMIZE_DRIVER_STOPS,
+            buildJsonObject { put("p_driver_user_id", driverUserId) },
+        ).decodeList<OptimizedStopRow>().map { it.toSummary() }
+    }
+
+    override suspend fun getDeliveryTrackPoint(deliveryJobId: String): DeliveryTrackPoint? {
+        require(deliveryJobId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.GET_DELIVERY_TRACK_POINT,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                put("p_token", JsonNull)
+            },
+        ).decodeList<TrackPointRow>().firstOrNull()?.toSummary()
+    }
+
+    override suspend fun listOpenPanicEvents(): List<PanicEventSummary> {
+        return client.from("panic_events")
+            .select(
+                Columns.list(
+                    "id",
+                    "driver_user_id",
+                    "delivery_job_id",
+                    "lat",
+                    "lng",
+                    "created_at",
+                    "acknowledged_at",
+                    "acknowledged_by",
+                ),
+            ) {
+                filter { exact("acknowledged_at", null) }
+                order("created_at", Order.DESCENDING)
+                limit(50)
+            }
+            .decodeList<PanicEventRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun acknowledgePanicEvent(panicEventId: String): String {
+        require(panicEventId.isNotBlank())
+        val uid = currentUserId() ?: error("signed-in user required to acknowledge panic")
+        val now = java.time.Instant.now().toString()
+        client.from("panic_events").update(
+            {
+                set("acknowledged_at", now)
+                set("acknowledged_by", uid)
+            },
+        ) {
+            filter { eq("id", panicEventId) }
+        }
+        return panicEventId
+    }
+
     override suspend fun listMyStaffRoles(): List<String> {
         val uid = currentUserId() ?: return emptyList()
         return client.from("staff_roles")
