@@ -239,7 +239,8 @@ public final class FakeStorefrontApi: StorefrontApi {
     }
 }
 
-/// Factory — Fake when env missing / force-fake; Live when URL + anon present.
+/// Factory — **prefer Live** when URL + anon present; Fake when env missing / force-fake /
+/// Live init failure.
 ///
 /// Live uses URLSession PostgREST (`POST …/rest/v1/rpc/{name}`) so Windows scaffolds
 /// need no supabase-swift resolve. On macOS you may later swap the transport for SPM
