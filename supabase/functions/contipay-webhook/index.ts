@@ -62,12 +62,9 @@ Deno.serve(async (req) => {
         "",
     ).trim();
     const status = String(payload.status ?? "").toLowerCase();
+    // Allowlist settle success — do not treat unknown statuses as paid.
     const success =
-      payload.success !== false &&
-      status !== "failed" &&
-      status !== "error" &&
-      status !== "cancelled" &&
-      status !== "canceled";
+      status === "paid" || status === "success" || status === "completed";
     const payload_hash = await sha256Hex(raw);
 
     if (!external_ref) {
