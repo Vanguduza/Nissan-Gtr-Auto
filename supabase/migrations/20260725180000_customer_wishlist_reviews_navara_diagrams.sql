@@ -330,7 +330,8 @@ GRANT EXECUTE ON FUNCTION public.moderate_customer_product_review(UUID, public.p
 -- ---------------------------------------------------------------------------
 -- Navara D40 / YD25 catalog + diagram_path seed (fixtures; no live scrape)
 -- Binary PNGs live under data-pipeline/fixtures/navara_d40_yd25/diagrams/;
--- upload into Storage via supabase/seed_catalog_diagrams.mjs after db reset.
+-- upload into Storage via: node supabase/seed_catalog_diagrams.mjs --docker
+-- (local file backend path /mnt/stub/stub/catalog-diagrams/…; API upsert also supported).
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
