@@ -56,6 +56,10 @@ verify_jwt = false
 [functions.paynow-webhook]
 verify_jwt = false
 
+# Meta cannot send a Supabase JWT — AuthZ is X-Hub-Signature-256 in handler.
+[functions.whatsapp-webhook]
+verify_jwt = false
+
 [functions.contipay-initiate]
 verify_jwt = true
 
