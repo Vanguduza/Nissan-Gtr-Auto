@@ -77,6 +77,11 @@ export function B2bPricePanel() {
       isTrade: resolved.data.isTrade,
       sample,
       displayName: resolved.data.customer?.display_name ?? null,
+      creditLimit: Number(resolved.data.customer?.credit_limit ?? 0),
+      creditHold: !!resolved.data.customer?.credit_hold,
+      openBalance: Number(resolved.data.customer?.open_balance ?? 0),
+      accountCurrency:
+        resolved.data.customer?.currency === "ZIG" ? "ZIG" : "USD",
     });
   }, []);
 
