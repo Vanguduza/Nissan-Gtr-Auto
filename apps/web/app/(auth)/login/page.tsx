@@ -19,7 +19,11 @@ import styles from "./auth.module.css";
 
 const DEFAULT_COUNTRY_OPTION =
   COUNTRY_DIAL_CODES.find((c) => c.dial === DEFAULT_COUNTRY_DIAL && c.iso === "ZW") ??
-  COUNTRY_DIAL_CODES.find((c) => c.dial === DEFAULT_COUNTRY_DIAL)!;
+  COUNTRY_DIAL_CODES.find((c) => c.dial === DEFAULT_COUNTRY_DIAL) ?? {
+    iso: "ZW",
+    name: "Zimbabwe",
+    dial: DEFAULT_COUNTRY_DIAL,
+  };
 
 function safeNext(raw: string | null): string | null {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
