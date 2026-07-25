@@ -1,0 +1,51 @@
+.list {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem 1rem;
+  padding: 1.1rem 1.15rem;
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.1);
+  border-radius: 10px;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 8px;
+  color: var(--gtr-red);
+  background: color-mix(in srgb, var(--gtr-red) 10%, white);
+}
+
+.itemTitle {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.itemBody {
+  margin: 0 0 0.85rem;
+  max-width: 48ch;
+  color: rgba(18, 21, 28, 0.7);
+  line-height: 1.45;
+}
+
+.textLink {
+  font-weight: 700;
+  color: var(--gtr-red);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
