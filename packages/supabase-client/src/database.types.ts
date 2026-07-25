@@ -1176,6 +1176,9 @@ export type Database = {
           eta_updated_at: string | null
           failed_at: string | null
           failure_reason: string | null
+          failure_reason_code: Database["public"]["Enums"]["delivery_failure_reason"] | null
+          reattempt_of: string | null
+          route_sequence: number | null
           id: string
           notes: string | null
           pickup_lat: number | null
@@ -1202,6 +1205,9 @@ export type Database = {
           eta_updated_at?: string | null
           failed_at?: string | null
           failure_reason?: string | null
+          failure_reason_code?: Database["public"]["Enums"]["delivery_failure_reason"] | null
+          reattempt_of?: string | null
+          route_sequence?: number | null
           id?: string
           notes?: string | null
           pickup_lat?: number | null
@@ -1228,6 +1234,9 @@ export type Database = {
           eta_updated_at?: string | null
           failed_at?: string | null
           failure_reason?: string | null
+          failure_reason_code?: Database["public"]["Enums"]["delivery_failure_reason"] | null
+          reattempt_of?: string | null
+          route_sequence?: number | null
           id?: string
           notes?: string | null
           pickup_lat?: number | null
@@ -1243,6 +1252,13 @@ export type Database = {
             columns: ["delivery_note_id"]
             isOneToOne: false
             referencedRelation: "delivery_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_jobs_reattempt_of_fkey"
+            columns: ["reattempt_of"]
+            isOneToOne: false
+            referencedRelation: "delivery_jobs"
             referencedColumns: ["id"]
           },
         ]
@@ -1282,6 +1298,103 @@ export type Database = {
           },
         ]
       }
+      delivery_pod_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          delivery_job_id: string
+          expires_at: string
+          id: string
+          max_attempts: number
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          delivery_job_id: string
+          expires_at: string
+          id?: string
+          max_attempts?: number
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          delivery_job_id?: string
+          expires_at?: string
+          id?: string
+          max_attempts?: number
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_pod_otps_delivery_job_id_fkey"
+            columns: ["delivery_job_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      panic_events: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          delivery_job_id: string | null
+          driver_user_id: string
+          id: string
+          lat: number | null
+          lng: number | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          delivery_job_id?: string | null
+          driver_user_id: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          delivery_job_id?: string | null
+          driver_user_id?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "panic_events_delivery_job_id_fkey"
+            columns: ["delivery_job_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "panic_events_driver_user_id_fkey"
+            columns: ["driver_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "panic_events_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+
       driver_presence: {
         Row: {
           capacity: number
@@ -6259,6 +6372,54 @@ export type Database = {
           stock_item_id: string
         }[]
       }
+      generate_delivery_pod_otp: {
+        Args: { p_delivery_job_id: string; p_ttl?: string }
+        Returns: string
+      }
+      verify_delivery_pod_otp: {
+        Args: { p_delivery_job_id: string; p_code: string }
+        Returns: boolean
+      }
+      delivery_geofence_suggestion: {
+        Args: {
+          p_arrive_radius_m?: number
+          p_complete_radius_m?: number
+          p_delivery_job_id: string
+          p_lat: number
+          p_lng: number
+        }
+        Returns: {
+          distance_m: number | null
+          suggest_arrive: boolean
+          suggest_complete: boolean
+        }[]
+      }
+      fail_delivery_job: {
+        Args: {
+          p_create_reattempt?: boolean
+          p_delivery_job_id: string
+          p_notes?: string
+          p_reason: Database["public"]["Enums"]["delivery_failure_reason"]
+        }
+        Returns: string
+      }
+      raise_delivery_panic: {
+        Args: {
+          p_delivery_job_id?: string
+          p_lat?: number
+          p_lng?: number
+        }
+        Returns: string
+      }
+      optimize_driver_stops: {
+        Args: { p_driver_user_id: string }
+        Returns: {
+          delivery_job_id: string
+          distance_m: number | null
+          route_sequence: number
+        }[]
+      }
+
       get_delivery_track_point: {
         Args: { p_delivery_job_id?: string; p_token?: string }
         Returns: {
@@ -6812,6 +6973,12 @@ export type Database = {
       sms_outbox_status: "pending" | "sending" | "sent" | "failed" | "cancelled"
       delivery_completed_via: "pod" | "manual" | "admin"
       delivery_eta_source: "haversine" | "osrm" | "manual"
+      delivery_failure_reason:
+        | "customer_absent"
+        | "refused"
+        | "wrong_address"
+        | "damaged"
+        | "other"
       driver_presence_status: "available" | "on_duty" | "break" | "offline"
       staff_role:
         | "admin"
@@ -7041,6 +7208,13 @@ export const Constants = {
       sms_outbox_status: ["pending", "sending", "sent", "failed", "cancelled"],
       delivery_completed_via: ["pod", "manual", "admin"],
       delivery_eta_source: ["haversine", "osrm", "manual"],
+      delivery_failure_reason: [
+        "customer_absent",
+        "refused",
+        "wrong_address",
+        "damaged",
+        "other",
+      ],
       driver_presence_status: ["available", "on_duty", "break", "offline"],
       staff_role: [
         "admin",
