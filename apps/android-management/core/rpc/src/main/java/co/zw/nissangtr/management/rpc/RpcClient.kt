@@ -39,6 +39,7 @@ interface RpcClient {
     /**
      * Bridge-decoded inventory QR payload → cart line.
      * Payload must match `gtr://part/{OEM}?batch=…&valuation=FIFO|AVG`.
+     * Standalone staff OR claimed companion — session never required for staff.
      */
     suspend fun addCartLineFromQr(
         cartId: String,
@@ -46,13 +47,46 @@ interface RpcClient {
         qty: Double = 1.0,
     ): String
 
-    suspend fun checkoutPosCart(cartId: String): String
+    /**
+     * Checkout with optional receipt contacts (email / WhatsApp / phone).
+     * Same RPC for standalone and paired flows. Returns invoice + bind hint.
+     */
+    suspend fun checkoutPosCart(
+        cartId: String,
+        receiptEmail: String? = null,
+        receiptWhatsappE164: String? = null,
+        receiptPhoneE164: String? = null,
+    ): CheckoutPosResult
 
     /**
      * Resolve OEM (from parsed inventory QR) to stock_item + base UOM.
      * Used by warehouse receive / cycle-count after bridge scan — not inside the bridge.
      */
     suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef
+
+    /** 4-way catalog search for standalone POS add-to-cart. */
+    suspend fun searchCatalog(
+        mode: CatalogSearchMode,
+        query: String,
+    ): CatalogSearchResult
+
+    /** Open cart lines (poll refresh for companion scans). */
+    suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary>
+
+    /** Whether cart already has a customer_id (for bind messaging). */
+    suspend fun getPosCartCustomerId(cartId: String): String?
+
+    /** Warehouses for POS till picker (PostgREST + RLS). */
+    suspend fun listWarehouses(): List<WarehouseRef>
+
+    /** Optional companion: owner creates pairing code for phone scanner. */
+    suspend fun createPosScanSession(cartId: String): PosScanSessionCreated
+
+    /** Optional companion: phone claims 6-digit code → session id. */
+    suspend fun claimPosScanSession(pairingCode: String): String
+
+    /** Close companion scanner rights. */
+    suspend fun revokePosScanSession(sessionId: String): String
 
     // --- Warehouse ---
 
