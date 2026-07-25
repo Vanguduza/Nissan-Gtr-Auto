@@ -1663,6 +1663,155 @@ private data class StockItemOemRow(
     @SerialName("oem_part_number") val oemPartNumber: String,
 )
 
+@Serializable
+private data class CustomerOptionRow(
+    val id: String,
+    @SerialName("display_name") val displayName: String,
+)
+
+@Serializable
+private data class SupplierRow(
+    val id: String,
+    val code: String,
+    val name: String,
+)
+
+@Serializable
+private data class BlanketPoRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String,
+    val status: String,
+    @SerialName("supplier_id") val supplierId: String,
+    @SerialName("warehouse_id") val warehouseId: String,
+    val currency: String,
+    @SerialName("blanket_max_value") val blanketMaxValue: Double? = null,
+    @SerialName("blanket_value_released") val blanketValueReleased: Double? = null,
+    @SerialName("expected_date") val expectedDate: String? = null,
+)
+
+@Serializable
+private data class BlanketLineRow(
+    val id: String,
+    @SerialName("purchase_order_id") val purchaseOrderId: String,
+    @SerialName("line_no") val lineNo: Int,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("qty_ordered") val qtyOrdered: Double,
+    @SerialName("qty_released") val qtyReleased: Double = 0.0,
+    @SerialName("unit_price") val unitPrice: Double,
+    val currency: String,
+)
+
+@Serializable
+private data class WarehouseBinRow(
+    val id: String,
+    @SerialName("warehouse_id") val warehouseId: String,
+    val code: String,
+    val name: String,
+    @SerialName("pick_path_seq") val pickPathSeq: Int = 100,
+    val aisle: String? = null,
+    val rack: String? = null,
+    val shelf: String? = null,
+    @SerialName("is_active") val isActive: Boolean = true,
+) {
+    fun toSummary() = WarehouseBinSummary(
+        id = id,
+        warehouseId = warehouseId,
+        code = code,
+        name = name,
+        pickPathSeq = pickPathSeq,
+        aisle = aisle,
+        rack = rack,
+        shelf = shelf,
+        isActive = isActive,
+    )
+}
+
+@Serializable
+private data class PickPathHintRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("oem_part_number") val oemPartNumber: String? = null,
+    val quantity: Double = 0.0,
+    @SerialName("bin_id") val binId: String? = null,
+    @SerialName("bin_code") val binCode: String? = null,
+    @SerialName("bin_name") val binName: String? = null,
+    @SerialName("pick_path_seq") val pickPathSeq: Int? = null,
+    val aisle: String? = null,
+    val rack: String? = null,
+    val shelf: String? = null,
+) {
+    fun toSummary() = PickPathHint(
+        stockItemId = stockItemId,
+        oemPartNumber = oemPartNumber,
+        quantity = quantity,
+        binId = binId,
+        binCode = binCode,
+        binName = binName,
+        pickPathSeq = pickPathSeq,
+        aisle = aisle,
+        rack = rack,
+        shelf = shelf,
+    )
+}
+
+@Serializable
+private data class ConsignmentEntryRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String,
+    val status: String,
+    val kind: String,
+    val purpose: String,
+    @SerialName("warehouse_id") val warehouseId: String,
+    @SerialName("supplier_id") val supplierId: String? = null,
+    @SerialName("customer_id") val customerId: String? = null,
+    val currency: String = "USD",
+) {
+    fun toSummary() = ConsignmentEntrySummary(
+        id = id,
+        documentNumber = documentNumber,
+        status = status,
+        kind = kind,
+        purpose = purpose,
+        warehouseId = warehouseId,
+        supplierId = supplierId,
+        customerId = customerId,
+        currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
+    )
+}
+
+@Serializable
+private data class CustomerCreditRow(
+    val id: String,
+    @SerialName("credit_limit") val creditLimit: Double = 0.0,
+    @SerialName("credit_hold") val creditHold: Boolean = false,
+    @SerialName("open_balance") val openBalance: Double = 0.0,
+    val currency: String? = null,
+) {
+    fun toSnapshot() = CustomerCreditSnapshot(
+        customerId = id,
+        creditLimit = creditLimit,
+        creditHold = creditHold,
+        openBalance = openBalance,
+        currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
+    )
+}
+
+@Serializable
+private data class CustomerCreditRpcRow(
+    @SerialName("customer_id") val customerId: String,
+    @SerialName("credit_limit") val creditLimit: Double = 0.0,
+    @SerialName("credit_hold") val creditHold: Boolean = false,
+    @SerialName("open_balance") val openBalance: Double = 0.0,
+    val currency: String = "USD",
+) {
+    fun toSnapshot() = CustomerCreditSnapshot(
+        customerId = customerId,
+        creditLimit = creditLimit,
+        creditHold = creditHold,
+        openBalance = openBalance,
+        currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
+    )
+}
+
 private fun parseCatalogSearchResult(
     raw: kotlinx.serialization.json.JsonObject,
     fallbackMode: CatalogSearchMode,
