@@ -1,9 +1,26 @@
 -- Shop-floor POS Phase 2 smoke: standalone checkout+contacts+bind (no session);
--- optional pairing create/claim/revoke; OTP stub gate documented in Edge smoke_test.
--- Run as postgres (local supabase). Needs MAIN warehouse, EA uom.
+-- optional pairing create/claim/revoke. OTP stub gate: auth-otp/smoke_test.ts
+-- Run as postgres after migrations + seed.
+
+CREATE OR REPLACE FUNCTION public._test_set_auth_uid(p_uid UUID)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', p_uid::text, true);
+  PERFORM set_config(
+    'request.jwt.claims',
+    json_build_object('sub', p_uid::text, 'role', 'authenticated')::text,
+    true
+  );
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+END;
+$$;
 
 DO $$
 DECLARE
+  v_admin UUID := 'a0000000-0000-4000-8000-000000000001';
+  v_cust_user UUID := 'c0000000-0000-4000-8000-0000000000p2';
   v_main UUID;
   v_uom UUID;
   v_item UUID;
@@ -14,7 +31,6 @@ DECLARE
   v_inv UUID;
   v_cust UUID;
   v_bound UUID;
-  v_profile UUID;
   v_session UUID;
   v_code TEXT;
   v_exp TIMESTAMPTZ;
@@ -26,8 +42,8 @@ BEGIN
   SELECT id INTO v_list_retail FROM public.price_lists WHERE code = 'RETAIL';
   SELECT id INTO v_list_b2b FROM public.price_lists WHERE code = 'B2B';
 
-  IF v_main IS NULL OR v_uom IS NULL THEN
-    RAISE EXCEPTION 'smoke fail: MAIN warehouse or EA uom missing';
+  IF v_main IS NULL OR v_uom IS NULL OR v_list_b2b IS NULL THEN
+    RAISE EXCEPTION 'smoke fail: seed warehouses/price lists missing';
   END IF;
 
   INSERT INTO public.stock_items (oem_part_number, description, base_uom_id)
@@ -43,6 +59,7 @@ BEGIN
   ON CONFLICT (price_list_id, stock_item_id) DO UPDATE
   SET unit_price = 40, core_charge = 0;
 
+  PERFORM public._test_set_auth_uid(v_admin);
   PERFORM public.post_stock_receipt(
     v_main,
     'P2 POS smoke seed',
@@ -58,20 +75,33 @@ BEGIN
     )
   );
 
-  -- Registered trade customer for bind (B2B + profile)
-  v_profile := gen_random_uuid();
-  INSERT INTO auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+  -- Registered trade customer for bind (B2B + profile) — not staff
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change
+  )
   VALUES (
-    v_profile, 'authenticated', 'authenticated',
-    'pos-smoke-bind@example.com', crypt('smoke-not-login', gen_salt('bf')),
-    now(), now(), now()
+    '00000000-0000-0000-0000-000000000000',
+    v_cust_user,
+    'authenticated',
+    'authenticated',
+    'pos-smoke-bind@example.com',
+    crypt('local-dev-customer', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"POS Smoke Bound"}'::jsonb,
+    now(), now(), '', '', '', ''
   )
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO public.profiles (id, full_name, is_staff, phone_e164)
-  VALUES (v_profile, 'POS Smoke Bound', false, '+263771900001')
+  VALUES (v_cust_user, 'POS Smoke Bound', false, '+263771900001')
   ON CONFLICT (id) DO UPDATE
-  SET phone_e164 = EXCLUDED.phone_e164, full_name = EXCLUDED.full_name;
+  SET phone_e164 = EXCLUDED.phone_e164, full_name = EXCLUDED.full_name, is_staff = false;
+
+  DELETE FROM public.customers
+  WHERE email = 'pos-smoke-bind@example.com' OR phone_e164 = '+263771900001';
 
   INSERT INTO public.customers (
     display_name, email, phone_e164, whatsapp_e164, price_list_id, profile_id, currency
@@ -82,7 +112,7 @@ BEGIN
     '+263771900001',
     '+263771900001',
     v_list_b2b,
-    v_profile,
+    v_cust_user,
     'USD'
   )
   RETURNING id INTO v_cust;
@@ -90,7 +120,10 @@ BEGIN
   -- -----------------------------------------------------------------------
   -- Standalone: add line WITHOUT scan session → checkout with contacts → bind
   -- -----------------------------------------------------------------------
-  v_cart := public.create_pos_cart(v_main, NULL, 'USD'::public.currency_code, 'immediate'::public.fulfillment_mode);
+  PERFORM public._test_set_auth_uid(v_admin);
+  v_cart := public.create_pos_cart(
+    v_main, NULL, 'USD'::public.currency_code, 'immediate'::public.fulfillment_mode
+  );
 
   IF EXISTS (
     SELECT 1 FROM public.pos_scan_sessions
@@ -139,7 +172,6 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: receipt outbox not enqueued';
   END IF;
 
-  -- Ambiguous / retail-only walk-in must not bind
   IF public.resolve_customer_for_receipt_contacts('nobody@example.com', NULL, NULL) IS NOT NULL THEN
     RAISE EXCEPTION 'smoke fail: unbound contact must return null';
   END IF;
@@ -147,44 +179,37 @@ BEGIN
   -- -----------------------------------------------------------------------
   -- Optional companion: create → claim (same owner) → revoke
   -- -----------------------------------------------------------------------
-  -- Need a staff profile as auth.uid(); smokes run as postgres — set JWT claim via
-  -- request.jwt.claim.sub is unavailable; use service path: set local role simulation
-  -- by inserting session rows through RPCs after setting auth.uid via set_config.
-  -- For SECURITY DEFINER RPCs that call auth.uid(), use a test staff user + GUC.
-  PERFORM set_config('request.jwt.claim.sub', v_profile::text, true);
-  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
-  PERFORM set_config('role', 'authenticated', true);
-
-  -- Elevate smoke profile to sales for pairing RPCs
-  INSERT INTO public.staff_roles (user_id, role)
-  VALUES (v_profile, 'sales')
-  ON CONFLICT DO NOTHING;
-  UPDATE public.profiles SET is_staff = true WHERE id = v_profile;
-
-  v_cart2 := public.create_pos_cart(v_main, NULL, 'USD'::public.currency_code, 'immediate'::public.fulfillment_mode);
+  PERFORM public._test_set_auth_uid(v_admin);
+  v_cart2 := public.create_pos_cart(
+    v_main, NULL, 'USD'::public.currency_code, 'immediate'::public.fulfillment_mode
+  );
 
   SELECT s.session_id, s.pairing_code, s.expires_at
   INTO v_session, v_code, v_exp
   FROM public.create_pos_scan_session(v_cart2) AS s;
 
-  IF v_session IS NULL OR v_code !~ '^[0-9]{6}$' THEN
+  IF v_session IS NULL OR v_code !~ '^[0-9]{6}$' OR v_exp IS NULL THEN
     RAISE EXCEPTION 'smoke fail: create_pos_scan_session';
   END IF;
 
-  -- Standalone line-add still works WITH an open session present
+  -- Line-add still works with an open companion session present
   PERFORM public.add_cart_line(v_cart2, v_item, v_uom, 1);
 
   v_session := public.claim_pos_scan_session(v_code);
   IF NOT EXISTS (
     SELECT 1 FROM public.pos_scan_sessions
-    WHERE id = v_session AND status = 'claimed' AND scanner_user_id = v_profile
+    WHERE id = v_session AND status = 'claimed' AND scanner_user_id = v_admin
   ) THEN
     RAISE EXCEPTION 'smoke fail: claim_pos_scan_session';
   END IF;
 
   PERFORM public.add_cart_line_from_qr(
     v_cart2,
-    format('gtr://part/%s?batch=%s&valuation=FIFO', 'P2-POS-SMOKE-001', gen_random_uuid()::text),
+    format(
+      'gtr://part/%s?batch=%s&valuation=FIFO',
+      'P2-POS-SMOKE-001',
+      gen_random_uuid()::text
+    ),
     1
   );
 
@@ -195,7 +220,6 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: revoke_pos_scan_session';
   END IF;
 
-  -- Checkout still works after revoke (no session required)
   v_inv := public.checkout_pos_cart(v_cart2, NULL, NULL, NULL);
   IF NOT EXISTS (
     SELECT 1 FROM public.sales_invoices WHERE id = v_inv AND status = 'posted'
@@ -203,8 +227,6 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: checkout after revoke';
   END IF;
 
-  -- OTP stub gate is Edge-only: see supabase/functions/auth-otp/smoke_test.ts
-  -- AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset → stub code 000000
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'phone_e164'
@@ -227,7 +249,7 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: pos_scan_sessions RLS not enabled';
   END IF;
 
-  RAISE NOTICE 'pos_scan_companion_otp_smoke: PASS inv=% outbox=% session_revoked=%',
+  RAISE NOTICE 'pos_scan_companion_otp_smoke: PASS inv=% outbox=% session=%',
     v_inv, v_outbox, v_session;
 END;
 $$;
