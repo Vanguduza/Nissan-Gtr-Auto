@@ -775,3 +775,415 @@ export async function setZigExchangeRate(
   if (!data) return { ok: false, error: "set_zig_exchange_rate returned no id." };
   return { ok: true, data: data as string };
 }
+
+// ---------------------------------------------------------------------------
+// Period balances, GL register, petty replenish, finance requisitions
+// (RPCs from 20260725250000 — types pending database.types regen)
+// ---------------------------------------------------------------------------
+
+/** Untyped RPC bridge until supabase gen types includes period/requisition RPCs. */
+async function financeRpc(
+  client: SupabaseClient,
+  fn: string,
+  args?: Record<string, unknown>,
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  const { data, error } = await (
+    client as unknown as {
+      rpc: (
+        name: string,
+        params?: Record<string, unknown>,
+      ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc(fn, args);
+  return { data, error };
+}
+
+/** Untyped table query until database.types includes new finance tables. */
+function financeFrom(client: SupabaseClient, table: string) {
+  return (
+    client as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            eq: (col: string, val: string) => {
+              eq: (col: string, val: string) => {
+                order: (
+                  col: string,
+                  opts?: { ascending?: boolean },
+                ) => {
+                  limit: (n: number) => PromiseLike<{
+                    data: unknown;
+                    error: { message: string } | null;
+                  }>;
+                  maybeSingle: () => PromiseLike<{
+                    data: unknown;
+                    error: { message: string } | null;
+                  }>;
+                };
+                maybeSingle: () => PromiseLike<{
+                  data: unknown;
+                  error: { message: string } | null;
+                }>;
+              };
+              order: (
+                col: string,
+                opts?: { ascending?: boolean },
+              ) => {
+                limit: (n: number) => PromiseLike<{
+                  data: unknown;
+                  error: { message: string } | null;
+                }>;
+              };
+              maybeSingle: () => PromiseLike<{
+                data: unknown;
+                error: { message: string } | null;
+              }>;
+            };
+            order: (
+              col: string,
+              opts?: { ascending?: boolean },
+            ) => {
+              limit: (n: number) => PromiseLike<{
+                data: unknown;
+                error: { message: string } | null;
+              }>;
+              maybeSingle: () => PromiseLike<{
+                data: unknown;
+                error: { message: string } | null;
+              }>;
+            };
+            maybeSingle: () => PromiseLike<{
+              data: unknown;
+              error: { message: string } | null;
+            }>;
+            limit: (n: number) => PromiseLike<{
+              data: unknown;
+              error: { message: string } | null;
+            }>;
+          };
+          order: (
+            col: string,
+            opts?: { ascending?: boolean },
+          ) => {
+            limit: (n: number) => PromiseLike<{
+              data: unknown;
+              error: { message: string } | null;
+            }>;
+          };
+          limit: (n: number) => PromiseLike<{
+            data: unknown;
+            error: { message: string } | null;
+          }>;
+        };
+      };
+    }
+  ).from(table);
+}
+
+export type AccountRegisterRow = {
+  entry_date: string;
+  document_number: string | null;
+  description: string | null;
+  debit: number;
+  credit: number;
+  running_balance: number;
+  currency: CurrencyCode;
+  journal_entry_id: string;
+};
+
+export type AccountPeriodBalanceOption = {
+  id: string;
+  account_code: string;
+  currency: CurrencyCode;
+  period_start: string;
+  period_end: string;
+  opening_balance: number;
+  closing_balance: number | null;
+  status: "open" | "closed";
+  notes: string | null;
+  physical_count: number | null;
+  variance: number | null;
+  opened_at: string;
+  closed_at: string | null;
+};
+
+export type FinanceRequisitionType = "petty_cash" | "payment";
+export type FinanceRequisitionStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "disbursed"
+  | "cancelled";
+
+export type FinanceRequisitionOption = {
+  id: string;
+  document_number: string | null;
+  req_type: FinanceRequisitionType;
+  status: FinanceRequisitionStatus;
+  amount: number;
+  currency: CurrencyCode;
+  exchange_rate_applied: number | null;
+  payee: string | null;
+  memo: string | null;
+  expense_account_code: string;
+  cash_account_code: string;
+  requested_by: string;
+  submitted_at: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  disbursed_at: string | null;
+  journal_entry_id: string | null;
+  created_at: string;
+};
+
+export async function reportAccountRegister(
+  client: SupabaseClient,
+  args: {
+    accountCode: string;
+    from: string;
+    to: string;
+    currency?: CurrencyCode | null;
+  },
+): Promise<StorefrontResult<AccountRegisterRow[]>> {
+  const { data, error } = await financeRpc(client, "report_account_register", {
+    p_account_code: args.accountCode,
+    p_from: args.from,
+    p_to: args.to,
+    p_currency: args.currency ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
+  const rows = ((data as AccountRegisterRow[]) ?? []).map((r) => ({
+    entry_date: String(r.entry_date),
+    document_number: r.document_number ?? null,
+    description: r.description ?? null,
+    debit: Number(r.debit ?? 0),
+    credit: Number(r.credit ?? 0),
+    running_balance: Number(r.running_balance ?? 0),
+    currency: r.currency,
+    journal_entry_id: String(r.journal_entry_id),
+  }));
+  return { ok: true, data: rows };
+}
+
+export async function openAccountPeriod(
+  client: SupabaseClient,
+  args: {
+    accountCode: string;
+    currency: CurrencyCode;
+    periodStart: string;
+    periodEnd: string;
+    openingBalance?: number;
+    notes?: string;
+  },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(client, "open_account_period", {
+    p_account_code: args.accountCode,
+    p_currency: args.currency,
+    p_period_start: args.periodStart,
+    p_period_end: args.periodEnd,
+    p_opening_balance: args.openingBalance ?? 0,
+    p_notes: args.notes?.trim() || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "open_account_period returned no id." };
+  return { ok: true, data: data as string };
+}
+
+export async function closeAccountPeriod(
+  client: SupabaseClient,
+  args: {
+    periodId: string;
+    physicalCount?: number | null;
+    notes?: string;
+  },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(client, "close_account_period", {
+    p_period_id: args.periodId,
+    p_physical_count:
+      args.physicalCount != null && Number.isFinite(args.physicalCount)
+        ? args.physicalCount
+        : null,
+    p_notes: args.notes?.trim() || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "close_account_period returned no id." };
+  return { ok: true, data: data as string };
+}
+
+export async function getOpenAccountPeriod(
+  client: SupabaseClient,
+  args: { accountCode: string; currency: CurrencyCode },
+): Promise<StorefrontResult<AccountPeriodBalanceOption | null>> {
+  const { data, error } = await financeFrom(client, "account_period_balances")
+    .select(
+      "id, account_code, currency, period_start, period_end, opening_balance, closing_balance, status, notes, physical_count, variance, opened_at, closed_at",
+    )
+    .eq("account_code", args.accountCode)
+    .eq("currency", args.currency)
+    .eq("status", "open")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: true, data: null };
+  const r = data as AccountPeriodBalanceOption;
+  return {
+    ok: true,
+    data: {
+      ...r,
+      opening_balance: Number(r.opening_balance),
+      closing_balance:
+        r.closing_balance != null ? Number(r.closing_balance) : null,
+      physical_count:
+        r.physical_count != null ? Number(r.physical_count) : null,
+      variance: r.variance != null ? Number(r.variance) : null,
+    },
+  };
+}
+
+export async function pettyCashFundingAccountCode(
+  client: SupabaseClient,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(
+    client,
+    "petty_cash_funding_account_code",
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: String(data ?? "1100") };
+}
+
+export async function computePettyCashReplenishAmount(
+  client: SupabaseClient,
+  args?: { currency?: CurrencyCode; asOf?: string },
+): Promise<StorefrontResult<number>> {
+  const { data, error } = await financeRpc(
+    client,
+    "compute_petty_cash_replenish_amount",
+    {
+      p_currency: args?.currency ?? "USD",
+      p_as_of: args?.asOf ?? null,
+    },
+  );
+  if (error) return { ok: false, error: error.message };
+  const n = Number(data ?? 0);
+  if (!Number.isFinite(n)) {
+    return { ok: false, error: "compute_petty_cash_replenish_amount returned non-numeric." };
+  }
+  return { ok: true, data: n };
+}
+
+export async function listFinanceRequisitions(
+  client: SupabaseClient,
+  limit = 40,
+): Promise<StorefrontResult<FinanceRequisitionOption[]>> {
+  const { data, error } = await financeFrom(client, "finance_requisitions")
+    .select(
+      "id, document_number, req_type, status, amount, currency, exchange_rate_applied, payee, memo, expense_account_code, cash_account_code, requested_by, submitted_at, approved_at, rejected_at, rejection_reason, disbursed_at, journal_entry_id, created_at",
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return { ok: false, error: error.message };
+  const rows = ((data as FinanceRequisitionOption[]) ?? []).map((r) => ({
+    ...r,
+    amount: Number(r.amount),
+    exchange_rate_applied:
+      r.exchange_rate_applied != null
+        ? Number(r.exchange_rate_applied)
+        : null,
+  }));
+  return { ok: true, data: rows };
+}
+
+export async function createFinanceRequisition(
+  client: SupabaseClient,
+  args: {
+    reqType: FinanceRequisitionType;
+    amount: number;
+    currency: CurrencyCode;
+    payee?: string;
+    memo?: string;
+    expenseAccountCode?: string;
+    cashAccountCode?: string;
+    exchangeRate?: number;
+  },
+): Promise<StorefrontResult<string>> {
+  const exchangeRate =
+    args.currency === "ZIG"
+      ? (args.exchangeRate ?? zigExchangeRate())
+      : (args.exchangeRate ?? 1);
+  const { data, error } = await financeRpc(client, "create_finance_requisition", {
+    p_req_type: args.reqType,
+    p_amount: args.amount,
+    p_currency: args.currency,
+    p_payee: args.payee?.trim() || null,
+    p_memo: args.memo?.trim() || null,
+    p_expense_account_code: args.expenseAccountCode || "5300",
+    p_cash_account_code: args.cashAccountCode || null,
+    p_exchange_rate: exchangeRate,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "create_finance_requisition returned no id." };
+  return { ok: true, data: data as string };
+}
+
+export async function submitFinanceRequisition(
+  client: SupabaseClient,
+  requisitionId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(client, "submit_finance_requisition", {
+    p_requisition_id: requisitionId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "submit_finance_requisition returned no id." };
+  return { ok: true, data: data as string };
+}
+
+export async function approveFinanceRequisition(
+  client: SupabaseClient,
+  requisitionId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(client, "approve_finance_requisition", {
+    p_requisition_id: requisitionId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "approve_finance_requisition returned no id." };
+  return { ok: true, data: data as string };
+}
+
+export async function rejectFinanceRequisition(
+  client: SupabaseClient,
+  args: { requisitionId: string; reason?: string },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(client, "reject_finance_requisition", {
+    p_requisition_id: args.requisitionId,
+    p_reason: args.reason?.trim() || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "reject_finance_requisition returned no id." };
+  return { ok: true, data: data as string };
+}
+
+export async function cancelFinanceRequisition(
+  client: SupabaseClient,
+  requisitionId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(client, "cancel_finance_requisition", {
+    p_requisition_id: requisitionId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "cancel_finance_requisition returned no id." };
+  return { ok: true, data: data as string };
+}
+
+export async function disburseFinanceRequisition(
+  client: SupabaseClient,
+  args: { requisitionId: string; entryDate?: string },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await financeRpc(client, "disburse_finance_requisition", {
+    p_requisition_id: args.requisitionId,
+    p_entry_date: args.entryDate || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "disburse_finance_requisition returned no id." };
+  return { ok: true, data: data as string };
+}
