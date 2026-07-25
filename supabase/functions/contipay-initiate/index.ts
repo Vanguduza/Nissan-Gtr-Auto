@@ -155,7 +155,6 @@ Deno.serve(async (req) => {
           checkout_url: checkoutUrl,
           return_url: typeof return_url === "string" ? return_url : null,
           cancel_url: typeof cancel_url === "string" ? cancel_url : null,
-          result_url: typeof result_url === "string" ? result_url : null,
           stub: true,
         },
         200,
