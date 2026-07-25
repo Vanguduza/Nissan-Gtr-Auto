@@ -1105,3 +1105,106 @@ private data class PanicAckUpdate(
     @SerialName("acknowledged_at") val acknowledgedAt: String,
     @SerialName("acknowledged_by") val acknowledgedBy: String,
 )
+
+@Serializable
+private data class SalesInvoiceContactRow(
+    val id: String,
+    @SerialName("customer_id") val customerId: String? = null,
+    @SerialName("customer_email") val customerEmail: String? = null,
+    @SerialName("customer_whatsapp_e164") val customerWhatsappE164: String? = null,
+)
+
+@Serializable
+private data class PosCartCustomerRow(
+    @SerialName("customer_id") val customerId: String? = null,
+)
+
+@Serializable
+private data class WarehouseRow(
+    val id: String,
+    val code: String,
+    val name: String,
+)
+
+@Serializable
+private data class PosScanSessionRow(
+    @SerialName("session_id") val sessionId: String,
+    @SerialName("pairing_code") val pairingCode: String,
+    @SerialName("expires_at") val expiresAt: String,
+)
+
+@Serializable
+private data class StockItemOemEmbed(
+    @SerialName("oem_part_number") val oemPartNumber: String? = null,
+)
+
+@Serializable
+private data class PosCartLineRow(
+    val id: String,
+    @SerialName("stock_item_id") val stockItemId: String,
+    val qty: Double,
+    @SerialName("unit_price") val unitPrice: Double,
+    @SerialName("line_total") val lineTotal: Double,
+    @SerialName("is_core_charge") val isCoreCharge: Boolean = false,
+    @SerialName("stock_items") val stockItems: StockItemOemEmbed? = null,
+) {
+    fun toSummary() = PosCartLineSummary(
+        id = id,
+        stockItemId = stockItemId,
+        oemPartNumber = stockItems?.oemPartNumber,
+        qty = qty,
+        unitPrice = unitPrice,
+        lineTotal = lineTotal,
+        isCoreCharge = isCoreCharge,
+    )
+}
+
+private fun parseCatalogSearchResult(
+    raw: kotlinx.serialization.json.JsonObject,
+    fallbackMode: CatalogSearchMode,
+    fallbackQuery: String,
+): CatalogSearchResult {
+    val modeStr = raw["mode"]?.let {
+        (it as? JsonPrimitive)?.content
+    }
+    val mode = CatalogSearchMode.entries.find { it.rpcValue == modeStr } ?: fallbackMode
+    val query = raw["query"]?.let { (it as? JsonPrimitive)?.content } ?: fallbackQuery
+    val results = raw["results"] as? JsonArray ?: JsonArray(emptyList())
+    val parts = mutableListOf<CatalogPartHit>()
+    for (el in results) {
+        val obj = el as? kotlinx.serialization.json.JsonObject ?: continue
+        collectPartHits(obj, parts)
+    }
+    return CatalogSearchResult(mode = mode, query = query, parts = parts.distinctBy { it.oemPartNumber })
+}
+
+private fun collectPartHits(
+    obj: kotlinx.serialization.json.JsonObject,
+    out: MutableList<CatalogPartHit>,
+) {
+    val type = (obj["type"] as? JsonPrimitive)?.content
+    when (type) {
+        "part" -> {
+            val oem = (obj["oem_part_number"] as? JsonPrimitive)?.content?.trim().orEmpty()
+            if (oem.isNotEmpty()) {
+                out.add(
+                    CatalogPartHit(
+                        oemPartNumber = oem,
+                        pncCode = (obj["pnc_code"] as? JsonPrimitive)?.content,
+                        categoryName = (obj["category_name"] as? JsonPrimitive)?.content,
+                        subcategoryName = (obj["subcategory_name"] as? JsonPrimitive)?.content,
+                        chassisCode = (obj["chassis_code"] as? JsonPrimitive)?.content,
+                        engineCode = (obj["engine_code"] as? JsonPrimitive)?.content,
+                    ),
+                )
+            }
+        }
+        "vehicle", "pnc" -> {
+            val fitments = obj["fitments"] as? JsonArray ?: return
+            for (f in fitments) {
+                val fo = f as? kotlinx.serialization.json.JsonObject ?: continue
+                collectPartHits(fo, out)
+            }
+        }
+    }
+}
