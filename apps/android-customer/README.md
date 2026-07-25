@@ -23,6 +23,7 @@ mirroring web AuthZ RPCs in `apps/web/lib/customer-storefront.ts`, chat helpers 
 | `:feature:garage` | `…customer.garage` | Upsert / delete / list vehicles |
 | `:feature:pay` | `…customer.pay` | ContiPay + Paynow intent create |
 | `:feature:chat` | `…customer.chat` | Live chat threads / messages / composer |
+| `:feature:track` | `…customer.track` | Active delivery last-point + ETA (`get_delivery_track_point`) |
 
 ## Screens (scaffolds)
 
@@ -34,6 +35,22 @@ mirroring web AuthZ RPCs in `apps/web/lib/customer-storefront.ts`, chat helpers 
 | `GarageScreen` | `:feature:garage` | `upsert_customer_garage_vehicle`, `delete_customer_garage_vehicle` |
 | `PayIntentScreen` | `:feature:pay` | `create_customer_contipay_intent`, `create_customer_paynow_intent` |
 | `ChatScreen` | `:feature:chat` | `start_chat_thread`, `post_chat_message`, `mark_chat_thread_read`, `chat_unread_count` (+ thread/message SELECT) |
+| `DeliveryTrackScreen` | `:feature:track` | `get_delivery_track_point` (job id and/or share token) — last point + ETA only |
+
+## Active delivery track (privacy)
+
+Home → **Track delivery**, or Orders → **Track delivery** / **Track with share token**.
+
+- Calls `get_delivery_track_point` only — **never** SELECT on `delivery_locations`, **never** a GPS trail UI.
+- Inputs: share **token** (SMS `/track/{token}`) and/or owned **delivery job id** (signed-in customer).
+- Customers **do not** mint tokens (`mint_delivery_track_token` is staff/dispatch only).
+- Polls ~15s while tracking (no realtime-kt trail subscription).
+- No map SDK in this app — shows coordinates + ETA text (Bridge-First: no WebView/browser geo).
+- Empty when job is not `dispatched`, token expired/revoked, or no pings yet.
+
+Fake seed: invoice `INV-SEED-DISPATCH` → job `…dj` + token `FakeRpcClient.SEED_TRACK_TOKEN`.
+
+Optional intent extras: `track_token`, `track_job_id` (open track on launch).
 
 ## Live chat
 

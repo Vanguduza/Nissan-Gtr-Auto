@@ -89,6 +89,8 @@ export {
   setDriverPresenceArgs,
   suggestDeliveryAssigneesArgs,
   assignDeliveryJobArgs,
+  setDeliveryJobGeoArgs,
+  updateDeliveryJobStatusArgs,
   getDeliveryTrackPointArgs,
   submitDeliveryPodArgs,
   generateDeliveryPodOtpArgs,
@@ -107,4 +109,5 @@ export {
   type DeliveryEtaSource,
   type DeliveryCompletedVia,
   type DeliveryFailureReason,
+  type UpdateDeliveryJobStatusResult,
 } from "./delivery";
