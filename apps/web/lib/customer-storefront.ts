@@ -344,7 +344,7 @@ function parseEdgeIntent(raw: unknown): PaymentIntentResult | null {
 
 /**
  * Create ContiPay intent via edge (preferred — may return checkout_url) or RPC fallback.
- * Passes return/cancel URLs in body + metadata for provider wiring (secrets stay in edge env).
+ * Passes return/cancel URLs + customer phone (edge requires phone / metadata.cell).
  */
 export async function createCustomerContipayIntent(
   client: SupabaseClient,
@@ -353,17 +353,37 @@ export async function createCustomerContipayIntent(
 ): Promise<StorefrontResult<PaymentIntentResult>> {
   const returnUrl = checkoutReturnUrl(invoiceId);
   const cancelUrl = checkoutCancelUrl(invoiceId);
+
+  const customer = await loadOwnCustomer(client);
+  const phone =
+    customer.ok && customer.data
+      ? (customer.data.phone_e164?.trim() ||
+          customer.data.whatsapp_e164?.trim() ||
+          null)
+      : null;
+
+  if (!phone) {
+    return {
+      ok: false,
+      error:
+        "Add a mobile number on your profile before paying with ContiPay (EcoCash cell required).",
+    };
+  }
+
   const metadata = {
     sales_invoice_id: invoiceId,
     channel: "storefront",
     return_url: returnUrl,
     cancel_url: cancelUrl,
+    phone,
+    cell: phone,
   };
 
   const edge = await client.functions.invoke("contipay-initiate", {
     body: {
       sales_invoice_id: invoiceId,
       method,
+      phone,
       return_url: returnUrl,
       cancel_url: cancelUrl,
       metadata,
