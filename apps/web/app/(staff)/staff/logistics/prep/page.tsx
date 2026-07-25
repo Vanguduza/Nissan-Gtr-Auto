@@ -11,10 +11,6 @@ export default function StaffLogisticsPrepPage() {
       <StaffNav current="/staff/logistics/prep" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Sales prep</h1>
-        <p className={styles.lede}>
-          Online dispatch orders waiting for pick/pack. Confirm pick under Jobs;
-          a driver is assigned automatically when prep completes.
-        </p>
         <StaffLogisticsTabs active="prep" />
         <StaffOnlinePrepPanel />
       </div>

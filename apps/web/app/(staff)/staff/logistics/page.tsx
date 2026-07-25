@@ -11,11 +11,6 @@ export default function StaffLogisticsPage() {
       <StaffNav current="/staff/logistics" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Logistics</h1>
-        <p className={styles.lede}>
-          Dispatch pick list → confirm lines → delivery note → optional delivery
-          job. Online storefront orders auto-create picks and notify sales;
-          driver auto-assigns after prep.
-        </p>
         <StaffLogisticsTabs active="jobs" />
         <StaffLogisticsPanel />
       </div>

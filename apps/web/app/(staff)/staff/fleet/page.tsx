@@ -10,11 +10,6 @@ export default function StaffFleetPage() {
       <StaffNav current="/staff/fleet" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Company fleet</h1>
-        <p className={styles.lede}>
-          Register and maintain delivery/ops vehicles (plate, status, optional
-          driver). Admin / warehouse / dispatcher only — no telematics or
-          browser GPS.
-        </p>
         <StaffFleetPanel />
       </div>
     </div>
