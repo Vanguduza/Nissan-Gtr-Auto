@@ -1,5 +1,4 @@
 import { StaffAnalyticsSubscriptionsPanel } from "@/components/staff-analytics-subscriptions-panel";
-import { StaffAnalyticsTabs } from "@/components/staff-analytics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
 
@@ -11,7 +10,6 @@ export default function StaffAnalyticsSubscriptionsPage() {
       <StaffNav current="/staff/analytics/subscriptions" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Report subscriptions</h1>
-        <StaffAnalyticsTabs active="subscriptions" />
         <StaffAnalyticsSubscriptionsPanel />
       </div>
     </div>
