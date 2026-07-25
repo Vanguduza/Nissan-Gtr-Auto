@@ -40,8 +40,8 @@ export function StaffPosShell() {
       {tab === "prep" ? <StaffOnlinePrepPanel /> : null}
       {tab === "cart" ? (
         <p className={styles.muted} style={{ marginTop: "1rem" }}>
-          Phone QR companion / scan pairing uses the management device bridge —
-          not browser camera.
+          Optional: show a pairing code on Cart for the Android Scan companion.
+          Web displays the code only — no browser / HTML5 QR scanning.
         </p>
       ) : null}
     </div>
