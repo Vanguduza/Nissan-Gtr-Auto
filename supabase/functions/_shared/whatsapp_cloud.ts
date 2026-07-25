@@ -148,7 +148,7 @@ export async function uploadWhatsAppMediaPdf(
   form.append("type", "application/pdf");
   form.append(
     "file",
-    new Blob([bytes], { type: "application/pdf" }),
+    new Blob([bytes as BlobPart], { type: "application/pdf" }),
     filename,
   );
   const res = await fetch(url, {

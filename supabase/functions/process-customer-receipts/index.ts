@@ -291,7 +291,22 @@ async function sendOutboxChannel(
         }
         return { ok: true, stub: true };
       }
-      if (row.download_url) {
+      // Meta must fetch the document URL; prefer short-lived Storage signed URL.
+      // Caption/SMS still use company-domain download_url in summary_body.
+      let docLink: string | null = null;
+      if (row.pdf_storage_path) {
+        const { data: signed } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(row.pdf_storage_path, 60 * 60 * 24 * 7);
+        docLink = signed?.signedUrl ?? null;
+      }
+      if (docLink) {
+        await sendWhatsAppDocument(cfg, to, {
+          link: docLink,
+          filename: "receipt.pdf",
+          caption: body.slice(0, 1024),
+        });
+      } else if (row.download_url) {
         await sendWhatsAppDocument(cfg, to, {
           link: row.download_url,
           filename: "receipt.pdf",
