@@ -258,17 +258,18 @@ class SupabaseRpcClient(
             }
             .decodeList<PosCartLineRow>()
 
+        // OEM labels optional — soft-fail so cart still shows without stock_items join.
         val oemByItem = mutableMapOf<String, String>()
-        val itemIds = rows.map { it.stockItemId }.distinct()
-        if (itemIds.isNotEmpty()) {
+        rows.map { it.stockItemId }.distinct().take(20).forEach { itemId ->
             runCatching {
                 client.from("stock_items")
                     .select(Columns.list("id", "oem_part_number")) {
-                        filter { isIn("id", itemIds.take(40)) }
-                        limit(40)
+                        filter { eq("id", itemId) }
+                        limit(1)
                     }
                     .decodeList<StockItemOemRow>()
-                    .forEach { oemByItem[it.id] = it.oemPartNumber }
+                    .firstOrNull()
+                    ?.let { oemByItem[it.id] = it.oemPartNumber }
             }
         }
 
