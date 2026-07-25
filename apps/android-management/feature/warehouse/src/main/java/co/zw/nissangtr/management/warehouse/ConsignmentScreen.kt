@@ -27,8 +27,6 @@ import co.zw.nissangtr.management.rpc.ConsignmentKind
 import co.zw.nissangtr.management.rpc.ConsignmentPurpose
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.RpcClient
-import co.zw.nissangtr.management.rpc.RpcNames
-
 @Composable
 fun ConsignmentScreen(
     rpc: RpcClient,
