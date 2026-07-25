@@ -7142,6 +7142,17 @@ export type Database = {
           document_id: string
         }[]
       }
+      list_zig_exchange_rates: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          id: string
+          notes: string | null
+          rate: number
+          rate_date: string
+          set_by: string | null
+        }[]
+      }
       lock_accounting_period: {
         Args: { p_period_id: string }
         Returns: undefined
