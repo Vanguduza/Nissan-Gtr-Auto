@@ -4,7 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { requestAuthOtp, verifyAuthOtp } from "@/lib/auth-otp";
+import {
+  completeAuthLogin,
+  requestAuthOtp,
+  verifyAuthOtp,
+} from "@/lib/auth-otp";
 import { createWebClient } from "@/lib/supabase";
 import { loadStaffContext, postLoginPath } from "@/lib/staff-auth";
 import styles from "./auth.module.css";
@@ -26,7 +30,7 @@ function LoginForm() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [otpCode, setOtpCode] = useState("");
-  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpProofToken, setOtpProofToken] = useState<string | null>(null);
   const [localStubHint, setLocalStubHint] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

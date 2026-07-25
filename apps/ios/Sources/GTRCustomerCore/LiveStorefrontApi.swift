@@ -416,7 +416,231 @@ public final class LiveStorefrontApi: StorefrontApi {
         return first.toModel()
     }
 
+    // MARK: - Wishlist
+
+    public func listWishlist() async throws -> [WishlistItem] {
+        let rows: [WishlistRow] = try await client.selectDecode(
+            table: "customer_wishlist_items",
+            query: [
+                "select=id,stock_item_id,notify_when_in_stock,created_at,stock_items(id,oem_part_number,description)",
+                "order=created_at.desc",
+                "limit=100",
+            ].joined(separator: "&")
+        )
+        return rows.map { $0.toModel() }
+    }
+
+    public func addWishlistItem(stockItemId: UUID?, oem: String?) async throws -> UUID {
+        try await client.rpcUUID(
+            RpcName.addCustomerWishlistItem,
+            body: stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        )
+    }
+
+    public func removeWishlistItem(wishlistId: UUID?, stockItemId: UUID?, oem: String?) async throws {
+        var body = stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        body["p_wishlist_id"] = wishlistId.map { JSONValue.uuid($0) } ?? NSNull()
+        _ = try await client.rpc(RpcName.removeCustomerWishlistItem, body: body)
+    }
+
+    public func setWishlistNotifyWhenInStock(
+        notify: Bool,
+        wishlistId: UUID?,
+        stockItemId: UUID?,
+        oem: String?
+    ) async throws -> UUID {
+        var body = stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        body["p_notify"] = notify
+        body["p_wishlist_id"] = wishlistId.map { JSONValue.uuid($0) } ?? NSNull()
+        return try await client.rpcUUID(RpcName.setWishlistNotifyWhenInStock, body: body)
+    }
+
+    public func wishlistMoveToCart(
+        wishlistId: UUID?,
+        stockItemId: UUID?,
+        oem: String?,
+        qty: Decimal,
+        removeFromWishlist: Bool
+    ) async throws -> UUID {
+        let cartId = try await ensureOpenCartId()
+        var body = stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        body["p_cart_id"] = JSONValue.uuid(cartId)
+        body["p_qty"] = JSONValue.number(qty)
+        body["p_remove_from_wishlist"] = removeFromWishlist
+        body["p_wishlist_id"] = wishlistId.map { JSONValue.uuid($0) } ?? NSNull()
+        return try await client.rpcUUID(RpcName.wishlistMoveToCart, body: body)
+    }
+
+    // MARK: - Compare
+
+    public func listCompareItems() async throws -> [CompareItem] {
+        let rows: [CompareItemDTO] = try await client.rpcDecodeArrayAllowEmpty(
+            RpcName.listCustomerCompareItems,
+            body: [:]
+        )
+        return rows.map { $0.toModel() }
+    }
+
+    public func addCompareItem(stockItemId: UUID?, oem: String?) async throws -> UUID {
+        try await client.rpcUUID(
+            RpcName.addCustomerCompareItem,
+            body: stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        )
+    }
+
+    public func removeCompareItem(compareId: UUID?, stockItemId: UUID?, oem: String?) async throws {
+        var body = stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        body["p_compare_id"] = compareId.map { JSONValue.uuid($0) } ?? NSNull()
+        _ = try await client.rpc(RpcName.removeCustomerCompareItem, body: body)
+    }
+
+    // MARK: - Reviews
+
+    public func listOwnReviews() async throws -> [ProductReview] {
+        let rows: [ProductReviewRow] = try await client.selectDecode(
+            table: "customer_product_reviews",
+            query: [
+                "select=id,stock_item_id,rating,body,status,created_at,stock_items(id,oem_part_number,description)",
+                "order=created_at.desc",
+                "limit=100",
+            ].joined(separator: "&")
+        )
+        // RLS returns approved (any) + own pending/rejected — keep own rows for "My reviews".
+        return rows.map { $0.toModel() }
+    }
+
+    public func listApprovedReviews(oem: String) async throws -> [ProductReview] {
+        let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return [] }
+        let items: [StockItemIdRow] = try await client.selectDecode(
+            table: "stock_items",
+            query: [
+                "select=id",
+                "oem_part_number=ilike.\(Self.percentEncodeQueryValue(needle))",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        guard let item = items.first else { return [] }
+        let rows: [ProductReviewRow] = try await client.selectDecode(
+            table: "customer_product_reviews",
+            query: [
+                "select=id,stock_item_id,rating,body,status,created_at,stock_items(id,oem_part_number,description)",
+                "stock_item_id=eq.\(item.id.uuidString.lowercased())",
+                "status=eq.approved",
+                "order=created_at.desc",
+                "limit=40",
+            ].joined(separator: "&")
+        )
+        return rows.map { $0.toModel() }
+    }
+
+    public func getProductReviewStats(stockItemId: UUID?, oem: String?) async throws -> ProductReviewStats? {
+        let rows: [ProductReviewStatsDTO] = try await client.rpcDecodeArrayAllowEmpty(
+            RpcName.getProductReviewStats,
+            body: stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        )
+        return rows.first?.toModel()
+    }
+
+    public func submitProductReview(
+        rating: Int,
+        body: String,
+        stockItemId: UUID?,
+        oem: String?
+    ) async throws -> UUID {
+        var rpcBody = stockItemOemBody(stockItemId: stockItemId, oem: oem)
+        rpcBody["p_rating"] = rating
+        rpcBody["p_body"] = body
+        return try await client.rpcUUID(RpcName.submitCustomerProductReview, body: rpcBody)
+    }
+
+    public func uploadReviewPhoto(
+        reviewId: UUID,
+        photo: ReviewPhotoUpload,
+        sortOrder: Int
+    ) async throws -> UUID {
+        let ext = Self.safeImageExtension(photo.fileExtension)
+        let objectPath = "\(reviewId.uuidString.lowercased())/\(UUID().uuidString.lowercased()).\(ext)"
+        try await client.uploadStorageObject(
+            bucket: Self.reviewPhotosBucket,
+            path: objectPath,
+            data: photo.data,
+            contentType: photo.contentType.isEmpty ? "image/\(ext == "jpg" ? "jpeg" : ext)" : photo.contentType
+        )
+        return try await client.rpcUUID(
+            RpcName.addCustomerProductReviewPhoto,
+            body: [
+                "p_review_id": JSONValue.uuid(reviewId),
+                "p_storage_path": objectPath,
+                "p_sort_order": sortOrder,
+            ]
+        )
+    }
+
     // MARK: - Private
+
+    private func ensureOpenCartId() async throws -> UUID {
+        if let open = try await loadOpenCart() {
+            return open.id
+        }
+        let warehouseId = try await resolveMainWarehouseId()
+        return try await createCart(
+            warehouseId: warehouseId,
+            currency: .USD,
+            fulfillmentMode: .immediate,
+            exchangeRate: 1
+        )
+    }
+
+    private func resolveMainWarehouseId() async throws -> UUID {
+        let main: [WarehouseIdRow] = try await client.selectDecode(
+            table: "warehouses",
+            query: [
+                "select=id",
+                "is_active=eq.true",
+                "is_quarantine=eq.false",
+                "code=eq.MAIN",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        if let id = main.first?.id { return id }
+        let any: [WarehouseIdRow] = try await client.selectDecode(
+            table: "warehouses",
+            query: [
+                "select=id",
+                "is_active=eq.true",
+                "is_quarantine=eq.false",
+                "order=code.asc",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        guard let id = any.first?.id else {
+            throw StorefrontError.message("No saleable warehouse found.")
+        }
+        return id
+    }
+
+    private func stockItemOemBody(stockItemId: UUID?, oem: String?) -> [String: Any] {
+        let trimmed = oem?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [
+            "p_stock_item_id": stockItemId.map { JSONValue.uuid($0) } ?? NSNull(),
+            "p_oem_part_number": (trimmed?.isEmpty == false) ? trimmed! : NSNull(),
+        ]
+    }
+
+    private static func safeImageExtension(_ raw: String) -> String {
+        let ext = raw.lowercased().replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
+        if ["jpg", "jpeg", "png", "webp"].contains(ext) {
+            return ext == "jpeg" ? "jpg" : ext
+        }
+        return "jpg"
+    }
+
+    private static func percentEncodeQueryValue(_ value: String) -> String {
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "&=")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+    }
 
     private func tryEdgeIntent(
         _ name: String,
