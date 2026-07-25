@@ -178,6 +178,87 @@ object ChatStaffRoles {
         roles.any { it in ALL }
 }
 
+/**
+ * Role home: sales-only → POS workspace; admin/warehouse keep hub.
+ * Admin or warehouse wins over sales when both present.
+ */
+object ManagementHomeRoles {
+    fun prefersPosHome(roles: Collection<String>): Boolean {
+        if (roles.any { it == "admin" || it == "warehouse" }) return false
+        return roles.any { it == "sales" }
+    }
+}
+
+/** 4-way catalog search modes — mirrors `search_catalog` p_mode. */
+enum class CatalogSearchMode(val rpcValue: String) {
+    PART("part"),
+    VIN("vin"),
+    MODEL("model"),
+    PNC("pnc"),
+}
+
+/** Part hit from [RpcNames.SEARCH_CATALOG] (type=part or nested fitment). */
+data class CatalogPartHit(
+    val oemPartNumber: String,
+    val pncCode: String? = null,
+    val categoryName: String? = null,
+    val subcategoryName: String? = null,
+    val chassisCode: String? = null,
+    val engineCode: String? = null,
+)
+
+data class CatalogSearchResult(
+    val mode: CatalogSearchMode,
+    val query: String,
+    val parts: List<CatalogPartHit>,
+)
+
+data class WarehouseRef(
+    val id: String,
+    val code: String,
+    val name: String,
+)
+
+data class PosCartLineSummary(
+    val id: String,
+    val stockItemId: String,
+    val oemPartNumber: String?,
+    val qty: Double,
+    val unitPrice: Double,
+    val lineTotal: Double,
+    val isCoreCharge: Boolean = false,
+)
+
+data class PosScanSessionCreated(
+    val sessionId: String,
+    val pairingCode: String,
+    val expiresAt: String,
+)
+
+/**
+ * Checkout result with receipt-contact bind messaging.
+ * [customerId] set ⇒ bound or preselected; null + contacts ⇒ walk-in / no unique match.
+ */
+data class CheckoutPosResult(
+    val invoiceId: String,
+    val customerId: String?,
+    val receiptEmail: String?,
+    val receiptWhatsappE164: String?,
+    val hadCustomerBeforeCheckout: Boolean,
+) {
+    val bindMessage: String
+        get() = when {
+            hadCustomerBeforeCheckout && !customerId.isNullOrBlank() ->
+                "Customer was already on cart"
+            !customerId.isNullOrBlank() ->
+                "Bound to registered / trade account"
+            !receiptEmail.isNullOrBlank() || !receiptWhatsappE164.isNullOrBlank() ->
+                "Walk-in — no unique account match (link manually if needed)"
+            else ->
+                "Walk-in — no receipt contacts"
+        }
+}
+
 /** Row from `chat_threads` (staff list / detail header). */
 data class ChatThreadSummary(
     val id: String,

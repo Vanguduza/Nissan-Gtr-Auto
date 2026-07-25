@@ -14,6 +14,12 @@ object RpcNames {
     const val ADD_CART_LINE = "add_cart_line"
     const val ADD_CART_LINE_FROM_QR = "add_cart_line_from_qr"
     const val CHECKOUT_POS_CART = "checkout_pos_cart"
+    // Optional companion pairing (cart usable with zero sessions)
+    const val CREATE_POS_SCAN_SESSION = "create_pos_scan_session"
+    const val CLAIM_POS_SCAN_SESSION = "claim_pos_scan_session"
+    const val REVOKE_POS_SCAN_SESSION = "revoke_pos_scan_session"
+    // Catalog search (standalone add-line path — no session required)
+    const val SEARCH_CATALOG = "search_catalog"
 
     // Phase 4 inventory / warehouse
     const val POST_STOCK_RECEIPT = "post_stock_receipt"
