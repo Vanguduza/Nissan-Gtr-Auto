@@ -308,12 +308,24 @@ BEGIN
       END IF;
   END;
 
-  -- POD required to complete (dedicated delivery app P0; P1 adds OTP)
+  -- POD required to complete — paths bound to delivery-pods {job_id}/…
+  INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
+  VALUES
+    (
+      'delivery-pods', v_job::text || '/photo.jpg', v_admin, v_admin::text,
+      jsonb_build_object('mimetype', 'image/jpeg')
+    ),
+    (
+      'delivery-pods', v_job::text || '/signature.png', v_admin, v_admin::text,
+      jsonb_build_object('mimetype', 'image/png')
+    )
+  ON CONFLICT (bucket_id, name) DO NOTHING;
+
   v_otp := public.generate_delivery_pod_otp(v_job);
   PERFORM public.submit_delivery_pod(
     v_job,
-    'pod/photos/phase10-smoke.jpg',
-    'pod/signatures/phase10-smoke.png',
+    v_job::text || '/photo.jpg',
+    v_job::text || '/signature.png',
     v_otp,
     'phase10 complete'
   );
