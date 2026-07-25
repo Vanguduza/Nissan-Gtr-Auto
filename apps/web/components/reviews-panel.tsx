@@ -80,13 +80,29 @@ export function ReviewsPanel() {
       body: body.trim(),
       oem: oem.trim(),
     });
-    setBusy(false);
     if (!result.ok) {
+      setBusy(false);
       setMessage(result.error);
       return;
     }
+    if (photo) {
+      const up = await uploadReviewPhoto(client, {
+        reviewId: result.data,
+        file: photo,
+      });
+      if (!up.ok) {
+        setBusy(false);
+        setMessage(`Review saved, photo failed: ${up.error}`);
+        setBody("");
+        setPhoto(null);
+        await refresh();
+        return;
+      }
+    }
+    setBusy(false);
     setMessage("Review submitted for moderation.");
     setBody("");
+    setPhoto(null);
     await refresh();
   }
 
