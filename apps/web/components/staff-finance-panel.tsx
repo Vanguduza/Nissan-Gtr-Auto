@@ -1599,12 +1599,6 @@ function StaffFinancePanelInner() {
 
   return (
     <div className={styles.form}>
-      <StaffModuleTabs
-        tabs={FINANCE_TABS}
-        active={tab}
-        ariaLabel="Finance sections"
-      />
-
       {message ? (
         <p className={styles.formStatus} role="status">
           {message}
