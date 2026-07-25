@@ -50,6 +50,17 @@ agents:
       - .cursorrules
       - AGENTS.md
 
+  android_delivery_agent:
+    description: Dedicated Android delivery driver app (jobs, GPS FGS, POD, panic) — no POS/warehouse/finance
+    paths:
+      - apps/android-delivery/**
+    shared_read:
+      - packages/shared/**
+      - packages/supabase-client/**
+      - bridges/android/**
+      - .cursorrules
+      - AGENTS.md
+
   hardware_mobile_agent:
     description: Cross-cutting native bridges (QR, printer, biometric, GPS) — invoked explicitly
     paths:
