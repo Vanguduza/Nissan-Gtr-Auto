@@ -200,14 +200,24 @@ BEGIN
   END IF;
   RESET ROLE;
 
-  -- Assigned driver cannot SELECT (staff-only read per policy)
+  -- Assigned driver can SELECT own job objects; other driver cannot
   PERFORM public._test_set_auth_uid(v_driver);
   SET LOCAL ROLE authenticated;
   SELECT count(*)::int INTO v_cnt
   FROM storage.objects
   WHERE bucket_id = 'delivery-pods' AND name = v_photo;
+  IF v_cnt <> 1 THEN
+    RAISE EXCEPTION 'smoke fail: assigned driver should SELECT own POD object';
+  END IF;
+  RESET ROLE;
+
+  PERFORM public._test_set_auth_uid(v_driver2);
+  SET LOCAL ROLE authenticated;
+  SELECT count(*)::int INTO v_cnt
+  FROM storage.objects
+  WHERE bucket_id = 'delivery-pods' AND name = v_photo;
   IF v_cnt <> 0 THEN
-    RAISE EXCEPTION 'smoke fail: driver SELECT should be denied (staff-only)';
+    RAISE EXCEPTION 'smoke fail: other driver must not SELECT POD objects';
   END IF;
   RESET ROLE;
 
