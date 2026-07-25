@@ -12,20 +12,14 @@ import {
   requireSession,
   searchStockItems,
   submitPurchaseOrder,
-  zigExchangeRate,
   type BlanketSummary,
   type CurrencyCode,
   type StockItemOption,
   type SupplierOption,
   type WarehouseOption,
 } from "@/lib/blanket-po";
-import { zigExchangeRate as rateFromStorefront } from "@/lib/customer-storefront";
+import { zigExchangeRate } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
-
-// re-export helper used above — blanket-po does not export zigExchangeRate
-function zigRate(): number {
-  return rateFromStorefront();
-}
 
 type Boot =
   | { kind: "loading" }
