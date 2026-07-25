@@ -4,6 +4,20 @@
  */
 import type { Database } from "./database.types.js";
 
+export const DELIVERY_PODS_BUCKET = "delivery-pods" as const;
+
+/** Object keys only (no bucket prefix) for `pod_photo_path` / `pod_signature_path`. */
+export function deliveryPodPhotoPath(jobId: string, ext: "jpg" | "jpeg" | "png" | "webp" = "jpg") {
+  return `${jobId}/photo.${ext}` as const;
+}
+
+export function deliveryPodSignaturePath(
+  jobId: string,
+  ext: "png" | "jpg" | "jpeg" | "webp" = "png",
+) {
+  return `${jobId}/signature.${ext}` as const;
+}
+
 export const DELIVERY_RPC = {
   setDriverPresence: "set_driver_presence",
   suggestAssignees: "suggest_delivery_assignees",
