@@ -89,6 +89,9 @@ enum FeatureTab: String, CaseIterable, Identifiable {
     case cart
     case orders
     case garage
+    case wishlist
+    case compare
+    case reviews
     case pay
     case chat
 
@@ -99,6 +102,9 @@ enum FeatureTab: String, CaseIterable, Identifiable {
         case .cart: return "Cart"
         case .orders: return "Orders"
         case .garage: return "Garage"
+        case .wishlist: return "Wishlist"
+        case .compare: return "Compare"
+        case .reviews: return "Reviews"
         case .pay: return "Pay"
         case .chat: return "Chat"
         }
@@ -109,6 +115,9 @@ enum FeatureTab: String, CaseIterable, Identifiable {
         case .cart: return "cart"
         case .orders: return "list.bullet.rectangle"
         case .garage: return "car"
+        case .wishlist: return "heart"
+        case .compare: return "rectangle.split.2x1"
+        case .reviews: return "star"
         case .pay: return "creditcard"
         case .chat: return "bubble.left.and.bubble.right"
         }
