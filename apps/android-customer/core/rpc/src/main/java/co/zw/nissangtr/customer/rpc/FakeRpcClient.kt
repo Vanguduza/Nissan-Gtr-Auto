@@ -63,16 +63,19 @@ class FakeRpcClient : RpcClient {
     private val fakeUserId = "00000000-0000-4000-8000-0000000000cu"
 
     /** Fake active job → last point (single row only; no trail). Nudged on each poll. */
-    private var fakeTrackPoint: DeliveryTrackPoint? = DeliveryTrackPoint(
+    private var fakeTrackPoint: DeliveryTrackPoint? = seedTrackPoint()
+    private val trackTick = AtomicInteger(0)
+
+    private fun seedTrackPoint() = DeliveryTrackPoint(
         deliveryJobId = SEED_ACTIVE_JOB_ID,
         lat = -17.8292,
         lng = 31.0522,
         recordedAt = "2026-07-25T09:10:00Z",
-        etaAt = "2026-07-25T09:45:00Z",
-        etaSeconds = 2_100,
+        etaAt = "2026-07-25T09:11:00Z",
+        /** ~6 polls at 8s → terminal demo without waiting half an hour. */
+        etaSeconds = 48,
         status = "dispatched",
     )
-    private val trackTick = AtomicInteger(0)
 
     init {
         val seed = invoices.first()
