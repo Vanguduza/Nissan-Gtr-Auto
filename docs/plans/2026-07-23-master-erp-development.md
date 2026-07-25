@@ -437,7 +437,8 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 **Master plan status:** Thin-surface + keyed-integration wave largely **Done**. DB schema through `20260724172000` (apply locally if behind). Live map + web staff RBAC prior. **No commits** unless user asks.
 
 **Done this wave**
-1. **GPS + MapLibre** (prior) — bridges + management ingest + `/staff/logistics/tracking`
+1. **AI staff analytics + scheduled reports (v1)**
+2. **GPS + MapLibre** (prior) — bridges + management ingest + `/staff/logistics/tracking`
 2. **ContiPay + Paynow real Edge** — initiate/poll/webhook hash·HMAC; fail-closed; server-only `defaultWebhookUrl`; ContiPay requires customer phone
 3. **Receipts + manager SMS** — real PDF + SMS/email/WhatsApp Cloud (`_shared/*`); claim RPCs service_role-only (`…140000`/`…150000`); Edge `receipt-download` + web `/receipts/[token]`
 4. **WhatsApp parts-finder bot** — `whatsapp-webhook` + rate limits (`…160000`); decision Accepted; Deno smoke 7/7
