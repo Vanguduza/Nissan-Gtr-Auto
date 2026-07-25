@@ -447,49 +447,6 @@ export function StaffFinancePanel() {
     await refresh();
   }
 
-  async function loadStatementDetail(statementId: string, accountCode?: string) {
-    const client = createWebClient();
-    if (!client || !statementId) {
-      setStmtLines([]);
-      setStmtMatches([]);
-      setJeLines([]);
-      return;
-    }
-    const linesRes = await listBankStatementLines(client, statementId);
-    if (!linesRes.ok) {
-      setMessage(linesRes.error);
-      setStmtLines([]);
-      setStmtMatches([]);
-      return;
-    }
-    setStmtLines(linesRes.data);
-    setMatchLineId((prev) => {
-      const open = linesRes.data.find((l) => l.status === "open");
-      return prev && linesRes.data.some((l) => l.id === prev)
-        ? prev
-        : open?.id || "";
-    });
-
-    const matchRes = await listBankReconMatches(
-      client,
-      linesRes.data.map((l) => l.id),
-    );
-    if (!matchRes.ok) {
-      setMessage(matchRes.error);
-      setStmtMatches([]);
-    } else {
-      setStmtMatches(matchRes.data);
-    }
-
-    if (accountCode) {
-      const jeRes = await listJournalLinesForAccount(client, accountCode);
-      if (jeRes.ok) {
-        setJeLines(jeRes.data);
-        setMatchJeLineId((prev) => prev || jeRes.data[0]?.id || "");
-      }
-    }
-  }
-
   async function onReverseJournal(id: string) {
     const client = createWebClient();
     if (!client) return;

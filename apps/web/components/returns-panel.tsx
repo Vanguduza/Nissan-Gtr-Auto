@@ -231,7 +231,7 @@ export function ReturnsPanel() {
                     </label>
                     <p className={styles.muted}>
                       Invoiced qty {p.line.qty} ·{" "}
-                      {formatMoney(Number(p.line.unit_price), "USD")}
+                      {formatMoney(Number(p.line.unit_price), invoiceCurrency)}
                     </p>
                     {p.selected ? (
                       <label className={styles.field}>
