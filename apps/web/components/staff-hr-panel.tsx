@@ -60,6 +60,9 @@ export function StaffHrPanel() {
   const [hours, setHours] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [payrollLineId, setPayrollLineId] = useState("");
+  const [deductionLabel, setDeductionLabel] = useState("");
+  const [deductionAmount, setDeductionAmount] = useState("");
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -88,16 +91,24 @@ export function StaffHrPanel() {
       return;
     }
 
+    const lines = await listOpenPayrollLines(client);
+    if (!lines.ok) {
+      setBoot({ kind: "error", message: lines.error });
+      return;
+    }
+
     setBoot({
       kind: "ready",
       selfId: self.data,
       employees: emps.data,
+      payrollLines: lines.data,
     });
     setEmployeeId((prev) => {
       if (prev) return prev;
       if (self.data) return self.data;
       return emps.data.find((e) => e.status === "active")?.id ?? emps.data[0]?.id ?? "";
     });
+    setPayrollLineId((prev) => prev || lines.data[0]?.id || "");
   }, []);
 
   useEffect(() => {
