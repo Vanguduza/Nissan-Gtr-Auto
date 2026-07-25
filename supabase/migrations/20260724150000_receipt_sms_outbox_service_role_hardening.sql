@@ -81,8 +81,7 @@ BEGIN
     ),
     claimed_at = NULL
   WHERE status = 'sending'
-    AND claimed_at IS NOT NULL
-    AND claimed_at < now() - interval '15 minutes';
+    AND COALESCE(claimed_at, created_at) < now() - interval '15 minutes';
 
   RETURN QUERY
   WITH picked AS (
@@ -170,8 +169,7 @@ BEGIN
     ),
     claimed_at = NULL
   WHERE status = 'sending'
-    AND claimed_at IS NOT NULL
-    AND claimed_at < now() - interval '15 minutes';
+    AND COALESCE(claimed_at, created_at) < now() - interval '15 minutes';
 
   RETURN QUERY
   WITH picked AS (
