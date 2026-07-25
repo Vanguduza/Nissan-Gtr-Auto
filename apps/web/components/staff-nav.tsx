@@ -9,6 +9,7 @@ import {
   BarChart3,
   Bell,
   ChevronDown,
+  ClipboardList,
   iconSizeSm,
   iconStroke,
   LayoutGrid,
@@ -80,6 +81,15 @@ function iconForLeaf(leaf: StaffNavLeaf): LucideIcon | undefined {
 
 function iconForModule(mod: StaffNavModule): LucideIcon | undefined {
   return staffNavIcons[mod.id] ?? staffNavIcons[navHrefParts(mod.href).pathname];
+}
+
+/** Hub cards + external consumers — same icon map as sidebar. */
+export function staffNavIconForLeaf(leaf: StaffNavLeaf): LucideIcon {
+  return iconForLeaf(leaf) ?? ClipboardList;
+}
+
+export function staffNavIconForModule(mod: StaffNavModule): LucideIcon {
+  return iconForModule(mod) ?? LayoutGrid;
 }
 
 function StaffNavInner({ current }: { current: string }) {
