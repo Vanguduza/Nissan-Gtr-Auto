@@ -544,7 +544,7 @@ class SupabaseRpcClient(
                         StaffChatFilter.CLOSED -> eq("status", "closed")
                     }
                 }
-                order("last_message_at", Order.DESCENDING, nullsFirst = false)
+                order("last_message_at", Order.DESCENDING)
                 limit(80)
             }
             .decodeList<ChatThreadRow>()
