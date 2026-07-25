@@ -34,6 +34,8 @@ export {
 } from "./notifications/sms-events.js";
 export {
   buildCustomerReceiptSmsSummary,
+  buildCustomerReceiptEmailSubject,
+  buildCustomerReceiptEmailBody,
   buildReceiptDownloadUrl,
 } from "./notifications/customer-receipt.js";
 export {
