@@ -4,7 +4,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * In-memory stub so cart / orders / garage / pay screens compile and exercise
+ * In-memory stub so cart / orders / garage / pay / chat screens compile and exercise
  * flows without a configured Supabase project. Live: [SupabaseRpcClient] via [RpcClientFactory].
  *
  * Documented live RPC → param map (mirrors web + migration):
