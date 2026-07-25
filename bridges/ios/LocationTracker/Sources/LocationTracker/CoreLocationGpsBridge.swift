@@ -72,7 +72,8 @@ public final class CoreLocationGpsBridge: NSObject, GpsBridge {
 
     public func watchPosition(
         onUpdate: @escaping @Sendable (GpsCoordinate) -> Void,
-        onError: (@Sendable (String) -> Void)?
+        onError: (@Sendable (String) -> Void)?,
+        options: GpsWatchOptions = GpsWatchOptions()
     ) async throws -> GpsWatchHandle {
         let status = manager.authorizationStatus
         guard status == .authorizedAlways || status == .authorizedWhenInUse else {
@@ -86,6 +87,15 @@ public final class CoreLocationGpsBridge: NSObject, GpsBridge {
 
         watchOnUpdate = onUpdate
         watchOnError = onError
+
+        switch options.cadence {
+        case .idle:
+            manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+            manager.distanceFilter = options.minDistanceMeters ?? 25
+        case .moving, .auto:
+            manager.desiredAccuracy = kCLLocationAccuracyBest
+            manager.distanceFilter = options.minDistanceMeters ?? kCLDistanceFilterNone
+        }
 
         if status == .authorizedAlways {
             manager.allowsBackgroundLocationUpdates = true

@@ -270,12 +270,28 @@
 
 .title {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 3.2vw, 2.25rem);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--gtr-steel);
+}
+
+.titleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: var(--gtr-red);
+  background: color-mix(in srgb, var(--gtr-red) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--gtr-red) 18%, transparent);
 }
 
 .lede {
@@ -286,18 +302,23 @@
 }
 
 .muted {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   color: rgba(18, 21, 28, 0.55);
   line-height: 1.5;
 }
 
 .button {
   display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   margin-top: 1rem;
-  padding: 0.65rem 1.15rem;
+  padding: 0.7rem 1.2rem;
   background: var(--gtr-red);
   color: #fff;
   font-weight: 600;
-  border-radius: 2px;
+  border-radius: 8px;
 }
 
 .fulfill {
