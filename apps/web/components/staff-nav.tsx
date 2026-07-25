@@ -70,6 +70,7 @@ const staffNavIcons: Record<string, LucideIcon> = {
   "/procurement/rfqs": PackageSearch,
   "/procurement/rfqs/new": PackageSearch,
   "/procurement/blankets": PackageSearch,
+  "/procurement/approvals": PackageSearch,
 };
 
 function iconForLeaf(leaf: StaffNavLeaf): LucideIcon | undefined {
