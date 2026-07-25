@@ -15,19 +15,14 @@
     "subcategory_name": "Oil pump"
   },
   {
-    "pnc_code": "14411",
+    "pnc_code": "22448",
     "category_name": "Engine",
-    "subcategory_name": "Turbocharger"
+    "subcategory_name": "Ignition coil"
   },
   {
     "pnc_code": "16600",
     "category_name": "Engine",
     "subcategory_name": "Fuel injector"
-  },
-  {
-    "pnc_code": "11720",
-    "category_name": "Engine",
-    "subcategory_name": "Drive belt"
   },
   {
     "pnc_code": "21460",
@@ -45,11 +40,6 @@
     "subcategory_name": "Thermostat"
   },
   {
-    "pnc_code": "21501",
-    "category_name": "Cooling",
-    "subcategory_name": "Radiator hose (upper)"
-  },
-  {
     "pnc_code": "40206",
     "category_name": "Brakes",
     "subcategory_name": "Front brake disc"
@@ -65,14 +55,9 @@
     "subcategory_name": "Rear brake pad kit"
   },
   {
-    "pnc_code": "41001",
+    "pnc_code": "43206",
     "category_name": "Brakes",
-    "subcategory_name": "Front caliper assembly"
-  },
-  {
-    "pnc_code": "46010",
-    "category_name": "Brakes",
-    "subcategory_name": "Brake master cylinder"
+    "subcategory_name": "Rear brake disc"
   },
   {
     "pnc_code": "54302",
@@ -85,19 +70,14 @@
     "subcategory_name": "Front lower control arm"
   },
   {
-    "pnc_code": "54613",
-    "category_name": "Suspension",
-    "subcategory_name": "Stabilizer bar bushing"
-  },
-  {
     "pnc_code": "56210",
     "category_name": "Suspension",
     "subcategory_name": "Rear shock absorber"
   },
   {
-    "pnc_code": "48520",
+    "pnc_code": "54618",
     "category_name": "Suspension",
-    "subcategory_name": "Tie rod end"
+    "subcategory_name": "Stabilizer link"
   },
   {
     "pnc_code": "15208",
@@ -130,19 +110,14 @@
     "subcategory_name": "Starter motor"
   },
   {
-    "pnc_code": "11065",
+    "pnc_code": "22401",
     "category_name": "Electrical",
-    "subcategory_name": "Glow plug"
+    "subcategory_name": "Spark plug"
   },
   {
     "pnc_code": "26010",
     "category_name": "Electrical",
     "subcategory_name": "Headlamp assembly RH"
-  },
-  {
-    "pnc_code": "25230",
-    "category_name": "Electrical",
-    "subcategory_name": "Relay"
   },
   {
     "pnc_code": "62022",
@@ -163,10 +138,5 @@
     "pnc_code": "96301",
     "category_name": "Body",
     "subcategory_name": "Door mirror RH"
-  },
-  {
-    "pnc_code": "80640",
-    "category_name": "Body",
-    "subcategory_name": "Door handle outer RH"
   }
 ]

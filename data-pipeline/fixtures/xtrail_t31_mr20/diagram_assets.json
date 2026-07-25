@@ -1,23 +1,58 @@
 [
   {
-    "storage_path": "xtrail-t31/15208-oil-filter.png",
+    "storage_path": "xtrail-t31/section-engine.svg",
+    "pnc_code": "11044",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "content_type": "image/svg+xml",
+    "provenance": "original-fixture-art"
+  },
+  {
+    "storage_path": "xtrail-t31/section-cooling.svg",
+    "pnc_code": "21460",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "content_type": "image/svg+xml",
+    "provenance": "original-fixture-art"
+  },
+  {
+    "storage_path": "xtrail-t31/section-brakes.svg",
+    "pnc_code": "40206",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "content_type": "image/svg+xml",
+    "provenance": "original-fixture-art"
+  },
+  {
+    "storage_path": "xtrail-t31/section-suspension.svg",
+    "pnc_code": "54302",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "content_type": "image/svg+xml",
+    "provenance": "original-fixture-art"
+  },
+  {
+    "storage_path": "xtrail-t31/section-filters.svg",
     "pnc_code": "15208",
     "chassis_code": "T31",
     "engine_code": "MR20",
-    "content_type": "image/png"
+    "content_type": "image/svg+xml",
+    "provenance": "original-fixture-art"
   },
   {
-    "storage_path": "xtrail-t31/16546-air-filter.png",
-    "pnc_code": "16546",
+    "storage_path": "xtrail-t31/section-electrical.svg",
+    "pnc_code": "23100",
     "chassis_code": "T31",
     "engine_code": "MR20",
-    "content_type": "image/png"
+    "content_type": "image/svg+xml",
+    "provenance": "original-fixture-art"
   },
   {
-    "storage_path": "xtrail-t31/62022-front-bumper.png",
-    "pnc_code": "92100",
+    "storage_path": "xtrail-t31/section-body.svg",
+    "pnc_code": "62022",
     "chassis_code": "T31",
     "engine_code": "MR20",
-    "content_type": "image/png"
+    "content_type": "image/svg+xml",
+    "provenance": "original-fixture-art"
   }
 ]
