@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { StaffNav } from "@/components/staff-nav";
 import { useStaffAuth } from "@/components/staff-auth-context";
 import styles from "@/components/account.module.css";
 
-export default function StaffForbiddenPage() {
+function ForbiddenBody() {
   const params = useSearchParams();
   const reason = params.get("reason");
   const ctx = useStaffAuth();
@@ -36,5 +37,19 @@ export default function StaffForbiddenPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function StaffForbiddenPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={styles.panel}>
+          <p className={styles.muted}>Loading…</p>
+        </div>
+      }
+    >
+      <ForbiddenBody />
+    </Suspense>
   );
 }
