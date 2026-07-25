@@ -80,7 +80,7 @@ export function SiteHeader() {
             </span>
           </Link>
 
-          <nav className={styles.actions} aria-label="Account">
+          <nav className={styles.actions} aria-label="Shop actions">
             <SiteMenu />
             <Link href="/account" className={styles.action}>
               <ActionIcon Icon={UserRound} label="Account" />
