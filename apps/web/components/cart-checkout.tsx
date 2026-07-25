@@ -22,20 +22,8 @@ import {
   type CartRow,
   zigExchangeRate,
 } from "@/lib/customer-storefront";
-import { iconSizeMd, iconStroke, ShoppingCart } from "@/components/icons";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
-
-function CartTitle() {
-  return (
-    <h1 className={styles.title}>
-      <span className={styles.titleIcon} aria-hidden>
-        <ShoppingCart size={iconSizeMd} strokeWidth={iconStroke} />
-      </span>
-      Cart
-    </h1>
-  );
-}
 
 function CartTitle() {
   return (
