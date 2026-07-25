@@ -494,6 +494,12 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path.startsWith("/staff/analytics")) {
     return { kind: "roles", roles: ["admin", "finance", "sales"] };
   }
+  if (
+    path === "/procurement/approvals" ||
+    path.startsWith("/procurement/approvals/")
+  ) {
+    return { kind: "roles", roles: ["admin", "finance"] };
+  }
   if (path === "/procurement" || path.startsWith("/procurement/")) {
     return { kind: "roles", roles: ["admin", "warehouse", "finance"] };
   }
