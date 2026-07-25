@@ -202,9 +202,7 @@ class PosViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 ensureBluetooth()
-                if (printer is co.zw.nissangtr.bridges.escpos.BluetoothEscPosPrinterBridge) {
-                    printer.setPrinterAddress(mac)
-                }
+                printer.configurePrinterAddress(mac)
                 printer.connect()
                 _state.update {
                     it.copy(
