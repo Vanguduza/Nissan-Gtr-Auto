@@ -262,3 +262,28 @@ export function staffLoginHref(returnPath: string): string {
   const next = returnPath.startsWith("/") ? returnPath : "/staff";
   return `/login?next=${encodeURIComponent(next)}`;
 }
+
+/**
+ * After password sign-in: staff land on management, not the storefront.
+ * Honor `next` only for staff surfaces (`/staff`, `/procurement`).
+ */
+export function postLoginPath(
+  isStaff: boolean,
+  next: string | null | undefined,
+): string {
+  const path = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  if (isStaff) {
+    if (
+      path &&
+      (path === "/staff" ||
+        path.startsWith("/staff/") ||
+        path === "/procurement" ||
+        path.startsWith("/procurement/"))
+    ) {
+      return path;
+    }
+    return "/staff";
+  }
+  return path ?? "/account";
+}
+

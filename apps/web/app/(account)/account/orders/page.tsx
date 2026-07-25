@@ -11,8 +11,8 @@ export default function OrdersPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Orders & tracking</h1>
         <p className={styles.lede}>
-          Click &amp; collect (Harare counter) or nationwide dispatch. Live GPS
-          tracking binds in Phase 10 — status enums only for now.
+          Click &amp; collect (Harare counter) or nationwide dispatch. Open an
+          order for live last-point tracking while it is out for delivery.
         </p>
         <OrdersList />
       </div>
