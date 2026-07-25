@@ -25,8 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.bridges.escpos.BluetoothEscPosPrinterBridge
 import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
-import co.zw.nissangtr.bridges.location.FusedLocationGpsBridge
-import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.qr.CameraxQrScannerBridge
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.auth.AuthGate
