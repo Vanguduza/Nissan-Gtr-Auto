@@ -606,6 +606,7 @@ export function StaffFinancePanel() {
     setPnlRows([]);
     setBsRows([]);
     setCfRows([]);
+    setTbRows([]);
 
     if (reportKind === "pnl") {
       const res = await reportProfitAndLoss(client, {
@@ -636,6 +637,20 @@ export function StaffFinancePanel() {
       setMessage(`Balance sheet · ${res.data.length} rows · ${reportCurrency}`);
       return;
     }
+    if (reportKind === "tb") {
+      const res = await reportTrialBalance(client, {
+        asOf: to,
+        currency: reportCurrency,
+      });
+      setBusy(false);
+      if (!res.ok) {
+        setMessage(res.error);
+        return;
+      }
+      setTbRows(res.data);
+      setMessage(`Trial balance · ${res.data.length} rows · ${reportCurrency}`);
+      return;
+    }
     const res = await reportCashFlow(client, {
       from,
       to,
@@ -648,6 +663,78 @@ export function StaffFinancePanel() {
     }
     setCfRows(res.data);
     setMessage(`Cash flow · ${res.data.length} rows · amounts in USD`);
+  }
+
+  function onExportCsv() {
+    if (reportKind === "pnl" && pnlRows.length) {
+      downloadCsv(
+        `pnl-${from}-${to}-${reportCurrency}.csv`,
+        ["account_code", "account_name", "account_type", "amount", "amount_usd", "currency"],
+        pnlRows.map((r) => [
+          r.account_code,
+          r.account_name,
+          r.account_type,
+          r.amount,
+          r.amount_usd,
+          reportCurrency,
+        ]),
+      );
+      setMessage("P&L CSV downloaded.");
+      return;
+    }
+    if (reportKind === "bs" && bsRows.length) {
+      downloadCsv(
+        `balance-sheet-${to}-${reportCurrency}.csv`,
+        ["account_code", "account_name", "account_type", "balance", "balance_usd", "currency"],
+        bsRows.map((r) => [
+          r.account_code,
+          r.account_name,
+          r.account_type,
+          r.balance,
+          r.balance_usd,
+          reportCurrency,
+        ]),
+      );
+      setMessage("Balance sheet CSV downloaded.");
+      return;
+    }
+    if (reportKind === "cf" && cfRows.length) {
+      downloadCsv(
+        `cash-flow-${from}-${to}.csv`,
+        ["section", "label", "amount_usd"],
+        cfRows.map((r) => [r.section, r.label, r.amount_usd]),
+      );
+      setMessage("Cash flow CSV downloaded.");
+      return;
+    }
+    if (reportKind === "tb" && tbRows.length) {
+      downloadCsv(
+        `trial-balance-${to}-${reportCurrency}.csv`,
+        [
+          "account_code",
+          "account_name",
+          "account_type",
+          "debit",
+          "credit",
+          "debit_usd",
+          "credit_usd",
+          "currency",
+        ],
+        tbRows.map((r) => [
+          r.account_code,
+          r.account_name,
+          r.account_type,
+          r.debit,
+          r.credit,
+          r.debit_usd,
+          r.credit_usd,
+          reportCurrency,
+        ]),
+      );
+      setMessage("Trial balance CSV downloaded.");
+      return;
+    }
+    setMessage("Run a report before exporting CSV.");
   }
 
   async function onCreatePayment(e: FormEvent) {
@@ -663,6 +750,11 @@ export function StaffFinancePanel() {
       setMessage("Payment amount must be positive.");
       return;
     }
+    const rate = parseExchangeRate(payCurrency, payExchangeRate);
+    if (rate == null) {
+      setMessage("ZiG exchange rate must be a positive number.");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const res = await createPaymentEntry(client, {
@@ -670,14 +762,17 @@ export function StaffFinancePanel() {
       amount: n,
       currency: payCurrency,
       tender,
-      exchangeRate: payCurrency === "ZIG" ? zigExchangeRate() : 1,
+      exchangeRate: rate,
     });
     setBusy(false);
     if (!res.ok) {
       setMessage(res.error);
       return;
     }
-    setMessage(`Payment draft ${res.data.slice(0, 8)}… · ${payCurrency}`);
+    setMessage(
+      `Payment draft ${res.data.slice(0, 8)}… · ${payCurrency}` +
+        (payCurrency === "ZIG" ? ` @ rate ${rate}` : ""),
+    );
     setPayAmount("");
     await refresh();
   }
@@ -686,25 +781,46 @@ export function StaffFinancePanel() {
     e.preventDefault();
     const client = createWebClient();
     if (!client || !allocPaymentId) return;
-    const n = Number(allocAmount);
-    if (!allocInvoiceId.trim() || !Number.isFinite(n) || n <= 0) {
-      setMessage("Invoice id and positive amount required.");
+    const allocations: { sales_invoice_id: string; amount: number }[] = [];
+    for (const row of allocRows) {
+      const inv = row.invoiceId.trim();
+      const n = Number(row.amount);
+      if (!inv && !row.amount.trim()) continue;
+      if (!inv || !Number.isFinite(n) || n <= 0) {
+        setMessage("Each allocation row needs invoice id and positive amount.");
+        return;
+      }
+      allocations.push({ sales_invoice_id: inv, amount: n });
+    }
+    if (!allocations.length) {
+      setMessage("Add at least one invoice allocation.");
       return;
+    }
+    const pay = boot.kind === "ready"
+      ? boot.payments.find((p) => p.id === allocPaymentId)
+      : undefined;
+    const totalAlloc = allocations.reduce((s, a) => s + a.amount, 0);
+    if (pay && totalAlloc > Number(pay.amount) + 1e-9) {
+      setMessage(
+        `Allocations (${totalAlloc}) exceed payment amount (${pay.amount} ${pay.currency}). RPC will deny over-allocate.`,
+      );
     }
     setBusy(true);
     setMessage(null);
     const res = await allocatePayment(client, {
       paymentEntryId: allocPaymentId,
-      allocations: [
-        { sales_invoice_id: allocInvoiceId.trim(), amount: n },
-      ],
+      allocations,
     });
     setBusy(false);
     if (!res.ok) {
       setMessage(res.error);
       return;
     }
-    setMessage(`Allocated on payment ${res.data.slice(0, 8)}…`);
+    setMessage(
+      `Allocated ${allocations.length} invoice(s) on payment ${res.data.slice(0, 8)}…` +
+        (pay ? ` · ${pay.currency}` : ""),
+    );
+    setAllocRows([{ invoiceId: "", amount: "" }]);
   }
 
   async function onPostPayment(id: string) {
