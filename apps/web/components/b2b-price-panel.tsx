@@ -31,6 +31,10 @@ type Status =
       isTrade: boolean;
       sample: SampleRow[];
       displayName: string | null;
+      creditLimit: number;
+      creditHold: boolean;
+      openBalance: number;
+      accountCurrency: "USD" | "ZIG";
     };
 
 export function B2bPricePanel() {

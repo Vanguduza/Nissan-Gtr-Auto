@@ -118,7 +118,7 @@ function DiagramFrame({
 }
 
 const GAP_COPY =
-  "No diagram in Storage yet — bucket catalog-diagrams is ready; part_fitment.diagram_path + bbox await Phase 7 pipeline uploads.";
+  "No diagram image yet. After db reset, run: node supabase/seed_catalog_diagrams.mjs --docker (Navara fixtures → catalog-diagrams). part_fitment.diagram_path may already be set.";
 
 /**
  * Visual catalog canvas. Renders real Storage diagram + hotspots when
