@@ -330,8 +330,9 @@ CREATE OR REPLACE FUNCTION public._hash_delivery_track_token(p_token TEXT)
 RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public, extensions
 AS $$
-  SELECT encode(digest(convert_to(p_token, 'UTF8'), 'sha256'), 'hex');
+  SELECT encode(extensions.digest(convert_to(p_token, 'UTF8'), 'sha256'), 'hex');
 $$;
 
 CREATE OR REPLACE FUNCTION public._customer_owns_delivery_job(p_job_id UUID)
@@ -394,7 +395,7 @@ BEGIN
   WHERE delivery_job_id = p_delivery_job_id
     AND revoked_at IS NULL;
 
-  v_raw := encode(gen_random_bytes(32), 'hex');
+  v_raw := encode(extensions.gen_random_bytes(32), 'hex');
   v_hash := public._hash_delivery_track_token(v_raw);
 
   INSERT INTO public.delivery_track_tokens (
