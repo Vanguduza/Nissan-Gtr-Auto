@@ -66,6 +66,7 @@ import {
   type CustomerOption,
   type FinanceRequisitionOption,
   type FinanceRequisitionType,
+  type FinanceRequisitionLineInput,
   type JournalEntryOption,
   type JournalLineOption,
   type OpenInvoiceOption,
@@ -227,13 +228,15 @@ export function StaffFinancePanel() {
     [],
   );
   const [reqType, setReqType] = useState<FinanceRequisitionType>("petty_cash");
-  const [reqAmount, setReqAmount] = useState("");
   const [reqCurrency, setReqCurrency] = useState<CurrencyCode>("USD");
   const [reqRate, setReqRate] = useState(defaultZigRate);
   const [reqPayee, setReqPayee] = useState("");
   const [reqMemo, setReqMemo] = useState("");
-  const [reqExpenseAccount, setReqExpenseAccount] = useState("5300");
+  const [reqLines, setReqLines] = useState<
+    { expenseAccountCode: string; amount: string; description: string }[]
+  >([{ expenseAccountCode: "5300", amount: "", description: "" }]);
   const [reqRejectReason, setReqRejectReason] = useState("");
+  const [expandedReqId, setExpandedReqId] = useState<string | null>(null);
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
