@@ -241,3 +241,109 @@ public enum StorefrontError: Error, LocalizedError, Sendable, Equatable {
         }
     }
 }
+
+// MARK: - Live chat (matches packages/shared chat types)
+
+/// Matches `chat_thread_kind`.
+public enum ChatThreadKind: String, Sendable, Codable, CaseIterable, Identifiable {
+    case support
+    case parts
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .support: return "Support"
+        case .parts: return "Parts"
+        }
+    }
+}
+
+/// Matches `chat_thread_status`.
+public enum ChatThreadStatus: String, Sendable, Codable {
+    case open
+    case assigned
+    case closed
+}
+
+/// Matches `chat_sender_kind`.
+public enum ChatSenderKind: String, Sendable, Codable {
+    case customer
+    case staff
+    case system
+}
+
+public struct ChatThread: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public var customerUserId: UUID?
+    public var kind: ChatThreadKind
+    public var status: ChatThreadStatus
+    public var subject: String?
+    public var lastMessageAt: Date?
+    public var createdAt: Date?
+
+    public init(
+        id: UUID,
+        customerUserId: UUID? = nil,
+        kind: ChatThreadKind = .support,
+        status: ChatThreadStatus = .open,
+        subject: String? = nil,
+        lastMessageAt: Date? = nil,
+        createdAt: Date? = nil
+    ) {
+        self.id = id
+        self.customerUserId = customerUserId
+        self.kind = kind
+        self.status = status
+        self.subject = subject
+        self.lastMessageAt = lastMessageAt
+        self.createdAt = createdAt
+    }
+
+    public var preview: String {
+        let sub = subject?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !sub.isEmpty { return sub }
+        return kind == .parts ? "Parts inquiry" : "Support"
+    }
+}
+
+public struct ChatMessage: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public var threadId: UUID
+    public var senderUserId: UUID?
+    public var senderKind: ChatSenderKind
+    public var body: String
+    public var createdAt: Date
+
+    public init(
+        id: UUID,
+        threadId: UUID,
+        senderUserId: UUID? = nil,
+        senderKind: ChatSenderKind,
+        body: String,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.threadId = threadId
+        self.senderUserId = senderUserId
+        self.senderKind = senderKind
+        self.body = body
+        self.createdAt = createdAt
+    }
+}
+
+public struct StartChatThreadInput: Sendable {
+    public var kind: ChatThreadKind
+    public var subject: String?
+    public var body: String?
+
+    public init(
+        kind: ChatThreadKind = .support,
+        subject: String? = nil,
+        body: String? = nil
+    ) {
+        self.kind = kind
+        self.subject = subject
+        self.body = body
+    }
+}

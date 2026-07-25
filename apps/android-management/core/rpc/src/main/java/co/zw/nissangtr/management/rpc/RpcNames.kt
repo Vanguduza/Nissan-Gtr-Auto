@@ -38,4 +38,11 @@ object RpcNames {
     const val UPDATE_DELIVERY_JOB_STATUS = "update_delivery_job_status"
     /** Bridge-only ingest (~5s). Do not call from Compose with browser geolocation. */
     const val INGEST_DELIVERY_LOCATION = "ingest_delivery_location"
+
+    // Live chat (staff inbox — same RPCs as web /staff/chat)
+    const val CLAIM_CHAT_THREAD = "claim_chat_thread"
+    const val CLOSE_CHAT_THREAD = "close_chat_thread"
+    const val MARK_CHAT_THREAD_READ = "mark_chat_thread_read"
+    const val POST_CHAT_MESSAGE = "post_chat_message"
+    const val CHAT_UNREAD_COUNT = "chat_unread_count"
 }

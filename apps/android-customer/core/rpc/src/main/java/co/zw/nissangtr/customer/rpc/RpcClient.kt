@@ -56,4 +56,19 @@ interface RpcClient {
     suspend fun upsertCustomerGarageVehicle(input: GarageVehicleInput): String
 
     suspend fun deleteCustomerGarageVehicle(id: String)
+
+    /** Live: SELECT chat_threads own rows via RLS (ordered by last_message_at). */
+    suspend fun listChatThreads(): List<ChatThread>
+
+    /** Live: SELECT chat_messages for thread via RLS. */
+    suspend fun listChatMessages(threadId: String): List<ChatMessage>
+
+    suspend fun startChatThread(input: StartChatThreadInput = StartChatThreadInput()): String
+
+    suspend fun postChatMessage(threadId: String, body: String): String
+
+    suspend fun markChatThreadRead(threadId: String)
+
+    /** Unread across all threads when [threadId] is null. */
+    suspend fun chatUnreadCount(threadId: String? = null): Int
 }

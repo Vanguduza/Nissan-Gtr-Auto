@@ -307,7 +307,13 @@ BEGIN
       END IF;
   END;
 
-  PERFORM public.update_delivery_job_status(v_job, 'completed');
+  -- POD required to complete (dedicated delivery app P0)
+  PERFORM public.submit_delivery_pod(
+    v_job,
+    'pod/photos/phase10-smoke.jpg',
+    'pod/signatures/phase10-smoke.png',
+    'phase10 complete'
+  );
 
   SELECT count(*)::int INTO v_evt
   FROM public.domain_events
