@@ -1,6 +1,5 @@
 import { StaffNav } from "@/components/staff-nav";
 import { StaffWarehouseCycleCountPanel } from "@/components/staff-warehouse-cycle-count-panel";
-import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
 import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Staff · Cycle count" };
@@ -11,7 +10,6 @@ export default function StaffWarehouseCycleCountPage() {
       <StaffNav current="/staff/warehouse/cycle-count" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Cycle count</h1>
-        <StaffWarehouseTabs active="cycle-count" />
         <StaffWarehouseCycleCountPanel />
       </div>
     </div>
