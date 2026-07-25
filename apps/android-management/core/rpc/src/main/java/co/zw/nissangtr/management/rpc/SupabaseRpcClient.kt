@@ -1182,11 +1182,6 @@ private data class PosScanSessionCartRow(
 )
 
 @Serializable
-private data class StockItemOemEmbed(
-    @SerialName("oem_part_number") val oemPartNumber: String? = null,
-)
-
-@Serializable
 private data class PosCartLineRow(
     val id: String,
     @SerialName("stock_item_id") val stockItemId: String,
@@ -1194,18 +1189,13 @@ private data class PosCartLineRow(
     @SerialName("unit_price") val unitPrice: Double,
     @SerialName("line_total") val lineTotal: Double,
     @SerialName("is_core_charge") val isCoreCharge: Boolean = false,
-    @SerialName("stock_items") val stockItems: StockItemOemEmbed? = null,
-) {
-    fun toSummary() = PosCartLineSummary(
-        id = id,
-        stockItemId = stockItemId,
-        oemPartNumber = stockItems?.oemPartNumber,
-        qty = qty,
-        unitPrice = unitPrice,
-        lineTotal = lineTotal,
-        isCoreCharge = isCoreCharge,
-    )
-}
+)
+
+@Serializable
+private data class StockItemOemRow(
+    val id: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+)
 
 private fun parseCatalogSearchResult(
     raw: kotlinx.serialization.json.JsonObject,
