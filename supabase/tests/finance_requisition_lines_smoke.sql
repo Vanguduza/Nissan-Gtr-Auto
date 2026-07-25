@@ -58,7 +58,11 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: header amount not synced to 55';
   END IF;
 
-  -- Direct line insert must fail (mutation guard)
+  -- Direct line insert must fail (mutation guard).
+  -- RPCs set app.finance_req_rpc for the current txn (PostgREST = one txn per call);
+  -- clear it so this DO-block assertion matches a separate client transaction.
+  PERFORM set_config('app.finance_req_rpc', '', true);
+
   BEGIN
     INSERT INTO public.finance_requisition_lines (
       requisition_id, line_no, expense_account_code, amount
