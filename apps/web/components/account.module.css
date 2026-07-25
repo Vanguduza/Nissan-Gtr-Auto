@@ -26,16 +26,19 @@
 }
 
 .nav {
-  background: var(--gtr-white);
+  background: color-mix(in srgb, var(--gtr-white) 92%, var(--gtr-mist));
   border: 1px solid var(--staff-border);
   border-radius: var(--staff-radius);
   padding: 0.75rem 0 0.85rem;
   height: fit-content;
-  box-shadow: var(--staff-shadow-md);
+  box-shadow:
+    var(--staff-shadow-md),
+    0 0 0 1px rgba(255, 255, 255, 0.65) inset;
   position: sticky;
   top: 0.85rem;
   align-self: start;
   overflow: hidden;
+  backdrop-filter: blur(6px);
 }
 
 .nav::before {
