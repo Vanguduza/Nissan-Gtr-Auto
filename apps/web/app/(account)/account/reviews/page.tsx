@@ -1,4 +1,5 @@
 import { AccountNav } from "@/components/account-nav";
+import { ReviewsPanel } from "@/components/reviews-panel";
 import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Reviews" };
@@ -10,9 +11,10 @@ export default function ReviewsPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>My reviews</h1>
         <p className={styles.lede}>
-          Ratings appear on PDPs once moderation volume justifies it.
+          Submit ratings for parts you use. Approved reviews appear on the
+          product page after moderation.
         </p>
-        <p className={styles.muted}>You have not reviewed any parts yet.</p>
+        <ReviewsPanel />
       </div>
     </div>
   );

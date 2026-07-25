@@ -1,4 +1,5 @@
 import { AccountNav } from "@/components/account-nav";
+import { WishlistPanel } from "@/components/wishlist-panel";
 import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Wishlist" };
@@ -10,9 +11,9 @@ export default function WishlistPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Wishlist</h1>
         <p className={styles.lede}>
-          Save parts and opt into back-in-stock SMS (Phase 13). Empty for now.
+          Saved parts from the catalog. Add or remove from any product page.
         </p>
-        <p className={styles.muted}>No saved SKUs.</p>
+        <WishlistPanel />
       </div>
     </div>
   );

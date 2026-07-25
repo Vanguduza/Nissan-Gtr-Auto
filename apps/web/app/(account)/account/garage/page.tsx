@@ -12,7 +12,8 @@ export default function GarageAccountPage() {
         <h1 className={styles.title}>My Garage</h1>
         <p className={styles.lede}>
           Saved vehicles drive fitment filters across the shop. Service
-          reminders (adopt later) will notify you before due intervals.
+          reminders are not available yet — only garage vehicles are stored
+          today.
         </p>
         <GaragePanel />
       </div>
