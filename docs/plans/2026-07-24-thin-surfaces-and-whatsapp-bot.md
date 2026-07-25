@@ -7,6 +7,8 @@
 - Decision: [`whatsapp-parts-finder-bot`](../decisions/2026-07-24-whatsapp-parts-finder-bot.md) (Accepted)
 - Sources: thin-audit agent `d1fd3e85`; WhatsApp agent `62bed301`
 
+> **Supersession (2026-07-25):** In-app live chat is **in scope** and ships per ADR [`in-app-live-chat`](../decisions/2026-07-25-in-app-live-chat.md) and plan [`2026-07-25-in-app-live-chat`](./2026-07-25-in-app-live-chat.md). Gap #9 and the out-of-scope line that excluded an in-app chat widget are **overridden**. WhatsApp bot/CTA content in this plan remains valid as an **optional channel**.
+
 ## Goal
 
 Close the gap between a largely live backend (Phases 1–16) / configurable web commerce and thin client surfaces — and ship a Meta Cloud API WhatsApp parts-finder bot that searches catalog and deep-links PDP, with human handoff, without conflating receipt delivery.

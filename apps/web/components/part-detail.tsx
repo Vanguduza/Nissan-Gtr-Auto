@@ -150,11 +150,7 @@ export function PartDetail({ oem }: { oem: string }) {
   return (
     <article className={styles.wrap}>
       <div className={styles.gallery} aria-label="Product media">
-        {p.diagram ? (
-          <CatalogCanvasStub diagram={p.diagram} />
-        ) : (
-          <CatalogCanvasStub oem={p.oem} />
-        )}
+        <CatalogCanvasStub diagram={p.diagram} oem={p.oem} />
       </div>
       <div className={styles.info}>
         <p className={styles.brand}>{p.brand}</p>
