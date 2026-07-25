@@ -140,9 +140,7 @@ export function ProfileForm() {
         whatsapp_receipts: pref === "whatsapp",
       });
       if (!contact.ok) {
-        notes.push(
-          `Contact / receipt prefs not persisted (${contact.error}). @backend_agent: customers own-row UPDATE or update_own_customer RPC.`,
-        );
+        notes.push(`Contact / receipt prefs not saved: ${contact.error}`);
       } else {
         notes.push("Customer contact + receipt prefs updated.");
       }

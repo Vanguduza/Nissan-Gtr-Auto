@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  deleteOwnAddress,
+  listOwnAddresses,
+  requireSession,
+  upsertOwnAddress,
+  type CustomerAddressRow,
+} from "@/lib/customer-storefront";
+import { createWebClient } from "@/lib/supabase";
 import styles from "@/components/account.module.css";
 
-type Address = {
-  id: string;
+type Draft = {
+  id: string | null;
   label: string;
   line1: string;
   line2: string;
@@ -16,83 +24,209 @@ type Address = {
   isDefault: boolean;
 };
 
-/**
- * No `customer_addresses` table (or profiles JSON) exists yet.
- * Local-only CRUD until @backend_agent adds a table + RLS.
- */
+function toDraft(row: CustomerAddressRow): Draft {
+  return {
+    id: row.id,
+    label: row.label,
+    line1: row.line1,
+    line2: row.line2 ?? "",
+    city: row.city ?? "",
+    province: row.province ?? "",
+    postal: row.postal_code ?? "",
+    country: row.country || "Zimbabwe",
+    isDefault: row.is_default,
+  };
+}
+
+function emptyDraft(makeDefault: boolean): Draft {
+  return {
+    id: null,
+    label: "",
+    line1: "",
+    line2: "",
+    city: "",
+    province: "",
+    postal: "",
+    country: "Zimbabwe",
+    isDefault: makeDefault,
+  };
+}
+
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "auth" }
+  | { kind: "error"; message: string }
+  | { kind: "ready"; addresses: CustomerAddressRow[] };
+
 export function AddressesPanel() {
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [editing, setEditing] = useState<Address | null>(null);
-  const [status, setStatus] = useState(
-    "Addresses are not persisted yet — no customer_addresses table (or profiles JSON). @backend_agent gap.",
-  );
+  const [load, setLoad] = useState<LoadState>({ kind: "loading" });
+  const [editing, setEditing] = useState<Draft | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const client = createWebClient();
+    if (!client) {
+      setLoad({
+        kind: "error",
+        message: "Supabase is not configured on this environment.",
+      });
+      return;
+    }
+    const session = await requireSession(client);
+    if (!session.ok) {
+      setLoad({ kind: "auth" });
+      return;
+    }
+    const rows = await listOwnAddresses(client);
+    if (!rows.ok) {
+      setLoad({ kind: "error", message: rows.error });
+      return;
+    }
+    setLoad({ kind: "ready", addresses: rows.data });
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   function startNew() {
-    setEditing({
-      id: `local-${Date.now()}`,
-      label: "",
-      line1: "",
-      line2: "",
-      city: "",
-      province: "",
-      postal: "",
-      country: "Zimbabwe",
-      isDefault: addresses.length === 0,
-    });
-    setStatus("Draft only — will not survive refresh until backend table exists.");
+    const makeDefault =
+      load.kind === "ready" ? load.addresses.length === 0 : true;
+    setEditing(emptyDraft(makeDefault));
+    setStatus(null);
   }
 
-  function onSave(e: FormEvent) {
+  async function onSave(e: FormEvent) {
     e.preventDefault();
     if (!editing) return;
-    setAddresses((list) => {
-      const exists = list.some((a) => a.id === editing.id);
-      const next = exists
-        ? list.map((a) => (a.id === editing.id ? editing : a))
-        : [...list, editing];
-      if (editing.isDefault) {
-        return next.map((a) => ({
-          ...a,
-          isDefault: a.id === editing.id,
-        }));
-      }
-      return next;
+    setBusy(true);
+    setStatus(null);
+    const client = createWebClient();
+    if (!client) {
+      setStatus("Supabase is not configured.");
+      setBusy(false);
+      return;
+    }
+    const result = await upsertOwnAddress(client, {
+      id: editing.id,
+      label: editing.label.trim(),
+      line1: editing.line1.trim(),
+      line2: editing.line2.trim() || null,
+      city: editing.city.trim() || null,
+      province: editing.province.trim() || null,
+      postal_code: editing.postal.trim() || null,
+      country: editing.country.trim() || "Zimbabwe",
+      is_default: editing.isDefault,
     });
+    setBusy(false);
+    if (!result.ok) {
+      setStatus(result.error);
+      return;
+    }
     setEditing(null);
-    setStatus(
-      "Saved in this session only. Persist requires customer_addresses (+ RLS) from @backend_agent.",
+    setStatus("Address saved.");
+    await refresh();
+  }
+
+  async function makeDefault(id: string) {
+    if (load.kind !== "ready") return;
+    const row = load.addresses.find((a) => a.id === id);
+    if (!row) return;
+    setBusy(true);
+    setStatus(null);
+    const client = createWebClient();
+    if (!client) {
+      setStatus("Supabase is not configured.");
+      setBusy(false);
+      return;
+    }
+    const result = await upsertOwnAddress(client, {
+      id: row.id,
+      label: row.label,
+      line1: row.line1,
+      line2: row.line2,
+      city: row.city,
+      province: row.province,
+      postal_code: row.postal_code,
+      country: row.country,
+      is_default: true,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setStatus(result.error);
+      return;
+    }
+    setStatus("Default address updated.");
+    await refresh();
+  }
+
+  async function remove(id: string) {
+    setBusy(true);
+    setStatus(null);
+    const client = createWebClient();
+    if (!client) {
+      setStatus("Supabase is not configured.");
+      setBusy(false);
+      return;
+    }
+    const result = await deleteOwnAddress(client, id);
+    setBusy(false);
+    if (!result.ok) {
+      setStatus(result.error);
+      return;
+    }
+    if (editing?.id === id) setEditing(null);
+    setStatus("Address removed.");
+    await refresh();
+  }
+
+  if (load.kind === "loading") {
+    return <p className={styles.muted}>Loading addresses…</p>;
+  }
+
+  if (load.kind === "auth") {
+    return (
+      <p className={styles.lede}>
+        <Link href="/login">Sign in</Link> to manage delivery addresses.
+      </p>
     );
   }
 
-  function makeDefault(id: string) {
-    setAddresses((list) =>
-      list.map((a) => ({ ...a, isDefault: a.id === id })),
+  if (load.kind === "error") {
+    return (
+      <p className={styles.lede} role="alert">
+        {load.message}{" "}
+        <button
+          type="button"
+          className={styles.btnGhost}
+          onClick={() => void refresh()}
+        >
+          Retry
+        </button>
+      </p>
     );
-    setStatus("Default updated in this session only.");
   }
 
-  function remove(id: string) {
-    setAddresses((list) => list.filter((a) => a.id !== id));
-    setStatus("Removed from this session only.");
-  }
+  const addresses = load.addresses;
 
   return (
     <div className={styles.addrWrap}>
       <p className={styles.muted} style={{ marginBottom: "1rem" }}>
-        Sign-in does not unlock address CRUD yet — schema gap. See{" "}
-        <Link href="/account/profile">profile</Link> for contact fields on{" "}
-        <code>customers</code>.
+        Shipping addresses on <code>customer_addresses</code>. Contact phone for
+        ContiPay lives on{" "}
+        <Link href="/account/profile">profile</Link>.
       </p>
 
       {addresses.length === 0 && !editing ? (
-        <p className={styles.muted}>No addresses in this session.</p>
+        <p className={styles.muted}>No saved addresses yet.</p>
       ) : (
         <ul className={styles.list}>
           {addresses.map((a) => (
             <li key={a.id}>
               <strong>
-                {a.label}
-                {a.isDefault ? " · Default" : ""}
+                {a.label || "Address"}
+                {a.is_default ? " · Default" : ""}
               </strong>
               <p className={styles.muted}>
                 {[a.line1, a.line2, a.city, a.province, a.country]
@@ -103,18 +237,20 @@ export function AddressesPanel() {
                 <button
                   type="button"
                   className={styles.btnGhost}
+                  disabled={busy}
                   onClick={() => {
-                    setEditing(a);
-                    setStatus("");
+                    setEditing(toDraft(a));
+                    setStatus(null);
                   }}
                 >
                   Edit
                 </button>
-                {!a.isDefault ? (
+                {!a.is_default ? (
                   <button
                     type="button"
                     className={styles.btnGhost}
-                    onClick={() => makeDefault(a.id)}
+                    disabled={busy}
+                    onClick={() => void makeDefault(a.id)}
                   >
                     Set default
                   </button>
@@ -122,7 +258,8 @@ export function AddressesPanel() {
                 <button
                   type="button"
                   className={styles.btnGhost}
-                  onClick={() => remove(a.id)}
+                  disabled={busy}
+                  onClick={() => void remove(a.id)}
                 >
                   Remove
                 </button>
@@ -133,16 +270,19 @@ export function AddressesPanel() {
       )}
 
       {!editing ? (
-        <button type="button" className={styles.btn} onClick={startNew}>
-          Add address (session only)
+        <button
+          type="button"
+          className={styles.btn}
+          disabled={busy}
+          onClick={startNew}
+        >
+          Add address
         </button>
       ) : (
-        <form className={styles.form} onSubmit={onSave}>
+        <form className={styles.form} onSubmit={(e) => void onSave(e)}>
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>
-              {addresses.some((a) => a.id === editing.id)
-                ? "Edit address"
-                : "New address"}
+              {editing.id ? "Edit address" : "New address"}
             </legend>
             <div className={styles.formGrid}>
               <label className={styles.field}>
@@ -154,6 +294,7 @@ export function AddressesPanel() {
                   }
                   placeholder="Home, Workshop…"
                   required
+                  disabled={busy}
                 />
               </label>
               <label className={styles.field}>
@@ -165,6 +306,7 @@ export function AddressesPanel() {
                   }
                   autoComplete="address-line1"
                   required
+                  disabled={busy}
                 />
               </label>
               <label className={styles.field}>
@@ -175,6 +317,7 @@ export function AddressesPanel() {
                     setEditing({ ...editing, line2: e.target.value })
                   }
                   autoComplete="address-line2"
+                  disabled={busy}
                 />
               </label>
               <label className={styles.field}>
@@ -186,6 +329,7 @@ export function AddressesPanel() {
                   }
                   autoComplete="address-level2"
                   required
+                  disabled={busy}
                 />
               </label>
               <label className={styles.field}>
@@ -196,6 +340,7 @@ export function AddressesPanel() {
                     setEditing({ ...editing, province: e.target.value })
                   }
                   autoComplete="address-level1"
+                  disabled={busy}
                 />
               </label>
               <label className={styles.field}>
@@ -206,6 +351,7 @@ export function AddressesPanel() {
                     setEditing({ ...editing, postal: e.target.value })
                   }
                   autoComplete="postal-code"
+                  disabled={busy}
                 />
               </label>
               <label className={styles.field}>
@@ -217,12 +363,14 @@ export function AddressesPanel() {
                   }
                   autoComplete="country-name"
                   required
+                  disabled={busy}
                 />
               </label>
               <label className={styles.checkField}>
                 <input
                   type="checkbox"
                   checked={editing.isDefault}
+                  disabled={busy}
                   onChange={(e) =>
                     setEditing({ ...editing, isDefault: e.target.checked })
                   }
@@ -232,12 +380,13 @@ export function AddressesPanel() {
             </div>
           </fieldset>
           <div className={styles.formActions}>
-            <button type="submit" className={styles.btn}>
-              Save address
+            <button type="submit" className={styles.btn} disabled={busy}>
+              {busy ? "Saving…" : "Save address"}
             </button>
             <button
               type="button"
               className={styles.btnGhost}
+              disabled={busy}
               onClick={() => setEditing(null)}
             >
               Cancel

@@ -47,6 +47,7 @@ export function getEmailSendConfig(): EmailSendConfig | null {
     Deno.env.get("RESEND_API_KEY")?.trim() ||
     "";
   const from =
+    Deno.env.get("REPORT_FROM_EMAIL")?.trim() ||
     Deno.env.get("EMAIL_FROM")?.trim() ||
     Deno.env.get("RECEIPT_FROM_EMAIL")?.trim() ||
     "";
