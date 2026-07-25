@@ -190,6 +190,7 @@ export async function loadCatalogProduct(
       specs,
       fitments: fitments.data,
       alternatives: alts,
+      diagram: diagram.data,
     },
   };
 }
