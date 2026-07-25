@@ -946,11 +946,29 @@ export function StaffFinancePanel() {
     e.preventDefault();
     const client = createWebClient();
     if (!client) return;
-    const n = Number(reqAmount);
-    if (!Number.isFinite(n) || n <= 0) {
-      setMessage("Requisition amount must be a positive number.");
+
+    const lines: FinanceRequisitionLineInput[] = [];
+    for (const row of reqLines) {
+      const n = Number(row.amount);
+      if (!Number.isFinite(n) || n <= 0) {
+        setMessage("Each line amount must be a positive number.");
+        return;
+      }
+      if (!row.expenseAccountCode.trim()) {
+        setMessage("Each line needs an expense account.");
+        return;
+      }
+      lines.push({
+        expenseAccountCode: row.expenseAccountCode.trim(),
+        amount: n,
+        description: row.description.trim() || undefined,
+      });
+    }
+    if (lines.length < 1) {
+      setMessage("Add at least one expense line.");
       return;
     }
+
     const rate = parseExchangeRate(reqCurrency, reqRate);
     if (rate == null) {
       setMessage("ZiG exchange rate must be a positive number.");
@@ -958,24 +976,28 @@ export function StaffFinancePanel() {
     }
     setBusy(true);
     setMessage(null);
+    const total = lines.reduce((s, l) => s + l.amount, 0);
     const res = await createFinanceRequisition(client, {
       reqType,
-      amount: n,
+      amount: total,
       currency: reqCurrency,
       payee: reqPayee || undefined,
       memo: reqMemo || undefined,
-      expenseAccountCode: reqExpenseAccount || "5300",
+      expenseAccountCode: lines[0]?.expenseAccountCode,
       exchangeRate: rate,
+      lines,
     });
     setBusy(false);
     if (!res.ok) {
       setMessage(res.error);
       return;
     }
-    setMessage(`Draft requisition ${res.data.slice(0, 8)}… · ${reqType} · ${reqCurrency}`);
-    setReqAmount("");
+    setMessage(
+      `Draft requisition ${res.data.slice(0, 8)}… · ${reqType} · ${total.toFixed(2)} ${reqCurrency} · ${lines.length} line(s)`,
+    );
     setReqPayee("");
     setReqMemo("");
+    setReqLines([{ expenseAccountCode: "5300", amount: "", description: "" }]);
     await loadRequisitions();
   }
 
