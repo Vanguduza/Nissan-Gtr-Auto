@@ -36,7 +36,7 @@ ALTER TABLE public.auth_otp_proofs ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON TABLE public.auth_otp_proofs TO service_role;
 
 COMMENT ON TABLE public.auth_otp_proofs IS
-  'Short-lived OTP verification proofs; Edge mints HMAC token over id; consumed by complete_signup/login.';
+  'Short-lived OTP verification proofs; Edge mints HMAC token over id; consumed by complete_signup (not login).';
 
 -- ---------------------------------------------------------------------------
 -- Contact bind helper: keep DEFINER internal use; drop direct client EXECUTE
