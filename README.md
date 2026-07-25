@@ -120,6 +120,10 @@ See `docs/CURSOR_BEST_PRACTICES.md` for the full extended playbook.
 > pnpm db:types
 > ```
 >
+> Edge secrets (never commit values): see root `.env.example` and
+> [`supabase/functions/README.md`](supabase/functions/README.md) — including
+> WhatsApp Cloud (`WHATSAPP_*`, `SITE_URL`) for receipts + parts-finder bot.
+>
 > Execution order:
 >
 > 1. Orchestration files (done)
