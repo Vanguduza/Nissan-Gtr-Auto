@@ -1581,10 +1581,199 @@ export function StaffFinancePanel() {
           <legend className={styles.legend}>
             {ACCOUNT_TAB_CODES[tab].title}
           </legend>
-          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            Quick journal templates create balanced drafts via{" "}
-            <code>create_journal_draft</code> (no till sessions). Amounts show
-            explicit <code>USD</code> | <code>ZIG</code>.
+          {tab === "petty-cash" ? (
+            <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+              Imprest float in <code>1110 Petty Cash</code> is funded from{" "}
+              <code>{fundingAccountCode} Cash &amp; Bank</code> (Dr 1110 / Cr{" "}
+              {fundingAccountCode}). Daily open/close below is a control
+              snapshot — journals stay append-only. Spends use the{" "}
+              <button
+                type="button"
+                className={styles.btnGhost}
+                onClick={() => selectTab("requisitions")}
+              >
+                Requisitions
+              </button>{" "}
+              tab (approve → disburse).
+            </p>
+          ) : (
+            <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+              Statement-style register via <code>report_account_register</code>.
+              Quick templates create balanced drafts. Amounts show explicit{" "}
+              <code>USD</code> | <code>ZIG</code>.
+            </p>
+          )}
+
+          <p className={styles.muted} style={{ margin: "0 0 0.5rem" }}>
+            Trade period (open / close)
+          </p>
+          {openPeriod ? (
+            <p className={styles.formStatus} role="status">
+              Open · {openPeriod.period_start} → {openPeriod.period_end} ·
+              opening {Number(openPeriod.opening_balance).toFixed(2)}{" "}
+              {openPeriod.currency}
+              {openPeriod.notes ? ` · ${openPeriod.notes}` : ""}
+            </p>
+          ) : (
+            <p className={styles.muted}>No open period for this account + currency.</p>
+          )}
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Period start
+              <input
+                type="date"
+                value={periodStartDate}
+                onChange={(e) => setPeriodStartDate(e.target.value)}
+                disabled={busy || !!openPeriod}
+              />
+            </label>
+            <label className={styles.field}>
+              Period end
+              <input
+                type="date"
+                value={periodEndDate}
+                onChange={(e) => setPeriodEndDate(e.target.value)}
+                disabled={busy || !!openPeriod}
+              />
+            </label>
+            <label className={styles.field}>
+              Opening balance ({registerCurrency})
+              <input
+                value={periodOpening}
+                onChange={(e) => setPeriodOpening(e.target.value)}
+                disabled={busy || !!openPeriod}
+                inputMode="decimal"
+              />
+            </label>
+            <label className={styles.field}>
+              Open notes
+              <input
+                value={periodOpenNotes}
+                onChange={(e) => setPeriodOpenNotes(e.target.value)}
+                disabled={busy || !!openPeriod}
+                placeholder="Optional"
+              />
+            </label>
+            <label className={styles.field}>
+              Physical count (on close)
+              <input
+                value={physicalCount}
+                onChange={(e) => setPhysicalCount(e.target.value)}
+                disabled={busy || !openPeriod}
+                inputMode="decimal"
+                placeholder="Optional"
+              />
+            </label>
+            <label className={styles.field}>
+              Close notes
+              <input
+                value={periodCloseNotes}
+                onChange={(e) => setPeriodCloseNotes(e.target.value)}
+                disabled={busy || !openPeriod}
+                placeholder="Optional"
+              />
+            </label>
+          </div>
+          <div className={styles.formActions} style={{ flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || !!openPeriod}
+              onClick={() => void onOpenCashPeriod()}
+            >
+              Open period
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || !openPeriod}
+              onClick={() => void onCloseCashPeriod()}
+            >
+              Close period
+            </button>
+          </div>
+
+          <p className={styles.muted} style={{ margin: "1rem 0 0.5rem" }}>
+            Account register
+          </p>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              From
+              <input
+                type="date"
+                value={registerFrom}
+                onChange={(e) => setRegisterFrom(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              To
+              <input
+                type="date"
+                value={registerTo}
+                onChange={(e) => setRegisterTo(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              Currency
+              <select
+                value={registerCurrency}
+                onChange={(e) =>
+                  setRegisterCurrency(e.target.value as CurrencyCode)
+                }
+                disabled={busy}
+              >
+                <option value="USD">USD</option>
+                <option value="ZIG">ZIG</option>
+              </select>
+            </label>
+          </div>
+          {registerCurrency === "ZIG" ? (
+            <p className={styles.muted} style={{ marginTop: "0.35rem" }}>
+              Filter currency ZIG · official rate {officialRate} ZiG / USD
+            </p>
+          ) : null}
+          {registerRows.length === 0 ? (
+            <p className={styles.muted} style={{ marginTop: "0.75rem" }}>
+              No posted activity in this range.
+            </p>
+          ) : (
+            <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Debit</th>
+                    <th>Credit</th>
+                    <th>Balance</th>
+                    <th>Currency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registerRows.map((r) => (
+                    <tr key={r.journal_entry_id}>
+                      <td>{r.entry_date}</td>
+                      <td>
+                        {r.document_number
+                          ? `${r.document_number} · `
+                          : ""}
+                        {r.description?.trim() || "—"}
+                      </td>
+                      <td>{Number(r.debit).toFixed(2)}</td>
+                      <td>{Number(r.credit).toFixed(2)}</td>
+                      <td>{Number(r.running_balance).toFixed(2)}</td>
+                      <td>{r.currency}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <p className={styles.muted} style={{ margin: "1rem 0 0.5rem" }}>
+            Quick journal templates
           </p>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -1644,34 +1833,34 @@ export function StaffFinancePanel() {
                 {op.label}
               </button>
             ))}
+            {tab === "petty-cash" ? (
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() => void onReplenishDraft()}
+                title={
+                  replenishHint != null
+                    ? `Suggested ${replenishHint.toFixed(2)} ${registerCurrency} (spends since last float from ${fundingAccountCode})`
+                    : undefined
+                }
+              >
+                Replenish draft
+                {replenishHint != null && replenishHint > 0
+                  ? ` (${replenishHint.toFixed(2)})`
+                  : ""}
+              </button>
+            ) : null}
           </div>
-          <p className={styles.muted} style={{ margin: "1rem 0 0.75rem" }}>
-            Recent journal lines for this cash account.
-          </p>
-          {accountLines.length === 0 ? (
-            <p className={styles.muted}>No lines yet for this account.</p>
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Entry</th>
-                  <th>Debit</th>
-                  <th>Credit</th>
-                  <th>Currency</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accountLines.map((l) => (
-                  <tr key={l.id}>
-                    <td>{l.journal_entry_id.slice(0, 8)}</td>
-                    <td>{Number(l.debit).toFixed(2)}</td>
-                    <td>{Number(l.credit).toFixed(2)}</td>
-                    <td>{l.currency}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {tab === "petty-cash" ? (
+            <p className={styles.muted} style={{ marginTop: "0.5rem" }}>
+              Replenish uses <code>compute_petty_cash_replenish_amount</code>{" "}
+              then drafts Dr 1110 / Cr {fundingAccountCode}. Post from Journals.
+              {replenishHint != null
+                ? ` Suggested: ${replenishHint.toFixed(2)} ${registerCurrency}.`
+                : ""}
+            </p>
+          ) : null}
         </fieldset>
       ) : null}
 
