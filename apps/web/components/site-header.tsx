@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ChatNavLink } from "@/components/chat-nav-link";
 import { SearchFourWay } from "@/components/search-four-way";
 import { createWebClient, hasSupabaseEnv } from "@/lib/supabase";
 import styles from "./site-header.module.css";
@@ -118,6 +119,7 @@ export function SiteHeader() {
           </div>
 
           <nav className={styles.actions} aria-label="Account">
+            <ChatNavLink className={styles.action} label="Chat" />
             <Link href="/account" className={styles.action}>
               <span className={styles.actionLabel}>My Account</span>
             </Link>
