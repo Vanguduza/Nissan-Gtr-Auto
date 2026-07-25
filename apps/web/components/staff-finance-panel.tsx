@@ -473,6 +473,52 @@ export function StaffFinancePanel() {
     [],
   );
 
+  const loadAccountRegister = useCallback(
+    async (accountCode: string, currency: CurrencyCode) => {
+      const client = createWebClient();
+      if (!client) return;
+      const [reg, period] = await Promise.all([
+        reportAccountRegister(client, {
+          accountCode,
+          from: registerFrom,
+          to: registerTo,
+          currency,
+        }),
+        getOpenAccountPeriod(client, { accountCode, currency }),
+      ]);
+      if (!reg.ok) {
+        setMessage(reg.error);
+        setRegisterRows([]);
+      } else {
+        setRegisterRows(reg.data);
+      }
+      if (!period.ok) {
+        setMessage(period.error);
+        setOpenPeriod(null);
+      } else {
+        setOpenPeriod(period.data);
+        if (period.data) {
+          setPeriodOpening(String(period.data.opening_balance));
+          setPeriodStartDate(period.data.period_start);
+          setPeriodEndDate(period.data.period_end);
+        }
+      }
+    },
+    [registerFrom, registerTo],
+  );
+
+  const loadRequisitions = useCallback(async () => {
+    const client = createWebClient();
+    if (!client) return;
+    const res = await listFinanceRequisitions(client);
+    if (!res.ok) {
+      setMessage(res.error);
+      setRequisitions([]);
+      return;
+    }
+    setRequisitions(res.data);
+  }, []);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -480,17 +526,53 @@ export function StaffFinancePanel() {
   useEffect(() => {
     const meta = ACCOUNT_TAB_CODES[tab];
     if (!meta || boot.kind !== "ready") {
-      setAccountLines([]);
+      setRegisterRows([]);
+      setOpenPeriod(null);
+      setReplenishHint(null);
       return;
     }
-    void (async () => {
-      const client = createWebClient();
-      if (!client) return;
-      const res = await listJournalLinesForAccount(client, meta.code);
-      if (res.ok) setAccountLines(res.data);
-      else setMessage(res.error);
-    })();
-  }, [tab, boot.kind]);
+    void loadAccountRegister(meta.code, registerCurrency);
+    if (meta.code === "1110") {
+      void (async () => {
+        const client = createWebClient();
+        if (!client) return;
+        const [fund, replenish] = await Promise.all([
+          pettyCashFundingAccountCode(client),
+          computePettyCashReplenishAmount(client, {
+            currency: registerCurrency,
+            asOf: registerTo,
+          }),
+        ]);
+        if (fund.ok) setFundingAccountCode(fund.data);
+        if (replenish.ok) setReplenishHint(replenish.data);
+        else setReplenishHint(null);
+      })();
+    } else {
+      setReplenishHint(null);
+    }
+  }, [
+    tab,
+    boot.kind,
+    registerCurrency,
+    registerFrom,
+    registerTo,
+    loadAccountRegister,
+  ]);
+
+  useEffect(() => {
+    if (boot.kind !== "ready" || tab !== "requisitions") return;
+    void loadRequisitions();
+    if (boot.accounts.length) {
+      setReqExpenseAccount((prev) => {
+        if (prev && boot.accounts.some((a) => a.code === prev)) return prev;
+        const expense =
+          boot.accounts.find((a) => a.code === "5300") ??
+          boot.accounts.find((a) => a.account_type === "expense") ??
+          boot.accounts[0];
+        return expense?.code || "5300";
+      });
+    }
+  }, [boot, tab, loadRequisitions]);
 
   useEffect(() => {
     if (boot.kind !== "ready") return;
@@ -699,9 +781,238 @@ export function StaffFinancePanel() {
     await refresh();
     const meta = ACCOUNT_TAB_CODES[tab];
     if (meta) {
-      const linesRes = await listJournalLinesForAccount(client, meta.code);
-      if (linesRes.ok) setAccountLines(linesRes.data);
+      await loadAccountRegister(meta.code, registerCurrency);
+      if (meta.code === "1110") {
+        const replenish = await computePettyCashReplenishAmount(client, {
+          currency: registerCurrency,
+          asOf: registerTo,
+        });
+        if (replenish.ok) setReplenishHint(replenish.data);
+      }
     }
+  }
+
+  async function onOpenCashPeriod() {
+    const meta = ACCOUNT_TAB_CODES[tab];
+    const client = createWebClient();
+    if (!client || !meta) return;
+    const opening = Number(periodOpening);
+    if (!Number.isFinite(opening)) {
+      setMessage("Opening balance must be a number.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await openAccountPeriod(client, {
+      accountCode: meta.code,
+      currency: registerCurrency,
+      periodStart: periodStartDate,
+      periodEnd: periodEndDate,
+      openingBalance: opening,
+      notes: periodOpenNotes || undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Opened period ${res.data.slice(0, 8)}… · ${meta.code} · ${registerCurrency}`);
+    setPeriodOpenNotes("");
+    await loadAccountRegister(meta.code, registerCurrency);
+  }
+
+  async function onCloseCashPeriod() {
+    const meta = ACCOUNT_TAB_CODES[tab];
+    const client = createWebClient();
+    if (!client || !meta || !openPeriod) return;
+    const countRaw = physicalCount.trim();
+    const count =
+      countRaw === ""
+        ? null
+        : Number(countRaw);
+    if (countRaw !== "" && !Number.isFinite(count)) {
+      setMessage("Physical count must be a number (or blank).");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await closeAccountPeriod(client, {
+      periodId: openPeriod.id,
+      physicalCount: count,
+      notes: periodCloseNotes || undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Closed period ${res.data.slice(0, 8)}… · ${meta.code}`);
+    setPhysicalCount("");
+    setPeriodCloseNotes("");
+    await loadAccountRegister(meta.code, registerCurrency);
+  }
+
+  async function onReplenishDraft() {
+    const client = createWebClient();
+    if (!client) return;
+    const amount =
+      replenishHint != null && replenishHint > 0
+        ? replenishHint
+        : Number(quickAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setMessage(
+        "Replenish amount must be > 0 (compute spends since last float, or enter amount).",
+      );
+      return;
+    }
+    const rate = parseExchangeRate(quickCurrency, quickRate);
+    if (rate == null) {
+      setMessage("ZiG exchange rate must be a positive number.");
+      return;
+    }
+    const fund = fundingAccountCode || "1100";
+    setBusy(true);
+    setMessage(null);
+    const res = await createJournalDraft(client, {
+      entryDate: quickDate,
+      description: `Petty cash replenish 1110 from ${fund}`,
+      currency: quickCurrency,
+      exchangeRate: rate,
+      lines: [
+        {
+          account_code: "1110",
+          debit: amount,
+          credit: 0,
+          currency: quickCurrency,
+        },
+        {
+          account_code: fund,
+          debit: 0,
+          credit: amount,
+          currency: quickCurrency,
+        },
+      ],
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(
+      `Replenish draft ${res.data.slice(0, 8)}… · Dr 1110 / Cr ${fund} · ${amount.toFixed(2)} ${quickCurrency}` +
+        (quickCurrency === "ZIG" ? ` @ ${rate}` : "") +
+        " — post from Journals when ready.",
+    );
+    setQuickAmount("");
+    await refresh();
+    await loadAccountRegister("1110", registerCurrency);
+    const replenish = await computePettyCashReplenishAmount(client, {
+      currency: registerCurrency,
+      asOf: registerTo,
+    });
+    if (replenish.ok) setReplenishHint(replenish.data);
+  }
+
+  async function onLoadJournalRegister() {
+    const client = createWebClient();
+    if (!client || !journalRegisterAccount) {
+      setMessage("Choose an account for the register.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await reportAccountRegister(client, {
+      accountCode: journalRegisterAccount,
+      from: registerFrom,
+      to: registerTo,
+      currency: registerCurrency,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      setJournalRegisterRows([]);
+      return;
+    }
+    setJournalRegisterRows(res.data);
+    setMessage(
+      `Register ${journalRegisterAccount} · ${res.data.length} rows · ${registerCurrency}`,
+    );
+  }
+
+  async function onCreateRequisition(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client) return;
+    const n = Number(reqAmount);
+    if (!Number.isFinite(n) || n <= 0) {
+      setMessage("Requisition amount must be a positive number.");
+      return;
+    }
+    const rate = parseExchangeRate(reqCurrency, reqRate);
+    if (rate == null) {
+      setMessage("ZiG exchange rate must be a positive number.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await createFinanceRequisition(client, {
+      reqType,
+      amount: n,
+      currency: reqCurrency,
+      payee: reqPayee || undefined,
+      memo: reqMemo || undefined,
+      expenseAccountCode: reqExpenseAccount || "5300",
+      exchangeRate: rate,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Draft requisition ${res.data.slice(0, 8)}… · ${reqType} · ${reqCurrency}`);
+    setReqAmount("");
+    setReqPayee("");
+    setReqMemo("");
+    await loadRequisitions();
+  }
+
+  async function onReqAction(
+    action: "submit" | "approve" | "reject" | "cancel" | "disburse",
+    id: string,
+  ) {
+    const client = createWebClient();
+    if (!client) return;
+    setBusy(true);
+    setMessage(null);
+    let res;
+    if (action === "submit") res = await submitFinanceRequisition(client, id);
+    else if (action === "approve")
+      res = await approveFinanceRequisition(client, id);
+    else if (action === "reject")
+      res = await rejectFinanceRequisition(client, {
+        requisitionId: id,
+        reason: reqRejectReason || undefined,
+      });
+    else if (action === "cancel")
+      res = await cancelFinanceRequisition(client, id);
+    else
+      res = await disburseFinanceRequisition(client, {
+        requisitionId: id,
+        entryDate: todayInput(),
+      });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(
+      action === "disburse"
+        ? `Disbursed · JE ${res.data.slice(0, 8)}…`
+        : `${action} · ${res.data.slice(0, 8)}…`,
+    );
+    if (action === "reject") setReqRejectReason("");
+    await loadRequisitions();
+    if (action === "disburse") await refresh();
   }
 
   async function onPostJournal(id: string) {
