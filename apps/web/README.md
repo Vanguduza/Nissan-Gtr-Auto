@@ -27,7 +27,7 @@ Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`, `(
 
 - Route: `/staff/logistics/tracking` (admin / warehouse / dispatcher via existing RLS)
 - Library: **MapLibre GL JS** (`maplibre-gl`)
-- Env: `NEXT_PUBLIC_MAP_STYLE_URL` — MapLibre style JSON URL. If unset, uses public demo tiles (`https://demotiles.maplibre.org/style.json`) for local demos only.
+- Env: `NEXT_PUBLIC_MAP_STYLE_URL` — MapLibre style JSON URL. If unset, staff live map falls back to OpenFreeMap Liberty (`https://tiles.openfreemap.org/styles/liberty`) centered on Harare.
 - Behavior: **subscribe-only** to Supabase Realtime `delivery_locations` filtered by selected `delivery_job_id`. No `navigator.geolocation` / HTML5 GPS / browser QR.
 
 Demo with Realtime:
