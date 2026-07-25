@@ -483,4 +483,281 @@ class FakeRpcClient : RpcClient {
         trackTick.set(0)
         fakeTrackPoint = seedTrackPoint()
     }
+
+    // --- Wishlist ---
+
+    override suspend fun listWishlist(): List<WishlistItem> =
+        wishlist.sortedByDescending { it.createdAt ?: "" }
+
+    override suspend fun addCustomerWishlistItem(stockItemId: String?, oem: String?): String {
+        val resolvedOem = oem?.trim()?.takeIf { it.isNotEmpty() }
+        require(stockItemId != null || resolvedOem != null) {
+            "stock_item_id or oem_part_number required for ${RpcNames.ADD_CUSTOMER_WISHLIST_ITEM}"
+        }
+        stockItemId?.let { sid ->
+            wishlist.firstOrNull { it.stockItemId == sid }?.let { return it.id }
+        }
+        resolvedOem?.let { needle ->
+            wishlist.firstOrNull { it.oemPartNumber.equals(needle, ignoreCase = true) }
+                ?.let { return it.id }
+        }
+        val id = UUID.randomUUID().toString()
+        val itemId = stockItemId ?: UUID.randomUUID().toString()
+        wishlist.add(
+            0,
+            WishlistItem(
+                id = id,
+                stockItemId = itemId,
+                oemPartNumber = resolvedOem ?: "OEM-${itemId.take(8)}",
+                description = "Demo wishlist part",
+                notifyWhenInStock = false,
+                createdAt = "2026-07-25T12:00:00Z",
+            ),
+        )
+        return id
+    }
+
+    override suspend fun removeCustomerWishlistItem(
+        wishlistId: String?,
+        stockItemId: String?,
+        oem: String?,
+    ) {
+        val before = wishlist.size
+        when {
+            !wishlistId.isNullOrBlank() -> wishlist.removeAll { it.id == wishlistId }
+            !stockItemId.isNullOrBlank() -> wishlist.removeAll { it.stockItemId == stockItemId }
+            !oem.isNullOrBlank() -> {
+                val needle = oem.trim()
+                wishlist.removeAll { it.oemPartNumber.equals(needle, ignoreCase = true) }
+            }
+            else -> error("wishlist id, stock item, or OEM required")
+        }
+        require(wishlist.size < before) {
+            "wishlist item not found for ${RpcNames.REMOVE_CUSTOMER_WISHLIST_ITEM}"
+        }
+    }
+
+    override suspend fun setWishlistNotifyWhenInStock(
+        notify: Boolean,
+        wishlistId: String?,
+        stockItemId: String?,
+        oem: String?,
+    ): String {
+        val idx = when {
+            !wishlistId.isNullOrBlank() -> wishlist.indexOfFirst { it.id == wishlistId }
+            !stockItemId.isNullOrBlank() -> wishlist.indexOfFirst { it.stockItemId == stockItemId }
+            !oem.isNullOrBlank() -> {
+                val needle = oem.trim()
+                wishlist.indexOfFirst { it.oemPartNumber.equals(needle, ignoreCase = true) }
+            }
+            else -> -1
+        }
+        require(idx >= 0) { "wishlist item not found for ${RpcNames.SET_WISHLIST_NOTIFY_WHEN_IN_STOCK}" }
+        wishlist[idx] = wishlist[idx].copy(notifyWhenInStock = notify)
+        return wishlist[idx].id
+    }
+
+    override suspend fun wishlistMoveToCart(
+        wishlistId: String?,
+        stockItemId: String?,
+        oem: String?,
+        qty: Double,
+        removeFromWishlist: Boolean,
+    ): String {
+        require(qty > 0) { "qty must be > 0" }
+        val item = when {
+            !wishlistId.isNullOrBlank() -> wishlist.firstOrNull { it.id == wishlistId }
+            !stockItemId.isNullOrBlank() -> wishlist.firstOrNull { it.stockItemId == stockItemId }
+            !oem.isNullOrBlank() -> {
+                val needle = oem.trim()
+                wishlist.firstOrNull { it.oemPartNumber.equals(needle, ignoreCase = true) }
+            }
+            else -> null
+        } ?: error("wishlist item not found for ${RpcNames.WISHLIST_MOVE_TO_CART}")
+
+        var cart = openCart?.takeIf { it.status == "open" }
+        if (cart == null) {
+            createCustomerCart(SEED_WAREHOUSE_ID)
+            cart = openCart!!
+        }
+        val lineId = addCustomerCartLine(
+            cartId = cart.id,
+            stockItemId = item.stockItemId,
+            uomId = "00000000-0000-4000-8000-0000000000u1",
+            qty = qty,
+        )
+        if (removeFromWishlist) {
+            wishlist.removeAll { it.id == item.id }
+        }
+        return lineId
+    }
+
+    // --- Compare ---
+
+    override suspend fun listCompareItems(): List<CompareItem> =
+        compare.sortedByDescending { it.createdAt ?: "" }
+
+    override suspend fun addCustomerCompareItem(stockItemId: String?, oem: String?): String {
+        val resolvedOem = oem?.trim()?.takeIf { it.isNotEmpty() }
+        require(stockItemId != null || resolvedOem != null) {
+            "stock_item_id or oem_part_number required for ${RpcNames.ADD_CUSTOMER_COMPARE_ITEM}"
+        }
+        stockItemId?.let { sid ->
+            compare.firstOrNull { it.stockItemId == sid }?.let { return it.id }
+        }
+        resolvedOem?.let { needle ->
+            compare.firstOrNull { it.oemPartNumber.equals(needle, ignoreCase = true) }
+                ?.let { return it.id }
+        }
+        require(compare.size < RpcNames.MAX_COMPARE_ITEMS) {
+            "compare list is full (max ${RpcNames.MAX_COMPARE_ITEMS} items)"
+        }
+        val id = UUID.randomUUID().toString()
+        val itemId = stockItemId ?: UUID.randomUUID().toString()
+        compare.add(
+            0,
+            CompareItem(
+                id = id,
+                stockItemId = itemId,
+                oemPartNumber = resolvedOem ?: "OEM-${itemId.take(8)}",
+                description = "Demo compare part",
+                createdAt = "2026-07-25T12:00:00Z",
+            ),
+        )
+        return id
+    }
+
+    override suspend fun removeCustomerCompareItem(
+        compareId: String?,
+        stockItemId: String?,
+        oem: String?,
+    ) {
+        val before = compare.size
+        when {
+            !compareId.isNullOrBlank() -> compare.removeAll { it.id == compareId }
+            !stockItemId.isNullOrBlank() -> compare.removeAll { it.stockItemId == stockItemId }
+            !oem.isNullOrBlank() -> {
+                val needle = oem.trim()
+                compare.removeAll { it.oemPartNumber.equals(needle, ignoreCase = true) }
+            }
+            else -> error("compare id, stock item, or OEM required")
+        }
+        require(compare.size < before) {
+            "compare item not found for ${RpcNames.REMOVE_CUSTOMER_COMPARE_ITEM}"
+        }
+    }
+
+    // --- Reviews ---
+
+    override suspend fun listOwnReviews(): List<ProductReview> =
+        reviews.sortedByDescending { it.createdAt ?: "" }
+
+    override suspend fun listApprovedReviews(oem: String): List<ProductReview> {
+        val needle = oem.trim()
+        if (needle.isEmpty()) return emptyList()
+        return reviews.filter {
+            it.status == ProductReviewStatus.APPROVED &&
+                it.oemPartNumber.equals(needle, ignoreCase = true)
+        }
+    }
+
+    override suspend fun getProductReviewStats(
+        stockItemId: String?,
+        oem: String?,
+    ): ProductReviewStats? {
+        val approved = when {
+            !stockItemId.isNullOrBlank() ->
+                reviews.filter {
+                    it.stockItemId == stockItemId && it.status == ProductReviewStatus.APPROVED
+                }
+            !oem.isNullOrBlank() -> {
+                val needle = oem.trim()
+                reviews.filter {
+                    it.status == ProductReviewStatus.APPROVED &&
+                        it.oemPartNumber.equals(needle, ignoreCase = true)
+                }
+            }
+            else -> error("stock_item_id or oem_part_number required")
+        }
+        val anchor = approved.firstOrNull()
+            ?: reviews.firstOrNull { r ->
+                when {
+                    !stockItemId.isNullOrBlank() -> r.stockItemId == stockItemId
+                    !oem.isNullOrBlank() ->
+                        r.oemPartNumber.equals(oem.trim(), ignoreCase = true)
+                    else -> false
+                }
+            }
+        val sid = anchor?.stockItemId ?: stockItemId ?: UUID.randomUUID().toString()
+        val count = approved.size
+        val avg = if (count == 0) 0.0 else approved.sumOf { it.rating }.toDouble() / count
+        return ProductReviewStats(stockItemId = sid, avgRating = avg, reviewCount = count)
+    }
+
+    override suspend fun submitCustomerProductReview(
+        rating: Int,
+        body: String,
+        stockItemId: String?,
+        oem: String?,
+    ): String {
+        require(rating in 1..5) { "rating must be 1..5" }
+        val resolvedOem = oem?.trim()?.takeIf { it.isNotEmpty() }
+        require(stockItemId != null || resolvedOem != null) {
+            "stock_item_id or oem_part_number required for ${RpcNames.SUBMIT_CUSTOMER_PRODUCT_REVIEW}"
+        }
+        val existingIdx = reviews.indexOfFirst { r ->
+            when {
+                !stockItemId.isNullOrBlank() -> r.stockItemId == stockItemId
+                resolvedOem != null -> r.oemPartNumber.equals(resolvedOem, ignoreCase = true)
+                else -> false
+            }
+        }
+        if (existingIdx >= 0) {
+            val existing = reviews[existingIdx]
+            require(existing.status != ProductReviewStatus.APPROVED) {
+                "cannot replace an approved review; contact support"
+            }
+            reviews[existingIdx] = existing.copy(
+                rating = rating,
+                body = body,
+                status = ProductReviewStatus.PENDING,
+                createdAt = "2026-07-25T12:30:00Z",
+            )
+            return existing.id
+        }
+        val id = UUID.randomUUID().toString()
+        val itemId = stockItemId ?: UUID.randomUUID().toString()
+        reviews.add(
+            0,
+            ProductReview(
+                id = id,
+                stockItemId = itemId,
+                oemPartNumber = resolvedOem ?: "OEM-${itemId.take(8)}",
+                description = "Demo review part",
+                rating = rating,
+                body = body,
+                status = ProductReviewStatus.PENDING,
+                createdAt = "2026-07-25T12:30:00Z",
+            ),
+        )
+        return id
+    }
+
+    override suspend fun uploadReviewPhoto(
+        reviewId: String,
+        localFilePath: String,
+        mimeType: String,
+        sortOrder: Int,
+    ): String {
+        val review = reviews.firstOrNull { it.id == reviewId }
+            ?: error("pending review not found for customer")
+        require(review.status == ProductReviewStatus.PENDING) {
+            "pending review not found for customer"
+        }
+        val count = reviewPhotoCounts[reviewId] ?: 0
+        require(count < 5) { "max 5 photos per review" }
+        // Fake accepts missing file (gallery/camera demos may pass a stub path).
+        reviewPhotoCounts[reviewId] = count + 1
+        return UUID.randomUUID().toString()
+    }
 }
