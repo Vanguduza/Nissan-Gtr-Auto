@@ -1,5 +1,5 @@
 -- Audit follow-ons (backend slice): customer wishlist + product reviews + Navara diagram seed.
--- Compare: NO table — session-only on web is enough; no half-built compare schema found.
+-- Compare: see later migration `…200000_customer_compare_items` (auth sync + RLS).
 -- Garage service reminders: SKIP — only customer_garage_vehicles exists; do not invent reminder tables.
 -- NO ZIMRA / payroll tax / HTML5 QR. RLS in this same file for every new table.
 

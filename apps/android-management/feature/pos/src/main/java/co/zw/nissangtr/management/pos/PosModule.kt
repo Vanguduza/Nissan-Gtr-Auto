@@ -1,6 +1,6 @@
 package co.zw.nissangtr.management.pos
 
-/** POS feature module — cart / QR add line / checkout + ESC/POS receipt. */
+/** POS feature module — standalone sales till + optional Scan companion. */
 object PosModule {
     const val id: String = "pos"
 }
