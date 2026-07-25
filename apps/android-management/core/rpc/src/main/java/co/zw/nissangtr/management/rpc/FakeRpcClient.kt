@@ -207,7 +207,6 @@ class FakeRpcClient : RpcClient {
                 status = "draft",
             ),
         )
-        // TODO(live): supabase.rpc(RpcNames.CREATE_PICK_LIST, …)
         return id
     }
 
@@ -221,7 +220,6 @@ class FakeRpcClient : RpcClient {
             val pl = pickLists[idx]
             pickLists[idx] = pl.copy(status = "done")
         }
-        // TODO(live): supabase.rpc(RpcNames.CONFIRM_PICK_LINES, …)
         return pickListId
     }
 
@@ -243,7 +241,6 @@ class FakeRpcClient : RpcClient {
                 status = "draft",
             ),
         )
-        // TODO(live): supabase.rpc(RpcNames.CREATE_DELIVERY_NOTE, …)
         return id
     }
 
@@ -251,7 +248,6 @@ class FakeRpcClient : RpcClient {
         val idx = deliveryNotes.indexOfFirst { it.id == deliveryNoteId }
         require(idx >= 0) { "delivery note not found" }
         deliveryNotes[idx] = deliveryNotes[idx].copy(status = "submitted")
-        // TODO(live): supabase.rpc(RpcNames.SUBMIT_DELIVERY_NOTE, …)
         return deliveryNoteId
     }
 
@@ -259,7 +255,6 @@ class FakeRpcClient : RpcClient {
         val idx = deliveryNotes.indexOfFirst { it.id == deliveryNoteId }
         require(idx >= 0) { "delivery note not found" }
         deliveryNotes[idx] = deliveryNotes[idx].copy(status = "cancelled")
-        // TODO(live): supabase.rpc(RpcNames.CANCEL_DELIVERY_NOTE, …)
         return deliveryNoteId
     }
 
