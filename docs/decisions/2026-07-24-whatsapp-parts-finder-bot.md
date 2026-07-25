@@ -2,8 +2,10 @@
 
 - Date: 2026-07-24
 - Lane: `@backend_agent` (Edge webhook + service_role catalog search)
-- Status: Accepted
+- Status: Accepted (WhatsApp bot); live-chat-substitute rationale **partially superseded** by [`in-app-live-chat`](./2026-07-25-in-app-live-chat.md)
 - Related: [`customer-receipt-delivery`](./2026-07-23-customer-receipt-delivery.md), plan [`thin-surfaces-and-whatsapp-bot`](../plans/2026-07-24-thin-surfaces-and-whatsapp-bot.md)
+
+> **Supersession (2026-07-25):** The implication that human handoff / WhatsApp substitutes for a full live-chat product is **overridden**. In-app live chat **ships** — see [`in-app-live-chat`](./2026-07-25-in-app-live-chat.md). This ADR remains **Accepted** for the WhatsApp parts-finder bot itself; WA stays an optional channel alongside in-app chat.
 
 ## Decision
 
