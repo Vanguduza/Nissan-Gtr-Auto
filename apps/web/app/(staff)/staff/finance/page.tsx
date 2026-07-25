@@ -12,11 +12,13 @@ export default function StaffFinancePage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Finance ledger</h1>
         <p className={styles.lede}>
-          Petty cash, cash sales, and online clearing registers; journals,
-          payments, reports, periods, and bank recon. Finance/admin roles
-          enforced by RPCs and RLS. Amounts always show explicit USD | ZIG.{" "}
+          Petty cash, cash sales, and online clearing registers with quick
+          journal templates; multi-invoice payment allocate; trial balance + CSV;
+          period-close wizard. Finance/admin roles enforced by RPCs and RLS.
+          Amounts always show explicit USD | ZIG with visible ZiG rate when
+          applicable.{" "}
           <Link href="/staff/crm/credit">Customer credit desk</Link> for B2B
-          limit / hold.
+          limit / hold (AR aging snapshot on Payments).
         </p>
         <StaffFinancePanel />
       </div>
