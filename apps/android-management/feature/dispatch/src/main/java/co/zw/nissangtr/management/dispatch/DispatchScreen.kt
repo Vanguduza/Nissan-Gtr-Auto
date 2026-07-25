@@ -192,12 +192,7 @@ fun DispatchScreen(
         }
 
         HorizontalDivider()
-        Text("Assignment (suggest + override)", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "${RpcNames.SUGGEST_DELIVERY_ASSIGNEES} → nearest / capacity / shift. " +
-                "Manual override via ${RpcNames.ASSIGN_DELIVERY_JOB} (p_override=true).",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text("Assignment", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.assigneeUserId,
             onValueChange = viewModel::onAssigneeUserIdChange,
@@ -243,10 +238,6 @@ fun DispatchScreen(
 
         HorizontalDivider()
         Text("Route order", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "${RpcNames.OPTIMIZE_DRIVER_STOPS} for driver’s open jobs (writes route_sequence).",
-            style = MaterialTheme.typography.bodySmall,
-        )
         Button(
             onClick = viewModel::optimizeStops,
             enabled = !state.busy,
