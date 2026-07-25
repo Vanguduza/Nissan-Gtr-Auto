@@ -708,7 +708,10 @@ export function StaffDeliveryTrackingPanel() {
         </p>
       ) : null}
 
-      {pointsState.kind === "ready" && points.length === 0 && jobId ? (
+      {pointsState.kind === "ready" &&
+      points.length === 0 &&
+      !trackPoint &&
+      jobId ? (
         <p className={styles.muted} role="status">
           No GPS points for this job yet. When the driver&apos;s delivery app
           ingests locations, the marker and trail appear here via Realtime.
@@ -720,7 +723,7 @@ export function StaffDeliveryTrackingPanel() {
 
       {showMap ? (
         <StaffDeliveryLiveMap
-          points={points}
+          points={mapPoints}
           live={live}
           etaLabel={etaLabel}
         />
