@@ -100,17 +100,27 @@ export function StaffGate({ children }: { children: ReactNode }) {
 
   if (state.kind === "loading") {
     return (
-      <div className={styles.panel} style={{ margin: "1.25rem auto", maxWidth: 40 * 16 }}>
-        <p className={styles.muted}>Checking staff access…</p>
+      <div className={styles.shell} style={{ gridTemplateColumns: "1fr" }}>
+        <div className={styles.panel} style={{ maxWidth: "40rem", margin: "1.25rem auto", width: "100%" }}>
+          <div className={styles.pageBody}>
+            <p className={styles.muted}>Checking staff access…</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <div className={styles.panel} style={{ margin: "1.25rem auto", maxWidth: 40 * 16 }}>
-        <h1 className={styles.title}>Staff</h1>
-        <p className={styles.lede}>{state.message}</p>
+      <div className={styles.shell} style={{ gridTemplateColumns: "1fr" }}>
+        <div className={styles.panel} style={{ maxWidth: "40rem", margin: "1.25rem auto", width: "100%" }}>
+          <header className={styles.pageHeader}>
+            <h1 className={styles.title}>Staff</h1>
+          </header>
+          <div className={styles.pageBody}>
+            <p className={styles.lede}>{state.message}</p>
+          </div>
+        </div>
       </div>
     );
   }
