@@ -1,4 +1,12 @@
 import Link from "next/link";
+import {
+  ClipboardList,
+  iconSizeSm,
+  iconStroke,
+  LayoutGrid,
+  PackageSearch,
+  type LucideIcon,
+} from "@/components/icons";
 import styles from "@/components/account.module.css";
 
 type NavItem = {
@@ -6,18 +14,27 @@ type NavItem = {
   label: string;
   exact?: boolean;
   list?: boolean;
+  Icon: LucideIcon;
 };
 
 const nav: NavItem[] = [
-  { href: "/procurement", label: "Overview", exact: true },
-  { href: "/procurement/rfqs", label: "RFQs", list: true },
-  { href: "/procurement/rfqs/new", label: "New RFQ", exact: true },
+  { href: "/procurement", label: "Overview", exact: true, Icon: LayoutGrid },
+  { href: "/procurement/rfqs", label: "RFQs", list: true, Icon: ClipboardList },
+  {
+    href: "/procurement/rfqs/new",
+    label: "New RFQ",
+    exact: true,
+    Icon: PackageSearch,
+  },
 ];
 
 export function ProcurementNav({ current }: { current: string }) {
   return (
     <nav className={styles.nav} aria-label="Procurement">
-      <p className={styles.navTitle}>Procurement</p>
+      <p className={styles.navTitle}>
+        <PackageSearch size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
+        Procurement
+      </p>
       <ul className={styles.navList}>
         {nav.map((item) => {
           const active = item.exact
@@ -33,11 +50,21 @@ export function ProcurementNav({ current }: { current: string }) {
                 href={item.href}
                 className={active ? styles.navLinkActive : styles.navLink}
               >
+                <item.Icon
+                  size={iconSizeSm}
+                  strokeWidth={iconStroke}
+                  aria-hidden
+                />
                 {item.label}
               </Link>
             </li>
           );
         })}
+        <li>
+          <Link href="/staff" className={styles.navLink}>
+            ← Staff hub
+          </Link>
+        </li>
       </ul>
     </nav>
   );
