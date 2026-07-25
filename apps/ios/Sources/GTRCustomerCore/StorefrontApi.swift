@@ -146,6 +146,10 @@ public final class FakeStorefrontApi: StorefrontApi {
     private var threads: [ChatThread] = []
     private var messages: [ChatMessage] = []
     private var unreadByThread: [UUID: Int] = [:]
+    private var wishlist: [WishlistItem] = []
+    private var compare: [CompareItem] = []
+    private var reviews: [ProductReview] = []
+    private var reviewPhotoCounts: [UUID: Int] = [:]
     /// Fake last-point only — never a trail. Demo token: `demo-track-token`.
     private var demoTrackJobId: UUID?
     private var demoTrackPoint: DeliveryTrackPoint?
@@ -218,6 +222,58 @@ public final class FakeStorefrontApi: StorefrontApi {
                 ),
             ]
             unreadByThread[threadId] = 1
+
+            let oilFilterId = UUID(uuidString: "00000000-0000-4000-8000-0000000000a1")!
+            let airFilterId = UUID(uuidString: "00000000-0000-4000-8000-0000000000a2")!
+            wishlist = [
+                WishlistItem(
+                    id: UUID(),
+                    stockItemId: oilFilterId,
+                    oemPartNumber: "15208-65F0C",
+                    description: "Oil filter (demo)",
+                    notifyWhenInStock: false,
+                    createdAt: now
+                ),
+                WishlistItem(
+                    id: UUID(),
+                    stockItemId: airFilterId,
+                    oemPartNumber: "16546-EB70A",
+                    description: "Air cleaner element (demo)",
+                    notifyWhenInStock: true,
+                    createdAt: now.addingTimeInterval(-3600)
+                ),
+            ]
+            compare = [
+                CompareItem(
+                    id: UUID(),
+                    stockItemId: oilFilterId,
+                    oemPartNumber: "15208-65F0C",
+                    description: "Oil filter (demo)",
+                    createdAt: now
+                ),
+            ]
+            reviews = [
+                ProductReview(
+                    id: UUID(),
+                    stockItemId: oilFilterId,
+                    oemPartNumber: "15208-65F0C",
+                    description: "Oil filter (demo)",
+                    rating: 5,
+                    body: "Fits my Navara — approved demo review.",
+                    status: .approved,
+                    createdAt: now.addingTimeInterval(-86400)
+                ),
+                ProductReview(
+                    id: UUID(),
+                    stockItemId: airFilterId,
+                    oemPartNumber: "16546-EB70A",
+                    description: "Air cleaner element (demo)",
+                    rating: 4,
+                    body: "Pending moderation demo.",
+                    status: .pending,
+                    createdAt: now
+                ),
+            ]
         }
     }
 
