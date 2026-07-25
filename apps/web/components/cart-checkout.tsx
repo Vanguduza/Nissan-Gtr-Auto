@@ -50,6 +50,7 @@ type Status =
       kind: "ready";
       cart: CartRow | null;
       lines: CartLineRow[];
+      customer: CustomerRow | null;
     };
 
 export function CartCheckout() {
