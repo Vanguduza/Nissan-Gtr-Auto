@@ -134,8 +134,9 @@ interface RpcClient {
     ): String
 
     /**
-     * Bridge-only GPS trail point. Map GpsCoordinate via bridge helper
-     * `toDeliveryLocationIngest`, with client-side ≥~5s throttle.
+     * GPS trail ingest — **apps/android-delivery is the sole producer**.
+     * Management dispatch must not call this from UI (view-only via
+     * [getDeliveryTrackPoint]). Kept for Fake/Live parity only.
      * Never from browser / WebView geolocation.
      */
     suspend fun ingestDeliveryLocation(
@@ -145,6 +146,34 @@ interface RpcClient {
         recordedAt: String? = null,
         accuracyM: Double? = null,
     ): String
+
+    /** Nearest / capacity / shift suggestions for a pending job. */
+    suspend fun suggestDeliveryAssignees(
+        deliveryJobId: String,
+        limit: Int = 5,
+    ): List<DeliveryAssigneeSuggestion>
+
+    /**
+     * Assign driver to job. [override] = true bypasses eligibility
+     * (manual override when suggest rules fail).
+     */
+    suspend fun assignDeliveryJob(
+        deliveryJobId: String,
+        assigneeUserId: String,
+        override: Boolean = false,
+    ): String
+
+    /** Nearest-neighbor stop order for driver’s open jobs (persists route_sequence). */
+    suspend fun optimizeDriverStops(driverUserId: String): List<OptimizedDriverStop>
+
+    /** Staff live last-point + ETA for an active dispatched job (not a GPS producer). */
+    suspend fun getDeliveryTrackPoint(deliveryJobId: String): DeliveryTrackPoint?
+
+    /** Open panic rows (`acknowledged_at` IS NULL). Poll — Realtime not wired yet. */
+    suspend fun listOpenPanicEvents(): List<PanicEventSummary>
+
+    /** Mark panic handled (sets acknowledged_at / acknowledged_by). */
+    suspend fun acknowledgePanicEvent(panicEventId: String): String
 
     // --- Live chat (staff inbox) ---
 

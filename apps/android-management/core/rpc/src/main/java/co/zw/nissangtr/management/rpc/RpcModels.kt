@@ -62,6 +62,48 @@ enum class DeliveryJobStatus(val rpcValue: String) {
     FAILED("failed"),
 }
 
+/** Row from [RpcNames.SUGGEST_DELIVERY_ASSIGNEES] (nearest + capacity + shift). */
+data class DeliveryAssigneeSuggestion(
+    val userId: String,
+    val status: String,
+    val distanceM: Double?,
+    val capacity: Int,
+    val openJobs: Int,
+    val lastLat: Double?,
+    val lastLng: Double?,
+    val lastSeenAt: String?,
+)
+
+/** Row from [RpcNames.OPTIMIZE_DRIVER_STOPS] (nearest-neighbor; writes route_sequence). */
+data class OptimizedDriverStop(
+    val deliveryJobId: String,
+    val routeSequence: Int,
+    val distanceM: Double?,
+)
+
+/** Staff live last-point + ETA from [RpcNames.GET_DELIVERY_TRACK_POINT]. */
+data class DeliveryTrackPoint(
+    val deliveryJobId: String,
+    val lat: Double,
+    val lng: Double,
+    val recordedAt: String,
+    val etaAt: String?,
+    val etaSeconds: Int?,
+    val status: String,
+)
+
+/** Open row from `panic_events` (staff inbox; ack via PostgREST UPDATE). */
+data class PanicEventSummary(
+    val id: String,
+    val driverUserId: String,
+    val deliveryJobId: String?,
+    val lat: Double?,
+    val lng: Double?,
+    val createdAt: String,
+    val acknowledgedAt: String?,
+    val acknowledgedBy: String?,
+)
+
 /** Line for [RpcNames.POST_STOCK_RECEIPT] `p_lines` JSONB. */
 data class ReceiptLineInput(
     val stockItemId: String,
