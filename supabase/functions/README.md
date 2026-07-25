@@ -116,17 +116,22 @@ Shared client: `_shared/email_send.ts`. PDF builder: `_shared/receipt_pdf.ts` (p
 
 Customer signup/login OTP for **email and/or phone**. Fail-closed without gateway secrets.
 
+**Server gate:** `verify` mints a short-lived HMAC `proof_token` (row in `auth_otp_proofs`).
+`complete_signup` / `complete_login` consume that proof before creating a user or minting a session.
+Public GoTrue signup is **disabled** (`enable_signup = false` in `config.toml`).
+
 | Env | Behaviour |
 |-----|-----------|
 | `SMS_GATEWAY_API_KEY` / `EMAIL_API_KEY` + From | Real send via SMS / email helpers |
-| **Absent** + `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` | Local stub only; code **`000000`** |
-| **Absent** otherwise | **503** clear error (never fake verified) |
+| **Absent** + `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` + non-prod | Local stub only; code **`000000`** |
+| **Absent** otherwise / production heuristic | **503** clear error (never fake verified) |
+| `AUTH_OTP_PROOF_SECRET` (optional) | HMAC for proof tokens; else `SUPABASE_SERVICE_ROLE_KEY` |
 
 | Item | Detail |
 |------|--------|
 | Method | `POST /functions/v1/auth-otp` |
-| JWT | `verify_jwt = false` (request before session); optional Bearer on verify to write `profiles.phone_e164` |
-| Body | `{ "action": "request"\|"verify", "email"?, "phone_e164"?, "code"? }` |
+| JWT | `verify_jwt = false` (request before session) |
+| Body | `{ "action": "request"\|"verify"\|"complete_signup"\|"complete_login", … }` |
 | Stub gate test | `deno test --allow-env supabase/functions/auth-otp/smoke_test.ts` |
 
 Never set `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` on production Edge.

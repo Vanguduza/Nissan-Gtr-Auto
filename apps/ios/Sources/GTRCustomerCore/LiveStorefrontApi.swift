@@ -497,15 +497,20 @@ public final class LiveStorefrontApi: StorefrontApi {
     // MARK: - Reviews
 
     public func listOwnReviews() async throws -> [ProductReview] {
+        let customers: [CustomerIdRow] = try await client.selectDecode(
+            table: "customers",
+            query: ["select=id", "limit=1"].joined(separator: "&")
+        )
+        guard let customerId = customers.first?.id else { return [] }
         let rows: [ProductReviewRow] = try await client.selectDecode(
             table: "customer_product_reviews",
             query: [
                 "select=id,stock_item_id,rating,body,status,created_at,stock_items(id,oem_part_number,description)",
+                "customer_id=eq.\(customerId.uuidString.lowercased())",
                 "order=created_at.desc",
                 "limit=100",
             ].joined(separator: "&")
         )
-        // RLS returns approved (any) + own pending/rejected — keep own rows for "My reviews".
         return rows.map { $0.toModel() }
     }
 
@@ -1077,6 +1082,221 @@ private struct ChatMessageRow: Decodable {
             senderKind: senderKind,
             body: body,
             createdAt: createdAt
+        )
+    }
+}
+
+private struct WarehouseIdRow: Decodable {
+    let id: UUID
+}
+
+private struct CustomerIdRow: Decodable {
+    let id: UUID
+}
+
+private struct StockItemIdRow: Decodable {
+    let id: UUID
+}
+
+private struct WishlistStockEmbed: Decodable {
+    let id: UUID?
+    let oemPartNumber: String?
+    let description: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, description
+        case oemPartNumber = "oem_part_number"
+    }
+}
+
+private struct WishlistRow: Decodable {
+    let id: UUID
+    let stockItemId: UUID
+    let notifyWhenInStock: Bool
+    let createdAt: Date?
+    let stockItems: WishlistStockEmbed?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case stockItemId = "stock_item_id"
+        case notifyWhenInStock = "notify_when_in_stock"
+        case createdAt = "created_at"
+        case stockItems = "stock_items"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try Self.decodeUUID(c, key: .id)
+        stockItemId = try Self.decodeUUID(c, key: .stockItemId)
+        notifyWhenInStock = try c.decodeIfPresent(Bool.self, forKey: .notifyWhenInStock) ?? false
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+        if let embed = try? c.decodeIfPresent(WishlistStockEmbed.self, forKey: .stockItems) {
+            stockItems = embed
+        } else if let arr = try? c.decodeIfPresent([WishlistStockEmbed].self, forKey: .stockItems) {
+            stockItems = arr.first
+        } else {
+            stockItems = nil
+        }
+    }
+
+    func toModel() -> WishlistItem {
+        WishlistItem(
+            id: id,
+            stockItemId: stockItemId,
+            oemPartNumber: stockItems?.oemPartNumber ?? "—",
+            description: stockItems?.description,
+            notifyWhenInStock: notifyWhenInStock,
+            createdAt: createdAt
+        )
+    }
+
+    private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
+        if let id = try? c.decode(UUID.self, forKey: key) { return id }
+        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
+    }
+}
+
+private struct CompareItemDTO: Decodable {
+    let id: UUID
+    let stockItemId: UUID
+    let oemPartNumber: String
+    let description: String?
+    let createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, description
+        case stockItemId = "stock_item_id"
+        case oemPartNumber = "oem_part_number"
+        case createdAt = "created_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try Self.decodeUUID(c, key: .id)
+        stockItemId = try Self.decodeUUID(c, key: .stockItemId)
+        oemPartNumber = try c.decodeIfPresent(String.self, forKey: .oemPartNumber) ?? "—"
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+    }
+
+    func toModel() -> CompareItem {
+        CompareItem(
+            id: id,
+            stockItemId: stockItemId,
+            oemPartNumber: oemPartNumber,
+            description: description,
+            createdAt: createdAt
+        )
+    }
+
+    private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
+        if let id = try? c.decode(UUID.self, forKey: key) { return id }
+        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
+    }
+}
+
+private struct ProductReviewRow: Decodable {
+    let id: UUID
+    let stockItemId: UUID
+    let rating: Int
+    let body: String
+    let status: ProductReviewStatus
+    let createdAt: Date?
+    let stockItems: WishlistStockEmbed?
+
+    enum CodingKeys: String, CodingKey {
+        case id, rating, body, status
+        case stockItemId = "stock_item_id"
+        case createdAt = "created_at"
+        case stockItems = "stock_items"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try Self.decodeUUID(c, key: .id)
+        stockItemId = try Self.decodeUUID(c, key: .stockItemId)
+        if let i = try? c.decode(Int.self, forKey: .rating) {
+            rating = i
+        } else if let d = try? c.decode(Double.self, forKey: .rating) {
+            rating = Int(d)
+        } else {
+            rating = try c.decode(Int.self, forKey: .rating)
+        }
+        body = try c.decodeIfPresent(String.self, forKey: .body) ?? ""
+        status = try c.decodeIfPresent(ProductReviewStatus.self, forKey: .status) ?? .pending
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+        if let embed = try? c.decodeIfPresent(WishlistStockEmbed.self, forKey: .stockItems) {
+            stockItems = embed
+        } else if let arr = try? c.decodeIfPresent([WishlistStockEmbed].self, forKey: .stockItems) {
+            stockItems = arr.first
+        } else {
+            stockItems = nil
+        }
+    }
+
+    func toModel() -> ProductReview {
+        ProductReview(
+            id: id,
+            stockItemId: stockItemId,
+            oemPartNumber: stockItems?.oemPartNumber,
+            description: stockItems?.description,
+            rating: rating,
+            body: body,
+            status: status,
+            createdAt: createdAt
+        )
+    }
+
+    private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
+        if let id = try? c.decode(UUID.self, forKey: key) { return id }
+        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
+    }
+}
+
+private struct ProductReviewStatsDTO: Decodable {
+    let stockItemId: UUID
+    let avgRating: FlexibleDecimal
+    let reviewCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case stockItemId = "stock_item_id"
+        case avgRating = "avg_rating"
+        case reviewCount = "review_count"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .stockItemId) {
+            stockItemId = id
+        } else if let s = try c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
+            stockItemId = id
+        } else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .stockItemId,
+                in: c,
+                debugDescription: "stock_item_id required"
+            )
+        }
+        avgRating = try c.decodeIfPresent(FlexibleDecimal.self, forKey: .avgRating) ?? FlexibleDecimal(0)
+        if let i = try c.decodeIfPresent(Int.self, forKey: .reviewCount) {
+            reviewCount = i
+        } else if let d = try c.decodeIfPresent(Double.self, forKey: .reviewCount) {
+            reviewCount = Int(d)
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .reviewCount), let i = Int(s) {
+            reviewCount = i
+        } else {
+            reviewCount = 0
+        }
+    }
+
+    func toModel() -> ProductReviewStats {
+        ProductReviewStats(
+            stockItemId: stockItemId,
+            avgRating: avgRating.value,
+            reviewCount: reviewCount
         )
     }
 }
