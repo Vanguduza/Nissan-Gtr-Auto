@@ -141,23 +141,103 @@ export async function assignDeliveryJob(
   return { ok: true, data: data as string };
 }
 
+function parseUpdateDeliveryJobStatusResult(
+  raw: unknown,
+): UpdateDeliveryJobStatusResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.delivery_job_id !== "string") return null;
+  let track_token: string | null = null;
+  if (typeof o.track_token === "string" && o.track_token.length > 0) {
+    track_token = o.track_token;
+  }
+  return { delivery_job_id: o.delivery_job_id, track_token };
+}
+
 /**
- * Mark job dispatched → backend mints track token + enqueues SMS outbox
- * (`_notify_out_for_delivery`). Worker fail-closes without SMS_GATEWAY_API_KEY.
+ * Mark job dispatched → backend mints ONE track token (returned in jsonb) +
+ * enqueues SMS outbox. Do NOT call mint_delivery_track_token after this —
+ * reminting revokes the share/SMS token.
  */
 export async function dispatchDeliveryJob(
   client: SupabaseClient,
   deliveryJobId: string,
-): Promise<StorefrontResult<string>> {
-  const { data, error } = await client.rpc(DELIVERY_RPC.updateJobStatus, {
-    p_delivery_job_id: deliveryJobId,
-    p_status: "dispatched",
-  });
+): Promise<StorefrontResult<UpdateDeliveryJobStatusResult>> {
+  const { data, error } = await client.rpc(
+    DELIVERY_RPC.updateJobStatus,
+    updateDeliveryJobStatusArgs(deliveryJobId, "dispatched"),
+  );
   if (error) return { ok: false, error: error.message };
-  if (!data) {
-    return { ok: false, error: "update_delivery_job_status returned no id." };
+  const parsed = parseUpdateDeliveryJobStatusResult(data);
+  if (!parsed) {
+    return {
+      ok: false,
+      error: "update_delivery_job_status returned unexpected shape.",
+    };
   }
+  return { ok: true, data: parsed };
+}
+
+export async function setDeliveryJobGeo(
+  client: SupabaseClient,
+  deliveryJobId: string,
+  opts: {
+    pickupLat?: number | null;
+    pickupLng?: number | null;
+    dropoffLat?: number | null;
+    dropoffLng?: number | null;
+  },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc(
+    DELIVERY_RPC.setJobGeo,
+    setDeliveryJobGeoArgs(deliveryJobId, opts),
+  );
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "set_delivery_job_geo returned no id." };
   return { ok: true, data: data as string };
+}
+
+/**
+ * Privacy-safe last point + ETA for staff (dispatched jobs). Prefer trail
+ * Realtime for the map path; use this for ETA refresh / last-point when needed.
+ */
+export async function fetchStaffTrackPoint(
+  client: SupabaseClient,
+  deliveryJobId: string,
+): Promise<StorefrontResult<CustomerTrackPoint | null>> {
+  const { data, error } = await client.rpc(
+    DELIVERY_RPC.getTrackPoint,
+    getDeliveryTrackPointArgs({ jobId: deliveryJobId }),
+  );
+  if (error) return { ok: false, error: error.message };
+  const rows = (data ?? []) as unknown[];
+  if (rows.length === 0) return { ok: true, data: null };
+  const first = rows[0];
+  if (!first || typeof first !== "object") {
+    return { ok: false, error: "Unexpected track point shape." };
+  }
+  const row = first as Record<string, unknown>;
+  if (
+    typeof row.delivery_job_id !== "string" ||
+    typeof row.lat !== "number" ||
+    typeof row.lng !== "number" ||
+    typeof row.recorded_at !== "string" ||
+    typeof row.status !== "string"
+  ) {
+    return { ok: false, error: "Unexpected track point shape." };
+  }
+  return {
+    ok: true,
+    data: {
+      delivery_job_id: row.delivery_job_id,
+      lat: row.lat,
+      lng: row.lng,
+      recorded_at: row.recorded_at,
+      eta_at: typeof row.eta_at === "string" ? row.eta_at : null,
+      eta_seconds: typeof row.eta_seconds === "number" ? row.eta_seconds : null,
+      status: row.status,
+    },
+  };
 }
 
 export async function optimizeDriverStops(
