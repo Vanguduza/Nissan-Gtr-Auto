@@ -12,3 +12,5 @@ npm warn Unknown project config "strict-peer-dependencies". This will stop worki
 See `npm help npmrc` for supported config options.
 npm warn Unknown project config "auto-install-peers". This will stop working in the next major version of npm. See 
 `npm help npmrc` for supported config options.
+WARN: config section [inbucket] is deprecated. Please use [local_smtp] instead.
+Connecting to db 5432
