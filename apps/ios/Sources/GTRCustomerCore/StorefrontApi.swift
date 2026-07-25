@@ -381,15 +381,32 @@ public final class FakeStorefrontApi: StorefrontApi {
         switch ref {
         case .job(let id):
             guard id == demoTrackJobId else { return nil }
-            return demoTrackPoint
+            return nudgeDemoTrackPoint()
         case .token(let raw):
             let token = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard token.count >= 8 else {
                 throw StorefrontError.message("Invalid track token.")
             }
             guard token == "demo-track-token" else { return nil }
-            return demoTrackPoint
+            return nudgeDemoTrackPoint()
         }
+    }
+
+    /// Single last-point only — nudges coords so MapKit preview looks live (never a trail).
+    private func nudgeDemoTrackPoint() -> DeliveryTrackPoint? {
+        guard var point = demoTrackPoint else { return nil }
+        let delta = 0.00018
+        point = DeliveryTrackPoint(
+            deliveryJobId: point.deliveryJobId,
+            lat: point.lat + delta,
+            lng: point.lng + delta * 0.6,
+            recordedAt: Date(),
+            etaAt: point.etaAt.map { $0.addingTimeInterval(-15) } ?? Date().addingTimeInterval(20 * 60),
+            etaSeconds: max(60, (point.etaSeconds ?? 25 * 60) - 15),
+            status: "dispatched"
+        )
+        demoTrackPoint = point
+        return point
     }
 
     private func stubIntent(invoiceId: UUID, rail: PaymentRail) throws -> PaymentIntentResult {
