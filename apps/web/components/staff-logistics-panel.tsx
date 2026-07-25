@@ -277,7 +277,7 @@ export function StaffLogisticsPanel() {
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>1 · Create pick list</legend>
         {boot.invoices.length === 0 ? (
-          <p className={styles.muted}>No posted dispatch invoices visible.</p>
+          <p className={styles.emptyState}>No posted dispatch invoices visible.</p>
         ) : (
           <form onSubmit={(e) => void onCreatePick(e)}>
             <label className={styles.field}>
@@ -306,7 +306,7 @@ export function StaffLogisticsPanel() {
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>2 · Confirm pick lines</legend>
         {boot.pickLists.length === 0 ? (
-          <p className={styles.muted}>No pick lists yet.</p>
+          <p className={styles.emptyState}>No pick lists yet.</p>
         ) : (
           <form onSubmit={(e) => void onConfirmPick(e)}>
             <label className={styles.field}>

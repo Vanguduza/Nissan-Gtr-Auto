@@ -43,6 +43,7 @@ export default function StaffHubPage() {
             </section>
           ))}
         </div>
+        </div>
       </div>
     </div>
   );
