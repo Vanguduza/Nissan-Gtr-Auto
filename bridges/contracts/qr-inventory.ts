@@ -96,6 +96,8 @@ export interface EscPosPrinterBridge {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   isConnected(): Promise<boolean>;
+  /** Persist bonded printer address (MAC / UUID) before connect. */
+  configurePrinterAddress(address: string): Promise<void>;
   /** Print one inventory label (QR + OEM + batch + date). */
   printInventoryLabel(job: EscPosPrintJob): Promise<void>;
   /** Best-effort POS/customer receipt (plain lines → ESC/POS text). */
