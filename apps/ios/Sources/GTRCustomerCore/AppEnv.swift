@@ -34,6 +34,12 @@ public enum AppEnv {
         isConfigured && !forceFake
     }
 
+    /// Digits-only E.164 for `wa.me` CTA (optional; defaults match web placeholder).
+    public static var whatsappE164Digits: String {
+        let raw = env("WHATSAPP_E164").filter(\.isNumber)
+        return raw.isEmpty ? "263770000000" : raw
+    }
+
     /// Scheme `ProcessInfo` first, then generated Info.plist keys from `Config/Shared.xcconfig`.
     private static func env(_ key: String) -> String {
         if let fromProcess = ProcessInfo.processInfo.environment[key]?

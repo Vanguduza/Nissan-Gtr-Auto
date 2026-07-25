@@ -1,7 +1,7 @@
 package co.zw.nissangtr.customer.rpc
 
 /**
- * Canonical Postgres RPC names mirroring web `apps/web/lib/customer-storefront.ts`.
+ * Canonical Postgres RPC names mirroring web storefront + chat helpers.
  * Live: [SupabaseRpcClient] → `client.postgrest.rpc(RpcNames.X, params)`.
  * Fallback: [FakeRpcClient].
  */

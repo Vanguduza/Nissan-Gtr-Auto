@@ -93,3 +93,56 @@ data class PaymentIntentResult(
     val intentId: String,
     val provider: String,
 )
+
+/** Mirrors `chat_thread_kind`. */
+enum class ChatThreadKind(val rpcValue: String) {
+    SUPPORT("support"),
+    PARTS("parts"),
+}
+
+/** Mirrors `chat_thread_status`. */
+enum class ChatThreadStatus(val rpcValue: String) {
+    OPEN("open"),
+    ASSIGNED("assigned"),
+    CLOSED("closed"),
+}
+
+/** Mirrors `chat_sender_kind`. */
+enum class ChatSenderKind(val rpcValue: String) {
+    CUSTOMER("customer"),
+    STAFF("staff"),
+    SYSTEM("system"),
+}
+
+data class ChatThread(
+    val id: String,
+    val customerUserId: String = "",
+    val customerId: String? = null,
+    val kind: ChatThreadKind,
+    val status: ChatThreadStatus,
+    val subject: String? = null,
+    val assignedTo: String? = null,
+    val lastMessageAt: String? = null,
+    val createdAt: String = "",
+)
+
+data class ChatMessage(
+    val id: String,
+    val threadId: String,
+    val senderUserId: String,
+    val senderKind: ChatSenderKind,
+    val body: String,
+    val createdAt: String,
+)
+
+data class StartChatThreadInput(
+    val kind: ChatThreadKind = ChatThreadKind.SUPPORT,
+    val subject: String? = null,
+    val body: String? = null,
+)
+
+fun ChatThread.previewLabel(): String {
+    val sub = subject?.trim()
+    if (!sub.isNullOrEmpty()) return sub
+    return if (kind == ChatThreadKind.PARTS) "Parts inquiry" else "Support"
+}

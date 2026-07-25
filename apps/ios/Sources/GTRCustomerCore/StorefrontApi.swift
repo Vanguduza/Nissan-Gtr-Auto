@@ -1,6 +1,7 @@
 import Foundation
 
-/// Thin storefront AuthZ surface — mirrors `apps/web/lib/customer-storefront.ts`.
+/// Thin storefront AuthZ surface — mirrors `apps/web/lib/customer-storefront.ts`
+/// and customer chat helpers in `apps/web/lib/chat.ts`.
 ///
 /// Live RPCs (authenticated customer; `customers.profile_id = auth.uid()`):
 /// - `create_customer_cart` — p_warehouse_id, p_currency, p_fulfillment_mode, p_exchange_rate
@@ -10,6 +11,8 @@ import Foundation
 /// - `upsert_customer_garage_vehicle` / `delete_customer_garage_vehicle`
 /// - `create_customer_contipay_intent` / `create_customer_paynow_intent`
 ///   (prefer edge `contipay-initiate` / `paynow-initiate`; RPC fallback — no client PSP crypto)
+/// - Chat: `start_chat_thread`, `post_chat_message`, `mark_chat_thread_read`, `chat_unread_count`
+///   (+ RLS select on `chat_threads` / `chat_messages`)
 @MainActor
 public protocol StorefrontApi: AnyObject {
     func createCart(
@@ -49,6 +52,20 @@ public protocol StorefrontApi: AnyObject {
         invoiceId: UUID,
         method: PaynowMethod
     ) async throws -> PaymentIntentResult
+
+    // MARK: Chat
+
+    func listChatThreads() async throws -> [ChatThread]
+
+    func listChatMessages(threadId: UUID) async throws -> [ChatMessage]
+
+    func startChatThread(_ input: StartChatThreadInput) async throws -> UUID
+
+    func postChatMessage(threadId: UUID, body: String) async throws -> UUID
+
+    func markChatThreadRead(threadId: UUID) async throws
+
+    func chatUnreadCount(threadId: UUID?) async throws -> Int
 }
 
 /// In-memory Fake for Simulator / Windows scaffold — no network.
