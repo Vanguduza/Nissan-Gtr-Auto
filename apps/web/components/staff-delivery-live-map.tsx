@@ -17,8 +17,9 @@ import {
 
 const TRAIL_SOURCE = "delivery-trail";
 const TRAIL_LAYER = "delivery-trail-line";
-const DEFAULT_CENTER: [number, number] = [31.0522, -17.8292]; // Harare
-const DEFAULT_ZOOM = 11;
+/** Harare CBD — default view when a job has no GPS points yet. */
+export const HARARE_CENTER: [number, number] = [31.0522, -17.8292];
+const DEFAULT_ZOOM = 12;
 
 // Intentionally omit MapLibre GeolocateControl — web must never use browser GPS.
 
