@@ -956,12 +956,16 @@ export function StaffFinancePanel() {
         <form onSubmit={(e) => void onCreatePayment(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
-              Customer id
+              Customer
               <input
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
+                value={customerQuery}
+                onChange={(e) => {
+                  setCustomerQuery(e.target.value);
+                  setCustomerId("");
+                  setCustomerLabel("");
+                }}
                 disabled={busy}
-                placeholder="uuid"
+                placeholder="Search name or paste id…"
               />
             </label>
             <label className={styles.field}>
@@ -999,6 +1003,31 @@ export function StaffFinancePanel() {
               </select>
             </label>
           </div>
+          {customerHits.length > 0 && !customerId ? (
+            <ul className={styles.list}>
+              {customerHits.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() => {
+                      setCustomerId(c.id);
+                      setCustomerLabel(c.display_name);
+                      setCustomerQuery(c.display_name);
+                      setCustomerHits([]);
+                    }}
+                  >
+                    {c.display_name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {customerId ? (
+            <p className={styles.muted} style={{ marginTop: "0.5rem" }}>
+              Selected {customerLabel || customerId.slice(0, 8)}
+            </p>
+          ) : null}
           <div className={styles.formActions}>
             <button type="submit" className={styles.btnGhost} disabled={busy}>
               Create payment draft
