@@ -11,8 +11,8 @@ export default function StaffFinancePage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Finance</h1>
         <p className={styles.lede}>
-          Draft/post/reverse journals, run P&amp;L / balance sheet / cash flow,
-          payments, accounting periods, and bank recon. Finance/admin roles
+          Petty cash, cash sales, and online clearing registers; journals,
+          payments, reports, periods, and bank recon. Finance/admin roles
           enforced by RPCs and RLS. Amounts always show explicit USD | ZIG.
         </p>
         <StaffFinancePanel />

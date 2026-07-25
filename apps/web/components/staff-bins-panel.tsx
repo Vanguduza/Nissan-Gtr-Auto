@@ -472,6 +472,103 @@ export function StaffBinsPanel() {
         </form>
       </fieldset>
 
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>Pick-path guidance</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Calls <code>get_pick_path_hints</code> for preferred bins in walk
+          order. Leave SKU list empty to hint all stocked items with a bin in
+          this warehouse.
+        </p>
+        <form onSubmit={(e) => void onLoadPickHints(e)}>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              OEM filter (optional)
+              <input
+                value={hintQuery}
+                onChange={(e) => setHintQuery(e.target.value)}
+                disabled={busy || hintBusy}
+                placeholder="Type OEM to add…"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          {hintHits.length > 0 ? (
+            <ul className={styles.list}>
+              {hintHits.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() => {
+                      setHintItems((prev) =>
+                        prev.some((x) => x.id === item.id)
+                          ? prev
+                          : [...prev, item],
+                      );
+                      setHintQuery("");
+                      setHintHits([]);
+                    }}
+                  >
+                    Add {item.oem_part_number}
+                    {item.description ? ` — ${item.description}` : ""}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {hintItems.length > 0 ? (
+            <ul className={styles.list}>
+              {hintItems.map((item) => (
+                <li key={item.id}>
+                  {item.oem_part_number}{" "}
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() =>
+                      setHintItems((prev) =>
+                        prev.filter((x) => x.id !== item.id),
+                      )
+                    }
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className={styles.formActions}>
+            <button
+              type="submit"
+              className={styles.btn}
+              disabled={busy || hintBusy || !warehouseId}
+            >
+              Load pick-path hints
+            </button>
+          </div>
+        </form>
+        {hints.length > 0 ? (
+          <ol className={styles.list}>
+            {hints.map((h) => (
+              <li key={`${h.stock_item_id}-${h.bin_id}`}>
+                <strong>
+                  #{h.pick_path_seq} · {h.bin_code}
+                </strong>{" "}
+                — {h.bin_name}
+                <br />
+                <span className={styles.muted}>
+                  OEM <code>{h.oem_part_number}</code>
+                  {h.aisle ? ` · aisle ${h.aisle}` : ""}
+                  {h.rack ? ` · rack ${h.rack}` : ""}
+                  {h.shelf ? ` · shelf ${h.shelf}` : ""}
+                  {" · qty "}
+                  {h.quantity}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+      </fieldset>
+
       {message ? (
         <p className={styles.formStatus} role="status">
           {message}
