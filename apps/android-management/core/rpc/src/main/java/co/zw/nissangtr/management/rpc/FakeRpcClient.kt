@@ -710,5 +710,24 @@ class FakeRpcClient : RpcClient {
 
         private val INVENTORY_QR_REGEX =
             Regex("""^gtr://part/([^?]+)\?batch=([^&]+)&valuation=(FIFO|AVG)$""")
+
+        private fun haversineM(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+            val r = 6_371_000.0
+            val p1 = Math.toRadians(lat1)
+            val p2 = Math.toRadians(lat2)
+            val dLat = Math.toRadians(lat2 - lat1)
+            val dLng = Math.toRadians(lng2 - lng1)
+            val a = kotlin.math.sin(dLat / 2).let { it * it } +
+                kotlin.math.cos(p1) * kotlin.math.cos(p2) *
+                kotlin.math.sin(dLng / 2).let { it * it }
+            return 2 * r * kotlin.math.asin(kotlin.math.sqrt(a))
+        }
     }
+
+    private data class JobCoords(
+        val pickupLat: Double?,
+        val pickupLng: Double?,
+        val dropoffLat: Double?,
+        val dropoffLng: Double?,
+    )
 }
