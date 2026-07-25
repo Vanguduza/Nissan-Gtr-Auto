@@ -178,6 +178,29 @@ export function StaffPosPanel() {
     return () => window.clearTimeout(t);
   }, [boot.kind, itemQuery]);
 
+  useEffect(() => {
+    if (boot.kind !== "ready" || cart) return;
+    const q = customerQuery.trim();
+    if (q.length < 2) {
+      setCustomerHits([]);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const client = createWebClient();
+        if (!client) return;
+        const res = await searchCustomers(client, q);
+        if (!res.ok) {
+          setMessage(res.error);
+          setCustomerHits([]);
+          return;
+        }
+        setCustomerHits(res.data);
+      })();
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [boot.kind, customerQuery, cart]);
+
   async function onCreateCart(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
@@ -189,6 +212,7 @@ export function StaffPosPanel() {
       warehouseId,
       currency,
       fulfillmentMode: fulfillment,
+      customerId,
     });
     setBusy(false);
     if (!res.ok) {
@@ -196,7 +220,11 @@ export function StaffPosPanel() {
       return;
     }
     writeStoredCartId(res.data);
-    setMessage(`Cart created · ${res.data.slice(0, 8)}… · ${currency} (no pairing required)`);
+    setMessage(
+      `Cart created · ${res.data.slice(0, 8)}… · ${currency}${
+        customerLabel ? ` · ${customerLabel}` : " · walk-in"
+      } (no pairing required)`,
+    );
     await refreshCart(res.data);
   }
 
