@@ -352,7 +352,8 @@ export function PartDetail({ oem }: { oem: string }) {
           <button
             type="button"
             className={styles.wish}
-            onClick={() => toggleCompare(p.oem)}
+            disabled={compareBusy}
+            onClick={() => void toggleCompare(p.oem)}
           >
             {inCompare ? "Remove compare" : "Compare"}
           </button>
@@ -411,6 +412,15 @@ export function PartDetail({ oem }: { oem: string }) {
         </section>
         <section className={styles.block}>
           <h2>Reviews</h2>
+          {reviewStats && reviewStats.review_count > 0 ? (
+            <p>
+              <strong>{Number(reviewStats.avg_rating).toFixed(1)}</strong> / 5
+              average · {reviewStats.review_count} approved review
+              {reviewStats.review_count === 1 ? "" : "s"}
+            </p>
+          ) : (
+            <p className={styles.muted}>No rating aggregate yet.</p>
+          )}
           {reviews.length === 0 ? (
             <p className={styles.muted}>No approved reviews yet.</p>
           ) : (
@@ -456,6 +466,18 @@ export function PartDetail({ oem }: { oem: string }) {
                 Submit
               </button>
             </div>
+            <label className={styles.muted} style={{ display: "block", marginTop: "0.5rem" }}>
+              Photo (optional, jpeg/png/webp · file upload)
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={reviewBusy}
+                onChange={(e) =>
+                  setReviewPhoto(e.target.files?.[0] ?? null)
+                }
+                style={{ display: "block", marginTop: "0.25rem" }}
+              />
+            </label>
           </form>
           <p className={styles.muted}>
             Or manage all reviews from{" "}
