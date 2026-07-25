@@ -131,19 +131,8 @@ Exact invokes:
 
 All acceptance checkboxes met on target platforms; secrets remain fail-closed; master handoff points here as **Done** (or lists only ops/secrets leftovers).
 
-## Handoff
+**Exit (2026-07-25):** Met. Verifier **PASS** with residuals above. Master Immediate handoff lists secrets/ops leftovers only.
 
-1. `/manager` opens this epic  
-2. First coding prompt → **`@backend_agent`** (bullets below)  
-3. Then web → ios → android-customer → android-management  
-4. `/security-reviewer` → `/verifier` → `/manager` done gate  
+## Handoff (complete)
 
-### First coding lane (`@backend_agent`) — prompt bullets
-
-- Add `customer_compare_items` (+ RLS own-row; staff optional SELECT); RPCs add/remove/list; migrate smoke away from “no compare table”.
-- Wishlist: `notify_when_in_stock` (or equiv) + stock-return hook enqueue via `emit_domain_event` / `sms_outbox` (new catalog codes); fail-closed.
-- Optional `wishlist_move_to_cart` thin DEFINER **or** document compose of existing cart RPCs (prefer compose if no race).
-- Reviews: aggregate view/RPC (avg + count approved); photo table or path columns + Storage bucket RLS; on `moderate_*` approved → optional notify event.
-- Staff `set_customer_credit` (limit, hold) SECURITY DEFINER; explicit currency on responses.
-- Diagram seed: extend beyond Navara when fixtures present; keep `seed_catalog_diagrams.mjs` idempotent; ops one-liner.
-- No ZIMRA / payroll tax / secrets; RLS in same migration files; types regen note for web/mobile.
+Shipped via `@backend_agent` → `@web_agent` → `@ios_agent` → `@android_agent` → `@management_app_agent` → `/security-reviewer` → `/verifier`. No further coding for this epic unless residuals are promoted.
