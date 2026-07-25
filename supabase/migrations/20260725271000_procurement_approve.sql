@@ -440,7 +440,7 @@ BEGIN
   END LOOP;
 
   IF jsonb_array_length(v_lines) = 0 THEN
-    RAISE EXCEPTION 'no convertible MR lines';
+    RAISE EXCEPTION 'no open MR lines to convert';
   END IF;
 
   v_po := public.create_purchase_order(
@@ -449,22 +449,35 @@ BEGIN
     p_currency,
     p_exchange_rate,
     v_lines,
-    COALESCE(v_mr.notes, 'Converted from MR'),
+    format('Converted from %s', COALESCE(v_mr.document_number, v_mr.id::text)),
     v_mr.needed_by,
     p_material_request_id
   );
 
   FOR v_row IN
-    SELECT pol.id AS po_line_id, pol.material_request_line_id, pol.qty_ordered
+    SELECT mrl.*
+    FROM public.material_request_lines mrl
+    WHERE mrl.material_request_id = p_material_request_id
+      AND mrl.qty > mrl.qty_converted
+      AND (p_line_ids IS NULL OR mrl.id = ANY (p_line_ids))
+    ORDER BY mrl.line_no
+  LOOP
+    v_remaining := v_row.qty - v_row.qty_converted;
+    SELECT pol.id INTO v_po_line
     FROM public.purchase_order_lines pol
     WHERE pol.purchase_order_id = v_po
-      AND pol.material_request_line_id IS NOT NULL
-  LOOP
+      AND pol.material_request_line_id = v_row.id
+    LIMIT 1;
+
+    IF v_po_line IS NULL THEN
+      RAISE EXCEPTION 'orphan PO line mapping for MR line %', v_row.id;
+    END IF;
+
     UPDATE public.material_request_lines
     SET
-      qty_converted = qty_converted + v_row.qty_ordered,
-      purchase_order_line_id = v_row.po_line_id
-    WHERE id = v_row.material_request_line_id;
+      qty_converted = qty_converted + v_remaining,
+      purchase_order_line_id = v_po_line
+    WHERE id = v_row.id;
   END LOOP;
 
   IF EXISTS (
