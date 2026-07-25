@@ -5,7 +5,8 @@ import SwiftUI
 ///
 /// Calls `get_delivery_track_point` (job JWT owner and/or share token).
 /// Never selects `delivery_locations`, never draws a historical trail,
-/// never uses WebView / HTML5 geolocation.
+/// never uses WebView / HTML5 geolocation. Polling stops when the RPC
+/// returns empty after an active point (job terminal / token expired).
 struct DeliveryTrackScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     let ref: DeliveryTrackRef
@@ -13,6 +14,8 @@ struct DeliveryTrackScreen: View {
     @State private var point: DeliveryTrackPoint?
     @State private var status: String?
     @State private var busy = false
+    @State private var polling = true
+    @State private var sawActivePoint = false
     @State private var cameraPosition: MapCameraPosition = .automatic
 
     private let pollNanos: UInt64 = 15_000_000_000
@@ -41,10 +44,6 @@ struct DeliveryTrackScreen: View {
                         "Last update",
                         value: StorefrontFormat.chatTime(point.recordedAt)
                     )
-                    LabeledContent(
-                        "Coordinates",
-                        value: String(format: "%.5f, %.5f", point.lat, point.lng)
-                    )
                 }
 
                 Section("Map") {
@@ -63,8 +62,11 @@ struct DeliveryTrackScreen: View {
                     .frame(height: 220)
                     .listRowInsets(EdgeInsets())
                     .onAppear { centerCamera(on: point) }
+                    .accessibilityLabel(
+                        "Driver last location \(String(format: "%.5f", point.lat)), \(String(format: "%.5f", point.lng))"
+                    )
                 }
-            } else if busy {
+            } else if busy && !sawActivePoint {
                 Section {
                     ProgressView("Loading live location…")
                 }
@@ -89,23 +91,33 @@ struct DeliveryTrackScreen: View {
 
             Section {
                 Button(busy ? "Refreshing…" : "Refresh") {
-                    Task { await refresh() }
+                    Task { await refresh(fromPoll: false) }
                 }
                 .disabled(busy)
+                if !polling, sawActivePoint, point == nil {
+                    Button("Resume polling") {
+                        polling = true
+                        Task { await pollLoop() }
+                    }
+                }
             }
 
             Section {
-                Text("Privacy: last point + ETA only. No historical GPS trail.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                Text(
+                    polling
+                        ? "Privacy: last point + ETA only. Polling every 15s while active."
+                        : "Privacy: tracking stopped — job ended or link inactive. No historical GPS trail."
+                )
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
             }
         }
         .navigationTitle("Live delivery")
         .task {
-            await refresh()
+            await refresh(fromPoll: false)
             await pollLoop()
         }
-        .refreshable { await refresh() }
+        .refreshable { await refresh(fromPoll: false) }
         .onChange(of: point?.lat) { _, _ in
             if let point { centerCamera(on: point) }
         }
@@ -128,15 +140,32 @@ struct DeliveryTrackScreen: View {
         )
     }
 
-    private func refresh() async {
-        busy = true
-        defer { busy = false }
+    private func refresh(fromPoll: Bool) async {
+        if !fromPoll { busy = true }
+        defer { if !fromPoll { busy = false } }
         do {
-            point = try await session.api.getDeliveryTrackPoint(ref)
-            status = nil
+            let next = try await session.api.getDeliveryTrackPoint(ref)
+            if let next {
+                point = next
+                sawActivePoint = true
+                status = nil
+                if !polling {
+                    polling = true
+                }
+            } else {
+                point = nil
+                if sawActivePoint {
+                    // Job went terminal / token revoked — stop stalking.
+                    polling = false
+                    status =
+                        "Delivery is no longer out for delivery (completed, failed, or link expired). Live location has been cleared."
+                } else {
+                    status = nil
+                }
+            }
         } catch {
             status = error.localizedDescription
-            // Keep prior point if refresh fails mid-poll.
+            // Keep prior point if refresh fails mid-poll; do not invent a trail.
         }
     }
 
@@ -144,7 +173,8 @@ struct DeliveryTrackScreen: View {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: pollNanos)
             if Task.isCancelled { break }
-            await refresh()
+            guard polling else { break }
+            await refresh(fromPoll: true)
         }
     }
 }
