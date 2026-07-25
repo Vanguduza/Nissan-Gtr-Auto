@@ -462,6 +462,20 @@ export function StaffPosPanel() {
               </select>
             </label>
             <label className={styles.field}>
+              Named customer (optional)
+              <input
+                value={customerQuery}
+                onChange={(e) => {
+                  setCustomerQuery(e.target.value);
+                  setCustomerId(null);
+                  setCustomerLabel("");
+                }}
+                disabled={busy || !!cart}
+                placeholder="Search customer name…"
+                autoComplete="off"
+              />
+            </label>
+            <label className={styles.field}>
               Currency
               <select
                 value={currency}
@@ -486,6 +500,43 @@ export function StaffPosPanel() {
               </select>
             </label>
           </div>
+          {customerHits.length > 0 && !customerId && !cart ? (
+            <ul className={styles.list}>
+              {customerHits.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={() => {
+                      setCustomerId(c.id);
+                      setCustomerLabel(c.display_name);
+                      setCustomerQuery(c.display_name);
+                      setCustomerHits([]);
+                    }}
+                  >
+                    {c.display_name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {customerId ? (
+            <p className={styles.muted} style={{ marginTop: "0.5rem" }}>
+              Linked customer: {customerLabel}{" "}
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy || !!cart}
+                onClick={() => {
+                  setCustomerId(null);
+                  setCustomerLabel("");
+                  setCustomerQuery("");
+                }}
+              >
+                Clear
+              </button>
+            </p>
+          ) : null}
           <div className={styles.formActions}>
             <button
               type="submit"
@@ -510,6 +561,9 @@ export function StaffPosPanel() {
           <p className={styles.muted} style={{ marginTop: "0.65rem" }}>
             Open cart {cart.document_number ?? cart.id.slice(0, 8)} ·{" "}
             {cart.currency} · {cart.fulfillment_mode}
+            {cart.customer_id
+              ? ` · customer ${cart.customer_id.slice(0, 8)}…`
+              : " · walk-in"}
           </p>
         ) : null}
       </fieldset>
