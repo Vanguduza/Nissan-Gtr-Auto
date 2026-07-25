@@ -19,8 +19,9 @@ $$;
 DO $$
 DECLARE
   v_finance UUID := 'a0000000-0000-4000-8000-000000000002';
-  v_day DATE := DATE '2099-06-15';
+  v_day DATE := DATE '2100-01-01' + ((random() * 3650)::int);
   v_period UUID;
+  v_open_id UUID;
   v_je UUID;
   v_closing NUMERIC;
   v_opening NUMERIC := 500;
@@ -51,9 +52,13 @@ BEGIN
   END IF;
 
   -- Close any leftover open 1110/USD period so re-runs are idempotent
-  PERFORM public.close_account_period(ap.id)
-  FROM public.account_period_balances ap
-  WHERE ap.account_code = '1110' AND ap.currency = 'USD' AND ap.status = 'open';
+  FOR v_open_id IN
+    SELECT ap.id
+    FROM public.account_period_balances ap
+    WHERE ap.account_code = '1110' AND ap.currency = 'USD' AND ap.status = 'open'
+  LOOP
+    PERFORM public.close_account_period(v_open_id);
+  END LOOP;
 
   -- Phase A: open period on isolated day (avoids pollution from prior smoke JEs)
   v_period := public.open_account_period(
