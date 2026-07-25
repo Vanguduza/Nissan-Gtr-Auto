@@ -39,17 +39,36 @@ mirroring web AuthZ RPCs in `apps/web/lib/customer-storefront.ts`, chat helpers 
 
 ## Active delivery track (privacy)
 
-Home → **Track delivery**, or Orders → **Track delivery** / **Track with share token**.
+Home → **Track delivery**, or Orders → select `INV-SEED-DISPATCH` → **Track delivery**,
+or **Track with share token**.
 
 - Calls `get_delivery_track_point` only — **never** SELECT on `delivery_locations`, **never** a GPS trail UI.
 - Inputs: share **token** (SMS `/track/{token}`) and/or owned **delivery job id** (signed-in customer).
 - Customers **do not** mint tokens (`mint_delivery_track_token` is staff/dispatch only).
-- Polls ~15s while tracking (no realtime-kt trail subscription).
-- No map SDK in this app — shows coordinates + ETA text (Bridge-First: no WebView/browser geo).
+- Polls **~8s** while active; **stops** when the job is terminal (RPC empty after a live point) — no stalking.
+- No map SDK in this app — shows last coordinates + ETA text (Bridge-First: no WebView/browser geo).
 - Empty when job is not `dispatched`, token expired/revoked, or no pings yet.
 
 Owner path: `get_customer_order.active_delivery_job_id` → Track prefills job UUID
 (no share token). Fake seed: `INV-SEED-DISPATCH` sets that id to `…dj`.
+
+Deep links:
+
+| Form | Example |
+|------|---------|
+| Intent extras | `track_token`, `track_job_id` |
+| Custom scheme | `gtrcustomer://track/{token}` |
+| HTTPS path | `https://<site>/track/{token}` |
+
+### Fake demo (no Supabase)
+
+1. Leave `SUPABASE_URL` / key unset (or `rpc.forceFake=true`).
+2. `.\gradlew.bat assembleDebug` → install debug APK.
+3. Home → **Track delivery** — auto-starts with seed job + token; coords nudge each poll; ETA counts down.
+4. After ~6 polls (~48s Fake ETA) tracking **ends** (coords cleared, poll stops).
+5. Or Orders → tap `INV-SEED-DISPATCH` → **Track delivery** (owner job-id path).
+6. Or: `adb shell am start -a android.intent.action.VIEW -d "gtrcustomer://track/fake_customer_track_token_demo_00000001" co.zw.nissangtr.customer`
+7. Wrong token → empty (no live point). Re-open Track from Home to reset Fake seed.
 
 Optional intent extras: `track_token`, `track_job_id` (open track on launch).
 
