@@ -93,6 +93,9 @@ export function StaffFinancePanel() {
   const [cfRows, setCfRows] = useState<CashFlowRow[]>([]);
 
   const [customerId, setCustomerId] = useState("");
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerHits, setCustomerHits] = useState<CustomerOption[]>([]);
+  const [customerLabel, setCustomerLabel] = useState("");
   const [payAmount, setPayAmount] = useState("");
   const [payCurrency, setPayCurrency] = useState<CurrencyCode>("USD");
   const [tender, setTender] = useState<PaymentTender>("cash");

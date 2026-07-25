@@ -155,13 +155,49 @@ export async function listDraftPayments(
   const { data, error } = await client
     .from("payment_entries")
     .select(
-      "id, document_number, status, amount, currency, tender, customer_id, created_at",
+      "id, document_number, status, amount, currency, tender, customer_id, created_at, customers ( display_name )",
     )
     .eq("status", "draft")
     .order("created_at", { ascending: false })
     .limit(40);
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: (data as PaymentEntryOption[]) ?? [] };
+  const rows = ((data ?? []) as PaymentEntryOption[]).map((row) => {
+    const r = row as PaymentEntryOption & {
+      customers?: PaymentEntryOption["customers"] | PaymentEntryOption["customers"][];
+    };
+    const customers = Array.isArray(r.customers)
+      ? (r.customers[0] ?? null)
+      : (r.customers ?? null);
+    return { ...r, customers };
+  });
+  return { ok: true, data: rows };
+}
+
+export async function searchCustomers(
+  client: SupabaseClient,
+  query: string,
+): Promise<StorefrontResult<CustomerOption[]>> {
+  const q = query.trim();
+  if (q.length < 2) return { ok: true, data: [] };
+  const uuidLike =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+  if (uuidLike) {
+    const { data, error } = await client
+      .from("customers")
+      .select("id, display_name")
+      .eq("id", q)
+      .limit(1);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: (data as CustomerOption[]) ?? [] };
+  }
+  const { data, error } = await client
+    .from("customers")
+    .select("id, display_name")
+    .ilike("display_name", `%${q}%`)
+    .order("display_name")
+    .limit(20);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as CustomerOption[]) ?? [] };
 }
 
 export async function createJournalDraft(
