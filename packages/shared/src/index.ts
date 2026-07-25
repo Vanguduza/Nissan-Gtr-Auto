@@ -2,6 +2,11 @@ export type { CurrencyCode, Money } from "./money";
 export { assertCurrency } from "./money";
 export { splitCoreCharge } from "./cart";
 export {
+  normalizeReceiptEmail,
+  normalizeE164,
+  receiptContactsForCheckout,
+} from "./contacts";
+export {
   assertBalanced,
   createJournalDraft,
   saleJournalLines,
