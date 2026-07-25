@@ -89,7 +89,7 @@ export async function listDeliveryJobs(
   const { data, error } = await client
     .from("delivery_jobs")
     .select(
-      "id, document_number, delivery_note_id, status, assignee_user_id, eta_at, eta_seconds, eta_source, notes, created_at",
+      "id, document_number, delivery_note_id, status, assignee_user_id, eta_at, eta_seconds, eta_source, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, notes, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(40);
