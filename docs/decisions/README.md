@@ -37,3 +37,4 @@ What agents must not re-litigate.
 | `2026-07-23-autodoc-shop-features.md` | AutoDoc shop adopt / later / skip + phases |
 | `2026-07-24-paynow-payment-rail.md` | Paynow + ContiPay payment rails (Phase 13) |
 | `2026-07-24-customer-self-pay.md` | Customer ContiPay/Paynow self-pay (not counter-only) |
+| `2026-07-25-web-management-parity-rbac.md` | Web `/staff` management fallback + nav RBAC; Bridge-First |
