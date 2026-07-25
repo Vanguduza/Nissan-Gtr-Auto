@@ -3106,11 +3106,6 @@ export function StaffFinancePanel() {
       {tab === "periods" ? (
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Accounting periods</legend>
-        {/* No unlock_accounting_period RPC — locked periods stay locked. */}
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Create open periods, then use the close wizard (optional TB check →
-          lock). Locked periods reject new posts.
-        </p>
         <form onSubmit={(e) => void onCreatePeriod(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -3248,11 +3243,6 @@ export function StaffFinancePanel() {
       {tab === "bank-recon" ? (
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Bank reconciliation</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Tables <code>bank_statements</code> / <code>bank_statement_lines</code>{" "}
-          / <code>bank_recon_matches</code>; clear via{" "}
-          <code>clear_bank_matches</code>. Currency explicit USD | ZIG.
-        </p>
         <form onSubmit={(e) => void onImportStatement(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>

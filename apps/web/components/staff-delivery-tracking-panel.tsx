@@ -462,7 +462,7 @@ export function StaffDeliveryTrackingPanel() {
             {trackPoint ? (
               <>
                 {" · "}
-                <strong>Last (RPC)</strong> {trackPoint.lat.toFixed(5)},{" "}
+                <strong>Last</strong> {trackPoint.lat.toFixed(5)},{" "}
                 {trackPoint.lng.toFixed(5)}
               </>
             ) : null}
