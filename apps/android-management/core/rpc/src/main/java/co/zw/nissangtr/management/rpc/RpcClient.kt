@@ -273,4 +273,117 @@ interface RpcClient {
 
     /** Unread across inbox, or for one thread when [threadId] set. */
     suspend fun chatUnreadCount(threadId: String? = null): Int
+
+    // --- Named customers (PostgREST + RLS — finance/POS/credit pattern) ---
+
+    /** Search by display_name ilike or exact UUID (≥2 chars). */
+    suspend fun searchCustomers(query: String): List<CustomerOption>
+
+    // --- Phase 8b blankets (procurement) ---
+
+    suspend fun listSuppliers(): List<SupplierRef>
+
+    /** Live: SELECT purchase_orders WHERE is_blanket + lines. */
+    suspend fun listBlanketPurchaseOrders(): List<BlanketSummary>
+
+    suspend fun createBlanketPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        blanketMaxValue: Double,
+        lines: List<BlanketLineInput>,
+        notes: String? = null,
+        expectedDate: String? = null,
+    ): String
+
+    /** Submit draft blanket (or any draft PO) via [RpcNames.SUBMIT_PURCHASE_ORDER]. */
+    suspend fun submitPurchaseOrder(purchaseOrderId: String): String
+
+    suspend fun createBlanketRelease(
+        blanketPurchaseOrderId: String,
+        lines: List<BlanketReleaseLineInput>,
+        notes: String? = null,
+    ): String
+
+    // --- Phase 16 bins / pick-path ---
+
+    suspend fun listWarehouseBins(warehouseId: String): List<WarehouseBinSummary>
+
+    suspend fun createWarehouseBin(
+        warehouseId: String,
+        code: String,
+        name: String,
+        pickPathSeq: Int = 100,
+        aisle: String? = null,
+        rack: String? = null,
+        shelf: String? = null,
+    ): String
+
+    suspend fun updateWarehouseBin(
+        binId: String,
+        name: String? = null,
+        pickPathSeq: Int? = null,
+        aisle: String? = null,
+        rack: String? = null,
+        shelf: String? = null,
+        isActive: Boolean? = null,
+    ): String
+
+    suspend fun deactivateWarehouseBin(binId: String): String
+
+    suspend fun setStockLevelBin(
+        stockItemId: String,
+        warehouseId: String,
+        binId: String?,
+    ): String
+
+    suspend fun getPickPathHints(
+        warehouseId: String,
+        stockItemIds: List<String>? = null,
+    ): List<PickPathHint>
+
+    // --- Phase 16 consignment ---
+
+    suspend fun listConsignmentEntries(): List<ConsignmentEntrySummary>
+
+    suspend fun createConsignmentEntryDraft(
+        kind: ConsignmentKind,
+        purpose: ConsignmentPurpose,
+        warehouseId: String,
+        supplierId: String? = null,
+        customerId: String? = null,
+        currency: CurrencyCode = CurrencyCode.USD,
+        exchangeRate: Double = 1.0,
+        notes: String? = null,
+    ): String
+
+    suspend fun addConsignmentEntryLine(
+        entryId: String,
+        stockItemId: String,
+        uomId: String,
+        qty: Double,
+        unitCost: Double = 0.0,
+        unitPrice: Double = 0.0,
+        currency: CurrencyCode? = null,
+    ): String
+
+    suspend fun submitConsignmentEntry(entryId: String): String
+
+    suspend fun cancelConsignmentEntry(entryId: String): String
+
+    // --- B2B credit ---
+
+    /** Load credit fields for a customer (PostgREST). */
+    suspend fun loadCustomerCredit(customerId: String): CustomerCreditSnapshot?
+
+    /**
+     * Staff DEFINER mutator — admin|sales|finance.
+     * Pass null to leave limit or hold unchanged; at least one must be set.
+     */
+    suspend fun setCustomerCredit(
+        customerId: String,
+        creditLimit: Double? = null,
+        creditHold: Boolean? = null,
+    ): CustomerCreditSnapshot
 }
