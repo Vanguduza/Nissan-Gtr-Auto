@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   FormEvent,
   Fragment,
+  Suspense,
   useCallback,
   useEffect,
   useState,
@@ -211,6 +212,14 @@ function quickOpsFor(registerCode: string): QuickOpTemplate[] {
 }
 
 export function StaffFinancePanel() {
+  return (
+    <Suspense fallback={<p className={styles.formStatus}>Loading finance…</p>}>
+      <StaffFinancePanelInner />
+    </Suspense>
+  );
+}
+
+function StaffFinancePanelInner() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab =
