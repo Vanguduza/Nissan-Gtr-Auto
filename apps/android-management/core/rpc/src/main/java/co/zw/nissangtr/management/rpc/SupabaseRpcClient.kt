@@ -1146,6 +1146,11 @@ private data class PosScanSessionRow(
 )
 
 @Serializable
+private data class PosScanSessionCartRow(
+    @SerialName("cart_id") val cartId: String,
+)
+
+@Serializable
 private data class StockItemOemEmbed(
     @SerialName("oem_part_number") val oemPartNumber: String? = null,
 )
