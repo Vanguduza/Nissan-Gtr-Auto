@@ -1,40 +1,66 @@
+"use client";
+
 import Link from "next/link";
 import { StaffNav } from "@/components/staff-nav";
+import { useStaffAuth } from "@/components/staff-auth-context";
+import { filterNavForRoles } from "@/lib/staff-auth";
 import styles from "@/components/account.module.css";
 
-export const metadata = { title: "Staff" };
+const HUB_CARDS: {
+  href: string;
+  label: string;
+  blurb: string;
+}[] = [
+  { href: "/staff/pos", label: "POS", blurb: "Cart · lines · checkout" },
+  {
+    href: "/staff/warehouse",
+    label: "Warehouse",
+    blurb: "Receive · transfer · count",
+  },
+  {
+    href: "/staff/finance",
+    label: "Finance",
+    blurb: "Journals · reports · payments",
+  },
+  { href: "/staff/hr", label: "HR", blurb: "Clock + hours" },
+  { href: "/staff/logistics", label: "Logistics", blurb: "Pick · DN · job" },
+  {
+    href: "/staff/logistics/tracking",
+    label: "Live map",
+    blurb: "Realtime GPS subscribe",
+  },
+  {
+    href: "/staff/warranty",
+    label: "Warranty",
+    blurb: "Claims · quarantine return",
+  },
+  { href: "/procurement", label: "Procurement", blurb: "RFQs" },
+];
 
 export default function StaffHubPage() {
+  const ctx = useStaffAuth();
+  const allowedHrefs = new Set(
+    filterNavForRoles(ctx?.roles ?? []).map((i) => i.href),
+  );
+  const cards = HUB_CARDS.filter((c) => allowedHrefs.has(c.href));
+
   return (
     <div className={styles.shell}>
       <StaffNav current="/staff" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Staff</h1>
         <p className={styles.lede}>
-          Thin ops surfaces for POS, warehouse, attendance, and dispatch pick →
-          delivery note. Sign in required; roles enforced by Supabase RPCs.
+          Management fallback for POS, warehouse, finance, attendance, and
+          dispatch. Roles from <code>staff_roles</code>; RPCs remain the source
+          of truth. QR / GPS use the management device bridge — not the browser.
         </p>
         <div className={styles.cardGrid}>
-          <Link href="/staff/pos" className={styles.card}>
-            <span className={styles.cardLabel}>POS</span>
-            <span className={styles.cardBlurb}>Cart · lines · checkout</span>
-          </Link>
-          <Link href="/staff/warehouse" className={styles.card}>
-            <span className={styles.cardLabel}>Warehouse</span>
-            <span className={styles.cardBlurb}>Receive · transfer · count</span>
-          </Link>
-          <Link href="/staff/hr" className={styles.card}>
-            <span className={styles.cardLabel}>HR</span>
-            <span className={styles.cardBlurb}>Clock + hours</span>
-          </Link>
-          <Link href="/staff/logistics" className={styles.card}>
-            <span className={styles.cardLabel}>Logistics</span>
-            <span className={styles.cardBlurb}>Pick · DN · job</span>
-          </Link>
-          <Link href="/procurement" className={styles.card}>
-            <span className={styles.cardLabel}>Procurement</span>
-            <span className={styles.cardBlurb}>RFQs</span>
-          </Link>
+          {cards.map((c) => (
+            <Link key={c.href} href={c.href} className={styles.card}>
+              <span className={styles.cardLabel}>{c.label}</span>
+              <span className={styles.cardBlurb}>{c.blurb}</span>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

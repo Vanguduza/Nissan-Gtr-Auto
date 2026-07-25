@@ -30,15 +30,19 @@ import co.zw.nissangtr.management.dispatch.DispatchScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.pos.PosModule
+import co.zw.nissangtr.management.pos.PosScreen
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
 import co.zw.nissangtr.management.warehouse.WarehouseModule
+import co.zw.nissangtr.management.warehouse.WarehouseScreen
 
 private enum class ManagementRoute {
     Home,
     HrClock,
     Dispatch,
+    Pos,
+    Warehouse,
 }
 
 /**
