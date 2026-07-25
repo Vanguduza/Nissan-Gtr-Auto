@@ -13,6 +13,17 @@ Never commit real secret values. Set via Supabase Edge secrets / local Deno env.
 
 Gateway JWT: see `[functions.*] verify_jwt` in `supabase/config.toml`. Workers keep `verify_jwt = true` **and** still require `x-worker-secret`.
 
+## Chat notify (`chat-notify-on-message`)
+
+Optional worker for in-app live chat. Resolves a `message_id` with `service_role` and returns notify targets (assigned staff / open queue / customer). Delivery is **stubbed** (`stub: true`) until push/email channels are wired — no secrets in git.
+
+| Item | Detail |
+|------|--------|
+| Method | `POST /functions/v1/chat-notify-on-message` |
+| Auth | `x-worker-secret` + JWT (`verify_jwt = true`) |
+| Body | `{ "message_id": "<uuid>" }` |
+| Success | `{ ok, stub, message_id, thread_id, sender_kind, targets, preview }` |
+
 ## Manager SMS (`process-sms-outbox`)
 
 | Secrets | Behaviour |
