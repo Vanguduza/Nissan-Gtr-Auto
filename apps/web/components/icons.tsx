@@ -1,4 +1,7 @@
-/** Shared Lucide icons for storefront chrome — keep stroke consistent. */
+/**
+ * Re-export Lucide icons used across the storefront so stroke size stays consistent.
+ * Import from here rather than `lucide-react` in UI chrome.
+ */
 export {
   LayoutGrid,
   Search,
@@ -6,28 +9,33 @@ export {
   UserRound,
   MessageCircle,
   LogIn,
-  Disc3,
+  CircleDot,
   Filter,
   Cog,
-  Suspension as SuspensionIcon,
+  MoveVertical,
   Zap,
   Droplets,
-  Car,
+  CarFront,
   Wrench,
   Package,
   ListOrdered,
-  Image as ImageIcon,
+  Images,
   MapPin,
   Heart,
   RotateCcw,
-  GitCompare,
+  GitCompareArrows,
   Gift,
   Star,
   Smartphone,
   ClipboardList,
   Gauge,
-  CircleUserRound,
+  Building2,
+  ArrowRight,
 } from "lucide-react";
 
-/** Lucide has no Suspension — use Armchair-like spring via `Cable`/`MoveVertical`. Re-export MoveVertical as Suspension. */
-export { MoveVertical as Suspension } from "lucide-react";
+export type { LucideIcon } from "lucide-react";
+
+export const iconStroke = 1.75;
+export const iconSizeSm = 16;
+export const iconSizeMd = 18;
+export const iconSizeLg = 22;
