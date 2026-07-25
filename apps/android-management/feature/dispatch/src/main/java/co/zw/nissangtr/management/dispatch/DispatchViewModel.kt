@@ -578,6 +578,27 @@ class DispatchViewModel(
         }
     }
 
+    /**
+     * Persist pickup/dropoff from UI fields when parseable.
+     * @return status string, or null when no coords entered.
+     */
+    private suspend fun applyCoordsIfPossible(jobId: String): String? {
+        val s = _state.value
+        val pLat = s.pickupLat.trim().toDoubleOrNull()
+        val pLng = s.pickupLng.trim().toDoubleOrNull()
+        val dLat = s.dropoffLat.trim().toDoubleOrNull()
+        val dLng = s.dropoffLng.trim().toDoubleOrNull()
+        if (pLat == null && pLng == null && dLat == null && dLng == null) return null
+        rpc.setDeliveryJobCoords(
+            deliveryJobId = jobId,
+            pickupLat = pLat,
+            pickupLng = pLng,
+            dropoffLat = dLat,
+            dropoffLng = dLng,
+        )
+        return "coords set (pickup/dropoff) for suggest+ETA"
+    }
+
     override fun onCleared() {
         panicPollJob?.cancel()
         super.onCleared()
