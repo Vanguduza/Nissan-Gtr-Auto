@@ -75,6 +75,23 @@ public protocol GpsWatchHandle: AnyObject {
     func stop() async
 }
 
+/// Battery-aware cadence (Android delivery FGS primary; iOS mirrors contract).
+public enum GpsWatchCadence: String, Sendable {
+    case moving
+    case idle
+    case auto
+}
+
+public struct GpsWatchOptions: Sendable {
+    public var cadence: GpsWatchCadence
+    public var minDistanceMeters: Double?
+
+    public init(cadence: GpsWatchCadence = .auto, minDistanceMeters: Double? = nil) {
+        self.cadence = cadence
+        self.minDistanceMeters = minDistanceMeters
+    }
+}
+
 /// Native GPS for delivery tracking.
 /// Prefer `watchPosition` while a job is en route; throttle client-side (~5s)
 /// before calling `ingest_delivery_location`. This bridge does not call Supabase.
@@ -84,6 +101,7 @@ public protocol GpsBridge: AnyObject {
     func getCurrentPosition() async throws -> GpsCoordinate
     func watchPosition(
         onUpdate: @escaping @Sendable (GpsCoordinate) -> Void,
-        onError: (@Sendable (String) -> Void)?
+        onError: (@Sendable (String) -> Void)?,
+        options: GpsWatchOptions
     ) async throws -> GpsWatchHandle
 }
