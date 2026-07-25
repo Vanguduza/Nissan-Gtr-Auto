@@ -105,8 +105,12 @@ struct ChatScreen: View {
 
     private var whatsappURL: URL {
         let text = "Hi GTR Auto — I need a parts counter check"
-        let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        return URL(string: "https://wa.me/\(AppEnv.whatsappE164Digits)?text=\(encoded)")!
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "wa.me"
+        components.path = "/\(AppEnv.whatsappE164Digits)"
+        components.queryItems = [URLQueryItem(name: "text", value: text)]
+        return components.url ?? URL(string: "https://wa.me/\(AppEnv.whatsappE164Digits)")!
     }
 
     private func refresh() async {

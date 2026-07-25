@@ -7,10 +7,11 @@ package co.zw.nissangtr.customer.rpc
  * `SUPABASE_ANON_KEY` are set (override with `rpc.forceFake=true`).
  * **Fallback:** [FakeRpcClient].
  *
- * List reads (open cart lines, own invoices, garage) use PostgREST / RLS —
+ * List reads (open cart lines, own invoices, garage, chat) use PostgREST / RLS —
  * not mutation RPCs.
  *
  * Payment intents: create only (no real PSP crypto). Settle stays webhook.
+ * Chat mutations: start / post / mark_read / unread_count RPCs.
  * QR: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
  */
 interface RpcClient {
