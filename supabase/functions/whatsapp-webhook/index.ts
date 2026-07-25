@@ -198,7 +198,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "method not allowed" }, 405);
     }
 
+    const MAX_BODY_BYTES = 256 * 1024;
+    const contentLength = Number(req.headers.get("content-length") ?? "");
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return jsonResponse({ error: "payload too large" }, 413);
+    }
+
     const raw = await req.text();
+    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
+      return jsonResponse({ error: "payload too large" }, 413);
+    }
+
     const appSecret = Deno.env.get("WHATSAPP_APP_SECRET")?.trim() ?? "";
     const localUnverified =
       !appSecret && allowWhatsAppUnverifiedLocal();
