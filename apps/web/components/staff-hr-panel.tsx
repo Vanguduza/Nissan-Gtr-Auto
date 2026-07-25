@@ -171,6 +171,36 @@ export function StaffHrPanel() {
     setHours(res.data);
   }
 
+  async function onAddDeduction(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client || !payrollLineId) return;
+    const n = Number(deductionAmount);
+    if (!deductionLabel.trim()) {
+      setMessage("Deduction label required.");
+      return;
+    }
+    if (!Number.isFinite(n) || n <= 0) {
+      setMessage("Deduction amount must be positive.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await addPayrollDeduction(client, {
+      payrollLineId,
+      label: deductionLabel.trim(),
+      amount: n,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Deduction added · ${res.data.slice(0, 8)}…`);
+    setDeductionAmount("");
+    await refresh();
+  }
+
   if (boot.kind === "loading") {
     return <p className={styles.muted}>Loading HR…</p>;
   }
@@ -308,6 +338,60 @@ export function StaffHrPanel() {
                 {hours.toFixed(2)} hours in range
               </p>
             ) : null}
+          </div>
+        </form>
+      </fieldset>
+
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>Manual deduction</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Custom line via <code>add_payroll_deduction</code> only — no PAYE,
+          NSSA, or statutory remittance UI. Amount currency matches the payroll
+          line (<code>USD</code> | <code>ZIG</code>).
+        </p>
+        <form onSubmit={(e) => void onAddDeduction(e)}>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Payroll line
+              <select
+                value={payrollLineId}
+                onChange={(e) => setPayrollLineId(e.target.value)}
+                disabled={busy || boot.payrollLines.length === 0}
+              >
+                {boot.payrollLines.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.id.slice(0, 8)}… · gross {l.gross_amount} {l.currency}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              Label
+              <input
+                value={deductionLabel}
+                onChange={(e) => setDeductionLabel(e.target.value)}
+                disabled={busy}
+                placeholder="e.g. Staff advance"
+              />
+            </label>
+            <label className={styles.field}>
+              Amount
+              <input
+                value={deductionAmount}
+                onChange={(e) => setDeductionAmount(e.target.value)}
+                disabled={busy}
+                inputMode="decimal"
+              />
+            </label>
+          </div>
+          <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
+            <button
+              type="submit"
+              className={styles.btnGhost}
+              disabled={busy || !payrollLineId}
+            >
+              Add deduction
+            </button>
           </div>
         </form>
       </fieldset>
