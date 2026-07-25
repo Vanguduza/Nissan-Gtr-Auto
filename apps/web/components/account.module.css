@@ -615,11 +615,82 @@
 
 .formStatus {
   margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--staff-radius-sm);
+  border: 1px solid color-mix(in srgb, var(--gtr-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--gtr-accent) 8%, white);
   font-size: 0.88rem;
-  color: var(--gtr-accent);
+  color: var(--gtr-steel);
 }
 
-.btnGhost {
+.emptyState {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--staff-border-strong);
+  border-radius: var(--staff-radius-sm);
+  background: color-mix(in srgb, var(--gtr-chalk) 80%, white);
+  font-size: 0.9rem;
+  color: rgba(18, 21, 28, 0.58);
+  text-align: center;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin: 0 0 1rem;
+  border: 1px solid var(--staff-border);
+  border-radius: var(--staff-radius-sm);
+  background: var(--gtr-white);
+  box-shadow: var(--staff-shadow-sm);
+}
+
+.tableWrap .table {
+  margin: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin: 0 0 1rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.07);
+  vertical-align: top;
+}
+
+.table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--gtr-chalk) 55%, white);
+}
+
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--gtr-red) 4%, white);
+}
+
+.table th {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(18, 21, 28, 0.58);
+  background: color-mix(in srgb, var(--gtr-steel) 5%, white);
+  border-bottom: 1px solid rgba(18, 21, 28, 0.1);
+  white-space: nowrap;
+}
+
+.table td:last-child,
+.table th:last-child {
+  padding-right: 0.85rem;
+}
+
+.table td:first-child,
+.table th:first-child {
+  padding-left: 0.85rem;
+}
   display: inline-flex;
   align-items: center;
   min-height: 2rem;
