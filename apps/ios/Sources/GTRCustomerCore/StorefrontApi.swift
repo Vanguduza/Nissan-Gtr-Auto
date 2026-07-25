@@ -13,6 +13,8 @@ import Foundation
 ///   (prefer edge `contipay-initiate` / `paynow-initiate`; RPC fallback — no client PSP crypto)
 /// - Chat: `start_chat_thread`, `post_chat_message`, `mark_chat_thread_read`, `chat_unread_count`
 ///   (+ RLS select on `chat_threads` / `chat_messages`)
+/// - Delivery track: `get_delivery_track_point` — last point + ETA only (never trail /
+///   never `SELECT` on `delivery_locations`)
 @MainActor
 public protocol StorefrontApi: AnyObject {
     func createCart(
@@ -66,6 +68,13 @@ public protocol StorefrontApi: AnyObject {
     func markChatThreadRead(threadId: UUID) async throws
 
     func chatUnreadCount(threadId: UUID?) async throws -> Int
+
+    // MARK: Delivery track (privacy-safe last point)
+
+    /// Calls `get_delivery_track_point` with job id (owner JWT) and/or share token.
+    /// Returns at most one last point for an active `dispatched` job; `nil` when
+    /// inactive / unauthorized / no ping yet. Never a historical trail.
+    func getDeliveryTrackPoint(_ ref: DeliveryTrackRef) async throws -> DeliveryTrackPoint?
 }
 
 /// In-memory Fake for Simulator / Windows scaffold — no network.
