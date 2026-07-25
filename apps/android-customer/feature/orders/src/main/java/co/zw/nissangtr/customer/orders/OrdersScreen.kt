@@ -19,14 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.CustomerOrder
-import co.zw.nissangtr.customer.rpc.FakeRpcClient
-import co.zw.nissangtr.customer.rpc.FulfillmentMode
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
 
 /**
  * Thin orders scaffold: list own invoices + [RpcNames.GET_CUSTOMER_ORDER].
- * Active dispatch orders can open last-point track (no GPS trail).
+ * When [CustomerOrder.activeDeliveryJobId] is set, Track uses owner job-id path.
  */
 @Composable
 fun OrdersScreen(

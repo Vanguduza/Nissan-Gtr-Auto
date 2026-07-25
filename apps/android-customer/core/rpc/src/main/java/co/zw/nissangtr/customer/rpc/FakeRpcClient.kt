@@ -109,6 +109,7 @@ class FakeRpcClient : RpcClient {
             postedAt = "2026-07-25T08:00:00Z",
             pickListStatus = "completed",
             deliveryNoteStatus = "submitted",
+            activeDeliveryJobId = SEED_ACTIVE_JOB_ID,
         )
     }
 
@@ -117,10 +118,6 @@ class FakeRpcClient : RpcClient {
         const val SEED_ACTIVE_JOB_ID = "00000000-0000-4000-8000-0000000000dj"
         /** Demo share token (SMS `/track/{token}`). Not a secret. */
         const val SEED_TRACK_TOKEN = "fake_customer_track_token_demo_00000001"
-
-        /** Invoice → active job when Fake has a dispatched delivery for that order. */
-        fun activeJobIdForInvoice(invoiceId: String): String? =
-            if (invoiceId == SEED_DISPATCH_INVOICE_ID) SEED_ACTIVE_JOB_ID else null
     }
 
     override suspend fun createCustomerCart(
