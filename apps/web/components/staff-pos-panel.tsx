@@ -317,7 +317,7 @@ export function StaffPosPanel() {
         {cart ? (
           <p className={styles.muted} style={{ marginTop: "0.65rem" }}>
             Open cart {cart.document_number ?? cart.id.slice(0, 8)} ·{" "}
-            <strong>{cart.currency}</strong> · {cart.fulfillment_mode}
+            {cart.currency} · {cart.fulfillment_mode}
           </p>
         ) : null}
       </fieldset>
