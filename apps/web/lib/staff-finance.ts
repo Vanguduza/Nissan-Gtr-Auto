@@ -992,50 +992,65 @@ export async function listFinanceRequisitions(
   const { data, error } = await client
     .from("finance_requisitions")
     .select(
-      "id, document_number, req_type, status, amount, currency, exchange_rate_applied, payee, memo, expense_account_code, cash_account_code, requested_by, submitted_at, approved_at, rejected_at, rejection_reason, disbursed_at, journal_entry_id, payment_entry_id, created_at, finance_requisition_lines(id, requisition_id, line_no, description, expense_account_code, amount)",
+      "id, document_number, req_type, status, amount, currency, exchange_rate_applied, payee, memo, expense_account_code, cash_account_code, requested_by, submitted_at, approved_at, rejected_at, rejection_reason, disbursed_at, journal_entry_id, payment_entry_id, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { ok: false, error: error.message };
-  const rows = (data ?? []).map((r) => {
-    const rawLines = r.finance_requisition_lines ?? [];
-    const lines = [...rawLines]
-      .sort((a, b) => a.line_no - b.line_no)
-      .map((l) => ({
+
+  const headers = data ?? [];
+  const ids = headers.map((r) => r.id);
+  const linesByReq = new Map<string, FinanceRequisitionLineOption[]>();
+
+  if (ids.length > 0) {
+    const { data: lineRows, error: lineErr } = await client
+      .from("finance_requisition_lines")
+      .select(
+        "id, requisition_id, line_no, description, expense_account_code, amount",
+      )
+      .in("requisition_id", ids)
+      .order("line_no", { ascending: true });
+    if (lineErr) return { ok: false, error: lineErr.message };
+    for (const l of lineRows ?? []) {
+      const list = linesByReq.get(l.requisition_id) ?? [];
+      list.push({
         id: l.id,
         requisition_id: l.requisition_id,
         line_no: l.line_no,
         description: l.description ?? null,
         expense_account_code: l.expense_account_code,
         amount: Number(l.amount),
-      }));
-    return {
-      id: r.id,
-      document_number: r.document_number,
-      req_type: r.req_type,
-      status: r.status,
-      amount: Number(r.amount),
-      currency: r.currency,
-      exchange_rate_applied:
-        r.exchange_rate_applied != null
-          ? Number(r.exchange_rate_applied)
-          : null,
-      payee: r.payee,
-      memo: r.memo,
-      expense_account_code: r.expense_account_code,
-      cash_account_code: r.cash_account_code,
-      requested_by: r.requested_by,
-      submitted_at: r.submitted_at,
-      approved_at: r.approved_at,
-      rejected_at: r.rejected_at,
-      rejection_reason: r.rejection_reason,
-      disbursed_at: r.disbursed_at,
-      journal_entry_id: r.journal_entry_id,
-      payment_entry_id: r.payment_entry_id,
-      created_at: r.created_at,
-      lines,
-    };
-  });
+      });
+      linesByReq.set(l.requisition_id, list);
+    }
+  }
+
+  const rows: FinanceRequisitionOption[] = headers.map((r) => ({
+    id: r.id,
+    document_number: r.document_number,
+    req_type: r.req_type,
+    status: r.status,
+    amount: Number(r.amount),
+    currency: r.currency,
+    exchange_rate_applied:
+      r.exchange_rate_applied != null
+        ? Number(r.exchange_rate_applied)
+        : null,
+    payee: r.payee,
+    memo: r.memo,
+    expense_account_code: r.expense_account_code,
+    cash_account_code: r.cash_account_code,
+    requested_by: r.requested_by,
+    submitted_at: r.submitted_at,
+    approved_at: r.approved_at,
+    rejected_at: r.rejected_at,
+    rejection_reason: r.rejection_reason,
+    disbursed_at: r.disbursed_at,
+    journal_entry_id: r.journal_entry_id,
+    payment_entry_id: r.payment_entry_id,
+    created_at: r.created_at,
+    lines: linesByReq.get(r.id) ?? [],
+  }));
   return { ok: true, data: rows };
 }
 
