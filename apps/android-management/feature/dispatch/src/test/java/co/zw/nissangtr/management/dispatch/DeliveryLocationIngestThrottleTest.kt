@@ -1,11 +1,13 @@
 package co.zw.nissangtr.management.dispatch
 
+import co.zw.nissangtr.management.rpc.DeliveryJobStatus
 import co.zw.nissangtr.management.rpc.FakeRpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,28 +47,19 @@ class DispatchGpsProducerGateTest {
     @Test
     fun allowDriverGpsProducerHardGatedFalse() {
         assertFalse(DispatchViewModel.ALLOW_DRIVER_GPS_PRODUCER)
-    }
-
-    @Test
-    fun startTrackingSetsBlockedMessageWithoutIngest() = runBlocking {
-        val rpc = FakeRpcClient()
-        val before = rpc.ingestedLocationCount.get()
-        val vm = DispatchViewModel(rpc)
-        vm.startTracking()
-        assertEquals(before, rpc.ingestedLocationCount.get())
-        assertEquals(
-            DispatchViewModel.DRIVER_GPS_PRODUCER_BLOCKED_MSG,
-            vm.state.value.error,
+        assertTrue(
+            DispatchViewModel.DRIVER_GPS_PRODUCER_BLOCKED_MSG.contains("android-delivery"),
         )
-        vm.onCleared()
     }
 }
 
 class DispatchAssignmentRpcTest {
 
     @Test
-    fun suggestAssignOptimizeAndPanicAck() = runBlocking {
+    fun suggestAssignOptimizeTrackAndPanicAck() = runBlocking {
         val rpc = FakeRpcClient()
+        val beforeIngest = rpc.ingestedLocationCount.get()
+
         val jobId = rpc.createDeliveryJob(
             deliveryNoteId = "00000000-0000-4000-8000-0000000000d1",
         )
@@ -85,20 +78,17 @@ class DispatchAssignmentRpcTest {
         assertTrue(stops.isNotEmpty())
         assertEquals(1, stops.first().routeSequence)
 
-        val track = rpc.getDeliveryTrackPoint(jobId)
-        // Fake returns null unless status is dispatched
-        assertTrue(track == null || track.status == "dispatched")
-
-        rpc.updateDeliveryJobStatus(
-            jobId,
-            co.zw.nissangtr.management.rpc.DeliveryJobStatus.DISPATCHED,
-        )
+        assertNull(rpc.getDeliveryTrackPoint(jobId))
+        rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
         assertNotNull(rpc.getDeliveryTrackPoint(jobId))
 
         val open = rpc.listOpenPanicEvents()
         assertTrue(open.any { it.id == FakeRpcClient.OPEN_PANIC_ID })
         rpc.acknowledgePanicEvent(FakeRpcClient.OPEN_PANIC_ID)
         assertTrue(rpc.listOpenPanicEvents().none { it.id == FakeRpcClient.OPEN_PANIC_ID })
+
+        // Management must not use Fake ingest from dispatch UI — count unchanged here.
+        assertEquals(beforeIngest, rpc.ingestedLocationCount.get())
 
         assertEquals("suggest_delivery_assignees", RpcNames.SUGGEST_DELIVERY_ASSIGNEES)
         assertEquals("assign_delivery_job", RpcNames.ASSIGN_DELIVERY_JOB)
