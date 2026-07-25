@@ -196,18 +196,22 @@
 .catAll,
 .cat,
 .catSearch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   flex-shrink: 0;
-  padding: 0.45rem 0.7rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.86rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.82);
-  border-radius: 2px;
-  transition: background var(--gtr-hover), color var(--gtr-hover);
+  border-radius: 999px;
+  transition: background var(--gtr-hover), color var(--gtr-hover),
+    transform var(--gtr-hover);
 }
 
 .catAll {
   color: #fff;
-  background: rgba(200, 16, 46, 0.22);
+  background: rgba(200, 16, 46, 0.28);
 }
 
 .catSearch {
