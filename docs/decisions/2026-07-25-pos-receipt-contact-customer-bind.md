@@ -8,6 +8,8 @@
 
 Extend **`checkout_pos_cart`** to accept optional **`p_receipt_email`**, **`p_receipt_whatsapp_e164`** (and optional phone). Persist onto `sales_invoices.customer_email` / `customer_whatsapp_e164` / `customer_phone_e164` so Phase 5 **`enqueue_customer_receipts`** and Phase 13 **`process-customer-receipts`** run unchanged ([customer-receipt-delivery](./2026-07-23-customer-receipt-delivery.md)).
 
+**Same checkout RPC for standalone and paired POS** — whether lines were added via search/catalog or companion QR, checkout contact capture + bind is identical (no parallel checkout path). See [pos-scan-session-pairing](./2026-07-25-pos-scan-session-pairing.md) (pairing optional; standalone required).
+
 **Customer bind:** after normalizing contacts, resolve a **unique** `customers` row where email **or** phone/WhatsApp matches, and the row is a **registered account** (`profile_id IS NOT NULL`) **and/or** trade/company-style list (`price_list` code ≠ `RETAIL`, e.g. B2B/FLEET). If unique → set invoice (and cart if still open) `customer_id`. If zero or ambiguous matches → leave unbound (walk-in); UI may show “no account match” / “multiple matches — link manually”.
 
 **Do not** auto-insert a new `customers` row from checkout contacts in this slice. Sale **must not block** if receipt send fails — enqueue-first; channel drain fail-closed without SMS/email/WhatsApp secrets unless `WORKER_ALLOW_UNVERIFIED_LOCAL=1` (existing Phase 13 behavior).
