@@ -41,3 +41,6 @@ What agents must not re-litigate.
 | `2026-07-25-in-app-live-chat.md` | In-app live chat (Realtime); WA optional |
 | `2026-07-25-dedicated-delivery-app.md` | Dedicated driver Android app; assignment in management; privacy-safe customer track |
 | `2026-07-24-whatsapp-parts-finder-bot.md` | WhatsApp parts-finder bot (optional channel) |
+| `2026-07-25-pos-scan-session-pairing.md` | Tablet/phone POS scan session pairing (Bridge-First) |
+| `2026-07-25-auth-otp-fail-closed.md` | Email/phone OTP signup/login; fail-closed + local stub flag |
+| `2026-07-25-pos-receipt-contact-customer-bind.md` | Checkout receipt contacts + customer_id bind |
