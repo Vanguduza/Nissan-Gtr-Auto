@@ -49,9 +49,10 @@ class FleetViewModel(
     fun onStatusChange(v: FleetVehicleStatus) = _state.update { it.copy(status = v) }
     fun onAssigneeChange(v: String) = _state.update { it.copy(assignedDriverUserId = v) }
     fun onNotesChange(v: String) = _state.update { it.copy(notes = v) }
-    fun onFilterChange(v: FleetVehicleStatus?) = _state.update {
-        it.copy(statusFilter = v)
-    }.also { refresh() }
+    fun onFilterChange(v: FleetVehicleStatus?) {
+        _state.update { it.copy(statusFilter = v) }
+        refresh()
+    }
 
     fun beginEdit(v: FleetVehicleSummary) {
         _state.update {
