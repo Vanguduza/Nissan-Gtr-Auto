@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.POST_CHAT_MESSAGE]: p_thread_id, p_body
  * - [RpcNames.MARK_CHAT_THREAD_READ]: p_thread_id
  * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
+ * - [RpcNames.GET_DELIVERY_TRACK_POINT]: p_delivery_job_id?, p_token?
  *
  * No PSP secrets or crypto here — intent UUID only.
  */
@@ -34,6 +35,14 @@ class FakeRpcClient : RpcClient {
             currency = CurrencyCode.USD,
             total = 42.0,
             amountPaid = 0.0,
+        ),
+        InvoiceSummary(
+            id = SEED_DISPATCH_INVOICE_ID,
+            documentNumber = "INV-SEED-DISPATCH",
+            status = "posted",
+            currency = CurrencyCode.USD,
+            total = 88.0,
+            amountPaid = 88.0,
         ),
     )
     private val orders = mutableMapOf<String, CustomerOrder>()
@@ -52,6 +61,17 @@ class FakeRpcClient : RpcClient {
     private val chatMessages = mutableListOf<ChatMessage>()
     private val chatLastRead = mutableMapOf<String, String>()
     private val fakeUserId = "00000000-0000-4000-8000-0000000000cu"
+
+    /** Fake active job → last point (single row only; no trail). */
+    private var fakeTrackPoint: DeliveryTrackPoint? = DeliveryTrackPoint(
+        deliveryJobId = SEED_ACTIVE_JOB_ID,
+        lat = -17.8292,
+        lng = 31.0522,
+        recordedAt = "2026-07-25T09:10:00Z",
+        etaAt = "2026-07-25T09:45:00Z",
+        etaSeconds = 2_100,
+        status = "dispatched",
+    )
 
     init {
         val seed = invoices.first()
@@ -72,6 +92,35 @@ class FakeRpcClient : RpcClient {
             pickListStatus = null,
             deliveryNoteStatus = null,
         )
+        val dispatch = invoices[1]
+        orders[dispatch.id] = CustomerOrder(
+            invoiceId = dispatch.id,
+            documentNumber = dispatch.documentNumber,
+            docType = "invoice",
+            status = dispatch.status,
+            fulfillmentMode = FulfillmentMode.DISPATCH,
+            currency = dispatch.currency,
+            exchangeRateApplied = 1.0,
+            subtotal = 80.0,
+            total = dispatch.total,
+            amountPaid = dispatch.amountPaid,
+            amountOpen = 0.0,
+            cartId = null,
+            postedAt = "2026-07-25T08:00:00Z",
+            pickListStatus = "completed",
+            deliveryNoteStatus = "submitted",
+        )
+    }
+
+    companion object {
+        const val SEED_DISPATCH_INVOICE_ID = "00000000-0000-4000-8000-0000000000i2"
+        const val SEED_ACTIVE_JOB_ID = "00000000-0000-4000-8000-0000000000dj"
+        /** Demo share token (SMS `/track/{token}`). Not a secret. */
+        const val SEED_TRACK_TOKEN = "fake_customer_track_token_demo_00000001"
+
+        /** Invoice → active job when Fake has a dispatched delivery for that order. */
+        fun activeJobIdForInvoice(invoiceId: String): String? =
+            if (invoiceId == SEED_DISPATCH_INVOICE_ID) SEED_ACTIVE_JOB_ID else null
     }
 
     override suspend fun createCustomerCart(
@@ -327,5 +376,22 @@ class FakeRpcClient : RpcClient {
             }
         }
         return n
+    }
+
+    override suspend fun getDeliveryTrackPoint(
+        deliveryJobId: String?,
+        token: String?,
+    ): DeliveryTrackPoint? {
+        val jobId = deliveryJobId?.trim()?.takeIf { it.isNotEmpty() }
+        val tok = token?.trim()?.takeIf { it.isNotEmpty() }
+        require(jobId != null || tok != null) {
+            "delivery_job_id or token required for ${RpcNames.GET_DELIVERY_TRACK_POINT}"
+        }
+        if (tok != null && tok != SEED_TRACK_TOKEN) return null
+        if (jobId != null && jobId != SEED_ACTIVE_JOB_ID) return null
+        val point = fakeTrackPoint ?: return null
+        if (point.status != "dispatched") return null
+        // Single last point only — never a list / trail.
+        return point
     }
 }
