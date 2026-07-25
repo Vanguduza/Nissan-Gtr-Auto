@@ -1,0 +1,486 @@
+{
+  "model_variant": "Nissan X-Trail T31 · MR20",
+  "chassis_code": "T31",
+  "engine_code": "MR20",
+  "production_year": 2012,
+  "vin_prefix": "JN1TANT31",
+  "provenance": "original-fixture-art",
+  "assemblies": [
+    {
+      "pnc_code": "11044",
+      "category_name": "Engine",
+      "subcategory_name": "Cylinder head gasket",
+      "diagram_path": "xtrail-t31/section-engine.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "11044-EN200",
+          "bbox_x": 0.08,
+          "bbox_y": 0.12,
+          "bbox_width": 0.14,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "13028",
+      "category_name": "Engine",
+      "subcategory_name": "Timing chain kit",
+      "diagram_path": "xtrail-t31/section-engine.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "13028-EN200",
+          "bbox_x": 0.3,
+          "bbox_y": 0.08,
+          "bbox_width": 0.13,
+          "bbox_height": 0.15
+        }
+      ]
+    },
+    {
+      "pnc_code": "15010",
+      "category_name": "Engine",
+      "subcategory_name": "Oil pump",
+      "diagram_path": "xtrail-t31/section-engine.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "15010-EN200",
+          "bbox_x": 0.52,
+          "bbox_y": 0.14,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "22448",
+      "category_name": "Engine",
+      "subcategory_name": "Ignition coil",
+      "diagram_path": "xtrail-t31/section-engine.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "22448-JA00C",
+          "bbox_x": 0.16,
+          "bbox_y": 0.45,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "16600",
+      "category_name": "Engine",
+      "subcategory_name": "Fuel injector",
+      "diagram_path": "xtrail-t31/section-engine.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "16600-EN200",
+          "bbox_x": 0.4,
+          "bbox_y": 0.42,
+          "bbox_width": 0.13,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "21460",
+      "category_name": "Cooling",
+      "subcategory_name": "Radiator",
+      "diagram_path": "xtrail-t31/section-cooling.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "21460-JG000",
+          "bbox_x": 0.08,
+          "bbox_y": 0.12,
+          "bbox_width": 0.14,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "21410",
+      "category_name": "Cooling",
+      "subcategory_name": "Water pump",
+      "diagram_path": "xtrail-t31/section-cooling.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "21410-EN225",
+          "bbox_x": 0.3,
+          "bbox_y": 0.08,
+          "bbox_width": 0.13,
+          "bbox_height": 0.15
+        }
+      ]
+    },
+    {
+      "pnc_code": "21200",
+      "category_name": "Cooling",
+      "subcategory_name": "Thermostat",
+      "diagram_path": "xtrail-t31/section-cooling.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "21200-EN200",
+          "bbox_x": 0.16,
+          "bbox_y": 0.45,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "40206",
+      "category_name": "Brakes",
+      "subcategory_name": "Front brake disc",
+      "diagram_path": "xtrail-t31/section-brakes.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "40206-JG00A",
+          "bbox_x": 0.08,
+          "bbox_y": 0.12,
+          "bbox_width": 0.14,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "41060",
+      "category_name": "Brakes",
+      "subcategory_name": "Front brake pad kit",
+      "diagram_path": "xtrail-t31/section-brakes.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "41060-JG00A",
+          "bbox_x": 0.3,
+          "bbox_y": 0.08,
+          "bbox_width": 0.13,
+          "bbox_height": 0.15
+        }
+      ]
+    },
+    {
+      "pnc_code": "44060",
+      "category_name": "Brakes",
+      "subcategory_name": "Rear brake pad kit",
+      "diagram_path": "xtrail-t31/section-brakes.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "44060-JG00A",
+          "bbox_x": 0.52,
+          "bbox_y": 0.14,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "43206",
+      "category_name": "Brakes",
+      "subcategory_name": "Rear brake disc",
+      "diagram_path": "xtrail-t31/section-brakes.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "43206-JG00A",
+          "bbox_x": 0.16,
+          "bbox_y": 0.45,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "54302",
+      "category_name": "Suspension",
+      "subcategory_name": "Front strut assembly",
+      "diagram_path": "xtrail-t31/section-suspension.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "54302-JG01B",
+          "bbox_x": 0.08,
+          "bbox_y": 0.12,
+          "bbox_width": 0.14,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "54500",
+      "category_name": "Suspension",
+      "subcategory_name": "Front lower control arm",
+      "diagram_path": "xtrail-t31/section-suspension.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "54500-JG000",
+          "bbox_x": 0.3,
+          "bbox_y": 0.08,
+          "bbox_width": 0.13,
+          "bbox_height": 0.15
+        }
+      ]
+    },
+    {
+      "pnc_code": "56210",
+      "category_name": "Suspension",
+      "subcategory_name": "Rear shock absorber",
+      "diagram_path": "xtrail-t31/section-suspension.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "56210-JG01A",
+          "bbox_x": 0.16,
+          "bbox_y": 0.45,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "54618",
+      "category_name": "Suspension",
+      "subcategory_name": "Stabilizer link",
+      "diagram_path": "xtrail-t31/section-suspension.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "54618-JG00A",
+          "bbox_x": 0.4,
+          "bbox_y": 0.42,
+          "bbox_width": 0.13,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "15208",
+      "category_name": "Filters",
+      "subcategory_name": "Oil filter",
+      "diagram_path": "xtrail-t31/section-filters.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "15208-9N00A",
+          "bbox_x": 0.08,
+          "bbox_y": 0.12,
+          "bbox_width": 0.14,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "16546",
+      "category_name": "Filters",
+      "subcategory_name": "Air filter",
+      "diagram_path": "xtrail-t31/section-filters.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "16546-JA00A",
+          "bbox_x": 0.3,
+          "bbox_y": 0.08,
+          "bbox_width": 0.13,
+          "bbox_height": 0.15
+        }
+      ]
+    },
+    {
+      "pnc_code": "16400",
+      "category_name": "Filters",
+      "subcategory_name": "Fuel filter",
+      "diagram_path": "xtrail-t31/section-filters.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "16400-JA00A",
+          "bbox_x": 0.16,
+          "bbox_y": 0.45,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "27277",
+      "category_name": "Filters",
+      "subcategory_name": "Cabin (pollen) filter",
+      "diagram_path": "xtrail-t31/section-filters.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "27277-EN025",
+          "bbox_x": 0.4,
+          "bbox_y": 0.42,
+          "bbox_width": 0.13,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "23100",
+      "category_name": "Electrical",
+      "subcategory_name": "Alternator",
+      "diagram_path": "xtrail-t31/section-electrical.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "23100-JA02A",
+          "bbox_x": 0.08,
+          "bbox_y": 0.12,
+          "bbox_width": 0.14,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "23300",
+      "category_name": "Electrical",
+      "subcategory_name": "Starter motor",
+      "diagram_path": "xtrail-t31/section-electrical.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "23300-JA00D",
+          "bbox_x": 0.3,
+          "bbox_y": 0.08,
+          "bbox_width": 0.13,
+          "bbox_height": 0.15
+        }
+      ]
+    },
+    {
+      "pnc_code": "22401",
+      "category_name": "Electrical",
+      "subcategory_name": "Spark plug",
+      "diagram_path": "xtrail-t31/section-electrical.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "22401-JA01B",
+          "bbox_x": 0.52,
+          "bbox_y": 0.14,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "26010",
+      "category_name": "Electrical",
+      "subcategory_name": "Headlamp assembly RH",
+      "diagram_path": "xtrail-t31/section-electrical.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "26010-JG40A",
+          "bbox_x": 0.16,
+          "bbox_y": 0.45,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "62022",
+      "category_name": "Body",
+      "subcategory_name": "Front bumper",
+      "diagram_path": "xtrail-t31/section-body.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "62022-JG00A",
+          "bbox_x": 0.08,
+          "bbox_y": 0.12,
+          "bbox_width": 0.14,
+          "bbox_height": 0.16
+        }
+      ]
+    },
+    {
+      "pnc_code": "62310",
+      "category_name": "Body",
+      "subcategory_name": "Radiator grille",
+      "diagram_path": "xtrail-t31/section-body.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "62310-JG000",
+          "bbox_x": 0.3,
+          "bbox_y": 0.08,
+          "bbox_width": 0.13,
+          "bbox_height": 0.15
+        }
+      ]
+    },
+    {
+      "pnc_code": "63100",
+      "category_name": "Body",
+      "subcategory_name": "Front fender RH",
+      "diagram_path": "xtrail-t31/section-body.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "63100-JG030",
+          "bbox_x": 0.52,
+          "bbox_y": 0.14,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    },
+    {
+      "pnc_code": "96301",
+      "category_name": "Body",
+      "subcategory_name": "Door mirror RH",
+      "diagram_path": "xtrail-t31/section-body.svg",
+      "diagram_content_type": "image/svg+xml",
+      "diagram_provenance": "original-fixture-art",
+      "parts": [
+        {
+          "oem_part_number": "96301-JG21E",
+          "bbox_x": 0.16,
+          "bbox_y": 0.45,
+          "bbox_width": 0.14,
+          "bbox_height": 0.17
+        }
+      ]
+    }
+  ]
+}
