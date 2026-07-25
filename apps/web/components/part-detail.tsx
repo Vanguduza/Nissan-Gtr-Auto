@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { CatalogCanvasStub } from "@/components/catalog-canvas-stub";
 import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
 import { WhatsAppCta } from "@/components/whatsapp-cta";
