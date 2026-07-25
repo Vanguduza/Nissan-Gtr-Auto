@@ -86,9 +86,7 @@ function LoginForm() {
         </p>
       ) : null}
       <p className={styles.alt}>
-        Sign in with the email or phone saved at registration, plus your
-        password. OTP is only for signup and confirming contacts — not for
-        returning logins.
+        Sign in with the email or phone saved at registration.
       </p>
 
       <div className={styles.tabs} role="tablist" aria-label="Sign in with">
