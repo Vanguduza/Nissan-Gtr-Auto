@@ -12,6 +12,25 @@
   color: #fff;
 }
 
+.frameLive {
+  background: #12151c;
+  min-height: clamp(14rem, 38vw, 22rem);
+}
+
+.frameLoading {
+  display: grid;
+  place-items: end stretch;
+}
+
+.diagramImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: clamp(16rem, 48vw, 28rem);
+  object-fit: contain;
+  background: #0a0c10;
+}
+
 .callout {
   position: absolute;
   width: 2rem;
@@ -22,6 +41,34 @@
   background: rgba(18, 21, 28, 0.75);
   font-family: var(--font-mono);
   font-size: 0.75rem;
+}
+
+.hotspot {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--gtr-red);
+  background: rgba(200, 16, 46, 0.18);
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.hotspot:hover,
+.hotspot:focus-visible {
+  background: rgba(200, 16, 46, 0.35);
+  outline: none;
+}
+
+.hotspotLabel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.25rem;
+  background: rgba(18, 21, 28, 0.85);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.2;
 }
 
 .caption {
