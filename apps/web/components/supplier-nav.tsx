@@ -4,6 +4,7 @@ import styles from "@/components/account.module.css";
 const nav = [
   { href: "/supplier", label: "Overview", exact: true },
   { href: "/supplier/rfqs", label: "Invited RFQs" },
+  { href: "/supplier/blankets", label: "Blanket contracts" },
 ];
 
 export function SupplierNav({ current }: { current: string }) {

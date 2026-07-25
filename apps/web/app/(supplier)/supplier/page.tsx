@@ -19,6 +19,10 @@ export default function SupplierHomePage() {
             <span className={styles.cardLabel}>Invited RFQs</span>
             <span className={styles.cardBlurb}>Quote &amp; submit</span>
           </Link>
+          <Link href="/supplier/blankets" className={styles.card}>
+            <span className={styles.cardLabel}>Blanket contracts</span>
+            <span className={styles.cardBlurb}>Remaining · expiry alerts</span>
+          </Link>
         </div>
       </div>
     </div>

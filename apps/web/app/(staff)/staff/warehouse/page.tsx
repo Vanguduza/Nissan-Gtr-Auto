@@ -31,8 +31,10 @@ export default function StaffWarehouseHubPage() {
             <span className={styles.cardBlurb}>Reconciliation draft → post</span>
           </Link>
           <Link href="/staff/warehouse/bins" className={styles.card}>
-            <span className={styles.cardLabel}>Bins</span>
-            <span className={styles.cardBlurb}>Create · preferred putaway</span>
+            <span className={styles.cardLabel}>Bins · pick path</span>
+            <span className={styles.cardBlurb}>
+              Preferred bins · get_pick_path_hints
+            </span>
           </Link>
           <Link href="/staff/warehouse/consignment" className={styles.card}>
             <span className={styles.cardLabel}>Consignment</span>
