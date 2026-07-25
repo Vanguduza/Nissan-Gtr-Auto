@@ -82,6 +82,9 @@ export {
 } from "./chat.js";
 
 export {
+  DELIVERY_PODS_BUCKET,
+  deliveryPodPhotoPath,
+  deliveryPodSignaturePath,
   DELIVERY_RPC,
   setDriverPresenceArgs,
   suggestDeliveryAssigneesArgs,
