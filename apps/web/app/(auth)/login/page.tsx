@@ -2,11 +2,21 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createWebClient } from "@/lib/supabase";
 import styles from "./auth.module.css";
 
-export default function LoginPage() {
+function safeNext(raw: string | null): string | null {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = safeNext(searchParams.get("next"));
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -24,9 +34,56 @@ export default function LoginPage() {
     }
     const { error } = await client.auth.signInWithPassword({ email, password });
     setBusy(false);
-    setMessage(error ? error.message : "Signed in — session persisted.");
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setMessage("Signed in — redirecting…");
+    router.replace(next ?? "/account");
   }
 
+  return (
+    <form className={styles.form} onSubmit={onSubmit}>
+      <h1 className={styles.title}>Sign in</h1>
+      {next ? (
+        <p className={styles.alt}>
+          Continue to <code>{next}</code> after sign-in.
+        </p>
+      ) : null}
+      <label className={styles.label}>
+        Email
+        <input
+          className={styles.input}
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </label>
+      <label className={styles.label}>
+        Password
+        <input
+          className={styles.input}
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </label>
+      <button className={styles.submit} type="submit" disabled={busy}>
+        {busy ? "Signing in…" : "Sign in"}
+      </button>
+      {message ? <p className={styles.message}>{message}</p> : null}
+      <p className={styles.alt}>
+        No account? <Link href="/signup">Create one</Link>
+      </p>
+    </form>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className={styles.shell}>
       <Link href="/" className={styles.brand}>
@@ -39,38 +96,9 @@ export default function LoginPage() {
           priority
         />
       </Link>
-      <form className={styles.form} onSubmit={onSubmit}>
-        <h1 className={styles.title}>Sign in</h1>
-        <label className={styles.label}>
-          Email
-          <input
-            className={styles.input}
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label className={styles.label}>
-          Password
-          <input
-            className={styles.input}
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-        <button className={styles.submit} type="submit" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-        {message ? <p className={styles.message}>{message}</p> : null}
-        <p className={styles.alt}>
-          No account? <Link href="/signup">Create one</Link>
-        </p>
-      </form>
+      <Suspense fallback={<p className={styles.message}>Loading…</p>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }
