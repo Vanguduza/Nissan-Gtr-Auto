@@ -18,7 +18,7 @@ export {
   Wrench,
   Package,
   ListOrdered,
-  Image,
+  Images,
   MapPin,
   Heart,
   RotateCcw,

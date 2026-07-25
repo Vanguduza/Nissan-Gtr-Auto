@@ -19,10 +19,9 @@ import kotlin.coroutines.resumeWithException
  * Emits local PNG paths only — **no Supabase / network**.
  */
 class CanvasPodSignatureBridge(
-    context: Context,
+    @Suppress("UNUSED_PARAMETER") context: Context,
 ) : PodSignatureBridge {
 
-    private val appContext = context.applicationContext
     private var activityRef: WeakReference<Activity>? = null
 
     @Volatile

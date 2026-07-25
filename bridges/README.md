@@ -9,7 +9,8 @@ geolocation APIs directly.
 | Allowed | Forbidden |
 |---------|-----------|
 | Native modules under `bridges/android/*` and `bridges/ios/*` | HTML5 / browser QR libraries (`jsQR`, `html5-qrcode`, `BarcodeDetector` in WebView, etc.) |
-| CameraX / AVFoundation (QR impl dirs only) | WebView or in-page camera scanners |
+| CameraX / AVFoundation (QR + POD photo impl dirs only) | WebView or in-page camera scanners / `<input capture>` |
+| Native Canvas signature pad (`pod-signature`) | WebView HTML canvas signature |
 | BluetoothAdapter / CoreBluetooth (ESC/POS impl dirs only) | Web Bluetooth |
 | BiometricPrompt / LocalAuthentication | Browser WebAuthn as staff biometric substitute |
 | FusedLocationProvider / CoreLocation | Browser geolocation (`navigator.geolocation`) or WebView GPS |
@@ -20,26 +21,35 @@ geolocation APIs directly.
 |---------|---------------------------|--------------|----------|--------------|
 | QR scan | `contracts/qr-inventory.ts` → `QrScannerBridge` | `bridges/android/qr-scanner/` | `bridges/ios/QRScanner/` (stub) | CameraX+ML Kit / AVFoundation |
 | ESC/POS print | `contracts/qr-inventory.ts` → `EscPosPrinterBridge` | `bridges/android/escpos-printer/` | `bridges/ios/escpos-printer/` (stub) | BluetoothAdapter / CoreBluetooth |
-| Biometric auth | `contracts/biometric.ts` → `BiometricBridge` | `bridges/android/biometric-auth/` | `bridges/ios/BiometricAuth/` | BiometricPrompt / LocalAuthentication |
+| Biometric auth | `contracts/biometric.ts` → `BiometricBridge` | `bridges/android/biometric-auth/` (stub) | `bridges/ios/BiometricAuth/` | BiometricPrompt / LocalAuthentication |
 | GPS / delivery ingest | `contracts/gps.ts` → `GpsBridge` | `bridges/android/location-tracker/` | `bridges/ios/LocationTracker/` | FusedLocationProvider / CoreLocation |
+| POD photo | `contracts/pod.ts` → `PodCameraBridge` | `bridges/android/pod-camera/` | — (no iOS driver app) | CameraX ImageCapture |
+| POD signature | `contracts/pod.ts` → `PodSignatureBridge` | `bridges/android/pod-signature/` | — (no iOS driver app) | Native Canvas View |
 | Barrel export | `contracts/index.ts` | — | — | — |
 
-## Android modules (Batch 5)
+## Android modules
 
 | Gradle module | Path | Status |
 |---------------|------|--------|
-| `:location-tracker` | `android/location-tracker/` | Implemented |
+| `:location-tracker` | `android/location-tracker/` | **Hardened** — FGS + battery cadence (`AUTO`/`MOVING`/`IDLE`) + `GpsPingBuffer` |
 | `:qr-scanner` | `android/qr-scanner/` | Implemented — CameraX + ML Kit |
 | `:escpos-printer` | `android/escpos-printer/` | Implemented — RFCOMM ESC/POS |
+| `:pod-camera` | `android/pod-camera/` | **P0** — CameraX still capture → local JPEG path |
+| `:pod-signature` | `android/pod-signature/` | **P0** — Canvas ink pad → local PNG path |
 
-Include from `apps/android-management/settings.gradle.kts` (already wired):
+Include from `apps/android-delivery/settings.gradle.kts` (scaffold lane):
 
 ```kotlin
-include(":qr-scanner")
-project(":qr-scanner").projectDir = file("../../bridges/android/qr-scanner")
-include(":escpos-printer")
-project(":escpos-printer").projectDir = file("../../bridges/android/escpos-printer")
+include(":location-tracker")
+project(":location-tracker").projectDir = file("../../bridges/android/location-tracker")
+include(":pod-camera")
+project(":pod-camera").projectDir = file("../../bridges/android/pod-camera")
+include(":pod-signature")
+project(":pod-signature").projectDir = file("../../bridges/android/pod-signature")
 ```
+
+Management app may keep `:qr-scanner` / `:escpos-printer` / `:location-tracker` until
+driver GPS is gated out of management (plan mandate).
 
 See each module README for permissions and API surface.
 
@@ -58,7 +68,19 @@ gtr://part/{OEM_PART_NUMBER}?batch={BATCH_ID}&valuation={FIFO|AVG}
 - ESC/POS jobs carry the same full `qrPayload` plus OEM, batch, and valuation.
 - Forbidden: ZIMRA / fiscal QR payloads.
 
-### Delivery GPS (Phase 10)
+### Delivery GPS (Phase 10 + dedicated delivery app)
 
 - Native bridge yields `GpsCoordinate` only (no network I/O inside the bridge).
 - App maps via `toDeliveryLocationIngest` → RPC `ingest_delivery_location`.
+- Continuous watch starts Android FGS + persistent notification; cadence
+  `AUTO` switches moving (~5s high accuracy) ↔ idle (~30s balanced).
+- **Offline:** `GpsPingBuffer` is ephemeral only; durable queue + flush is **app**.
+
+### Proof of delivery (POD)
+
+- `PodCameraBridge.capturePhoto()` → local JPEG path.
+- `PodSignatureBridge.captureSignature()` → local PNG path.
+- App uploads both to Storage, then `submit_delivery_pod` with storage paths + OTP
+  (OTP is **not** a bridge concern).
+- **Storage gap:** no dedicated `delivery-pods` (or similar) bucket migration found —
+  `@backend_agent` / delivery scaffold must add private bucket + RLS before upload works.
