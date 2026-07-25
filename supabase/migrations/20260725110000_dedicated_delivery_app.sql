@@ -363,7 +363,7 @@ CREATE OR REPLACE FUNCTION public.mint_delivery_track_token(
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_job public.delivery_jobs%ROWTYPE;
