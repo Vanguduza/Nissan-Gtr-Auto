@@ -208,8 +208,9 @@ class SupabaseRpcClient(
         client.storage.from(RpcNames.DELIVERY_PODS_BUCKET).upload(
             path = objectKey,
             data = bytes,
-            upsert = true,
-        )
+        ) {
+            upsert = true
+        }
         return objectKey
     }
 
