@@ -3,6 +3,9 @@ package co.zw.nissangtr.management.warehouse
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
+import co.zw.nissangtr.bridges.qr.QrScannerBridge
+import co.zw.nissangtr.bridges.qr.parseInventoryQrPayload
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.ReceiptLineInput
 import co.zw.nissangtr.management.rpc.ReconciliationLineInput
@@ -138,6 +141,67 @@ class WarehouseViewModel(
 
     fun onCancelNotesChange(v: String) =
         _state.update { it.copy(cancelNotes = v) }
+
+    /**
+     * CameraX scan → parse inventory QR → lookup stock_item by OEM → fill receive fields.
+     */
+    fun scanQrForReceive() {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val ref = scanAndLookup()
+                val valuation = when (ref.valuation.name) {
+                    "AVG" -> ValuationMethod.AVG
+                    else -> ValuationMethod.FIFO
+                }
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        receiveStockItemId = ref.stockItemId,
+                        receiveUomId = ref.uomId,
+                        receiveValuation = valuation,
+                        lastQrPayload = ref.rawPayload,
+                        message = "Receive ← QR OEM ${ref.oemPartNumber} → ${ref.stockItemId}",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "QR receive scan failed")
+                }
+            }
+        }
+    }
+
+    /**
+     * CameraX scan → fill cycle-count line stock item (+ append to partial item list).
+     */
+    fun scanQrForCycleCount() {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val ref = scanAndLookup()
+                _state.update { st ->
+                    val ids = st.reconItemIds
+                        .split(',', ' ', '\n', '\t')
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .toMutableList()
+                    if (ref.stockItemId !in ids) ids.add(ref.stockItemId)
+                    st.copy(
+                        busy = false,
+                        reconLineStockItemId = ref.stockItemId,
+                        reconItemIds = ids.joinToString(","),
+                        lastQrPayload = ref.rawPayload,
+                        message = "Cycle count ← QR OEM ${ref.oemPartNumber} → ${ref.stockItemId}",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "QR cycle-count scan failed")
+                }
+            }
+        }
+    }
 
     fun postReceipt() {
         val wh = _state.value.receiveWarehouseId.trim()
