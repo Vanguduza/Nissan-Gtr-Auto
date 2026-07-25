@@ -18,17 +18,19 @@ Thin Compose scaffolds for **POS**, **warehouse**, **HR clock**, and **logistics
 | `:feature:auth` | `…management.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
 | `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
 | `:feature:dispatch` | `…management.dispatch` | Pick/DN + delivery job Start/Stop GPS |
-| `:feature:pos` | `…management.pos` | Cart create / add line / checkout (typed UUIDs) |
-| `:feature:warehouse` | `…management.warehouse` | Receive, dual-auth transfer, cycle-count |
-| `:location-tracker` | `…bridges.location` | Included from `bridges/android/location-tracker` (consume only) |
+| `:feature:pos` | `…management.pos` | Cart / QR add line / checkout + ESC/POS receipt |
+| `:feature:warehouse` | `…management.warehouse` | Receive, dual-auth transfer, cycle-count + QR fill |
+| `:location-tracker` | `…bridges.location` | Included from `bridges/android/location-tracker` |
+| `:qr-scanner` | `…bridges.qr` | Included from `bridges/android/qr-scanner` |
+| `:escpos-printer` | `…bridges.escpos` | Included from `bridges/android/escpos-printer` |
 
 ## Screens (scaffolds)
 
 | Screen | Module | RPCs / role |
 |--------|--------|-------------|
 | `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
-| `PosScreen` | `:feature:pos` | `create_pos_cart`, `add_cart_line`, `checkout_pos_cart` |
-| `WarehouseScreen` | `:feature:warehouse` | receive / transfer / recon RPCs (see `RpcNames`) |
+| `PosScreen` | `:feature:pos` | `create_pos_cart`, `add_cart_line`, `add_cart_line_from_qr`, `checkout_pos_cart` |
+| `WarehouseScreen` | `:feature:warehouse` | receive / transfer / recon RPCs + Bridge QR → `lookupStockItemByOem` |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
 | `DispatchScreen` | `:feature:dispatch` | pick/DN + `create_delivery_job`, `update_delivery_job_status`, `ingest_delivery_location` |
 
