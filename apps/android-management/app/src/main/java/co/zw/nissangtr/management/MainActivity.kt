@@ -35,6 +35,8 @@ import co.zw.nissangtr.management.credit.CreditModule
 import co.zw.nissangtr.management.credit.CreditScreen
 import co.zw.nissangtr.management.dispatch.DispatchModule
 import co.zw.nissangtr.management.dispatch.DispatchScreen
+import co.zw.nissangtr.management.fleet.FleetModule
+import co.zw.nissangtr.management.fleet.FleetScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.pos.PosModule
@@ -43,6 +45,7 @@ import co.zw.nissangtr.management.procurement.BlanketsScreen
 import co.zw.nissangtr.management.procurement.ProcurementModule
 import co.zw.nissangtr.management.rpc.ChatStaffRoles
 import co.zw.nissangtr.management.rpc.CreditStaffRoles
+import co.zw.nissangtr.management.rpc.FleetStaffRoles
 import co.zw.nissangtr.management.rpc.ManagementHomeRoles
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
@@ -56,6 +59,7 @@ private enum class ManagementRoute {
     Home,
     HrClock,
     Dispatch,
+    Fleet,
     Pos,
     Warehouse,
     Bins,
