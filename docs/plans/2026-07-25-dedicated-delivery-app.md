@@ -63,7 +63,7 @@ Ship a **driver-only** Android app at `apps/android-delivery/` with always-on Br
 | Management | Suggest/assign UI; route order; panic inbox; remove driver GPS producer |
 | Web | `/track/[token]`; assignment suggest; panic inbox; out-for-delivery notify edge |
 | Customer mobile | Active-delivery track screens (android + ios) |
-| Config | `rufler.yaml` lacks `android_delivery_agent` / `apps/android-delivery/**` |
+| Config | `rufler.yaml` + `AGENTS.md` include `android_delivery_agent` → `apps/android-delivery/**` |
 
 ## Schema sketch (reuse-first)
 
