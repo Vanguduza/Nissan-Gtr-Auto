@@ -43,9 +43,7 @@ export function CustomerDeliveryTrackMap({ point, styleUrl }: Props) {
       map.remove();
       mapRef.current = null;
     };
-    // Mount once per style; point updates handled below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-once
-  }, [styleUrl]);
+  }, [styleUrl, point.lng, point.lat]);
 
   useEffect(() => {
     const map = mapRef.current;
