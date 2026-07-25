@@ -31,6 +31,20 @@ export function revokeStaffRoleArgs(userId: string, role: Database["public"]["En
 export type { Database, SupabaseClient };
 export type StaffRole = Database["public"]["Enums"]["staff_role"];
 export type ProcurementDocStatus = Database["public"]["Enums"]["procurement_doc_status"];
+export type AiReportCadence = Database["public"]["Enums"]["ai_report_cadence"];
+export type AiDeliveryChannel = Database["public"]["Enums"]["ai_delivery_channel"];
+
+/** Staff analytics subscription row — CRUD via table RLS (admin|finance|sales). */
+export type AiReportSubscriptionRow =
+  Database["public"]["Tables"]["ai_report_subscriptions"]["Row"];
+export type AiReportRunRow = Database["public"]["Tables"]["ai_report_runs"]["Row"];
+export type AiReportDeliveryRow =
+  Database["public"]["Tables"]["ai_report_deliveries"]["Row"];
+
+/** Call `kpi_ops_sales_v1` / edge `analytics-insights` for staff KPI + narrative. */
+export function kpiOpsSalesV1Args(fromIso: string, toIso: string, topLimit = 10) {
+  return { p_from: fromIso, p_to: toIso, p_top_limit: topLimit } as const;
+}
 
 /** Staff: `create_rfq` → `submit_rfq`; suppliers: `upsert_supplier_quotation` → `submit_supplier_quotation`; award: `award_quotation_to_po`. */
 export type RfqRow = Database["public"]["Tables"]["rfqs"]["Row"];
