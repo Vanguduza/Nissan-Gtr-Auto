@@ -86,11 +86,8 @@ class FakeRpcClient : RpcClient {
         require(stockItemId.isNotBlank()) { "stockItemId required" }
         require(uomId.isNotBlank()) { "uomId required" }
         require(qty > 0) { "qty must be > 0" }
-        require(cartId in openCarts || openCarts.isEmpty()) {
-            // Allow unknown cart ids for scaffold demos when no create preceded.
-            "open cart not found"
-        }
-        if (cartId !in openCarts) openCarts.add(cartId)
+        // Fake allows any cart id for scaffold demos; live requires an open cart.
+        openCarts.add(cartId)
         return UUID.randomUUID().toString()
     }
 
