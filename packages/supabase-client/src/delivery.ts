@@ -96,6 +96,34 @@ export function assignDeliveryJobArgs(
   } as const;
 }
 
+export function setDeliveryJobGeoArgs(
+  jobId: string,
+  opts: {
+    pickupLat?: number | null;
+    pickupLng?: number | null;
+    dropoffLat?: number | null;
+    dropoffLng?: number | null;
+  },
+) {
+  return {
+    p_delivery_job_id: jobId,
+    p_pickup_lat: opts.pickupLat ?? null,
+    p_pickup_lng: opts.pickupLng ?? null,
+    p_dropoff_lat: opts.dropoffLat ?? null,
+    p_dropoff_lng: opts.dropoffLng ?? null,
+  } as const;
+}
+
+export function updateDeliveryJobStatusArgs(
+  jobId: string,
+  status: Database["public"]["Enums"]["delivery_job_status"],
+) {
+  return {
+    p_delivery_job_id: jobId,
+    p_status: status,
+  } as const;
+}
+
 export function getDeliveryTrackPointArgs(opts: {
   jobId?: string;
   token?: string;
