@@ -29,14 +29,14 @@ Migrations already in play: `…210000_finance_core`, `…211000_finance_report_
 
 ## Acceptance criteria
 
-- [ ] Cash tabs (1110/1120/1130): quick-post float / drop-to-bank / inter-till transfer create balanced drafts (or post) using existing journal RPCs; line list remains
-- [ ] Payments: allocate **multiple** invoices on one draft in one submit; over-allocate still denied by RPC
-- [ ] Payments: currency shown as USD|ZIG; rate visible when ZIG; same-currency allocate rule unchanged
-- [ ] Reports: Trial Balance runnable; CSV download for TB/P&L/BS/CF (no ZIMRA/fiscal QR)
-- [ ] Periods: guided close flow (open period → optional TB check → lock); locked period still rejects posts
-- [ ] Reverse: confirm + show reversal document number / link after success
-- [ ] Finance page binds credit desk (link + optional aging snapshot); no second credit mutator
-- [ ] No ZIMRA / payroll tax; ledger append-only; any new table (unlikely) ships with RLS
+- [x] Cash tabs (1110/1120/1130): quick-post float / drop-to-bank / inter-till transfer create balanced drafts (or post) using existing journal RPCs; line list remains
+- [x] Payments: allocate **multiple** invoices on one draft in one submit; over-allocate still denied by RPC
+- [x] Payments: currency shown as USD|ZIG; rate visible when ZIG; same-currency allocate rule unchanged
+- [x] Reports: Trial Balance runnable; CSV download for TB/P&L/BS/CF (no ZIMRA/fiscal QR)
+- [x] Periods: guided close flow (open period → optional TB check → lock); locked period still rejects posts
+- [x] Reverse: confirm + show reversal document number / link after success
+- [x] Finance page binds credit desk (link + optional aging snapshot); no second credit mutator
+- [x] No ZIMRA / payroll tax; ledger append-only; any new table (unlikely) ships with RLS
 
 ## Paths in scope
 
@@ -77,16 +77,17 @@ Migrations already in play: `…210000_finance_core`, `…211000_finance_report_
 ### Phase A — `@backend_agent` (skip if nothing missing)
 
 1. Confirm grants for `report_trial_balance` + `kpi_ar_aging_snapshot` usable by finance staff; add **thin** migration only if EXECUTE/RLS gap.
+   - **Checked (web slice):** both already `GRANT EXECUTE … TO authenticated`; finance role passes RPC asserts. No migration needed.
 2. Do **not** add till tables. Do **not** loosen same-currency allocate unless product explicitly reopens that decision.
 
 ### Phase B — `@web_agent` (primary)
 
-1. Register tabs: template actions → prefilled `createJournalDraft` (1110↔1100 drop, float in, 1120↔1110 transfer, etc.) + refresh line list.
-2. Payments: multi-row allocation editor calling existing `allocatePayment` array API; show open balance hints if cheap.
-3. Visible ZiG rate input (default from `zigExchangeRate()`, override per txn).
-4. Reports: wire TB; CSV export buttons; currency label always on.
-5. Periods: short guided close (steps + lock).
-6. Reverse polish; credit bind (link + optional aging read-only).
+1. Register tabs: template actions → prefilled `createJournalDraft` (1110↔1100 drop, float in, 1120↔1110 transfer, etc.) + refresh line list. **Done**
+2. Payments: multi-row allocation editor calling existing `allocatePayment` array API; show open balance hints if cheap. **Done**
+3. Visible ZiG rate input (default from `zigExchangeRate()`, override per txn). **Done**
+4. Reports: wire TB; CSV export buttons; currency label always on. **Done**
+5. Periods: short guided close (steps + lock). **Done**
+6. Reverse polish; credit bind (link + optional aging read-only). **Done**
 
 ### Phase C — `@finance_agent` (if shared)
 
