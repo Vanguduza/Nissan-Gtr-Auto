@@ -9,6 +9,7 @@ export {
   UserRound,
   MessageCircle,
   LogIn,
+  LogOut,
   CircleDot,
   Filter,
   Cog,

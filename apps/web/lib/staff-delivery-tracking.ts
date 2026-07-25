@@ -1,7 +1,6 @@
 import {
   DELIVERY_RPC,
   assignDeliveryJobArgs,
-  getDeliveryTrackPointArgs,
   optimizeDriverStopsArgs,
   setDeliveryJobGeoArgs,
   suggestDeliveryAssigneesArgs,
@@ -206,9 +205,6 @@ export async function fetchStaffTrackPoint(
   client: SupabaseClient,
   deliveryJobId: string,
 ): Promise<StorefrontResult<CustomerTrackPoint | null>> {
-  const { fetchCustomerTrackPoint } = await import(
-    "@/lib/customer-delivery-track"
-  );
   return fetchCustomerTrackPoint(client, { jobId: deliveryJobId });
 }
 

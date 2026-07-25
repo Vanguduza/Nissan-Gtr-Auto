@@ -251,6 +251,15 @@ export function StaffPosPanel() {
 
   return (
     <div className={styles.form}>
+      <p className={styles.storeLinkWrap}>
+        <Link href="/catalog" className={styles.storeLink}>
+          Open store catalog
+        </Link>
+        <span className={styles.muted}>
+          {" "}
+          — browse the customer storefront from POS only (opens in this tab).
+        </span>
+      </p>
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>1 · Open cart</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
