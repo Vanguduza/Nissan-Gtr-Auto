@@ -362,8 +362,10 @@ class SupabaseRpcClient(
                 if (threadId.isNullOrBlank()) put("p_thread_id", JsonNull)
                 else put("p_thread_id", threadId)
             },
-        ).decodeAs<Long>()
-        return raw.toInt()
+        )
+        return runCatching { raw.decodeAs<Int>() }
+            .recoverCatching { raw.decodeAs<Long>().toInt() }
+            .getOrDefault(0)
     }
 
     companion object {

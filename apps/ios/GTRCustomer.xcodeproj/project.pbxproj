@@ -203,6 +203,7 @@
 				A1000000000000000000000F /* GoTrueAuthClient.swift in Sources */,
 				A10000000000000000000023 /* AuthTokenStore.swift in Sources */,
 				A10000000000000000000024 /* SignInScreen.swift in Sources */,
+				A10000000000000000000026 /* ChatScreen.swift in Sources */,
 				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
