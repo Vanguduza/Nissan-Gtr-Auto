@@ -14,6 +14,19 @@ export type AuthOtpVerifyResult = {
   verified: true;
   email: string | null;
   phone_e164: string | null;
+  /** Short-lived server proof — required for complete_signup / complete_login. */
+  proofToken: string;
+  proofExpiresAt?: string;
+};
+
+export type AuthOtpSessionResult = {
+  ok: true;
+  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn?: number;
+  email: string | null;
+  phone_e164: string | null;
 };
 
 export type AuthOtpError = {

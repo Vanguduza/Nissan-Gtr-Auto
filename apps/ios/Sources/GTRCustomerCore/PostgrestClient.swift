@@ -160,17 +160,11 @@ public final class PostgrestClient: @unchecked Sendable {
         guard !bucket.isEmpty, !trimmedPath.isEmpty, !data.isEmpty else {
             throw StorefrontError.message("Storage upload requires bucket, path, and data.")
         }
-        var components = URLComponents(
-            url: baseURL.appendingPathComponent("storage/v1/object/\(bucket)/\(trimmedPath)"),
-            resolvingAgainstBaseURL: false
-        )!
-        // Path may include `/` — rebuild from string to avoid encoding issues.
         let urlString = baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             + "/storage/v1/object/\(bucket)/\(trimmedPath)"
         guard let url = URL(string: urlString) else {
             throw StorefrontError.message("Invalid storage object URL.")
         }
-        _ = components // silence unused when rebuilding
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         applyAuthHeaders(&request)
