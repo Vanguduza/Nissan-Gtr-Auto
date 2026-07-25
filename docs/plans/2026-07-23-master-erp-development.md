@@ -434,31 +434,29 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Audit follow-ons (no-secrets) **Done** — plan [`2026-07-25-audit-followons-no-secrets.md`](./2026-07-25-audit-followons-no-secrets.md). DB through `20260725182000` (apply locally if behind). Prior keyed-integration wave still Live. **No commits** unless user asks.
+**Master plan status:** Active follow-on epic — [`2026-07-25-cross-platform-shop-ops-gaps.md`](./2026-07-25-cross-platform-shop-ops-gaps.md) (**Ready for implementation**). Prior web-minimum audit wave **Done** — [`2026-07-25-audit-followons-no-secrets.md`](./2026-07-25-audit-followons-no-secrets.md). DB through at least `20260725182000` (apply locally if behind). **No commits** unless user asks.
 
-**Done this wave** (audit follow-ons, no secrets)
-1. **Wishlist** — `customer_wishlist_items` + RLS/RPCs; `/account/wishlist` + PDP add/remove
-2. **Compare** — session/localStorage SKU selection + live catalog (not DEMO_PRODUCTS-only)
-3. **Reviews** — `customer_product_reviews` + RLS/harden; account + PDP list/submit
-4. **Blanket PO web UI** — `/procurement/blankets` remaining + call-off on Phase 8b RPCs
-5. **Consignment + bins UI** — `/staff/warehouse/bins`, `/staff/warehouse/consignment`
-6. **Catalog diagrams** — Navara fixture `diagram_path` + Storage seed (`seed_catalog_diagrams.mjs --docker` after reset)
-7. **B2B credit UX** — limit / hold / open balance on `/b2b` + checkout hold messaging
-8. **iOS chat** — hardened polling (Realtime deferred without supabase-swift)
-9. **Staff finance/POS polish** — name labels + empty states
-10. **Garage service reminders** — **skipped** (no schema); account garage copy notes absence
+**Active epic** (cross-platform shop/ops gaps — all platforms)
+Process: Plan → `@backend_agent` → `@web_agent` → `@ios_agent` → `@android_agent` → `@management_app_agent` → `/security-reviewer` → `/verifier`. Covers: mobile wishlist/compare/reviews; move-to-cart + back-in-stock outbox; server compare + matrix; staff review moderation + aggregates/photos; supplier blankets + expiry alerts; management bins/consignment/blankets + ESC/POS bin labels + pick-path; diagram seed expand; staff B2B credit set/hold; POS named-customer + staff nav CRM polish.
+
+**Done prior wave** (audit follow-ons, web-minimum)
+1. **Wishlist** — web list/add/remove on existing RPCs
+2. **Compare** — localStorage + live catalog (no DB table yet)
+3. **Reviews** — web account + PDP; moderation RPC exists, **no** staff UI yet
+4. **Blanket / bins / consignment** — staff web only
+5. **Diagrams** — Navara seed + `seed_catalog_diagrams.mjs --docker`
+6. **B2B credit** — customer-facing read on `/b2b` (staff set/hold still gap)
+7. **iOS chat** harden; staff finance/POS label polish; garage reminders skipped
 
 **Prior wave** (still Live): GPS/MapLibre; ContiPay/Paynow Edge (fail-closed); receipts/SMS/WhatsApp bot; staff POS/warehouse; Android bridges; finance deepen; warranty/returns; AI analytics.
 
-**Still follow-on** (ops / secrets only — do not block product)
+**Still follow-on** (ops / secrets — parallel, do not block epic)
 1. **User: set Edge/local secrets** — ContiPay, Paynow, WhatsApp Cloud, SMS gateway, email/Resend, `WORKER_SHARED_SECRET`, map tiles (`NEXT_PUBLIC_MAP_STYLE_URL`)
 2. Confirm ContiPay webhook header name with merchant; deploy Edge functions
-3. Pipeline: richer diagram corpus beyond Navara demo fixtures (full catalog scrape/upload)
-4. Warehouse ESC/POS inventory-label print path; iOS QR/printer beyond stubs
-5. Native assemble on JDK 17 / Xcode hosts; optional `/procurement` staff matrix gate
-6. Optional Android wishlist/compare parity; iOS Realtime if supabase-swift adopted later
+3. Full catalog diagram scrape/upload (epic expands seed fixtures only)
+4. Native assemble on JDK 17 / Xcode hosts; iOS Realtime if supabase-swift adopted later
 
-**In progress:** None (keys-only go-live remaining).
+**In progress:** Cross-platform shop/ops gaps epic (start `@backend_agent`).
 
 **Blockers / notes**
 - Never set `*_ALLOW_UNVERIFIED_LOCAL=1` / `WORKER_ALLOW_UNVERIFIED_LOCAL=1` / `WHATSAPP_ALLOW_UNVERIFIED_LOCAL=1` on production Edge
