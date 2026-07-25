@@ -29,7 +29,7 @@
 		A1000000000000000000002A /* WishlistScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* WishlistScreen.swift */; };
 		A1000000000000000000002C /* CompareScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002D /* CompareScreen.swift */; };
 		A1000000000000000000002E /* ReviewsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* ReviewsScreen.swift */; };
-		A10000000000000000000030 /* GuestCompareStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000031 /* GuestCompareStore.swift */; };
+		A10000000000000000000050 /* GuestCompareStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* GuestCompareStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
