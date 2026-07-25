@@ -143,11 +143,16 @@ class PodViewModel(
             _state.update { it.copy(busy = true, error = null) }
             try {
                 rpc.generateDeliveryPodOtp(jobId)
+                val fakeHint = if (rpc is co.zw.nissangtr.delivery.rpc.FakeRpcClient) {
+                    " Fake stub OTP: ${co.zw.nissangtr.delivery.rpc.FakeRpcClient.FAKE_OTP}"
+                } else {
+                    ""
+                }
                 _state.update {
                     it.copy(
                         busy = false,
                         otpGenerated = true,
-                        message = "${RpcNames.GENERATE_DELIVERY_POD_OTP} — enter code from customer",
+                        message = "${RpcNames.GENERATE_DELIVERY_POD_OTP} — enter code from customer.$fakeHint",
                     )
                 }
             } catch (e: Exception) {

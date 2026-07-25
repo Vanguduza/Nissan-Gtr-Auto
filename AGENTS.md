@@ -45,6 +45,7 @@ Use **on-demand** specialists — do not load all roles every turn. Full playboo
 | `@ios_agent` | `apps/ios/` | iOS customer app |
 | `@android_agent` | `apps/android-customer/` | Android customer app |
 | `@management_app_agent` | `apps/android-management/` | POS, warehouse, HR, finance |
+| `@android_delivery_agent` | `apps/android-delivery/` | Driver-only delivery (GPS FGS, POD, presence) |
 | `@hardware_mobile_agent` | `bridges/` | QR, printer, biometric, GPS |
 | `@backend_agent` | `supabase/`, `packages/supabase-client/` | Schema, migrations, edge functions |
 | `@data_pipeline_agent` | `data-pipeline/` | Scraping, FAST parsing |

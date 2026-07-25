@@ -24,7 +24,7 @@ Ship a **driver-only** Android app at `apps/android-delivery/` with always-on Br
 
 | Feature | Pri | Status | Notes |
 |---------|-----|--------|-------|
-| Dedicated `apps/android-delivery` (login, job list, navigate, always-on location) | **Required** | **MISSING** | 0 files under `apps/android-delivery/` — finish P0 first |
+| Dedicated `apps/android-delivery` (login, job list, navigate, always-on location) | **Required** | **DONE (P0)** | Scaffold builds; Fake/Live RPC; GPS FGS + POD + presence |
 | `driver` staff role + presence (available / on_duty / break / offline) | **Required** | Migration+types | Wire clients |
 | Continuous GPS (FGS + `location-tracker`) + battery-aware cadence | **Required** | Bridge partial | Delivery app consumer missing |
 | Assignment suggest nearest + capacity/shift + **manual override** | **Required** | RPCs exist | Management/web UI incomplete |
