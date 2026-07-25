@@ -246,6 +246,29 @@ export function StaffFinancePanel() {
   }, [refresh]);
 
   useEffect(() => {
+    if (boot.kind !== "ready") return;
+    const q = customerQuery.trim();
+    if (q.length < 2) {
+      setCustomerHits([]);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const client = createWebClient();
+        if (!client) return;
+        const res = await searchCustomers(client, q);
+        if (!res.ok) {
+          setMessage(res.error);
+          setCustomerHits([]);
+          return;
+        }
+        setCustomerHits(res.data);
+      })();
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [boot.kind, customerQuery]);
+
+  useEffect(() => {
     if (boot.kind !== "ready" || !selectedStmtId) return;
     const stmt = boot.statements.find((s) => s.id === selectedStmtId);
     if (stmt) setSelectedStmtAccount(stmt.account_code);
