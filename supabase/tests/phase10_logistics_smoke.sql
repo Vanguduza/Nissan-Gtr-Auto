@@ -34,6 +34,7 @@ DECLARE
   v_dn2 UUID;
   v_job UUID;
   v_loc UUID;
+  v_otp TEXT;
   v_stock_before NUMERIC;
   v_stock_after NUMERIC;
   v_stock_restored NUMERIC;
