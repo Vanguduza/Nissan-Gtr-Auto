@@ -14,6 +14,7 @@ import {
   createPaymentEntry,
   downloadCsv,
   fetchArAgingSnapshot,
+  fetchZigExchangeRate,
   importBankStatement,
   listAccountingPeriods,
   listBankReconMatches,
