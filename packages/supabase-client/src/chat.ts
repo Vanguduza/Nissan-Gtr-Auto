@@ -1,24 +1,7 @@
 /**
- * Live chat typed helpers. Prefer these + shared DTOs until
- * `supabase gen types typescript --local` regenerates database.types.ts.
+ * Live chat typed helpers. Prefer RPCs + Realtime; regenerate
+ * database.types.ts after `supabase db reset` to fold tables into Database.
  */
-import type {
-  ChatMessage,
-  ChatParticipant,
-  ChatThread,
-  ChatThreadKind,
-  StartChatThreadInput,
-} from "../../shared/src/chat/types.js";
-import {
-  toClaimChatThreadArgs,
-  toCloseChatThreadArgs,
-  toMarkChatThreadReadArgs,
-  toPostChatMessageArgs,
-  toStartChatThreadArgs,
-  toChatUnreadCountArgs,
-  CHAT_STAFF_ROLES,
-} from "../../shared/src/chat/types.js";
-
 export type {
   ChatMessage,
   ChatParticipant,
@@ -29,7 +12,7 @@ export type {
   ChatParticipantRole,
   ChatStaffRole,
   StartChatThreadInput,
-} from "../../shared/src/chat/types.js";
+} from "@gtr/shared";
 
 export {
   CHAT_THREAD_KINDS,
@@ -43,7 +26,18 @@ export {
   toMarkChatThreadReadArgs,
   toPostChatMessageArgs,
   toChatUnreadCountArgs,
-} from "../../shared/src/chat/types.js";
+} from "@gtr/shared";
+
+import type { ChatMessage, ChatParticipant, ChatThread, ChatThreadKind, StartChatThreadInput } from "@gtr/shared";
+import {
+  CHAT_STAFF_ROLES,
+  toClaimChatThreadArgs,
+  toCloseChatThreadArgs,
+  toMarkChatThreadReadArgs,
+  toPostChatMessageArgs,
+  toStartChatThreadArgs,
+  toChatUnreadCountArgs,
+} from "@gtr/shared";
 
 /** Realtime table names published in `20260725100000_live_chat.sql`. */
 export const CHAT_REALTIME_TABLES = [
@@ -96,7 +90,6 @@ export function defaultChatThreadKind(): ChatThreadKind {
   return "support";
 }
 
-/** Narrow row aliases for UI lanes (hand-maintained until gen types). */
 export type ChatThreadRow = ChatThread;
 export type ChatMessageRow = ChatMessage;
 export type ChatParticipantRow = ChatParticipant;
