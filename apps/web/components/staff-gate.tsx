@@ -80,6 +80,16 @@ export function StaffGate({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Sales-only default home is POS (not full hub).
+      if (
+        ctx.isStaff &&
+        prefersPosHome(ctx.roles) &&
+        pathname === "/staff"
+      ) {
+        router.replace("/staff/pos");
+        return;
+      }
+
       setState({ kind: "ready", ctx });
     })();
 
