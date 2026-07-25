@@ -33,9 +33,12 @@ import co.zw.nissangtr.customer.orders.OrdersModule
 import co.zw.nissangtr.customer.orders.OrdersScreen
 import co.zw.nissangtr.customer.pay.PayIntentScreen
 import co.zw.nissangtr.customer.pay.PayModule
+import co.zw.nissangtr.customer.rpc.FakeRpcClient
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcClientFactory
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
+import co.zw.nissangtr.customer.track.DeliveryTrackScreen
+import co.zw.nissangtr.customer.track.TrackModule
 
 private enum class CustomerRoute {
     Home,
@@ -44,6 +47,7 @@ private enum class CustomerRoute {
     Garage,
     Pay,
     Chat,
+    Track,
 }
 
 /**
@@ -51,6 +55,10 @@ private enum class CustomerRoute {
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
  * Live requires GoTrue email/password session via [AuthGate].
  * Money/pricing: @gtr/shared. Hardware QR: bridges/ only — never HTML5.
+ *
+ * Intent extras (optional deep link from SMS `/track/{token}`):
+ * - `track_token` — share token for [get_delivery_track_point]
+ * - `track_job_id` — owned delivery job id (signed-in)
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +70,7 @@ class MainActivity : ComponentActivity() {
             GarageModule.id,
             PayModule.id,
             ChatModule.id,
+            TrackModule.id,
         )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
@@ -74,6 +83,8 @@ class MainActivity : ComponentActivity() {
             forceFake = BuildConfig.RPC_FORCE_FAKE,
         )
         val supabase = rpc as? SupabaseRpcClient
+        val intentToken = intent?.getStringExtra(EXTRA_TRACK_TOKEN)?.trim()?.takeIf { it.isNotEmpty() }
+        val intentJobId = intent?.getStringExtra(EXTRA_TRACK_JOB_ID)?.trim()?.takeIf { it.isNotEmpty() }
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -84,11 +95,18 @@ class MainActivity : ComponentActivity() {
                             signedInEmail = email,
                             onSignOut = onSignOut,
                             whatsappE164 = BuildConfig.WHATSAPP_E164,
+                            initialTrackToken = intentToken,
+                            initialTrackJobId = intentJobId,
                         )
                     }
                 }
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_TRACK_TOKEN = "track_token"
+        const val EXTRA_TRACK_JOB_ID = "track_job_id"
     }
 }
 
@@ -99,8 +117,33 @@ private fun CustomerApp(
     signedInEmail: String?,
     onSignOut: () -> Unit,
     whatsappE164: String,
+    initialTrackToken: String? = null,
+    initialTrackJobId: String? = null,
 ) {
-    var route by remember { mutableStateOf(CustomerRoute.Home) }
+    var route by remember {
+        mutableStateOf(
+            if (initialTrackToken != null || initialTrackJobId != null) {
+                CustomerRoute.Track
+            } else {
+                CustomerRoute.Home
+            },
+        )
+    }
+    var trackToken by remember { mutableStateOf(initialTrackToken) }
+    var trackJobId by remember { mutableStateOf(initialTrackJobId) }
+    var trackReturn by remember { mutableStateOf(CustomerRoute.Home) }
+
+    fun openTrack(
+        jobId: String?,
+        token: String?,
+        from: CustomerRoute = CustomerRoute.Home,
+    ) {
+        trackJobId = jobId
+        trackToken = token
+        trackReturn = from
+        route = CustomerRoute.Track
+    }
+
     when (route) {
         CustomerRoute.Home -> CustomerHome(
             liveRpc = liveRpc,
@@ -111,6 +154,13 @@ private fun CustomerApp(
             onGarage = { route = CustomerRoute.Garage },
             onPay = { route = CustomerRoute.Pay },
             onChat = { route = CustomerRoute.Chat },
+            onTrack = {
+                openTrack(
+                    jobId = if (!liveRpc) FakeRpcClient.SEED_ACTIVE_JOB_ID else null,
+                    token = if (!liveRpc) FakeRpcClient.SEED_TRACK_TOKEN else null,
+                    from = CustomerRoute.Home,
+                )
+            },
         )
         CustomerRoute.Cart -> CartScreen(
             rpc = rpc,
@@ -119,6 +169,9 @@ private fun CustomerApp(
         CustomerRoute.Orders -> OrdersScreen(
             rpc = rpc,
             onBack = { route = CustomerRoute.Home },
+            onTrackDelivery = { jobId, token ->
+                openTrack(jobId = jobId, token = token, from = CustomerRoute.Orders)
+            },
         )
         CustomerRoute.Garage -> GarageScreen(
             rpc = rpc,
@@ -133,6 +186,12 @@ private fun CustomerApp(
             onBack = { route = CustomerRoute.Home },
             whatsappE164Digits = whatsappE164,
         )
+        CustomerRoute.Track -> DeliveryTrackScreen(
+            rpc = rpc,
+            initialToken = trackToken,
+            initialJobId = trackJobId,
+            onBack = { route = trackReturn },
+        )
     }
 }
 
@@ -146,6 +205,7 @@ private fun CustomerHome(
     onGarage: () -> Unit,
     onPay: () -> Unit,
     onChat: () -> Unit,
+    onTrack: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -158,7 +218,7 @@ private fun CustomerHome(
         Text("Customer app", style = MaterialTheme.typography.bodyMedium)
         Text(
             "Modules: ${AuthModule.id}, ${CartModule.id}, ${OrdersModule.id}, " +
-                "${GarageModule.id}, ${PayModule.id}, ${ChatModule.id}",
+                "${GarageModule.id}, ${PayModule.id}, ${ChatModule.id}, ${TrackModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -189,8 +249,12 @@ private fun CustomerHome(
         Button(onClick = onChat, modifier = Modifier.fillMaxWidth()) {
             Text("Live chat")
         }
+        Button(onClick = onTrack, modifier = Modifier.fillMaxWidth()) {
+            Text("Track delivery")
+        }
         Text(
-            "Auth: GoTrue signInWith(Email). Bridge-First for QR.",
+            "Auth: GoTrue signInWith(Email). Bridge-First for QR. " +
+                "Delivery track: last point + ETA only.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )

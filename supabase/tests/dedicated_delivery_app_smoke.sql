@@ -190,10 +190,16 @@ BEGIN
   END IF;
 
   PERFORM public.assign_delivery_job(v_job, v_driver, false);
-  PERFORM public.update_delivery_job_status(v_job, 'dispatched');
+  v_dispatch := public.update_delivery_job_status(v_job, 'dispatched');
+  v_token := v_dispatch ->> 'track_token';
+  IF v_token IS NULL OR length(v_token) < 16 THEN
+    RAISE EXCEPTION 'smoke fail: dispatch must return track_token plaintext';
+  END IF;
+  IF (v_dispatch ->> 'delivery_job_id') IS DISTINCT FROM v_job::text THEN
+    RAISE EXCEPTION 'smoke fail: dispatch jsonb job id mismatch';
+  END IF;
 
-  -- Remint to capture plaintext for token tests
-  v_token := public.mint_delivery_track_token(v_job);
+  -- Do NOT remint here — that would revoke the dispatch token (double-mint gap).
 
   -- -----------------------------------------------------------------------
   -- Driver ingest + ETA recompute
