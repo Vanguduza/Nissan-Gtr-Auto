@@ -233,8 +233,6 @@ struct ChatThreadScreen: View {
     }
 
     private func load(markRead: Bool) async {
-        busy = true
-        defer { busy = false }
         do {
             let all = try await session.api.listChatThreads()
             thread = all.first { $0.id == threadId }
