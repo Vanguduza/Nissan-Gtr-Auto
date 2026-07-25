@@ -187,8 +187,9 @@ interface RpcClient {
     suspend fun getDeliveryTrackPoint(deliveryJobId: String): DeliveryTrackPoint?
 
     /**
-     * Share-token plaintext (hex). Show once to dispatcher after Mark dispatched.
-     * Re-mint revokes prior active tokens for the job.
+     * Intentional remint / rotate only. Revokes prior active tokens (including
+     * the SMS/share token from dispatch). Prefer [updateDeliveryJobStatus]
+     * `trackToken` after Mark dispatched.
      */
     suspend fun mintDeliveryTrackToken(
         deliveryJobId: String,
