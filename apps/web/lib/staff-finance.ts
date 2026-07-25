@@ -190,7 +190,7 @@ export function downloadCsv(
 }
 
 export async function listChartAccounts(
-  client: SupabaseClient,
+  client: FinanceClient,
 ): Promise<StorefrontResult<AccountOption[]>> {
   const { data, error } = await client
     .from("chart_of_accounts")
@@ -203,7 +203,7 @@ export async function listChartAccounts(
 }
 
 export async function listJournalEntries(
-  client: SupabaseClient,
+  client: FinanceClient,
 ): Promise<StorefrontResult<JournalEntryOption[]>> {
   const { data, error } = await client
     .from("journal_entries")
@@ -217,7 +217,7 @@ export async function listJournalEntries(
 }
 
 export async function listDraftPayments(
-  client: SupabaseClient,
+  client: FinanceClient,
 ): Promise<StorefrontResult<PaymentEntryOption[]>> {
   const { data, error } = await client
     .from("payment_entries")
@@ -259,7 +259,7 @@ export async function listDraftPayments(
 }
 
 export async function searchCustomers(
-  client: SupabaseClient,
+  client: FinanceClient,
   query: string,
 ): Promise<StorefrontResult<CustomerOption[]>> {
   const q = query.trim();
@@ -286,7 +286,7 @@ export async function searchCustomers(
 }
 
 export async function createJournalDraft(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     entryDate: string;
     description: string;
@@ -313,7 +313,7 @@ export async function createJournalDraft(
 }
 
 export async function postJournal(
-  client: SupabaseClient,
+  client: FinanceClient,
   entryId: string,
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("post_journal", {
@@ -325,7 +325,7 @@ export async function postJournal(
 }
 
 export async function reportProfitAndLoss(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { from: string; to: string; currency?: CurrencyCode },
 ): Promise<StorefrontResult<PnLRow[]>> {
   const { data, error } = await client.rpc("report_profit_and_loss", {
@@ -338,7 +338,7 @@ export async function reportProfitAndLoss(
 }
 
 export async function reportBalanceSheet(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { asOf?: string; currency?: CurrencyCode },
 ): Promise<StorefrontResult<BalanceSheetRow[]>> {
   const { data, error } = await client.rpc("report_balance_sheet", {
@@ -350,7 +350,7 @@ export async function reportBalanceSheet(
 }
 
 export async function reportCashFlow(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { from: string; to: string; currency?: CurrencyCode },
 ): Promise<StorefrontResult<CashFlowRow[]>> {
   const { data, error } = await client.rpc("report_cash_flow", {
@@ -363,7 +363,7 @@ export async function reportCashFlow(
 }
 
 export async function reportTrialBalance(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { asOf?: string; currency?: CurrencyCode },
 ): Promise<StorefrontResult<TrialBalanceRow[]>> {
   const { data, error } = await client.rpc("report_trial_balance", {
@@ -375,7 +375,7 @@ export async function reportTrialBalance(
 }
 
 export async function fetchArAgingSnapshot(
-  client: SupabaseClient,
+  client: FinanceClient,
 ): Promise<StorefrontResult<ArAgingSnapshot>> {
   const { data, error } = await client.rpc("kpi_ar_aging_snapshot");
   if (error) return { ok: false, error: error.message };
@@ -415,7 +415,7 @@ export async function fetchArAgingSnapshot(
 
 /** Open posted invoices for a customer (same-currency allocate hints). */
 export async function listOpenInvoicesForCustomer(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { customerId: string; currency?: CurrencyCode },
 ): Promise<StorefrontResult<OpenInvoiceOption[]>> {
   let q = client
@@ -449,7 +449,7 @@ export async function listOpenInvoicesForCustomer(
 }
 
 export async function createPaymentEntry(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     customerId: string;
     amount: number;
@@ -478,7 +478,7 @@ export async function createPaymentEntry(
 }
 
 export async function allocatePayment(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     paymentEntryId: string;
     allocations: { sales_invoice_id: string; amount: number }[];
@@ -494,7 +494,7 @@ export async function allocatePayment(
 }
 
 export async function postPaymentEntry(
-  client: SupabaseClient,
+  client: FinanceClient,
   paymentEntryId: string,
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("post_payment_entry", {
@@ -506,7 +506,7 @@ export async function postPaymentEntry(
 }
 
 export async function cancelPaymentEntry(
-  client: SupabaseClient,
+  client: FinanceClient,
   paymentEntryId: string,
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("cancel_payment_entry", {
@@ -518,7 +518,7 @@ export async function cancelPaymentEntry(
 }
 
 export async function reverseJournal(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { entryId: string; reason?: string },
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("reverse_journal", {
@@ -531,7 +531,7 @@ export async function reverseJournal(
 }
 
 export async function listAccountingPeriods(
-  client: SupabaseClient,
+  client: FinanceClient,
 ): Promise<StorefrontResult<AccountingPeriodOption[]>> {
   const { data, error } = await client
     .from("accounting_periods")
@@ -543,7 +543,7 @@ export async function listAccountingPeriods(
 }
 
 export async function createAccountingPeriod(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { periodStart: string; periodEnd: string; label: string },
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client
@@ -561,7 +561,7 @@ export async function createAccountingPeriod(
 }
 
 export async function lockAccountingPeriod(
-  client: SupabaseClient,
+  client: FinanceClient,
   periodId: string,
 ): Promise<StorefrontResult<true>> {
   const { error } = await client.rpc("lock_accounting_period", {
@@ -572,7 +572,7 @@ export async function lockAccountingPeriod(
 }
 
 export async function listBankStatements(
-  client: SupabaseClient,
+  client: FinanceClient,
 ): Promise<StorefrontResult<BankStatementOption[]>> {
   const { data, error } = await client
     .from("bank_statements")
@@ -586,7 +586,7 @@ export async function listBankStatements(
 }
 
 export async function listBankStatementLines(
-  client: SupabaseClient,
+  client: FinanceClient,
   statementId: string,
 ): Promise<StorefrontResult<BankStatementLineOption[]>> {
   const { data, error } = await client
@@ -600,7 +600,7 @@ export async function listBankStatementLines(
 }
 
 export async function listBankReconMatches(
-  client: SupabaseClient,
+  client: FinanceClient,
   statementLineIds: string[],
 ): Promise<StorefrontResult<BankReconMatchOption[]>> {
   if (!statementLineIds.length) return { ok: true, data: [] };
@@ -615,7 +615,7 @@ export async function listBankReconMatches(
 }
 
 export async function listJournalLinesForAccount(
-  client: SupabaseClient,
+  client: FinanceClient,
   accountCode: string,
 ): Promise<StorefrontResult<JournalLineOption[]>> {
   const { data, error } = await client
@@ -630,7 +630,7 @@ export async function listJournalLinesForAccount(
 
 /** Import = insert statement header + optional first line (no import RPC exists). */
 export async function importBankStatement(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     accountCode: string;
     currency: CurrencyCode;
@@ -670,7 +670,7 @@ export async function importBankStatement(
 }
 
 export async function addBankStatementLine(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     statementId: string;
     lineDate: string;
@@ -696,7 +696,7 @@ export async function addBankStatementLine(
 
 /** Match via table insert + status update (no match RPC). */
 export async function matchBankLine(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { statementLineId: string; journalEntryLineId: string },
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client
@@ -721,7 +721,7 @@ export async function matchBankLine(
 }
 
 export async function clearBankMatches(
-  client: SupabaseClient,
+  client: FinanceClient,
   matchIds: string[],
 ): Promise<StorefrontResult<number>> {
   const { data, error } = await client.rpc("clear_bank_matches", {
@@ -745,7 +745,7 @@ export type ZigExchangeRateRow = {
 };
 
 export async function listZigExchangeRates(
-  client: SupabaseClient,
+  client: FinanceClient,
   limit = 30,
 ): Promise<StorefrontResult<ZigExchangeRateRow[]>> {
   const { data, error } = await client.rpc("list_zig_exchange_rates", {
@@ -762,7 +762,7 @@ export async function listZigExchangeRates(
 }
 
 export async function setZigExchangeRate(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { rate: number; rateDate?: string; notes?: string },
 ): Promise<StorefrontResult<string>> {
   if (!(args.rate > 0)) {
@@ -855,7 +855,7 @@ export type FinanceRequisitionLineInput = {
 };
 
 export async function reportAccountRegister(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     accountCode: string;
     from: string;
@@ -884,7 +884,7 @@ export async function reportAccountRegister(
 }
 
 export async function openAccountPeriod(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     accountCode: string;
     currency: CurrencyCode;
@@ -908,7 +908,7 @@ export async function openAccountPeriod(
 }
 
 export async function closeAccountPeriod(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     periodId: string;
     physicalCount?: number | null;
@@ -929,7 +929,7 @@ export async function closeAccountPeriod(
 }
 
 export async function getOpenAccountPeriod(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { accountCode: string; currency: CurrencyCode },
 ): Promise<StorefrontResult<AccountPeriodBalanceOption | null>> {
   const { data, error } = await client
@@ -958,7 +958,7 @@ export async function getOpenAccountPeriod(
 }
 
 export async function pettyCashFundingAccountCode(
-  client: SupabaseClient,
+  client: FinanceClient,
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("petty_cash_funding_account_code");
   if (error) return { ok: false, error: error.message };
@@ -966,7 +966,7 @@ export async function pettyCashFundingAccountCode(
 }
 
 export async function computePettyCashReplenishAmount(
-  client: SupabaseClient,
+  client: FinanceClient,
   args?: { currency?: CurrencyCode; asOf?: string },
 ): Promise<StorefrontResult<number>> {
   const { data, error } = await client.rpc(
@@ -988,7 +988,7 @@ export async function computePettyCashReplenishAmount(
 }
 
 export async function listFinanceRequisitions(
-  client: SupabaseClient,
+  client: FinanceClient,
   limit = 40,
 ): Promise<StorefrontResult<FinanceRequisitionOption[]>> {
   const { data, error } = await client
@@ -1057,7 +1057,7 @@ export async function listFinanceRequisitions(
 }
 
 export async function createFinanceRequisition(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: {
     reqType: FinanceRequisitionType;
     amount: number;
@@ -1112,7 +1112,7 @@ export async function createFinanceRequisition(
 }
 
 export async function setFinanceRequisitionLines(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { requisitionId: string; lines: FinanceRequisitionLineInput[] },
 ): Promise<StorefrontResult<string>> {
   if (args.lines.length < 1) {
@@ -1142,7 +1142,7 @@ export async function setFinanceRequisitionLines(
 }
 
 export async function submitFinanceRequisition(
-  client: SupabaseClient,
+  client: FinanceClient,
   requisitionId: string,
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("submit_finance_requisition", {
@@ -1156,7 +1156,7 @@ export async function submitFinanceRequisition(
 }
 
 export async function approveFinanceRequisition(
-  client: SupabaseClient,
+  client: FinanceClient,
   requisitionId: string,
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("approve_finance_requisition", {
@@ -1170,7 +1170,7 @@ export async function approveFinanceRequisition(
 }
 
 export async function rejectFinanceRequisition(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { requisitionId: string; reason?: string },
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("reject_finance_requisition", {
@@ -1185,7 +1185,7 @@ export async function rejectFinanceRequisition(
 }
 
 export async function cancelFinanceRequisition(
-  client: SupabaseClient,
+  client: FinanceClient,
   requisitionId: string,
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("cancel_finance_requisition", {
@@ -1199,7 +1199,7 @@ export async function cancelFinanceRequisition(
 }
 
 export async function disburseFinanceRequisition(
-  client: SupabaseClient,
+  client: FinanceClient,
   args: { requisitionId: string; entryDate?: string },
 ): Promise<StorefrontResult<string>> {
   const { data, error } = await client.rpc("disburse_finance_requisition", {
