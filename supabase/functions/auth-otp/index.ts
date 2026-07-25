@@ -1,21 +1,32 @@
 /**
  * Customer auth OTP (email and/or phone) — fail-closed without gateway secrets.
  *
- * POST JSON:
- *   { "action": "request" | "verify", "email"?: string, "phone_e164"?: string, "code"?: string }
+ * POST JSON actions:
+ *   request | verify | complete_signup | complete_login
  *
- * Local stub: AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset → stub code 000000.
- * Production: never enable the local flag; set SMS_GATEWAY_* / EMAIL_* secrets.
+ * Server-side gate (ADR 2026-07-25-auth-otp-fail-closed):
+ *   verify → short-lived HMAC proof_token (DB-backed, one-time)
+ *   complete_signup / complete_login → require proof; mint session via service_role
+ * Public GoTrue signup is disabled (config enable_signup=false).
+ *
+ * Local stub: AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset + non-prod → code 000000.
+ * Production: stub refused even if flag set.
  *
  * No ZIMRA / payroll-tax identity flows.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { jsonErr, jsonOk } from "../_shared/channel_env.ts";
 import {
   AUTH_OTP_STUB_CODE,
   assertOtpChannelAllowed,
 } from "../_shared/auth_otp_env.ts";
+import {
+  AUTH_OTP_MAX_ATTEMPTS,
+  AUTH_OTP_PROOF_TTL_SEC,
+  mintOtpProofToken,
+  parseOtpProofToken,
+} from "../_shared/auth_otp_proof.ts";
 import { getSmsGatewayConfig, sendSms } from "../_shared/sms_gateway.ts";
 import { getEmailSendConfig, sendEmail } from "../_shared/email_send.ts";
 
@@ -24,6 +35,9 @@ type Body = {
   email?: string;
   phone_e164?: string;
   code?: string;
+  proof_token?: string;
+  password?: string;
+  full_name?: string;
 };
 
 function normalizeEmail(raw: unknown): string | null {
@@ -59,6 +73,120 @@ function randomOtp(): string {
   return n.toString().padStart(6, "0");
 }
 
+function serviceClient(): SupabaseClient {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
+
+function anonClient(): SupabaseClient {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
+
+async function mintProofRow(
+  supabase: SupabaseClient,
+  email: string | null,
+  phone: string | null,
+): Promise<{ proof_token: string; expires_at: string } | { error: string; status: number }> {
+  const expiresAt = new Date(Date.now() + AUTH_OTP_PROOF_TTL_SEC * 1000);
+  const { data: row, error } = await supabase
+    .from("auth_otp_proofs")
+    .insert({
+      email,
+      phone_e164: phone,
+      expires_at: expiresAt.toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error || !row?.id) {
+    return { error: error?.message ?? "failed to mint OTP proof", status: 500 };
+  }
+  const token = await mintOtpProofToken({
+    pid: row.id,
+    email,
+    phone_e164: phone,
+    exp: Math.floor(expiresAt.getTime() / 1000),
+  });
+  if (!token) {
+    return { error: "OTP proof secret unavailable", status: 503 };
+  }
+  return { proof_token: token, expires_at: expiresAt.toISOString() };
+}
+
+async function consumeProof(
+  supabase: SupabaseClient,
+  proofToken: string,
+  expectEmail: string | null,
+): Promise<
+  | { ok: true; email: string | null; phone_e164: string | null }
+  | { ok: false; error: string; status: number }
+> {
+  const parsed = await parseOtpProofToken(proofToken);
+  if (!parsed.ok) {
+    return { ok: false, error: parsed.error, status: 401 };
+  }
+  const { pid, email: proofEmail, phone_e164: proofPhone } = parsed.payload;
+
+  if (expectEmail && proofEmail && proofEmail !== expectEmail) {
+    return { ok: false, error: "OTP proof email mismatch", status: 401 };
+  }
+  if (expectEmail && !proofEmail) {
+    return {
+      ok: false,
+      error: "OTP proof missing email — verify email OTP before password auth",
+      status: 400,
+    };
+  }
+
+  const { data: row, error } = await supabase
+    .from("auth_otp_proofs")
+    .select("id, email, phone_e164, expires_at, consumed_at")
+    .eq("id", pid)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message, status: 400 };
+  if (!row) return { ok: false, error: "OTP proof not found", status: 401 };
+  if (row.consumed_at) {
+    return { ok: false, error: "OTP proof already used", status: 401 };
+  }
+  if (new Date(row.expires_at).getTime() <= Date.now()) {
+    return { ok: false, error: "OTP proof expired", status: 401 };
+  }
+
+  const { data: updated, error: updErr } = await supabase
+    .from("auth_otp_proofs")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("id", pid)
+    .is("consumed_at", null)
+    .select("id")
+    .maybeSingle();
+  if (updErr) return { ok: false, error: updErr.message, status: 400 };
+  if (!updated) {
+    return { ok: false, error: "OTP proof already used", status: 401 };
+  }
+
+  return {
+    ok: true,
+    email: (row.email as string | null) ?? proofEmail,
+    phone_e164: (row.phone_e164 as string | null) ?? proofPhone,
+  };
+}
+
+async function persistPhoneIfNeeded(
+  supabase: SupabaseClient,
+  userId: string,
+  phone: string | null,
+): Promise<void> {
+  if (!phone) return;
+  await supabase
+    .from("profiles")
+    .update({ phone_e164: phone, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") {
@@ -70,16 +198,13 @@ Deno.serve(async (req) => {
     const email = normalizeEmail(body.email);
     const phone = normalizeE164(body.phone_e164);
 
-    if (!email && !phone) {
-      return jsonErr("email and/or phone_e164 required", 400);
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = serviceClient();
 
     if (action === "request") {
+      if (!email && !phone) {
+        return jsonErr("email and/or phone_e164 required", 400);
+      }
+
       const channels: ("email" | "phone")[] = [];
       if (email) channels.push("email");
       if (phone) channels.push("phone");
@@ -116,6 +241,7 @@ Deno.serve(async (req) => {
           identifier,
           code_hash: codeHash,
           expires_at: expiresAt,
+          attempt_count: 0,
         });
         if (insErr) return jsonErr(insErr.message, 400);
 
@@ -152,6 +278,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === "verify") {
+      if (!email && !phone) {
+        return jsonErr("email and/or phone_e164 required", 400);
+      }
       const code = typeof body.code === "string" ? body.code.trim() : "";
       if (!/^[0-9]{6}$/.test(code)) {
         return jsonErr("6-digit code required", 400);
@@ -175,49 +304,157 @@ Deno.serve(async (req) => {
         }
 
         const identifier = ch === "email" ? email! : phone!;
-        const codeHash = await hashCode(code);
-        const { data: rows, error: selErr } = await supabase
+        const { data: openRows, error: openErr } = await supabase
           .from("auth_otp_challenges")
-          .select("id")
+          .select("id, code_hash, attempt_count")
           .eq("channel", ch)
           .eq("identifier", identifier)
-          .eq("code_hash", codeHash)
           .is("consumed_at", null)
           .gt("expires_at", new Date().toISOString())
           .order("created_at", { ascending: false })
           .limit(1);
-        if (selErr) return jsonErr(selErr.message, 400);
-        if (!rows?.length) {
+        if (openErr) return jsonErr(openErr.message, 400);
+        if (!openRows?.length) {
           return jsonErr("invalid or expired OTP", 401);
         }
+        const challenge = openRows[0]!;
+        const attempts = Number(challenge.attempt_count ?? 0);
+        if (attempts >= AUTH_OTP_MAX_ATTEMPTS) {
+          return jsonErr("OTP attempts exceeded — request a new code", 429);
+        }
+
+        const codeHash = await hashCode(code);
+        if (challenge.code_hash !== codeHash) {
+          await supabase
+            .from("auth_otp_challenges")
+            .update({ attempt_count: attempts + 1 })
+            .eq("id", challenge.id);
+          return jsonErr("invalid or expired OTP", 401);
+        }
+
         await supabase
           .from("auth_otp_challenges")
           .update({ consumed_at: new Date().toISOString() })
-          .eq("id", rows[0].id);
+          .eq("id", challenge.id);
       }
 
-      // Persist verified phone onto the caller's profile when JWT present.
-      const authHeader = req.headers.get("Authorization") ?? "";
-      const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-      if (phone && jwt) {
-        const userClient = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-          { global: { headers: { Authorization: `Bearer ${jwt}` } } },
-        );
-        const { data: userData } = await userClient.auth.getUser();
-        if (userData?.user?.id) {
-          await supabase
-            .from("profiles")
-            .update({ phone_e164: phone, updated_at: new Date().toISOString() })
-            .eq("id", userData.user.id);
-        }
+      const minted = await mintProofRow(supabase, email, phone);
+      if ("error" in minted) {
+        return jsonErr(minted.error, minted.status);
       }
 
-      return jsonOk({ ok: true, verified: true, email: email ?? null, phone_e164: phone ?? null });
+      return jsonOk({
+        ok: true,
+        verified: true,
+        email: email ?? null,
+        phone_e164: phone ?? null,
+        proof_token: minted.proof_token,
+        proof_expires_at: minted.expires_at,
+      });
     }
 
-    return jsonErr("action must be request or verify", 400);
+    if (action === "complete_signup") {
+      const password = typeof body.password === "string" ? body.password : "";
+      const proofToken =
+        typeof body.proof_token === "string" ? body.proof_token.trim() : "";
+      const fullName =
+        typeof body.full_name === "string" ? body.full_name.trim() : "";
+
+      if (!proofToken) return jsonErr("proof_token required", 400);
+      if (password.length < 8) {
+        return jsonErr("password must be at least 8 characters", 400);
+      }
+
+      const expectEmail = normalizeEmail(body.email);
+      if (!expectEmail) {
+        return jsonErr("email required for signup", 400);
+      }
+
+      const consumed = await consumeProof(supabase, proofToken, expectEmail);
+      if (!consumed.ok) {
+        return jsonErr(consumed.error, consumed.status);
+      }
+
+      const phoneE164 = consumed.phone_e164 ?? normalizeE164(body.phone_e164);
+
+      const { data: created, error: createErr } = await supabase.auth.admin
+        .createUser({
+          email: expectEmail,
+          password,
+          email_confirm: true,
+          user_metadata: fullName ? { full_name: fullName } : undefined,
+          ...(phoneE164 ? { phone: phoneE164, phone_confirm: true } : {}),
+        });
+      if (createErr || !created.user) {
+        return jsonErr(createErr?.message ?? "signup failed", 400);
+      }
+
+      await persistPhoneIfNeeded(supabase, created.user.id, phoneE164);
+
+      const { data: sessionData, error: signErr } = await anonClient().auth
+        .signInWithPassword({ email: expectEmail, password });
+      if (signErr || !sessionData.session) {
+        return jsonErr(
+          signErr?.message ??
+            "account created but session mint failed — sign in with OTP again",
+          400,
+        );
+      }
+
+      return jsonOk({
+        ok: true,
+        user_id: created.user.id,
+        access_token: sessionData.session.access_token,
+        refresh_token: sessionData.session.refresh_token,
+        expires_in: sessionData.session.expires_in,
+        email: expectEmail,
+        phone_e164: phoneE164,
+      });
+    }
+
+    if (action === "complete_login") {
+      const password = typeof body.password === "string" ? body.password : "";
+      const proofToken =
+        typeof body.proof_token === "string" ? body.proof_token.trim() : "";
+
+      if (!proofToken) return jsonErr("proof_token required", 400);
+      if (!password) return jsonErr("password required", 400);
+
+      const expectEmail = normalizeEmail(body.email);
+      if (!expectEmail) {
+        return jsonErr("email required for login", 400);
+      }
+
+      const consumed = await consumeProof(supabase, proofToken, expectEmail);
+      if (!consumed.ok) {
+        return jsonErr(consumed.error, consumed.status);
+      }
+
+      const phoneE164 = consumed.phone_e164 ?? normalizeE164(body.phone_e164);
+
+      const { data: sessionData, error: signErr } = await anonClient().auth
+        .signInWithPassword({ email: expectEmail, password });
+      if (signErr || !sessionData.session || !sessionData.user) {
+        return jsonErr(signErr?.message ?? "invalid credentials", 401);
+      }
+
+      await persistPhoneIfNeeded(supabase, sessionData.user.id, phoneE164);
+
+      return jsonOk({
+        ok: true,
+        user_id: sessionData.user.id,
+        access_token: sessionData.session.access_token,
+        refresh_token: sessionData.session.refresh_token,
+        expires_in: sessionData.session.expires_in,
+        email: expectEmail,
+        phone_e164: phoneE164,
+      });
+    }
+
+    return jsonErr(
+      "action must be request, verify, complete_signup, or complete_login",
+      400,
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("auth-otp error:", msg);
