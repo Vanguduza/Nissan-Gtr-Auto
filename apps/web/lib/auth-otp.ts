@@ -269,36 +269,82 @@ export async function completeAuthSignup(
 }
 
 /**
- * Exchange OTP proof + password for a session (server-side gate).
+ * Returning login: email and/or phone + password (no OTP).
+ * Email-only uses GoTrue directly; phone (or mixed) goes through Edge to resolve
+ * `profiles.phone_e164` → Auth email without exposing the mapping to clients.
  */
+export async function signInWithEmailOrPhone(
+  client: SupabaseClient,
+  args: {
+    email?: string | null;
+    phoneE164?: string | null;
+    password: string;
+  },
+): Promise<AuthOtpSessionResult | AuthOtpError> {
+  const email = normalizeReceiptEmail(args.email);
+  const phone = normalizeE164(args.phoneE164);
+  if (!email && !phone) {
+    return { ok: false, error: "Enter email and/or phone (E.164)." };
+  }
+  if (!args.password) return { ok: false, error: "Password is required." };
+
+  // Fast path: email + password (staff + customers) — no Edge hop.
+  if (email && !phone) {
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password: args.password,
+    });
+    if (error || !data.session || !data.user) {
+      return { ok: false, error: error?.message ?? "invalid credentials" };
+    }
+    return {
+      ok: true,
+      userId: data.user.id,
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresIn: data.session.expires_in,
+      email,
+      phone_e164: null,
+    };
+  }
+
+  const { data, error } = await client.functions.invoke("auth-otp", {
+    body: {
+      action: "complete_login",
+      password: args.password,
+      ...(email ? { email } : {}),
+      ...(phone ? { phone_e164: phone } : {}),
+    },
+  });
+
+  const session = await readSessionResult(data, error, "Login failed");
+  if (!session.ok) return session;
+
+  const { error: sessionErr } = await client.auth.setSession({
+    access_token: session.accessToken,
+    refresh_token: session.refreshToken,
+  });
+  if (sessionErr) {
+    return { ok: false, error: sessionErr.message };
+  }
+  return session;
+}
+
+/** @deprecated Use {@link signInWithEmailOrPhone} — OTP is not used for login. */
 export async function completeAuthLogin(
   client: SupabaseClient,
   args: {
     email: string;
     password: string;
-    proofToken: string;
+    proofToken?: string;
     phoneE164?: string | null;
   },
 ): Promise<AuthOtpSessionResult | AuthOtpError> {
-  const email = normalizeReceiptEmail(args.email);
-  const phone = normalizeE164(args.phoneE164);
-  if (!email) return { ok: false, error: "Email is required." };
-  if (!args.proofToken.trim()) {
-    return { ok: false, error: "OTP proof missing — verify OTP again." };
-  }
-  if (!args.password) return { ok: false, error: "Password is required." };
-
-  const { data, error } = await client.functions.invoke("auth-otp", {
-    body: {
-      action: "complete_login",
-      email,
-      password: args.password,
-      proof_token: args.proofToken.trim(),
-      ...(phone ? { phone_e164: phone } : {}),
-    },
+  return signInWithEmailOrPhone(client, {
+    email: args.email,
+    phoneE164: args.phoneE164,
+    password: args.password,
   });
-
-  return readSessionResult(data, error, "Login failed");
 }
 
 async function readSessionResult(
