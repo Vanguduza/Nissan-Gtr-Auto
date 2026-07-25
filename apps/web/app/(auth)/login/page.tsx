@@ -79,7 +79,7 @@ function LoginForm() {
     setBusy(true);
     setMessage(null);
     setLocalStubHint(null);
-    setOtpVerified(false);
+    setOtpProofToken(null);
     const client = createWebClient();
     if (!client) {
       setMessage("Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local");
@@ -132,21 +132,21 @@ function LoginForm() {
       );
       return;
     }
-    setOtpVerified(true);
+    setOtpProofToken(res.proofToken);
     if (email.trim()) {
       setMessage(
-        "OTP verified. Enter your password to open a session (Edge OTP does not mint JWTs).",
+        "OTP verified. Enter your password to open a session (server-gated).",
       );
     } else {
       setMessage(
-        "OTP verified for phone. Sign in with email + password if you have an account; phone is linked after a signed-in verify.",
+        "OTP verified for phone. Email + password still required to open a session.",
       );
     }
   }
 
   async function onOtpPasswordContinue(e: FormEvent) {
     e.preventDefault();
-    if (!otpVerified) {
+    if (!otpProofToken) {
       setMessage("Verify OTP first.");
       return;
     }
@@ -158,30 +158,26 @@ function LoginForm() {
       setBusy(false);
       return;
     }
-    const { error } = await client.auth.signInWithPassword({
+    const loggedIn = await completeAuthLogin(client, {
       email,
       password,
+      proofToken: otpProofToken,
+      phoneE164: phone || null,
     });
-    if (error) {
+    if (!loggedIn.ok) {
       setBusy(false);
-      setMessage(error.message);
+      setMessage(loggedIn.error);
+      setOtpProofToken(null);
       return;
     }
-    // Re-verify phone with Bearer so Edge can persist profiles.phone_e164.
-    if (phone.trim()) {
-      const again = await requestAuthOtp(client, { phoneE164: phone });
-      if (again.ok) {
-        const code =
-          again.stubCode ||
-          (localStubHint ?? "") ||
-          otpCode;
-        if (code) {
-          await verifyAuthOtp(client, {
-            phoneE164: phone,
-            code,
-          });
-        }
-      }
+    const { error: sessionErr } = await client.auth.setSession({
+      access_token: loggedIn.accessToken,
+      refresh_token: loggedIn.refreshToken,
+    });
+    if (sessionErr) {
+      setBusy(false);
+      setMessage(sessionErr.message);
+      return;
     }
     await finishStaffRedirect(client);
     setBusy(false);
@@ -315,7 +311,7 @@ function LoginForm() {
             </button>
           </form>
 
-          {otpVerified ? (
+          {otpProofToken ? (
             <form onSubmit={(e) => void onOtpPasswordContinue(e)}>
               <label className={styles.label}>
                 Password (open session)
