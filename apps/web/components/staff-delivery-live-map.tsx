@@ -136,6 +136,11 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
         markerRef.current?.remove();
         markerRef.current = null;
         fittedJobKeyRef.current = null;
+        map.easeTo({
+          center: HARARE_CENTER,
+          zoom: DEFAULT_ZOOM,
+          duration: 400,
+        });
         return;
       }
 
@@ -201,7 +206,7 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
           </span>
         ) : (
           <span className={styles.emptyHint}>
-            No points yet — waiting for delivery-app GPS inserts…
+            Showing Harare — waiting for delivery-app GPS inserts…
           </span>
         )}
       </p>
