@@ -17,8 +17,8 @@ export type JournalEntryOption = {
   entry_date: string;
   description: string | null;
   currency: CurrencyCode;
-  exchange_rate_applied: number;
-  created_at: string;
+  exchange_rate_applied: number | null;
+  posted_at: string;
 };
 
 export type PaymentEntryOption = {
