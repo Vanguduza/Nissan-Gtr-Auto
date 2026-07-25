@@ -204,7 +204,36 @@ function quickOpsFor(registerCode: string): QuickOpTemplate[] {
 
 export function StaffFinancePanel() {
   const [tab, setTab] = useState("journals");
-  const [accountLines, setAccountLines] = useState<JournalLineOption[]>([]);
+  const [registerRows, setRegisterRows] = useState<AccountRegisterRow[]>([]);
+  const [registerFrom, setRegisterFrom] = useState(monthStartInput);
+  const [registerTo, setRegisterTo] = useState(todayInput);
+  const [registerCurrency, setRegisterCurrency] =
+    useState<CurrencyCode>("USD");
+  const [openPeriod, setOpenPeriod] =
+    useState<AccountPeriodBalanceOption | null>(null);
+  const [periodOpening, setPeriodOpening] = useState("0");
+  const [periodStartDate, setPeriodStartDate] = useState(todayInput);
+  const [periodEndDate, setPeriodEndDate] = useState(todayInput);
+  const [periodOpenNotes, setPeriodOpenNotes] = useState("");
+  const [periodCloseNotes, setPeriodCloseNotes] = useState("");
+  const [physicalCount, setPhysicalCount] = useState("");
+  const [fundingAccountCode, setFundingAccountCode] = useState("1100");
+  const [replenishHint, setReplenishHint] = useState<number | null>(null);
+  const [journalRegisterAccount, setJournalRegisterAccount] = useState("");
+  const [journalRegisterRows, setJournalRegisterRows] = useState<
+    AccountRegisterRow[]
+  >([]);
+  const [requisitions, setRequisitions] = useState<FinanceRequisitionOption[]>(
+    [],
+  );
+  const [reqType, setReqType] = useState<FinanceRequisitionType>("petty_cash");
+  const [reqAmount, setReqAmount] = useState("");
+  const [reqCurrency, setReqCurrency] = useState<CurrencyCode>("USD");
+  const [reqRate, setReqRate] = useState(defaultZigRate);
+  const [reqPayee, setReqPayee] = useState("");
+  const [reqMemo, setReqMemo] = useState("");
+  const [reqExpenseAccount, setReqExpenseAccount] = useState("5300");
+  const [reqRejectReason, setReqRejectReason] = useState("");
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
