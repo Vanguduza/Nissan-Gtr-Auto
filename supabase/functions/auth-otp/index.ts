@@ -4,9 +4,11 @@
  * POST JSON actions:
  *   request | verify | complete_signup | complete_login
  *
+ * OTP is for **signup** and **confirming email/phone** only — not for returning logins.
  * Server-side gate (ADR 2026-07-25-auth-otp-fail-closed):
  *   verify → short-lived HMAC proof_token (DB-backed, one-time)
- *   complete_signup / complete_login → require proof; mint session via service_role
+ *   complete_signup → require OTP proof; mint session via service_role
+ *   complete_login → password only (email and/or phone); no OTP proof
  * Public GoTrue signup is disabled (config enable_signup=false).
  *
  * Local stub: AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset + non-prod → code 000000.
