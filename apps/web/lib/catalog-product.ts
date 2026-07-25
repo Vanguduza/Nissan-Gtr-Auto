@@ -26,6 +26,8 @@ export type CatalogProduct = {
   specs: string[];
   fitments: CatalogFitmentLine[];
   alternatives: { oem: string; name: string }[];
+  /** Storage diagram when `part_fitment.diagram_path` is set. */
+  diagram: CatalogDiagram | null;
 };
 
 export type CatalogListItem = {
