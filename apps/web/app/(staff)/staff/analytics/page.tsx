@@ -1,4 +1,5 @@
 import { StaffAnalyticsPanel } from "@/components/staff-analytics-panel";
+import { StaffAnalyticsTabs } from "@/components/staff-analytics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
 
@@ -14,6 +15,7 @@ export default function StaffAnalyticsPage() {
           Ops / sales KPIs with optional AI narrative. Admin, finance, and sales
           only. Aggregates — no customer PII or ledger dumps to the model.
         </p>
+        <StaffAnalyticsTabs active="kpis" />
         <StaffAnalyticsPanel />
       </div>
     </div>

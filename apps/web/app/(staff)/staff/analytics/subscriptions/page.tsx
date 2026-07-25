@@ -1,4 +1,5 @@
 import { StaffAnalyticsSubscriptionsPanel } from "@/components/staff-analytics-subscriptions-panel";
+import { StaffAnalyticsTabs } from "@/components/staff-analytics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
 
@@ -14,6 +15,7 @@ export default function StaffAnalyticsSubscriptionsPage() {
           Schedule daily, weekly, or monthly KPI reports to email and/or
           WhatsApp. Worker delivers numeric-only when Gemini is unavailable.
         </p>
+        <StaffAnalyticsTabs active="subscriptions" />
         <StaffAnalyticsSubscriptionsPanel />
       </div>
     </div>

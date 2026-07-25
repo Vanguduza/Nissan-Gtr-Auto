@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { StaffLogisticsTabs } from "@/components/staff-logistics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import { StaffPanicInboxPanel } from "@/components/staff-panic-inbox-panel";
 import styles from "@/components/account.module.css";
@@ -12,10 +12,10 @@ export default function StaffLogisticsPanicPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Panic inbox</h1>
         <p className={styles.lede}>
-          Driver SOS alerts for admin / warehouse / dispatcher. Live map:{" "}
-          <Link href="/staff/logistics/tracking">tracking</Link>. No browser
-          GPS — coordinates come from the delivery app bridge when present.
+          Driver SOS alerts for admin / warehouse / dispatcher. No browser GPS —
+          coordinates come from the delivery app bridge when present.
         </p>
+        <StaffLogisticsTabs active="panic" />
         <StaffPanicInboxPanel />
       </div>
     </div>
