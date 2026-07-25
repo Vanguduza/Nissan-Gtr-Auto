@@ -24,8 +24,8 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
-    // GPS Bridge-First — FusedLocationGpsBridge / toDeliveryLocationIngest
-    implementation(project(":location-tracker"))
+    // location-tracker NOT depended here — management must not produce driver GPS.
+    // Sole producer: apps/android-delivery → bridges/android/location-tracker.
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
@@ -37,4 +37,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation(project(":core:rpc"))
 }
