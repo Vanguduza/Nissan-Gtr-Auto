@@ -86,7 +86,19 @@ type Boot =
       statements: BankStatementOption[];
     };
 
-type ReportKind = "pnl" | "bs" | "cf";
+type ReportKind = "pnl" | "bs" | "cf" | "tb";
+
+type AllocRow = { invoiceId: string; amount: string };
+
+type QuickOpTemplate = {
+  id: string;
+  label: string;
+  debit: string;
+  credit: string;
+  description: string;
+};
+
+type CloseWizardStep = "pick" | "tb" | "confirm";
 
 function todayInput(): string {
   return new Date().toISOString().slice(0, 10);
@@ -95,6 +107,76 @@ function todayInput(): string {
 function monthStartInput(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function defaultZigRate(): string {
+  return String(zigExchangeRate());
+}
+
+function parseExchangeRate(
+  currency: CurrencyCode,
+  raw: string,
+): number | null {
+  if (currency !== "ZIG") return 1;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function quickOpsFor(registerCode: string): QuickOpTemplate[] {
+  const ops: QuickOpTemplate[] = [
+    {
+      id: "float",
+      label: "Float in (from bank 1100)",
+      debit: registerCode,
+      credit: "1100",
+      description: `Float into ${registerCode} from bank 1100`,
+    },
+    {
+      id: "drop",
+      label: "Drop to bank (1100)",
+      debit: "1100",
+      credit: registerCode,
+      description: `Cash drop ${registerCode} → bank 1100`,
+    },
+  ];
+  if (registerCode === "1110") {
+    ops.push({
+      id: "xfer-from-1120",
+      label: "Transfer from cash till (1120)",
+      debit: "1110",
+      credit: "1120",
+      description: "Till transfer 1120 → 1110",
+    });
+  }
+  if (registerCode === "1120") {
+    ops.push(
+      {
+        id: "xfer-to-1110",
+        label: "Transfer to petty cash (1110)",
+        debit: "1110",
+        credit: "1120",
+        description: "Till transfer 1120 → 1110",
+      },
+      {
+        id: "xfer-from-1130",
+        label: "Transfer from online clearing (1130)",
+        debit: "1120",
+        credit: "1130",
+        description: "Clearing transfer 1130 → 1120",
+      },
+    );
+  }
+  if (registerCode === "1130") {
+    ops.push({
+      id: "xfer-to-1120",
+      label: "Transfer to cash till (1120)",
+      debit: "1120",
+      credit: "1130",
+      description: "Clearing transfer 1130 → 1120",
+    });
+  }
+  return ops;
 }
 
 export function StaffFinancePanel() {
