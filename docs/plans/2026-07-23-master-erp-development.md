@@ -440,18 +440,17 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 1. **GPS bridges + live map** (prior): Android/iOS location bridges; management ingest; staff MapLibre `/staff/logistics/tracking`
 2. **Real ContiPay + Paynow Edge adapters:** initiate/poll/webhook hash·HMAC (fail-closed without secrets; `*_ALLOW_UNVERIFIED_LOCAL=1` local only). Security PASS + verifier PASS. Webhook URL always server `defaultWebhookUrl` (never client `result_url`).
 3. Storefront PSP callers: `return_url` / `cancel_url` only — see `docs/storefront-psp-return-urls.md`
-4. **Receipts + manager SMS:** real PDF (`receipt_pdf.ts`) + SMS/email/WhatsApp Cloud adapters; claim/complete RPCs service_role-only (`…140000`+`…150000`). Security/RLS/verifier PASS
-5. **WhatsApp parts-finder bot:** `whatsapp-webhook` + rate limits (`…160000`); `search_catalog` service_role only; Deno smoke 7/7. Security/RLS/verifier PASS
 
 **Still follow-on** (remaining — priority order)
-1. POS / warehouse / receive / transfer / cycle UIs → existing RPCs — in progress
-2. QR + ESC/POS bridges (Android) + wire warehouse/POS
-3. Finance operator UI; warranty/returns/quarantine; account/B2B/loyalty; mobile Live-when-env; PDP media
-4. Web receipt download route `nissangtrauto.co.zw/receipts/{token}`
-5. **Env secrets (user-provided):** ContiPay/Paynow/WhatsApp/SMS/email/map tiles — Edge/local only; do not commit
-6. Native assemble on JDK/Xcode; production `NEXT_PUBLIC_MAP_STYLE_URL`
+1. **WhatsApp parts-finder bot:** plan [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md) — in progress
+2. POS / warehouse / receive / transfer / cycle UIs → existing RPCs
+3. QR + ESC/POS bridges (Android) + wire warehouse/POS
+4. Finance operator UI; warranty/returns/quarantine; account/B2B/loyalty; mobile Live-when-env; PDP media
+5. Web receipt download route `nissangtrauto.co.zw/receipts/{token}` (WA uses Storage signed URL)
+6. **Env secrets (user-provided):** ContiPay/Paynow/WhatsApp/SMS/email/map tiles — Edge/local only; do not commit
+7. Native assemble on JDK/Xcode; production `NEXT_PUBLIC_MAP_STYLE_URL`
 
-**In progress:** Staff POS / warehouse web UIs wired to existing RPCs (`@web_agent`).
+**In progress:** WhatsApp parts-finder bot Edge webhook (`@backend_agent`).
 
 **Blockers / notes**
 - No commits required by this slice unless user asks.
