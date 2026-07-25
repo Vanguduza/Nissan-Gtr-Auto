@@ -87,7 +87,7 @@ function LoginForm() {
     // Tab chooses a single identifier — password auth only (no OTP on login).
     const loggedIn = await signInWithEmailOrPhone(client, {
       email: method === "email" ? email || null : null,
-      phoneE164: method === "phone" ? phone || null : null,
+      phoneE164: method === "phone" ? phoneE164 : null,
       password,
     });
     if (!loggedIn.ok) {
@@ -168,16 +168,34 @@ function LoginForm() {
             aria-labelledby="login-tab-phone"
           >
             <label className={styles.label}>
-              Phone number (E.164)
-              <input
-                className={styles.input}
-                type="tel"
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+263…"
-                required
-              />
+              Phone number
+              <div className={styles.phoneRow}>
+                <select
+                  className={styles.countrySelect}
+                  aria-label="Country code"
+                  value={countryOption}
+                  onChange={(e) => setCountryOption(e.target.value)}
+                >
+                  {COUNTRY_DIAL_CODES.map((c) => (
+                    <option key={countryDialOptionValue(c)} value={countryDialOptionValue(c)}>
+                      {c.name} ({c.dial})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className={styles.input}
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="tel-national"
+                  value={phoneNational}
+                  onChange={(e) =>
+                    setPhoneNational(e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="771234567"
+                  required
+                />
+              </div>
             </label>
           </div>
         )}
