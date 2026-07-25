@@ -1,5 +1,7 @@
 package co.zw.nissangtr.management.dispatch
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,27 +21,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
 
 /**
- * Scaffold: list DNs / pick lists + create pick → confirm → create DN → submit,
- * plus active delivery job Start/Stop GPS (Bridge-First via [gps]).
+ * Scaffold: pick/DN + create job + **assignment** (suggest/override) +
+ * **route order** + staff **live view** (ETA) + **panic inbox**.
+ *
+ * Driver GPS FGS / [RpcNames.INGEST_DELIVERY_LOCATION] is **not** started here —
+ * sole producer is `apps/android-delivery`.
  */
 @Composable
 fun DispatchScreen(
     rpc: RpcClient,
-    gps: GpsBridge,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    supportPhone: String = "",
     viewModel: DispatchViewModel = viewModel(
-        factory = DispatchViewModel.factory(rpc, gps),
+        factory = DispatchViewModel.factory(rpc, supportPhone),
     ),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -48,14 +54,17 @@ fun DispatchScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Logistics — Pick / DN / Track", style = MaterialTheme.typography.headlineSmall)
+        Text("Logistics — Pick / DN / Dispatch", style = MaterialTheme.typography.headlineSmall)
         Text(
             "RPCs: ${RpcNames.CREATE_PICK_LIST}, ${RpcNames.CONFIRM_PICK_LINES}, " +
                 "${RpcNames.CREATE_DELIVERY_NOTE}, ${RpcNames.SUBMIT_DELIVERY_NOTE}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
-            "GPS: ${RpcNames.INGEST_DELIVERY_LOCATION} via bridges/location-tracker only.",
+            "GPS: view-only via ${RpcNames.GET_DELIVERY_TRACK_POINT}. " +
+                "Producer gated — apps/android-delivery owns FGS → " +
+                RpcNames.INGEST_DELIVERY_LOCATION +
+                " (ALLOW_DRIVER_GPS_PRODUCER=${DispatchViewModel.ALLOW_DRIVER_GPS_PRODUCER}).",
             style = MaterialTheme.typography.bodySmall,
         )
 
@@ -65,7 +74,7 @@ fun DispatchScreen(
             label = { Text("Sales invoice UUID") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy && !state.tracking,
+            enabled = !state.busy,
         )
         OutlinedTextField(
             value = state.invoiceLineId,
@@ -73,7 +82,7 @@ fun DispatchScreen(
             label = { Text("Invoice line UUID") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy && !state.tracking,
+            enabled = !state.busy,
         )
         OutlinedTextField(
             value = state.qty,
@@ -81,27 +90,27 @@ fun DispatchScreen(
             label = { Text("Qty (pick / DN line)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy && !state.tracking,
+            enabled = !state.busy,
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = viewModel::createPickList,
-                enabled = !state.busy && !state.tracking,
+                enabled = !state.busy,
             ) { Text("Create pick") }
             Button(
                 onClick = viewModel::confirmSelectedPick,
-                enabled = !state.busy && !state.tracking,
+                enabled = !state.busy,
             ) { Text("Confirm pick") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = viewModel::createDeliveryNote,
-                enabled = !state.busy && !state.tracking,
+                enabled = !state.busy,
             ) { Text("Create DN") }
             Button(
                 onClick = viewModel::submitSelectedDn,
-                enabled = !state.busy && !state.tracking,
+                enabled = !state.busy,
             ) { Text("Submit DN") }
             OutlinedButton(
                 onClick = viewModel::refresh,
@@ -110,47 +119,159 @@ fun DispatchScreen(
         }
 
         HorizontalDivider()
-        Text("Delivery tracking (driver)", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "Create job from submitted DN → Mark dispatched → Start tracking. " +
-                "Permission via bridge; ≥5s client throttle.",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text("Delivery job", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.deliveryJobId,
             onValueChange = viewModel::onDeliveryJobIdChange,
             label = { Text("Delivery job UUID") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy && !state.tracking,
+            enabled = !state.busy,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = viewModel::createDeliveryJob,
-                enabled = !state.busy && !state.tracking,
+                enabled = !state.busy,
             ) { Text("Create job") }
             Button(
                 onClick = viewModel::markJobDispatched,
-                enabled = !state.busy && !state.tracking,
+                enabled = !state.busy,
             ) { Text("Mark dispatched") }
         }
+
+        HorizontalDivider()
+        Text("Assignment (suggest + override)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "${RpcNames.SUGGEST_DELIVERY_ASSIGNEES} → nearest / capacity / shift. " +
+                "Manual override via ${RpcNames.ASSIGN_DELIVERY_JOB} (p_override=true).",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = state.assigneeUserId,
+            onValueChange = viewModel::onAssigneeUserIdChange,
+            label = { Text("Assignee driver UUID") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !state.busy,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = viewModel::startTracking,
-                enabled = !state.busy && !state.tracking,
-            ) { Text("Start tracking") }
+                onClick = viewModel::suggestAssignees,
+                enabled = !state.busy,
+            ) { Text("Suggest") }
+            Button(
+                onClick = { viewModel.assignJob(override = false) },
+                enabled = !state.busy,
+            ) { Text("Assign") }
             OutlinedButton(
-                onClick = viewModel::stopTracking,
-                enabled = state.tracking,
-            ) { Text("Stop tracking") }
+                onClick = { viewModel.assignJob(override = true) },
+                enabled = !state.busy,
+            ) { Text("Override assign") }
         }
-        if (state.tracking) {
+        state.assigneeSuggestions.forEach { s ->
+            val selected = s.userId == state.assigneeUserId
+            val dist = s.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
             Text(
-                "Tracking… ingests=${state.ingestCount}" +
-                    (state.lastLatLng?.let { " last=$it" } ?: "") +
-                    (state.lastIngestId?.let { " id=$it" } ?: ""),
+                text = "${s.userId.take(8)}…  ${s.status}  dist=$dist  " +
+                    "open=${s.openJobs}/${s.capacity}" +
+                    if (selected) "  ✓" else "",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !state.busy) {
+                        viewModel.selectSuggestedAssignee(s.userId)
+                    }
+                    .padding(vertical = 4.dp),
+                style = if (selected) {
+                    MaterialTheme.typography.bodyLarge
+                } else {
+                    MaterialTheme.typography.bodyMedium
+                },
+            )
+        }
+
+        HorizontalDivider()
+        Text("Route order", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "${RpcNames.OPTIMIZE_DRIVER_STOPS} for driver’s open jobs (writes route_sequence).",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Button(
+            onClick = viewModel::optimizeStops,
+            enabled = !state.busy,
+        ) { Text("Optimize stops") }
+        state.optimizedStops.forEach { stop ->
+            val dist = stop.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
+            Text(
+                "#${stop.routeSequence}  ${stop.deliveryJobId.take(8)}…  $dist",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
+        HorizontalDivider()
+        Text("Live location / ETA (view only)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Staff subscribe via ${RpcNames.GET_DELIVERY_TRACK_POINT}. " +
+                "No Start tracking — delivery app produces pings.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Button(
+            onClick = viewModel::refreshLiveTrack,
+            enabled = !state.busy,
+        ) { Text("Refresh live track") }
+        state.liveTrack?.let { t ->
+            Text(
+                "lat=%.5f lng=%.5f  recorded=${t.recordedAt}".format(t.lat, t.lng) +
+                    (t.etaAt?.let { "  eta=$it" } ?: "") +
+                    (t.etaSeconds?.let { "  (${it}s)" } ?: "") +
+                    "  status=${t.status}",
                 style = MaterialTheme.typography.bodySmall,
             )
+        }
+
+        HorizontalDivider()
+        Text("Panic inbox", style = MaterialTheme.typography.titleMedium)
+        Text(state.pollNote, style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = viewModel::refreshPanicInbox,
+                enabled = !state.busy,
+            ) { Text("Refresh panics") }
+            val phone = state.supportPhone
+            if (phone.isNotBlank()) {
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                        context.startActivity(intent)
+                    },
+                    enabled = !state.busy,
+                ) { Text("Dial support") }
+            } else {
+                Text(
+                    "Set DELIVERY_SUPPORT_PHONE in local.properties to enable dial.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+        if (state.panicEvents.isEmpty()) {
+            Text("No open panic events", style = MaterialTheme.typography.bodyMedium)
+        }
+        state.panicEvents.forEach { p ->
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text(
+                    "driver=${p.driverUserId.take(8)}…  at=${p.createdAt}" +
+                        (p.deliveryJobId?.let { "  job=${it.take(8)}…" } ?: "") +
+                        (if (p.lat != null && p.lng != null) {
+                            "  %.4f,%.4f".format(p.lat, p.lng)
+                        } else {
+                            ""
+                        }),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(
+                    onClick = { viewModel.acknowledgePanic(p.id) },
+                    enabled = !state.busy,
+                ) { Text("Mark handled") }
+            }
         }
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
@@ -167,7 +288,7 @@ fun DispatchScreen(
                     if (selected) "  ✓" else "",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = !state.tracking) { viewModel.selectPickList(pl.id) }
+                    .clickable(enabled = !state.busy) { viewModel.selectPickList(pl.id) }
                     .padding(vertical = 4.dp),
                 style = if (selected) {
                     MaterialTheme.typography.bodyLarge
@@ -186,7 +307,7 @@ fun DispatchScreen(
                     if (selected) "  ✓" else "",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = !state.tracking) { viewModel.selectDn(dn.id) }
+                    .clickable(enabled = !state.busy) { viewModel.selectDn(dn.id) }
                     .padding(vertical = 4.dp),
                 style = if (selected) {
                     MaterialTheme.typography.bodyLarge
@@ -196,11 +317,6 @@ fun DispatchScreen(
             )
         }
 
-        OutlinedButton(
-            onClick = {
-                if (state.tracking) viewModel.stopTracking()
-                onBack()
-            },
-        ) { Text("Back") }
+        OutlinedButton(onClick = onBack) { Text("Back") }
     }
 }
