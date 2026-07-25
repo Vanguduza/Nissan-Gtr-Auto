@@ -6826,6 +6826,13 @@ export type Database = {
         Args: { p_delivery_job_id: string; p_ttl?: string }
         Returns: string
       }
+      moderate_customer_product_review: {
+        Args: {
+          p_review_id: string
+          p_status: Database["public"]["Enums"]["product_review_status"]
+        }
+        Returns: string
+      }
       revoke_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
