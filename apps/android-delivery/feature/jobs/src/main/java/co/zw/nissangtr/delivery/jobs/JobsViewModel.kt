@@ -128,30 +128,13 @@ class JobsViewModel(
         }
     }
 
+    /** Confirm geofence arrive suggestion only — never auto-mutates job status. */
     fun markArrived() {
-        val jobId = _state.value.selectedJobId ?: return
-        viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null) }
-            try {
-                // Confirm suggestion only — driver explicitly arrives by keeping dispatched
-                // and noting arrival; status stays dispatched until POD complete.
-                // Optional: no separate "arrived" status in schema — message only.
-                _state.update {
-                    it.copy(
-                        busy = false,
-                        message = "Arrival confirmed (geofence suggestion accepted — status unchanged until POD)",
-                        geofence = it.geofence?.copy(suggestArrive = false),
-                    )
-                }
-                // Touch job for dispatcher visibility via notes is out of scope;
-                // status updates use update_delivery_job_status when needed.
-                @Suppress("UNUSED_VARIABLE")
-                val id = jobId
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(busy = false, error = e.message ?: "arrive confirm failed")
-                }
-            }
+        _state.update {
+            it.copy(
+                message = "Arrival confirmed (geofence suggestion accepted — status unchanged until POD)",
+                geofence = it.geofence?.copy(suggestArrive = false),
+            )
         }
     }
 
