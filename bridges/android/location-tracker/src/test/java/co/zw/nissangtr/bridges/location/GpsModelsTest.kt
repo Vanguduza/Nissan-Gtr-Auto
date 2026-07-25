@@ -2,6 +2,7 @@ package co.zw.nissangtr.bridges.location
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -39,5 +40,23 @@ class GpsModelsTest {
         )
         val ingest = toDeliveryLocationIngest("job", coord)
         assertNull(ingest.accuracyM)
+    }
+
+    @Test
+    fun pingBuffer_dropsOldestWhenFull() {
+        val buffer = GpsPingBuffer(capacity = 2)
+        buffer.offer(GpsCoordinate(1.0, 1.0, capturedAt = "a"))
+        buffer.offer(GpsCoordinate(2.0, 2.0, capturedAt = "b"))
+        buffer.offer(GpsCoordinate(3.0, 3.0, capturedAt = "c"))
+        val drained = buffer.drain()
+        assertEquals(2, drained.size)
+        assertEquals("b", drained[0].capturedAt)
+        assertEquals("c", drained[1].capturedAt)
+        assertTrue(buffer.size() == 0)
+    }
+
+    @Test
+    fun watchOptions_defaultIsAuto() {
+        assertEquals(GpsWatchCadence.AUTO, GpsWatchOptions().cadence)
     }
 }

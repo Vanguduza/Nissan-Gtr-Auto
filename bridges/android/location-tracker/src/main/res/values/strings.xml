@@ -4,4 +4,5 @@
     <string name="gtr_location_tracking_channel_desc">Shows while a delivery job is tracked in the background.</string>
     <string name="gtr_location_tracking_title">Delivery tracking active</string>
     <string name="gtr_location_tracking_body">Sharing location for the active delivery job.</string>
+    <string name="gtr_location_tracking_body_idle">Sharing location (low power while stopped).</string>
 </resources>
