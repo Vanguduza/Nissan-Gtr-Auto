@@ -15,6 +15,7 @@ import {
 } from "@/lib/customer-storefront";
 import {
   configuredMapStyleUrl,
+  fetchCustomerTrackPoint,
   type CustomerTrackPoint,
 } from "@/lib/customer-delivery-track";
 
@@ -205,39 +206,10 @@ export async function fetchStaffTrackPoint(
   client: SupabaseClient,
   deliveryJobId: string,
 ): Promise<StorefrontResult<CustomerTrackPoint | null>> {
-  const { data, error } = await client.rpc(
-    DELIVERY_RPC.getTrackPoint,
-    getDeliveryTrackPointArgs({ jobId: deliveryJobId }),
+  const { fetchCustomerTrackPoint } = await import(
+    "@/lib/customer-delivery-track"
   );
-  if (error) return { ok: false, error: error.message };
-  const rows = (data ?? []) as unknown[];
-  if (rows.length === 0) return { ok: true, data: null };
-  const first = rows[0];
-  if (!first || typeof first !== "object") {
-    return { ok: false, error: "Unexpected track point shape." };
-  }
-  const row = first as Record<string, unknown>;
-  if (
-    typeof row.delivery_job_id !== "string" ||
-    typeof row.lat !== "number" ||
-    typeof row.lng !== "number" ||
-    typeof row.recorded_at !== "string" ||
-    typeof row.status !== "string"
-  ) {
-    return { ok: false, error: "Unexpected track point shape." };
-  }
-  return {
-    ok: true,
-    data: {
-      delivery_job_id: row.delivery_job_id,
-      lat: row.lat,
-      lng: row.lng,
-      recorded_at: row.recorded_at,
-      eta_at: typeof row.eta_at === "string" ? row.eta_at : null,
-      eta_seconds: typeof row.eta_seconds === "number" ? row.eta_seconds : null,
-      status: row.status,
-    },
-  };
+  return fetchCustomerTrackPoint(client, { jobId: deliveryJobId });
 }
 
 export async function optimizeDriverStops(

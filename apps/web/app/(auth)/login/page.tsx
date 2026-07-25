@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createWebClient } from "@/lib/supabase";
+import { loadStaffContext, postLoginPath } from "@/lib/staff-auth";
 import styles from "./auth.module.css";
 
 function safeNext(raw: string | null): string | null {
@@ -33,13 +34,26 @@ function LoginForm() {
       return;
     }
     const { error } = await client.auth.signInWithPassword({ email, password });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       setMessage(error.message);
       return;
     }
-    setMessage("Signed in — redirecting…");
-    router.replace(next ?? "/account");
+
+    const ctx = await loadStaffContext(client);
+    setBusy(false);
+    if (!ctx.ok) {
+      setMessage(ctx.error);
+      return;
+    }
+
+    const dest = postLoginPath(Boolean(ctx.data?.isStaff), next);
+    setMessage(
+      ctx.data?.isStaff
+        ? "Signed in — opening staff…"
+        : "Signed in — redirecting…",
+    );
+    router.replace(dest);
   }
 
   return (
