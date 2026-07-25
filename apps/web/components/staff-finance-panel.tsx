@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  FormEvent,
+  Fragment,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import styles from "@/components/account.module.css";
 import { StaffModuleTabs, type StaffModuleTab } from "@/components/staff-module-tabs";
 import {
@@ -2247,9 +2253,11 @@ export function StaffFinancePanel() {
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Finance requisitions</legend>
           <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            Petty cash and payment requests: draft → submit → finance approve →
-            disburse (posts JE). Cannot skip approval. Procurement PO approval
-            is a separate epic — see{" "}
+            Petty cash and payment requests with expense line items: draft →
+            submit → finance approve → disburse (posts multi-line JE). Cannot
+            skip approval. Disbursement links <code>journal_entry_id</code>;{" "}
+            <code>payment_entry_id</code> stays reserved for a future AP payment
+            desk. Procurement PO approval is a separate epic — see{" "}
             <Link href="/procurement">procurement</Link> for PO submit only.
           </p>
           <form onSubmit={(e) => void onCreateRequisition(e)}>
@@ -2282,15 +2290,6 @@ export function StaffFinancePanel() {
                   <option value="ZIG">ZIG</option>
                 </select>
               </label>
-              <label className={styles.field}>
-                Amount ({reqCurrency})
-                <input
-                  value={reqAmount}
-                  onChange={(e) => setReqAmount(e.target.value)}
-                  disabled={busy}
-                  inputMode="decimal"
-                />
-              </label>
               {reqCurrency === "ZIG" ? (
                 <label className={styles.field}>
                   ZiG exchange rate
@@ -2302,20 +2301,6 @@ export function StaffFinancePanel() {
                   />
                 </label>
               ) : null}
-              <label className={styles.field}>
-                Expense account
-                <select
-                  value={reqExpenseAccount}
-                  onChange={(e) => setReqExpenseAccount(e.target.value)}
-                  disabled={busy}
-                >
-                  {boot.accounts.map((a) => (
-                    <option key={`req-exp-${a.code}`} value={a.code}>
-                      {a.code} — {a.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label className={styles.field}>
                 Payee
                 <input
@@ -2335,7 +2320,113 @@ export function StaffFinancePanel() {
                 />
               </label>
             </div>
+
+            <p className={styles.muted} style={{ margin: "0.75rem 0 0.35rem" }}>
+              Expense lines (total{" "}
+              {reqLines
+                .reduce((sum, l) => sum + (Number(l.amount) || 0), 0)
+                .toFixed(2)}{" "}
+              {reqCurrency})
+            </p>
+            {reqLines.map((line, idx) => (
+              <div
+                key={`req-line-${idx}`}
+                className={styles.formGrid}
+                style={{ marginBottom: "0.5rem" }}
+              >
+                <label className={styles.field}>
+                  Expense account
+                  <select
+                    value={line.expenseAccountCode}
+                    onChange={(e) => {
+                      const next = [...reqLines];
+                      const cur = next[idx];
+                      if (!cur) return;
+                      next[idx] = {
+                        ...cur,
+                        expenseAccountCode: e.target.value,
+                      };
+                      setReqLines(next);
+                    }}
+                    disabled={busy}
+                  >
+                    {boot.accounts.map((a) => (
+                      <option
+                        key={`req-exp-${idx}-${a.code}`}
+                        value={a.code}
+                      >
+                        {a.code} — {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Amount ({reqCurrency})
+                  <input
+                    value={line.amount}
+                    onChange={(e) => {
+                      const next = [...reqLines];
+                      const cur = next[idx];
+                      if (!cur) return;
+                      next[idx] = { ...cur, amount: e.target.value };
+                      setReqLines(next);
+                    }}
+                    disabled={busy}
+                    inputMode="decimal"
+                  />
+                </label>
+                <label className={styles.field}>
+                  Line description
+                  <input
+                    value={line.description}
+                    onChange={(e) => {
+                      const next = [...reqLines];
+                      const cur = next[idx];
+                      if (!cur) return;
+                      next[idx] = { ...cur, description: e.target.value };
+                      setReqLines(next);
+                    }}
+                    disabled={busy}
+                    placeholder="Optional"
+                  />
+                </label>
+                <div
+                  className={styles.formActions}
+                  style={{ alignItems: "end" }}
+                >
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy || reqLines.length <= 1}
+                    onClick={() =>
+                      setReqLines(reqLines.filter((_, i) => i !== idx))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
             <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() =>
+                  setReqLines([
+                    ...reqLines,
+                    {
+                      expenseAccountCode:
+                        reqLines[reqLines.length - 1]?.expenseAccountCode ||
+                        "5300",
+                      amount: "",
+                      description: "",
+                    },
+                  ])
+                }
+              >
+                Add line
+              </button>
               <button type="submit" className={styles.btnGhost} disabled={busy}>
                 Create draft
               </button>
