@@ -8,39 +8,67 @@ import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
 import co.zw.nissangtr.bridges.escpos.EscPosReceiptLine
 import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
+import co.zw.nissangtr.management.rpc.CatalogPartHit
+import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.CurrencyCode
+import co.zw.nissangtr.management.rpc.FakeRpcClient
 import co.zw.nissangtr.management.rpc.FulfillmentMode
+import co.zw.nissangtr.management.rpc.PosCartLineSummary
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
+import co.zw.nissangtr.management.rpc.WarehouseRef
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+enum class PosWorkspaceMode {
+    /** Full standalone till — search / catalog / cart / checkout (no pairing). */
+    Till,
+    /** Optional phone companion: claim pairing code → bridge scan into shared cart. */
+    Companion,
+}
+
 data class PosUiState(
+    val mode: PosWorkspaceMode = PosWorkspaceMode.Till,
+    val warehouses: List<WarehouseRef> = emptyList(),
     val warehouseId: String = "",
     val customerId: String = "",
     val currency: CurrencyCode = CurrencyCode.USD,
     val fulfillmentMode: FulfillmentMode = FulfillmentMode.IMMEDIATE,
     val cartId: String = "",
-    val stockItemId: String = "",
-    val uomId: String = "",
-    val qty: String = "1",
+    val cartLines: List<PosCartLineSummary> = emptyList(),
+    val searchMode: CatalogSearchMode = CatalogSearchMode.PART,
+    val searchQuery: String = "",
+    val searchHits: List<CatalogPartHit> = emptyList(),
+    val addQty: String = "1",
+    val receiptEmail: String = "",
+    val receiptWhatsapp: String = "",
+    val pairingCodeDisplay: String = "",
+    val scanSessionId: String = "",
+    val pairingExpiresAt: String = "",
+    val companionPairingInput: String = "",
+    val companionCartId: String = "",
+    val companionSessionId: String = "",
     val printerMac: String = "",
     val printerConnected: Boolean = false,
-    val lastLineId: String? = null,
     val lastInvoiceId: String? = null,
+    val lastBindMessage: String? = null,
     val lastQrPayload: String? = null,
+    val isSalesHome: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
 
 /**
- * POS scaffold: create cart → add line (typed or Bridge-First QR) → checkout.
- * Optional best-effort ESC/POS receipt when printer is paired/connected.
- * No HTML5 / browser QR.
+ * Standalone sales POS + optional Scan companion.
+ * Line add via search/catalog never requires [RpcNames.CREATE_POS_SCAN_SESSION].
+ * QR only through [QrScannerBridge] (Bridge-First).
  */
 class PosViewModel(
     private val rpc: RpcClient,
@@ -49,6 +77,26 @@ class PosViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(PosUiState())
     val state: StateFlow<PosUiState> = _state.asStateFlow()
+
+    private var cartPollJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            loadWarehouses()
+        }
+    }
+
+    fun setSalesHome(isSalesHome: Boolean) =
+        _state.update { it.copy(isSalesHome = isSalesHome) }
+
+    fun setMode(mode: PosWorkspaceMode) {
+        _state.update { it.copy(mode = mode, error = null, message = null) }
+        if (mode == PosWorkspaceMode.Till && _state.value.cartId.isNotBlank()) {
+            startCartPolling(_state.value.cartId)
+        } else if (mode == PosWorkspaceMode.Companion) {
+            cartPollJob?.cancel()
+        }
+    }
 
     fun onWarehouseIdChange(v: String) =
         _state.update { it.copy(warehouseId = v, error = null) }
@@ -62,25 +110,55 @@ class PosViewModel(
     fun onFulfillmentModeChange(v: FulfillmentMode) =
         _state.update { it.copy(fulfillmentMode = v) }
 
-    fun onCartIdChange(v: String) =
-        _state.update { it.copy(cartId = v, error = null) }
+    fun onSearchModeChange(v: CatalogSearchMode) =
+        _state.update { it.copy(searchMode = v) }
 
-    fun onStockItemIdChange(v: String) =
-        _state.update { it.copy(stockItemId = v, error = null) }
+    fun onSearchQueryChange(v: String) =
+        _state.update { it.copy(searchQuery = v) }
 
-    fun onUomIdChange(v: String) =
-        _state.update { it.copy(uomId = v, error = null) }
+    fun onAddQtyChange(v: String) =
+        _state.update { it.copy(addQty = v) }
 
-    fun onQtyChange(v: String) =
-        _state.update { it.copy(qty = v) }
+    fun onReceiptEmailChange(v: String) =
+        _state.update { it.copy(receiptEmail = v) }
+
+    fun onReceiptWhatsappChange(v: String) =
+        _state.update { it.copy(receiptWhatsapp = v) }
+
+    fun onCompanionPairingInputChange(v: String) =
+        _state.update { it.copy(companionPairingInput = v.filter { ch -> ch.isDigit() }.take(6)) }
 
     fun onPrinterMacChange(v: String) =
         _state.update { it.copy(printerMac = v) }
 
+    fun selectWarehouse(ref: WarehouseRef) =
+        _state.update { it.copy(warehouseId = ref.id, error = null) }
+
+    private suspend fun loadWarehouses() {
+        try {
+            val list = rpc.listWarehouses()
+            _state.update { s ->
+                s.copy(
+                    warehouses = list,
+                    warehouseId = s.warehouseId.ifBlank {
+                        list.firstOrNull()?.id ?: FakeRpcClient.FAKE_WAREHOUSE_ID
+                    },
+                )
+            }
+        } catch (e: Exception) {
+            _state.update {
+                it.copy(
+                    warehouseId = it.warehouseId.ifBlank { FakeRpcClient.FAKE_WAREHOUSE_ID },
+                    error = e.message ?: "warehouse list failed",
+                )
+            }
+        }
+    }
+
     fun createCart() {
         val warehouseId = _state.value.warehouseId.trim()
         if (warehouseId.isEmpty()) {
-            _state.update { it.copy(error = "Warehouse UUID required") }
+            _state.update { it.copy(error = "Warehouse required") }
             return
         }
         viewModelScope.launch {
@@ -96,9 +174,15 @@ class PosViewModel(
                     it.copy(
                         busy = false,
                         cartId = id,
-                        message = "${RpcNames.CREATE_POS_CART} (${it.currency.rpcValue}) → $id",
+                        cartLines = emptyList(),
+                        pairingCodeDisplay = "",
+                        scanSessionId = "",
+                        lastInvoiceId = null,
+                        lastBindMessage = null,
+                        message = "Open cart $id (no pairing required)",
                     )
                 }
+                startCartPolling(id)
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "create cart failed")
@@ -107,22 +191,42 @@ class PosViewModel(
         }
     }
 
-    fun addLine() {
+    fun searchCatalog() {
+        val q = _state.value.searchQuery.trim()
+        if (q.isEmpty()) {
+            _state.update { it.copy(error = "Enter a search query") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val result = rpc.searchCatalog(_state.value.searchMode, q)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        searchHits = result.parts,
+                        message = if (result.parts.isEmpty()) {
+                            "No catalog hits for “$q”"
+                        } else {
+                            "${result.parts.size} part(s) — tap Add to open cart"
+                        },
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "search failed")
+                }
+            }
+        }
+    }
+
+    /** Resolve OEM via stock_items → [RpcNames.ADD_CART_LINE] (standalone; no session). */
+    fun addPartFromCatalog(hit: CatalogPartHit) {
         val cartId = _state.value.cartId.trim()
-        val stockItemId = _state.value.stockItemId.trim()
-        val uomId = _state.value.uomId.trim()
-        val qty = _state.value.qty.trim().toDoubleOrNull()
+        val qty = _state.value.addQty.trim().toDoubleOrNull()
         when {
             cartId.isEmpty() -> {
-                _state.update { it.copy(error = "Cart UUID required") }
-                return
-            }
-            stockItemId.isEmpty() -> {
-                _state.update { it.copy(error = "Stock item UUID required (typed OEM path)") }
-                return
-            }
-            uomId.isEmpty() -> {
-                _state.update { it.copy(error = "UOM UUID required") }
+                _state.update { it.copy(error = "Create an open cart first") }
                 return
             }
             qty == null || qty <= 0 -> {
@@ -133,33 +237,158 @@ class PosViewModel(
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
+                val ref = rpc.lookupStockItemByOem(hit.oemPartNumber)
                 val lineId = rpc.addCartLine(
                     cartId = cartId,
-                    stockItemId = stockItemId,
-                    uomId = uomId,
+                    stockItemId = ref.stockItemId,
+                    uomId = ref.uomId,
                     qty = qty!!,
                 )
+                refreshCartLines(cartId)
                 _state.update {
                     it.copy(
                         busy = false,
-                        lastLineId = lineId,
-                        message = "${RpcNames.ADD_CART_LINE} → $lineId",
+                        message = "Added ${hit.oemPartNumber} → line $lineId",
                     )
                 }
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(busy = false, error = e.message ?: "add line failed")
+                    it.copy(
+                        busy = false,
+                        error = e.message
+                            ?: "Add failed — OEM may not be in stock_items",
+                    )
                 }
             }
         }
     }
 
-    /** CameraX scan → [RpcNames.ADD_CART_LINE_FROM_QR] with full raw payload. */
-    fun scanQrAddLine() {
+    fun refreshCart() {
         val cartId = _state.value.cartId.trim()
-        val qty = _state.value.qty.trim().toDoubleOrNull() ?: 1.0
+        if (cartId.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                refreshCartLines(cartId)
+                _state.update { it.copy(message = "Cart refreshed (${it.cartLines.size} lines)") }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "refresh failed") }
+            }
+        }
+    }
+
+    private suspend fun refreshCartLines(cartId: String) {
+        val lines = rpc.listPosCartLines(cartId)
+        _state.update { it.copy(cartLines = lines) }
+    }
+
+    private fun startCartPolling(cartId: String) {
+        cartPollJob?.cancel()
+        cartPollJob = viewModelScope.launch {
+            while (isActive) {
+                try {
+                    refreshCartLines(cartId)
+                } catch (_: Exception) {
+                    // poll soft-fail — companion Realtime not wired; poll is fallback
+                }
+                delay(CART_POLL_MS)
+            }
+        }
+    }
+
+    /** Optional: owner shows pairing code for phone companion. */
+    fun createPairingSession() {
+        val cartId = _state.value.cartId.trim()
         if (cartId.isEmpty()) {
-            _state.update { it.copy(error = "Cart UUID required before QR scan") }
+            _state.update { it.copy(error = "Open cart required before pairing") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val session = rpc.createPosScanSession(cartId)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        scanSessionId = session.sessionId,
+                        pairingCodeDisplay = session.pairingCode,
+                        pairingExpiresAt = session.expiresAt,
+                        message = "Pairing code ${session.pairingCode} — claim on phone companion",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "pairing create failed")
+                }
+            }
+        }
+    }
+
+    fun revokePairingSession() {
+        val sessionId = _state.value.scanSessionId.trim()
+        if (sessionId.isEmpty()) {
+            _state.update { it.copy(error = "No active pairing session") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                rpc.revokePosScanSession(sessionId)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        scanSessionId = "",
+                        pairingCodeDisplay = "",
+                        pairingExpiresAt = "",
+                        message = "Companion pairing revoked",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "revoke failed")
+                }
+            }
+        }
+    }
+
+    fun claimCompanionSession() {
+        val code = _state.value.companionPairingInput.trim()
+        if (!code.matches(Regex("^\\d{6}$"))) {
+            _state.update { it.copy(error = "Enter the 6-digit pairing code") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val sessionId = rpc.claimPosScanSession(code)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        companionSessionId = sessionId,
+                        // Claim returns session id; cart is known to owner — use till cart if same device demo
+                        companionCartId = it.cartId.ifBlank { it.companionCartId },
+                        message = "Session claimed — scan inventory QR via bridge",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "claim failed")
+                }
+            }
+        }
+    }
+
+    fun onCompanionCartIdChange(v: String) =
+        _state.update { it.copy(companionCartId = v, error = null) }
+
+    /** Bridge scan → [RpcNames.ADD_CART_LINE_FROM_QR] on claimed companion cart. */
+    fun companionScanAddLine() {
+        val cartId = _state.value.companionCartId.trim()
+            .ifBlank { _state.value.cartId.trim() }
+        val qty = _state.value.addQty.trim().toDoubleOrNull() ?: 1.0
+        if (cartId.isEmpty()) {
+            _state.update {
+                it.copy(error = "Cart UUID required (paste from till device)")
+            }
             return
         }
         if (qty <= 0) {
@@ -179,14 +408,48 @@ class PosViewModel(
                 _state.update {
                     it.copy(
                         busy = false,
-                        lastLineId = lineId,
+                        companionCartId = cartId,
                         lastQrPayload = scan.rawValue,
                         message = "${RpcNames.ADD_CART_LINE_FROM_QR} → $lineId",
                     )
                 }
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(busy = false, error = e.message ?: "QR add line failed")
+                    it.copy(busy = false, error = e.message ?: "companion scan failed")
+                }
+            }
+        }
+    }
+
+    /** Optional on-till Bridge QR (standalone staff — no session required). */
+    fun tillScanAddLine() {
+        val cartId = _state.value.cartId.trim()
+        val qty = _state.value.addQty.trim().toDoubleOrNull() ?: 1.0
+        if (cartId.isEmpty()) {
+            _state.update { it.copy(error = "Open cart before QR scan") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                ensureCamera()
+                val scan = qr.scanOnce()
+                val lineId = rpc.addCartLineFromQr(
+                    cartId = cartId,
+                    qrPayload = scan.rawValue,
+                    qty = qty,
+                )
+                refreshCartLines(cartId)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        lastQrPayload = scan.rawValue,
+                        message = "Scanned → line $lineId",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "QR add failed")
                 }
             }
         }
@@ -226,22 +489,33 @@ class PosViewModel(
     fun checkout() {
         val cartId = _state.value.cartId.trim()
         if (cartId.isEmpty()) {
-            _state.update { it.copy(error = "Cart UUID required") }
+            _state.update { it.copy(error = "Open cart required") }
+            return
+        }
+        if (_state.value.cartLines.isEmpty()) {
+            _state.update { it.copy(error = "Add at least one line before checkout") }
             return
         }
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
-                val invoiceId = rpc.checkoutPosCart(cartId)
-                var msg = "${RpcNames.CHECKOUT_POS_CART} → invoice $invoiceId"
-                // Best-effort receipt — never fails checkout if print fails.
+                val result = rpc.checkoutPosCart(
+                    cartId = cartId,
+                    receiptEmail = _state.value.receiptEmail.trim().ifBlank { null },
+                    receiptWhatsappE164 = _state.value.receiptWhatsapp.trim().ifBlank { null },
+                    receiptPhoneE164 = _state.value.receiptWhatsapp.trim().ifBlank { null },
+                )
+                cartPollJob?.cancel()
+                var msg = "${RpcNames.CHECKOUT_POS_CART} → ${result.invoiceId}"
+                msg += " · ${result.bindMessage}"
                 if (printer.isConnected()) {
                     try {
                         printer.printReceiptLines(
                             listOf(
                                 EscPosReceiptLine("GTR Auto POS", emphasis = true),
-                                EscPosReceiptLine("Invoice: $invoiceId"),
+                                EscPosReceiptLine("Invoice: ${result.invoiceId}"),
                                 EscPosReceiptLine("Currency: ${_state.value.currency.rpcValue}"),
+                                EscPosReceiptLine(result.bindMessage),
                                 EscPosReceiptLine("Thank you"),
                             ),
                         )
@@ -253,7 +527,12 @@ class PosViewModel(
                 _state.update {
                     it.copy(
                         busy = false,
-                        lastInvoiceId = invoiceId,
+                        cartId = "",
+                        cartLines = emptyList(),
+                        pairingCodeDisplay = "",
+                        scanSessionId = "",
+                        lastInvoiceId = result.invoiceId,
+                        lastBindMessage = result.bindMessage,
                         message = msg,
                     )
                 }
@@ -285,7 +564,14 @@ class PosViewModel(
         }
     }
 
+    override fun onCleared() {
+        cartPollJob?.cancel()
+        super.onCleared()
+    }
+
     companion object {
+        private const val CART_POLL_MS = 4_000L
+
         fun factory(
             rpc: RpcClient,
             qr: QrScannerBridge,
