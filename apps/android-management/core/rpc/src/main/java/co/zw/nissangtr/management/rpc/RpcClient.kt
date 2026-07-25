@@ -127,6 +127,19 @@ interface RpcClient {
         notes: String? = null,
     ): String
 
+    /**
+     * Set pickup/dropoff coords so suggest ranking + ETA work.
+     * Fake: in-memory. Live: requires backend `set_delivery_job_geo` (not shipped yet) —
+     * [SupabaseRpcClient] fails closed with a clear error until that RPC exists.
+     */
+    suspend fun setDeliveryJobCoords(
+        deliveryJobId: String,
+        pickupLat: Double?,
+        pickupLng: Double?,
+        dropoffLat: Double?,
+        dropoffLng: Double?,
+    )
+
     /** Staff/dispatcher: pending → dispatched | completed | failed. */
     suspend fun updateDeliveryJobStatus(
         deliveryJobId: String,
@@ -168,6 +181,24 @@ interface RpcClient {
 
     /** Staff live last-point + ETA for an active dispatched job (not a GPS producer). */
     suspend fun getDeliveryTrackPoint(deliveryJobId: String): DeliveryTrackPoint?
+
+    /**
+     * Share-token plaintext (hex). Show once to dispatcher after Mark dispatched.
+     * Re-mint revokes prior active tokens for the job.
+     */
+    suspend fun mintDeliveryTrackToken(
+        deliveryJobId: String,
+        ttl: String? = null,
+    ): String
+
+    /**
+     * POD OTP plaintext (6 digits). Dispatcher may read to customer;
+     * hash-only in DB. Job must be dispatched.
+     */
+    suspend fun generateDeliveryPodOtp(
+        deliveryJobId: String,
+        ttl: String? = null,
+    ): String
 
     /** Open panic rows (`acknowledged_at` IS NULL). Poll — Realtime not wired yet. */
     suspend fun listOpenPanicEvents(): List<PanicEventSummary>
