@@ -83,6 +83,10 @@ verify_jwt = true
 [functions.process-ai-reports]
 verify_jwt = true
 
+# Optional chat notify worker (x-worker-secret); stub delivery by default
+[functions.chat-notify-on-message]
+verify_jwt = true
+
 # Public company-domain receipt links (Next.js proxies with anon JWT).
 # AuthZ = download_token lookup; service_role stays inside the function.
 [functions.receipt-download]
