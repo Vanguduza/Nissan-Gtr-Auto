@@ -19,6 +19,10 @@
   .shell {
     grid-template-columns: 1fr;
   }
+
+  .nav {
+    position: static;
+  }
 }
 
 .nav {

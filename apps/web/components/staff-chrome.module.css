@@ -115,6 +115,11 @@
 
 .main {
   flex: 1;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--gtr-mist) 45%, var(--gtr-chalk)) 0%,
+    var(--gtr-chalk) 12rem
+  );
 }
 
 @media (max-width: 520px) {
