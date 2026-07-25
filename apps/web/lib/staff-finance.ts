@@ -159,14 +159,18 @@ export type ArAgingSnapshot = {
   invoice_aging_buckets: ArAgingBucket[];
 };
 
-/** Client-side CSV download (no fiscal QR). */
+/** Client-side CSV download (no fiscal QR). Neutralizes spreadsheet formula injection. */
 export function downloadCsv(
   filename: string,
   headers: string[],
   rows: (string | number)[][],
 ): void {
   const esc = (v: string | number) => {
-    const s = String(v);
+    let s = String(v);
+    // Prevent Excel/Sheets treating cells as formulas (=, +, -, @, tab/CR).
+    if (/^[=+\-@\t\r]/.test(s)) {
+      s = `'${s}`;
+    }
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const body = [
