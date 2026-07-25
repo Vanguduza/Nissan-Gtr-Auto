@@ -1429,6 +1429,7 @@ export function StaffFinancePanel() {
                 <option value="pnl">Profit &amp; loss</option>
                 <option value="bs">Balance sheet</option>
                 <option value="cf">Cash flow</option>
+                <option value="tb">Trial balance</option>
               </select>
             </label>
             <label className={styles.field}>
@@ -1450,11 +1451,11 @@ export function StaffFinancePanel() {
                 type="date"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                disabled={busy || reportKind === "bs"}
+                disabled={busy || reportKind === "bs" || reportKind === "tb"}
               />
             </label>
             <label className={styles.field}>
-              {reportKind === "bs" ? "As of" : "To"}
+              {reportKind === "bs" || reportKind === "tb" ? "As of" : "To"}
               <input
                 type="date"
                 value={to}
@@ -1463,9 +1464,24 @@ export function StaffFinancePanel() {
               />
             </label>
           </div>
+          {reportCurrency === "ZIG" ? (
+            <p className={styles.muted} style={{ marginTop: "0.5rem" }}>
+              Report filter currency is ZIG. USD-equivalent columns use each
+              entry&apos;s stored exchange rate (default env{" "}
+              {zigExchangeRate()}).
+            </p>
+          ) : null}
           <div className={styles.formActions}>
             <button type="submit" className={styles.btnGhost} disabled={busy}>
               Run report
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy}
+              onClick={onExportCsv}
+            >
+              Download CSV
             </button>
           </div>
         </form>
@@ -1536,6 +1552,35 @@ export function StaffFinancePanel() {
                     <td>{r.section}</td>
                     <td>{r.label}</td>
                     <td align="right">{Number(r.amount_usd).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {tbRows.length ? (
+          <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+            <table style={{ width: "100%", fontSize: "0.88rem" }}>
+              <thead>
+                <tr>
+                  <th align="left">Account</th>
+                  <th align="right">Debit ({reportCurrency})</th>
+                  <th align="right">Credit ({reportCurrency})</th>
+                  <th align="right">Debit USD</th>
+                  <th align="right">Credit USD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tbRows.map((r) => (
+                  <tr key={`${r.account_code}-tb`}>
+                    <td>
+                      {r.account_code} {r.account_name}
+                    </td>
+                    <td align="right">{Number(r.debit).toFixed(2)}</td>
+                    <td align="right">{Number(r.credit).toFixed(2)}</td>
+                    <td align="right">{Number(r.debit_usd).toFixed(2)}</td>
+                    <td align="right">{Number(r.credit_usd).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
