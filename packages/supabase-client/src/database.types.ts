@@ -7022,6 +7022,10 @@ export type Database = {
           stock_item_id: string
         }[]
       }
+      get_zig_exchange_rate: {
+        Args: { p_as_of?: string }
+        Returns: number
+      }
       has_staff_role: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
