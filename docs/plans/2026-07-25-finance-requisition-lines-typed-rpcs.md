@@ -1,6 +1,6 @@
 # Finance — requisition lines + typed RPCs (Phase D)
 
-- Status: **in progress**
+- Status: **done** (MVP implemented; security/RLS/verifier recommended next)
 - Prior: [`2026-07-25-finance-requisitions-period-balances.md`](./2026-07-25-finance-requisitions-period-balances.md) (Phases A–C **done**)
 - Lane(s): `@backend_agent` → `@web_agent`
 - Skills: `/accounting-ledger`, `/token-discipline`
@@ -22,12 +22,12 @@ Make `/staff/finance` requisitions feel professional: multi-line expense splits,
 
 ## Acceptance criteria
 
-- [ ] Draft requisitions support 1+ lines via `set_finance_requisition_lines`; create seeds one line from header args
-- [ ] Submit refuses empty lines / amount mismatch; disburse posts multi-line balanced JE
-- [ ] RLS on lines (same visibility as parent); mutation via RPC guard only
-- [ ] `staff-finance.ts` uses typed `client.rpc` / `.from` — no `financeRpc` / `financeFrom`
-- [ ] Staff UI: add/remove lines on create; list shows line count + JE link after disburse
-- [ ] Smoke SQL covers multi-line disburse; no ZIMRA / payroll tax; journals append-only
+- [x] Draft requisitions support 1+ lines via `set_finance_requisition_lines`; create seeds one line from header args
+- [x] Submit refuses empty lines / amount mismatch; disburse posts multi-line balanced JE
+- [x] RLS on lines (same visibility as parent); mutation via RPC guard only
+- [x] `staff-finance.ts` uses typed `client.rpc` / `.from` — no `financeRpc` / `financeFrom`
+- [x] Staff UI: add/remove lines on create; list shows line count + JE link after disburse
+- [x] Smoke SQL covers multi-line disburse; no ZIMRA / payroll tax; journals append-only
 
 ## Paths
 
