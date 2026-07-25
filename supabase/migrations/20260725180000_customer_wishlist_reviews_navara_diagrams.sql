@@ -150,7 +150,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public._resolve_wishlist_stock_item(UUID, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._resolve_customer_stock_item(UUID, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.add_customer_wishlist_item(UUID, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.remove_customer_wishlist_item(UUID, TEXT, UUID) FROM PUBLIC;
 
@@ -259,7 +259,7 @@ BEGIN
     RAISE EXCEPTION 'rating must be 1..5';
   END IF;
 
-  v_item := public._resolve_wishlist_stock_item(p_stock_item_id, p_oem_part_number);
+  v_item := public._resolve_customer_stock_item(p_stock_item_id, p_oem_part_number);
 
   INSERT INTO public.customer_product_reviews (
     customer_id, stock_item_id, rating, body, status
