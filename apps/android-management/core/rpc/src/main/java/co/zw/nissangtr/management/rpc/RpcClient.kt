@@ -128,9 +128,9 @@ interface RpcClient {
     ): String
 
     /**
-     * Set pickup/dropoff coords so suggest ranking + ETA work.
-     * Fake: in-memory. Live: requires backend `set_delivery_job_geo` (not shipped yet) —
-     * [SupabaseRpcClient] fails closed with a clear error until that RPC exists.
+     * Set pickup/dropoff coords so suggest ranking + ETA work
+     * ([RpcNames.SET_DELIVERY_JOB_GEO]). Lat/lng pairs must both be set or both null
+     * (null pair clears that endpoint). Returns job id.
      */
     suspend fun setDeliveryJobCoords(
         deliveryJobId: String,
@@ -138,13 +138,17 @@ interface RpcClient {
         pickupLng: Double?,
         dropoffLat: Double?,
         dropoffLng: Double?,
-    )
+    ): String
 
-    /** Staff/dispatcher: pending → dispatched | completed | failed. */
+    /**
+     * Staff/dispatcher: pending → dispatched | completed | failed.
+     * On dispatched, [UpdateDeliveryJobStatusResult.trackToken] holds the share
+     * plaintext (single mint). Remint only via [mintDeliveryTrackToken] to rotate.
+     */
     suspend fun updateDeliveryJobStatus(
         deliveryJobId: String,
         status: DeliveryJobStatus,
-    ): String
+    ): UpdateDeliveryJobStatusResult
 
     /**
      * GPS trail ingest — **apps/android-delivery is the sole producer**.
