@@ -525,6 +525,329 @@ public final class FakeStorefrontApi: StorefrontApi {
         return point
     }
 
+    // MARK: Wishlist (Fake)
+
+    public func listWishlist() async throws -> [WishlistItem] {
+        wishlist.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
+    }
+
+    public func addWishlistItem(stockItemId: UUID?, oem: String?) async throws -> UUID {
+        let resolvedOem = oem?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard stockItemId != nil || (resolvedOem?.isEmpty == false) else {
+            throw StorefrontError.message("stock_item_id or oem_part_number required")
+        }
+        if let stockItemId, let existing = wishlist.first(where: { $0.stockItemId == stockItemId }) {
+            return existing.id
+        }
+        if let resolvedOem, let existing = wishlist.first(where: {
+            $0.oemPartNumber.caseInsensitiveCompare(resolvedOem) == .orderedSame
+        }) {
+            return existing.id
+        }
+        let id = UUID()
+        let itemId = stockItemId ?? UUID()
+        wishlist.insert(
+            WishlistItem(
+                id: id,
+                stockItemId: itemId,
+                oemPartNumber: (resolvedOem?.isEmpty == false) ? resolvedOem! : "OEM-\(itemId.uuidString.prefix(8))",
+                description: "Demo wishlist part",
+                notifyWhenInStock: false,
+                createdAt: Date()
+            ),
+            at: 0
+        )
+        return id
+    }
+
+    public func removeWishlistItem(wishlistId: UUID?, stockItemId: UUID?, oem: String?) async throws {
+        if let wishlistId {
+            let before = wishlist.count
+            wishlist.removeAll { $0.id == wishlistId }
+            if wishlist.count == before {
+                throw StorefrontError.message("wishlist item not found")
+            }
+            return
+        }
+        if let stockItemId {
+            let before = wishlist.count
+            wishlist.removeAll { $0.stockItemId == stockItemId }
+            if wishlist.count == before {
+                throw StorefrontError.message("wishlist item not found")
+            }
+            return
+        }
+        if let oem {
+            let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+            let before = wishlist.count
+            wishlist.removeAll { $0.oemPartNumber.caseInsensitiveCompare(needle) == .orderedSame }
+            if wishlist.count == before {
+                throw StorefrontError.message("wishlist item not found")
+            }
+            return
+        }
+        throw StorefrontError.message("wishlist id, stock item, or OEM required")
+    }
+
+    public func setWishlistNotifyWhenInStock(
+        notify: Bool,
+        wishlistId: UUID?,
+        stockItemId: UUID?,
+        oem: String?
+    ) async throws -> UUID {
+        if let wishlistId, let idx = wishlist.firstIndex(where: { $0.id == wishlistId }) {
+            wishlist[idx].notifyWhenInStock = notify
+            return wishlist[idx].id
+        }
+        if let stockItemId, let idx = wishlist.firstIndex(where: { $0.stockItemId == stockItemId }) {
+            wishlist[idx].notifyWhenInStock = notify
+            return wishlist[idx].id
+        }
+        if let oem {
+            let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let idx = wishlist.firstIndex(where: {
+                $0.oemPartNumber.caseInsensitiveCompare(needle) == .orderedSame
+            }) {
+                wishlist[idx].notifyWhenInStock = notify
+                return wishlist[idx].id
+            }
+        }
+        throw StorefrontError.message("wishlist item not found")
+    }
+
+    public func wishlistMoveToCart(
+        wishlistId: UUID?,
+        stockItemId: UUID?,
+        oem: String?,
+        qty: Decimal,
+        removeFromWishlist: Bool
+    ) async throws -> UUID {
+        guard qty > 0 else { throw StorefrontError.message("qty must be > 0") }
+        let item: WishlistItem
+        if let wishlistId, let found = wishlist.first(where: { $0.id == wishlistId }) {
+            item = found
+        } else if let stockItemId, let found = wishlist.first(where: { $0.stockItemId == stockItemId }) {
+            item = found
+        } else if let oem {
+            let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let found = wishlist.first(where: {
+                $0.oemPartNumber.caseInsensitiveCompare(needle) == .orderedSame
+            }) else {
+                throw StorefrontError.message("wishlist item not found")
+            }
+            item = found
+        } else {
+            throw StorefrontError.message("wishlist item not found")
+        }
+
+        let cartId: UUID
+        if let open = cart {
+            cartId = open.id
+        } else {
+            cartId = try await createCart(
+                warehouseId: UUID(uuidString: "00000000-0000-4000-8000-000000000001")!,
+                currency: .USD,
+                fulfillmentMode: .immediate,
+                exchangeRate: 1
+            )
+        }
+        let lineId = try await addCartLine(
+            cartId: cartId,
+            stockItemId: item.stockItemId,
+            uomId: UUID(),
+            qty: qty
+        )
+        if removeFromWishlist {
+            wishlist.removeAll { $0.id == item.id }
+        }
+        return lineId
+    }
+
+    // MARK: Compare (Fake)
+
+    public func listCompareItems() async throws -> [CompareItem] {
+        compare.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
+    }
+
+    public func addCompareItem(stockItemId: UUID?, oem: String?) async throws -> UUID {
+        let resolvedOem = oem?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard stockItemId != nil || (resolvedOem?.isEmpty == false) else {
+            throw StorefrontError.message("stock_item_id or oem_part_number required")
+        }
+        if let stockItemId, let existing = compare.first(where: { $0.stockItemId == stockItemId }) {
+            return existing.id
+        }
+        if let resolvedOem, let existing = compare.first(where: {
+            $0.oemPartNumber.caseInsensitiveCompare(resolvedOem) == .orderedSame
+        }) {
+            return existing.id
+        }
+        guard compare.count < maxCompareItems else {
+            throw StorefrontError.message("compare list is full (max \(maxCompareItems) items)")
+        }
+        let id = UUID()
+        let itemId = stockItemId ?? UUID()
+        compare.insert(
+            CompareItem(
+                id: id,
+                stockItemId: itemId,
+                oemPartNumber: (resolvedOem?.isEmpty == false) ? resolvedOem! : "OEM-\(itemId.uuidString.prefix(8))",
+                description: "Demo compare part",
+                createdAt: Date()
+            ),
+            at: 0
+        )
+        return id
+    }
+
+    public func removeCompareItem(compareId: UUID?, stockItemId: UUID?, oem: String?) async throws {
+        if let compareId {
+            let before = compare.count
+            compare.removeAll { $0.id == compareId }
+            if compare.count == before {
+                throw StorefrontError.message("compare item not found")
+            }
+            return
+        }
+        if let stockItemId {
+            let before = compare.count
+            compare.removeAll { $0.stockItemId == stockItemId }
+            if compare.count == before {
+                throw StorefrontError.message("compare item not found")
+            }
+            return
+        }
+        if let oem {
+            let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+            let before = compare.count
+            compare.removeAll { $0.oemPartNumber.caseInsensitiveCompare(needle) == .orderedSame }
+            if compare.count == before {
+                throw StorefrontError.message("compare item not found")
+            }
+            return
+        }
+        throw StorefrontError.message("compare id, stock item, or OEM required")
+    }
+
+    // MARK: Reviews (Fake)
+
+    public func listOwnReviews() async throws -> [ProductReview] {
+        reviews.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
+    }
+
+    public func listApprovedReviews(oem: String) async throws -> [ProductReview] {
+        let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return [] }
+        return reviews.filter {
+            $0.status == .approved
+                && ($0.oemPartNumber?.caseInsensitiveCompare(needle) == .orderedSame)
+        }
+    }
+
+    public func getProductReviewStats(stockItemId: UUID?, oem: String?) async throws -> ProductReviewStats? {
+        let approved: [ProductReview]
+        if let stockItemId {
+            approved = reviews.filter { $0.stockItemId == stockItemId && $0.status == .approved }
+        } else if let oem {
+            let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+            approved = reviews.filter {
+                $0.status == .approved
+                    && ($0.oemPartNumber?.caseInsensitiveCompare(needle) == .orderedSame)
+            }
+        } else {
+            throw StorefrontError.message("stock_item_id or oem_part_number required")
+        }
+        guard let first = approved.first ?? reviews.first(where: { item in
+            if let stockItemId { return item.stockItemId == stockItemId }
+            if let oem {
+                return item.oemPartNumber?.caseInsensitiveCompare(
+                    oem.trimmingCharacters(in: .whitespacesAndNewlines)
+                ) == .orderedSame
+            }
+            return false
+        }) else {
+            return ProductReviewStats(stockItemId: stockItemId ?? UUID(), avgRating: 0, reviewCount: 0)
+        }
+        let count = approved.count
+        let avg: Decimal
+        if count == 0 {
+            avg = 0
+        } else {
+            let sum = approved.reduce(0) { $0 + $1.rating }
+            avg = Decimal(sum) / Decimal(count)
+        }
+        return ProductReviewStats(stockItemId: first.stockItemId, avgRating: avg, reviewCount: count)
+    }
+
+    public func submitProductReview(
+        rating: Int,
+        body: String,
+        stockItemId: UUID?,
+        oem: String?
+    ) async throws -> UUID {
+        guard (1 ... 5).contains(rating) else {
+            throw StorefrontError.message("rating must be 1..5")
+        }
+        let resolvedOem = oem?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard stockItemId != nil || (resolvedOem?.isEmpty == false) else {
+            throw StorefrontError.message("stock_item_id or oem_part_number required")
+        }
+        if let idx = reviews.firstIndex(where: { r in
+            if let stockItemId { return r.stockItemId == stockItemId }
+            if let resolvedOem {
+                return r.oemPartNumber?.caseInsensitiveCompare(resolvedOem) == .orderedSame
+            }
+            return false
+        }) {
+            guard reviews[idx].status != .approved else {
+                throw StorefrontError.message("cannot replace an approved review; contact support")
+            }
+            reviews[idx].rating = rating
+            reviews[idx].body = body
+            reviews[idx].status = .pending
+            reviews[idx].createdAt = Date()
+            return reviews[idx].id
+        }
+        let id = UUID()
+        let itemId = stockItemId ?? UUID()
+        reviews.insert(
+            ProductReview(
+                id: id,
+                stockItemId: itemId,
+                oemPartNumber: (resolvedOem?.isEmpty == false) ? resolvedOem : "OEM-\(itemId.uuidString.prefix(8))",
+                description: "Demo review part",
+                rating: rating,
+                body: body,
+                status: .pending,
+                createdAt: Date()
+            ),
+            at: 0
+        )
+        return id
+    }
+
+    public func uploadReviewPhoto(
+        reviewId: UUID,
+        photo: ReviewPhotoUpload,
+        sortOrder _: Int
+    ) async throws -> UUID {
+        guard let review = reviews.first(where: { $0.id == reviewId }) else {
+            throw StorefrontError.message("pending review not found for customer")
+        }
+        guard review.status == .pending else {
+            throw StorefrontError.message("pending review not found for customer")
+        }
+        guard !photo.data.isEmpty else {
+            throw StorefrontError.message("photo data required")
+        }
+        let count = reviewPhotoCounts[reviewId] ?? 0
+        guard count < 5 else {
+            throw StorefrontError.message("max 5 photos per review")
+        }
+        reviewPhotoCounts[reviewId] = count + 1
+        return UUID()
+    }
+
     private func stubIntent(invoiceId: UUID, rail: PaymentRail) throws -> PaymentIntentResult {
         guard orders.contains(where: { $0.invoiceId == invoiceId }) else {
             throw StorefrontError.message("Order not found.")
