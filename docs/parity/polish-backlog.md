@@ -6,7 +6,7 @@ Larger UI / mobile / bridge follow-ons already scheduled outside polish:
 
 | Follow-on | Lane | Notes |
 |-----------|------|-------|
-| RFQ / blanket supplier web UI | `@web_agent` | Phase 8b RFQ/quote portal Done (`/procurement`, `/supplier`); blanket remaining UI still open |
+| RFQ / blanket supplier web UI | `@web_agent` | **Done** — RFQ/quote + `/procurement/blankets` (audit follow-ons 2026-07-25) |
 | HR / payroll management screens | `@management_app_agent` | Phase 9 backend Done |
 | Pick-pack / DN / GPS UI + native bridges | `@management_app_agent`, `@hardware_mobile_agent` | Phase 10 backend Done; bridges Phase 12 |
 | Payment / receipt UX + live PSP keys | `@web_agent`, `@backend_agent` | Phase 13 backend Done; secrets ops in `docs/HARDENING.md` |
