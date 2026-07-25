@@ -90,22 +90,6 @@ const accountPeriodBalances = `      account_period_balances: {
       }
 `;
 
-s = insertAfter(
-  s,
-  `        Relationships: []
-      }
-      ai_report_deliveries:`,
-  "\n" + accountPeriodBalances.trimEnd() + "\n",
-);
-// Fix: insertAfter put content after the needle which includes ai_report - wrong.
-// Redo with insertBefore on ai_report_deliveries after accounting_periods block.
-
-s = fs.readFileSync(path, "utf8"); // reset — we'll do carefully below
-if (s.includes("account_period_balances:")) {
-  console.log("already patched");
-  process.exit(0);
-}
-
 s = insertBefore(s, "      ai_report_deliveries: {", accountPeriodBalances);
 
 const financeTables = `      finance_requisition_lines: {
