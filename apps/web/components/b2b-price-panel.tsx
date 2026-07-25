@@ -109,6 +109,13 @@ export function B2bPricePanel() {
   }
 
   const list = status.priceList;
+  const remaining =
+    status.creditLimit > 0
+      ? Math.max(0, status.creditLimit - status.openBalance)
+      : null;
+  const overLimit =
+    status.creditLimit > 0 && status.openBalance > status.creditLimit;
+
   return (
     <div>
       <dl className={local.meta}>
@@ -141,7 +148,38 @@ export function B2bPricePanel() {
             )}
           </dd>
         </div>
+        <div>
+          <dt>Credit</dt>
+          <dd>
+            {status.creditHold ? (
+              <span role="status">On hold — checkout posts invoices on hold</span>
+            ) : status.creditLimit > 0 ? (
+              <>
+                Limit {formatMoney(status.creditLimit, status.accountCurrency)}
+                {" · open "}
+                {formatMoney(status.openBalance, status.accountCurrency)}
+                {remaining != null
+                  ? ` · available ${formatMoney(remaining, status.accountCurrency)}`
+                  : ""}
+                {overLimit ? " · over limit" : ""}
+              </>
+            ) : (
+              <>
+                No credit limit set · open balance{" "}
+                {formatMoney(status.openBalance, status.accountCurrency)}
+              </>
+            )}
+          </dd>
+        </div>
       </dl>
+
+      {status.creditHold || overLimit ? (
+        <p className={styles.lede} style={{ marginTop: "1rem" }} role="status">
+          {status.creditHold
+            ? "This account is on credit hold. Storefront checkout still creates an invoice, but it stays on_hold until sales clears the hold."
+            : "Open balance exceeds the credit limit. Checkout will post the order on_hold until the balance is brought under limit."}
+        </p>
+      ) : null}
 
       {!status.isTrade ? (
         <p className={styles.lede} style={{ marginTop: "1.25rem" }}>

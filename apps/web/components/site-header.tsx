@@ -22,6 +22,7 @@ import {
   Zap,
   type LucideIcon,
 } from "@/components/icons";
+import { SiteMenu } from "@/components/site-menu";
 import styles from "./site-header.module.css";
 
 const categories: {
@@ -80,6 +81,7 @@ export function SiteHeader() {
           </Link>
 
           <nav className={styles.actions} aria-label="Account">
+            <SiteMenu />
             <Link href="/account" className={styles.action}>
               <ActionIcon Icon={UserRound} label="Account" />
             </Link>
