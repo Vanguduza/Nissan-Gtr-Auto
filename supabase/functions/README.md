@@ -81,7 +81,7 @@ Shared client: `_shared/email_send.ts`. PDF builder: `_shared/receipt_pdf.ts` (p
 
 ## WhatsApp Cloud (`_shared/whatsapp_cloud.ts`)
 
-Outbound Cloud API only (receipts now; Batch 3 parts-finder bot will reuse). **Not** a browser QR / WebView bridge.
+Outbound Cloud API client shared by **receipt delivery** (`process-customer-receipts`) and the **parts-finder bot** (`whatsapp-webhook`). Do not mix receipt PDF sends into bot dialog turns. **Not** a browser QR / WebView bridge.
 
 | Env | Notes |
 |-----|--------|
@@ -90,6 +90,37 @@ Outbound Cloud API only (receipts now; Batch 3 parts-finder bot will reuse). **N
 | `WHATSAPP_API_VERSION` | Optional; default `v21.0` |
 
 Exports: `sendWhatsAppText`, `sendWhatsAppDocument` (link or media id), `uploadWhatsAppMediaPdf`.
+
+## WhatsApp parts-finder bot (`whatsapp-webhook`)
+
+Meta Cloud API → verify + signed inbound → `search_catalog` via **service_role** → top hits + PDP deep-links → optional human handoff.
+
+`verify_jwt = false` (Meta cannot send JWT). AuthZ = `X-Hub-Signature-256` with `WHATSAPP_APP_SECRET` (fail closed if secret unset, unless `WHATSAPP_ALLOW_UNVERIFIED_LOCAL=1` for local stub only).
+
+| Env | Notes |
+|-----|--------|
+| `WHATSAPP_VERIFY_TOKEN` | GET `hub.verify_token` challenge |
+| `WHATSAPP_APP_SECRET` | HMAC-SHA256 body → `X-Hub-Signature-256` |
+| `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Outbound text via shared client |
+| `WHATSAPP_HANDOFF_NUMBER` | Counter/sales MSISDN for keyword / empty-results handoff |
+| `SITE_URL` | Origin for PDP links (default `https://nissangtrauto.co.zw`) |
+| `WHATSAPP_ALLOW_UNVERIFIED_LOCAL` | `1` only when app secret unset (local) |
+| `WHATSAPP_BOT_RATE_LIMIT_MAX` | Default `20` per window |
+| `WHATSAPP_BOT_RATE_LIMIT_WINDOW_SEC` | Default `60` |
+
+**Modes:** `part` \| `vin` \| `model` \| `pnc` (e.g. `part 16546-EA00A`). Bare text defaults to `part`. Keywords `agent` / `human` / `help` → handoff. Empty inbound → UX help text.
+
+**PDP deep-link:** `{SITE_URL}/parts/{encodeURIComponent(oem)}` (matches `apps/web` storefront).
+
+**Rate limit:** table `whatsapp_bot_rate_limits` + RPC `check_whatsapp_bot_rate_limit` (service_role only; RLS deny-by-default). Does **not** `GRANT EXECUTE` on `search_catalog` to `anon`.
+
+**Smoke:**
+
+```bash
+deno test --allow-env supabase/functions/whatsapp-webhook/smoke_test.ts
+# After migration applied (as elevated role / service_role session):
+psql "$DATABASE_URL" -f supabase/tests/whatsapp_bot_rate_limit_smoke.sql
+```
 
 ## ContiPay / Paynow (`*-initiate`, `*-webhook`)
 
