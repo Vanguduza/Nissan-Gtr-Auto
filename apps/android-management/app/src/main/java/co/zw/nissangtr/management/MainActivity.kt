@@ -218,15 +218,8 @@ private fun ManagementApp(
             qr = qr,
             printer = printer,
             isSalesHome = salesHome,
-            onOpenHub = if (salesHome) {
-                { route = ManagementRoute.Home }
-            } else {
-                null
-            },
-            onBack = {
-                if (salesHome) onSignOut()
-                else route = ManagementRoute.Home
-            },
+            onOpenHub = { route = ManagementRoute.Home },
+            onBack = { route = ManagementRoute.Home },
         )
         ManagementRoute.Warehouse -> WarehouseScreen(
             rpc = rpc,
