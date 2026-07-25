@@ -14,16 +14,22 @@ function safeNext(raw: string | null): string | null {
   return raw;
 }
 
+type LoginMethod = "email" | "phone";
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
 
+  const [method, setMethod] = useState<LoginMethod>("email");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const canSubmit =
+    method === "email" ? Boolean(email.trim()) : Boolean(phone.trim());
 
   async function finishStaffRedirect(
     client: NonNullable<ReturnType<typeof createWebClient>>,
@@ -56,9 +62,10 @@ function LoginForm() {
       setBusy(false);
       return;
     }
+    // Tab chooses a single identifier — password auth only (no OTP on login).
     const loggedIn = await signInWithEmailOrPhone(client, {
-      email: email || null,
-      phoneE164: phone || null,
+      email: method === "email" ? email || null : null,
+      phoneE164: method === "phone" ? phone || null : null,
       password,
     });
     if (!loggedIn.ok) {
@@ -79,32 +86,81 @@ function LoginForm() {
         </p>
       ) : null}
       <p className={styles.alt}>
-        Use the email or phone saved at registration, plus your password. OTP is
-        only for signup and confirming contacts — not for returning logins.
+        Sign in with the email or phone saved at registration, plus your
+        password. OTP is only for signup and confirming contacts — not for
+        returning logins.
       </p>
 
-      <form onSubmit={(e) => void onSubmit(e)}>
-        <label className={styles.label}>
+      <div className={styles.tabs} role="tablist" aria-label="Sign in with">
+        <button
+          type="button"
+          role="tab"
+          id="login-tab-email"
+          aria-selected={method === "email"}
+          aria-controls="login-panel-email"
+          className={method === "email" ? styles.tabActive : styles.tab}
+          onClick={() => {
+            setMethod("email");
+            setMessage(null);
+          }}
+        >
           Email
-          <input
-            className={styles.input}
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        <label className={styles.label}>
-          Phone (E.164) — optional if email is set
-          <input
-            className={styles.input}
-            type="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+263…"
-          />
-        </label>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="login-tab-phone"
+          aria-selected={method === "phone"}
+          aria-controls="login-panel-phone"
+          className={method === "phone" ? styles.tabActive : styles.tab}
+          onClick={() => {
+            setMethod("phone");
+            setMessage(null);
+          }}
+        >
+          Phone number
+        </button>
+      </div>
+
+      <form onSubmit={(e) => void onSubmit(e)}>
+        {method === "email" ? (
+          <div
+            role="tabpanel"
+            id="login-panel-email"
+            aria-labelledby="login-tab-email"
+          >
+            <label className={styles.label}>
+              Email
+              <input
+                className={styles.input}
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+        ) : (
+          <div
+            role="tabpanel"
+            id="login-panel-phone"
+            aria-labelledby="login-tab-phone"
+          >
+            <label className={styles.label}>
+              Phone number (E.164)
+              <input
+                className={styles.input}
+                type="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+263…"
+                required
+              />
+            </label>
+          </div>
+        )}
         <label className={styles.label}>
           Password
           <input
@@ -119,7 +175,7 @@ function LoginForm() {
         <button
           className={styles.submit}
           type="submit"
-          disabled={busy || (!email.trim() && !phone.trim())}
+          disabled={busy || !canSubmit}
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
