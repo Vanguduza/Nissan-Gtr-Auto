@@ -524,3 +524,311 @@ export function garageLabel(v: GarageVehicleRow): string {
   if (v.vin) return `VIN ${v.vin}`;
   return "Saved vehicle";
 }
+
+export type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
+export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+export type InvoiceLineRow =
+  Database["public"]["Tables"]["sales_invoice_lines"]["Row"] & {
+    stock_items?: { oem_part_number: string; description: string | null } | null;
+  };
+export type LoyaltyBalance = {
+  customer_id: string;
+  points_balance: number;
+  currency: Currency;
+  liability_per_point: number;
+  estimated_liability: number;
+};
+export type LoyaltyLedgerRow =
+  Database["public"]["Tables"]["loyalty_ledger"]["Row"];
+export type PriceListRow = Database["public"]["Tables"]["price_lists"]["Row"];
+export type KitListItem = {
+  kitId: string;
+  stockItemId: string;
+  oem: string;
+  name: string;
+  sellMode: Database["public"]["Enums"]["kit_sell_mode"];
+  components: { oem: string; name: string; qty: number }[];
+};
+
+export async function loadOwnCustomer(
+  client: SupabaseClient,
+): Promise<StorefrontResult<CustomerRow | null>> {
+  const { data, error } = await client
+    .from("customers")
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data ?? null };
+}
+
+export async function loadOwnProfile(
+  client: SupabaseClient,
+  userId: string,
+): Promise<StorefrontResult<ProfileRow | null>> {
+  const { data, error } = await client
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data ?? null };
+}
+
+export async function updateOwnFullName(
+  client: SupabaseClient,
+  userId: string,
+  fullName: string,
+): Promise<StorefrontResult<true>> {
+  const { error } = await client
+    .from("profiles")
+    .update({ full_name: fullName.trim() || null, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: true };
+}
+
+/**
+ * Contact / receipt prefs live on `customers`. Customer UPDATE RLS is staff-only today —
+ * this will fail until @backend_agent adds an own-row update policy or RPC.
+ */
+export async function updateOwnCustomerContact(
+  client: SupabaseClient,
+  customerId: string,
+  patch: {
+    display_name?: string;
+    email?: string | null;
+    phone_e164?: string | null;
+    whatsapp_e164?: string | null;
+    sms_receipts?: boolean;
+    email_receipts?: boolean;
+    whatsapp_receipts?: boolean;
+  },
+): Promise<StorefrontResult<true>> {
+  const { error } = await client
+    .from("customers")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", customerId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: true };
+}
+
+export async function listInvoiceLines(
+  client: SupabaseClient,
+  invoiceId: string,
+): Promise<StorefrontResult<InvoiceLineRow[]>> {
+  const { data, error } = await client
+    .from("sales_invoice_lines")
+    .select("*, stock_items ( oem_part_number, description )")
+    .eq("invoice_id", invoiceId)
+    .order("created_at", { ascending: true });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data ?? []) as InvoiceLineRow[] };
+}
+
+/**
+ * Quarantine-only credit note. Staff RPC today (`_require_sales_staff`).
+ * Customer-scoped wrapper is a backend gap — call still wired for when it lands.
+ */
+export async function requestReturnCreditNote(
+  client: SupabaseClient,
+  invoiceId: string,
+  lines: {
+    stock_item_id: string;
+    uom_id: string;
+    qty: number;
+    unit_price: number;
+  }[],
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("post_return_credit_note", {
+    p_invoice_id: invoiceId,
+    p_lines: lines,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return { ok: false, error: "post_return_credit_note returned no id." };
+  }
+  return { ok: true, data };
+}
+
+export async function getLoyaltyBalance(
+  client: SupabaseClient,
+  customerId: string,
+): Promise<StorefrontResult<LoyaltyBalance>> {
+  const { data, error } = await client.rpc("get_loyalty_balance", {
+    p_customer_id: customerId,
+  });
+  if (error) return { ok: false, error: error.message };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") {
+    return { ok: false, error: "Unexpected loyalty balance shape." };
+  }
+  const r = row as Record<string, unknown>;
+  return {
+    ok: true,
+    data: {
+      customer_id: String(r.customer_id ?? customerId),
+      points_balance: Number(r.points_balance ?? 0),
+      currency: (r.currency as Currency) ?? "USD",
+      liability_per_point: Number(r.liability_per_point ?? 0),
+      estimated_liability: Number(r.estimated_liability ?? 0),
+    },
+  };
+}
+
+export async function listLoyaltyLedger(
+  client: SupabaseClient,
+  customerId: string,
+  limit = 20,
+): Promise<StorefrontResult<LoyaltyLedgerRow[]>> {
+  const { data, error } = await client
+    .from("loyalty_ledger")
+    .select("*")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data ?? [] };
+}
+
+export async function loadCustomerPriceList(
+  client: SupabaseClient,
+): Promise<
+  StorefrontResult<{
+    customer: CustomerRow | null;
+    priceList: PriceListRow | null;
+    isTrade: boolean;
+  }>
+> {
+  const customer = await loadOwnCustomer(client);
+  if (!customer.ok) return customer;
+
+  if (!customer.data?.price_list_id) {
+    const { data: retail, error } = await client
+      .from("price_lists")
+      .select("*")
+      .eq("code", "RETAIL")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    return {
+      ok: true,
+      data: {
+        customer: customer.data,
+        priceList: retail ?? null,
+        isTrade: false,
+      },
+    };
+  }
+
+  const { data: list, error } = await client
+    .from("price_lists")
+    .select("*")
+    .eq("id", customer.data.price_list_id)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  const code = list?.code?.toUpperCase() ?? "";
+  return {
+    ok: true,
+    data: {
+      customer: customer.data,
+      priceList: list ?? null,
+      isTrade: code === "B2B" || code === "FLEET",
+    },
+  };
+}
+
+export async function listPriceListSample(
+  client: SupabaseClient,
+  priceListId: string,
+  limit = 24,
+): Promise<
+  StorefrontResult<
+    {
+      stock_item_id: string;
+      unit_price: number;
+      core_charge: number;
+      oem: string;
+      name: string;
+    }[]
+  >
+> {
+  const { data, error } = await client
+    .from("price_list_items")
+    .select(
+      "stock_item_id, unit_price, core_charge, stock_items ( oem_part_number, description )",
+    )
+    .eq("price_list_id", priceListId)
+    .limit(limit);
+  if (error) return { ok: false, error: error.message };
+
+  const rows = (data ?? []).map((row) => {
+    const item = row.stock_items as
+      | { oem_part_number: string; description: string | null }
+      | null
+      | undefined;
+    return {
+      stock_item_id: row.stock_item_id,
+      unit_price: Number(row.unit_price),
+      core_charge: Number(row.core_charge ?? 0),
+      oem: item?.oem_part_number ?? row.stock_item_id,
+      name: item?.description?.trim() || item?.oem_part_number || "Part",
+    };
+  });
+  return { ok: true, data: rows };
+}
+
+export async function listActiveKits(
+  client: SupabaseClient,
+): Promise<StorefrontResult<KitListItem[]>> {
+  const { data: kits, error } = await client
+    .from("item_kits")
+    .select(
+      "id, sell_mode, stock_item_id, stock_items ( oem_part_number, description )",
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) return { ok: false, error: error.message };
+  if (!kits?.length) return { ok: true, data: [] };
+
+  const kitIds = kits.map((k) => k.id);
+  const { data: comps, error: compErr } = await client
+    .from("item_kit_components")
+    .select(
+      "kit_id, qty, stock_items:component_item_id ( oem_part_number, description )",
+    )
+    .in("kit_id", kitIds);
+  if (compErr) return { ok: false, error: compErr.error.message };
+
+  const byKit = new Map<string, KitListItem["components"]>();
+  for (const c of comps ?? []) {
+    const item = c.stock_items as
+      | { oem_part_number: string; description: string | null }
+      | null
+      | undefined;
+    const list = byKit.get(c.kit_id) ?? [];
+    list.push({
+      oem: item?.oem_part_number ?? "—",
+      name: item?.description?.trim() || item?.oem_part_number || "Component",
+      qty: Number(c.qty),
+    });
+    byKit.set(c.kit_id, list);
+  }
+
+  const out: KitListItem[] = kits.map((k) => {
+    const item = k.stock_items as
+      | { oem_part_number: string; description: string | null }
+      | null
+      | undefined;
+    return {
+      kitId: k.id,
+      stockItemId: k.stock_item_id,
+      oem: item?.oem_part_number ?? k.stock_item_id,
+      name: item?.description?.trim() || item?.oem_part_number || "Kit",
+      sellMode: k.sell_mode,
+      components: byKit.get(k.id) ?? [],
+    };
+  });
+  return { ok: true, data: out };
+}
