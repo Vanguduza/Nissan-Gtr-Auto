@@ -38,6 +38,7 @@ import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.pos.PosModule
 import co.zw.nissangtr.management.pos.PosScreen
 import co.zw.nissangtr.management.rpc.ChatStaffRoles
+import co.zw.nissangtr.management.rpc.ManagementHomeRoles
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
@@ -57,13 +58,12 @@ private enum class ManagementRoute {
  * Management shell. Feature screens are thin scaffolds over [RpcClient]
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
  * Live requires GoTrue email/password session via [AuthGate].
+ *
+ * **Sales role** → default home is POS-dedicated workspace (standalone till).
+ * **Admin / warehouse** → hub remains home; POS available from hub.
+ *
  * Money/pricing: @gtr/shared. Hardware: bridges/ only (QR / ESC/POS).
- *
- * Driver GPS FGS producer removed — sole producer is `apps/android-delivery`
- * (Bridge-First location-tracker). Staff VIEW live last-point / ETA in dispatch.
- *
- * Bridges: [CameraxQrScannerBridge], [BluetoothEscPosPrinterBridge] —
- * Activity attachment + permission / scan results.
+ * No ZIMRA. No HTML5 QR.
  */
 class MainActivity : ComponentActivity() {
 
@@ -160,20 +160,39 @@ private fun ManagementApp(
     onSignOut: () -> Unit,
     supportPhone: String,
 ) {
-    var route by remember { mutableStateOf(ManagementRoute.Home) }
+    var route by remember { mutableStateOf<ManagementRoute?>(null) }
     var showChat by remember { mutableStateOf(!liveRpc) }
+    var salesHome by remember { mutableStateOf(false) }
+    var rolesReady by remember { mutableStateOf(false) }
 
     LaunchedEffect(liveRpc, signedInEmail) {
-        if (!liveRpc) {
+        rolesReady = false
+        val roles = if (!liveRpc) {
             showChat = true
-            return@LaunchedEffect
+            rpc.listMyStaffRoles()
+        } else {
+            val r = runCatching { rpc.listMyStaffRoles() }.getOrDefault(emptyList())
+            showChat = ChatStaffRoles.allows(r)
+            r
         }
-        showChat = runCatching {
-            ChatStaffRoles.allows(rpc.listMyStaffRoles())
-        }.getOrDefault(false)
+        salesHome = ManagementHomeRoles.prefersPosHome(roles)
+        route = if (salesHome) ManagementRoute.Pos else ManagementRoute.Home
+        rolesReady = true
     }
 
-    when (route) {
+    when (val r = route) {
+        null -> Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                if (rolesReady) "…" else "Loading roles…",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         ManagementRoute.Home -> ManagementHome(
             liveRpc = liveRpc,
             signedInEmail = signedInEmail,
@@ -198,7 +217,16 @@ private fun ManagementApp(
             rpc = rpc,
             qr = qr,
             printer = printer,
-            onBack = { route = ManagementRoute.Home },
+            isSalesHome = salesHome,
+            onOpenHub = if (salesHome) {
+                { route = ManagementRoute.Home }
+            } else {
+                null
+            },
+            onBack = {
+                if (salesHome) onSignOut()
+                else route = ManagementRoute.Home
+            },
         )
         ManagementRoute.Warehouse -> WarehouseScreen(
             rpc = rpc,
@@ -232,7 +260,7 @@ private fun ManagementHome(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("Nissan GTR Auto", style = MaterialTheme.typography.headlineMedium)
-        Text("Management app", style = MaterialTheme.typography.bodyMedium)
+        Text("Management hub", style = MaterialTheme.typography.bodyMedium)
         Text(
             "Modules: ${AuthModule.id}, ${PosModule.id}, ${WarehouseModule.id}, " +
                 "${DispatchModule.id}, ${HrModule.id}, ${ChatModule.id}",
@@ -254,7 +282,7 @@ private fun ManagementHome(
         Button(
             onClick = onPos,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("POS — Cart / Checkout") }
+        ) { Text("POS — Sales till") }
         Button(
             onClick = onWarehouse,
             modifier = Modifier.fillMaxWidth(),
@@ -279,8 +307,8 @@ private fun ManagementHome(
             )
         }
         Text(
-            "Auth: GoTrue signInWith(Email). No ZIMRA / payroll tax. " +
-                "Bridge-First for QR/printer. Driver GPS: delivery app only. Money: USD|ZIG.",
+            "Sales-only users land on POS. Admin/warehouse keep this hub. " +
+                "No ZIMRA / payroll tax. Bridge-First QR/printer. Money: USD|ZIG.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
         )

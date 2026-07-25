@@ -1,0 +1,23 @@
+[
+  {
+    "storage_path": "xtrail-t31/15208-oil-filter.png",
+    "pnc_code": "15208",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "content_type": "image/png"
+  },
+  {
+    "storage_path": "xtrail-t31/16546-air-filter.png",
+    "pnc_code": "16546",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "content_type": "image/png"
+  },
+  {
+    "storage_path": "xtrail-t31/62022-front-bumper.png",
+    "pnc_code": "92100",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "content_type": "image/png"
+  }
+]

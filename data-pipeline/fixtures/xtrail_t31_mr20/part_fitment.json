@@ -1,0 +1,35 @@
+[
+  {
+    "oem_part_number": "15208-9N00A",
+    "pnc_code": "15208",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "bbox_x": 110.0,
+    "bbox_y": 70.0,
+    "bbox_width": 50.0,
+    "bbox_height": 60.0,
+    "diagram_path": "xtrail-t31/15208-oil-filter.png"
+  },
+  {
+    "oem_part_number": "16546-JA00A",
+    "pnc_code": "16546",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "bbox_x": 95.0,
+    "bbox_y": 50.0,
+    "bbox_width": 110.0,
+    "bbox_height": 75.0,
+    "diagram_path": "xtrail-t31/16546-air-filter.png"
+  },
+  {
+    "oem_part_number": "62022-JG00A",
+    "pnc_code": "92100",
+    "chassis_code": "T31",
+    "engine_code": "MR20",
+    "bbox_x": 180.0,
+    "bbox_y": 120.0,
+    "bbox_width": 200.0,
+    "bbox_height": 80.0,
+    "diagram_path": "xtrail-t31/62022-front-bumper.png"
+  }
+]
