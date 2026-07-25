@@ -45,6 +45,12 @@ export function StaffBinsPanel() {
   const [selectedItem, setSelectedItem] = useState<StockItemOption | null>(null);
   const [assignBinId, setAssignBinId] = useState("");
 
+  const [hintItems, setHintItems] = useState<StockItemOption[]>([]);
+  const [hintQuery, setHintQuery] = useState("");
+  const [hintHits, setHintHits] = useState<StockItemOption[]>([]);
+  const [hints, setHints] = useState<PickPathHint[]>([]);
+  const [hintBusy, setHintBusy] = useState(false);
+
   const loadBins = useCallback(async (whId: string) => {
     const client = createWebClient();
     if (!client || !whId) {
@@ -117,6 +123,54 @@ export function StaffBinsPanel() {
     }, 250);
     return () => window.clearTimeout(t);
   }, [boot.kind, itemQuery]);
+
+  useEffect(() => {
+    if (boot.kind !== "ready") return;
+    const q = hintQuery.trim();
+    if (q.length < 2) {
+      setHintHits([]);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const client = createWebClient();
+        if (!client) return;
+        const res = await searchStockItems(client, q);
+        if (!res.ok) {
+          setMessage(res.error);
+          setHintHits([]);
+          return;
+        }
+        setHintHits(res.data);
+      })();
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [boot.kind, hintQuery]);
+
+  async function onLoadPickHints(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client || !warehouseId) return;
+    setHintBusy(true);
+    setMessage(null);
+    const res = await getPickPathHints(client, {
+      warehouseId,
+      stockItemIds: hintItems.length
+        ? hintItems.map((i) => i.id)
+        : undefined,
+    });
+    setHintBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setHints(res.data);
+    setMessage(
+      res.data.length
+        ? `Pick path · ${res.data.length} preferred bin hint(s)`
+        : "No pick-path hints for this selection (assign preferred bins first).",
+    );
+  }
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
