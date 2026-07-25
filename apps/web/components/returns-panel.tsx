@@ -112,7 +112,6 @@ export function ReturnsPanel() {
         stock_item_id: p.line.stock_item_id,
         uom_id: p.line.uom_id,
         qty,
-        unit_price: Number(p.line.unit_price),
       };
     });
 
