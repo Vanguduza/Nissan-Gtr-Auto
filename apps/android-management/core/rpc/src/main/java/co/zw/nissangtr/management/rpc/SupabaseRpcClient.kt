@@ -835,3 +835,89 @@ private data class ChatMessageRow(
         createdAt = createdAt,
     )
 }
+
+@Serializable
+private data class AssigneeSuggestionRow(
+    @SerialName("user_id") val userId: String,
+    val status: String,
+    @SerialName("distance_m") val distanceM: Double? = null,
+    val capacity: Int,
+    @SerialName("open_jobs") val openJobs: Int,
+    @SerialName("last_lat") val lastLat: Double? = null,
+    @SerialName("last_lng") val lastLng: Double? = null,
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+) {
+    fun toSummary() = DeliveryAssigneeSuggestion(
+        userId = userId,
+        status = status,
+        distanceM = distanceM,
+        capacity = capacity,
+        openJobs = openJobs,
+        lastLat = lastLat,
+        lastLng = lastLng,
+        lastSeenAt = lastSeenAt,
+    )
+}
+
+@Serializable
+private data class OptimizedStopRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String,
+    @SerialName("route_sequence") val routeSequence: Int,
+    @SerialName("distance_m") val distanceM: Double? = null,
+) {
+    fun toSummary() = OptimizedDriverStop(
+        deliveryJobId = deliveryJobId,
+        routeSequence = routeSequence,
+        distanceM = distanceM,
+    )
+}
+
+@Serializable
+private data class TrackPointRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String,
+    val lat: Double,
+    val lng: Double,
+    @SerialName("recorded_at") val recordedAt: String,
+    @SerialName("eta_at") val etaAt: String? = null,
+    @SerialName("eta_seconds") val etaSeconds: Int? = null,
+    val status: String,
+) {
+    fun toSummary() = DeliveryTrackPoint(
+        deliveryJobId = deliveryJobId,
+        lat = lat,
+        lng = lng,
+        recordedAt = recordedAt,
+        etaAt = etaAt,
+        etaSeconds = etaSeconds,
+        status = status,
+    )
+}
+
+@Serializable
+private data class PanicEventRow(
+    val id: String,
+    @SerialName("driver_user_id") val driverUserId: String,
+    @SerialName("delivery_job_id") val deliveryJobId: String? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("acknowledged_at") val acknowledgedAt: String? = null,
+    @SerialName("acknowledged_by") val acknowledgedBy: String? = null,
+) {
+    fun toSummary() = PanicEventSummary(
+        id = id,
+        driverUserId = driverUserId,
+        deliveryJobId = deliveryJobId,
+        lat = lat,
+        lng = lng,
+        createdAt = createdAt,
+        acknowledgedAt = acknowledgedAt,
+        acknowledgedBy = acknowledgedBy,
+    )
+}
+
+@Serializable
+private data class PanicAckUpdate(
+    @SerialName("acknowledged_at") val acknowledgedAt: String,
+    @SerialName("acknowledged_by") val acknowledgedBy: String,
+)
