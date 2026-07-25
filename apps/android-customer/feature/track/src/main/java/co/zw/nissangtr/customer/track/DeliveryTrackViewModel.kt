@@ -143,6 +143,7 @@ class DeliveryTrackViewModel(
     private fun applyTrackResult(point: DeliveryTrackPoint?, fromPoll: Boolean) {
         val hadLive = _state.value.point != null
         val active = point != null && point.status == "dispatched"
+        val nonDispatched = point != null && point.status != "dispatched"
         when {
             active -> {
                 _state.update {
@@ -156,8 +157,8 @@ class DeliveryTrackViewModel(
                     )
                 }
             }
-            hadLive || _state.value.ended -> {
-                // Was live, now gone → terminal. Drop last coords; stop poll.
+            hadLive || _state.value.ended || nonDispatched -> {
+                // Was live / non-dispatched → terminal. Drop last coords; stop poll.
                 stopPolling()
                 _state.update {
                     it.copy(
