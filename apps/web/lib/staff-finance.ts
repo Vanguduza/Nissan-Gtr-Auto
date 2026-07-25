@@ -11,6 +11,8 @@ export { requireSession, zigExchangeRate, fetchZigExchangeRate };
 export type CurrencyCode = Database["public"]["Enums"]["currency_code"];
 export type PaymentTender = Database["public"]["Enums"]["payment_tender"];
 
+type FinanceClient = SupabaseClient<Database>;
+
 export type JournalEntryOption = {
   id: string;
   document_number: string | null;
