@@ -388,6 +388,228 @@ export function StaffFinancePanel() {
     await refresh();
   }
 
+  async function loadStatementDetail(statementId: string, accountCode?: string) {
+    const client = createWebClient();
+    if (!client || !statementId) {
+      setStmtLines([]);
+      setStmtMatches([]);
+      setJeLines([]);
+      return;
+    }
+    const linesRes = await listBankStatementLines(client, statementId);
+    if (!linesRes.ok) {
+      setMessage(linesRes.error);
+      setStmtLines([]);
+      setStmtMatches([]);
+      return;
+    }
+    setStmtLines(linesRes.data);
+    setMatchLineId((prev) => {
+      const open = linesRes.data.find((l) => l.status === "open");
+      return prev && linesRes.data.some((l) => l.id === prev)
+        ? prev
+        : open?.id || "";
+    });
+
+    const matchRes = await listBankReconMatches(
+      client,
+      linesRes.data.map((l) => l.id),
+    );
+    if (!matchRes.ok) {
+      setMessage(matchRes.error);
+      setStmtMatches([]);
+    } else {
+      setStmtMatches(matchRes.data);
+    }
+
+    if (accountCode) {
+      const jeRes = await listJournalLinesForAccount(client, accountCode);
+      if (jeRes.ok) {
+        setJeLines(jeRes.data);
+        setMatchJeLineId((prev) => prev || jeRes.data[0]?.id || "");
+      }
+    }
+  }
+
+  async function onReverseJournal(id: string) {
+    const client = createWebClient();
+    if (!client) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await reverseJournal(client, {
+      entryId: id,
+      reason: reverseReason.trim() || undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Reversal posted ${res.data.slice(0, 8)}…`);
+    setReverseReason("");
+    await refresh();
+  }
+
+  async function onCreatePeriod(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client) return;
+    if (!periodLabel.trim()) {
+      setMessage("Period label required.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await createAccountingPeriod(client, {
+      periodStart,
+      periodEnd,
+      label: periodLabel.trim(),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Period ${res.data.slice(0, 8)}… created (open until locked).`);
+    setPeriodLabel("");
+    await refresh();
+  }
+
+  async function onLockPeriod(id: string) {
+    const client = createWebClient();
+    if (!client) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await lockAccountingPeriod(client, id);
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Period ${id.slice(0, 8)}… locked.`);
+    await refresh();
+  }
+
+  async function onImportStatement(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client) return;
+    const openBal = Number(stmtOpen);
+    const closeBal = Number(stmtClose);
+    const lineAmt = stmtLineAmount.trim() ? Number(stmtLineAmount) : null;
+    if (!Number.isFinite(openBal) || !Number.isFinite(closeBal)) {
+      setMessage("Opening/closing balances must be numbers.");
+      return;
+    }
+    if (lineAmt !== null && !Number.isFinite(lineAmt)) {
+      setMessage("Statement line amount must be a number.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await importBankStatement(client, {
+      accountCode: stmtAccount,
+      currency: stmtCurrency,
+      statementDate: stmtDate,
+      openingBalance: openBal,
+      closingBalance: closeBal,
+      documentNumber: stmtDoc.trim() || undefined,
+      line:
+        lineAmt !== null
+          ? {
+              lineDate: stmtLineDate,
+              description: stmtLineDesc,
+              amount: lineAmt,
+            }
+          : undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Statement ${res.data.slice(0, 8)}… · ${stmtCurrency}`);
+    setStmtLineAmount("");
+    setStmtLineDesc("");
+    setSelectedStmtId(res.data);
+    await refresh();
+    await loadStatementDetail(res.data, stmtAccount);
+  }
+
+  async function onAddStmtLine(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client || !selectedStmtId) return;
+    const n = Number(addLineAmount);
+    if (!Number.isFinite(n)) {
+      setMessage("Line amount required.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await addBankStatementLine(client, {
+      statementId: selectedStmtId,
+      lineDate: addLineDate,
+      description: addLineDesc,
+      amount: n,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Line ${res.data.slice(0, 8)}… added.`);
+    setAddLineAmount("");
+    setAddLineDesc("");
+    const stmt = boot.kind === "ready"
+      ? boot.statements.find((s) => s.id === selectedStmtId)
+      : undefined;
+    await loadStatementDetail(selectedStmtId, stmt?.account_code);
+  }
+
+  async function onMatchLine(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client || !matchLineId || !matchJeLineId) {
+      setMessage("Select statement line and journal entry line.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await matchBankLine(client, {
+      statementLineId: matchLineId,
+      journalEntryLineId: matchJeLineId,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Matched ${res.data.slice(0, 8)}…`);
+    const stmt = boot.kind === "ready"
+      ? boot.statements.find((s) => s.id === selectedStmtId)
+      : undefined;
+    await loadStatementDetail(selectedStmtId, stmt?.account_code);
+  }
+
+  async function onClearMatch(matchId: string) {
+    const client = createWebClient();
+    if (!client) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await clearBankMatches(client, [matchId]);
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Cleared ${res.data} match(es).`);
+    const stmt = boot.kind === "ready"
+      ? boot.statements.find((s) => s.id === selectedStmtId)
+      : undefined;
+    await loadStatementDetail(selectedStmtId, stmt?.account_code);
+  }
+
   if (boot.kind === "loading") {
     return <p className={styles.muted}>Loading finance…</p>;
   }
