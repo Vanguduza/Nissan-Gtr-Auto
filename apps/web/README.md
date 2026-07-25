@@ -27,7 +27,7 @@ Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`, `(
 
 - Route: `/staff/logistics/tracking` (admin / warehouse / dispatcher via existing RLS)
 - Library: **MapLibre GL JS** (`maplibre-gl`)
-- Env: `NEXT_PUBLIC_MAP_STYLE_URL` — MapLibre style JSON URL. If unset, staff live map falls back to OpenFreeMap Liberty (`https://tiles.openfreemap.org/styles/liberty`) centered on Harare.
+- Env: `NEXT_PUBLIC_MAP_STYLE_URL` — MapLibre style JSON URL. If unset, staff live map uses keyless CARTO Positron (`https://basemaps.cartocdn.com/gl/positron-gl-style/style.json`) centered on Harare, with inline CARTO raster fallback if the GL style fails.
 - Behavior: **subscribe-only** to Supabase Realtime `delivery_locations` filtered by selected `delivery_job_id`. No `navigator.geolocation` / HTML5 GPS / browser QR.
 
 Demo with Realtime:
