@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.ReconciliationScope
 import co.zw.nissangtr.management.rpc.RpcClient
@@ -29,15 +30,16 @@ import co.zw.nissangtr.management.rpc.ValuationMethod
 
 /**
  * Warehouse scaffold: receive, dual-auth transfers, cycle-count draft/submit.
- * Explicit USD|ZIG. Typed UUID inputs only — Bridge-First for QR (not browser).
+ * Explicit USD|ZIG. Bridge-First QR fills stock item from OEM — never browser.
  */
 @Composable
 fun WarehouseScreen(
     rpc: RpcClient,
+    qr: QrScannerBridge,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WarehouseViewModel = viewModel(
-        factory = WarehouseViewModel.factory(rpc),
+        factory = WarehouseViewModel.factory(rpc, qr),
     ),
 ) {
     val state by viewModel.state.collectAsState()
