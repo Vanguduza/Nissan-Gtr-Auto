@@ -384,11 +384,57 @@ class FakeRpcClient : RpcClient {
         require(jobId != null || tok != null) {
             "delivery_job_id or token required for ${RpcNames.GET_DELIVERY_TRACK_POINT}"
         }
-        if (tok != null && tok != SEED_TRACK_TOKEN) return null
-        if (jobId != null && jobId != SEED_ACTIVE_JOB_ID) return null
+        // OR match (mirrors live RPC: owner job id and/or share token).
+        val tokenOk = tok != null && tok == SEED_TRACK_TOKEN
+        val jobOk = jobId != null && jobId == SEED_ACTIVE_JOB_ID
+        if (!tokenOk && !jobOk) return null
         val point = fakeTrackPoint ?: return null
         if (point.status != "dispatched") return null
+        // Nudge last point each read so Fake demos look "live" (still one row, no trail).
+        val n = trackTick.incrementAndGet()
+        val secs = (point.etaSeconds ?: 2_100).coerceAtLeast(0) - 8
+        val next = point.copy(
+            lat = -17.8292 + n * 0.00012,
+            lng = 31.0522 + n * 0.00009,
+            recordedAt = "2026-07-25T09:%02d:00Z".format((10 + n).coerceAtMost(59)),
+            etaSeconds = secs.coerceAtLeast(0),
+            etaAt = if (secs <= 0) null else point.etaAt,
+        )
+        // After ~ETA expiry, mark terminal so poll stops (no stalking).
+        if (secs <= 0) {
+            fakeTrackPoint = next.copy(status = "completed", etaSeconds = 0, etaAt = null)
+            return null
+        }
+        fakeTrackPoint = next
         // Single last point only — never a list / trail.
-        return point
+        return next
+    }
+
+    /** Demo helper: force terminal so UI stops polling and clears coords. */
+    fun simulateDeliveryComplete() {
+        fakeTrackPoint = fakeTrackPoint?.copy(status = "completed", etaSeconds = 0, etaAt = null)
+            ?: DeliveryTrackPoint(
+                deliveryJobId = SEED_ACTIVE_JOB_ID,
+                lat = -17.8292,
+                lng = 31.0522,
+                recordedAt = "2026-07-25T09:10:00Z",
+                etaAt = null,
+                etaSeconds = 0,
+                status = "completed",
+            )
+    }
+
+    /** Demo helper: reset seed active point for another Fake track session. */
+    fun resetFakeTrackPoint() {
+        trackTick.set(0)
+        fakeTrackPoint = DeliveryTrackPoint(
+            deliveryJobId = SEED_ACTIVE_JOB_ID,
+            lat = -17.8292,
+            lng = 31.0522,
+            recordedAt = "2026-07-25T09:10:00Z",
+            etaAt = "2026-07-25T09:45:00Z",
+            etaSeconds = 2_100,
+            status = "dispatched",
+        )
     }
 }
