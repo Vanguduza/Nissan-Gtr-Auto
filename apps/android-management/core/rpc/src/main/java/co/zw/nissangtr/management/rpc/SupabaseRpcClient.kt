@@ -307,6 +307,18 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun getPosScanSessionCartId(sessionId: String): String? {
+        require(sessionId.isNotBlank())
+        return client.from("pos_scan_sessions")
+            .select(Columns.list("cart_id")) {
+                filter { eq("id", sessionId) }
+                limit(1)
+            }
+            .decodeList<PosScanSessionCartRow>()
+            .firstOrNull()
+            ?.cartId
+    }
+
     override suspend fun postStockReceipt(
         toWarehouseId: String,
         notes: String?,

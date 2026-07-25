@@ -61,6 +61,8 @@ class FakeRpcClient : RpcClient {
     /** pairing_code → (sessionId, cartId) */
     private val openScanSessions = mutableMapOf<String, Pair<String, String>>()
     private val claimedSessions = mutableSetOf<String>()
+    /** sessionId → cartId (after claim) */
+    private val claimedSessionCarts = mutableMapOf<String, String>()
     private val pendingTransfers = mutableSetOf<String>()
     private val reconDrafts = mutableSetOf<String>()
     private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
@@ -350,6 +352,13 @@ class FakeRpcClient : RpcClient {
         claimedSessions.remove(sessionId)
         openScanSessions.entries.removeAll { it.value.first == sessionId }
         return sessionId
+    }
+
+    override suspend fun getPosScanSessionCartId(sessionId: String): String? {
+        require(sessionId.isNotBlank())
+        openScanSessions.values.firstOrNull { it.first == sessionId }?.let { return it.second }
+        // After claim the open map entry is gone — track claimed cart via reverse lookup from create
+        return claimedSessionCarts[sessionId]
     }
 
     override suspend fun postStockReceipt(
