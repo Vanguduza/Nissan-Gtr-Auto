@@ -14,7 +14,19 @@ export type ProductReviewRow =
       oem_part_number: string;
       description: string | null;
     } | null;
+    customers?: { display_name: string } | null;
   };
+
+export type ProductReviewPhotoRow =
+  Database["public"]["Tables"]["customer_product_review_photos"]["Row"];
+
+export type ProductReviewStats = {
+  stock_item_id: string;
+  avg_rating: number;
+  review_count: number;
+};
+
+export const REVIEW_PHOTOS_BUCKET = "review-photos";
 
 function asSingle<T>(value: T | T[] | null | undefined): T | null {
   if (value == null) return null;
@@ -76,6 +88,19 @@ export async function listApprovedReviewsForOem(
   return { ok: true, data: (data as ProductReviewRow[]) ?? [] };
 }
 
+export async function getProductReviewStats(
+  client: SupabaseClient,
+  args: { stockItemId?: string; oem?: string },
+): Promise<StorefrontResult<ProductReviewStats | null>> {
+  const { data, error } = await client.rpc("get_product_review_stats", {
+    p_stock_item_id: args.stockItemId ?? undefined,
+    p_oem_part_number: args.oem ?? undefined,
+  });
+  if (error) return { ok: false, error: error.message };
+  const row = (data as ProductReviewStats[] | null)?.[0] ?? null;
+  return { ok: true, data: row };
+}
+
 export async function submitProductReview(
   client: SupabaseClient,
   args: {
@@ -93,6 +118,110 @@ export async function submitProductReview(
   });
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "submit_customer_product_review returned no id." };
+  return { ok: true, data };
+}
+
+/** Upload image to review-photos bucket then register via RPC. Path: {review_id}/{file}. */
+export async function uploadReviewPhoto(
+  client: SupabaseClient,
+  args: { reviewId: string; file: File; sortOrder?: number },
+): Promise<StorefrontResult<string>> {
+  const reviewId = args.reviewId.trim();
+  if (!reviewId) return { ok: false, error: "review_id required." };
+
+  const ext =
+    args.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+    "jpg";
+  const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+  const objectPath = `${reviewId}/${crypto.randomUUID()}.${safeExt}`;
+
+  const { error: upErr } = await client.storage
+    .from(REVIEW_PHOTOS_BUCKET)
+    .upload(objectPath, args.file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: args.file.type || `image/${safeExt}`,
+    });
+  if (upErr) return { ok: false, error: upErr.message };
+
+  const { data, error } = await client.rpc("add_customer_product_review_photo", {
+    p_review_id: reviewId,
+    p_storage_path: objectPath,
+    p_sort_order: args.sortOrder ?? 0,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return { ok: false, error: "add_customer_product_review_photo returned no id." };
+  }
+  return { ok: true, data };
+}
+
+export async function listReviewPhotos(
+  client: SupabaseClient,
+  reviewId: string,
+): Promise<StorefrontResult<ProductReviewPhotoRow[]>> {
+  const { data, error } = await client
+    .from("customer_product_review_photos")
+    .select("id, review_id, storage_path, sort_order, created_at")
+    .eq("review_id", reviewId)
+    .order("sort_order")
+    .order("created_at");
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as ProductReviewPhotoRow[]) ?? [] };
+}
+
+export async function signedReviewPhotoUrl(
+  client: SupabaseClient,
+  storagePath: string,
+): Promise<string | null> {
+  const path = storagePath.trim().replace(/^review-photos\//, "");
+  if (!path) return null;
+  const { data, error } = await client.storage
+    .from(REVIEW_PHOTOS_BUCKET)
+    .createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
+}
+
+export async function listPendingReviewsForStaff(
+  client: SupabaseClient,
+): Promise<StorefrontResult<ProductReviewRow[]>> {
+  const { data, error } = await client
+    .from("customer_product_reviews")
+    .select(
+      "id, customer_id, stock_item_id, rating, body, status, created_at, updated_at, stock_items ( id, oem_part_number, description ), customers ( display_name )",
+    )
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (error) return { ok: false, error: error.message };
+
+  const rows: ProductReviewRow[] = (data ?? []).map((row) => {
+    const r = row as ProductReviewRow & {
+      stock_items?: ProductReviewRow["stock_items"] | ProductReviewRow["stock_items"][];
+      customers?: ProductReviewRow["customers"] | ProductReviewRow["customers"][];
+    };
+    return {
+      ...r,
+      stock_items: asSingle(r.stock_items),
+      customers: asSingle(r.customers),
+    };
+  });
+  return { ok: true, data: rows };
+}
+
+export async function moderateProductReview(
+  client: SupabaseClient,
+  args: { reviewId: string; status: "approved" | "rejected" },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("moderate_customer_product_review", {
+    p_review_id: args.reviewId,
+    p_status: args.status,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return { ok: false, error: "moderate_customer_product_review returned no id." };
+  }
   return { ok: true, data };
 }
 
