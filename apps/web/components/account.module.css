@@ -343,19 +343,65 @@
 
 .hubModules {
   display: grid;
-  gap: 1.35rem;
+  gap: 1.15rem;
 }
 
 .hubModule {
   display: grid;
-  gap: 0.65rem;
-  padding: 0.85rem 0 0;
-  border-top: 1px solid rgba(18, 21, 28, 0.08);
+  gap: 0.75rem;
+  padding: 0.95rem 1rem 1.05rem;
+  border: 1px solid rgba(18, 21, 28, 0.08);
+  border-radius: var(--staff-radius-sm);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--gtr-white) 90%, var(--gtr-mist)),
+    color-mix(in srgb, var(--gtr-chalk) 45%, white)
+  );
+  box-shadow: var(--staff-shadow-sm);
 }
 
 .hubModule:first-child {
-  border-top: none;
-  padding-top: 0;
+  border-top: 1px solid rgba(18, 21, 28, 0.08);
+  padding-top: 0.95rem;
+}
+
+.hubModuleHead {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.06);
+}
+
+.hubModuleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    var(--gtr-steel-lift),
+    var(--gtr-steel)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(18, 21, 28, 0.18);
+}
+
+.hubModuleIconAccent {
+  display: block;
+  width: 0.35rem;
+  height: 1.1rem;
+  margin-left: auto;
+  border-radius: 1px;
+  background: linear-gradient(
+    180deg,
+    var(--gtr-red),
+    color-mix(in srgb, var(--gtr-red) 35%, var(--gtr-steel))
+  );
 }
 
 .hubModuleTitle {
@@ -364,7 +410,7 @@
   font-size: 0.95rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--gtr-steel);
 }
 
