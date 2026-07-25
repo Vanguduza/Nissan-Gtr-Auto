@@ -50,11 +50,10 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: expected retry_after_seconds >= 1';
   END IF;
 
-  -- anon must not EXECUTE search_catalog
   IF EXISTS (
     SELECT 1
     FROM information_schema.role_routine_grants
-    WHERE specific_schema = 'public'
+    WHERE routine_schema = 'public'
       AND routine_name = 'search_catalog'
       AND grantee = 'anon'
       AND privilege_type = 'EXECUTE'
@@ -65,7 +64,7 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM information_schema.role_routine_grants
-    WHERE specific_schema = 'public'
+    WHERE routine_schema = 'public'
       AND routine_name = 'check_whatsapp_bot_rate_limit'
       AND grantee IN ('anon', 'authenticated')
       AND privilege_type = 'EXECUTE'
