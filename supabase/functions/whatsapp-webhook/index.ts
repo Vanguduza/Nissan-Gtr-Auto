@@ -274,6 +274,7 @@ Deno.serve(async (req) => {
       unverified_local: localUnverified,
     });
   } catch (e) {
-    return jsonResponse({ error: String(e) }, 500);
+    console.error("whatsapp-webhook: unhandled error", e);
+    return jsonResponse({ error: "internal error" }, 500);
   }
 });
