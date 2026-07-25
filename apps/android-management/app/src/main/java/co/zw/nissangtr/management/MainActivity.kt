@@ -247,7 +247,6 @@ private fun ManagementApp(
             Text("Loading roles…", style = MaterialTheme.typography.bodyMedium)
         }
         ManagementRoute.Home -> ManagementHome(
-            liveRpc = liveRpc,
             signedInEmail = signedInEmail,
             onSignOut = onSignOut,
             showChat = showChat,
