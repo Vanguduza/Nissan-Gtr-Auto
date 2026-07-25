@@ -8459,7 +8459,7 @@ export const Constants = {
       payroll_run_status: ["draft", "submitted", "cancelled"],
       pick_list_status: ["draft", "done", "cancelled"],
       pos_scan_session_status: ["open", "claimed", "revoked", "expired"],
-      procurement_doc_status: ["draft", "submitted", "cancelled"],
+      procurement_doc_status: ["draft", "submitted", "approved", "rejected", "cancelled"],
       product_review_status: ["pending", "approved", "rejected"],
       receipt_channel: ["sms", "email", "whatsapp"],
       receipt_outbox_status: [
