@@ -9,7 +9,7 @@ export function StaffNav({ current }: { current: string }) {
   const ctx = useStaffAuth();
   const items = ctx
     ? filterNavForRoles(ctx.roles)
-    : STAFF_NAV_ITEMS.filter((i) => i.roles.length === 0);
+    : STAFF_NAV_ITEMS.filter((i) => i.roles === "any");
 
   return (
     <nav className={styles.nav} aria-label="Staff">
