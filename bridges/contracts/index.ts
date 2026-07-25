@@ -29,7 +29,16 @@ export type {
   DeliveryLocationIngest,
   GpsToIngestMapper,
   GpsWatchHandle,
+  GpsWatchCadence,
+  GpsWatchOptions,
   GpsBridge,
 } from "./gps.ts";
 
 export { toDeliveryLocationIngest } from "./gps.ts";
+
+export type {
+  PodCaptureResult,
+  PodCameraBridge,
+  PodSignatureOptions,
+  PodSignatureBridge,
+} from "./pod.ts";
