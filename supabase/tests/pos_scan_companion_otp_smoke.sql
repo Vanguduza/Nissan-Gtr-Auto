@@ -20,7 +20,7 @@ $$;
 DO $$
 DECLARE
   v_admin UUID := 'a0000000-0000-4000-8000-000000000001';
-  v_cust_user UUID := 'c0000000-0000-4000-8000-0000000000p2';
+  v_cust_user UUID := 'c0000000-0000-4000-8000-0000000000f2';
   v_main UUID;
   v_uom UUID;
   v_item UUID;
