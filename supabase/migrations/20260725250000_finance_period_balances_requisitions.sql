@@ -392,7 +392,8 @@ BEGIN
   ORDER BY e.entry_date DESC, e.posted_at DESC NULLS LAST, e.id DESC
   LIMIT 1;
 
-  -- Sum spends (credits to 1110) after that float
+  -- Sum spends (credits to 1110) after that float.
+  -- Tie-break with ctid: now() is txn-stable so same-batch posts share posted_at.
   SELECT COALESCE(SUM(l.credit), 0)
   INTO v_amount
   FROM public.journal_entry_lines l
@@ -412,7 +413,9 @@ BEGIN
       OR (
         e.entry_date = v_last_date
         AND e.posted_at IS NOT DISTINCT FROM v_last_posted
-        AND e.id > v_last_id
+        AND e.ctid > (
+          SELECT j.ctid FROM public.journal_entries j WHERE j.id = v_last_id
+        )
       )
     );
 
