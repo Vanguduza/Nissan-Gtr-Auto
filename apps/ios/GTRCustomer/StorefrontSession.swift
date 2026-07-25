@@ -90,6 +90,7 @@ enum FeatureTab: String, CaseIterable, Identifiable {
     case orders
     case garage
     case pay
+    case chat
 
     var id: String { rawValue }
 
@@ -99,6 +100,7 @@ enum FeatureTab: String, CaseIterable, Identifiable {
         case .orders: return "Orders"
         case .garage: return "Garage"
         case .pay: return "Pay"
+        case .chat: return "Chat"
         }
     }
 
@@ -108,6 +110,7 @@ enum FeatureTab: String, CaseIterable, Identifiable {
         case .orders: return "list.bullet.rectangle"
         case .garage: return "car"
         case .pay: return "creditcard"
+        case .chat: return "bubble.left.and.bubble.right"
         }
     }
 }

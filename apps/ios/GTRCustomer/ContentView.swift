@@ -66,6 +66,7 @@ struct ContentView: View {
         case .orders: OrdersScreen()
         case .garage: GarageScreen()
         case .pay: PayScreen()
+        case .chat: ChatScreen()
         }
     }
 

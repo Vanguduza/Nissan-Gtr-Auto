@@ -13,4 +13,10 @@ public enum StorefrontFormat {
         case .dispatch: return "Nationwide dispatch"
         }
     }
+
+    public static func chatTime(_ date: Date) -> String {
+        date.formatted(
+            .dateTime.month(.abbreviated).day().hour().minute()
+        )
+    }
 }
