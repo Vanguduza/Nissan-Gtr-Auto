@@ -297,7 +297,7 @@ async function sendOutboxChannel(
       if (row.pdf_storage_path) {
         const { data: signed } = await supabase.storage
           .from(BUCKET)
-          .createSignedUrl(row.pdf_storage_path, 60 * 60 * 24 * 7);
+          .createSignedUrl(row.pdf_storage_path, 60 * 60); // 1h — Meta fetch window
         docLink = signed?.signedUrl ?? null;
       }
       if (docLink) {

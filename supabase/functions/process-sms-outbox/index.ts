@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     if (denied) return denied;
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const limit = Number(body.limit ?? 50);
+    const limit = Math.min(100, Math.max(1, Number(body.limit ?? 50) || 50));
     const localStub = allowLocalChannelStub();
     const smsCfg = getSmsGatewayConfig();
 
