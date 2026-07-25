@@ -355,6 +355,92 @@ export async function reportCashFlow(
   return { ok: true, data: (data as CashFlowRow[]) ?? [] };
 }
 
+export async function reportTrialBalance(
+  client: SupabaseClient,
+  args: { asOf?: string; currency?: CurrencyCode },
+): Promise<StorefrontResult<TrialBalanceRow[]>> {
+  const { data, error } = await client.rpc("report_trial_balance", {
+    p_as_of: args.asOf,
+    p_currency: args.currency,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as TrialBalanceRow[]) ?? [] };
+}
+
+export async function fetchArAgingSnapshot(
+  client: SupabaseClient,
+): Promise<StorefrontResult<ArAgingSnapshot>> {
+  const { data, error } = await client.rpc("kpi_ar_aging_snapshot");
+  if (error) return { ok: false, error: error.message };
+  const raw = (data ?? {}) as Record<string, unknown>;
+  const bucketsRaw = Array.isArray(raw.invoice_aging_buckets)
+    ? raw.invoice_aging_buckets
+    : [];
+  const byCurRaw = Array.isArray(raw.customer_open_balance_by_currency)
+    ? raw.customer_open_balance_by_currency
+    : [];
+  return {
+    ok: true,
+    data: {
+      as_of: typeof raw.as_of === "string" ? raw.as_of : null,
+      customers_with_open_balance: Number(raw.customers_with_open_balance ?? 0),
+      customer_open_balance_by_currency: byCurRaw.map((row) => {
+        const r = row as Record<string, unknown>;
+        return {
+          currency: String(r.currency ?? ""),
+          customer_count:
+            r.customer_count != null ? Number(r.customer_count) : undefined,
+          open_balance: Number(r.open_balance ?? 0),
+        };
+      }),
+      invoice_aging_buckets: bucketsRaw.map((row) => {
+        const r = row as Record<string, unknown>;
+        return {
+          bucket: String(r.bucket ?? ""),
+          currency: String(r.currency ?? ""),
+          invoice_count: Number(r.invoice_count ?? 0),
+          open_amount: Number(r.open_amount ?? 0),
+        };
+      }),
+    },
+  };
+}
+
+/** Open posted invoices for a customer (same-currency allocate hints). */
+export async function listOpenInvoicesForCustomer(
+  client: SupabaseClient,
+  args: { customerId: string; currency?: CurrencyCode },
+): Promise<StorefrontResult<OpenInvoiceOption[]>> {
+  let q = client
+    .from("sales_invoices")
+    .select("id, document_number, currency, total, amount_paid")
+    .eq("customer_id", args.customerId)
+    .eq("doc_type", "invoice")
+    .eq("status", "posted")
+    .order("posted_at", { ascending: false })
+    .limit(40);
+  if (args.currency) q = q.eq("currency", args.currency);
+  const { data, error } = await q;
+  if (error) return { ok: false, error: error.message };
+  const rows = ((data ?? []) as {
+    id: string;
+    document_number: string | null;
+    currency: CurrencyCode;
+    total: number;
+    amount_paid: number;
+  }[])
+    .map((r) => ({
+      id: r.id,
+      document_number: r.document_number,
+      currency: r.currency,
+      total: Number(r.total),
+      amount_paid: Number(r.amount_paid),
+      open_balance: Number(r.total) - Number(r.amount_paid),
+    }))
+    .filter((r) => r.open_balance > 0);
+  return { ok: true, data: rows };
+}
+
 export async function createPaymentEntry(
   client: SupabaseClient,
   args: {
