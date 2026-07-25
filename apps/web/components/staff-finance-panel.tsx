@@ -24,6 +24,7 @@ import {
   listJournalEntries,
   listJournalLinesForAccount,
   listOpenInvoicesForCustomer,
+  listZigExchangeRates,
   lockAccountingPeriod,
   matchBankLine,
   postJournal,
@@ -35,6 +36,7 @@ import {
   requireSession,
   reverseJournal,
   searchCustomers,
+  setZigExchangeRate,
   zigExchangeRate,
   type AccountOption,
   type AccountingPeriodOption,
@@ -53,6 +55,7 @@ import {
   type PaymentTender,
   type PnLRow,
   type TrialBalanceRow,
+  type ZigExchangeRateRow,
 } from "@/lib/staff-finance";
 import { createWebClient } from "@/lib/supabase";
 
