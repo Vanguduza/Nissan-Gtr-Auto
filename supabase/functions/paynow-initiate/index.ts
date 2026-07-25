@@ -184,10 +184,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const resultUrl =
-      typeof result_url === "string" && result_url.trim()
-        ? result_url.trim()
-        : defaultWebhookUrl("paynow-webhook");
+    // Never trust client result_url for PSP webhook registration.
+    const resultUrl = defaultWebhookUrl("paynow-webhook");
 
     try {
       const initiated = await initiatePaynowTransaction({
@@ -220,7 +218,7 @@ Deno.serve(async (req) => {
           intent_id: data,
           status: "pending",
           checkout_url: initiated.browserurl,
-          poll_url: initiated.pollurl,
+          // poll_url stays server-side only (webhook poll confirm).
           return_url: browserReturn,
           cancel_url: typeof cancel_url === "string" ? cancel_url : null,
           result_url: resultUrl,

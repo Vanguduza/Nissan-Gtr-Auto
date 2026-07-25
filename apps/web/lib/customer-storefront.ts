@@ -407,7 +407,7 @@ export async function createCustomerContipayIntent(
 
 /**
  * Create Paynow intent via edge (preferred) or RPC fallback.
- * return_url / result_url passed for provider redirect when edge accepts them.
+ * Browser return/cancel only — webhook result_url is edge defaultWebhookUrl.
  */
 export async function createCustomerPaynowIntent(
   client: SupabaseClient,
@@ -421,7 +421,6 @@ export async function createCustomerPaynowIntent(
     channel: "storefront",
     return_url: returnUrl,
     cancel_url: cancelUrl,
-    result_url: returnUrl,
   };
 
   const edge = await client.functions.invoke("paynow-initiate", {
@@ -430,7 +429,6 @@ export async function createCustomerPaynowIntent(
       method,
       return_url: returnUrl,
       cancel_url: cancelUrl,
-      result_url: returnUrl,
       metadata,
     },
   });
