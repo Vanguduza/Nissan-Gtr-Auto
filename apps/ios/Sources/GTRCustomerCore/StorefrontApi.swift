@@ -74,6 +74,9 @@ public final class FakeStorefrontApi: StorefrontApi {
     private var cart: CartSummary?
     private var orders: [CustomerOrder] = []
     private var garage: [GarageVehicle] = []
+    private var threads: [ChatThread] = []
+    private var messages: [ChatMessage] = []
+    private var unreadByThread: [UUID: Int] = [:]
 
     public init(seedDemo: Bool = true) {
         if seedDemo {
@@ -101,6 +104,35 @@ public final class FakeStorefrontApi: StorefrontApi {
                     isPrimary: true
                 ),
             ]
+            let threadId = UUID()
+            let now = Date()
+            threads = [
+                ChatThread(
+                    id: threadId,
+                    kind: .support,
+                    status: .open,
+                    subject: "Demo counter check",
+                    lastMessageAt: now,
+                    createdAt: now
+                ),
+            ]
+            messages = [
+                ChatMessage(
+                    id: UUID(),
+                    threadId: threadId,
+                    senderKind: .customer,
+                    body: "Hi — need fitment help for a VR38 oil filter.",
+                    createdAt: now.addingTimeInterval(-120)
+                ),
+                ChatMessage(
+                    id: UUID(),
+                    threadId: threadId,
+                    senderKind: .staff,
+                    body: "Sure — send the OEM or VIN and we’ll confirm.",
+                    createdAt: now
+                ),
+            ]
+            unreadByThread[threadId] = 1
         }
     }
 
@@ -237,6 +269,85 @@ public final class FakeStorefrontApi: StorefrontApi {
         method _: PaynowMethod
     ) async throws -> PaymentIntentResult {
         try stubIntent(invoiceId: invoiceId, rail: .paynow)
+    }
+
+    // MARK: Chat (Fake)
+
+    public func listChatThreads() async throws -> [ChatThread] {
+        threads.sorted { ($0.lastMessageAt ?? .distantPast) > ($1.lastMessageAt ?? .distantPast) }
+    }
+
+    public func listChatMessages(threadId: UUID) async throws -> [ChatMessage] {
+        messages
+            .filter { $0.threadId == threadId }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    public func startChatThread(_ input: StartChatThreadInput) async throws -> UUID {
+        let id = UUID()
+        let now = Date()
+        let subject = input.subject?.trimmingCharacters(in: .whitespacesAndNewlines)
+        threads.insert(
+            ChatThread(
+                id: id,
+                kind: input.kind,
+                status: .open,
+                subject: (subject?.isEmpty == false) ? subject : nil,
+                lastMessageAt: now,
+                createdAt: now
+            ),
+            at: 0
+        )
+        if let body = input.body?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty {
+            messages.append(
+                ChatMessage(
+                    id: UUID(),
+                    threadId: id,
+                    senderKind: .customer,
+                    body: body,
+                    createdAt: now
+                )
+            )
+        }
+        unreadByThread[id] = 0
+        return id
+    }
+
+    public func postChatMessage(threadId: UUID, body: String) async throws -> UUID {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw StorefrontError.message("Message body required.")
+        }
+        guard let idx = threads.firstIndex(where: { $0.id == threadId }) else {
+            throw StorefrontError.message("Thread not found.")
+        }
+        guard threads[idx].status != .closed else {
+            throw StorefrontError.message("Thread closed.")
+        }
+        let id = UUID()
+        let now = Date()
+        messages.append(
+            ChatMessage(
+                id: id,
+                threadId: threadId,
+                senderKind: .customer,
+                body: trimmed,
+                createdAt: now
+            )
+        )
+        threads[idx].lastMessageAt = now
+        return id
+    }
+
+    public func markChatThreadRead(threadId: UUID) async throws {
+        unreadByThread[threadId] = 0
+    }
+
+    public func chatUnreadCount(threadId: UUID?) async throws -> Int {
+        if let threadId {
+            return unreadByThread[threadId] ?? 0
+        }
+        return unreadByThread.values.reduce(0, +)
     }
 
     private func stubIntent(invoiceId: UUID, rail: PaymentRail) throws -> PaymentIntentResult {
