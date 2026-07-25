@@ -2,9 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ComponentType } from "react";
+import type { ComponentType } from "react";
 import {
-  Building2,
   Car,
   CircleDot,
   Cog,
@@ -23,7 +22,6 @@ import {
   Zap,
   type LucideIcon,
 } from "@/components/icons";
-import { createWebClient, hasSupabaseEnv } from "@/lib/supabase";
 import styles from "./site-header.module.css";
 
 const categories: {
@@ -62,54 +60,6 @@ function ActionIcon({
 }
 
 export function SiteHeader() {
-  const [showStaff, setShowStaff] = useState(false);
-
-  useEffect(() => {
-    if (!hasSupabaseEnv()) return;
-    const client = createWebClient();
-    if (!client) return;
-
-    let cancelled = false;
-    void (async () => {
-      const { data } = await client.auth.getSession();
-      const userId = data.session?.user.id;
-      if (!userId) {
-        if (!cancelled) setShowStaff(false);
-        return;
-      }
-      const profile = await client
-        .from("profiles")
-        .select("is_staff")
-        .eq("id", userId)
-        .maybeSingle();
-      if (!cancelled) {
-        setShowStaff(Boolean(profile.data?.is_staff));
-      }
-    })();
-
-    const { data: sub } = client.auth.onAuthStateChange(() => {
-      void (async () => {
-        const { data } = await client.auth.getSession();
-        const userId = data.session?.user.id;
-        if (!userId) {
-          setShowStaff(false);
-          return;
-        }
-        const profile = await client
-          .from("profiles")
-          .select("is_staff")
-          .eq("id", userId)
-          .maybeSingle();
-        setShowStaff(Boolean(profile.data?.is_staff));
-      })();
-    });
-
-    return () => {
-      cancelled = true;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
   return (
     <header className={styles.chrome}>
       <div className={styles.main}>
