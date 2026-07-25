@@ -1,6 +1,5 @@
 /**
- * Re-export Lucide icons used across the storefront so stroke size stays consistent.
- * Import from here rather than `lucide-react` in UI chrome.
+ * Storefront Lucide icons — import from here for consistent stroke/size defaults.
  */
 export {
   LayoutGrid,
@@ -12,18 +11,18 @@ export {
   CircleDot,
   Filter,
   Cog,
-  MoveVertical,
+  ArrowUpDown,
   Zap,
   Droplets,
-  CarFront,
+  Car,
   Wrench,
   Package,
   ListOrdered,
-  Images,
+  Image,
   MapPin,
   Heart,
   RotateCcw,
-  GitCompareArrows,
+  Columns2,
   Gift,
   Star,
   Smartphone,
@@ -31,9 +30,8 @@ export {
   Gauge,
   Building2,
   ArrowRight,
+  type LucideIcon,
 } from "lucide-react";
-
-export type { LucideIcon } from "lucide-react";
 
 export const iconStroke = 1.75;
 export const iconSizeSm = 16;

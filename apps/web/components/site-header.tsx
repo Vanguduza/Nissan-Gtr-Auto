@@ -2,23 +2,64 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { ChatNavLink } from "@/components/chat-nav-link";
+import {
+  Building2,
+  Car,
+  CircleDot,
+  Cog,
+  Droplets,
+  Filter,
+  iconSizeMd,
+  iconSizeSm,
+  iconStroke,
+  LayoutGrid,
+  LogIn,
+  MessageCircle,
+  Package,
+  Search,
+  ShoppingCart,
+  ArrowUpDown,
+  UserRound,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from "@/components/icons";
 import { SearchFourWay } from "@/components/search-four-way";
 import { createWebClient, hasSupabaseEnv } from "@/lib/supabase";
 import styles from "./site-header.module.css";
 
-const categories = [
-  { href: "/catalog?cat=brakes", label: "Brakes" },
-  { href: "/catalog?cat=filters", label: "Filters" },
-  { href: "/catalog?cat=engine", label: "Engine" },
-  { href: "/catalog?cat=suspension", label: "Suspension" },
-  { href: "/catalog?cat=electrical", label: "Electrical" },
-  { href: "/catalog?cat=cooling", label: "Cooling" },
-  { href: "/catalog?cat=body", label: "Body" },
-  { href: "/catalog?cat=transmission", label: "Drivetrain" },
-  { href: "/kits", label: "Kits" },
+const categories: {
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+}[] = [
+  { href: "/catalog?cat=brakes", label: "Brakes", Icon: CircleDot },
+  { href: "/catalog?cat=filters", label: "Filters", Icon: Filter },
+  { href: "/catalog?cat=engine", label: "Engine", Icon: Cog },
+  { href: "/catalog?cat=suspension", label: "Suspension", Icon: ArrowUpDown },
+  { href: "/catalog?cat=electrical", label: "Electrical", Icon: Zap },
+  { href: "/catalog?cat=cooling", label: "Cooling", Icon: Droplets },
+  { href: "/catalog?cat=body", label: "Body", Icon: Car },
+  { href: "/catalog?cat=transmission", label: "Drivetrain", Icon: Wrench },
+  { href: "/kits", label: "Kits", Icon: Package },
 ];
+
+function ActionIcon({
+  Icon,
+  label,
+}: {
+  Icon: ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean }>;
+  label: string;
+}) {
+  return (
+    <>
+      <Icon size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
+      <span className={styles.actionLabel}>{label}</span>
+    </>
+  );
+}
 
 export function SiteHeader() {
   const [showStaff, setShowStaff] = useState(false);
@@ -82,7 +123,10 @@ export function SiteHeader() {
             <span className={styles.sep} aria-hidden>
               ·
             </span>
-            <Link href="/b2b">Trade account</Link>
+            <Link href="/b2b" className={styles.utilityLink}>
+              <Building2 size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
+              Trade account
+            </Link>
             {showStaff ? (
               <>
                 <span className={styles.sep} aria-hidden>
@@ -119,15 +163,26 @@ export function SiteHeader() {
           </div>
 
           <nav className={styles.actions} aria-label="Account">
-            <ChatNavLink className={styles.action} label="Chat" />
+            <ChatNavLink
+              className={styles.action}
+              label="Chat"
+              icon={
+                <MessageCircle
+                  size={iconSizeMd}
+                  strokeWidth={iconStroke}
+                  aria-hidden
+                />
+              }
+            />
             <Link href="/account" className={styles.action}>
-              <span className={styles.actionLabel}>My Account</span>
+              <ActionIcon Icon={UserRound} label="Account" />
             </Link>
             <Link href="/cart" className={styles.actionCart}>
-              <span className={styles.actionLabel}>Cart</span>
+              <ActionIcon Icon={ShoppingCart} label="Cart" />
             </Link>
             <Link href="/login" className={styles.signIn}>
-              Sign in
+              <LogIn size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
+              <span className={styles.actionLabel}>Sign in</span>
             </Link>
           </nav>
         </div>
@@ -136,14 +191,17 @@ export function SiteHeader() {
       <nav className={styles.categories} aria-label="Parts categories">
         <div className={styles.categoriesInner}>
           <Link href="/catalog" className={styles.catAll}>
+            <LayoutGrid size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
             All categories
           </Link>
           {categories.map((c) => (
             <Link key={c.href} href={c.href} className={styles.cat}>
+              <c.Icon size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
               {c.label}
             </Link>
           ))}
           <Link href="/search" className={styles.catSearch}>
+            <Search size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
             Advanced search
           </Link>
         </div>
