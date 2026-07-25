@@ -35,6 +35,11 @@ const HUB_CARDS: {
     blurb: "Claims · quarantine return",
   },
   {
+    href: "/staff/chat",
+    label: "Chat",
+    blurb: "Inbox · claim · reply",
+  },
+  {
     href: "/staff/analytics",
     label: "Analytics",
     blurb: "KPIs · AI narrative · reports",
