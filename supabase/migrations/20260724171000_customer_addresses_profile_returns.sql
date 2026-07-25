@@ -218,7 +218,7 @@ DROP TRIGGER IF EXISTS customers_protect_privileged_columns_trg ON public.custom
 CREATE TRIGGER customers_protect_privileged_columns_trg
   BEFORE UPDATE ON public.customers
   FOR EACH ROW
-  EXECUTE FUNCTION public.customers_protect_privileged_columns();
+  EXECUTE PROCEDURE public.customers_protect_privileged_columns();
 
 DROP POLICY IF EXISTS customers_update_own ON public.customers;
 CREATE POLICY customers_update_own ON public.customers

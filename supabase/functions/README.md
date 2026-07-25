@@ -41,9 +41,31 @@ Content-Type: application/json
 
 Shared client: `_shared/sms_gateway.ts`.
 
+## Receipt download (`receipt-download`)
+
+Public PDF fetch by opaque download token. **No service_role in the browser** — Next.js `GET /receipts/[token]` POSTs to this function with the anon key; the function uses `service_role` only in Deno to resolve the artifact and mint a Storage signed URL.
+
+| Item | Detail |
+|------|--------|
+| Method | `POST /functions/v1/receipt-download` |
+| Body | `{ "token": "<download_token>" }` |
+| Success | `{ "signed_url": "https://…", "expires_in": 300 }` (also accepts `signedUrl` / `download_url` aliases on the web proxy) |
+| Fail closed | Invalid/missing token, unknown artifact, bad path, or Storage error → **400/404** (no path leakage) |
+| Bucket | Private `customer-receipts` |
+| JWT | `verify_jwt = true` (anon Bearer from web is enough) |
+| Exclusions | No ZIMRA / FDMS / fiscal QR; rejects storage paths matching `zimra\|fdms\|fiscal` |
+
+```bash
+curl -sS -X POST "$SUPABASE_URL/functions/v1/receipt-download" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "apikey: $SUPABASE_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<download_token>"}'
+```
+
 ## Customer receipts (`process-customer-receipts`)
 
-Tax-agnostic PDF (no ZIMRA/FDMS/fiscal QR). Public download host: `https://nissangtrauto.co.zw/receipts/{token}`.
+Tax-agnostic PDF (no ZIMRA/FDMS/fiscal QR). Public download host: `https://nissangtrauto.co.zw/receipts/{token}` (resolved via `receipt-download`).
 
 ### Flow
 
