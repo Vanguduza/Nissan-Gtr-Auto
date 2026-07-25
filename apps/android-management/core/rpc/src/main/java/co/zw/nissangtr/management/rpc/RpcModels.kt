@@ -300,6 +300,37 @@ object CreditStaffRoles {
         roles.any { it in ALL }
 }
 
+/** Staff roles for company fleet CRUD (`fleet_vehicles` RPCs). */
+object FleetStaffRoles {
+    val ALL: Set<String> = setOf("admin", "warehouse", "dispatcher")
+
+    fun allows(roles: Collection<String>): Boolean =
+        roles.any { it in ALL }
+}
+
+/** Mirrors `public.fleet_vehicle_status`. */
+enum class FleetVehicleStatus(val rpcValue: String) {
+    ACTIVE("active"),
+    IN_SERVICE("in_service"),
+    RETIRED("retired"),
+    ;
+
+    companion object {
+        fun fromRpc(value: String): FleetVehicleStatus =
+            entries.find { it.rpcValue == value } ?: ACTIVE
+    }
+}
+
+/** Row from [RpcNames.LIST_FLEET_VEHICLES] / `fleet_vehicles`. */
+data class FleetVehicleSummary(
+    val id: String,
+    val plate: String,
+    val label: String?,
+    val status: FleetVehicleStatus,
+    val assignedDriverUserId: String?,
+    val notes: String?,
+)
+
 /** Mirrors `public.consignment_kind`. */
 enum class ConsignmentKind(val rpcValue: String) {
     SUPPLIER_OWNED("supplier_owned"),
