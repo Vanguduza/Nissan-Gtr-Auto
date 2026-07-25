@@ -222,7 +222,8 @@ function StaffFinancePanelInner() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab =
-    tabParam && FINANCE_TABS.some((x) => x.id === tabParam)
+    tabParam &&
+    FINANCE_TAB_IDS.includes(tabParam as (typeof FINANCE_TAB_IDS)[number])
       ? tabParam
       : "journals";
   const [registerRows, setRegisterRows] = useState<AccountRegisterRow[]>([]);
