@@ -169,8 +169,7 @@ export default function HomePage() {
                 <tr>
                   <th scope="col">OEM / SKU</th>
                   <th scope="col">Description</th>
-                  <th scope="col">USD</th>
-                  <th scope="col">ZiG</th>
+                  <th scope="col">Price (USD)</th>
                   <th scope="col">
                     <span className={styles.srOnly}>Action</span>
                   </th>

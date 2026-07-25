@@ -83,6 +83,24 @@ export function zigExchangeRate(): number {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
+/**
+ * Official daily ZiG rate (ZiG per 1 USD) from `get_zig_exchange_rate`.
+ * Falls back to NEXT_PUBLIC_ZIG_EXCHANGE_RATE / 1 when unset.
+ */
+export async function fetchZigExchangeRate(
+  client: SupabaseClient,
+  asOf?: string,
+): Promise<number> {
+  const { data, error } = await client.rpc("get_zig_exchange_rate", {
+    p_as_of: asOf ?? null,
+  });
+  if (!error && data != null) {
+    const n = Number(data);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return zigExchangeRate();
+}
+
 export async function requireSession(
   client: SupabaseClient,
 ): Promise<StorefrontResult<{ userId: string }>> {
