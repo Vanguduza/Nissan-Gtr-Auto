@@ -339,4 +339,9 @@ class FakeRpcClient : RpcClient {
         ingestedLocationCount.incrementAndGet()
         return UUID.randomUUID().toString()
     }
+
+    companion object {
+        private val INVENTORY_QR_REGEX =
+            Regex("""^gtr://part/([^?]+)\?batch=([^&]+)&valuation=(FIFO|AVG)$""")
+    }
 }
