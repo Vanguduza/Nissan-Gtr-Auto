@@ -13,9 +13,9 @@ Accept an **automated WhatsApp parts-finder bot** (Meta Cloud API → `whatsapp-
 
 ## Why
 
-- Storefront today only exposes `wa.me` CTA; there is no live chat surface.
+- Storefront exposes `wa.me` CTA; in-app live chat is a separate product (see [`in-app-live-chat`](./2026-07-25-in-app-live-chat.md)).
 - Catalog search already exists server-side; exposing it only through a verified, rate-limited Edge webhook avoids opening RPC to anonymous clients.
-- Human handoff preserves counter sales without forcing a full live-chat product.
+- Human handoff on WhatsApp remains useful as an optional channel alongside in-app chat.
 
 ## Consequences
 
