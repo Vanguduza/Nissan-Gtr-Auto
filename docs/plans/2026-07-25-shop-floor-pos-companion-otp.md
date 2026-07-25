@@ -9,7 +9,7 @@
 
 ## Goal
 
-Sales staff run a **full POS client on a single device** (Android management or web `/staff/pos`) with parts search, catalog browse, add-to-cart, and checkout (receipt contacts + customer bind). Phone QR companion **optionally** pairs to enhance scanning; pairing is never required. Customers sign up/login with email and/or phone OTP under fail-closed secret rules.
+Sales staff run a **full POS client on a single device** (Android management or web `/staff/pos`) with parts search, catalog browse, add-to-cart, and checkout (receipt contacts + customer bind). Phone QR companion **optionally** pairs to enhance scanning; pairing is never required. Customers **sign up** with email/phone OTP (fail-closed); **later logins** use email/phone + password set at registration.
 
 ## Acceptance criteria
 
