@@ -1,5 +1,7 @@
 package co.zw.nissangtr.customer
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -56,11 +58,15 @@ private enum class CustomerRoute {
  * Live requires GoTrue email/password session via [AuthGate].
  * Money/pricing: @gtr/shared. Hardware QR: bridges/ only — never HTML5.
  *
- * Intent extras (optional deep link from SMS `/track/{token}`):
- * - `track_token` — share token for [get_delivery_track_point]
- * - `track_job_id` — owned delivery job id (signed-in)
+ * Deep link / extras for privacy-safe track (last point + ETA only):
+ * - Intent extras: `track_token`, `track_job_id`
+ * - Custom: `gtrcustomer://track/{token}`
+ * - HTTPS (optional host): `https://…/track/{token}` (same path as web SMS)
  */
 class MainActivity : ComponentActivity() {
+    private var pendingTrackToken by mutableStateOf<String?>(null)
+    private var pendingTrackJobId by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         listOf(
@@ -83,8 +89,7 @@ class MainActivity : ComponentActivity() {
             forceFake = BuildConfig.RPC_FORCE_FAKE,
         )
         val supabase = rpc as? SupabaseRpcClient
-        val intentToken = intent?.getStringExtra(EXTRA_TRACK_TOKEN)?.trim()?.takeIf { it.isNotEmpty() }
-        val intentJobId = intent?.getStringExtra(EXTRA_TRACK_JOB_ID)?.trim()?.takeIf { it.isNotEmpty() }
+        applyTrackIntent(intent)
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -95,8 +100,8 @@ class MainActivity : ComponentActivity() {
                             signedInEmail = email,
                             onSignOut = onSignOut,
                             whatsappE164 = BuildConfig.WHATSAPP_E164,
-                            initialTrackToken = intentToken,
-                            initialTrackJobId = intentJobId,
+                            initialTrackToken = pendingTrackToken,
+                            initialTrackJobId = pendingTrackJobId,
                         )
                     }
                 }
@@ -104,9 +109,45 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        applyTrackIntent(intent)
+    }
+
+    private fun applyTrackIntent(intent: Intent?) {
+        if (intent == null) return
+        val fromExtra = intent.getStringExtra(EXTRA_TRACK_TOKEN)?.trim()?.takeIf { it.isNotEmpty() }
+        val fromUri = parseTrackToken(intent.data)
+        pendingTrackToken = fromExtra ?: fromUri
+        pendingTrackJobId = intent.getStringExtra(EXTRA_TRACK_JOB_ID)?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
     companion object {
         const val EXTRA_TRACK_TOKEN = "track_token"
         const val EXTRA_TRACK_JOB_ID = "track_job_id"
+
+        /** Parse `/track/{token}` from https or `gtrcustomer://track/{token}`. */
+        fun parseTrackToken(uri: Uri?): String? {
+            if (uri == null) return null
+            val segments = uri.pathSegments
+            when {
+                // gtrcustomer://track/{token} → host=track, path=/{token}
+                uri.scheme.equals("gtrcustomer", ignoreCase = true) &&
+                    uri.host.equals("track", ignoreCase = true) -> {
+                    val token = segments.firstOrNull() ?: uri.lastPathSegment
+                    return token?.trim()?.takeIf { it.length >= 8 }
+                }
+                // https://host/track/{token}
+                segments.size >= 2 && segments[segments.size - 2].equals("track", ignoreCase = true) -> {
+                    return segments.last().trim().takeIf { it.length >= 8 }
+                }
+                segments.size == 1 && uri.path?.startsWith("/track/") == true -> {
+                    return segments[0].trim().takeIf { it.length >= 8 }
+                }
+            }
+            return null
+        }
     }
 }
 
