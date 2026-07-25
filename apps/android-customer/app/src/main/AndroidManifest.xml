@@ -24,15 +24,7 @@
                     android:scheme="gtrcustomer"
                     android:host="track" />
             </intent-filter>
-            <!-- HTTPS /track/{token} (any host — App Links verification optional later) -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="https"
-                    android:pathPrefix="/track/" />
-            </intent-filter>
+            <!-- HTTPS App Links need a concrete host (set when public site URL is known). -->
         </activity>
     </application>
 </manifest>
