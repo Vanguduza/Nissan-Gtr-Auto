@@ -892,6 +892,13 @@ GRANT ALL ON TABLE public.finance_requisitions TO service_role;
 -- ---------------------------------------------------------------------------
 -- Grants
 -- ---------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public._finance_period_rpc_active() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._finance_period_rpc_enter() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.forbid_account_period_direct_mutation() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._finance_req_rpc_active() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._finance_req_rpc_enter() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.forbid_finance_requisition_direct_mutation() FROM PUBLIC;
+
 REVOKE ALL ON FUNCTION public.open_account_period(
   VARCHAR, public.currency_code, DATE, DATE, NUMERIC, TEXT
 ) FROM PUBLIC;
