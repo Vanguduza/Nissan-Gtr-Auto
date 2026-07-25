@@ -856,20 +856,50 @@ export function StaffFinancePanel() {
   async function onReverseJournal(id: string) {
     const client = createWebClient();
     if (!client) return;
+    const reason = reverseReason.trim();
+    if (!reason) {
+      setMessage("Reversal reason is required.");
+      return;
+    }
+    const source =
+      boot.kind === "ready"
+        ? boot.journals.find((j) => j.id === id)
+        : undefined;
+    const label = source?.document_number ?? `JE ${id.slice(0, 8)}…`;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `Reverse ${label}? This posts a contra journal (ledger append-only).`,
+      )
+    ) {
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const res = await reverseJournal(client, {
       entryId: id,
-      reason: reverseReason.trim() || undefined,
+      reason,
     });
     setBusy(false);
     if (!res.ok) {
       setMessage(res.error);
       return;
     }
-    setMessage(`Reversal posted ${res.data.slice(0, 8)}…`);
-    setReverseReason("");
     await refresh();
+    const client2 = createWebClient();
+    let doc: string | null = null;
+    if (client2) {
+      const listed = await listJournalEntries(client2);
+      if (listed.ok) {
+        doc =
+          listed.data.find((j) => j.id === res.data)?.document_number ?? null;
+      }
+    }
+    setLastReversal({ id: res.data, documentNumber: doc });
+    setMessage(
+      `Reversal posted ${doc ?? res.data.slice(0, 8) + "…"} (contra of ${label}).`,
+    );
+    setReverseReason("");
   }
 
   async function onCreatePeriod(e: FormEvent) {
@@ -894,12 +924,56 @@ export function StaffFinancePanel() {
     }
     setMessage(`Period ${res.data.slice(0, 8)}… created (open until locked).`);
     setPeriodLabel("");
+    setClosePeriodId(res.data);
+    setCloseStep("pick");
     await refresh();
+  }
+
+  async function onCloseWizardTb() {
+    const client = createWebClient();
+    if (!client || boot.kind !== "ready") return;
+    const period = boot.periods.find((p) => p.id === closePeriodId);
+    if (!period || period.locked_at) {
+      setMessage("Select an open period for the close wizard.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await reportTrialBalance(client, {
+      asOf: period.period_end,
+      currency: "USD",
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      setCloseTbOk(null);
+      setCloseTbRows([]);
+      return;
+    }
+    setCloseTbRows(res.data);
+    const debit = res.data.reduce((s, r) => s + Number(r.debit_usd), 0);
+    const credit = res.data.reduce((s, r) => s + Number(r.credit_usd), 0);
+    const balanced = Math.abs(debit - credit) < 0.02;
+    setCloseTbOk(balanced);
+    setCloseStep("tb");
+    setMessage(
+      balanced
+        ? `TB as of ${period.period_end}: balanced (USD debit ${debit.toFixed(2)} = credit ${credit.toFixed(2)}).`
+        : `TB as of ${period.period_end}: imbalance — debit USD ${debit.toFixed(2)} vs credit ${credit.toFixed(2)}. Review before lock.`,
+    );
   }
 
   async function onLockPeriod(id: string) {
     const client = createWebClient();
     if (!client) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Lock this period? Locked periods reject new posts. There is no unlock RPC.",
+      )
+    ) {
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const res = await lockAccountingPeriod(client, id);
@@ -909,6 +983,9 @@ export function StaffFinancePanel() {
       return;
     }
     setMessage(`Period ${id.slice(0, 8)}… locked.`);
+    setCloseStep("pick");
+    setCloseTbRows([]);
+    setCloseTbOk(null);
     await refresh();
   }
 
