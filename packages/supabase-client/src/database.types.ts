@@ -1428,6 +1428,36 @@ export type Database = {
           },
         ]
       }
+      daily_exchange_rates: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          id: string
+          notes: string | null
+          rate: number
+          rate_date: string
+          set_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          notes?: string | null
+          rate: number
+          rate_date?: string
+          set_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          notes?: string | null
+          rate?: number
+          rate_date?: string
+          set_by?: string | null
+        }
+        Relationships: []
+      }
       delivery_jobs: {
         Row: {
           assignee_user_id: string | null

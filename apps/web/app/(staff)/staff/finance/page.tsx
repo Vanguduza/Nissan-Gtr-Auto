@@ -16,7 +16,8 @@ export default function StaffFinancePage() {
           journal templates; multi-invoice payment allocate; trial balance + CSV;
           period-close wizard. Finance/admin roles enforced by RPCs and RLS.
           Amounts always show explicit USD | ZIG with visible ZiG rate when
-          applicable.{" "}
+          applicable. Use the <strong>ZiG rate</strong> tab for the daily
+          exchange rate (checkout settlement).{" "}
           <Link href="/staff/crm/credit">Customer credit desk</Link> for B2B
           limit / hold (AR aging snapshot on Payments).
         </p>

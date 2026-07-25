@@ -1317,6 +1317,95 @@ export function StaffFinancePanel() {
         </fieldset>
       ) : null}
 
+      {tab === "exchange-rate" ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Daily ZiG exchange rate</legend>
+          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+            Set how many ZiG equal 1 USD. Catalog and cart stay in USD;
+            checkout offers ZiG settlement using today&apos;s (or latest) rate
+            from <code>get_zig_exchange_rate</code>. Finance/admin only.
+          </p>
+          <form onSubmit={(e) => void onSetDailyRate(e)}>
+            <div className={styles.formGrid}>
+              <label className={styles.field}>
+                Rate date
+                <input
+                  type="date"
+                  value={dailyRateDate}
+                  onChange={(e) => setDailyRateDate(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <label className={styles.field}>
+                ZiG per 1 USD
+                <input
+                  value={dailyRate}
+                  onChange={(e) => setDailyRate(e.target.value)}
+                  disabled={busy}
+                  inputMode="decimal"
+                  placeholder={officialRate}
+                />
+              </label>
+              <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+                Notes (optional)
+                <input
+                  value={dailyRateNotes}
+                  onChange={(e) => setDailyRateNotes(e.target.value)}
+                  disabled={busy}
+                  placeholder="e.g. Mid-market open"
+                />
+              </label>
+            </div>
+            <div className={styles.formActions}>
+              <button type="submit" className={styles.btnGhost} disabled={busy}>
+                Save rate
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() => void loadZigRates()}
+              >
+                Refresh history
+              </button>
+            </div>
+          </form>
+          <p className={styles.muted} style={{ marginTop: "0.75rem" }}>
+            Active rate for checkout: <strong>{officialRate}</strong> ZiG / USD
+          </p>
+          {rateHistory.length ? (
+            <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Rate</th>
+                    <th>Notes</th>
+                    <th>Set</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rateHistory.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.rate_date}</td>
+                      <td>{Number(r.rate).toFixed(8).replace(/\.?0+$/, "")}</td>
+                      <td>{r.notes ?? "—"}</td>
+                      <td className={styles.muted}>
+                        {new Date(r.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className={styles.muted} style={{ marginTop: "0.75rem" }}>
+              No rates recorded yet — save one above (seed may be 1.0).
+            </p>
+          )}
+        </fieldset>
+      ) : null}
+
       {tab === "journals" ? (
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Journal draft</legend>
