@@ -194,8 +194,7 @@ export async function ensureOpenCart(
   const currency = opts.currency ?? "USD";
   // Storefront carts are always USD; ZiG is a checkout settlement choice only.
   const cartCurrency = currency === "ZIG" ? "USD" : currency;
-  const exchangeRate =
-    opts.exchangeRate ?? (cartCurrency === "ZIG" ? zigExchangeRate() : 1);
+  const exchangeRate = opts.exchangeRate ?? 1;
 
   const { data: cartId, error } = await client.rpc("create_customer_cart", {
     p_warehouse_id: warehouse.data,
