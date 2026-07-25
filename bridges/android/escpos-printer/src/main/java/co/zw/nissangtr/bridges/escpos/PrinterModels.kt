@@ -38,9 +38,11 @@ data class EscPosReceiptLine(
 
 /**
  * Bluetooth ESC/POS inventory label + receipt printer.
- * Configure printer MAC via [BluetoothEscPosPrinterBridge.setPrinterAddress] before [connect].
+ * Configure printer MAC via [configurePrinterAddress] before [connect].
  */
 interface EscPosPrinterBridge {
+    /** Persist bonded printer MAC (e.g. `00:11:22:33:44:55`). */
+    fun configurePrinterAddress(macAddress: String)
     suspend fun getBluetoothPermissionStatus(): BluetoothPermissionStatus
     suspend fun requestBluetoothPermission(): BluetoothPermissionStatus
     suspend fun connect()

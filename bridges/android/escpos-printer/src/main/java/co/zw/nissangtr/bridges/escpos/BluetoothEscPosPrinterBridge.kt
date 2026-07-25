@@ -48,9 +48,12 @@ class BluetoothEscPosPrinterBridge(
     }
 
     /** Persist / update the bonded printer Bluetooth MAC (e.g. `00:11:22:33:44:55`). */
-    fun setPrinterAddress(macAddress: String) {
+    override fun configurePrinterAddress(macAddress: String) {
         prefs.edit().putString(KEY_MAC, macAddress.trim()).apply()
     }
+
+    /** @deprecated Prefer [configurePrinterAddress] (contract-aligned). */
+    fun setPrinterAddress(macAddress: String) = configurePrinterAddress(macAddress)
 
     fun getPrinterAddress(): String? =
         prefs.getString(KEY_MAC, null)?.takeIf { it.isNotBlank() }
