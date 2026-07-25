@@ -87,10 +87,30 @@ class DispatchViewModel(
         _state.update { it.copy(qty = v) }
 
     fun onDeliveryJobIdChange(v: String) =
-        _state.update { it.copy(deliveryJobId = v, error = null, liveTrack = null) }
+        _state.update {
+            it.copy(
+                deliveryJobId = v,
+                error = null,
+                liveTrack = null,
+                trackShareToken = null,
+                podOtp = null,
+            )
+        }
 
     fun onAssigneeUserIdChange(v: String) =
         _state.update { it.copy(assigneeUserId = v, error = null) }
+
+    fun onPickupLatChange(v: String) =
+        _state.update { it.copy(pickupLat = v, error = null) }
+
+    fun onPickupLngChange(v: String) =
+        _state.update { it.copy(pickupLng = v, error = null) }
+
+    fun onDropoffLatChange(v: String) =
+        _state.update { it.copy(dropoffLat = v, error = null) }
+
+    fun onDropoffLngChange(v: String) =
+        _state.update { it.copy(dropoffLng = v, error = null) }
 
     fun selectPickList(id: String) =
         _state.update { it.copy(selectedPickListId = id) }
@@ -259,16 +279,43 @@ class DispatchViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val id = rpc.createDeliveryJob(deliveryNoteId = dnId)
+                // Best-effort coords so suggest + ETA work (Fake stores; Live may fail closed).
+                val coordMsg = applyCoordsIfPossible(id)
                 _state.update {
                     it.copy(
                         busy = false,
                         deliveryJobId = id,
-                        message = "${RpcNames.CREATE_DELIVERY_JOB} → $id",
+                        trackShareToken = null,
+                        podOtp = null,
+                        message = "${RpcNames.CREATE_DELIVERY_JOB} → $id" +
+                            (coordMsg?.let { c -> " · $c" } ?: ""),
                     )
                 }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "create delivery job failed")
+                }
+            }
+        }
+    }
+
+    fun saveJobCoords() {
+        val jobId = _state.value.deliveryJobId.trim()
+        if (jobId.isEmpty()) {
+            _state.update { it.copy(error = "Delivery job UUID required for coords") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val msg = applyCoordsIfPossible(jobId)
+                    ?: "Coords saved"
+                _state.update {
+                    it.copy(busy = false, message = msg)
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "save coords failed")
                 }
             }
         }
@@ -284,15 +331,76 @@ class DispatchViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val id = rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
+                // Status RPC mints for notify but does not return plaintext —
+                // mint again so dispatcher can share (revokes prior active token).
+                val token = runCatching { rpc.mintDeliveryTrackToken(jobId) }.getOrNull()
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.UPDATE_DELIVERY_JOB_STATUS} → dispatched ($id)",
+                        trackShareToken = token,
+                        message = "${RpcNames.UPDATE_DELIVERY_JOB_STATUS} → dispatched ($id)" +
+                            if (token != null) {
+                                " · ${RpcNames.MINT_DELIVERY_TRACK_TOKEN} ready (share below)"
+                            } else {
+                                " · mint track token failed — retry Mint share token"
+                            },
                     )
                 }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "dispatch status failed")
+                }
+            }
+        }
+    }
+
+    fun mintShareToken() {
+        val jobId = _state.value.deliveryJobId.trim()
+        if (jobId.isEmpty()) {
+            _state.update { it.copy(error = "Delivery job UUID required") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val token = rpc.mintDeliveryTrackToken(jobId)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        trackShareToken = token,
+                        message = "${RpcNames.MINT_DELIVERY_TRACK_TOKEN} → share plaintext ready " +
+                            "(re-mint revokes prior)",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "mint track token failed")
+                }
+            }
+        }
+    }
+
+    fun generatePodOtp() {
+        val jobId = _state.value.deliveryJobId.trim()
+        if (jobId.isEmpty()) {
+            _state.update { it.copy(error = "Delivery job UUID required") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val otp = rpc.generateDeliveryPodOtp(jobId)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        podOtp = otp,
+                        message = "${RpcNames.GENERATE_DELIVERY_POD_OTP} → $otp " +
+                            "(read to customer; hash-only in DB)",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "generate POD OTP failed")
                 }
             }
         }
