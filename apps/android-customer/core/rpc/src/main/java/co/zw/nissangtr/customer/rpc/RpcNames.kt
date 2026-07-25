@@ -22,4 +22,11 @@ object RpcNames {
     const val POST_CHAT_MESSAGE = "post_chat_message"
     const val MARK_CHAT_THREAD_READ = "mark_chat_thread_read"
     const val CHAT_UNREAD_COUNT = "chat_unread_count"
+
+    /**
+     * Privacy-safe last point + ETA for an active (`dispatched`) job.
+     * Args: `p_delivery_job_id` and/or `p_token` (share link). Never returns a trail.
+     * Mirrors packages/supabase-client DELIVERY_RPC.getTrackPoint.
+     */
+    const val GET_DELIVERY_TRACK_POINT = "get_delivery_track_point"
 }
