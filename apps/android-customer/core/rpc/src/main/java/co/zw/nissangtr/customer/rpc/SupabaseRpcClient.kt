@@ -511,6 +511,7 @@ private data class CustomerOrderDto(
     @SerialName("posted_at") val postedAt: String? = null,
     @SerialName("pick_list_status") val pickListStatus: String? = null,
     @SerialName("delivery_note_status") val deliveryNoteStatus: String? = null,
+    @SerialName("active_delivery_job_id") val activeDeliveryJobId: String? = null,
 ) {
     fun toModel() = CustomerOrder(
         invoiceId = invoiceId,
@@ -529,6 +530,7 @@ private data class CustomerOrderDto(
         postedAt = postedAt,
         pickListStatus = pickListStatus,
         deliveryNoteStatus = deliveryNoteStatus,
+        activeDeliveryJobId = activeDeliveryJobId,
     )
 }
 
