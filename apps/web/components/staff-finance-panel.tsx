@@ -768,8 +768,8 @@ export function StaffFinancePanel() {
           <ul className={styles.navList} style={{ marginTop: "1rem" }}>
             {drafts.map((j) => (
               <li key={j.id} className={styles.muted}>
-                {j.document_number ?? j.id.slice(0, 8)} · {j.currency} ·{" "}
-                {j.description ?? "—"}{" "}
+                {j.document_number ?? `Draft ${j.id.slice(0, 8)}`} · {j.currency} ·{" "}
+                {j.description?.trim() || "No description"}{" "}
                 <button
                   type="button"
                   className={styles.btnGhost}
@@ -782,7 +782,9 @@ export function StaffFinancePanel() {
             ))}
           </ul>
         ) : (
-          <p className={styles.muted}>No draft journals loaded.</p>
+          <p className={styles.muted}>
+            No draft journals. Create a balanced debit/credit draft above.
+          </p>
         )}
 
         <p className={styles.muted} style={{ marginTop: "1rem" }}>
@@ -802,8 +804,8 @@ export function StaffFinancePanel() {
           <ul className={styles.navList}>
             {posted.map((j) => (
               <li key={j.id} className={styles.muted}>
-                {j.document_number ?? j.id.slice(0, 8)} · {j.currency} ·{" "}
-                {j.entry_date} · {j.description ?? "—"}{" "}
+                {j.document_number ?? `JE ${j.id.slice(0, 8)}`} · {j.currency} ·{" "}
+                {j.entry_date} · {j.description?.trim() || "No description"}{" "}
                 <button
                   type="button"
                   className={styles.btnGhost}
@@ -816,7 +818,7 @@ export function StaffFinancePanel() {
             ))}
           </ul>
         ) : (
-          <p className={styles.muted}>No posted journals to reverse.</p>
+          <p className={styles.muted}>No posted journals to reverse yet.</p>
         )}
       </fieldset>
 
