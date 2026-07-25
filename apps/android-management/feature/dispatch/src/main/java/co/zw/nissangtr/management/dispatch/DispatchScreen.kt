@@ -29,10 +29,12 @@ import co.zw.nissangtr.management.rpc.RpcNames
 
 /**
  * Scaffold: pick/DN + create job + **assignment** (suggest/override) +
- * **route order** + staff **live view** (ETA) + **panic inbox**.
+ * **route order** + staff **live view** (ETA) + track share token + POD OTP +
+ * **panic inbox**.
  *
  * Driver GPS FGS / [RpcNames.INGEST_DELIVERY_LOCATION] is **not** started here —
- * sole producer is `apps/android-delivery`.
+ * sole producer is `apps/android-delivery`. Drivers: use the delivery app
+ * (management Start Tracking removed / hard-gated).
  */
 @Composable
 fun DispatchScreen(
@@ -62,9 +64,9 @@ fun DispatchScreen(
         )
         Text(
             "GPS: view-only via ${RpcNames.GET_DELIVERY_TRACK_POINT}. " +
-                "Producer gated — apps/android-delivery owns FGS → " +
-                RpcNames.INGEST_DELIVERY_LOCATION +
-                " (ALLOW_DRIVER_GPS_PRODUCER=${DispatchViewModel.ALLOW_DRIVER_GPS_PRODUCER}).",
+                "Producer gated — drivers use apps/android-delivery " +
+                "(FGS → ${RpcNames.INGEST_DELIVERY_LOCATION}). " +
+                "ALLOW_DRIVER_GPS_PRODUCER=${DispatchViewModel.ALLOW_DRIVER_GPS_PRODUCER}.",
             style = MaterialTheme.typography.bodySmall,
         )
 
