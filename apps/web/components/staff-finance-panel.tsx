@@ -1086,8 +1086,9 @@ export function StaffFinancePanel() {
           <ul className={styles.navList} style={{ marginTop: "1rem" }}>
             {boot.payments.map((p) => (
               <li key={p.id} className={styles.muted}>
-                {p.document_number ?? p.id.slice(0, 8)} · {p.amount} {p.currency}{" "}
-                · {p.tender}{" "}
+                {p.document_number ?? p.id.slice(0, 8)} ·{" "}
+                {p.customers?.display_name ?? "Customer"} · {p.amount}{" "}
+                {p.currency} · {p.tender}{" "}
                 <button
                   type="button"
                   className={styles.btnGhost}
@@ -1108,7 +1109,9 @@ export function StaffFinancePanel() {
             ))}
           </ul>
         ) : (
-          <p className={styles.muted}>No draft payments.</p>
+          <p className={styles.muted}>
+            No draft payments. Search a customer by name above to create one.
+          </p>
         )}
       </fieldset>
 

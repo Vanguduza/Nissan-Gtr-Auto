@@ -416,12 +416,21 @@ export function StaffPosPanel() {
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>3 · Lines · checkout</legend>
         {lines.length === 0 ? (
-          <p className={styles.muted}>No lines yet.</p>
+          <p className={styles.muted}>
+            {cart
+              ? "No lines yet — search an OEM above and add a qty."
+              : "Create a cart first, then add OEM lines."}
+          </p>
         ) : (
           <ul className={styles.list}>
             {lines.map((line) => (
               <li key={line.id}>
-                <code>{line.stock_items?.oem_part_number ?? line.stock_item_id}</code>
+                <code>
+                  {line.stock_items?.oem_part_number ?? line.stock_item_id.slice(0, 8)}
+                </code>
+                {line.stock_items?.description
+                  ? ` — ${line.stock_items.description}`
+                  : ""}
                 {line.is_core_charge ? " · core" : ""} · qty {line.qty} ·{" "}
                 {Number(line.unit_price).toFixed(2)} × {Number(line.line_total).toFixed(2)}{" "}
                 {cart?.currency ?? ""}
