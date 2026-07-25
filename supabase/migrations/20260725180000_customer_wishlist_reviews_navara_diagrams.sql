@@ -336,7 +336,6 @@ DO $$
 DECLARE
   v_uom UUID;
   v_list UUID;
-  v_admin UUID := 'a0000000-0000-4000-8000-000000000001';
   r RECORD;
 BEGIN
   SELECT id INTO v_uom FROM public.uoms WHERE code = 'EA' LIMIT 1;
