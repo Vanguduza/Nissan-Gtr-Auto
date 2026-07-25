@@ -6,9 +6,25 @@
 }
 
 .bar {
-  background: var(--gtr-steel);
+  background: linear-gradient(
+    180deg,
+    var(--gtr-steel-lift) 0%,
+    var(--gtr-steel) 100%
+  );
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(18, 21, 28, 0.18);
+}
+
+.bar::after {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--gtr-red) 0%,
+    color-mix(in srgb, var(--gtr-red) 40%, var(--gtr-steel)) 100%
+  );
 }
 
 .barInner {
