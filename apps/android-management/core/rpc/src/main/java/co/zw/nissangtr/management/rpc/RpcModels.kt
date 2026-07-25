@@ -279,3 +279,189 @@ data class ChatMessageSummary(
     val body: String,
     val createdAt: String,
 )
+
+/** Named-customer hit from PostgREST `customers` (POS / credit / consignment). */
+data class CustomerOption(
+    val id: String,
+    val displayName: String,
+)
+
+data class SupplierRef(
+    val id: String,
+    val code: String,
+    val name: String,
+)
+
+/** Staff roles that may set B2B credit (`set_customer_credit`). */
+object CreditStaffRoles {
+    val ALL: Set<String> = setOf("admin", "sales", "finance")
+
+    fun allows(roles: Collection<String>): Boolean =
+        roles.any { it in ALL }
+}
+
+/** Mirrors `public.consignment_kind`. */
+enum class ConsignmentKind(val rpcValue: String) {
+    SUPPLIER_OWNED("supplier_owned"),
+    CUSTOMER_HELD("customer_held"),
+}
+
+/** Mirrors `public.consignment_entry_purpose`. */
+enum class ConsignmentPurpose(val rpcValue: String) {
+    RECEIVE("receive"),
+    RETURN_TO_SUPPLIER("return_to_supplier"),
+    TAKE_OWNERSHIP("take_ownership"),
+    PLACE_WITH_CUSTOMER("place_with_customer"),
+    RETURN_FROM_CUSTOMER("return_from_customer"),
+    RECOGNIZE_SALE("recognize_sale"),
+}
+
+data class WarehouseBinSummary(
+    val id: String,
+    val warehouseId: String,
+    val code: String,
+    val name: String,
+    val pickPathSeq: Int,
+    val aisle: String? = null,
+    val rack: String? = null,
+    val shelf: String? = null,
+    val isActive: Boolean = true,
+)
+
+data class PickPathHint(
+    val stockItemId: String,
+    val oemPartNumber: String?,
+    val quantity: Double,
+    val binId: String?,
+    val binCode: String?,
+    val binName: String?,
+    val pickPathSeq: Int?,
+    val aisle: String? = null,
+    val rack: String? = null,
+    val shelf: String? = null,
+)
+
+data class BlanketLineInput(
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+    val unitPrice: Double,
+    val currency: CurrencyCode? = null,
+)
+
+data class BlanketReleaseLineInput(
+    val blanketLineId: String,
+    val qty: Double,
+)
+
+data class BlanketLineSummary(
+    val id: String,
+    val lineNo: Int,
+    val stockItemId: String,
+    val oemPartNumber: String?,
+    val qtyOrdered: Double,
+    val qtyReleased: Double,
+    val unitPrice: Double,
+    val currency: CurrencyCode,
+) {
+    val remainingQty: Double get() = (qtyOrdered - qtyReleased).coerceAtLeast(0.0)
+}
+
+data class BlanketSummary(
+    val id: String,
+    val documentNumber: String,
+    val status: String,
+    val supplierId: String,
+    val supplierName: String?,
+    val warehouseId: String,
+    val warehouseCode: String?,
+    val currency: CurrencyCode,
+    val blanketMaxValue: Double,
+    val blanketValueReleased: Double,
+    val expectedDate: String?,
+    val lines: List<BlanketLineSummary>,
+) {
+    val remainingValue: Double
+        get() = (blanketMaxValue - blanketValueReleased).coerceAtLeast(0.0)
+}
+
+enum class BlanketAlertKind { EXPIRY, REMAINING_VALUE, REMAINING_QTY }
+
+enum class BlanketAlertSeverity { WARN, CRITICAL }
+
+data class BlanketAlert(
+    val kind: BlanketAlertKind,
+    val severity: BlanketAlertSeverity,
+    val message: String,
+)
+
+/**
+ * Expiry / remaining alerts — mirrors web `blanketAlerts` thresholds
+ * (14d expiry warn, 15% remaining value, qty floor 5).
+ */
+fun blanketAlerts(summary: BlanketSummary): List<BlanketAlert> {
+    val alerts = mutableListOf<BlanketAlert>()
+    val expected = summary.expectedDate
+    if (!expected.isNullOrBlank()) {
+        val due = runCatching { java.time.LocalDate.parse(expected.take(10)) }.getOrNull()
+        if (due != null) {
+            val days = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(), due)
+            when {
+                days < 0 -> alerts += BlanketAlert(
+                    BlanketAlertKind.EXPIRY,
+                    BlanketAlertSeverity.CRITICAL,
+                    "Expected date passed (${expected.take(10)})",
+                )
+                days <= 14 -> alerts += BlanketAlert(
+                    BlanketAlertKind.EXPIRY,
+                    BlanketAlertSeverity.WARN,
+                    "Expires in $days day(s) (${expected.take(10)})",
+                )
+            }
+        }
+    }
+    if (summary.blanketMaxValue > 0 &&
+        summary.remainingValue / summary.blanketMaxValue <= 0.15
+    ) {
+        val pct = ((summary.remainingValue / summary.blanketMaxValue) * 100).toInt()
+        alerts += BlanketAlert(
+            BlanketAlertKind.REMAINING_VALUE,
+            if (summary.remainingValue <= 0) BlanketAlertSeverity.CRITICAL else BlanketAlertSeverity.WARN,
+            "Remaining value ${"%.2f".format(summary.remainingValue)} ${summary.currency.rpcValue} ($pct% of max)",
+        )
+    }
+    val remQty = summary.lines.sumOf { it.remainingQty }
+    when {
+        remQty > 0 && remQty <= 5 -> alerts += BlanketAlert(
+            BlanketAlertKind.REMAINING_QTY,
+            BlanketAlertSeverity.WARN,
+            "Low remaining qty · $remQty left across lines",
+        )
+        remQty <= 0 && summary.lines.isNotEmpty() -> alerts += BlanketAlert(
+            BlanketAlertKind.REMAINING_QTY,
+            BlanketAlertSeverity.CRITICAL,
+            "No remaining qty on blanket lines",
+        )
+    }
+    return alerts
+}
+
+data class ConsignmentEntrySummary(
+    val id: String,
+    val documentNumber: String,
+    val status: String,
+    val kind: String,
+    val purpose: String,
+    val warehouseId: String,
+    val supplierId: String? = null,
+    val customerId: String? = null,
+    val currency: CurrencyCode = CurrencyCode.USD,
+)
+
+data class CustomerCreditSnapshot(
+    val customerId: String,
+    val creditLimit: Double,
+    val creditHold: Boolean,
+    val openBalance: Double,
+    val currency: CurrencyCode,
+)
