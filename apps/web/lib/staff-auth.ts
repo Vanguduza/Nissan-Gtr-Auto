@@ -22,6 +22,8 @@ export type StaffNavItem = {
 export type StaffNavLeaf = StaffNavItem & {
   /** When set, leaf is active only if `?tab=` matches (or default when absent). */
   tab?: string;
+  /** Prefix paths that should not activate this leaf (e.g. RFQ list vs new). */
+  excludePathPrefix?: string;
 };
 
 export type StaffNavModule = {
