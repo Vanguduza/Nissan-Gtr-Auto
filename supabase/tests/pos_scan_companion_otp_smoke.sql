@@ -176,6 +176,43 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: unbound contact must return null';
   END IF;
 
+  -- Authenticated must not have direct EXECUTE (DEFINER checkout still works above)
+  BEGIN
+    EXECUTE 'SET LOCAL ROLE authenticated';
+    BEGIN
+      PERFORM public.resolve_customer_for_receipt_contacts(
+        'pos-smoke-bind@example.com', NULL, NULL
+      );
+      RAISE EXCEPTION 'smoke fail: authenticated must not EXECUTE resolve_customer_for_receipt_contacts';
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        NULL; -- expected
+      WHEN OTHERS THEN
+        IF SQLERRM ILIKE '%permission denied%' THEN
+          NULL; -- expected
+        ELSE
+          RAISE;
+        END IF;
+    END;
+    EXECUTE 'RESET ROLE';
+  END;
+
+  -- OTP proof table exists for Edge gate (service_role only)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'auth_otp_proofs'
+  ) THEN
+    RAISE EXCEPTION 'smoke fail: auth_otp_proofs missing';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'auth_otp_challenges'
+      AND column_name = 'attempt_count'
+  ) THEN
+    RAISE EXCEPTION 'smoke fail: auth_otp_challenges.attempt_count missing';
+  END IF;
+
   -- -----------------------------------------------------------------------
   -- Optional companion: create → claim (same owner) → revoke
   -- -----------------------------------------------------------------------

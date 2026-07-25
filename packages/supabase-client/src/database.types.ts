@@ -276,6 +276,7 @@ export type Database = {
       }
       auth_otp_challenges: {
         Row: {
+          attempt_count: number
           channel: string
           code_hash: string
           consumed_at: string | null
@@ -285,6 +286,7 @@ export type Database = {
           identifier: string
         }
         Insert: {
+          attempt_count?: number
           channel: string
           code_hash: string
           consumed_at?: string | null
@@ -294,6 +296,7 @@ export type Database = {
           identifier: string
         }
         Update: {
+          attempt_count?: number
           channel?: string
           code_hash?: string
           consumed_at?: string | null
@@ -301,6 +304,33 @@ export type Database = {
           expires_at?: string
           id?: string
           identifier?: string
+        }
+        Relationships: []
+      }
+      auth_otp_proofs: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          email: string | null
+          expires_at: string
+          id: string
+          phone_e164: string | null
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          email?: string | null
+          expires_at: string
+          id?: string
+          phone_e164?: string | null
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          email?: string | null
+          expires_at?: string
+          id?: string
+          phone_e164?: string | null
         }
         Relationships: []
       }

@@ -171,8 +171,8 @@ export default function SignupPage() {
       <div className={styles.form}>
         <h1 className={styles.title}>Create account</h1>
         <p className={styles.alt}>
-          Email and/or phone OTP first. Fail-closed when gateways are unset
-          unless the server local stub flag is on.
+          Email and/or phone OTP first (server-gated). Fail-closed when gateways
+          are unset unless the server local stub flag is on.
         </p>
 
         {step === "identifiers" ? (
