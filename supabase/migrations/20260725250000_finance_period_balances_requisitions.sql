@@ -549,6 +549,10 @@ BEGIN
     RAISE EXCEPTION 'amount must be > 0';
   END IF;
 
+  IF p_currency = 'ZIG' AND (p_exchange_rate IS NULL OR p_exchange_rate <= 0) THEN
+    RAISE EXCEPTION 'exchange_rate_applied required for ZIG requisitions';
+  END IF;
+
   v_cash := COALESCE(
     nullif(trim(p_cash_account_code), ''),
     CASE
