@@ -19,6 +19,10 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let deleteGarage = "delete_customer_garage_vehicle"
         public static let createContipayIntent = "create_customer_contipay_intent"
         public static let createPaynowIntent = "create_customer_paynow_intent"
+        public static let startChatThread = "start_chat_thread"
+        public static let postChatMessage = "post_chat_message"
+        public static let markChatThreadRead = "mark_chat_thread_read"
+        public static let chatUnreadCount = "chat_unread_count"
     }
 
     public enum EdgeName {

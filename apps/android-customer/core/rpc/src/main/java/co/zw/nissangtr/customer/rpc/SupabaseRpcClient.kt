@@ -413,6 +413,51 @@ private data class GarageRow(
 )
 
 @Serializable
+private data class ChatThreadRow(
+    val id: String,
+    @SerialName("customer_user_id") val customerUserId: String = "",
+    @SerialName("customer_id") val customerId: String? = null,
+    val kind: String = "support",
+    val status: String = "open",
+    val subject: String? = null,
+    @SerialName("assigned_to") val assignedTo: String? = null,
+    @SerialName("last_message_at") val lastMessageAt: String? = null,
+    @SerialName("created_at") val createdAt: String = "",
+) {
+    fun toModel() = ChatThread(
+        id = id,
+        customerUserId = customerUserId,
+        customerId = customerId,
+        kind = ChatThreadKind.entries.find { it.rpcValue == kind } ?: ChatThreadKind.SUPPORT,
+        status = ChatThreadStatus.entries.find { it.rpcValue == status } ?: ChatThreadStatus.OPEN,
+        subject = subject,
+        assignedTo = assignedTo,
+        lastMessageAt = lastMessageAt,
+        createdAt = createdAt,
+    )
+}
+
+@Serializable
+private data class ChatMessageRow(
+    val id: String,
+    @SerialName("thread_id") val threadId: String,
+    @SerialName("sender_user_id") val senderUserId: String = "",
+    @SerialName("sender_kind") val senderKind: String = "customer",
+    val body: String = "",
+    @SerialName("created_at") val createdAt: String = "",
+) {
+    fun toModel() = ChatMessage(
+        id = id,
+        threadId = threadId,
+        senderUserId = senderUserId,
+        senderKind = ChatSenderKind.entries.find { it.rpcValue == senderKind }
+            ?: ChatSenderKind.CUSTOMER,
+        body = body,
+        createdAt = createdAt,
+    )
+}
+
+@Serializable
 private data class CustomerOrderDto(
     @SerialName("invoice_id") val invoiceId: String,
     @SerialName("document_number") val documentNumber: String? = null,
