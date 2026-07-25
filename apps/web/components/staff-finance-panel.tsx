@@ -1746,7 +1746,7 @@ function StaffFinancePanelInner() {
               No posted activity in this range.
             </p>
           ) : (
-            <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+            <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -1923,7 +1923,7 @@ function StaffFinancePanelInner() {
             Active rate for checkout: <strong>{officialRate}</strong> ZiG / USD
           </p>
           {rateHistory.length ? (
-            <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+            <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -2182,7 +2182,7 @@ function StaffFinancePanelInner() {
           </button>
         </div>
         {journalRegisterRows.length ? (
-          <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+          <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -2414,7 +2414,7 @@ function StaffFinancePanelInner() {
               No requisitions yet.
             </p>
           ) : (
-            <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+            <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
               <table className={styles.table}>
                 <thead>
                   <tr>
