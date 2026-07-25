@@ -84,6 +84,11 @@ fun WarehouseScreen(
             singleLine = true,
             enabled = !state.busy,
         )
+        OutlinedButton(
+            onClick = viewModel::scanQrForReceive,
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Scan QR → fill receive item") }
         OutlinedTextField(
             value = state.receiveUomId,
             onValueChange = viewModel::onReceiveUomIdChange,
@@ -285,6 +290,11 @@ fun WarehouseScreen(
             singleLine = true,
             enabled = !state.busy,
         )
+        OutlinedButton(
+            onClick = viewModel::scanQrForCycleCount,
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Scan QR → fill cycle-count line") }
         OutlinedTextField(
             value = state.reconCountedQty,
             onValueChange = viewModel::onReconCountedQtyChange,
@@ -320,6 +330,10 @@ fun WarehouseScreen(
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Cancel posted recon") }
+
+        state.lastQrPayload?.let {
+            Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
+        }
 
         state.message?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium)

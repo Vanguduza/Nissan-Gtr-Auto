@@ -68,8 +68,10 @@ dependencies {
     implementation(project(":feature:warehouse"))
     implementation(project(":feature:dispatch"))
     implementation(project(":feature:hr"))
-    // Host Activity attaches FusedLocationGpsBridge for permission prompts
+    // Host Activity attaches hardware bridges for permission / Activity results
     implementation(project(":location-tracker"))
+    implementation(project(":qr-scanner"))
+    implementation(project(":escpos-printer"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
