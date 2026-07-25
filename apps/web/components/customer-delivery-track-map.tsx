@@ -20,21 +20,23 @@ export function CustomerDeliveryTrackMap({ point, styleUrl }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
+  const initialRef = useRef(point);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    const initial = initialRef.current;
 
     const map = new MapLibreMap({
       container: containerRef.current,
       style: styleUrl,
-      center: [point.lng, point.lat],
+      center: [initial.lng, initial.lat],
       zoom: DEFAULT_ZOOM,
     });
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     mapRef.current = map;
 
     markerRef.current = new Marker({ color: "#C8102E" })
-      .setLngLat([point.lng, point.lat])
+      .setLngLat([initial.lng, initial.lat])
       .addTo(map);
 
     return () => {
@@ -43,7 +45,7 @@ export function CustomerDeliveryTrackMap({ point, styleUrl }: Props) {
       map.remove();
       mapRef.current = null;
     };
-  }, [styleUrl, point.lng, point.lat]);
+  }, [styleUrl]);
 
   useEffect(() => {
     const map = mapRef.current;

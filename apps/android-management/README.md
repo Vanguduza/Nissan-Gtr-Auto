@@ -34,7 +34,7 @@ and **staff chat inbox** — not App Store polish.
 | `PosScreen` | `:feature:pos` | `create_pos_cart`, `add_cart_line`, `add_cart_line_from_qr`, `checkout_pos_cart` |
 | `WarehouseScreen` | `:feature:warehouse` | receive / transfer / recon RPCs + Bridge QR → `lookupStockItemByOem` |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
-| `DispatchScreen` | `:feature:dispatch` | pick/DN + `suggest_delivery_assignees` / `assign_delivery_job` / `optimize_driver_stops` / `get_delivery_track_point` + panic inbox |
+| `DispatchScreen` | `:feature:dispatch` | pick/DN + `suggest_delivery_assignees` / `assign_delivery_job` / `optimize_driver_stops` / `get_delivery_track_point` / `mint_delivery_track_token` / `generate_delivery_pod_otp` + panic inbox |
 | `ChatScreen` | `:feature:chat` | `claim_chat_thread`, `post_chat_message`, `close_chat_thread`, `mark_chat_thread_read`, `chat_unread_count` + PostgREST lists |
 
 Also named: `cancel_delivery_note` (RPC wired; not a dedicated button).

@@ -56,16 +56,24 @@ class DispatchGpsProducerGateTest {
 class DispatchAssignmentRpcTest {
 
     @Test
-    fun suggestAssignOptimizeTrackAndPanicAck() = runBlocking {
+    fun suggestAssignOptimizeTrackMintOtpAndPanicAck() = runBlocking {
         val rpc = FakeRpcClient()
         val beforeIngest = rpc.ingestedLocationCount.get()
 
         val jobId = rpc.createDeliveryJob(
             deliveryNoteId = "00000000-0000-4000-8000-0000000000d1",
         )
+        rpc.setDeliveryJobCoords(
+            jobId,
+            pickupLat = -17.8250,
+            pickupLng = 31.0330,
+            dropoffLat = -17.8400,
+            dropoffLng = 31.0500,
+        )
         val suggestions = rpc.suggestDeliveryAssignees(jobId, limit = 5)
         assertTrue(suggestions.isNotEmpty())
         assertEquals(FakeRpcClient.FAKE_DRIVER_USER_ID, suggestions.first().userId)
+        assertNotNull(suggestions.first().distanceM)
 
         val assigned = rpc.assignDeliveryJob(
             jobId,
@@ -82,6 +90,11 @@ class DispatchAssignmentRpcTest {
         rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
         assertNotNull(rpc.getDeliveryTrackPoint(jobId))
 
+        val token = rpc.mintDeliveryTrackToken(jobId)
+        assertTrue(token.startsWith("fake_track_"))
+        val otp = rpc.generateDeliveryPodOtp(jobId)
+        assertEquals(6, otp.length)
+
         val open = rpc.listOpenPanicEvents()
         assertTrue(open.any { it.id == FakeRpcClient.OPEN_PANIC_ID })
         rpc.acknowledgePanicEvent(FakeRpcClient.OPEN_PANIC_ID)
@@ -94,5 +107,7 @@ class DispatchAssignmentRpcTest {
         assertEquals("assign_delivery_job", RpcNames.ASSIGN_DELIVERY_JOB)
         assertEquals("optimize_driver_stops", RpcNames.OPTIMIZE_DRIVER_STOPS)
         assertEquals("get_delivery_track_point", RpcNames.GET_DELIVERY_TRACK_POINT)
+        assertEquals("mint_delivery_track_token", RpcNames.MINT_DELIVERY_TRACK_TOKEN)
+        assertEquals("generate_delivery_pod_otp", RpcNames.GENERATE_DELIVERY_POD_OTP)
     }
 }
