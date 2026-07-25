@@ -10,7 +10,15 @@
     "pnc_code": { "type": "string", "maxLength": 8 },
     "chassis_code": { "type": "string", "maxLength": 32 },
     "engine_code": { "type": "string", "maxLength": 32 },
-    "content_type": { "type": "string", "enum": ["image/png", "image/jpeg", "image/webp"] },
-    "source_url": { "type": "string" }
+    "content_type": {
+      "type": "string",
+      "enum": ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
+    },
+    "source_url": { "type": "string" },
+    "provenance": {
+      "type": "string",
+      "description": "Asset origin marker. Fixture packs use 'original-fixture-art' (rights-cleared placeholder art, never scraped).",
+      "enum": ["original-fixture-art", "licensed-fast", "customer-supplied"]
+    }
   }
 }
