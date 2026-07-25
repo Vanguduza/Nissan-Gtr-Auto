@@ -31,6 +31,12 @@ DECLARE
   v_seen INT;
   v_diag INT;
 BEGIN
+  -- Idempotent cleanup: prior runs leave approved reviews that block resubmit
+  DELETE FROM public.customer_product_reviews
+  WHERE customer_id IN (v_cust_a, v_cust_b);
+  DELETE FROM public.customer_wishlist_items
+  WHERE customer_id IN (v_cust_a, v_cust_b);
+
   -- Garage reminders must stay absent (plan item 10 skip)
   IF to_regclass('public.garage_service_reminders') IS NOT NULL
      OR to_regclass('public.customer_garage_reminders') IS NOT NULL
