@@ -286,7 +286,12 @@ struct ChatThreadScreen: View {
         do {
             _ = try await session.api.postChatMessage(threadId: threadId, body: body)
             draft = ""
-            await pollOnce(markReadOnChange: false, forceMarkRead: false)
+            // Bypass refreshGate so an in-flight poll cannot drop the post-send reload.
+            messages = try await session.api.listChatMessages(threadId: threadId)
+            let all = try await session.api.listChatThreads()
+            thread = all.first { $0.id == threadId }
+            failureStreak = 0
+            pollHint = nil
             status = nil
         } catch {
             status = error.localizedDescription
