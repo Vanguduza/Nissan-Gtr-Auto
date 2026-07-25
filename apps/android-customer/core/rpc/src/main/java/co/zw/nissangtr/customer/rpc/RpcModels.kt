@@ -146,3 +146,30 @@ fun ChatThread.previewLabel(): String {
     if (!sub.isNullOrEmpty()) return sub
     return if (kind == ChatThreadKind.PARTS) "Parts inquiry" else "Support"
 }
+
+/**
+ * Single last-known GPS + ETA from [RpcNames.GET_DELIVERY_TRACK_POINT].
+ * Never a historical trail — RPC returns at most one row for `dispatched` jobs.
+ */
+data class DeliveryTrackPoint(
+    val deliveryJobId: String,
+    val lat: Double,
+    val lng: Double,
+    val recordedAt: String,
+    val etaAt: String?,
+    val etaSeconds: Int?,
+    val status: String,
+)
+
+/** Formats ETA for customer UI (mirrors web `formatEtaLabel`). */
+fun DeliveryTrackPoint.etaLabel(): String? {
+    if (!etaAt.isNullOrBlank()) return etaAt
+    val secs = etaSeconds ?: return null
+    if (secs < 0) return null
+    val mins = (secs + 30) / 60
+    if (mins < 1) return "Less than a minute"
+    if (mins < 60) return "About $mins min"
+    val h = mins / 60
+    val m = mins % 60
+    return if (m == 0) "About $h h" else "About $h h $m min"
+}
