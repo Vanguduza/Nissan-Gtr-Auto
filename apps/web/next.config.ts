@@ -15,18 +15,9 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
-  // Turbopack (if enabled) needs the same remapping.
-  experimental: {
-    turbo: {
-      resolveExtensions: [
-        ".tsx",
-        ".ts",
-        ".jsx",
-        ".js",
-        ".mjs",
-        ".json",
-      ],
-    },
+  // Next 16+: turbopack config (replaces experimental.turbo).
+  turbopack: {
+    resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".json"],
   },
 };
 
