@@ -6,6 +6,7 @@ import { AddToCartButton } from "@/components/add-to-cart-button";
 import { CatalogCanvasStub } from "@/components/catalog-canvas-stub";
 import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
+import { ChatEntryLink } from "@/components/chat-entry-link";
 import { WhatsAppCta } from "@/components/whatsapp-cta";
 import {
   fitmentLabel,
@@ -201,6 +202,7 @@ export function PartDetail({ oem }: { oem: string }) {
             Wishlist
           </Link>
           <WhatsAppCta oem={p.oem} />
+          <ChatEntryLink oem={p.oem} />
         </div>
         <section className={styles.block}>
           <h2>Specs</h2>
