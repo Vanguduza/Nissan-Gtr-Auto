@@ -10,6 +10,7 @@ import {
   iconStroke,
   LayoutGrid,
   MapPinned,
+  Siren,
   MessageCircle,
   Monitor,
   PackageSearch,
