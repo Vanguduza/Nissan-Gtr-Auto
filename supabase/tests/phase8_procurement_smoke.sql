@@ -100,6 +100,10 @@ BEGIN
 
   SELECT id INTO v_mr_line FROM public.material_request_lines WHERE material_request_id = v_mr LIMIT 1;
 
+  PERFORM public._test_set_auth_uid(v_fin);
+  PERFORM public.approve_material_request(v_mr);
+
+  PERFORM public._test_set_auth_uid('a0000000-0000-4000-8000-000000000001');
   v_po := public.convert_material_request_to_po(v_mr, v_supplier, 'USD', 1, ARRAY[v_mr_line]);
 
   IF NOT EXISTS (
@@ -110,6 +114,9 @@ BEGIN
   END IF;
 
   PERFORM public.submit_purchase_order(v_po);
+
+  PERFORM public._test_set_auth_uid(v_fin);
+  PERFORM public.approve_purchase_order(v_po);
 
   SELECT id INTO v_po_line FROM public.purchase_order_lines WHERE purchase_order_id = v_po LIMIT 1;
 

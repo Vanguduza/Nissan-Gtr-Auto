@@ -18,79 +18,341 @@ export type StaffNavItem = {
   roles: StaffRole[] | "any";
 };
 
-export const STAFF_NAV_ITEMS: StaffNavItem[] = [
-  { href: "/staff", label: "Hub", exact: true, roles: "any" },
-  { href: "/staff/pos", label: "POS counter", roles: ["admin", "warehouse", "sales"] },
+/** Leaf under a module (route or `?tab=` deep link). */
+export type StaffNavLeaf = StaffNavItem & {
+  /** When set, leaf is active only if `?tab=` matches (or default when absent). */
+  tab?: string;
+};
+
+export type StaffNavModule = {
+  id: string;
+  label: string;
+  /** Default entry when opening the module from hub / group header. */
+  href: string;
+  /** `"any"` = any authenticated staff (`is_staff`). */
+  roles: StaffRole[] | "any";
+  /** Default `?tab=` when path matches and URL has no tab (finance/POS). */
+  defaultTab?: string;
+  children: StaffNavLeaf[];
+};
+
+export type StaffNavEntry =
+  | ({ kind: "link" } & StaffNavItem)
+  | ({ kind: "module" } & StaffNavModule);
+
+/**
+ * Hierarchical staff IA — sidebar modules expand to subfeatures.
+ * Flattened `STAFF_NAV_ITEMS` stays for gates / hub href filters.
+ */
+export const STAFF_NAV_TREE: StaffNavEntry[] = [
+  { kind: "link", href: "/staff", label: "Hub", exact: true, roles: "any" },
   {
-    href: "/staff/warehouse",
-    label: "Warehouse ops",
-    roles: ["admin", "warehouse"],
-  },
-  { href: "/staff/finance", label: "Finance ledger", roles: ["admin", "finance"] },
-  {
-    href: "/staff/crm/credit",
-    label: "Customer credit",
-    roles: ["admin", "sales", "finance"],
-  },
-  {
-    href: "/staff/crm/reviews",
-    label: "Review moderation",
-    roles: ["admin", "sales"],
-  },
-  {
-    href: "/staff/logistics",
-    label: "Logistics",
-    exact: true,
-    roles: ["admin", "warehouse", "sales", "dispatcher"],
-  },
-  {
-    href: "/staff/logistics/prep",
-    label: "Sales prep",
-    roles: ["admin", "warehouse", "sales", "dispatcher"],
-  },
-  {
-    href: "/staff/logistics/tracking",
-    label: "Live map",
-    roles: ["admin", "warehouse", "dispatcher"],
-  },
-  {
-    href: "/staff/logistics/panic",
-    label: "Panic inbox",
-    roles: ["admin", "warehouse", "dispatcher"],
-  },
-  {
-    href: "/staff/fleet",
-    label: "Company fleet",
-    roles: ["admin", "warehouse", "dispatcher"],
-  },
-  { href: "/staff/hr", label: "HR desk", roles: ["admin", "hr"] },
-  {
-    href: "/staff/warranty",
-    label: "Warranty claims",
+    kind: "module",
+    id: "pos",
+    label: "POS",
+    href: "/staff/pos",
+    defaultTab: "cart",
     roles: ["admin", "warehouse", "sales"],
+    children: [
+      {
+        href: "/staff/pos?tab=cart",
+        label: "Cart",
+        tab: "cart",
+        exact: true,
+        roles: ["admin", "warehouse", "sales"],
+      },
+      {
+        href: "/staff/pos?tab=prep",
+        label: "Online prep",
+        tab: "prep",
+        exact: true,
+        roles: ["admin", "warehouse", "sales"],
+      },
+    ],
   },
   {
+    kind: "module",
+    id: "warehouse",
+    label: "Warehouse",
+    href: "/staff/warehouse",
+    roles: ["admin", "warehouse"],
+    children: [
+      {
+        href: "/staff/warehouse",
+        label: "Overview",
+        exact: true,
+        roles: ["admin", "warehouse"],
+      },
+      {
+        href: "/staff/warehouse/receive",
+        label: "Receive",
+        roles: ["admin", "warehouse"],
+      },
+      {
+        href: "/staff/warehouse/transfers",
+        label: "Transfers",
+        roles: ["admin", "warehouse"],
+      },
+      {
+        href: "/staff/warehouse/cycle-count",
+        label: "Cycle count",
+        roles: ["admin", "warehouse"],
+      },
+      {
+        href: "/staff/warehouse/bins",
+        label: "Bins",
+        roles: ["admin", "warehouse"],
+      },
+      {
+        href: "/staff/warehouse/consignment",
+        label: "Consignment",
+        roles: ["admin", "warehouse"],
+      },
+    ],
+  },
+  {
+    kind: "module",
+    id: "finance",
+    label: "Finance",
+    href: "/staff/finance",
+    defaultTab: "journals",
+    roles: ["admin", "finance"],
+    children: [
+      {
+        href: "/staff/finance?tab=petty-cash",
+        label: "Petty cash",
+        tab: "petty-cash",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=cash-sales",
+        label: "Cash sales",
+        tab: "cash-sales",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=online-sales",
+        label: "Online sales",
+        tab: "online-sales",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=exchange-rate",
+        label: "ZiG rate",
+        tab: "exchange-rate",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=journals",
+        label: "Journals",
+        tab: "journals",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=requisitions",
+        label: "Requisitions",
+        tab: "requisitions",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=payments",
+        label: "Payments",
+        tab: "payments",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=reports",
+        label: "Reports",
+        tab: "reports",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=bank-recon",
+        label: "Bank recon",
+        tab: "bank-recon",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=periods",
+        label: "Periods",
+        tab: "periods",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+    ],
+  },
+  {
+    kind: "module",
+    id: "crm",
+    label: "CRM",
+    href: "/staff/crm/credit",
+    roles: ["admin", "sales", "finance"],
+    children: [
+      {
+        href: "/staff/crm/credit",
+        label: "Customer credit",
+        roles: ["admin", "sales", "finance"],
+      },
+      {
+        href: "/staff/crm/reviews",
+        label: "Review moderation",
+        roles: ["admin", "sales"],
+      },
+    ],
+  },
+  {
+    kind: "module",
+    id: "logistics",
+    label: "Logistics",
+    href: "/staff/logistics",
+    roles: ["admin", "warehouse", "sales", "dispatcher"],
+    children: [
+      {
+        href: "/staff/logistics",
+        label: "Jobs / pick",
+        exact: true,
+        roles: ["admin", "warehouse", "sales", "dispatcher"],
+      },
+      {
+        href: "/staff/logistics/prep",
+        label: "Sales prep",
+        roles: ["admin", "warehouse", "sales", "dispatcher"],
+      },
+      {
+        href: "/staff/logistics/tracking",
+        label: "Live tracking",
+        roles: ["admin", "warehouse", "dispatcher"],
+      },
+      {
+        href: "/staff/logistics/panic",
+        label: "Panic inbox",
+        roles: ["admin", "warehouse", "dispatcher"],
+      },
+    ],
+  },
+  {
+    kind: "module",
+    id: "fleet",
+    label: "Fleet",
+    href: "/staff/fleet",
+    roles: ["admin", "warehouse", "dispatcher"],
+    children: [
+      {
+        href: "/staff/fleet",
+        label: "Company fleet",
+        roles: ["admin", "warehouse", "dispatcher"],
+      },
+    ],
+  },
+  {
+    kind: "module",
+    id: "hr",
+    label: "HR",
+    href: "/staff/hr",
+    roles: ["admin", "hr"],
+    children: [
+      { href: "/staff/hr", label: "HR desk", roles: ["admin", "hr"] },
+    ],
+  },
+  {
+    kind: "module",
+    id: "warranty",
+    label: "Warranty",
+    href: "/staff/warranty",
+    roles: ["admin", "warehouse", "sales"],
+    children: [
+      {
+        href: "/staff/warranty",
+        label: "Warranty claims",
+        roles: ["admin", "warehouse", "sales"],
+      },
+    ],
+  },
+  {
+    kind: "module",
+    id: "chat",
+    label: "Chat",
     href: "/staff/chat",
-    label: "Customer chat",
     roles: ["admin", "sales", "warehouse"],
+    children: [
+      {
+        href: "/staff/chat",
+        label: "Customer chat",
+        roles: ["admin", "sales", "warehouse"],
+      },
+    ],
   },
   {
-    href: "/staff/analytics",
+    kind: "module",
+    id: "analytics",
     label: "Analytics",
-    exact: true,
+    href: "/staff/analytics",
     roles: ["admin", "finance", "sales"],
+    children: [
+      {
+        href: "/staff/analytics",
+        label: "KPIs",
+        exact: true,
+        roles: ["admin", "finance", "sales"],
+      },
+      {
+        href: "/staff/analytics/subscriptions",
+        label: "Report subscriptions",
+        roles: ["admin", "finance", "sales"],
+      },
+    ],
   },
   {
-    href: "/staff/analytics/subscriptions",
-    label: "Report subs",
-    roles: ["admin", "finance", "sales"],
-  },
-  {
-    href: "/procurement",
+    kind: "module",
+    id: "procurement",
     label: "Procurement",
+    href: "/procurement",
     roles: ["admin", "warehouse", "finance"],
+    children: [
+      {
+        href: "/procurement",
+        label: "Overview",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/rfqs",
+        label: "RFQs",
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/rfqs/new",
+        label: "New RFQ",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/blankets",
+        label: "Blankets",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+    ],
   },
 ];
+
+/** Flat leaf list (compat) — derived from `STAFF_NAV_TREE`. */
+export const STAFF_NAV_ITEMS: StaffNavItem[] = STAFF_NAV_TREE.flatMap((entry) => {
+  if (entry.kind === "link") {
+    const { kind: _k, ...item } = entry;
+    return [item];
+  }
+  return entry.children.map(({ tab: _t, ...item }) => item);
+});
 
 /**
  * Module → required roles (same matrix as nav/gates).
@@ -254,6 +516,60 @@ export function canAccessPath(
 
 export function filterNavForRoles(roles: StaffRole[]): StaffNavItem[] {
   return STAFF_NAV_ITEMS.filter((item) => rolesAllow(roles, item.roles));
+}
+
+/** Role-filtered hierarchical nav for the staff sidebar / hub. */
+export function filterNavTreeForRoles(roles: StaffRole[]): StaffNavEntry[] {
+  const out: StaffNavEntry[] = [];
+  for (const entry of STAFF_NAV_TREE) {
+    if (entry.kind === "link") {
+      if (rolesAllow(roles, entry.roles)) out.push(entry);
+      continue;
+    }
+    const children = entry.children.filter((c) => rolesAllow(roles, c.roles));
+    if (children.length === 0) continue;
+    out.push({ ...entry, children });
+  }
+  return out;
+}
+
+/** Pathname (+ optional tab) for a nav href that may include `?tab=`. */
+export function navHrefParts(href: string): { pathname: string; tab: string | null } {
+  const q = href.indexOf("?");
+  if (q < 0) return { pathname: href, tab: null };
+  const pathname = href.slice(0, q);
+  const tab = new URLSearchParams(href.slice(q + 1)).get("tab");
+  return { pathname, tab };
+}
+
+export function isStaffNavLeafActive(
+  leaf: StaffNavLeaf,
+  pathname: string,
+  searchTab: string | null,
+  moduleDefaultTab?: string,
+): boolean {
+  const { pathname: leafPath, tab: leafTab } = navHrefParts(leaf.href);
+  const tabKey = leaf.tab ?? leafTab;
+
+  if (tabKey) {
+    if (pathname !== leafPath) return false;
+    const effective = searchTab ?? moduleDefaultTab ?? null;
+    return effective === tabKey;
+  }
+
+  if (leaf.exact) return pathname === leafPath;
+
+  return pathname === leafPath || pathname.startsWith(`${leafPath}/`);
+}
+
+export function isStaffNavModuleActive(
+  mod: StaffNavModule,
+  pathname: string,
+  searchTab: string | null,
+): boolean {
+  return mod.children.some((c) =>
+    isStaffNavLeafActive(c, pathname, searchTab, mod.defaultTab),
+  );
 }
 
 /**

@@ -141,12 +141,6 @@ export function StaffOnlinePrepPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Online dispatch prep queue</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Storefront dispatch orders awaiting pick, ship, or driver assignment.
-          Confirm pick in{" "}
-          <Link href="/staff/logistics">Jobs / pick</Link> — driver auto-assigns
-          when prep completes.
-        </p>
         {boot.queue.length === 0 ? (
           <p className={styles.muted}>Queue empty.</p>
         ) : (
