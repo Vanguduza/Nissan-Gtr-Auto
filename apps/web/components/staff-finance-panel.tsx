@@ -1616,28 +1616,7 @@ export function StaffFinancePanel() {
           <legend className={styles.legend}>
             {ACCOUNT_TAB_CODES[tab].title}
           </legend>
-          {tab === "petty-cash" ? (
-            <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-              Imprest float in <code>1110 Petty Cash</code> is funded from{" "}
-              <code>{fundingAccountCode} Cash &amp; Bank</code> (Dr 1110 / Cr{" "}
-              {fundingAccountCode}). Daily open/close below is a control
-              snapshot — journals stay append-only. Spends use the{" "}
-              <button
-                type="button"
-                className={styles.btnGhost}
-                onClick={() => selectTab("requisitions")}
-              >
-                Requisitions
-              </button>{" "}
-              tab (approve → disburse).
-            </p>
-          ) : (
-            <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-              Statement-style register via <code>report_account_register</code>.
-              Quick templates create balanced drafts. Amounts show explicit{" "}
-              <code>USD</code> | <code>ZIG</code>.
-            </p>
-          )}
+          {tab === "petty-cash" ? null : null}
 
           <p className={styles.muted} style={{ margin: "0 0 0.5rem" }}>
             Trade period (open / close)
