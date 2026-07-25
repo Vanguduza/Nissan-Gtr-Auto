@@ -81,6 +81,10 @@ dependencies {
     implementation(project(":feature:pay"))
     implementation(project(":feature:chat"))
     implementation(project(":feature:track"))
+    implementation(project(":feature:wishlist"))
+    implementation(project(":feature:compare"))
+    implementation(project(":feature:reviews"))
+    implementation(project(":pod-camera"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
