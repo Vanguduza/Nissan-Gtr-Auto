@@ -7080,6 +7080,7 @@ export type Database = {
       payroll_run_status: "draft" | "submitted" | "cancelled"
       pick_list_status: "draft" | "done" | "cancelled"
       procurement_doc_status: "draft" | "submitted" | "cancelled"
+      product_review_status: "pending" | "approved" | "rejected"
       receipt_channel: "sms" | "email" | "whatsapp"
       receipt_outbox_status:
         | "pending"
