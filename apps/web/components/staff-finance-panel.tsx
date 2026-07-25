@@ -1437,7 +1437,7 @@ export function StaffFinancePanel() {
     if (
       typeof window !== "undefined" &&
       !window.confirm(
-        "Lock this period? Locked periods reject new posts. There is no unlock RPC.",
+        "Lock this period? Locked periods reject new posts. This cannot be undone.",
       )
     ) {
       return;
