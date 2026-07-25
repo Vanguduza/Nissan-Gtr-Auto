@@ -19,6 +19,33 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  min-height: 22rem;
+}
+
+/* MapLibre sizes canvas from container client box — keep fill non-zero. */
+.mapCanvas :global(.maplibregl-map),
+.mapCanvas :global(.maplibregl-canvas-container),
+.mapCanvas :global(.maplibregl-canvas) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mapError {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(200, 16, 46, 0.35);
+  background: rgba(200, 16, 46, 0.06);
+  color: #5c0a16;
+  font-size: 0.92rem;
+}
+
+.mapNotice {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(18, 21, 28, 0.12);
+  background: rgba(18, 21, 28, 0.04);
+  color: rgba(18, 21, 28, 0.7);
+  font-size: 0.88rem;
 }
 
 .statusRow {

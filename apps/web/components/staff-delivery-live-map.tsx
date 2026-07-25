@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LngLatBounds,
   Map as MapLibreMap,
@@ -11,9 +11,11 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import styles from "@/components/staff-delivery-live-map.module.css";
 import {
+  isStyleLoadError,
+  MAP_STYLE_RASTER_FALLBACK,
   mapStyleUrl,
-  type DeliveryLocationPoint,
-} from "@/lib/staff-delivery-tracking";
+} from "@/lib/map-basemap";
+import type { DeliveryLocationPoint } from "@/lib/staff-delivery-tracking";
 
 const TRAIL_SOURCE = "delivery-trail";
 const TRAIL_LAYER = "delivery-trail-line";
@@ -66,6 +68,25 @@ function trailFeatureCollection(points: DeliveryLocationPoint[]): TrailGeoJSON {
   };
 }
 
+function ensureTrailLayers(map: MapLibreMap) {
+  if (map.getSource(TRAIL_SOURCE)) return;
+  map.addSource(TRAIL_SOURCE, {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+  });
+  map.addLayer({
+    id: TRAIL_LAYER,
+    type: "line",
+    source: TRAIL_SOURCE,
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#C8102E",
+      "line-width": 3,
+      "line-opacity": 0.85,
+    },
+  });
+}
+
 /**
  * Staff dispatcher map: renders bridge-fed points only.
  * Does NOT call navigator.geolocation or any browser GPS API.
@@ -76,12 +97,20 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
   const markerRef = useRef<Marker | null>(null);
   const readyRef = useRef(false);
   const fittedJobKeyRef = useRef<string | null>(null);
+  const usedRasterFallbackRef = useRef(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [usingRasterFallback, setUsingRasterFallback] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const container = containerRef.current;
+    usedRasterFallbackRef.current = false;
+    setMapError(null);
+    setUsingRasterFallback(false);
+
     const map = new MapLibreMap({
-      container: containerRef.current,
+      container,
       style: mapStyleUrl(),
       center: HARARE_CENTER,
       zoom: DEFAULT_ZOOM,
@@ -92,26 +121,64 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
     );
     mapRef.current = map;
 
-    map.on("load", () => {
-      map.addSource(TRAIL_SOURCE, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addLayer({
-        id: TRAIL_LAYER,
-        type: "line",
-        source: TRAIL_SOURCE,
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#C8102E",
-          "line-width": 3,
-          "line-opacity": 0.85,
-        },
-      });
+    const markReady = () => {
+      map.resize();
+      ensureTrailLayers(map);
+      readyRef.current = true;
+      setMapError(null);
+    };
+
+    const applyRasterFallback = (reason: string) => {
+      if (usedRasterFallbackRef.current) {
+        setMapError(
+          `Map basemap failed to load (${reason}). Set NEXT_PUBLIC_MAP_STYLE_URL to a MapLibre style JSON URL, or check network access to basemaps.cartocdn.com.`,
+        );
+        return;
+      }
+      usedRasterFallbackRef.current = true;
+      setUsingRasterFallback(true);
+      readyRef.current = false;
+      map.setStyle(MAP_STYLE_RASTER_FALLBACK);
+    };
+
+    map.on("load", markReady);
+    map.on("style.load", () => {
+      map.resize();
+      ensureTrailLayers(map);
       readyRef.current = true;
     });
 
+    map.on("error", (ev) => {
+      const err = ev.error;
+      const detail =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "unknown map error";
+      if (usedRasterFallbackRef.current && !map.isStyleLoaded()) {
+        setMapError(
+          `Map basemap failed to load (${detail}). Set NEXT_PUBLIC_MAP_STYLE_URL to a MapLibre style JSON URL, or check network access to basemaps.cartocdn.com.`,
+        );
+        return;
+      }
+      if (isStyleLoadError(err)) {
+        applyRasterFallback(detail);
+      }
+    });
+
+    const styleWatchdog = window.setTimeout(() => {
+      if (!map.isStyleLoaded() && !usedRasterFallbackRef.current) {
+        applyRasterFallback("style load timed out");
+      }
+    }, 10_000);
+
+    const ro = new ResizeObserver(() => {
+      map.resize();
+    });
+    ro.observe(container);
+
     return () => {
+      window.clearTimeout(styleWatchdog);
+      ro.disconnect();
       readyRef.current = false;
       fittedJobKeyRef.current = null;
       markerRef.current?.remove();
@@ -173,6 +240,7 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
       apply();
     } else {
       map.once("load", apply);
+      map.once("style.load", apply);
     }
   }, [points]);
 
@@ -210,6 +278,16 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
           </span>
         )}
       </p>
+      {usingRasterFallback && !mapError ? (
+        <p className={styles.mapNotice} role="status">
+          Vector basemap unavailable — using raster OSM/CARTO tiles.
+        </p>
+      ) : null}
+      {mapError ? (
+        <p className={styles.mapError} role="alert">
+          {mapError}
+        </p>
+      ) : null}
       <div className={styles.mapFrame}>
         <div
           ref={containerRef}
