@@ -414,32 +414,44 @@ Deno.serve(async (req) => {
     }
 
     if (action === "complete_login") {
+      // Returning customers: email/phone + password only (no OTP).
       const password = typeof body.password === "string" ? body.password : "";
-      const proofToken =
-        typeof body.proof_token === "string" ? body.proof_token.trim() : "";
-
-      if (!proofToken) return jsonErr("proof_token required", 400);
       if (!password) return jsonErr("password required", 400);
 
-      const expectEmail = normalizeEmail(body.email);
+      let expectEmail = normalizeEmail(body.email);
+      const phoneE164 = normalizeE164(body.phone_e164);
+
+      if (!expectEmail && !phoneE164) {
+        return jsonErr("email or phone_e164 required for login", 400);
+      }
+
+      if (!expectEmail && phoneE164) {
+        const { data: profile, error: profErr } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("phone_e164", phoneE164)
+          .maybeSingle();
+        if (profErr) return jsonErr(profErr.message, 500);
+        if (!profile?.id) {
+          return jsonErr("invalid credentials", 401);
+        }
+        const { data: authUser, error: userErr } = await supabase.auth.admin
+          .getUserById(profile.id as string);
+        if (userErr || !authUser.user?.email) {
+          return jsonErr("invalid credentials", 401);
+        }
+        expectEmail = normalizeEmail(authUser.user.email);
+      }
+
       if (!expectEmail) {
         return jsonErr("email required for login", 400);
       }
-
-      const consumed = await consumeProof(supabase, proofToken, expectEmail);
-      if (!consumed.ok) {
-        return jsonErr(consumed.error, consumed.status);
-      }
-
-      const phoneE164 = consumed.phone_e164 ?? normalizeE164(body.phone_e164);
 
       const { data: sessionData, error: signErr } = await anonClient().auth
         .signInWithPassword({ email: expectEmail, password });
       if (signErr || !sessionData.session || !sessionData.user) {
         return jsonErr(signErr?.message ?? "invalid credentials", 401);
       }
-
-      await persistPhoneIfNeeded(supabase, sessionData.user.id, phoneE164);
 
       return jsonOk({
         ok: true,

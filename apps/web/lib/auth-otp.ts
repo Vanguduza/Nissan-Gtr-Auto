@@ -92,7 +92,8 @@ async function readFunctionsErrorBody(
 }
 
 /**
- * Customer signup/login OTP via Edge `auth-otp`.
+ * Customer OTP via Edge `auth-otp` — signup and contact confirmation only.
+ * Returning logins use {@link signInWithEmailOrPhone} (password; no OTP).
  * Fail-closed when server returns 503 (no gateway keys / no local stub flag).
  * Never treat stub code as a client-side production default.
  */
