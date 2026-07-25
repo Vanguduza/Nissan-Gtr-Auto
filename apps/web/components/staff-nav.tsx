@@ -5,18 +5,18 @@ import styles from "@/components/account.module.css";
 import { useStaffAuth } from "@/components/staff-auth-context";
 import {
   BarChart3,
+  Bell,
   ClipboardList,
-  Gauge,
   iconSizeSm,
   iconStroke,
-  Landmark,
   LayoutGrid,
-  Mail,
-  Map,
+  MapPinned,
   MessageCircle,
+  Monitor,
+  Banknote,
   Package,
+  PackageSearch,
   ShieldCheck,
-  Store,
   Truck,
   Users,
   Warehouse,
@@ -26,17 +26,17 @@ import { filterNavForRoles, STAFF_NAV_ITEMS } from "@/lib/staff-auth";
 
 const STAFF_NAV_ICONS: Record<string, LucideIcon> = {
   "/staff": LayoutGrid,
-  "/staff/pos": Store,
+  "/staff/pos": Monitor,
   "/staff/warehouse": Warehouse,
-  "/staff/finance": Landmark,
+  "/staff/finance": Banknote,
   "/staff/logistics": Truck,
-  "/staff/logistics/tracking": Map,
+  "/staff/logistics/tracking": MapPinned,
   "/staff/hr": Users,
   "/staff/warranty": ShieldCheck,
   "/staff/chat": MessageCircle,
   "/staff/analytics": BarChart3,
-  "/staff/analytics/subscriptions": Mail,
-  "/procurement": ClipboardList,
+  "/staff/analytics/subscriptions": Bell,
+  "/procurement": PackageSearch,
 };
 
 export function StaffNav({ current }: { current: string }) {
@@ -48,7 +48,7 @@ export function StaffNav({ current }: { current: string }) {
   return (
     <nav className={styles.nav} aria-label="Staff">
       <p className={styles.navTitle}>
-        <Gauge size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
+        <ClipboardList size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
         Staff
       </p>
       <ul className={styles.navList}>

@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  iconSizeMd,
+  iconStroke,
+  ShoppingCart,
+} from "@/components/icons";
+import {
   checkoutCustomerCart,
   createCustomerContipayIntent,
   createCustomerPaynowIntent,
@@ -19,6 +24,17 @@ import {
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
+
+function CartTitle() {
+  return (
+    <h1 className={styles.title}>
+      <span className={styles.titleIcon} aria-hidden>
+        <ShoppingCart size={iconSizeMd} strokeWidth={iconStroke} />
+      </span>
+      Cart
+    </h1>
+  );
+}
 
 type Currency = "USD" | "ZIG";
 type Fulfillment = "immediate" | "dispatch";
