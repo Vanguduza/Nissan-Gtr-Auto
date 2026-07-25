@@ -1542,8 +1542,8 @@ export function StaffFinancePanel() {
           {reportCurrency === "ZIG" ? (
             <p className={styles.muted} style={{ marginTop: "0.5rem" }}>
               Report filter currency is ZIG. USD-equivalent columns use each
-              entry&apos;s stored exchange rate (default env{" "}
-              {zigExchangeRate()}).
+              entry&apos;s stored exchange rate (official daily rate{" "}
+              {officialRate}).
             </p>
           ) : null}
           <div className={styles.formActions}>
@@ -1745,7 +1745,7 @@ export function StaffFinancePanel() {
                 onChange={(e) => {
                   const c = e.target.value as CurrencyCode;
                   setPayCurrency(c);
-                  if (c === "ZIG") setPayExchangeRate(defaultZigRate());
+                  if (c === "ZIG") setPayExchangeRate(officialRate);
                 }}
                 disabled={busy}
               >
