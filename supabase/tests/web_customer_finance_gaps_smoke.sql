@@ -124,7 +124,7 @@ BEGIN
     )
   );
 
-  v_cart := public.create_pos_cart(v_main, v_cust, 'USD');
+  v_cart := public.create_pos_cart(v_main, v_cust, 'USD'::public.currency_code);
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 2);
   v_inv := public.checkout_pos_cart(v_cart);
 
