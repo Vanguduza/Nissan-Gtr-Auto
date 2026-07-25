@@ -40,7 +40,11 @@ function emptyForm() {
   };
 }
 
+const SUB_MUTATE_ROLES = ["admin", "finance"] as const;
+
 export function StaffAnalyticsSubscriptionsPanel() {
+  const staff = useStaffAuth();
+  const canMutate = rolesAllow(staff?.roles ?? [], [...SUB_MUTATE_ROLES]);
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -103,6 +107,7 @@ export function StaffAnalyticsSubscriptionsPanel() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canMutate) return;
     const client = createWebClient();
     if (!client) return;
 
