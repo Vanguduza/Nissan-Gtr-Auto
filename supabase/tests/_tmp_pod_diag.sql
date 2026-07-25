@@ -17,29 +17,25 @@ DECLARE
   v_job UUID;
   v_photo TEXT;
 BEGIN
+  -- use newest job for this driver regardless of status; flip to dispatched via GUC
   SELECT id INTO v_job FROM public.delivery_jobs
   WHERE assignee_user_id = v_driver ORDER BY created_at DESC LIMIT 1;
-  RAISE NOTICE 'job=% status=%', v_job, (SELECT status FROM public.delivery_jobs WHERE id = v_job);
 
-  v_photo := v_job::text || '/photo.jpg';
+  PERFORM set_config('app.logistics_rpc', '1', true);
+  UPDATE public.delivery_jobs SET status = 'dispatched', completed_at = NULL, completed_via = NULL, updated_at = now()
+  WHERE id = v_job;
+  PERFORM set_config('app.logistics_rpc', '0', true);
+
+  v_photo := v_job::text || '/photo-diag2.jpg';
   PERFORM public._test_set_auth_uid(v_driver);
-  RAISE NOTICE 'uid=%', auth.uid();
-  RAISE NOTICE 'has_driver=%', public.has_staff_role(ARRAY['driver']::public.staff_role[]);
-  RAISE NOTICE 'path_job=%', public._delivery_pod_job_id_from_path(v_photo);
-  RAISE NOTICE 'can_write=%', public._can_write_delivery_pod_object(v_photo);
-  RAISE NOTICE 'can_select=%', public._can_select_delivery_pod_object(v_photo);
+  RAISE NOTICE 'status=% can_write=%',
+    (SELECT status FROM public.delivery_jobs WHERE id = v_job),
+    public._can_write_delivery_pod_object(v_photo);
 
-  -- try insert as postgres (bypasses RLS) — skip
-  -- try with role
-  BEGIN
-    SET LOCAL ROLE authenticated;
-    RAISE NOTICE 'as authenticated can_write=%', public._can_write_delivery_pod_object(v_photo);
-    INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
-    VALUES ('delivery-pods', v_photo || '.diag', v_driver, v_driver::text, '{}'::jsonb);
-    RAISE NOTICE 'insert ok';
-    RESET ROLE;
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'insert err: %', SQLERRM;
-    RESET ROLE;
-  END;
+  SET LOCAL ROLE authenticated;
+  RAISE NOTICE 'role can_write=%', public._can_write_delivery_pod_object(v_photo);
+  INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
+  VALUES ('delivery-pods', v_photo, auth.uid(), auth.uid()::text, '{}'::jsonb);
+  RAISE NOTICE 'insert ok id path=%', v_photo;
+  RESET ROLE;
 END $$;
