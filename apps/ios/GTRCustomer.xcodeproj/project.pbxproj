@@ -25,6 +25,7 @@
 		A10000000000000000000023 /* AuthTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* AuthTokenStore.swift */; };
 		A10000000000000000000024 /* SignInScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SignInScreen.swift */; };
 		A10000000000000000000026 /* ChatScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* ChatScreen.swift */; };
+		A10000000000000000000028 /* DeliveryTrackScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* DeliveryTrackScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
