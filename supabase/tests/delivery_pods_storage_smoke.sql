@@ -138,11 +138,6 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: path parse';
   END IF;
 
-  RAISE NOTICE 'pre-insert job=% status=% assignee=%',
-    v_job,
-    (SELECT status FROM public.delivery_jobs WHERE id = v_job),
-    (SELECT assignee_user_id FROM public.delivery_jobs WHERE id = v_job);
-
   -- Assigned driver can INSERT
   PERFORM public._test_set_auth_uid(v_driver);
   SET LOCAL ROLE authenticated;
