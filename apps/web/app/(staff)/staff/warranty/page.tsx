@@ -10,11 +10,6 @@ export default function StaffWarrantyPage() {
       <StaffNav current="/staff/warranty" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Warranty &amp; returns</h1>
-        <p className={styles.lede}>
-          Open / approve / reject / close claims and post returns to quarantine.
-          Sales/warehouse/admin. Faulty returns never go straight to saleable
-          stock.
-        </p>
         <StaffWarrantyPanel />
       </div>
     </div>

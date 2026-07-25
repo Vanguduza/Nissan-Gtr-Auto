@@ -11,10 +11,6 @@ export default function StaffLogisticsPanicPage() {
       <StaffNav current="/staff/logistics/panic" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Panic inbox</h1>
-        <p className={styles.lede}>
-          Driver SOS alerts for admin / warehouse / dispatcher. No browser GPS —
-          coordinates come from the delivery app bridge when present.
-        </p>
         <StaffLogisticsTabs active="panic" />
         <StaffPanicInboxPanel />
       </div>
