@@ -83,7 +83,7 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
     const map = new MapLibreMap({
       container: containerRef.current,
       style: mapStyleUrl(),
-      center: DEFAULT_CENTER,
+      center: HARARE_CENTER,
       zoom: DEFAULT_ZOOM,
     });
     map.addControl(
