@@ -55,8 +55,10 @@ export default function AccountPage() {
                     <Icon size={iconSizeMd} strokeWidth={iconStroke} />
                   </span>
                 ) : null}
-                <span className={styles.cardLabel}>{c.label}</span>
-                <span className={styles.cardBlurb}>{c.blurb}</span>
+                <span className={styles.cardCopy}>
+                  <span className={styles.cardLabel}>{c.label}</span>
+                  <span className={styles.cardBlurb}>{c.blurb}</span>
+                </span>
               </Link>
             );
           })}
