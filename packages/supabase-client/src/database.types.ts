@@ -2053,6 +2053,42 @@ export type Database = {
           },
         ]
       }
+      fleet_vehicles: {
+        Row: {
+          assigned_driver_user_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          notes: string | null
+          plate: string
+          status: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at: string
+        }
+        Insert: {
+          assigned_driver_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          plate: string
+          status?: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at?: string
+        }
+        Update: {
+          assigned_driver_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          plate?: string
+          status?: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       goods_receipt_lines: {
         Row: {
           created_at: string
