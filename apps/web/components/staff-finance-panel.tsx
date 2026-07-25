@@ -521,6 +521,39 @@ export function StaffFinancePanel() {
     })();
   }, [boot, allocPaymentId]);
 
+  async function onSetDailyRate(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client) return;
+    const n = Number(dailyRate);
+    if (!Number.isFinite(n) || n <= 0) {
+      setMessage("Rate must be > 0 (ZiG per 1 USD).");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await setZigExchangeRate(client, {
+      rate: n,
+      rateDate: dailyRateDate || undefined,
+      notes: dailyRateNotes || undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    const rateStr = String(n);
+    setOfficialRate(rateStr);
+    setExchangeRate(rateStr);
+    setQuickRate(rateStr);
+    setPayExchangeRate(rateStr);
+    setDailyRateNotes("");
+    setMessage(
+      `ZiG rate set to ${n} for ${dailyRateDate} (checkout uses this for ZiG settlement).`,
+    );
+    await loadZigRates();
+  }
+
   async function onCreateDraft(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
