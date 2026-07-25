@@ -287,8 +287,20 @@ class SupabaseRpcClient(
 
     override suspend fun listChatThreads(): List<ChatThread> =
         client.from("chat_threads")
-            .select(Columns.ALL) {
-                order("last_message_at", Order.DESCENDING, nullsFirst = false)
+            .select(
+                Columns.list(
+                    "id",
+                    "customer_user_id",
+                    "customer_id",
+                    "kind",
+                    "status",
+                    "subject",
+                    "assigned_to",
+                    "last_message_at",
+                    "created_at",
+                ),
+            ) {
+                order("last_message_at", Order.DESCENDING)
             }
             .decodeList<ChatThreadRow>()
             .map { it.toModel() }
@@ -296,7 +308,16 @@ class SupabaseRpcClient(
     override suspend fun listChatMessages(threadId: String): List<ChatMessage> {
         require(threadId.isNotBlank())
         return client.from("chat_messages")
-            .select(Columns.ALL) {
+            .select(
+                Columns.list(
+                    "id",
+                    "thread_id",
+                    "sender_user_id",
+                    "sender_kind",
+                    "body",
+                    "created_at",
+                ),
+            ) {
                 filter { eq("thread_id", threadId) }
                 order("created_at", Order.ASCENDING)
             }
