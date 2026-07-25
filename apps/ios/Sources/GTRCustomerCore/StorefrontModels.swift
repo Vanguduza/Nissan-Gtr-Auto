@@ -410,3 +410,131 @@ public struct StartChatThreadInput: Sendable {
         self.body = body
     }
 }
+
+// MARK: - Wishlist / Compare / Reviews (shop ops)
+
+/// Soft cap matching `_customer_compare_max_items()`.
+public let maxCompareItems = 8
+
+public struct WishlistItem: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public var stockItemId: UUID
+    public var oemPartNumber: String
+    public var description: String?
+    public var notifyWhenInStock: Bool
+    public var createdAt: Date?
+
+    public init(
+        id: UUID,
+        stockItemId: UUID,
+        oemPartNumber: String,
+        description: String? = nil,
+        notifyWhenInStock: Bool = false,
+        createdAt: Date? = nil
+    ) {
+        self.id = id
+        self.stockItemId = stockItemId
+        self.oemPartNumber = oemPartNumber
+        self.description = description
+        self.notifyWhenInStock = notifyWhenInStock
+        self.createdAt = createdAt
+    }
+
+    public var label: String {
+        if let description, !description.isEmpty {
+            return "\(oemPartNumber) · \(description)"
+        }
+        return oemPartNumber
+    }
+}
+
+public struct CompareItem: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public var stockItemId: UUID
+    public var oemPartNumber: String
+    public var description: String?
+    public var createdAt: Date?
+
+    public init(
+        id: UUID,
+        stockItemId: UUID,
+        oemPartNumber: String,
+        description: String? = nil,
+        createdAt: Date? = nil
+    ) {
+        self.id = id
+        self.stockItemId = stockItemId
+        self.oemPartNumber = oemPartNumber
+        self.description = description
+        self.createdAt = createdAt
+    }
+}
+
+public enum ProductReviewStatus: String, Sendable, Codable, CaseIterable {
+    case pending
+    case approved
+    case rejected
+}
+
+public struct ProductReview: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public var stockItemId: UUID
+    public var oemPartNumber: String?
+    public var description: String?
+    public var rating: Int
+    public var body: String
+    public var status: ProductReviewStatus
+    public var createdAt: Date?
+
+    public init(
+        id: UUID,
+        stockItemId: UUID,
+        oemPartNumber: String? = nil,
+        description: String? = nil,
+        rating: Int,
+        body: String = "",
+        status: ProductReviewStatus = .pending,
+        createdAt: Date? = nil
+    ) {
+        self.id = id
+        self.stockItemId = stockItemId
+        self.oemPartNumber = oemPartNumber
+        self.description = description
+        self.rating = rating
+        self.body = body
+        self.status = status
+        self.createdAt = createdAt
+    }
+
+    public var label: String {
+        let oem = oemPartNumber ?? "Part"
+        if let description, !description.isEmpty {
+            return "\(oem) · \(description)"
+        }
+        return oem
+    }
+}
+
+public struct ProductReviewStats: Sendable, Equatable {
+    public var stockItemId: UUID
+    public var avgRating: Decimal
+    public var reviewCount: Int
+
+    public init(stockItemId: UUID, avgRating: Decimal, reviewCount: Int) {
+        self.stockItemId = stockItemId
+        self.avgRating = avgRating
+        self.reviewCount = reviewCount
+    }
+}
+
+public struct ReviewPhotoUpload: Sendable {
+    public var data: Data
+    public var fileExtension: String
+    public var contentType: String
+
+    public init(data: Data, fileExtension: String = "jpg", contentType: String = "image/jpeg") {
+        self.data = data
+        self.fileExtension = fileExtension
+        self.contentType = contentType
+    }
+}
