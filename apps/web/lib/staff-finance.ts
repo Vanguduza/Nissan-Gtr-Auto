@@ -78,6 +78,12 @@ export type PaymentEntryOption = {
   tender: PaymentTender;
   customer_id: string;
   created_at: string;
+  customers?: { display_name: string } | null;
+};
+
+export type CustomerOption = {
+  id: string;
+  display_name: string;
 };
 
 export type AccountOption = {
