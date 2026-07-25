@@ -16,6 +16,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_CUSTOMER_PAYNOW_INTENT]: p_sales_invoice_id, p_method, p_metadata?
  * - [RpcNames.UPSERT_CUSTOMER_GARAGE_VEHICLE]: p_id?, p_make?, p_model?, p_generation?, p_engine?, p_vin?, p_is_primary?
  * - [RpcNames.DELETE_CUSTOMER_GARAGE_VEHICLE]: p_id
+ * - [RpcNames.START_CHAT_THREAD]: p_kind?, p_subject?, p_body?
+ * - [RpcNames.POST_CHAT_MESSAGE]: p_thread_id, p_body
+ * - [RpcNames.MARK_CHAT_THREAD_READ]: p_thread_id
+ * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
  *
  * No PSP secrets or crypto here — intent UUID only.
  */
@@ -44,6 +48,10 @@ class FakeRpcClient : RpcClient {
             isPrimary = true,
         ),
     )
+    private val chatThreads = mutableListOf<ChatThread>()
+    private val chatMessages = mutableListOf<ChatMessage>()
+    private val chatLastRead = mutableMapOf<String, String>()
+    private val fakeUserId = "00000000-0000-4000-8000-0000000000cu"
 
     init {
         val seed = invoices.first()

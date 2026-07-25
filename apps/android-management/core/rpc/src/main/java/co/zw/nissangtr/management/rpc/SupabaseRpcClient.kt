@@ -59,6 +59,9 @@ class SupabaseRpcClient(
     fun currentUserEmail(): String? =
         auth.currentSessionOrNull()?.user?.email
 
+    override fun currentUserId(): String? =
+        auth.currentSessionOrNull()?.user?.id
+
     fun isSignedIn(): Boolean =
         auth.currentSessionOrNull() != null
 
