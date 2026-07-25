@@ -16,4 +16,10 @@ object RpcNames {
 
     const val UPSERT_CUSTOMER_GARAGE_VEHICLE = "upsert_customer_garage_vehicle"
     const val DELETE_CUSTOMER_GARAGE_VEHICLE = "delete_customer_garage_vehicle"
+
+    // Live chat — mirrors packages/supabase-client/src/chat.ts CHAT_RPC
+    const val START_CHAT_THREAD = "start_chat_thread"
+    const val POST_CHAT_MESSAGE = "post_chat_message"
+    const val MARK_CHAT_THREAD_READ = "mark_chat_thread_read"
+    const val CHAT_UNREAD_COUNT = "chat_unread_count"
 }

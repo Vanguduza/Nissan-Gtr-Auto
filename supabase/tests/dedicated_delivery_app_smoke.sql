@@ -8,6 +8,12 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  IF p_uid IS NULL THEN
+    PERFORM set_config('request.jwt.claim.sub', '', true);
+    PERFORM set_config('request.jwt.claims', '{}', true);
+    PERFORM set_config('request.jwt.claim.role', 'anon', true);
+    RETURN;
+  END IF;
   PERFORM set_config('request.jwt.claim.sub', p_uid::text, true);
   PERFORM set_config(
     'request.jwt.claims',
