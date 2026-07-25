@@ -223,7 +223,7 @@ export function StaffPosPanel() {
     setMessage(
       `Cart created · ${res.data.slice(0, 8)}… · ${currency}${
         customerLabel ? ` · ${customerLabel}` : " · walk-in"
-      } (no pairing required)`,
+      }`,
     );
     await refreshCart(res.data);
   }
@@ -328,7 +328,7 @@ export function StaffPosPanel() {
     }
     setPairing(res.data);
     setMessage(
-      `Pairing code ${res.data.pairingCode} — claim on Android Scan companion (web does not scan)`,
+      `Pairing code ${res.data.pairingCode}`,
     );
   }
 

@@ -1,39 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { StaffModuleTabs, type StaffModuleTab } from "@/components/staff-module-tabs";
 import { StaffOnlinePrepPanel } from "@/components/staff-online-prep-panel";
 import { StaffPosPanel } from "@/components/staff-pos-panel";
-import styles from "@/components/account.module.css";
 
 const POS_TABS: StaffModuleTab[] = [
-  { id: "cart", label: "Cart" },
-  { id: "prep", label: "Online prep" },
+  { id: "cart", label: "Cart", href: "/staff/pos?tab=cart" },
+  { id: "prep", label: "Online prep", href: "/staff/pos?tab=prep" },
 ];
 
 export function StaffPosShell() {
-  const [tab, setTab] = useState("cart");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const t = new URLSearchParams(window.location.search).get("tab");
-    if (t && POS_TABS.some((x) => x.id === t)) setTab(t);
-  }, []);
-
-  function selectTab(id: string) {
-    setTab(id);
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", id);
-    window.history.replaceState({}, "", url);
-  }
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const tab =
+    tabParam && POS_TABS.some((x) => x.id === tabParam) ? tabParam : "cart";
 
   return (
     <div>
       <StaffModuleTabs
         tabs={POS_TABS}
         active={tab}
-        onChange={selectTab}
         ariaLabel="POS sections"
       />
       {tab === "cart" ? <StaffPosPanel /> : null}

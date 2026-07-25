@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   FormEvent,
   Fragment,
@@ -210,7 +211,12 @@ function quickOpsFor(registerCode: string): QuickOpTemplate[] {
 }
 
 export function StaffFinancePanel() {
-  const [tab, setTab] = useState("journals");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const tab =
+    tabParam && FINANCE_TABS.some((x) => x.id === tabParam)
+      ? tabParam
+      : "journals";
   const [registerRows, setRegisterRows] = useState<AccountRegisterRow[]>([]);
   const [registerFrom, setRegisterFrom] = useState(monthStartInput);
   const [registerTo, setRegisterTo] = useState(todayInput);
@@ -246,20 +252,6 @@ export function StaffFinancePanel() {
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const t = new URLSearchParams(window.location.search).get("tab");
-    if (t && FINANCE_TABS.some((x) => x.id === t)) setTab(t);
-  }, []);
-
-  function selectTab(id: string) {
-    setTab(id);
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", id);
-    window.history.replaceState({}, "", url);
-  }
 
   const [entryDate, setEntryDate] = useState(todayInput);
   const [description, setDescription] = useState("");
@@ -2942,8 +2934,7 @@ export function StaffFinancePanel() {
           style={{ marginTop: "0.85rem" }}
         >
           <p className={styles.muted} style={{ marginBottom: "0.5rem" }}>
-            Multi-invoice allocate (same currency as payment; over-allocate
-            denied by RPC).
+            Multi-invoice allocate (same currency as payment).
           </p>
           <div className={styles.formGrid}>
             <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
