@@ -1,7 +1,7 @@
 import Foundation
 
-/// Thin storefront AuthZ surface — mirrors `apps/web/lib/customer-storefront.ts`
-/// and customer chat helpers in `apps/web/lib/chat.ts`.
+/// Thin storefront AuthZ surface — mirrors `apps/web/lib/customer-storefront.ts`,
+/// wishlist / compare / reviews helpers, and customer chat in `apps/web/lib/chat.ts`.
 ///
 /// Live RPCs (authenticated customer; `customers.profile_id = auth.uid()`):
 /// - `create_customer_cart` — p_warehouse_id, p_currency, p_fulfillment_mode, p_exchange_rate
@@ -15,6 +15,12 @@ import Foundation
 ///   (+ RLS select on `chat_threads` / `chat_messages`)
 /// - Delivery track: `get_delivery_track_point` — last point + ETA only (never trail /
 ///   never `SELECT` on `delivery_locations`)
+/// - Wishlist: `add_customer_wishlist_item` / `remove_customer_wishlist_item` /
+///   `set_wishlist_notify_when_in_stock` / `wishlist_move_to_cart`
+/// - Compare: `list_customer_compare_items` / `add_customer_compare_item` /
+///   `remove_customer_compare_item` (guests: `GuestCompareStore`)
+/// - Reviews: `submit_customer_product_review` / `get_product_review_stats` /
+///   `add_customer_product_review_photo` (+ Storage `review-photos`)
 @MainActor
 public protocol StorefrontApi: AnyObject {
     func createCart(
@@ -75,6 +81,60 @@ public protocol StorefrontApi: AnyObject {
     /// Returns at most one last point for an active `dispatched` job; `nil` when
     /// inactive / unauthorized / no ping yet. Never a historical trail.
     func getDeliveryTrackPoint(_ ref: DeliveryTrackRef) async throws -> DeliveryTrackPoint?
+
+    // MARK: Wishlist
+
+    func listWishlist() async throws -> [WishlistItem]
+
+    func addWishlistItem(stockItemId: UUID?, oem: String?) async throws -> UUID
+
+    func removeWishlistItem(wishlistId: UUID?, stockItemId: UUID?, oem: String?) async throws
+
+    func setWishlistNotifyWhenInStock(
+        notify: Bool,
+        wishlistId: UUID?,
+        stockItemId: UUID?,
+        oem: String?
+    ) async throws -> UUID
+
+    /// Ensures open cart then `wishlist_move_to_cart` (or Fake compose).
+    func wishlistMoveToCart(
+        wishlistId: UUID?,
+        stockItemId: UUID?,
+        oem: String?,
+        qty: Decimal,
+        removeFromWishlist: Bool
+    ) async throws -> UUID
+
+    // MARK: Compare (auth)
+
+    func listCompareItems() async throws -> [CompareItem]
+
+    func addCompareItem(stockItemId: UUID?, oem: String?) async throws -> UUID
+
+    func removeCompareItem(compareId: UUID?, stockItemId: UUID?, oem: String?) async throws
+
+    // MARK: Reviews
+
+    func listOwnReviews() async throws -> [ProductReview]
+
+    func listApprovedReviews(oem: String) async throws -> [ProductReview]
+
+    func getProductReviewStats(stockItemId: UUID?, oem: String?) async throws -> ProductReviewStats?
+
+    func submitProductReview(
+        rating: Int,
+        body: String,
+        stockItemId: UUID?,
+        oem: String?
+    ) async throws -> UUID
+
+    /// Uploads to Storage bucket `review-photos` then `add_customer_product_review_photo`.
+    func uploadReviewPhoto(
+        reviewId: UUID,
+        photo: ReviewPhotoUpload,
+        sortOrder: Int
+    ) async throws -> UUID
 }
 
 /// In-memory Fake for Simulator / Windows scaffold — no network.

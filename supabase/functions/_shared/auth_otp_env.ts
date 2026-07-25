@@ -2,12 +2,16 @@
  * Auth OTP local-stub gate — same pattern as ContiPay/Paynow/worker stubs.
  *
  * Stub ONLY when:
- *   AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 AND the relevant gateway secret is unset.
+ *   AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 AND the relevant gateway secret is unset
+ *   AND environment is not production (ENVIRONMENT=production or hosted SUPABASE_URL).
  * Never default-on in production.
  */
+import { isAuthOtpProductionEnv } from "./auth_otp_proof.ts";
+
 export const AUTH_OTP_STUB_CODE = "000000";
 
 export function allowAuthOtpLocalStub(): boolean {
+  if (isAuthOtpProductionEnv()) return false;
   return Deno.env.get("AUTH_OTP_ALLOW_UNVERIFIED_LOCAL") === "1";
 }
 

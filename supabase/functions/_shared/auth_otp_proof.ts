@@ -4,10 +4,27 @@
  *
  * Secret: AUTH_OTP_PROOF_SECRET, else SUPABASE_SERVICE_ROLE_KEY (Edge-only).
  */
-import { hmacSha256Hex } from "../whatsapp-webhook/meta_auth.ts";
 
 export const AUTH_OTP_PROOF_TTL_SEC = 10 * 60;
 export const AUTH_OTP_MAX_ATTEMPTS = 5;
+
+async function hmacSha256Hex(rawBody: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(rawBody),
+  );
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export type AuthOtpProofPayload = {
   /** auth_otp_proofs.id */
