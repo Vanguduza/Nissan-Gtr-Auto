@@ -13,6 +13,12 @@ export const DELIVERY_RPC = {
   submitPod: "submit_delivery_pod",
   mintTrackToken: "mint_delivery_track_token",
   updateJobStatus: "update_delivery_job_status",
+  generatePodOtp: "generate_delivery_pod_otp",
+  verifyPodOtp: "verify_delivery_pod_otp",
+  geofenceSuggestion: "delivery_geofence_suggestion",
+  failJob: "fail_delivery_job",
+  raisePanic: "raise_delivery_panic",
+  optimizeStops: "optimize_driver_stops",
 } as const;
 
 export type DriverPresenceRow =
@@ -20,6 +26,9 @@ export type DriverPresenceRow =
 export type DeliveryJobRow = Database["public"]["Tables"]["delivery_jobs"]["Row"];
 export type DeliveryTrackTokenRow =
   Database["public"]["Tables"]["delivery_track_tokens"]["Row"];
+export type DeliveryPodOtpRow =
+  Database["public"]["Tables"]["delivery_pod_otps"]["Row"];
+export type PanicEventRow = Database["public"]["Tables"]["panic_events"]["Row"];
 
 export type DriverPresenceStatus =
   Database["public"]["Enums"]["driver_presence_status"];
@@ -27,6 +36,8 @@ export type DeliveryEtaSource =
   Database["public"]["Enums"]["delivery_eta_source"];
 export type DeliveryCompletedVia =
   Database["public"]["Enums"]["delivery_completed_via"];
+export type DeliveryFailureReason =
+  Database["public"]["Enums"]["delivery_failure_reason"];
 
 export function setDriverPresenceArgs(
   status: DriverPresenceStatus,
@@ -78,14 +89,74 @@ export function submitDeliveryPodArgs(
   jobId: string,
   photoPath: string,
   signaturePath: string,
+  otpCode: string,
   notes?: string,
 ) {
   return {
     p_delivery_job_id: jobId,
     p_pod_photo_path: photoPath,
     p_pod_signature_path: signaturePath,
+    p_otp_code: otpCode,
     p_notes: notes,
   } as const;
+}
+
+export function generateDeliveryPodOtpArgs(jobId: string, ttl?: string) {
+  return {
+    p_delivery_job_id: jobId,
+    p_ttl: ttl,
+  } as const;
+}
+
+export function verifyDeliveryPodOtpArgs(jobId: string, code: string) {
+  return {
+    p_delivery_job_id: jobId,
+    p_code: code,
+  } as const;
+}
+
+export function deliveryGeofenceSuggestionArgs(
+  jobId: string,
+  lat: number,
+  lng: number,
+  opts?: { arriveRadiusM?: number; completeRadiusM?: number },
+) {
+  return {
+    p_delivery_job_id: jobId,
+    p_lat: lat,
+    p_lng: lng,
+    p_arrive_radius_m: opts?.arriveRadiusM,
+    p_complete_radius_m: opts?.completeRadiusM,
+  } as const;
+}
+
+export function failDeliveryJobArgs(
+  jobId: string,
+  reason: DeliveryFailureReason,
+  opts?: { notes?: string; createReattempt?: boolean },
+) {
+  return {
+    p_delivery_job_id: jobId,
+    p_reason: reason,
+    p_notes: opts?.notes,
+    p_create_reattempt: opts?.createReattempt ?? false,
+  } as const;
+}
+
+export function raiseDeliveryPanicArgs(opts?: {
+  jobId?: string;
+  lat?: number;
+  lng?: number;
+}) {
+  return {
+    p_delivery_job_id: opts?.jobId,
+    p_lat: opts?.lat,
+    p_lng: opts?.lng,
+  } as const;
+}
+
+export function optimizeDriverStopsArgs(driverUserId: string) {
+  return { p_driver_user_id: driverUserId } as const;
 }
 
 export function ingestDeliveryLocationArgs(
