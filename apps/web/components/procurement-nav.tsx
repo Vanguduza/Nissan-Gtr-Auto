@@ -26,6 +26,12 @@ const nav: NavItem[] = [
     exact: true,
     Icon: PackageSearch,
   },
+  {
+    href: "/procurement/blankets",
+    label: "Blankets",
+    exact: true,
+    Icon: ClipboardList,
+  },
 ];
 
 export function ProcurementNav({ current }: { current: string }) {

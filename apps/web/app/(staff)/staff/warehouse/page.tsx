@@ -28,6 +28,14 @@ export default function StaffWarehouseHubPage() {
             <span className={styles.cardLabel}>Cycle count</span>
             <span className={styles.cardBlurb}>Reconciliation draft → post</span>
           </Link>
+          <Link href="/staff/warehouse/bins" className={styles.card}>
+            <span className={styles.cardLabel}>Bins</span>
+            <span className={styles.cardBlurb}>Create · preferred putaway</span>
+          </Link>
+          <Link href="/staff/warehouse/consignment" className={styles.card}>
+            <span className={styles.cardLabel}>Consignment</span>
+            <span className={styles.cardBlurb}>Draft → submit / cancel</span>
+          </Link>
         </div>
       </div>
     </div>
