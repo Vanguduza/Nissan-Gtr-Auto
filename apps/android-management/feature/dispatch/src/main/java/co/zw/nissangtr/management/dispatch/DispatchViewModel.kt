@@ -39,6 +39,14 @@ data class DispatchUiState(
     val optimizedStops: List<OptimizedDriverStop> = emptyList(),
     /** Staff VIEW only — last point + ETA (delivery app is sole GPS producer). */
     val liveTrack: DeliveryTrackPoint? = null,
+    /** Share plaintext from mint_delivery_track_token (show once; re-mint revokes). */
+    val trackShareToken: String? = null,
+    /** POD OTP plaintext from generate_delivery_pod_otp (dispatcher may read to customer). */
+    val podOtp: String? = null,
+    val pickupLat: String = "-17.8250",
+    val pickupLng: String = "31.0330",
+    val dropoffLat: String = "-17.8400",
+    val dropoffLng: String = "31.0500",
     val panicEvents: List<PanicEventSummary> = emptyList(),
     val supportPhone: String = "",
     val busy: Boolean = false,
