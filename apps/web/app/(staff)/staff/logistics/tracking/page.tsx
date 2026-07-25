@@ -11,12 +11,6 @@ export default function StaffLogisticsTrackingPage() {
       <StaffNav current="/staff/logistics/tracking" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Live delivery map</h1>
-        <p className={styles.lede}>
-          Assign drivers, mark dispatched (out-for-delivery SMS via outbox), and
-          watch bridge-ingested GPS via Realtime (admin / warehouse /
-          dispatcher). Drivers use the delivery Android app — this page is
-          subscribe-only (no browser geolocation).
-        </p>
         <StaffLogisticsTabs active="tracking" />
         <StaffDeliveryTrackingPanel />
       </div>

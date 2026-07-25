@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { StaffBinsPanel } from "@/components/staff-bins-panel";
 import { StaffNav } from "@/components/staff-nav";
 import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
@@ -12,11 +11,6 @@ export default function StaffWarehouseBinsPage() {
       <StaffNav current="/staff/warehouse/bins" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Warehouse bins</h1>
-        <p className={styles.lede}>
-          Create bins, deactivate, set preferred stock-level bins, and load
-          pick-path guidance via <code>get_pick_path_hints</code>.{" "}
-          <Link href="/staff/warehouse">Warehouse hub</Link>.
-        </p>
         <StaffWarehouseTabs active="bins" />
         <StaffBinsPanel />
       </div>
