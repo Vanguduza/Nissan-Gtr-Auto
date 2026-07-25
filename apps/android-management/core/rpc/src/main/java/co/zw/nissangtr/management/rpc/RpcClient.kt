@@ -19,6 +19,69 @@ interface RpcClient {
         notes: String? = null,
     ): String
 
+    // --- POS (typed stock_item / UOM — no HTML5 QR) ---
+
+    suspend fun createPosCart(
+        warehouseId: String,
+        currency: CurrencyCode = CurrencyCode.USD,
+        fulfillmentMode: FulfillmentMode = FulfillmentMode.IMMEDIATE,
+        customerId: String? = null,
+    ): String
+
+    suspend fun addCartLine(
+        cartId: String,
+        stockItemId: String,
+        uomId: String,
+        qty: Double,
+    ): String
+
+    suspend fun checkoutPosCart(cartId: String): String
+
+    // --- Warehouse ---
+
+    suspend fun postStockReceipt(
+        toWarehouseId: String,
+        notes: String?,
+        lines: List<ReceiptLineInput>,
+    ): String
+
+    suspend fun createStockTransfer(
+        fromWarehouseId: String,
+        toWarehouseId: String,
+        notes: String?,
+        lines: List<TransferLineInput>,
+    ): String
+
+    suspend fun approveStockTransfer(entryId: String): String
+
+    suspend fun rejectStockTransfer(entryId: String): String
+
+    suspend fun createStockReconciliationDraft(
+        warehouseId: String,
+        scope: ReconciliationScope,
+        currency: CurrencyCode = CurrencyCode.USD,
+        itemIds: List<String>? = null,
+        notes: String? = null,
+        exchangeRate: Double? = null,
+    ): String
+
+    /** Returns count of upserted lines. */
+    suspend fun upsertStockReconciliationLines(
+        reconciliationId: String,
+        lines: List<ReconciliationLineInput>,
+    ): Int
+
+    suspend fun submitStockReconciliation(reconciliationId: String): String
+
+    suspend fun approveStockReconciliation(reconciliationId: String): String
+
+    suspend fun cancelStockReconciliation(
+        reconciliationId: String,
+        notes: String? = null,
+    ): String
+
+    // --- Logistics ---
+
     /** Live: SELECT delivery_notes via PostgREST + RLS. */
     suspend fun listDeliveryNotes(): List<DeliveryNoteSummary>
 
