@@ -13,7 +13,9 @@ package co.zw.nissangtr.customer.rpc
  * Payment intents: create only (no real PSP crypto). Settle stays webhook.
  * Chat mutations: start / post / mark_read / unread_count RPCs.
  * Delivery track: last point + ETA via getDeliveryTrackPoint (no trail).
- * QR: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
+ * Wishlist / compare / reviews: AuthZ RPCs + PostgREST reads (RLS).
+ * Review photos: Storage `review-photos` then add_customer_product_review_photo.
+ * QR / camera: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
  */
 interface RpcClient {
     suspend fun createCustomerCart(
@@ -83,4 +85,80 @@ interface RpcClient {
         deliveryJobId: String? = null,
         token: String? = null,
     ): DeliveryTrackPoint?
+
+    /** Live: SELECT customer_wishlist_items (+ stock_items embed) via RLS. */
+    suspend fun listWishlist(): List<WishlistItem>
+
+    suspend fun addCustomerWishlistItem(
+        stockItemId: String? = null,
+        oem: String? = null,
+    ): String
+
+    suspend fun removeCustomerWishlistItem(
+        wishlistId: String? = null,
+        stockItemId: String? = null,
+        oem: String? = null,
+    )
+
+    suspend fun setWishlistNotifyWhenInStock(
+        notify: Boolean,
+        wishlistId: String? = null,
+        stockItemId: String? = null,
+        oem: String? = null,
+    ): String
+
+    /**
+     * Ensures an open cart then [RpcNames.WISHLIST_MOVE_TO_CART].
+     * Returns cart line id.
+     */
+    suspend fun wishlistMoveToCart(
+        wishlistId: String? = null,
+        stockItemId: String? = null,
+        oem: String? = null,
+        qty: Double = 1.0,
+        removeFromWishlist: Boolean = true,
+    ): String
+
+    /** Live: [RpcNames.LIST_CUSTOMER_COMPARE_ITEMS]. Guests: [GuestCompareStore] in UI. */
+    suspend fun listCompareItems(): List<CompareItem>
+
+    suspend fun addCustomerCompareItem(
+        stockItemId: String? = null,
+        oem: String? = null,
+    ): String
+
+    suspend fun removeCustomerCompareItem(
+        compareId: String? = null,
+        stockItemId: String? = null,
+        oem: String? = null,
+    )
+
+    /** Live: SELECT own rows on customer_product_reviews via RLS. */
+    suspend fun listOwnReviews(): List<ProductReview>
+
+    /** Approved reviews for an OEM (PDP subset). */
+    suspend fun listApprovedReviews(oem: String): List<ProductReview>
+
+    suspend fun getProductReviewStats(
+        stockItemId: String? = null,
+        oem: String? = null,
+    ): ProductReviewStats?
+
+    suspend fun submitCustomerProductReview(
+        rating: Int,
+        body: String = "",
+        stockItemId: String? = null,
+        oem: String? = null,
+    ): String
+
+    /**
+     * Upload local image to Storage [RpcNames.REVIEW_PHOTOS_BUCKET], then
+     * [RpcNames.ADD_CUSTOMER_PRODUCT_REVIEW_PHOTO]. Returns photo row id.
+     */
+    suspend fun uploadReviewPhoto(
+        reviewId: String,
+        localFilePath: String,
+        mimeType: String = "image/jpeg",
+        sortOrder: Int = 0,
+    ): String
 }
