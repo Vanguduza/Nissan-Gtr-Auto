@@ -1,5 +1,6 @@
 -- Wishlist + product reviews RLS smoke (postgres via docker exec).
 -- Own vs peer denial; approved readable; compare/garage-reminder tables absent.
+-- Direct-table SELECT checks use SET LOCAL ROLE authenticated (superuser bypasses RLS).
 
 CREATE OR REPLACE FUNCTION public._test_set_auth_uid(p_uid UUID)
 RETURNS void
@@ -61,7 +62,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- Ensure customer rows exist (seed.sql / storefront smoke)
   INSERT INTO auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
@@ -97,7 +97,7 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
   SET profile_id = EXCLUDED.profile_id, display_name = EXCLUDED.display_name;
 
-  -- Customer A: add wishlist (OEM when Navara seeded, else by id)
+  -- Customer A: add wishlist (SECURITY DEFINER RPC)
   PERFORM public._test_set_auth_uid(v_cust_a_user);
   IF EXISTS (SELECT 1 FROM public.stock_items WHERE id = v_item AND oem_part_number = '15208-65F0C') THEN
     v_wish := public.add_customer_wishlist_item(NULL, '15208-65F0C');
@@ -105,23 +105,29 @@ BEGIN
     v_wish := public.add_customer_wishlist_item(v_item, NULL);
   END IF;
 
+  PERFORM public._test_set_auth_uid(v_cust_a_user);
+  SET LOCAL ROLE authenticated;
   SELECT count(*)::int INTO v_seen
   FROM public.customer_wishlist_items
   WHERE customer_id = v_cust_a;
+  RESET ROLE;
   IF v_seen < 1 THEN
     RAISE EXCEPTION 'smoke fail: wishlist insert not visible to owner';
   END IF;
 
   -- Peer cannot see A's wishlist
   PERFORM public._test_set_auth_uid(v_cust_b_user);
+  SET LOCAL ROLE authenticated;
   SELECT count(*)::int INTO v_seen
   FROM public.customer_wishlist_items
   WHERE customer_id = v_cust_a;
+  RESET ROLE;
   IF v_seen <> 0 THEN
     RAISE EXCEPTION 'smoke fail: peer can read foreign wishlist';
   END IF;
 
-  -- Peer remove of A's SKU is a no-op failure (own-row only)
+  -- Peer remove of A's SKU fails (own-row only)
+  PERFORM public._test_set_auth_uid(v_cust_b_user);
   BEGIN
     PERFORM public.remove_customer_wishlist_item(v_item, NULL, NULL);
     RAISE EXCEPTION 'smoke fail: peer remove should fail';
@@ -141,18 +147,23 @@ BEGIN
     5::smallint, 'Great oil filter', v_item, NULL
   );
 
+  PERFORM public._test_set_auth_uid(v_cust_a_user);
+  SET LOCAL ROLE authenticated;
   SELECT count(*)::int INTO v_seen
   FROM public.customer_product_reviews
   WHERE id = v_review AND status = 'pending';
+  RESET ROLE;
   IF v_seen <> 1 THEN
     RAISE EXCEPTION 'smoke fail: own pending review not visible';
   END IF;
 
   -- Peer cannot see pending
   PERFORM public._test_set_auth_uid(v_cust_b_user);
+  SET LOCAL ROLE authenticated;
   SELECT count(*)::int INTO v_seen
   FROM public.customer_product_reviews
   WHERE id = v_review;
+  RESET ROLE;
   IF v_seen <> 0 THEN
     RAISE EXCEPTION 'smoke fail: peer can read pending review';
   END IF;
@@ -163,9 +174,11 @@ BEGIN
 
   -- Peer can read approved
   PERFORM public._test_set_auth_uid(v_cust_b_user);
+  SET LOCAL ROLE authenticated;
   SELECT count(*)::int INTO v_seen
   FROM public.customer_product_reviews
   WHERE id = v_review AND status = 'approved';
+  RESET ROLE;
   IF v_seen <> 1 THEN
     RAISE EXCEPTION 'smoke fail: approved review not readable';
   END IF;
@@ -173,9 +186,13 @@ BEGIN
   -- Owner removes wishlist
   PERFORM public._test_set_auth_uid(v_cust_a_user);
   PERFORM public.remove_customer_wishlist_item(v_item, NULL, NULL);
+
+  PERFORM public._test_set_auth_uid(v_cust_a_user);
+  SET LOCAL ROLE authenticated;
   SELECT count(*)::int INTO v_seen
   FROM public.customer_wishlist_items
   WHERE customer_id = v_cust_a AND stock_item_id = v_item;
+  RESET ROLE;
   IF v_seen <> 0 THEN
     RAISE EXCEPTION 'smoke fail: wishlist remove failed';
   END IF;
