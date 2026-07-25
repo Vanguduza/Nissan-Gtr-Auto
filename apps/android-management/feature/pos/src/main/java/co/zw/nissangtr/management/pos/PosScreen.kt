@@ -21,22 +21,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
+import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.FulfillmentMode
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
 
 /**
- * POS scaffold: create cart → add OEM/stock line (typed UUIDs) → checkout.
+ * POS scaffold: create cart → add OEM/stock line (typed or Bridge QR) → checkout.
  * Explicit [CurrencyCode] USD|ZIG. No ZIMRA. No HTML5 QR.
  */
 @Composable
 fun PosScreen(
     rpc: RpcClient,
+    qr: QrScannerBridge,
+    printer: EscPosPrinterBridge,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PosViewModel = viewModel(
-        factory = PosViewModel.factory(rpc),
+        factory = PosViewModel.factory(rpc, qr, printer),
     ),
 ) {
     val state by viewModel.state.collectAsState()
@@ -51,11 +55,12 @@ fun PosScreen(
         Text("POS — Cart / Checkout", style = MaterialTheme.typography.headlineSmall)
         Text(
             "RPCs: ${RpcNames.CREATE_POS_CART}, ${RpcNames.ADD_CART_LINE}, " +
-                "${RpcNames.CHECKOUT_POS_CART}",
+                "${RpcNames.ADD_CART_LINE_FROM_QR}, ${RpcNames.CHECKOUT_POS_CART}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
-            "Typed stock_item + UOM UUIDs only. QR via bridges/ later — never browser scan.",
+            "QR via bridges/qr-scanner only — never browser scan. " +
+                "Receipt via bridges/escpos-printer (best-effort).",
             style = MaterialTheme.typography.bodySmall,
         )
 
@@ -145,9 +150,35 @@ fun PosScreen(
                 enabled = !state.busy,
             ) { Text("Add line") }
             Button(
-                onClick = viewModel::checkout,
+                onClick = viewModel::scanQrAddLine,
                 enabled = !state.busy,
-            ) { Text("Checkout") }
+            ) { Text("Scan QR → add") }
+        }
+        Button(
+            onClick = viewModel::checkout,
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Checkout") }
+
+        HorizontalDivider()
+        Text("ESC/POS printer (optional)", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = state.printerMac,
+            onValueChange = viewModel::onPrinterMacChange,
+            label = { Text("Printer Bluetooth MAC") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !state.busy,
+        )
+        OutlinedButton(
+            onClick = viewModel::connectPrinter,
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (state.printerConnected) "Printer connected — reconnect" else "Connect printer")
+        }
+        state.lastQrPayload?.let {
+            Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
         }
 
         state.message?.let {

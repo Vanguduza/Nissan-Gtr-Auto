@@ -24,6 +24,8 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":qr-scanner"))
+    implementation(project(":escpos-printer"))
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
