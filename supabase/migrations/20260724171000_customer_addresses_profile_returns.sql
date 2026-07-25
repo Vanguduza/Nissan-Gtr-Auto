@@ -1,5 +1,6 @@
 -- Customer storefront gaps: addresses, own-profile contact/prefs UPDATE,
 -- quarantine-only customer return RPC (no staff RPC grant abuse).
+-- Follow-up 20260724172000 tightens open_balance under storefront RPC.
 -- NO ZIMRA / payroll tax / HTML5 QR.
 
 -- ---------------------------------------------------------------------------
