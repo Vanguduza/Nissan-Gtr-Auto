@@ -409,7 +409,44 @@ class FakeRpcClient : RpcClient {
         val id = UUID.randomUUID().toString()
         jobSeq.getAndIncrement()
         deliveryJobs[id] = deliveryNoteId to "pending"
+        // Demo default coords (Harare) so suggest + ETA demos work without extra steps
+        jobCoords[id] = JobCoords(
+            pickupLat = -17.8250,
+            pickupLng = 31.0330,
+            dropoffLat = -17.8400,
+            dropoffLng = 31.0500,
+        )
         return id
+    }
+
+    override suspend fun setDeliveryJobCoords(
+        deliveryJobId: String,
+        pickupLat: Double?,
+        pickupLng: Double?,
+        dropoffLat: Double?,
+        dropoffLng: Double?,
+    ) {
+        require(deliveryJobId.isNotBlank())
+        fun checkLat(v: Double?) {
+            if (v != null) require(v in -90.0..90.0) { "lat out of range" }
+        }
+        fun checkLng(v: Double?) {
+            if (v != null) require(v in -180.0..180.0) { "lng out of range" }
+        }
+        checkLat(pickupLat)
+        checkLng(pickupLng)
+        checkLat(dropoffLat)
+        checkLng(dropoffLng)
+        if (deliveryJobs[deliveryJobId] == null) {
+            deliveryJobs[deliveryJobId] = "unknown" to "pending"
+        }
+        val prev = jobCoords[deliveryJobId]
+        jobCoords[deliveryJobId] = JobCoords(
+            pickupLat = pickupLat ?: prev?.pickupLat,
+            pickupLng = pickupLng ?: prev?.pickupLng,
+            dropoffLat = dropoffLat ?: prev?.dropoffLat,
+            dropoffLng = dropoffLng ?: prev?.dropoffLng,
+        )
     }
 
     override suspend fun updateDeliveryJobStatus(
@@ -451,28 +488,30 @@ class FakeRpcClient : RpcClient {
     ): List<DeliveryAssigneeSuggestion> {
         require(deliveryJobId.isNotBlank())
         val lim = limit.coerceIn(1, 50)
-        return listOf(
+        val coords = jobCoords[deliveryJobId]
+        val originLat = coords?.pickupLat ?: coords?.dropoffLat
+        val originLng = coords?.pickupLng ?: coords?.dropoffLng
+        val seeded = listOf(
+            Triple(FAKE_DRIVER_USER_ID, "available", Pair(-17.83, 31.05)),
+            Triple(FAKE_DRIVER_USER_ID_2, "on_duty", Pair(-17.84, 31.06)),
+        )
+        return seeded.mapIndexed { idx, (uid, status, last) ->
+            val dist = if (originLat != null && originLng != null) {
+                haversineM(originLat, originLng, last.first, last.second)
+            } else {
+                if (idx == 0) 420.0 else 1_200.0
+            }
             DeliveryAssigneeSuggestion(
-                userId = FAKE_DRIVER_USER_ID,
-                status = "available",
-                distanceM = 420.0,
-                capacity = 5,
-                openJobs = 1,
-                lastLat = -17.83,
-                lastLng = 31.05,
+                userId = uid,
+                status = status,
+                distanceM = dist,
+                capacity = if (idx == 0) 5 else 3,
+                openJobs = if (idx == 0) 1 else 2,
+                lastLat = last.first,
+                lastLng = last.second,
                 lastSeenAt = "2026-07-25T09:05:00Z",
-            ),
-            DeliveryAssigneeSuggestion(
-                userId = FAKE_DRIVER_USER_ID_2,
-                status = "on_duty",
-                distanceM = 1_200.0,
-                capacity = 3,
-                openJobs = 2,
-                lastLat = -17.84,
-                lastLng = 31.06,
-                lastSeenAt = "2026-07-25T09:04:00Z",
-            ),
-        ).take(lim)
+            )
+        }.sortedBy { it.distanceM ?: Double.MAX_VALUE }.take(lim)
     }
 
     override suspend fun assignDeliveryJob(
