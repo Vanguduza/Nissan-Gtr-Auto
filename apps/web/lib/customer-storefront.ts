@@ -760,8 +760,9 @@ export async function listInvoiceLines(
 }
 
 /**
- * Quarantine-only credit note. Staff RPC today (`_require_sales_staff`).
- * Customer-scoped wrapper is a backend gap — call still wired for when it lands.
+ * Quarantine-only credit note via customer-scoped RPC
+ * (`post_customer_return_credit_note` / alias `request_customer_return`).
+ * Unit prices are forced server-side from the source invoice.
  */
 export async function requestReturnCreditNote(
   client: SupabaseClient,
@@ -770,16 +771,28 @@ export async function requestReturnCreditNote(
     stock_item_id: string;
     uom_id: string;
     qty: number;
-    unit_price: number;
+    unit_price?: number;
   }[],
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await client.rpc("post_return_credit_note", {
-    p_invoice_id: invoiceId,
-    p_lines: lines,
-  });
+  const payload = lines.map((l) => ({
+    stock_item_id: l.stock_item_id,
+    uom_id: l.uom_id,
+    qty: l.qty,
+  }));
+  const { data, error } = await storefrontRpc(
+    client,
+    "post_customer_return_credit_note",
+    {
+      p_invoice_id: invoiceId,
+      p_lines: payload,
+    },
+  );
   if (error) return { ok: false, error: error.message };
-  if (!data) {
-    return { ok: false, error: "post_return_credit_note returned no id." };
+  if (typeof data !== "string" || !data) {
+    return {
+      ok: false,
+      error: "post_customer_return_credit_note returned no id.",
+    };
   }
   return { ok: true, data };
 }
