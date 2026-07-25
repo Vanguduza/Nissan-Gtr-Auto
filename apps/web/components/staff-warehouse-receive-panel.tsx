@@ -187,6 +187,10 @@ export function StaffWarehouseReceivePanel() {
 
   return (
     <div className={styles.form}>
+      <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+        Typed OEM / SKU only. QR receive and label print: use the management
+        device bridge.
+      </p>
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Destination · notes</legend>
         <div className={styles.formGrid}>
