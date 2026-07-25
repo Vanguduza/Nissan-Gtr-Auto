@@ -1,6 +1,6 @@
 package co.zw.nissangtr.management.warehouse
 
-/** Placeholder warehouse feature module — no screens in Phase 12 scaffold. */
+/** Warehouse feature module — receive / transfers / cycle-count scaffolds. */
 object WarehouseModule {
     const val id: String = "warehouse"
 }
