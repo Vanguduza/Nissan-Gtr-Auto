@@ -1,6 +1,8 @@
 # Hardware bridges
 
-**Contracts only** under `bridges/contracts/` — no CameraX, AVFoundation, Bluetooth ESC/POS, BiometricPrompt, FusedLocation, or CoreLocation implementations in this phase.
+Contracts under `bridges/contracts/`. Native implementations under `bridges/android/*`
+and `bridges/ios/*`. Shared UI and web **never** call camera, Bluetooth, biometric, or
+geolocation APIs directly.
 
 ## Bridge-First (hard rules)
 
@@ -12,19 +14,34 @@
 | BiometricPrompt / LocalAuthentication | Browser WebAuthn as staff biometric substitute |
 | FusedLocationProvider / CoreLocation | Browser geolocation (`navigator.geolocation`) or WebView GPS |
 
-Shared UI and web storefront **never** call camera, Bluetooth, biometric, or geolocation APIs directly. They depend on these contracts; native apps inject implementations.
-
 ## Contract path map
 
-Which contract each future impl directory owns:
-
-| Concern | Contract file → interface | Future Android impl | Future iOS impl | Native stack (later) |
-|---------|---------------------------|---------------------|-----------------|----------------------|
-| QR scan | `contracts/qr-inventory.ts` → `QrScannerBridge` | `bridges/android/qr-scanner/` | `bridges/ios/QRScanner/` | CameraX / AVFoundation |
-| ESC/POS label print | `contracts/qr-inventory.ts` → `EscPosPrinterBridge` | `bridges/android/escpos-printer/` | `bridges/ios/escpos-printer/` | BluetoothAdapter / CoreBluetooth |
+| Concern | Contract file → interface | Android impl | iOS impl | Native stack |
+|---------|---------------------------|--------------|----------|--------------|
+| QR scan | `contracts/qr-inventory.ts` → `QrScannerBridge` | `bridges/android/qr-scanner/` | `bridges/ios/QRScanner/` (stub) | CameraX+ML Kit / AVFoundation |
+| ESC/POS print | `contracts/qr-inventory.ts` → `EscPosPrinterBridge` | `bridges/android/escpos-printer/` | `bridges/ios/escpos-printer/` (stub) | BluetoothAdapter / CoreBluetooth |
 | Biometric auth | `contracts/biometric.ts` → `BiometricBridge` | `bridges/android/biometric-auth/` | `bridges/ios/BiometricAuth/` | BiometricPrompt / LocalAuthentication |
 | GPS / delivery ingest | `contracts/gps.ts` → `GpsBridge` | `bridges/android/location-tracker/` | `bridges/ios/LocationTracker/` | FusedLocationProvider / CoreLocation |
 | Barrel export | `contracts/index.ts` | — | — | — |
+
+## Android modules (Batch 5)
+
+| Gradle module | Path | Status |
+|---------------|------|--------|
+| `:location-tracker` | `android/location-tracker/` | Implemented |
+| `:qr-scanner` | `android/qr-scanner/` | Implemented — CameraX + ML Kit |
+| `:escpos-printer` | `android/escpos-printer/` | Implemented — RFCOMM ESC/POS |
+
+Include from `apps/android-management/settings.gradle.kts` (already wired):
+
+```kotlin
+include(":qr-scanner")
+project(":qr-scanner").projectDir = file("../../bridges/android/qr-scanner")
+include(":escpos-printer")
+project(":escpos-printer").projectDir = file("../../bridges/android/escpos-printer")
+```
+
+See each module README for permissions and API surface.
 
 ## Domain alignment
 
@@ -34,19 +51,14 @@ Which contract each future impl directory owns:
 gtr://part/{OEM_PART_NUMBER}?batch={BATCH_ID}&valuation={FIFO|AVG}
 ```
 
-- Bridge returns `QrScanResult.rawValue` (full URI).
-- Shared helpers in `packages/shared` build/parse the URI (`InventoryQrFields`).
-- ESC/POS jobs carry the same full `qrPayload` plus OEM, batch, and valuation for the human-readable line.
+- Bridge returns `QrScanResult.rawValue` (full URI) — no Supabase inside the bridge.
+- Shared helpers / Kotlin `parseInventoryQrPayload` build/parse the URI.
+- POS: `add_cart_line_from_qr(cart_id, rawValue, qty)`.
+- Warehouse: parse OEM → `lookupStockItemByOem` → fill receive / cycle-count fields.
+- ESC/POS jobs carry the same full `qrPayload` plus OEM, batch, and valuation.
+- Forbidden: ZIMRA / fiscal QR payloads.
 
 ### Delivery GPS (Phase 10)
 
 - Native bridge yields `GpsCoordinate` only (no network I/O inside the bridge).
-- App/service maps via `toDeliveryLocationIngest` → RPC `ingest_delivery_location`
-  `(delivery_job_id, lat, lng, recorded_at, accuracy_m)`.
-- Server rate limit ~5s per job; trail `source = 'bridge'`. Do not INSERT `delivery_locations` from clients.
-
-## Phase notes
-
-- Phase 4 introduced QR + ESC/POS contracts.
-- Phase 11–12 extends biometric + GPS contracts, permissions surfaces, ingest mapping, and this path map (aligned with `AGENTS.md` / hardware specialist lanes).
-- Native implementations remain a follow-on in the management hardware lane — not part of the contract polish slice.
+- App maps via `toDeliveryLocationIngest` → RPC `ingest_delivery_location`.
