@@ -1245,7 +1245,7 @@ export function StaffFinancePanel() {
                 onChange={(e) => {
                   const c = e.target.value as CurrencyCode;
                   setQuickCurrency(c);
-                  if (c === "ZIG") setQuickRate(defaultZigRate());
+                  if (c === "ZIG") setQuickRate(officialRate);
                 }}
                 disabled={busy}
               >
