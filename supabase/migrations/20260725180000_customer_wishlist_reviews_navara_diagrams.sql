@@ -39,7 +39,7 @@ GRANT INSERT, DELETE ON TABLE public.customer_wishlist_items TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON TABLE public.customer_wishlist_items TO service_role;
 
 -- Resolve stock_item by id or OEM (storefront PDP uses either).
-CREATE OR REPLACE FUNCTION public._resolve_wishlist_stock_item(
+CREATE OR REPLACE FUNCTION public._resolve_customer_stock_item(
   p_stock_item_id UUID,
   p_oem_part_number TEXT
 )
