@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { StaffNav } from "@/components/staff-nav";
 import { StaffWarehouseCycleCountPanel } from "@/components/staff-warehouse-cycle-count-panel";
+import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
 import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Staff · Cycle count" };
@@ -16,6 +17,7 @@ export default function StaffWarehouseCycleCountPage() {
           threshold) → approve or cancel posted. Explicit currency on the draft.{" "}
           <Link href="/staff/warehouse">Warehouse hub</Link>.
         </p>
+        <StaffWarehouseTabs active="cycle-count" />
         <StaffWarehouseCycleCountPanel />
       </div>
     </div>

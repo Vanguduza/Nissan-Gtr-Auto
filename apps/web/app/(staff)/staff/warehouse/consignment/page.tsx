@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { StaffNav } from "@/components/staff-nav";
 import { StaffConsignmentPanel } from "@/components/staff-consignment-panel";
+import { StaffNav } from "@/components/staff-nav";
+import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
 import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Staff · Consignment" };
@@ -16,6 +17,7 @@ export default function StaffWarehouseConsignmentPage() {
           explicit on each entry (USD | ZIG).{" "}
           <Link href="/staff/warehouse">Warehouse hub</Link>.
         </p>
+        <StaffWarehouseTabs active="consignment" />
         <StaffConsignmentPanel />
       </div>
     </div>
