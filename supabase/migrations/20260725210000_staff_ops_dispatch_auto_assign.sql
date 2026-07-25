@@ -417,7 +417,6 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Job already exists?
   SELECT dj.id INTO v_existing
   FROM public.delivery_jobs dj
   JOIN public.delivery_notes dn ON dn.id = dj.delivery_note_id
@@ -426,7 +425,7 @@ BEGIN
   LIMIT 1;
 
   IF v_existing IS NOT NULL THEN
-    PERFORM public._try_auto_assign_delivery_job(v_existing);
+    v_driver := public._try_auto_assign_delivery_job(v_existing);
     RETURN v_existing;
   END IF;
 
@@ -448,10 +447,13 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Staff already authenticated via confirm_pick_lines
+  PERFORM public._online_dispatch_auto_begin();
+  PERFORM public._logistics_begin_rpc();
+
   v_dn := public.create_delivery_note(v_inv_id, v_lines, p_pick_list_id);
   PERFORM public.submit_delivery_note(v_dn);
   v_job := public.create_delivery_job(v_dn, NULL, NULL, 'Auto after online prep');
+  -- assign via job insert trigger or explicit:
   v_driver := public._try_auto_assign_delivery_job(v_job);
 
   IF v_driver IS NOT NULL THEN
@@ -633,6 +635,97 @@ BEGIN
 END;
 $$;
 
+-- ---------------------------------------------------------------------------
+-- Triggers: checkout post → prep notify; pick done → ship+assign; job insert → assign
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.trg_sales_invoice_online_dispatch_finalize()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.doc_type = 'invoice'
+     AND NEW.status = 'posted'
+     AND OLD.status IS DISTINCT FROM 'posted'
+     AND NEW.fulfillment_mode = 'dispatch' THEN
+    BEGIN
+      PERFORM public._finalize_online_dispatch_order(NEW.id);
+    EXCEPTION
+      WHEN OTHERS THEN
+        NULL;
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS sales_invoices_online_dispatch_finalize ON public.sales_invoices;
+CREATE TRIGGER sales_invoices_online_dispatch_finalize
+  AFTER UPDATE OF status ON public.sales_invoices
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.trg_sales_invoice_online_dispatch_finalize();
+
+CREATE OR REPLACE FUNCTION public.trg_pick_list_online_auto_ship()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.status = 'done' AND OLD.status IS DISTINCT FROM 'done' THEN
+    BEGIN
+      PERFORM public._auto_ship_online_dispatch_after_pick(NEW.id);
+    EXCEPTION
+      WHEN OTHERS THEN
+        NULL;
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS pick_lists_online_auto_ship ON public.pick_lists;
+CREATE TRIGGER pick_lists_online_auto_ship
+  AFTER UPDATE OF status ON public.pick_lists
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.trg_pick_list_online_auto_ship();
+
+CREATE OR REPLACE FUNCTION public.trg_delivery_job_online_auto_assign()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_inv UUID;
+BEGIN
+  IF NEW.assignee_user_id IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT dn.sales_invoice_id INTO v_inv
+  FROM public.delivery_notes dn
+  WHERE dn.id = NEW.delivery_note_id;
+
+  IF v_inv IS NOT NULL AND public._invoice_is_storefront_dispatch(v_inv) THEN
+    BEGIN
+      PERFORM public._try_auto_assign_delivery_job(NEW.id);
+    EXCEPTION
+      WHEN OTHERS THEN
+        NULL;
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS delivery_jobs_online_auto_assign ON public.delivery_jobs;
+CREATE TRIGGER delivery_jobs_online_auto_assign
+  AFTER INSERT ON public.delivery_jobs
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.trg_delivery_job_online_auto_assign();
+
 REVOKE ALL ON FUNCTION public._invoice_is_storefront_dispatch(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._notify_sales_prep(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._ensure_pick_list_for_invoice(UUID) FROM PUBLIC;
@@ -640,6 +733,11 @@ REVOKE ALL ON FUNCTION public._try_auto_assign_delivery_job(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._auto_ship_online_dispatch_after_pick(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._finalize_online_dispatch_order(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._staff_ops_notify_begin() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._online_dispatch_auto_begin() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._online_dispatch_auto_active() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.trg_sales_invoice_online_dispatch_finalize() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.trg_pick_list_online_auto_ship() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.trg_delivery_job_online_auto_assign() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.list_staff_ops_notifications(INTEGER) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.mark_staff_ops_notification_read(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.list_online_prep_queue(INTEGER) FROM PUBLIC;
