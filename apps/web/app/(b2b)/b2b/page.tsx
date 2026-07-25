@@ -11,7 +11,8 @@ export default function B2bPage() {
       <p className={styles.lede}>
         Trade accounts resolve the assigned <strong>B2B</strong> / Fleet price
         list and credit terms from Phase 5. Sign in with a linked customer
-        profile to see net pricing on this page and on catalog PDP.
+        profile to see net pricing, credit limit / hold / open balance, and
+        catalog PDP trade prices.
       </p>
       <B2bPricePanel />
       <p className={styles.lede} style={{ marginTop: "1.25rem" }}>
