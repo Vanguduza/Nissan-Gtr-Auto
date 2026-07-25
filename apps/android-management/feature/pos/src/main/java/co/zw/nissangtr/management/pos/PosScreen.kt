@@ -326,10 +326,6 @@ private fun TillSection(
 
     HorizontalDivider()
     Text("Optional phone companion", style = MaterialTheme.typography.titleMedium)
-    Text(
-        "Not required for single-device sales. Creates ${RpcNames.CREATE_POS_SCAN_SESSION} code.",
-        style = MaterialTheme.typography.bodySmall,
-    )
     if (state.pairingCodeDisplay.isNotBlank()) {
         Text(
             "Code: ${state.pairingCodeDisplay}",
