@@ -7,6 +7,7 @@ package co.zw.nissangtr.management.rpc
  * `SUPABASE_ANON_KEY` are set (override with `rpc.forceFake=true`).
  * **Fallback:** [FakeRpcClient].
  *
+ * Covers HR clock, POS cart, warehouse receive/transfer/recon, and logistics pick/DN.
  * Reads (DN/pick list lists) use PostgREST `from("delivery_notes")` / PowerSync
  * bucket `by_staff_dispatch` — not mutation RPCs.
  *
