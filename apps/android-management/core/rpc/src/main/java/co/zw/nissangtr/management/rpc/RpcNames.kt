@@ -36,8 +36,21 @@ object RpcNames {
     const val CANCEL_DELIVERY_NOTE = "cancel_delivery_note"
     const val CREATE_DELIVERY_JOB = "create_delivery_job"
     const val UPDATE_DELIVERY_JOB_STATUS = "update_delivery_job_status"
-    /** Bridge-only ingest (~5s). Do not call from Compose with browser geolocation. */
+    /**
+     * Location ingest (~5s). **Producer is apps/android-delivery only** —
+     * management must not start FGS / call this from dispatch UI.
+     * Kept for Fake/Live contract parity; staff VIEW uses [GET_DELIVERY_TRACK_POINT].
+     */
     const val INGEST_DELIVERY_LOCATION = "ingest_delivery_location"
+
+    // Dedicated delivery app — dispatcher assignment / route / staff live view / panic
+    const val SUGGEST_DELIVERY_ASSIGNEES = "suggest_delivery_assignees"
+    const val ASSIGN_DELIVERY_JOB = "assign_delivery_job"
+    const val OPTIMIZE_DRIVER_STOPS = "optimize_driver_stops"
+    /** Staff/customer last-point + ETA (active dispatched job). Not a GPS producer. */
+    const val GET_DELIVERY_TRACK_POINT = "get_delivery_track_point"
+    /** Driver-only raise; management lists/acks `panic_events` via PostgREST. */
+    const val RAISE_DELIVERY_PANIC = "raise_delivery_panic"
 
     // Live chat (staff inbox — same RPCs as web /staff/chat)
     const val CLAIM_CHAT_THREAD = "claim_chat_thread"
