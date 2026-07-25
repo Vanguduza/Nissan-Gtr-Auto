@@ -85,22 +85,24 @@ fun DeliveryTrackScreen(
         } else {
             Text(
                 buildString {
-                    append("Tracking")
+                    append(if (state.ended) "Ended" else "Tracking")
                     state.activeJobId?.let { append(" · job=$it") }
                     state.activeToken?.let { append(" · token=…${it.takeLast(6)}") }
-                    if (state.polling) append(" · polling")
+                    if (state.polling) append(" · polling ~8s")
                 },
                 style = MaterialTheme.typography.bodySmall,
             )
-            OutlinedButton(
-                onClick = viewModel::refreshOnce,
-                enabled = !state.busy,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Refresh now") }
+            if (!state.ended) {
+                OutlinedButton(
+                    onClick = viewModel::refreshOnce,
+                    enabled = !state.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Refresh now") }
+            }
             OutlinedButton(
                 onClick = viewModel::stopTracking,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Stop") }
+            ) { Text(if (state.ended) "Done" else "Stop") }
 
             state.point?.let { p ->
                 Text("Status", style = MaterialTheme.typography.titleSmall)
@@ -118,7 +120,7 @@ fun DeliveryTrackScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
-                    "Map tiles not bundled — coordinates only. No GPS trail is ever shared.",
+                    "Map tiles not bundled — last point + ETA only. No GPS trail.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
