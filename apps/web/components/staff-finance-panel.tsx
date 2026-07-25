@@ -243,10 +243,9 @@ export function StaffFinancePanel() {
   useEffect(() => {
     if (boot.kind !== "ready" || !selectedStmtId) return;
     const stmt = boot.statements.find((s) => s.id === selectedStmtId);
-    const account = stmt?.account_code ?? selectedStmtAccount;
-    setSelectedStmtAccount(account);
-    void loadStatementDetail(selectedStmtId, account);
-  }, [boot, selectedStmtId, selectedStmtAccount, loadStatementDetail]);
+    if (stmt) setSelectedStmtAccount(stmt.account_code);
+    void loadStatementDetail(selectedStmtId, stmt?.account_code);
+  }, [boot, selectedStmtId, loadStatementDetail]);
 
   async function onCreateDraft(e: FormEvent) {
     e.preventDefault();
