@@ -205,6 +205,14 @@ export async function verifyAuthOtp(
       error: edgeErrorMessage(body, "OTP verification failed"),
     };
   }
+  const proofToken =
+    typeof body.proof_token === "string" ? body.proof_token.trim() : "";
+  if (!proofToken) {
+    return {
+      ok: false,
+      error: "OTP verify did not return proof_token — cannot complete auth.",
+    };
+  }
 
   return {
     ok: true,
@@ -212,5 +220,131 @@ export async function verifyAuthOtp(
     email: typeof body.email === "string" ? body.email : email,
     phone_e164:
       typeof body.phone_e164 === "string" ? body.phone_e164 : phone,
+    proofToken,
+    proofExpiresAt:
+      typeof body.proof_expires_at === "string"
+        ? body.proof_expires_at
+        : undefined,
+  };
+}
+
+/**
+ * Create Auth user + session via Edge after OTP proof (public signup disabled).
+ */
+export async function completeAuthSignup(
+  client: SupabaseClient,
+  args: {
+    email: string;
+    password: string;
+    proofToken: string;
+    fullName?: string | null;
+    phoneE164?: string | null;
+  },
+): Promise<AuthOtpSessionResult | AuthOtpError> {
+  const email = normalizeReceiptEmail(args.email);
+  const phone = normalizeE164(args.phoneE164);
+  if (!email) return { ok: false, error: "Email is required." };
+  if (!args.proofToken.trim()) {
+    return { ok: false, error: "OTP proof missing — verify OTP again." };
+  }
+  if (args.password.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters." };
+  }
+
+  const { data, error } = await client.functions.invoke("auth-otp", {
+    body: {
+      action: "complete_signup",
+      email,
+      password: args.password,
+      proof_token: args.proofToken.trim(),
+      ...(phone ? { phone_e164: phone } : {}),
+      ...(args.fullName?.trim()
+        ? { full_name: args.fullName.trim() }
+        : {}),
+    },
+  });
+
+  return readSessionResult(data, error, "Signup failed");
+}
+
+/**
+ * Exchange OTP proof + password for a session (server-side gate).
+ */
+export async function completeAuthLogin(
+  client: SupabaseClient,
+  args: {
+    email: string;
+    password: string;
+    proofToken: string;
+    phoneE164?: string | null;
+  },
+): Promise<AuthOtpSessionResult | AuthOtpError> {
+  const email = normalizeReceiptEmail(args.email);
+  const phone = normalizeE164(args.phoneE164);
+  if (!email) return { ok: false, error: "Email is required." };
+  if (!args.proofToken.trim()) {
+    return { ok: false, error: "OTP proof missing — verify OTP again." };
+  }
+  if (!args.password) return { ok: false, error: "Password is required." };
+
+  const { data, error } = await client.functions.invoke("auth-otp", {
+    body: {
+      action: "complete_login",
+      email,
+      password: args.password,
+      proof_token: args.proofToken.trim(),
+      ...(phone ? { phone_e164: phone } : {}),
+    },
+  });
+
+  return readSessionResult(data, error, "Login failed");
+}
+
+async function readSessionResult(
+  data: unknown,
+  error: { context?: unknown; message?: string } | null,
+  fallback: string,
+): Promise<AuthOtpSessionResult | AuthOtpError> {
+  if (error) {
+    const { body, status } = await readFunctionsErrorBody(error);
+    const msg = edgeErrorMessage(body, error.message || fallback);
+    return {
+      ok: false,
+      error: msg,
+      status,
+      failClosed: isFailClosedMessage(msg, status),
+    };
+  }
+  if (!data || typeof data !== "object") {
+    return { ok: false, error: `Unexpected response: ${fallback}` };
+  }
+  const body = data as Record<string, unknown>;
+  if (body.ok === false || (typeof body.error === "string" && body.error)) {
+    const msg = edgeErrorMessage(body, fallback);
+    const status = typeof body.status === "number" ? body.status : undefined;
+    return {
+      ok: false,
+      error: msg,
+      status,
+      failClosed: isFailClosedMessage(msg, status),
+    };
+  }
+  const accessToken =
+    typeof body.access_token === "string" ? body.access_token : "";
+  const refreshToken =
+    typeof body.refresh_token === "string" ? body.refresh_token : "";
+  const userId = typeof body.user_id === "string" ? body.user_id : "";
+  if (!accessToken || !refreshToken || !userId) {
+    return { ok: false, error: "Session tokens missing from Edge response." };
+  }
+  return {
+    ok: true,
+    userId,
+    accessToken,
+    refreshToken,
+    expiresIn:
+      typeof body.expires_in === "number" ? body.expires_in : undefined,
+    email: typeof body.email === "string" ? body.email : null,
+    phone_e164: typeof body.phone_e164 === "string" ? body.phone_e164 : null,
   };
 }
