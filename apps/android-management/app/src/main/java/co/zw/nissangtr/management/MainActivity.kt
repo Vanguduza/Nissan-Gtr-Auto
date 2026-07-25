@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,12 +31,15 @@ import co.zw.nissangtr.bridges.qr.CameraxQrScannerBridge
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.auth.AuthGate
 import co.zw.nissangtr.management.auth.AuthModule
+import co.zw.nissangtr.management.chat.ChatModule
+import co.zw.nissangtr.management.chat.ChatScreen
 import co.zw.nissangtr.management.dispatch.DispatchModule
 import co.zw.nissangtr.management.dispatch.DispatchScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.pos.PosModule
 import co.zw.nissangtr.management.pos.PosScreen
+import co.zw.nissangtr.management.rpc.ChatStaffRoles
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
@@ -48,6 +52,7 @@ private enum class ManagementRoute {
     Dispatch,
     Pos,
     Warehouse,
+    Chat,
 }
 
 /**
@@ -70,7 +75,14 @@ class MainActivity : ComponentActivity() {
         gpsBridge = FusedLocationGpsBridge(this)
         qrBridge = CameraxQrScannerBridge(this)
         printerBridge = BluetoothEscPosPrinterBridge(this)
-        listOf(AuthModule.id, PosModule.id, WarehouseModule.id, DispatchModule.id, HrModule.id)
+        listOf(
+            AuthModule.id,
+            PosModule.id,
+            WarehouseModule.id,
+            DispatchModule.id,
+            HrModule.id,
+            ChatModule.id,
+        )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
             BuildConfig.SUPABASE_ANON_KEY,
@@ -155,15 +167,29 @@ private fun ManagementApp(
     onSignOut: () -> Unit,
 ) {
     var route by remember { mutableStateOf(ManagementRoute.Home) }
+    var showChat by remember { mutableStateOf(!liveRpc) }
+
+    LaunchedEffect(liveRpc, signedInEmail) {
+        if (!liveRpc) {
+            showChat = true
+            return@LaunchedEffect
+        }
+        showChat = runCatching {
+            ChatStaffRoles.allows(rpc.listMyStaffRoles())
+        }.getOrDefault(false)
+    }
+
     when (route) {
         ManagementRoute.Home -> ManagementHome(
             liveRpc = liveRpc,
             signedInEmail = signedInEmail,
             onSignOut = onSignOut,
+            showChat = showChat,
             onHr = { route = ManagementRoute.HrClock },
             onDispatch = { route = ManagementRoute.Dispatch },
             onPos = { route = ManagementRoute.Pos },
             onWarehouse = { route = ManagementRoute.Warehouse },
+            onChat = { route = ManagementRoute.Chat },
         )
         ManagementRoute.HrClock -> ClockAttendanceScreen(
             rpc = rpc,
@@ -185,6 +211,10 @@ private fun ManagementApp(
             qr = qr,
             onBack = { route = ManagementRoute.Home },
         )
+        ManagementRoute.Chat -> ChatScreen(
+            rpc = rpc,
+            onBack = { route = ManagementRoute.Home },
+        )
     }
 }
 
@@ -193,10 +223,12 @@ private fun ManagementHome(
     liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
+    showChat: Boolean,
     onHr: () -> Unit,
     onDispatch: () -> Unit,
     onPos: () -> Unit,
     onWarehouse: () -> Unit,
+    onChat: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -209,7 +241,7 @@ private fun ManagementHome(
         Text("Management app", style = MaterialTheme.typography.bodyMedium)
         Text(
             "Modules: ${AuthModule.id}, ${PosModule.id}, ${WarehouseModule.id}, " +
-                "${DispatchModule.id}, ${HrModule.id}",
+                "${DispatchModule.id}, ${HrModule.id}, ${ChatModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -241,6 +273,17 @@ private fun ManagementHome(
             onClick = onDispatch,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Logistics — Pick / DN / Track") }
+        if (showChat) {
+            Button(
+                onClick = onChat,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Chat — Staff inbox") }
+        } else if (liveRpc) {
+            Text(
+                "Chat hidden — needs staff role admin|sales|warehouse",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         Text(
             "Auth: GoTrue signInWith(Email). No ZIMRA / payroll tax. " +
                 "Bridge-First for QR/printer/GPS. Money: explicit USD|ZIG.",

@@ -155,7 +155,6 @@ struct ChatThreadScreen: View {
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
     @State private var status: String?
-    @State private var busy = false
     @State private var sendBusy = false
 
     private let pollInterval: Duration = .seconds(4)
@@ -336,10 +335,6 @@ private extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
-}
-
-extension UUID: @retroactive Identifiable {
-    public var id: UUID { self }
 }
 
 #Preview {
