@@ -45,6 +45,11 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
     roles: ["admin", "warehouse", "sales"],
   },
   {
+    href: "/staff/chat",
+    label: "Chat",
+    roles: ["admin", "sales", "warehouse"],
+  },
+  {
     href: "/staff/analytics",
     label: "Analytics",
     exact: true,
@@ -93,6 +98,7 @@ export const STAFF_MODULE_ROLES = {
     "warehouse",
     "sales",
   ] as const satisfies readonly StaffRole[],
+  chat: ["admin", "sales", "warehouse"] as const satisfies readonly StaffRole[],
   analytics: [
     "admin",
     "finance",
