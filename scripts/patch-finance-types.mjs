@@ -278,7 +278,7 @@ s = insertAfter(
 
 s = insertBefore(
   s,
-  "      cancel_consignment_entry: {",
+  "      cancel_goods_receipt: {",
   `      cancel_finance_requisition: {
         Args: { p_requisition_id: string }
         Returns: string
