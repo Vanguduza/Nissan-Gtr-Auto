@@ -1134,6 +1134,42 @@ export type Database = {
           },
         ]
       }
+      customer_wishlist_items: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          stock_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          stock_item_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          stock_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_wishlist_items_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_wishlist_items_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
