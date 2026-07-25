@@ -1,6 +1,6 @@
 # Web GPS tracking discoverability + UX harden
 
-- Status: draft
+- Status: done
 - Lane(s): `@web_agent` (primary); `@backend_agent` **only if** flipping AuthZ (a)
 - Skills needed: (none)
 - Parent: [`2026-07-24-live-map-delivery-tracking.md`](./2026-07-24-live-map-delivery-tracking.md) (done, AuthZ b)
@@ -21,11 +21,11 @@ Make staff live delivery tracking first-class on the web hub/nav (role-filtered)
 
 ## Acceptance criteria
 
-- [ ] `/staff` hub has a dedicated **Live tracking** card → `/staff/logistics/tracking` (alongside Logistics)
-- [ ] Staff nav Live map item role-gated per RBAC matrix: `admin` | `warehouse` | `dispatcher` (extend same `staff_roles` / `has_staff_role` wiring as parity plan — do not fork a second auth helper)
-- [ ] Tracking panel: job picker; live marker + trail; clear empty / no-points / error / auth states; explicit copy that drivers use **Android management** for GPS (web subscribe-only)
-- [ ] Zero `navigator.geolocation` / browser GPS / web ingest of `ingest_delivery_location`
-- [ ] No customer order-detail map or last-point UI this pass
+- [x] `/staff` hub has a dedicated **Live tracking** card → `/staff/logistics/tracking` (alongside Logistics)
+- [x] Staff nav Live map item role-gated per RBAC matrix: `admin` | `warehouse` | `dispatcher` (extend same `staff_roles` / `has_staff_role` wiring as parity plan — do not fork a second auth helper)
+- [x] Tracking panel: job picker; live marker + trail; clear empty / no-points / error / auth states; explicit copy that drivers use **Android management** for GPS (web subscribe-only)
+- [x] Zero `navigator.geolocation` / browser GPS / web ingest of `ingest_delivery_location`
+- [x] No customer order-detail map or last-point UI this pass
 - [ ] `/verifier`: no HTML5 geo, no ZIMRA; `/security-reviewer` only if (a) is unexpectedly opened
 
 ## Paths in scope
@@ -46,6 +46,8 @@ Make staff live delivery tracking first-class on the web hub/nav (role-filtered)
 
 Parity plan owns role-filtered nav + gates. This plan **extends** that shell: Live map stays in matrix (`admin`/`warehouse`/`dispatcher`); hub card visibility matches. If parity lands first, only add hub card + UX harden; if this lands first, declare required roles on the Live map nav item in the same shape parity will use.
 
+**Landed first:** introduced `apps/web/lib/staff-auth.ts` (`fetchMyStaffRoles`, `hasAnyStaffRole`, `STAFF_MODULE_ROLES`, `rpcHasStaffRole`). Parity should **reuse** this — do not invent a second helper.
+
 ## Demo steps
 
 1. Sign in as dispatcher (or admin/warehouse) → hub shows **Live tracking** → open map.
@@ -56,6 +58,6 @@ Parity plan owns role-filtered nav + gates. This plan **extends** that shell: Li
 
 ## Handoff
 
-1. `@web_agent` implement (coordinate with RBAC parity — same session or after)
+1. `@web_agent` implement (coordinate with RBAC parity — same session or after) — **done**
 2. Skip `@backend_agent` under (b)
 3. `/verifier` → `/manager` done gate; revisit (a) only on explicit product ask
