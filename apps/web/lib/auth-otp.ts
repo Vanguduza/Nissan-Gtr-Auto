@@ -14,7 +14,7 @@ export type AuthOtpVerifyResult = {
   verified: true;
   email: string | null;
   phone_e164: string | null;
-  /** Short-lived server proof — required for complete_signup / complete_login. */
+  /** Short-lived server proof — required for complete_signup (not login). */
   proofToken: string;
   proofExpiresAt?: string;
 };
