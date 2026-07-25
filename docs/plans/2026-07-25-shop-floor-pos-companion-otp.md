@@ -1,6 +1,6 @@
 # Shop-floor POS: standalone sales POS + optional companion + OTP + receipt bind
 
-- Status: draft
+- Status: done (PASS WITH GAPS — Android compile not run without JDK; hosted Auth must set `enable_signup = false` to match local OTP gate)
 - Lane(s): `@backend_agent` → `@management_app_agent` → `@web_agent` (POS workspace + auth) → `@backend_agent` (receipt wire) → `/security-reviewer` → `/verifier`
 - Skills needed: `/qr-inventory-workflow` (companion scan only); none for OTP/receipt secrets (env placeholders only)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phases 5 / 13 + web staff POS handoff
