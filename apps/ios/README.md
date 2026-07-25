@@ -4,21 +4,25 @@ SwiftUI customer shell with thin Cart / Orders / Garage / Pay screens bound to t
 
 ## Fake vs Live switch
 
+**Prefer Live** when env is set. Fake only if keys are missing or force-fake is on.
+
 | Mode | When | Behavior |
 |------|------|----------|
-| **Fake** (`FakeStorefrontApi`) | `SUPABASE_URL` / `SUPABASE_ANON_KEY` unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents — no network; **sign-in skipped** |
-| **Live** (`LiveStorefrontApi`) | Both URL + anon set and force-fake off | Real HTTP + **email/password GoTrue sign-in** required before tabs |
+| **Live** (`LiveStorefrontApi`) | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `STOREFRONT_FORCE_FAKE` off | Real HTTP + **email/password GoTrue sign-in** required before tabs |
+| **Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents — no network; **sign-in skipped** |
 
-`StorefrontApiFactory.make()` picks the implementation. Toolbar badge shows **Fake** or **Live**.
+`StorefrontApiFactory.make()` → `AppEnv.prefersLive`. Toolbar badge shows **Fake** or **Live**.
 
 ```text
-# Live (scheme env / Secrets.xcconfig — never commit secrets)
+# Live (scheme env and/or Secrets.xcconfig → Info.plist — never commit secrets)
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 
 # Optional force Fake while keeping URL configured
 STOREFRONT_FORCE_FAKE=1
 ```
+
+Resolution order for URL / anon / force-fake: **scheme `ProcessInfo` env**, then **Info.plist** keys injected by `Config/Shared.xcconfig` (optional `#include?` of `Secrets.xcconfig`).
 
 Pay shows intent id + checkout URL when the edge returns one — **no ContiPay/Paynow crypto or secrets in the app**.
 
@@ -105,13 +109,14 @@ apps/ios/
 
 ## Env placeholders
 
-Copy `.env.example` into Xcode scheme environment variables or a local `Secrets.xcconfig` (gitignored):
+1. Copy `.env.example` values into **Xcode scheme** environment variables, **or**
+2. Copy `Secrets.xcconfig.example` → `Secrets.xcconfig` (gitignored) at `apps/ios/` — `Config/Shared.xcconfig` includes it and writes `SUPABASE_*` into the generated Info.plist.
 
 | Variable | Purpose |
 |----------|---------|
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Public anon key only — never service role |
-| `SUPABASE_ACCESS_TOKEN` | Optional bootstrap customer JWT (otherwise use Sign in) |
+| `SUPABASE_ACCESS_TOKEN` | Optional bootstrap customer JWT (**scheme env only** — not Info.plist) |
 | `STOREFRONT_FORCE_FAKE` | `1` / `true` → Fake even when URL+anon set |
 
 No PSP keys in the client. ContiPay / Paynow secrets stay in Edge Function env only.
