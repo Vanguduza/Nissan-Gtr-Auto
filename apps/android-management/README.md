@@ -63,7 +63,7 @@ Compose never calls CameraX / BluetoothAdapter directly — only ViewModel → b
 
 ## RPC binding: Fake vs Live
 
-`MainActivity` uses `RpcClientFactory`:
+**Prefer Live** when env is set. `MainActivity` uses `RpcClientFactory`:
 
 | Mode | When | Implementation |
 |------|------|----------------|
