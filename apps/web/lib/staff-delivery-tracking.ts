@@ -23,9 +23,9 @@ export type { UpdateDeliveryJobStatusResult };
 
 type RealtimeChannel = ReturnType<SupabaseClient["channel"]>;
 
-/** MapLibre demo style — OK for local staff demos; replace via NEXT_PUBLIC_MAP_STYLE_URL. */
+/** Default MapLibre style when NEXT_PUBLIC_MAP_STYLE_URL is unset — OSM streets (Harare-visible). */
 export const MAP_STYLE_DEMO_URL =
-  "https://demotiles.maplibre.org/style.json";
+  "https://tiles.openfreemap.org/styles/liberty";
 
 export function mapStyleUrl(): string {
   return configuredMapStyleUrl() || MAP_STYLE_DEMO_URL;
