@@ -93,3 +93,56 @@ data class StockItemRef(
     val uomId: String,
     val oemPartNumber: String,
 )
+
+/** Staff inbox filter — mirrors web `StaffChatFilter`. */
+enum class StaffChatFilter {
+    OPEN,
+    MINE,
+    CLOSED,
+}
+
+/** Mirrors `public.chat_thread_status`. */
+enum class ChatThreadStatus(val rpcValue: String) {
+    OPEN("open"),
+    ASSIGNED("assigned"),
+    CLOSED("closed"),
+}
+
+/** Mirrors `public.chat_sender_kind`. */
+enum class ChatSenderKind(val rpcValue: String) {
+    CUSTOMER("customer"),
+    STAFF("staff"),
+    SYSTEM("system"),
+}
+
+/**
+ * Staff roles that may claim / reply / close chat (`_chat_staff_roles`).
+ * Nav gate: admin | sales | warehouse.
+ */
+object ChatStaffRoles {
+    val ALL: Set<String> = setOf("admin", "sales", "warehouse")
+
+    fun allows(roles: Collection<String>): Boolean =
+        roles.any { it in ALL }
+}
+
+/** Row from `chat_threads` (staff list / detail header). */
+data class ChatThreadSummary(
+    val id: String,
+    val kind: String,
+    val status: String,
+    val subject: String?,
+    val assignedTo: String?,
+    val lastMessageAt: String?,
+    val createdAt: String,
+)
+
+/** Row from `chat_messages`. */
+data class ChatMessageSummary(
+    val id: String,
+    val threadId: String,
+    val senderUserId: String,
+    val senderKind: String,
+    val body: String,
+    val createdAt: String,
+)

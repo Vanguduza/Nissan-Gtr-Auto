@@ -7,9 +7,9 @@ package co.zw.nissangtr.management.rpc
  * `SUPABASE_ANON_KEY` are set (override with `rpc.forceFake=true`).
  * **Fallback:** [FakeRpcClient].
  *
- * Covers HR clock, POS cart, warehouse receive/transfer/recon, and logistics pick/DN.
- * Reads (DN/pick list lists) use PostgREST `from("delivery_notes")` / PowerSync
- * bucket `by_staff_dispatch` — not mutation RPCs.
+ * Covers HR clock, POS cart, warehouse receive/transfer/recon, logistics pick/DN,
+ * and staff live chat (claim/reply/close).
+ * Reads (DN/pick/chat lists) use PostgREST + RLS — not mutation RPCs.
  *
  * GPS / QR: Bridge-First only (`bridges/android/`) — never HTML5 or WebView APIs.
  */
@@ -145,4 +145,30 @@ interface RpcClient {
         recordedAt: String? = null,
         accuracyM: Double? = null,
     ): String
+
+    // --- Live chat (staff inbox) ---
+
+    /** GoTrue user id, or null when Fake / signed out. */
+    fun currentUserId(): String?
+
+    /** Own rows from `staff_roles` (RLS). Used for chat nav gate. */
+    suspend fun listMyStaffRoles(): List<String>
+
+    /** Live: SELECT chat_threads via PostgREST + RLS (open / mine / closed). */
+    suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary>
+
+    /** Live: SELECT chat_messages for thread, oldest first. */
+    suspend fun listChatMessages(threadId: String): List<ChatMessageSummary>
+
+    suspend fun claimChatThread(threadId: String)
+
+    suspend fun closeChatThread(threadId: String)
+
+    suspend fun markChatThreadRead(threadId: String)
+
+    /** Returns new message id. */
+    suspend fun postChatMessage(threadId: String, body: String): String
+
+    /** Unread across inbox, or for one thread when [threadId] set. */
+    suspend fun chatUnreadCount(threadId: String? = null): Int
 }
