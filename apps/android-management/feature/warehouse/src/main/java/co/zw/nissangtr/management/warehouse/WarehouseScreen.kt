@@ -329,7 +329,7 @@ private fun WarehouseCycleSection(
             label = { Text("Item UUIDs (partial, comma-separated)") },
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy,
-        }
+        )
         OutlinedTextField(
             value = state.reconNotes,
             onValueChange = viewModel::onReconNotesChange,
