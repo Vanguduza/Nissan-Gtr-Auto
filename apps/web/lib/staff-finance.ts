@@ -778,31 +778,8 @@ export async function setZigExchangeRate(
 
 // ---------------------------------------------------------------------------
 // Period balances, GL register, petty replenish, finance requisitions
-// (RPCs from 20260725250000 — types pending database.types regen)
+// (typed RPCs: 20260725250000 + 20260725260000 line items)
 // ---------------------------------------------------------------------------
-
-/** Untyped RPC bridge until supabase gen types includes period/requisition RPCs. */
-async function financeRpc(
-  client: SupabaseClient,
-  fn: string,
-  args?: Record<string, unknown>,
-): Promise<{ data: unknown; error: { message: string } | null }> {
-  const { data, error } = await (
-    client as unknown as {
-      rpc: (
-        name: string,
-        params?: Record<string, unknown>,
-      ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-    }
-  ).rpc(fn, args);
-  return { data, error };
-}
-
-/** Untyped table query until database.types includes new finance tables. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function financeFrom(client: SupabaseClient, table: string): any {
-  return (client as unknown as { from: (t: string) => unknown }).from(table);
-}
 
 export type AccountRegisterRow = {
   entry_date: string;
@@ -823,7 +800,7 @@ export type AccountPeriodBalanceOption = {
   period_end: string;
   opening_balance: number;
   closing_balance: number | null;
-  status: "open" | "closed";
+  status: Database["public"]["Enums"]["account_period_status"];
   notes: string | null;
   physical_count: number | null;
   variance: number | null;
@@ -831,14 +808,19 @@ export type AccountPeriodBalanceOption = {
   closed_at: string | null;
 };
 
-export type FinanceRequisitionType = "petty_cash" | "payment";
+export type FinanceRequisitionType =
+  Database["public"]["Enums"]["finance_requisition_type"];
 export type FinanceRequisitionStatus =
-  | "draft"
-  | "submitted"
-  | "approved"
-  | "rejected"
-  | "disbursed"
-  | "cancelled";
+  Database["public"]["Enums"]["finance_requisition_status"];
+
+export type FinanceRequisitionLineOption = {
+  id: string;
+  requisition_id: string;
+  line_no: number;
+  description: string | null;
+  expense_account_code: string;
+  amount: number;
+};
 
 export type FinanceRequisitionOption = {
   id: string;
@@ -859,7 +841,15 @@ export type FinanceRequisitionOption = {
   rejection_reason: string | null;
   disbursed_at: string | null;
   journal_entry_id: string | null;
+  payment_entry_id: string | null;
   created_at: string;
+  lines: FinanceRequisitionLineOption[];
+};
+
+export type FinanceRequisitionLineInput = {
+  expenseAccountCode: string;
+  amount: number;
+  description?: string;
 };
 
 export async function reportAccountRegister(
@@ -871,14 +861,14 @@ export async function reportAccountRegister(
     currency?: CurrencyCode | null;
   },
 ): Promise<StorefrontResult<AccountRegisterRow[]>> {
-  const { data, error } = await financeRpc(client, "report_account_register", {
+  const { data, error } = await client.rpc("report_account_register", {
     p_account_code: args.accountCode,
     p_from: args.from,
     p_to: args.to,
-    p_currency: args.currency ?? null,
+    p_currency: args.currency ?? undefined,
   });
   if (error) return { ok: false, error: error.message };
-  const rows = ((data as AccountRegisterRow[]) ?? []).map((r) => ({
+  const rows = (data ?? []).map((r) => ({
     entry_date: String(r.entry_date),
     document_number: r.document_number ?? null,
     description: r.description ?? null,
@@ -902,17 +892,17 @@ export async function openAccountPeriod(
     notes?: string;
   },
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(client, "open_account_period", {
+  const { data, error } = await client.rpc("open_account_period", {
     p_account_code: args.accountCode,
     p_currency: args.currency,
     p_period_start: args.periodStart,
     p_period_end: args.periodEnd,
     p_opening_balance: args.openingBalance ?? 0,
-    p_notes: args.notes?.trim() || null,
+    p_notes: args.notes?.trim() || undefined,
   });
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "open_account_period returned no id." };
-  return { ok: true, data: data as string };
+  return { ok: true, data };
 }
 
 export async function closeAccountPeriod(
@@ -923,24 +913,25 @@ export async function closeAccountPeriod(
     notes?: string;
   },
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(client, "close_account_period", {
+  const { data, error } = await client.rpc("close_account_period", {
     p_period_id: args.periodId,
     p_physical_count:
       args.physicalCount != null && Number.isFinite(args.physicalCount)
         ? args.physicalCount
-        : null,
-    p_notes: args.notes?.trim() || null,
+        : undefined,
+    p_notes: args.notes?.trim() || undefined,
   });
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "close_account_period returned no id." };
-  return { ok: true, data: data as string };
+  return { ok: true, data };
 }
 
 export async function getOpenAccountPeriod(
   client: SupabaseClient,
   args: { accountCode: string; currency: CurrencyCode },
 ): Promise<StorefrontResult<AccountPeriodBalanceOption | null>> {
-  const { data, error } = await financeFrom(client, "account_period_balances")
+  const { data, error } = await client
+    .from("account_period_balances")
     .select(
       "id, account_code, currency, period_start, period_end, opening_balance, closing_balance, status, notes, physical_count, variance, opened_at, closed_at",
     )
@@ -950,17 +941,16 @@ export async function getOpenAccountPeriod(
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: true, data: null };
-  const r = data as AccountPeriodBalanceOption;
   return {
     ok: true,
     data: {
-      ...r,
-      opening_balance: Number(r.opening_balance),
+      ...data,
+      opening_balance: Number(data.opening_balance),
       closing_balance:
-        r.closing_balance != null ? Number(r.closing_balance) : null,
+        data.closing_balance != null ? Number(data.closing_balance) : null,
       physical_count:
-        r.physical_count != null ? Number(r.physical_count) : null,
-      variance: r.variance != null ? Number(r.variance) : null,
+        data.physical_count != null ? Number(data.physical_count) : null,
+      variance: data.variance != null ? Number(data.variance) : null,
     },
   };
 }
@@ -968,10 +958,7 @@ export async function getOpenAccountPeriod(
 export async function pettyCashFundingAccountCode(
   client: SupabaseClient,
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(
-    client,
-    "petty_cash_funding_account_code",
-  );
+  const { data, error } = await client.rpc("petty_cash_funding_account_code");
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: String(data ?? "1100") };
 }
@@ -980,18 +967,20 @@ export async function computePettyCashReplenishAmount(
   client: SupabaseClient,
   args?: { currency?: CurrencyCode; asOf?: string },
 ): Promise<StorefrontResult<number>> {
-  const { data, error } = await financeRpc(
-    client,
+  const { data, error } = await client.rpc(
     "compute_petty_cash_replenish_amount",
     {
       p_currency: args?.currency ?? "USD",
-      p_as_of: args?.asOf ?? null,
+      p_as_of: args?.asOf ?? undefined,
     },
   );
   if (error) return { ok: false, error: error.message };
   const n = Number(data ?? 0);
   if (!Number.isFinite(n)) {
-    return { ok: false, error: "compute_petty_cash_replenish_amount returned non-numeric." };
+    return {
+      ok: false,
+      error: "compute_petty_cash_replenish_amount returned non-numeric.",
+    };
   }
   return { ok: true, data: n };
 }
@@ -1000,21 +989,53 @@ export async function listFinanceRequisitions(
   client: SupabaseClient,
   limit = 40,
 ): Promise<StorefrontResult<FinanceRequisitionOption[]>> {
-  const { data, error } = await financeFrom(client, "finance_requisitions")
+  const { data, error } = await client
+    .from("finance_requisitions")
     .select(
-      "id, document_number, req_type, status, amount, currency, exchange_rate_applied, payee, memo, expense_account_code, cash_account_code, requested_by, submitted_at, approved_at, rejected_at, rejection_reason, disbursed_at, journal_entry_id, created_at",
+      "id, document_number, req_type, status, amount, currency, exchange_rate_applied, payee, memo, expense_account_code, cash_account_code, requested_by, submitted_at, approved_at, rejected_at, rejection_reason, disbursed_at, journal_entry_id, payment_entry_id, created_at, finance_requisition_lines(id, requisition_id, line_no, description, expense_account_code, amount)",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { ok: false, error: error.message };
-  const rows = ((data as FinanceRequisitionOption[]) ?? []).map((r) => ({
-    ...r,
-    amount: Number(r.amount),
-    exchange_rate_applied:
-      r.exchange_rate_applied != null
-        ? Number(r.exchange_rate_applied)
-        : null,
-  }));
+  const rows = (data ?? []).map((r) => {
+    const rawLines = r.finance_requisition_lines ?? [];
+    const lines = [...rawLines]
+      .sort((a, b) => a.line_no - b.line_no)
+      .map((l) => ({
+        id: l.id,
+        requisition_id: l.requisition_id,
+        line_no: l.line_no,
+        description: l.description ?? null,
+        expense_account_code: l.expense_account_code,
+        amount: Number(l.amount),
+      }));
+    return {
+      id: r.id,
+      document_number: r.document_number,
+      req_type: r.req_type,
+      status: r.status,
+      amount: Number(r.amount),
+      currency: r.currency,
+      exchange_rate_applied:
+        r.exchange_rate_applied != null
+          ? Number(r.exchange_rate_applied)
+          : null,
+      payee: r.payee,
+      memo: r.memo,
+      expense_account_code: r.expense_account_code,
+      cash_account_code: r.cash_account_code,
+      requested_by: r.requested_by,
+      submitted_at: r.submitted_at,
+      approved_at: r.approved_at,
+      rejected_at: r.rejected_at,
+      rejection_reason: r.rejection_reason,
+      disbursed_at: r.disbursed_at,
+      journal_entry_id: r.journal_entry_id,
+      payment_entry_id: r.payment_entry_id,
+      created_at: r.created_at,
+      lines,
+    };
+  });
   return { ok: true, data: rows };
 }
 
@@ -1029,85 +1050,148 @@ export async function createFinanceRequisition(
     expenseAccountCode?: string;
     cashAccountCode?: string;
     exchangeRate?: number;
+    /** When set (2+ lines), replaces the seeded header line after create. */
+    lines?: FinanceRequisitionLineInput[];
   },
 ): Promise<StorefrontResult<string>> {
   const exchangeRate =
     args.currency === "ZIG"
       ? (args.exchangeRate ?? zigExchangeRate())
       : (args.exchangeRate ?? 1);
-  const { data, error } = await financeRpc(client, "create_finance_requisition", {
+
+  const seedAmount =
+    args.lines && args.lines.length > 0
+      ? args.lines.reduce((s, l) => s + l.amount, 0)
+      : args.amount;
+  const seedExpense =
+    args.lines?.[0]?.expenseAccountCode ||
+    args.expenseAccountCode ||
+    "5300";
+
+  const { data, error } = await client.rpc("create_finance_requisition", {
     p_req_type: args.reqType,
-    p_amount: args.amount,
+    p_amount: seedAmount,
     p_currency: args.currency,
-    p_payee: args.payee?.trim() || null,
-    p_memo: args.memo?.trim() || null,
-    p_expense_account_code: args.expenseAccountCode || "5300",
-    p_cash_account_code: args.cashAccountCode || null,
+    p_payee: args.payee?.trim() || undefined,
+    p_memo: args.memo?.trim() || undefined,
+    p_expense_account_code: seedExpense,
+    p_cash_account_code: args.cashAccountCode || undefined,
     p_exchange_rate: exchangeRate,
   });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "create_finance_requisition returned no id." };
-  return { ok: true, data: data as string };
+  if (!data) {
+    return { ok: false, error: "create_finance_requisition returned no id." };
+  }
+
+  if (args.lines && args.lines.length > 0) {
+    const setRes = await setFinanceRequisitionLines(client, {
+      requisitionId: data,
+      lines: args.lines,
+    });
+    if (!setRes.ok) return setRes;
+  }
+
+  return { ok: true, data };
+}
+
+export async function setFinanceRequisitionLines(
+  client: SupabaseClient,
+  args: { requisitionId: string; lines: FinanceRequisitionLineInput[] },
+): Promise<StorefrontResult<string>> {
+  if (args.lines.length < 1) {
+    return { ok: false, error: "At least one requisition line is required." };
+  }
+  for (const line of args.lines) {
+    if (!Number.isFinite(line.amount) || line.amount <= 0) {
+      return { ok: false, error: "Each line amount must be a positive number." };
+    }
+    if (!line.expenseAccountCode?.trim()) {
+      return { ok: false, error: "Each line needs an expense account." };
+    }
+  }
+  const { data, error } = await client.rpc("set_finance_requisition_lines", {
+    p_requisition_id: args.requisitionId,
+    p_lines: args.lines.map((l) => ({
+      expense_account_code: l.expenseAccountCode.trim(),
+      amount: l.amount,
+      description: l.description?.trim() || null,
+    })),
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return { ok: false, error: "set_finance_requisition_lines returned no id." };
+  }
+  return { ok: true, data };
 }
 
 export async function submitFinanceRequisition(
   client: SupabaseClient,
   requisitionId: string,
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(client, "submit_finance_requisition", {
+  const { data, error } = await client.rpc("submit_finance_requisition", {
     p_requisition_id: requisitionId,
   });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "submit_finance_requisition returned no id." };
-  return { ok: true, data: data as string };
+  if (!data) {
+    return { ok: false, error: "submit_finance_requisition returned no id." };
+  }
+  return { ok: true, data };
 }
 
 export async function approveFinanceRequisition(
   client: SupabaseClient,
   requisitionId: string,
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(client, "approve_finance_requisition", {
+  const { data, error } = await client.rpc("approve_finance_requisition", {
     p_requisition_id: requisitionId,
   });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "approve_finance_requisition returned no id." };
-  return { ok: true, data: data as string };
+  if (!data) {
+    return { ok: false, error: "approve_finance_requisition returned no id." };
+  }
+  return { ok: true, data };
 }
 
 export async function rejectFinanceRequisition(
   client: SupabaseClient,
   args: { requisitionId: string; reason?: string },
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(client, "reject_finance_requisition", {
+  const { data, error } = await client.rpc("reject_finance_requisition", {
     p_requisition_id: args.requisitionId,
-    p_reason: args.reason?.trim() || null,
+    p_reason: args.reason?.trim() || undefined,
   });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "reject_finance_requisition returned no id." };
-  return { ok: true, data: data as string };
+  if (!data) {
+    return { ok: false, error: "reject_finance_requisition returned no id." };
+  }
+  return { ok: true, data };
 }
 
 export async function cancelFinanceRequisition(
   client: SupabaseClient,
   requisitionId: string,
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(client, "cancel_finance_requisition", {
+  const { data, error } = await client.rpc("cancel_finance_requisition", {
     p_requisition_id: requisitionId,
   });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "cancel_finance_requisition returned no id." };
-  return { ok: true, data: data as string };
+  if (!data) {
+    return { ok: false, error: "cancel_finance_requisition returned no id." };
+  }
+  return { ok: true, data };
 }
 
 export async function disburseFinanceRequisition(
   client: SupabaseClient,
   args: { requisitionId: string; entryDate?: string },
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await financeRpc(client, "disburse_finance_requisition", {
+  const { data, error } = await client.rpc("disburse_finance_requisition", {
     p_requisition_id: args.requisitionId,
-    p_entry_date: args.entryDate || null,
+    p_entry_date: args.entryDate || undefined,
   });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "disburse_finance_requisition returned no id." };
-  return { ok: true, data: data as string };
+  if (!data) {
+    return { ok: false, error: "disburse_finance_requisition returned no id." };
+  }
+  return { ok: true, data };
 }
