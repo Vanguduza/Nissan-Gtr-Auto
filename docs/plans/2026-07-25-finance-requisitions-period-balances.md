@@ -122,6 +122,7 @@ Ship a thin vertical slice on `/staff/finance`: per-account trade-period open/cl
 3. Repeat B → C with same lane order
 4. `/security-reviewer` (RLS + approve/disburse RPCs) → `/supabase-rls-auditor` on new tables → `/verifier`
 5. `/manager` done gate per phase
+6. **Follow-on Phase D (done):** [`2026-07-25-finance-requisition-lines-typed-rpcs.md`](./2026-07-25-finance-requisition-lines-typed-rpcs.md) — line items + typed RPCs; `payment_entry_id` still reserved for AP desk
 
 ### Return to manager
 
