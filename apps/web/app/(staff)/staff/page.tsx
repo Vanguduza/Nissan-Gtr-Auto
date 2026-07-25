@@ -1,49 +1,10 @@
-"use client";
-
-import Link from "next/link";
+import { StaffHubCards } from "@/components/staff-hub-cards";
 import { StaffNav } from "@/components/staff-nav";
-import { useStaffAuth } from "@/components/staff-auth-context";
-import { filterNavForRoles } from "@/lib/staff-auth";
 import styles from "@/components/account.module.css";
 
-const HUB_CARDS: {
-  href: string;
-  label: string;
-  blurb: string;
-}[] = [
-  { href: "/staff/pos", label: "POS", blurb: "Cart · lines · checkout" },
-  {
-    href: "/staff/warehouse",
-    label: "Warehouse",
-    blurb: "Receive · transfer · count",
-  },
-  {
-    href: "/staff/finance",
-    label: "Finance",
-    blurb: "Journals · reports · payments",
-  },
-  { href: "/staff/hr", label: "HR", blurb: "Clock + hours" },
-  { href: "/staff/logistics", label: "Logistics", blurb: "Pick · DN · job" },
-  {
-    href: "/staff/logistics/tracking",
-    label: "Live map",
-    blurb: "Realtime GPS subscribe",
-  },
-  {
-    href: "/staff/warranty",
-    label: "Warranty",
-    blurb: "Claims · quarantine return",
-  },
-  { href: "/procurement", label: "Procurement", blurb: "RFQs" },
-];
+export const metadata = { title: "Staff" };
 
 export default function StaffHubPage() {
-  const ctx = useStaffAuth();
-  const allowedHrefs = new Set(
-    filterNavForRoles(ctx?.roles ?? []).map((i) => i.href),
-  );
-  const cards = HUB_CARDS.filter((c) => allowedHrefs.has(c.href));
-
   return (
     <div className={styles.shell}>
       <StaffNav current="/staff" />
@@ -54,14 +15,7 @@ export default function StaffHubPage() {
           dispatch. Roles from <code>staff_roles</code>; RPCs remain the source
           of truth. QR / GPS use the management device bridge — not the browser.
         </p>
-        <div className={styles.cardGrid}>
-          {cards.map((c) => (
-            <Link key={c.href} href={c.href} className={styles.card}>
-              <span className={styles.cardLabel}>{c.label}</span>
-              <span className={styles.cardBlurb}>{c.blurb}</span>
-            </Link>
-          ))}
-        </div>
+        <StaffHubCards />
       </div>
     </div>
   );
