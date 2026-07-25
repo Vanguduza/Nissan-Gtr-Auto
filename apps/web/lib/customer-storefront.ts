@@ -550,6 +550,38 @@ export type KitListItem = {
   components: { oem: string; name: string; qty: number }[];
 };
 
+type StockItemBrief = {
+  oem_part_number: string;
+  description: string | null;
+};
+
+function asStockItemBrief(raw: unknown): StockItemBrief | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    const first = raw[0];
+    if (!first || typeof first !== "object") return null;
+    const o = first as Record<string, unknown>;
+    if (typeof o.oem_part_number !== "string") return null;
+    return {
+      oem_part_number: o.oem_part_number,
+      description:
+        typeof o.description === "string" || o.description === null
+          ? (o.description as string | null)
+          : null,
+    };
+  }
+  if (typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.oem_part_number !== "string") return null;
+  return {
+    oem_part_number: o.oem_part_number,
+    description:
+      typeof o.description === "string" || o.description === null
+        ? (o.description as string | null)
+        : null,
+  };
+}
+
 export async function loadOwnCustomer(
   client: SupabaseClient,
 ): Promise<StorefrontResult<CustomerRow | null>> {
