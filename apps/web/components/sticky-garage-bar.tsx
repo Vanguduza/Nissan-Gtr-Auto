@@ -37,14 +37,16 @@ export function StickyGarageBar() {
       <div className={styles.inner}>
         <span className={styles.label}>Shopping for</span>
         <strong className={styles.vehicle}>
-          {label ?? "Select a vehicle"}
+          {label ?? "No vehicle selected"}
         </strong>
-        <Link href="/account/garage" className={styles.change}>
-          Change in My Garage
-        </Link>
-        <Link href="/vehicle" className={styles.select}>
-          Select vehicle
-        </Link>
+        <nav className={styles.links} aria-label="Vehicle fitment">
+          <Link href="/vehicle" className={styles.link}>
+            Select vehicle
+          </Link>
+          <Link href="/account/garage" className={styles.link}>
+            Change in My Garage
+          </Link>
+        </nav>
       </div>
     </div>
   );

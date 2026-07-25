@@ -68,9 +68,9 @@
 }
 
 .mainInner {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem 1.25rem;
   padding-block: 0.65rem;
 }
@@ -108,14 +108,10 @@
   color: #fff;
 }
 
-.searchSlot {
-  min-width: 0;
-}
-
 .actions {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.35rem;
 }
 
 .utilityLink {
@@ -124,9 +120,7 @@
   gap: 0.3rem;
 }
 
-.action,
-.actionCart,
-.signIn {
+.action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -137,45 +131,19 @@
   font-weight: 600;
   border-radius: 8px;
   white-space: nowrap;
-  transition: background var(--gtr-hover), border-color var(--gtr-hover),
-    transform var(--gtr-hover);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background var(--gtr-hover);
 }
 
 .actionLabel {
   line-height: 1;
 }
 
-.action {
-  color: rgba(255, 255, 255, 0.9);
-  border: 1px solid transparent;
-}
-
 .action:hover,
 .action:focus-visible {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.actionCart {
-  border: 1px solid rgba(192, 197, 206, 0.45);
-  color: #fff;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.actionCart:hover,
-.actionCart:focus-visible {
-  border-color: var(--gtr-silver);
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateY(-1px);
-}
-
-.signIn {
-  background: var(--gtr-red);
-  color: #fff;
-}
-
-.signIn:hover,
-.signIn:focus-visible {
-  background: #e01234;
 }
 
 .categories {
@@ -205,8 +173,7 @@
   font-weight: 600;
   color: rgba(255, 255, 255, 0.82);
   border-radius: 8px;
-  transition: background var(--gtr-hover), color var(--gtr-hover),
-    transform var(--gtr-hover);
+  transition: background var(--gtr-hover), color var(--gtr-hover);
 }
 
 .catAll {
@@ -229,24 +196,10 @@
   color: #fff;
 }
 
-@media (max-width: 900px) {
-  .mainInner {
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "logo actions"
-      "search search";
-  }
-
-  .logoLink {
-    grid-area: logo;
-  }
-
-  .searchSlot {
-    grid-area: search;
-  }
-
-  .actions {
-    grid-area: actions;
+@media (max-width: 520px) {
+  .utilityInner {
+    justify-content: center;
+    text-align: center;
   }
 
   .logoWord {
@@ -255,16 +208,5 @@
 
   .actionLabel {
     font-size: 0.8rem;
-  }
-}
-
-@media (max-width: 520px) {
-  .utilityInner {
-    justify-content: center;
-    text-align: center;
-  }
-
-  .signIn {
-    padding-inline: 0.6rem;
   }
 }
