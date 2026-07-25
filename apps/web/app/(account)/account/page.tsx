@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { AccountNav } from "@/components/account-nav";
+import {
+  AccountNav,
+  accountCardIcons,
+} from "@/components/account-nav";
+import {
+  iconSizeMd,
+  iconStroke,
+  UserRound,
+} from "@/components/icons";
 import styles from "@/components/account.module.css";
 
 const cards = [
@@ -27,18 +35,31 @@ export default function AccountPage() {
     <div className={styles.shell}>
       <AccountNav current="/account" />
       <div className={styles.panel}>
-        <h1 className={styles.title}>My Account</h1>
+        <h1 className={styles.title}>
+          <span className={styles.titleIcon} aria-hidden>
+            <UserRound size={iconSizeMd} strokeWidth={iconStroke} />
+          </span>
+          My Account
+        </h1>
         <p className={styles.lede}>
           Personal details, addresses, vehicles, orders, and loyalty — My Garage
           lives here.
         </p>
         <div className={styles.cardGrid}>
-          {cards.map((c) => (
-            <Link key={c.href} href={c.href} className={styles.card}>
-              <span className={styles.cardLabel}>{c.label}</span>
-              <span className={styles.cardBlurb}>{c.blurb}</span>
-            </Link>
-          ))}
+          {cards.map((c) => {
+            const Icon = accountCardIcons[c.href];
+            return (
+              <Link key={c.href} href={c.href} className={styles.card}>
+                {Icon ? (
+                  <span className={styles.cardIcon} aria-hidden>
+                    <Icon size={iconSizeMd} strokeWidth={iconStroke} />
+                  </span>
+                ) : null}
+                <span className={styles.cardLabel}>{c.label}</span>
+                <span className={styles.cardBlurb}>{c.blurb}</span>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>

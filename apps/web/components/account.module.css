@@ -79,6 +79,19 @@
   text-transform: uppercase;
 }
 
+.titleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: var(--gtr-red);
+  background: color-mix(in srgb, var(--gtr-red) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--gtr-red) 18%, transparent);
+}
+
 .lede {
   margin: 0 0 1.15rem;
   max-width: 48ch;
@@ -88,20 +101,50 @@
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .card {
   display: grid;
-  gap: 0.25rem;
-  padding: 0.85rem;
-  border: 1px solid rgba(18, 21, 28, 0.12);
-  border-radius: 2px;
-  transition: border-color var(--gtr-hover);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(18, 21, 28, 0.03);
+  transition: border-color var(--gtr-hover), box-shadow var(--gtr-hover),
+    transform var(--gtr-hover);
 }
 
-.card:hover {
-  border-color: var(--gtr-red);
+.card:hover,
+.card:focus-visible {
+  border-color: color-mix(in srgb, var(--gtr-red) 40%, transparent);
+  box-shadow: 0 8px 24px rgba(18, 21, 28, 0.06);
+  transform: translateY(-2px);
+}
+
+.cardIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 10px;
+  color: var(--gtr-red);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--gtr-red) 12%, white),
+    color-mix(in srgb, var(--gtr-steel) 4%, white)
+  );
+}
+
+.cardCopy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
 .cardLabel {
@@ -109,11 +152,19 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  color: var(--gtr-steel);
 }
 
 .cardBlurb {
   font-size: 0.85rem;
   color: rgba(18, 21, 28, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card:hover,
+  .card:focus-visible {
+    transform: none;
+  }
 }
 
 .muted {
