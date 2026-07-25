@@ -63,9 +63,27 @@ export type GpsWatchHandle = {
 };
 
 /**
+ * Battery-aware cadence for continuous delivery tracking.
+ * - moving: high accuracy, ~5s (aligns with server ingest rate limit)
+ * - idle: balanced power, ~30s + distance filter (parked / slow)
+ * - auto: bridge switches moving ↔ idle from speed heuristics
+ */
+export type GpsWatchCadence = "moving" | "idle" | "auto";
+
+export type GpsWatchOptions = {
+  /** Default `auto` on Android delivery FGS; `moving` if omitted by older callers. */
+  cadence?: GpsWatchCadence;
+  /** Override min distance (meters) before an update is emitted. */
+  minDistanceMeters?: number;
+};
+
+/**
  * Native GPS for delivery tracking.
  * Prefer watchPosition while a job is en route; throttle client-side to respect
  * the ~5s server ingest rate limit before calling ingest_delivery_location.
+ *
+ * Offline: bridge may keep an ephemeral in-memory ring buffer; durable offline
+ * queue + flush on reconnect is the **app** responsibility (SQLite / WorkManager).
  */
 export interface GpsBridge {
   getLocationPermissionStatus(): Promise<LocationPermissionStatus>;
@@ -74,11 +92,13 @@ export interface GpsBridge {
   getCurrentPosition(): Promise<GpsCoordinate>;
   /**
    * Stream updates for delivery tracking; caller must stop().
+   * Starts a location foreground service on Android.
    * Implementations should not call Supabase — UI/service layer posts via RPC.
    */
   watchPosition(
     onUpdate: (coord: GpsCoordinate) => void,
     onError?: (message: string) => void,
+    options?: GpsWatchOptions,
   ): Promise<GpsWatchHandle>;
 }
 
