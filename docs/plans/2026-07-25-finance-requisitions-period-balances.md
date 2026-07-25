@@ -1,6 +1,6 @@
 # Finance — requisitions, period balances, statement-style register
 
-- Status: draft
+- Status: **done** (Phases A–C thin slice; security PASS WITH NOTES + harden; RLS PASS; verifier PASS WITH NOTES)
 - Lane(s): `@backend_agent` → `@web_agent` (Android: **no** unless product reopens)
 - Skills: `/accounting-ledger`, `/token-discipline`
 - Prior: [`2026-07-23-phase3-finance-core.md`](./2026-07-23-phase3-finance-core.md), [`2026-07-25-deepen-finance.md`](./2026-07-25-deepen-finance.md) (**done**), CoA tabs in [`2026-07-25-staff-module-tabs-and-dispatch-auto-assign.md`](./2026-07-25-staff-module-tabs-and-dispatch-auto-assign.md)
