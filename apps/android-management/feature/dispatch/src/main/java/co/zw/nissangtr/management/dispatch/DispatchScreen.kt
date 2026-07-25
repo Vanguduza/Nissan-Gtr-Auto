@@ -131,8 +131,7 @@ fun DispatchScreen(
             enabled = !state.busy,
         )
         Text(
-            "Pickup / dropoff (for suggest ranking + ETA). Fake stores; Live needs " +
-                "set_delivery_job_geo RPC (blocker).",
+            "Pickup / dropoff via ${RpcNames.SET_DELIVERY_JOB_GEO} (suggest + ETA).",
             style = MaterialTheme.typography.bodySmall,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -187,15 +186,15 @@ fun DispatchScreen(
         }
         state.trackShareToken?.let { token ->
             Text(
-                "Share track token (plaintext once):\n$token",
+                "Share track token (from dispatch status — single mint):\n$token",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
-                onClick = viewModel::mintShareToken,
+                onClick = viewModel::rotateShareToken,
                 enabled = !state.busy,
-            ) { Text("Mint share token") }
+            ) { Text("Rotate share token") }
             OutlinedButton(
                 onClick = viewModel::generatePodOtp,
                 enabled = !state.busy,

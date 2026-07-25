@@ -585,6 +585,7 @@ class DispatchViewModel(
 
     /**
      * Persist pickup/dropoff from UI fields when parseable.
+     * Incomplete lat/lng pairs are sent as null (clears that endpoint on Live).
      * @return status string, or null when no coords entered.
      */
     private suspend fun applyCoordsIfPossible(jobId: String): String? {
@@ -594,14 +595,22 @@ class DispatchViewModel(
         val dLat = s.dropoffLat.trim().toDoubleOrNull()
         val dLng = s.dropoffLng.trim().toDoubleOrNull()
         if (pLat == null && pLng == null && dLat == null && dLng == null) return null
+        val pickupOk = pLat != null && pLng != null
+        val dropoffOk = dLat != null && dLng != null
+        if (!pickupOk && (pLat != null || pLng != null)) {
+            error("pickup lat and lng must both be set")
+        }
+        if (!dropoffOk && (dLat != null || dLng != null)) {
+            error("dropoff lat and lng must both be set")
+        }
         rpc.setDeliveryJobCoords(
             deliveryJobId = jobId,
-            pickupLat = pLat,
-            pickupLng = pLng,
-            dropoffLat = dLat,
-            dropoffLng = dLng,
+            pickupLat = if (pickupOk) pLat else null,
+            pickupLng = if (pickupOk) pLng else null,
+            dropoffLat = if (dropoffOk) dLat else null,
+            dropoffLng = if (dropoffOk) dLng else null,
         )
-        return "coords set (pickup/dropoff) for suggest+ETA"
+        return "${RpcNames.SET_DELIVERY_JOB_GEO} → coords set for suggest+ETA"
     }
 
     override fun onCleared() {
