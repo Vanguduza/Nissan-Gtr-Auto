@@ -157,6 +157,7 @@ SET display_name = EXCLUDED.display_name,
     profile_id = EXCLUDED.profile_id;
 
 -- After reset: upload Navara diagram PNG bytes into Storage (metadata + diagram_path
--- come from migration 20260725180000). Requires SERVICE_ROLE from `supabase status`:
---   set SUPABASE_SERVICE_ROLE_KEY=... && node supabase/seed_catalog_diagrams.mjs
+-- come from migration 20260725180000). Prefer docker (no secrets):
+--   node supabase/seed_catalog_diagrams.mjs --docker
+-- Or Storage API with SERVICE_ROLE from `supabase status` (do not commit the key).
 -- Fixtures: data-pipeline/fixtures/navara_d40_yd25/diagrams/navara-d40/*.png
