@@ -509,12 +509,40 @@ class WarehouseViewModel(
         }
     }
 
+    private data class QrStockRef(
+        val stockItemId: String,
+        val uomId: String,
+        val oemPartNumber: String,
+        val valuation: co.zw.nissangtr.bridges.qr.InventoryQrValuation,
+        val rawPayload: String,
+    )
+
+    private suspend fun scanAndLookup(): QrStockRef {
+        var status = qr.getCameraPermissionStatus()
+        if (status != CameraPermissionStatus.GRANTED) {
+            status = qr.requestCameraPermission()
+        }
+        if (status != CameraPermissionStatus.GRANTED) {
+            throw SecurityException("Camera permission required for QR scan ($status)")
+        }
+        val scan = qr.scanOnce()
+        val fields = parseInventoryQrPayload(scan.rawValue)
+        val item = rpc.lookupStockItemByOem(fields.oemPartNumber)
+        return QrStockRef(
+            stockItemId = item.stockItemId,
+            uomId = item.uomId,
+            oemPartNumber = item.oemPartNumber,
+            valuation = fields.valuation,
+            rawPayload = scan.rawValue,
+        )
+    }
+
     companion object {
-        fun factory(rpc: RpcClient): ViewModelProvider.Factory =
+        fun factory(rpc: RpcClient, qr: QrScannerBridge): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    WarehouseViewModel(rpc) as T
+                    WarehouseViewModel(rpc, qr) as T
             }
     }
 }
