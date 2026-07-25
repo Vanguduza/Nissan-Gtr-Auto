@@ -101,6 +101,26 @@
   color: rgba(18, 21, 28, 0.7);
 }
 
+.hubModules {
+  display: grid;
+  gap: 1.35rem;
+}
+
+.hubModule {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.hubModuleTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gtr-steel);
+}
+
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
