@@ -7548,6 +7548,13 @@ export type Database = {
         }
         Returns: string
       }
+      set_fleet_vehicle_status: {
+        Args: {
+          p_id: string
+          p_status: Database["public"]["Enums"]["fleet_vehicle_status"]
+        }
+        Returns: string
+      }
       set_loyalty_program_settings: {
         Args: {
           p_currency?: Database["public"]["Enums"]["currency_code"]
