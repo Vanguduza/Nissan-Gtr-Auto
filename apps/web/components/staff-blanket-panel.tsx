@@ -176,7 +176,7 @@ export function StaffBlanketPanel() {
       supplierId,
       warehouseId,
       currency,
-      exchangeRate: currency === "ZIG" ? zigRate() : 1,
+      exchangeRate: currency === "ZIG" ? zigExchangeRate() : 1,
       blanketMaxValue: max,
       lines,
       notes: notes.trim() || undefined,
