@@ -32,6 +32,12 @@ const nav: NavItem[] = [
     exact: true,
     Icon: ClipboardList,
   },
+  {
+    href: "/procurement/approvals",
+    label: "Approvals",
+    exact: true,
+    Icon: ClipboardList,
+  },
 ];
 
 export function ProcurementNav({ current }: { current: string }) {

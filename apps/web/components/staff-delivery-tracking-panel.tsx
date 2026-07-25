@@ -213,7 +213,7 @@ export function StaffDeliveryTrackingPanel() {
       setLive(status === "SUBSCRIBED");
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         setRealtimeMessage(
-          `Realtime ${status.toLowerCase()} — check staff session / RLS (admin, warehouse, or dispatcher).`,
+          `Live map ${status.toLowerCase()} — check staff session.`,
         );
       }
     });

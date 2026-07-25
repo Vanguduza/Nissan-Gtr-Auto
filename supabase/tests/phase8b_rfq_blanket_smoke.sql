@@ -229,6 +229,10 @@ BEGIN
 
   SELECT id INTO v_blanket_line FROM public.purchase_order_lines WHERE purchase_order_id = v_blanket LIMIT 1;
 
+  PERFORM public._test_set_auth_uid('a0000000-0000-4000-8000-000000000002');
+  PERFORM public.approve_purchase_order(v_blanket);
+  PERFORM public._test_set_auth_uid('a0000000-0000-4000-8000-000000000001');
+
   v_release := public.create_blanket_release(
     v_blanket,
     jsonb_build_array(jsonb_build_object('blanket_line_id', v_blanket_line, 'qty', 8)),

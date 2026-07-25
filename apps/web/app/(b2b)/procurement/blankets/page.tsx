@@ -11,8 +11,8 @@ export default function ProcurementBlanketsPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Blanket purchase orders</h1>
         <p className={styles.lede}>
-          Create blanket contracts, submit them, then call-off releases against
-          remaining qty and value. Staff roles enforced by RPCs.
+          Create blanket contracts, submit them, get finance approval, then
+          call-off releases against remaining qty and value.
         </p>
         <StaffBlanketPanel />
       </div>

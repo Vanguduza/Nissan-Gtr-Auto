@@ -1880,11 +1880,6 @@ export function StaffFinancePanel() {
       {tab === "exchange-rate" ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Daily ZiG exchange rate</legend>
-          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            Set how many ZiG equal 1 USD. Catalog and cart stay in USD;
-            checkout offers ZiG settlement using today&apos;s (or latest) rate
-            from <code>get_zig_exchange_rate</code>. Finance/admin only.
-          </p>
           <form onSubmit={(e) => void onSetDailyRate(e)}>
             <div className={styles.formGrid}>
               <label className={styles.field}>

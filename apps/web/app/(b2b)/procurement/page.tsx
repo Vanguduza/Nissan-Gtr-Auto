@@ -12,7 +12,8 @@ export default function ProcurementPage() {
         <h1 className={styles.title}>Procurement</h1>
         <p className={styles.lede}>
           Staff RFQ portal (Phase 8b): create and submit requests for quotation,
-          then award a winning supplier quote to a purchase order.
+          then award a winning supplier quote to a purchase order. Finance
+          approves submitted POs and MRs before GRN or call-off.
         </p>
         <div className={styles.cardGrid}>
           <Link href="/procurement/rfqs" className={styles.card}>
@@ -26,6 +27,10 @@ export default function ProcurementPage() {
           <Link href="/procurement/blankets" className={styles.card}>
             <span className={styles.cardLabel}>Blanket POs</span>
             <span className={styles.cardBlurb}>Remaining qty · call-off</span>
+          </Link>
+          <Link href="/procurement/approvals" className={styles.card}>
+            <span className={styles.cardLabel}>Approvals</span>
+            <span className={styles.cardBlurb}>PO &amp; MR queue</span>
           </Link>
           <Link href="/supplier/rfqs" className={styles.card}>
             <span className={styles.cardLabel}>Supplier view</span>

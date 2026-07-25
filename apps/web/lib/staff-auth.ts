@@ -329,6 +329,7 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       {
         href: "/procurement/rfqs",
         label: "RFQs",
+        excludePathPrefix: "/procurement/rfqs/new",
         roles: ["admin", "warehouse", "finance"],
       },
       {
@@ -552,6 +553,14 @@ export function isStaffNavLeafActive(
 ): boolean {
   const { pathname: leafPath, tab: leafTab } = navHrefParts(leaf.href);
   const tabKey = leaf.tab ?? leafTab;
+
+  if (
+    leaf.excludePathPrefix &&
+    (pathname === leaf.excludePathPrefix ||
+      pathname.startsWith(`${leaf.excludePathPrefix}/`))
+  ) {
+    return false;
+  }
 
   if (tabKey) {
     if (pathname !== leafPath) return false;
