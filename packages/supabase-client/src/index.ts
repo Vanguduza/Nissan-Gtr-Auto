@@ -80,3 +80,19 @@ export {
   type ChatStaffRole,
   type StartChatThreadInput,
 } from "./chat.js";
+
+export {
+  DELIVERY_RPC,
+  setDriverPresenceArgs,
+  suggestDeliveryAssigneesArgs,
+  assignDeliveryJobArgs,
+  getDeliveryTrackPointArgs,
+  submitDeliveryPodArgs,
+  ingestDeliveryLocationArgs,
+  type DriverPresenceRow,
+  type DeliveryJobRow,
+  type DeliveryTrackTokenRow,
+  type DriverPresenceStatus,
+  type DeliveryEtaSource,
+  type DeliveryCompletedVia,
+} from "./delivery.js";

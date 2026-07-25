@@ -25,6 +25,8 @@ import co.zw.nissangtr.customer.auth.AuthGate
 import co.zw.nissangtr.customer.auth.AuthModule
 import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
+import co.zw.nissangtr.customer.chat.ChatModule
+import co.zw.nissangtr.customer.chat.ChatScreen
 import co.zw.nissangtr.customer.garage.GarageModule
 import co.zw.nissangtr.customer.garage.GarageScreen
 import co.zw.nissangtr.customer.orders.OrdersModule
@@ -41,6 +43,7 @@ private enum class CustomerRoute {
     Orders,
     Garage,
     Pay,
+    Chat,
 }
 
 /**
@@ -52,7 +55,14 @@ private enum class CustomerRoute {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        listOf(AuthModule.id, CartModule.id, OrdersModule.id, GarageModule.id, PayModule.id)
+        listOf(
+            AuthModule.id,
+            CartModule.id,
+            OrdersModule.id,
+            GarageModule.id,
+            PayModule.id,
+            ChatModule.id,
+        )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
             BuildConfig.SUPABASE_ANON_KEY,
@@ -73,6 +83,7 @@ class MainActivity : ComponentActivity() {
                             liveRpc = live,
                             signedInEmail = email,
                             onSignOut = onSignOut,
+                            whatsappE164 = BuildConfig.WHATSAPP_E164,
                         )
                     }
                 }
@@ -87,6 +98,7 @@ private fun CustomerApp(
     liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
+    whatsappE164: String,
 ) {
     var route by remember { mutableStateOf(CustomerRoute.Home) }
     when (route) {
@@ -98,6 +110,7 @@ private fun CustomerApp(
             onOrders = { route = CustomerRoute.Orders },
             onGarage = { route = CustomerRoute.Garage },
             onPay = { route = CustomerRoute.Pay },
+            onChat = { route = CustomerRoute.Chat },
         )
         CustomerRoute.Cart -> CartScreen(
             rpc = rpc,
@@ -115,6 +128,11 @@ private fun CustomerApp(
             rpc = rpc,
             onBack = { route = CustomerRoute.Home },
         )
+        CustomerRoute.Chat -> ChatScreen(
+            rpc = rpc,
+            onBack = { route = CustomerRoute.Home },
+            whatsappE164Digits = whatsappE164,
+        )
     }
 }
 
@@ -127,6 +145,7 @@ private fun CustomerHome(
     onOrders: () -> Unit,
     onGarage: () -> Unit,
     onPay: () -> Unit,
+    onChat: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -139,7 +158,7 @@ private fun CustomerHome(
         Text("Customer app", style = MaterialTheme.typography.bodyMedium)
         Text(
             "Modules: ${AuthModule.id}, ${CartModule.id}, ${OrdersModule.id}, " +
-                "${GarageModule.id}, ${PayModule.id}",
+                "${GarageModule.id}, ${PayModule.id}, ${ChatModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -166,6 +185,9 @@ private fun CustomerHome(
         }
         Button(onClick = onPay, modifier = Modifier.fillMaxWidth()) {
             Text("Pay — ContiPay / Paynow")
+        }
+        Button(onClick = onChat, modifier = Modifier.fillMaxWidth()) {
+            Text("Live chat")
         }
         Text(
             "Auth: GoTrue signInWith(Email). Bridge-First for QR.",
