@@ -58,6 +58,11 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
     label: "Panic inbox",
     roles: ["admin", "warehouse", "dispatcher"],
   },
+  {
+    href: "/staff/fleet",
+    label: "Company fleet",
+    roles: ["admin", "warehouse", "dispatcher"],
+  },
   { href: "/staff/hr", label: "HR desk", roles: ["admin", "hr"] },
   {
     href: "/staff/warranty",

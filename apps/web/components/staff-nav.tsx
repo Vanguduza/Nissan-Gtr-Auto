@@ -12,6 +12,7 @@ import {
   MapPinned,
   PackageCheck,
   Siren,
+  Car,
   MessageCircle,
   Monitor,
   PackageSearch,
