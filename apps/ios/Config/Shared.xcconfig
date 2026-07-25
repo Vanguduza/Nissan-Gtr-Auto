@@ -1,0 +1,13 @@
+// Committed defaults — secrets live in Secrets.xcconfig (gitignored).
+// Copy Secrets.xcconfig.example → Secrets.xcconfig at apps/ios/.
+
+SUPABASE_URL =
+SUPABASE_ANON_KEY =
+STOREFRONT_FORCE_FAKE =
+
+#include? "../Secrets.xcconfig"
+
+// Prefer Live when URL + anon are set (AppEnv reads these Info.plist keys).
+INFOPLIST_KEY_SUPABASE_URL = $(SUPABASE_URL)
+INFOPLIST_KEY_SUPABASE_ANON_KEY = $(SUPABASE_ANON_KEY)
+INFOPLIST_KEY_STOREFRONT_FORCE_FAKE = $(STOREFRONT_FORCE_FAKE)
