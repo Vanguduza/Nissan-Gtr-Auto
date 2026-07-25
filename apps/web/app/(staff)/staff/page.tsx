@@ -34,6 +34,11 @@ const HUB_CARDS: {
     label: "Warranty",
     blurb: "Claims · quarantine return",
   },
+  {
+    href: "/staff/analytics",
+    label: "Analytics",
+    blurb: "KPIs · AI narrative · reports",
+  },
   { href: "/procurement", label: "Procurement", blurb: "RFQs" },
 ];
 
