@@ -97,11 +97,11 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
   SET profile_id = EXCLUDED.profile_id, display_name = EXCLUDED.display_name;
 
-  -- Customer A: add wishlist by OEM
+  -- Customer A: add wishlist (OEM when Navara seeded, else by id)
   PERFORM public._test_set_auth_uid(v_cust_a_user);
-  v_wish := public.add_customer_wishlist_item(NULL, '15208-65F0C');
-  IF v_wish IS NULL THEN
-    -- fallback if Navara OEM missing and we used smoke SKU
+  IF EXISTS (SELECT 1 FROM public.stock_items WHERE id = v_item AND oem_part_number = '15208-65F0C') THEN
+    v_wish := public.add_customer_wishlist_item(NULL, '15208-65F0C');
+  ELSE
     v_wish := public.add_customer_wishlist_item(v_item, NULL);
   END IF;
 
@@ -121,17 +121,17 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: peer can read foreign wishlist';
   END IF;
 
-  -- Peer cannot remove A's item via RPC
+  -- Peer remove of A's SKU is a no-op failure (own-row only)
   BEGIN
     PERFORM public.remove_customer_wishlist_item(v_item, NULL, NULL);
     RAISE EXCEPTION 'smoke fail: peer remove should fail';
   EXCEPTION
     WHEN OTHERS THEN
-      IF SQLERRM NOT LIKE '%wishlist item not found%' AND SQLERRM NOT LIKE '%stock item%' THEN
-        -- ok if not found for peer's empty list when resolving same item
-        IF SQLERRM LIKE '%smoke fail%' THEN
-          RAISE;
-        END IF;
+      IF SQLERRM LIKE '%smoke fail:%' THEN
+        RAISE;
+      END IF;
+      IF SQLERRM NOT LIKE '%wishlist item not found%' THEN
+        RAISE EXCEPTION 'smoke fail: unexpected peer remove error: %', SQLERRM;
       END IF;
   END;
 
