@@ -5,20 +5,22 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 
 /**
  * Foreground service required for continuous delivery GPS while the app may
  * background. Does not read location itself — [FusedLocationGpsBridge] owns
- * FusedLocationProvider callbacks; this service only satisfies OS FGS rules.
+ * FusedLocationProvider callbacks; this service only satisfies OS FGS rules
+ * and keeps a persistent low-priority notification.
  *
- * Host app should provide a tap-target via [EXTRA_CONTENT_INTENT] if desired;
- * otherwise a silent channel notification is shown.
+ * Host app should provide a tap-target via [EXTRA_CONTENT_INTENT] if desired.
  */
 class DeliveryLocationTrackingService : Service() {
 
@@ -28,17 +30,12 @@ class DeliveryLocationTrackingService : Service() {
         ensureChannel()
         val contentIntent = intent
             ?.getParcelableExtraCompat(EXTRA_CONTENT_INTENT, PendingIntent::class.java)
+        val cadenceName = intent?.getStringExtra(EXTRA_CADENCE)
+        val cadence = cadenceName?.let {
+            runCatching { GpsWatchCadence.valueOf(it) }.getOrNull()
+        }
 
-        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.gtr_location_tracking_title))
-            .setContentText(getString(R.string.gtr_location_tracking_body))
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(contentIntent)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        val notification = buildNotification(this, contentIntent, cadence)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceCompat.startForeground(
@@ -60,17 +57,7 @@ class DeliveryLocationTrackingService : Service() {
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = getSystemService(NotificationManager::class.java) ?: return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.gtr_location_tracking_channel),
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply {
-            description = getString(R.string.gtr_location_tracking_channel_desc)
-            setShowBadge(false)
-        }
-        manager.createNotificationChannel(channel)
+        ensureChannel(this)
     }
 
     private fun <T> Intent.getParcelableExtraCompat(key: String, clazz: Class<T>): T? {
@@ -87,5 +74,54 @@ class DeliveryLocationTrackingService : Service() {
         const val NOTIFICATION_ID: Int = 0x47_54_52 // "GTR"
         const val EXTRA_CONTENT_INTENT: String =
             "co.zw.nissangtr.bridges.location.EXTRA_CONTENT_INTENT"
+        const val EXTRA_CADENCE: String =
+            "co.zw.nissangtr.bridges.location.EXTRA_CADENCE"
+
+        fun ensureChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.gtr_location_tracking_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = context.getString(R.string.gtr_location_tracking_channel_desc)
+                setShowBadge(false)
+                setSound(null, null)
+            }
+            manager.createNotificationChannel(channel)
+        }
+
+        fun buildNotification(
+            context: Context,
+            contentIntent: PendingIntent?,
+            cadence: GpsWatchCadence?,
+        ): Notification {
+            val body = when (cadence) {
+                GpsWatchCadence.IDLE ->
+                    context.getString(R.string.gtr_location_tracking_body_idle)
+                GpsWatchCadence.MOVING, GpsWatchCadence.AUTO, null ->
+                    context.getString(R.string.gtr_location_tracking_body)
+            }
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setContentTitle(context.getString(R.string.gtr_location_tracking_title))
+                .setContentText(body)
+                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setSilent(true)
+                .setContentIntent(contentIntent)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+                .build()
+        }
+
+        /** Refresh notification text when AUTO cadence flips moving ↔ idle. */
+        fun updateNotificationCadence(context: Context, cadence: GpsWatchCadence) {
+            ensureChannel(context)
+            val notification = buildNotification(context, contentIntent = null, cadence = cadence)
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+        }
     }
 }

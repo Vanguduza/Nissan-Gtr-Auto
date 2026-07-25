@@ -2,6 +2,7 @@ package co.zw.nissangtr.bridges.location
 
 import android.Manifest
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -21,6 +22,7 @@ import kotlinx.coroutines.withContext
 import java.lang.ref.WeakReference
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -29,17 +31,27 @@ import kotlin.coroutines.resumeWithException
  *
  * Host must [attachActivity] before [requestLocationPermission] so the runtime
  * permission dialog can be shown. Continuous [watchPosition] starts
- * [DeliveryLocationTrackingService] (foreground, type=location).
+ * [DeliveryLocationTrackingService] (foreground, type=location) with a
+ * persistent low-priority notification.
+ *
+ * Battery cadence: [GpsWatchCadence.AUTO] switches MOVING (~5s high accuracy)
+ * ↔ IDLE (~30s balanced + distance) from speed heuristics.
  *
  * Does not perform network I/O — emit [GpsCoordinate] only.
+ * Optional [pingBuffer] holds an ephemeral ring of fixes for app flush logic.
  */
 class FusedLocationGpsBridge(
     context: Context,
+    /** Optional in-memory buffer; app still owns durable offline queue. */
+    val pingBuffer: GpsPingBuffer? = null,
 ) : GpsBridge {
 
     private val appContext = context.applicationContext
     private val fused = LocationServices.getFusedLocationProviderClient(appContext)
     private var activityRef: WeakReference<Activity>? = null
+
+    /** Optional tap-target for the FGS notification (delivery job screen). */
+    var notificationContentIntent: PendingIntent? = null
 
     /** Call from the driver Activity (e.g. onResume) so permission prompts work. */
     fun attachActivity(activity: Activity) {
@@ -140,38 +152,92 @@ class FusedLocationGpsBridge(
     override suspend fun watchPosition(
         onUpdate: (GpsCoordinate) -> Unit,
         onError: ((String) -> Unit)?,
+        options: GpsWatchOptions,
     ): GpsWatchHandle = withContext(Dispatchers.Main) {
         ensureForegroundLocationAllowed()
 
         val stopped = AtomicBoolean(false)
-        val request = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            DEFAULT_INTERVAL_MS,
+        val activeCadence = AtomicReference(
+            when (options.cadence) {
+                GpsWatchCadence.IDLE -> GpsWatchCadence.IDLE
+                GpsWatchCadence.MOVING, GpsWatchCadence.AUTO -> GpsWatchCadence.MOVING
+            },
         )
-            .setMinUpdateIntervalMillis(MIN_INTERVAL_MS)
-            .setMinUpdateDistanceMeters(0f)
-            .build()
 
-        val callback = object : LocationCallback() {
+        lateinit var callback: LocationCallback
+
+        fun buildRequest(cadence: GpsWatchCadence): LocationRequest {
+            val (priority, intervalMs, defaultDistance) = when (cadence) {
+                GpsWatchCadence.IDLE -> Triple(
+                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                    IDLE_INTERVAL_MS,
+                    IDLE_MIN_DISTANCE_M,
+                )
+                GpsWatchCadence.MOVING, GpsWatchCadence.AUTO -> Triple(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    MOVING_INTERVAL_MS,
+                    MOVING_MIN_DISTANCE_M,
+                )
+            }
+            val distance = options.minDistanceMeters ?: defaultDistance
+            return LocationRequest.Builder(priority, intervalMs)
+                .setMinUpdateIntervalMillis(
+                    when (cadence) {
+                        GpsWatchCadence.IDLE -> IDLE_MIN_INTERVAL_MS
+                        else -> MOVING_MIN_INTERVAL_MS
+                    },
+                )
+                .setMinUpdateDistanceMeters(distance)
+                .build()
+        }
+
+        fun applyCadence(next: GpsWatchCadence) {
+            if (stopped.get()) return
+            if (activeCadence.getAndSet(next) == next) return
+            try {
+                fused.removeLocationUpdates(callback)
+                fused.requestLocationUpdates(
+                    buildRequest(next),
+                    callback,
+                    Looper.getMainLooper(),
+                )
+                DeliveryLocationTrackingService.updateNotificationCadence(appContext, next)
+            } catch (se: SecurityException) {
+                onError?.invoke(se.message ?: "Location permission revoked")
+            }
+        }
+
+        callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 if (stopped.get()) return
                 val location = result.lastLocation ?: return
+                val coord = location.toGpsCoordinate()
+                pingBuffer?.offer(coord)
                 try {
-                    onUpdate(location.toGpsCoordinate())
+                    onUpdate(coord)
                 } catch (t: Throwable) {
                     onError?.invoke(t.message ?: "onUpdate failed")
+                }
+                if (options.cadence == GpsWatchCadence.AUTO) {
+                    val speed = coord.speedMetersPerSecond
+                    val moving = speed != null && speed >= MOVING_SPEED_THRESHOLD_MPS
+                    applyCadence(if (moving) GpsWatchCadence.MOVING else GpsWatchCadence.IDLE)
                 }
             }
         }
 
         try {
-            fused.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            fused.requestLocationUpdates(
+                buildRequest(activeCadence.get()),
+                callback,
+                Looper.getMainLooper(),
+            )
         } catch (se: SecurityException) {
             onError?.invoke(se.message ?: "Location permission revoked")
             throw se
         }
 
-        startForegroundTrackingService()
+        startForegroundTrackingService(activeCadence.get())
 
         object : GpsWatchHandle {
             override suspend fun stop() = withContext(Dispatchers.Main) {
@@ -182,8 +248,13 @@ class FusedLocationGpsBridge(
         }
     }
 
-    private fun startForegroundTrackingService() {
-        val intent = Intent(appContext, DeliveryLocationTrackingService::class.java)
+    private fun startForegroundTrackingService(cadence: GpsWatchCadence) {
+        val intent = Intent(appContext, DeliveryLocationTrackingService::class.java).apply {
+            putExtra(DeliveryLocationTrackingService.EXTRA_CADENCE, cadence.name)
+            notificationContentIntent?.let {
+                putExtra(DeliveryLocationTrackingService.EXTRA_CONTENT_INTENT, it)
+            }
+        }
         ContextCompat.startForegroundService(appContext, intent)
     }
 
@@ -250,19 +321,37 @@ class FusedLocationGpsBridge(
     companion object {
         const val REQUEST_LOCATION: Int = 0x47_52 // "GR"
         const val REQUEST_BACKGROUND_LOCATION: Int = 0x47_42 // "GB"
-        /** Align with server ~5s ingest rate; UI may throttle further. */
-        const val DEFAULT_INTERVAL_MS: Long = 5_000L
-        const val MIN_INTERVAL_MS: Long = 3_000L
+
+        /** Moving: align with server ~5s ingest rate. */
+        const val MOVING_INTERVAL_MS: Long = 5_000L
+        const val MOVING_MIN_INTERVAL_MS: Long = 3_000L
+        const val MOVING_MIN_DISTANCE_M: Float = 0f
+
+        /** Idle / parked: lower duty cycle. */
+        const val IDLE_INTERVAL_MS: Long = 30_000L
+        const val IDLE_MIN_INTERVAL_MS: Long = 15_000L
+        const val IDLE_MIN_DISTANCE_M: Float = 25f
+
+        /** ≥ ~3.6 km/h treated as moving for AUTO cadence. */
+        const val MOVING_SPEED_THRESHOLD_MPS: Float = 1.0f
+
+        @Deprecated("Use MOVING_INTERVAL_MS", ReplaceWith("MOVING_INTERVAL_MS"))
+        const val DEFAULT_INTERVAL_MS: Long = MOVING_INTERVAL_MS
+
+        @Deprecated("Use MOVING_MIN_INTERVAL_MS", ReplaceWith("MOVING_MIN_INTERVAL_MS"))
+        const val MIN_INTERVAL_MS: Long = MOVING_MIN_INTERVAL_MS
     }
 }
 
 internal fun android.location.Location.toGpsCoordinate(): GpsCoordinate {
     val accuracy = if (hasAccuracy()) accuracy else null
+    val speed = if (hasSpeed()) speed else null
     val instant = Instant.ofEpochMilli(time)
     return GpsCoordinate(
         latitude = latitude,
         longitude = longitude,
         accuracyMeters = accuracy,
         capturedAt = instant.toString(),
+        speedMetersPerSecond = speed,
     )
 }
