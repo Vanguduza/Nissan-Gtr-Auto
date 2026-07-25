@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
 import type { StockState } from "@/lib/shop-demo";
 import { zigExchangeRate } from "@/lib/customer-storefront";
+import {
+  loadOemCatalogDiagram,
+  type CatalogDiagram,
+} from "@/lib/catalog-diagram";
 
 export type CatalogFitmentLine = {
   chassis_code: string | null;
@@ -98,7 +102,7 @@ export async function loadCatalogProduct(
     return { ok: false, error: "Part not found.", missing: true };
   }
 
-  const [levels, fitments, xrefs, price] = await Promise.all([
+  const [levels, fitments, xrefs, price, diagram] = await Promise.all([
     client
       .from("stock_levels")
       .select("quantity, warehouse_id, warehouses!inner(is_quarantine, is_active)")
@@ -109,12 +113,14 @@ export async function loadCatalogProduct(
       .select("oe_number, brand")
       .eq("oem_part_number", item.oem_part_number),
     loadDefaultPrice(client, item.id),
+    loadOemCatalogDiagram(client, item.oem_part_number),
   ]);
 
   if (levels.error) return { ok: false, error: levels.error.message };
   if (!fitments.ok) return fitments;
   if (xrefs.error) return { ok: false, error: xrefs.error.message };
   if (!price.ok) return price;
+  if (!diagram.ok) return { ok: false, error: diagram.error };
 
   const saleableQty = (levels.data ?? []).reduce((sum, row) => {
     const wh = row.warehouses as

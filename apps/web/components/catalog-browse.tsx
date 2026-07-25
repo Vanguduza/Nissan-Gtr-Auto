@@ -209,7 +209,7 @@ export function CatalogBrowse({ category }: { category?: string }) {
             </table>
           </div>
           <div style={{ marginTop: "1.5rem" }}>
-            <CatalogCanvasStub />
+            <CatalogCanvasStub sample />
           </div>
         </div>
       </div>

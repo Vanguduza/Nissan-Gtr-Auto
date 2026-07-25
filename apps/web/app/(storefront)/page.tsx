@@ -141,7 +141,7 @@ export default function HomePage() {
               Diagram hotspots will open fitment-accurate parts lists.
             </p>
           </div>
-          <CatalogCanvasStub />
+          <CatalogCanvasStub sample />
         </div>
       </section>
     </>
