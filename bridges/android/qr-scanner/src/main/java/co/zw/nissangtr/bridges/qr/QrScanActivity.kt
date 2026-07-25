@@ -94,8 +94,8 @@ class QrScanActivity : AppCompatActivity() {
     }
 
     private fun bindCamera(cameraProvider: ProcessCameraProvider, previewView: PreviewView) {
-        val preview = Preview.Builder().build().also {
-            it.surfaceProvider = previewView.surfaceProvider
+        val preview = Preview.Builder().build().also { p ->
+            p.setSurfaceProvider(previewView.surfaceProvider)
         }
         val analysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)

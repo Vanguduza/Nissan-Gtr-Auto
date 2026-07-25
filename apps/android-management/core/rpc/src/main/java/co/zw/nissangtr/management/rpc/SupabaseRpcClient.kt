@@ -262,7 +262,7 @@ class SupabaseRpcClient(
                 put("p_warehouse_id", warehouseId)
                 put("p_scope", scope.rpcValue)
                 if (itemIds.isNullOrEmpty()) put("p_item_ids", JsonNull)
-                else put("p_item_ids", buildJsonArray { itemIds.forEach { add(it) } })
+                else put("p_item_ids", buildJsonArray { itemIds.forEach { add(JsonPrimitive(it)) } })
                 if (notes.isNullOrBlank()) put("p_notes", JsonNull)
                 else put("p_notes", notes)
                 put("p_currency", currency.rpcValue)
@@ -546,7 +546,7 @@ class SupabaseRpcClient(
                         put("valuation_method", line.valuationMethod.rpcValue)
                         val serials = line.serials
                         if (!serials.isNullOrEmpty()) {
-                            put("serials", buildJsonArray { serials.forEach { add(it) } })
+                            put("serials", buildJsonArray { serials.forEach { add(JsonPrimitive(it)) } })
                         }
                     },
                 )
