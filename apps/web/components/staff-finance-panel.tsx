@@ -572,14 +572,18 @@ export function StaffFinancePanel() {
     if (boot.kind !== "ready" || tab !== "requisitions") return;
     void loadRequisitions();
     if (boot.accounts.length) {
-      setReqExpenseAccount((prev) => {
-        if (prev && boot.accounts.some((a) => a.code === prev)) return prev;
-        const expense =
-          boot.accounts.find((a) => a.code === "5300") ??
-          boot.accounts.find((a) => a.account_type === "expense") ??
-          boot.accounts[0];
-        return expense?.code || "5300";
-      });
+      const expense =
+        boot.accounts.find((a) => a.code === "5300") ??
+        boot.accounts.find((a) => a.account_type === "expense") ??
+        boot.accounts[0];
+      const code = expense?.code || "5300";
+      setReqLines((prev) =>
+        prev.map((line) =>
+          boot.accounts.some((a) => a.code === line.expenseAccountCode)
+            ? line
+            : { ...line, expenseAccountCode: code },
+        ),
+      );
     }
   }, [boot, tab, loadRequisitions]);
 
