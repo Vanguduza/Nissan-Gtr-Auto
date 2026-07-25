@@ -87,9 +87,9 @@ export async function listJournalEntries(
   const { data, error } = await client
     .from("journal_entries")
     .select(
-      "id, document_number, status, entry_date, description, currency, exchange_rate_applied, created_at",
+      "id, document_number, status, entry_date, description, currency, exchange_rate_applied, posted_at",
     )
-    .order("created_at", { ascending: false })
+    .order("posted_at", { ascending: false })
     .limit(40);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data as JournalEntryOption[]) ?? [] };
