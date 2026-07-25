@@ -139,6 +139,14 @@ Commit `packages/supabase-client/src/database.types.ts` whenever migrations chan
 RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`  
 CI RLS gate + Bugbot/secrets checklist: `docs/HARDENING.md` (`phase14_ci_smoke.sql` via `docker exec … psql`).
 
+**Catalog diagram bytes** (after reset; Navara + X-Trail fixture packs):
+
+```bash
+pnpm db:reset && node supabase/seed_catalog_diagrams.mjs --docker
+```
+
+See also `data-pipeline/fixtures/*/diagrams/README.md`. Script discovers every `fixtures/<vehicle>/diagrams/<storage-prefix>/*.png` pack idempotently.
+
 ---
 
 ## Next work after switching
