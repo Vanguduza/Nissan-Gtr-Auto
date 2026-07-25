@@ -608,7 +608,6 @@ AS $$
 DECLARE
   v_job public.delivery_jobs%ROWTYPE;
   v_evt TEXT;
-  v_token TEXT;
 BEGIN
   PERFORM public._logistics_begin_rpc();
   PERFORM public._require_dispatcher_staff();
@@ -645,12 +644,7 @@ BEGIN
     updated_at = now()
   WHERE id = p_delivery_job_id;
 
--- Avoid nested mint auth edge-cases: mint after status flip without re-entering mint from here.
--- (mint_delivery_track_token is still the public remint API.)
-  IF p_status = 'dispatched' THEN
-    v_token := public.mint_delivery_track_token(p_delivery_job_id);
-  END IF;
-
+  -- Track token: call mint_delivery_track_token after dispatch to obtain plaintext once.
   IF p_status IN ('completed', 'failed') THEN
     UPDATE public.delivery_track_tokens
     SET revoked_at = COALESCE(revoked_at, now())
