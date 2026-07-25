@@ -86,6 +86,11 @@ When **both** `SUPABASE_URL` and `SUPABASE_ANON_KEY` are non-empty (and `rpc.for
 `true`), `RpcClientFactory` selects **Live** `SupabaseRpcClient`. Otherwise **Fake** remains so
 the app compiles and runs without keys.
 
+2. Same names as root `.env.example` / web `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   (Android BuildConfig fields are `SUPABASE_URL` / `SUPABASE_ANON_KEY` without the `NEXT_PUBLIC_` prefix).
+
+3. Rebuild so BuildConfig picks up properties: `.\gradlew.bat assembleDebug`
+
 ### Auth (no hardcoded JWTs)
 
 Live client installs GoTrue (`auth-kt`) with the **anon key** only. Session is persisted by the

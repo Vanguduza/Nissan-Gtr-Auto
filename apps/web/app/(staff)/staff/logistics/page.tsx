@@ -14,7 +14,7 @@ export default function StaffLogisticsPage() {
         <p className={styles.lede}>
           Dispatch pick list → confirm lines → delivery note → optional
           delivery job. Warehouse/dispatcher/admin staff only. Live GPS trail:{" "}
-          <Link href="/staff/logistics/tracking">Live map</Link>.
+          <Link href="/staff/logistics/tracking">Live tracking</Link>.
         </p>
         <StaffLogisticsPanel />
       </div>
