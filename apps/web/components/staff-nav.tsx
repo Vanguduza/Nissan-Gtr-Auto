@@ -2,19 +2,16 @@
 
 import Link from "next/link";
 import styles from "@/components/account.module.css";
-import { useStaffAuth } from "@/components/staff-auth-context";
 import {
+  Banknote,
   BarChart3,
   Bell,
-  ClipboardList,
   iconSizeSm,
   iconStroke,
   LayoutGrid,
   MapPinned,
   MessageCircle,
   Monitor,
-  Banknote,
-  Package,
   PackageSearch,
   ShieldCheck,
   Truck,
@@ -22,9 +19,10 @@ import {
   Warehouse,
   type LucideIcon,
 } from "@/components/icons";
+import { useStaffAuth } from "@/components/staff-auth-context";
 import { filterNavForRoles, STAFF_NAV_ITEMS } from "@/lib/staff-auth";
 
-const STAFF_NAV_ICONS: Record<string, LucideIcon> = {
+const staffNavIcons: Record<string, LucideIcon> = {
   "/staff": LayoutGrid,
   "/staff/pos": Monitor,
   "/staff/warehouse": Warehouse,
@@ -47,23 +45,26 @@ export function StaffNav({ current }: { current: string }) {
 
   return (
     <nav className={styles.nav} aria-label="Staff">
-      <p className={styles.navTitle}>
-        <ClipboardList size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
-        Staff
-      </p>
+      <p className={styles.navTitle}>Staff</p>
       <ul className={styles.navList}>
         {items.map((item) => {
           const active = item.exact
             ? current === item.href
             : current === item.href || current.startsWith(`${item.href}/`);
-          const Icon = STAFF_NAV_ICONS[item.href] ?? Package;
+          const Icon = staffNavIcons[item.href];
           return (
             <li key={item.href}>
               <Link
                 href={item.href}
                 className={active ? styles.navLinkActive : styles.navLink}
               >
-                <Icon size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
+                {Icon ? (
+                  <Icon
+                    size={iconSizeSm}
+                    strokeWidth={iconStroke}
+                    aria-hidden
+                  />
+                ) : null}
                 {item.label}
               </Link>
             </li>

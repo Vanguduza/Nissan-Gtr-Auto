@@ -194,7 +194,7 @@ export function CartCheckout() {
   if (status.kind === "loading") {
     return (
       <div className={styles.page}>
-        <h1 className={styles.title}>Cart</h1>
+        <CartTitle />
         <p className={styles.lede}>Loading cart…</p>
       </div>
     );
@@ -203,7 +203,7 @@ export function CartCheckout() {
   if (status.kind === "auth") {
     return (
       <div className={styles.page}>
-        <h1 className={styles.title}>Cart</h1>
+        <CartTitle />
         <p className={styles.lede}>
           Sign in to open a storefront cart and checkout.
         </p>
@@ -217,7 +217,7 @@ export function CartCheckout() {
   if (status.kind === "error") {
     return (
       <div className={styles.page}>
-        <h1 className={styles.title}>Cart</h1>
+        <CartTitle />
         <p className={styles.lede} role="alert">
           {status.message}
         </p>
@@ -233,7 +233,7 @@ export function CartCheckout() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Cart</h1>
+      <CartTitle />
       <p className={styles.lede}>
         Checkout posts your invoice via customer cart RPCs. ContiPay and Paynow
         create intents on your unpaid invoice — settle stays server-side.
