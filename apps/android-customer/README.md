@@ -33,7 +33,7 @@ Customer shell with thin Compose scaffolds for **cart**, **orders**, **My Garage
 
 ## RPC binding: Fake vs Live
 
-`MainActivity` uses `RpcClientFactory`:
+**Prefer Live** when env is set. `MainActivity` uses `RpcClientFactory`:
 
 | Mode | When | Implementation |
 |------|------|----------------|
