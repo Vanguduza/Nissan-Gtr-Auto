@@ -13,7 +13,8 @@ export default function StaffWarehouseBinsPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Warehouse bins</h1>
         <p className={styles.lede}>
-          Create bins, deactivate, and set preferred stock-level bins.{" "}
+          Create bins, deactivate, set preferred stock-level bins, and load
+          pick-path guidance via <code>get_pick_path_hints</code>.{" "}
           <Link href="/staff/warehouse">Warehouse hub</Link>.
         </p>
         <StaffWarehouseTabs active="bins" />
