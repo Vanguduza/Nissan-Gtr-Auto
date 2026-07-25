@@ -4,6 +4,7 @@
  * Env:
  *   EMAIL_API_KEY   — Resend (or provider) API key; required for real send
  *   EMAIL_FROM      — e.g. receipts@nissangtrauto.co.zw
+ *   REPORT_FROM_EMAIL / RECEIPT_FROM_EMAIL — optional From fallbacks
  *   EMAIL_API_BASE  — optional; default https://api.resend.com
  *
  * Assumed shape (Resend):

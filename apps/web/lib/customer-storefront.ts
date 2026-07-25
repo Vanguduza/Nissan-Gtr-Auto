@@ -35,6 +35,33 @@ export type StorefrontResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
+/**
+ * Call RPCs / tables from migrations newer than generated `database.types`.
+ * Remove once `packages/supabase-client` types are regenerated.
+ */
+async function storefrontRpc(
+  client: SupabaseClient,
+  fn: string,
+  args?: Record<string, unknown>,
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  return (
+    client as unknown as {
+      rpc: (
+        name: string,
+        params?: Record<string, unknown>,
+      ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc(fn, args);
+}
+
+function storefrontFrom(client: SupabaseClient, table: string) {
+  return (
+    client as unknown as {
+      from: (t: string) => ReturnType<SupabaseClient["from"]>;
+    }
+  ).from(table);
+}
+
 const CART_KEY = "gtr.storefront.cart_id";
 
 export function readStoredCartId(): string | null {

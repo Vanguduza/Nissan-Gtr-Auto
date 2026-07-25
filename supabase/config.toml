@@ -75,6 +75,14 @@ verify_jwt = true
 [functions.demand-forecast]
 verify_jwt = true
 
+# Staff JWT → KPI RPCs + optional Gemini narrative
+[functions.analytics-insights]
+verify_jwt = true
+
+# Cron worker: still requires x-worker-secret (WORKER_SHARED_SECRET)
+[functions.process-ai-reports]
+verify_jwt = true
+
 # Public company-domain receipt links (Next.js proxies with anon JWT).
 # AuthZ = download_token lookup; service_role stays inside the function.
 [functions.receipt-download]
