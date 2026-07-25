@@ -44,6 +44,7 @@ export {
   Bell,
   PackageSearch,
   PackageCheck,
+  ChevronDown,
   X,
   type LucideIcon,
 } from "lucide-react";

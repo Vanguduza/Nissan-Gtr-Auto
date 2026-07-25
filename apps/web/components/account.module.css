@@ -1,6 +1,6 @@
 .shell {
   display: grid;
-  grid-template-columns: minmax(12rem, 14rem) minmax(0, 1fr);
+  grid-template-columns: minmax(13.5rem, 16rem) minmax(0, 1fr);
   gap: 1.5rem;
   width: min(var(--gtr-shop-max), 100%);
   margin: 0 auto;
@@ -56,6 +56,106 @@
 }
 
 .navLinkActive {
+  background: color-mix(in srgb, var(--gtr-red) 8%, white);
+  border-left-color: var(--gtr-red);
+  font-weight: 600;
+  color: var(--gtr-red);
+}
+
+.navGroup {
+  border-top: 1px solid rgba(18, 21, 28, 0.06);
+}
+
+.navGroup:first-child {
+  border-top: none;
+}
+
+.navGroupRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.navGroupLink,
+.navGroupLinkActive {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.5rem 0.35rem 0.5rem 0.85rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-left: 3px solid transparent;
+  transition: background var(--gtr-hover), color var(--gtr-hover);
+  color: inherit;
+  text-decoration: none;
+}
+
+.navGroupLink:hover {
+  background: var(--gtr-mist);
+}
+
+.navGroupLinkActive {
+  background: color-mix(in srgb, var(--gtr-red) 8%, white);
+  border-left-color: var(--gtr-red);
+  color: var(--gtr-red);
+}
+
+.navGroupToggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(18, 21, 28, 0.55);
+  cursor: pointer;
+  transition: background var(--gtr-hover), color var(--gtr-hover);
+}
+
+.navGroupToggle:hover,
+.navGroupToggle:focus-visible {
+  background: var(--gtr-mist);
+  color: var(--gtr-steel);
+}
+
+.navChevron {
+  transition: transform 0.15s ease;
+}
+
+.navChevronOpen {
+  transform: rotate(180deg);
+  transition: transform 0.15s ease;
+}
+
+.navSubList {
+  list-style: none;
+  margin: 0 0 0.35rem;
+  padding: 0 0 0.15rem;
+}
+
+.navSubLink,
+.navSubLinkActive {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem 0.4rem 1.55rem;
+  font-size: 0.84rem;
+  border-left: 3px solid transparent;
+  color: rgba(18, 21, 28, 0.78);
+  transition: background var(--gtr-hover), color var(--gtr-hover);
+}
+
+.navSubLink:hover {
+  background: var(--gtr-mist);
+  color: var(--gtr-steel);
+}
+
+.navSubLinkActive {
   background: color-mix(in srgb, var(--gtr-red) 8%, white);
   border-left-color: var(--gtr-red);
   font-weight: 600;

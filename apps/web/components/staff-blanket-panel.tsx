@@ -19,6 +19,10 @@ import {
   type SupplierOption,
   type WarehouseOption,
 } from "@/lib/blanket-po";
+import {
+  approvePurchaseOrder,
+  rejectPurchaseOrder,
+} from "@/lib/procurement-approvals";
 import { zigExchangeRate } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 
@@ -58,6 +62,7 @@ export function StaffBlanketPanel() {
   const [unitPrice, setUnitPrice] = useState("0");
 
   const [releaseQtys, setReleaseQtys] = useState<Record<string, string>>({});
+  const [rejectReason, setRejectReason] = useState("");
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
