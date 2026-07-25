@@ -86,12 +86,17 @@ Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**, **Chat** (RBAC:
 
 1. `MainActivity` owns `CameraxQrScannerBridge` + `BluetoothEscPosPrinterBridge`, attaches in
    `onResume`, forwards camera/Bluetooth permission results and `REQUEST_SCAN` Activity results.
-2. **POS — Scan QR → add** → `scanOnce()` → `add_cart_line_from_qr` with full `gtr://part/…` payload.
+2. **Till — Scan QR → add** or **Companion — Scan inventory QR** → `scanOnce()` →
+   `add_cart_line_from_qr` with full `gtr://part/…` payload (staff standalone needs **no** scan session).
 3. Optional: enter bonded printer MAC → **Connect printer** → on **Checkout**, best-effort
    `printReceiptLines` (checkout still succeeds if print fails).
 4. **Warehouse — Scan QR** on receive / cycle-count → parse OEM → `lookupStockItemByOem` → fill UUIDs.
 
 Compose never calls CameraX / BluetoothAdapter directly — only ViewModel → bridge.
+
+**Hardware handoff:** pairing-code QR *display* (not inventory scan) is text-only today. If a
+native “show pairing code as QR” helper is needed beyond CameraX scan, route to
+`@hardware_mobile_agent` — do not add HTML5/browser QR.
 
 ## RPC binding: Fake vs Live
 
