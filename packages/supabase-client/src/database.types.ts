@@ -7731,6 +7731,17 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_fleet_vehicle: {
+        Args: {
+          p_assigned_driver_user_id?: string
+          p_id?: string
+          p_label?: string
+          p_notes?: string
+          p_plate: string
+          p_status?: Database["public"]["Enums"]["fleet_vehicle_status"]
+        }
+        Returns: string
+      }
       upsert_salary_structure: {
         Args: {
           p_currency: Database["public"]["Enums"]["currency_code"]
