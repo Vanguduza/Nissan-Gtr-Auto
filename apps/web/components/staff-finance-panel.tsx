@@ -1571,7 +1571,7 @@ function StaffFinancePanelInner() {
   }
 
   if (boot.kind === "loading") {
-    return <p className={styles.muted}>Loading finance…</p>;
+    return <p className={styles.emptyState}>Loading finance…</p>;
   }
   if (boot.kind === "auth") {
     return (

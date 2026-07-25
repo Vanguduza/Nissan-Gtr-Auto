@@ -246,7 +246,7 @@ export function StaffLogisticsPanel() {
   }
 
   if (boot.kind === "loading") {
-    return <p className={styles.muted}>Loading logistics…</p>;
+    return <p className={styles.emptyState}>Loading logistics…</p>;
   }
 
   if (boot.kind === "auth") {
