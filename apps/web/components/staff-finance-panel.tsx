@@ -1964,11 +1964,6 @@ export function StaffFinancePanel() {
       {tab === "journals" ? (
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Journal draft</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Balanced two-line draft via <code>create_journal_draft</code>, then{" "}
-          <code>post_journal</code>. Amounts show explicit <code>USD</code> |{" "}
-          <code>ZIG</code>.
-        </p>
         <form onSubmit={(e) => void onCreateDraft(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -2229,14 +2224,6 @@ export function StaffFinancePanel() {
       {tab === "requisitions" ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Finance requisitions</legend>
-          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            Petty cash and payment requests with expense line items: draft →
-            submit → finance approve → disburse (posts multi-line JE). Cannot
-            skip approval. Disbursement links <code>journal_entry_id</code>;{" "}
-            <code>payment_entry_id</code> stays reserved for a future AP payment
-            desk. Procurement PO approval is a separate epic — see{" "}
-            <Link href="/procurement">procurement</Link> for PO submit only.
-          </p>
           <form onSubmit={(e) => void onCreateRequisition(e)}>
             <div className={styles.formGrid}>
               <label className={styles.field}>
