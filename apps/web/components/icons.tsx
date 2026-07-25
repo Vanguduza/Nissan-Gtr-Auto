@@ -1,5 +1,6 @@
 /**
  * Storefront Lucide icons — import from here for consistent stroke/size defaults.
+ * Prefer Lucide `Images` (gallery) over Next.js `Image`.
  */
 export {
   LayoutGrid,
@@ -27,9 +28,18 @@ export {
   Star,
   Smartphone,
   ClipboardList,
-  Gauge,
   Building2,
   ArrowRight,
+  Warehouse,
+  Monitor,
+  Banknote,
+  Truck,
+  MapPinned,
+  Users,
+  ShieldCheck,
+  BarChart3,
+  Bell,
+  PackageSearch,
   type LucideIcon,
 } from "lucide-react";
 
