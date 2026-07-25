@@ -2816,10 +2816,8 @@ export function StaffFinancePanel() {
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Payments</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          B2B credit limits / holds live on the{" "}
-          <Link href="/staff/crm/credit">customer credit desk</Link> (no
-          duplicate editor here). Store credit tender posts via existing payment
-          RPCs.
+          B2B credit limits / holds:{" "}
+          <Link href="/staff/crm/credit">customer credit desk</Link>.
         </p>
         {arAgingError ? (
           <p className={styles.muted} role="status">
