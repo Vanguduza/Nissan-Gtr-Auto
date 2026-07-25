@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Full-screen CameraX preview + ML Kit QR decode.
  * Returns [EXTRA_RAW_VALUE] / [EXTRA_SCANNED_AT] via setResult — no network.
  */
+@androidx.camera.core.ExperimentalGetImage
 class QrScanActivity : AppCompatActivity() {
 
     private val analysisExecutor = Executors.newSingleThreadExecutor()

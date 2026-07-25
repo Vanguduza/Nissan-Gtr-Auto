@@ -17,3 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "gtr-android-bridges"
 include(":location-tracker")
 project(":location-tracker").projectDir = file("location-tracker")
+include(":qr-scanner")
+project(":qr-scanner").projectDir = file("qr-scanner")
+include(":escpos-printer")
+project(":escpos-printer").projectDir = file("escpos-printer")
