@@ -205,7 +205,7 @@ export function CustomerChatPanel() {
         </p>
         <Link
           href={`/login?next=${encodeURIComponent("/account/chat")}`}
-          className={accountStyles.primaryBtn}
+          className={accountStyles.btn}
         >
           Sign in
         </Link>
