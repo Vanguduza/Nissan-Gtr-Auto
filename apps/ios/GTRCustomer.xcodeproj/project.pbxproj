@@ -56,7 +56,7 @@
 		A1000000000000000000002B /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000002D /* CompareScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000002F /* ReviewsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewsScreen.swift; sourceTree = "<group>"; };
-		A10000000000000000000031 /* GuestCompareStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GuestCompareStore.swift; path = ../Sources/GTRCustomerCore/GuestCompareStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000051 /* GuestCompareStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GuestCompareStore.swift; path = ../Sources/GTRCustomerCore/GuestCompareStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000025 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Shared.xcconfig; path = Config/Shared.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -129,7 +129,7 @@
 				A1000000000000000000001F /* GoTrueAuthClient.swift */,
 				A10000000000000000000021 /* AuthTokenStore.swift */,
 				A10000000000000000000017 /* StorefrontFormat.swift */,
-				A10000000000000000000031 /* GuestCompareStore.swift */,
+				A10000000000000000000051 /* GuestCompareStore.swift */,
 			);
 			name = Core;
 			sourceTree = "<group>";
@@ -223,7 +223,7 @@
 				A1000000000000000000002A /* WishlistScreen.swift in Sources */,
 				A1000000000000000000002C /* CompareScreen.swift in Sources */,
 				A1000000000000000000002E /* ReviewsScreen.swift in Sources */,
-				A10000000000000000000030 /* GuestCompareStore.swift in Sources */,
+				A10000000000000000000050 /* GuestCompareStore.swift in Sources */,
 				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
