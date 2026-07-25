@@ -46,7 +46,7 @@ Make staff live delivery tracking first-class on the web hub/nav (role-filtered)
 
 Parity plan owns role-filtered nav + gates. This plan **extends** that shell: Live map stays in matrix (`admin`/`warehouse`/`dispatcher`); hub card visibility matches. If parity lands first, only add hub card + UX harden; if this lands first, declare required roles on the Live map nav item in the same shape parity will use.
 
-**Landed first:** introduced `apps/web/lib/staff-auth.ts` (`fetchMyStaffRoles`, `hasAnyStaffRole`, `STAFF_MODULE_ROLES`, `rpcHasStaffRole`). Parity should **reuse** this — do not invent a second helper.
+**Coordination:** Reuses parity `apps/web/lib/staff-auth.ts` (`STAFF_NAV_ITEMS`, `filterNavForRoles`, `loadStaffContext`, `canAccessPath`, plus `STAFF_MODULE_ROLES` / `hasAnyStaffRole` aliases). Do not invent a second auth helper.
 
 ## Demo steps
 

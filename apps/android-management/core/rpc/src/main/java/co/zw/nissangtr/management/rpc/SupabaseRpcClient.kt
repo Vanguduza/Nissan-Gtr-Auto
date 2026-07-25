@@ -582,3 +582,10 @@ private data class PickListRow(
     @SerialName("sales_invoice_id") val salesInvoiceId: String,
     val status: String,
 )
+
+@Serializable
+private data class StockItemRow(
+    val id: String,
+    @SerialName("base_uom_id") val baseUomId: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+)
