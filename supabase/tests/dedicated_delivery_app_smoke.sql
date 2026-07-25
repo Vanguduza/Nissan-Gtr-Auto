@@ -43,7 +43,7 @@ DECLARE
   v_job2 UUID;
   v_loc UUID;
   v_token TEXT;
-  v_otp TEXT;
+  v_dispatch JSONB;
   v_track RECORD;
   v_cnt INT;
   v_suggest_cnt INT;
@@ -156,25 +156,9 @@ BEGIN
     v_dn, NULL, now() + interval '1 hour', 'delivery app smoke'
   );
 
-  UPDATE public.delivery_jobs
-  SET
-    pickup_lat = -17.8250,
-    pickup_lng = 31.0330,
-    dropoff_lat = -17.8400,
-    dropoff_lng = 31.0500
-  WHERE id = v_job;
-  -- Direct UPDATE blocked by mutation guard — use logistics GUC via RPC path.
-  -- Set coords through a one-shot definer helper inline:
-  PERFORM set_config('app.logistics_rpc', '1', true);
-  UPDATE public.delivery_jobs
-  SET
-    pickup_lat = -17.8250,
-    pickup_lng = 31.0330,
-    dropoff_lat = -17.8400,
-    dropoff_lng = 31.0500,
-    updated_at = now()
-  WHERE id = v_job;
-  PERFORM set_config('app.logistics_rpc', '0', true);
+  PERFORM public.set_delivery_job_geo(
+    v_job, -17.8250, 31.0330, -17.8400, 31.0500
+  );
 
   -- -----------------------------------------------------------------------
   -- Presence + suggest + assign

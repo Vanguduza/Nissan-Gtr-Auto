@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Orders list + detail — detail uses `get_customer_order`.
+/// Active dispatch offers last-point track via `get_delivery_track_point`.
 struct OrdersScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     @State private var orders: [CustomerOrder] = []
@@ -23,8 +24,17 @@ struct OrdersScreen: View {
                         Text("\(order.status) · \(StorefrontFormat.money(order.total, currency: order.currency))")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Text(StorefrontFormat.fulfillment(order.fulfillmentMode))
-                            .font(.caption)
+                        HStack(spacing: 6) {
+                            Text(StorefrontFormat.fulfillment(order.fulfillmentMode))
+                                .font(.caption)
+                            if order.activeDeliveryJobId != nil {
+                                Text("Live track")
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(.tint.opacity(0.15), in: Capsule())
+                            }
+                        }
                     }
                 }
             }
@@ -59,6 +69,8 @@ struct OrderDetailScreen: View {
     let invoiceId: UUID
     @State private var order: CustomerOrder?
     @State private var status: String?
+    @State private var trackToken = ""
+    @State private var tokenNavActive = false
 
     var body: some View {
         List {
@@ -78,6 +90,50 @@ struct OrderDetailScreen: View {
                 if let dn = order.deliveryNoteStatus {
                     LabeledContent("Delivery note", value: dn)
                 }
+
+                if order.offersLiveDeliveryTrack {
+                    Section("Live delivery") {
+                        Text(
+                            "Last point + ETA while out for delivery. No historical GPS trail."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                        if let jobId = order.activeDeliveryJobId {
+                            NavigationLink {
+                                DeliveryTrackScreen(ref: .job(jobId))
+                            } label: {
+                                Label("Track active delivery", systemImage: "location.fill")
+                            }
+                        }
+
+                        TextField("Share track token", text: $trackToken)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .font(.body.monospaced())
+
+                        NavigationLink(isActive: $tokenNavActive) {
+                            DeliveryTrackScreen(
+                                ref: .token(trackToken.trimmingCharacters(in: .whitespacesAndNewlines))
+                            )
+                        } label: {
+                            EmptyView()
+                        }
+                        .frame(width: 0, height: 0)
+                        .hidden()
+
+                        Button("Track with token") {
+                            let trimmed = trackToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard trimmed.count >= 8 else {
+                                status = "Enter a valid track token (from your out-for-delivery message)."
+                                return
+                            }
+                            status = nil
+                            tokenNavActive = true
+                        }
+                    }
+                }
+
                 Section("Invoice id") {
                     Text(order.invoiceId.uuidString)
                         .font(.caption.monospaced())
@@ -87,6 +143,14 @@ struct OrderDetailScreen: View {
                 Text(status).foregroundStyle(.secondary)
             } else {
                 ProgressView()
+            }
+
+            if let status, order != nil {
+                Section {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .navigationTitle("Order")
