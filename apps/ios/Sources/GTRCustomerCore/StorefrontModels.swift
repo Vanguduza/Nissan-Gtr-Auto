@@ -169,7 +169,7 @@ public struct DeliveryTrackPoint: Sendable, Equatable, Identifiable {
 }
 
 /// How to call `get_delivery_track_point` — job id (owner JWT) and/or share token.
-public enum DeliveryTrackRef: Sendable, Equatable, Identifiable {
+public enum DeliveryTrackRef: Sendable, Equatable, Hashable, Identifiable {
     case job(UUID)
     case token(String)
 

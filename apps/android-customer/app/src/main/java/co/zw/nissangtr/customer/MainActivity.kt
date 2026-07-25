@@ -1,5 +1,3 @@
-package co.zw.nissangtr.customer
-
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -16,7 +14,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +52,12 @@ private enum class CustomerRoute {
     Track,
 }
 
+private data class TrackLaunchArgs(
+    val token: String? = null,
+    val jobId: String? = null,
+    val seq: Int = 0,
+)
+
 /**
  * Customer shell. Feature screens are thin scaffolds over [RpcClient]
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
@@ -61,11 +67,11 @@ private enum class CustomerRoute {
  * Deep link / extras for privacy-safe track (last point + ETA only):
  * - Intent extras: `track_token`, `track_job_id`
  * - Custom: `gtrcustomer://track/{token}`
- * - HTTPS (optional host): `https://…/track/{token}` (same path as web SMS)
+ * - HTTPS path: `https://…/track/{token}` (same path as web SMS)
  */
 class MainActivity : ComponentActivity() {
-    private var pendingTrackToken by mutableStateOf<String?>(null)
-    private var pendingTrackJobId by mutableStateOf<String?>(null)
+    private val trackLaunch = mutableStateOf(TrackLaunchArgs())
+    private var trackSeq = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,14 +100,14 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
+                        val launch by trackLaunch
                         CustomerApp(
                             rpc = rpc,
                             liveRpc = live,
                             signedInEmail = email,
                             onSignOut = onSignOut,
                             whatsappE164 = BuildConfig.WHATSAPP_E164,
-                            initialTrackToken = pendingTrackToken,
-                            initialTrackJobId = pendingTrackJobId,
+                            trackLaunch = launch,
                         )
                     }
                 }
@@ -119,8 +125,11 @@ class MainActivity : ComponentActivity() {
         if (intent == null) return
         val fromExtra = intent.getStringExtra(EXTRA_TRACK_TOKEN)?.trim()?.takeIf { it.isNotEmpty() }
         val fromUri = parseTrackToken(intent.data)
-        pendingTrackToken = fromExtra ?: fromUri
-        pendingTrackJobId = intent.getStringExtra(EXTRA_TRACK_JOB_ID)?.trim()?.takeIf { it.isNotEmpty() }
+        val token = fromExtra ?: fromUri
+        val jobId = intent.getStringExtra(EXTRA_TRACK_JOB_ID)?.trim()?.takeIf { it.isNotEmpty() }
+        if (token == null && jobId == null) return
+        trackSeq += 1
+        trackLaunch.value = TrackLaunchArgs(token = token, jobId = jobId, seq = trackSeq)
     }
 
     companion object {
@@ -130,7 +139,7 @@ class MainActivity : ComponentActivity() {
         /** Parse `/track/{token}` from https or `gtrcustomer://track/{token}`. */
         fun parseTrackToken(uri: Uri?): String? {
             if (uri == null) return null
-            val segments = uri.pathSegments
+            val segments = uri.pathSegments.orEmpty()
             when {
                 // gtrcustomer://track/{token} → host=track, path=/{token}
                 uri.scheme.equals("gtrcustomer", ignoreCase = true) &&
@@ -139,11 +148,9 @@ class MainActivity : ComponentActivity() {
                     return token?.trim()?.takeIf { it.length >= 8 }
                 }
                 // https://host/track/{token}
-                segments.size >= 2 && segments[segments.size - 2].equals("track", ignoreCase = true) -> {
+                segments.size >= 2 &&
+                    segments[segments.size - 2].equals("track", ignoreCase = true) -> {
                     return segments.last().trim().takeIf { it.length >= 8 }
-                }
-                segments.size == 1 && uri.path?.startsWith("/track/") == true -> {
-                    return segments[0].trim().takeIf { it.length >= 8 }
                 }
             }
             return null
@@ -158,31 +165,38 @@ private fun CustomerApp(
     signedInEmail: String?,
     onSignOut: () -> Unit,
     whatsappE164: String,
-    initialTrackToken: String? = null,
-    initialTrackJobId: String? = null,
+    trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
 ) {
-    var route by remember {
-        mutableStateOf(
-            if (initialTrackToken != null || initialTrackJobId != null) {
-                CustomerRoute.Track
-            } else {
-                CustomerRoute.Home
-            },
-        )
-    }
-    var trackToken by remember { mutableStateOf(initialTrackToken) }
-    var trackJobId by remember { mutableStateOf(initialTrackJobId) }
+    var route by remember { mutableStateOf(CustomerRoute.Home) }
+    var trackToken by remember { mutableStateOf<String?>(null) }
+    var trackJobId by remember { mutableStateOf<String?>(null) }
     var trackReturn by remember { mutableStateOf(CustomerRoute.Home) }
+    var lastLaunchSeq by remember { mutableIntStateOf(0) }
 
     fun openTrack(
         jobId: String?,
         token: String?,
         from: CustomerRoute = CustomerRoute.Home,
+        resetFake: Boolean = false,
     ) {
+        if (resetFake && rpc is FakeRpcClient) {
+            rpc.resetFakeTrackPoint()
+        }
         trackJobId = jobId
         trackToken = token
         trackReturn = from
         route = CustomerRoute.Track
+    }
+
+    LaunchedEffect(trackLaunch.seq) {
+        if (trackLaunch.seq == 0 || trackLaunch.seq == lastLaunchSeq) return@LaunchedEffect
+        lastLaunchSeq = trackLaunch.seq
+        openTrack(
+            jobId = trackLaunch.jobId,
+            token = trackLaunch.token,
+            from = CustomerRoute.Home,
+            resetFake = !liveRpc && trackLaunch.token == FakeRpcClient.SEED_TRACK_TOKEN,
+        )
     }
 
     when (route) {
@@ -200,6 +214,7 @@ private fun CustomerApp(
                     jobId = if (!liveRpc) FakeRpcClient.SEED_ACTIVE_JOB_ID else null,
                     token = if (!liveRpc) FakeRpcClient.SEED_TRACK_TOKEN else null,
                     from = CustomerRoute.Home,
+                    resetFake = !liveRpc,
                 )
             },
         )
@@ -211,7 +226,12 @@ private fun CustomerApp(
             rpc = rpc,
             onBack = { route = CustomerRoute.Home },
             onTrackDelivery = { jobId, token ->
-                openTrack(jobId = jobId, token = token, from = CustomerRoute.Orders)
+                openTrack(
+                    jobId = jobId,
+                    token = token,
+                    from = CustomerRoute.Orders,
+                    resetFake = !liveRpc && jobId == FakeRpcClient.SEED_ACTIVE_JOB_ID,
+                )
             },
         )
         CustomerRoute.Garage -> GarageScreen(

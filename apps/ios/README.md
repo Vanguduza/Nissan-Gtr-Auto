@@ -111,8 +111,9 @@ Delivery track: migration `…110000_dedicated_delivery_app.sql`, ADR [`docs/dec
 
 - RPC only: `get_delivery_track_point` (job ownership JWT **or** share token; anon allowed for token).
 - UI shows **last point + ETA** on a MapKit single annotation — no polyline, no historical trail, no WebView/HTML5 geo.
+- **15s poll** while active; when RPC returns empty after a live point (job terminal / token expired), map clears and polling stops (no stalking).
 - Reachable from **Order detail** when `get_customer_order` returns `active_delivery_job_id` (NavigationLink → job-id track), plus share-token paste and deep link `gtr-customer://track?token=…` / `?job=<uuid>`.
-- Fake seeds a job id + `demo-track-token` for Simulator demos.
+- Fake seeds a job id + `demo-track-token` for Simulator demos (coords nudge each poll).
 
 ### Chat Realtime gap
 
