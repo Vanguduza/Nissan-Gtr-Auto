@@ -166,13 +166,13 @@ BEGIN
   -- -----------------------------------------------------------------------
   PERFORM public._test_set_auth_uid(v_driver);
   PERFORM public.set_driver_presence(
-    'available', 2, now() - interval '1 hour', now() + interval '8 hours',
+    'available', 10, now() - interval '1 hour', now() + interval '8 hours',
     -17.8260, 31.0340
   );
 
   PERFORM public._test_set_auth_uid(v_driver2);
   PERFORM public.set_driver_presence(
-    'available', 1, now() - interval '1 hour', now() + interval '8 hours',
+    'available', 10, now() - interval '1 hour', now() + interval '8 hours',
     -17.9000, 31.1000
   );
 
