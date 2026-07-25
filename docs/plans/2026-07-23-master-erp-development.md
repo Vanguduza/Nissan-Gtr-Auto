@@ -434,29 +434,25 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 
 ## Immediate handoff
 
-**Master plan status:** Active follow-on epic — [`2026-07-25-cross-platform-shop-ops-gaps.md`](./2026-07-25-cross-platform-shop-ops-gaps.md) (**Ready for implementation**). Prior web-minimum audit wave **Done** — [`2026-07-25-audit-followons-no-secrets.md`](./2026-07-25-audit-followons-no-secrets.md). DB through at least `20260725182000` (apply locally if behind). **No commits** unless user asks.
+**Master plan status:** Cross-platform shop/ops epic **Done** — [`2026-07-25-cross-platform-shop-ops-gaps.md`](./2026-07-25-cross-platform-shop-ops-gaps.md) (verified 2026-07-25). Prior web-minimum audit wave **Done** — [`2026-07-25-audit-followons-no-secrets.md`](./2026-07-25-audit-followons-no-secrets.md). DB shop-ops through at least `20260725221000` (apply/`db reset` locally if behind). **No commits** unless user asks.
 
-**Active epic** (cross-platform shop/ops gaps — all platforms)
-Process: Plan → `@backend_agent` → `@web_agent` → `@ios_agent` → `@android_agent` → `@management_app_agent` → `/security-reviewer` → `/verifier`. Covers: mobile wishlist/compare/reviews; move-to-cart + back-in-stock outbox; server compare + matrix; staff review moderation + aggregates/photos; supplier blankets + expiry alerts; management bins/consignment/blankets + ESC/POS bin labels + pick-path; diagram seed expand; staff B2B credit set/hold; POS named-customer + staff nav CRM polish.
+**Done — shop/ops epic** (web + iOS + Android customer + Android management)
+Wishlist/compare/reviews (mobile + Fake); move-to-cart + back-in-stock outbox; server compare + web matrix; staff review moderation + aggregates/`review-photos`; supplier blankets + expiry alerts; management bins/consignment/blankets + ESC/POS text bin labels + pick-path; X-Trail diagram seed; `set_customer_credit` + staff/management credit UI; POS named-customer + CRM nav. Smoke: `wishlist_reviews_navara_diagrams_smoke` OK.
 
-**Done prior wave** (audit follow-ons, web-minimum)
-1. **Wishlist** — web list/add/remove on existing RPCs
-2. **Compare** — localStorage + live catalog (no DB table yet)
-3. **Reviews** — web account + PDP; moderation RPC exists, **no** staff UI yet
-4. **Blanket / bins / consignment** — staff web only
-5. **Diagrams** — Navara seed + `seed_catalog_diagrams.mjs --docker`
-6. **B2B credit** — customer-facing read on `/b2b` (staff set/hold still gap)
-7. **iOS chat** harden; staff finance/POS label polish; garage reminders skipped
+**Epic residuals** (optional polish — not secrets)
+- Native assemble on JDK 17+ / Xcode hosts
+- Optional bin-label inventory-QR glyph (ESC/POS text labels Live)
+- iOS review photos: PhotosPicker today; camera bridge later if needed
 
 **Prior wave** (still Live): GPS/MapLibre; ContiPay/Paynow Edge (fail-closed); receipts/SMS/WhatsApp bot; staff POS/warehouse; Android bridges; finance deepen; warranty/returns; AI analytics.
 
-**Still follow-on** (ops / secrets — parallel, do not block epic)
+**Still follow-on** (ops / secrets only)
 1. **User: set Edge/local secrets** — ContiPay, Paynow, WhatsApp Cloud, SMS gateway, email/Resend, `WORKER_SHARED_SECRET`, map tiles (`NEXT_PUBLIC_MAP_STYLE_URL`)
 2. Confirm ContiPay webhook header name with merchant; deploy Edge functions
-3. Full catalog diagram scrape/upload (epic expands seed fixtures only)
-4. Native assemble on JDK 17 / Xcode hosts; iOS Realtime if supabase-swift adopted later
+3. Full catalog diagram scrape/upload (seed fixtures only — Navara + X-Trail)
+4. iOS Realtime if supabase-swift adopted later
 
-**In progress:** Cross-platform shop/ops gaps epic (start `@backend_agent`).
+**In progress:** None for shop/ops — pick next phase from master roadmap or secrets/ops above.
 
 **Blockers / notes**
 - Never set `*_ALLOW_UNVERIFIED_LOCAL=1` / `WORKER_ALLOW_UNVERIFIED_LOCAL=1` / `WHATSAPP_ALLOW_UNVERIFIED_LOCAL=1` on production Edge
