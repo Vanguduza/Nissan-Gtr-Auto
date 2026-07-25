@@ -2122,7 +2122,367 @@ export function StaffFinancePanel() {
         ) : (
           <p className={styles.muted}>No posted journals to reverse yet.</p>
         )}
+
+        <p className={styles.muted} style={{ margin: "1.25rem 0 0.5rem" }}>
+          Account register (statement view)
+        </p>
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            Account
+            <select
+              value={journalRegisterAccount}
+              onChange={(e) => setJournalRegisterAccount(e.target.value)}
+              disabled={busy}
+            >
+              <option value="">Select account…</option>
+              {boot.accounts.map((a) => (
+                <option key={`reg-${a.code}`} value={a.code}>
+                  {a.code} — {a.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            From
+            <input
+              type="date"
+              value={registerFrom}
+              onChange={(e) => setRegisterFrom(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <label className={styles.field}>
+            To
+            <input
+              type="date"
+              value={registerTo}
+              onChange={(e) => setRegisterTo(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <label className={styles.field}>
+            Currency
+            <select
+              value={registerCurrency}
+              onChange={(e) =>
+                setRegisterCurrency(e.target.value as CurrencyCode)
+              }
+              disabled={busy}
+            >
+              <option value="USD">USD</option>
+              <option value="ZIG">ZIG</option>
+            </select>
+          </label>
+        </div>
+        <div className={styles.formActions}>
+          <button
+            type="button"
+            className={styles.btnGhost}
+            disabled={busy || !journalRegisterAccount}
+            onClick={() => void onLoadJournalRegister()}
+          >
+            Load register
+          </button>
+        </div>
+        {journalRegisterRows.length ? (
+          <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Debit</th>
+                  <th>Credit</th>
+                  <th>Balance</th>
+                  <th>Currency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {journalRegisterRows.map((r) => (
+                  <tr key={r.journal_entry_id}>
+                    <td>{r.entry_date}</td>
+                    <td>
+                      {r.document_number ? `${r.document_number} · ` : ""}
+                      {r.description?.trim() || "—"}
+                    </td>
+                    <td>{Number(r.debit).toFixed(2)}</td>
+                    <td>{Number(r.credit).toFixed(2)}</td>
+                    <td>{Number(r.running_balance).toFixed(2)}</td>
+                    <td>{r.currency}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </fieldset>
+      ) : null}
+
+      {tab === "requisitions" ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Finance requisitions</legend>
+          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+            Petty cash and payment requests: draft → submit → finance approve →
+            disburse (posts JE). Cannot skip approval. Procurement PO approval
+            is a separate epic — see{" "}
+            <Link href="/procurement">procurement</Link> for PO submit only.
+          </p>
+          <form onSubmit={(e) => void onCreateRequisition(e)}>
+            <div className={styles.formGrid}>
+              <label className={styles.field}>
+                Type
+                <select
+                  value={reqType}
+                  onChange={(e) =>
+                    setReqType(e.target.value as FinanceRequisitionType)
+                  }
+                  disabled={busy}
+                >
+                  <option value="petty_cash">Petty cash (1110)</option>
+                  <option value="payment">Payment (bank 1100)</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                Currency
+                <select
+                  value={reqCurrency}
+                  onChange={(e) => {
+                    const c = e.target.value as CurrencyCode;
+                    setReqCurrency(c);
+                    if (c === "ZIG") setReqRate(officialRate);
+                  }}
+                  disabled={busy}
+                >
+                  <option value="USD">USD</option>
+                  <option value="ZIG">ZIG</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                Amount ({reqCurrency})
+                <input
+                  value={reqAmount}
+                  onChange={(e) => setReqAmount(e.target.value)}
+                  disabled={busy}
+                  inputMode="decimal"
+                />
+              </label>
+              {reqCurrency === "ZIG" ? (
+                <label className={styles.field}>
+                  ZiG exchange rate
+                  <input
+                    value={reqRate}
+                    onChange={(e) => setReqRate(e.target.value)}
+                    disabled={busy}
+                    inputMode="decimal"
+                  />
+                </label>
+              ) : null}
+              <label className={styles.field}>
+                Expense account
+                <select
+                  value={reqExpenseAccount}
+                  onChange={(e) => setReqExpenseAccount(e.target.value)}
+                  disabled={busy}
+                >
+                  {boot.accounts.map((a) => (
+                    <option key={`req-exp-${a.code}`} value={a.code}>
+                      {a.code} — {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.field}>
+                Payee
+                <input
+                  value={reqPayee}
+                  onChange={(e) => setReqPayee(e.target.value)}
+                  disabled={busy}
+                  placeholder="Optional"
+                />
+              </label>
+              <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+                Memo
+                <input
+                  value={reqMemo}
+                  onChange={(e) => setReqMemo(e.target.value)}
+                  disabled={busy}
+                  placeholder="What is this for?"
+                />
+              </label>
+            </div>
+            <div className={styles.formActions}>
+              <button type="submit" className={styles.btnGhost} disabled={busy}>
+                Create draft
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() => void loadRequisitions()}
+              >
+                Refresh
+              </button>
+            </div>
+          </form>
+
+          <label className={styles.field} style={{ marginTop: "1rem" }}>
+            Reject reason (for reject action)
+            <input
+              value={reqRejectReason}
+              onChange={(e) => setReqRejectReason(e.target.value)}
+              disabled={busy}
+              placeholder="Required when rejecting"
+            />
+          </label>
+
+          {requisitions.length === 0 ? (
+            <p className={styles.muted} style={{ marginTop: "0.75rem" }}>
+              No requisitions yet.
+            </p>
+          ) : (
+            <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Doc</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Amount</th>
+                    <th>Payee / memo</th>
+                    <th>Accounts</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requisitions.map((r) => (
+                    <tr key={r.id}>
+                      <td>
+                        {r.document_number ?? r.id.slice(0, 8)}
+                      </td>
+                      <td>{r.req_type}</td>
+                      <td>{r.status}</td>
+                      <td>
+                        {Number(r.amount).toFixed(2)} {r.currency}
+                        {r.currency === "ZIG" &&
+                        r.exchange_rate_applied != null
+                          ? ` @ ${r.exchange_rate_applied}`
+                          : ""}
+                      </td>
+                      <td>
+                        {r.payee || "—"}
+                        {r.memo ? ` · ${r.memo}` : ""}
+                        {r.rejection_reason
+                          ? ` · reject: ${r.rejection_reason}`
+                          : ""}
+                      </td>
+                      <td>
+                        Dr {r.expense_account_code} / Cr {r.cash_account_code}
+                      </td>
+                      <td>
+                        <div
+                          className={styles.formActions}
+                          style={{ flexWrap: "wrap", margin: 0 }}
+                        >
+                          {r.status === "draft" ? (
+                            <>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={busy}
+                                onClick={() => void onReqAction("submit", r.id)}
+                              >
+                                Submit
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={busy}
+                                onClick={() => void onReqAction("cancel", r.id)}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : null}
+                          {r.status === "submitted" ? (
+                            <>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={busy}
+                                onClick={() =>
+                                  void onReqAction("approve", r.id)
+                                }
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={busy || !reqRejectReason.trim()}
+                                onClick={() =>
+                                  void onReqAction("reject", r.id)
+                                }
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={busy}
+                                onClick={() => void onReqAction("cancel", r.id)}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : null}
+                          {r.status === "approved" ? (
+                            <>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={busy}
+                                onClick={() =>
+                                  void onReqAction("disburse", r.id)
+                                }
+                              >
+                                Disburse
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={busy || !reqRejectReason.trim()}
+                                onClick={() =>
+                                  void onReqAction("reject", r.id)
+                                }
+                              >
+                                Reject
+                              </button>
+                            </>
+                          ) : null}
+                          {r.status === "rejected" ? (
+                            <button
+                              type="button"
+                              className={styles.btnGhost}
+                              disabled={busy}
+                              onClick={() => void onReqAction("cancel", r.id)}
+                            >
+                              Cancel
+                            </button>
+                          ) : null}
+                          {r.status === "disbursed" && r.journal_entry_id ? (
+                            <span className={styles.muted}>
+                              JE {r.journal_entry_id.slice(0, 8)}…
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </fieldset>
       ) : null}
 
       {tab === "reports" ? (
