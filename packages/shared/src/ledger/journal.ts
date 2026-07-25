@@ -1,5 +1,5 @@
-import type { CurrencyCode, Money } from "../money.js";
-import { assertCurrency } from "../money.js";
+import type { CurrencyCode, Money } from "../money";
+import { assertCurrency } from "../money";
 
 export interface JournalLineInput {
   accountCode: string;
