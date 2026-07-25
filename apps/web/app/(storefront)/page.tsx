@@ -183,7 +183,6 @@ export default function HomePage() {
                     </td>
                     <td>{p.name}</td>
                     <td className={styles.moneyUsd}>{p.usd}</td>
-                    <td className={styles.moneyZig}>{p.zig}</td>
                     <td>
                       <Link
                         href={`/parts/${encodeURIComponent(p.sku)}`}
