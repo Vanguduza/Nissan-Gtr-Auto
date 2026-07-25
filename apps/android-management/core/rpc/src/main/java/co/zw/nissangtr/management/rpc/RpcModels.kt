@@ -86,3 +86,10 @@ data class ReconciliationLineInput(
     val stockItemId: String,
     val countedQty: Double,
 )
+
+/** Result of [RpcClient.lookupStockItemByOem] after Bridge-First QR parse. */
+data class StockItemRef(
+    val stockItemId: String,
+    val uomId: String,
+    val oemPartNumber: String,
+)

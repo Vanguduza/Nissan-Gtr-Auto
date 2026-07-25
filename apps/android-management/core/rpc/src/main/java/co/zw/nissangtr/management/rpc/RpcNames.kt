@@ -9,9 +9,10 @@ object RpcNames {
     // Phase 9 HR (gross payroll only — no PAYE/NSSA UI)
     const val CLOCK_ATTENDANCE = "clock_attendance"
 
-    // Phase 5 POS (typed OEM/UUID lines — no browser QR; Bridge-First for QR later)
+    // Phase 5 POS (typed OEM/UUID lines — Bridge-First QR via add_cart_line_from_qr)
     const val CREATE_POS_CART = "create_pos_cart"
     const val ADD_CART_LINE = "add_cart_line"
+    const val ADD_CART_LINE_FROM_QR = "add_cart_line_from_qr"
     const val CHECKOUT_POS_CART = "checkout_pos_cart"
 
     // Phase 4 inventory / warehouse
