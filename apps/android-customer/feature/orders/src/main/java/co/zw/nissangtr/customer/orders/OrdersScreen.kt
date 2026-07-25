@@ -18,16 +18,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import co.zw.nissangtr.customer.rpc.CustomerOrder
+import co.zw.nissangtr.customer.rpc.FakeRpcClient
+import co.zw.nissangtr.customer.rpc.FulfillmentMode
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
 
 /**
  * Thin orders scaffold: list own invoices + [RpcNames.GET_CUSTOMER_ORDER].
+ * Active dispatch orders can open last-point track (no GPS trail).
  */
 @Composable
 fun OrdersScreen(
     rpc: RpcClient,
     onBack: () -> Unit,
+    onTrackDelivery: (jobId: String?, token: String?) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     viewModel: OrdersViewModel = viewModel(factory = OrdersViewModel.factory(rpc)),
 ) {
@@ -80,9 +85,41 @@ fun OrdersScreen(
                     "pick=${o.pickListStatus ?: "—"} dn=${o.deliveryNoteStatus ?: "—"}",
                 style = MaterialTheme.typography.bodySmall,
             )
+            if (o.suggestsActiveDeliveryTrack()) {
+                val fakeJob = FakeRpcClient.activeJobIdForInvoice(o.invoiceId)
+                Text(
+                    "Delivery may be active — track shows last point + ETA only (no trail).",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedButton(
+                    onClick = {
+                        onTrackDelivery(
+                            fakeJob,
+                            if (fakeJob != null) FakeRpcClient.SEED_TRACK_TOKEN else null,
+                        )
+                    },
+                    enabled = !state.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Track delivery") }
+            }
         }
+
+        OutlinedButton(
+            onClick = { onTrackDelivery(null, null) },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Track with share token") }
+
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         OutlinedButton(onClick = onBack) { Text("Back") }
     }
 }
+
+/**
+ * Heuristic until `get_customer_order` returns `delivery_job_id`.
+ * Dispatch fulfillment or a submitted DN means track UI is worth offering;
+ * the RPC still returns empty unless the job is `dispatched`.
+ */
+private fun CustomerOrder.suggestsActiveDeliveryTrack(): Boolean =
+    fulfillmentMode == FulfillmentMode.DISPATCH ||
+        !deliveryNoteStatus.isNullOrBlank()

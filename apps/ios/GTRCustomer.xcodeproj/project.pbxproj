@@ -101,6 +101,7 @@
 				A1000000000000000000001B /* GarageScreen.swift */,
 				A1000000000000000000001C /* PayScreen.swift */,
 				A10000000000000000000027 /* ChatScreen.swift */,
+				A10000000000000000000029 /* DeliveryTrackScreen.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -205,6 +206,7 @@
 				A10000000000000000000023 /* AuthTokenStore.swift in Sources */,
 				A10000000000000000000024 /* SignInScreen.swift in Sources */,
 				A10000000000000000000026 /* ChatScreen.swift in Sources */,
+				A10000000000000000000028 /* DeliveryTrackScreen.swift in Sources */,
 				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
