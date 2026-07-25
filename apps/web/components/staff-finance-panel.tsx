@@ -188,6 +188,13 @@ export function StaffFinancePanel() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (boot.kind !== "ready" || !selectedStmtId) return;
+    const stmt = boot.statements.find((s) => s.id === selectedStmtId);
+    void loadStatementDetail(selectedStmtId, stmt?.account_code ?? stmtAccount);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when statement selection changes after boot
+  }, [boot.kind, selectedStmtId]);
+
   async function onCreateDraft(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
@@ -561,10 +568,7 @@ export function StaffFinancePanel() {
     setMessage(`Line ${res.data.slice(0, 8)}… added.`);
     setAddLineAmount("");
     setAddLineDesc("");
-    const stmt = boot.kind === "ready"
-      ? boot.statements.find((s) => s.id === selectedStmtId)
-      : undefined;
-    await loadStatementDetail(selectedStmtId, stmt?.account_code);
+    await loadStatementDetail(selectedStmtId, stmtAccount);
   }
 
   async function onMatchLine(e: FormEvent) {
@@ -586,10 +590,7 @@ export function StaffFinancePanel() {
       return;
     }
     setMessage(`Matched ${res.data.slice(0, 8)}…`);
-    const stmt = boot.kind === "ready"
-      ? boot.statements.find((s) => s.id === selectedStmtId)
-      : undefined;
-    await loadStatementDetail(selectedStmtId, stmt?.account_code);
+    await loadStatementDetail(selectedStmtId, stmtAccount);
   }
 
   async function onClearMatch(matchId: string) {
@@ -604,10 +605,7 @@ export function StaffFinancePanel() {
       return;
     }
     setMessage(`Cleared ${res.data} match(es).`);
-    const stmt = boot.kind === "ready"
-      ? boot.statements.find((s) => s.id === selectedStmtId)
-      : undefined;
-    await loadStatementDetail(selectedStmtId, stmt?.account_code);
+    await loadStatementDetail(selectedStmtId, stmtAccount);
   }
 
   if (boot.kind === "loading") {
