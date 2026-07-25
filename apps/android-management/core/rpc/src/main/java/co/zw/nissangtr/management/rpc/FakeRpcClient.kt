@@ -48,6 +48,18 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
  * - listStaffChatThreads / listChatMessages: PostgREST (not RPCs)
  * - listMyStaffRoles: PostgREST staff_roles
+ * - searchCustomers / listSuppliers / listBlanketPurchaseOrders / listWarehouseBins /
+ *   listConsignmentEntries / loadCustomerCredit: PostgREST
+ * - [RpcNames.CREATE_BLANKET_PURCHASE_ORDER]: p_supplier_id, p_warehouse_id, p_currency,
+ *   p_exchange_rate, p_blanket_max_value, p_lines, p_notes?, p_expected_date?
+ * - [RpcNames.SUBMIT_PURCHASE_ORDER]: p_purchase_order_id
+ * - [RpcNames.CREATE_BLANKET_RELEASE]: p_blanket_purchase_order_id, p_lines, p_notes?
+ * - [RpcNames.CREATE_WAREHOUSE_BIN] / [RpcNames.UPDATE_WAREHOUSE_BIN] /
+ *   [RpcNames.DEACTIVATE_WAREHOUSE_BIN] / [RpcNames.SET_STOCK_LEVEL_BIN]
+ * - [RpcNames.GET_PICK_PATH_HINTS]: p_warehouse_id, p_stock_item_ids?
+ * - [RpcNames.CREATE_CONSIGNMENT_ENTRY_DRAFT] / [RpcNames.ADD_CONSIGNMENT_ENTRY_LINE] /
+ *   [RpcNames.SUBMIT_CONSIGNMENT_ENTRY] / [RpcNames.CANCEL_CONSIGNMENT_ENTRY]
+ * - [RpcNames.SET_CUSTOMER_CREDIT]: p_customer_id, p_credit_limit?, p_credit_hold?
  */
 class FakeRpcClient : RpcClient {
     private val dnSeq = AtomicInteger(1)
