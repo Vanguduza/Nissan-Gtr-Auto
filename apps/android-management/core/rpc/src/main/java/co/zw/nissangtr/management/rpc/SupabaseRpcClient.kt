@@ -952,6 +952,12 @@ private data class TrackPointRow(
 }
 
 @Serializable
+private data class UpdateDeliveryJobStatusRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String,
+    @SerialName("track_token") val trackToken: String? = null,
+)
+
+@Serializable
 private data class PanicEventRow(
     val id: String,
     @SerialName("driver_user_id") val driverUserId: String,
