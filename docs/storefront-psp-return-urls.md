@@ -21,15 +21,17 @@ Absolute URLs are built from `window.location.origin` in the browser, else `NEXT
 
 1. Prefer `functions.invoke('contipay-initiate' | 'paynow-initiate')` with body fields:
    - `sales_invoice_id`, `method`
-   - `return_url`, `cancel_url` (Paynow also `result_url`)
+   - `return_url`, `cancel_url` (browser redirect only — never `result_url`)
    - `metadata` mirroring those URLs + `channel: storefront`
-2. If the edge response includes a non-null `checkout_url` (or Paynow `poll_url`), the cart / order UI **redirects** the browser there.
+2. If the edge response includes a non-null `checkout_url`, the cart / order UI **redirects** the browser there.
 3. Otherwise keep the intent-created message and stay on the order page.
 4. RPC fallback `create_customer_*_intent` stores the same URLs in `p_metadata` when edge is unavailable.
 
+**Webhook / settle URL:** Edge always registers `defaultWebhookUrl("contipay-webhook" | "paynow-webhook")` with the PSP. Clients must not send `result_url`; browser `return_url` / `cancel_url` are redirect-only. Paynow `poll_url` stays server-side (not returned in initiate JSON).
+
 ### Local stub `checkout_url` (secrets unset)
 
-With `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` and no merchant keys, initiate still creates the intent, merges redirect URLs into `p_metadata`, echoes `return_url` / `cancel_url` / `result_url` in the JSON response, and — when `return_url` is present — sets:
+With `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` and no merchant keys, initiate still creates the intent, merges redirect URLs into `p_metadata`, echoes `return_url` / `cancel_url` in the JSON response, and — when `return_url` is present — sets:
 
 `checkout_url = {return_url}&psp=contipay|paynow&stub=1&intent_id={uuid}`
 
@@ -37,7 +39,7 @@ With `CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1` / `PAYNOW_ALLOW_UNVERIFIED_LOCAL=1` and
 
 ### Real secrets present
 
-Edge calls ContiPay / Paynow APIs and returns the provider hosted `checkout_url` (Paynow also `poll_url`) with `stub: false`. ContiPay redirect initiate needs `phone` (or `metadata.phone` / `metadata.cell`) on the invoke body. Without secrets and without `*_ALLOW_UNVERIFIED_LOCAL=1`, initiate returns **503** (fail closed).
+Edge calls ContiPay / Paynow APIs and returns the provider hosted `checkout_url` with `stub: false`. ContiPay redirect initiate needs `phone` (or `metadata.phone` / `metadata.cell`) on the invoke body. Without secrets and without `*_ALLOW_UNVERIFIED_LOCAL=1`, initiate returns **503** (fail closed).
 
 Optional dedicated `return_url` column only if webhook reconciliation needs indexed lookup; metadata is enough for the storefront slice.
 
