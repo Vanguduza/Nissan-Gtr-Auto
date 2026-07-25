@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gtr_pod_signature_title">Customer signature</string>
+    <string name="gtr_pod_signature_hint">Sign in the box below</string>
+    <string name="gtr_pod_signature_clear">Clear</string>
+    <string name="gtr_pod_signature_confirm">Confirm</string>
+    <string name="gtr_pod_signature_cancel">Cancel</string>
+    <string name="gtr_pod_signature_empty">Please provide a signature</string>
+</resources>
