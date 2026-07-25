@@ -66,12 +66,15 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  SELECT DISTINCT o.document_id
-  FROM public.customer_receipt_outbox o
-  WHERE o.status IN ('pending', 'rendering', 'failed')
-    AND o.download_url IS NULL
-    AND o.attempt_count < 8
-  ORDER BY o.document_id
+  SELECT d.document_id
+  FROM (
+    SELECT DISTINCT o.document_id AS document_id
+    FROM public.customer_receipt_outbox o
+    WHERE o.status IN ('pending', 'rendering', 'failed')
+      AND o.download_url IS NULL
+      AND o.attempt_count < 8
+  ) d
+  ORDER BY d.document_id
   LIMIT GREATEST(1, COALESCE(p_limit, 20));
 END;
 $$;
