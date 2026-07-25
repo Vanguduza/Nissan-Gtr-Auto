@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { StaffNav } from "@/components/staff-nav";
 import { StaffBinsPanel } from "@/components/staff-bins-panel";
+import { StaffNav } from "@/components/staff-nav";
+import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
 import styles from "@/components/account.module.css";
 
 export const metadata = { title: "Staff · Bins" };
@@ -15,6 +16,7 @@ export default function StaffWarehouseBinsPage() {
           Create bins, deactivate, and set preferred stock-level bins.{" "}
           <Link href="/staff/warehouse">Warehouse hub</Link>.
         </p>
+        <StaffWarehouseTabs active="bins" />
         <StaffBinsPanel />
       </div>
     </div>
