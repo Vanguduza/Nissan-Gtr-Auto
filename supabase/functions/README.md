@@ -21,7 +21,7 @@ Caller JWT (staff or customer). Creates intent via RPC, then:
 
 | Secrets | Behaviour |
 |---------|-----------|
-| **Present** | Calls real PSP; returns hosted `checkout_url` (`stub: false`). Paynow also returns `poll_url`. |
+| **Present** | Calls real PSP; returns hosted `checkout_url` (`stub: false`). Always registers edge `defaultWebhookUrl` with PSP (never client `result_url`). Paynow `poll_url` stays server-side. |
 | **Absent** + `*_ALLOW_UNVERIFIED_LOCAL=1` | Local bounce URL only (`stub: true`) |
 | **Absent** otherwise | **503** with clear error — never fake success |
 
