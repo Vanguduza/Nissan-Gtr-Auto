@@ -421,7 +421,88 @@ class FakeRpcClient : RpcClient {
         return UUID.randomUUID().toString()
     }
 
+    override fun currentUserId(): String? = fakeStaffUserId
+
+    override suspend fun listMyStaffRoles(): List<String> =
+        listOf("admin", "sales")
+
+    override suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary> {
+        val uid = fakeStaffUserId
+        return chatThreads.filter { t ->
+            when (filter) {
+                StaffChatFilter.OPEN -> t.status == "open"
+                StaffChatFilter.MINE -> t.assignedTo == uid && t.status != "closed"
+                StaffChatFilter.CLOSED -> t.status == "closed"
+            }
+        }.sortedByDescending { it.lastMessageAt ?: it.createdAt }
+    }
+
+    override suspend fun listChatMessages(threadId: String): List<ChatMessageSummary> {
+        require(threadId.isNotBlank())
+        return chatMessages[threadId]?.toList().orEmpty()
+    }
+
+    override suspend fun claimChatThread(threadId: String) {
+        val idx = chatThreads.indexOfFirst { it.id == threadId }
+        require(idx >= 0) { "thread not found" }
+        val t = chatThreads[idx]
+        require(t.status != "closed") { "cannot claim closed thread" }
+        chatThreads[idx] = t.copy(
+            status = "assigned",
+            assignedTo = fakeStaffUserId,
+        )
+    }
+
+    override suspend fun closeChatThread(threadId: String) {
+        val idx = chatThreads.indexOfFirst { it.id == threadId }
+        require(idx >= 0) { "thread not found" }
+        chatThreads[idx] = chatThreads[idx].copy(status = "closed")
+    }
+
+    override suspend fun markChatThreadRead(threadId: String) {
+        require(threadId.isNotBlank())
+        chatUnread[threadId] = 0
+    }
+
+    override suspend fun postChatMessage(threadId: String, body: String): String {
+        require(threadId.isNotBlank())
+        val trimmed = body.trim()
+        require(trimmed.isNotEmpty()) { "message body required" }
+        val idx = chatThreads.indexOfFirst { it.id == threadId }
+        require(idx >= 0) { "thread not found" }
+        require(chatThreads[idx].status != "closed") { "thread closed" }
+        val id = UUID.randomUUID().toString()
+        val now = java.time.Instant.now().toString()
+        val list = chatMessages.getOrPut(threadId) { mutableListOf() }
+        list.add(
+            ChatMessageSummary(
+                id = id,
+                threadId = threadId,
+                senderUserId = fakeStaffUserId,
+                senderKind = "staff",
+                body = trimmed,
+                createdAt = now,
+            ),
+        )
+        chatThreads[idx] = chatThreads[idx].copy(lastMessageAt = now)
+        return id
+    }
+
+    override suspend fun chatUnreadCount(threadId: String?): Int {
+        return if (threadId.isNullOrBlank()) {
+            chatUnread.values.sum()
+        } else {
+            chatUnread[threadId] ?: 0
+        }
+    }
+
     companion object {
+        const val FAKE_STAFF_USER_ID = "00000000-0000-4000-8000-0000000000a1"
+        const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
+        private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
+        private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"
+        private const val CLOSED_THREAD_ID = "00000000-0000-4000-8000-0000000000t3"
+
         private val INVENTORY_QR_REGEX =
             Regex("""^gtr://part/([^?]+)\?batch=([^&]+)&valuation=(FIFO|AVG)$""")
     }
