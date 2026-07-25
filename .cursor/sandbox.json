@@ -19,8 +19,12 @@
       "plugins.gradle.org",
       "developer.apple.com",
       "contipay.co.zw",
+      "www.contipay.co.zw",
+      "api-v2.contipay.co.zw",
+      "api2-test.contipay.co.zw",
       "www.paynow.co.zw",
       "paynow.co.zw",
+      "staging.paynow.co.zw",
       "*.docker.io",
       "ghcr.io"
     ],
