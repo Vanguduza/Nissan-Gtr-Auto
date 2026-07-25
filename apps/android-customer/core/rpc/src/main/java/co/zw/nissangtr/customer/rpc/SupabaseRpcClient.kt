@@ -507,14 +507,8 @@ class SupabaseRpcClient(
     override suspend fun listApprovedReviews(oem: String): List<ProductReview> {
         val needle = oem.trim()
         if (needle.isEmpty()) return emptyList()
-        val item = client.from("stock_items")
-            .select(Columns.list("id")) {
-                filter { ilike("oem_part_number", needle) }
-                limit(1)
-            }
-            .decodeList<StockItemIdRow>()
-            .firstOrNull()
-            ?: return emptyList()
+        // Resolve OEM via DEFINER stats RPC (same as PDP), then SELECT approved rows.
+        val stats = getProductReviewStats(oem = needle) ?: return emptyList()
         return client.from("customer_product_reviews")
             .select(
                 Columns.raw(
@@ -523,7 +517,7 @@ class SupabaseRpcClient(
                 ),
             ) {
                 filter {
-                    eq("stock_item_id", item.id)
+                    eq("stock_item_id", stats.stockItemId)
                     eq("status", "approved")
                 }
                 order("created_at", Order.DESCENDING)

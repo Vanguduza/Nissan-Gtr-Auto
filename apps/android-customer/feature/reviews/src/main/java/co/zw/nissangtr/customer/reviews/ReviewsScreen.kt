@@ -63,7 +63,6 @@ fun ReviewsScreen(
                 copyUriToCache(context, uri)
             }
             if (copied == null) {
-                // ViewModel error path via attach would need a message; keep simple:
                 return@launch
             }
             viewModel.attachPhotoFromPath(copied.first, copied.second)
