@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { StaffNav } from "@/components/staff-nav";
 import {
+  StaffNav,
   staffNavIconForLeaf,
   staffNavIconForModule,
 } from "@/components/staff-nav";
