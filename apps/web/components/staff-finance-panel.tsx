@@ -2684,7 +2684,7 @@ function StaffFinancePanelInner() {
         </form>
 
         {pnlRows.length ? (
-          <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+          <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
             <table style={{ width: "100%", fontSize: "0.88rem" }}>
               <thead>
                 <tr>
@@ -2709,7 +2709,7 @@ function StaffFinancePanelInner() {
         ) : null}
 
         {bsRows.length ? (
-          <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+          <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
             <table style={{ width: "100%", fontSize: "0.88rem" }}>
               <thead>
                 <tr>
@@ -2734,7 +2734,7 @@ function StaffFinancePanelInner() {
         ) : null}
 
         {cfRows.length ? (
-          <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+          <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
             <table style={{ width: "100%", fontSize: "0.88rem" }}>
               <thead>
                 <tr>
@@ -2757,7 +2757,7 @@ function StaffFinancePanelInner() {
         ) : null}
 
         {tbRows.length ? (
-          <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
+          <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
             <table style={{ width: "100%", fontSize: "0.88rem" }}>
               <thead>
                 <tr>
