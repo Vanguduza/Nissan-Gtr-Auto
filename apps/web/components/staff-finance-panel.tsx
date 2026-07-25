@@ -1149,8 +1149,71 @@ export function StaffFinancePanel() {
             {ACCOUNT_TAB_CODES[tab].title}
           </legend>
           <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            Recent journal lines for this cash account. Post movements via the
-            Journals tab (debit/credit this code).
+            Quick journal templates create balanced drafts via{" "}
+            <code>create_journal_draft</code> (no till sessions). Amounts show
+            explicit <code>USD</code> | <code>ZIG</code>.
+          </p>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Entry date
+              <input
+                type="date"
+                value={quickDate}
+                onChange={(e) => setQuickDate(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              Currency
+              <select
+                value={quickCurrency}
+                onChange={(e) => {
+                  const c = e.target.value as CurrencyCode;
+                  setQuickCurrency(c);
+                  if (c === "ZIG") setQuickRate(defaultZigRate());
+                }}
+                disabled={busy}
+              >
+                <option value="USD">USD</option>
+                <option value="ZIG">ZIG</option>
+              </select>
+            </label>
+            <label className={styles.field}>
+              Amount ({quickCurrency})
+              <input
+                value={quickAmount}
+                onChange={(e) => setQuickAmount(e.target.value)}
+                disabled={busy}
+                inputMode="decimal"
+              />
+            </label>
+            {quickCurrency === "ZIG" ? (
+              <label className={styles.field}>
+                ZiG exchange rate
+                <input
+                  value={quickRate}
+                  onChange={(e) => setQuickRate(e.target.value)}
+                  disabled={busy}
+                  inputMode="decimal"
+                />
+              </label>
+            ) : null}
+          </div>
+          <div className={styles.formActions} style={{ flexWrap: "wrap" }}>
+            {quickOpsFor(ACCOUNT_TAB_CODES[tab].code).map((op) => (
+              <button
+                key={op.id}
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() => void onQuickOp(op)}
+              >
+                {op.label}
+              </button>
+            ))}
+          </div>
+          <p className={styles.muted} style={{ margin: "1rem 0 0.75rem" }}>
+            Recent journal lines for this cash account.
           </p>
           {accountLines.length === 0 ? (
             <p className={styles.muted}>No lines yet for this account.</p>
