@@ -24,3 +24,11 @@ include(":feature:garage")
 include(":feature:pay")
 include(":feature:chat")
 include(":feature:track")
+include(":feature:wishlist")
+include(":feature:compare")
+include(":feature:reviews")
+
+// Bridge-First — review photo camera (consume only; impl under bridges/)
+include(":pod-camera")
+project(":pod-camera").projectDir =
+    file("../../bridges/android/pod-camera")
