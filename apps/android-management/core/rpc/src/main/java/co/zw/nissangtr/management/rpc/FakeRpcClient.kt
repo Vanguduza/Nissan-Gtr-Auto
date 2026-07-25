@@ -60,6 +60,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_CONSIGNMENT_ENTRY_DRAFT] / [RpcNames.ADD_CONSIGNMENT_ENTRY_LINE] /
  *   [RpcNames.SUBMIT_CONSIGNMENT_ENTRY] / [RpcNames.CANCEL_CONSIGNMENT_ENTRY]
  * - [RpcNames.SET_CUSTOMER_CREDIT]: p_customer_id, p_credit_limit?, p_credit_hold?
+ * - [RpcNames.LIST_FLEET_VEHICLES]: p_status?
+ * - [RpcNames.UPSERT_FLEET_VEHICLE]: p_plate, p_label?, p_status?, p_assigned_driver_user_id?,
+ *   p_notes?, p_id?
+ * - [RpcNames.SET_FLEET_VEHICLE_STATUS]: p_id, p_status
  */
 class FakeRpcClient : RpcClient {
     private val dnSeq = AtomicInteger(1)
