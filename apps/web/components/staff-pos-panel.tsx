@@ -26,6 +26,7 @@ import {
   type StockItemOption,
   type WarehouseOption,
 } from "@/lib/staff-pos";
+import { searchCustomers, type CustomerOption } from "@/lib/staff-finance";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =
