@@ -63,6 +63,8 @@ ContiPay / Paynow / SMS / Resend / WhatsApp Meta tokens / `GEMINI_API_KEY` / `WO
 
 Every in-scope item Live on web (item 10 skipped with note); iOS chat improved; secrets integrations remain fail-closed; master handoff updated.
 
+**Gate (2026-07-25):** Met — `/security-reviewer` PASS; `/supabase-rls-auditor` PASS; smoke idempotent; docs Done.
+
 ## Handoff
 
 1. `/manager` sequences lanes above  
