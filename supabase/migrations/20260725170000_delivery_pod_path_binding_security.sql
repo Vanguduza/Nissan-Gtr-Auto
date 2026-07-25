@@ -292,13 +292,12 @@ BEGIN
     now() + COALESCE(p_ttl, interval '15 minutes')
   );
 
-  PERFORM public.emit_domain_event(
+  -- Optional SMS to customer — never blocks OTP return to driver UI
+  PERFORM public._enqueue_delivery_customer_sms(
+    p_delivery_job_id,
     'delivery_pod_otp',
     'delivery_pod_otp:' || p_delivery_job_id::text || ':' || v_hash,
-    jsonb_build_object(
-      'delivery_job_id', p_delivery_job_id,
-      'expires_at', (now() + COALESCE(p_ttl, interval '15 minutes'))
-    )
+    format('GTR Auto: Your delivery confirmation code is %s. Do not share.', v_code)
   );
 
   RETURN v_code;
