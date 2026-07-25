@@ -27,6 +27,7 @@ data class WarehouseUiState(
     val receiveUnitCost: String = "0",
     val receiveCurrency: CurrencyCode = CurrencyCode.USD,
     val receiveValuation: ValuationMethod = ValuationMethod.FIFO,
+    val lastQrPayload: String? = null,
     // Transfer
     val fromWarehouseId: String = "",
     val toWarehouseId: String = "",
@@ -53,10 +54,12 @@ data class WarehouseUiState(
 
 /**
  * Warehouse scaffold: receive, dual-auth transfer, cycle-count draft/submit/approve/cancel.
- * Explicit USD|ZIG on receipt lines and recon drafts. Typed UUIDs — no browser QR.
+ * Explicit USD|ZIG on receipt lines and recon drafts.
+ * Bridge-First QR fills stock item / UOM from OEM — no browser QR.
  */
 class WarehouseViewModel(
     private val rpc: RpcClient,
+    private val qr: QrScannerBridge,
 ) : ViewModel() {
     private val _state = MutableStateFlow(WarehouseUiState())
     val state: StateFlow<WarehouseUiState> = _state.asStateFlow()
