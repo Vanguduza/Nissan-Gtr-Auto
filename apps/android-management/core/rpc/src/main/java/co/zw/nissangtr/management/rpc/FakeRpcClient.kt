@@ -440,6 +440,119 @@ class FakeRpcClient : RpcClient {
         return UUID.randomUUID().toString()
     }
 
+    override suspend fun suggestDeliveryAssignees(
+        deliveryJobId: String,
+        limit: Int,
+    ): List<DeliveryAssigneeSuggestion> {
+        require(deliveryJobId.isNotBlank())
+        val lim = limit.coerceIn(1, 50)
+        return listOf(
+            DeliveryAssigneeSuggestion(
+                userId = FAKE_DRIVER_USER_ID,
+                status = "available",
+                distanceM = 420.0,
+                capacity = 5,
+                openJobs = 1,
+                lastLat = -17.83,
+                lastLng = 31.05,
+                lastSeenAt = "2026-07-25T09:05:00Z",
+            ),
+            DeliveryAssigneeSuggestion(
+                userId = FAKE_DRIVER_USER_ID_2,
+                status = "on_duty",
+                distanceM = 1_200.0,
+                capacity = 3,
+                openJobs = 2,
+                lastLat = -17.84,
+                lastLng = 31.06,
+                lastSeenAt = "2026-07-25T09:04:00Z",
+            ),
+        ).take(lim)
+    }
+
+    override suspend fun assignDeliveryJob(
+        deliveryJobId: String,
+        assigneeUserId: String,
+        override: Boolean,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        require(assigneeUserId.isNotBlank())
+        val job = deliveryJobs[deliveryJobId]
+        if (job != null) {
+            require(job.second !in listOf("completed", "failed")) {
+                "cannot assign terminal delivery job"
+            }
+        } else {
+            deliveryJobs[deliveryJobId] = "unknown" to "pending"
+        }
+        jobAssignees[deliveryJobId] = assigneeUserId
+        return deliveryJobId
+    }
+
+    override suspend fun optimizeDriverStops(driverUserId: String): List<OptimizedDriverStop> {
+        require(driverUserId.isNotBlank())
+        val open = jobAssignees.filter { it.value == driverUserId }
+            .keys
+            .filter { jobId ->
+                val status = deliveryJobs[jobId]?.second
+                status == null || status in listOf("pending", "dispatched")
+            }
+            .sorted()
+        if (open.isEmpty()) {
+            // Seed demo stops when no assigned jobs yet
+            return listOf(
+                OptimizedDriverStop(
+                    deliveryJobId = "00000000-0000-4000-8000-0000000000j1",
+                    routeSequence = 1,
+                    distanceM = 800.0,
+                ),
+                OptimizedDriverStop(
+                    deliveryJobId = "00000000-0000-4000-8000-0000000000j2",
+                    routeSequence = 2,
+                    distanceM = 1_500.0,
+                ),
+            )
+        }
+        return open.mapIndexed { idx, id ->
+            OptimizedDriverStop(
+                deliveryJobId = id,
+                routeSequence = idx + 1,
+                distanceM = (idx + 1) * 500.0,
+            )
+        }
+    }
+
+    override suspend fun getDeliveryTrackPoint(deliveryJobId: String): DeliveryTrackPoint? {
+        require(deliveryJobId.isNotBlank())
+        val status = deliveryJobs[deliveryJobId]?.second ?: "dispatched"
+        if (status != "dispatched") return null
+        return DeliveryTrackPoint(
+            deliveryJobId = deliveryJobId,
+            lat = -17.8292,
+            lng = 31.0522,
+            recordedAt = "2026-07-25T09:10:00Z",
+            etaAt = "2026-07-25T09:45:00Z",
+            etaSeconds = 2_100,
+            status = status,
+        )
+    }
+
+    override suspend fun listOpenPanicEvents(): List<PanicEventSummary> =
+        panicEvents.filter { it.acknowledgedAt == null }
+            .sortedByDescending { it.createdAt }
+
+    override suspend fun acknowledgePanicEvent(panicEventId: String): String {
+        require(panicEventId.isNotBlank())
+        val idx = panicEvents.indexOfFirst { it.id == panicEventId }
+        require(idx >= 0) { "panic event not found" }
+        val now = java.time.Instant.now().toString()
+        panicEvents[idx] = panicEvents[idx].copy(
+            acknowledgedAt = now,
+            acknowledgedBy = fakeStaffUserId,
+        )
+        return panicEventId
+    }
+
     override fun currentUserId(): String? = fakeStaffUserId
 
     override suspend fun listMyStaffRoles(): List<String> =
@@ -518,6 +631,9 @@ class FakeRpcClient : RpcClient {
     companion object {
         const val FAKE_STAFF_USER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
+        const val FAKE_DRIVER_USER_ID = "00000000-0000-4000-8000-0000000000d0"
+        const val FAKE_DRIVER_USER_ID_2 = "00000000-0000-4000-8000-0000000000d2"
+        const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"
         private const val CLOSED_THREAD_ID = "00000000-0000-4000-8000-0000000000t3"
