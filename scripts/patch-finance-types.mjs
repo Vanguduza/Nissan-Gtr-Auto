@@ -303,7 +303,7 @@ s = insertAfter(
 s = insertAfter(
   s,
   `      compute_payroll_run: {
-        Args: { p_payroll_run_id: string }
+        Args: { p_employee_ids?: string[]; p_payroll_run_id: string }
         Returns: string
       }
 `,
