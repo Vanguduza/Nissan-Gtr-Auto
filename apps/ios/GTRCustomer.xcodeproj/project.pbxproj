@@ -24,6 +24,7 @@
 		A1000000000000000000000F /* GoTrueAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* GoTrueAuthClient.swift */; };
 		A10000000000000000000023 /* AuthTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* AuthTokenStore.swift */; };
 		A10000000000000000000024 /* SignInScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SignInScreen.swift */; };
+		A10000000000000000000026 /* ChatScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* ChatScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 		A1000000000000000000001F /* GoTrueAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoTrueAuthClient.swift; path = ../Sources/GTRCustomerCore/GoTrueAuthClient.swift; sourceTree = "<group>"; };
 		A10000000000000000000021 /* AuthTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthTokenStore.swift; path = ../Sources/GTRCustomerCore/AuthTokenStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000022 /* SignInScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInScreen.swift; sourceTree = "<group>"; };
+		A10000000000000000000027 /* ChatScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000025 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Shared.xcconfig; path = Config/Shared.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -97,6 +99,7 @@
 				A1000000000000000000001A /* OrdersScreen.swift */,
 				A1000000000000000000001B /* GarageScreen.swift */,
 				A1000000000000000000001C /* PayScreen.swift */,
+				A10000000000000000000027 /* ChatScreen.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";

@@ -22,6 +22,7 @@ and **staff chat inbox** — not App Store polish.
 | `:feature:dispatch` | `…management.dispatch` | Pick/DN + delivery job Start/Stop GPS |
 | `:feature:pos` | `…management.pos` | Cart / QR add line / checkout + ESC/POS receipt |
 | `:feature:warehouse` | `…management.warehouse` | Receive, dual-auth transfer, cycle-count + QR fill |
+| `:feature:chat` | `…management.chat` | Staff inbox — open/mine/closed, claim/reply/close |
 | `:location-tracker` | `…bridges.location` | Included from `bridges/android/location-tracker` |
 | `:qr-scanner` | `…bridges.qr` | Included from `bridges/android/qr-scanner` |
 | `:escpos-printer` | `…bridges.escpos` | Included from `bridges/android/escpos-printer` |
@@ -35,10 +36,19 @@ and **staff chat inbox** — not App Store polish.
 | `WarehouseScreen` | `:feature:warehouse` | receive / transfer / recon RPCs + Bridge QR → `lookupStockItemByOem` |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
 | `DispatchScreen` | `:feature:dispatch` | pick/DN + `create_delivery_job`, `update_delivery_job_status`, `ingest_delivery_location` |
+| `ChatScreen` | `:feature:chat` | `claim_chat_thread`, `post_chat_message`, `close_chat_thread`, `mark_chat_thread_read`, `chat_unread_count` + PostgREST lists |
 
 Also named: `cancel_delivery_note` (RPC wired; not a dedicated button).
 
-Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**.
+Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**, **Chat** (RBAC: admin|sales|warehouse when Live).
+
+## Staff chat
+
+1. Sign in as staff with role `admin`, `sales`, or `warehouse` (Fake mode always shows Chat).
+2. Home → **Chat — Staff inbox**.
+3. Filter **Open** / **Mine** / **Closed**; open a thread; **Claim** → reply → **Close**.
+4. Mutations use the same RPCs as web `/staff/chat`. Lists via PostgREST + RLS.
+5. **Polling ~5s** — Realtime plugin is not installed on the Android supabase-kt client yet.
 
 ## Delivery GPS (Bridge-First)
 
@@ -84,6 +94,7 @@ Compose never calls CameraX / BluetoothAdapter directly — only ViewModel → b
 | `ingest_delivery_location` | Validates lat/lng; increments `ingestedLocationCount`; returns UUID | `postgrest.rpc` with `p_delivery_job_id`, `p_lat`, `p_lng`, `p_recorded_at?`, `p_accuracy_m?` |
 | `create_delivery_job` | In-memory job map (allows draft DN for scaffold) | Live RPC (requires submitted DN) |
 | `update_delivery_job_status` | Updates in-memory status | Live RPC (`dispatched` / `completed` / `failed`) |
+| `claim_chat_thread` / `close` / `mark_read` / `post_chat_message` / `chat_unread_count` | Seeded threads + in-memory mutations | Live RPC + PostgREST `chat_threads` / `chat_messages` |
 
 ### Switch / env
 
