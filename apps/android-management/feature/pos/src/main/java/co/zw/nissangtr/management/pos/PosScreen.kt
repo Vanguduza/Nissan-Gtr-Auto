@@ -30,7 +30,6 @@ import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.FulfillmentMode
 import co.zw.nissangtr.management.rpc.RpcClient
-import co.zw.nissangtr.management.rpc.RpcNames
 
 /**
  * Sales POS workspace: standalone search/catalog/cart/checkout + optional companion.

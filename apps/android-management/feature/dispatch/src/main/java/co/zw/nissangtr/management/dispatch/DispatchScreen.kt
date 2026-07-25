@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.management.rpc.RpcClient
-import co.zw.nissangtr.management.rpc.RpcNames
 
 /**
  * Scaffold: pick/DN + create job + **assignment** (suggest/override) +

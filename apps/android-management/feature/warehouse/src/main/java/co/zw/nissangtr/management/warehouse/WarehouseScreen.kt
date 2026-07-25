@@ -28,7 +28,6 @@ import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.ReconciliationScope
 import co.zw.nissangtr.management.rpc.RpcClient
-import co.zw.nissangtr.management.rpc.RpcNames
 import co.zw.nissangtr.management.rpc.ValuationMethod
 
 private enum class WarehouseTab { Receive, Transfers, CycleCount }

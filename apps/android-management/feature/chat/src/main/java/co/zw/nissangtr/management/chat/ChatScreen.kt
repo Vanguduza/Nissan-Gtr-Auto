@@ -31,7 +31,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.management.rpc.ChatMessageSummary
 import co.zw.nissangtr.management.rpc.ChatThreadSummary
 import co.zw.nissangtr.management.rpc.RpcClient
-import co.zw.nissangtr.management.rpc.RpcNames
 import co.zw.nissangtr.management.rpc.StaffChatFilter
 
 /**

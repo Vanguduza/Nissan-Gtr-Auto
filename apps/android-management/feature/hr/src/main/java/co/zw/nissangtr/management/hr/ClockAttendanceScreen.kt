@@ -19,8 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.management.rpc.AttendanceEventType
 import co.zw.nissangtr.management.rpc.RpcClient
-import co.zw.nissangtr.management.rpc.RpcNames
-
 /**
  * Thin HR clock in/out scaffold. Calls [RpcNames.CLOCK_ATTENDANCE] via [RpcClient].
  * No PAYE / NSSA / statutory tax UI (standing exclusion).

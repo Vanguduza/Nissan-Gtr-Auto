@@ -10,138 +10,75 @@ import styles from "@/components/account.module.css";
 const HUB_MODULES: {
   id: string;
   label: string;
-  features: { href: string; label: string; blurb: string }[];
+  features: { href: string; label: string }[];
 }[] = [
   {
     id: "pos",
     label: "POS",
-    features: [
-      {
-        href: "/staff/pos",
-        label: "POS counter",
-        blurb: "Cart · named customer · checkout",
-      },
-    ],
+    features: [{ href: "/staff/pos", label: "POS counter" }],
   },
   {
     id: "warehouse",
     label: "Warehouse",
-    features: [
-      {
-        href: "/staff/warehouse",
-        label: "Warehouse ops",
-        blurb: "Receive · transfer · bins · pick path",
-      },
-    ],
+    features: [{ href: "/staff/warehouse", label: "Warehouse ops" }],
   },
   {
     id: "finance",
     label: "Finance",
-    features: [
-      {
-        href: "/staff/finance",
-        label: "Finance ledger",
-        blurb: "Journals · reports · payments",
-      },
-    ],
+    features: [{ href: "/staff/finance", label: "Finance ledger" }],
   },
   {
     id: "crm",
     label: "CRM",
     features: [
-      {
-        href: "/staff/crm/credit",
-        label: "Customer credit",
-        blurb: "Limit · hold · open balance",
-      },
-      {
-        href: "/staff/crm/reviews",
-        label: "Review moderation",
-        blurb: "Approve · reject product reviews",
-      },
+      { href: "/staff/crm/credit", label: "Customer credit" },
+      { href: "/staff/crm/reviews", label: "Review moderation" },
     ],
   },
   {
     id: "hr",
     label: "HR",
-    features: [{ href: "/staff/hr", label: "HR desk", blurb: "Clock + hours" }],
+    features: [{ href: "/staff/hr", label: "HR desk" }],
   },
   {
     id: "logistics",
     label: "Logistics",
     features: [
-      {
-        href: "/staff/logistics",
-        label: "Pick / DN / Dispatch",
-        blurb: "Pick · DN · job",
-      },
-      {
-        href: "/staff/logistics/tracking",
-        label: "Live tracking",
-        blurb: "Assign · ETA · map",
-      },
-      {
-        href: "/staff/logistics/panic",
-        label: "Panic inbox",
-        blurb: "Driver SOS · acknowledge",
-      },
+      { href: "/staff/logistics", label: "Pick / DN / Dispatch" },
+      { href: "/staff/logistics/tracking", label: "Live tracking" },
+      { href: "/staff/logistics/panic", label: "Panic inbox" },
     ],
   },
   {
     id: "fleet",
     label: "Company fleet",
-    features: [
-      {
-        href: "/staff/fleet",
-        label: "Company fleet",
-        blurb: "Plates · status · driver assign",
-      },
-    ],
+    features: [{ href: "/staff/fleet", label: "Company fleet" }],
   },
   {
     id: "warranty",
     label: "Warranty",
-    features: [
-      {
-        href: "/staff/warranty",
-        label: "Warranty claims",
-        blurb: "Claims · quarantine return",
-      },
-    ],
+    features: [{ href: "/staff/warranty", label: "Warranty claims" }],
   },
   {
     id: "chat",
     label: "Chat",
-    features: [
-      {
-        href: "/staff/chat",
-        label: "Customer chat",
-        blurb: "Inbox · claim · reply",
-      },
-    ],
+    features: [{ href: "/staff/chat", label: "Customer chat" }],
   },
   {
     id: "analytics",
     label: "Analytics",
     features: [
-      {
-        href: "/staff/analytics",
-        label: "Analytics",
-        blurb: "KPIs · AI narrative · reports",
-      },
+      { href: "/staff/analytics", label: "Analytics" },
       {
         href: "/staff/analytics/subscriptions",
         label: "Report subscriptions",
-        blurb: "Scheduled report delivery",
       },
     ],
   },
   {
     id: "procurement",
     label: "Procurement",
-    features: [
-      { href: "/procurement", label: "Procurement", blurb: "RFQs · blankets" },
-    ],
+    features: [{ href: "/procurement", label: "Procurement" }],
   },
 ];
 
@@ -160,12 +97,6 @@ export default function StaffHubPage() {
       <StaffNav current="/staff" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Staff</h1>
-        <p className={styles.lede}>
-          Management fallback for POS, warehouse, finance, attendance, dispatch,
-          and live delivery tracking. Roles from <code>staff_roles</code>; RPCs
-          remain the source of truth. QR / GPS use the Android management
-          device — not the browser.
-        </p>
         <div className={styles.hubModules}>
           {modules.map((mod) => (
             <section key={mod.id} className={styles.hubModule} aria-labelledby={`hub-${mod.id}`}>
@@ -176,7 +107,6 @@ export default function StaffHubPage() {
                 {mod.features.map((c) => (
                   <Link key={c.href} href={c.href} className={styles.card}>
                     <span className={styles.cardLabel}>{c.label}</span>
-                    <span className={styles.cardBlurb}>{c.blurb}</span>
                   </Link>
                 ))}
               </div>

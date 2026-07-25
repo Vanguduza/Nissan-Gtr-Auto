@@ -24,8 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.management.rpc.FleetVehicleStatus
 import co.zw.nissangtr.management.rpc.RpcClient
-import co.zw.nissangtr.management.rpc.RpcNames
-
 /**
  * Company fleet CRUD scaffold. Metadata only — no
  * [co.zw.nissangtr.management.rpc.RpcNames.INGEST_DELIVERY_LOCATION] / GPS producer.
