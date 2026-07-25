@@ -36,6 +36,12 @@ android {
             "RPC_FORCE_FAKE",
             localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
         )
+        // Optional panic-inbox dial target (E.164 or local). Empty = hide Dial support.
+        buildConfigField(
+            "String",
+            "DELIVERY_SUPPORT_PHONE",
+            "\"${localProp("DELIVERY_SUPPORT_PHONE")}\"",
+        )
     }
 
     buildTypes {

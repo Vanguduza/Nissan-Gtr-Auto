@@ -57,7 +57,7 @@ Ship a **driver-only** Android app at `apps/android-delivery/` with always-on Br
 
 | Area | Gap |
 |------|-----|
-| **P0 critical** | `apps/android-delivery/` — **0 files** |
+| **P0 critical** | `apps/android-delivery/` — **DONE (P0 scaffold builds)** |
 | Backend P1 | OTP generate/verify; geofence helpers; `failure_reason` enum; `reattempt_of`; `panic_events`; `optimize_driver_stops` |
 | Hardware | POD photo + signature bridges (no dedicated modules) |
 | Management | Suggest/assign UI; route order; panic inbox; remove driver GPS producer |
