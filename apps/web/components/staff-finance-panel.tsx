@@ -98,6 +98,31 @@ export function StaffFinancePanel() {
   const [allocInvoiceId, setAllocInvoiceId] = useState("");
   const [allocAmount, setAllocAmount] = useState("");
 
+  const [reverseReason, setReverseReason] = useState("");
+
+  const [periodStart, setPeriodStart] = useState(monthStartInput);
+  const [periodEnd, setPeriodEnd] = useState(todayInput);
+  const [periodLabel, setPeriodLabel] = useState("");
+
+  const [stmtAccount, setStmtAccount] = useState("1100");
+  const [stmtCurrency, setStmtCurrency] = useState<CurrencyCode>("USD");
+  const [stmtDate, setStmtDate] = useState(todayInput);
+  const [stmtOpen, setStmtOpen] = useState("0");
+  const [stmtClose, setStmtClose] = useState("0");
+  const [stmtDoc, setStmtDoc] = useState("");
+  const [stmtLineDate, setStmtLineDate] = useState(todayInput);
+  const [stmtLineDesc, setStmtLineDesc] = useState("");
+  const [stmtLineAmount, setStmtLineAmount] = useState("");
+  const [selectedStmtId, setSelectedStmtId] = useState("");
+  const [stmtLines, setStmtLines] = useState<BankStatementLineOption[]>([]);
+  const [stmtMatches, setStmtMatches] = useState<BankReconMatchOption[]>([]);
+  const [jeLines, setJeLines] = useState<JournalLineOption[]>([]);
+  const [matchLineId, setMatchLineId] = useState("");
+  const [matchJeLineId, setMatchJeLineId] = useState("");
+  const [addLineAmount, setAddLineAmount] = useState("");
+  const [addLineDesc, setAddLineDesc] = useState("");
+  const [addLineDate, setAddLineDate] = useState(todayInput);
+
   const refresh = useCallback(async () => {
     const client = createWebClient();
     if (!client) {
@@ -113,11 +138,14 @@ export function StaffFinancePanel() {
       return;
     }
 
-    const [accounts, journals, payments] = await Promise.all([
-      listChartAccounts(client),
-      listJournalEntries(client),
-      listDraftPayments(client),
-    ]);
+    const [accounts, journals, payments, periods, statements] =
+      await Promise.all([
+        listChartAccounts(client),
+        listJournalEntries(client),
+        listDraftPayments(client),
+        listAccountingPeriods(client),
+        listBankStatements(client),
+      ]);
     if (!accounts.ok) {
       setBoot({ kind: "error", message: accounts.error });
       return;
@@ -130,18 +158,30 @@ export function StaffFinancePanel() {
       setBoot({ kind: "error", message: payments.error });
       return;
     }
+    if (!periods.ok) {
+      setBoot({ kind: "error", message: periods.error });
+      return;
+    }
+    if (!statements.ok) {
+      setBoot({ kind: "error", message: statements.error });
+      return;
+    }
 
     setBoot({
       kind: "ready",
       accounts: accounts.data,
       journals: journals.data,
       payments: payments.data,
+      periods: periods.data,
+      statements: statements.data,
     });
     setDebitAccount((prev) => prev || accounts.data[0]?.code || "");
     setCreditAccount(
       (prev) => prev || accounts.data[1]?.code || accounts.data[0]?.code || "",
     );
     setAllocPaymentId((prev) => prev || payments.data[0]?.id || "");
+    setStmtAccount((prev) => prev || accounts.data[0]?.code || "1100");
+    setSelectedStmtId((prev) => prev || statements.data[0]?.id || "");
   }, []);
 
   useEffect(() => {
