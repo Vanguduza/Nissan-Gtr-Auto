@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ComponentType } from "react";
-import { ChatNavLink } from "@/components/chat-nav-link";
 import {
   Building2,
   Car,
@@ -15,8 +14,6 @@ import {
   iconSizeSm,
   iconStroke,
   LayoutGrid,
-  LogIn,
-  MessageCircle,
   Package,
   Search,
   ShoppingCart,
@@ -26,7 +23,6 @@ import {
   Zap,
   type LucideIcon,
 } from "@/components/icons";
-import { SearchFourWay } from "@/components/search-four-way";
 import { createWebClient, hasSupabaseEnv } from "@/lib/supabase";
 import styles from "./site-header.module.css";
 
@@ -50,7 +46,11 @@ function ActionIcon({
   Icon,
   label,
 }: {
-  Icon: ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean }>;
+  Icon: ComponentType<{
+    size?: number;
+    strokeWidth?: number;
+    "aria-hidden"?: boolean;
+  }>;
   label: string;
 }) {
   return (
@@ -158,31 +158,12 @@ export function SiteHeader() {
             </span>
           </Link>
 
-          <div className={styles.searchSlot}>
-            <SearchFourWay variant="header" />
-          </div>
-
           <nav className={styles.actions} aria-label="Account">
-            <ChatNavLink
-              className={styles.action}
-              label="Chat"
-              icon={
-                <MessageCircle
-                  size={iconSizeMd}
-                  strokeWidth={iconStroke}
-                  aria-hidden
-                />
-              }
-            />
             <Link href="/account" className={styles.action}>
               <ActionIcon Icon={UserRound} label="Account" />
             </Link>
-            <Link href="/cart" className={styles.actionCart}>
+            <Link href="/cart" className={styles.action}>
               <ActionIcon Icon={ShoppingCart} label="Cart" />
-            </Link>
-            <Link href="/login" className={styles.signIn}>
-              <LogIn size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
-              <span className={styles.actionLabel}>Sign in</span>
             </Link>
           </nav>
         </div>

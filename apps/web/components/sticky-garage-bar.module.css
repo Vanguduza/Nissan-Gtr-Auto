@@ -11,7 +11,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem 0.75rem;
+  gap: 0.35rem 0.85rem;
 }
 
 .label {
@@ -26,16 +26,25 @@
 .vehicle {
   font-family: var(--font-display);
   font-weight: 700;
+  color: var(--gtr-steel);
 }
 
-.change,
-.select {
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-left: auto;
+}
+
+.link {
   color: var(--gtr-red);
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 
-.select {
-  margin-left: auto;
+.link:hover,
+.link:focus-visible {
+  color: var(--gtr-red-hover);
+  text-decoration: none;
 }
