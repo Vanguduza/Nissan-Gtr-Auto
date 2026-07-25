@@ -47,6 +47,10 @@ type FitmentDiagramRow = {
  * Load diagram + hotspots for an OEM from `part_fitment.diagram_path`
  * (Storage bucket `catalog-diagrams`). Returns null when no path is set —
  * pipeline has not uploaded assets yet.
+ *
+ * Seed packs (idempotent): Navara D40 (`navara-d40/…`) and X-Trail T31
+ * (`xtrail-t31/…`). PDP `CatalogCanvasStub` uses this loader unchanged —
+ * no vehicle-specific canvas branch required.
  */
 export async function loadOemCatalogDiagram(
   client: SupabaseClient,
