@@ -203,9 +203,15 @@ export function StaffFinancePanel() {
   const [entryDate, setEntryDate] = useState(todayInput);
   const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode>("USD");
+  const [exchangeRate, setExchangeRate] = useState(defaultZigRate);
   const [debitAccount, setDebitAccount] = useState("");
   const [creditAccount, setCreditAccount] = useState("");
   const [amount, setAmount] = useState("");
+
+  const [quickAmount, setQuickAmount] = useState("");
+  const [quickCurrency, setQuickCurrency] = useState<CurrencyCode>("USD");
+  const [quickRate, setQuickRate] = useState(defaultZigRate);
+  const [quickDate, setQuickDate] = useState(todayInput);
 
   const [reportKind, setReportKind] = useState<ReportKind>("pnl");
   const [from, setFrom] = useState(monthStartInput);
@@ -214,6 +220,7 @@ export function StaffFinancePanel() {
   const [pnlRows, setPnlRows] = useState<PnLRow[]>([]);
   const [bsRows, setBsRows] = useState<BalanceSheetRow[]>([]);
   const [cfRows, setCfRows] = useState<CashFlowRow[]>([]);
+  const [tbRows, setTbRows] = useState<TrialBalanceRow[]>([]);
 
   const [customerId, setCustomerId] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
@@ -221,16 +228,29 @@ export function StaffFinancePanel() {
   const [customerLabel, setCustomerLabel] = useState("");
   const [payAmount, setPayAmount] = useState("");
   const [payCurrency, setPayCurrency] = useState<CurrencyCode>("USD");
+  const [payExchangeRate, setPayExchangeRate] = useState(defaultZigRate);
   const [tender, setTender] = useState<PaymentTender>("cash");
   const [allocPaymentId, setAllocPaymentId] = useState("");
-  const [allocInvoiceId, setAllocInvoiceId] = useState("");
-  const [allocAmount, setAllocAmount] = useState("");
+  const [allocRows, setAllocRows] = useState<AllocRow[]>([
+    { invoiceId: "", amount: "" },
+  ]);
+  const [openInvoices, setOpenInvoices] = useState<OpenInvoiceOption[]>([]);
+  const [arAging, setArAging] = useState<ArAgingSnapshot | null>(null);
+  const [arAgingError, setArAgingError] = useState<string | null>(null);
 
   const [reverseReason, setReverseReason] = useState("");
+  const [lastReversal, setLastReversal] = useState<{
+    id: string;
+    documentNumber: string | null;
+  } | null>(null);
 
   const [periodStart, setPeriodStart] = useState(monthStartInput);
   const [periodEnd, setPeriodEnd] = useState(todayInput);
   const [periodLabel, setPeriodLabel] = useState("");
+  const [closePeriodId, setClosePeriodId] = useState("");
+  const [closeStep, setCloseStep] = useState<CloseWizardStep>("pick");
+  const [closeTbRows, setCloseTbRows] = useState<TrialBalanceRow[]>([]);
+  const [closeTbOk, setCloseTbOk] = useState<boolean | null>(null);
 
   const [stmtAccount, setStmtAccount] = useState("1100");
   const [stmtCurrency, setStmtCurrency] = useState<CurrencyCode>("USD");
