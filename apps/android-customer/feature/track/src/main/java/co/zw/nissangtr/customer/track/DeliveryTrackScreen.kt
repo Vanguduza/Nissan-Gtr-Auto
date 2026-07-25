@@ -35,8 +35,10 @@ fun DeliveryTrackScreen(
     modifier: Modifier = Modifier,
     initialToken: String? = null,
     initialJobId: String? = null,
+    /** Bumped on each open so ViewModel does not keep a prior `ended` session. */
+    sessionKey: Int = 0,
     viewModel: DeliveryTrackViewModel = viewModel(
-        key = "track|${initialToken.orEmpty()}|${initialJobId.orEmpty()}",
+        key = "track|$sessionKey|${initialToken.orEmpty()}|${initialJobId.orEmpty()}",
         factory = DeliveryTrackViewModel.factory(rpc, initialToken, initialJobId),
     ),
 ) {
