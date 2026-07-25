@@ -11,10 +11,18 @@ export default function StaffHubPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Staff</h1>
         <p className={styles.lede}>
-          Thin ops surfaces for attendance hours and dispatch pick → delivery
-          note. Sign in required; roles enforced by Supabase RPCs.
+          Thin ops surfaces for POS, warehouse, attendance, and dispatch pick →
+          delivery note. Sign in required; roles enforced by Supabase RPCs.
         </p>
         <div className={styles.cardGrid}>
+          <Link href="/staff/pos" className={styles.card}>
+            <span className={styles.cardLabel}>POS</span>
+            <span className={styles.cardBlurb}>Cart · lines · checkout</span>
+          </Link>
+          <Link href="/staff/warehouse" className={styles.card}>
+            <span className={styles.cardLabel}>Warehouse</span>
+            <span className={styles.cardBlurb}>Receive · transfer · count</span>
+          </Link>
           <Link href="/staff/hr" className={styles.card}>
             <span className={styles.cardLabel}>HR</span>
             <span className={styles.cardBlurb}>Clock + hours</span>
