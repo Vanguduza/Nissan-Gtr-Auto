@@ -1,6 +1,6 @@
 -- Smoke: bank recon grants, customer addresses/profile UPDATE, customer return CN.
 -- Run as postgres after migrations 20260724170000 + 20260724171000.
--- Does not db-reset. Reuses auth helper pattern from customer_storefront_authz_smoke.
+-- Does not db-reset.
 
 CREATE OR REPLACE FUNCTION public._test_set_auth_uid(p_uid UUID)
 RETURNS void
@@ -29,6 +29,7 @@ DECLARE
   v_item UUID;
   v_cust UUID;
   v_peer UUID;
+  v_cart UUID;
   v_inv UUID;
   v_cn UUID;
   v_addr UUID;
@@ -37,6 +38,9 @@ DECLARE
   v_match UUID;
   v_jel UUID;
   v_updated UUID;
+  v_lines JSONB;
+  v_wh UUID;
+  v_seen INT;
 BEGIN
   SELECT id INTO v_main FROM public.warehouses WHERE code = 'MAIN' LIMIT 1;
   SELECT id INTO v_quar FROM public.warehouses WHERE is_quarantine AND is_active ORDER BY code LIMIT 1;
@@ -45,7 +49,6 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: MAIN/QUAR/EA required';
   END IF;
 
-  -- Finance user (role already seeded in some envs; ensure)
   INSERT INTO auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
@@ -87,17 +90,13 @@ BEGIN
   VALUES (v_finance, 'finance')
   ON CONFLICT DO NOTHING;
 
-  INSERT INTO public.stock_items (oem_part_number, description, base_uom_id)
-  VALUES ('SMOKE-RET-001', 'Return smoke part', v_uom)
-  ON CONFLICT (oem_part_number) DO UPDATE SET description = EXCLUDED.description
-  RETURNING id INTO v_item;
+  SELECT id INTO v_item FROM public.stock_items WHERE oem_part_number = 'SMOKE-RET-001';
   IF v_item IS NULL THEN
-    SELECT id INTO v_item FROM public.stock_items WHERE oem_part_number = 'SMOKE-RET-001';
+    INSERT INTO public.stock_items (oem_part_number, description, base_uom_id)
+    VALUES ('SMOKE-RET-001', 'Return smoke part', v_uom)
+    RETURNING id INTO v_item;
   END IF;
 
-  INSERT INTO public.customers (display_name, currency, profile_id, phone_e164, email)
-  VALUES ('Return Cust', 'USD', v_cust_user, '+263771000001', 'cust-return@gtr.local')
-  ON CONFLICT DO NOTHING;
   SELECT id INTO v_cust FROM public.customers WHERE profile_id = v_cust_user LIMIT 1;
   IF v_cust IS NULL THEN
     INSERT INTO public.customers (display_name, currency, profile_id, phone_e164, email)
@@ -112,24 +111,17 @@ BEGIN
     RETURNING id INTO v_peer;
   END IF;
 
-  -- Seed stock for quarantine return path
   PERFORM public._adjust_stock_level(v_item, v_main, 10, 'FIFO', 25, 'USD');
 
-  -- Staff posts a sale for customer (as admin)
+  -- Staff posts a sale for customer
   PERFORM public._test_set_auth_uid(v_admin);
   PERFORM set_config('role', 'authenticated', true);
 
-  DECLARE
-    v_cart UUID;
-  BEGIN
-    v_cart := public.create_pos_cart(v_main, v_cust, 'USD');
-    PERFORM public.add_cart_line(v_cart, v_item, v_uom, 2);
-    v_inv := public.checkout_pos_cart(v_cart);
-  END;
+  v_cart := public.create_pos_cart(v_main, v_cust, 'USD');
+  PERFORM public.add_cart_line(v_cart, v_item, v_uom, 2);
+  v_inv := public.checkout_pos_cart(v_cart);
 
-  -- ---------------------------------------------------------------------------
-  -- Bank recon DML as finance (must not be permission denied for table)
-  -- ---------------------------------------------------------------------------
+  -- Bank recon DML as finance
   PERFORM public._test_set_auth_uid(v_finance);
   PERFORM set_config('role', 'authenticated', true);
 
@@ -145,9 +137,8 @@ BEGIN
 
   SELECT jel.id INTO v_jel
   FROM public.journal_entry_lines jel
-  JOIN public.journal_entries je ON je.id = jel.journal_entry_id
   WHERE jel.account_code = '1100'
-  ORDER BY je.posted_at DESC NULLS LAST
+  ORDER BY jel.id DESC
   LIMIT 1;
 
   IF v_jel IS NOT NULL THEN
@@ -160,24 +151,20 @@ BEGIN
     WHERE id = v_line AND status = 'open';
   END IF;
 
-  -- Customer cannot insert bank statements
+  -- Customer blocked from bank_statements (RLS or privilege)
   PERFORM public._test_set_auth_uid(v_cust_user);
+  PERFORM set_config('role', 'authenticated', true);
   BEGIN
     INSERT INTO public.bank_statements (
       account_code, currency, statement_date, opening_balance, closing_balance
     ) VALUES ('1100', 'USD', CURRENT_DATE, 0, 1);
     RAISE EXCEPTION 'smoke fail: customer inserted bank_statements';
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
     WHEN OTHERS THEN
       IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
-      -- RLS violation also OK
-      NULL;
   END;
 
-  -- ---------------------------------------------------------------------------
-  -- Own profile UPDATE + privileged column guard
-  -- ---------------------------------------------------------------------------
+  -- Own profile UPDATE
   UPDATE public.customers
   SET phone_e164 = '+263771000099', sms_receipts = false, updated_at = now()
   WHERE id = v_cust AND profile_id = v_cust_user;
@@ -199,23 +186,18 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: update_own_customer_profile id mismatch';
   END IF;
 
-  -- ---------------------------------------------------------------------------
-  -- Addresses own CRUD; peer denied
-  -- ---------------------------------------------------------------------------
+  -- Addresses
   v_addr := public.upsert_customer_address(
     NULL, 'Home', '12 Smoke St', NULL, 'Harare', 'Harare', NULL, 'Zimbabwe', true
   );
 
   PERFORM public._test_set_auth_uid(v_peer_user);
-  BEGIN
-    UPDATE public.customer_addresses SET line1 = 'Hacked' WHERE id = v_addr;
-    IF FOUND THEN
-      RAISE EXCEPTION 'smoke fail: peer updated address';
-    END IF;
-  EXCEPTION
-    WHEN OTHERS THEN
-      IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
-  END;
+  SELECT count(*) INTO v_seen
+  FROM public.customer_addresses
+  WHERE id = v_addr;
+  IF v_seen <> 0 THEN
+    RAISE EXCEPTION 'smoke fail: peer can see foreign address';
+  END IF;
 
   PERFORM public._test_set_auth_uid(v_cust_user);
   PERFORM public.delete_customer_address(v_addr);
@@ -223,63 +205,42 @@ BEGIN
     NULL, 'Home', '12 Smoke St', NULL, 'Harare', 'Harare', NULL, 'Zimbabwe', true
   );
 
-  -- ---------------------------------------------------------------------------
-  -- Customer return → quarantine CN; peer denied; staff RPC still staff-gated
-  -- ---------------------------------------------------------------------------
-  SELECT jsonb_agg(jsonb_build_object(
+  -- Customer return → quarantine
+  SELECT jsonb_build_array(jsonb_build_object(
     'stock_item_id', sil.stock_item_id,
     'uom_id', sil.uom_id,
     'qty', 1,
-    'unit_price', 1
-  )) INTO STRICT /* reuse one physical line */
-    -- built below
-    FROM public.sales_invoice_lines sil
-  WHERE false;
+    'unit_price', 999
+  ))
+  INTO v_lines
+  FROM public.sales_invoice_lines sil
+  WHERE sil.invoice_id = v_inv AND sil.is_core_charge = false
+  LIMIT 1;
 
-  DECLARE
-    v_lines JSONB;
-    v_wh UUID;
+  IF v_lines IS NULL THEN
+    RAISE EXCEPTION 'smoke fail: no invoice lines';
+  END IF;
+
+  v_cn := public.post_customer_return_credit_note(v_inv, v_lines);
+
+  SELECT warehouse_id INTO v_wh FROM public.sales_invoices WHERE id = v_cn;
+  IF v_wh IS DISTINCT FROM v_quar THEN
+    RAISE EXCEPTION 'smoke fail: credit note warehouse not quarantine';
+  END IF;
+
+  PERFORM public._test_set_auth_uid(v_peer_user);
   BEGIN
-    SELECT jsonb_build_array(jsonb_build_object(
-      'stock_item_id', sil.stock_item_id,
-      'uom_id', sil.uom_id,
-      'qty', 1,
-      'unit_price', 999
-    ))
-    INTO v_lines
-    FROM public.sales_invoice_lines sil
-    WHERE sil.invoice_id = v_inv AND sil.is_core_charge = false
-    LIMIT 1;
-
-    IF v_lines IS NULL THEN
-      RAISE EXCEPTION 'smoke fail: no invoice lines';
-    END IF;
-
-    v_cn := public.post_customer_return_credit_note(v_inv, v_lines);
-
-    SELECT warehouse_id INTO v_wh FROM public.sales_invoices WHERE id = v_cn;
-    IF v_wh IS DISTINCT FROM v_quar THEN
-      RAISE EXCEPTION 'smoke fail: credit note warehouse not quarantine';
-    END IF;
-
-    -- Peer cannot return against this invoice
-    PERFORM public._test_set_auth_uid(v_peer_user);
-    BEGIN
-      PERFORM public.request_customer_return(v_inv, v_lines);
-      RAISE EXCEPTION 'smoke fail: peer returned foreign invoice';
-    EXCEPTION
-      WHEN OTHERS THEN
-        IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
-    END;
+    PERFORM public.request_customer_return(v_inv, v_lines);
+    RAISE EXCEPTION 'smoke fail: peer returned foreign invoice';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
   END;
 
-  -- Direct staff RPC still requires sales staff
+  -- Staff RPC remains gated for customers
   PERFORM public._test_set_auth_uid(v_cust_user);
   BEGIN
-    PERFORM public.post_return_credit_note(
-      v_inv,
-      '[{"stock_item_id":"' || v_item::text || '","uom_id":"' || v_uom::text || '","qty":1,"unit_price":1}]'::jsonb
-    );
+    PERFORM public.post_return_credit_note(v_inv, v_lines);
     RAISE EXCEPTION 'smoke fail: customer called staff post_return_credit_note';
   EXCEPTION
     WHEN OTHERS THEN
