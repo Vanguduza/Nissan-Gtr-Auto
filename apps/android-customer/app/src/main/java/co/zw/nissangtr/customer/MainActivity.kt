@@ -1,3 +1,5 @@
+package co.zw.nissangtr.customer
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,6 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -23,24 +27,37 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import co.zw.nissangtr.bridges.podcamera.CameraxPodCameraBridge
+import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
 import co.zw.nissangtr.customer.auth.AuthGate
 import co.zw.nissangtr.customer.auth.AuthModule
 import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
 import co.zw.nissangtr.customer.chat.ChatModule
 import co.zw.nissangtr.customer.chat.ChatScreen
+import co.zw.nissangtr.customer.compare.CompareModule
+import co.zw.nissangtr.customer.compare.CompareScreen
+import co.zw.nissangtr.customer.compare.GuestCompareStore
 import co.zw.nissangtr.customer.garage.GarageModule
 import co.zw.nissangtr.customer.garage.GarageScreen
 import co.zw.nissangtr.customer.orders.OrdersModule
 import co.zw.nissangtr.customer.orders.OrdersScreen
 import co.zw.nissangtr.customer.pay.PayIntentScreen
 import co.zw.nissangtr.customer.pay.PayModule
+import co.zw.nissangtr.customer.reviews.ReviewsModule
+import co.zw.nissangtr.customer.reviews.ReviewsScreen
 import co.zw.nissangtr.customer.rpc.FakeRpcClient
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcClientFactory
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
 import co.zw.nissangtr.customer.track.DeliveryTrackScreen
 import co.zw.nissangtr.customer.track.TrackModule
+import co.zw.nissangtr.customer.wishlist.WishlistModule
+import co.zw.nissangtr.customer.wishlist.WishlistScreen
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 private enum class CustomerRoute {
     Home,
@@ -50,6 +67,9 @@ private enum class CustomerRoute {
     Pay,
     Chat,
     Track,
+    Wishlist,
+    Compare,
+    Reviews,
 }
 
 private data class TrackLaunchArgs(
@@ -62,7 +82,7 @@ private data class TrackLaunchArgs(
  * Customer shell. Feature screens are thin scaffolds over [RpcClient]
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
  * Live requires GoTrue email/password session via [AuthGate].
- * Money/pricing: @gtr/shared. Hardware QR: bridges/ only — never HTML5.
+ * Money/pricing: @gtr/shared. Hardware QR/camera: bridges/ only — never HTML5.
  *
  * Deep link / extras for privacy-safe track (last point + ETA only):
  * - Intent extras: `track_token`, `track_job_id`
@@ -72,9 +92,13 @@ private data class TrackLaunchArgs(
 class MainActivity : ComponentActivity() {
     private val trackLaunch = mutableStateOf(TrackLaunchArgs())
     private var trackSeq = 0
+    private lateinit var cameraBridge: CameraxPodCameraBridge
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        cameraBridge = CameraxPodCameraBridge(this)
+        cameraBridge.attachActivity(this)
         listOf(
             AuthModule.id,
             CartModule.id,
@@ -83,6 +107,9 @@ class MainActivity : ComponentActivity() {
             PayModule.id,
             ChatModule.id,
             TrackModule.id,
+            WishlistModule.id,
+            CompareModule.id,
+            ReviewsModule.id,
         )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
@@ -101,13 +128,22 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
                         val launch by trackLaunch
+                        // Fake treats session as signed-in for gating (iOS parity).
+                        val signedIn = !live || email != null
+                        LaunchedEffect(email) {
+                            if (live && email != null) {
+                                syncGuestCompare(rpc)
+                            }
+                        }
                         CustomerApp(
                             rpc = rpc,
                             liveRpc = live,
+                            signedIn = signedIn,
                             signedInEmail = email,
                             onSignOut = onSignOut,
                             whatsappE164 = BuildConfig.WHATSAPP_E164,
                             trackLaunch = launch,
+                            camera = cameraBridge,
                         )
                     }
                 }
@@ -115,10 +151,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::cameraBridge.isInitialized) cameraBridge.attachActivity(this)
+    }
+
+    override fun onPause() {
+        if (::cameraBridge.isInitialized) cameraBridge.detachActivity()
+        super.onPause()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray,
+    ) {
+        @Suppress("DEPRECATION")
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CameraxPodCameraBridge.REQUEST_CAMERA && ::cameraBridge.isInitialized) {
+            cameraBridge.onPermissionResult()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == CameraxPodCameraBridge.REQUEST_CAPTURE && ::cameraBridge.isInitialized) {
+            cameraBridge.onCaptureActivityResult(resultCode, data)
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         applyTrackIntent(intent)
+    }
+
+    private fun syncGuestCompare(rpc: RpcClient) {
+        syncScope.launch {
+            val local = GuestCompareStore.readOems(this@MainActivity)
+            if (local.isEmpty()) return@launch
+            for (oem in local) {
+                runCatching { rpc.addCustomerCompareItem(oem = oem) }
+            }
+            runCatching {
+                val listed = rpc.listCompareItems()
+                GuestCompareStore.writeOems(this@MainActivity, listed.map { it.oemPartNumber })
+            }
+        }
     }
 
     private fun applyTrackIntent(intent: Intent?) {
@@ -162,10 +244,12 @@ class MainActivity : ComponentActivity() {
 private fun CustomerApp(
     rpc: RpcClient,
     liveRpc: Boolean,
+    signedIn: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
     whatsappE164: String,
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
+    camera: PodCameraBridge?,
 ) {
     var route by remember { mutableStateOf(CustomerRoute.Home) }
     var trackToken by remember { mutableStateOf<String?>(null) }
@@ -211,6 +295,9 @@ private fun CustomerApp(
             onGarage = { route = CustomerRoute.Garage },
             onPay = { route = CustomerRoute.Pay },
             onChat = { route = CustomerRoute.Chat },
+            onWishlist = { route = CustomerRoute.Wishlist },
+            onCompare = { route = CustomerRoute.Compare },
+            onReviews = { route = CustomerRoute.Reviews },
             onTrack = {
                 openTrack(
                     jobId = if (!liveRpc) FakeRpcClient.SEED_ACTIVE_JOB_ID else null,
@@ -249,6 +336,20 @@ private fun CustomerApp(
             onBack = { route = CustomerRoute.Home },
             whatsappE164Digits = whatsappE164,
         )
+        CustomerRoute.Wishlist -> WishlistScreen(
+            rpc = rpc,
+            onBack = { route = CustomerRoute.Home },
+        )
+        CustomerRoute.Compare -> CompareScreen(
+            rpc = rpc,
+            isSignedIn = signedIn,
+            onBack = { route = CustomerRoute.Home },
+        )
+        CustomerRoute.Reviews -> ReviewsScreen(
+            rpc = rpc,
+            camera = camera,
+            onBack = { route = CustomerRoute.Home },
+        )
         CustomerRoute.Track -> DeliveryTrackScreen(
             rpc = rpc,
             initialToken = trackToken,
@@ -269,11 +370,15 @@ private fun CustomerHome(
     onGarage: () -> Unit,
     onPay: () -> Unit,
     onChat: () -> Unit,
+    onWishlist: () -> Unit,
+    onCompare: () -> Unit,
+    onReviews: () -> Unit,
     onTrack: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -282,7 +387,8 @@ private fun CustomerHome(
         Text("Customer app", style = MaterialTheme.typography.bodyMedium)
         Text(
             "Modules: ${AuthModule.id}, ${CartModule.id}, ${OrdersModule.id}, " +
-                "${GarageModule.id}, ${PayModule.id}, ${ChatModule.id}, ${TrackModule.id}",
+                "${GarageModule.id}, ${PayModule.id}, ${ChatModule.id}, ${TrackModule.id}, " +
+                "${WishlistModule.id}, ${CompareModule.id}, ${ReviewsModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -307,6 +413,15 @@ private fun CustomerHome(
         Button(onClick = onGarage, modifier = Modifier.fillMaxWidth()) {
             Text("My Garage")
         }
+        Button(onClick = onWishlist, modifier = Modifier.fillMaxWidth()) {
+            Text("Wishlist")
+        }
+        Button(onClick = onCompare, modifier = Modifier.fillMaxWidth()) {
+            Text("Compare")
+        }
+        Button(onClick = onReviews, modifier = Modifier.fillMaxWidth()) {
+            Text("Reviews")
+        }
         Button(onClick = onPay, modifier = Modifier.fillMaxWidth()) {
             Text("Pay — ContiPay / Paynow")
         }
@@ -317,7 +432,7 @@ private fun CustomerHome(
             Text("Track delivery")
         }
         Text(
-            "Auth: GoTrue signInWith(Email). Bridge-First for QR. " +
+            "Auth: GoTrue signInWith(Email). Bridge-First for QR/camera. " +
                 "Delivery track: last point + ETA only.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp),
