@@ -388,6 +388,264 @@ class SupabaseRpcClient(
         ).decodeList<TrackPointRow>().firstOrNull()?.toModel()
     }
 
+    override suspend fun listWishlist(): List<WishlistItem> =
+        client.from("customer_wishlist_items")
+            .select(
+                Columns.raw(
+                    "id,stock_item_id,notify_when_in_stock,created_at," +
+                        "stock_items(id,oem_part_number,description)",
+                ),
+            ) {
+                order("created_at", Order.DESCENDING)
+                limit(100)
+            }
+            .decodeList<WishlistRow>()
+            .map { it.toModel() }
+
+    override suspend fun addCustomerWishlistItem(stockItemId: String?, oem: String?): String =
+        client.postgrest.rpc(
+            RpcNames.ADD_CUSTOMER_WISHLIST_ITEM,
+            stockItemOemBody(stockItemId, oem),
+        ).decodeAs()
+
+    override suspend fun removeCustomerWishlistItem(
+        wishlistId: String?,
+        stockItemId: String?,
+        oem: String?,
+    ) {
+        client.postgrest.rpc(
+            RpcNames.REMOVE_CUSTOMER_WISHLIST_ITEM,
+            buildJsonObject {
+                putNullable("p_wishlist_id", wishlistId)
+                putNullable("p_stock_item_id", stockItemId)
+                putNullable("p_oem_part_number", oem)
+            },
+        )
+    }
+
+    override suspend fun setWishlistNotifyWhenInStock(
+        notify: Boolean,
+        wishlistId: String?,
+        stockItemId: String?,
+        oem: String?,
+    ): String =
+        client.postgrest.rpc(
+            RpcNames.SET_WISHLIST_NOTIFY_WHEN_IN_STOCK,
+            buildJsonObject {
+                put("p_notify", notify)
+                putNullable("p_wishlist_id", wishlistId)
+                putNullable("p_stock_item_id", stockItemId)
+                putNullable("p_oem_part_number", oem)
+            },
+        ).decodeAs()
+
+    override suspend fun wishlistMoveToCart(
+        wishlistId: String?,
+        stockItemId: String?,
+        oem: String?,
+        qty: Double,
+        removeFromWishlist: Boolean,
+    ): String {
+        require(qty > 0)
+        val cartId = ensureOpenCartId()
+        return client.postgrest.rpc(
+            RpcNames.WISHLIST_MOVE_TO_CART,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_qty", qty)
+                put("p_remove_from_wishlist", removeFromWishlist)
+                putNullable("p_wishlist_id", wishlistId)
+                putNullable("p_stock_item_id", stockItemId)
+                putNullable("p_oem_part_number", oem)
+            },
+        ).decodeAs()
+    }
+
+    override suspend fun listCompareItems(): List<CompareItem> =
+        client.postgrest.rpc(RpcNames.LIST_CUSTOMER_COMPARE_ITEMS, buildJsonObject { })
+            .decodeList<CompareItemRow>()
+            .map { it.toModel() }
+
+    override suspend fun addCustomerCompareItem(stockItemId: String?, oem: String?): String =
+        client.postgrest.rpc(
+            RpcNames.ADD_CUSTOMER_COMPARE_ITEM,
+            stockItemOemBody(stockItemId, oem),
+        ).decodeAs()
+
+    override suspend fun removeCustomerCompareItem(
+        compareId: String?,
+        stockItemId: String?,
+        oem: String?,
+    ) {
+        client.postgrest.rpc(
+            RpcNames.REMOVE_CUSTOMER_COMPARE_ITEM,
+            buildJsonObject {
+                putNullable("p_compare_id", compareId)
+                putNullable("p_stock_item_id", stockItemId)
+                putNullable("p_oem_part_number", oem)
+            },
+        )
+    }
+
+    override suspend fun listOwnReviews(): List<ProductReview> {
+        val customerId = currentCustomerId() ?: return emptyList()
+        return client.from("customer_product_reviews")
+            .select(
+                Columns.raw(
+                    "id,stock_item_id,rating,body,status,created_at," +
+                        "stock_items(id,oem_part_number,description)",
+                ),
+            ) {
+                filter { eq("customer_id", customerId) }
+                order("created_at", Order.DESCENDING)
+                limit(100)
+            }
+            .decodeList<ProductReviewRow>()
+            .map { it.toModel() }
+    }
+
+    override suspend fun listApprovedReviews(oem: String): List<ProductReview> {
+        val needle = oem.trim()
+        if (needle.isEmpty()) return emptyList()
+        val item = client.from("stock_items")
+            .select(Columns.list("id")) {
+                filter { ilike("oem_part_number", needle) }
+                limit(1)
+            }
+            .decodeList<StockItemIdRow>()
+            .firstOrNull()
+            ?: return emptyList()
+        return client.from("customer_product_reviews")
+            .select(
+                Columns.raw(
+                    "id,stock_item_id,rating,body,status,created_at," +
+                        "stock_items(id,oem_part_number,description)",
+                ),
+            ) {
+                filter {
+                    eq("stock_item_id", item.id)
+                    eq("status", "approved")
+                }
+                order("created_at", Order.DESCENDING)
+                limit(40)
+            }
+            .decodeList<ProductReviewRow>()
+            .map { it.toModel() }
+    }
+
+    override suspend fun getProductReviewStats(
+        stockItemId: String?,
+        oem: String?,
+    ): ProductReviewStats? =
+        client.postgrest.rpc(
+            RpcNames.GET_PRODUCT_REVIEW_STATS,
+            stockItemOemBody(stockItemId, oem),
+        ).decodeList<ProductReviewStatsRow>().firstOrNull()?.toModel()
+
+    override suspend fun submitCustomerProductReview(
+        rating: Int,
+        body: String,
+        stockItemId: String?,
+        oem: String?,
+    ): String {
+        require(rating in 1..5) { "rating must be 1..5" }
+        return client.postgrest.rpc(
+            RpcNames.SUBMIT_CUSTOMER_PRODUCT_REVIEW,
+            buildJsonObject {
+                put("p_rating", rating)
+                put("p_body", body)
+                putNullable("p_stock_item_id", stockItemId)
+                putNullable("p_oem_part_number", oem)
+            },
+        ).decodeAs()
+    }
+
+    override suspend fun uploadReviewPhoto(
+        reviewId: String,
+        localFilePath: String,
+        mimeType: String,
+        sortOrder: Int,
+    ): String {
+        require(reviewId.isNotBlank())
+        val file = File(localFilePath)
+        require(file.exists()) { "review photo file missing: $localFilePath" }
+        val ext = when {
+            mimeType.contains("png", ignoreCase = true) -> "png"
+            mimeType.contains("webp", ignoreCase = true) -> "webp"
+            else -> "jpg"
+        }
+        val objectPath = "${reviewId.lowercase()}/${UUID.randomUUID().toString().lowercase()}.$ext"
+        val bytes = file.readBytes()
+        client.storage.from(RpcNames.REVIEW_PHOTOS_BUCKET).upload(
+            path = objectPath,
+            data = bytes,
+        ) {
+            upsert = true
+        }
+        return client.postgrest.rpc(
+            RpcNames.ADD_CUSTOMER_PRODUCT_REVIEW_PHOTO,
+            buildJsonObject {
+                put("p_review_id", reviewId)
+                put("p_storage_path", objectPath)
+                put("p_sort_order", sortOrder)
+            },
+        ).decodeAs()
+    }
+
+    private suspend fun ensureOpenCartId(): String {
+        getOpenCart()?.id?.let { return it }
+        val warehouseId = resolveMainWarehouseId()
+        return createCustomerCart(
+            warehouseId = warehouseId,
+            currency = CurrencyCode.USD,
+            fulfillmentMode = FulfillmentMode.IMMEDIATE,
+            exchangeRate = 1.0,
+        )
+    }
+
+    private suspend fun resolveMainWarehouseId(): String {
+        val main = client.from("warehouses")
+            .select(Columns.list("id")) {
+                filter {
+                    eq("is_active", true)
+                    eq("is_quarantine", false)
+                    eq("code", "MAIN")
+                }
+                limit(1)
+            }
+            .decodeList<WarehouseIdRow>()
+            .firstOrNull()
+        if (main != null) return main.id
+        return client.from("warehouses")
+            .select(Columns.list("id")) {
+                filter {
+                    eq("is_active", true)
+                    eq("is_quarantine", false)
+                }
+                order("code", Order.ASCENDING)
+                limit(1)
+            }
+            .decodeList<WarehouseIdRow>()
+            .firstOrNull()
+            ?.id
+            ?: error("no active warehouse for wishlist_move_to_cart")
+    }
+
+    private suspend fun currentCustomerId(): String? =
+        client.from("customers")
+            .select(Columns.list("id")) {
+                limit(1)
+            }
+            .decodeList<CustomerIdRow>()
+            .firstOrNull()
+            ?.id
+
+    private fun stockItemOemBody(stockItemId: String?, oem: String?) =
+        buildJsonObject {
+            putNullable("p_stock_item_id", stockItemId)
+            putNullable("p_oem_part_number", oem)
+        }
+
     companion object {
         private val metadataJson = Json { ignoreUnknownKeys = true }
 
@@ -398,6 +656,7 @@ class SupabaseRpcClient(
             ) {
                 install(Auth)
                 install(Postgrest)
+                install(Storage)
             }
             return SupabaseRpcClient(client)
         }
@@ -560,3 +819,90 @@ private data class TrackPointRow(
         status = status,
     )
 }
+
+@Serializable
+private data class StockItemEmbed(
+    val id: String? = null,
+    @SerialName("oem_part_number") val oemPartNumber: String? = null,
+    val description: String? = null,
+)
+
+@Serializable
+private data class WishlistRow(
+    val id: String,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("notify_when_in_stock") val notifyWhenInStock: Boolean = false,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("stock_items") val stockItems: StockItemEmbed? = null,
+) {
+    fun toModel() = WishlistItem(
+        id = id,
+        stockItemId = stockItemId,
+        oemPartNumber = stockItems?.oemPartNumber ?: "—",
+        description = stockItems?.description,
+        notifyWhenInStock = notifyWhenInStock,
+        createdAt = createdAt,
+    )
+}
+
+@Serializable
+private data class CompareItemRow(
+    val id: String,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("oem_part_number") val oemPartNumber: String = "",
+    val description: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+) {
+    fun toModel() = CompareItem(
+        id = id,
+        stockItemId = stockItemId,
+        oemPartNumber = oemPartNumber,
+        description = description,
+        createdAt = createdAt,
+    )
+}
+
+@Serializable
+private data class ProductReviewRow(
+    val id: String,
+    @SerialName("stock_item_id") val stockItemId: String,
+    val rating: Int = 0,
+    val body: String? = null,
+    val status: String = "pending",
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("stock_items") val stockItems: StockItemEmbed? = null,
+) {
+    fun toModel() = ProductReview(
+        id = id,
+        stockItemId = stockItemId,
+        oemPartNumber = stockItems?.oemPartNumber,
+        description = stockItems?.description,
+        rating = rating,
+        body = body.orEmpty(),
+        status = ProductReviewStatus.entries.find { it.rpcValue == status }
+            ?: ProductReviewStatus.PENDING,
+        createdAt = createdAt,
+    )
+}
+
+@Serializable
+private data class ProductReviewStatsRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("avg_rating") val avgRating: Double = 0.0,
+    @SerialName("review_count") val reviewCount: Long = 0,
+) {
+    fun toModel() = ProductReviewStats(
+        stockItemId = stockItemId,
+        avgRating = avgRating,
+        reviewCount = reviewCount.toInt(),
+    )
+}
+
+@Serializable
+private data class StockItemIdRow(val id: String)
+
+@Serializable
+private data class WarehouseIdRow(val id: String)
+
+@Serializable
+private data class CustomerIdRow(val id: String)
