@@ -373,11 +373,6 @@ private fun CompanionSection(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
-    Text(
-        "Phone scanner: claim till pairing code, then Bridge-First inventory QR → " +
-            RpcNames.ADD_CART_LINE_FROM_QR + ". Same staff account as till owner.",
-        style = MaterialTheme.typography.bodySmall,
-    )
     OutlinedTextField(
         value = state.companionPairingInput,
         onValueChange = viewModel::onCompanionPairingInputChange,
