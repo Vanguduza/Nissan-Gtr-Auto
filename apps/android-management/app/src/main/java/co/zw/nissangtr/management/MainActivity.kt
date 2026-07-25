@@ -374,29 +374,16 @@ private fun ManagementHome(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("Nissan GTR Auto", style = MaterialTheme.typography.headlineMedium)
-        Text("Management hub", style = MaterialTheme.typography.bodyMedium)
-        Text(
-            "Modules: ${AuthModule.id}, ${PosModule.id}, ${WarehouseModule.id}, " +
-                "${ProcurementModule.id}, ${CreditModule.id}, ${DispatchModule.id}, " +
-                "${FleetModule.id}, ${HrModule.id}, ${ChatModule.id}",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            if (liveRpc) "RPC: Live (supabase-kt)"
-            else "RPC: Fake (set SUPABASE_URL + SUPABASE_ANON_KEY)",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text("Management", style = MaterialTheme.typography.bodyMedium)
         if (signedInEmail != null) {
             Text("Signed in: $signedInEmail", style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
                 Text("Sign out")
             }
-        } else if (!liveRpc) {
-            Text("Fake mode — auth optional / bypassed", style = MaterialTheme.typography.bodySmall)
         }
 
         Text(
-            "Select a module",
+            "Modules",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -406,37 +393,15 @@ private fun ManagementHome(
         HubModuleButton(HubModule.Procurement, onOpenModule)
         if (showCredit) {
             HubModuleButton(HubModule.Crm, onOpenModule)
-        } else if (liveRpc) {
-            Text(
-                "CRM hidden — needs staff role admin|sales|finance",
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
         HubModuleButton(HubModule.Hr, onOpenModule)
         HubModuleButton(HubModule.Logistics, onOpenModule)
         if (showFleet) {
             HubModuleButton(HubModule.Fleet, onOpenModule)
-        } else if (liveRpc) {
-            Text(
-                "Fleet hidden — needs staff role admin|warehouse|dispatcher",
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
         if (showChat) {
             HubModuleButton(HubModule.Chat, onOpenModule)
-        } else if (liveRpc) {
-            Text(
-                "Chat hidden — needs staff role admin|sales|warehouse",
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
-
-        Text(
-            "Sales-only users land on POS. Admin/warehouse keep this hub. " +
-                "No ZIMRA / payroll tax. Bridge-First QR/printer. Money: USD|ZIG.",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 8.dp),
-        )
     }
 }
 
