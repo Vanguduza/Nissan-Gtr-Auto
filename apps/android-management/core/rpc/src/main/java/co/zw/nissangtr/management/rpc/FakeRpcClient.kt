@@ -29,6 +29,12 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_DELIVERY_JOB]: p_delivery_note_id, p_assignee_user_id?, p_eta_at?, p_notes?
  * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status
  * - [RpcNames.INGEST_DELIVERY_LOCATION]: p_delivery_job_id, p_lat, p_lng, p_recorded_at?, p_accuracy_m?
+ *   (management must not call from UI — delivery app sole producer)
+ * - [RpcNames.SUGGEST_DELIVERY_ASSIGNEES]: p_delivery_job_id, p_limit?
+ * - [RpcNames.ASSIGN_DELIVERY_JOB]: p_delivery_job_id, p_assignee_user_id, p_override?
+ * - [RpcNames.OPTIMIZE_DRIVER_STOPS]: p_driver_user_id
+ * - [RpcNames.GET_DELIVERY_TRACK_POINT]: p_delivery_job_id (staff view)
+ * - listOpenPanicEvents / acknowledgePanicEvent: PostgREST panic_events
  * - [RpcNames.CLAIM_CHAT_THREAD] / [RpcNames.CLOSE_CHAT_THREAD] / [RpcNames.MARK_CHAT_THREAD_READ]: p_thread_id
  * - [RpcNames.POST_CHAT_MESSAGE]: p_thread_id, p_body
  * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
@@ -43,6 +49,19 @@ class FakeRpcClient : RpcClient {
     private val pendingTransfers = mutableSetOf<String>()
     private val reconDrafts = mutableSetOf<String>()
     private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
+    private val jobAssignees = mutableMapOf<String, String>() // jobId → driverUserId
+    private val panicEvents = mutableListOf(
+        PanicEventSummary(
+            id = OPEN_PANIC_ID,
+            driverUserId = FAKE_DRIVER_USER_ID,
+            deliveryJobId = null,
+            lat = -17.8292,
+            lng = 31.0522,
+            createdAt = "2026-07-25T09:00:00Z",
+            acknowledgedAt = null,
+            acknowledgedBy = null,
+        ),
+    )
     /** Exposed for unit/demo checks — count of successful GPS ingests. */
     val ingestedLocationCount: AtomicInteger = AtomicInteger(0)
     private val deliveryNotes = mutableListOf(
