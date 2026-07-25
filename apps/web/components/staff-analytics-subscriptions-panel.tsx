@@ -143,6 +143,7 @@ export function StaffAnalyticsSubscriptionsPanel() {
   }
 
   async function onDeactivate(id: string) {
+    if (!canMutate) return;
     const client = createWebClient();
     if (!client) return;
     setBusy(true);
