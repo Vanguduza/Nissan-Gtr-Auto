@@ -438,6 +438,47 @@ export function StaffFinancePanel() {
     void loadStatementDetail(selectedStmtId, stmt?.account_code);
   }, [boot, selectedStmtId, loadStatementDetail]);
 
+  useEffect(() => {
+    if (boot.kind !== "ready" || tab !== "payments") return;
+    void (async () => {
+      const client = createWebClient();
+      if (!client) return;
+      const res = await fetchArAgingSnapshot(client);
+      if (!res.ok) {
+        setArAging(null);
+        setArAgingError(res.error);
+        return;
+      }
+      setArAgingError(null);
+      setArAging(res.data);
+    })();
+  }, [boot.kind, tab]);
+
+  useEffect(() => {
+    if (boot.kind !== "ready" || !allocPaymentId) {
+      setOpenInvoices([]);
+      return;
+    }
+    const pay = boot.payments.find((p) => p.id === allocPaymentId);
+    if (!pay?.customer_id) {
+      setOpenInvoices([]);
+      return;
+    }
+    void (async () => {
+      const client = createWebClient();
+      if (!client) return;
+      const res = await listOpenInvoicesForCustomer(client, {
+        customerId: pay.customer_id,
+        currency: pay.currency,
+      });
+      if (!res.ok) {
+        setOpenInvoices([]);
+        return;
+      }
+      setOpenInvoices(res.data);
+    })();
+  }, [boot, allocPaymentId]);
+
   async function onCreateDraft(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
@@ -451,13 +492,18 @@ export function StaffFinancePanel() {
       setMessage("Choose distinct debit and credit accounts.");
       return;
     }
+    const rate = parseExchangeRate(currency, exchangeRate);
+    if (rate == null) {
+      setMessage("ZiG exchange rate must be a positive number.");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const res = await createJournalDraft(client, {
       entryDate,
       description: description || "Staff journal draft",
       currency,
-      exchangeRate: currency === "ZIG" ? zigExchangeRate() : 1,
+      exchangeRate: rate,
       lines: [
         {
           account_code: debitAccount,
@@ -481,6 +527,59 @@ export function StaffFinancePanel() {
     setMessage(`Draft journal ${res.data.slice(0, 8)}… · ${currency}`);
     setAmount("");
     await refresh();
+  }
+
+  async function onQuickOp(op: QuickOpTemplate) {
+    const client = createWebClient();
+    if (!client) return;
+    const n = Number(quickAmount);
+    if (!Number.isFinite(n) || n <= 0) {
+      setMessage("Quick-op amount must be a positive number.");
+      return;
+    }
+    const rate = parseExchangeRate(quickCurrency, quickRate);
+    if (rate == null) {
+      setMessage("ZiG exchange rate must be a positive number.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await createJournalDraft(client, {
+      entryDate: quickDate,
+      description: op.description,
+      currency: quickCurrency,
+      exchangeRate: rate,
+      lines: [
+        {
+          account_code: op.debit,
+          debit: n,
+          credit: 0,
+          currency: quickCurrency,
+        },
+        {
+          account_code: op.credit,
+          debit: 0,
+          credit: n,
+          currency: quickCurrency,
+        },
+      ],
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(
+      `Quick draft ${res.data.slice(0, 8)}… · ${op.label} · ${quickCurrency}` +
+        (quickCurrency === "ZIG" ? ` @ ${rate}` : ""),
+    );
+    setQuickAmount("");
+    await refresh();
+    const meta = ACCOUNT_TAB_CODES[tab];
+    if (meta) {
+      const linesRes = await listJournalLinesForAccount(client, meta.code);
+      if (linesRes.ok) setAccountLines(linesRes.data);
+    }
   }
 
   async function onPostJournal(id: string) {
