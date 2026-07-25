@@ -159,15 +159,21 @@ struct ChatScreen: View {
 /// Message bubbles + composer for one thread.
 struct ChatThreadScreen: View {
     @EnvironmentObject private var session: StorefrontSession
+    @Environment(\.scenePhase) private var scenePhase
     let threadId: UUID
 
     @State private var thread: ChatThread?
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
     @State private var status: String?
+    @State private var pollHint: String?
     @State private var sendBusy = false
+    @State private var failureStreak = 0
+    /// Serializes poll/load so `.task` sleep + foreground resume cannot overlap.
+    @State private var refreshGate = false
 
-    private let pollInterval: Duration = .seconds(4)
+    private let basePollSeconds: Double = 4
+    private let maxPollSeconds: Double = 30
 
     var body: some View {
         VStack(spacing: 0) {
@@ -225,35 +231,51 @@ struct ChatThreadScreen: View {
                 .background(.bar)
             }
 
-            if let status {
-                Text(status)
+            VStack(spacing: 2) {
+                if let status {
+                    Text(status)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(pollHint ?? livePollCaption)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 4)
+                    .foregroundStyle(pollHint == nil ? .tertiary : .secondary)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 4)
         }
         .navigationTitle("Thread")
         .navigationBarTitleDisplayMode(.inline)
+        // One `.task`-owned loop; cancelled on disappear — no second Timer.
         .task {
             await load(markRead: true)
             await pollLoop()
         }
         .refreshable { await load(markRead: true) }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await pollOnce(markRead: true, fromForeground: true) }
+        }
+    }
+
+    private var livePollCaption: String {
+        let secs = Int(currentPollSeconds().rounded())
+        if thread?.status == .closed {
+            return "Closed · slow poll ~\(secs)s"
+        }
+        return "Live · poll ~\(secs)s"
+    }
+
+    private func currentPollSeconds() -> Double {
+        if thread?.status == .closed {
+            return min(maxPollSeconds, basePollSeconds * 4)
+        }
+        let factor = pow(2.0, Double(min(failureStreak, 3)))
+        return min(maxPollSeconds, basePollSeconds * factor)
     }
 
     private func load(markRead: Bool) async {
-        do {
-            let all = try await session.api.listChatThreads()
-            thread = all.first { $0.id == threadId }
-            messages = try await session.api.listChatMessages(threadId: threadId)
-            if markRead {
-                try await session.api.markChatThreadRead(threadId: threadId)
-            }
-            status = nil
-        } catch {
-            status = error.localizedDescription
-        }
+        await pollOnce(markRead: markRead, fromForeground: false)
     }
 
     private func send() async {
@@ -264,36 +286,54 @@ struct ChatThreadScreen: View {
         do {
             _ = try await session.api.postChatMessage(threadId: threadId, body: body)
             draft = ""
-            messages = try await session.api.listChatMessages(threadId: threadId)
-            let all = try await session.api.listChatThreads()
-            thread = all.first { $0.id == threadId }
+            await pollOnce(markRead: false, fromForeground: false)
             status = nil
         } catch {
             status = error.localizedDescription
         }
     }
 
-    /// Thin poll fallback — URLSession PostgREST has no supabase-swift Realtime channel.
+    /// Hardened poll — exponential backoff on errors, foreground burst, single gate.
     private func pollLoop() async {
         while !Task.isCancelled {
+            let interval = Duration.seconds(currentPollSeconds())
             do {
-                try await Task.sleep(for: pollInterval)
+                try await Task.sleep(for: interval)
             } catch {
                 return
             }
             guard !Task.isCancelled else { return }
-            do {
-                let next = try await session.api.listChatMessages(threadId: threadId)
-                if next.map(\.id) != messages.map(\.id) {
-                    messages = next
+            await pollOnce(markRead: true, fromForeground: false)
+        }
+    }
+
+    private func pollOnce(markRead: Bool, fromForeground: Bool) async {
+        guard !refreshGate else { return }
+        refreshGate = true
+        defer { refreshGate = false }
+
+        do {
+            let next = try await session.api.listChatMessages(threadId: threadId)
+            if next.map(\.id) != messages.map(\.id) {
+                messages = next
+                if markRead {
                     try? await session.api.markChatThreadRead(threadId: threadId)
                 }
-                let all = try await session.api.listChatThreads()
-                thread = all.first { $0.id == threadId }
-            } catch {
-                // Keep last good snapshot; surface transient errors lightly.
-                status = error.localizedDescription
+            } else if markRead, fromForeground {
+                try? await session.api.markChatThreadRead(threadId: threadId)
             }
+            let all = try await session.api.listChatThreads()
+            thread = all.first { $0.id == threadId }
+            failureStreak = 0
+            pollHint = nil
+            if status?.hasPrefix("Update delayed") == true {
+                status = nil
+            }
+        } catch {
+            failureStreak = min(failureStreak + 1, 8)
+            let secs = Int(currentPollSeconds().rounded())
+            pollHint = "Update delayed — retrying in ~\(secs)s"
+            status = "Update delayed: \(error.localizedDescription)"
         }
     }
 }
