@@ -213,7 +213,41 @@ export function StaffBlanketPanel() {
       setMessage(res.error);
       return;
     }
-    setMessage("Blanket PO submitted — call-off releases unlocked.");
+    setMessage("Blanket PO submitted — awaiting finance approval.");
+    await refresh();
+  }
+
+  async function onApproveBlanket(id: string) {
+    const client = createWebClient();
+    if (!client) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await approvePurchaseOrder(client, id);
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage("Blanket PO approved — call-off releases unlocked.");
+    await refresh();
+  }
+
+  async function onRejectBlanket(id: string) {
+    const client = createWebClient();
+    if (!client) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await rejectPurchaseOrder(client, {
+      purchaseOrderId: id,
+      reason: rejectReason || undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setRejectReason("");
+    setMessage("Blanket PO rejected.");
     await refresh();
   }
 
@@ -428,6 +462,15 @@ export function StaffBlanketPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Open blankets · call-off</legend>
+        <label className={styles.field}>
+          Reject reason (for reject on submitted blankets)
+          <input
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            disabled={busy}
+            placeholder="Required to reject"
+          />
+        </label>
         {boot.blankets.length === 0 ? (
           <p className={styles.muted}>
             No blanket purchase orders yet. Create one above.

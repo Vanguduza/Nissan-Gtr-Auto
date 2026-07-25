@@ -348,14 +348,31 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
   },
 ];
 
-/** Flat leaf list (compat) — derived from `STAFF_NAV_TREE`. */
-export const STAFF_NAV_ITEMS: StaffNavItem[] = STAFF_NAV_TREE.flatMap((entry) => {
-  if (entry.kind === "link") {
-    const { kind: _k, ...item } = entry;
-    return [item];
+/** Flat leaf list (compat) — pathnames only, deduped. */
+export const STAFF_NAV_ITEMS: StaffNavItem[] = (() => {
+  const seen = new Set<string>();
+  const items: StaffNavItem[] = [];
+  for (const entry of STAFF_NAV_TREE) {
+    if (entry.kind === "link") {
+      const { kind: _k, ...item } = entry;
+      items.push(item);
+      continue;
+    }
+    for (const child of entry.children) {
+      const q = child.href.indexOf("?");
+      const pathname = q < 0 ? child.href : child.href.slice(0, q);
+      if (seen.has(pathname)) continue;
+      seen.add(pathname);
+      items.push({
+        href: pathname,
+        label: child.label,
+        exact: child.exact,
+        roles: child.roles,
+      });
+    }
   }
-  return entry.children.map(({ tab: _t, ...item }) => item);
-});
+  return items;
+})();
 
 /**
  * Module → required roles (same matrix as nav/gates).
