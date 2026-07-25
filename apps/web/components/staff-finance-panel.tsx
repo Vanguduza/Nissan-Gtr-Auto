@@ -252,6 +252,11 @@ export function StaffFinancePanel() {
   const [periodEnd, setPeriodEnd] = useState(todayInput);
   const [periodLabel, setPeriodLabel] = useState("");
   const [closePeriodId, setClosePeriodId] = useState("");
+
+  const [dailyRate, setDailyRate] = useState(defaultZigRate);
+  const [dailyRateDate, setDailyRateDate] = useState(todayInput);
+  const [dailyRateNotes, setDailyRateNotes] = useState("");
+  const [rateHistory, setRateHistory] = useState<ZigExchangeRateRow[]>([]);
   const [closeStep, setCloseStep] = useState<CloseWizardStep>("pick");
   const [closeTbRows, setCloseTbRows] = useState<TrialBalanceRow[]>([]);
   const [closeTbOk, setCloseTbOk] = useState<boolean | null>(null);
