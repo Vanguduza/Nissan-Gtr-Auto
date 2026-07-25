@@ -60,6 +60,7 @@ const FINANCE_TABS: StaffModuleTab[] = [
   { id: "petty-cash", label: "Petty cash" },
   { id: "cash-sales", label: "Cash sales" },
   { id: "online-sales", label: "Online sales" },
+  { id: "exchange-rate", label: "ZiG rate" },
   { id: "journals", label: "Journals" },
   { id: "payments", label: "Payments" },
   { id: "reports", label: "Reports" },
