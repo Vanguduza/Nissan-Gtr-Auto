@@ -49,8 +49,19 @@ export function isStyleLoadError(error: unknown): boolean {
     url?: string;
   };
   const msg = (e.message ?? "").toLowerCase();
-  if (e.status === 404 || e.status === 403 || e.status === 0) return true;
-  if (msg.includes("failed to fetch") || msg.includes("load")) return true;
-  if (msg.includes("style") || (e.url && e.url.includes("style"))) return true;
+  const url = (e.url ?? "").toLowerCase();
+  // Style JSON / TileJSON fetch failures (not individual vector tiles).
+  if (url.includes("style.json") || url.includes("/styles/") || url.endsWith("style")) {
+    return true;
+  }
+  if (msg.includes("style") && (msg.includes("fetch") || msg.includes("load") || msg.includes("ajax"))) {
+    return true;
+  }
+  if (
+    (e.status === 404 || e.status === 403 || e.status === 0) &&
+    (url.includes("style") || msg.includes("style"))
+  ) {
+    return true;
+  }
   return false;
 }
