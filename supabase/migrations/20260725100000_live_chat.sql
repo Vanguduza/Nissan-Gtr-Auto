@@ -218,35 +218,36 @@ CREATE POLICY chat_threads_customer_insert ON public.chat_threads
     AND (customer_id IS NULL OR customer_id = public._current_customer_id())
   );
 
-CREATE POLICY chat_threads_customer_update ON public.chat_threads
-  FOR UPDATE TO authenticated
-  USING (customer_user_id = auth.uid() AND NOT public.is_staff())
-  WITH CHECK (
-    customer_user_id = auth.uid()
-    AND NOT public.is_staff()
-    -- customers may only close their own thread (or leave metadata alone)
-    AND assigned_to IS NOT DISTINCT FROM (
-      SELECT t.assigned_to FROM public.chat_threads t WHERE t.id = chat_threads.id
-    )
-    AND kind = (SELECT t.kind FROM public.chat_threads t WHERE t.id = chat_threads.id)
-    AND customer_id IS NOT DISTINCT FROM (
-      SELECT t.customer_id FROM public.chat_threads t WHERE t.id = chat_threads.id
-    )
-  );
-
+-- Customer/staff close + staff claim go through SECURITY DEFINER RPCs.
+-- Direct UPDATE allowed for staff claim/close fields only (see guard trigger).
 CREATE POLICY chat_threads_staff_update ON public.chat_threads
   FOR UPDATE TO authenticated
   USING (
     public.has_staff_role(public._chat_staff_roles())
     AND public._can_select_chat_thread(chat_threads)
   )
-  WITH CHECK (
-    public.has_staff_role(public._chat_staff_roles())
-    AND customer_user_id = (
-      SELECT t.customer_user_id FROM public.chat_threads t WHERE t.id = id
-    )
-    AND kind = (SELECT t.kind FROM public.chat_threads t WHERE t.id = id)
-  );
+  WITH CHECK (public.has_staff_role(public._chat_staff_roles()));
+
+CREATE OR REPLACE FUNCTION public.chat_threads_protect_columns()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.customer_user_id IS DISTINCT FROM OLD.customer_user_id
+     OR NEW.customer_id IS DISTINCT FROM OLD.customer_id
+     OR NEW.kind IS DISTINCT FROM OLD.kind
+     OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'chat_threads identity columns are immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS chat_threads_protect_columns_trg ON public.chat_threads;
+CREATE TRIGGER chat_threads_protect_columns_trg
+  BEFORE UPDATE ON public.chat_threads
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.chat_threads_protect_columns();
 
 -- Messages
 CREATE POLICY chat_messages_select ON public.chat_messages
