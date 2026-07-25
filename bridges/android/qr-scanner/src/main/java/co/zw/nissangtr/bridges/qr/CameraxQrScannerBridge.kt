@@ -145,6 +145,3 @@ class CameraxQrScannerBridge(
         const val REQUEST_SCAN: Int = 0x51_53 // "QS"
     }
 }
-
-/** Local alias so we do not depend on kotlinx.coroutines.CancellationException name clash. */
-private typealias CancellationException = java.util.concurrent.CancellationException
