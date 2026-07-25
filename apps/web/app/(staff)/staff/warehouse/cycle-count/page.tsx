@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { StaffNav } from "@/components/staff-nav";
 import { StaffWarehouseCycleCountPanel } from "@/components/staff-warehouse-cycle-count-panel";
 import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
@@ -12,11 +11,6 @@ export default function StaffWarehouseCycleCountPage() {
       <StaffNav current="/staff/warehouse/cycle-count" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Cycle count</h1>
-        <p className={styles.lede}>
-          Draft → count lines → submit (dual-auth when variance exceeds
-          threshold) → approve or cancel posted. Explicit currency on the draft.{" "}
-          <Link href="/staff/warehouse">Warehouse hub</Link>.
-        </p>
         <StaffWarehouseTabs active="cycle-count" />
         <StaffWarehouseCycleCountPanel />
       </div>

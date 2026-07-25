@@ -157,11 +157,6 @@ export function StaffPanicInboxPanel() {
     <div className={styles.form}>
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Filters</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Driver SOS from <code>panic_events</code> (Realtime). Support phone
-          lives in delivery-app env — web is acknowledge-only.{" "}
-          {live ? "Realtime on." : "Realtime off."}
-        </p>
         <label
           className={styles.field}
           style={{

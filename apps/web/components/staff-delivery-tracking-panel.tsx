@@ -421,12 +421,6 @@ export function StaffDeliveryTrackingPanel() {
     <div className={styles.form}>
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Delivery job</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Map subscribes to <code>delivery_locations</code> Realtime inserts.
-          Drivers publish GPS from the delivery Android app (bridge). Web is
-          subscribe-only — no browser geolocation. Panic inbox:{" "}
-          <Link href="/staff/logistics/panic">Panic alerts</Link>.
-        </p>
         {boot.jobs.length === 0 ? (
           <p className={styles.muted} role="status">
             No delivery jobs yet. Create one under{" "}
