@@ -562,44 +562,30 @@ BEGIN
     v_total_release := v_total_release + v_release_value;
   END LOOP;
 
-  IF v_blanket.blanket_max_value IS NOT NULL
-     AND v_blanket.blanket_value_released + v_total_release > v_blanket.blanket_max_value THEN
-    RAISE EXCEPTION 'release exceeds blanket max value';
+  IF v_blanket.blanket_value_released + v_total_release > v_blanket.blanket_max_value THEN
+    RAISE EXCEPTION 'release exceeds remaining blanket value';
   END IF;
 
   INSERT INTO public.purchase_orders (
-    document_number,
-    supplier_id,
-    warehouse_id,
-    material_request_id,
-    currency,
-    exchange_rate_applied,
-    expected_date,
-    notes,
-    created_by,
-    is_blanket,
-    blanket_parent_id,
-    status
+    document_number, supplier_id, warehouse_id, currency, exchange_rate_applied,
+    notes, created_by, blanket_parent_id
   )
   VALUES (
     public.next_series_value('PO-'),
     v_blanket.supplier_id,
     v_blanket.warehouse_id,
-    v_blanket.material_request_id,
     v_blanket.currency,
     v_blanket.exchange_rate_applied,
-    v_blanket.expected_date,
-    COALESCE(p_notes, 'Blanket release from ' || COALESCE(v_blanket.document_number, v_blanket.id::text)),
+    p_notes,
     auth.uid(),
-    false,
-    p_blanket_purchase_order_id,
-    'draft'
+    p_blanket_purchase_order_id
   )
   RETURNING id INTO v_release;
 
   FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
   LOOP
     v_qty := (v_line ->> 'qty')::numeric;
+
     SELECT * INTO v_parent_line
     FROM public.purchase_order_lines
     WHERE id = (v_line ->> 'blanket_line_id')::uuid
@@ -608,14 +594,8 @@ BEGIN
 
     v_no := v_no + 1;
     INSERT INTO public.purchase_order_lines (
-      purchase_order_id,
-      line_no,
-      stock_item_id,
-      uom_id,
-      qty_ordered,
-      unit_price,
-      currency,
-      blanket_parent_line_id
+      purchase_order_id, line_no, stock_item_id, uom_id,
+      qty_ordered, unit_price, currency, blanket_parent_line_id
     )
     VALUES (
       v_release,
@@ -634,9 +614,7 @@ BEGIN
   END LOOP;
 
   UPDATE public.purchase_orders
-  SET
-    blanket_value_released = blanket_value_released + v_total_release,
-    updated_at = now()
+  SET blanket_value_released = blanket_value_released + v_total_release, updated_at = now()
   WHERE id = p_blanket_purchase_order_id;
 
   PERFORM public._procurement_end_rpc();
