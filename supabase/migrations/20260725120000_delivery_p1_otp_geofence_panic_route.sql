@@ -724,6 +724,9 @@ DECLARE
   v_next_lng DOUBLE PRECISION;
   v_remaining UUID[];
   v_id UUID;
+  v_jlat DOUBLE PRECISION;
+  v_jlng DOUBLE PRECISION;
+  v_d DOUBLE PRECISION;
   v_results UUID[] := ARRAY[]::UUID[];
   v_dists DOUBLE PRECISION[] := ARRAY[]::DOUBLE PRECISION[];
 BEGIN
@@ -780,28 +783,22 @@ BEGIN
     v_next_lng := NULL;
 
     FOREACH v_id IN ARRAY v_remaining LOOP
-      DECLARE
-        v_jlat DOUBLE PRECISION;
-        v_jlng DOUBLE PRECISION;
-        v_d DOUBLE PRECISION;
-      BEGIN
-        SELECT COALESCE(dj.dropoff_lat, dj.pickup_lat),
-               COALESCE(dj.dropoff_lng, dj.pickup_lng)
-        INTO v_jlat, v_jlng
-        FROM public.delivery_jobs dj
-        WHERE dj.id = v_id;
+      SELECT COALESCE(dj.dropoff_lat, dj.pickup_lat),
+             COALESCE(dj.dropoff_lng, dj.pickup_lng)
+      INTO v_jlat, v_jlng
+      FROM public.delivery_jobs dj
+      WHERE dj.id = v_id;
 
-        v_d := public._haversine_meters(v_cur_lat, v_cur_lng, v_jlat, v_jlng);
+      v_d := public._haversine_meters(v_cur_lat, v_cur_lng, v_jlat, v_jlng);
 
-        IF v_next IS NULL
-           OR (v_d IS NOT NULL AND (v_next_dist IS NULL OR v_d < v_next_dist))
-           OR (v_d IS NULL AND v_next_dist IS NULL AND v_next > v_id) THEN
-          v_next := v_id;
-          v_next_dist := v_d;
-          v_next_lat := v_jlat;
-          v_next_lng := v_jlng;
-        END IF;
-      END;
+      IF v_next IS NULL
+         OR (v_d IS NOT NULL AND (v_next_dist IS NULL OR v_d < v_next_dist))
+         OR (v_d IS NULL AND v_next_dist IS NULL AND v_next > v_id) THEN
+        v_next := v_id;
+        v_next_dist := v_d;
+        v_next_lat := v_jlat;
+        v_next_lng := v_jlng;
+      END IF;
     END LOOP;
 
     v_seq := v_seq + 1;
