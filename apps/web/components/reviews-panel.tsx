@@ -167,6 +167,15 @@ export function ReviewsPanel() {
                 disabled={busy}
               />
             </label>
+            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+              Photo (optional · jpeg/png/webp)
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={busy}
+                onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+              />
+            </label>
           </div>
           <div className={styles.formActions}>
             <button type="submit" className={styles.btn} disabled={busy}>
