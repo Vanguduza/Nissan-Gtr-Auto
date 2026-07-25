@@ -109,9 +109,6 @@ SET
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
-COMMENT ON TABLE storage.objects IS
-  'Includes private delivery-pods bucket. Object keys: {job_id}/photo.jpg | {job_id}/signature.png.';
-
 -- ---------------------------------------------------------------------------
 -- RLS policies on storage.objects
 -- ---------------------------------------------------------------------------
