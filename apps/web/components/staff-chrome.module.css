@@ -1,0 +1,108 @@
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--gtr-chalk);
+}
+
+.bar {
+  background: var(--gtr-steel);
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.barInner {
+  width: min(1120px, 100%);
+  margin-inline: auto;
+  padding: 0.65rem clamp(0.85rem, 3vw, 1.5rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: var(--gtr-silver);
+}
+
+.brandText strong {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.roles {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signOut {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(192, 197, 206, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: background var(--gtr-hover), border-color var(--gtr-hover);
+}
+
+.signOut:hover,
+.signOut:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--gtr-silver);
+}
+
+.signOut:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.main {
+  flex: 1;
+}
+
+@media (max-width: 520px) {
+  .roles {
+    display: none;
+  }
+}

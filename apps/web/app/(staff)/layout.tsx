@@ -1,4 +1,3 @@
-import { ShopChrome } from "@/components/shop-chrome";
 import { StaffGate } from "@/components/staff-gate";
 
 export default function StaffLayout({
@@ -6,9 +5,5 @@ export default function StaffLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <ShopChrome>
-      <StaffGate>{children}</StaffGate>
-    </ShopChrome>
-  );
+  return <StaffGate>{children}</StaffGate>;
 }

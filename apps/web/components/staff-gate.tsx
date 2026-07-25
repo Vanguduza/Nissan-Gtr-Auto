@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { StaffAuthProvider } from "@/components/staff-auth-context";
+import { StaffChrome } from "@/components/staff-chrome";
 import styles from "@/components/account.module.css";
 import {
   canAccessPath,
@@ -104,6 +105,8 @@ export function StaffGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <StaffAuthProvider value={state.ctx}>{children}</StaffAuthProvider>
+    <StaffAuthProvider value={state.ctx}>
+      <StaffChrome>{children}</StaffChrome>
+    </StaffAuthProvider>
   );
 }
