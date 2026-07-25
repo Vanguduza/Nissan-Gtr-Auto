@@ -341,14 +341,14 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: track RPC must return single row, got %', v_cnt;
   END IF;
 
-  -- -----------------------------------------------------------------------
-  -- POD complete
-  -- -----------------------------------------------------------------------
+  -- POD complete (P1 OTP required by …120000 migration)
   PERFORM public._test_set_auth_uid(v_driver);
+  v_otp := public.generate_delivery_pod_otp(v_job);
   PERFORM public.submit_delivery_pod(
     v_job,
     'pod/photos/smoke.jpg',
     'pod/signatures/smoke.png',
+    v_otp,
     'delivered'
   );
 
