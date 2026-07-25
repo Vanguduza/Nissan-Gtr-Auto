@@ -1045,9 +1045,11 @@ export function StaffFinancePanel() {
           </div>
         ) : null}
       </fieldset>
+      ) : null}
 
+      {tab === "payments" ? (
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>3 · Payments</legend>
+        <legend className={styles.legend}>Payments</legend>
         <form onSubmit={(e) => void onCreatePayment(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -1209,9 +1211,11 @@ export function StaffFinancePanel() {
           </p>
         )}
       </fieldset>
+      ) : null}
 
+      {tab === "periods" ? (
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>4 · Accounting periods</legend>
+        <legend className={styles.legend}>Accounting periods</legend>
         {/* No unlock_accounting_period RPC — locked periods stay locked. */}
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
           Create open periods via <code>accounting_periods</code>; lock with{" "}
