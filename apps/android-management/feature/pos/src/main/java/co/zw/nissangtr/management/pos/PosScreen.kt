@@ -105,15 +105,11 @@ fun PosScreen(
             Text(it, color = MaterialTheme.colorScheme.error)
         }
 
-        if (isSalesHome && onOpenHub != null) {
+        if (isSalesHome) {
             OutlinedButton(
-                onClick = onOpenHub,
+                onClick = { onOpenHub?.invoke() ?: onBack() },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("All modules (hub)") }
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Sign out / leave") }
         } else {
             OutlinedButton(onClick = onBack) { Text("Back") }
         }
