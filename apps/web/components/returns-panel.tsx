@@ -125,9 +125,7 @@ export function ReturnsPanel() {
     const result = await requestReturnCreditNote(client, invoiceId, payload);
     setBusy(false);
     if (!result.ok) {
-      setMessage(
-        `${result.error} — Returns post via post_return_credit_note (staff-only today). Quarantine-only; never a direct exchange. @backend_agent: add customer-scoped request_customer_return / post_customer_return_credit_note wrapper.`,
-      );
+      setMessage(result.error);
       return;
     }
     setMessage(
