@@ -303,6 +303,10 @@ function parseCustomerOrder(raw: unknown): CustomerOrder | null {
       typeof o.delivery_note_status === "string"
         ? o.delivery_note_status
         : null,
+    active_delivery_job_id:
+      typeof o.active_delivery_job_id === "string"
+        ? o.active_delivery_job_id
+        : null,
   };
 }
 

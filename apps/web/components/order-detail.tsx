@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { CustomerDeliveryTrackPanel } from "@/components/customer-delivery-track-panel";
 import {
   createCustomerContipayIntent,
   createCustomerPaynowIntent,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/components/account.module.css";
+import trackStyles from "@/app/track/[token]/track.module.css";
 
 type Status =
   | { kind: "loading" }
@@ -186,6 +188,23 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
         <p className={styles.formStatus} role="status">
           {message}
         </p>
+      ) : null}
+
+      {order.active_delivery_job_id ? (
+        <section
+          className={trackStyles.card}
+          style={{ marginTop: "1.25rem" }}
+          aria-label="Live delivery tracking"
+        >
+          <h2 className={trackStyles.title} style={{ fontSize: "1.15rem" }}>
+            Live delivery
+          </h2>
+          <p className={trackStyles.lede}>
+            Last known location and ETA while out for delivery. Historical GPS
+            trail is never shown.
+          </p>
+          <CustomerDeliveryTrackPanel jobId={order.active_delivery_job_id} />
+        </section>
       ) : null}
 
       <Link href="/account/orders" className={styles.btn} style={{ marginTop: "1rem" }}>
