@@ -258,19 +258,17 @@ class SupabaseRpcClient(
             }
             .decodeList<PosCartLineRow>()
 
-        // Best-effort OEM labels (PostgREST embed not required).
         val oemByItem = mutableMapOf<String, String>()
         val itemIds = rows.map { it.stockItemId }.distinct()
-        for (itemId in itemIds.take(40)) {
+        if (itemIds.isNotEmpty()) {
             runCatching {
                 client.from("stock_items")
                     .select(Columns.list("id", "oem_part_number")) {
-                        filter { eq("id", itemId) }
-                        limit(1)
+                        filter { isIn("id", itemIds.take(40)) }
+                        limit(40)
                     }
                     .decodeList<StockItemOemRow>()
-                    .firstOrNull()
-                    ?.let { oemByItem[it.id] = it.oemPartNumber }
+                    .forEach { oemByItem[it.id] = it.oemPartNumber }
             }
         }
 
