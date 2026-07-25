@@ -1,6 +1,6 @@
 # GTR Customer — iOS (AuthZ feature screens)
 
-SwiftUI customer shell with thin Cart / Orders / Garage / Pay screens bound to the same storefront AuthZ RPCs as web (`apps/web/lib/customer-storefront.ts`).
+SwiftUI customer shell with thin Cart / Orders / Garage / Pay / **Chat** screens bound to the same storefront AuthZ RPCs as web (`apps/web/lib/customer-storefront.ts`) and live chat (`apps/web/lib/chat.ts`).
 
 ## Fake vs Live switch
 
@@ -9,7 +9,7 @@ SwiftUI customer shell with thin Cart / Orders / Garage / Pay screens bound to t
 | Mode | When | Behavior |
 |------|------|----------|
 | **Live** (`LiveStorefrontApi`) | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `STOREFRONT_FORCE_FAKE` off | Real HTTP + **email/password GoTrue sign-in** required before tabs |
-| **Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents — no network; **sign-in skipped** |
+| **Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents, chat — no network; **sign-in skipped** |
 
 `StorefrontApiFactory.make()` → `AppEnv.prefersLive`. Toolbar badge shows **Fake** or **Live**.
 
@@ -20,9 +20,12 @@ SUPABASE_ANON_KEY=your-anon-key
 
 # Optional force Fake while keeping URL configured
 STOREFRONT_FORCE_FAKE=1
+
+# Optional WhatsApp wa.me digits (Chat tab CTA)
+WHATSAPP_E164=263770000000
 ```
 
-Resolution order for URL / anon / force-fake: **scheme `ProcessInfo` env**, then **Info.plist** keys injected by `Config/Shared.xcconfig` (optional `#include?` of `Secrets.xcconfig`).
+Resolution order for URL / anon / force-fake / WhatsApp: **scheme `ProcessInfo` env**, then **Info.plist** keys injected by `Config/Shared.xcconfig` (optional `#include?` of `Secrets.xcconfig`).
 
 Pay shows intent id + checkout URL when the edge returns one — **no ContiPay/Paynow crypto or secrets in the app**.
 
@@ -71,6 +74,8 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 | Orders | List + detail (`get_customer_order`) |
 | Garage | Upsert / delete vehicles |
 | Pay | ContiPay or Paynow create-intent → intent id / checkout URL |
+| Chat | Thread list, start support/parts, bubbles + composer; WhatsApp `wa.me` CTA |
+| Chat → Thread | Messages + send via `post_chat_message`; **4s poll** refresh (no Realtime client) |
 
 ## AuthZ / RPC map (match web)
 
@@ -89,8 +94,18 @@ Requires **authenticated** customer session and a `customers` row with `profile_
 | `deleteGarage` | `delete_customer_garage_vehicle` | `p_id` |
 | `createContipayIntent` | Edge `contipay-initiate` → RPC `create_customer_contipay_intent` | Prefer edge for `checkout_url`; no client HMAC |
 | `createPaynowIntent` | Edge `paynow-initiate` → RPC `create_customer_paynow_intent` | Prefer edge; no client hash |
+| `listChatThreads` | RLS `chat_threads` | Own threads; `order=last_message_at.desc` |
+| `listChatMessages` | RLS `chat_messages` | `thread_id` filter |
+| `startChatThread` | `start_chat_thread` | `p_kind`, `p_subject`, `p_body` |
+| `postChatMessage` | `post_chat_message` | `p_thread_id`, `p_body` |
+| `markChatThreadRead` | `mark_chat_thread_read` | `p_thread_id` |
+| `chatUnreadCount` | `chat_unread_count` | optional `p_thread_id` |
 
-Migration: `supabase/migrations/20260724130000_customer_storefront_authz.sql`. Decision: [`docs/decisions/2026-07-24-customer-self-pay.md`](../../docs/decisions/2026-07-24-customer-self-pay.md).
+Migration: `supabase/migrations/20260724130000_customer_storefront_authz.sql` (+ live chat migration). Decision: [`docs/decisions/2026-07-24-customer-self-pay.md`](../../docs/decisions/2026-07-24-customer-self-pay.md), [`docs/decisions/2026-07-25-in-app-live-chat.md`](../../docs/decisions/2026-07-25-in-app-live-chat.md).
+
+### Chat Realtime gap
+
+Web uses supabase-js Realtime on `chat_messages`. This iOS scaffold uses **URLSession PostgREST only** (no supabase-swift), so open threads **poll every ~4s** and support pull-to-refresh. Swap in a Realtime adapter later without changing `StorefrontApi` call sites.
 
 ## Layout
 
@@ -118,6 +133,7 @@ apps/ios/
 | `SUPABASE_ANON_KEY` | Public anon key only — never service role |
 | `SUPABASE_ACCESS_TOKEN` | Optional bootstrap customer JWT (**scheme env only** — not Info.plist) |
 | `STOREFRONT_FORCE_FAKE` | `1` / `true` → Fake even when URL+anon set |
+| `WHATSAPP_E164` | Optional digits for Chat WhatsApp CTA |
 
 No PSP keys in the client. ContiPay / Paynow secrets stay in Edge Function env only.
 
@@ -133,6 +149,10 @@ xcodebuild -scheme GTRCustomer \
   -project GTRCustomer.xcodeproj \
   build
 ```
+
+**Chat smoke (Fake):** open Chat tab → seed thread → open thread → send message.
+
+**Chat smoke (Live):** sign in as customer → Chat → New thread (support/parts) → send; confirm row in `chat_messages` / staff web inbox.
 
 SPM library check:
 
@@ -156,3 +176,4 @@ swift build
 | SPM `swift build` | Requires Swift toolchain (typically macOS) |
 | Live HTTP | URLSession PostgREST + GoTrue password grant |
 | Feature UI | Present; Fake skips auth; Live gates on session |
+| Chat updates | Poll fallback (no Realtime channel yet) |
