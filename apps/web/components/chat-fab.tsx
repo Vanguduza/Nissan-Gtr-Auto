@@ -1,8 +1,7 @@
 "use client";
 
-import { MessageCircle } from "@/components/icons";
 import { ChatNavLink } from "@/components/chat-nav-link";
-import { iconSizeLg, iconStroke } from "@/components/icons";
+import { iconSizeLg, iconStroke, MessageCircle } from "@/components/icons";
 import styles from "./chat-fab.module.css";
 
 /** Floating live-chat entry — storefront chrome only. */
