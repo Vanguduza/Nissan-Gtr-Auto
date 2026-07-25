@@ -1,10 +1,18 @@
+/* Shared account + staff ERP chrome (GTR tokens) */
 .shell {
+  --staff-border: rgba(18, 21, 28, 0.1);
+  --staff-border-strong: rgba(18, 21, 28, 0.14);
+  --staff-shadow-sm: 0 1px 2px rgba(18, 21, 28, 0.04), 0 1px 0 rgba(18, 21, 28, 0.02);
+  --staff-shadow-md: 0 4px 16px rgba(18, 21, 28, 0.06), 0 1px 0 rgba(18, 21, 28, 0.03);
+  --staff-radius: 10px;
+  --staff-radius-sm: 6px;
+
   display: grid;
   grid-template-columns: minmax(13.5rem, 16rem) minmax(0, 1fr);
-  gap: 1.5rem;
+  gap: 1.35rem;
   width: min(var(--gtr-shop-max), 100%);
   margin: 0 auto;
-  padding: 1.25rem clamp(0.85rem, 3vw, 1.5rem) 2.5rem;
+  padding: 1.35rem clamp(0.85rem, 3vw, 1.5rem) 2.75rem;
 }
 
 @media (max-width: 800px) {
