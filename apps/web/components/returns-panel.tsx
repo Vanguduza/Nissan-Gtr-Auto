@@ -29,6 +29,7 @@ type LinePick = {
 export function ReturnsPanel() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceCurrency, setInvoiceCurrency] = useState<"USD" | "ZIG">("USD");
   const [picks, setPicks] = useState<LinePick[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -65,6 +66,10 @@ export function ReturnsPanel() {
     setPicks([]);
     setMessage(null);
     if (!id) return;
+    const inv = status.kind === "ready"
+      ? status.invoices.find((i) => i.id === id)
+      : undefined;
+    if (inv) setInvoiceCurrency(inv.currency);
     const client = createWebClient();
     if (!client) return;
     const lines = await listInvoiceLines(client, id);
