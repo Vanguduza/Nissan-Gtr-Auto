@@ -52,12 +52,17 @@ Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**, **Chat** (RBAC:
 ## Dispatch / delivery (staff — no GPS producer)
 
 1. Open **Logistics — Pick / DN / Dispatch**.
-2. Pick/DN flow → **Create job** → **Suggest** assignees → **Assign** or **Override assign**.
-3. Paste driver UUID → **Optimize stops** (`optimize_driver_stops` writes `route_sequence`).
-4. **Refresh live track** → `get_delivery_track_point` (last point + ETA). Job must be **dispatched**; pings come from **`apps/android-delivery`** only.
-5. **Panic inbox** lists open `panic_events` (poll ~5s); **Mark handled** sets `acknowledged_at` / `acknowledged_by`. Optional **Dial support** when `DELIVERY_SUPPORT_PHONE` is set in `local.properties`.
+2. Pick/DN flow → **Create job** (Fake auto-seeds Harare pickup/dropoff; optional **Save coords**).
+3. **Suggest** assignees → ranked list (dist / open / capacity) → tap row → **Assign** or **Override assign**.
+4. **Mark dispatched** → auto-calls `mint_delivery_track_token` and shows share plaintext (or **Mint share token**).
+5. Optional **Generate POD OTP** (job must be dispatched) — read 6-digit code to customer.
+6. Paste driver UUID → **Optimize stops** (`optimize_driver_stops` writes `route_sequence`).
+7. **Refresh live track** → `get_delivery_track_point` (last point + ETA). Job must be **dispatched**; pings come from **`apps/android-delivery`** only.
+8. **Panic inbox** lists open `panic_events` (poll ~5s); **Mark handled** sets `acknowledged_at` / `acknowledged_by`. Optional **Dial support** when `DELIVERY_SUPPORT_PHONE` is set in `local.properties`.
 
-**GPS gate:** `DispatchViewModel.ALLOW_DRIVER_GPS_PRODUCER = false`. Start/Stop tracking UI removed; `startTracking()` sets an error. Management does **not** depend on `:location-tracker` or call `ingest_delivery_location` from UI. Sole producer: delivery app FGS → ingest.
+**GPS gate:** `DispatchViewModel.ALLOW_DRIVER_GPS_PRODUCER = false`. Start/Stop tracking UI removed; `startTracking()` sets an error pointing drivers to `apps/android-delivery`. Management does **not** depend on `:location-tracker` or call `ingest_delivery_location` from UI. Sole producer: delivery app FGS → ingest. (Bridge-First GPS remains only in the delivery app / `bridges/android/location-tracker` — management is staff view/subscribe.)
+
+**Live coords blocker:** mutation guards block PostgREST UPDATE on `delivery_jobs`. Until `@backend_agent` ships `set_delivery_job_geo` (or extends `create_delivery_job`), Live **Save coords** fails closed — seed pickup/dropoff via SQL (see `supabase/tests/dedicated_delivery_app_smoke.sql`). Fake stores coords for demos.
 
 ## POS QR + ESC/POS (Bridge-First)
 
@@ -86,6 +91,9 @@ Compose never calls CameraX / BluetoothAdapter directly — only ViewModel → b
 | `suggest_delivery_assignees` / `assign_delivery_job` | Seeded drivers; override assign | Live RPC |
 | `optimize_driver_stops` | Demo stop list | Live RPC (persists `route_sequence`) |
 | `get_delivery_track_point` | Fake point when dispatched | Live RPC (staff view) |
+| `mint_delivery_track_token` | Demo plaintext | Live RPC (share once; re-mint revokes) |
+| `generate_delivery_pod_otp` | `042891` when dispatched | Live RPC |
+| `setDeliveryJobCoords` | In-memory for suggest+ETA | **Blocked** until `set_delivery_job_geo` |
 | `listOpenPanicEvents` / `acknowledgePanicEvent` | In-memory panic rows | PostgREST `panic_events` |
 | `ingest_delivery_location` | Contract only — **not** called from dispatch UI | Live RPC |
 | `create_delivery_job` / `update_delivery_job_status` | In-memory | Live RPC |
