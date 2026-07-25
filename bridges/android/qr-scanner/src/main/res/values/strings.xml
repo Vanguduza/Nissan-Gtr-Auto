@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gtr_qr_scan_title">Scan inventory QR</string>
+    <string name="gtr_qr_scan_hint">Point at gtr://part/… sticker</string>
+    <string name="gtr_qr_scan_cancel">Cancel</string>
+</resources>
