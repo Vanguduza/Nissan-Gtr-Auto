@@ -1234,6 +1234,7 @@ export function StaffFinancePanel() {
               const id = e.target.value;
               setSelectedStmtId(id);
               const s = boot.statements.find((x) => x.id === id);
+              if (s) setSelectedStmtAccount(s.account_code);
               void loadStatementDetail(id, s?.account_code);
             }}
             disabled={busy}
@@ -1355,7 +1356,7 @@ export function StaffFinancePanel() {
                   onClick={() =>
                     void loadStatementDetail(
                       selectedStmtId,
-                      selectedStmt?.account_code,
+                      selectedStmt?.account_code ?? selectedStmtAccount,
                     )
                   }
                 >
