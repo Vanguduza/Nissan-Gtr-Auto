@@ -49,6 +49,14 @@ object RpcNames {
     const val OPTIMIZE_DRIVER_STOPS = "optimize_driver_stops"
     /** Staff/customer last-point + ETA (active dispatched job). Not a GPS producer. */
     const val GET_DELIVERY_TRACK_POINT = "get_delivery_track_point"
+    /**
+     * Returns share plaintext once. Call after Mark dispatched so dispatcher can
+     * copy/share (status RPC mints for notify but does not return plaintext).
+     * Re-mint revokes prior active tokens for the job.
+     */
+    const val MINT_DELIVERY_TRACK_TOKEN = "mint_delivery_track_token"
+    /** Dispatcher/driver: 6-digit plaintext once (hash stored). Show/read to customer. */
+    const val GENERATE_DELIVERY_POD_OTP = "generate_delivery_pod_otp"
     /** Driver-only raise; management lists/acks `panic_events` via PostgREST. */
     const val RAISE_DELIVERY_PANIC = "raise_delivery_panic"
 
