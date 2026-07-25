@@ -24,7 +24,7 @@ export default function StaffHubPage() {
         </header>
         <div className={styles.pageBody}>
           <div className={styles.hubModules}>
-          {modules.map((mod) => (
+            {modules.map((mod) => (
             <section
               key={mod.id}
               className={styles.hubModule}
@@ -41,8 +41,8 @@ export default function StaffHubPage() {
                 ))}
               </div>
             </section>
-          ))}
-        </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
