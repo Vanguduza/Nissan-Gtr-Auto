@@ -48,7 +48,8 @@ Home → **Track delivery**, or Orders → **Track delivery** / **Track with sha
 - No map SDK in this app — shows coordinates + ETA text (Bridge-First: no WebView/browser geo).
 - Empty when job is not `dispatched`, token expired/revoked, or no pings yet.
 
-Fake seed: invoice `INV-SEED-DISPATCH` → job `…dj` + token `FakeRpcClient.SEED_TRACK_TOKEN`.
+Owner path: `get_customer_order.active_delivery_job_id` → Track prefills job UUID
+(no share token). Fake seed: `INV-SEED-DISPATCH` sets that id to `…dj`.
 
 Optional intent extras: `track_token`, `track_job_id` (open track on launch).
 

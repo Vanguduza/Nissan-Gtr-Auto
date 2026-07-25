@@ -1,17 +1,25 @@
 import {
   DELIVERY_RPC,
   assignDeliveryJobArgs,
+  getDeliveryTrackPointArgs,
   optimizeDriverStopsArgs,
+  setDeliveryJobGeoArgs,
   suggestDeliveryAssigneesArgs,
+  updateDeliveryJobStatusArgs,
   type SupabaseClient,
+  type UpdateDeliveryJobStatusResult,
 } from "@gtr/supabase-client";
 import {
   requireSession,
   type StorefrontResult,
 } from "@/lib/customer-storefront";
-import { configuredMapStyleUrl } from "@/lib/customer-delivery-track";
+import {
+  configuredMapStyleUrl,
+  type CustomerTrackPoint,
+} from "@/lib/customer-delivery-track";
 
 export { requireSession, configuredMapStyleUrl };
+export type { UpdateDeliveryJobStatusResult };
 
 type RealtimeChannel = ReturnType<SupabaseClient["channel"]>;
 
@@ -32,6 +40,10 @@ export type DeliveryJobOption = {
   eta_at: string | null;
   eta_seconds: number | null;
   eta_source: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  dropoff_lat: number | null;
+  dropoff_lng: number | null;
   notes: string | null;
   created_at: string;
 };

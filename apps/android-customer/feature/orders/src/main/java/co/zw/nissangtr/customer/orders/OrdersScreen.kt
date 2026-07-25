@@ -80,21 +80,17 @@ fun OrdersScreen(
                 "${o.documentNumber ?: o.invoiceId}\n" +
                     "status=${o.status} fulfillment=${o.fulfillmentMode.rpcValue}\n" +
                     "${o.currency.rpcValue} total=${o.total} open=${o.amountOpen}\n" +
-                    "pick=${o.pickListStatus ?: "—"} dn=${o.deliveryNoteStatus ?: "—"}",
+                    "pick=${o.pickListStatus ?: "—"} dn=${o.deliveryNoteStatus ?: "—"}\n" +
+                    "activeJob=${o.activeDeliveryJobId ?: "—"}",
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (o.suggestsActiveDeliveryTrack()) {
+            o.activeDeliveryJobId?.let { jobId ->
                 Text(
-                    "Delivery may be active — track shows last point + ETA only (no trail).",
+                    "Active delivery — track shows last point + ETA only (no trail).",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 OutlinedButton(
-                    onClick = {
-                        val fake = rpc as? FakeRpcClient
-                        val jobId = fake?.let { FakeRpcClient.activeJobIdForInvoice(o.invoiceId) }
-                        val token = jobId?.let { FakeRpcClient.SEED_TRACK_TOKEN }
-                        onTrackDelivery(jobId, token)
-                    },
+                    onClick = { onTrackDelivery(jobId, null) },
                     enabled = !state.busy,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Track delivery") }
@@ -111,12 +107,3 @@ fun OrdersScreen(
         OutlinedButton(onClick = onBack) { Text("Back") }
     }
 }
-
-/**
- * Heuristic until `get_customer_order` returns `delivery_job_id`.
- * Dispatch fulfillment or a submitted DN means track UI is worth offering;
- * the RPC still returns empty unless the job is `dispatched`.
- */
-private fun CustomerOrder.suggestsActiveDeliveryTrack(): Boolean =
-    fulfillmentMode == FulfillmentMode.DISPATCH ||
-        !deliveryNoteStatus.isNullOrBlank()
