@@ -18,6 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -28,9 +31,12 @@ import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
 import co.zw.nissangtr.management.rpc.ValuationMethod
 
+private enum class WarehouseTab { Receive, Transfers, CycleCount }
+
 /**
  * Warehouse scaffold: receive, dual-auth transfers, cycle-count draft/submit.
  * Explicit USD|ZIG. Bridge-First QR fills stock item from OEM — never browser.
+ * Subfeatures are tabbed (FilterChip) for a cleaner ops layout.
  */
 @Composable
 fun WarehouseScreen(
@@ -43,6 +49,7 @@ fun WarehouseScreen(
     ),
 ) {
     val state by viewModel.state.collectAsState()
+    var tab by remember { mutableStateOf(WarehouseTab.Receive) }
 
     Column(
         modifier = modifier
@@ -51,7 +58,7 @@ fun WarehouseScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Warehouse — Receive / Transfer / Cycle count", style = MaterialTheme.typography.headlineSmall)
+        Text("Warehouse", style = MaterialTheme.typography.headlineSmall)
         Text(
             "RPCs: ${RpcNames.POST_STOCK_RECEIPT}, ${RpcNames.CREATE_STOCK_TRANSFER}, " +
                 "${RpcNames.APPROVE_STOCK_TRANSFER}, ${RpcNames.REJECT_STOCK_TRANSFER}, " +
@@ -59,8 +66,45 @@ fun WarehouseScreen(
             style = MaterialTheme.typography.bodySmall,
         )
 
-        // --- Receive ---
-        Text("Receive", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WarehouseTab.entries.forEach { section ->
+                FilterChip(
+                    selected = tab == section,
+                    onClick = { tab = section },
+                    label = {
+                        Text(
+                            when (section) {
+                                WarehouseTab.Receive -> "Receive"
+                                WarehouseTab.Transfers -> "Transfers"
+                                WarehouseTab.CycleCount -> "Cycle count"
+                            },
+                        )
+                    },
+                    enabled = !state.busy,
+                )
+            }
+        }
+
+        HorizontalDivider()
+
+        when (tab) {
+            WarehouseTab.Receive -> WarehouseReceiveSection(state, viewModel)
+            WarehouseTab.Transfers -> WarehouseTransfersSection(state, viewModel)
+            WarehouseTab.CycleCount -> WarehouseCycleSection(state, viewModel)
+        }
+
+        state.error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+        state.message?.let {
+            Text(it, color = MaterialTheme.colorScheme.primary)
+        }
+
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+            Text("Back")
+        }
+    }
+}
         OutlinedTextField(
             value = state.receiveWarehouseId,
             onValueChange = viewModel::onReceiveWarehouseIdChange,

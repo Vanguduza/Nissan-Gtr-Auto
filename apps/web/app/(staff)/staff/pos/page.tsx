@@ -11,8 +11,9 @@ export default function StaffPosPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>POS</h1>
         <p className={styles.lede}>
-          Create cart, add OEM lines, checkout. Online prep queue for storefront
-          dispatch orders. Roles enforced by RPCs.
+          Sales till: search, catalog browse, add lines, checkout with receipt
+          contacts. Optional pairing code for Android companion (web never
+          scans). Online prep for storefront dispatch. Roles enforced by RPCs.
         </p>
         <StaffPosShell />
       </div>

@@ -95,13 +95,15 @@ export function PartDetail({ oem }: { oem: string }) {
       setStatus({ kind: "ready", product: result.data });
       setInCompare(isOemInCompare(result.data.oem));
 
-      const [wish, approved] = await Promise.all([
+      const [wish, approved, stats] = await Promise.all([
         isOemOnWishlist(client, result.data.oem),
         listApprovedReviewsForOem(client, result.data.oem),
+        getProductReviewStats(client, { oem: result.data.oem }),
       ]);
       if (cancelled) return;
       if (wish.ok) setOnWishlist(wish.data);
       if (approved.ok) setReviews(approved.data);
+      if (stats.ok) setReviewStats(stats.data);
     }
 
     void run();
@@ -140,21 +142,30 @@ export function PartDetail({ oem }: { oem: string }) {
     setActionMsg("Saved to wishlist.");
   }, [onWishlist]);
 
-  function toggleCompare(productOem: string) {
+  async function toggleCompare(productOem: string) {
+    setCompareBusy(true);
     setActionMsg(null);
+    const client = createWebClient();
+    if (!client) {
+      setActionMsg("Supabase is not configured.");
+      setCompareBusy(false);
+      return;
+    }
     if (isOemInCompare(productOem)) {
-      removeOemFromCompare(productOem);
+      await removeOemFromCompareTray(client, productOem, true);
       setInCompare(false);
+      setCompareBusy(false);
       setActionMsg("Removed from compare.");
       return;
     }
-    const res = addOemToCompare(productOem);
+    const res = await addOemToCompareTray(client, productOem, true);
+    setCompareBusy(false);
     if (!res.ok) {
       setActionMsg(res.error);
       return;
     }
     setInCompare(true);
-    setActionMsg("Added to compare.");
+    setActionMsg("Added to compare (synced to account).");
   }
 
   async function onSubmitReview(e: FormEvent, productOem: string) {
@@ -173,13 +184,32 @@ export function PartDetail({ oem }: { oem: string }) {
       body: reviewBody.trim(),
       oem: productOem,
     });
-    setReviewBusy(false);
     if (!res.ok) {
+      setReviewBusy(false);
       setActionMsg(res.error);
       return;
     }
+    if (reviewPhoto) {
+      const photo = await uploadReviewPhoto(client, {
+        reviewId: res.data,
+        file: reviewPhoto,
+      });
+      if (!photo.ok) {
+        setReviewBusy(false);
+        setActionMsg(
+          `Review submitted, but photo upload failed: ${photo.error}`,
+        );
+        setReviewBody("");
+        setReviewPhoto(null);
+        return;
+      }
+    }
+    setReviewBusy(false);
     setReviewBody("");
+    setReviewPhoto(null);
     setActionMsg("Review submitted — pending moderation.");
+    const stats = await getProductReviewStats(client, { oem: productOem });
+    if (stats.ok) setReviewStats(stats.data);
   }
 
   if (status.kind === "loading") {
