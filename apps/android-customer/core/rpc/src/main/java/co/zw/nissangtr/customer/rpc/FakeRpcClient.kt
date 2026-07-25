@@ -21,6 +21,12 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.MARK_CHAT_THREAD_READ]: p_thread_id
  * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
  * - [RpcNames.GET_DELIVERY_TRACK_POINT]: p_delivery_job_id?, p_token?
+ * - [RpcNames.ADD_CUSTOMER_WISHLIST_ITEM]: p_stock_item_id?, p_oem_part_number?
+ * - [RpcNames.REMOVE_CUSTOMER_WISHLIST_ITEM]: p_wishlist_id?, p_stock_item_id?, p_oem_part_number?
+ * - [RpcNames.SET_WISHLIST_NOTIFY_WHEN_IN_STOCK]: p_notify, p_wishlist_id?, …
+ * - [RpcNames.WISHLIST_MOVE_TO_CART]: p_cart_id, p_qty?, p_remove_from_wishlist?, …
+ * - [RpcNames.LIST_CUSTOMER_COMPARE_ITEMS] / ADD / REMOVE
+ * - [RpcNames.SUBMIT_CUSTOMER_PRODUCT_REVIEW] / GET_PRODUCT_REVIEW_STATS / ADD_…_PHOTO
  *
  * No PSP secrets or crypto here — intent UUID only.
  */
@@ -61,6 +67,56 @@ class FakeRpcClient : RpcClient {
     private val chatMessages = mutableListOf<ChatMessage>()
     private val chatLastRead = mutableMapOf<String, String>()
     private val fakeUserId = "00000000-0000-4000-8000-0000000000cu"
+    private val wishlist = mutableListOf(
+        WishlistItem(
+            id = "00000000-0000-4000-8000-0000000000w1",
+            stockItemId = SEED_OIL_FILTER_ID,
+            oemPartNumber = "15208-65F0C",
+            description = "Oil filter (demo)",
+            notifyWhenInStock = false,
+            createdAt = "2026-07-25T10:00:00Z",
+        ),
+        WishlistItem(
+            id = "00000000-0000-4000-8000-0000000000w2",
+            stockItemId = SEED_AIR_FILTER_ID,
+            oemPartNumber = "16546-EB70A",
+            description = "Air cleaner element (demo)",
+            notifyWhenInStock = true,
+            createdAt = "2026-07-25T09:00:00Z",
+        ),
+    )
+    private val compare = mutableListOf(
+        CompareItem(
+            id = "00000000-0000-4000-8000-0000000000c1",
+            stockItemId = SEED_OIL_FILTER_ID,
+            oemPartNumber = "15208-65F0C",
+            description = "Oil filter (demo)",
+            createdAt = "2026-07-25T10:00:00Z",
+        ),
+    )
+    private val reviews = mutableListOf(
+        ProductReview(
+            id = "00000000-0000-4000-8000-0000000000r1",
+            stockItemId = SEED_OIL_FILTER_ID,
+            oemPartNumber = "15208-65F0C",
+            description = "Oil filter (demo)",
+            rating = 5,
+            body = "Fits my Navara — approved demo review.",
+            status = ProductReviewStatus.APPROVED,
+            createdAt = "2026-07-24T10:00:00Z",
+        ),
+        ProductReview(
+            id = "00000000-0000-4000-8000-0000000000r2",
+            stockItemId = SEED_AIR_FILTER_ID,
+            oemPartNumber = "16546-EB70A",
+            description = "Air cleaner element (demo)",
+            rating = 4,
+            body = "Pending demo review.",
+            status = ProductReviewStatus.PENDING,
+            createdAt = "2026-07-25T11:00:00Z",
+        ),
+    )
+    private val reviewPhotoCounts = mutableMapOf<String, Int>()
 
     /** Fake active job → last point (single row only; no trail). Nudged on each poll. */
     private var fakeTrackPoint: DeliveryTrackPoint? = seedTrackPoint()

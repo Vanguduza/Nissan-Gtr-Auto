@@ -119,7 +119,7 @@ interface RpcClient {
         removeFromWishlist: Boolean = true,
     ): String
 
-    /** Live: [RpcNames.LIST_CUSTOMER_COMPARE_ITEMS]. Guests: [GuestCompareStore] in UI. */
+    /** Live: [RpcNames.LIST_CUSTOMER_COMPARE_ITEMS]. Guests use on-device OEM store in UI. */
     suspend fun listCompareItems(): List<CompareItem>
 
     suspend fun addCustomerCompareItem(
