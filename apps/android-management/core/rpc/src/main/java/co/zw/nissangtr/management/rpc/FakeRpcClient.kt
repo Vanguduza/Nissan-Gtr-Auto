@@ -188,6 +188,100 @@ class FakeRpcClient : RpcClient {
         CLOSED_THREAD_ID to 0,
     )
 
+    private val suppliers = mutableListOf(
+        SupplierRef(
+            id = FAKE_SUPPLIER_ID,
+            code = "SUP-1",
+            name = "Fake OEM Supplier",
+        ),
+    )
+
+    private val customers = mutableListOf(
+        CustomerOption(id = FAKE_CUSTOMER_ID, displayName = "Acme Motors (B2B)"),
+        CustomerOption(id = FAKE_CUSTOMER_USER_ID, displayName = "Walk-in Sample"),
+    )
+
+    private val customerCredit = mutableMapOf(
+        FAKE_CUSTOMER_ID to CustomerCreditSnapshot(
+            customerId = FAKE_CUSTOMER_ID,
+            creditLimit = 5_000.0,
+            creditHold = false,
+            openBalance = 1_250.0,
+            currency = CurrencyCode.USD,
+        ),
+    )
+
+    private val blankets = mutableListOf(
+        BlanketSummary(
+            id = FAKE_BLANKET_ID,
+            documentNumber = "BPO-SEED-001",
+            status = "submitted",
+            supplierId = FAKE_SUPPLIER_ID,
+            supplierName = "Fake OEM Supplier",
+            warehouseId = FAKE_WAREHOUSE_ID,
+            warehouseCode = "MAIN",
+            currency = CurrencyCode.USD,
+            blanketMaxValue = 10_000.0,
+            blanketValueReleased = 9_200.0,
+            expectedDate = java.time.LocalDate.now().plusDays(7).toString(),
+            lines = listOf(
+                BlanketLineSummary(
+                    id = FAKE_BLANKET_LINE_ID,
+                    lineNo = 1,
+                    stockItemId = FAKE_STOCK_ITEM_ID,
+                    oemPartNumber = "21410-JF00A",
+                    qtyOrdered = 100.0,
+                    qtyReleased = 96.0,
+                    unitPrice = 25.0,
+                    currency = CurrencyCode.USD,
+                ),
+            ),
+        ),
+    )
+
+    private val warehouseBins = mutableListOf(
+        WarehouseBinSummary(
+            id = FAKE_BIN_A_ID,
+            warehouseId = FAKE_WAREHOUSE_ID,
+            code = "A-01-01",
+            name = "Aisle A rack 1",
+            pickPathSeq = 10,
+            aisle = "A",
+            rack = "01",
+            shelf = "01",
+            isActive = true,
+        ),
+        WarehouseBinSummary(
+            id = FAKE_BIN_B_ID,
+            warehouseId = FAKE_WAREHOUSE_ID,
+            code = "B-02-03",
+            name = "Aisle B rack 2",
+            pickPathSeq = 20,
+            aisle = "B",
+            rack = "02",
+            shelf = "03",
+            isActive = true,
+        ),
+    )
+
+    private val stockLevelBins = mutableMapOf(
+        FAKE_STOCK_ITEM_ID to FAKE_BIN_A_ID,
+    )
+
+    private val consignmentEntries = mutableListOf(
+        ConsignmentEntrySummary(
+            id = FAKE_CONSIGNMENT_ID,
+            documentNumber = "CNS-SEED-001",
+            status = "draft",
+            kind = ConsignmentKind.SUPPLIER_OWNED.rpcValue,
+            purpose = ConsignmentPurpose.RECEIVE.rpcValue,
+            warehouseId = FAKE_WAREHOUSE_ID,
+            supplierId = FAKE_SUPPLIER_ID,
+            currency = CurrencyCode.USD,
+        ),
+    )
+    private val consignmentLineCounts = mutableMapOf(FAKE_CONSIGNMENT_ID to 0)
+
     override suspend fun clockAttendance(
         employeeId: String,
         eventType: AttendanceEventType,
