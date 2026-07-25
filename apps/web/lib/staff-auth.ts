@@ -147,6 +147,9 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path.startsWith("/staff/warranty")) {
     return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
   }
+  if (path.startsWith("/staff/chat")) {
+    return { kind: "roles", roles: ["admin", "sales", "warehouse"] };
+  }
   if (path.startsWith("/staff/analytics")) {
     return { kind: "roles", roles: ["admin", "finance", "sales"] };
   }
