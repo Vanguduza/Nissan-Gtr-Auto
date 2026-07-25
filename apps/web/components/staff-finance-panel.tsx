@@ -1593,6 +1593,52 @@ export function StaffFinancePanel() {
       {tab === "payments" ? (
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Payments</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          B2B credit limits / holds live on the{" "}
+          <Link href="/staff/crm/credit">customer credit desk</Link> (no
+          duplicate editor here). Store credit tender posts via existing payment
+          RPCs.
+        </p>
+        {arAgingError ? (
+          <p className={styles.muted} role="status">
+            AR aging unavailable ({arAgingError}). See{" "}
+            <Link href="/staff/analytics">analytics</Link>.
+          </p>
+        ) : arAging ? (
+          <div style={{ marginBottom: "0.85rem" }}>
+            <p className={styles.muted}>
+              AR aging snapshot ·{" "}
+              {arAging.customers_with_open_balance} customers with open balance
+              {arAging.as_of
+                ? ` · as of ${arAging.as_of.slice(0, 19)}`
+                : ""}
+            </p>
+            {arAging.invoice_aging_buckets.length ? (
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Bucket</th>
+                    <th>Currency</th>
+                    <th>Invoices</th>
+                    <th>Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {arAging.invoice_aging_buckets.map((b) => (
+                    <tr key={`${b.bucket}-${b.currency}`}>
+                      <td>{b.bucket}</td>
+                      <td>{b.currency}</td>
+                      <td>{b.invoice_count}</td>
+                      <td>{Number(b.open_amount).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className={styles.muted}>No open invoice aging buckets.</p>
+            )}
+          </div>
+        ) : null}
         <form onSubmit={(e) => void onCreatePayment(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -1621,13 +1667,28 @@ export function StaffFinancePanel() {
               Currency
               <select
                 value={payCurrency}
-                onChange={(e) => setPayCurrency(e.target.value as CurrencyCode)}
+                onChange={(e) => {
+                  const c = e.target.value as CurrencyCode;
+                  setPayCurrency(c);
+                  if (c === "ZIG") setPayExchangeRate(defaultZigRate());
+                }}
                 disabled={busy}
               >
                 <option value="USD">USD</option>
                 <option value="ZIG">ZIG</option>
               </select>
             </label>
+            {payCurrency === "ZIG" ? (
+              <label className={styles.field}>
+                ZiG exchange rate
+                <input
+                  value={payExchangeRate}
+                  onChange={(e) => setPayExchangeRate(e.target.value)}
+                  disabled={busy}
+                  inputMode="decimal"
+                />
+              </label>
+            ) : null}
             <label className={styles.field}>
               Tender
               <select
@@ -1679,12 +1740,19 @@ export function StaffFinancePanel() {
           onSubmit={(e) => void onAllocate(e)}
           style={{ marginTop: "0.85rem" }}
         >
+          <p className={styles.muted} style={{ marginBottom: "0.5rem" }}>
+            Multi-invoice allocate (same currency as payment; over-allocate
+            denied by RPC).
+          </p>
           <div className={styles.formGrid}>
-            <label className={styles.field}>
+            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
               Draft payment
               <select
                 value={allocPaymentId}
-                onChange={(e) => setAllocPaymentId(e.target.value)}
+                onChange={(e) => {
+                  setAllocPaymentId(e.target.value);
+                  setAllocRows([{ invoiceId: "", amount: "" }]);
+                }}
                 disabled={busy}
               >
                 {boot.payments.map((p) => (
@@ -1696,28 +1764,106 @@ export function StaffFinancePanel() {
                 ))}
               </select>
             </label>
-            <label className={styles.field}>
-              Invoice id
-              <input
-                value={allocInvoiceId}
-                onChange={(e) => setAllocInvoiceId(e.target.value)}
-                disabled={busy}
-                placeholder="sales_invoice uuid"
-              />
-            </label>
-            <label className={styles.field}>
-              Allocate amount
-              <input
-                value={allocAmount}
-                onChange={(e) => setAllocAmount(e.target.value)}
-                disabled={busy}
-                inputMode="decimal"
-              />
-            </label>
           </div>
+          {openInvoices.length ? (
+            <p className={styles.muted} style={{ margin: "0.5rem 0" }}>
+              Open invoices (same currency):{" "}
+              {openInvoices.slice(0, 6).map((inv, i) => (
+                <span key={inv.id}>
+                  {i > 0 ? " · " : ""}
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy}
+                    onClick={() => {
+                      setAllocRows((rows) => {
+                        const empty = rows.findIndex(
+                          (r) => !r.invoiceId.trim(),
+                        );
+                        const next = [...rows];
+                        const fill = {
+                          invoiceId: inv.id,
+                          amount: String(inv.open_balance),
+                        };
+                        if (empty >= 0) next[empty] = fill;
+                        else next.push(fill);
+                        return next;
+                      });
+                    }}
+                  >
+                    {inv.document_number ?? inv.id.slice(0, 8)} (
+                    {inv.open_balance.toFixed(2)} {inv.currency})
+                  </button>
+                </span>
+              ))}
+            </p>
+          ) : null}
+          {allocRows.map((row, idx) => (
+            <div className={styles.formGrid} key={`alloc-${idx}`}>
+              <label className={styles.field}>
+                Invoice id
+                <input
+                  value={row.invoiceId}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setAllocRows((rows) =>
+                      rows.map((r, i) =>
+                        i === idx ? { ...r, invoiceId: v } : r,
+                      ),
+                    );
+                  }}
+                  disabled={busy}
+                  placeholder="sales_invoice uuid"
+                />
+              </label>
+              <label className={styles.field}>
+                Allocate amount
+                <input
+                  value={row.amount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setAllocRows((rows) =>
+                      rows.map((r, i) =>
+                        i === idx ? { ...r, amount: v } : r,
+                      ),
+                    );
+                  }}
+                  disabled={busy}
+                  inputMode="decimal"
+                />
+              </label>
+              <div className={styles.formActions}>
+                {allocRows.length > 1 ? (
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy}
+                    onClick={() =>
+                      setAllocRows((rows) => rows.filter((_, i) => i !== idx))
+                    }
+                  >
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
           <div className={styles.formActions}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy}
+              onClick={() =>
+                setAllocRows((rows) => [
+                  ...rows,
+                  { invoiceId: "", amount: "" },
+                ])
+              }
+            >
+              Add invoice row
+            </button>
             <button type="submit" className={styles.btnGhost} disabled={busy}>
-              Allocate
+              Allocate all
             </button>
           </div>
         </form>
