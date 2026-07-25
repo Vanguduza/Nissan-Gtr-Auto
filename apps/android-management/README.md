@@ -1,7 +1,7 @@
 # GTR Management — Android
 
 Staff/management shell with feature modules for POS, warehouse, dispatch, and HR attendance.
-Thin Compose scaffolds for **HR clock** and **logistics pick/DN/delivery tracking** — not App Store polish.
+Thin Compose scaffolds for **POS**, **warehouse**, **HR clock**, and **logistics pick/DN/delivery tracking** — not App Store polish.
 
 ## Prerequisites
 
