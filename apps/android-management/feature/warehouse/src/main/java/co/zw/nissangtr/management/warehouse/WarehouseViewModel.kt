@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
+import co.zw.nissangtr.bridges.qr.InventoryQrValuation
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.bridges.qr.parseInventoryQrPayload
 import co.zw.nissangtr.management.rpc.CurrencyCode
@@ -150,9 +151,9 @@ class WarehouseViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val ref = scanAndLookup()
-                val valuation = when (ref.valuation.name) {
-                    "AVG" -> ValuationMethod.AVG
-                    else -> ValuationMethod.FIFO
+                val valuation = when (ref.valuation) {
+                    InventoryQrValuation.AVG -> ValuationMethod.AVG
+                    InventoryQrValuation.FIFO -> ValuationMethod.FIFO
                 }
                 _state.update {
                     it.copy(
@@ -513,7 +514,7 @@ class WarehouseViewModel(
         val stockItemId: String,
         val uomId: String,
         val oemPartNumber: String,
-        val valuation: co.zw.nissangtr.bridges.qr.InventoryQrValuation,
+        val valuation: InventoryQrValuation,
         val rawPayload: String,
     )
 
