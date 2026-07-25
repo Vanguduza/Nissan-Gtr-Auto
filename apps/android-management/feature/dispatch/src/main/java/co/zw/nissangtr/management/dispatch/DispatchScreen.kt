@@ -251,12 +251,7 @@ fun DispatchScreen(
         }
 
         HorizontalDivider()
-        Text("Live location / ETA (view only)", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "Staff subscribe via ${RpcNames.GET_DELIVERY_TRACK_POINT}. " +
-                "No Start tracking — delivery app produces pings.",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text("Live location / ETA", style = MaterialTheme.typography.titleMedium)
         Button(
             onClick = viewModel::refreshLiveTrack,
             enabled = !state.busy,
