@@ -43,6 +43,7 @@ DECLARE
   v_job2 UUID;
   v_loc UUID;
   v_token TEXT;
+  v_otp TEXT;
   v_track RECORD;
   v_cnt INT;
   v_suggest_cnt INT;
