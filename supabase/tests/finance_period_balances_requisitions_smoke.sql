@@ -19,6 +19,7 @@ $$;
 DO $$
 DECLARE
   v_finance UUID := 'a0000000-0000-4000-8000-000000000002';
+  v_day DATE := DATE '2099-06-15';
   v_period UUID;
   v_je UUID;
   v_closing NUMERIC;
@@ -49,15 +50,20 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: funding account expected 1100 got %', v_fund;
   END IF;
 
-  -- Phase A: open period
+  -- Close any leftover open 1110/USD period so re-runs are idempotent
+  PERFORM public.close_account_period(ap.id)
+  FROM public.account_period_balances ap
+  WHERE ap.account_code = '1110' AND ap.currency = 'USD' AND ap.status = 'open';
+
+  -- Phase A: open period on isolated day (avoids pollution from prior smoke JEs)
   v_period := public.open_account_period(
-    '1110', 'USD', CURRENT_DATE, CURRENT_DATE, v_opening, 'Smoke open'
+    '1110', 'USD', v_day, v_day, v_opening, 'Smoke open'
   );
 
   -- Refuse second open
   BEGIN
     PERFORM public.open_account_period(
-      '1110', 'USD', CURRENT_DATE, CURRENT_DATE, 0, 'dup'
+      '1110', 'USD', v_day, v_day, 0, 'dup'
     );
     RAISE EXCEPTION 'smoke fail: second open allowed';
   EXCEPTION
@@ -67,7 +73,7 @@ BEGIN
 
   -- Post activity: spend 75 from petty (Dr 5300 / Cr 1110)
   v_je := public.post_journal_entry(
-    CURRENT_DATE,
+    v_day,
     'Smoke petty spend',
     'USD',
     1,
@@ -77,9 +83,8 @@ BEGIN
     ]'::jsonb
   );
 
-  -- Register: ordered, running balance = opening_activity_before + nets
   SELECT COUNT(*) INTO v_reg_count
-  FROM public.report_account_register('1110', CURRENT_DATE, CURRENT_DATE, 'USD');
+  FROM public.report_account_register('1110', v_day, v_day, 'USD');
 
   IF v_reg_count < 1 THEN
     RAISE EXCEPTION 'smoke fail: register empty';
@@ -89,7 +94,7 @@ BEGIN
   v_prev_date := NULL;
   FOR v_date, v_bal IN
     SELECT r.entry_date, r.running_balance
-    FROM public.report_account_register('1110', CURRENT_DATE, CURRENT_DATE, 'USD') r
+    FROM public.report_account_register('1110', v_day, v_day, 'USD') r
     ORDER BY r.entry_date, r.document_number NULLS LAST, r.journal_entry_id
   LOOP
     IF v_prev_date IS NOT NULL AND v_date < v_prev_date THEN
@@ -116,7 +121,6 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: variance expected -5';
   END IF;
 
-  -- Refuse re-close
   BEGIN
     PERFORM public.close_account_period(v_period);
     RAISE EXCEPTION 'smoke fail: re-close allowed';
@@ -125,9 +129,9 @@ BEGIN
       IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
   END;
 
-  -- Phase B: float then spend → replenish amount (next day spend avoids txn-stable now())
+  -- Phase B: float then later spend → replenish amount
   PERFORM public.post_journal_entry(
-    CURRENT_DATE,
+    v_day + 1,
     'Smoke float 1110 from 1100',
     'USD',
     1,
@@ -141,7 +145,7 @@ BEGIN
   );
 
   PERFORM public.post_journal_entry(
-    CURRENT_DATE + 1,
+    v_day + 2,
     'Smoke spend after float',
     'USD',
     1,
@@ -151,7 +155,7 @@ BEGIN
     ]'::jsonb
   );
 
-  v_replenish := public.compute_petty_cash_replenish_amount('USD', CURRENT_DATE + 1);
+  v_replenish := public.compute_petty_cash_replenish_amount('USD', v_day + 2);
   IF v_replenish IS DISTINCT FROM 40 THEN
     RAISE EXCEPTION 'smoke fail: replenish expected 40 got %', v_replenish;
   END IF;
@@ -178,7 +182,7 @@ BEGIN
 
   PERFORM public.submit_finance_requisition(v_req);
   PERFORM public.approve_finance_requisition(v_req);
-  v_disburse_je := public.disburse_finance_requisition(v_req, CURRENT_DATE);
+  v_disburse_je := public.disburse_finance_requisition(v_req, v_day + 3);
 
   IF v_disburse_je IS NULL THEN
     RAISE EXCEPTION 'smoke fail: disburse returned null JE';
@@ -204,7 +208,6 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: disburse JE missing Cr 1110 25';
   END IF;
 
-  -- Reject path leaves no JE
   v_req := public.create_finance_requisition(
     'payment', 10, 'USD', 'Vendor', 'Reject me', '5300', NULL, 1
   );
@@ -216,6 +219,16 @@ BEGIN
   ) IS NOT NULL THEN
     RAISE EXCEPTION 'smoke fail: reject created journal';
   END IF;
+
+  BEGIN
+    PERFORM public.create_finance_requisition(
+      'payment', 5, 'ZIG', 'ZiG vendor', 'no rate', '5300', NULL, NULL
+    );
+    RAISE EXCEPTION 'smoke fail: ZIG without rate allowed';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+  END;
 
   RAISE NOTICE 'finance_period_balances_requisitions_smoke: PASS';
 END;
