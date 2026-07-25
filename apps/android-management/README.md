@@ -20,7 +20,7 @@ and **staff chat inbox** — not App Store polish.
 | `:feature:auth` | `…management.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
 | `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
 | `:feature:dispatch` | `…management.dispatch` | Pick/DN + assign/route/panic + staff live view (no GPS producer) |
-| `:feature:pos` | `…management.pos` | Cart / QR add line / checkout + ESC/POS receipt |
+| `:feature:pos` | `…management.pos` | Standalone sales till (search/catalog/checkout) + optional companion |
 | `:feature:warehouse` | `…management.warehouse` | Receive, dual-auth transfer, cycle-count + QR fill |
 | `:feature:chat` | `…management.chat` | Staff inbox — open/mine/closed, claim/reply/close |
 | `:qr-scanner` | `…bridges.qr` | Included from `bridges/android/qr-scanner` |
@@ -39,7 +39,25 @@ and **staff chat inbox** — not App Store polish.
 
 Also named: `cancel_delivery_note` (RPC wired; not a dedicated button).
 
+**Role home:** sales-only → POS till as default (hub via “All modules”). Admin or warehouse → hub as home (POS still on hub). Fake mode uses role `sales` so POS is the Fake landing screen.
+
 Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**, **Chat** (RBAC: admin|sales|warehouse when Live).
+
+## Standalone POS demo (no pairing)
+
+1. Sign in as **sales** (Fake auto-lands on POS).
+2. Pick warehouse → **Open cart**.
+3. Search mode `part` (or vin/model/pnc) → **Search** → **Add** on a hit (resolves OEM → stock item).
+4. Optionally **Scan QR → add** on till (Bridge-First; no session required).
+5. Enter receipt email and/or WhatsApp E.164 → **Checkout**.
+6. UI shows bind vs walk-in messaging from invoice `customer_id`.
+
+## Optional companion path
+
+1. On till: open cart → **Show pairing code** (`create_pos_scan_session`).
+2. On phone (same staff account): **Scan companion** tab → enter code → **Claim session**.
+3. **Scan inventory QR → add line** → till cart refreshes via poll (~4s).
+4. Same checkout RPC as standalone. **Revoke** closes companion rights.
 
 ## Staff chat
 
