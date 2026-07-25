@@ -13,6 +13,7 @@ import {
   createCustomerContipayIntent,
   createCustomerPaynowIntent,
   ensureOpenCart,
+  fetchZigExchangeRate,
   formatMoney,
   fulfillmentLabel,
   loadCartLines,
@@ -22,7 +23,6 @@ import {
   type CartLineRow,
   type CartRow,
   type CustomerRow,
-  zigExchangeRate,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
@@ -38,9 +38,9 @@ function CartTitle() {
   );
 }
 
-type Currency = "USD" | "ZIG";
 type Fulfillment = "immediate" | "dispatch";
 type Tender = "cash" | "contipay" | "paynow";
+type SettleCurrency = "USD" | "ZIG";
 
 type Status =
   | { kind: "loading" }
@@ -57,7 +57,8 @@ export function CartCheckout() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [fulfillment, setFulfillment] = useState<Fulfillment>("immediate");
-  const [currency, setCurrency] = useState<Currency>("USD");
+  const [settleCurrency, setSettleCurrency] = useState<SettleCurrency>("USD");
+  const [zigRate, setZigRate] = useState<number>(1);
   const [tender, setTender] = useState<Tender>("cash");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -78,6 +79,9 @@ export function CartCheckout() {
       return;
     }
 
+    const rate = await fetchZigExchangeRate(client);
+    setZigRate(rate);
+
     const cart = await loadOpenCart(client);
     if (!cart.ok) {
       setStatus({ kind: "error", message: cart.error });
@@ -92,7 +96,6 @@ export function CartCheckout() {
 
     if (cart.data) {
       setFulfillment(cart.data.fulfillment_mode);
-      setCurrency(cart.data.currency === "ZIG" ? "ZIG" : "USD");
       const lines = await loadCartLines(client, cart.data.id);
       if (!lines.ok) {
         setStatus({ kind: "error", message: lines.error });
@@ -119,10 +122,15 @@ export function CartCheckout() {
     void refresh();
   }, [refresh]);
 
-  const total = useMemo(() => {
+  const totalUsd = useMemo(() => {
     if (status.kind !== "ready") return 0;
     return status.lines.reduce((sum, line) => sum + Number(line.line_total), 0);
   }, [status]);
+
+  const zigTotal = useMemo(
+    () => Math.round(totalUsd * zigRate * 100) / 100,
+    [totalUsd, zigRate],
+  );
 
   async function onCheckout() {
     setBusy(true);
@@ -137,9 +145,9 @@ export function CartCheckout() {
     let cartId = status.kind === "ready" ? status.cart?.id : null;
     if (!cartId) {
       const created = await ensureOpenCart(client, {
-        currency,
+        currency: "USD",
         fulfillmentMode: fulfillment,
-        exchangeRate: currency === "ZIG" ? zigExchangeRate() : 1,
+        exchangeRate: 1,
       });
       if (!created.ok) {
         setMessage(created.error);
@@ -170,7 +178,7 @@ export function CartCheckout() {
 
     const { data: invRow } = await client
       .from("sales_invoices")
-      .select("status")
+      .select("status, total")
       .eq("id", invoice.data)
       .maybeSingle();
     if (invRow?.status === "on_hold") {
@@ -182,8 +190,24 @@ export function CartCheckout() {
       return;
     }
 
+    const invTotal = Number(invRow?.total ?? totalUsd);
+    const rate = await fetchZigExchangeRate(client);
+    const settlement =
+      settleCurrency === "ZIG"
+        ? {
+            currency: "ZIG" as const,
+            amount: Math.round(invTotal * rate * 100) / 100,
+            exchangeRate: rate,
+          }
+        : undefined;
+
     if (tender === "contipay") {
-      const intent = await createCustomerContipayIntent(client, invoice.data);
+      const intent = await createCustomerContipayIntent(
+        client,
+        invoice.data,
+        "ecocash",
+        settlement,
+      );
       if (!intent.ok) {
         setMessage(
           `Invoice created, but ContiPay failed: ${intent.error}. Pay from order page.`,
@@ -198,10 +222,22 @@ export function CartCheckout() {
         return;
       }
       setMessage(
-        `ContiPay intent ${intent.data.intentId} created. Settlement confirms via webhook — or open the order to retry when a checkout URL is available.`,
+        settlement
+          ? `Invoice created. ContiPay intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}). Opening order…`
+          : "Invoice created. ContiPay intent ready. Opening order…",
       );
-    } else if (tender === "paynow") {
-      const intent = await createCustomerPaynowIntent(client, invoice.data);
+      setBusy(false);
+      router.push(`/account/orders/${invoice.data}`);
+      return;
+    }
+
+    if (tender === "paynow") {
+      const intent = await createCustomerPaynowIntent(
+        client,
+        invoice.data,
+        "ecocash",
+        settlement,
+      );
       if (!intent.ok) {
         setMessage(
           `Invoice created, but Paynow failed: ${intent.error}. Pay from order page.`,
@@ -216,11 +252,21 @@ export function CartCheckout() {
         return;
       }
       setMessage(
-        `Paynow intent ${intent.data.intentId} created. Settlement confirms via webhook — or open the order to retry when a checkout URL is available.`,
+        settlement
+          ? `Invoice created. Paynow intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}). Opening order…`
+          : "Invoice created. Paynow intent ready. Opening order…",
       );
+      setBusy(false);
+      router.push(`/account/orders/${invoice.data}`);
+      return;
     }
 
     setBusy(false);
+    setMessage(
+      settlement
+        ? `Order placed. Pay ZiG ${settlement.amount.toFixed(2)} (rate ${rate} ZiG/USD) at counter or transfer.`
+        : "Order placed. Pay USD at counter or transfer — invoice stays open.",
+    );
     router.push(`/account/orders/${invoice.data}`);
   }
 
@@ -232,21 +278,16 @@ export function CartCheckout() {
       </div>
     );
   }
-
   if (status.kind === "auth") {
     return (
       <div className={styles.page}>
         <CartTitle />
         <p className={styles.lede}>
-          Sign in to open a storefront cart and checkout.
+          <Link href="/login">Sign in</Link> to view your cart and checkout.
         </p>
-        <Link href="/login" className={styles.button}>
-          Sign in
-        </Link>
       </div>
     );
   }
-
   if (status.kind === "error") {
     return (
       <div className={styles.page}>
@@ -262,28 +303,25 @@ export function CartCheckout() {
   }
 
   const { cart, lines, customer } = status;
-  const displayCurrency = cart?.currency ?? currency;
-  const cartTotal = lines.reduce((sum, line) => sum + Number(line.line_total), 0);
   const creditHold = !!customer?.credit_hold;
   const creditLimit = Number(customer?.credit_limit ?? 0);
   const openBalance = Number(customer?.open_balance ?? 0);
-  const accountCurrency = customer?.currency === "ZIG" ? "ZIG" : "USD";
-  const projectedOpen = openBalance + cartTotal;
+  const projectedOpen = openBalance + totalUsd;
   const overLimit = creditLimit > 0 && projectedOpen > creditLimit;
 
   return (
     <div className={styles.page}>
       <CartTitle />
       <p className={styles.lede}>
-        Checkout posts your invoice via customer cart RPCs. ContiPay and Paynow
-        create intents on your unpaid invoice — settle stays server-side.
+        Prices and cart totals are in USD. After the total is calculated you can
+        choose to settle in ZiG at today&apos;s finance rate.
       </p>
 
       {customer && (creditHold || overLimit) ? (
         <p className={styles.lede} role="status">
           {creditHold
             ? "Your account is on credit hold. Checkout will still create an invoice, but it will remain on_hold until sales clears the hold."
-            : `This cart would put you over your credit limit (${formatMoney(creditLimit, accountCurrency)}; open ${formatMoney(openBalance, accountCurrency)} + cart ${formatMoney(cartTotal, displayCurrency)}). Checkout will post on_hold.`}
+            : `This cart would put you over your credit limit (${formatMoney(creditLimit, "USD")}; open ${formatMoney(openBalance, "USD")} + cart ${formatMoney(totalUsd, "USD")}). Checkout will post on_hold.`}
           {" "}
           See <Link href="/b2b">B2B credit</Link>.
         </p>
@@ -294,11 +332,7 @@ export function CartCheckout() {
           Cart <code className={styles.sku}>{cart.document_number ?? cart.id}</code>
           {" · "}
           {fulfillmentLabel(cart.fulfillment_mode)}
-          {" · "}
-          {cart.currency}
-          {cart.currency === "ZIG"
-            ? ` @ ${cart.exchange_rate_applied}`
-            : null}
+          {" · USD"}
         </p>
       ) : (
         <p className={styles.muted}>
@@ -312,7 +346,7 @@ export function CartCheckout() {
             <tr>
               <th>Part</th>
               <th>Qty</th>
-              <th>Price</th>
+              <th>Price (USD)</th>
             </tr>
           </thead>
           <tbody>
@@ -337,7 +371,7 @@ export function CartCheckout() {
                   <td>{line.qty}</td>
                   <td>
                     <span className={styles.moneyUsd}>
-                      {formatMoney(Number(line.line_total), displayCurrency)}
+                      {formatMoney(Number(line.line_total), "USD")}
                     </span>
                   </td>
                 </tr>
@@ -351,83 +385,84 @@ export function CartCheckout() {
         <p className={styles.lede}>
           Total{" "}
           <strong className={styles.moneyUsd}>
-            {formatMoney(total, displayCurrency)}
+            {formatMoney(totalUsd, "USD")}
           </strong>
         </p>
       ) : null}
 
       {!cart ? (
-        <>
-          <section className={styles.fulfill} aria-labelledby="currency-heading">
-            <h2 id="currency-heading" className={styles.fulfillTitle}>
-              Currency
-            </h2>
-            <div className={styles.fulfillOptions}>
-              <label className={styles.fulfillCard}>
-                <input
-                  type="radio"
-                  name="currency"
-                  checked={currency === "USD"}
-                  onChange={() => setCurrency("USD")}
-                />
-                <span>
-                  <strong>USD</strong>
-                  <span className={styles.muted}>Exchange rate 1</span>
+        <section className={styles.fulfill} aria-labelledby="fulfill-heading">
+          <h2 id="fulfill-heading" className={styles.fulfillTitle}>
+            How do you want it?
+          </h2>
+          <div className={styles.fulfillOptions}>
+            <label className={styles.fulfillCard}>
+              <input
+                type="radio"
+                name="fulfill"
+                checked={fulfillment === "immediate"}
+                onChange={() => setFulfillment("immediate")}
+              />
+              <span>
+                <strong>Click &amp; collect</strong>
+                <span className={styles.muted}>
+                  Pick up at Harare counter when ready
                 </span>
-              </label>
-              <label className={styles.fulfillCard}>
-                <input
-                  type="radio"
-                  name="currency"
-                  checked={currency === "ZIG"}
-                  onChange={() => setCurrency("ZIG")}
-                />
-                <span>
-                  <strong>ZiG</strong>
-                  <span className={styles.muted}>
-                    Rate {zigExchangeRate()} (NEXT_PUBLIC_ZIG_EXCHANGE_RATE)
-                  </span>
-                </span>
-              </label>
-            </div>
-          </section>
+              </span>
+            </label>
+            <label className={styles.fulfillCard}>
+              <input
+                type="radio"
+                name="fulfill"
+                checked={fulfillment === "dispatch"}
+                onChange={() => setFulfillment("dispatch")}
+              />
+              <span>
+                <strong>Nationwide dispatch</strong>
+                <span className={styles.muted}>Courier to your address</span>
+              </span>
+            </label>
+          </div>
+        </section>
+      ) : null}
 
-          <section className={styles.fulfill} aria-labelledby="fulfill-heading">
-            <h2 id="fulfill-heading" className={styles.fulfillTitle}>
-              How do you want it?
-            </h2>
-            <div className={styles.fulfillOptions}>
-              <label className={styles.fulfillCard}>
-                <input
-                  type="radio"
-                  name="fulfill"
-                  checked={fulfillment === "immediate"}
-                  onChange={() => setFulfillment("immediate")}
-                />
-                <span>
-                  <strong>Click &amp; collect</strong>
-                  <span className={styles.muted}>
-                    Pick up at Harare counter when ready
-                  </span>
+      {lines.length > 0 ? (
+        <section className={styles.fulfill} aria-labelledby="settle-heading">
+          <h2 id="settle-heading" className={styles.fulfillTitle}>
+            Settle in
+          </h2>
+          <div className={styles.fulfillOptions}>
+            <label className={styles.fulfillCard}>
+              <input
+                type="radio"
+                name="settle"
+                checked={settleCurrency === "USD"}
+                onChange={() => setSettleCurrency("USD")}
+              />
+              <span>
+                <strong>USD</strong>
+                <span className={styles.muted}>
+                  {formatMoney(totalUsd, "USD")}
                 </span>
-              </label>
-              <label className={styles.fulfillCard}>
-                <input
-                  type="radio"
-                  name="fulfill"
-                  checked={fulfillment === "dispatch"}
-                  onChange={() => setFulfillment("dispatch")}
-                />
-                <span>
-                  <strong>Nationwide dispatch</strong>
-                  <span className={styles.muted}>
-                    Courier to your address
-                  </span>
+              </span>
+            </label>
+            <label className={styles.fulfillCard}>
+              <input
+                type="radio"
+                name="settle"
+                checked={settleCurrency === "ZIG"}
+                onChange={() => setSettleCurrency("ZIG")}
+              />
+              <span>
+                <strong>ZiG</strong>
+                <span className={styles.muted}>
+                  ≈ {formatMoney(zigTotal, "ZIG")} @ {zigRate} ZiG per USD
+                  (today&apos;s rate)
                 </span>
-              </label>
-            </div>
-          </section>
-        </>
+              </span>
+            </label>
+          </div>
+        </section>
       ) : null}
 
       <section className={styles.fulfill} aria-labelledby="pay-heading">
