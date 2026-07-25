@@ -1616,7 +1616,6 @@ export function StaffFinancePanel() {
           <legend className={styles.legend}>
             {ACCOUNT_TAB_CODES[tab].title}
           </legend>
-          {tab === "petty-cash" ? null : null}
 
           <p className={styles.muted} style={{ margin: "0 0 0.5rem" }}>
             Trade period (open / close)

@@ -1,28 +1,48 @@
-# Professional finance workflows — audit + next slice
+# Professional finance workflows — multi-product research + roadmap
 
-- Status: draft
+- Status: draft (revised — research-backed; **not** QuickBooks copy)
 - Lane(s): `@backend_agent` → `@web_agent` (optional later: `@management_app_agent`); CoA/report shapes: `@finance_agent` if shared packages touched
 - Skills: `/accounting-ledger`, `/token-discipline`
 - Prior (shipped): [`2026-07-23-phase3-finance-core.md`](./2026-07-23-phase3-finance-core.md), [`2026-07-25-deepen-finance.md`](./2026-07-25-deepen-finance.md), [`2026-07-25-finance-requisitions-period-balances.md`](./2026-07-25-finance-requisitions-period-balances.md) (A–C **done**), [`2026-07-25-finance-requisition-lines-typed-rpcs.md`](./2026-07-25-finance-requisition-lines-typed-rpcs.md) (D **done**)
-- Cite: `.cursor/rules/finance_ledger.mdc`, `.cursor/skills/accounting-ledger/SKILL.md` — **no** finance ADRs in `docs/decisions/` for petty cash / requisitions / PO approval
+- Cite: `.cursor/rules/finance_ledger.mdc`, `.cursor/skills/accounting-ledger/SKILL.md` — **no** new ADR (1100→1110 already locked in prior plans; no durable CoA change)
+
+## Inspired by, not copied from
+
+Patterns below are distilled from **established retail / SME / mid-market finance products** (Xero, Sage 50/Intacct, NetSuite, Lightspeed Retail, Square cash mgmt, MYOB, Wave, Odoo Accounting, SAP Business One). We adopt **control workflows and register UX conventions** that fit a spare-parts distributor ERP (USD|ZiG, imprest petty cash, PO→AP, cash registers). We do **not** clone any vendor’s IA, screens, marketing features, bank-feed SaaS, or SuiteFlow-style approval engines.
 
 ## Goal
 
-Audit finance management against QuickBooks-style imprest, requisitions, period open/close, and bank-register UX; document what already ships vs what remains; scope the next professional MVP without re-building A–D.
+Keep professional requisitions & approvals, imprest petty cash with a clear funding GL, trade-period open/close, and **bank-statement-style** registers — audited against industry practice — and ship only what is still missing (procurement approve → AP pay runs), without rebuilding A–D.
 
-## Industry mapping (QuickBooks-like)
+---
 
-| Practice | Industry norm | Mapping here |
-|----------|---------------|--------------|
-| **Imprest petty cash** | Fixed float in a **Petty Cash asset**; funded from **Cash/Bank** (cheque/transfer), not from sales till as primary funder | **1110 Petty Cash** funded from **1100 Cash & Bank** (`app_settings` `finance.petty_cash_funding_account_code` → `1100`) |
-| **Fund / replenish** | Dr Petty Cash / Cr Bank; replenish = sum of vouchers since last float | Float + `compute_petty_cash_replenish_amount` → draft JE Dr 1110 / Cr 1100 |
-| **Spend** | Dr expense / Cr Petty Cash after approval | `disburse_finance_requisition` posts multi-line expense Dr / cash Cr |
-| **Purchase orders** | Requisition → approve → PO → receive → bill → pay | Procurement: MR/PO exist; **approval status missing** (see gaps) |
-| **Payment runs** | Batch AP bills → approve → write checks / ACH | **Missing** — AR `payment_entries` only; `payment_entry_id` on requisitions reserved |
-| **Period open/close** | Day/month control counts; GL stays immutable | `account_period_balances` + calendar `accounting_periods` lock |
-| **Account register** | Date, memo, **Debit \| Credit**, running balance | `report_account_register` + staff tables on `/staff/finance` |
+## Research summary (product → pattern → GTR)
 
-**Funding decision (confirmed):** 1100 funds 1110. Do not fund imprest from 1120 Till as canonical path (till transfers remain optional ops only). Split 1100 into Bank vs Operating Cash = future CoA epic.
+| Product | Relevant pattern | GTR decision |
+|---------|------------------|--------------|
+| **Sage 50 / textbook imprest** | Fixed float; fund from **bank/cash**; vouchers; replenish restores float; expenses recognized with control | **Adopt** imprest + bank funding. **Adapt** posting: GTR posts expense at **disburse** (Dr expense / Cr 1110) then replenish Dr 1110 / Cr 1100 — continuous GL trail (better for multi-currency audit) vs classic “expense only at replenish / 1110 untouched” |
+| **MYOB** | Bank Register: Withdrawal \| Deposit (or Dr\|Cr) + **running balance**; Spend Money / Pay Bills | **Adopt** statement-style register columns (already shipped via `report_account_register`) |
+| **Xero** | Bank feed match UI; statement opening anchor; Spend/Receive money; period lock light | **Adapt** recon already via `bank_statements` matches. **Skip** bank-feed auto-rules / SaaS matching UX as MVP |
+| **Odoo Accounting** | Vendor bill confirm → Register Payment (batch optional) → bank reconcile; JE shows Dr/Cr | **Adopt** bill→pay→recon spine for Phase 2 (simplified). **Skip** full Odoo journal-per-payment-method sprawl |
+| **NetSuite (retail/AP)** | PO / receive / **vendor bill approval** before pay; **payment batch** approval limits | **Adopt** approve-before-pay + batch pay run. **Skip** SuiteFlow multi-level amount hierarchies / ACH automation |
+| **SAP Business One** | Payment Wizard (batch outgoing); optional interim clearing; BSP bank stmt | **Adopt** batch payment-run concept. **Skip** country payment files, interim-account choreography |
+| **Lightspeed Retail** | Register open float / close count; Cash in-out vs Petty out (POS drawer) | **Adapt** daily open/close **control** to `account_period_balances` on 1110/1120. **Do not** fund imprest from sales till as canonical path; keep **1110 ≠ 1120** |
+| **Square / Shop cash mgmt** | Drawer expected vs counted; session variance | **Skip** hardware drawer variance engine (already deferred); till sessions stay out |
+| **Wave** | Simple income/expense; weak approval depth | **Skip** as approval model — too thin for distributor controls |
+| **Sage Intacct** | Dimensional close, multi-entity, AP bill approval | **Skip** dimensions / multi-entity until needed; single-entity GTR |
+
+### Transferable workflows (mapped)
+
+1. **Cash & petty imprest + funding GL** — Industry: Bank/Cash → Petty Cash float. GTR: **1100 → 1110** (`finance.petty_cash_funding_account_code`). Till **1120** = sales drawer only (ops transfers optional, not canonical funder).
+2. **Requisition → approve → disburse** — Sage/NetSuite/Odoo expense or payment request pattern. GTR: `finance_requisitions` + lines (**done**).
+3. **PO / bill approval before payment** — NetSuite bill approve; Odoo confirm bill before pay. GTR: PO `approved` status **missing** (Phase 1); AP bill desk **missing** (Phase 2).
+4. **Period open/close + opening/closing balances** — Lightspeed float open/close (ops) + accounting period lock (Xero/Sage/Odoo). GTR: `account_period_balances` + `accounting_periods` lock (**done**).
+5. **Bank/cash register UX** — **Debit \| Credit** (or Withdrawal \| Deposit) + running balance: **MYOB Bank Register**, classic **Sage 50** account registers, GL inquiry in **SAP B1** / **Odoo** journal items. Xero recon UI is match-oriented (not the target). GTR already ships this shape.
+6. **What NOT to adopt** — Bank-feed AI rules; NetSuite SuiteFlow limits; SAP payment-file/interim stacks; Lightspeed/Square drawer-as-GL; Wave’s no-approval simplicity; CoA dimension explosion; ContiPay as AP rail; ZIMRA / payroll tax.
+
+**Funding decision (unchanged):** 1100 funds 1110. Split 1100 Bank vs Operating Cash = future CoA epic only.
+
+---
 
 ## Gap analysis (EXISTS vs MISSING)
 
@@ -30,121 +50,139 @@ Audit finance management against QuickBooks-style imprest, requisitions, period 
 
 | Capability | Pointers |
 |------------|----------|
-| CoA + cash assets | `…seed_coa…` 1100; `…25210000…` 1110/1120/1130 |
-| Append-only JE draft/post/reverse, USD\|ZIG | `…23210000_finance_core.sql`; skill schema |
-| Calendar period lock | `accounting_periods` + `lock_accounting_period` |
+| CoA + cash assets | 1100; 1110/1120/1130 |
+| Append-only JE, USD\|ZIG | finance_core |
+| Calendar period lock | `accounting_periods` |
 | Company opening JE | `post_opening_balances` |
-| Bank recon (external stmt) | `bank_statements` / lines / matches |
-| Reports TB/P&L/BS/CF + CSV | finance_core + deepen-finance UI |
-| Per-account trade open/close | `account_period_balances`, `open_account_period`, `close_account_period` — `…25250000…` |
+| Bank recon (external stmt) | `bank_statements` / matches |
+| Reports TB/P&L/BS/CF + CSV | finance_core + deepen-finance |
+| Per-account trade open/close | `account_period_balances` |
 | Statement-style GL register | `report_account_register` → Date \| Desc \| Debit \| Credit \| Balance \| Currency |
-| Imprest funding + replenish helper | `petty_cash_funding_account_code()`, `compute_petty_cash_replenish_amount` |
-| Petty/payment requisitions + lines | `finance_requisitions`, `finance_requisition_lines`; submit/approve/reject/cancel/disburse |
-| Staff web UI | `apps/web/components/staff-finance-panel.tsx`, `lib/staff-finance.ts` — Petty/Till/Online tabs, period strip, Requisitions tab |
-| Smoke | `supabase/tests/finance_period_balances_requisitions_smoke.sql`, `finance_requisition_lines_smoke.sql` |
+| Imprest funding + replenish | `petty_cash_funding_account_code`, `compute_petty_cash_replenish_amount` |
+| Petty/payment requisitions | submit → approve → disburse |
+| Staff web UI | `/staff/finance` — cash tabs, period strip, Requisitions |
+| Smoke | period/requisition/line smoke SQL |
 
 ### MISSING (professional gaps)
 
-| Gap | Notes |
-|-----|--------|
-| **PO / MR approval chain** | `procurement_doc_status` = `draft\|submitted\|cancelled` only — no `approved`; SMS `po_approved` unused |
-| **AP payment runs / vendor desk** | No AP voucher batch; requisition `payment_entry_id` reserved; AR receipts ≠ supplier pay |
-| **Multi-level / amount-threshold approvals** | Single finance\|admin approve on requisitions |
-| **Requisition ↔ PO link** | Finance req types = `petty_cash\|payment` only — not procurement |
-| **Android Finance screen** | Credit module only; deepen-finance deferred |
-| **Till session variance engine** | Explicitly deferred (no drawer hardware schema) |
-| **Register PDF / bank feed** | CSV + manual bank import only |
-| **CoA split of 1100** | Optional later |
+| Gap | Notes | Priority |
+|-----|-------|----------|
+| **PO / MR approval** | `draft\|submitted\|cancelled` only; SMS `po_approved` unused | **Phase 1 (MVP)** — may be in progress |
+| **AP payment runs / vendor desk** | No batch AP pay; AR `payment_entries` ≠ supplier pay | **Phase 2** |
+| **Register / period discoverability polish** | Columns exist; strip/print/empty-states weak | **Phase 0 optional** (parallel, `@web_agent`) |
+| Multi-level / threshold approvals | Single finance\|admin | Phase 1.5+ **skip** until abuse |
+| Finance req ↔ PO link | Types = `petty_cash\|payment` only | Skip — keep procurement separate |
+| Android Finance | Deferred | Stay deferred |
+| Till variance engine | No drawer schema | Skip |
+| Bank feed / register PDF | CSV + manual import | Skip MVP |
+| CoA split of 1100 | Optional later | Skip |
 
-**User suspicion (“not set up”):** core imprest + register + requisitions **are** implemented on web `/staff/finance`. Gaps that still feel “unprofessional” vs QuickBooks are mainly **procurement approvals** and **AP payment runs**, plus discoverability of the new tabs.
+**Feel “unprofessional” vs peers:** not missing imprest/register/requisitions — missing **procure-to-pay approve** and **AP payment batch**, plus register tab discoverability.
 
-## Schema + RPC sketch (next work only)
+---
 
-### Phase 1 — Procurement approval (MVP first)
+## Target UX (bank-statement style)
+
+**Already the standard for cash GLs (1110/1120/1130) and filtered journals:**
+
+| Date | Description / doc # | Debit | Credit | Running balance | Currency |
+
+- Opening balance row (period strip) at top; closing when period closed.
+- Separate Debit and Credit columns (never a single signed “Amount” as primary).
+- Inspired by **MYOB Bank Register** + classic **Sage** account registers — not Xero’s feed-match pane.
+
+**Polish (optional):** print/CSV of register; empty-state → Requisitions before ad-hoc expense JEs; Approvals entry from PO list once Phase 1 lands.
+
+---
+
+## Schema sketch (remaining work only)
+
+### Phase 1 — Procurement approval (MVP)
 
 ```text
-procurement_doc_status += 'approved'  -- or parallel approve flag if enum churn is risky
-approve_purchase_order(id) / reject_…  -- finance|admin|purchasing role TBD
-approve_material_request(id)           -- optional same pattern
-Trigger/notify: existing SMS code po_approved
-RLS: same migration file; mutation via RPC guards (match finance_requisitions pattern)
+procurement_doc_status += 'approved'
+approve_purchase_order / reject_…  -- finance|admin|purchasing TBD
+optional: approve_material_request
+Wire or defer SMS po_approved
+RLS + RPC-only mutation (same migration); journals untouched
 ```
 
-Web: thin approve queue on existing staff procurement UI (or finance “Approvals” sub-tab linking PO ids). **Do not** invent a second requisition system for parts.
+Web: thin approve on existing procurement UI (or finance Approvals linking PO ids). **No** second requisition system for parts.
 
 ### Phase 2 — AP payment run desk
 
 ```text
-ap_payment_runs (header: currency, status draft|submitted|approved|paid|cancelled, …)
-ap_payment_run_lines (supplier_id, ap_bill_or_grn_ref, amount, …)
-RPCs: create/submit/approve/pay_run
-pay_run → append-only JE: Dr AP 2100 / Cr 1100 (per line or batched); optional link from finance_requisitions.payment_entry_id successor table
-RLS finance|admin; no ZIMRA fields
+ap_payment_runs + lines → submit/approve/pay
+pay → append-only JE Dr AP 2100 / Cr 1100 (currency explicit)
+Do not reuse AR payment_entries for vendors
 ```
 
-### Already sketched / shipped (reference only)
+### Phase 0 (optional polish) — register discoverability only; no schema.
 
-- Period balances + register + requisitions: `…25250000…`, `…25260000…` — **done**
+---
 
-## UX (bank-statement register)
+## Acceptance criteria (Phase 1 MVP)
 
-**Shipped:** petty/till/online + journals account filter use Debit \| Credit \| running Balance columns via `report_account_register`.
-
-**Polish (optional, `@web_agent`):** opening/closing strip prominence; print/CSV of register; empty-state copy pointing staff to Requisitions before ad-hoc expense JEs; link from PO list to approval actions once Phase 1 lands.
-
-## Acceptance criteria (next MVP = Phase 1)
-
-- [ ] PO (and optionally MR): submitted → approved/rejected; approved required before “send to supplier” / convert paths product chooses
-- [ ] `po_approved` SMS event can fire on approve (wire or document if deferred)
-- [ ] RLS + RPC-only mutation; journals unchanged (append-only)
-- [ ] No ZIMRA / payroll tax; USD\|ZIG explicit on any new money fields
-- [ ] Web staff can approve/reject from procurement or finance Approvals UI
-- [ ] Android finance still deferred unless product reopens
+- [ ] PO (optional MR): submitted → approved/rejected; approved gate before send/convert as product chooses
+- [ ] `po_approved` SMS: wire or explicitly defer in PR
+- [ ] RLS + RPC-only; append-only journals
+- [ ] No ZIMRA / payroll tax; USD\|ZIG on new money fields
+- [ ] Staff can approve/reject from web procurement or finance Approvals
+- [ ] Android finance still deferred
 
 ## Paths in scope (Phase 1)
 
-- `supabase/migrations/*procurement*` (or new `…_procurement_approve.sql`), `supabase/tests/*`
-- Staff procurement / finance web components under `apps/web/` (locate existing PO UI at implement time)
-- Optional: `packages/shared` status helpers; SMS event wire
+- `supabase/migrations/*procurement*` (or new `…_procurement_approve.sql`), tests
+- Staff procurement / finance under `apps/web/`
+- Optional: `packages/shared` status helpers; SMS wire
 
-## Out of scope / non-goals (v1 of this plan)
+## Out of scope
 
-- Rebuilding period balances, register RPC, or petty requisitions (already shipped)
-- ZIMRA / fiscal QR / tax on docs
-- Payroll tax / PAYE / NSSA
-- Full multi-level approval matrix / amount thresholds (Phase 1.5+)
-- AP payment runs (Phase 2 — separate gate)
-- Till hardware / float variance sessions
-- Android Finance screen
-- CoA redesign (split 1100); bank-feed auto-import; statement PDF
-- ContiPay as AP rail
+- Rebuild period balances, register RPC, petty requisitions
+- ZIMRA / payroll tax / HTML5 QR
+- Multi-level approval matrices; bank-feed AI; SAP payment files
+- Till hardware variance; Android Finance; CoA split 1100; ContiPay AP
+- Textbook-only imprest (expense-only-at-replenish) — keep GTR continuous 1110 trail
 
 ## Risks / exclusions
 
-- Do not mutate posted journals for period close or PO approve — control docs + status only
-- Keep AR `payment_entries` out of vendor pay — new AP tables when Phase 2 starts
-- Avoid duplicating `bank_statements` for petty daily close (already separate `account_period_balances`)
-- Lane: procurement approve may be `@backend_agent` + `@web_agent`; do not spill into Android without reopen
+- Do not mutate posted journals for close or PO approve
+- Keep AR receipts out of vendor pay
+- Do not duplicate `bank_statements` for petty daily close
+- Phase 1 may already be mid-flight — plan only; no product code from Planner
+
+## Priority changes vs prior MVP
+
+| Prior plan | After research |
+|------------|----------------|
+| MVP = PO approve | **Unchanged** — still the largest gap vs NetSuite/Odoo/SAP P2P |
+| AP payment runs = Phase 2 | **Unchanged** — still next; align to Odoo batch pay / SAP Payment Wizard **simplified** |
+| QuickBooks-framed mapping | **Replaced** with multi-product table; QB is not the north star |
+| Imprest “as QB” | **Clarified**: industry imprest + **adapt** continuous Dr/Cr on 1110 (keep current design) |
+| Register as QB-like | **Reframed**: MYOB/Sage statement columns (already shipped); polish demoted optional Phase 0 |
+| New funding ADR | **Not needed** — 1100→1110 stands |
 
 ## Phased checklist
 
-1. **Done (baseline):** Ledger → deepen UX → period/register/imprest → requisition lines — see prior plans
-2. **Next MVP:** Phase 1 PO/MR approve — `@backend_agent` then `@web_agent`
-3. Phase 2 AP payment runs — new plan gate after Phase 1
-4. Optional: register UX polish; Android finance parity
-5. `/security-reviewer` + `/supabase-rls-auditor` on new tables → `/verifier` → `/manager`
+1. **Done:** Ledger → deepen UX → period/register/imprest → requisition lines
+2. **Optional Phase 0:** Register/period UX polish (`@web_agent`)
+3. **Next MVP Phase 1:** PO/MR approve — `@backend_agent` then `@web_agent` (may be in progress)
+4. **Phase 2:** AP payment runs — new gate after Phase 1
+5. `/security-reviewer` + `/supabase-rls-auditor` → `/verifier` → `/manager`
 
 ## Handoff
 
-1. Implement **Phase 1** in `@backend_agent` then `@web_agent`
-2. `/security-reviewer` (approve RPCs + RLS) → `/verifier`
-3. `/manager` done gate; open Phase 2 AP desk only after PO approve ships
+1. Implement **Phase 1** in `@backend_agent` then `@web_agent` (skip if another agent already owns it)
+2. `/security-reviewer` → `/verifier`
+3. `/manager` done gate; open Phase 2 only after PO approve ships
 
 ### Return to manager
 
 | Item | Value |
 |------|--------|
 | Plan path | `docs/plans/2026-07-25-professional-finance-workflows.md` |
-| First invoke | **`@backend_agent`** — procurement `approved` status + approve/reject RPCs |
-| Petty funding | **1100 → 1110** (imprest; already configured) |
+| First invoke | **`@backend_agent`** — procurement `approved` + approve/reject RPCs (if not already underway) |
+| Top adopted patterns | See manager return below |
+| Petty funding | **1100 → 1110** (unchanged) |
 | Android | Default **no** |
+| ADR | None — plan update only |
