@@ -795,10 +795,7 @@ export async function listPriceListSample(
   if (error) return { ok: false, error: error.message };
 
   const rows = (data ?? []).map((row) => {
-    const item = row.stock_items as
-      | { oem_part_number: string; description: string | null }
-      | null
-      | undefined;
+    const item = asStockItemBrief(row.stock_items);
     return {
       stock_item_id: row.stock_item_id,
       unit_price: Number(row.unit_price),
@@ -835,10 +832,7 @@ export async function listActiveKits(
 
   const byKit = new Map<string, KitListItem["components"]>();
   for (const c of comps ?? []) {
-    const item = c.stock_items as
-      | { oem_part_number: string; description: string | null }
-      | null
-      | undefined;
+    const item = asStockItemBrief(c.stock_items);
     const list = byKit.get(c.kit_id) ?? [];
     list.push({
       oem: item?.oem_part_number ?? "—",
@@ -849,10 +843,7 @@ export async function listActiveKits(
   }
 
   const out: KitListItem[] = kits.map((k) => {
-    const item = k.stock_items as
-      | { oem_part_number: string; description: string | null }
-      | null
-      | undefined;
+    const item = asStockItemBrief(k.stock_items);
     return {
       kitId: k.id,
       stockItemId: k.stock_item_id,
