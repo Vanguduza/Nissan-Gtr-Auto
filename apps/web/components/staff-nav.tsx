@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
   Banknote,
@@ -81,7 +81,7 @@ function iconForModule(mod: StaffNavModule): LucideIcon | undefined {
   return staffNavIcons[mod.id] ?? staffNavIcons[navHrefParts(mod.href).pathname];
 }
 
-export function StaffNav({ current }: { current: string }) {
+function StaffNavInner({ current }: { current: string }) {
   const ctx = useStaffAuth();
   const pathnameHook = usePathname();
   const searchParams = useSearchParams();
@@ -99,7 +99,10 @@ export function StaffNav({ current }: { current: string }) {
   const initiallyOpen = useMemo(() => {
     const open = new Set<string>();
     for (const entry of entries) {
-      if (entry.kind === "module" && isStaffNavModuleActive(entry, pathname, searchTab)) {
+      if (
+        entry.kind === "module" &&
+        isStaffNavModuleActive(entry, pathname, searchTab)
+      ) {
         open.add(entry.id);
       }
     }
@@ -152,7 +155,11 @@ export function StaffNav({ current }: { current: string }) {
             );
           }
 
-          const modActive = isStaffNavModuleActive(entry, pathname, searchTab);
+          const modActive = isStaffNavModuleActive(
+            entry,
+            pathname,
+            searchTab,
+          );
           const expanded = openIds.has(entry.id);
           const ModIcon = iconForModule(entry);
 
@@ -211,7 +218,9 @@ export function StaffNav({ current }: { current: string }) {
                         <Link
                           href={leaf.href}
                           className={
-                            active ? styles.navSubLinkActive : styles.navSubLink
+                            active
+                              ? styles.navSubLinkActive
+                              : styles.navSubLink
                           }
                         >
                           {Icon ? (
@@ -221,6 +230,92 @@ export function StaffNav({ current }: { current: string }) {
                               aria-hidden
                             />
                           ) : null}
+                          {leaf.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+function StaffNavFallback({ current }: { current: string }) {
+  return <StaffNavInner current={current} />;
+}
+
+/** Staff sidebar with expandable module → subfeature menus (RBAC-filtered). */
+export function StaffNav({ current }: { current: string }) {
+  return (
+    <Suspense fallback={<StaffNavStatic current={current} />}>
+      <StaffNavInner current={current} />
+    </Suspense>
+  );
+}
+
+/** Pre-hydration / Suspense fallback without useSearchParams. */
+function StaffNavStatic({ current }: { current: string }) {
+  const ctx = useStaffAuth();
+  const pathname = navHrefParts(current).pathname;
+  const entries = ctx
+    ? filterNavTreeForRoles(ctx.roles)
+    : STAFF_NAV_TREE.filter((e) => e.kind === "link" && e.roles === "any");
+
+  return (
+    <nav className={styles.nav} aria-label="Staff">
+      <p className={styles.navTitle}>Staff</p>
+      <ul className={styles.navList}>
+        {entries.map((entry) => {
+          if (entry.kind === "link") {
+            const active = isStaffNavLeafActive(entry, pathname, null);
+            return (
+              <li key={entry.href}>
+                <Link
+                  href={entry.href}
+                  className={active ? styles.navLinkActive : styles.navLink}
+                >
+                  {entry.label}
+                </Link>
+              </li>
+            );
+          }
+          const modActive = isStaffNavModuleActive(entry, pathname, null);
+          return (
+            <li key={entry.id} className={styles.navGroup}>
+              <div className={styles.navGroupRow}>
+                <Link
+                  href={entry.href}
+                  className={
+                    modActive ? styles.navGroupLinkActive : styles.navGroupLink
+                  }
+                >
+                  {entry.label}
+                </Link>
+              </div>
+              {modActive ? (
+                <ul className={styles.navSubList}>
+                  {entry.children.map((leaf) => {
+                    const active = isStaffNavLeafActive(
+                      leaf,
+                      pathname,
+                      null,
+                      entry.defaultTab,
+                    );
+                    return (
+                      <li key={leaf.href}>
+                        <Link
+                          href={leaf.href}
+                          className={
+                            active
+                              ? styles.navSubLinkActive
+                              : styles.navSubLink
+                          }
+                        >
                           {leaf.label}
                         </Link>
                       </li>

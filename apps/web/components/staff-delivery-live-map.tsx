@@ -254,7 +254,7 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
             className={live ? styles.liveDot : styles.liveDotOff}
             aria-hidden
           />
-          {live ? "Realtime subscribed" : "Not subscribed"}
+          {live ? "Live" : "Offline"}
         </span>
         <span>
           <strong>Points</strong>
