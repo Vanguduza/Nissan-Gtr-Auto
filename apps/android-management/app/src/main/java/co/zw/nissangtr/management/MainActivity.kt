@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
             ChatModule.id,
             ProcurementModule.id,
             CreditModule.id,
+            FleetModule.id,
         )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
