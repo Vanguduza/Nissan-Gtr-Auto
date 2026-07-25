@@ -303,3 +303,221 @@ export async function cancelPaymentEntry(
   if (!data) return { ok: false, error: "cancel_payment_entry returned no id." };
   return { ok: true, data };
 }
+
+export async function reverseJournal(
+  client: SupabaseClient,
+  args: { entryId: string; reason?: string },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("reverse_journal", {
+    p_entry_id: args.entryId,
+    p_description: args.reason || undefined,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "reverse_journal returned no id." };
+  return { ok: true, data };
+}
+
+export async function listAccountingPeriods(
+  client: SupabaseClient,
+): Promise<StorefrontResult<AccountingPeriodOption[]>> {
+  const { data, error } = await client
+    .from("accounting_periods")
+    .select("id, period_start, period_end, label, locked_at")
+    .order("period_start", { ascending: false })
+    .limit(40);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as AccountingPeriodOption[]) ?? [] };
+}
+
+export async function createAccountingPeriod(
+  client: SupabaseClient,
+  args: { periodStart: string; periodEnd: string; label: string },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client
+    .from("accounting_periods")
+    .insert({
+      period_start: args.periodStart,
+      period_end: args.periodEnd,
+      label: args.label,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+  if (!data?.id) return { ok: false, error: "Period insert returned no id." };
+  return { ok: true, data: data.id };
+}
+
+export async function lockAccountingPeriod(
+  client: SupabaseClient,
+  periodId: string,
+): Promise<StorefrontResult<true>> {
+  const { error } = await client.rpc("lock_accounting_period", {
+    p_period_id: periodId,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: true };
+}
+
+export async function listBankStatements(
+  client: SupabaseClient,
+): Promise<StorefrontResult<BankStatementOption[]>> {
+  const { data, error } = await client
+    .from("bank_statements")
+    .select(
+      "id, account_code, currency, statement_date, opening_balance, closing_balance, document_number, created_at",
+    )
+    .order("statement_date", { ascending: false })
+    .limit(40);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as BankStatementOption[]) ?? [] };
+}
+
+export async function listBankStatementLines(
+  client: SupabaseClient,
+  statementId: string,
+): Promise<StorefrontResult<BankStatementLineOption[]>> {
+  const { data, error } = await client
+    .from("bank_statement_lines")
+    .select("id, statement_id, line_date, description, amount, status")
+    .eq("statement_id", statementId)
+    .order("line_date", { ascending: true })
+    .limit(100);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as BankStatementLineOption[]) ?? [] };
+}
+
+export async function listBankReconMatches(
+  client: SupabaseClient,
+  statementLineIds: string[],
+): Promise<StorefrontResult<BankReconMatchOption[]>> {
+  if (!statementLineIds.length) return { ok: true, data: [] };
+  const { data, error } = await client
+    .from("bank_recon_matches")
+    .select("id, statement_line_id, journal_entry_line_id, matched_at")
+    .in("statement_line_id", statementLineIds)
+    .order("matched_at", { ascending: false })
+    .limit(100);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as BankReconMatchOption[]) ?? [] };
+}
+
+export async function listJournalLinesForAccount(
+  client: SupabaseClient,
+  accountCode: string,
+): Promise<StorefrontResult<JournalLineOption[]>> {
+  const { data, error } = await client
+    .from("journal_entry_lines")
+    .select("id, journal_entry_id, account_code, debit, credit, currency")
+    .eq("account_code", accountCode)
+    .order("id", { ascending: false })
+    .limit(40);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as JournalLineOption[]) ?? [] };
+}
+
+/** Import = insert statement header + optional first line (no import RPC exists). */
+export async function importBankStatement(
+  client: SupabaseClient,
+  args: {
+    accountCode: string;
+    currency: CurrencyCode;
+    statementDate: string;
+    openingBalance: number;
+    closingBalance: number;
+    documentNumber?: string;
+    line?: { lineDate: string; description: string; amount: number };
+  },
+): Promise<StorefrontResult<string>> {
+  const { data: stmt, error } = await client
+    .from("bank_statements")
+    .insert({
+      account_code: args.accountCode,
+      currency: args.currency,
+      statement_date: args.statementDate,
+      opening_balance: args.openingBalance,
+      closing_balance: args.closingBalance,
+      document_number: args.documentNumber || null,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+  if (!stmt?.id) return { ok: false, error: "bank_statements insert returned no id." };
+
+  if (args.line) {
+    const { error: lineErr } = await client.from("bank_statement_lines").insert({
+      statement_id: stmt.id,
+      line_date: args.line.lineDate,
+      description: args.line.description || null,
+      amount: args.line.amount,
+      status: "open",
+    });
+    if (lineErr) return { ok: false, error: lineErr.message };
+  }
+  return { ok: true, data: stmt.id };
+}
+
+export async function addBankStatementLine(
+  client: SupabaseClient,
+  args: {
+    statementId: string;
+    lineDate: string;
+    description: string;
+    amount: number;
+  },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client
+    .from("bank_statement_lines")
+    .insert({
+      statement_id: args.statementId,
+      line_date: args.lineDate,
+      description: args.description || null,
+      amount: args.amount,
+      status: "open",
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+  if (!data?.id) return { ok: false, error: "bank_statement_lines insert returned no id." };
+  return { ok: true, data: data.id };
+}
+
+/** Match via table insert + status update (no match RPC). */
+export async function matchBankLine(
+  client: SupabaseClient,
+  args: { statementLineId: string; journalEntryLineId: string },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client
+    .from("bank_recon_matches")
+    .insert({
+      statement_line_id: args.statementLineId,
+      journal_entry_line_id: args.journalEntryLineId,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+  if (!data?.id) return { ok: false, error: "bank_recon_matches insert returned no id." };
+
+  const { error: updErr } = await client
+    .from("bank_statement_lines")
+    .update({ status: "matched" })
+    .eq("id", args.statementLineId)
+    .eq("status", "open");
+  if (updErr) return { ok: false, error: updErr.message };
+
+  return { ok: true, data: data.id };
+}
+
+export async function clearBankMatches(
+  client: SupabaseClient,
+  matchIds: string[],
+): Promise<StorefrontResult<number>> {
+  const { data, error } = await client.rpc("clear_bank_matches", {
+    p_match_ids: matchIds,
+  });
+  if (error) return { ok: false, error: error.message };
+  const n = typeof data === "number" ? data : Number(data);
+  if (!Number.isFinite(n)) {
+    return { ok: false, error: "clear_bank_matches returned a non-numeric value." };
+  }
+  return { ok: true, data: n };
+}
