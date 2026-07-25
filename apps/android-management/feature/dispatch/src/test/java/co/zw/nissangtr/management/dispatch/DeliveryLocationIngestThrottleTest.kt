@@ -87,11 +87,15 @@ class DispatchAssignmentRpcTest {
         assertEquals(1, stops.first().routeSequence)
 
         assertNull(rpc.getDeliveryTrackPoint(jobId))
-        rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
+        val dispatched = rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
+        assertEquals(jobId, dispatched.deliveryJobId)
+        assertNotNull(dispatched.trackToken)
+        assertTrue(dispatched.trackToken!!.startsWith("fake_track_"))
         assertNotNull(rpc.getDeliveryTrackPoint(jobId))
 
-        val token = rpc.mintDeliveryTrackToken(jobId)
-        assertTrue(token.startsWith("fake_track_"))
+        // Remint is intentional rotate only (different prefix; would revoke SMS token live).
+        val rotated = rpc.mintDeliveryTrackToken(jobId)
+        assertTrue(rotated.startsWith("fake_remint_"))
         val otp = rpc.generateDeliveryPodOtp(jobId)
         assertEquals(6, otp.length)
 
@@ -105,6 +109,7 @@ class DispatchAssignmentRpcTest {
 
         assertEquals("suggest_delivery_assignees", RpcNames.SUGGEST_DELIVERY_ASSIGNEES)
         assertEquals("assign_delivery_job", RpcNames.ASSIGN_DELIVERY_JOB)
+        assertEquals("set_delivery_job_geo", RpcNames.SET_DELIVERY_JOB_GEO)
         assertEquals("optimize_driver_stops", RpcNames.OPTIMIZE_DRIVER_STOPS)
         assertEquals("get_delivery_track_point", RpcNames.GET_DELIVERY_TRACK_POINT)
         assertEquals("mint_delivery_track_token", RpcNames.MINT_DELIVERY_TRACK_TOKEN)
