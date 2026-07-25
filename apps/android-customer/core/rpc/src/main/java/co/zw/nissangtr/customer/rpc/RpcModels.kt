@@ -57,6 +57,11 @@ data class CustomerOrder(
     val postedAt: String?,
     val pickListStatus: String?,
     val deliveryNoteStatus: String?,
+    /**
+     * Non-terminal delivery job on this invoice (`pending`|`dispatched`), prefers dispatched.
+     * Owner path: [RpcNames.GET_DELIVERY_TRACK_POINT] with this id (no share token).
+     */
+    val activeDeliveryJobId: String? = null,
 )
 
 data class InvoiceSummary(

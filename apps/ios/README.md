@@ -111,8 +111,8 @@ Delivery track: migration `…110000_dedicated_delivery_app.sql`, ADR [`docs/dec
 
 - RPC only: `get_delivery_track_point` (job ownership JWT **or** share token; anon allowed for token).
 - UI shows **last point + ETA** on a MapKit single annotation — no polyline, no historical trail, no WebView/HTML5 geo.
-- Reachable from **Order detail** (dispatch orders / optional `active_delivery_job_id`) and deep link `gtr-customer://track?token=…` or `?job=<uuid>`.
-- **Gap:** Live `get_customer_order` does not yet return `active_delivery_job_id` — until `@backend_agent` adds it, Live users use the share token from SMS/WA (or deep link). Fake seeds a job id for Simulator demos (`demo-track-token`).
+- Reachable from **Order detail** when `get_customer_order` returns `active_delivery_job_id` (NavigationLink → job-id track), plus share-token paste and deep link `gtr-customer://track?token=…` / `?job=<uuid>`.
+- Fake seeds a job id + `demo-track-token` for Simulator demos.
 
 ### Chat Realtime gap
 
