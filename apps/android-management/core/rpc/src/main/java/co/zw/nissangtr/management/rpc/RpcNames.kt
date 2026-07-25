@@ -99,4 +99,9 @@ object RpcNames {
 
     // B2B credit (staff DEFINER — admin|sales|finance)
     const val SET_CUSTOMER_CREDIT = "set_customer_credit"
+
+    // Company fleet (ops vehicles — not B2B FLEET price list / garage)
+    const val LIST_FLEET_VEHICLES = "list_fleet_vehicles"
+    const val UPSERT_FLEET_VEHICLE = "upsert_fleet_vehicle"
+    const val SET_FLEET_VEHICLE_STATUS = "set_fleet_vehicle_status"
 }

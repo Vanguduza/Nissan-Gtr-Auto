@@ -386,4 +386,19 @@ interface RpcClient {
         creditLimit: Double? = null,
         creditHold: Boolean? = null,
     ): CustomerCreditSnapshot
+
+    // --- Company fleet (admin|warehouse|dispatcher) ---
+
+    suspend fun listFleetVehicles(status: FleetVehicleStatus? = null): List<FleetVehicleSummary>
+
+    suspend fun upsertFleetVehicle(
+        plate: String,
+        label: String? = null,
+        status: FleetVehicleStatus = FleetVehicleStatus.ACTIVE,
+        assignedDriverUserId: String? = null,
+        notes: String? = null,
+        id: String? = null,
+    ): String
+
+    suspend fun setFleetVehicleStatus(id: String, status: FleetVehicleStatus): String
 }
