@@ -1262,7 +1262,7 @@ export function StaffFinancePanel() {
     const totalAlloc = allocations.reduce((s, a) => s + a.amount, 0);
     if (pay && totalAlloc > Number(pay.amount) + 1e-9) {
       setMessage(
-        `Allocations (${totalAlloc}) exceed payment amount (${pay.amount} ${pay.currency}). RPC will deny over-allocate.`,
+        `Allocations (${totalAlloc}) exceed payment amount (${pay.amount} ${pay.currency}).`,
       );
     }
     setBusy(true);
@@ -1593,7 +1593,6 @@ export function StaffFinancePanel() {
       <StaffModuleTabs
         tabs={FINANCE_TABS}
         active={tab}
-        onChange={selectTab}
         ariaLabel="Finance sections"
       />
 
@@ -3141,7 +3140,7 @@ export function StaffFinancePanel() {
           <ol className={styles.muted} style={{ margin: "0 0 0.75rem 1.1rem" }}>
             <li>Pick an open period</li>
             <li>Optional: run trial balance as of period end</li>
-            <li>Confirm lock (irreversible — no unlock RPC)</li>
+            <li>Confirm lock (irreversible)</li>
           </ol>
           <div className={styles.formGrid}>
             <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
