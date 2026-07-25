@@ -54,6 +54,13 @@ class FakeRpcClient : RpcClient {
     private val plSeq = AtomicInteger(1)
     private val jobSeq = AtomicInteger(1)
     private val openCarts = mutableSetOf<String>()
+    /** cartId → lines */
+    private val cartLines = mutableMapOf<String, MutableList<PosCartLineSummary>>()
+    /** cartId → customer_id */
+    private val cartCustomers = mutableMapOf<String, String>()
+    /** pairing_code → (sessionId, cartId) */
+    private val openScanSessions = mutableMapOf<String, Pair<String, String>>()
+    private val claimedSessions = mutableSetOf<String>()
     private val pendingTransfers = mutableSetOf<String>()
     private val reconDrafts = mutableSetOf<String>()
     private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
@@ -185,6 +192,8 @@ class FakeRpcClient : RpcClient {
         require(warehouseId.isNotBlank()) { "warehouseId required for ${RpcNames.CREATE_POS_CART}" }
         val id = UUID.randomUUID().toString()
         openCarts.add(id)
+        cartLines[id] = mutableListOf()
+        if (!customerId.isNullOrBlank()) cartCustomers[id] = customerId
         return id
     }
 
@@ -198,9 +207,21 @@ class FakeRpcClient : RpcClient {
         require(stockItemId.isNotBlank()) { "stockItemId required" }
         require(uomId.isNotBlank()) { "uomId required" }
         require(qty > 0) { "qty must be > 0" }
-        // Fake allows any cart id for scaffold demos; live requires an open cart.
         openCarts.add(cartId)
-        return UUID.randomUUID().toString()
+        val lineId = UUID.randomUUID().toString()
+        val unit = 10.0
+        val lines = cartLines.getOrPut(cartId) { mutableListOf() }
+        lines.add(
+            PosCartLineSummary(
+                id = lineId,
+                stockItemId = stockItemId,
+                oemPartNumber = "OEM-$stockItemId".take(24),
+                qty = qty,
+                unitPrice = unit,
+                lineTotal = unit * qty,
+            ),
+        )
+        return lineId
     }
 
     override suspend fun addCartLineFromQr(
@@ -212,15 +233,41 @@ class FakeRpcClient : RpcClient {
         require(qty > 0) { "qty must be > 0" }
         val m = INVENTORY_QR_REGEX.matchEntire(qrPayload.trim())
             ?: throw IllegalArgumentException("invalid inventory QR payload")
-        require(m.groupValues[1].isNotBlank()) { "OEM required in QR" }
-        openCarts.add(cartId)
-        return UUID.randomUUID().toString()
+        val oem = m.groupValues[1]
+        require(oem.isNotBlank()) { "OEM required in QR" }
+        val ref = lookupStockItemByOem(oem)
+        return addCartLine(cartId, ref.stockItemId, ref.uomId, qty)
     }
 
-    override suspend fun checkoutPosCart(cartId: String): String {
+    override suspend fun checkoutPosCart(
+        cartId: String,
+        receiptEmail: String?,
+        receiptWhatsappE164: String?,
+        receiptPhoneE164: String?,
+    ): CheckoutPosResult {
         require(cartId.isNotBlank()) { "cartId required for ${RpcNames.CHECKOUT_POS_CART}" }
+        val hadCustomer = cartCustomers.containsKey(cartId)
+        var customerId = cartCustomers[cartId]
+        val email = receiptEmail?.trim()?.lowercase()?.ifBlank { null }
+        val wa = receiptWhatsappE164?.trim()?.ifBlank { null }
+        // Fake bind: unique email/wa matching demo pattern binds a fake customer
+        if (customerId == null && (email != null || wa != null)) {
+            val bindable = email?.endsWith("@example.com") == true ||
+                wa?.startsWith("+263") == true
+            if (bindable) {
+                customerId = UUID.nameUUIDFromBytes("cust:${email ?: wa}".toByteArray()).toString()
+            }
+        }
         openCarts.remove(cartId)
-        return UUID.randomUUID().toString()
+        cartLines.remove(cartId)
+        cartCustomers.remove(cartId)
+        return CheckoutPosResult(
+            invoiceId = UUID.randomUUID().toString(),
+            customerId = customerId,
+            receiptEmail = email,
+            receiptWhatsappE164 = wa,
+            hadCustomerBeforeCheckout = hadCustomer,
+        )
     }
 
     override suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef {
@@ -230,6 +277,79 @@ class FakeRpcClient : RpcClient {
         val item = UUID.nameUUIDFromBytes("item:$oem".toByteArray()).toString()
         val uom = UUID.nameUUIDFromBytes("uom:$oem".toByteArray()).toString()
         return StockItemRef(stockItemId = item, uomId = uom, oemPartNumber = oem)
+    }
+
+    override suspend fun searchCatalog(
+        mode: CatalogSearchMode,
+        query: String,
+    ): CatalogSearchResult {
+        val q = query.trim()
+        if (q.isEmpty()) {
+            return CatalogSearchResult(mode = mode, query = q, parts = emptyList())
+        }
+        // Deterministic demo hits for Fake mode (part / browse).
+        val parts = listOf(
+            CatalogPartHit(
+                oemPartNumber = "FAKE-$q".uppercase().take(32),
+                pncCode = "PNC-001",
+                categoryName = "Demo",
+                subcategoryName = mode.rpcValue,
+            ),
+            CatalogPartHit(
+                oemPartNumber = "P2-POS-SMOKE-001",
+                pncCode = "PNC-002",
+                categoryName = "Brakes",
+                subcategoryName = "Pads",
+            ),
+        )
+        return CatalogSearchResult(mode = mode, query = q, parts = parts)
+    }
+
+    override suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary> {
+        require(cartId.isNotBlank())
+        return cartLines[cartId]?.toList().orEmpty()
+    }
+
+    override suspend fun getPosCartCustomerId(cartId: String): String? {
+        require(cartId.isNotBlank())
+        return cartCustomers[cartId]
+    }
+
+    override suspend fun listWarehouses(): List<WarehouseRef> = listOf(
+        WarehouseRef(
+            id = FAKE_WAREHOUSE_ID,
+            code = "MAIN",
+            name = "Main warehouse (Fake)",
+        ),
+    )
+
+    override suspend fun createPosScanSession(cartId: String): PosScanSessionCreated {
+        require(cartId.isNotBlank()) { "cartId required for ${RpcNames.CREATE_POS_SCAN_SESSION}" }
+        openCarts.add(cartId)
+        val sessionId = UUID.randomUUID().toString()
+        val code = "%06d".format((0..999_999).random())
+        openScanSessions[code] = sessionId to cartId
+        return PosScanSessionCreated(
+            sessionId = sessionId,
+            pairingCode = code,
+            expiresAt = "2099-01-01T00:00:00Z",
+        )
+    }
+
+    override suspend fun claimPosScanSession(pairingCode: String): String {
+        val code = pairingCode.trim()
+        require(code.matches(Regex("^\\d{6}$"))) { "invalid pairing code" }
+        val pair = openScanSessions.remove(code)
+            ?: throw IllegalStateException("pairing code not found or not open")
+        claimedSessions.add(pair.first)
+        return pair.first
+    }
+
+    override suspend fun revokePosScanSession(sessionId: String): String {
+        require(sessionId.isNotBlank())
+        claimedSessions.remove(sessionId)
+        openScanSessions.entries.removeAll { it.value.first == sessionId }
+        return sessionId
     }
 
     override suspend fun postStockReceipt(
