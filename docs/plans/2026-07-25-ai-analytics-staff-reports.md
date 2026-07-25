@@ -34,7 +34,7 @@ Vertical slice: staff KPI RPCs (aggregates only) → subscription/run/delivery t
 ## Migration outline
 
 - **Enums:** `ai_report_cadence` (`daily`,`weekly`,`monthly`); `ai_report_run_status` (`pending`,`running`,`succeeded`,`partial`,`failed`); `ai_delivery_channel` (`email`,`whatsapp`); `ai_delivery_status` (`queued`,`sent`,`failed`,`skipped`).
-- **`ai_report_subscriptions`:** `id`, `created_by`, `cadence`, `channels[]`, `recipient_emails[]`, `recipient_whatsapp_e164[]`, `include_narrative bool`, `kpi_set text` (e.g. `ops_sales_v1`), `timezone`, `active`, `last_run_at`, timestamps. RLS: select/insert/update for `has_staff_role({admin,finance,sales})`; no anon.
+- **`ai_report_subscriptions`:** `id`, `created_by`, `cadence`, `channels[]`, `recipient_emails[]`, `recipient_whatsapp_e164[]`, `include_narrative bool`, `kpi_set text` (e.g. `ops_sales_v1`), `timezone`, `active`, `last_run_at`, timestamps. RLS: SELECT for `admin|finance|sales`; INSERT/UPDATE/DELETE for `admin|finance` only (sales read-only on subs); no anon.
 - **`ai_report_runs`:** `subscription_id`, `cadence`, `period_start/end`, `status`, `kpi_json jsonb` (aggregates), `narrative text null`, `error text null`, `gemini_used bool`, `started_at`/`finished_at`. RLS: staff read; writes service_role / SECURITY DEFINER helpers.
 - **`ai_report_deliveries`:** `run_id`, `channel`, `recipient`, `status`, `provider_ref`, `error`, `sent_at`. Same RLS pattern.
 - **RPCs (names):**

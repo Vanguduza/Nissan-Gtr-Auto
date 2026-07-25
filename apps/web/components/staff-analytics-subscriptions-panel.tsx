@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
+import { useStaffAuth } from "@/components/staff-auth-context";
 import {
   activateAiReportSubscription,
   createAiReportSubscription,
@@ -15,6 +16,7 @@ import {
   type AiReportCadence,
   type AiReportSubscriptionRow,
 } from "@/lib/staff-analytics";
+import { rolesAllow } from "@/lib/staff-auth";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =
