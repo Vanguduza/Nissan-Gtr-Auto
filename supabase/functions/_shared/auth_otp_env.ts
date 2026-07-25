@@ -16,11 +16,13 @@ export function smsOtpConfigured(): boolean {
 }
 
 export function emailOtpConfigured(): boolean {
+  // Match getEmailSendConfig() — same keys resolve a real sender.
   const apiKey =
     Deno.env.get("EMAIL_API_KEY")?.trim() ||
     Deno.env.get("RESEND_API_KEY")?.trim() ||
     "";
   const from =
+    Deno.env.get("REPORT_FROM_EMAIL")?.trim() ||
     Deno.env.get("EMAIL_FROM")?.trim() ||
     Deno.env.get("RECEIPT_FROM_EMAIL")?.trim() ||
     Deno.env.get("AUTH_OTP_FROM_EMAIL")?.trim() ||
