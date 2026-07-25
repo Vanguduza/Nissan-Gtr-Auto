@@ -248,13 +248,13 @@ struct ChatThreadScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         // One `.task`-owned loop; cancelled on disappear — no second Timer.
         .task {
-            await load(markRead: true)
+            await load()
             await pollLoop()
         }
-        .refreshable { await load(markRead: true) }
+        .refreshable { await load() }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await pollOnce(markRead: true, fromForeground: true) }
+            Task { await pollOnce(markReadOnChange: true, forceMarkRead: true) }
         }
     }
 
@@ -274,8 +274,8 @@ struct ChatThreadScreen: View {
         return min(maxPollSeconds, basePollSeconds * factor)
     }
 
-    private func load(markRead: Bool) async {
-        await pollOnce(markRead: markRead, fromForeground: false)
+    private func load() async {
+        await pollOnce(markReadOnChange: true, forceMarkRead: true)
     }
 
     private func send() async {
@@ -286,7 +286,7 @@ struct ChatThreadScreen: View {
         do {
             _ = try await session.api.postChatMessage(threadId: threadId, body: body)
             draft = ""
-            await pollOnce(markRead: false, fromForeground: false)
+            await pollOnce(markReadOnChange: false, forceMarkRead: false)
             status = nil
         } catch {
             status = error.localizedDescription
@@ -303,23 +303,22 @@ struct ChatThreadScreen: View {
                 return
             }
             guard !Task.isCancelled else { return }
-            await pollOnce(markRead: true, fromForeground: false)
+            await pollOnce(markReadOnChange: true, forceMarkRead: false)
         }
     }
 
-    private func pollOnce(markRead: Bool, fromForeground: Bool) async {
+    private func pollOnce(markReadOnChange: Bool, forceMarkRead: Bool) async {
         guard !refreshGate else { return }
         refreshGate = true
         defer { refreshGate = false }
 
         do {
             let next = try await session.api.listChatMessages(threadId: threadId)
-            if next.map(\.id) != messages.map(\.id) {
+            let changed = next.map(\.id) != messages.map(\.id)
+            if changed {
                 messages = next
-                if markRead {
-                    try? await session.api.markChatThreadRead(threadId: threadId)
-                }
-            } else if markRead, fromForeground {
+            }
+            if forceMarkRead || (markReadOnChange && changed) {
                 try? await session.api.markChatThreadRead(threadId: threadId)
             }
             let all = try await session.api.listChatThreads()
