@@ -7494,6 +7494,14 @@ export type Database = {
         }
         Returns: string
       }
+      set_zig_exchange_rate: {
+        Args: {
+          p_notes?: string
+          p_rate: number
+          p_rate_date?: string
+        }
+        Returns: string
+      }
       start_chat_thread: {
         Args: {
           p_body?: string
