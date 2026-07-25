@@ -17,11 +17,20 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { jsonResponse } from "../_shared/payment_edge.ts";
 import {
   getWhatsAppCloudConfig,
   sendWhatsAppText,
 } from "../_shared/whatsapp_cloud.ts";
+
+function jsonResponse(
+  body: unknown,
+  status: number,
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 import {
   formatHandoffMessage,
   formatRateLimitMessage,

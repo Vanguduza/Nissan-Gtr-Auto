@@ -1,15 +1,23 @@
 /**
  * Meta Cloud API webhook AuthZ helpers (verify challenge + X-Hub-Signature-256).
  * Fail closed when WHATSAPP_APP_SECRET unset (unless local unverified flag).
+ * Kept free of payment_edge imports so smoke tests stay isolated.
  */
 
-import {
-  isLocalUnverifiedAllowed,
-  timingSafeEqualStr,
-} from "../_shared/payment_edge.ts";
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const bufA = enc.encode(a);
+  const bufB = enc.encode(b);
+  const len = Math.max(bufA.length, bufB.length);
+  let diff = bufA.length ^ bufB.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return diff === 0;
+}
 
 export function allowWhatsAppUnverifiedLocal(): boolean {
-  return isLocalUnverifiedAllowed("WHATSAPP_ALLOW_UNVERIFIED_LOCAL");
+  return Deno.env.get("WHATSAPP_ALLOW_UNVERIFIED_LOCAL") === "1";
 }
 
 /** Extract hex digest from X-Hub-Signature-256 (sha256=<hex>). */
