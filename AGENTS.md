@@ -77,6 +77,7 @@ cd apps/web && pnpm dev
 # Android (when scaffolded)
 cd apps/android-customer && ./gradlew assembleDebug
 cd apps/android-management && ./gradlew assembleDebug
+cd apps/android-delivery && ./gradlew assembleDebug   # Fake if no SUPABASE_* in local.properties
 
 # iOS (when scaffolded)
 cd apps/ios && xcodebuild -scheme GTRCustomer -destination 'platform=iOS Simulator,name=iPhone 16'

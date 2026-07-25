@@ -10,6 +10,7 @@ import co.zw.nissangtr.bridges.podcamera.CameraPermissionStatus
 import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
 import co.zw.nissangtr.bridges.podsignature.PodSignatureBridge
 import co.zw.nissangtr.bridges.podsignature.PodSignatureOptions
+import co.zw.nissangtr.delivery.rpc.FakeRpcClient
 import co.zw.nissangtr.delivery.rpc.RpcClient
 import co.zw.nissangtr.delivery.rpc.RpcNames
 import kotlinx.coroutines.delay
@@ -143,8 +144,8 @@ class PodViewModel(
             _state.update { it.copy(busy = true, error = null) }
             try {
                 rpc.generateDeliveryPodOtp(jobId)
-                val fakeHint = if (rpc is co.zw.nissangtr.delivery.rpc.FakeRpcClient) {
-                    " Fake stub OTP: ${co.zw.nissangtr.delivery.rpc.FakeRpcClient.FAKE_OTP}"
+                val fakeHint = if (rpc is FakeRpcClient) {
+                    " Fake stub OTP: ${FakeRpcClient.FAKE_OTP}"
                 } else {
                     ""
                 }
