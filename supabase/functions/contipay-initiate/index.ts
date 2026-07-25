@@ -216,10 +216,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const webhookUrl =
-      typeof result_url === "string" && result_url.trim()
-        ? result_url.trim()
-        : defaultWebhookUrl("contipay-webhook");
+    // Never trust client result_url for PSP webhook registration.
+    const webhookUrl = defaultWebhookUrl("contipay-webhook");
 
     try {
       const initiated = await initiateContipayRedirect({
