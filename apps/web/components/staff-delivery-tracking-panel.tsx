@@ -707,11 +707,8 @@ export function StaffDeliveryTrackingPanel() {
       !trackPoint &&
       jobId ? (
         <p className={styles.muted} role="status">
-          No GPS points for this job yet. When the driver&apos;s delivery app
-          ingests locations, the marker and trail appear here via Realtime.
-          {selectedJob?.status === "dispatched"
-            ? " ETA refreshes via get_delivery_track_point while dispatched."
-            : ""}
+          No GPS points for this job yet.
+          {selectedJob?.status === "dispatched" ? " Waiting for driver updates." : ""}
         </p>
       ) : null}
 
