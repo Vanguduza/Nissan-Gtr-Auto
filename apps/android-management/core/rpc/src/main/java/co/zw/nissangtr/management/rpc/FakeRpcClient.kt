@@ -27,15 +27,15 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.SUBMIT_DELIVERY_NOTE]: p_delivery_note_id
  * - [RpcNames.CANCEL_DELIVERY_NOTE]: p_delivery_note_id
  * - [RpcNames.CREATE_DELIVERY_JOB]: p_delivery_note_id, p_assignee_user_id?, p_eta_at?, p_notes?
- * - setDeliveryJobCoords: Fake in-memory (Live needs set_delivery_job_geo RPC)
- * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status
+ * - [RpcNames.SET_DELIVERY_JOB_GEO]: p_delivery_job_id, p_pickup_lat?, p_pickup_lng?, p_dropoff_lat?, p_dropoff_lng?
+ * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status → jsonb {delivery_job_id, track_token?}
  * - [RpcNames.INGEST_DELIVERY_LOCATION]: p_delivery_job_id, p_lat, p_lng, p_recorded_at?, p_accuracy_m?
  *   (management must not call from UI — delivery app sole producer)
  * - [RpcNames.SUGGEST_DELIVERY_ASSIGNEES]: p_delivery_job_id, p_limit?
  * - [RpcNames.ASSIGN_DELIVERY_JOB]: p_delivery_job_id, p_assignee_user_id, p_override?
  * - [RpcNames.OPTIMIZE_DRIVER_STOPS]: p_driver_user_id
  * - [RpcNames.GET_DELIVERY_TRACK_POINT]: p_delivery_job_id (staff view)
- * - [RpcNames.MINT_DELIVERY_TRACK_TOKEN]: p_delivery_job_id, p_ttl? → plaintext once
+ * - [RpcNames.MINT_DELIVERY_TRACK_TOKEN]: p_delivery_job_id, p_ttl? → remint/rotate only
  * - [RpcNames.GENERATE_DELIVERY_POD_OTP]: p_delivery_job_id, p_ttl? → 6-digit once
  * - listOpenPanicEvents / acknowledgePanicEvent: PostgREST panic_events
  * - [RpcNames.CLAIM_CHAT_THREAD] / [RpcNames.CLOSE_CHAT_THREAD] / [RpcNames.MARK_CHAT_THREAD_READ]: p_thread_id
