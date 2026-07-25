@@ -190,6 +190,52 @@ export function StaffFinancePanel() {
     });
   }, []);
 
+  const loadStatementDetail = useCallback(
+    async (statementId: string, accountCode?: string) => {
+      const client = createWebClient();
+      if (!client || !statementId) {
+        setStmtLines([]);
+        setStmtMatches([]);
+        setJeLines([]);
+        return;
+      }
+      const linesRes = await listBankStatementLines(client, statementId);
+      if (!linesRes.ok) {
+        setMessage(linesRes.error);
+        setStmtLines([]);
+        setStmtMatches([]);
+        return;
+      }
+      setStmtLines(linesRes.data);
+      setMatchLineId((prev) => {
+        const open = linesRes.data.find((l) => l.status === "open");
+        return prev && linesRes.data.some((l) => l.id === prev)
+          ? prev
+          : open?.id || "";
+      });
+
+      const matchRes = await listBankReconMatches(
+        client,
+        linesRes.data.map((l) => l.id),
+      );
+      if (!matchRes.ok) {
+        setMessage(matchRes.error);
+        setStmtMatches([]);
+      } else {
+        setStmtMatches(matchRes.data);
+      }
+
+      if (accountCode) {
+        const jeRes = await listJournalLinesForAccount(client, accountCode);
+        if (jeRes.ok) {
+          setJeLines(jeRes.data);
+          setMatchJeLineId((prev) => prev || jeRes.data[0]?.id || "");
+        }
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -200,9 +246,7 @@ export function StaffFinancePanel() {
     const account = stmt?.account_code ?? selectedStmtAccount;
     setSelectedStmtAccount(account);
     void loadStatementDetail(selectedStmtId, account);
-    // Load recon detail when the active statement changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boot.kind, selectedStmtId]);
+  }, [boot, selectedStmtId, selectedStmtAccount, loadStatementDetail]);
 
   async function onCreateDraft(e: FormEvent) {
     e.preventDefault();

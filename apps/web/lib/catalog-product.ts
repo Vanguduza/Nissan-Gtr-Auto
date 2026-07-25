@@ -586,15 +586,9 @@ async function loadPricesForItems(
   >();
   if (!stockItemIds.length) return { ok: true, data: map };
 
-  const { data: list, error: listErr } = await client
-    .from("price_lists")
-    .select("id, currency")
-    .eq("is_default", true)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (listErr) return { ok: false, error: listErr.message };
+  const listResult = await resolveActivePriceList(client);
+  if (!listResult.ok) return listResult;
+  const list = listResult.data;
   if (!list) return { ok: true, data: map };
 
   const { data: rows, error } = await client
