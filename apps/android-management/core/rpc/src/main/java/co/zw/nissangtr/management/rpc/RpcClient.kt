@@ -8,8 +8,8 @@ package co.zw.nissangtr.management.rpc
  * **Fallback:** [FakeRpcClient].
  *
  * Covers HR clock, POS cart, warehouse receive/transfer/recon, logistics pick/DN,
- * and staff live chat (claim/reply/close).
- * Reads (DN/pick/chat lists) use PostgREST + RLS — not mutation RPCs.
+ * staff live chat, Phase 8b blankets, Phase 16 bins/consignment/pick-path, and B2B credit.
+ * Reads (DN/pick/chat/blankets/bins lists) use PostgREST + RLS — not mutation RPCs.
  *
  * GPS / QR: Bridge-First only (`bridges/android/`) — never HTML5 or WebView APIs.
  */
