@@ -641,12 +641,12 @@ export async function updateOwnFullName(
 }
 
 /**
- * Contact / receipt prefs live on `customers`. Customer UPDATE RLS is staff-only today —
- * this will fail until @backend_agent adds an own-row update policy or RPC.
+ * Contact / receipt prefs via `update_own_customer_profile` (own customer only).
+ * `customerId` retained for call-site compatibility; RPC resolves via auth.uid().
  */
 export async function updateOwnCustomerContact(
   client: SupabaseClient,
-  customerId: string,
+  _customerId: string,
   patch: {
     display_name?: string;
     email?: string | null;
@@ -657,10 +657,91 @@ export async function updateOwnCustomerContact(
     whatsapp_receipts?: boolean;
   },
 ): Promise<StorefrontResult<true>> {
-  const { error } = await client
-    .from("customers")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", customerId);
+  const { data, error } = await storefrontRpc(
+    client,
+    "update_own_customer_profile",
+    {
+      p_display_name: patch.display_name ?? null,
+      p_email: patch.email ?? null,
+      p_phone_e164: patch.phone_e164 ?? null,
+      p_whatsapp_e164: patch.whatsapp_e164 ?? null,
+      p_sms_receipts: patch.sms_receipts ?? null,
+      p_email_receipts: patch.email_receipts ?? null,
+      p_whatsapp_receipts: patch.whatsapp_receipts ?? null,
+    },
+  );
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return { ok: false, error: "update_own_customer_profile returned no id." };
+  }
+  return { ok: true, data: true };
+}
+
+export type CustomerAddressRow = {
+  id: string;
+  customer_id: string;
+  label: string;
+  line1: string;
+  line2: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  country: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listOwnAddresses(
+  client: SupabaseClient,
+): Promise<StorefrontResult<CustomerAddressRow[]>> {
+  const { data, error } = await storefrontFrom(client, "customer_addresses")
+    .select("*")
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data ?? []) as CustomerAddressRow[] };
+}
+
+export async function upsertOwnAddress(
+  client: SupabaseClient,
+  input: {
+    id?: string | null;
+    label: string;
+    line1: string;
+    line2?: string | null;
+    city?: string | null;
+    province?: string | null;
+    postal_code?: string | null;
+    country?: string;
+    is_default?: boolean;
+  },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await storefrontRpc(client, "upsert_customer_address", {
+    p_id: input.id ?? null,
+    p_label: input.label,
+    p_line1: input.line1,
+    p_line2: input.line2 ?? null,
+    p_city: input.city ?? null,
+    p_province: input.province ?? null,
+    p_postal_code: input.postal_code ?? null,
+    p_country: input.country ?? "Zimbabwe",
+    p_is_default: input.is_default ?? false,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (typeof data !== "string" || !data) {
+    return { ok: false, error: "upsert_customer_address returned no id." };
+  }
+  return { ok: true, data };
+}
+
+export async function deleteOwnAddress(
+  client: SupabaseClient,
+  addressId: string,
+): Promise<StorefrontResult<true>> {
+  const { error } = await storefrontRpc(client, "delete_customer_address", {
+    p_id: addressId,
+  });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: true };
 }
