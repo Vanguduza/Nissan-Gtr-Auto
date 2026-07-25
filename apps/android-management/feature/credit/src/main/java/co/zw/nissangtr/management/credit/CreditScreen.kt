@@ -43,11 +43,6 @@ fun CreditScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("B2B credit", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPC: ${RpcNames.SET_CUSTOMER_CREDIT} (admin|sales|finance). " +
-                "Shows limit / hold / open_balance with explicit currency. No tax.",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         OutlinedTextField(
             value = state.query,

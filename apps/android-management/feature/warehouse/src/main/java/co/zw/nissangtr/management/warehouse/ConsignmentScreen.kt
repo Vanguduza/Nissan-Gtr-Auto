@@ -48,12 +48,6 @@ fun ConsignmentScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("Consignment", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "RPCs: ${RpcNames.CREATE_CONSIGNMENT_ENTRY_DRAFT}, " +
-                "${RpcNames.ADD_CONSIGNMENT_ENTRY_LINE}, ${RpcNames.SUBMIT_CONSIGNMENT_ENTRY}, " +
-                "${RpcNames.CANCEL_CONSIGNMENT_ENTRY}",
-            style = MaterialTheme.typography.bodySmall,
-        )
 
         Text("Kind", style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
