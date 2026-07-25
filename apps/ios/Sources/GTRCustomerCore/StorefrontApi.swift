@@ -387,11 +387,8 @@ public final class FakeStorefrontApi: StorefrontApi {
             guard token.count >= 8 else {
                 throw StorefrontError.message("Invalid track token.")
             }
-            // Accept demo token or any ≥8 char token while Fake has an active point.
-            if token == "demo-track-token" || demoTrackPoint != nil {
-                return demoTrackPoint
-            }
-            return nil
+            guard token == "demo-track-token" else { return nil }
+            return demoTrackPoint
         }
     }
 
