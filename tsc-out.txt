@@ -6,10 +6,3 @@ At line:1 char:1
     + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-lib/customer-storefront.ts(766,18): error TS2352: Conversion of type '{ oem_part_number: any; description: any; }[]' to type '{ oem_part_number: string; description: string | null; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Type '{ oem_part_number: any; description: any; }[]' is missing the following properties from type '{ oem_part_number: string; description: string | null; }': oem_part_number, description
-lib/customer-storefront.ts(806,18): error TS2352: Conversion of type '{ oem_part_number: any; description: any; }[]' to type '{ oem_part_number: string; description: string | null; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Type '{ oem_part_number: any; description: any; }[]' is missing the following properties from type '{ oem_part_number: string; description: string | null; }': oem_part_number, description
-lib/customer-storefront.ts(820,18): error TS2352: Conversion of type '{ oem_part_number: any; description: any; }[]' to type '{ oem_part_number: string; description: string | null; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Type '{ oem_part_number: any; description: any; }[]' is missing the following properties from type '{ oem_part_number: string; description: string | null; }': oem_part_number, description
-EXIT=2
