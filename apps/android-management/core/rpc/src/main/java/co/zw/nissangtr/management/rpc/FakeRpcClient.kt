@@ -12,7 +12,12 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_POS_CART]: p_warehouse_id, p_customer_id?, p_currency, p_fulfillment_mode?
  * - [RpcNames.ADD_CART_LINE]: p_cart_id, p_stock_item_id, p_uom_id, p_qty
  * - [RpcNames.ADD_CART_LINE_FROM_QR]: p_cart_id, p_qr_payload, p_qty?
- * - [RpcNames.CHECKOUT_POS_CART]: p_cart_id
+ * - [RpcNames.CHECKOUT_POS_CART]: p_cart_id, p_receipt_email?, p_receipt_whatsapp_e164?, p_receipt_phone_e164?
+ * - [RpcNames.SEARCH_CATALOG]: p_mode, p_query
+ * - [RpcNames.CREATE_POS_SCAN_SESSION]: p_cart_id → session_id, pairing_code, expires_at
+ * - [RpcNames.CLAIM_POS_SCAN_SESSION]: p_pairing_code → session_id
+ * - [RpcNames.REVOKE_POS_SCAN_SESSION]: p_session_id
+ * - listPosCartLines / getPosCartCustomerId / listWarehouses: PostgREST
  * - lookupStockItemByOem: PostgREST stock_items by oem_part_number (not an RPC)
  * - [RpcNames.POST_STOCK_RECEIPT]: p_to_warehouse_id, p_notes?, p_lines
  * - [RpcNames.CREATE_STOCK_TRANSFER]: p_from_warehouse_id, p_to_warehouse_id, p_notes?, p_lines
