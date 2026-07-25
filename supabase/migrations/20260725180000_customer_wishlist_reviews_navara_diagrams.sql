@@ -103,7 +103,7 @@ BEGIN
   INSERT INTO public.customer_wishlist_items (customer_id, stock_item_id)
   VALUES (v_cust, v_item)
   ON CONFLICT (customer_id, stock_item_id) DO UPDATE
-    SET customer_id = EXCLUDED.customer_id
+    SET created_at = public.customer_wishlist_items.created_at
   RETURNING id INTO v_id;
 
   RETURN v_id;
