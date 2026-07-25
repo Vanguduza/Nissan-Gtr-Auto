@@ -437,22 +437,20 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 **Master plan status:** Live mobile clients + **sign-in/session** Done. DB schema through `20260724130000`. **Live map delivery tracking** slice Done (bridges + management ingest + staff MapLibre) — plan [`2026-07-24-live-map-delivery-tracking.md`](./2026-07-24-live-map-delivery-tracking.md). Local storefront seeds **applied**; migrations already current.
 
 **Done this wave**
-1. **GPS bridges:** `bridges/android/location-tracker/` (FusedLocation + FGS) + `bridges/ios/LocationTracker/` (CoreLocation) per `bridges/contracts/gps.ts` — emit coordinates only; no Supabase in bridge
-2. **Management Android:** Dispatch Start/Stop tracking → ≥5s throttle → `ingest_delivery_location` (Fake + Live); `:location-tracker` Gradle wire-up
-3. **Web staff live map:** `/staff/logistics/tracking` — MapLibre GL + Realtime subscribe on `delivery_locations` (no browser GPS)
-4. AuthZ **(b):** staff/dispatcher + driver ingest; customer remains **status-only** (no customer location RPC this slice)
-5. `/security-reviewer` — no blocking under (b); `/verifier` PASS (exclusions + Bridge-First)
+1. **GPS bridges + live map** (prior): Android/iOS location bridges; management ingest; staff MapLibre `/staff/logistics/tracking`
+2. **Real ContiPay + Paynow Edge adapters:** initiate/poll/webhook hash·HMAC (fail-closed without secrets; `*_ALLOW_UNVERIFIED_LOCAL=1` local only). Security PASS + verifier PASS. Webhook URL always server `defaultWebhookUrl` (never client `result_url`).
+3. Storefront PSP callers: `return_url` / `cancel_url` only — see `docs/storefront-psp-return-urls.md`
 
-**Still follow-on** (remaining)
-1. **Thin surfaces + WhatsApp bot:** see [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md)
-2. **PSP env secrets only (user-provided):** ContiPay/Paynow HMAC + merchant secrets — set in local/edge env; do not commit
-3. Native assemble on JDK/Xcode hosts; device GPS + FGS permission flows; iOS Keychain before prod
-4. Production map tiles: set `NEXT_PUBLIC_MAP_STYLE_URL` (demo demotiles OK locally)
-5. Optional AuthZ **(a):** customer own-job last-point RPC + RLS + decision doc — deferred
-6. Optional ingest harden: assignee-bound `ingest_delivery_location`; explicit staff-role gate on tracking page
-7. PDP photos / Meili / PowerSync / remaining QR·ESC/POS·biometric bridge polish
+**Still follow-on** (remaining — priority order)
+1. **Receipts + manager SMS:** real PDF + SMS gateway + WhatsApp Cloud send (`_shared/whatsapp_cloud.ts`) — in progress
+2. **WhatsApp parts-finder bot:** plan [`2026-07-24-thin-surfaces-and-whatsapp-bot.md`](./2026-07-24-thin-surfaces-and-whatsapp-bot.md); decision treat Accepted
+3. POS / warehouse / receive / transfer / cycle UIs → existing RPCs
+4. QR + ESC/POS bridges (Android) + wire warehouse/POS
+5. Finance operator UI; warranty/returns/quarantine; account/B2B/loyalty; mobile Live-when-env; PDP media
+6. **PSP/messaging env secrets (user-provided):** ContiPay/Paynow/WhatsApp/SMS/email/map tiles — Edge/local env only; do not commit
+7. Native assemble on JDK/Xcode; production `NEXT_PUBLIC_MAP_STYLE_URL`
 
-**In progress:** None.
+**In progress:** Receipts PDF + SMS + WhatsApp Cloud delivery workers (`@backend_agent`).
 
 **Blockers / notes**
 - No commits required by this slice unless user asks.
