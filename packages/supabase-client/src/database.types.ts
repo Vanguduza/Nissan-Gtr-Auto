@@ -5887,10 +5887,6 @@ export type Database = {
         }
         Returns: string
       }
-      add_customer_wishlist_item: {
-        Args: { p_oem_part_number?: string; p_stock_item_id?: string }
-        Returns: string
-      }
       add_customer_cart_line: {
         Args: {
           p_cart_id: string
@@ -5898,6 +5894,10 @@ export type Database = {
           p_stock_item_id: string
           p_uom_id: string
         }
+        Returns: string
+      }
+      add_customer_wishlist_item: {
+        Args: { p_oem_part_number?: string; p_stock_item_id?: string }
         Returns: string
       }
       add_kit_component: {
