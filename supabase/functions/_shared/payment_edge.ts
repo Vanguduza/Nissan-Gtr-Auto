@@ -285,14 +285,16 @@ export async function initiatePaynowTransaction(
     );
   }
 
-  if (fields.hash) {
-    const expected = await paynowHashFromValues(
-      orderedValues,
-      params.integrationKey,
-    );
-    if (!timingSafeEqualStr(expected.toUpperCase(), fields.hash.toUpperCase())) {
-      throw new Error("Paynow initiate response hash invalid");
-    }
+  // Fail closed: never use browserurl without a verified hash.
+  if (!fields.hash?.trim()) {
+    throw new Error("Paynow initiate response hash missing");
+  }
+  const expected = await paynowHashFromValues(
+    orderedValues,
+    params.integrationKey,
+  );
+  if (!timingSafeEqualStr(expected.toUpperCase(), fields.hash.toUpperCase())) {
+    throw new Error("Paynow initiate response hash invalid");
   }
 
   const browserurl = fields.browserurl ?? "";
