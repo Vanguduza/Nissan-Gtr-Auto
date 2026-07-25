@@ -186,6 +186,12 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
           <strong>Points</strong>
           {points.length}
         </span>
+        {etaLabel ? (
+          <span>
+            <strong>ETA</strong>
+            {etaLabel}
+          </span>
+        ) : null}
         {last ? (
           <span>
             <strong>Last</strong>
@@ -194,7 +200,7 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
           </span>
         ) : (
           <span className={styles.emptyHint}>
-            No points yet — waiting for Android management GPS inserts…
+            No points yet — waiting for delivery-app GPS inserts…
           </span>
         )}
       </p>
