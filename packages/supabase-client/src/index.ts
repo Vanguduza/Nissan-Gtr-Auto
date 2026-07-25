@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types.js";
+import type { Database } from "./database.types";
 
 /**
  * Browser/mobile anon client. Never ship the service_role key here.

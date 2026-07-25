@@ -573,7 +573,7 @@ class SupabaseRpcClient(
                     "acknowledged_by",
                 ),
             ) {
-                filter { exact("acknowledged_at", null) }
+                filter { isExact("acknowledged_at", null) }
                 order("created_at", Order.DESCENDING)
                 limit(50)
             }
@@ -586,10 +586,10 @@ class SupabaseRpcClient(
         val uid = currentUserId() ?: error("signed-in user required to acknowledge panic")
         val now = java.time.Instant.now().toString()
         client.from("panic_events").update(
-            {
-                set("acknowledged_at", now)
-                set("acknowledged_by", uid)
-            },
+            PanicAckUpdate(
+                acknowledgedAt = now,
+                acknowledgedBy = uid,
+            ),
         ) {
             filter { eq("id", panicEventId) }
         }
