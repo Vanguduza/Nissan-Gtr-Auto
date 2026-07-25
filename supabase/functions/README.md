@@ -13,6 +13,84 @@ Never commit real secret values. Set via Supabase Edge secrets / local Deno env.
 
 Gateway JWT: see `[functions.*] verify_jwt` in `supabase/config.toml`. Workers keep `verify_jwt = true` **and** still require `x-worker-secret`.
 
+## Manager SMS (`process-sms-outbox`)
+
+| Secrets | Behaviour |
+|---------|-----------|
+| `SMS_GATEWAY_API_KEY` **present** | `claim_sms_outbox_batch` → HTTP send → `complete_sms_outbox`. Response always `stub: false`. Failed sends mark `failed` (never fake success). |
+| **Absent** + `WORKER_ALLOW_UNVERIFIED_LOCAL=1` (secret unset) | Local stub via `drain_sms_outbox_batch` (`stub: true`) |
+| **Absent** otherwise | **503** with clear error |
+
+### SMS gateway shape (assumed)
+
+```
+POST {SMS_GATEWAY_BASE_URL}/messages
+Authorization: Bearer {SMS_GATEWAY_API_KEY}
+Content-Type: application/json
+
+{ "to": "+263…", "from": "<SMS_GATEWAY_SENDER optional>", "text": "…" }
+```
+
+2xx JSON may include `id` / `message_id` / `messageId` / `sid` as provider message id.
+
+| Env | Notes |
+|-----|--------|
+| `SMS_GATEWAY_API_KEY` | Required for real send |
+| `SMS_GATEWAY_BASE_URL` | Default `https://sms.nissangtrauto.co.zw/v1` |
+| `SMS_GATEWAY_SENDER` | Optional from / short code |
+
+Shared client: `_shared/sms_gateway.ts`.
+
+## Customer receipts (`process-customer-receipts`)
+
+Tax-agnostic PDF (no ZIMRA/FDMS/fiscal QR). Public download host: `https://nissangtrauto.co.zw/receipts/{token}`.
+
+### Flow
+
+1. Auth via worker secret.
+2. Generate PDF for `document_id` (body) and/or documents from `list_receipt_documents_needing_pdf`.
+3. Upload bytes to Storage bucket `customer-receipts` → `mark_receipt_pdf_ready` (path, size, sha256; outbox SMS/WA bodies get company-domain URL).
+4. Channel drain:
+   - **Local stub** (no channel secrets + `WORKER_ALLOW_UNVERIFIED_LOCAL=1` + secret unset): `process_receipt_outbox_batch(stub_success)`.
+   - **Non-local, no secrets**: PDF may succeed; channel drain refused (clear error, no fake sent).
+   - **Secrets present**: `claim_receipt_outbox_batch` → real SMS / email / WhatsApp → `complete_receipt_outbox`.
+
+| Channel | Secrets | Payload |
+|---------|---------|---------|
+| SMS | `SMS_GATEWAY_*` | Summary + PDF link (already in `summary_body`) |
+| Email | `EMAIL_API_KEY` + `EMAIL_FROM` (or `RESEND_API_KEY` / `RECEIPT_FROM_EMAIL`) | Body + PDF attachment when Storage download works |
+| WhatsApp | `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` | Document message with company-domain PDF link (caption = summary) |
+
+Per-channel missing secret (when not local stub) → that row marked **failed**, not sent.
+
+### Email provider shape (Resend-compatible)
+
+```
+POST {EMAIL_API_BASE}/emails   # default https://api.resend.com
+Authorization: Bearer {EMAIL_API_KEY}
+{ from, to, subject, text, attachments?: [{ filename, content: base64 }] }
+```
+
+| Env | Notes |
+|-----|--------|
+| `EMAIL_API_KEY` / `RESEND_API_KEY` | API key |
+| `EMAIL_FROM` / `RECEIPT_FROM_EMAIL` | e.g. `receipts@nissangtrauto.co.zw` |
+| `EMAIL_API_BASE` | Optional; default Resend |
+
+Shared client: `_shared/email_send.ts`. PDF builder: `_shared/receipt_pdf.ts` (pdf-lib).
+
+## WhatsApp Cloud (`_shared/whatsapp_cloud.ts`)
+
+Outbound Cloud API only (receipts now; Batch 3 parts-finder bot will reuse). **Not** a browser QR / WebView bridge.
+
+| Env | Notes |
+|-----|--------|
+| `WHATSAPP_ACCESS_TOKEN` | System user / permanent token |
+| `WHATSAPP_PHONE_NUMBER_ID` | Cloud API phone number id |
+| `WHATSAPP_API_VERSION` | Optional; default `v21.0` |
+
+Exports: `sendWhatsAppText`, `sendWhatsAppDocument` (link or media id), `uploadWhatsAppMediaPdf`.
+
 ## ContiPay / Paynow (`*-initiate`, `*-webhook`)
 
 ### Initiate (`contipay-initiate`, `paynow-initiate`)
