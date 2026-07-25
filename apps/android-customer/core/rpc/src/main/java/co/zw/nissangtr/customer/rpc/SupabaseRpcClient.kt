@@ -26,9 +26,11 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Live supabase-kt [RpcClient] for cart / orders / garage / pay / chat RPCs.
+ * Live supabase-kt [RpcClient] for cart / orders / garage / pay / chat / wishlist /
+ * compare / reviews RPCs.
  *
  * Uses anon key + Auth session (never hardcode JWTs). Payment: RPC create only — no PSP crypto.
+ * Review photos: Storage [RpcNames.REVIEW_PHOTOS_BUCKET] then attach RPC.
  * Session persistence: auth-kt default Android session manager (Settings / SharedPreferences).
  */
 class SupabaseRpcClient(
