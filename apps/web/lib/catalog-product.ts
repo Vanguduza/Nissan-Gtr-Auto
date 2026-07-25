@@ -309,6 +309,42 @@ async function loadFitmentLines(
   return { ok: true, data: lines };
 }
 
+/** Prefer customer-assigned list (B2B/Fleet/trade); else default RETAIL. */
+async function resolveActivePriceList(
+  client: SupabaseClient,
+): Promise<
+  | { ok: true; data: { id: string; currency: "USD" | "ZIG" } | null }
+  | { ok: false; error: string }
+> {
+  const { data: customer, error: custErr } = await client
+    .from("customers")
+    .select("price_list_id")
+    .limit(1)
+    .maybeSingle();
+  if (custErr) return { ok: false, error: custErr.message };
+
+  if (customer?.price_list_id) {
+    const { data: assigned, error } = await client
+      .from("price_lists")
+      .select("id, currency")
+      .eq("id", customer.price_list_id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (assigned) return { ok: true, data: assigned };
+  }
+
+  const { data: list, error: listErr } = await client
+    .from("price_lists")
+    .select("id, currency")
+    .eq("is_default", true)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (listErr) return { ok: false, error: listErr.message };
+  return { ok: true, data: list ?? null };
+}
+
 async function loadDefaultPrice(
   client: SupabaseClient,
   stockItemId: string,
@@ -323,15 +359,9 @@ async function loadDefaultPrice(
     }
   | { ok: false; error: string }
 > {
-  const { data: list, error: listErr } = await client
-    .from("price_lists")
-    .select("id, currency")
-    .eq("is_default", true)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (listErr) return { ok: false, error: listErr.message };
+  const listResult = await resolveActivePriceList(client);
+  if (!listResult.ok) return listResult;
+  const list = listResult.data;
   if (!list) {
     return {
       ok: true,
