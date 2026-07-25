@@ -1,6 +1,6 @@
 /**
  * Seed catalog diagram placeholder PNGs into Storage bucket `catalog-diagrams`.
- * Discovers packs under data-pipeline/fixtures/*/diagrams/<storage-prefix>/
+ * Discovers packs under data-pipeline/fixtures/{vehicle}/diagrams/{storage-prefix}/
  * Run after `supabase db reset` (migrations set diagram_path + object metadata).
  *
  * Preferred (no secrets):
