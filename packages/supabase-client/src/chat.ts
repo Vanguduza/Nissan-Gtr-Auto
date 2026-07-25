@@ -28,7 +28,13 @@ export {
   toChatUnreadCountArgs,
 } from "@gtr/shared";
 
-import type { ChatMessage, ChatParticipant, ChatThread, ChatThreadKind, StartChatThreadInput } from "@gtr/shared";
+import type {
+  ChatMessage,
+  ChatParticipant,
+  ChatThread,
+  ChatThreadKind,
+  StartChatThreadInput,
+} from "@gtr/shared";
 import {
   CHAT_STAFF_ROLES,
   toClaimChatThreadArgs,

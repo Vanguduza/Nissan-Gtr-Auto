@@ -79,7 +79,7 @@ export {
   type ChatParticipantRole,
   type ChatStaffRole,
   type StartChatThreadInput,
-} from "./chat.js";
+} from "./chat";
 
 export {
   DELIVERY_PODS_BUCKET,
@@ -107,4 +107,4 @@ export {
   type DeliveryEtaSource,
   type DeliveryCompletedVia,
   type DeliveryFailureReason,
-} from "./delivery.js";
+} from "./delivery";
