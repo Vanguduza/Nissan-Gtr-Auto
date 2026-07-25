@@ -180,7 +180,7 @@ private fun ManagementApp(
         rolesReady = true
     }
 
-    when (val r = route) {
+    when (route) {
         null -> Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -188,10 +188,7 @@ private fun ManagementApp(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                if (rolesReady) "…" else "Loading roles…",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text("Loading roles…", style = MaterialTheme.typography.bodyMedium)
         }
         ManagementRoute.Home -> ManagementHome(
             liveRpc = liveRpc,
