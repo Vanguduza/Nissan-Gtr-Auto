@@ -10,7 +10,8 @@ import Foundation
 /// GoTrue sign-in → `setAccessToken(_:)`, restored `AuthTokenStore`, or
 /// scheme env `SUPABASE_ACCESS_TOKEN`.
 /// No ContiPay/Paynow secrets or HMAC in the app binary.
-/// Chat updates: PostgREST poll from UI (no supabase-swift Realtime on this transport).
+/// Chat updates: hardened PostgREST poll from UI (backoff / foreground resume;
+/// no supabase-swift Realtime — Phoenix WS would be a heavy custom client).
 @MainActor
 public final class LiveStorefrontApi: StorefrontApi {
     public enum RpcName {
