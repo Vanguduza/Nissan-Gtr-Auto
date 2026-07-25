@@ -3,6 +3,7 @@ import {
   AccountNav,
   accountCardIcons,
 } from "@/components/account-nav";
+import { AccountSessionActions } from "@/components/account-session-actions";
 import {
   iconSizeMd,
   iconStroke,
@@ -45,6 +46,7 @@ export default function AccountPage() {
           Personal details, addresses, vehicles, orders, and loyalty — My Garage
           lives here.
         </p>
+        <AccountSessionActions />
         <div className={styles.cardGrid}>
           {cards.map((c) => {
             const Icon = accountCardIcons[c.href];
