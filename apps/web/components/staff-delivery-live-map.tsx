@@ -26,6 +26,8 @@ type Props = {
   points: DeliveryLocationPoint[];
   /** When false, map still renders historical trail but status shows offline. */
   live: boolean;
+  /** Job ETA from delivery_jobs (staff panel). */
+  etaLabel?: string | null;
 };
 
 type TrailGeoJSON = {
@@ -67,7 +69,7 @@ function trailFeatureCollection(points: DeliveryLocationPoint[]): TrailGeoJSON {
  * Staff dispatcher map: renders bridge-fed points only.
  * Does NOT call navigator.geolocation or any browser GPS API.
  */
-export function StaffDeliveryLiveMap({ points, live }: Props) {
+export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
