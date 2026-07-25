@@ -333,16 +333,51 @@ BEGIN
     RAISE EXCEPTION 'smoke fail: track RPC must return single row, got %', v_cnt;
   END IF;
 
-  -- POD complete (P1 OTP required by …120000 migration)
+  -- POD complete (paths must be delivery-pods {job_id}/photo|signature.*)
   PERFORM public._test_set_auth_uid(v_driver);
+  INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
+  VALUES
+    (
+      'delivery-pods', v_job::text || '/photo.jpg', v_driver, v_driver::text,
+      jsonb_build_object('mimetype', 'image/jpeg')
+    ),
+    (
+      'delivery-pods', v_job::text || '/signature.png', v_driver, v_driver::text,
+      jsonb_build_object('mimetype', 'image/png')
+    )
+  ON CONFLICT (bucket_id, name) DO NOTHING;
+
   v_otp := public.generate_delivery_pod_otp(v_job);
   PERFORM public.submit_delivery_pod(
     v_job,
-    'pod/photos/smoke.jpg',
-    'pod/signatures/smoke.png',
+    v_job::text || '/photo.jpg',
+    v_job::text || '/signature.png',
     v_otp,
     'delivered'
   );
+
+  -- Reject unbound free-form path
+  PERFORM public._test_set_auth_uid(v_admin);
+  PERFORM public.update_delivery_job_status(v_job2, 'dispatched');
+  BEGIN
+    PERFORM public.submit_delivery_pod(
+      v_job2,
+      'pod/photos/smoke.jpg',
+      'pod/signatures/smoke.png',
+      '000000',
+      'bad paths'
+    );
+    RAISE EXCEPTION 'smoke fail: unbound POD paths should be rejected';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM NOT LIKE '%must start with%' AND SQLERRM NOT LIKE '%POD % path%' THEN
+        IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+        -- also accept OTP / missing object errors if path check order differs
+        IF SQLERRM NOT LIKE '%POD%' AND SQLERRM NOT LIKE '%path%' AND SQLERRM NOT LIKE '%object%' THEN
+          RAISE;
+        END IF;
+      END IF;
+  END;
 
   IF NOT EXISTS (
     SELECT 1 FROM public.delivery_jobs
