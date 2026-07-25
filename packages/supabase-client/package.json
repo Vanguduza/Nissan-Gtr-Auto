@@ -16,6 +16,7 @@
     "lint": "echo \"lint: supabase-client — pending\""
   },
   "dependencies": {
+    "@gtr/shared": "workspace:*",
     "@supabase/supabase-js": "^2.49.1"
   },
   "devDependencies": {
