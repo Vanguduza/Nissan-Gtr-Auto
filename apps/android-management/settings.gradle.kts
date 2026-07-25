@@ -25,9 +25,8 @@ include(":feature:hr")
 include(":feature:chat")
 
 // Bridge-First — consume only; impl lives under bridges/
-include(":location-tracker")
-project(":location-tracker").projectDir =
-    file("../../bridges/android/location-tracker")
+// location-tracker intentionally NOT included — driver GPS producer is
+// apps/android-delivery only. Management is staff view/subscribe.
 include(":qr-scanner")
 project(":qr-scanner").projectDir =
     file("../../bridges/android/qr-scanner")

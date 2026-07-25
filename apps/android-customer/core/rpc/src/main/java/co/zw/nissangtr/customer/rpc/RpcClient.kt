@@ -72,4 +72,14 @@ interface RpcClient {
 
     /** Unread across all threads when [threadId] is null. */
     suspend fun chatUnreadCount(threadId: String? = null): Int
+
+    /**
+     * Last point + ETA for an active delivery only.
+     * Pass [deliveryJobId] (owner JWT) and/or share [token]. Returns null when inactive/expired.
+     * Never mint — customers do not call `mint_delivery_track_token` (staff/dispatch only).
+     */
+    suspend fun getDeliveryTrackPoint(
+        deliveryJobId: String? = null,
+        token: String? = null,
+    ): DeliveryTrackPoint?
 }

@@ -74,7 +74,7 @@ public struct CartLineSummary: Identifiable, Sendable, Equatable {
     }
 }
 
-/// Customer-safe order payload from `get_customer_order` (no assignee/GPS).
+/// Customer-safe order payload from `get_customer_order` (no assignee/GPS trail).
 public struct CustomerOrder: Identifiable, Sendable, Equatable {
     public var id: UUID { invoiceId }
     public let invoiceId: UUID
@@ -92,6 +92,8 @@ public struct CustomerOrder: Identifiable, Sendable, Equatable {
     public var postedAt: Date?
     public var pickListStatus: String?
     public var deliveryNoteStatus: String?
+    /// When present (RPC forward-compat / Fake), opens last-point track for active job.
+    public var activeDeliveryJobId: UUID?
 
     public init(
         invoiceId: UUID,
@@ -108,7 +110,8 @@ public struct CustomerOrder: Identifiable, Sendable, Equatable {
         cartId: UUID? = nil,
         postedAt: Date? = nil,
         pickListStatus: String? = nil,
-        deliveryNoteStatus: String? = nil
+        deliveryNoteStatus: String? = nil,
+        activeDeliveryJobId: UUID? = nil
     ) {
         self.invoiceId = invoiceId
         self.documentNumber = documentNumber
@@ -125,6 +128,59 @@ public struct CustomerOrder: Identifiable, Sendable, Equatable {
         self.postedAt = postedAt
         self.pickListStatus = pickListStatus
         self.deliveryNoteStatus = deliveryNoteStatus
+        self.activeDeliveryJobId = activeDeliveryJobId
+    }
+
+    /// Whether order UI should offer live last-point track entry.
+    public var offersLiveDeliveryTrack: Bool {
+        if activeDeliveryJobId != nil { return true }
+        return fulfillmentMode == .dispatch
+    }
+}
+
+/// Privacy-safe last point from `get_delivery_track_point` — never a historical trail.
+public struct DeliveryTrackPoint: Sendable, Equatable, Identifiable {
+    public var id: UUID { deliveryJobId }
+    public let deliveryJobId: UUID
+    public let lat: Double
+    public let lng: Double
+    public let recordedAt: Date
+    public let etaAt: Date?
+    public let etaSeconds: Int?
+    public let status: String
+
+    public init(
+        deliveryJobId: UUID,
+        lat: Double,
+        lng: Double,
+        recordedAt: Date,
+        etaAt: Date? = nil,
+        etaSeconds: Int? = nil,
+        status: String = "dispatched"
+    ) {
+        self.deliveryJobId = deliveryJobId
+        self.lat = lat
+        self.lng = lng
+        self.recordedAt = recordedAt
+        self.etaAt = etaAt
+        self.etaSeconds = etaSeconds
+        self.status = status
+    }
+}
+
+/// How to call `get_delivery_track_point` — job id (owner JWT) and/or share token.
+public enum DeliveryTrackRef: Sendable, Equatable {
+    case job(UUID)
+    case token(String)
+
+    public var jobId: UUID? {
+        if case .job(let id) = self { return id }
+        return nil
+    }
+
+    public var token: String? {
+        if case .token(let t) = self { return t }
+        return nil
     }
 }
 
