@@ -122,6 +122,66 @@ export type CashFlowRow = {
   amount_usd: number;
 };
 
+export type TrialBalanceRow = {
+  account_code: string;
+  account_name: string;
+  account_type: string;
+  debit: number;
+  credit: number;
+  debit_usd: number;
+  credit_usd: number;
+};
+
+export type OpenInvoiceOption = {
+  id: string;
+  document_number: string | null;
+  currency: CurrencyCode;
+  total: number;
+  amount_paid: number;
+  open_balance: number;
+};
+
+export type ArAgingBucket = {
+  bucket: string;
+  currency: string;
+  invoice_count: number;
+  open_amount: number;
+};
+
+export type ArAgingSnapshot = {
+  as_of: string | null;
+  customers_with_open_balance: number;
+  customer_open_balance_by_currency: {
+    currency: string;
+    customer_count?: number;
+    open_balance: number;
+  }[];
+  invoice_aging_buckets: ArAgingBucket[];
+};
+
+/** Client-side CSV download (no fiscal QR). */
+export function downloadCsv(
+  filename: string,
+  headers: string[],
+  rows: (string | number)[][],
+): void {
+  const esc = (v: string | number) => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const body = [
+    headers.map(esc).join(","),
+    ...rows.map((r) => r.map(esc).join(",")),
+  ].join("\n");
+  const blob = new Blob([body], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function listChartAccounts(
   client: SupabaseClient,
 ): Promise<StorefrontResult<AccountOption[]>> {
