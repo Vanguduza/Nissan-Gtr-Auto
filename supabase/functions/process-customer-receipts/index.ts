@@ -51,7 +51,7 @@ async function loadReceiptData(supabase: SupabaseClient, documentId: string) {
   const { data: inv, error: invErr } = await supabase
     .from("sales_invoices")
     .select(
-      "id, doc_type, status, document_number, currency, exchange_rate_applied, subtotal, total, posted_at, customer_phone_e164, customer_email, warehouse_id, warehouses(code, name)",
+      "id, doc_type, status, document_number, currency, exchange_rate_applied, subtotal, total, posted_at, customer_phone_e164, customer_email, warehouse_id",
     )
     .eq("id", documentId)
     .maybeSingle();
@@ -60,29 +60,72 @@ async function loadReceiptData(supabase: SupabaseClient, documentId: string) {
     throw new Error("posted invoice/credit note required");
   }
 
+  let wh: { code: string; name: string } | null = null;
+  if (inv.warehouse_id) {
+    const { data: warehouse } = await supabase
+      .from("warehouses")
+      .select("code, name")
+      .eq("id", inv.warehouse_id)
+      .maybeSingle();
+    wh = warehouse;
+  }
+
   const { data: lines, error: lineErr } = await supabase
     .from("sales_invoice_lines")
     .select(
-      "qty, unit_price, line_total, is_core_charge, stock_items(oem_part_number, description)",
+      "qty, unit_price, line_total, is_core_charge, stock_item_id",
     )
     .eq("invoice_id", documentId)
     .order("created_at", { ascending: true });
   if (lineErr) throw new Error(lineErr.message);
 
+  const itemIds = [...new Set((lines ?? []).map((l) => l.stock_item_id))];
+  const itemMap = new Map<
+    string,
+    { oem_part_number: string; description: string | null }
+  >();
+  if (itemIds.length) {
+    const { data: items } = await supabase
+      .from("stock_items")
+      .select("id, oem_part_number, description")
+      .in("id", itemIds);
+    for (const it of items ?? []) {
+      itemMap.set(it.id, {
+        oem_part_number: it.oem_part_number,
+        description: it.description,
+      });
+    }
+  }
+
   const { data: allocations } = await supabase
     .from("payment_allocations")
-    .select(
-      "amount, payment_entries!inner(tender, currency, amount, status)",
-    )
+    .select("amount, payment_entry_id")
     .eq("sales_invoice_id", documentId);
+
+  const peIds = [
+    ...new Set((allocations ?? []).map((a) => a.payment_entry_id).filter(Boolean)),
+  ];
+  const peMap = new Map<
+    string,
+    { tender: string; currency: string; status: string }
+  >();
+  if (peIds.length) {
+    const { data: entries } = await supabase
+      .from("payment_entries")
+      .select("id, tender, currency, status")
+      .in("id", peIds);
+    for (const pe of entries ?? []) {
+      peMap.set(pe.id, {
+        tender: pe.tender,
+        currency: pe.currency,
+        status: pe.status,
+      });
+    }
+  }
 
   const tenders: { tender: string; amount: number; currency: string }[] = [];
   for (const a of allocations ?? []) {
-    const pe = a.payment_entries as unknown as {
-      tender: string;
-      currency: string;
-      status: string;
-    } | null;
+    const pe = peMap.get(a.payment_entry_id);
     if (!pe || pe.status !== "posted") continue;
     tenders.push({
       tender: pe.tender,
@@ -91,17 +134,11 @@ async function loadReceiptData(supabase: SupabaseClient, documentId: string) {
     });
   }
 
-  const wh = inv.warehouses as unknown as { code: string; name: string } | null;
   const pdfLines = (lines ?? []).map((l) => {
-    const item = l.stock_items as unknown as {
-      oem_part_number: string;
-      description: string | null;
-    } | null;
+    const item = itemMap.get(l.stock_item_id);
     return {
       description:
-        item?.description?.trim() ||
-        item?.oem_part_number ||
-        "Part",
+        item?.description?.trim() || item?.oem_part_number || "Part",
       qty: Number(l.qty),
       unitPrice: Number(l.unit_price),
       lineTotal: Number(l.line_total),
@@ -109,12 +146,7 @@ async function loadReceiptData(supabase: SupabaseClient, documentId: string) {
     };
   });
 
-  return {
-    inv,
-    wh,
-    pdfLines,
-    tenders,
-  };
+  return { inv, wh, pdfLines, tenders };
 }
 
 async function generateAndStorePdf(
@@ -259,7 +291,6 @@ async function sendOutboxChannel(
         }
         return { ok: true, stub: true };
       }
-      // Prefer document link (company-domain URL); Meta fetches HTTPS link.
       if (row.download_url) {
         await sendWhatsAppDocument(cfg, to, {
           link: row.download_url,
@@ -328,24 +359,17 @@ Deno.serve(async (req) => {
     const localStub = allowLocalChannelStub();
     const supabase = serviceClient();
 
-    // Fail closed when no channel secrets and not local stub — refuse blind stub success.
     const hasAnyChannelSecret =
       !!getSmsGatewayConfig() ||
       !!getEmailSendConfig() ||
       !!getWhatsAppCloudConfig();
-    if (!hasAnyChannelSecret && !localStub && !documentId) {
-      // Allow PDF-only generation path below when document_id set; for pure drain, refuse.
-      return jsonErr(
-        "SMS/EMAIL/WhatsApp secrets unset — refuse (set WORKER_ALLOW_UNVERIFIED_LOCAL=1 with WORKER_SHARED_SECRET unset for local stub only)",
-        503,
-      );
-    }
 
     const pdfResults: {
       document_id: string;
       artifact_id: string;
       storage_path: string;
     }[] = [];
+    const pdfErrors: { document_id: string; error: string }[] = [];
 
     if (documentId) {
       const art = await generateAndStorePdf(supabase, documentId);
@@ -370,26 +394,14 @@ Deno.serve(async (req) => {
             storage_path: art.storagePath,
           });
         } catch (e) {
+          pdfErrors.push({ document_id: id, error: String(e) });
           console.error(`receipt PDF failed for ${id}:`, e);
         }
       }
     }
 
-    // Channel drain: real send when secrets present; local stub only when allowed.
-    if (!hasAnyChannelSecret && !localStub && documentId) {
-      // PDF may have been generated; channels cannot send.
-      return jsonOk({
-        pdfs: pdfResults,
-        channels: null,
-        stub: false,
-        fiscal: false,
-        warning:
-          "PDF ready; channel secrets missing — set SMS/EMAIL/WhatsApp env or local stub flag to drain outbox",
-      });
-    }
-
+    // Local stub: RPC marks sent without HTTP (localhost only).
     if (!hasAnyChannelSecret && localStub) {
-      // Preserve smoke-compatible stub drain for localhost.
       const { data, error } = await supabase.rpc(
         "process_receipt_outbox_batch",
         { p_limit: limit, p_stub_success: true },
@@ -397,17 +409,35 @@ Deno.serve(async (req) => {
       if (error) return jsonErr(error.message, 400);
       return jsonOk({
         pdfs: pdfResults,
+        pdf_errors: pdfErrors.length ? pdfErrors : undefined,
         channels_processed: data,
         stub: true,
         fiscal: false,
       });
     }
 
-    const channels = await drainChannels(supabase, limit, localStub);
+    // Non-local without secrets: PDF ok; refuse channel drain (no fake success).
+    if (!hasAnyChannelSecret && !localStub) {
+      return jsonOk(
+        {
+          pdfs: pdfResults,
+          pdf_errors: pdfErrors.length ? pdfErrors : undefined,
+          channels: null,
+          stub: false,
+          fiscal: false,
+          error:
+            "SMS/EMAIL/WhatsApp secrets unset — channel drain refused (set WORKER_ALLOW_UNVERIFIED_LOCAL=1 with WORKER_SHARED_SECRET unset for local stub only)",
+        },
+        pdfResults.length ? 200 : 503,
+      );
+    }
+
+    const channels = await drainChannels(supabase, limit, false);
     return jsonOk({
       pdfs: pdfResults,
+      pdf_errors: pdfErrors.length ? pdfErrors : undefined,
       channels,
-      stub: channels.stubbed > 0 && channels.stubbed === channels.sent,
+      stub: false,
       fiscal: false,
     });
   } catch (e) {

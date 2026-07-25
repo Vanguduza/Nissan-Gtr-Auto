@@ -16,6 +16,27 @@ export function buildCustomerReceiptSmsSummary(params: {
   return base;
 }
 
+/** Email subject for customer receipt delivery (tax-agnostic; no fiscal wording). */
+export function buildCustomerReceiptEmailSubject(params: {
+  docLabel: string;
+  isCreditNote?: boolean;
+}): string {
+  const kind = params.isCreditNote ? "credit note" : "receipt";
+  return `Your Nissan GTR Auto ${kind} ${params.docLabel}`;
+}
+
+/** Brief email body; PDF attached by worker when available. */
+export function buildCustomerReceiptEmailBody(params: {
+  summary: string;
+  pdfDownloadUrl?: string | null;
+}): string {
+  const link = params.pdfDownloadUrl?.trim();
+  if (link) {
+    return `${params.summary}\n\nDownload: ${link}`;
+  }
+  return params.summary;
+}
+
 /** Public receipt download URL on company domain (signed/token route). */
 export function buildReceiptDownloadUrl(downloadToken: string): string {
   const token = downloadToken.trim();
