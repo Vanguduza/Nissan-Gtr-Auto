@@ -893,9 +893,6 @@ private data class ProductReviewStatsRow(
 }
 
 @Serializable
-private data class StockItemIdRow(val id: String)
-
-@Serializable
 private data class WarehouseIdRow(val id: String)
 
 @Serializable
