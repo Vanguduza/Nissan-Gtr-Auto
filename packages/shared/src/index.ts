@@ -105,4 +105,4 @@ export {
   type ChatMessage,
   type ChatParticipant,
   type StartChatThreadInput,
-} from "./chat/types.js";
+} from "./chat/types";
