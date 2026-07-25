@@ -770,7 +770,7 @@ class FakeRpcClient : RpcClient {
     override fun currentUserId(): String? = fakeStaffUserId
 
     override suspend fun listMyStaffRoles(): List<String> =
-        listOf("admin", "sales")
+        listOf("sales")
 
     override suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary> {
         val uid = fakeStaffUserId
@@ -847,6 +847,7 @@ class FakeRpcClient : RpcClient {
         const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
         const val FAKE_DRIVER_USER_ID = "00000000-0000-4000-8000-0000000000d0"
         const val FAKE_DRIVER_USER_ID_2 = "00000000-0000-4000-8000-0000000000d2"
+        const val FAKE_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"
