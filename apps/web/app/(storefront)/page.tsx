@@ -138,7 +138,8 @@ export default function HomePage() {
               Visual catalog
             </h2>
             <p className={styles.sectionLede}>
-              Diagram hotspots will open fitment-accurate parts lists.
+              FAST diagrams from catalog-diagrams when uploaded; otherwise the
+              pipeline gap is shown until part_fitment.diagram_path is seeded.
             </p>
           </div>
           <CatalogCanvasStub sample />
