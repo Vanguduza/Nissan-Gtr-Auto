@@ -394,8 +394,8 @@ BEGIN
   END IF;
 
   -- update_delivery_job_status(completed) without POD must fail on job2
+  -- (already dispatched above for unbound-path check)
   PERFORM public._test_set_auth_uid(v_admin);
-  PERFORM public.update_delivery_job_status(v_job2, 'dispatched');
   BEGIN
     PERFORM public.update_delivery_job_status(v_job2, 'completed');
     RAISE EXCEPTION 'smoke fail: complete without POD should fail';
