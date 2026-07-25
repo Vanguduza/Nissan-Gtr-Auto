@@ -1288,13 +1288,24 @@ class FakeRpcClient : RpcClient {
     companion object {
         const val FAKE_STAFF_USER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
+        const val FAKE_CUSTOMER_ID = "00000000-0000-4000-8000-0000000000c2"
         const val FAKE_DRIVER_USER_ID = "00000000-0000-4000-8000-0000000000d0"
         const val FAKE_DRIVER_USER_ID_2 = "00000000-0000-4000-8000-0000000000d2"
         const val FAKE_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
+        const val FAKE_SUPPLIER_ID = "00000000-0000-4000-8000-0000000000s1"
+        const val FAKE_STOCK_ITEM_ID = "00000000-0000-4000-8000-0000000000i1"
+        const val FAKE_BLANKET_ID = "00000000-0000-4000-8000-0000000000b1"
+        const val FAKE_BLANKET_LINE_ID = "00000000-0000-4000-8000-0000000000bl"
+        const val FAKE_BIN_A_ID = "00000000-0000-4000-8000-0000000000ba"
+        const val FAKE_BIN_B_ID = "00000000-0000-4000-8000-0000000000bb"
+        const val FAKE_CONSIGNMENT_ID = "00000000-0000-4000-8000-0000000000n1"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"
         private const val CLOSED_THREAD_ID = "00000000-0000-4000-8000-0000000000t3"
+
+        private val UUID_REGEX =
+            Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)
 
         private val INVENTORY_QR_REGEX =
             Regex("""^gtr://part/([^?]+)\?batch=([^&]+)&valuation=(FIFO|AVG)$""")
