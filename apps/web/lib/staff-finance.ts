@@ -19,6 +19,54 @@ export type JournalEntryOption = {
   currency: CurrencyCode;
   exchange_rate_applied: number | null;
   posted_at: string;
+  is_reversal: boolean;
+  reverses_entry_id: string | null;
+};
+
+export type AccountingPeriodOption = {
+  id: string;
+  period_start: string;
+  period_end: string;
+  label: string;
+  locked_at: string | null;
+};
+
+export type BankReconStatus = Database["public"]["Enums"]["bank_recon_status"];
+
+export type BankStatementOption = {
+  id: string;
+  account_code: string;
+  currency: CurrencyCode;
+  statement_date: string;
+  opening_balance: number;
+  closing_balance: number;
+  document_number: string | null;
+  created_at: string;
+};
+
+export type BankStatementLineOption = {
+  id: string;
+  statement_id: string;
+  line_date: string;
+  description: string | null;
+  amount: number;
+  status: BankReconStatus;
+};
+
+export type BankReconMatchOption = {
+  id: string;
+  statement_line_id: string;
+  journal_entry_line_id: string;
+  matched_at: string;
+};
+
+export type JournalLineOption = {
+  id: string;
+  journal_entry_id: string;
+  account_code: string;
+  debit: number;
+  credit: number;
+  currency: CurrencyCode;
 };
 
 export type PaymentEntryOption = {
@@ -87,7 +135,7 @@ export async function listJournalEntries(
   const { data, error } = await client
     .from("journal_entries")
     .select(
-      "id, document_number, status, entry_date, description, currency, exchange_rate_applied, posted_at",
+      "id, document_number, status, entry_date, description, currency, exchange_rate_applied, posted_at, is_reversal, reverses_entry_id",
     )
     .order("posted_at", { ascending: false })
     .limit(40);
