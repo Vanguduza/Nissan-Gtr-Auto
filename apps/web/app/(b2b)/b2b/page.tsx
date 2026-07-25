@@ -1,6 +1,6 @@
-import styles from "../../(storefront)/page.module.css";
-import local from "../b2b-page.module.css";
 import Link from "next/link";
+import { B2bPricePanel } from "@/components/b2b-price-panel";
+import styles from "../../(storefront)/page.module.css";
 
 export const metadata = { title: "B2B" };
 
@@ -9,32 +9,18 @@ export default function B2bPage() {
     <div className={styles.page}>
       <h1 className={styles.title}>B2B supply</h1>
       <p className={styles.lede}>
-        Trade accounts resolve the <strong>B2B</strong> price list and credit
-        terms from Phase 5. Sign in with a linked customer profile to see net
-        pricing.
+        Trade accounts resolve the assigned <strong>B2B</strong> / Fleet price
+        list and credit terms from Phase 5. Sign in with a linked customer
+        profile to see net pricing on this page and on catalog PDP.
       </p>
-      <dl className={local.meta}>
-        <div>
-          <dt>Price list</dt>
-          <dd>B2B (default for trade accounts)</dd>
-        </div>
-        <div>
-          <dt>Currency</dt>
-          <dd>
-            <span className={local.usd}>USD</span> /{" "}
-            <span className={local.zig}>ZiG</span>
-          </dd>
-        </div>
-      </dl>
+      <B2bPricePanel />
       <p className={styles.lede} style={{ marginTop: "1.25rem" }}>
-        Procurement:{" "}
-        <Link href="/procurement/rfqs">staff RFQs</Link>
+        Procurement: <Link href="/procurement/rfqs">staff RFQs</Link>
         {" · "}
         <Link href="/supplier/rfqs">supplier quotations</Link>
       </p>
       <p className={styles.lede} style={{ marginTop: "0.75rem" }}>
-        Staff ops:{" "}
-        <Link href="/staff">hub</Link>
+        Staff ops: <Link href="/staff">hub</Link>
         {" · "}
         <Link href="/staff/hr">HR attendance</Link>
         {" · "}
