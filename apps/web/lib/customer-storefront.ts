@@ -799,7 +799,7 @@ export async function listActiveKits(
       "kit_id, qty, stock_items:component_item_id ( oem_part_number, description )",
     )
     .in("kit_id", kitIds);
-  if (compErr) return { ok: false, error: compErr.error.message };
+  if (compErr) return { ok: false, error: compErr.message };
 
   const byKit = new Map<string, KitListItem["components"]>();
   for (const c of comps ?? []) {
