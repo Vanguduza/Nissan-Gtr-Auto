@@ -20,12 +20,13 @@ $$;
 DO $$
 DECLARE
   v_admin UUID := 'a0000000-0000-4000-8000-000000000001';
-  v_finance UUID := 'a0000000-0000-4000-8000-000000000004';
+  v_finance UUID := 'a0000000-0000-4000-8000-000000000002'; -- seed finance
   v_cust_user UUID := 'c0000000-0000-4000-8000-0000000000c1';
   v_peer_user UUID := 'c0000000-0000-4000-8000-0000000000c2';
   v_main UUID;
   v_quar UUID;
   v_uom UUID;
+  v_list UUID;
   v_item UUID;
   v_cust UUID;
   v_peer UUID;
@@ -45,8 +46,9 @@ BEGIN
   SELECT id INTO v_main FROM public.warehouses WHERE code = 'MAIN' LIMIT 1;
   SELECT id INTO v_quar FROM public.warehouses WHERE is_quarantine AND is_active ORDER BY code LIMIT 1;
   SELECT id INTO v_uom FROM public.uoms WHERE code = 'EA' LIMIT 1;
-  IF v_main IS NULL OR v_quar IS NULL OR v_uom IS NULL THEN
-    RAISE EXCEPTION 'smoke fail: MAIN/QUAR/EA required';
+  SELECT id INTO v_list FROM public.price_lists WHERE code = 'RETAIL' LIMIT 1;
+  IF v_main IS NULL OR v_quar IS NULL OR v_uom IS NULL OR v_list IS NULL THEN
+    RAISE EXCEPTION 'smoke fail: MAIN/QUAR/EA/RETAIL required';
   END IF;
 
   INSERT INTO auth.users (
@@ -55,13 +57,6 @@ BEGIN
     confirmation_token, recovery_token, email_change_token_new, email_change
   )
   VALUES
-    (
-      '00000000-0000-0000-0000-000000000000', v_finance,
-      'authenticated', 'authenticated', 'finance-bank@gtr.local',
-      crypt('local-dev', gen_salt('bf')), now(),
-      '{"provider":"email","providers":["email"]}'::jsonb,
-      '{"full_name":"Finance Bank"}'::jsonb, now(), now(), '', '', '', ''
-    ),
     (
       '00000000-0000-0000-0000-000000000000', v_cust_user,
       'authenticated', 'authenticated', 'cust-return@gtr.local',
@@ -80,27 +75,30 @@ BEGIN
 
   INSERT INTO public.profiles (id, full_name, is_staff)
   VALUES
-    (v_finance, 'Finance Bank', true),
     (v_cust_user, 'Cust Return', false),
     (v_peer_user, 'Cust Peer', false)
   ON CONFLICT (id) DO UPDATE
-  SET full_name = EXCLUDED.full_name, is_staff = EXCLUDED.is_staff;
+  SET full_name = EXCLUDED.full_name, is_staff = false;
 
-  INSERT INTO public.staff_roles (user_id, role)
-  VALUES (v_finance, 'finance')
-  ON CONFLICT DO NOTHING;
-
-  SELECT id INTO v_item FROM public.stock_items WHERE oem_part_number = 'SMOKE-RET-001';
+  INSERT INTO public.stock_items (oem_part_number, description, base_uom_id)
+  VALUES ('SMOKE-RET-001', 'Return smoke part', v_uom)
+  ON CONFLICT (oem_part_number) DO UPDATE
+  SET description = EXCLUDED.description,
+      base_uom_id = COALESCE(public.stock_items.base_uom_id, EXCLUDED.base_uom_id)
+  RETURNING id INTO v_item;
   IF v_item IS NULL THEN
-    INSERT INTO public.stock_items (oem_part_number, description, base_uom_id)
-    VALUES ('SMOKE-RET-001', 'Return smoke part', v_uom)
-    RETURNING id INTO v_item;
+    SELECT id INTO v_item FROM public.stock_items WHERE oem_part_number = 'SMOKE-RET-001';
   END IF;
+
+  INSERT INTO public.price_list_items (price_list_id, stock_item_id, unit_price, core_charge)
+  VALUES (v_list, v_item, 25, 0)
+  ON CONFLICT (price_list_id, stock_item_id) DO UPDATE
+  SET unit_price = 25, core_charge = 0;
 
   SELECT id INTO v_cust FROM public.customers WHERE profile_id = v_cust_user LIMIT 1;
   IF v_cust IS NULL THEN
-    INSERT INTO public.customers (display_name, currency, profile_id, phone_e164, email)
-    VALUES ('Return Cust', 'USD', v_cust_user, '+263771000001', 'cust-return@gtr.local')
+    INSERT INTO public.customers (display_name, currency, profile_id, phone_e164, email, price_list_id)
+    VALUES ('Return Cust', 'USD', v_cust_user, '+263771000001', 'cust-return@gtr.local', v_list)
     RETURNING id INTO v_cust;
   END IF;
 
@@ -111,11 +109,20 @@ BEGIN
     RETURNING id INTO v_peer;
   END IF;
 
-  PERFORM public._adjust_stock_level(v_item, v_main, 10, 'FIFO', 25, 'USD');
-
-  -- Staff posts a sale for customer
+  -- Staff seeds stock + posts sale
   PERFORM public._test_set_auth_uid(v_admin);
   PERFORM set_config('role', 'authenticated', true);
+
+  PERFORM public.post_stock_receipt(
+    v_main,
+    'return smoke seed',
+    jsonb_build_array(
+      jsonb_build_object(
+        'stock_item_id', v_item, 'uom_id', v_uom, 'qty', 20,
+        'unit_cost', 8, 'currency', 'USD', 'valuation_method', 'FIFO'
+      )
+    )
+  );
 
   v_cart := public.create_pos_cart(v_main, v_cust, 'USD');
   PERFORM public.add_cart_line(v_cart, v_item, v_uom, 2);
