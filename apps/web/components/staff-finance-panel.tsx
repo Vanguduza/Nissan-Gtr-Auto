@@ -2464,135 +2464,187 @@ export function StaffFinancePanel() {
                     <th>Type</th>
                     <th>Status</th>
                     <th>Amount</th>
+                    <th>Lines</th>
                     <th>Payee / memo</th>
-                    <th>Accounts</th>
+                    <th>Cash / JE</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {requisitions.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        {r.document_number ?? r.id.slice(0, 8)}
-                      </td>
-                      <td>{r.req_type}</td>
-                      <td>{r.status}</td>
-                      <td>
-                        {Number(r.amount).toFixed(2)} {r.currency}
-                        {r.currency === "ZIG" &&
-                        r.exchange_rate_applied != null
-                          ? ` @ ${r.exchange_rate_applied}`
-                          : ""}
-                      </td>
-                      <td>
-                        {r.payee || "—"}
-                        {r.memo ? ` · ${r.memo}` : ""}
-                        {r.rejection_reason
-                          ? ` · reject: ${r.rejection_reason}`
-                          : ""}
-                      </td>
-                      <td>
-                        Dr {r.expense_account_code} / Cr {r.cash_account_code}
-                      </td>
-                      <td>
-                        <div
-                          className={styles.formActions}
-                          style={{ flexWrap: "wrap", margin: 0 }}
-                        >
-                          {r.status === "draft" ? (
-                            <>
+                    <Fragment key={r.id}>
+                      <tr>
+                        <td>
+                          {r.document_number ?? r.id.slice(0, 8)}
+                        </td>
+                        <td>{r.req_type}</td>
+                        <td>{r.status}</td>
+                        <td>
+                          {Number(r.amount).toFixed(2)} {r.currency}
+                          {r.currency === "ZIG" &&
+                          r.exchange_rate_applied != null
+                            ? ` @ ${r.exchange_rate_applied}`
+                            : ""}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.btnGhost}
+                            disabled={busy}
+                            onClick={() =>
+                              setExpandedReqId(
+                                expandedReqId === r.id ? null : r.id,
+                              )
+                            }
+                          >
+                            {r.lines.length} line
+                            {r.lines.length === 1 ? "" : "s"}
+                          </button>
+                        </td>
+                        <td>
+                          {r.payee || "—"}
+                          {r.memo ? ` · ${r.memo}` : ""}
+                          {r.rejection_reason
+                            ? ` · reject: ${r.rejection_reason}`
+                            : ""}
+                        </td>
+                        <td>
+                          Cr {r.cash_account_code}
+                          {r.journal_entry_id
+                            ? ` · JE ${r.journal_entry_id.slice(0, 8)}…`
+                            : ""}
+                        </td>
+                        <td>
+                          <div
+                            className={styles.formActions}
+                            style={{ flexWrap: "wrap", margin: 0 }}
+                          >
+                            {r.status === "draft" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.btnGhost}
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void onReqAction("submit", r.id)
+                                  }
+                                >
+                                  Submit
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.btnGhost}
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void onReqAction("cancel", r.id)
+                                  }
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : null}
+                            {r.status === "submitted" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.btnGhost}
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void onReqAction("approve", r.id)
+                                  }
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.btnGhost}
+                                  disabled={busy || !reqRejectReason.trim()}
+                                  onClick={() =>
+                                    void onReqAction("reject", r.id)
+                                  }
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.btnGhost}
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void onReqAction("cancel", r.id)
+                                  }
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : null}
+                            {r.status === "approved" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.btnGhost}
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void onReqAction("disburse", r.id)
+                                  }
+                                >
+                                  Disburse
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.btnGhost}
+                                  disabled={busy || !reqRejectReason.trim()}
+                                  onClick={() =>
+                                    void onReqAction("reject", r.id)
+                                  }
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            ) : null}
+                            {r.status === "rejected" ? (
                               <button
                                 type="button"
                                 className={styles.btnGhost}
                                 disabled={busy}
-                                onClick={() => void onReqAction("submit", r.id)}
-                              >
-                                Submit
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.btnGhost}
-                                disabled={busy}
-                                onClick={() => void onReqAction("cancel", r.id)}
+                                onClick={() =>
+                                  void onReqAction("cancel", r.id)
+                                }
                               >
                                 Cancel
                               </button>
-                            </>
-                          ) : null}
-                          {r.status === "submitted" ? (
-                            <>
-                              <button
-                                type="button"
-                                className={styles.btnGhost}
-                                disabled={busy}
-                                onClick={() =>
-                                  void onReqAction("approve", r.id)
-                                }
-                              >
-                                Approve
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.btnGhost}
-                                disabled={busy || !reqRejectReason.trim()}
-                                onClick={() =>
-                                  void onReqAction("reject", r.id)
-                                }
-                              >
-                                Reject
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.btnGhost}
-                                disabled={busy}
-                                onClick={() => void onReqAction("cancel", r.id)}
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : null}
-                          {r.status === "approved" ? (
-                            <>
-                              <button
-                                type="button"
-                                className={styles.btnGhost}
-                                disabled={busy}
-                                onClick={() =>
-                                  void onReqAction("disburse", r.id)
-                                }
-                              >
-                                Disburse
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.btnGhost}
-                                disabled={busy || !reqRejectReason.trim()}
-                                onClick={() =>
-                                  void onReqAction("reject", r.id)
-                                }
-                              >
-                                Reject
-                              </button>
-                            </>
-                          ) : null}
-                          {r.status === "rejected" ? (
-                            <button
-                              type="button"
-                              className={styles.btnGhost}
-                              disabled={busy}
-                              onClick={() => void onReqAction("cancel", r.id)}
-                            >
-                              Cancel
-                            </button>
-                          ) : null}
-                          {r.status === "disbursed" && r.journal_entry_id ? (
-                            <span className={styles.muted}>
-                              JE {r.journal_entry_id.slice(0, 8)}…
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedReqId === r.id ? (
+                        <tr>
+                          <td colSpan={8}>
+                            <table className={styles.table}>
+                              <thead>
+                                <tr>
+                                  <th>#</th>
+                                  <th>Expense</th>
+                                  <th>Amount</th>
+                                  <th>Description</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {r.lines.map((l) => (
+                                  <tr key={l.id}>
+                                    <td>{l.line_no}</td>
+                                    <td>{l.expense_account_code}</td>
+                                    <td>
+                                      {l.amount.toFixed(2)} {r.currency}
+                                    </td>
+                                    <td>{l.description || "—"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
