@@ -7,6 +7,7 @@ import {
   listOwnReviews,
   reviewStatusLabel,
   submitProductReview,
+  uploadReviewPhoto,
   type ProductReviewRow,
 } from "@/lib/customer-reviews";
 import { requireSession } from "@/lib/customer-storefront";
@@ -23,6 +24,7 @@ export function ReviewsPanel() {
   const [oem, setOem] = useState("");
   const [rating, setRating] = useState("5");
   const [body, setBody] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
