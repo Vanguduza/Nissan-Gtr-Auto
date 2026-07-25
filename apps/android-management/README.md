@@ -50,6 +50,17 @@ Home hub buttons: **POS**, **Warehouse**, **HR**, **Logistics**.
 
 Compose never calls FusedLocation / `LocationManager` directly — only ViewModel → bridge.
 
+## POS QR + ESC/POS (Bridge-First)
+
+1. `MainActivity` owns `CameraxQrScannerBridge` + `BluetoothEscPosPrinterBridge`, attaches in
+   `onResume`, forwards camera/Bluetooth permission results and `REQUEST_SCAN` Activity results.
+2. **POS — Scan QR → add** → `scanOnce()` → `add_cart_line_from_qr` with full `gtr://part/…` payload.
+3. Optional: enter bonded printer MAC → **Connect printer** → on **Checkout**, best-effort
+   `printReceiptLines` (checkout still succeeds if print fails).
+4. **Warehouse — Scan QR** on receive / cycle-count → parse OEM → `lookupStockItemByOem` → fill UUIDs.
+
+Compose never calls CameraX / BluetoothAdapter directly — only ViewModel → bridge.
+
 ## RPC binding: Fake vs Live
 
 `MainActivity` uses `RpcClientFactory`:
@@ -63,7 +74,8 @@ Compose never calls FusedLocation / `LocationManager` directly — only ViewMode
 
 | RPC | Fake | Live |
 |-----|------|------|
-| `create_pos_cart` / `add_cart_line` / `checkout_pos_cart` | In-memory UUIDs; open-cart set | `postgrest.rpc` (explicit `p_currency` USD\|ZIG) |
+| `create_pos_cart` / `add_cart_line` / `add_cart_line_from_qr` / `checkout_pos_cart` | In-memory UUIDs; QR regex validated | `postgrest.rpc` (explicit `p_currency` USD\|ZIG) |
+| `lookupStockItemByOem` | Deterministic UUID from OEM | PostgREST `stock_items` by `oem_part_number` |
 | `post_stock_receipt` | Validates lines + currency | Live RPC (`p_lines` JSONB) |
 | `create_stock_transfer` / `approve` / `reject` | Pending-transfer set | Live RPC dual-auth |
 | `create_stock_reconciliation_draft` … `cancel` | Draft set; ZIG needs rate | Live RPC (scope + currency) |
@@ -148,7 +160,7 @@ cd apps/android-management
 
 - `@gtr/supabase-client` — typed staff RPCs later
 - `@gtr/shared` — money / cart / ledger helpers — **no duplicate pricing in app modules**
-- Hardware: `bridges/` contracts only (GPS via `:location-tracker`)
+- Hardware: `bridges/` only (GPS `:location-tracker`, QR `:qr-scanner`, print `:escpos-printer`)
 
 ## Build status (this environment)
 
