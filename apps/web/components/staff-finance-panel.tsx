@@ -114,6 +114,7 @@ export function StaffFinancePanel() {
   const [stmtLineDesc, setStmtLineDesc] = useState("");
   const [stmtLineAmount, setStmtLineAmount] = useState("");
   const [selectedStmtId, setSelectedStmtId] = useState("");
+  const [selectedStmtAccount, setSelectedStmtAccount] = useState("1100");
   const [stmtLines, setStmtLines] = useState<BankStatementLineOption[]>([]);
   const [stmtMatches, setStmtMatches] = useState<BankReconMatchOption[]>([]);
   const [jeLines, setJeLines] = useState<JournalLineOption[]>([]);
@@ -182,6 +183,11 @@ export function StaffFinancePanel() {
     setAllocPaymentId((prev) => prev || payments.data[0]?.id || "");
     setStmtAccount((prev) => prev || accounts.data[0]?.code || "1100");
     setSelectedStmtId((prev) => prev || statements.data[0]?.id || "");
+    setSelectedStmtAccount((prev) => {
+      if (prev && prev !== "1100") return prev;
+      const first = statements.data[0];
+      return first?.account_code || accounts.data[0]?.code || "1100";
+    });
   }, []);
 
   useEffect(() => {
@@ -191,8 +197,11 @@ export function StaffFinancePanel() {
   useEffect(() => {
     if (boot.kind !== "ready" || !selectedStmtId) return;
     const stmt = boot.statements.find((s) => s.id === selectedStmtId);
-    void loadStatementDetail(selectedStmtId, stmt?.account_code ?? stmtAccount);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when statement selection changes after boot
+    const account = stmt?.account_code ?? selectedStmtAccount;
+    setSelectedStmtAccount(account);
+    void loadStatementDetail(selectedStmtId, account);
+    // Load recon detail when the active statement changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boot.kind, selectedStmtId]);
 
   async function onCreateDraft(e: FormEvent) {
