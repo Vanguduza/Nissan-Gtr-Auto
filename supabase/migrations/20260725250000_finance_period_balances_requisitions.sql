@@ -817,6 +817,10 @@ BEGIN
   IF v_row.journal_entry_id IS NOT NULL THEN
     RAISE EXCEPTION 'requisition already disbursed';
   END IF;
+  IF v_row.currency = 'ZIG'
+     AND (v_row.exchange_rate_applied IS NULL OR v_row.exchange_rate_applied <= 0) THEN
+    RAISE EXCEPTION 'exchange_rate_applied required to disburse ZIG requisition';
+  END IF;
 
   v_desc := format(
     'Disburse %s %s — %s',
@@ -869,6 +873,7 @@ $$;
 
 ALTER TABLE public.finance_requisitions ENABLE ROW LEVEL SECURITY;
 
+-- Broad is_staff() read of non-draft rows: intentional so warehouse/sales requesters can see the shared approve/status queue (not only own).
 CREATE POLICY finance_requisitions_select
   ON public.finance_requisitions FOR SELECT TO authenticated
   USING (
