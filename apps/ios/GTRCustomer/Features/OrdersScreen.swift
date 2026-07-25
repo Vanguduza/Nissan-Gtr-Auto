@@ -112,6 +112,36 @@ struct OrderDetailScreen: View {
                             .autocorrectionDisabled()
                             .font(.body.monospaced())
 
+                        Button("Track with token") {
+                            let trimmed = trackToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard trimmed.count >= 8 else {
+                                status = "Enter a valid track token (from your out-for-delivery message)."
+                                return
+                            }
+                            status = nil
+                            tokenNavActive = true
+                        }
+                    }
+                }
+
+                Section("Invoice id") {
+                    Text(order.invoiceId.uuidString)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                }
+            } else if let status {
+                Text(status).foregroundStyle(.secondary)
+            } else {
+                ProgressView()
+            }
+
+            if let status, order != nil {
+                Section {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .navigationTitle("Order")
         .navigationDestination(isPresented: $tokenNavActive) {
