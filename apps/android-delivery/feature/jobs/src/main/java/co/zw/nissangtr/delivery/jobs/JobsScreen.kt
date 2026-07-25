@@ -81,7 +81,22 @@ fun JobsScreen(
         PresenceRow(
             current = state.presence,
             busy = state.busy,
-            onSelect = vm::setPresence,
+            onSelect = { status ->
+                vm.setPresence(status)
+                // Always-on GPS while on_duty with an active job; stop on break/offline.
+                when (status) {
+                    DriverPresenceStatus.ON_DUTY -> {
+                        val active = state.jobs.firstOrNull {
+                            it.status == "dispatched" || it.status == "pending"
+                        }
+                        if (active != null) trackingVm.startTracking(active.id)
+                    }
+                    DriverPresenceStatus.BREAK,
+                    DriverPresenceStatus.OFFLINE,
+                    -> trackingVm.stopTracking()
+                    else -> Unit
+                }
+            },
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -237,7 +252,13 @@ private fun JobDetailScreen(
             ) { Text("Stop GPS tracking") }
         } else {
             Button(
-                onClick = { trackingVm.startTracking(job.id) },
+                onClick = {
+                    trackingVm.startTracking(job.id)
+                    // Keep presence aligned with active tracking.
+                    if (state.presence != DriverPresenceStatus.ON_DUTY) {
+                        vm.setPresence(DriverPresenceStatus.ON_DUTY)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = job.status == "dispatched" || job.status == "pending",
             ) { Text("Start always-on GPS (FGS)") }
