@@ -16,8 +16,14 @@ export default function StaffHubPage() {
     <div className={styles.shell}>
       <StaffNav current="/staff" />
       <div className={styles.panel}>
-        <h1 className={styles.title}>Staff</h1>
-        <div className={styles.hubModules}>
+        <header className={styles.pageHeader}>
+          <h1 className={styles.title}>Staff</h1>
+          <p className={styles.pageSubtitle}>
+            Modules and tools for your assigned roles.
+          </p>
+        </header>
+        <div className={styles.pageBody}>
+          <div className={styles.hubModules}>
           {modules.map((mod) => (
             <section
               key={mod.id}
