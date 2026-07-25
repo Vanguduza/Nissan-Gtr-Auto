@@ -528,6 +528,10 @@ DECLARE
   v_cash VARCHAR(10);
   v_uid UUID := auth.uid();
 BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'auth.uid() required to create requisition';
+  END IF;
+
   IF NOT (
     auth.role() = 'service_role'
     OR public.is_staff()
@@ -536,10 +540,6 @@ BEGIN
     )
   ) THEN
     RAISE EXCEPTION 'staff role required to create requisition';
-  END IF;
-
-  IF auth.role() = 'service_role' AND v_uid IS NULL THEN
-    RAISE EXCEPTION 'auth.uid() required to create requisition';
   END IF;
 
   IF p_amount IS NULL OR p_amount <= 0 THEN
