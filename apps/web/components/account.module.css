@@ -22,24 +22,51 @@
 }
 
 .nav {
-  background: #fff;
-  border: 1px solid rgba(18, 21, 28, 0.1);
-  border-radius: 10px;
-  padding: 0.85rem 0;
+  background: var(--gtr-white);
+  border: 1px solid var(--staff-border);
+  border-radius: var(--staff-radius);
+  padding: 0.75rem 0 0.85rem;
   height: fit-content;
-  box-shadow: 0 1px 0 rgba(18, 21, 28, 0.03);
+  box-shadow: var(--staff-shadow-md);
+  position: sticky;
+  top: 0.85rem;
+  align-self: start;
+  overflow: hidden;
+}
+
+.nav::before {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--gtr-red) 0%,
+    color-mix(in srgb, var(--gtr-red) 65%, var(--gtr-steel)) 100%
+  );
 }
 
 .navTitle {
-  margin: 0 0.85rem 0.5rem;
+  margin: 0.65rem 0.85rem 0.55rem;
+  padding-bottom: 0.55rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.06em;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--gtr-steel);
+  border-bottom: 1px solid rgba(18, 21, 28, 0.06);
+}
+
+.navTitle::before {
+  content: "";
+  width: 3px;
+  height: 0.95em;
+  flex-shrink: 0;
+  border-radius: 1px;
+  background: var(--gtr-red);
 }
 
 .navList {
@@ -53,18 +80,24 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.5rem 0.85rem;
-  font-size: 0.92rem;
+  padding: 0.48rem 0.85rem;
+  font-size: 0.9rem;
   border-left: 3px solid transparent;
-  transition: background var(--gtr-hover), color var(--gtr-hover);
+  transition: background var(--gtr-hover), color var(--gtr-hover), border-color var(--gtr-hover);
 }
 
 .navLink:hover {
   background: var(--gtr-mist);
+  color: var(--gtr-steel);
+}
+
+.navLink:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--gtr-red) 45%, white);
+  outline-offset: -2px;
 }
 
 .navLinkActive {
-  background: color-mix(in srgb, var(--gtr-red) 8%, white);
+  background: color-mix(in srgb, var(--gtr-red) 9%, white);
   border-left-color: var(--gtr-red);
   font-weight: 600;
   color: var(--gtr-red);
@@ -146,15 +179,22 @@
   padding: 0 0 0.15rem;
 }
 
+.navSubList {
+  margin-left: 0.35rem;
+  padding-left: 0.35rem;
+  border-left: 1px solid rgba(18, 21, 28, 0.07);
+}
+
 .navSubLink,
 .navSubLinkActive {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.4rem 0.85rem 0.4rem 1.55rem;
-  font-size: 0.84rem;
+  padding: 0.38rem 0.75rem 0.38rem 1.15rem;
+  font-size: 0.82rem;
   border-left: 3px solid transparent;
-  color: rgba(18, 21, 28, 0.78);
+  border-radius: 0 var(--staff-radius-sm) var(--staff-radius-sm) 0;
+  color: rgba(18, 21, 28, 0.72);
   transition: background var(--gtr-hover), color var(--gtr-hover);
 }
 
@@ -163,19 +203,58 @@
   color: var(--gtr-steel);
 }
 
+.navSubLink:focus-visible,
+.navGroupLink:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--gtr-red) 45%, white);
+  outline-offset: -2px;
+}
+
 .navSubLinkActive {
-  background: color-mix(in srgb, var(--gtr-red) 8%, white);
+  background: color-mix(in srgb, var(--gtr-red) 9%, white);
   border-left-color: var(--gtr-red);
   font-weight: 600;
   color: var(--gtr-red);
 }
 
 .panel {
-  background: #fff;
-  border: 1px solid rgba(18, 21, 28, 0.1);
-  border-radius: 10px;
+  background: var(--gtr-white);
+  border: 1px solid var(--staff-border);
+  border-radius: var(--staff-radius);
+  padding: 0;
+  box-shadow: var(--staff-shadow-md);
+  min-width: 0;
+}
+
+.pageHeader {
+  margin: 0;
+  padding: 1.2rem 1.35rem 1.05rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.08);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--gtr-steel) 4%, white) 0%,
+    var(--gtr-white) 55%
+  );
+}
+
+.pageHeader .title {
+  margin-bottom: 0;
+}
+
+.pageSubtitle {
+  margin: 0.4rem 0 0;
+  max-width: 48ch;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(18, 21, 28, 0.62);
+}
+
+.pageBody {
+  padding: 1.15rem 1.35rem 1.45rem;
+  min-width: 0;
+}
+
+.panel:not(:has(.pageHeader)) {
   padding: 1.15rem 1.25rem 1.5rem;
-  box-shadow: 0 1px 0 rgba(18, 21, 28, 0.03);
 }
 
 .title {
