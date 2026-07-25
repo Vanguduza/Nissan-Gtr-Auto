@@ -78,4 +78,25 @@ object RpcNames {
     const val MARK_CHAT_THREAD_READ = "mark_chat_thread_read"
     const val POST_CHAT_MESSAGE = "post_chat_message"
     const val CHAT_UNREAD_COUNT = "chat_unread_count"
+
+    // Phase 8b procurement / blankets
+    const val CREATE_BLANKET_PURCHASE_ORDER = "create_blanket_purchase_order"
+    const val CREATE_BLANKET_RELEASE = "create_blanket_release"
+    const val SUBMIT_PURCHASE_ORDER = "submit_purchase_order"
+
+    // Phase 16 warehouse bins / pick-path
+    const val CREATE_WAREHOUSE_BIN = "create_warehouse_bin"
+    const val UPDATE_WAREHOUSE_BIN = "update_warehouse_bin"
+    const val DEACTIVATE_WAREHOUSE_BIN = "deactivate_warehouse_bin"
+    const val SET_STOCK_LEVEL_BIN = "set_stock_level_bin"
+    const val GET_PICK_PATH_HINTS = "get_pick_path_hints"
+
+    // Phase 16 consignment
+    const val CREATE_CONSIGNMENT_ENTRY_DRAFT = "create_consignment_entry_draft"
+    const val ADD_CONSIGNMENT_ENTRY_LINE = "add_consignment_entry_line"
+    const val SUBMIT_CONSIGNMENT_ENTRY = "submit_consignment_entry"
+    const val CANCEL_CONSIGNMENT_ENTRY = "cancel_consignment_entry"
+
+    // B2B credit (staff DEFINER — admin|sales|finance)
+    const val SET_CUSTOMER_CREDIT = "set_customer_credit"
 }
