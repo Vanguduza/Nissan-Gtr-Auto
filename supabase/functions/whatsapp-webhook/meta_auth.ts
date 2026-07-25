@@ -82,7 +82,12 @@ export function handleVerifyGet(
     );
   }
 
-  if (mode === "subscribe" && token === verifyToken && challenge != null) {
+  if (
+    mode === "subscribe" &&
+    token != null &&
+    challenge != null &&
+    timingSafeEqualStr(token, verifyToken)
+  ) {
     return new Response(challenge, {
       status: 200,
       headers: { "Content-Type": "text/plain" },
