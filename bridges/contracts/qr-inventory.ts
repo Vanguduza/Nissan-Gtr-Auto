@@ -78,8 +78,15 @@ export type BluetoothPermissionStatus =
   | "restricted"
   | "not_determined";
 
+/** One text line for a thermal receipt (UTF-8; bridge maps to ESC/POS). */
+export type EscPosReceiptLine = {
+  text: string;
+  /** When true, use double-height emphasis if the printer supports it. */
+  emphasis?: boolean;
+};
+
 /**
- * Bluetooth ESC/POS inventory label printer.
+ * Bluetooth ESC/POS inventory label + receipt printer.
  * CoreBluetooth / BluetoothAdapter only in impl dirs — never Web Bluetooth.
  */
 export interface EscPosPrinterBridge {
@@ -91,4 +98,8 @@ export interface EscPosPrinterBridge {
   isConnected(): Promise<boolean>;
   /** Print one inventory label (QR + OEM + batch + date). */
   printInventoryLabel(job: EscPosPrintJob): Promise<void>;
+  /** Best-effort POS/customer receipt (plain lines → ESC/POS text). */
+  printReceiptLines(lines: EscPosReceiptLine[]): Promise<void>;
+  /** Escape hatch: send pre-built ESC/POS bytes. */
+  printRaw(bytes: Uint8Array): Promise<void>;
 }

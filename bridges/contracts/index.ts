@@ -11,6 +11,7 @@ export type {
   CameraPermissionStatus,
   QrScannerBridge,
   EscPosPrintJob,
+  EscPosReceiptLine,
   BluetoothPermissionStatus,
   EscPosPrinterBridge,
 } from "./qr-inventory.ts";
