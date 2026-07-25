@@ -1,5 +1,4 @@
 import { StaffDeliveryTrackingPanel } from "@/components/staff-delivery-tracking-panel";
-import { StaffLogisticsTabs } from "@/components/staff-logistics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
 
@@ -11,7 +10,6 @@ export default function StaffLogisticsTrackingPage() {
       <StaffNav current="/staff/logistics/tracking" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Live delivery map</h1>
-        <StaffLogisticsTabs active="tracking" />
         <StaffDeliveryTrackingPanel />
       </div>
     </div>
