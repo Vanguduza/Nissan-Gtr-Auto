@@ -181,17 +181,20 @@ private fun ManagementApp(
     var route by remember { mutableStateOf<ManagementRoute?>(null) }
     var showChat by remember { mutableStateOf(!liveRpc) }
     var showCredit by remember { mutableStateOf(!liveRpc) }
+    var showFleet by remember { mutableStateOf(!liveRpc) }
     var salesHome by remember { mutableStateOf(false) }
 
     LaunchedEffect(liveRpc, signedInEmail) {
         val roles = if (!liveRpc) {
             showChat = true
             showCredit = true
+            showFleet = true
             rpc.listMyStaffRoles()
         } else {
             val r = runCatching { rpc.listMyStaffRoles() }.getOrDefault(emptyList())
             showChat = ChatStaffRoles.allows(r)
             showCredit = CreditStaffRoles.allows(r)
+            showFleet = FleetStaffRoles.allows(r)
             r
         }
         salesHome = ManagementHomeRoles.prefersPosHome(roles)
@@ -214,8 +217,10 @@ private fun ManagementApp(
             onSignOut = onSignOut,
             showChat = showChat,
             showCredit = showCredit,
+            showFleet = showFleet,
             onHr = { route = ManagementRoute.HrClock },
             onDispatch = { route = ManagementRoute.Dispatch },
+            onFleet = { route = ManagementRoute.Fleet },
             onPos = { route = ManagementRoute.Pos },
             onWarehouse = { route = ManagementRoute.Warehouse },
             onBins = { route = ManagementRoute.Bins },
@@ -231,6 +236,10 @@ private fun ManagementApp(
         ManagementRoute.Dispatch -> DispatchScreen(
             rpc = rpc,
             supportPhone = supportPhone,
+            onBack = { route = ManagementRoute.Home },
+        )
+        ManagementRoute.Fleet -> FleetScreen(
+            rpc = rpc,
             onBack = { route = ManagementRoute.Home },
         )
         ManagementRoute.Pos -> PosScreen(
@@ -277,8 +286,10 @@ private fun ManagementHome(
     onSignOut: () -> Unit,
     showChat: Boolean,
     showCredit: Boolean,
+    showFleet: Boolean,
     onHr: () -> Unit,
     onDispatch: () -> Unit,
+    onFleet: () -> Unit,
     onPos: () -> Unit,
     onWarehouse: () -> Unit,
     onBins: () -> Unit,
@@ -299,7 +310,7 @@ private fun ManagementHome(
         Text(
             "Modules: ${AuthModule.id}, ${PosModule.id}, ${WarehouseModule.id}, " +
                 "${ProcurementModule.id}, ${CreditModule.id}, ${DispatchModule.id}, " +
-                "${HrModule.id}, ${ChatModule.id}",
+                "${FleetModule.id}, ${HrModule.id}, ${ChatModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -354,6 +365,17 @@ private fun ManagementHome(
             onClick = onDispatch,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Logistics — Pick / DN / Dispatch") }
+        if (showFleet) {
+            Button(
+                onClick = onFleet,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Company fleet — Plates / status") }
+        } else if (liveRpc) {
+            Text(
+                "Fleet hidden — needs staff role admin|warehouse|dispatcher",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         if (showChat) {
             Button(
                 onClick = onChat,
