@@ -1162,45 +1162,78 @@ export type Database = {
         Row: {
           assignee_user_id: string | null
           completed_at: string | null
+          completed_via: Database["public"]["Enums"]["delivery_completed_via"] | null
           created_at: string
           created_by: string | null
           delivery_note_id: string
           dispatched_at: string | null
           document_number: string | null
+          dropoff_lat: number | null
+          dropoff_lng: number | null
           eta_at: string | null
+          eta_seconds: number | null
+          eta_source: Database["public"]["Enums"]["delivery_eta_source"] | null
+          eta_updated_at: string | null
           failed_at: string | null
+          failure_reason: string | null
           id: string
           notes: string | null
+          pickup_lat: number | null
+          pickup_lng: number | null
+          pod_photo_path: string | null
+          pod_signature_path: string | null
           status: Database["public"]["Enums"]["delivery_job_status"]
           updated_at: string
         }
         Insert: {
           assignee_user_id?: string | null
           completed_at?: string | null
+          completed_via?: Database["public"]["Enums"]["delivery_completed_via"] | null
           created_at?: string
           created_by?: string | null
           delivery_note_id: string
           dispatched_at?: string | null
           document_number?: string | null
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           eta_at?: string | null
+          eta_seconds?: number | null
+          eta_source?: Database["public"]["Enums"]["delivery_eta_source"] | null
+          eta_updated_at?: string | null
           failed_at?: string | null
+          failure_reason?: string | null
           id?: string
           notes?: string | null
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          pod_photo_path?: string | null
+          pod_signature_path?: string | null
           status?: Database["public"]["Enums"]["delivery_job_status"]
           updated_at?: string
         }
         Update: {
           assignee_user_id?: string | null
           completed_at?: string | null
+          completed_via?: Database["public"]["Enums"]["delivery_completed_via"] | null
           created_at?: string
           created_by?: string | null
           delivery_note_id?: string
           dispatched_at?: string | null
           document_number?: string | null
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           eta_at?: string | null
+          eta_seconds?: number | null
+          eta_source?: Database["public"]["Enums"]["delivery_eta_source"] | null
+          eta_updated_at?: string | null
           failed_at?: string | null
+          failure_reason?: string | null
           id?: string
           notes?: string | null
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          pod_photo_path?: string | null
+          pod_signature_path?: string | null
           status?: Database["public"]["Enums"]["delivery_job_status"]
           updated_at?: string
         }
@@ -1210,6 +1243,85 @@ export type Database = {
             columns: ["delivery_note_id"]
             isOneToOne: false
             referencedRelation: "delivery_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_track_tokens: {
+        Row: {
+          created_at: string
+          delivery_job_id: string
+          expires_at: string
+          id: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_job_id: string
+          expires_at: string
+          id?: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          delivery_job_id?: string
+          expires_at?: string
+          id?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_track_tokens_delivery_job_id_fkey"
+            columns: ["delivery_job_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_presence: {
+        Row: {
+          capacity: number
+          last_lat: number | null
+          last_lng: number | null
+          last_seen_at: string | null
+          shift_ends_at: string | null
+          shift_starts_at: string | null
+          status: Database["public"]["Enums"]["driver_presence_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          capacity?: number
+          last_lat?: number | null
+          last_lng?: number | null
+          last_seen_at?: string | null
+          shift_ends_at?: string | null
+          shift_starts_at?: string | null
+          status?: Database["public"]["Enums"]["driver_presence_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          capacity?: number
+          last_lat?: number | null
+          last_lng?: number | null
+          last_seen_at?: string | null
+          shift_ends_at?: string | null
+          shift_starts_at?: string | null
+          status?: Database["public"]["Enums"]["driver_presence_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_presence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5635,6 +5747,14 @@ export type Database = {
         }
         Returns: string
       }
+      assign_delivery_job: {
+        Args: {
+          p_assignee_user_id: string
+          p_delivery_job_id: string
+          p_override?: boolean
+        }
+        Returns: string
+      }
       assign_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
@@ -6139,6 +6259,18 @@ export type Database = {
           stock_item_id: string
         }[]
       }
+      get_delivery_track_point: {
+        Args: { p_delivery_job_id?: string; p_token?: string }
+        Returns: {
+          delivery_job_id: string
+          eta_at: string | null
+          eta_seconds: number | null
+          lat: number
+          lng: number
+          recorded_at: string
+          status: Database["public"]["Enums"]["delivery_job_status"]
+        }[]
+      }
       has_staff_role: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
@@ -6441,6 +6573,10 @@ export type Database = {
         Args: { p_ledger_id: string }
         Returns: string
       }
+      mint_delivery_track_token: {
+        Args: { p_delivery_job_id: string; p_ttl?: string }
+        Returns: string
+      }
       revoke_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
@@ -6451,6 +6587,17 @@ export type Database = {
       search_catalog: {
         Args: { p_mode: string; p_query: string }
         Returns: Json
+      }
+      set_driver_presence: {
+        Args: {
+          p_capacity?: number
+          p_last_lat?: number
+          p_last_lng?: number
+          p_shift_ends_at?: string
+          p_shift_starts_at?: string
+          p_status: Database["public"]["Enums"]["driver_presence_status"]
+        }
+        Returns: string
       }
       set_loyalty_program_settings: {
         Args: {
@@ -6505,6 +6652,28 @@ export type Database = {
       submit_supplier_quotation: {
         Args: { p_supplier_quotation_id: string }
         Returns: string
+      }
+      submit_delivery_pod: {
+        Args: {
+          p_delivery_job_id: string
+          p_notes?: string
+          p_pod_photo_path: string
+          p_pod_signature_path: string
+        }
+        Returns: string
+      }
+      suggest_delivery_assignees: {
+        Args: { p_delivery_job_id: string; p_limit?: number }
+        Returns: {
+          capacity: number
+          distance_m: number | null
+          last_lat: number | null
+          last_lng: number | null
+          last_seen_at: string | null
+          open_jobs: number
+          status: Database["public"]["Enums"]["driver_presence_status"]
+          user_id: string
+        }[]
       }
       update_delivery_job_status: {
         Args: {
@@ -6640,6 +6809,9 @@ export type Database = {
       sales_doc_type: "invoice" | "credit_note"
       sms_event_priority: "low" | "normal" | "high"
       sms_outbox_status: "pending" | "sending" | "sent" | "failed" | "cancelled"
+      delivery_completed_via: "pod" | "manual" | "admin"
+      delivery_eta_source: "haversine" | "osrm" | "manual"
+      driver_presence_status: "available" | "on_duty" | "break" | "offline"
       staff_role:
         | "admin"
         | "finance"
@@ -6647,6 +6819,7 @@ export type Database = {
         | "sales"
         | "dispatcher"
         | "hr"
+        | "driver"
       stock_entry_status:
         | "draft"
         | "pending_approval"
@@ -6865,6 +7038,9 @@ export const Constants = {
       sales_doc_type: ["invoice", "credit_note"],
       sms_event_priority: ["low", "normal", "high"],
       sms_outbox_status: ["pending", "sending", "sent", "failed", "cancelled"],
+      delivery_completed_via: ["pod", "manual", "admin"],
+      delivery_eta_source: ["haversine", "osrm", "manual"],
+      driver_presence_status: ["available", "on_duty", "break", "offline"],
       staff_role: [
         "admin",
         "finance",
@@ -6872,6 +7048,7 @@ export const Constants = {
         "sales",
         "dispatcher",
         "hr",
+        "driver",
       ],
       stock_entry_status: [
         "draft",

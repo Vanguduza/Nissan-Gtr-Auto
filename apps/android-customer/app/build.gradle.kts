@@ -36,6 +36,12 @@ android {
             "RPC_FORCE_FAKE",
             localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
         )
+        // Digits only; mirrors web NEXT_PUBLIC_WHATSAPP_E164 default.
+        buildConfigField(
+            "String",
+            "WHATSAPP_E164",
+            "\"${localProp("WHATSAPP_E164").ifBlank { "263770000000" }}\"",
+        )
     }
 
     buildTypes {

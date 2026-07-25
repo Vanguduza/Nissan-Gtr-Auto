@@ -138,6 +138,7 @@ struct ChatScreen: View {
             threads = try await session.api.listChatThreads()
             unread = try await session.api.chatUnreadCount(threadId: nil)
             startedThreadId = id
+            showStartedThread = true
             status = "Started via start_chat_thread"
         } catch {
             status = error.localizedDescription
