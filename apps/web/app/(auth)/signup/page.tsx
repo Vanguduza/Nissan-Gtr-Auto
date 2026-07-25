@@ -4,7 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestAuthOtp, verifyAuthOtp } from "@/lib/auth-otp";
+import {
+  completeAuthSignup,
+  requestAuthOtp,
+  verifyAuthOtp,
+} from "@/lib/auth-otp";
 import { createWebClient } from "@/lib/supabase";
 import { loadStaffContext, postLoginPath } from "@/lib/staff-auth";
 import styles from "../login/auth.module.css";
@@ -20,7 +24,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [localStubHint, setLocalStubHint] = useState<string | null>(null);
-  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpProofToken, setOtpProofToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

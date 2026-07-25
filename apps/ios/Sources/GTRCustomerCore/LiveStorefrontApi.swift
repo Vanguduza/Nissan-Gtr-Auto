@@ -28,12 +28,24 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let markChatThreadRead = "mark_chat_thread_read"
         public static let chatUnreadCount = "chat_unread_count"
         public static let getDeliveryTrackPoint = "get_delivery_track_point"
+        public static let addCustomerWishlistItem = "add_customer_wishlist_item"
+        public static let removeCustomerWishlistItem = "remove_customer_wishlist_item"
+        public static let setWishlistNotifyWhenInStock = "set_wishlist_notify_when_in_stock"
+        public static let wishlistMoveToCart = "wishlist_move_to_cart"
+        public static let listCustomerCompareItems = "list_customer_compare_items"
+        public static let addCustomerCompareItem = "add_customer_compare_item"
+        public static let removeCustomerCompareItem = "remove_customer_compare_item"
+        public static let submitCustomerProductReview = "submit_customer_product_review"
+        public static let getProductReviewStats = "get_product_review_stats"
+        public static let addCustomerProductReviewPhoto = "add_customer_product_review_photo"
     }
 
     public enum EdgeName {
         public static let contipayInitiate = "contipay-initiate"
         public static let paynowInitiate = "paynow-initiate"
     }
+
+    public static let reviewPhotosBucket = "review-photos"
 
     private let client: PostgrestClient
     private let returnURLScheme: String
