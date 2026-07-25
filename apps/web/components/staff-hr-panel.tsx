@@ -4,12 +4,15 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
+  addPayrollDeduction,
   attendanceHoursInPeriod,
   clockAttendance,
   listEmployees,
+  listOpenPayrollLines,
   requireSession,
   resolveSelfEmployeeId,
   type EmployeeOption,
+  type PayrollLineOption,
 } from "@/lib/staff-hr";
 import { createWebClient } from "@/lib/supabase";
 
@@ -21,6 +24,7 @@ type Boot =
       kind: "ready";
       selfId: string | null;
       employees: EmployeeOption[];
+      payrollLines: PayrollLineOption[];
     };
 
 function startOfLocalDayIso(d = new Date()): string {

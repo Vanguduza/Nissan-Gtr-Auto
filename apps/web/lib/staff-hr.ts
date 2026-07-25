@@ -81,7 +81,7 @@ export async function attendanceHoursInPeriod(
 export type PayrollLineOption = {
   id: string;
   employee_id: string;
-  gross_pay: number;
+  gross_amount: number;
   currency: Database["public"]["Enums"]["currency_code"];
   payroll_run_id: string;
 };
@@ -91,7 +91,7 @@ export async function listOpenPayrollLines(
 ): Promise<StorefrontResult<PayrollLineOption[]>> {
   const { data, error } = await client
     .from("payroll_lines")
-    .select("id, employee_id, gross_pay, currency, payroll_run_id")
+    .select("id, employee_id, gross_amount, currency, payroll_run_id")
     .order("created_at", { ascending: false })
     .limit(40);
   if (error) return { ok: false, error: error.message };
