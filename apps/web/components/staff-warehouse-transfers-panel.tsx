@@ -224,6 +224,10 @@ export function StaffWarehouseTransfersPanel() {
 
   return (
     <div className={styles.form}>
+      <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+        Typed OEM lines. QR scan for pick/transfer: use the management device
+        bridge.
+      </p>
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Create transfer</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
