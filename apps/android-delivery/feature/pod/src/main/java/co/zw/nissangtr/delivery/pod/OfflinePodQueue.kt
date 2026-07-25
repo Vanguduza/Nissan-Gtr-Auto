@@ -66,7 +66,8 @@ class OfflinePodQueue(
                             localSignaturePath = o.getString("sigPath"),
                             signatureMime = o.getString("sigMime"),
                             otpCode = o.getString("otp"),
-                            notes = o.optString("notes", null).takeIf { it.isNotBlank() },
+                            notes = if (o.isNull("notes")) null
+                            else o.optString("notes").takeIf { it.isNotBlank() },
                             photoObjectKey = o.getString("photoKey"),
                             signatureObjectKey = o.getString("sigKey"),
                         ),

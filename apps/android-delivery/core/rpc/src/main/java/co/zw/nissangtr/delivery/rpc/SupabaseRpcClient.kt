@@ -89,7 +89,7 @@ class SupabaseRpcClient(
         return client.from("delivery_jobs")
             .select(JOB_COLUMNS) {
                 filter { eq("assignee_user_id", uid) }
-                order("route_sequence", Order.ASCENDING, nullsFirst = false)
+                order("route_sequence", Order.ASCENDING)
                 order("created_at", Order.DESCENDING)
                 limit(100)
             }
