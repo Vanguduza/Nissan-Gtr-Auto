@@ -50,6 +50,7 @@ export function StaffBlanketPanel() {
   const [currency, setCurrency] = useState<CurrencyCode>("USD");
   const [maxValue, setMaxValue] = useState("");
   const [notes, setNotes] = useState("");
+  const [expectedDate, setExpectedDate] = useState("");
   const [itemQuery, setItemQuery] = useState("");
   const [hits, setHits] = useState<StockItemOption[]>([]);
   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
@@ -181,6 +182,7 @@ export function StaffBlanketPanel() {
       blanketMaxValue: max,
       lines,
       notes: notes.trim() || undefined,
+      expectedDate: expectedDate.trim() || undefined,
     });
     setBusy(false);
     if (!res.ok) {
@@ -190,6 +192,7 @@ export function StaffBlanketPanel() {
     setDraftLines([]);
     setMaxValue("");
     setNotes("");
+    setExpectedDate("");
     setMessage(`Blanket PO created · ${res.data.slice(0, 8)}… (submit to enable releases)`);
     await refresh();
   }
