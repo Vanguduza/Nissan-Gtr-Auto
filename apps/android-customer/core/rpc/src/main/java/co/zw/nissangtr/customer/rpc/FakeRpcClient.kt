@@ -237,4 +237,95 @@ class FakeRpcClient : RpcClient {
         require(removed) { "garage vehicle not found for ${RpcNames.DELETE_CUSTOMER_GARAGE_VEHICLE}" }
         // TODO(live): supabase.rpc(RpcNames.DELETE_CUSTOMER_GARAGE_VEHICLE, …)
     }
+
+    override suspend fun listChatThreads(): List<ChatThread> =
+        chatThreads.sortedByDescending { it.lastMessageAt ?: it.createdAt }
+
+    override suspend fun listChatMessages(threadId: String): List<ChatMessage> {
+        require(threadId.isNotBlank())
+        require(chatThreads.any { it.id == threadId }) {
+            "thread not found for listChatMessages"
+        }
+        return chatMessages.filter { it.threadId == threadId }.sortedBy { it.createdAt }
+    }
+
+    override suspend fun startChatThread(input: StartChatThreadInput): String {
+        val id = UUID.randomUUID().toString()
+        val now = "2026-07-25T12:00:00Z"
+        val thread = ChatThread(
+            id = id,
+            customerUserId = fakeUserId,
+            kind = input.kind,
+            status = ChatThreadStatus.OPEN,
+            subject = input.subject?.trim()?.takeIf { it.isNotEmpty() },
+            lastMessageAt = if (!input.body.isNullOrBlank()) now else null,
+            createdAt = now,
+        )
+        chatThreads.add(0, thread)
+        val body = input.body?.trim()
+        if (!body.isNullOrEmpty()) {
+            chatMessages.add(
+                ChatMessage(
+                    id = UUID.randomUUID().toString(),
+                    threadId = id,
+                    senderUserId = fakeUserId,
+                    senderKind = ChatSenderKind.CUSTOMER,
+                    body = body,
+                    createdAt = now,
+                ),
+            )
+        }
+        // TODO(live): supabase.rpc(RpcNames.START_CHAT_THREAD, …)
+        return id
+    }
+
+    override suspend fun postChatMessage(threadId: String, body: String): String {
+        val trimmed = body.trim()
+        require(trimmed.isNotEmpty()) { "body required for ${RpcNames.POST_CHAT_MESSAGE}" }
+        val idx = chatThreads.indexOfFirst { it.id == threadId }
+        require(idx >= 0) { "thread not found for ${RpcNames.POST_CHAT_MESSAGE}" }
+        val thread = chatThreads[idx]
+        require(thread.status != ChatThreadStatus.CLOSED) { "thread closed" }
+        val now = "2026-07-25T12:01:00Z"
+        val msgId = UUID.randomUUID().toString()
+        chatMessages.add(
+            ChatMessage(
+                id = msgId,
+                threadId = threadId,
+                senderUserId = fakeUserId,
+                senderKind = ChatSenderKind.CUSTOMER,
+                body = trimmed,
+                createdAt = now,
+            ),
+        )
+        chatThreads[idx] = thread.copy(lastMessageAt = now)
+        // TODO(live): supabase.rpc(RpcNames.POST_CHAT_MESSAGE, …)
+        return msgId
+    }
+
+    override suspend fun markChatThreadRead(threadId: String) {
+        require(chatThreads.any { it.id == threadId }) {
+            "thread not found for ${RpcNames.MARK_CHAT_THREAD_READ}"
+        }
+        chatLastRead[threadId] = "2026-07-25T12:02:00Z"
+        // TODO(live): supabase.rpc(RpcNames.MARK_CHAT_THREAD_READ, …)
+    }
+
+    override suspend fun chatUnreadCount(threadId: String?): Int {
+        val threads = if (threadId != null) {
+            chatThreads.filter { it.id == threadId }
+        } else {
+            chatThreads
+        }
+        var n = 0
+        for (t in threads) {
+            val since = chatLastRead[t.id]
+            n += chatMessages.count { m ->
+                m.threadId == t.id &&
+                    m.senderKind != ChatSenderKind.CUSTOMER &&
+                    (since == null || m.createdAt > since)
+            }
+        }
+        return n
+    }
 }

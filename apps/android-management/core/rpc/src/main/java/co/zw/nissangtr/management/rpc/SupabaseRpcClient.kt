@@ -509,6 +509,116 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun listMyStaffRoles(): List<String> {
+        val uid = currentUserId() ?: return emptyList()
+        return client.from("staff_roles")
+            .select(Columns.list("role")) {
+                filter { eq("user_id", uid) }
+            }
+            .decodeList<StaffRoleRow>()
+            .map { it.role }
+    }
+
+    override suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary> {
+        val uid = currentUserId()
+        return client.from("chat_threads")
+            .select(
+                Columns.list(
+                    "id",
+                    "kind",
+                    "status",
+                    "subject",
+                    "assigned_to",
+                    "last_message_at",
+                    "created_at",
+                ),
+            ) {
+                filter {
+                    when (filter) {
+                        StaffChatFilter.OPEN -> eq("status", "open")
+                        StaffChatFilter.MINE -> {
+                            require(!uid.isNullOrBlank()) { "signed-in user required for mine filter" }
+                            eq("assigned_to", uid)
+                            neq("status", "closed")
+                        }
+                        StaffChatFilter.CLOSED -> eq("status", "closed")
+                    }
+                }
+                order("last_message_at", Order.DESCENDING, nullsFirst = false)
+                limit(80)
+            }
+            .decodeList<ChatThreadRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun listChatMessages(threadId: String): List<ChatMessageSummary> {
+        require(threadId.isNotBlank())
+        return client.from("chat_messages")
+            .select(
+                Columns.list(
+                    "id",
+                    "thread_id",
+                    "sender_user_id",
+                    "sender_kind",
+                    "body",
+                    "created_at",
+                ),
+            ) {
+                filter { eq("thread_id", threadId) }
+                order("created_at", Order.ASCENDING)
+                limit(200)
+            }
+            .decodeList<ChatMessageRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun claimChatThread(threadId: String) {
+        require(threadId.isNotBlank())
+        client.postgrest.rpc(
+            RpcNames.CLAIM_CHAT_THREAD,
+            buildJsonObject { put("p_thread_id", threadId) },
+        )
+    }
+
+    override suspend fun closeChatThread(threadId: String) {
+        require(threadId.isNotBlank())
+        client.postgrest.rpc(
+            RpcNames.CLOSE_CHAT_THREAD,
+            buildJsonObject { put("p_thread_id", threadId) },
+        )
+    }
+
+    override suspend fun markChatThreadRead(threadId: String) {
+        require(threadId.isNotBlank())
+        client.postgrest.rpc(
+            RpcNames.MARK_CHAT_THREAD_READ,
+            buildJsonObject { put("p_thread_id", threadId) },
+        )
+    }
+
+    override suspend fun postChatMessage(threadId: String, body: String): String {
+        require(threadId.isNotBlank())
+        val trimmed = body.trim()
+        require(trimmed.isNotEmpty()) { "message body required" }
+        return client.postgrest.rpc(
+            RpcNames.POST_CHAT_MESSAGE,
+            buildJsonObject {
+                put("p_thread_id", threadId)
+                put("p_body", trimmed)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun chatUnreadCount(threadId: String?): Int {
+        return client.postgrest.rpc(
+            RpcNames.CHAT_UNREAD_COUNT,
+            buildJsonObject {
+                if (threadId.isNullOrBlank()) put("p_thread_id", JsonNull)
+                else put("p_thread_id", threadId)
+            },
+        ).decodeAs<Int>()
+    }
+
     companion object {
         fun create(supabaseUrl: String, supabaseAnonKey: String): SupabaseRpcClient {
             val client = createSupabaseClient(
@@ -593,3 +703,48 @@ private data class StockItemRow(
     @SerialName("base_uom_id") val baseUomId: String,
     @SerialName("oem_part_number") val oemPartNumber: String,
 )
+
+@Serializable
+private data class StaffRoleRow(
+    val role: String,
+)
+
+@Serializable
+private data class ChatThreadRow(
+    val id: String,
+    val kind: String,
+    val status: String,
+    val subject: String? = null,
+    @SerialName("assigned_to") val assignedTo: String? = null,
+    @SerialName("last_message_at") val lastMessageAt: String? = null,
+    @SerialName("created_at") val createdAt: String,
+) {
+    fun toSummary() = ChatThreadSummary(
+        id = id,
+        kind = kind,
+        status = status,
+        subject = subject,
+        assignedTo = assignedTo,
+        lastMessageAt = lastMessageAt,
+        createdAt = createdAt,
+    )
+}
+
+@Serializable
+private data class ChatMessageRow(
+    val id: String,
+    @SerialName("thread_id") val threadId: String,
+    @SerialName("sender_user_id") val senderUserId: String,
+    @SerialName("sender_kind") val senderKind: String,
+    val body: String,
+    @SerialName("created_at") val createdAt: String,
+) {
+    fun toSummary() = ChatMessageSummary(
+        id = id,
+        threadId = threadId,
+        senderUserId = senderUserId,
+        senderKind = senderKind,
+        body = body,
+        createdAt = createdAt,
+    )
+}

@@ -22,7 +22,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * Live supabase-kt [RpcClient] for cart / orders / garage / pay-initiate RPCs.
+ * Live supabase-kt [RpcClient] for cart / orders / garage / pay / chat RPCs.
  *
  * Uses anon key + Auth session (never hardcode JWTs). Payment: RPC create only — no PSP crypto.
  * Session persistence: auth-kt default Android session manager (Settings / SharedPreferences).
@@ -283,6 +283,66 @@ class SupabaseRpcClient(
             RpcNames.DELETE_CUSTOMER_GARAGE_VEHICLE,
             buildJsonObject { put("p_id", id) },
         )
+    }
+
+    override suspend fun listChatThreads(): List<ChatThread> =
+        client.from("chat_threads")
+            .select(Columns.ALL) {
+                order("last_message_at", Order.DESCENDING, nullsFirst = false)
+            }
+            .decodeList<ChatThreadRow>()
+            .map { it.toModel() }
+
+    override suspend fun listChatMessages(threadId: String): List<ChatMessage> {
+        require(threadId.isNotBlank())
+        return client.from("chat_messages")
+            .select(Columns.ALL) {
+                filter { eq("thread_id", threadId) }
+                order("created_at", Order.ASCENDING)
+            }
+            .decodeList<ChatMessageRow>()
+            .map { it.toModel() }
+    }
+
+    override suspend fun startChatThread(input: StartChatThreadInput): String =
+        client.postgrest.rpc(
+            RpcNames.START_CHAT_THREAD,
+            buildJsonObject {
+                put("p_kind", input.kind.rpcValue)
+                putNullable("p_subject", input.subject)
+                putNullable("p_body", input.body)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun postChatMessage(threadId: String, body: String): String {
+        require(threadId.isNotBlank())
+        require(body.trim().isNotEmpty()) { "body required" }
+        return client.postgrest.rpc(
+            RpcNames.POST_CHAT_MESSAGE,
+            buildJsonObject {
+                put("p_thread_id", threadId)
+                put("p_body", body.trim())
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun markChatThreadRead(threadId: String) {
+        require(threadId.isNotBlank())
+        client.postgrest.rpc(
+            RpcNames.MARK_CHAT_THREAD_READ,
+            buildJsonObject { put("p_thread_id", threadId) },
+        )
+    }
+
+    override suspend fun chatUnreadCount(threadId: String?): Int {
+        val raw = client.postgrest.rpc(
+            RpcNames.CHAT_UNREAD_COUNT,
+            buildJsonObject {
+                if (threadId.isNullOrBlank()) put("p_thread_id", JsonNull)
+                else put("p_thread_id", threadId)
+            },
+        ).decodeAs<Long>()
+        return raw.toInt()
     }
 
     companion object {
