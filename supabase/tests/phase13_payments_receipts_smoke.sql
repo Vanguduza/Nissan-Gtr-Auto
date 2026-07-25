@@ -442,6 +442,21 @@ BEGIN
   FROM public.customer_receipt_outbox
   WHERE document_id = v_inv AND status = 'pending';
 
+  -- Batch 2: claim/complete/stub drains are service_role-only
+  BEGIN
+    PERFORM public.process_receipt_outbox_batch(1, true);
+    RAISE EXCEPTION 'smoke fail: authenticated drained receipt stub';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE 'smoke fail:%' THEN RAISE; END IF;
+      IF SQLERRM NOT ILIKE '%service_role required%'
+         AND SQLERRM NOT ILIKE '%permission denied%' THEN
+        RAISE EXCEPTION 'smoke fail: unexpected receipt stub authz: %', SQLERRM;
+      END IF;
+  END;
+
+  PERFORM public._test_set_service_role(v_admin);
+
   v_sent := public.process_receipt_outbox_batch(20, true);
   IF v_sent < 1 THEN
     RAISE EXCEPTION 'smoke fail: receipt batch sent 0 (pending was %)', v_outbox_before;
