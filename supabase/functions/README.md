@@ -112,6 +112,25 @@ Authorization: Bearer {EMAIL_API_KEY}
 
 Shared client: `_shared/email_send.ts`. PDF builder: `_shared/receipt_pdf.ts` (pdf-lib).
 
+## Auth OTP (`auth-otp`)
+
+Customer signup/login OTP for **email and/or phone**. Fail-closed without gateway secrets.
+
+| Env | Behaviour |
+|-----|-----------|
+| `SMS_GATEWAY_API_KEY` / `EMAIL_API_KEY` + From | Real send via SMS / email helpers |
+| **Absent** + `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` | Local stub only; code **`000000`** |
+| **Absent** otherwise | **503** clear error (never fake verified) |
+
+| Item | Detail |
+|------|--------|
+| Method | `POST /functions/v1/auth-otp` |
+| JWT | `verify_jwt = false` (request before session); optional Bearer on verify to write `profiles.phone_e164` |
+| Body | `{ "action": "request"\|"verify", "email"?, "phone_e164"?, "code"? }` |
+| Stub gate test | `deno test --allow-env supabase/functions/auth-otp/smoke_test.ts` |
+
+Never set `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` on production Edge.
+
 ## WhatsApp Cloud (`_shared/whatsapp_cloud.ts`)
 
 Outbound Cloud API client shared by **receipt delivery** (`process-customer-receipts`) and the **parts-finder bot** (`whatsapp-webhook`). Do not mix receipt PDF sends into bot dialog turns. **Not** a browser QR / WebView bridge.
