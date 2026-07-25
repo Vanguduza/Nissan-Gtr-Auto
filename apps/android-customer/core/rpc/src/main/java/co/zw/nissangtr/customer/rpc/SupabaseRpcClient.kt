@@ -406,7 +406,7 @@ class SupabaseRpcClient(
         client.postgrest.rpc(
             RpcNames.ADD_CUSTOMER_WISHLIST_ITEM,
             stockItemOemBody(stockItemId, oem),
-        ).decodeAs()
+        ).decodeAs<String>()
 
     override suspend fun removeCustomerWishlistItem(
         wishlistId: String?,
@@ -437,7 +437,7 @@ class SupabaseRpcClient(
                 putNullable("p_stock_item_id", stockItemId)
                 putNullable("p_oem_part_number", oem)
             },
-        ).decodeAs()
+        ).decodeAs<String>()
 
     override suspend fun wishlistMoveToCart(
         wishlistId: String?,
@@ -458,7 +458,7 @@ class SupabaseRpcClient(
                 putNullable("p_stock_item_id", stockItemId)
                 putNullable("p_oem_part_number", oem)
             },
-        ).decodeAs()
+        ).decodeAs<String>()
     }
 
     override suspend fun listCompareItems(): List<CompareItem> =
@@ -470,7 +470,7 @@ class SupabaseRpcClient(
         client.postgrest.rpc(
             RpcNames.ADD_CUSTOMER_COMPARE_ITEM,
             stockItemOemBody(stockItemId, oem),
-        ).decodeAs()
+        ).decodeAs<String>()
 
     override suspend fun removeCustomerCompareItem(
         compareId: String?,
@@ -557,7 +557,7 @@ class SupabaseRpcClient(
                 putNullable("p_stock_item_id", stockItemId)
                 putNullable("p_oem_part_number", oem)
             },
-        ).decodeAs()
+        ).decodeAs<String>()
     }
 
     override suspend fun uploadReviewPhoto(
@@ -589,7 +589,7 @@ class SupabaseRpcClient(
                 put("p_storage_path", objectPath)
                 put("p_sort_order", sortOrder)
             },
-        ).decodeAs()
+        ).decodeAs<String>()
     }
 
     private suspend fun ensureOpenCartId(): String {
