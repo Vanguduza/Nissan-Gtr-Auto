@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gtr_pod_photo_title">Proof of delivery photo</string>
+    <string name="gtr_pod_photo_hint">Capture the package or delivery site</string>
+    <string name="gtr_pod_photo_capture">Capture</string>
+    <string name="gtr_pod_photo_cancel">Cancel</string>
+</resources>
