@@ -2,9 +2,12 @@ package co.zw.nissangtr.management.dispatch
 
 /**
  * Dispatch / logistics feature module.
- * Pick + DN RPCs via [co.zw.nissangtr.management.rpc.RpcClient].
- * GPS trail: Bridge-First via `:location-tracker` → `ingest_delivery_location`.
+ * Pick + DN + assignment / route / panic via [co.zw.nissangtr.management.rpc.RpcClient].
+ *
+ * Driver GPS producer gated: sole FGS → ingest_delivery_location producer is
+ * `apps/android-delivery`. Management staff VIEW live last-point / ETA only.
  */
 object DispatchModule {
     const val id: String = "dispatch"
 }
+
