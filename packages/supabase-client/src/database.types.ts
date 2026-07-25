@@ -6749,6 +6749,16 @@ export type Database = {
         Args: { p_mode: string; p_query: string }
         Returns: Json
       }
+      set_delivery_job_geo: {
+        Args: {
+          p_delivery_job_id: string
+          p_dropoff_lat?: number
+          p_dropoff_lng?: number
+          p_pickup_lat?: number
+          p_pickup_lng?: number
+        }
+        Returns: string
+      }
       set_driver_presence: {
         Args: {
           p_capacity?: number
@@ -6842,7 +6852,7 @@ export type Database = {
           p_delivery_job_id: string
           p_status: Database["public"]["Enums"]["delivery_job_status"]
         }
-        Returns: string
+        Returns: Json
       }
       update_item_kit: {
         Args: {

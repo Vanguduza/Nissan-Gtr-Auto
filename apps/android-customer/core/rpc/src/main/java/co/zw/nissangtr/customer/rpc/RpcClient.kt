@@ -12,6 +12,7 @@ package co.zw.nissangtr.customer.rpc
  *
  * Payment intents: create only (no real PSP crypto). Settle stays webhook.
  * Chat mutations: start / post / mark_read / unread_count RPCs.
+ * Delivery track: last point + ETA via getDeliveryTrackPoint (no trail).
  * QR: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
  */
 interface RpcClient {

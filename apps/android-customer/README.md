@@ -136,6 +136,7 @@ Canonical names: `core/rpc/.../RpcNames.kt` — keep in sync with web +
 - No HTML5 / WebView QR — Bridge-First (`bridges/`) when camera scanning is added
 - No payroll tax (customer app)
 - No real ContiPay / Paynow HMAC or private keys
+- No customer GPS trail / historical stalking UI — last point + ETA only
 
 ## Env placeholders
 
