@@ -3,12 +3,15 @@ package co.zw.nissangtr.management
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -55,8 +58,21 @@ import co.zw.nissangtr.management.warehouse.ConsignmentScreen
 import co.zw.nissangtr.management.warehouse.WarehouseModule
 import co.zw.nissangtr.management.warehouse.WarehouseScreen
 
+/** Top-level hub modules — each opens a sub-feature menu (or a single feature). */
+private enum class HubModule(val title: String) {
+    Pos("POS"),
+    Warehouse("Warehouse"),
+    Procurement("Procurement"),
+    Crm("CRM"),
+    Hr("HR"),
+    Logistics("Logistics"),
+    Fleet("Company fleet"),
+    Chat("Chat"),
+}
+
 private enum class ManagementRoute {
     Home,
+    ModuleMenu,
     HrClock,
     Dispatch,
     Fleet,
@@ -73,6 +89,8 @@ private enum class ManagementRoute {
  * Management shell. Feature screens are thin scaffolds over [RpcClient]
  * ([RpcClientFactory]: Live [SupabaseRpcClient] or Fake).
  * Live requires GoTrue email/password session via [AuthGate].
+ *
+ * Hub navigation is hierarchical: module list → sub-features → screen.
  *
  * **Sales role** → default home is POS-dedicated workspace (standalone till).
  * **Admin / warehouse** → hub remains home; POS available from hub.
@@ -179,10 +197,26 @@ private fun ManagementApp(
     supportPhone: String,
 ) {
     var route by remember { mutableStateOf<ManagementRoute?>(null) }
+    var openModule by remember { mutableStateOf<HubModule?>(null) }
     var showChat by remember { mutableStateOf(!liveRpc) }
     var showCredit by remember { mutableStateOf(!liveRpc) }
     var showFleet by remember { mutableStateOf(!liveRpc) }
     var salesHome by remember { mutableStateOf(false) }
+
+    fun goHome() {
+        openModule = null
+        route = ManagementRoute.Home
+    }
+
+    fun openModuleMenu(module: HubModule) {
+        openModule = module
+        route = ManagementRoute.ModuleMenu
+    }
+
+    fun backFromFeature() {
+        val parent = openModule
+        route = if (parent != null) ManagementRoute.ModuleMenu else ManagementRoute.Home
+    }
 
     LaunchedEffect(liveRpc, signedInEmail) {
         val roles = if (!liveRpc) {
@@ -198,10 +232,11 @@ private fun ManagementApp(
             r
         }
         salesHome = ManagementHomeRoles.prefersPosHome(roles)
+        openModule = null
         route = if (salesHome) ManagementRoute.Pos else ManagementRoute.Home
     }
 
-    when (route) {
+    when (val current = route) {
         null -> Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -211,72 +246,124 @@ private fun ManagementApp(
         ) {
             Text("Loading roles…", style = MaterialTheme.typography.bodyMedium)
         }
-        ManagementRoute.Home -> ManagementHome(
-            liveRpc = liveRpc,
-            signedInEmail = signedInEmail,
-            onSignOut = onSignOut,
-            showChat = showChat,
-            showCredit = showCredit,
-            showFleet = showFleet,
-            onHr = { route = ManagementRoute.HrClock },
-            onDispatch = { route = ManagementRoute.Dispatch },
-            onFleet = { route = ManagementRoute.Fleet },
-            onPos = { route = ManagementRoute.Pos },
-            onWarehouse = { route = ManagementRoute.Warehouse },
-            onBins = { route = ManagementRoute.Bins },
-            onConsignment = { route = ManagementRoute.Consignment },
-            onBlankets = { route = ManagementRoute.Blankets },
-            onCredit = { route = ManagementRoute.Credit },
-            onChat = { route = ManagementRoute.Chat },
-        )
-        ManagementRoute.HrClock -> ClockAttendanceScreen(
-            rpc = rpc,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Dispatch -> DispatchScreen(
-            rpc = rpc,
-            supportPhone = supportPhone,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Fleet -> FleetScreen(
-            rpc = rpc,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Pos -> PosScreen(
-            rpc = rpc,
-            qr = qr,
-            printer = printer,
-            isSalesHome = salesHome,
-            onOpenHub = { route = ManagementRoute.Home },
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Warehouse -> WarehouseScreen(
-            rpc = rpc,
-            qr = qr,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Bins -> BinsScreen(
-            rpc = rpc,
-            printer = printer,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Consignment -> ConsignmentScreen(
-            rpc = rpc,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Blankets -> BlanketsScreen(
-            rpc = rpc,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Credit -> CreditScreen(
-            rpc = rpc,
-            onBack = { route = ManagementRoute.Home },
-        )
-        ManagementRoute.Chat -> ChatScreen(
-            rpc = rpc,
-            onBack = { route = ManagementRoute.Home },
-        )
+        ManagementRoute.Home -> {
+            BackHandler(enabled = false) { }
+            ManagementHome(
+                liveRpc = liveRpc,
+                signedInEmail = signedInEmail,
+                onSignOut = onSignOut,
+                showChat = showChat,
+                showCredit = showCredit,
+                showFleet = showFleet,
+                onOpenModule = ::openModuleMenu,
+            )
+        }
+        ManagementRoute.ModuleMenu -> {
+            val module = openModule
+            if (module == null) {
+                goHome()
+            } else {
+                BackHandler { goHome() }
+                ModuleSubMenu(
+                    module = module,
+                    onBack = ::goHome,
+                    onOpenFeature = { feature ->
+                        openModule = module
+                        route = feature
+                    },
+                )
+            }
+        }
+        ManagementRoute.HrClock -> {
+            BackHandler { backFromFeature() }
+            ClockAttendanceScreen(
+                rpc = rpc,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Dispatch -> {
+            BackHandler { backFromFeature() }
+            DispatchScreen(
+                rpc = rpc,
+                supportPhone = supportPhone,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Fleet -> {
+            BackHandler { backFromFeature() }
+            FleetScreen(
+                rpc = rpc,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Pos -> {
+            BackHandler {
+                if (salesHome && openModule == null) {
+                    // Sales-dedicated till: stay unless they opened hub then POS.
+                    goHome()
+                } else {
+                    backFromFeature()
+                }
+            }
+            PosScreen(
+                rpc = rpc,
+                qr = qr,
+                printer = printer,
+                isSalesHome = salesHome,
+                onOpenHub = ::goHome,
+                onBack = {
+                    if (openModule != null) backFromFeature() else goHome()
+                },
+            )
+        }
+        ManagementRoute.Warehouse -> {
+            BackHandler { backFromFeature() }
+            WarehouseScreen(
+                rpc = rpc,
+                qr = qr,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Bins -> {
+            BackHandler { backFromFeature() }
+            BinsScreen(
+                rpc = rpc,
+                printer = printer,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Consignment -> {
+            BackHandler { backFromFeature() }
+            ConsignmentScreen(
+                rpc = rpc,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Blankets -> {
+            BackHandler { backFromFeature() }
+            BlanketsScreen(
+                rpc = rpc,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Credit -> {
+            BackHandler { backFromFeature() }
+            CreditScreen(
+                rpc = rpc,
+                onBack = ::backFromFeature,
+            )
+        }
+        ManagementRoute.Chat -> {
+            BackHandler { backFromFeature() }
+            ChatScreen(
+                rpc = rpc,
+                onBack = ::backFromFeature,
+            )
+        }
     }
+    // Silence unused when exhaustiveness is via when — keep current for IDE.
+    @Suppress("UNUSED_EXPRESSION")
+    current
 }
 
 @Composable
@@ -287,20 +374,12 @@ private fun ManagementHome(
     showChat: Boolean,
     showCredit: Boolean,
     showFleet: Boolean,
-    onHr: () -> Unit,
-    onDispatch: () -> Unit,
-    onFleet: () -> Unit,
-    onPos: () -> Unit,
-    onWarehouse: () -> Unit,
-    onBins: () -> Unit,
-    onConsignment: () -> Unit,
-    onBlankets: () -> Unit,
-    onCredit: () -> Unit,
-    onChat: () -> Unit,
+    onOpenModule: (HubModule) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -326,50 +405,28 @@ private fun ManagementHome(
         } else if (!liveRpc) {
             Text("Fake mode — auth optional / bypassed", style = MaterialTheme.typography.bodySmall)
         }
-        Button(
-            onClick = onPos,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("POS — Sales till") }
-        Button(
-            onClick = onWarehouse,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Warehouse — Receive / Transfer / Cycle") }
-        Button(
-            onClick = onBins,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Bins — Locations / pick-path / labels") }
-        Button(
-            onClick = onConsignment,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Consignment — Draft / submit") }
-        Button(
-            onClick = onBlankets,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Procurement — Blanket POs") }
+
+        Text(
+            "Select a module",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+
+        HubModuleButton(HubModule.Pos, onOpenModule)
+        HubModuleButton(HubModule.Warehouse, onOpenModule)
+        HubModuleButton(HubModule.Procurement, onOpenModule)
         if (showCredit) {
-            Button(
-                onClick = onCredit,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("CRM — B2B credit") }
+            HubModuleButton(HubModule.Crm, onOpenModule)
         } else if (liveRpc) {
             Text(
-                "Credit hidden — needs staff role admin|sales|finance",
+                "CRM hidden — needs staff role admin|sales|finance",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        Button(
-            onClick = onHr,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("HR — Clock in / out") }
-        Button(
-            onClick = onDispatch,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Logistics — Pick / DN / Dispatch") }
+        HubModuleButton(HubModule.Hr, onOpenModule)
+        HubModuleButton(HubModule.Logistics, onOpenModule)
         if (showFleet) {
-            Button(
-                onClick = onFleet,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Company fleet — Plates / status") }
+            HubModuleButton(HubModule.Fleet, onOpenModule)
         } else if (liveRpc) {
             Text(
                 "Fleet hidden — needs staff role admin|warehouse|dispatcher",
@@ -377,16 +434,14 @@ private fun ManagementHome(
             )
         }
         if (showChat) {
-            Button(
-                onClick = onChat,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Chat — Staff inbox") }
+            HubModuleButton(HubModule.Chat, onOpenModule)
         } else if (liveRpc) {
             Text(
                 "Chat hidden — needs staff role admin|sales|warehouse",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+
         Text(
             "Sales-only users land on POS. Admin/warehouse keep this hub. " +
                 "No ZIMRA / payroll tax. Bridge-First QR/printer. Money: USD|ZIG.",
@@ -394,4 +449,75 @@ private fun ManagementHome(
             modifier = Modifier.padding(top = 8.dp),
         )
     }
+}
+
+@Composable
+private fun HubModuleButton(
+    module: HubModule,
+    onOpenModule: (HubModule) -> Unit,
+) {
+    Button(
+        onClick = { onOpenModule(module) },
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text(module.title) }
+}
+
+@Composable
+private fun ModuleSubMenu(
+    module: HubModule,
+    onBack: () -> Unit,
+    onOpenFeature: (ManagementRoute) -> Unit,
+) {
+    val features = featuresFor(module)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(module.title, style = MaterialTheme.typography.headlineMedium)
+        Text("Sub-features", style = MaterialTheme.typography.bodyMedium)
+        features.forEach { (label, feature) ->
+            Button(
+                onClick = { onOpenFeature(feature) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(label) }
+        }
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+            Text("Back to modules")
+        }
+    }
+}
+
+/** Labels + routes for each hub module (existing screens only). */
+private fun featuresFor(module: HubModule): List<Pair<String, ManagementRoute>> = when (module) {
+    HubModule.Pos -> listOf(
+        "Sales till" to ManagementRoute.Pos,
+    )
+    HubModule.Warehouse -> listOf(
+        "Receive / Transfer / Cycle" to ManagementRoute.Warehouse,
+        "Bins — Locations / pick-path / labels" to ManagementRoute.Bins,
+        "Consignment — Draft / submit" to ManagementRoute.Consignment,
+    )
+    HubModule.Procurement -> listOf(
+        "Blanket POs" to ManagementRoute.Blankets,
+    )
+    HubModule.Crm -> listOf(
+        "B2B credit" to ManagementRoute.Credit,
+    )
+    HubModule.Hr -> listOf(
+        "Clock in / out" to ManagementRoute.HrClock,
+    )
+    HubModule.Logistics -> listOf(
+        // Live track + panic inbox live on this screen (no separate Android routes).
+        "Pick / DN / Dispatch (track & panic)" to ManagementRoute.Dispatch,
+    )
+    HubModule.Fleet -> listOf(
+        "Plates / status" to ManagementRoute.Fleet,
+    )
+    HubModule.Chat -> listOf(
+        "Staff inbox" to ManagementRoute.Chat,
+    )
 }
