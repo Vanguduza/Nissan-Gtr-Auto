@@ -6657,6 +6657,7 @@ export type Database = {
         Args: {
           p_delivery_job_id: string
           p_notes?: string
+          p_otp_code: string
           p_pod_photo_path: string
           p_pod_signature_path: string
         }
