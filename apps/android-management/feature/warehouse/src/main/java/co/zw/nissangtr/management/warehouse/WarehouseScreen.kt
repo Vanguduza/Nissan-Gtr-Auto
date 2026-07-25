@@ -93,11 +93,14 @@ fun WarehouseScreen(
             WarehouseTab.CycleCount -> WarehouseCycleSection(state, viewModel)
         }
 
+        state.lastQrPayload?.let {
+            Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
+        }
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
         }
         state.message?.let {
-            Text(it, color = MaterialTheme.colorScheme.primary)
+            Text(it, style = MaterialTheme.typography.bodyMedium)
         }
 
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
@@ -105,6 +108,14 @@ fun WarehouseScreen(
         }
     }
 }
+
+@Composable
+private fun WarehouseReceiveSection(
+    state: WarehouseUiState,
+    viewModel: WarehouseViewModel,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Receive", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.receiveWarehouseId,
             onValueChange = viewModel::onReceiveWarehouseIdChange,
@@ -184,8 +195,15 @@ fun WarehouseScreen(
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Post receipt") }
+    }
+}
 
-        HorizontalDivider()
+@Composable
+private fun WarehouseTransfersSection(
+    state: WarehouseUiState,
+    viewModel: WarehouseViewModel,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Transfers (dual-auth)", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.fromWarehouseId,
@@ -257,8 +275,15 @@ fun WarehouseScreen(
                 enabled = !state.busy,
             ) { Text("Reject") }
         }
+    }
+}
 
-        HorizontalDivider()
+@Composable
+private fun WarehouseCycleSection(
+    state: WarehouseUiState,
+    viewModel: WarehouseViewModel,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Cycle count", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.reconWarehouseId,
@@ -304,7 +329,7 @@ fun WarehouseScreen(
             label = { Text("Item UUIDs (partial, comma-separated)") },
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy,
-        )
+        }
         OutlinedTextField(
             value = state.reconNotes,
             onValueChange = viewModel::onReconNotesChange,
@@ -374,17 +399,5 @@ fun WarehouseScreen(
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Cancel posted recon") }
-
-        state.lastQrPayload?.let {
-            Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
-        }
-
-        state.message?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium)
-        }
-        state.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
-        }
-        OutlinedButton(onClick = onBack) { Text("Back") }
     }
 }
