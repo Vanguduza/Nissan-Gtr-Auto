@@ -259,10 +259,6 @@ export function StaffWarrantyPanel() {
 
   return (
     <div className={styles.form}>
-      <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-        Typed serial / invoice / OEM only. QR identification: use the management
-        device bridge.
-      </p>
       {message ? (
         <p className={styles.formStatus} role="status">
           {message}

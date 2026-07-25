@@ -98,12 +98,9 @@ export function StaffPanicInboxPanel() {
       },
     });
 
-    channel.subscribe((status) => {
-      setLive(status === "SUBSCRIBED");
-    });
+    channel.subscribe();
 
     return () => {
-      setLive(false);
       void client.removeChannel(channel);
     };
   }, [boot.kind, unackedOnly]);
