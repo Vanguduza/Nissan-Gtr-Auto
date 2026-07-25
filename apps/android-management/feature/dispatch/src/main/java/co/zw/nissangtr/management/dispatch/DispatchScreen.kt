@@ -118,10 +118,6 @@ fun DispatchScreen(
             singleLine = true,
             enabled = !state.busy,
         )
-        Text(
-            "Pickup / dropoff via ${RpcNames.SET_DELIVERY_JOB_GEO} (suggest + ETA).",
-            style = MaterialTheme.typography.bodySmall,
-        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = state.pickupLat,
@@ -174,7 +170,7 @@ fun DispatchScreen(
         }
         state.trackShareToken?.let { token ->
             Text(
-                "Share track token (from dispatch status — single mint):\n$token",
+                "Share track token:\n$token",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
