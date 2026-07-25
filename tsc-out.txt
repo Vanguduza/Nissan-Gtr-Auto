@@ -6,3 +6,4 @@ At line:1 char:1
     + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
+EXIT=0
