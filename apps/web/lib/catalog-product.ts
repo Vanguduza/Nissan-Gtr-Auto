@@ -219,6 +219,8 @@ async function loadFitmentOnlyProduct(
   if (primary.engine_code) specs.push(`Engine ${primary.engine_code}`);
 
   const alts = await loadAlternatives(client, oem, primary.pnc_code);
+  const diagram = await loadOemCatalogDiagram(client, oem);
+  if (!diagram.ok) return { ok: false, error: diagram.error };
 
   return {
     ok: true,
@@ -236,6 +238,7 @@ async function loadFitmentOnlyProduct(
       specs,
       fitments: fitments.data,
       alternatives: alts,
+      diagram: diagram.data,
     },
   };
 }
