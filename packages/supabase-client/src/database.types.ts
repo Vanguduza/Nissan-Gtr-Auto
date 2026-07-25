@@ -3179,6 +3179,8 @@ export type Database = {
       }
       material_requests: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           cancelled_at: string | null
           created_at: string
           created_by: string | null
@@ -3186,12 +3188,17 @@ export type Database = {
           id: string
           needed_by: string | null
           notes: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           status: Database["public"]["Enums"]["procurement_doc_status"]
           submitted_at: string | null
           updated_at: string
           warehouse_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -3199,12 +3206,17 @@ export type Database = {
           id?: string
           needed_by?: string | null
           notes?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["procurement_doc_status"]
           submitted_at?: string | null
           updated_at?: string
           warehouse_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -3212,6 +3224,9 @@ export type Database = {
           id?: string
           needed_by?: string | null
           notes?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["procurement_doc_status"]
           submitted_at?: string | null
           updated_at?: string
@@ -4440,6 +4455,8 @@ export type Database = {
       }
       purchase_orders: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           awarded_quotation_id: string | null
           blanket_max_value: number | null
           blanket_parent_id: string | null
@@ -4456,6 +4473,9 @@ export type Database = {
           material_request_id: string | null
           notes: string | null
           order_date: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           rfq_id: string | null
           status: Database["public"]["Enums"]["procurement_doc_status"]
           submitted_at: string | null
@@ -4464,6 +4484,8 @@ export type Database = {
           warehouse_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           awarded_quotation_id?: string | null
           blanket_max_value?: number | null
           blanket_parent_id?: string | null
@@ -4480,6 +4502,9 @@ export type Database = {
           material_request_id?: string | null
           notes?: string | null
           order_date?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           rfq_id?: string | null
           status?: Database["public"]["Enums"]["procurement_doc_status"]
           submitted_at?: string | null
@@ -4488,6 +4513,8 @@ export type Database = {
           warehouse_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           awarded_quotation_id?: string | null
           blanket_max_value?: number | null
           blanket_parent_id?: string | null
@@ -4504,6 +4531,9 @@ export type Database = {
           material_request_id?: string | null
           notes?: string | null
           order_date?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           rfq_id?: string | null
           status?: Database["public"]["Enums"]["procurement_doc_status"]
           submitted_at?: string | null
