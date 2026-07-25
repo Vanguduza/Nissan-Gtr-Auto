@@ -732,3 +732,46 @@ export async function clearBankMatches(
   }
   return { ok: true, data: n };
 }
+
+export type ZigExchangeRateRow = {
+  id: string;
+  rate_date: string;
+  rate: number;
+  notes: string | null;
+  set_by: string | null;
+  created_at: string;
+};
+
+export async function listZigExchangeRates(
+  client: SupabaseClient,
+  limit = 30,
+): Promise<StorefrontResult<ZigExchangeRateRow[]>> {
+  const { data, error } = await client.rpc("list_zig_exchange_rates", {
+    p_limit: limit,
+  });
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: ((data as ZigExchangeRateRow[]) ?? []).map((r) => ({
+      ...r,
+      rate: Number(r.rate),
+    })),
+  };
+}
+
+export async function setZigExchangeRate(
+  client: SupabaseClient,
+  args: { rate: number; rateDate?: string; notes?: string },
+): Promise<StorefrontResult<string>> {
+  if (!(args.rate > 0)) {
+    return { ok: false, error: "Rate must be > 0 (ZiG per 1 USD)." };
+  }
+  const { data, error } = await client.rpc("set_zig_exchange_rate", {
+    p_rate: args.rate,
+    p_rate_date: args.rateDate ?? null,
+    p_notes: args.notes?.trim() || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "set_zig_exchange_rate returned no id." };
+  return { ok: true, data: data as string };
+}
