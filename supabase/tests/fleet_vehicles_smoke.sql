@@ -127,6 +127,10 @@ BEGIN
   -- -----------------------------------------------------------------------
   -- 3) Direct INSERT denied by mutation guard
   -- -----------------------------------------------------------------------
+  -- upsert sets app.fleet_rpc=1 for the whole transaction; clear before
+  -- exercising the guard (mirrors client sessions without the GUC).
+  PERFORM set_config('app.fleet_rpc', '', true);
+
   BEGIN
     INSERT INTO public.fleet_vehicles (plate, label)
     VALUES ('DIRECT-1', 'nope');
