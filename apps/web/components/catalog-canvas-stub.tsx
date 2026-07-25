@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   loadOemCatalogDiagram,
   loadSampleCatalogDiagram,
@@ -21,7 +21,7 @@ type Props = {
   className?: string;
 };
 
-function hotspotStyle(h: DiagramHotspot): React.CSSProperties | null {
+function hotspotStyle(h: DiagramHotspot): CSSProperties | null {
   if (
     h.x == null ||
     h.y == null ||
