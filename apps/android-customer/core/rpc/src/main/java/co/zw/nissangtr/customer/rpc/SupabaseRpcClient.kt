@@ -364,6 +364,23 @@ class SupabaseRpcClient(
             },
         ).decodeAs<Int>()
 
+    override suspend fun getDeliveryTrackPoint(
+        deliveryJobId: String?,
+        token: String?,
+    ): DeliveryTrackPoint? {
+        val jobId = deliveryJobId?.trim()?.takeIf { it.isNotEmpty() }
+        val tok = token?.trim()?.takeIf { it.isNotEmpty() }
+        require(jobId != null || tok != null) {
+            "delivery_job_id or token required for ${RpcNames.GET_DELIVERY_TRACK_POINT}"
+        }
+        return client.postgrest.rpc(
+            RpcNames.GET_DELIVERY_TRACK_POINT,
+            buildJsonObject {
+                if (jobId == null) put("p_delivery_job_id", JsonNull) else put("p_delivery_job_id", jobId)
+                if (tok == null) put("p_token", JsonNull) else put("p_token", tok)
+            },
+        ).decodeList<TrackPointRow>().firstOrNull()?.toModel()
+    }
 
     companion object {
         private val metadataJson = Json { ignoreUnknownKeys = true }
@@ -512,5 +529,26 @@ private data class CustomerOrderDto(
         postedAt = postedAt,
         pickListStatus = pickListStatus,
         deliveryNoteStatus = deliveryNoteStatus,
+    )
+}
+
+@Serializable
+private data class TrackPointRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String,
+    val lat: Double,
+    val lng: Double,
+    @SerialName("recorded_at") val recordedAt: String,
+    @SerialName("eta_at") val etaAt: String? = null,
+    @SerialName("eta_seconds") val etaSeconds: Int? = null,
+    val status: String,
+) {
+    fun toModel() = DeliveryTrackPoint(
+        deliveryJobId = deliveryJobId,
+        lat = lat,
+        lng = lng,
+        recordedAt = recordedAt,
+        etaAt = etaAt,
+        etaSeconds = etaSeconds,
+        status = status,
     )
 }

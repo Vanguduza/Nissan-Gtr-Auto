@@ -24,6 +24,7 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let postChatMessage = "post_chat_message"
         public static let markChatThreadRead = "mark_chat_thread_read"
         public static let chatUnreadCount = "chat_unread_count"
+        public static let getDeliveryTrackPoint = "get_delivery_track_point"
     }
 
     public enum EdgeName {
