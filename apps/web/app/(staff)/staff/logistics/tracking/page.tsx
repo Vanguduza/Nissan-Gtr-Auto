@@ -11,10 +11,10 @@ export default function StaffLogisticsTrackingPage() {
       <div className={styles.panel}>
         <h1 className={styles.title}>Live delivery map</h1>
         <p className={styles.lede}>
-          Dispatcher view of bridge-ingested GPS via Supabase Realtime (admin /
-          warehouse / dispatcher). Drivers use the Android management app for
-          GPS — this page is subscribe-only (no browser geolocation, no{" "}
-          <code>ingest_delivery_location</code>).
+          Assign drivers, mark dispatched (out-for-delivery SMS via outbox), and
+          watch bridge-ingested GPS via Realtime (admin / warehouse /
+          dispatcher). Drivers use the delivery Android app — this page is
+          subscribe-only (no browser geolocation).
         </p>
         <StaffDeliveryTrackingPanel />
       </div>

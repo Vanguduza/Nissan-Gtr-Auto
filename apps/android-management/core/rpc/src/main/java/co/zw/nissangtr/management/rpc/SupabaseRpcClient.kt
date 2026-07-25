@@ -473,6 +473,24 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun setDeliveryJobCoords(
+        deliveryJobId: String,
+        pickupLat: Double?,
+        pickupLng: Double?,
+        dropoffLat: Double?,
+        dropoffLng: Double?,
+    ) {
+        require(deliveryJobId.isNotBlank())
+        // Mutation guards block PostgREST UPDATE on delivery_jobs. Until
+        // @backend_agent ships set_delivery_job_geo (or create_delivery_job
+        // accepts p_pickup_*/p_dropoff_*), Live cannot set coords from clients.
+        error(
+            "Live setDeliveryJobCoords blocked: no set_delivery_job_geo RPC yet. " +
+                "Seed pickup/dropoff via SQL (see dedicated_delivery_app_smoke) or " +
+                "extend create_delivery_job. Fake mode stores coords for demos.",
+        )
+    }
+
     override suspend fun updateDeliveryJobStatus(
         deliveryJobId: String,
         status: DeliveryJobStatus,
@@ -557,6 +575,34 @@ class SupabaseRpcClient(
                 put("p_token", JsonNull)
             },
         ).decodeList<TrackPointRow>().firstOrNull()?.toSummary()
+    }
+
+    override suspend fun mintDeliveryTrackToken(
+        deliveryJobId: String,
+        ttl: String?,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.MINT_DELIVERY_TRACK_TOKEN,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                if (ttl.isNullOrBlank()) put("p_ttl", JsonNull) else put("p_ttl", ttl)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun generateDeliveryPodOtp(
+        deliveryJobId: String,
+        ttl: String?,
+    ): String {
+        require(deliveryJobId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.GENERATE_DELIVERY_POD_OTP,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                if (ttl.isNullOrBlank()) put("p_ttl", JsonNull) else put("p_ttl", ttl)
+            },
+        ).decodeAs<String>()
     }
 
     override suspend fun listOpenPanicEvents(): List<PanicEventSummary> {
