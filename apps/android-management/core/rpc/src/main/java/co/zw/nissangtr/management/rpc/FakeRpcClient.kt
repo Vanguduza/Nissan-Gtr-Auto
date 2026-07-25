@@ -887,7 +887,333 @@ class FakeRpcClient : RpcClient {
     override fun currentUserId(): String? = fakeStaffUserId
 
     override suspend fun listMyStaffRoles(): List<String> =
-        listOf("sales")
+        listOf("admin", "sales", "warehouse", "finance")
+
+    override suspend fun searchCustomers(query: String): List<CustomerOption> {
+        val q = query.trim()
+        if (q.length < 2) return emptyList()
+        val uuidLike = UUID_REGEX.matches(q)
+        return if (uuidLike) {
+            customers.filter { it.id.equals(q, ignoreCase = true) }
+        } else {
+            customers.filter { it.displayName.contains(q, ignoreCase = true) }
+        }
+    }
+
+    override suspend fun listSuppliers(): List<SupplierRef> = suppliers.toList()
+
+    override suspend fun listBlanketPurchaseOrders(): List<BlanketSummary> =
+        blankets.sortedByDescending { it.documentNumber }
+
+    override suspend fun createBlanketPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        blanketMaxValue: Double,
+        lines: List<BlanketLineInput>,
+        notes: String?,
+        expectedDate: String?,
+    ): String {
+        require(supplierId.isNotBlank())
+        require(warehouseId.isNotBlank())
+        require(blanketMaxValue >= 0)
+        require(lines.isNotEmpty()) { "blanket lines required" }
+        val id = UUID.randomUUID().toString()
+        val supplierName = suppliers.find { it.id == supplierId }?.name
+        blankets.add(
+            0,
+            BlanketSummary(
+                id = id,
+                documentNumber = "BPO-FAKE-${blankets.size + 1}",
+                status = "draft",
+                supplierId = supplierId,
+                supplierName = supplierName,
+                warehouseId = warehouseId,
+                warehouseCode = "MAIN",
+                currency = currency,
+                blanketMaxValue = blanketMaxValue,
+                blanketValueReleased = 0.0,
+                expectedDate = expectedDate,
+                lines = lines.mapIndexed { idx, line ->
+                    BlanketLineSummary(
+                        id = UUID.randomUUID().toString(),
+                        lineNo = idx + 1,
+                        stockItemId = line.stockItemId,
+                        oemPartNumber = null,
+                        qtyOrdered = line.qty,
+                        qtyReleased = 0.0,
+                        unitPrice = line.unitPrice,
+                        currency = line.currency ?: currency,
+                    )
+                },
+            ),
+        )
+        return id
+    }
+
+    override suspend fun submitPurchaseOrder(purchaseOrderId: String): String {
+        require(purchaseOrderId.isNotBlank())
+        val idx = blankets.indexOfFirst { it.id == purchaseOrderId }
+        require(idx >= 0) { "blanket PO not found" }
+        blankets[idx] = blankets[idx].copy(status = "submitted")
+        return purchaseOrderId
+    }
+
+    override suspend fun createBlanketRelease(
+        blanketPurchaseOrderId: String,
+        lines: List<BlanketReleaseLineInput>,
+        notes: String?,
+    ): String {
+        require(blanketPurchaseOrderId.isNotBlank())
+        require(lines.isNotEmpty())
+        val idx = blankets.indexOfFirst { it.id == blanketPurchaseOrderId }
+        require(idx >= 0) { "blanket PO not found" }
+        val blanket = blankets[idx]
+        require(blanket.status == "submitted") { "blanket PO must be submitted before release" }
+        var releaseValue = 0.0
+        val updatedLines = blanket.lines.map { line ->
+            val release = lines.find { it.blanketLineId == line.id } ?: return@map line
+            require(release.qty > 0)
+            require(line.qtyReleased + release.qty <= line.qtyOrdered) {
+                "release exceeds remaining qty"
+            }
+            releaseValue += release.qty * line.unitPrice
+            line.copy(qtyReleased = line.qtyReleased + release.qty)
+        }
+        require(blanket.blanketValueReleased + releaseValue <= blanket.blanketMaxValue) {
+            "release exceeds remaining blanket value"
+        }
+        blankets[idx] = blanket.copy(
+            lines = updatedLines,
+            blanketValueReleased = blanket.blanketValueReleased + releaseValue,
+        )
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun listWarehouseBins(warehouseId: String): List<WarehouseBinSummary> {
+        require(warehouseId.isNotBlank())
+        return warehouseBins
+            .filter { it.warehouseId == warehouseId }
+            .sortedWith(compareBy({ it.pickPathSeq }, { it.code }))
+    }
+
+    override suspend fun createWarehouseBin(
+        warehouseId: String,
+        code: String,
+        name: String,
+        pickPathSeq: Int,
+        aisle: String?,
+        rack: String?,
+        shelf: String?,
+    ): String {
+        require(warehouseId.isNotBlank())
+        require(code.isNotBlank())
+        require(name.isNotBlank())
+        val id = UUID.randomUUID().toString()
+        warehouseBins.add(
+            WarehouseBinSummary(
+                id = id,
+                warehouseId = warehouseId,
+                code = code.trim().uppercase(),
+                name = name.trim(),
+                pickPathSeq = pickPathSeq,
+                aisle = aisle?.trim()?.ifBlank { null },
+                rack = rack?.trim()?.ifBlank { null },
+                shelf = shelf?.trim()?.ifBlank { null },
+                isActive = true,
+            ),
+        )
+        return id
+    }
+
+    override suspend fun updateWarehouseBin(
+        binId: String,
+        name: String?,
+        pickPathSeq: Int?,
+        aisle: String?,
+        rack: String?,
+        shelf: String?,
+        isActive: Boolean?,
+    ): String {
+        val idx = warehouseBins.indexOfFirst { it.id == binId }
+        require(idx >= 0) { "bin not found" }
+        val cur = warehouseBins[idx]
+        warehouseBins[idx] = cur.copy(
+            name = name?.trim()?.ifBlank { null } ?: cur.name,
+            pickPathSeq = pickPathSeq ?: cur.pickPathSeq,
+            aisle = if (aisle == null) cur.aisle else aisle.trim().ifBlank { null },
+            rack = if (rack == null) cur.rack else rack.trim().ifBlank { null },
+            shelf = if (shelf == null) cur.shelf else shelf.trim().ifBlank { null },
+            isActive = isActive ?: cur.isActive,
+        )
+        return binId
+    }
+
+    override suspend fun deactivateWarehouseBin(binId: String): String =
+        updateWarehouseBin(binId, isActive = false)
+
+    override suspend fun setStockLevelBin(
+        stockItemId: String,
+        warehouseId: String,
+        binId: String?,
+    ): String {
+        require(stockItemId.isNotBlank())
+        require(warehouseId.isNotBlank())
+        if (binId != null) {
+            require(warehouseBins.any { it.id == binId && it.warehouseId == warehouseId }) {
+                "bin not in warehouse"
+            }
+            stockLevelBins[stockItemId] = binId
+        } else {
+            stockLevelBins.remove(stockItemId)
+        }
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun getPickPathHints(
+        warehouseId: String,
+        stockItemIds: List<String>?,
+    ): List<PickPathHint> {
+        require(warehouseId.isNotBlank())
+        val filter = stockItemIds?.filter { it.isNotBlank() }.orEmpty()
+        val items = if (filter.isEmpty()) {
+            listOf(FAKE_STOCK_ITEM_ID to "21410-JF00A")
+        } else {
+            filter.map { it to if (it == FAKE_STOCK_ITEM_ID) "21410-JF00A" else null }
+        }
+        return items.mapNotNull { (itemId, oem) ->
+            val binId = stockLevelBins[itemId]
+            val bin = warehouseBins.find { it.id == binId && it.isActive }
+            PickPathHint(
+                stockItemId = itemId,
+                oemPartNumber = oem,
+                quantity = 12.0,
+                binId = bin?.id,
+                binCode = bin?.code,
+                binName = bin?.name,
+                pickPathSeq = bin?.pickPathSeq,
+                aisle = bin?.aisle,
+                rack = bin?.rack,
+                shelf = bin?.shelf,
+            )
+        }.sortedWith(
+            compareBy(nullsLast()) { it.pickPathSeq },
+        )
+    }
+
+    override suspend fun listConsignmentEntries(): List<ConsignmentEntrySummary> =
+        consignmentEntries.sortedByDescending { it.documentNumber }
+
+    override suspend fun createConsignmentEntryDraft(
+        kind: ConsignmentKind,
+        purpose: ConsignmentPurpose,
+        warehouseId: String,
+        supplierId: String?,
+        customerId: String?,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        notes: String?,
+    ): String {
+        require(warehouseId.isNotBlank())
+        when (kind) {
+            ConsignmentKind.SUPPLIER_OWNED -> {
+                require(!supplierId.isNullOrBlank()) { "supplier_owned requires supplier_id" }
+                require(customerId.isNullOrBlank())
+            }
+            ConsignmentKind.CUSTOMER_HELD -> {
+                require(!customerId.isNullOrBlank()) { "customer_held requires customer_id" }
+                require(supplierId.isNullOrBlank())
+            }
+        }
+        val id = UUID.randomUUID().toString()
+        consignmentEntries.add(
+            0,
+            ConsignmentEntrySummary(
+                id = id,
+                documentNumber = "CNS-FAKE-${consignmentEntries.size + 1}",
+                status = "draft",
+                kind = kind.rpcValue,
+                purpose = purpose.rpcValue,
+                warehouseId = warehouseId,
+                supplierId = supplierId,
+                customerId = customerId,
+                currency = currency,
+            ),
+        )
+        consignmentLineCounts[id] = 0
+        return id
+    }
+
+    override suspend fun addConsignmentEntryLine(
+        entryId: String,
+        stockItemId: String,
+        uomId: String,
+        qty: Double,
+        unitCost: Double,
+        unitPrice: Double,
+        currency: CurrencyCode?,
+    ): String {
+        require(entryId.isNotBlank())
+        require(stockItemId.isNotBlank() && uomId.isNotBlank())
+        require(qty > 0)
+        val entry = consignmentEntries.find { it.id == entryId }
+            ?: error("consignment entry not found")
+        require(entry.status == "draft") { "lines editable only while draft" }
+        consignmentLineCounts[entryId] = (consignmentLineCounts[entryId] ?: 0) + 1
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun submitConsignmentEntry(entryId: String): String {
+        val idx = consignmentEntries.indexOfFirst { it.id == entryId }
+        require(idx >= 0) { "consignment entry not found" }
+        require(consignmentEntries[idx].status == "draft")
+        require((consignmentLineCounts[entryId] ?: 0) > 0) { "consignment entry has no lines" }
+        consignmentEntries[idx] = consignmentEntries[idx].copy(status = "submitted")
+        return entryId
+    }
+
+    override suspend fun cancelConsignmentEntry(entryId: String): String {
+        val idx = consignmentEntries.indexOfFirst { it.id == entryId }
+        require(idx >= 0) { "consignment entry not found" }
+        require(consignmentEntries[idx].status == "draft")
+        consignmentEntries[idx] = consignmentEntries[idx].copy(status = "cancelled")
+        return entryId
+    }
+
+    override suspend fun loadCustomerCredit(customerId: String): CustomerCreditSnapshot? {
+        require(customerId.isNotBlank())
+        return customerCredit[customerId]
+            ?: customers.find { it.id == customerId }?.let {
+                CustomerCreditSnapshot(
+                    customerId = it.id,
+                    creditLimit = 0.0,
+                    creditHold = false,
+                    openBalance = 0.0,
+                    currency = CurrencyCode.USD,
+                )
+            }
+    }
+
+    override suspend fun setCustomerCredit(
+        customerId: String,
+        creditLimit: Double?,
+        creditHold: Boolean?,
+    ): CustomerCreditSnapshot {
+        require(customerId.isNotBlank())
+        require(creditLimit != null || creditHold != null) {
+            "provide credit_limit and/or credit_hold"
+        }
+        if (creditLimit != null) require(creditLimit >= 0)
+        val cur = loadCustomerCredit(customerId)
+            ?: error("customer not found")
+        val updated = cur.copy(
+            creditLimit = creditLimit ?: cur.creditLimit,
+            creditHold = creditHold ?: cur.creditHold,
+        )
+        customerCredit[customerId] = updated
+        return updated
+    }
 
     override suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary> {
         val uid = fakeStaffUserId
