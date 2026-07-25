@@ -748,6 +748,40 @@ export function StaffFinancePanel() {
         ) : (
           <p className={styles.muted}>No draft journals loaded.</p>
         )}
+
+        <p className={styles.muted} style={{ marginTop: "1rem" }}>
+          Reverse posted journals via <code>reverse_journal</code> (ledger
+          immutability — contra entry, not edit).
+        </p>
+        <label className={styles.field} style={{ marginBottom: "0.5rem" }}>
+          Reversal reason (optional)
+          <input
+            value={reverseReason}
+            onChange={(e) => setReverseReason(e.target.value)}
+            disabled={busy}
+            placeholder="Reason / description"
+          />
+        </label>
+        {posted.length ? (
+          <ul className={styles.navList}>
+            {posted.map((j) => (
+              <li key={j.id} className={styles.muted}>
+                {j.document_number ?? j.id.slice(0, 8)} · {j.currency} ·{" "}
+                {j.entry_date} · {j.description ?? "—"}{" "}
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  disabled={busy}
+                  onClick={() => void onReverseJournal(j.id)}
+                >
+                  Reverse
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.muted}>No posted journals to reverse.</p>
+        )}
       </fieldset>
 
       <fieldset className={styles.fieldset}>
@@ -1008,6 +1042,343 @@ export function StaffFinancePanel() {
         ) : (
           <p className={styles.muted}>No draft payments.</p>
         )}
+      </fieldset>
+
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>4 · Accounting periods</legend>
+        {/* No unlock_accounting_period RPC — locked periods stay locked. */}
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Create open periods via <code>accounting_periods</code>; lock with{" "}
+          <code>lock_accounting_period</code>.
+        </p>
+        <form onSubmit={(e) => void onCreatePeriod(e)}>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Start
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              End
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+              Label
+              <input
+                value={periodLabel}
+                onChange={(e) => setPeriodLabel(e.target.value)}
+                disabled={busy}
+                placeholder="FY2026-Q1"
+              />
+            </label>
+          </div>
+          <div className={styles.formActions}>
+            <button type="submit" className={styles.btnGhost} disabled={busy}>
+              Create period
+            </button>
+          </div>
+        </form>
+        {boot.periods.length ? (
+          <ul className={styles.navList} style={{ marginTop: "1rem" }}>
+            {boot.periods.map((p) => (
+              <li key={p.id} className={styles.muted}>
+                {p.label} · {p.period_start} → {p.period_end} ·{" "}
+                {p.locked_at ? `locked ${p.locked_at.slice(0, 10)}` : "open"}{" "}
+                {!p.locked_at ? (
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy}
+                    onClick={() => void onLockPeriod(p.id)}
+                  >
+                    Lock
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.muted}>No accounting periods.</p>
+        )}
+      </fieldset>
+
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>5 · Bank reconciliation</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Tables <code>bank_statements</code> / <code>bank_statement_lines</code>{" "}
+          / <code>bank_recon_matches</code>; clear via{" "}
+          <code>clear_bank_matches</code>. Currency explicit USD | ZIG.
+        </p>
+        <form onSubmit={(e) => void onImportStatement(e)}>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Bank account
+              <select
+                value={stmtAccount}
+                onChange={(e) => setStmtAccount(e.target.value)}
+                disabled={busy}
+              >
+                {boot.accounts.map((a) => (
+                  <option key={`ba-${a.code}`} value={a.code}>
+                    {a.code} — {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              Currency
+              <select
+                value={stmtCurrency}
+                onChange={(e) =>
+                  setStmtCurrency(e.target.value as CurrencyCode)
+                }
+                disabled={busy}
+              >
+                <option value="USD">USD</option>
+                <option value="ZIG">ZIG</option>
+              </select>
+            </label>
+            <label className={styles.field}>
+              Statement date
+              <input
+                type="date"
+                value={stmtDate}
+                onChange={(e) => setStmtDate(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              Document #
+              <input
+                value={stmtDoc}
+                onChange={(e) => setStmtDoc(e.target.value)}
+                disabled={busy}
+                placeholder="optional"
+              />
+            </label>
+            <label className={styles.field}>
+              Opening ({stmtCurrency})
+              <input
+                value={stmtOpen}
+                onChange={(e) => setStmtOpen(e.target.value)}
+                disabled={busy}
+                inputMode="decimal"
+              />
+            </label>
+            <label className={styles.field}>
+              Closing ({stmtCurrency})
+              <input
+                value={stmtClose}
+                onChange={(e) => setStmtClose(e.target.value)}
+                disabled={busy}
+                inputMode="decimal"
+              />
+            </label>
+            <label className={styles.field}>
+              First line date
+              <input
+                type="date"
+                value={stmtLineDate}
+                onChange={(e) => setStmtLineDate(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              First line amount ({stmtCurrency})
+              <input
+                value={stmtLineAmount}
+                onChange={(e) => setStmtLineAmount(e.target.value)}
+                disabled={busy}
+                inputMode="decimal"
+                placeholder="optional"
+              />
+            </label>
+            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+              First line description
+              <input
+                value={stmtLineDesc}
+                onChange={(e) => setStmtLineDesc(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+          </div>
+          <div className={styles.formActions}>
+            <button type="submit" className={styles.btnGhost} disabled={busy}>
+              Import statement
+            </button>
+          </div>
+        </form>
+
+        <label className={styles.field} style={{ marginTop: "0.85rem" }}>
+          Active statement
+          <select
+            value={selectedStmtId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedStmtId(id);
+              const s = boot.statements.find((x) => x.id === id);
+              void loadStatementDetail(id, s?.account_code);
+            }}
+            disabled={busy}
+          >
+            {boot.statements.length === 0 ? (
+              <option value="">No statements</option>
+            ) : (
+              boot.statements.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.document_number ?? s.id.slice(0, 8)} · {s.statement_date} ·{" "}
+                  {s.currency} · {s.account_code}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
+
+        {selectedStmtId ? (
+          <>
+            <form
+              onSubmit={(e) => void onAddStmtLine(e)}
+              style={{ marginTop: "0.75rem" }}
+            >
+              <div className={styles.formGrid}>
+                <label className={styles.field}>
+                  Line date
+                  <input
+                    type="date"
+                    value={addLineDate}
+                    onChange={(e) => setAddLineDate(e.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                <label className={styles.field}>
+                  Amount ({selectedStmt?.currency ?? stmtCurrency})
+                  <input
+                    value={addLineAmount}
+                    onChange={(e) => setAddLineAmount(e.target.value)}
+                    disabled={busy}
+                    inputMode="decimal"
+                  />
+                </label>
+                <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+                  Description
+                  <input
+                    value={addLineDesc}
+                    onChange={(e) => setAddLineDesc(e.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+              </div>
+              <div className={styles.formActions}>
+                <button type="submit" className={styles.btnGhost} disabled={busy}>
+                  Add line
+                </button>
+              </div>
+            </form>
+
+            {stmtLines.length ? (
+              <ul className={styles.navList} style={{ marginTop: "0.75rem" }}>
+                {stmtLines.map((l) => (
+                  <li key={l.id} className={styles.muted}>
+                    {l.line_date} · {Number(l.amount).toFixed(2)} ·{" "}
+                    {l.description ?? "—"} · {l.status}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.muted}>No lines on this statement.</p>
+            )}
+
+            <form
+              onSubmit={(e) => void onMatchLine(e)}
+              style={{ marginTop: "0.75rem" }}
+            >
+              <div className={styles.formGrid}>
+                <label className={styles.field}>
+                  Open statement line
+                  <select
+                    value={matchLineId}
+                    onChange={(e) => setMatchLineId(e.target.value)}
+                    disabled={busy}
+                  >
+                    {stmtLines
+                      .filter((l) => l.status === "open")
+                      .map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.line_date} · {Number(l.amount).toFixed(2)} ·{" "}
+                          {l.description ?? l.id.slice(0, 8)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Journal entry line
+                  <select
+                    value={matchJeLineId}
+                    onChange={(e) => setMatchJeLineId(e.target.value)}
+                    disabled={busy}
+                  >
+                    {jeLines.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.account_code} · Dr {Number(l.debit).toFixed(2)} / Cr{" "}
+                        {Number(l.credit).toFixed(2)} {l.currency} ·{" "}
+                        {l.id.slice(0, 8)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className={styles.formActions}>
+                <button type="submit" className={styles.btnGhost} disabled={busy}>
+                  Match
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  disabled={busy || !selectedStmt}
+                  onClick={() =>
+                    void loadStatementDetail(
+                      selectedStmtId,
+                      selectedStmt?.account_code,
+                    )
+                  }
+                >
+                  Refresh lines
+                </button>
+              </div>
+            </form>
+
+            {stmtMatches.length ? (
+              <ul className={styles.navList} style={{ marginTop: "0.75rem" }}>
+                {stmtMatches.map((m) => (
+                  <li key={m.id} className={styles.muted}>
+                    Match {m.id.slice(0, 8)} · line{" "}
+                    {m.statement_line_id.slice(0, 8)} ↔ JE line{" "}
+                    {m.journal_entry_line_id.slice(0, 8)}{" "}
+                    <button
+                      type="button"
+                      className={styles.btnGhost}
+                      disabled={busy}
+                      onClick={() => void onClearMatch(m.id)}
+                    >
+                      Clear
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.muted}>No matches for this statement.</p>
+            )}
+          </>
+        ) : null}
       </fieldset>
     </div>
   );
