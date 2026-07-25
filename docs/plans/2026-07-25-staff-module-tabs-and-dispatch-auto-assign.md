@@ -1,6 +1,6 @@
 # Staff module tabs + dispatch auto-assign / sales prep notify
 
-- Status: draft
+- Status: in progress
 - Lane(s): `@backend_agent` → `@web_agent` → `@management_app_agent` (light)
 - Skills: `/accounting-ledger` (CoA seeds only); no `/ui-ux-pro-max` unless asked
 - Related: phase3-finance-core, phase5-sales-pos, phase10-logistics, dedicated-delivery-app, web-management-parity-rbac, shop-floor-pos-companion-otp
