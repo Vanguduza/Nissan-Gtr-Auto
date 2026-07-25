@@ -5,9 +5,21 @@ import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailOrPhone } from "@/lib/auth-otp";
+import {
+  COUNTRY_DIAL_CODES,
+  DEFAULT_COUNTRY_DIAL,
+  countryDialOptionValue,
+  nationalDigitsOnly,
+  parseCountryDialOption,
+  toE164,
+} from "@/lib/country-dial-codes";
 import { createWebClient } from "@/lib/supabase";
 import { loadStaffContext, postLoginPath } from "@/lib/staff-auth";
 import styles from "./auth.module.css";
+
+const DEFAULT_COUNTRY_OPTION =
+  COUNTRY_DIAL_CODES.find((c) => c.dial === DEFAULT_COUNTRY_DIAL && c.iso === "ZW") ??
+  COUNTRY_DIAL_CODES.find((c) => c.dial === DEFAULT_COUNTRY_DIAL)!;
 
 function safeNext(raw: string | null): string | null {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
