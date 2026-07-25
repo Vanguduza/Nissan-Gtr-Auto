@@ -31,17 +31,24 @@ import co.zw.nissangtr.management.auth.AuthGate
 import co.zw.nissangtr.management.auth.AuthModule
 import co.zw.nissangtr.management.chat.ChatModule
 import co.zw.nissangtr.management.chat.ChatScreen
+import co.zw.nissangtr.management.credit.CreditModule
+import co.zw.nissangtr.management.credit.CreditScreen
 import co.zw.nissangtr.management.dispatch.DispatchModule
 import co.zw.nissangtr.management.dispatch.DispatchScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.pos.PosModule
 import co.zw.nissangtr.management.pos.PosScreen
+import co.zw.nissangtr.management.procurement.BlanketsScreen
+import co.zw.nissangtr.management.procurement.ProcurementModule
 import co.zw.nissangtr.management.rpc.ChatStaffRoles
+import co.zw.nissangtr.management.rpc.CreditStaffRoles
 import co.zw.nissangtr.management.rpc.ManagementHomeRoles
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
+import co.zw.nissangtr.management.warehouse.BinsScreen
+import co.zw.nissangtr.management.warehouse.ConsignmentScreen
 import co.zw.nissangtr.management.warehouse.WarehouseModule
 import co.zw.nissangtr.management.warehouse.WarehouseScreen
 
@@ -51,6 +58,10 @@ private enum class ManagementRoute {
     Dispatch,
     Pos,
     Warehouse,
+    Bins,
+    Consignment,
+    Blankets,
+    Credit,
     Chat,
 }
 
@@ -81,6 +92,8 @@ class MainActivity : ComponentActivity() {
             DispatchModule.id,
             HrModule.id,
             ChatModule.id,
+            ProcurementModule.id,
+            CreditModule.id,
         )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
@@ -162,15 +175,18 @@ private fun ManagementApp(
 ) {
     var route by remember { mutableStateOf<ManagementRoute?>(null) }
     var showChat by remember { mutableStateOf(!liveRpc) }
+    var showCredit by remember { mutableStateOf(!liveRpc) }
     var salesHome by remember { mutableStateOf(false) }
 
     LaunchedEffect(liveRpc, signedInEmail) {
         val roles = if (!liveRpc) {
             showChat = true
+            showCredit = true
             rpc.listMyStaffRoles()
         } else {
             val r = runCatching { rpc.listMyStaffRoles() }.getOrDefault(emptyList())
             showChat = ChatStaffRoles.allows(r)
+            showCredit = CreditStaffRoles.allows(r)
             r
         }
         salesHome = ManagementHomeRoles.prefersPosHome(roles)
@@ -192,10 +208,15 @@ private fun ManagementApp(
             signedInEmail = signedInEmail,
             onSignOut = onSignOut,
             showChat = showChat,
+            showCredit = showCredit,
             onHr = { route = ManagementRoute.HrClock },
             onDispatch = { route = ManagementRoute.Dispatch },
             onPos = { route = ManagementRoute.Pos },
             onWarehouse = { route = ManagementRoute.Warehouse },
+            onBins = { route = ManagementRoute.Bins },
+            onConsignment = { route = ManagementRoute.Consignment },
+            onBlankets = { route = ManagementRoute.Blankets },
+            onCredit = { route = ManagementRoute.Credit },
             onChat = { route = ManagementRoute.Chat },
         )
         ManagementRoute.HrClock -> ClockAttendanceScreen(
@@ -220,6 +241,23 @@ private fun ManagementApp(
             qr = qr,
             onBack = { route = ManagementRoute.Home },
         )
+        ManagementRoute.Bins -> BinsScreen(
+            rpc = rpc,
+            printer = printer,
+            onBack = { route = ManagementRoute.Home },
+        )
+        ManagementRoute.Consignment -> ConsignmentScreen(
+            rpc = rpc,
+            onBack = { route = ManagementRoute.Home },
+        )
+        ManagementRoute.Blankets -> BlanketsScreen(
+            rpc = rpc,
+            onBack = { route = ManagementRoute.Home },
+        )
+        ManagementRoute.Credit -> CreditScreen(
+            rpc = rpc,
+            onBack = { route = ManagementRoute.Home },
+        )
         ManagementRoute.Chat -> ChatScreen(
             rpc = rpc,
             onBack = { route = ManagementRoute.Home },
@@ -233,10 +271,15 @@ private fun ManagementHome(
     signedInEmail: String?,
     onSignOut: () -> Unit,
     showChat: Boolean,
+    showCredit: Boolean,
     onHr: () -> Unit,
     onDispatch: () -> Unit,
     onPos: () -> Unit,
     onWarehouse: () -> Unit,
+    onBins: () -> Unit,
+    onConsignment: () -> Unit,
+    onBlankets: () -> Unit,
+    onCredit: () -> Unit,
     onChat: () -> Unit,
 ) {
     Column(
@@ -250,7 +293,8 @@ private fun ManagementHome(
         Text("Management hub", style = MaterialTheme.typography.bodyMedium)
         Text(
             "Modules: ${AuthModule.id}, ${PosModule.id}, ${WarehouseModule.id}, " +
-                "${DispatchModule.id}, ${HrModule.id}, ${ChatModule.id}",
+                "${ProcurementModule.id}, ${CreditModule.id}, ${DispatchModule.id}, " +
+                "${HrModule.id}, ${ChatModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
@@ -274,6 +318,29 @@ private fun ManagementHome(
             onClick = onWarehouse,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Warehouse — Receive / Transfer / Cycle") }
+        Button(
+            onClick = onBins,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Bins — Locations / pick-path / labels") }
+        Button(
+            onClick = onConsignment,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Consignment — Draft / submit") }
+        Button(
+            onClick = onBlankets,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Procurement — Blanket POs") }
+        if (showCredit) {
+            Button(
+                onClick = onCredit,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("CRM — B2B credit") }
+        } else if (liveRpc) {
+            Text(
+                "Credit hidden — needs staff role admin|sales|finance",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         Button(
             onClick = onHr,
             modifier = Modifier.fillMaxWidth(),
