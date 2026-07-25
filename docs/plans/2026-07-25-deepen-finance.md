@@ -1,6 +1,6 @@
 # Deepen finance (staff UX + Phase 13 payment gaps)
 
-- Status: **in progress** (web coding)
+- Status: **done** (web staff UX slice; Phase E gates `/security-reviewer` → `/verifier` still pending)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) (Phase 3 Done; Phase 13 payment ACs still open)
 - Prior: [`2026-07-23-phase3-finance-core.md`](./2026-07-23-phase3-finance-core.md)
 - Lane(s): `@backend_agent` (RPCs **only if needed**) → `@web_agent` (primary) → `@finance_agent` (shared shapes if touched) → `@management_app_agent` **deferred** → `/security-reviewer` → `/verifier`
