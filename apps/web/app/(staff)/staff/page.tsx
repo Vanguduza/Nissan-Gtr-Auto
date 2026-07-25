@@ -11,18 +11,28 @@ const HUB_CARDS: {
   label: string;
   blurb: string;
 }[] = [
-  { href: "/staff/pos", label: "POS", blurb: "Cart · lines · checkout" },
+  { href: "/staff/pos", label: "POS counter", blurb: "Cart · named customer · checkout" },
   {
     href: "/staff/warehouse",
-    label: "Warehouse",
-    blurb: "Receive · transfer · count",
+    label: "Warehouse ops",
+    blurb: "Receive · transfer · bins · pick path",
   },
   {
     href: "/staff/finance",
-    label: "Finance",
+    label: "Finance ledger",
     blurb: "Journals · reports · payments",
   },
-  { href: "/staff/hr", label: "HR", blurb: "Clock + hours" },
+  {
+    href: "/staff/crm/credit",
+    label: "Customer credit",
+    blurb: "Limit · hold · open balance",
+  },
+  {
+    href: "/staff/crm/reviews",
+    label: "Review moderation",
+    blurb: "Approve · reject product reviews",
+  },
+  { href: "/staff/hr", label: "HR desk", blurb: "Clock + hours" },
   { href: "/staff/logistics", label: "Logistics", blurb: "Pick · DN · job" },
   {
     href: "/staff/logistics/tracking",
@@ -36,12 +46,12 @@ const HUB_CARDS: {
   },
   {
     href: "/staff/warranty",
-    label: "Warranty",
+    label: "Warranty claims",
     blurb: "Claims · quarantine return",
   },
   {
     href: "/staff/chat",
-    label: "Chat",
+    label: "Customer chat",
     blurb: "Inbox · claim · reply",
   },
   {
@@ -49,7 +59,7 @@ const HUB_CARDS: {
     label: "Analytics",
     blurb: "KPIs · AI narrative · reports",
   },
-  { href: "/procurement", label: "Procurement", blurb: "RFQs" },
+  { href: "/procurement", label: "Procurement", blurb: "RFQs · blankets" },
 ];
 
 export default function StaffHubPage() {
