@@ -29,6 +29,8 @@ export type CustomerOrder = {
   posted_at: string | null;
   pick_list_status: string | null;
   delivery_note_status: string | null;
+  /** Non-terminal job id for live track via get_delivery_track_point. */
+  active_delivery_job_id: string | null;
 };
 
 export type StorefrontResult<T> =

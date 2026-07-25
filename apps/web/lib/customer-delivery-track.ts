@@ -29,26 +29,49 @@ function isTrackPoint(value: unknown): value is CustomerTrackPoint {
     typeof row.lat === "number" &&
     typeof row.lng === "number" &&
     typeof row.recorded_at === "string" &&
-    typeof row.status === "string"
+    typeof row.status === "string" &&
+    (row.eta_at == null || typeof row.eta_at === "string") &&
+    (row.eta_seconds == null || typeof row.eta_seconds === "number")
   );
 }
 
+function normalizeTrackPoint(row: CustomerTrackPoint): CustomerTrackPoint {
+  return {
+    delivery_job_id: row.delivery_job_id,
+    lat: row.lat,
+    lng: row.lng,
+    recorded_at: row.recorded_at,
+    eta_at: row.eta_at ?? null,
+    eta_seconds: row.eta_seconds ?? null,
+    status: row.status,
+  };
+}
+
 /**
- * Public token track via SECURITY DEFINER RPC (anon allowed).
- * Returns at most one last point for an active dispatched job.
+ * Last point + ETA via SECURITY DEFINER RPC.
+ * - Share token: anon/authenticated (deep link `/track/[token]`)
+ * - Job id: authenticated owner, assignee, or staff
+ * Never returns a historical trail.
  */
 export async function fetchCustomerTrackPoint(
   client: SupabaseClient,
-  token: string,
+  opts: { token?: string; jobId?: string },
 ): Promise<StorefrontResult<CustomerTrackPoint | null>> {
-  const trimmed = token.trim();
-  if (!trimmed || trimmed.length < 8) {
+  const token = opts.token?.trim();
+  const jobId = opts.jobId?.trim();
+
+  if (!token && !jobId) {
+    return { ok: false, error: "Track token or delivery job id required." };
+  }
+  if (token && token.length < 8) {
     return { ok: false, error: "Invalid track token." };
   }
 
   const { data, error } = await client.rpc(
     DELIVERY_RPC.getTrackPoint,
-    getDeliveryTrackPointArgs({ token: trimmed }),
+    getDeliveryTrackPointArgs(
+      token ? { token } : { jobId: jobId as string },
+    ),
   );
   if (error) return { ok: false, error: error.message };
 
@@ -58,7 +81,7 @@ export async function fetchCustomerTrackPoint(
   if (!isTrackPoint(first)) {
     return { ok: false, error: "Unexpected track point shape." };
   }
-  return { ok: true, data: first };
+  return { ok: true, data: normalizeTrackPoint(first) };
 }
 
 export function formatEtaLabel(

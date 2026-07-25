@@ -14,7 +14,9 @@ import { createWebClient } from "@/lib/supabase";
 
 const POLL_MS = 15_000;
 
-type Props = { token: string };
+type Props =
+  | { token: string; jobId?: undefined }
+  | { jobId: string; token?: undefined };
 
 type State =
   | { kind: "loading" }
@@ -22,9 +24,15 @@ type State =
   | { kind: "empty" }
   | { kind: "ready"; point: CustomerTrackPoint };
 
-export function CustomerDeliveryTrackPanel({ token }: Props) {
+/**
+ * Privacy-safe last point + ETA. Accepts share token (public) or job id
+ * (authenticated owner). Never loads a GPS trail.
+ */
+export function CustomerDeliveryTrackPanel(props: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const mapStyle = configuredMapStyleUrl();
+  const token = "token" in props ? props.token : undefined;
+  const jobId = "jobId" in props ? props.jobId : undefined;
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -35,7 +43,10 @@ export function CustomerDeliveryTrackPanel({ token }: Props) {
       });
       return;
     }
-    const res = await fetchCustomerTrackPoint(client, token);
+    const res = await fetchCustomerTrackPoint(
+      client,
+      token ? { token } : { jobId: jobId as string },
+    );
     if (!res.ok) {
       setState({ kind: "error", message: res.error });
       return;
@@ -45,7 +56,7 @@ export function CustomerDeliveryTrackPanel({ token }: Props) {
       return;
     }
     setState({ kind: "ready", point: res.data });
-  }, [token]);
+  }, [token, jobId]);
 
   useEffect(() => {
     void refresh();
@@ -61,7 +72,11 @@ export function CustomerDeliveryTrackPanel({ token }: Props) {
     return (
       <p className={styles.alert} role="alert">
         {state.message}{" "}
-        <button type="button" className={styles.linkBtn} onClick={() => void refresh()}>
+        <button
+          type="button"
+          className={styles.linkBtn}
+          onClick={() => void refresh()}
+        >
           Retry
         </button>
       </p>
@@ -72,9 +87,10 @@ export function CustomerDeliveryTrackPanel({ token }: Props) {
     return (
       <div className={styles.empty}>
         <p className={styles.lede} role="status">
-          This tracking link is inactive, expired, or the delivery is not out
-          for delivery yet. Last known location is only available while a job
-          is actively dispatched.
+          {token
+            ? "This tracking link is inactive, expired, or the delivery is not out for delivery yet."
+            : "Live location is only available while this order is out for delivery (dispatched) and the driver has shared a GPS point."}{" "}
+          Last known location is never a full historical trail.
         </p>
         <p className={styles.muted}>
           <Link href="/account/orders">View your orders</Link> ·{" "}
