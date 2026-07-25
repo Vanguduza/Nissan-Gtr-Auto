@@ -69,7 +69,7 @@ class FakeRpcClient : RpcClient {
     private val fakeUserId = "00000000-0000-4000-8000-0000000000cu"
     private val wishlist = mutableListOf(
         WishlistItem(
-            id = "00000000-0000-4000-8000-0000000000w1",
+            id = "00000000-0000-4000-8000-0000000000b1",
             stockItemId = SEED_OIL_FILTER_ID,
             oemPartNumber = "15208-65F0C",
             description = "Oil filter (demo)",
@@ -77,7 +77,7 @@ class FakeRpcClient : RpcClient {
             createdAt = "2026-07-25T10:00:00Z",
         ),
         WishlistItem(
-            id = "00000000-0000-4000-8000-0000000000w2",
+            id = "00000000-0000-4000-8000-0000000000b2",
             stockItemId = SEED_AIR_FILTER_ID,
             oemPartNumber = "16546-EB70A",
             description = "Air cleaner element (demo)",
