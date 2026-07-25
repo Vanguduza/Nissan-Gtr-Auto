@@ -32,6 +32,52 @@ function edgeErrorMessage(body: unknown, fallback: string): string {
   return fallback;
 }
 
+function isFailClosedMessage(msg: string, status?: number): boolean {
+  if (status === 503) return true;
+  return /refus|unavail|gateway|not configured|AUTH_OTP|fail.?closed|misconfigured/i.test(
+    msg,
+  );
+}
+
+async function readFunctionsErrorBody(
+  error: { context?: unknown; message?: string } | null,
+): Promise<{ body: unknown; status?: number }> {
+  if (!error) return { body: null };
+  const ctx = error.context as
+    | Response
+    | { json?: () => Promise<unknown>; body?: unknown; status?: number }
+    | null
+    | undefined;
+  if (!ctx) return { body: null };
+  if (typeof Response !== "undefined" && ctx instanceof Response) {
+    try {
+      return { body: await ctx.clone().json(), status: ctx.status };
+    } catch {
+      return { status: ctx.status, body: null };
+    }
+  }
+  if (typeof ctx.json === "function") {
+    try {
+      return {
+        body: await ctx.json(),
+        status: typeof ctx.status === "number" ? ctx.status : undefined,
+      };
+    } catch {
+      return {
+        body: null,
+        status: typeof ctx.status === "number" ? ctx.status : undefined,
+      };
+    }
+  }
+  if ("body" in ctx && ctx.body != null) {
+    return {
+      body: ctx.body,
+      status: typeof ctx.status === "number" ? ctx.status : undefined,
+    };
+  }
+  return { body: null };
+}
+
 /**
  * Customer signup/login OTP via Edge `auth-otp`.
  * Fail-closed when server returns 503 (no gateway keys / no local stub flag).
@@ -56,17 +102,13 @@ export async function requestAuthOtp(
   });
 
   if (error) {
-    const status =
-      typeof (error as { context?: { status?: number } }).context?.status ===
-      "number"
-        ? (error as { context: { status: number } }).context.status
-        : undefined;
-    const msg = error.message || "OTP request failed";
+    const { body, status } = await readFunctionsErrorBody(error);
+    const msg = edgeErrorMessage(body, error.message || "OTP request failed");
     return {
       ok: false,
       error: msg,
       status,
-      failClosed: status === 503 || /refus|unavail|gateway|not configured|fail.?closed/i.test(msg),
+      failClosed: isFailClosedMessage(msg, status),
     };
   }
 
@@ -81,9 +123,7 @@ export async function requestAuthOtp(
       ok: false,
       error: msg,
       status,
-      failClosed:
-        status === 503 ||
-        /refus|unavail|gateway|not configured|AUTH_OTP|fail.?closed/i.test(msg),
+      failClosed: isFailClosedMessage(msg, status),
     };
   }
 
@@ -132,17 +172,13 @@ export async function verifyAuthOtp(
   });
 
   if (error) {
-    const status =
-      typeof (error as { context?: { status?: number } }).context?.status ===
-      "number"
-        ? (error as { context: { status: number } }).context.status
-        : undefined;
-    const msg = error.message || "OTP verify failed";
+    const { body, status } = await readFunctionsErrorBody(error);
+    const msg = edgeErrorMessage(body, error.message || "OTP verify failed");
     return {
       ok: false,
       error: msg,
       status,
-      failClosed: status === 503,
+      failClosed: isFailClosedMessage(msg, status),
     };
   }
 

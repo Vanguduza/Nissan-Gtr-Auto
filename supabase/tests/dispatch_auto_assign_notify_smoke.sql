@@ -1,6 +1,7 @@
--- Online dispatch: auto pick + sales_prep notify; pick done → job + auto-assign.
+-- Online dispatch: auto pick + sales_prep notify; pick done → job (+ assign if eligible).
 -- Run after seed + migrations, e.g.:
---   docker exec -i <supabase_db> psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/dispatch_auto_assign_notify_smoke.sql
+--   docker exec -i <supabase_db> psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+--     < supabase/tests/dispatch_auto_assign_notify_smoke.sql
 
 CREATE OR REPLACE FUNCTION public._test_set_auth_uid(p_uid UUID)
 RETURNS void
@@ -26,12 +27,12 @@ $$;
 DO $$
 DECLARE
   v_admin UUID := 'a0000000-0000-4000-8000-000000000001';
-  v_sales UUID := 'a0000000-0000-4000-8000-0000000000f1';
-  v_customer UUID := 'c0000000-0000-4000-8000-0000000000a1';
-  v_driver UUID := 'd0000000-0000-4000-8000-0000000000d1';
+  v_cust_user UUID := 'c0000000-0000-4000-8000-0000000000a1';
   v_main UUID;
   v_uom UUID;
+  v_list UUID;
   v_item UUID;
+  v_cust UUID;
   v_cart UUID;
   v_inv UUID;
   v_pick UUID;
@@ -39,73 +40,80 @@ DECLARE
   v_job UUID;
   v_lines JSONB;
 BEGIN
-  SELECT id INTO v_main FROM public.warehouses WHERE code = 'MAIN' LIMIT 1;
-  SELECT id INTO v_uom FROM public.units_of_measure WHERE code = 'EA' LIMIT 1;
-  IF v_main IS NULL OR v_uom IS NULL THEN
-    RAISE EXCEPTION 'seed MAIN warehouse / EA uom required';
-  END IF;
-
-  -- Ensure CoA cash sub-accounts exist
   IF NOT EXISTS (SELECT 1 FROM public.chart_of_accounts WHERE code = '1110') THEN
-    RAISE EXCEPTION 'CoA 1110 Petty Cash missing';
+    RAISE EXCEPTION 'smoke fail: CoA 1110 missing';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.chart_of_accounts WHERE code = '1120') THEN
-    RAISE EXCEPTION 'CoA 1120 Cash Sales Till missing';
+    RAISE EXCEPTION 'smoke fail: CoA 1120 missing';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.chart_of_accounts WHERE code = '1130') THEN
-    RAISE EXCEPTION 'CoA 1130 Online Payment Clearing missing';
+    RAISE EXCEPTION 'smoke fail: CoA 1130 missing';
   END IF;
 
-  -- Sales staff for prep notify (idempotent)
-  INSERT INTO public.profiles (id, full_name, is_staff)
-  VALUES (v_sales, 'Smoke Sales', true)
-  ON CONFLICT (id) DO UPDATE SET is_staff = true;
-  INSERT INTO public.staff_roles (user_id, role)
-  VALUES (v_sales, 'sales')
-  ON CONFLICT DO NOTHING;
+  PERFORM public._test_set_auth_uid(v_admin);
 
-  -- Stock item with qty
+  SELECT id INTO v_main FROM public.warehouses WHERE code = 'MAIN';
+  SELECT id INTO v_uom FROM public.uoms WHERE code = 'EA';
+  SELECT id INTO v_list FROM public.price_lists WHERE code = 'RETAIL';
+  IF v_main IS NULL OR v_uom IS NULL OR v_list IS NULL THEN
+    RAISE EXCEPTION 'smoke fail: seed MAIN/EA/RETAIL missing';
+  END IF;
+
   INSERT INTO public.stock_items (oem_part_number, description, base_uom_id)
-  VALUES ('SMOKE-ONLINE-1', 'Online dispatch smoke part', v_uom)
+  VALUES ('P-ONLINE-PREP-001', 'Online prep smoke part', v_uom)
   ON CONFLICT (oem_part_number) DO UPDATE SET description = EXCLUDED.description
   RETURNING id INTO v_item;
   IF v_item IS NULL THEN
-    SELECT id INTO v_item FROM public.stock_items WHERE oem_part_number = 'SMOKE-ONLINE-1';
+    SELECT id INTO v_item FROM public.stock_items WHERE oem_part_number = 'P-ONLINE-PREP-001';
   END IF;
 
-  INSERT INTO public.stock_levels (stock_item_id, warehouse_id, qty_on_hand, unit_cost, currency)
-  VALUES (v_item, v_main, 50, 10, 'USD')
-  ON CONFLICT (stock_item_id, warehouse_id) DO UPDATE
-  SET qty_on_hand = GREATEST(public.stock_levels.qty_on_hand, 50);
+  INSERT INTO public.price_list_items (price_list_id, stock_item_id, unit_price, core_charge)
+  VALUES (v_list, v_item, 15, 0)
+  ON CONFLICT (price_list_id, stock_item_id) DO UPDATE
+  SET unit_price = 15, core_charge = 0;
 
-  -- Customer cart storefront + dispatch
-  PERFORM public._test_set_auth_uid(v_customer);
-  PERFORM public._storefront_rpc_enter();
-  v_cart := public.create_customer_cart(v_main, 'USD'::public.currency_code, 1, 'dispatch');
+  PERFORM public.post_stock_receipt(
+    v_main,
+    'online prep smoke seed',
+    jsonb_build_array(
+      jsonb_build_object(
+        'stock_item_id', v_item, 'uom_id', v_uom, 'qty', 10,
+        'unit_cost', 4, 'currency', 'USD', 'valuation_method', 'FIFO'
+      )
+    )
+  );
+
+  SELECT id INTO v_cust FROM public.customers WHERE profile_id = v_cust_user
+  ORDER BY created_at ASC LIMIT 1;
+  IF v_cust IS NULL THEN
+    INSERT INTO public.customers (display_name, currency, profile_id)
+    VALUES ('Storefront Customer A', 'USD', v_cust_user)
+    RETURNING id INTO v_cust;
+  END IF;
+
+  PERFORM public._test_set_auth_uid(v_cust_user);
+  v_cart := public.create_customer_cart(
+    v_main, 'USD'::public.currency_code, 'dispatch'::public.fulfillment_mode, 1
+  );
   PERFORM public.add_customer_cart_line(v_cart, v_item, v_uom, 1);
   v_inv := public.checkout_customer_cart(v_cart);
-  PERFORM public._storefront_rpc_exit();
 
-  IF NOT EXISTS (
-    SELECT 1 FROM public.pick_lists WHERE sales_invoice_id = v_inv AND status = 'draft'
-  ) THEN
-    RAISE EXCEPTION 'expected auto pick list after storefront dispatch checkout';
+  SELECT id INTO v_pick
+  FROM public.pick_lists
+  WHERE sales_invoice_id = v_inv AND status = 'draft'
+  ORDER BY created_at DESC
+  LIMIT 1;
+  IF v_pick IS NULL THEN
+    RAISE EXCEPTION 'smoke fail: expected auto pick list after storefront dispatch checkout';
   END IF;
 
   SELECT COUNT(*) INTO v_notify
   FROM public.staff_ops_notifications
   WHERE kind = 'sales_prep' AND sales_invoice_id = v_inv;
   IF v_notify < 1 THEN
-    RAISE EXCEPTION 'expected sales_prep notifications';
+    RAISE EXCEPTION 'smoke fail: expected sales_prep notifications';
   END IF;
 
-  -- Confirm pick as sales → auto DN/job/assign (driver may be absent → fail soft)
-  SELECT id INTO v_pick
-  FROM public.pick_lists
-  WHERE sales_invoice_id = v_inv AND status = 'draft'
-  LIMIT 1;
-
-  PERFORM public._test_set_auth_uid(v_sales);
   SELECT jsonb_agg(
     jsonb_build_object(
       'pick_list_line_id', pll.id,
@@ -116,31 +124,21 @@ BEGIN
   FROM public.pick_list_lines pll
   WHERE pll.pick_list_id = v_pick;
 
+  PERFORM public._test_set_auth_uid(v_admin);
   PERFORM public.confirm_pick_lines(v_pick, v_lines);
 
   SELECT dj.id INTO v_job
   FROM public.delivery_jobs dj
   JOIN public.delivery_notes dn ON dn.id = dj.delivery_note_id
   WHERE dn.sales_invoice_id = v_inv
+  ORDER BY dj.created_at DESC
   LIMIT 1;
 
   IF v_job IS NULL THEN
-    RAISE EXCEPTION 'expected delivery job after online prep confirm';
+    RAISE EXCEPTION 'smoke fail: expected delivery job after online prep confirm';
   END IF;
 
-  -- Assign if driver eligible; otherwise unassigned is OK
-  IF EXISTS (
-    SELECT 1 FROM public.driver_presence dp
-    JOIN public.staff_roles sr ON sr.user_id = dp.user_id AND sr.role = 'driver'
-    WHERE dp.user_id = v_driver AND dp.status IN ('available', 'on_duty')
-  ) THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.delivery_jobs WHERE id = v_job AND assignee_user_id IS NOT NULL
-    ) THEN
-      RAISE NOTICE 'driver present but not assigned (capacity/shift?) — soft OK';
-    END IF;
-  END IF;
-
-  RAISE NOTICE 'dispatch_auto_assign_notify_smoke OK invoice=% job=%', v_inv, v_job;
+  RAISE NOTICE 'dispatch_auto_assign_notify_smoke OK invoice=% pick=% job=% notifies=%',
+    v_inv, v_pick, v_job, v_notify;
 END;
 $$;
