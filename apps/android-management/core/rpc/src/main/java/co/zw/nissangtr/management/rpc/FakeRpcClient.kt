@@ -344,6 +344,7 @@ class FakeRpcClient : RpcClient {
         val pair = openScanSessions.remove(code)
             ?: throw IllegalStateException("pairing code not found or not open")
         claimedSessions.add(pair.first)
+        claimedSessionCarts[pair.first] = pair.second
         return pair.first
     }
 

@@ -26,11 +26,19 @@ BEGIN
   RETURN QUERY
   SELECT
     v_item,
-    COALESCE(round(avg(r.rating)::numeric, 2), 0::numeric) AS avg_rating,
-    count(*)::bigint AS review_count
-  FROM public.customer_product_reviews r
-  WHERE r.stock_item_id = v_item
-    AND r.status = 'approved';
+    COALESCE(
+      (
+        SELECT round(avg(r.rating)::numeric, 2)
+        FROM public.customer_product_reviews r
+        WHERE r.stock_item_id = v_item AND r.status = 'approved'
+      ),
+      0::numeric
+    ) AS avg_rating,
+    (
+      SELECT count(*)::bigint
+      FROM public.customer_product_reviews r
+      WHERE r.stock_item_id = v_item AND r.status = 'approved'
+    ) AS review_count;
 END;
 $$;
 
