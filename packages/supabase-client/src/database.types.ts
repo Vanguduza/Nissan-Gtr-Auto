@@ -7173,6 +7173,20 @@ export type Database = {
           stock_item_id: string
         }[]
       }
+      list_fleet_vehicles: {
+        Args: { p_status?: Database["public"]["Enums"]["fleet_vehicle_status"] }
+        Returns: {
+          assigned_driver_user_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          notes: string | null
+          plate: string
+          status: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at: string
+        }[]
+      }
       list_due_ai_report_subscriptions: {
         Args: {
           p_cadence: Database["public"]["Enums"]["ai_report_cadence"]
