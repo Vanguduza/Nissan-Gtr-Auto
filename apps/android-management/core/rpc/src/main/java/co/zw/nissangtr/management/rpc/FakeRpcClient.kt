@@ -93,10 +93,33 @@ class FakeRpcClient : RpcClient {
         return UUID.randomUUID().toString()
     }
 
+    override suspend fun addCartLineFromQr(
+        cartId: String,
+        qrPayload: String,
+        qty: Double,
+    ): String {
+        require(cartId.isNotBlank()) { "cartId required for ${RpcNames.ADD_CART_LINE_FROM_QR}" }
+        require(qty > 0) { "qty must be > 0" }
+        val m = INVENTORY_QR_REGEX.matchEntire(qrPayload.trim())
+            ?: throw IllegalArgumentException("invalid inventory QR payload")
+        require(m.groupValues[1].isNotBlank()) { "OEM required in QR" }
+        openCarts.add(cartId)
+        return UUID.randomUUID().toString()
+    }
+
     override suspend fun checkoutPosCart(cartId: String): String {
         require(cartId.isNotBlank()) { "cartId required for ${RpcNames.CHECKOUT_POS_CART}" }
         openCarts.remove(cartId)
         return UUID.randomUUID().toString()
+    }
+
+    override suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef {
+        val oem = oemPartNumber.trim()
+        require(oem.isNotBlank()) { "oemPartNumber required" }
+        // Deterministic fake UUIDs so scaffold demos stay stable per OEM.
+        val item = UUID.nameUUIDFromBytes("item:$oem".toByteArray()).toString()
+        val uom = UUID.nameUUIDFromBytes("uom:$oem".toByteArray()).toString()
+        return StockItemRef(stockItemId = item, uomId = uom, oemPartNumber = oem)
     }
 
     override suspend fun postStockReceipt(
