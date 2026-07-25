@@ -261,8 +261,15 @@ export function CartCheckout() {
     );
   }
 
-  const { cart, lines } = status;
+  const { cart, lines, customer } = status;
   const displayCurrency = cart?.currency ?? currency;
+  const cartTotal = lines.reduce((sum, line) => sum + Number(line.line_total), 0);
+  const creditHold = !!customer?.credit_hold;
+  const creditLimit = Number(customer?.credit_limit ?? 0);
+  const openBalance = Number(customer?.open_balance ?? 0);
+  const accountCurrency = customer?.currency === "ZIG" ? "ZIG" : "USD";
+  const projectedOpen = openBalance + cartTotal;
+  const overLimit = creditLimit > 0 && projectedOpen > creditLimit;
 
   return (
     <div className={styles.page}>
@@ -271,6 +278,16 @@ export function CartCheckout() {
         Checkout posts your invoice via customer cart RPCs. ContiPay and Paynow
         create intents on your unpaid invoice — settle stays server-side.
       </p>
+
+      {customer && (creditHold || overLimit) ? (
+        <p className={styles.lede} role="status">
+          {creditHold
+            ? "Your account is on credit hold. Checkout will still create an invoice, but it will remain on_hold until sales clears the hold."
+            : `This cart would put you over your credit limit (${formatMoney(creditLimit, accountCurrency)}; open ${formatMoney(openBalance, accountCurrency)} + cart ${formatMoney(cartTotal, displayCurrency)}). Checkout will post on_hold.`}
+          {" "}
+          See <Link href="/b2b">B2B credit</Link>.
+        </p>
+      ) : null}
 
       {cart ? (
         <p className={styles.muted}>
