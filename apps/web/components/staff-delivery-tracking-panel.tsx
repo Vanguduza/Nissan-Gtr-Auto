@@ -406,7 +406,7 @@ export function StaffDeliveryTrackingPanel() {
             },
           ]
         : [];
-  const showMap = Boolean(jobId) && pointsState.kind !== "error";
+  const showMap = pointsState.kind !== "error";
   const etaLabel =
     formatEtaLabel(
       trackPoint?.eta_at ?? selectedJob?.eta_at ?? null,
