@@ -163,10 +163,8 @@ private fun ManagementApp(
     var route by remember { mutableStateOf<ManagementRoute?>(null) }
     var showChat by remember { mutableStateOf(!liveRpc) }
     var salesHome by remember { mutableStateOf(false) }
-    var rolesReady by remember { mutableStateOf(false) }
 
     LaunchedEffect(liveRpc, signedInEmail) {
-        rolesReady = false
         val roles = if (!liveRpc) {
             showChat = true
             rpc.listMyStaffRoles()
@@ -177,7 +175,6 @@ private fun ManagementApp(
         }
         salesHome = ManagementHomeRoles.prefersPosHome(roles)
         route = if (salesHome) ManagementRoute.Pos else ManagementRoute.Home
-        rolesReady = true
     }
 
     when (route) {
