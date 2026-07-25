@@ -15,7 +15,6 @@ import {
   searchCustomers,
   searchStockItems,
   submitConsignmentEntry,
-  zigExchangeRate,
   type ConsignmentEntryRow,
   type ConsignmentKind,
   type ConsignmentLineRow,
@@ -26,7 +25,7 @@ import {
   type SupplierOption,
   type WarehouseOption,
 } from "@/lib/staff-consignment";
-import { zigExchangeRate as zigRate } from "@/lib/customer-storefront";
+import { zigExchangeRate } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =
@@ -195,7 +194,7 @@ export function StaffConsignmentPanel() {
       supplierId: kind === "supplier_owned" ? supplierId : undefined,
       customerId: kind === "customer_held" ? customerId : undefined,
       currency,
-      exchangeRate: currency === "ZIG" ? zigRate() : 1,
+      exchangeRate: currency === "ZIG" ? zigExchangeRate() : 1,
       notes: notes.trim() || undefined,
     });
     setBusy(false);
