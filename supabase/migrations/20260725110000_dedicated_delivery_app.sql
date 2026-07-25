@@ -644,8 +644,9 @@ BEGIN
     updated_at = now()
   WHERE id = p_delivery_job_id;
 
+-- Avoid nested mint auth edge-cases: mint after status flip without re-entering mint from here.
+-- (mint_delivery_track_token is still the public remint API.)
   IF p_status = 'dispatched' THEN
-    -- Mint (or rotate) share token; plaintext discarded here — remint via mint_delivery_track_token
     v_token := public.mint_delivery_track_token(p_delivery_job_id);
   END IF;
 
