@@ -6748,6 +6748,14 @@ export type Database = {
         Args: { p_claim_id: string; p_reason?: string }
         Returns: string
       }
+      remove_customer_wishlist_item: {
+        Args: {
+          p_oem_part_number?: string
+          p_stock_item_id?: string
+          p_wishlist_id?: string
+        }
+        Returns: undefined
+      }
       remove_kit_component: {
         Args: { p_component_item_id: string; p_kit_id: string }
         Returns: undefined
@@ -6884,6 +6892,15 @@ export type Database = {
       }
       submit_consignment_entry: {
         Args: { p_entry_id: string }
+        Returns: string
+      }
+      submit_customer_product_review: {
+        Args: {
+          p_body?: string
+          p_oem_part_number?: string
+          p_rating: number
+          p_stock_item_id?: string
+        }
         Returns: string
       }
       submit_delivery_note: {
