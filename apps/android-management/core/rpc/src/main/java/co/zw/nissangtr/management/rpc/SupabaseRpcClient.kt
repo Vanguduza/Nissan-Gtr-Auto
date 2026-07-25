@@ -926,7 +926,474 @@ class SupabaseRpcClient(
         ).decodeAs<Int>()
     }
 
+    override suspend fun searchCustomers(query: String): List<CustomerOption> {
+        val q = query.trim()
+        if (q.length < 2) return emptyList()
+        val uuidLike = UUID_REGEX.matches(q)
+        return client.from("customers")
+            .select(Columns.list("id", "display_name")) {
+                filter {
+                    if (uuidLike) eq("id", q)
+                    else ilike("display_name", "%$q%")
+                }
+                order("display_name", Order.ASCENDING)
+                limit(20)
+            }
+            .decodeList<CustomerOptionRow>()
+            .map { CustomerOption(id = it.id, displayName = it.displayName) }
+    }
+
+    override suspend fun listSuppliers(): List<SupplierRef> =
+        client.from("suppliers")
+            .select(Columns.list("id", "code", "name")) {
+                filter { eq("is_active", true) }
+                order("code", Order.ASCENDING)
+                limit(100)
+            }
+            .decodeList<SupplierRow>()
+            .map { SupplierRef(id = it.id, code = it.code, name = it.name) }
+
+    override suspend fun listBlanketPurchaseOrders(): List<BlanketSummary> {
+        val pos = client.from("purchase_orders")
+            .select(
+                Columns.list(
+                    "id",
+                    "document_number",
+                    "status",
+                    "supplier_id",
+                    "warehouse_id",
+                    "currency",
+                    "blanket_max_value",
+                    "blanket_value_released",
+                    "expected_date",
+                ),
+            ) {
+                filter { eq("is_blanket", true) }
+                order("created_at", Order.DESCENDING)
+                limit(50)
+            }
+            .decodeList<BlanketPoRow>()
+
+        if (pos.isEmpty()) return emptyList()
+
+        val supplierIds = pos.map { it.supplierId }.distinct()
+        val warehouseIds = pos.map { it.warehouseId }.distinct()
+        val suppliers = client.from("suppliers")
+            .select(Columns.list("id", "code", "name")) {
+                filter { isIn("id", supplierIds) }
+            }
+            .decodeList<SupplierRow>()
+            .associateBy { it.id }
+        val warehouses = client.from("warehouses")
+            .select(Columns.list("id", "code", "name")) {
+                filter { isIn("id", warehouseIds) }
+            }
+            .decodeList<WarehouseRow>()
+            .associateBy { it.id }
+
+        val poIds = pos.map { it.id }
+        val lines = client.from("purchase_order_lines")
+            .select(
+                Columns.list(
+                    "id",
+                    "purchase_order_id",
+                    "line_no",
+                    "stock_item_id",
+                    "qty_ordered",
+                    "qty_released",
+                    "unit_price",
+                    "currency",
+                ),
+            ) {
+                filter { isIn("purchase_order_id", poIds) }
+                order("line_no", Order.ASCENDING)
+            }
+            .decodeList<BlanketLineRow>()
+
+        val itemIds = lines.map { it.stockItemId }.distinct()
+        val oems = if (itemIds.isEmpty()) {
+            emptyMap()
+        } else {
+            client.from("stock_items")
+                .select(Columns.list("id", "oem_part_number")) {
+                    filter { isIn("id", itemIds) }
+                }
+                .decodeList<StockItemOemRow>()
+                .associate { it.id to it.oemPartNumber }
+        }
+
+        val linesByPo = lines.groupBy { it.purchaseOrderId }
+        return pos.map { po ->
+            val currency = CurrencyCode.entries.find { it.rpcValue == po.currency }
+                ?: CurrencyCode.USD
+            BlanketSummary(
+                id = po.id,
+                documentNumber = po.documentNumber,
+                status = po.status,
+                supplierId = po.supplierId,
+                supplierName = suppliers[po.supplierId]?.name,
+                warehouseId = po.warehouseId,
+                warehouseCode = warehouses[po.warehouseId]?.code,
+                currency = currency,
+                blanketMaxValue = po.blanketMaxValue ?: 0.0,
+                blanketValueReleased = po.blanketValueReleased ?: 0.0,
+                expectedDate = po.expectedDate,
+                lines = (linesByPo[po.id] ?: emptyList()).map { line ->
+                    BlanketLineSummary(
+                        id = line.id,
+                        lineNo = line.lineNo,
+                        stockItemId = line.stockItemId,
+                        oemPartNumber = oems[line.stockItemId],
+                        qtyOrdered = line.qtyOrdered,
+                        qtyReleased = line.qtyReleased,
+                        unitPrice = line.unitPrice,
+                        currency = CurrencyCode.entries.find { it.rpcValue == line.currency }
+                            ?: currency,
+                    )
+                },
+            )
+        }
+    }
+
+    override suspend fun createBlanketPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        blanketMaxValue: Double,
+        lines: List<BlanketLineInput>,
+        notes: String?,
+        expectedDate: String?,
+    ): String {
+        require(supplierId.isNotBlank() && warehouseId.isNotBlank())
+        require(lines.isNotEmpty())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_BLANKET_PURCHASE_ORDER,
+            buildJsonObject {
+                put("p_supplier_id", supplierId)
+                put("p_warehouse_id", warehouseId)
+                put("p_currency", currency.rpcValue)
+                put("p_exchange_rate", exchangeRate)
+                put("p_blanket_max_value", blanketMaxValue)
+                put(
+                    "p_lines",
+                    buildJsonArray {
+                        lines.forEach { line ->
+                            add(
+                                buildJsonObject {
+                                    put("stock_item_id", line.stockItemId)
+                                    put("uom_id", line.uomId)
+                                    put("qty", line.qty)
+                                    put("unit_price", line.unitPrice)
+                                    put(
+                                        "currency",
+                                        (line.currency ?: currency).rpcValue,
+                                    )
+                                },
+                            )
+                        }
+                    },
+                )
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+                if (expectedDate.isNullOrBlank()) put("p_expected_date", JsonNull)
+                else put("p_expected_date", expectedDate)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun submitPurchaseOrder(purchaseOrderId: String): String {
+        require(purchaseOrderId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SUBMIT_PURCHASE_ORDER,
+            buildJsonObject { put("p_purchase_order_id", purchaseOrderId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun createBlanketRelease(
+        blanketPurchaseOrderId: String,
+        lines: List<BlanketReleaseLineInput>,
+        notes: String?,
+    ): String {
+        require(blanketPurchaseOrderId.isNotBlank())
+        require(lines.isNotEmpty())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_BLANKET_RELEASE,
+            buildJsonObject {
+                put("p_blanket_purchase_order_id", blanketPurchaseOrderId)
+                put(
+                    "p_lines",
+                    buildJsonArray {
+                        lines.forEach { line ->
+                            add(
+                                buildJsonObject {
+                                    put("blanket_line_id", line.blanketLineId)
+                                    put("qty", line.qty)
+                                },
+                            )
+                        }
+                    },
+                )
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listWarehouseBins(warehouseId: String): List<WarehouseBinSummary> {
+        require(warehouseId.isNotBlank())
+        return client.from("warehouse_bins")
+            .select(
+                Columns.list(
+                    "id",
+                    "warehouse_id",
+                    "code",
+                    "name",
+                    "pick_path_seq",
+                    "aisle",
+                    "rack",
+                    "shelf",
+                    "is_active",
+                ),
+            ) {
+                filter { eq("warehouse_id", warehouseId) }
+                order("pick_path_seq", Order.ASCENDING)
+                order("code", Order.ASCENDING)
+                limit(200)
+            }
+            .decodeList<WarehouseBinRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun createWarehouseBin(
+        warehouseId: String,
+        code: String,
+        name: String,
+        pickPathSeq: Int,
+        aisle: String?,
+        rack: String?,
+        shelf: String?,
+    ): String {
+        require(warehouseId.isNotBlank() && code.isNotBlank() && name.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_WAREHOUSE_BIN,
+            buildJsonObject {
+                put("p_warehouse_id", warehouseId)
+                put("p_code", code.trim())
+                put("p_name", name.trim())
+                put("p_pick_path_seq", pickPathSeq)
+                if (aisle.isNullOrBlank()) put("p_aisle", JsonNull) else put("p_aisle", aisle)
+                if (rack.isNullOrBlank()) put("p_rack", JsonNull) else put("p_rack", rack)
+                if (shelf.isNullOrBlank()) put("p_shelf", JsonNull) else put("p_shelf", shelf)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun updateWarehouseBin(
+        binId: String,
+        name: String?,
+        pickPathSeq: Int?,
+        aisle: String?,
+        rack: String?,
+        shelf: String?,
+        isActive: Boolean?,
+    ): String {
+        require(binId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.UPDATE_WAREHOUSE_BIN,
+            buildJsonObject {
+                put("p_bin_id", binId)
+                if (name == null) put("p_name", JsonNull) else put("p_name", name)
+                if (pickPathSeq == null) put("p_pick_path_seq", JsonNull)
+                else put("p_pick_path_seq", pickPathSeq)
+                if (aisle == null) put("p_aisle", JsonNull) else put("p_aisle", aisle)
+                if (rack == null) put("p_rack", JsonNull) else put("p_rack", rack)
+                if (shelf == null) put("p_shelf", JsonNull) else put("p_shelf", shelf)
+                if (isActive == null) put("p_is_active", JsonNull) else put("p_is_active", isActive)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun deactivateWarehouseBin(binId: String): String {
+        require(binId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.DEACTIVATE_WAREHOUSE_BIN,
+            buildJsonObject { put("p_bin_id", binId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun setStockLevelBin(
+        stockItemId: String,
+        warehouseId: String,
+        binId: String?,
+    ): String {
+        require(stockItemId.isNotBlank() && warehouseId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SET_STOCK_LEVEL_BIN,
+            buildJsonObject {
+                put("p_stock_item_id", stockItemId)
+                put("p_warehouse_id", warehouseId)
+                if (binId.isNullOrBlank()) put("p_bin_id", JsonNull) else put("p_bin_id", binId)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun getPickPathHints(
+        warehouseId: String,
+        stockItemIds: List<String>?,
+    ): List<PickPathHint> {
+        require(warehouseId.isNotBlank())
+        val ids = stockItemIds?.filter { it.isNotBlank() }.orEmpty()
+        return client.postgrest.rpc(
+            RpcNames.GET_PICK_PATH_HINTS,
+            buildJsonObject {
+                put("p_warehouse_id", warehouseId)
+                if (ids.isEmpty()) {
+                    put("p_stock_item_ids", JsonNull)
+                } else {
+                    put(
+                        "p_stock_item_ids",
+                        buildJsonArray { ids.forEach { add(JsonPrimitive(it)) } },
+                    )
+                }
+            },
+        ).decodeList<PickPathHintRow>().map { it.toSummary() }
+    }
+
+    override suspend fun listConsignmentEntries(): List<ConsignmentEntrySummary> =
+        client.from("consignment_entries")
+            .select(
+                Columns.list(
+                    "id",
+                    "document_number",
+                    "status",
+                    "kind",
+                    "purpose",
+                    "warehouse_id",
+                    "supplier_id",
+                    "customer_id",
+                    "currency",
+                ),
+            ) {
+                order("created_at", Order.DESCENDING)
+                limit(50)
+            }
+            .decodeList<ConsignmentEntryRow>()
+            .map { it.toSummary() }
+
+    override suspend fun createConsignmentEntryDraft(
+        kind: ConsignmentKind,
+        purpose: ConsignmentPurpose,
+        warehouseId: String,
+        supplierId: String?,
+        customerId: String?,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        notes: String?,
+    ): String {
+        require(warehouseId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_CONSIGNMENT_ENTRY_DRAFT,
+            buildJsonObject {
+                put("p_kind", kind.rpcValue)
+                put("p_purpose", purpose.rpcValue)
+                put("p_warehouse_id", warehouseId)
+                if (supplierId.isNullOrBlank()) put("p_supplier_id", JsonNull)
+                else put("p_supplier_id", supplierId)
+                if (customerId.isNullOrBlank()) put("p_customer_id", JsonNull)
+                else put("p_customer_id", customerId)
+                put("p_currency", currency.rpcValue)
+                put("p_exchange_rate", exchangeRate)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun addConsignmentEntryLine(
+        entryId: String,
+        stockItemId: String,
+        uomId: String,
+        qty: Double,
+        unitCost: Double,
+        unitPrice: Double,
+        currency: CurrencyCode?,
+    ): String {
+        require(entryId.isNotBlank() && stockItemId.isNotBlank() && uomId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.ADD_CONSIGNMENT_ENTRY_LINE,
+            buildJsonObject {
+                put("p_entry_id", entryId)
+                put("p_stock_item_id", stockItemId)
+                put("p_uom_id", uomId)
+                put("p_qty", qty)
+                put("p_unit_cost", unitCost)
+                put("p_unit_price", unitPrice)
+                if (currency == null) put("p_currency", JsonNull)
+                else put("p_currency", currency.rpcValue)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun submitConsignmentEntry(entryId: String): String {
+        require(entryId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SUBMIT_CONSIGNMENT_ENTRY,
+            buildJsonObject { put("p_entry_id", entryId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun cancelConsignmentEntry(entryId: String): String {
+        require(entryId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CANCEL_CONSIGNMENT_ENTRY,
+            buildJsonObject { put("p_entry_id", entryId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun loadCustomerCredit(customerId: String): CustomerCreditSnapshot? {
+        require(customerId.isNotBlank())
+        return client.from("customers")
+            .select(
+                Columns.list(
+                    "id",
+                    "credit_limit",
+                    "credit_hold",
+                    "open_balance",
+                    "currency",
+                ),
+            ) {
+                filter { eq("id", customerId) }
+                limit(1)
+            }
+            .decodeList<CustomerCreditRow>()
+            .firstOrNull()
+            ?.toSnapshot()
+    }
+
+    override suspend fun setCustomerCredit(
+        customerId: String,
+        creditLimit: Double?,
+        creditHold: Boolean?,
+    ): CustomerCreditSnapshot {
+        require(customerId.isNotBlank())
+        require(creditLimit != null || creditHold != null)
+        val rows = client.postgrest.rpc(
+            RpcNames.SET_CUSTOMER_CREDIT,
+            buildJsonObject {
+                put("p_customer_id", customerId)
+                if (creditLimit == null) put("p_credit_limit", JsonNull)
+                else put("p_credit_limit", creditLimit)
+                if (creditHold == null) put("p_credit_hold", JsonNull)
+                else put("p_credit_hold", creditHold)
+            },
+        ).decodeList<CustomerCreditRpcRow>()
+        val row = rows.firstOrNull()
+            ?: error("${RpcNames.SET_CUSTOMER_CREDIT} returned no row")
+        return row.toSnapshot()
+    }
+
     companion object {
+        private val UUID_REGEX =
+            Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)
+
         fun create(supabaseUrl: String, supabaseAnonKey: String): SupabaseRpcClient {
             val client = createSupabaseClient(
                 supabaseUrl = supabaseUrl,
