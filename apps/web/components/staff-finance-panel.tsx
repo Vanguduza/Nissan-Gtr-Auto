@@ -329,6 +329,11 @@ export function StaffFinancePanel() {
       (prev) => prev || accounts.data[1]?.code || accounts.data[0]?.code || "",
     );
     setAllocPaymentId((prev) => prev || payments.data[0]?.id || "");
+    setClosePeriodId((prev) => {
+      if (prev) return prev;
+      const open = periods.data.find((p) => !p.locked_at);
+      return open?.id || periods.data[0]?.id || "";
+    });
     setStmtAccount((prev) => prev || accounts.data[0]?.code || "1100");
     setSelectedStmtId((prev) => prev || statements.data[0]?.id || "");
     setSelectedStmtAccount((prev) => {
