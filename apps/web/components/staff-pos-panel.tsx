@@ -247,6 +247,15 @@ export function StaffPosPanel() {
     );
   }
 
+  if (boot.warehouses.length === 0) {
+    return (
+      <p className={styles.muted}>
+        No saleable warehouses available. Activate a non-quarantine warehouse
+        before opening a POS cart.
+      </p>
+    );
+  }
+
   const lineTotal = lines.reduce((sum, l) => sum + Number(l.line_total), 0);
 
   return (
@@ -267,6 +276,11 @@ export function StaffPosPanel() {
           bridge. Currency is set on the cart (<code>USD</code> |{" "}
           <code>ZIG</code>).
         </p>
+        {!cart ? (
+          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+            No open cart — choose warehouse and create one to add lines.
+          </p>
+        ) : null}
         <form onSubmit={(e) => void onCreateCart(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
