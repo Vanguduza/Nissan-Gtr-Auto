@@ -1,6 +1,6 @@
 # GTR Customer — iOS (AuthZ feature screens)
 
-SwiftUI customer shell with thin Cart / Orders / Garage / Pay / **Chat** screens bound to the same storefront AuthZ RPCs as web (`apps/web/lib/customer-storefront.ts`) and live chat (`apps/web/lib/chat.ts`).
+SwiftUI customer shell with thin Cart / Orders / Garage / **Wishlist** / **Compare** / **Reviews** / Pay / **Chat** screens bound to the same storefront AuthZ RPCs as web (`apps/web/lib/customer-storefront.ts`, wishlist / compare / reviews helpers) and live chat (`apps/web/lib/chat.ts`).
 
 ## Fake vs Live switch
 
@@ -9,7 +9,7 @@ SwiftUI customer shell with thin Cart / Orders / Garage / Pay / **Chat** screens
 | Mode | When | Behavior |
 |------|------|----------|
 | **Live** (`LiveStorefrontApi`) | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `STOREFRONT_FORCE_FAKE` off | Real HTTP + **email/password GoTrue sign-in** required before tabs |
-| **Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, pay intents, chat — no network; **sign-in skipped** |
+| **Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, wishlist, compare, reviews, pay intents, chat — no network; **sign-in skipped** |
 
 `StorefrontApiFactory.make()` → `AppEnv.prefersLive`. Toolbar badge shows **Fake** or **Live**.
 
@@ -73,6 +73,9 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 | Cart | Create cart, add demo line, checkout |
 | Orders | List + detail (`get_customer_order`); **Live delivery** last-point track when dispatch / job known |
 | Garage | Upsert / delete vehicles |
+| Wishlist | List / add / remove; back-in-stock toggle; `wishlist_move_to_cart` |
+| Compare | Auth list/add/remove RPCs; guest `GuestCompareStore` (UserDefaults); OEM+description matrix |
+| Reviews | Submit / own list / approved+stats by OEM; photo via PhotosPicker → Storage `review-photos` |
 | Pay | ContiPay or Paynow create-intent → intent id / checkout URL |
 | Chat | Thread list, start support/parts, bubbles + composer; WhatsApp `wa.me` CTA |
 | Chat → Thread | Messages + send via `post_chat_message`; **4s poll** refresh (no Realtime client) |
