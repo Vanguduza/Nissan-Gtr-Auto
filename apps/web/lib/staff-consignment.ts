@@ -5,9 +5,9 @@ import {
   searchStockItems,
   type CurrencyCode,
   type StockItemOption,
-  type StorefrontResult,
   type WarehouseOption,
 } from "@/lib/staff-warehouse";
+import type { StorefrontResult } from "@/lib/customer-storefront";
 import { loadSuppliers, type SupplierOption } from "@/lib/rfq-portal";
 
 export {

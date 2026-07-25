@@ -161,14 +161,32 @@ export async function listDraftPayments(
     .order("created_at", { ascending: false })
     .limit(40);
   if (error) return { ok: false, error: error.message };
-  const rows = ((data ?? []) as PaymentEntryOption[]).map((row) => {
-    const r = row as PaymentEntryOption & {
-      customers?: PaymentEntryOption["customers"] | PaymentEntryOption["customers"][];
+  const rows = (data ?? []).map((row) => {
+    const r = row as {
+      id: string;
+      document_number: string | null;
+      status: string;
+      amount: number;
+      currency: CurrencyCode;
+      tender: PaymentTender;
+      customer_id: string;
+      created_at: string;
+      customers?: { display_name: string } | { display_name: string }[] | null;
     };
     const customers = Array.isArray(r.customers)
       ? (r.customers[0] ?? null)
       : (r.customers ?? null);
-    return { ...r, customers };
+    return {
+      id: r.id,
+      document_number: r.document_number,
+      status: r.status,
+      amount: r.amount,
+      currency: r.currency,
+      tender: r.tender,
+      customer_id: r.customer_id,
+      created_at: r.created_at,
+      customers,
+    } satisfies PaymentEntryOption;
   });
   return { ok: true, data: rows };
 }
