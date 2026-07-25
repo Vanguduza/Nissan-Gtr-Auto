@@ -1,14 +1,15 @@
 # Dedicated delivery Android app
 
-- Status: draft
-- Lane(s): `@backend_agent` → `@hardware_mobile_agent` → `@android_delivery_agent` (new; until `rufler.yaml` updated use `@management_app_agent` + path override) → `@management_app_agent` → `@web_agent` → `@android_agent` + `@ios_agent` → `/security-reviewer` → `/verifier`
+- Status: **in-progress**
+- Lane(s): `@backend_agent` → `@hardware_mobile_agent` → `@android_delivery_agent` → `@management_app_agent` → `@web_agent` → `@android_agent` + `@ios_agent` → `/security-reviewer` → `/verifier`
 - Skills needed: (none required; Bridge-First GPS/camera/signature via `bridges/`)
 - Related: `docs/plans/2026-07-24-live-map-delivery-tracking.md`, Phase 10 logistics (`…80000`/`…81000`), ADR `docs/decisions/2026-07-25-dedicated-delivery-app.md`
 - Schema reuse: `delivery_jobs`, `delivery_locations`, `ingest_delivery_location`, Realtime publication — **extend, do not redesign**
+- Mandate (2026-07-25): implement **ALL** matrix rows except **Never** (former P0+P1+P2). No backlog deferral.
 
 ## Goal
 
-Ship a **driver-only** Android app at `apps/android-delivery/` with always-on Bridge-First GPS; keep **assignment** in management (web + android-management); expose **privacy-safe** customer live tracking for active deliveries only (flip prior AuthZ **(b)** → scoped **(a)**+token).
+Ship a **driver-only** Android app at `apps/android-delivery/` with always-on Bridge-First GPS; keep **assignment** in management (web + android-management); expose **privacy-safe** customer live tracking for active deliveries only (flip prior AuthZ **(b)** → scoped **(a)**+token). Include POD OTP, geofence suggestions, fail/reattempt, multi-stop order, panic, offline POD queue, and customer `/track/[token]` + out-for-delivery notify.
 
 ## Hard rules
 
@@ -16,76 +17,97 @@ Ship a **driver-only** Android app at `apps/android-delivery/` with always-on Br
 - **Bridge-First:** GPS, camera (POD photo), signature capture only via `bridges/` — no WebView/HTML5 geo/camera.
 - **RLS** on every new table; location least-privilege; no customer trail SELECT.
 - Do not break `ingest_delivery_location` contract without a migration path (extend grants/roles; keep ~5s rate limit).
-- Map/directions secrets in env only (`NEXT_PUBLIC_MAP_STYLE_URL`, OSRM/MapTiler keys, etc.).
+- Map/directions secrets in env only (`NEXT_PUBLIC_MAP_STYLE_URL`, OSRM/MapTiler keys, SMS/WA keys). Fail closed without keys.
+- No commits unless user asks.
 
-## Feature matrix
+## Feature matrix (ALL Required except Never)
 
-| Feature | Pri | Notes |
-|---------|-----|--------|
-| Dedicated `apps/android-delivery` (login, job list, navigate, always-on location) | **P0** | No POS/warehouse/finance |
-| `driver` staff role + presence (available / on_duty / break / offline) | **P0** | `driver_presence` |
-| Continuous GPS (FGS + `location-tracker`) + battery-aware cadence (moving vs idle) | **P0** | Harden ingest for `driver` JWT |
-| Assignment suggest nearest available + capacity/shift + **manual override** | **P0** | Engine in management only |
-| ETA on `delivery_jobs` + recalc on ingest ticks | **P0** | Haversine default; OSRM/MapLibre directions if key |
-| Customer live last-point (active job only) + share token / order-scoped RLS | **P0** | Flip AuthZ (b)→scoped (a) |
-| Staff live map ETA (web + mgmt assignment UI) | **P0** | Subscribe-only on web |
-| Gate/remove driver GPS surface from management app | **P0** | Assignment stays |
-| POD: photo + signature (bridges) | **P0** | Required to complete |
-| POD OTP | P1 | |
-| Geofenced auto-arrive / auto-complete **suggestions** | P1 | Driver confirms |
-| Customer deep-link track page + push/SMS “out for delivery” | P1 | Deep-link web can ship thin in P0 if cheap |
-| Failed delivery reason + **reattempt** workflow | P1 | P0 keeps `failed` status + notes |
-| Multi-stop route order (nearest-neighbor / provider) | P1 | |
-| Panic / support contact | P1 | |
-| Offline queue: location pings | **P0** | Flush on reconnect |
-| Offline queue: POD payloads | P1 | |
-| Historical customer stalking / full trail to customer | **Never** | Staff trail only |
+| Feature | Pri | Status | Notes |
+|---------|-----|--------|-------|
+| Dedicated `apps/android-delivery` (login, job list, navigate, always-on location) | **Required** | **MISSING** | 0 files under `apps/android-delivery/` — finish P0 first |
+| `driver` staff role + presence (available / on_duty / break / offline) | **Required** | Migration+types | Wire clients |
+| Continuous GPS (FGS + `location-tracker`) + battery-aware cadence | **Required** | Bridge partial | Delivery app consumer missing |
+| Assignment suggest nearest + capacity/shift + **manual override** | **Required** | RPCs exist | Management/web UI incomplete |
+| ETA on `delivery_jobs` + recalc on ingest ticks | **Required** | Migration | Haversine; OSRM if env |
+| Customer live last-point (active job only) + share token | **Required** | RPCs exist | No `/track/[token]` page yet |
+| Staff live map ETA (web + mgmt assignment UI) | **Required** | Partial | Tracking panel exists; assignment suggest UI TBD |
+| Gate/remove driver GPS surface from management app | **Required** | Incomplete | Dispatch still references ingest |
+| POD: photo + signature (bridges) | **Required** | RPC exists | Camera/signature bridges missing |
+| POD OTP (generate/verify; SMS/WA optional) | **Required** | **Gap** | New migration + clients |
+| Geofenced auto-arrive / auto-complete **suggestions** | **Required** | **Gap** | Driver must confirm |
+| Customer deep-link `/track/[token]` + push/SMS out-for-delivery | **Required** | **Gap** | Fail closed without gateway keys |
+| Failed delivery reason + **reattempt** workflow | **Required** | Partial | `failure_reason` TEXT only; need enum + `reattempt_of` |
+| Multi-stop route order (`optimize_driver_stops`) | **Required** | **Gap** | Nearest-neighbor minimum |
+| Panic / support contact | **Required** | **Gap** | `panic_events` + Realtime; support phone from env |
+| Offline queue: location pings | **Required** | TBD in delivery app | Flush on reconnect |
+| Offline queue: POD payloads (photo/signature/OTP) | **Required** | **Gap** | Flush on reconnect |
+| Historical customer stalking / full trail to customer | **Never** | — | Staff trail only |
+
+## Gap audit (2026-07-25 Manager)
+
+### Present (backend P0 sketch)
+
+- Migration `supabase/migrations/20260725110000_dedicated_delivery_app.sql`: `driver` role, `driver_presence`, ETA/POD/geo columns, `delivery_track_tokens`, `suggest_delivery_assignees`, `assign_delivery_job`, `set_driver_presence`, hardened `ingest_delivery_location`, `get_delivery_track_point`, `submit_delivery_pod`, `mint_delivery_track_token`
+- Types + helpers: `packages/supabase-client` (`database.types.ts`, `delivery.ts`)
+- Bridge: `bridges/android/location-tracker/` (FGS service exists)
+- Web: staff logistics tracking panel (subscribe-oriented)
+- Management: dispatch module (still GPS-ingest oriented — must gate)
+
+### Missing / incomplete
+
+| Area | Gap |
+|------|-----|
+| **P0 critical** | `apps/android-delivery/` — **0 files** |
+| Backend P1 | OTP generate/verify; geofence helpers; `failure_reason` enum; `reattempt_of`; `panic_events`; `optimize_driver_stops` |
+| Hardware | POD photo + signature bridges (no dedicated modules) |
+| Management | Suggest/assign UI; route order; panic inbox; remove driver GPS producer |
+| Web | `/track/[token]`; assignment suggest; panic inbox; out-for-delivery notify edge |
+| Customer mobile | Active-delivery track screens (android + ios) |
+| Config | `rufler.yaml` lacks `android_delivery_agent` / `apps/android-delivery/**` |
 
 ## Schema sketch (reuse-first)
 
-**Existing (keep):** `delivery_jobs` (`eta_at` already), `delivery_locations`, `create_delivery_job`, `update_delivery_job_status`, `ingest_delivery_location`, `purge_delivery_locations`.
+**Existing (keep):** Phase 10 + `20260725110000_*` objects above.
 
-**Add / alter (single migration batch preferred):**
+**Add (new migration batch — `@backend_agent`):**
 
 | Object | Purpose |
 |--------|---------|
-| `ALTER TYPE staff_role ADD VALUE 'driver'` | Delivery personnel only |
-| `driver_presence` | `user_id` PK, `status` enum (`available`\|`on_duty`\|`break`\|`offline`), `last_lat`/`last_lng`, `last_seen_at`, `capacity`, `shift_starts_at`/`shift_ends_at`, RLS: self write + dispatcher/admin read |
-| `delivery_jobs` columns | `eta_seconds`, `eta_source` (`haversine`\|`osrm`\|`manual`), `eta_updated_at`, `pickup_lat/lng`, `dropoff_lat/lng` (or resolve from DN address), `failure_reason`, `pod_photo_path`, `pod_signature_path`, `completed_via` |
-| `delivery_track_tokens` | `id`, `delivery_job_id`, `token_hash`, `expires_at`, `revoked_at`; mint on dispatch; RLS deny direct SELECT — access via RPC only |
-| `suggest_delivery_assignees(job_id, limit)` | SECURITY DEFINER; scores available drivers by Haversine to pickup + capacity + shift; returns ranked candidates (**does not auto-assign**) |
-| `assign_delivery_job(job_id, assignee_user_id, override bool)` | Dispatcher/admin; writes `assignee_user_id`, may set `dispatched` |
-| `set_driver_presence(...)` | Driver self-service |
-| `ingest_delivery_location` (harden) | Allow `driver` **and** `assignee_user_id = auth.uid()`; still rate-limit; optionally update `driver_presence.last_*` + recompute ETA columns |
-| `get_delivery_track_point(job_id \| token)` | Customer/auth or token: **last** lat/lng + `eta_at` only when job `dispatched` and not terminal; never full trail |
-| `submit_delivery_pod(...)` | Photo/signature storage paths + complete transition |
+| `delivery_pod_otps` / generate+verify RPCs | Hash-only OTP; required (or optional flag) to complete; SMS/WA via existing outbox patterns, fail closed |
+| Geofence helper RPC(s) | Distance vs dropoff; returns suggest_arrive / suggest_complete flags — **never auto-mutate status** |
+| `delivery_failure_reason` enum + tighten `failure_reason` | Stable reason codes |
+| `delivery_jobs.reattempt_of` UUID FK | Linked reattempt job; fail RPC creates child job |
+| `panic_events` + `raise_delivery_panic` | Driver alerts dispatchers; Realtime; RLS staff read / driver insert own |
+| `optimize_driver_stops(driver_id)` | Nearest-neighbor stop order; returns ordered job ids + sequence; optional provider later |
+| Notify “out for delivery” | Edge or RPC enqueue to SMS/WA outbox when status → dispatched; fail closed without keys |
 
-Realtime: keep `delivery_locations` for staff; customer uses polled/Realtime-safe RPC or a **narrow** `delivery_job_live` view/RPC — **not** raw trail SELECT.
+Realtime: staff `delivery_locations` + `panic_events`; customer via token RPC only — **not** raw trail.
 
 ## Acceptance criteria (epic Done)
 
-- [ ] `apps/android-delivery/` builds; driver login; lists assigned jobs; starts FGS location → `ingest_delivery_location` (Bridge-First only)
-- [ ] `driver` role + `driver_presence`; dispatcher can suggest assignees and manually override
-- [ ] Management Android/web: assignment UI; driver GPS UI **gated/removed** from management
-- [ ] ETA fields update on ingest (Haversine at minimum); staff map shows marker + ETA
-- [ ] Customer (web + mobile): live last-point **only** while job active; token or order-scoped; no historical trail
-- [ ] POD photo + signature via bridges required before `completed`
-- [ ] Offline location queue survives brief disconnect; flush respects rate limit
+- [ ] `apps/android-delivery/` builds; driver login; jobs; FGS → ingest; navigate; presence; POD photo+sig+OTP; geofence suggestions; fail/reattempt; stop order; panic; offline location+POD queues
+- [ ] `driver` role + `driver_presence`; suggest + manual assign in management/web
+- [ ] Management: assignment + ordered stops; driver GPS producer **gated/removed**; panic inbox
+- [ ] ETA on ingest (Haversine min); staff map marker + ETA
+- [ ] Customer web `/track/[token]` + mobile active track: last-point only; no historical trail
+- [ ] Out-for-delivery SMS/WA when keys present; silent skip / fail closed otherwise
+- [ ] POD bridges required; OTP verify before complete (per RPC rules)
+- [ ] Offline queues flush on reconnect (respect rate limits)
 - [ ] RLS + smoke: customer cannot SELECT `delivery_locations`; driver cannot read other drivers’ jobs
-- [ ] `/security-reviewer` + `/verifier` PASS (no ZIMRA, no browser GPS, Bridge-First)
-- [ ] `rufler.yaml` includes `android-delivery` path (dedicated agent or management path list)
+- [ ] `rufler.yaml` includes `android_delivery_agent` → `apps/android-delivery/**`
+- [ ] `/security-reviewer` + `/verifier` PASS
 
 ## Paths in scope
 
 | Area | Paths |
 |------|--------|
-| Backend | `supabase/migrations/` (new), tests under `supabase/tests/`, `packages/supabase-client/` types |
-| Hardware | `bridges/android/location-tracker/` (continuous/FGS harden), POD camera/signature bridges if missing |
-| Delivery app | `apps/android-delivery/**` (new) |
-| Management | `apps/android-management/feature/dispatch/` (assignment; remove driver track) |
-| Web | `apps/web` staff logistics assignment + tracking ETA; customer track route |
-| Customer mobile | `apps/android-customer/`, `apps/ios/` active-delivery track screens |
-| Config | `rufler.yaml`, `docs/decisions/2026-07-25-dedicated-delivery-app.md` |
+| Backend | `supabase/migrations/` (new P1), tests, `packages/supabase-client/`, notify edge if needed |
+| Hardware | `bridges/android/location-tracker/`, new POD camera/signature bridges |
+| Delivery app | `apps/android-delivery/**` (scaffold + full feature set) |
+| Management | `apps/android-management/feature/dispatch/` (+ panic/route UI) |
+| Web | staff logistics assignment/ETA/panic; `app/.../track/[token]` |
+| Customer mobile | `apps/android-customer/`, `apps/ios/` active-delivery track |
+| Config | `rufler.yaml`, ADR note that P1 is now Required |
 
 ## Out of scope
 
@@ -94,28 +116,29 @@ Realtime: keep `delivery_locations` for staff; customer uses polled/Realtime-saf
 - Multi-carrier / 3PL marketplace
 - iOS delivery driver app
 - ZIMRA, payroll tax, browser QR/GPS
-- Customer access to full GPS trail or offline stalking
-- P1/P2 rows in the matrix (document only)
+- Customer access to full GPS trail or offline stalking (**Never**)
 
 ## Risks / exclusions
 
-- Prior AuthZ **(b)** must be explicitly superseded in ADR — do not leave customer status-only.
-- Broad Realtime on `delivery_locations` + weak RLS = leak; keep staff-only trail policies.
-- OEM battery killers — FGS notification + offline queue mandatory for P0 reliability.
-- Breaking ingest grants for existing management driver flow — migrate: management stops ingest; delivery app becomes sole producer.
+- Prior AuthZ **(b)** superseded in ADR — do not leave customer status-only.
+- Broad Realtime on `delivery_locations` + weak RLS = leak; keep staff-only trail.
+- OEM battery killers — FGS + offline queues mandatory.
+- Breaking ingest for management driver flow — migrate: management stops ingest; delivery app sole producer.
+- SMS/WA without keys must fail closed (no secret stubs in git).
 
 ## Lane sequence (Manager invoke order)
 
-1. **`@backend_agent`** — `driver` role, `driver_presence`, ETA columns, track tokens, suggest/assign/POD/get_track RPCs, harden `ingest_delivery_location`, RLS + smoke
-2. **`@hardware_mobile_agent`** — continuous tracking FGS contract; POD photo/signature bridges
-3. **`@android_delivery_agent`** (or `@management_app_agent` + override) — scaffold `apps/android-delivery`
-4. **`@management_app_agent`** — assignment UI; gate driver GPS
-5. **`@web_agent`** — staff assignment + ETA map; customer track page
-6. **`@android_agent`** + **`@ios_agent`** — customer active-delivery map
-7. **`/security-reviewer`** → **`/verifier`** → **`/manager`** done gate
+1. **Plan/config** — this doc + `rufler.yaml` `android_delivery_agent` (Manager)
+2. **`@backend_agent`** — P1 migration(s): OTP, geofence, failure enum + reattempt, panic, optimize_driver_stops, notify hook; types; RLS smoke
+3. **`@hardware_mobile_agent`** — FGS harden if needed; POD photo + signature bridges
+4. **`@android_delivery_agent`** — scaffold + complete `apps/android-delivery` (all Required rows)
+5. **`@management_app_agent`** — assignment, route order, panic inbox; gate driver GPS
+6. **`@web_agent`** — `/track/[token]`, staff assignment/ETA/panic, out-for-delivery notify wiring
+7. **`@android_agent`** + **`@ios_agent`** — customer active-delivery track
+8. **`/security-reviewer`** → **`/verifier`** → Manager done gate
 
 ## Handoff
 
-1. Implement per lane sequence above (one coding lane per Manager turn)
+1. One coding lane per Manager turn (no parallel writers on same paths)
 2. Update master Immediate handoff after verify
-3. No product commits from Planner; coding lanes commit only if user asks
+3. No product commits unless user asks
