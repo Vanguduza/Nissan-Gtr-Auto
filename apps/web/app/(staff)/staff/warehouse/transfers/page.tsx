@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { StaffNav } from "@/components/staff-nav";
 import { StaffWarehouseTabs } from "@/components/staff-warehouse-tabs";
 import { StaffWarehouseTransfersPanel } from "@/components/staff-warehouse-transfers-panel";
@@ -12,10 +11,6 @@ export default function StaffWarehouseTransfersPage() {
       <StaffNav current="/staff/warehouse/transfers" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Stock transfers</h1>
-        <p className={styles.lede}>
-          Dual-authorization transfers (including quarantine destinations).{" "}
-          <Link href="/staff/warehouse">Warehouse hub</Link>.
-        </p>
         <StaffWarehouseTabs active="transfers" />
         <StaffWarehouseTransfersPanel />
       </div>

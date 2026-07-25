@@ -160,11 +160,6 @@ export function StaffFleetPanel() {
 
   return (
     <>
-      <p className={styles.muted}>
-        Company delivery/ops vehicles — not B2B “Fleet” price list, not customer
-        garage. No browser GPS on this page.
-      </p>
-
       <div className={styles.formActions}>
         <label className={styles.field}>
           Status filter

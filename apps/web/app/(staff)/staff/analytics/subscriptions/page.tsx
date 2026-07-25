@@ -11,10 +11,6 @@ export default function StaffAnalyticsSubscriptionsPage() {
       <StaffNav current="/staff/analytics/subscriptions" />
       <div className={styles.panel}>
         <h1 className={styles.title}>Report subscriptions</h1>
-        <p className={styles.lede}>
-          Schedule daily, weekly, or monthly KPI reports to email and/or
-          WhatsApp. Worker delivers numeric-only when Gemini is unavailable.
-        </p>
         <StaffAnalyticsTabs active="subscriptions" />
         <StaffAnalyticsSubscriptionsPanel />
       </div>

@@ -252,8 +252,7 @@ export function StaffLogisticsPanel() {
   if (boot.kind === "auth") {
     return (
       <p className={styles.lede}>
-        <Link href="/login">Sign in</Link> with warehouse/dispatcher/admin staff
-        to run pick → delivery note → job.
+        <Link href="/login">Sign in</Link> with warehouse/dispatcher/admin staff.
       </p>
     );
   }

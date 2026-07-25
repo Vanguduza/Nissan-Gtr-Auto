@@ -389,8 +389,7 @@ export function StaffPosPanel() {
   if (boot.kind === "auth") {
     return (
       <p className={styles.lede}>
-        <Link href="/login?next=/staff/pos">Sign in</Link> with sales/admin staff
-        to run POS carts. Roles enforced by RPCs.
+        <Link href="/login?next=/staff/pos">Sign in</Link> with sales/admin staff.
       </p>
     );
   }
@@ -427,19 +426,10 @@ export function StaffPosPanel() {
         <Link href="/catalog" className={styles.storeLink}>
           Open store catalog
         </Link>
-        <span className={styles.muted}>
-          {" "}
-          — full browse in another view. Standalone till works without pairing.
-        </span>
       </p>
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>1 · Open cart</legend>
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          Typed OEM / catalog only. Inventory QR scan: Android companion or
-          management bridge — never the browser. Currency{" "}
-          <code>USD</code> | <code>ZIG</code>.
-        </p>
         {!cart ? (
           <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
             No open cart — choose warehouse and create one to add lines.
