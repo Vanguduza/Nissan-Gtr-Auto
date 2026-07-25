@@ -86,21 +86,37 @@ public final class FakeStorefrontApi: StorefrontApi {
     private var threads: [ChatThread] = []
     private var messages: [ChatMessage] = []
     private var unreadByThread: [UUID: Int] = [:]
+    /// Fake last-point only — never a trail. Demo token: `demo-track-token`.
+    private var demoTrackJobId: UUID?
+    private var demoTrackPoint: DeliveryTrackPoint?
 
     public init(seedDemo: Bool = true) {
         if seedDemo {
             let inv = UUID()
+            let jobId = UUID()
+            demoTrackJobId = jobId
+            demoTrackPoint = DeliveryTrackPoint(
+                deliveryJobId: jobId,
+                lat: -17.8292,
+                lng: 31.0522,
+                recordedAt: Date().addingTimeInterval(-90),
+                etaAt: Date().addingTimeInterval(25 * 60),
+                etaSeconds: 25 * 60,
+                status: "dispatched"
+            )
             orders = [
                 CustomerOrder(
                     invoiceId: inv,
                     documentNumber: "INV-DEMO-001",
                     status: "posted",
-                    fulfillmentMode: .immediate,
+                    fulfillmentMode: .dispatch,
                     currency: .USD,
                     subtotal: 120,
                     total: 120,
                     amountPaid: 0,
-                    amountOpen: 120
+                    amountOpen: 120,
+                    deliveryNoteStatus: "submitted",
+                    activeDeliveryJobId: jobId
                 ),
             ]
             garage = [
@@ -357,6 +373,26 @@ public final class FakeStorefrontApi: StorefrontApi {
             return unreadByThread[threadId] ?? 0
         }
         return unreadByThread.values.reduce(0, +)
+    }
+
+    // MARK: Delivery track (Fake)
+
+    public func getDeliveryTrackPoint(_ ref: DeliveryTrackRef) async throws -> DeliveryTrackPoint? {
+        switch ref {
+        case .job(let id):
+            guard id == demoTrackJobId else { return nil }
+            return demoTrackPoint
+        case .token(let raw):
+            let token = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard token.count >= 8 else {
+                throw StorefrontError.message("Invalid track token.")
+            }
+            // Accept demo token or any ≥8 char token while Fake has an active point.
+            if token == "demo-track-token" || demoTrackPoint != nil {
+                return demoTrackPoint
+            }
+            return nil
+        }
     }
 
     private func stubIntent(invoiceId: UUID, rail: PaymentRail) throws -> PaymentIntentResult {
