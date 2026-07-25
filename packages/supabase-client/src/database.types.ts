@@ -7830,6 +7830,7 @@ export type Database = {
       delivery_note_status: "draft" | "submitted" | "cancelled"
       driver_presence_status: "available" | "on_duty" | "break" | "offline"
       employee_status: "active" | "inactive" | "terminated"
+      fleet_vehicle_status: "active" | "in_service" | "retired"
       forecast_suggestion_status: "open" | "converted" | "dismissed"
       fulfillment_mode: "immediate" | "dispatch"
       journal_status: "draft" | "posted"
