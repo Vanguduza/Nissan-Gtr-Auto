@@ -23,6 +23,10 @@ export default function ProcurementPage() {
             <span className={styles.cardLabel}>New RFQ</span>
             <span className={styles.cardBlurb}>Draft + invite</span>
           </Link>
+          <Link href="/procurement/blankets" className={styles.card}>
+            <span className={styles.cardLabel}>Blanket POs</span>
+            <span className={styles.cardBlurb}>Remaining qty · call-off</span>
+          </Link>
           <Link href="/supplier/rfqs" className={styles.card}>
             <span className={styles.cardLabel}>Supplier view</span>
             <span className={styles.cardBlurb}>Invited quotes</span>
