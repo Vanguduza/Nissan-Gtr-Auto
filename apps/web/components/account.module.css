@@ -743,8 +743,10 @@
   display: grid;
   gap: 0.2rem;
   padding: 0.75rem 0.85rem;
-  border: 1px solid rgba(18, 21, 28, 0.12);
-  border-radius: 2px;
+  border: 1px solid var(--staff-border);
+  border-radius: var(--staff-radius-sm);
+  background: var(--gtr-white);
+  box-shadow: var(--staff-shadow-sm);
 }
 
 .kpiLabel {
@@ -772,16 +774,6 @@
   white-space: pre-wrap;
   font-size: 0.95rem;
   line-height: 1.45;
-}
-
-.kpiTile {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid var(--staff-border);
-  border-radius: var(--staff-radius-sm);
-  background: var(--gtr-white);
-  box-shadow: var(--staff-shadow-sm);
 }
 
 .addrWrap {
