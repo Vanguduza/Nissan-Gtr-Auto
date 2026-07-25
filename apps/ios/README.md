@@ -71,11 +71,12 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 |--------------|---------|
 | Sign in | Email + password → GoTrue JWT → `setAccessToken` |
 | Cart | Create cart, add demo line, checkout |
-| Orders | List + detail (`get_customer_order`) |
+| Orders | List + detail (`get_customer_order`); **Live delivery** last-point track when dispatch / job known |
 | Garage | Upsert / delete vehicles |
 | Pay | ContiPay or Paynow create-intent → intent id / checkout URL |
 | Chat | Thread list, start support/parts, bubbles + composer; WhatsApp `wa.me` CTA |
 | Chat → Thread | Messages + send via `post_chat_message`; **4s poll** refresh (no Realtime client) |
+| Live delivery | `get_delivery_track_point` — last point + ETA only; MapKit single pin; **15s poll**; deep link `gtr-customer://track?token=` |
 
 ## AuthZ / RPC map (match web)
 
@@ -100,8 +101,18 @@ Requires **authenticated** customer session and a `customers` row with `profile_
 | `postChatMessage` | `post_chat_message` | `p_thread_id`, `p_body` |
 | `markChatThreadRead` | `mark_chat_thread_read` | `p_thread_id` |
 | `chatUnreadCount` | `chat_unread_count` | optional `p_thread_id` |
+| `getDeliveryTrackPoint` | `get_delivery_track_point` | `p_delivery_job_id` and/or `p_token` → **one** last point + ETA; never trail / never `delivery_locations` SELECT |
 
 Migration: `supabase/migrations/20260724130000_customer_storefront_authz.sql` (+ live chat migration). Decision: [`docs/decisions/2026-07-24-customer-self-pay.md`](../../docs/decisions/2026-07-24-customer-self-pay.md), [`docs/decisions/2026-07-25-in-app-live-chat.md`](../../docs/decisions/2026-07-25-in-app-live-chat.md).
+
+Delivery track: migration `…110000_dedicated_delivery_app.sql`, ADR [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decisions/2026-07-25-dedicated-delivery-app.md).
+
+### Active delivery track (privacy)
+
+- RPC only: `get_delivery_track_point` (job ownership JWT **or** share token; anon allowed for token).
+- UI shows **last point + ETA** on a MapKit single annotation — no polyline, no historical trail, no WebView/HTML5 geo.
+- Reachable from **Order detail** (dispatch orders / optional `active_delivery_job_id`) and deep link `gtr-customer://track?token=…` or `?job=<uuid>`.
+- **Gap:** Live `get_customer_order` does not yet return `active_delivery_job_id` — until `@backend_agent` adds it, Live users use the share token from SMS/WA (or deep link). Fake seeds a job id for Simulator demos (`demo-track-token`).
 
 ### Chat Realtime gap
 
