@@ -47,7 +47,11 @@ function LoginForm() {
       return;
     }
 
-    const dest = postLoginPath(Boolean(ctx.data?.isStaff), next);
+    const dest = postLoginPath(
+      Boolean(ctx.data?.isStaff),
+      next,
+      ctx.data?.roles ?? [],
+    );
     setMessage(
       ctx.data?.isStaff
         ? "Signed in — opening staff…"
