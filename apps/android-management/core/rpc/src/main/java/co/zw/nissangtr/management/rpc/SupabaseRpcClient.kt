@@ -479,30 +479,42 @@ class SupabaseRpcClient(
         pickupLng: Double?,
         dropoffLat: Double?,
         dropoffLng: Double?,
-    ) {
+    ): String {
         require(deliveryJobId.isNotBlank())
-        // Mutation guards block PostgREST UPDATE on delivery_jobs. Until
-        // @backend_agent ships set_delivery_job_geo (or create_delivery_job
-        // accepts p_pickup_*/p_dropoff_*), Live cannot set coords from clients.
-        error(
-            "Live setDeliveryJobCoords blocked: no set_delivery_job_geo RPC yet. " +
-                "Seed pickup/dropoff via SQL (see dedicated_delivery_app_smoke) or " +
-                "extend create_delivery_job. Fake mode stores coords for demos.",
-        )
+        require((pickupLat == null) == (pickupLng == null)) {
+            "pickup_lat and pickup_lng must both be set or both null"
+        }
+        require((dropoffLat == null) == (dropoffLng == null)) {
+            "dropoff_lat and dropoff_lng must both be set or both null"
+        }
+        return client.postgrest.rpc(
+            RpcNames.SET_DELIVERY_JOB_GEO,
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                if (pickupLat == null) put("p_pickup_lat", JsonNull) else put("p_pickup_lat", pickupLat)
+                if (pickupLng == null) put("p_pickup_lng", JsonNull) else put("p_pickup_lng", pickupLng)
+                if (dropoffLat == null) put("p_dropoff_lat", JsonNull) else put("p_dropoff_lat", dropoffLat)
+                if (dropoffLng == null) put("p_dropoff_lng", JsonNull) else put("p_dropoff_lng", dropoffLng)
+            },
+        ).decodeAs<String>()
     }
 
     override suspend fun updateDeliveryJobStatus(
         deliveryJobId: String,
         status: DeliveryJobStatus,
-    ): String {
+    ): UpdateDeliveryJobStatusResult {
         require(deliveryJobId.isNotBlank())
-        return client.postgrest.rpc(
+        val row = client.postgrest.rpc(
             RpcNames.UPDATE_DELIVERY_JOB_STATUS,
             buildJsonObject {
                 put("p_delivery_job_id", deliveryJobId)
                 put("p_status", status.rpcValue)
             },
-        ).decodeAs<String>()
+        ).decodeAs<UpdateDeliveryJobStatusRow>()
+        return UpdateDeliveryJobStatusResult(
+            deliveryJobId = row.deliveryJobId,
+            trackToken = row.trackToken,
+        )
     }
 
     override suspend fun ingestDeliveryLocation(
