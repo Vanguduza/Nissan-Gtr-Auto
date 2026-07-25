@@ -39,7 +39,7 @@ data class DispatchUiState(
     val optimizedStops: List<OptimizedDriverStop> = emptyList(),
     /** Staff VIEW only — last point + ETA (delivery app is sole GPS producer). */
     val liveTrack: DeliveryTrackPoint? = null,
-    /** Share plaintext from mint_delivery_track_token (show once; re-mint revokes). */
+    /** Share plaintext from update_delivery_job_status on dispatch (single mint). */
     val trackShareToken: String? = null,
     /** POD OTP plaintext from generate_delivery_pod_otp (dispatcher may read to customer). */
     val podOtp: String? = null,
@@ -279,7 +279,7 @@ class DispatchViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val id = rpc.createDeliveryJob(deliveryNoteId = dnId)
-                // Best-effort coords so suggest + ETA work (Fake stores; Live may fail closed).
+                // Best-effort coords via set_delivery_job_geo (Fake + Live).
                 val coordMsg = runCatching { applyCoordsIfPossible(id) }
                     .fold(
                         onSuccess = { it },
@@ -334,19 +334,19 @@ class DispatchViewModel(
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
-                val id = rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
-                // Status RPC mints for notify but does not return plaintext —
-                // mint again so dispatcher can share (revokes prior active token).
-                val token = runCatching { rpc.mintDeliveryTrackToken(jobId) }.getOrNull()
+                // Single mint path: status RPC returns track_token on dispatch.
+                // Do NOT call mint_delivery_track_token here — that revokes SMS token.
+                val result = rpc.updateDeliveryJobStatus(jobId, DeliveryJobStatus.DISPATCHED)
                 _state.update {
                     it.copy(
                         busy = false,
-                        trackShareToken = token,
-                        message = "${RpcNames.UPDATE_DELIVERY_JOB_STATUS} → dispatched ($id)" +
-                            if (token != null) {
-                                " · ${RpcNames.MINT_DELIVERY_TRACK_TOKEN} ready (share below)"
+                        trackShareToken = result.trackToken,
+                        message = "${RpcNames.UPDATE_DELIVERY_JOB_STATUS} → dispatched " +
+                            "(${result.deliveryJobId})" +
+                            if (result.trackToken != null) {
+                                " · share token ready (below)"
                             } else {
-                                " · mint track token failed — retry Mint share token"
+                                " · no track_token in response"
                             },
                     )
                 }
@@ -358,7 +358,8 @@ class DispatchViewModel(
         }
     }
 
-    fun mintShareToken() {
+    /** Intentional remint / rotate only — revokes prior SMS/share token. */
+    fun rotateShareToken() {
         val jobId = _state.value.deliveryJobId.trim()
         if (jobId.isEmpty()) {
             _state.update { it.copy(error = "Delivery job UUID required") }
@@ -372,13 +373,13 @@ class DispatchViewModel(
                     it.copy(
                         busy = false,
                         trackShareToken = token,
-                        message = "${RpcNames.MINT_DELIVERY_TRACK_TOKEN} → share plaintext ready " +
-                            "(re-mint revokes prior)",
+                        message = "${RpcNames.MINT_DELIVERY_TRACK_TOKEN} → rotated " +
+                            "(prior SMS/share token revoked)",
                     )
                 }
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(busy = false, error = e.message ?: "mint track token failed")
+                    it.copy(busy = false, error = e.message ?: "rotate track token failed")
                 }
             }
         }
