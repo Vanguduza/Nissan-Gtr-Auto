@@ -569,18 +569,17 @@ BEGIN
     RAISE EXCEPTION 'cannot assign terminal delivery job';
   END IF;
 
-  IF NOT COALESCE(p_override, false) THEN
-    IF NOT public._driver_eligible_for_assign(p_assignee_user_id) THEN
-      RAISE EXCEPTION
-        'assignee not eligible (need driver role, available/on_duty, capacity, shift); use override=true';
-    END IF;
-  ELSIF NOT EXISTS (
+  IF NOT EXISTS (
     SELECT 1 FROM public.staff_roles
     WHERE user_id = p_assignee_user_id AND role = 'driver'
-  ) AND NOT EXISTS (
-    SELECT 1 FROM public.profiles WHERE id = p_assignee_user_id AND is_staff
   ) THEN
-    RAISE EXCEPTION 'assignee profile not found or not staff/driver';
+    RAISE EXCEPTION 'assignee must have driver staff role';
+  END IF;
+
+  IF NOT COALESCE(p_override, false)
+     AND NOT public._driver_eligible_for_assign(p_assignee_user_id) THEN
+    RAISE EXCEPTION
+      'assignee not eligible (need available/on_duty, capacity, shift); use override=true';
   END IF;
 
   UPDATE public.delivery_jobs
