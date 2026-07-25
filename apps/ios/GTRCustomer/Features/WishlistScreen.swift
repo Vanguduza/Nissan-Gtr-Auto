@@ -37,7 +37,9 @@ struct WishlistScreen: View {
                         Toggle(
                             "Notify when back in stock",
                             isOn: Binding(
-                                get: { item.notifyWhenInStock },
+                                get: {
+                                    items.first(where: { $0.id == item.id })?.notifyWhenInStock ?? false
+                                },
                                 set: { next in
                                     Task { await setNotify(item, notify: next) }
                                 }

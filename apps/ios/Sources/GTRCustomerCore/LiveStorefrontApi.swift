@@ -1,10 +1,11 @@
 import Foundation
 
 /// Live storefront client — PostgREST RPC / select + edge pay-initiate + live chat
-/// + privacy-safe delivery last-point track.
+/// + privacy-safe delivery last-point track + wishlist / compare / reviews.
 ///
 /// RPC names match web `apps/web/lib/customer-storefront.ts`, `apps/web/lib/chat.ts`,
-/// `apps/web/lib/customer-delivery-track.ts`, and AuthZ / delivery migrations.
+/// `apps/web/lib/customer-delivery-track.ts`, `customer-wishlist.ts`, `customer-compare.ts`,
+/// `customer-reviews.ts`, and AuthZ / delivery migrations.
 /// Session: uses anon key as Bearer by default; AuthZ customer RPCs require a
 /// **customer user JWT** (`customers.profile_id = auth.uid()`). Pass via
 /// GoTrue sign-in → `setAccessToken(_:)`, restored `AuthTokenStore`, or
