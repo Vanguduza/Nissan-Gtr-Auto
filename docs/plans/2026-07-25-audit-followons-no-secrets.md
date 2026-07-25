@@ -1,7 +1,7 @@
 # Audit follow-ons (no secrets)
 
-- Status: draft
-- Lane(s): `@backend_agent` → `@web_agent` → `@ios_agent` (optional cheap `@android_agent`)
+- Status: **Done** (2026-07-25)
+- Lane(s): `@backend_agent` → `@web_agent` → `@ios_agent` (optional cheap `@android_agent` skipped)
 - Skills needed: `/token-discipline`; `/parts-catalog-ingestion` only for diagram fixture bind
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) — Immediate handoff + “Still follow-on”
 - Related: [`phase8b-rfq-blanket`](./2026-07-24-phase8b-rfq-blanket.md), [`phase16-distributor-extras`](./2026-07-24-phase16-distributor-extras.md), [`docs/parity/polish-backlog.md`](../parity/polish-backlog.md), decisions [`autodoc-shop-features`](../decisions/2026-07-23-autodoc-shop-features.md), [`in-app-live-chat`](../decisions/2026-07-25-in-app-live-chat.md)
@@ -12,17 +12,17 @@ Ship every incomplete ERP completeness-audit item that does **not** need API sec
 
 ## Acceptance criteria
 
-1. [ ] **Wishlist** — table + RLS (missing today); `/account/wishlist` + PDP add/remove via Supabase (replace stub `apps/web/app/(account)/account/wishlist/page.tsx`)
-2. [ ] **Compare** — selected SKUs from catalog (session and/or DB), not `DEMO_PRODUCTS` in `apps/web/lib/shop-demo.ts` / `account/compare/page.tsx`
-3. [ ] **Reviews** — schema + RLS; `/account/reviews` + PDP list/submit when auth (stubs today; PDP points to account only)
-4. [ ] **Blanket PO web UI** — staff list remaining qty/value + call-off via `create_blanket_purchase_order` / `create_blanket_release` (`…060000_rfq_blanket.sql` / guards `…061000`); beside existing `/procurement` RFQ portal
-5. [ ] **Consignment + bins UI** — staff surfaces on Phase 16 RPCs: bins `create_warehouse_bin` / `update_warehouse_bin` / `deactivate_warehouse_bin` / `set_stock_level_bin` (`…120000_warehouse_bins.sql`); consignment draft→line→submit/cancel (`…122000_consignment_stock.sql`)
-6. [ ] **Catalog diagrams** — seed Navara fixture paths + sample assets into Storage `catalog-diagrams` + `part_fitment.diagram_path` from `data-pipeline/fixtures/navara_d40_yd25/` so PDP canvas (`catalog-diagram.ts` / `catalog-canvas-stub.tsx`) is Live without scrape
-7. [ ] **B2B credit UX** — show `customers.credit_limit` / `credit_hold` / `open_balance` (own-row SELECT `…230000_sales_pos.sql`) on `/b2b` + checkout guard messaging when hold / over-limit (checkout already posts `on_hold`)
-8. [ ] **iOS chat** — improve poll reliability **or** lightweight Realtime without huge deps (`ChatScreen.swift` / `LiveStorefrontApi.swift` — no supabase-swift today; web Realtime in `apps/web/lib/chat.ts` + `…100000_live_chat.sql`)
-9. [ ] **Staff finance/POS polish** — usable labels where names exist; clear empty states in `staff-finance-panel.tsx` / `staff-pos-panel.tsx` (targeted, no redesign)
-10. [ ] **Garage service reminders** — **SKIP**: only `customer_garage_vehicles` (`…130000_customer_storefront_authz.sql`); no reminder schema — leave copy note on `/account/garage`
-11. [ ] **Master plan** — update Immediate handoff + audit follow-ons for what shipped; secrets/ops items stay listed as ops-only
+1. [x] **Wishlist** — `customer_wishlist_items` + RLS (`…180000`); `/account/wishlist` + PDP add/remove via RPCs
+2. [x] **Compare** — session/localStorage selected OEMs (no DB table); live catalog on `/account/compare` + PDP (not DEMO_PRODUCTS-only)
+3. [x] **Reviews** — `customer_product_reviews` + RLS + harden (`…181000`/`…182000`); `/account/reviews` + PDP list/submit when auth
+4. [x] **Blanket PO web UI** — `/procurement/blankets` remaining qty/value + call-off via Phase 8b RPCs
+5. [x] **Consignment + bins UI** — `/staff/warehouse/bins` + `/staff/warehouse/consignment` on Phase 16 RPCs
+6. [x] **Catalog diagrams** — Navara seed `diagram_path` + Storage metadata; `node supabase/seed_catalog_diagrams.mjs --docker` for bytes
+7. [x] **B2B credit UX** — credit limit / hold / open balance on `/b2b` + checkout hold messaging
+8. [x] **iOS chat** — hardened polling (backoff, foreground resume, single poll owner); Realtime deferred (no supabase-swift)
+9. [x] **Staff finance/POS polish** — customer name labels + clearer empty states
+10. [x] **Garage service reminders** — **SKIPPED** (no schema); copy note on `/account/garage`
+11. [x] **Master plan** — Immediate handoff updated; secrets/ops remain ops-only
 
 ## Paths in scope
 
