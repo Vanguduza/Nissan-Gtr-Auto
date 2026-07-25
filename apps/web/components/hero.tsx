@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  Car,
-  iconSizeMd,
-  iconStroke,
-  Search,
-} from "@/components/icons";
+import { Car, iconSizeSm, iconStroke, Search } from "@/components/icons";
 import { VehicleSelector } from "@/components/vehicle-selector";
 import styles from "./hero.module.css";
 
@@ -24,18 +19,18 @@ export function StorefrontHero() {
           </p>
           <div className={styles.cta}>
             <Link href="/search" className={styles.primary}>
-              <Search size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
+              <Search size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
               Search parts
             </Link>
             <Link href="/account/garage" className={styles.secondary}>
-              <Car size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
+              <Car size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
               My Garage
             </Link>
           </div>
         </div>
         <div className={`${styles.vehicleCard} gtr-rise-delay`} aria-labelledby="vehicle-entry">
           <h2 id="vehicle-entry" className={styles.vehicleTitle}>
-            <Car size={16} strokeWidth={iconStroke} aria-hidden />
+            <Car size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
             Find parts for your vehicle
           </h2>
           <VehicleSelector />

@@ -24,6 +24,9 @@
 
 .navTitle {
   margin: 0 0.85rem 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.95rem;
