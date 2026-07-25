@@ -1280,9 +1280,11 @@ export function StaffFinancePanel() {
           <p className={styles.muted}>No accounting periods.</p>
         )}
       </fieldset>
+      ) : null}
 
+      {tab === "bank-recon" ? (
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>5 · Bank reconciliation</legend>
+        <legend className={styles.legend}>Bank reconciliation</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
           Tables <code>bank_statements</code> / <code>bank_statement_lines</code>{" "}
           / <code>bank_recon_matches</code>; clear via{" "}
@@ -1551,6 +1553,7 @@ export function StaffFinancePanel() {
           </>
         ) : null}
       </fieldset>
+      ) : null}
     </div>
   );
 }
