@@ -914,9 +914,11 @@ export function StaffFinancePanel() {
           <p className={styles.muted}>No posted journals to reverse yet.</p>
         )}
       </fieldset>
+      ) : null}
 
+      {tab === "reports" ? (
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>2 · Reports</legend>
+        <legend className={styles.legend}>Reports</legend>
         <form onSubmit={(e) => void onRunReport(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
