@@ -236,7 +236,7 @@ private fun ManagementApp(
         route = if (salesHome) ManagementRoute.Pos else ManagementRoute.Home
     }
 
-    when (val current = route) {
+    when (route) {
         null -> Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -246,22 +246,19 @@ private fun ManagementApp(
         ) {
             Text("Loading roles…", style = MaterialTheme.typography.bodyMedium)
         }
-        ManagementRoute.Home -> {
-            BackHandler(enabled = false) { }
-            ManagementHome(
-                liveRpc = liveRpc,
-                signedInEmail = signedInEmail,
-                onSignOut = onSignOut,
-                showChat = showChat,
-                showCredit = showCredit,
-                showFleet = showFleet,
-                onOpenModule = ::openModuleMenu,
-            )
-        }
+        ManagementRoute.Home -> ManagementHome(
+            liveRpc = liveRpc,
+            signedInEmail = signedInEmail,
+            onSignOut = onSignOut,
+            showChat = showChat,
+            showCredit = showCredit,
+            showFleet = showFleet,
+            onOpenModule = ::openModuleMenu,
+        )
         ManagementRoute.ModuleMenu -> {
             val module = openModule
             if (module == null) {
-                goHome()
+                LaunchedEffect(Unit) { goHome() }
             } else {
                 BackHandler { goHome() }
                 ModuleSubMenu(
@@ -298,12 +295,7 @@ private fun ManagementApp(
         }
         ManagementRoute.Pos -> {
             BackHandler {
-                if (salesHome && openModule == null) {
-                    // Sales-dedicated till: stay unless they opened hub then POS.
-                    goHome()
-                } else {
-                    backFromFeature()
-                }
+                if (openModule != null) backFromFeature() else goHome()
             }
             PosScreen(
                 rpc = rpc,
@@ -361,9 +353,6 @@ private fun ManagementApp(
             )
         }
     }
-    // Silence unused when exhaustiveness is via when — keep current for IDE.
-    @Suppress("UNUSED_EXPRESSION")
-    current
 }
 
 @Composable
