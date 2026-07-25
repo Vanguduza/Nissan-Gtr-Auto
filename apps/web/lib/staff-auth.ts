@@ -20,13 +20,23 @@ export type StaffNavItem = {
 
 export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { href: "/staff", label: "Hub", exact: true, roles: "any" },
-  { href: "/staff/pos", label: "POS", roles: ["admin", "warehouse", "sales"] },
+  { href: "/staff/pos", label: "POS counter", roles: ["admin", "warehouse", "sales"] },
   {
     href: "/staff/warehouse",
-    label: "Warehouse",
+    label: "Warehouse ops",
     roles: ["admin", "warehouse"],
   },
-  { href: "/staff/finance", label: "Finance", roles: ["admin", "finance"] },
+  { href: "/staff/finance", label: "Finance ledger", roles: ["admin", "finance"] },
+  {
+    href: "/staff/crm/credit",
+    label: "Customer credit",
+    roles: ["admin", "sales", "finance"],
+  },
+  {
+    href: "/staff/crm/reviews",
+    label: "Review moderation",
+    roles: ["admin", "sales"],
+  },
   {
     href: "/staff/logistics",
     label: "Logistics",
@@ -43,15 +53,15 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
     label: "Panic inbox",
     roles: ["admin", "warehouse", "dispatcher"],
   },
-  { href: "/staff/hr", label: "HR", roles: ["admin", "hr"] },
+  { href: "/staff/hr", label: "HR desk", roles: ["admin", "hr"] },
   {
     href: "/staff/warranty",
-    label: "Warranty",
+    label: "Warranty claims",
     roles: ["admin", "warehouse", "sales"],
   },
   {
     href: "/staff/chat",
-    label: "Chat",
+    label: "Customer chat",
     roles: ["admin", "sales", "warehouse"],
   },
   {
