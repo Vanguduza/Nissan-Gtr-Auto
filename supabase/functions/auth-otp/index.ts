@@ -383,7 +383,6 @@ Deno.serve(async (req) => {
           password,
           email_confirm: true,
           user_metadata: fullName ? { full_name: fullName } : undefined,
-          ...(phoneE164 ? { phone: phoneE164, phone_confirm: true } : {}),
         });
       if (createErr || !created.user) {
         return jsonErr(createErr?.message ?? "signup failed", 400);

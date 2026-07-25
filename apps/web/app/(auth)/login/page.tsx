@@ -206,7 +206,7 @@ function LoginForm() {
             setMessage(null);
           }}
         >
-          Password
+          Password (staff)
         </button>
         <button
           type="button"
@@ -222,7 +222,7 @@ function LoginForm() {
             setMessage(null);
           }}
         >
-          Email / phone OTP
+          Customer OTP
         </button>
       </div>
 

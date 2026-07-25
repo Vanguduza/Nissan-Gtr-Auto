@@ -178,6 +178,9 @@ class FakeRpcClient : RpcClient {
         const val SEED_ACTIVE_JOB_ID = "00000000-0000-4000-8000-0000000000dj"
         /** Demo share token (SMS `/track/{token}`). Not a secret. */
         const val SEED_TRACK_TOKEN = "fake_customer_track_token_demo_00000001"
+        const val SEED_OIL_FILTER_ID = "00000000-0000-4000-8000-0000000000a1"
+        const val SEED_AIR_FILTER_ID = "00000000-0000-4000-8000-0000000000a2"
+        const val SEED_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
     }
 
     override suspend fun createCustomerCart(
