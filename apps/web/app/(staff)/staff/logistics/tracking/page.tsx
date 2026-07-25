@@ -1,4 +1,5 @@
 import { StaffDeliveryTrackingPanel } from "@/components/staff-delivery-tracking-panel";
+import { StaffLogisticsTabs } from "@/components/staff-logistics-tabs";
 import { StaffNav } from "@/components/staff-nav";
 import styles from "@/components/account.module.css";
 
@@ -16,6 +17,7 @@ export default function StaffLogisticsTrackingPage() {
           dispatcher). Drivers use the delivery Android app — this page is
           subscribe-only (no browser geolocation).
         </p>
+        <StaffLogisticsTabs active="tracking" />
         <StaffDeliveryTrackingPanel />
       </div>
     </div>
