@@ -4,11 +4,21 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * In-memory stub so HR / dispatch screens compile and exercise flows without
- * a configured Supabase project. Live: [SupabaseRpcClient] via [RpcClientFactory].
+ * In-memory stub so HR / POS / warehouse / dispatch screens compile and exercise
+ * flows without a configured Supabase project. Live: [SupabaseRpcClient] via [RpcClientFactory].
  *
  * Documented live RPC → param map:
  * - [RpcNames.CLOCK_ATTENDANCE]: p_employee_id, p_event_type, p_occurred_at?, p_notes?
+ * - [RpcNames.CREATE_POS_CART]: p_warehouse_id, p_customer_id?, p_currency, p_fulfillment_mode?
+ * - [RpcNames.ADD_CART_LINE]: p_cart_id, p_stock_item_id, p_uom_id, p_qty
+ * - [RpcNames.CHECKOUT_POS_CART]: p_cart_id
+ * - [RpcNames.POST_STOCK_RECEIPT]: p_to_warehouse_id, p_notes?, p_lines
+ * - [RpcNames.CREATE_STOCK_TRANSFER]: p_from_warehouse_id, p_to_warehouse_id, p_notes?, p_lines
+ * - [RpcNames.APPROVE_STOCK_TRANSFER] / [RpcNames.REJECT_STOCK_TRANSFER]: p_entry_id
+ * - [RpcNames.CREATE_STOCK_RECONCILIATION_DRAFT]: p_warehouse_id, p_scope, p_item_ids?, p_notes?, p_currency, p_exchange_rate?
+ * - [RpcNames.UPSERT_STOCK_RECONCILIATION_LINES]: p_reconciliation_id, p_lines
+ * - [RpcNames.SUBMIT_STOCK_RECONCILIATION] / [RpcNames.APPROVE_STOCK_RECONCILIATION]: p_reconciliation_id
+ * - [RpcNames.CANCEL_STOCK_RECONCILIATION]: p_reconciliation_id, p_notes?
  * - [RpcNames.CREATE_PICK_LIST]: p_sales_invoice_id, p_lines?
  * - [RpcNames.CONFIRM_PICK_LINES]: p_pick_list_id, p_lines
  * - [RpcNames.CREATE_DELIVERY_NOTE]: p_sales_invoice_id, p_lines, p_pick_list_id?
@@ -22,6 +32,9 @@ class FakeRpcClient : RpcClient {
     private val dnSeq = AtomicInteger(1)
     private val plSeq = AtomicInteger(1)
     private val jobSeq = AtomicInteger(1)
+    private val openCarts = mutableSetOf<String>()
+    private val pendingTransfers = mutableSetOf<String>()
+    private val reconDrafts = mutableSetOf<String>()
     private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
     /** Exposed for unit/demo checks — count of successful GPS ingests. */
     val ingestedLocationCount: AtomicInteger = AtomicInteger(0)
@@ -48,8 +61,134 @@ class FakeRpcClient : RpcClient {
         notes: String?,
     ): String {
         require(employeeId.isNotBlank()) { "employeeId required for ${RpcNames.CLOCK_ATTENDANCE}" }
-        // TODO(live): supabase.rpc(RpcNames.CLOCK_ATTENDANCE, …)
         return UUID.randomUUID().toString()
+    }
+
+    override suspend fun createPosCart(
+        warehouseId: String,
+        currency: CurrencyCode,
+        fulfillmentMode: FulfillmentMode,
+        customerId: String?,
+    ): String {
+        require(warehouseId.isNotBlank()) { "warehouseId required for ${RpcNames.CREATE_POS_CART}" }
+        val id = UUID.randomUUID().toString()
+        openCarts.add(id)
+        return id
+    }
+
+    override suspend fun addCartLine(
+        cartId: String,
+        stockItemId: String,
+        uomId: String,
+        qty: Double,
+    ): String {
+        require(cartId.isNotBlank()) { "cartId required for ${RpcNames.ADD_CART_LINE}" }
+        require(stockItemId.isNotBlank()) { "stockItemId required" }
+        require(uomId.isNotBlank()) { "uomId required" }
+        require(qty > 0) { "qty must be > 0" }
+        require(cartId in openCarts || openCarts.isEmpty()) {
+            // Allow unknown cart ids for scaffold demos when no create preceded.
+            "open cart not found"
+        }
+        if (cartId !in openCarts) openCarts.add(cartId)
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun checkoutPosCart(cartId: String): String {
+        require(cartId.isNotBlank()) { "cartId required for ${RpcNames.CHECKOUT_POS_CART}" }
+        openCarts.remove(cartId)
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun postStockReceipt(
+        toWarehouseId: String,
+        notes: String?,
+        lines: List<ReceiptLineInput>,
+    ): String {
+        require(toWarehouseId.isNotBlank())
+        require(lines.isNotEmpty()) { "${RpcNames.POST_STOCK_RECEIPT} requires lines" }
+        lines.forEach { line ->
+            require(line.stockItemId.isNotBlank() && line.uomId.isNotBlank())
+            require(line.qty > 0)
+        }
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun createStockTransfer(
+        fromWarehouseId: String,
+        toWarehouseId: String,
+        notes: String?,
+        lines: List<TransferLineInput>,
+    ): String {
+        require(fromWarehouseId.isNotBlank() && toWarehouseId.isNotBlank())
+        require(fromWarehouseId != toWarehouseId) { "from and to warehouses must differ" }
+        require(lines.isNotEmpty()) { "${RpcNames.CREATE_STOCK_TRANSFER} requires lines" }
+        val id = UUID.randomUUID().toString()
+        pendingTransfers.add(id)
+        return id
+    }
+
+    override suspend fun approveStockTransfer(entryId: String): String {
+        require(entryId.isNotBlank())
+        pendingTransfers.remove(entryId)
+        return entryId
+    }
+
+    override suspend fun rejectStockTransfer(entryId: String): String {
+        require(entryId.isNotBlank())
+        pendingTransfers.remove(entryId)
+        return entryId
+    }
+
+    override suspend fun createStockReconciliationDraft(
+        warehouseId: String,
+        scope: ReconciliationScope,
+        currency: CurrencyCode,
+        itemIds: List<String>?,
+        notes: String?,
+        exchangeRate: Double?,
+    ): String {
+        require(warehouseId.isNotBlank())
+        if (scope == ReconciliationScope.PARTIAL) {
+            require(!itemIds.isNullOrEmpty()) { "partial reconciliation requires item_ids" }
+        }
+        if (currency == CurrencyCode.ZIG) {
+            require(exchangeRate != null && exchangeRate > 0) {
+                "ZIG requires positive exchange_rate"
+            }
+        }
+        val id = UUID.randomUUID().toString()
+        reconDrafts.add(id)
+        return id
+    }
+
+    override suspend fun upsertStockReconciliationLines(
+        reconciliationId: String,
+        lines: List<ReconciliationLineInput>,
+    ): Int {
+        require(reconciliationId.isNotBlank())
+        require(lines.isNotEmpty()) { "${RpcNames.UPSERT_STOCK_RECONCILIATION_LINES} requires lines" }
+        return lines.size
+    }
+
+    override suspend fun submitStockReconciliation(reconciliationId: String): String {
+        require(reconciliationId.isNotBlank())
+        reconDrafts.remove(reconciliationId)
+        return reconciliationId
+    }
+
+    override suspend fun approveStockReconciliation(reconciliationId: String): String {
+        require(reconciliationId.isNotBlank())
+        return reconciliationId
+    }
+
+    override suspend fun cancelStockReconciliation(
+        reconciliationId: String,
+        notes: String?,
+    ): String {
+        require(reconciliationId.isNotBlank())
+        reconDrafts.remove(reconciliationId)
+        return reconciliationId
     }
 
     override suspend fun listDeliveryNotes(): List<DeliveryNoteSummary> =
