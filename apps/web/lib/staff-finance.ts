@@ -770,8 +770,8 @@ export async function setZigExchangeRate(
   }
   const { data, error } = await client.rpc("set_zig_exchange_rate", {
     p_rate: args.rate,
-    p_rate_date: args.rateDate ?? null,
-    p_notes: args.notes?.trim() || null,
+    p_rate_date: args.rateDate ?? undefined,
+    p_notes: args.notes?.trim() || undefined,
   });
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "set_zig_exchange_rate returned no id." };
