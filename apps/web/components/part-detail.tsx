@@ -14,14 +14,17 @@ import {
   type CatalogProduct,
 } from "@/lib/catalog-product";
 import {
-  addOemToCompare,
-  isOemInCompare,
-  removeOemFromCompare,
-} from "@/lib/compare-selection";
+  addOemToCompareTray,
+  removeOemFromCompareTray,
+} from "@/lib/customer-compare";
+import { isOemInCompare } from "@/lib/compare-selection";
 import {
+  getProductReviewStats,
   listApprovedReviewsForOem,
   submitProductReview,
+  uploadReviewPhoto,
   type ProductReviewRow,
+  type ProductReviewStats,
 } from "@/lib/customer-reviews";
 import {
   addWishlistItem,
@@ -43,10 +46,15 @@ export function PartDetail({ oem }: { oem: string }) {
   const [onWishlist, setOnWishlist] = useState(false);
   const [inCompare, setInCompare] = useState(false);
   const [reviews, setReviews] = useState<ProductReviewRow[]>([]);
+  const [reviewStats, setReviewStats] = useState<ProductReviewStats | null>(
+    null,
+  );
   const [wishBusy, setWishBusy] = useState(false);
+  const [compareBusy, setCompareBusy] = useState(false);
   const [reviewRating, setReviewRating] = useState("5");
   const [reviewBody, setReviewBody] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewPhoto, setReviewPhoto] = useState<File | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   useEffect(() => {
