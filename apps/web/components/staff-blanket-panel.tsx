@@ -535,7 +535,7 @@ export function StaffBlanketPanel() {
                         {line.qty_released ?? 0}
                         {" · left "}
                         {rem}
-                        {b.po.status === "submitted" && rem > 0 ? (
+                        {b.po.status === "approved" && rem > 0 ? (
                           <>
                             {" · release "}
                             <input
@@ -569,6 +569,26 @@ export function StaffBlanketPanel() {
                     </button>
                   ) : null}
                   {b.po.status === "submitted" ? (
+                    <>
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        disabled={busy}
+                        onClick={() => void onApproveBlanket(b.po.id)}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnGhost}
+                        disabled={busy || !rejectReason.trim()}
+                        onClick={() => void onRejectBlanket(b.po.id)}
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : null}
+                  {b.po.status === "approved" ? (
                     <button
                       type="button"
                       className={styles.btn}
