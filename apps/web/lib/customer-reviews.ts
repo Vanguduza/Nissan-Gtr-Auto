@@ -1,5 +1,8 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
-import type { StorefrontResult } from "@/lib/customer-storefront";
+import {
+  loadOwnCustomer,
+  type StorefrontResult,
+} from "@/lib/customer-storefront";
 
 export type ProductReviewStatus =
   Database["public"]["Enums"]["product_review_status"];
@@ -21,11 +24,16 @@ function asSingle<T>(value: T | T[] | null | undefined): T | null {
 export async function listOwnReviews(
   client: SupabaseClient,
 ): Promise<StorefrontResult<ProductReviewRow[]>> {
+  const customer = await loadOwnCustomer(client);
+  if (!customer.ok) return customer;
+  if (!customer.data) return { ok: true, data: [] };
+
   const { data, error } = await client
     .from("customer_product_reviews")
     .select(
       "id, customer_id, stock_item_id, rating, body, status, created_at, updated_at, stock_items ( id, oem_part_number, description )",
     )
+    .eq("customer_id", customer.data.id)
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) return { ok: false, error: error.message };
