@@ -329,6 +329,15 @@ export function StaffBlanketPanel() {
                 disabled={busy}
               />
             </label>
+            <label className={styles.field}>
+              Expected / expiry date
+              <input
+                type="date"
+                value={expectedDate}
+                onChange={(e) => setExpectedDate(e.target.value)}
+                disabled={busy}
+              />
+            </label>
           </div>
 
           <div className={styles.formGrid} style={{ marginTop: "0.75rem" }}>
