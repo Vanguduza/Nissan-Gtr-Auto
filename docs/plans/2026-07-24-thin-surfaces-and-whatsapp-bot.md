@@ -4,7 +4,7 @@
 - Lane(s): `@backend_agent` (WhatsApp bot primary); then ordered follow-ons per gap (see Handoff)
 - Skills needed: (none for bot messaging); `/qr-inventory-workflow` only when QR/print work starts; Bridge-First N/A for WA Cloud API
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md)
-- Decision: [`whatsapp-parts-finder-bot`](../decisions/2026-07-24-whatsapp-parts-finder-bot.md) (Proposed)
+- Decision: [`whatsapp-parts-finder-bot`](../decisions/2026-07-24-whatsapp-parts-finder-bot.md) (Accepted)
 - Sources: thin-audit agent `d1fd3e85`; WhatsApp agent `62bed301`
 
 ## Goal
