@@ -113,6 +113,63 @@ Outbound Cloud API client shared by **receipt delivery** (`process-customer-rece
 
 Exports: `sendWhatsAppText`, `sendWhatsAppDocument` (link or media id), `uploadWhatsAppMediaPdf`.
 
+## AI staff analytics (`analytics-insights`, `process-ai-reports`)
+
+Aggregates-only KPIs (sales, returns/CN, top SKUs, inventory/low-stock/stockouts, AR aging, credit holds, open DNs/jobs). **No** customer PII or journal dumps to Gemini. See `docs/decisions/2026-07-25-ai-report-schema-privacy.md`.
+
+### Interactive (`analytics-insights`)
+
+Staff JWT (`admin` | `finance` | `sales`). Body:
+
+```json
+{ "from": "ISO", "to": "ISO", "kpi_set": "ops_sales_v1", "include_narrative": true }
+```
+
+Response: `{ "kpis", "narrative", "gemini_used", "error" }`.  
+If `GEMINI_API_KEY` missing and narrative requested → **422** with KPIs still present, `error: "gemini_unavailable"`.
+
+### Cron worker (`process-ai-reports`)
+
+`x-worker-secret` + optional gateway JWT. Due subscriptions for `daily` | `weekly` | `monthly` → `kpi_ops_sales_v1` → optional Gemini → email / WhatsApp via `_shared/email_send.ts` + `_shared/whatsapp_cloud.ts`. Missing Gemini → **numeric-only** delivery (`gemini_used=false`).
+
+| Env | Notes |
+|-----|--------|
+| `GEMINI_API_KEY` | Narrative; never commit; set via Edge secrets / local `supabase/functions/.env` |
+| `GEMINI_MODEL` | Optional; default `gemini-2.0-flash` |
+| `REPORT_FROM_EMAIL` | Report From; falls back to `EMAIL_FROM` / `RECEIPT_FROM_EMAIL` |
+| `EMAIL_API_KEY` / `RESEND_API_KEY` | Existing email helper |
+| `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Existing Cloud API helper |
+| `WORKER_SHARED_SECRET` | Required for cron AuthZ |
+
+### Cron schedule (suggested)
+
+Schedule three jobs (or one daily job that you call three times with different `cadence`):
+
+```bash
+# Daily (e.g. 06:00 Africa/Harare)
+curl -sS -X POST "$SUPABASE_URL/functions/v1/process-ai-reports" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "x-worker-secret: $WORKER_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"cadence":"daily"}'
+
+# Weekly / monthly — same URL with cadence weekly|monthly
+```
+
+### Manual test (force daily)
+
+```bash
+curl -sS -X POST "$SUPABASE_URL/functions/v1/process-ai-reports" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "x-worker-secret: $WORKER_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"cadence":"daily","force":true}'
+```
+
+Optional: `"subscription_id":"<uuid>"` to target one subscription. Verify `ai_report_runs` + `ai_report_deliveries`; without Gemini → numeric body, `gemini_used=false`.
+
+Shared narrative helper: `_shared/gemini_narrative.ts`.
+
 ## WhatsApp parts-finder bot (`whatsapp-webhook`)
 
 Meta Cloud API → verify + signed inbound → `search_catalog` via **service_role** → top hits + PDP deep-links → optional human handoff.
