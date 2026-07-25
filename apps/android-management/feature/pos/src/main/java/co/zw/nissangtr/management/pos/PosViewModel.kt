@@ -106,7 +106,43 @@ class PosViewModel(
         _state.update { it.copy(warehouseId = v, error = null) }
 
     fun onCustomerIdChange(v: String) =
-        _state.update { it.copy(customerId = v) }
+        _state.update { it.copy(customerId = v, customerName = if (v.isBlank()) "" else it.customerName) }
+
+    fun onCustomerQueryChange(v: String) =
+        _state.update { it.copy(customerQuery = v, error = null) }
+
+    fun selectCustomer(c: CustomerOption) =
+        _state.update {
+            it.copy(
+                customerId = c.id,
+                customerName = c.displayName,
+                customerQuery = c.displayName,
+                customerHits = emptyList(),
+            )
+        }
+
+    fun clearCustomer() =
+        _state.update {
+            it.copy(customerId = "", customerName = "", customerQuery = "", customerHits = emptyList())
+        }
+
+    fun searchCustomers() {
+        val q = _state.value.customerQuery
+        viewModelScope.launch {
+            try {
+                val hits = rpc.searchCustomers(q)
+                _state.update {
+                    it.copy(
+                        customerHits = hits,
+                        message = if (hits.isEmpty()) "No customers matched" else null,
+                        error = null,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "customer search failed") }
+            }
+        }
+    }
 
     fun onCurrencyChange(v: CurrencyCode) =
         _state.update { it.copy(currency = v, error = null) }

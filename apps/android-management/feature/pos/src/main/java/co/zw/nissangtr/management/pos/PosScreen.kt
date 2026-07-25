@@ -141,9 +141,41 @@ private fun TillSection(
         enabled = !state.busy,
     )
     OutlinedTextField(
+        value = state.customerQuery,
+        onValueChange = viewModel::onCustomerQueryChange,
+        label = { Text("Named customer search") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        enabled = !state.busy,
+    )
+    OutlinedButton(
+        onClick = viewModel::searchCustomers,
+        enabled = !state.busy,
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text("Search customers") }
+    state.customerHits.forEach { c ->
+        Text(
+            c.displayName,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { viewModel.selectCustomer(c) }
+                .padding(vertical = 4.dp),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    if (state.customerName.isNotBlank()) {
+        Text(
+            "Selected: ${state.customerName}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        TextButton(onClick = viewModel::clearCustomer, enabled = !state.busy) {
+            Text("Clear customer")
+        }
+    }
+    OutlinedTextField(
         value = state.customerId,
         onValueChange = viewModel::onCustomerIdChange,
-        label = { Text("Customer UUID (optional)") },
+        label = { Text("Customer UUID (optional / from search)") },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         enabled = !state.busy,
