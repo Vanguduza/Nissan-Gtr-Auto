@@ -12,6 +12,6 @@ Larger UI / mobile / bridge follow-ons already scheduled outside polish:
 | Payment / receipt UX + live PSP keys | `@web_agent`, `@backend_agent` | Phase 13 backend Done; secrets ops in `docs/HARDENING.md` |
 | Customer + management mobile apps | `@ios_agent`, `@android_agent`, `@management_app_agent` | Phases 11–12 |
 | PowerSync client offline sale | mobile lanes | Deferred from Phase 14 must-now |
-| Distributor extras | `@backend_agent` + UI | **Phase 16** (bins, kits, consignment, loyalty, attachments) |
+| Distributor extras | `@backend_agent` + UI | Backend Done; **bins + consignment web UI Done** (audit follow-ons); kits/loyalty already bound earlier; attachments soft |
 
 Do not open Phase 16 work from this backlog. Empty actionable polish list = Phase 15 polish AC satisfied.
