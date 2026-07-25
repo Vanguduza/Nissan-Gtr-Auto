@@ -112,6 +112,11 @@ export const STAFF_MODULE_ROLES = {
     "warehouse",
     "dispatcher",
   ] as const satisfies readonly StaffRole[],
+  fleet: [
+    "admin",
+    "warehouse",
+    "dispatcher",
+  ] as const satisfies readonly StaffRole[],
   hr: ["admin", "hr"] as const satisfies readonly StaffRole[],
   procurement: [
     "admin",
@@ -185,6 +190,9 @@ export function pathAccessFor(pathname: string): PathAccess {
       kind: "roles",
       roles: ["admin", "warehouse", "sales", "dispatcher"],
     };
+  }
+  if (path === "/staff/fleet" || path.startsWith("/staff/fleet/")) {
+    return { kind: "roles", roles: ["admin", "warehouse", "dispatcher"] };
   }
   if (path.startsWith("/staff/hr")) {
     return { kind: "roles", roles: ["admin", "hr"] };
