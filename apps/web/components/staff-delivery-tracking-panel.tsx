@@ -4,21 +4,28 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
 import { StaffDeliveryLiveMap } from "@/components/staff-delivery-live-map";
-import { formatEtaLabel } from "@/lib/customer-delivery-track";
+import {
+  formatEtaLabel,
+  type CustomerTrackPoint,
+} from "@/lib/customer-delivery-track";
 import {
   assignDeliveryJob,
   deliveryLocationInsertChannel,
   dispatchDeliveryJob,
   fetchRecentDeliveryLocations,
+  fetchStaffTrackPoint,
   listDeliveryJobs,
   optimizeDriverStops,
   requireSession,
+  setDeliveryJobGeo,
   suggestDeliveryAssignees,
   type AssigneeSuggestion,
   type DeliveryJobOption,
   type DeliveryLocationPoint,
 } from "@/lib/staff-delivery-tracking";
 import { createWebClient } from "@/lib/supabase";
+
+const TRACK_POINT_POLL_MS = 20_000;
 
 type Boot =
   | { kind: "loading" }
@@ -49,6 +56,17 @@ function shortId(id: string) {
   return id.slice(0, 8);
 }
 
+function numOrEmpty(v: number | null | undefined): string {
+  return v == null || Number.isNaN(v) ? "" : String(v);
+}
+
+function parseCoord(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : Number.NaN;
+}
+
 export function StaffDeliveryTrackingPanel() {
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [jobId, setJobId] = useState("");
@@ -61,6 +79,12 @@ export function StaffDeliveryTrackingPanel() {
   const [override, setOverride] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [trackPoint, setTrackPoint] = useState<CustomerTrackPoint | null>(null);
+  const [pickupLat, setPickupLat] = useState("");
+  const [pickupLng, setPickupLng] = useState("");
+  const [dropoffLat, setDropoffLat] = useState("");
+  const [dropoffLng, setDropoffLng] = useState("");
 
   const refreshJobs = useCallback(async () => {
     const client = createWebClient();
@@ -116,9 +140,28 @@ export function StaffDeliveryTrackingPanel() {
 
   useEffect(() => {
     if (boot.kind !== "ready" || !jobId) {
+      setPickupLat("");
+      setPickupLng("");
+      setDropoffLat("");
+      setDropoffLng("");
+      setShareToken(null);
+      return;
+    }
+    const job = boot.jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    setPickupLat(numOrEmpty(job.pickup_lat));
+    setPickupLng(numOrEmpty(job.pickup_lng));
+    setDropoffLat(numOrEmpty(job.dropoff_lat));
+    setDropoffLng(numOrEmpty(job.dropoff_lng));
+    setShareToken(null);
+  }, [boot, jobId]);
+
+  useEffect(() => {
+    if (boot.kind !== "ready" || !jobId) {
       setPointsState({ kind: "idle" });
       setLive(false);
       setRealtimeMessage(null);
+      setTrackPoint(null);
       return;
     }
 
@@ -129,6 +172,7 @@ export function StaffDeliveryTrackingPanel() {
     setRealtimeMessage(null);
     setPointsState({ kind: "loading" });
     setLive(false);
+    setTrackPoint(null);
 
     void (async () => {
       const initial = await fetchRecentDeliveryLocations(client, jobId);
@@ -140,6 +184,17 @@ export function StaffDeliveryTrackingPanel() {
       setPointsState({ kind: "ready", points: initial.data });
     })();
 
+    const refreshTrackPoint = async () => {
+      const res = await fetchStaffTrackPoint(client, jobId);
+      if (cancelled || !res.ok) return;
+      setTrackPoint(res.data);
+    };
+    void refreshTrackPoint();
+    const pollId = window.setInterval(
+      () => void refreshTrackPoint(),
+      TRACK_POINT_POLL_MS,
+    );
+
     const channel = deliveryLocationInsertChannel(client, jobId, (point) => {
       setPointsState((prev) => {
         if (prev.kind === "ready") {
@@ -150,6 +205,7 @@ export function StaffDeliveryTrackingPanel() {
         }
         return prev;
       });
+      void refreshTrackPoint();
     });
 
     channel.subscribe((status) => {
@@ -165,6 +221,7 @@ export function StaffDeliveryTrackingPanel() {
     return () => {
       cancelled = true;
       setLive(false);
+      window.clearInterval(pollId);
       void client.removeChannel(channel);
     };
   }, [boot.kind, jobId]);
@@ -198,20 +255,75 @@ export function StaffDeliveryTrackingPanel() {
     await loadSuggestions(jobId);
   }
 
-  async function onDispatch() {
+  async function onSaveGeo() {
     const client = createWebClient();
     if (!client || !jobId) return;
+    const pLat = parseCoord(pickupLat);
+    const pLng = parseCoord(pickupLng);
+    const dLat = parseCoord(dropoffLat);
+    const dLng = parseCoord(dropoffLng);
+    if (
+      Number.isNaN(pLat) ||
+      Number.isNaN(pLng) ||
+      Number.isNaN(dLat) ||
+      Number.isNaN(dLng)
+    ) {
+      setActionMessage(
+        "Coordinates must be valid numbers (or empty to clear).",
+      );
+      return;
+    }
+    if ((pLat == null) !== (pLng == null)) {
+      setActionMessage("Pickup lat and lng must both be set or both empty.");
+      return;
+    }
+    if ((dLat == null) !== (dLng == null)) {
+      setActionMessage("Dropoff lat and lng must both be set or both empty.");
+      return;
+    }
     setBusy(true);
     setActionMessage(null);
-    const res = await dispatchDeliveryJob(client, jobId);
+    const res = await setDeliveryJobGeo(client, jobId, {
+      pickupLat: pLat,
+      pickupLng: pLng,
+      dropoffLat: dLat,
+      dropoffLng: dLng,
+    });
     setBusy(false);
     if (!res.ok) {
       setActionMessage(res.error);
       return;
     }
     setActionMessage(
-      "Marked dispatched. Customer track token minted; SMS/WA enqueued via sms_outbox (worker fail-closes without SMS_GATEWAY_API_KEY).",
+      "Pickup/dropoff geo saved (suggest + ETA use these coords).",
     );
+    await refreshJobs();
+    await loadSuggestions(jobId);
+  }
+
+  async function onDispatch() {
+    const client = createWebClient();
+    if (!client || !jobId) return;
+    setBusy(true);
+    setActionMessage(null);
+    setShareToken(null);
+    const res = await dispatchDeliveryJob(client, jobId);
+    setBusy(false);
+    if (!res.ok) {
+      setActionMessage(res.error);
+      return;
+    }
+    const token = res.data.track_token ?? null;
+    setShareToken(token);
+    if (token) {
+      setActionMessage(
+        "Marked dispatched. Share the customer track link below — do not remint (that revokes this token). SMS/WA enqueued via sms_outbox when gateway keys are set.",
+      );
+    } else {
+      setActionMessage(
+        "Marked dispatched, but no track_token in response. Check update_delivery_job_status migration.",
+      );
+    }
     await refreshJobs();
   }
 
@@ -278,8 +390,14 @@ export function StaffDeliveryTrackingPanel() {
       ? pointsState.points
       : ([] as DeliveryLocationPoint[]);
   const showMap = Boolean(jobId) && pointsState.kind !== "error";
-  const etaLabel = selectedJob
-    ? formatEtaLabel(selectedJob.eta_at, selectedJob.eta_seconds)
+  const etaLabel =
+    formatEtaLabel(
+      trackPoint?.eta_at ?? selectedJob?.eta_at ?? null,
+      trackPoint?.eta_seconds ?? selectedJob?.eta_seconds ?? null,
+    ) ?? null;
+  const etaSource = selectedJob?.eta_source ?? null;
+  const sharePath = shareToken
+    ? `/track/${encodeURIComponent(shareToken)}`
     : null;
 
   return (
@@ -318,18 +436,105 @@ export function StaffDeliveryTrackingPanel() {
         )}
 
         {selectedJob ? (
-          <p className={styles.muted} style={{ marginTop: "0.75rem" }} role="status">
-            <strong>ETA</strong>{" "}
-            {etaLabel ?? "—"}
-            {selectedJob.eta_source ? ` (${selectedJob.eta_source})` : ""}
+          <p
+            className={styles.muted}
+            style={{ marginTop: "0.75rem" }}
+            role="status"
+          >
+            <strong>ETA</strong> {etaLabel ?? "—"}
+            {etaSource ? ` (${etaSource})` : ""}
             {" · "}
             <strong>Assignee</strong>{" "}
             {selectedJob.assignee_user_id
               ? shortId(selectedJob.assignee_user_id)
               : "unassigned"}
+            {trackPoint ? (
+              <>
+                {" · "}
+                <strong>Last (RPC)</strong> {trackPoint.lat.toFixed(5)},{" "}
+                {trackPoint.lng.toFixed(5)}
+              </>
+            ) : null}
           </p>
         ) : null}
       </fieldset>
+
+      {selectedJob ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Pickup / dropoff geo</legend>
+          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+            Used by <code>suggest_delivery_assignees</code> and Haversine ETA.
+            Empty pair clears that endpoint. No browser GPS — enter coords
+            manually or from address tools.
+          </p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0.65rem",
+            }}
+          >
+            <label className={styles.field}>
+              Pickup lat
+              <input
+                type="text"
+                inputMode="decimal"
+                value={pickupLat}
+                onChange={(e) => setPickupLat(e.target.value)}
+                disabled={busy}
+                placeholder="-17.8292"
+                aria-label="Pickup latitude"
+              />
+            </label>
+            <label className={styles.field}>
+              Pickup lng
+              <input
+                type="text"
+                inputMode="decimal"
+                value={pickupLng}
+                onChange={(e) => setPickupLng(e.target.value)}
+                disabled={busy}
+                placeholder="31.0522"
+                aria-label="Pickup longitude"
+              />
+            </label>
+            <label className={styles.field}>
+              Dropoff lat
+              <input
+                type="text"
+                inputMode="decimal"
+                value={dropoffLat}
+                onChange={(e) => setDropoffLat(e.target.value)}
+                disabled={busy}
+                placeholder="-17.85"
+                aria-label="Dropoff latitude"
+              />
+            </label>
+            <label className={styles.field}>
+              Dropoff lng
+              <input
+                type="text"
+                inputMode="decimal"
+                value={dropoffLng}
+                onChange={(e) => setDropoffLng(e.target.value)}
+                disabled={busy}
+                placeholder="31.05"
+                aria-label="Dropoff longitude"
+              />
+            </label>
+          </div>
+          <div className={styles.formActions} style={{ marginTop: "0.75rem" }}>
+            <button
+              type="button"
+              className={styles.btn}
+              disabled={busy}
+              onClick={() => void onSaveGeo()}
+            >
+              Save geo
+            </button>
+          </div>
+        </fieldset>
+      ) : null}
 
       {selectedJob ? (
         <fieldset className={styles.fieldset}>
@@ -443,10 +648,36 @@ export function StaffDeliveryTrackingPanel() {
             ) : null}
           </div>
           <p className={styles.muted} style={{ marginTop: "0.65rem" }}>
-            Dispatch enqueues out-for-delivery SMS via{" "}
-            <code>sms_outbox</code> (fail closed without gateway keys). Customer
-            link: <code>/track/[token]</code>.
+            Dispatch returns plaintext <code>track_token</code> once (SMS +
+            share). Do not remint after dispatch. Customer link:{" "}
+            <code>/track/[token]</code>.
           </p>
+          {shareToken && sharePath ? (
+            <div
+              className={styles.formStatus}
+              role="status"
+              style={{ marginTop: "0.75rem" }}
+            >
+              <p style={{ margin: "0 0 0.35rem" }}>
+                <strong>Share token</strong> (copy now — not recoverable later)
+              </p>
+              <p
+                style={{
+                  margin: "0 0 0.5rem",
+                  fontFamily: "ui-monospace, monospace",
+                  wordBreak: "break-all",
+                }}
+              >
+                {shareToken}
+              </p>
+              <p style={{ margin: 0 }}>
+                Link:{" "}
+                <Link href={sharePath} target="_blank" rel="noreferrer">
+                  {sharePath}
+                </Link>
+              </p>
+            </div>
+          ) : null}
         </fieldset>
       ) : null}
 
@@ -464,6 +695,9 @@ export function StaffDeliveryTrackingPanel() {
         <p className={styles.muted} role="status">
           No GPS points for this job yet. When the driver&apos;s delivery app
           ingests locations, the marker and trail appear here via Realtime.
+          {selectedJob?.status === "dispatched"
+            ? " ETA refreshes via get_delivery_track_point while dispatched."
+            : ""}
         </p>
       ) : null}
 
