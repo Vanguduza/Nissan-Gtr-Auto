@@ -33,7 +33,7 @@ export function SiteFooter() {
             <Link href="/account/garage">My Garage</Link>
             <Link href="/kits">Kits</Link>
             <Link href="/b2b">B2B</Link>
-            <Link href="/login">Sign in</Link>
+            <Link href="/contact">Contact us</Link>
           </nav>
         </div>
       </div>

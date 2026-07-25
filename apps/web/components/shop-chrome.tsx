@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ChatFab } from "@/components/chat-fab";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StickyGarageBar } from "@/components/sticky-garage-bar";
@@ -11,6 +12,7 @@ export function ShopChrome({ children }: { children: ReactNode }) {
       <StickyGarageBar />
       <main className={styles.main}>{children}</main>
       <SiteFooter />
+      <ChatFab />
     </div>
   );
 }
