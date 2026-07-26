@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { StaffAuthProvider } from "@/components/staff-auth-context";
 import { StaffChrome } from "@/components/staff-chrome";
-import styles from "@/components/account.module.css";
+import layoutStyles from "@/components/staff-layout.module.css";
 import {
   canAccessPath,
   loadStaffContext,
