@@ -144,12 +144,16 @@ export function StaffGate({ children }: { children: ReactNode }) {
     };
   }, [pathname, router]);
 
-  if (state.kind === "loading") {
+  if (state.kind === "loading" || state.kind === "redirecting") {
     return (
       <div className={styles.shell} style={{ gridTemplateColumns: "1fr" }}>
         <div className={styles.panel} style={{ maxWidth: "40rem", margin: "1.25rem auto", width: "100%" }}>
           <div className={styles.pageBody}>
-            <p className={styles.muted}>Checking staff access…</p>
+            <p className={styles.muted}>
+              {state.kind === "redirecting"
+                ? state.message
+                : "Checking staff access…"}
+            </p>
           </div>
         </div>
       </div>
