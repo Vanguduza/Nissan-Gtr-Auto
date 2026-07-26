@@ -167,33 +167,19 @@ export function StaffGate({ children }: { children: ReactNode }) {
 
   if (state.kind === "loading" || state.kind === "redirecting") {
     return (
-      <div className={styles.shell} style={{ gridTemplateColumns: "1fr" }}>
-        <div className={styles.panel} style={{ maxWidth: "40rem", margin: "1.25rem auto", width: "100%" }}>
-          <div className={styles.pageBody}>
-            <p className={styles.muted}>
-              {state.kind === "redirecting"
-                ? state.message
-                : "Checking staff access…"}
-            </p>
-          </div>
-        </div>
-      </div>
+      <StaffGateFallback
+        title="Staff"
+        message={
+          state.kind === "redirecting"
+            ? state.message
+            : "Checking staff access…"
+        }
+      />
     );
   }
 
   if (state.kind === "error") {
-    return (
-      <div className={styles.shell} style={{ gridTemplateColumns: "1fr" }}>
-        <div className={styles.panel} style={{ maxWidth: "40rem", margin: "1.25rem auto", width: "100%" }}>
-          <header className={styles.pageHeader}>
-            <h1 className={styles.title}>Staff</h1>
-          </header>
-          <div className={styles.pageBody}>
-            <p className={styles.lede}>{state.message}</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <StaffGateFallback title="Staff" message={state.message} />;
   }
 
   return (
