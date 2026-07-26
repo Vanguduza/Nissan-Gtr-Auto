@@ -76,7 +76,22 @@ export function StaffGate({ children }: { children: ReactNode }) {
         return;
       }
 
-      const res = await loadStaffContext(client);
+      let res: Awaited<ReturnType<typeof loadStaffContext>>;
+      try {
+        res = await withTimeout(
+          loadStaffContext(client),
+          STAFF_CONTEXT_TIMEOUT_MS,
+          "Staff sign-in check",
+        );
+      } catch (e) {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error
+            ? e.message
+            : "Could not verify staff access. Check Supabase is running.";
+        setState({ kind: "error", message: msg });
+        return;
+      }
       if (cancelled) return;
 
       if (!res.ok) {
@@ -85,7 +100,9 @@ export function StaffGate({ children }: { children: ReactNode }) {
       }
 
       if (!res.data) {
-        router.replace(staffLoginHref(pathname));
+        const loginHref = staffLoginHref(pathname);
+        setState({ kind: "redirecting", message: "Redirecting to sign in…" });
+        window.location.assign(loginHref);
         return;
       }
 
@@ -94,6 +111,7 @@ export function StaffGate({ children }: { children: ReactNode }) {
 
       if (!ctx.isStaff) {
         if (!onForbidden) {
+          setState({ kind: "redirecting", message: "Redirecting…" });
           router.replace("/staff/forbidden?reason=not-staff");
           return;
         }
@@ -102,6 +120,7 @@ export function StaffGate({ children }: { children: ReactNode }) {
       }
 
       if (!onForbidden && !canAccessPath(ctx, pathname)) {
+        setState({ kind: "redirecting", message: "Redirecting…" });
         router.replace("/staff/forbidden?reason=role");
         return;
       }
@@ -112,6 +131,7 @@ export function StaffGate({ children }: { children: ReactNode }) {
         prefersPosHome(ctx.roles) &&
         pathname === "/staff"
       ) {
+        setState({ kind: "redirecting", message: "Opening POS…" });
         router.replace("/staff/pos");
         return;
       }
