@@ -22,6 +22,27 @@ type GateState =
 
 const STAFF_CONTEXT_TIMEOUT_MS = 20_000;
 
+function StaffGateFallback({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <div
+      className={layoutStyles.staffGateFallback}
+      role="status"
+      aria-live="polite"
+    >
+      <article className={layoutStyles.staffGateFallbackCard}>
+        <h1 className={layoutStyles.staffGateFallbackTitle}>{title}</h1>
+        <p className={layoutStyles.staffGateFallbackMessage}>{message}</p>
+      </article>
+    </div>
+  );
+}
+
 function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
@@ -59,7 +80,7 @@ export function StaffGate({ children }: { children: ReactNode }) {
           setState({
             kind: "error",
             message:
-              "Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local to use staff surfaces.",
+              "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to apps/web/.env.local, then restart the dev server.",
           });
         }
         return;
