@@ -16,8 +16,34 @@ import { createWebClient, hasSupabaseEnv } from "@/lib/supabase";
 
 type GateState =
   | { kind: "loading" }
+  | { kind: "redirecting"; message: string }
   | { kind: "error"; message: string }
   | { kind: "ready"; ctx: StaffContext };
+
+const STAFF_CONTEXT_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms / 1000}s`)),
+      ms,
+    );
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
 
 export function StaffGate({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/staff";
