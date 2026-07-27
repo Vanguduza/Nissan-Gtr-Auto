@@ -181,6 +181,106 @@ class FakeRpcClient : RpcClient {
         const val SEED_OIL_FILTER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val SEED_AIR_FILTER_ID = "00000000-0000-4000-8000-0000000000a2"
         const val SEED_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
+        const val SEED_UOM_ID = "00000000-0000-4000-8000-0000000000u1"
+
+        private fun seedCatalogProducts(): List<CatalogProduct> = listOf(
+            CatalogProduct(
+                stockItemId = SEED_OIL_FILTER_ID,
+                baseUomId = SEED_UOM_ID,
+                oem = "15208-65F0C",
+                name = "Oil filter (demo)",
+                brand = "Nissan",
+                category = "Filters",
+                usd = 12.50,
+                stock = StockState.IN_STOCK,
+                coreCharge = 0.0,
+            ),
+            CatalogProduct(
+                stockItemId = SEED_AIR_FILTER_ID,
+                baseUomId = SEED_UOM_ID,
+                oem = "16546-EB70A",
+                name = "Air cleaner element (demo)",
+                brand = "Nissan",
+                category = "Filters",
+                usd = 28.00,
+                stock = StockState.LOW,
+                coreCharge = 0.0,
+            ),
+        )
+    }
+
+    private val catalogProducts = seedCatalogProducts().associateBy { it.oem.uppercase() }
+
+    override suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse {
+        val q = query.trim()
+        require(q.isNotEmpty()) { "search query required" }
+        val needle = q.uppercase()
+        val hits = catalogProducts.values
+            .filter { p ->
+                when (mode) {
+                    SearchMode.PART -> p.oem.uppercase().contains(needle) ||
+                        p.name.uppercase().contains(needle)
+                    SearchMode.VIN -> needle.startsWith("JN") || p.oem.contains("15208")
+                    SearchMode.MODEL -> p.name.uppercase().contains(needle) ||
+                        needle.contains("NAVARA", ignoreCase = true)
+                    SearchMode.PNC -> p.category?.uppercase()?.contains(needle) == true ||
+                        needle.contains("FILTER")
+                }
+            }
+            .map {
+                CatalogPartHit(
+                    oemPartNumber = it.oem,
+                    categoryName = it.category,
+                )
+            }
+        return SearchCatalogResponse(mode = mode, query = q, parts = hits)
+    }
+
+    override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult {
+        val cap = limit.coerceIn(1, 100)
+        val cat = category?.trim()?.lowercase()
+        val items = catalogProducts.values
+            .filter { cat == null || it.category?.lowercase()?.contains(cat) == true }
+            .take(cap)
+            .map {
+                CatalogListItem(
+                    stockItemId = it.stockItemId,
+                    oem = it.oem,
+                    name = it.name,
+                    stock = it.stock,
+                    usd = it.usd,
+                    category = it.category,
+                )
+            }
+        return CatalogBrowseResult(
+            items = items,
+            categories = listOf("Filters", "Brakes", "Engine"),
+        )
+    }
+
+    override suspend fun loadCatalogProduct(oem: String): CatalogProduct {
+        val key = oem.trim().uppercase()
+        return catalogProducts[key]
+            ?: catalogProducts.values.firstOrNull { it.oem.equals(oem, ignoreCase = true) }
+            ?: error("Part not found: $oem")
+    }
+
+    override suspend fun addCustomerCartLineByOem(oem: String, qty: Double): Pair<String, String> {
+        require(qty > 0) { "qty must be > 0" }
+        val product = loadCatalogProduct(oem)
+        val cartId = openCart?.id ?: createCustomerCart(
+            warehouseId = SEED_WAREHOUSE_ID,
+            currency = CurrencyCode.USD,
+            fulfillmentMode = FulfillmentMode.IMMEDIATE,
+            exchangeRate = 1.0,
+        )
+        val lineId = addCustomerCartLine(
+            cartId = cartId,
+            stockItemId = product.stockItemId,
+            uomId = product.baseUomId,
+            qty = qty,
+        )
+        return cartId to lineId
     }
 
     override suspend fun createCustomerCart(
