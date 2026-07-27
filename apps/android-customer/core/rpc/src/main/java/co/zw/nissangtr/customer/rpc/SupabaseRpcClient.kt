@@ -88,6 +88,18 @@ class SupabaseRpcClient(
         )
     }
 
+    override suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse =
+        CatalogRpcLive.searchCatalog(client, mode, query)
+
+    override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult =
+        CatalogRpcLive.listCatalogBrowse(client, category, limit)
+
+    override suspend fun loadCatalogProduct(oem: String): CatalogProduct =
+        CatalogRpcLive.loadCatalogProduct(client, oem)
+
+    override suspend fun addCustomerCartLineByOem(oem: String, qty: Double): Pair<String, String> =
+        CatalogRpcLive.addCartLineByOem(client, this, oem, qty)
+
     override suspend fun createCustomerCart(
         warehouseId: String,
         currency: CurrencyCode,
