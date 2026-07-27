@@ -312,6 +312,11 @@ private fun CustomerApp(
                 )
             },
         )
+        CustomerRoute.Catalog -> CatalogScreen(
+            rpc = rpc,
+            onBack = { route = CustomerRoute.Home },
+            onOpenCart = { route = CustomerRoute.Cart },
+        )
         CustomerRoute.Cart -> CartScreen(
             rpc = rpc,
             onBack = { route = CustomerRoute.Home },
