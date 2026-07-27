@@ -75,7 +75,7 @@ internal object CatalogRpcLive {
                     "base_uom_id",
                 ),
             ) {
-                filter { ilike("oem_part_number", oem) }
+                filter { eq("oem_part_number", oem) }
                 limit(1)
             }
             .decodeList<StockItemPdpRow>()

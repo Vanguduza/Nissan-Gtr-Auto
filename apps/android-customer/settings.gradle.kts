@@ -27,6 +27,7 @@ include(":feature:track")
 include(":feature:wishlist")
 include(":feature:compare")
 include(":feature:reviews")
+include(":feature:catalog")
 
 // Bridge-First — review photo camera (consume only; impl under bridges/)
 include(":pod-camera")
