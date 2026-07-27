@@ -113,6 +113,7 @@ enum FeatureTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .catalog: return "Catalog"
         case .cart: return "Cart"
         case .orders: return "Orders"
         case .garage: return "Garage"
@@ -126,6 +127,7 @@ enum FeatureTab: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
+        case .catalog: return "square.grid.2x2"
         case .cart: return "cart"
         case .orders: return "list.bullet.rectangle"
         case .garage: return "car"
