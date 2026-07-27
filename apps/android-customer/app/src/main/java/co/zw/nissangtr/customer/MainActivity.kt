@@ -375,6 +375,7 @@ private fun CustomerHome(
     liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
+    onCatalog: () -> Unit,
     onCart: () -> Unit,
     onOrders: () -> Unit,
     onGarage: () -> Unit,
@@ -398,7 +399,7 @@ private fun CustomerHome(
         Text(
             "Modules: ${AuthModule.id}, ${CartModule.id}, ${OrdersModule.id}, " +
                 "${GarageModule.id}, ${PayModule.id}, ${ChatModule.id}, ${TrackModule.id}, " +
-                "${WishlistModule.id}, ${CompareModule.id}, ${ReviewsModule.id}",
+                "${WishlistModule.id}, ${CompareModule.id}, ${ReviewsModule.id}, ${CatalogModule.id}",
             style = MaterialTheme.typography.bodySmall,
         )
         Text(
