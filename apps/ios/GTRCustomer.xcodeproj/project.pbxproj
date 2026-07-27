@@ -107,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000022 /* SignInScreen.swift */,
+				A10000000000000000000053 /* CatalogScreen.swift */,
 				A10000000000000000000019 /* CartScreen.swift */,
 				A1000000000000000000001A /* OrdersScreen.swift */,
 				A1000000000000000000001B /* GarageScreen.swift */,
