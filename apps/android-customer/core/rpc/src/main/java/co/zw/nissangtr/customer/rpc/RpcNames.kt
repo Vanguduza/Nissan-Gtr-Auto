@@ -6,6 +6,9 @@ package co.zw.nissangtr.customer.rpc
  * Fallback: [FakeRpcClient].
  */
 object RpcNames {
+    /** Four-way catalog lookup — mirrors apps/web/lib/catalog-search.ts */
+    const val SEARCH_CATALOG = "search_catalog"
+
     const val CREATE_CUSTOMER_CART = "create_customer_cart"
     const val ADD_CUSTOMER_CART_LINE = "add_customer_cart_line"
     const val CHECKOUT_CUSTOMER_CART = "checkout_customer_cart"

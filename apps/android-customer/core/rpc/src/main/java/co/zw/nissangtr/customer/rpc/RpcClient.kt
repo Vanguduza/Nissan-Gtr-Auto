@@ -18,6 +18,21 @@ package co.zw.nissangtr.customer.rpc
  * QR / camera: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
  */
 interface RpcClient {
+    /** Mirrors web `searchCatalog` → `search_catalog`. */
+    suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse
+
+    /** Browse PLP — PostgREST stock_items + default price list (web `listCatalogProducts` subset). */
+    suspend fun listCatalogBrowse(category: String? = null, limit: Int = 50): CatalogBrowseResult
+
+    /** PDP load — stock_items + price + saleable qty (web `loadCatalogProduct` subset). */
+    suspend fun loadCatalogProduct(oem: String): CatalogProduct
+
+    /**
+     * Ensure open cart then add line by OEM — mirrors web `addCartLineByOem`.
+     * Returns `(cartId, lineId)`.
+     */
+    suspend fun addCustomerCartLineByOem(oem: String, qty: Double = 1.0): Pair<String, String>
+
     suspend fun createCustomerCart(
         warehouseId: String,
         currency: CurrencyCode = CurrencyCode.USD,
