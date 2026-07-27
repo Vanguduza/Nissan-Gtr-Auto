@@ -221,6 +221,7 @@
 				A1000000000000000000000F /* GoTrueAuthClient.swift in Sources */,
 				A10000000000000000000023 /* AuthTokenStore.swift in Sources */,
 				A10000000000000000000024 /* SignInScreen.swift in Sources */,
+				A10000000000000000000052 /* CatalogScreen.swift in Sources */,
 				A10000000000000000000026 /* ChatScreen.swift in Sources */,
 				A10000000000000000000028 /* DeliveryTrackScreen.swift in Sources */,
 				A1000000000000000000002A /* WishlistScreen.swift in Sources */,
