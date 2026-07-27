@@ -113,6 +113,7 @@ class MainActivity : ComponentActivity() {
             WishlistModule.id,
             CompareModule.id,
             ReviewsModule.id,
+            CatalogModule.id,
         )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
@@ -293,6 +294,7 @@ private fun CustomerApp(
             liveRpc = liveRpc,
             signedInEmail = signedInEmail,
             onSignOut = onSignOut,
+            onCatalog = { route = CustomerRoute.Catalog },
             onCart = { route = CustomerRoute.Cart },
             onOrders = { route = CustomerRoute.Orders },
             onGarage = { route = CustomerRoute.Garage },
