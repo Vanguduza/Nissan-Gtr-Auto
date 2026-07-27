@@ -99,6 +99,7 @@ final class StorefrontSession: ObservableObject {
 }
 
 enum FeatureTab: String, CaseIterable, Identifiable {
+    case catalog
     case cart
     case orders
     case garage

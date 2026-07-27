@@ -62,6 +62,7 @@ struct ContentView: View {
     @ViewBuilder
     private func tabRoot(_ tab: FeatureTab) -> some View {
         switch tab {
+        case .catalog: CatalogScreen()
         case .cart: CartScreen()
         case .orders: OrdersScreen()
         case .garage: GarageScreen()
