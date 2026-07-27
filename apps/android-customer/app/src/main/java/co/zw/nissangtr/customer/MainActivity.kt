@@ -33,6 +33,8 @@ import co.zw.nissangtr.customer.auth.AuthGate
 import co.zw.nissangtr.customer.auth.AuthModule
 import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
+import co.zw.nissangtr.customer.catalog.CatalogModule
+import co.zw.nissangtr.customer.catalog.CatalogScreen
 import co.zw.nissangtr.customer.chat.ChatModule
 import co.zw.nissangtr.customer.chat.ChatScreen
 import co.zw.nissangtr.customer.compare.CompareModule
@@ -61,6 +63,7 @@ import kotlinx.coroutines.launch
 
 private enum class CustomerRoute {
     Home,
+    Catalog,
     Cart,
     Orders,
     Garage,
