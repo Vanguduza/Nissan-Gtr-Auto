@@ -415,6 +415,9 @@ private fun CustomerHome(
         } else if (!liveRpc) {
             Text("Fake mode — auth optional / bypassed", style = MaterialTheme.typography.bodySmall)
         }
+        Button(onClick = onCatalog, modifier = Modifier.fillMaxWidth()) {
+            Text("Catalog — browse & search")
+        }
         Button(onClick = onCart, modifier = Modifier.fillMaxWidth()) {
             Text("Cart")
         }
