@@ -29,7 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.bridges.podcamera.CameraxPodCameraBridge
 import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
-import co.zw.nissangtr.customer.auth.AuthGate
+import co.zw.nissangtr.customer.catalog.CatalogModule
+import co.zw.nissangtr.customer.catalog.CatalogScreen
 import co.zw.nissangtr.customer.auth.AuthModule
 import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
