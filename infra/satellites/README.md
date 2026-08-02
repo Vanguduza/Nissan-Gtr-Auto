@@ -1,0 +1,106 @@
+# Satellite services (Meilisearch, optional Traccar / OSRM)
+
+Compose file for OSS satellites recommended in
+[`docs/plans/2026-08-02-open-source-erp-toolkit-audit.md`](../docs/plans/2026-08-02-open-source-erp-toolkit-audit.md).
+
+**Does not replace Supabase.** Postgres + Auth + RLS remain the system of record.
+No ERPNext, no ZIMRA, no payroll tax.
+
+## Quick start (Meilisearch only — default profile)
+
+From repo root:
+
+```bash
+docker compose -f docker-compose.satellites.yml --profile search up -d
+```
+
+Dashboard / API: http://127.0.0.1:7700  
+Default master key (dev only): see `MEILI_MASTER_KEY` below.
+
+Stop:
+
+```bash
+docker compose -f docker-compose.satellites.yml --profile search down
+```
+
+## Profiles
+
+| Profile | Services | When |
+|---------|----------|------|
+| `search` (default) | Meilisearch CE | Parts / SKU typo-tolerant search |
+| `gps` | Traccar | Fleet live GPS (optional; heavy Java image) |
+| `routing` | OSRM stub note only | See OSRM section — map data required |
+
+Enable multiple:
+
+```bash
+docker compose -f docker-compose.satellites.yml --profile search --profile gps up -d
+```
+
+## Environment
+
+Copy into root `.env` / `apps/web/.env.local` as needed (never commit real keys):
+
+```bash
+# Meilisearch (Community Edition — MIT)
+MEILI_HOST=http://127.0.0.1:7700
+MEILI_MASTER_KEY=gtr_dev_meili_master_change_me
+# Browser-safe search key is created after first boot (see below); keep master key server-only
+NEXT_PUBLIC_MEILI_HOST=http://127.0.0.1:7700
+NEXT_PUBLIC_MEILI_SEARCH_KEY=
+
+# Traccar (optional)
+TRACCAR_URL=http://127.0.0.1:8082
+# Admin UI on first boot — set password in Traccar UI; map devices to GTR fleet entities later
+
+# OSRM (optional — not started by default; needs OSM PBF + preprocess)
+OSRM_URL=http://127.0.0.1:5000
+```
+
+### Create a Meilisearch search-only key (after first boot)
+
+```bash
+curl -X POST "http://127.0.0.1:7700/keys" \
+  -H "Authorization: Bearer gtr_dev_meili_master_change_me" \
+  -H "Content-Type: application/json" \
+  --data "{\"description\":\"web search\",\"actions\":[\"search\"],\"indexes\":[\"parts\"],\"expiresAt\":null}"
+```
+
+Put the returned `key` into `NEXT_PUBLIC_MEILI_SEARCH_KEY` only if the client will hit Meili directly; prefer proxying search through Next.js / Edge so the key stays server-side.
+
+## Indexer stub (not implemented here)
+
+Production search today: Postgres FTS (`search_catalog`) — see
+`docs/decisions/2026-07-24-search-index-interim-pg-fts.md`.
+
+When promoting Meilisearch:
+
+1. Keep Supabase catalog tables as source of truth.
+2. Sync documents (SKU, name, fitment tokens, PNC) on write or via cron/edge job.
+3. Dual-read or feature-flag Meili behind `/api/v1/store/search` — do not rewrite FTS until ranking/typo need is proven.
+4. Use **Community Edition** features only (no BUSL Enterprise).
+
+## Traccar notes
+
+- Apache-2.0 GPS platform. Wire delivery Android / fleet via REST/WS later; dispatch UI stays in GTR.
+- Bridge-First still applies for on-device GPS in GTR apps (`bridges/`) — Traccar is the **server** that receives device positions.
+- Default compose uses the official image with embedded H2 for local smoke tests only — use Postgres for anything shared.
+
+## OSRM notes
+
+OSRM needs a downloaded OSM extract and `osrm-extract` / `osrm-partition` / `osrm-customize` before `osrm-routed` is useful. This repo ships a **commented stub** in compose — enable after you place map data under `infra/satellites/osrm/data/`. Until then, keep ETA logic as-is (or call a public routing API only if licensed for your use).
+
+## Phase-2 libraries (not in compose)
+
+| Tool | Role | Status |
+|------|------|--------|
+| **Casbin** (`casbin` / `node-casbin`) | Fine-grained RBAC at API layer | Documented only — **do not** replace Supabase RLS. Optional future npm dep for edge/BFF policy checks that *complement* RLS. |
+| **Gorse** | Cross-sell recommender | Documented only — feed sales events later; separate Go service when POS volume justifies it. |
+
+See `infra/satellites/PHASE2_CASBIN_GORSE.md`.
+
+## Security
+
+- Change `MEILI_MASTER_KEY` before any shared/dev-team use.
+- Do not expose Meili master key via `NEXT_PUBLIC_*`.
+- Do not put service-role Supabase keys into satellite containers.

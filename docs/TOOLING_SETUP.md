@@ -1,6 +1,8 @@
-# External Tooling Setup — Claude-Mem, UI/UX Pro Max, n8n-MCP
+# External Tooling Setup — Claude-Mem, UI/UX Pro Max, MCP, satellites
 
-Install order from the setup prompt (§4): **claude-mem first** (context discipline backbone), then **ui-ux-pro-max**, then **n8n-mcp** only if you use n8n.
+Install order from the setup prompt (§4): **claude-mem first** (context discipline backbone), then **ui-ux-pro-max**, then MCP servers as needed.
+
+**Master playbook (Cursor + OSS for ERP/SaaS):** [`docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md`](CURSOR_ERP_SAAS_SETUP_GUIDE.md)
 
 ---
 
@@ -10,12 +12,16 @@ Install order from the setup prompt (§4): **claude-mem first** (context discipl
 |------|-------------|----------------|
 | Domain skills + token discipline | **Installed** | `.cursor/skills/` |
 | ui-ux-pro-max (+ design suite) | **Installed** (explicit-invoke) | `.cursor/skills/ui-ux-pro-max/` etc. |
+| Emil Kowalski motion skills | **Installed globally** (explicit-invoke) | `~/.cursor/skills/` + `~/.agents/skills/` — `emil-design-eng`, `review-animations`, `improve-animations` (skip `apple-design` / `pick-ui-library`) |
+| Ponytail (YAGNI lite) | **Installed** (agent-requestable) | `.cursor/rules/ponytail.mdc` |
 | Path rules / agents / hooks | **Installed** | `.cursor/rules/`, `.cursor/agents/`, `.cursor/hooks*` |
 | Ruflo lanes | **Configured** | `rufler.yaml` |
+| MCP shortlist | **Example ready** | `.cursor/mcp.json.example` → copy to `.cursor/mcp.json` |
+| Satellites (Meilisearch + stubs) | **Compose scaffold** | `docker-compose.satellites.yml`, `infra/satellites/` |
 | claude-mem | **Needs host install** | User-level hooks + worker (see below) |
-| n8n-mcp | **Optional** | Copy from `.cursor/mcp.json.example` |
+| n8n-mcp | **Optional** (in MCP shortlist) | Enable only if you use n8n |
 
-Heavy UI skills have `disable-model-invocation: true` so they do **not** auto-load and burn tokens. Invoke with `/ui-ux-pro-max` when designing storefront / My Garage / catalog UI.
+Heavy UI / motion skills must stay **explicit-invoke** so they do not auto-load and burn tokens. Invoke `/ui-ux-pro-max` for layout/brand; Emil skills for motion polish after brand.
 
 ---
 
@@ -82,17 +88,54 @@ python .cursor\skills\ui-ux-pro-max\scripts\search.py "automotive parts storefro
 
 ---
 
-## 3. n8n-MCP (optional)
+## 3. MCP shortlist (from awesome-mcp-servers)
 
-Skip if n8n is not part of your ops stack (setup prompt §4.3).
+Catalog: [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers). Full enable steps: [`CURSOR_ERP_SAAS_SETUP_GUIDE.md`](CURSOR_ERP_SAAS_SETUP_GUIDE.md) §3.
+
+Curated for this ERP (placeholders only — never commit secrets):
+
+| Server | Purpose |
+|--------|---------|
+| github | PRs / issues |
+| supabase | Project/schema (example uses `--read-only`) |
+| postgres | SQL via `DATABASE_URL` |
+| context7 | Library docs for agents |
+| playwright | Web E2E / UI checks |
+| sentry | Prod errors (OAuth URL) |
+| n8n-mcp | Optional ops workflows |
 
 1. Copy `.cursor/mcp.json.example` → `.cursor/mcp.json`
-2. For docs-only tools, leave API env empty
-3. For live workflow CRUD, set `N8N_API_URL` and `N8N_API_KEY`
-4. Cursor Settings → MCP → enable **n8n-mcp**
-5. Restart Cursor / enable the server when prompted
+2. Fill tokens / project ref / `DATABASE_URL` via env or edit locally
+3. **Cursor Settings → MCP** (or Skills and Integrations): enable servers; complete Sentry OAuth if used
+4. Restart Agent / window if tools missing
+5. Leave unused servers disabled to save tokens
 
-Never commit real API keys. `.cursor/mcp.json` is gitignored if present.
+Filesystem + IDE browser are already native — do not add browser-QR MCPs.
+
+### n8n-MCP specifically
+
+Skip if n8n is not part of your ops stack. Set `N8N_API_URL` / `N8N_API_KEY` only for live workflow CRUD.
+
+Never commit real API keys. `.cursor/mcp.json` is gitignored.
+
+## 3b. Ponytail + Emil skills
+
+- **Ponytail:** agent-requestable rule `.cursor/rules/ponytail.mdc` (lite YAGNI). Does not override RLS / Bridge-First / hard exclusions.
+- **Emil:** invoke `emil-design-eng` / `review-animations` / `improve-animations` only for storefront motion after `/ui-ux-pro-max`. Reinstall if needed:
+
+```powershell
+npx skills@latest add emilkowalski/skills --skill emil-design-eng -g -a cursor -y
+npx skills@latest add emilkowalski/skills --skill review-animations -g -a cursor -y
+npx skills@latest add emilkowalski/skills --skill improve-animations -g -a cursor -y
+```
+
+## 3c. Satellites (Meilisearch)
+
+```powershell
+docker compose -f docker-compose.satellites.yml --profile search up -d
+```
+
+See `infra/satellites/README.md`. Postgres FTS remains production search until a dual-read indexer is built.
 
 ---
 
@@ -122,6 +165,8 @@ Invoke `/token-discipline` at the start of large sessions if context starts drif
 [ ] .cursor/agents has verifier, supabase-rls-auditor, hardware-bridge-specialist
 [ ] Hooks still allow shell (Windows PowerShell hooks)
 [ ] claude-mem worker running (after host install)
-[ ] Optional: n8n-mcp enabled only if needed
+[ ] Optional: MCP shortlist enabled (github/supabase/…); n8n only if needed
+[ ] Optional: Emil skills visible; Ponytail rule present
+[ ] Optional: Meilisearch via compose --profile search
 [ ] Python available for ui-ux search scripts
 ```

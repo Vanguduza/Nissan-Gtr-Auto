@@ -6,9 +6,10 @@ alwaysApply: true
 # Session Discipline (Always On)
 
 1. Identify your `rufler.yaml` lane before reading code. Stay in-lane.
-2. Do not load blueprint PDFs or all skills. Use `/token-discipline`, `docs/decisions/`, and claude-mem search first.
-3. Heavy design skills (`/ui-ux-pro-max`, brand, slides) are explicit-invoke only.
-4. Targeted diffs for existing files. Full files only when new.
-5. Never introduce ZIMRA, payroll tax, or HTML5/browser QR scanning.
-6. After non-trivial work, run `/verifier`. After migrations, run `/supabase-rls-auditor`.
-7. Non-trivial features: `/manager` or `/planner` first — then one coding lane — then `/security-reviewer` — then `/verifier`. Do not run all roles in one prompt.
+2. Adopt-first before scaffold (`.cursor/rules/adopt-first.mdc`): search skills / MCP / SaaS / OSS before inventing — see `docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md`.
+3. Do not load blueprint PDFs or all skills. Use `/token-discipline`, `docs/decisions/`, and claude-mem search first.
+4. Heavy design skills (`/ui-ux-pro-max`, Emil motion skills, brand, slides) are explicit-invoke only. Request Ponytail (`.cursor/rules/ponytail.mdc`) for YAGNI diffs — do not auto-load ultra.
+5. Targeted diffs for existing files. Full files only when new.
+6. Never introduce ZIMRA, payroll tax, or HTML5/browser QR scanning.
+7. After non-trivial work, run `/verifier`. After migrations, run `/supabase-rls-auditor`.
+8. Non-trivial features: `/manager` or `/planner` first — then one coding lane — then `/security-reviewer` — then `/verifier`. Do not run all roles in one prompt.

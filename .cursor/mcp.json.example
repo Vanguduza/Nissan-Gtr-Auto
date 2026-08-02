@@ -1,12 +1,53 @@
 {
   "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "REPLACE_WITH_GITHUB_PAT"
+      }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref",
+        "REPLACE_WITH_SUPABASE_PROJECT_REF"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "REPLACE_WITH_SUPABASE_ACCESS_TOKEN"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:PASSWORD@127.0.0.1:54322/postgres"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "sentry": {
+      "url": "https://mcp.sentry.dev/mcp"
+    },
     "n8n-mcp": {
       "command": "npx",
       "args": ["-y", "n8n-mcp"],
       "env": {
         "MCP_MODE": "stdio",
         "LOG_LEVEL": "error",
-        "DISABLE_CONSOLE_OUTPUT": "true"
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "N8N_API_URL": "",
+        "N8N_API_KEY": ""
       }
     }
   }
