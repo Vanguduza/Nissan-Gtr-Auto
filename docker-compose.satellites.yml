@@ -1,0 +1,49 @@
+# Optional OSS satellites for Nissan GTR Auto ERP
+# Docs: infra/satellites/README.md
+# Usage:
+#   docker compose -f docker-compose.satellites.yml --profile search up -d
+#   docker compose -f docker-compose.satellites.yml --profile search --profile gps up -d
+
+services:
+  meilisearch:
+    profiles: ["search"]
+    image: getmeili/meilisearch:v1.11
+    container_name: gtr-meilisearch
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-gtr_dev_meili_master_change_me}
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meili_data:/meili_data
+    # Official image is minimal (no curl/wget) — check http://127.0.0.1:7700/health from the host
+
+  # Optional — fleet GPS server. Local smoke only (embedded DB).
+  traccar:
+    profiles: ["gps"]
+    image: traccar/traccar:latest
+    container_name: gtr-traccar
+    ports:
+      - "8082:8082"
+      - "5000-5150:5000-5150"
+      - "5000-5150:5000-5150/udp"
+    volumes:
+      - traccar_data:/opt/traccar/data
+    # Prefer mapping devices into GTR fleet entities; do not replace Bridge-First GPS on device.
+
+  # OSRM — stub only. Uncomment after placing preprocessed map data under
+  # infra/satellites/osrm/data/ (see infra/satellites/README.md).
+  # osrm:
+  #   profiles: ["routing"]
+  #   image: ghcr.io/project-osrm/osrm-backend:latest
+  #   container_name: gtr-osrm
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./infra/satellites/osrm/data:/data
+  #   command: osrm-routed --algorithm mld /data/region.osrm
+
+volumes:
+  meili_data:
+  traccar_data:

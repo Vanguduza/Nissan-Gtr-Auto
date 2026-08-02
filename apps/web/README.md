@@ -21,6 +21,16 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
+### Search (Postgres FTS today; Meilisearch optional)
+
+Production search remains Postgres FTS (`search_catalog`). Optional local Meilisearch CE:
+
+```bash
+docker compose -f docker-compose.satellites.yml --profile search up -d
+```
+
+Env stubs: `MEILI_HOST`, `MEILI_MASTER_KEY` (server-only), optional `NEXT_PUBLIC_MEILI_*` — see `infra/satellites/README.md`. No full indexer rewrite in-app yet; dual-read behind `/api/v1/store/search` when promoted.
+
 Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`, `(staff)`.
 
 ### Staff live delivery map

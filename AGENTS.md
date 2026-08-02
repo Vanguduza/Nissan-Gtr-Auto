@@ -15,8 +15,8 @@ Composable ERP for Nissan spare-parts distribution. Polyglot monorepo with one S
 2. Identify your agent lane in `rufler.yaml` — stay within it unless explicitly routed.
 3. Load domain skills from `.cursor/skills/` only when trigger conditions match (see skill descriptions). Prefer `/token-discipline` over reloading blueprints.
 4. Read path-specific rules in `.cursor/rules/*.mdc` for the directory you're editing.
-5. For UI design on web/mobile, invoke `/ui-ux-pro-max` explicitly — do not auto-load the full design suite.
-6. Tooling install status: `docs/TOOLING_SETUP.md`.
+5. For UI design on web/mobile, invoke `/ui-ux-pro-max` explicitly — do not auto-load the full design suite. Motion polish: Emil skills (`emil-design-eng` / `review-animations`) explicit-invoke only, after brand/layout.
+6. Tooling install status: `docs/TOOLING_SETUP.md`. Cursor + OSS setup playbook: `docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md`.
 
 ## Agent team (quality × speed ÷ tokens)
 
