@@ -2,7 +2,8 @@
  * ContiPay webhook settle.
  * Env: CONTIPAY_WEBHOOK_HMAC_SECRET — HMAC-SHA256(raw body) hex verify.
  * Local unverified settle: CONTIPAY_ALLOW_UNVERIFIED_LOCAL=1 only when secret unset.
- * Does not trust webhook allocations for AR — ledger uses DB intent amount.
+ * Does not trust webhook allocations for AR — passes p_allocations=null so
+ * mark_contipay_settled derives AR allocation from intent metadata + amount.
  *
  * Webhook signature: no public ContiPay merchant doc found for header name.
  * Implemented as HMAC-SHA256 over raw body; compare to x-contipay-signature
