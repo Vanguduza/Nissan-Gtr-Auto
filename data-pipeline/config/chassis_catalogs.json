@@ -1,0 +1,985 @@
+{
+  "version": 1,
+  "notes": "Per-maker chassis\u2192vin_prefix maps for PartSouq enrichment. Curated chassis.vin_prefixes preferred; else epc_stub synthesizes {primary_wmi}{chassis} as a garage search key (not a full ISO VIN).",
+  "makers": {
+    "nissan": {
+      "display_name": "Nissan",
+      "wmi_prefixes": [
+        "JN1",
+        "SJN",
+        "MDH",
+        "VSK",
+        "MNT",
+        "3N1",
+        "ADN"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JN1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {
+        "D40": {
+          "model_variant": "Nissan Navara D40",
+          "vin_prefixes": [
+            "MNTCCND40",
+            "VSKCVND40",
+            "JN1TANN40"
+          ],
+          "engines": [
+            "YD25",
+            "YN25",
+            "VQ40DE",
+            "QR25DE"
+          ],
+          "year_range": [
+            2005,
+            2015
+          ]
+        },
+        "D22": {
+          "model_variant": "Nissan Navara / Hardbody D22",
+          "vin_prefixes": [
+            "JN1TANN22",
+            "ADNTANN22"
+          ],
+          "engines": [
+            "YD25",
+            "KA24DE",
+            "YD25DDTi"
+          ],
+          "year_range": [
+            1997,
+            2005
+          ]
+        },
+        "D23": {
+          "model_variant": "Nissan Navara NP300 D23",
+          "vin_prefixes": [
+            "VSKCVAD23",
+            "MNTCBAD23"
+          ],
+          "engines": [
+            "YS23DDT",
+            "QR25DE"
+          ],
+          "year_range": [
+            2015,
+            2024
+          ]
+        },
+        "T31": {
+          "model_variant": "Nissan X-Trail T31",
+          "vin_prefixes": [
+            "JN1TANT31",
+            "JN1TBNT31"
+          ],
+          "engines": [
+            "MR20DE",
+            "QR25DE",
+            "M9R"
+          ],
+          "year_range": [
+            2007,
+            2014
+          ]
+        },
+        "T32": {
+          "model_variant": "Nissan X-Trail T32",
+          "vin_prefixes": [
+            "JN1TANT32"
+          ],
+          "engines": [
+            "MR20DD",
+            "QR25DE",
+            "R9M"
+          ],
+          "year_range": [
+            2014,
+            2021
+          ]
+        },
+        "R35": {
+          "model_variant": "Nissan GT-R R35",
+          "vin_prefixes": [
+            "JN1AR5EF"
+          ],
+          "engines": [
+            "VR38DETT"
+          ],
+          "year_range": [
+            2007,
+            2024
+          ]
+        },
+        "J10": {
+          "model_variant": "Nissan Qashqai J10",
+          "vin_prefixes": [
+            "SJNFBAJ10",
+            "MDHFBAJ10"
+          ],
+          "engines": [
+            "MR20DE",
+            "HR16DE",
+            "K9K"
+          ],
+          "year_range": [
+            2007,
+            2013
+          ]
+        },
+        "JJ10": {
+          "model_variant": "Nissan Qashqai+2 JJ10",
+          "vin_prefixes": [
+            "SJNFBAJ10",
+            "MDHFBAJ10"
+          ],
+          "engines": [
+            "MR20DE",
+            "HR16DE",
+            "K9K"
+          ],
+          "year_range": [
+            2008,
+            2013
+          ]
+        },
+        "J11": {
+          "model_variant": "Nissan Qashqai J11",
+          "vin_prefixes": [
+            "SJNFBAJ11"
+          ],
+          "engines": [
+            "MR20DD",
+            "HR16DE",
+            "K9K"
+          ],
+          "year_range": [
+            2014,
+            2021
+          ]
+        },
+        "K12": {
+          "model_variant": "Nissan Micra K12",
+          "vin_prefixes": [
+            "JN1CANK12"
+          ],
+          "engines": [
+            "CR14DE",
+            "CG12DE"
+          ],
+          "year_range": [
+            2002,
+            2010
+          ]
+        },
+        "K13": {
+          "model_variant": "Nissan Micra K13",
+          "vin_prefixes": [
+            "JN1CANK13",
+            "3N1CK3CP",
+            "VSKKBAK13"
+          ],
+          "engines": [
+            "HR12DE",
+            "HR12DDR",
+            "K9K",
+            "HRA0"
+          ],
+          "year_range": [
+            2010,
+            2017
+          ]
+        },
+        "B13": {
+          "model_variant": "Nissan Sunny / Sentra / NX B13",
+          "vin_prefixes": [
+            "JN1EB31S",
+            "JN1HB31P",
+            "3N1CB31S"
+          ],
+          "engines": [
+            "GA16DE",
+            "SR20DE",
+            "GA13DE",
+            "CD17"
+          ],
+          "year_range": [
+            1990,
+            1994
+          ]
+        },
+        "S14": {
+          "model_variant": "Nissan 200SX / Silvia S14",
+          "vin_prefixes": [
+            "JN1AS4CU",
+            "JN1PS4EU"
+          ],
+          "engines": [
+            "SR20DET",
+            "KA24DE",
+            "SR20DE"
+          ],
+          "year_range": [
+            1993,
+            2000
+          ]
+        },
+        "Z33": {
+          "model_variant": "Nissan 350Z / Fairlady Z Z33",
+          "vin_prefixes": [
+            "JN1AZ34D",
+            "JN1AZ34E",
+            "JN1BZ34D"
+          ],
+          "engines": [
+            "VQ35DE",
+            "VQ35HR"
+          ],
+          "year_range": [
+            2002,
+            2009
+          ]
+        },
+        "Y61": {
+          "model_variant": "Nissan Patrol Y61",
+          "vin_prefixes": [
+            "JN1TANY61",
+            "JN1TEBY61"
+          ],
+          "engines": [
+            "ZD30DDTi",
+            "TB48DE",
+            "RD28ETi"
+          ],
+          "year_range": [
+            1997,
+            2016
+          ]
+        },
+        "Y62": {
+          "model_variant": "Nissan Patrol Y62",
+          "vin_prefixes": [
+            "JN1TANY62"
+          ],
+          "engines": [
+            "VK56VD"
+          ],
+          "year_range": [
+            2010,
+            2024
+          ]
+        }
+      }
+    },
+    "infiniti": {
+      "display_name": "Infiniti",
+      "wmi_prefixes": [
+        "JN1",
+        "5N3"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JN1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "toyota": {
+      "display_name": "Toyota",
+      "wmi_prefixes": [
+        "JTD",
+        "JT2",
+        "JTE",
+        "JTM",
+        "4T1",
+        "5TD",
+        "2T1",
+        "MR0"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JTD",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {
+        "ZVW30": {
+          "model_variant": "Toyota Prius ZVW30",
+          "vin_prefixes": [
+            "JTDKN3DU",
+            "JTDKN3DE"
+          ],
+          "engines": [
+            "2ZR-FXE"
+          ],
+          "year_range": [
+            2009,
+            2015
+          ]
+        },
+        "NHW20": {
+          "model_variant": "Toyota Prius NHW20",
+          "vin_prefixes": [
+            "JTDKB20U",
+            "JTDKB22U"
+          ],
+          "engines": [
+            "1NZ-FXE"
+          ],
+          "year_range": [
+            2003,
+            2009
+          ]
+        },
+        "ACV40": {
+          "model_variant": "Toyota Camry ACV40",
+          "vin_prefixes": [
+            "4T1BE46K",
+            "JTNBE46K"
+          ],
+          "engines": [
+            "2AZ-FE",
+            "2GR-FE"
+          ],
+          "year_range": [
+            2006,
+            2011
+          ]
+        },
+        "GRJ150": {
+          "model_variant": "Toyota Land Cruiser Prado GRJ150",
+          "vin_prefixes": [
+            "JTEBU5JR",
+            "JTEBH5JR"
+          ],
+          "engines": [
+            "1GR-FE"
+          ],
+          "year_range": [
+            2009,
+            2023
+          ]
+        }
+      }
+    },
+    "lexus": {
+      "display_name": "Lexus",
+      "wmi_prefixes": [
+        "JTJ",
+        "JTH",
+        "2T2",
+        "58A"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JTJ",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "honda": {
+      "display_name": "Honda",
+      "wmi_prefixes": [
+        "JHM",
+        "JH4",
+        "1HG",
+        "2HG",
+        "3CZ",
+        "SHH"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JHM",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {
+        "FD1": {
+          "model_variant": "Honda Civic FD1",
+          "vin_prefixes": [
+            "JHMFD16",
+            "SHHFD16"
+          ],
+          "engines": [
+            "R18A"
+          ],
+          "year_range": [
+            2005,
+            2011
+          ]
+        },
+        "RU1": {
+          "model_variant": "Honda CR-V RU1",
+          "vin_prefixes": [
+            "JHLRW1",
+            "2HKRM4"
+          ],
+          "engines": [
+            "R20A"
+          ],
+          "year_range": [
+            2012,
+            2016
+          ]
+        }
+      }
+    },
+    "acura": {
+      "display_name": "Acura",
+      "wmi_prefixes": [
+        "JH4",
+        "19U",
+        "2HN"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JH4",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "mazda": {
+      "display_name": "Mazda",
+      "wmi_prefixes": [
+        "JM1",
+        "JM3",
+        "1YV",
+        "3MZ"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JM1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "mitsubishi": {
+      "display_name": "Mitsubishi",
+      "wmi_prefixes": [
+        "JA3",
+        "JA4",
+        "4A3",
+        "6MM"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JA3",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "subaru": {
+      "display_name": "Subaru",
+      "wmi_prefixes": [
+        "JF1",
+        "JF2",
+        "4S3",
+        "4S4"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JF1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "suzuki": {
+      "display_name": "Suzuki",
+      "wmi_prefixes": [
+        "JS2",
+        "JS3",
+        "JSA",
+        "TSM"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JS2",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "daihatsu": {
+      "display_name": "Daihatsu",
+      "wmi_prefixes": [
+        "JDA",
+        "JD1"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JDA",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "isuzu": {
+      "display_name": "Isuzu",
+      "wmi_prefixes": [
+        "JAL",
+        "4S2"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JAL",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "hino": {
+      "display_name": "Hino",
+      "wmi_prefixes": [
+        "JHD",
+        "JHB"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "JHD",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "hyundai": {
+      "display_name": "Hyundai",
+      "wmi_prefixes": [
+        "KMH",
+        "KM8",
+        "5NP",
+        "5NM"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "KMH",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "kia": {
+      "display_name": "Kia",
+      "wmi_prefixes": [
+        "KNA",
+        "KND",
+        "5XY",
+        "3KP"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "KNA",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "genesis": {
+      "display_name": "Genesis",
+      "wmi_prefixes": [
+        "KMT",
+        "KMH"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "KMT",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "bmw": {
+      "display_name": "BMW",
+      "wmi_prefixes": [
+        "WBA",
+        "WBS",
+        "WBY",
+        "4US",
+        "5UX"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "WBA",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {
+        "E90": {
+          "model_variant": "BMW 3 Series E90",
+          "vin_prefixes": [
+            "WBAVB1",
+            "WBAVA1"
+          ],
+          "engines": [
+            "N52",
+            "N47"
+          ],
+          "year_range": [
+            2005,
+            2013
+          ]
+        },
+        "F30": {
+          "model_variant": "BMW 3 Series F30",
+          "vin_prefixes": [
+            "WBA3A5",
+            "WBA3B1"
+          ],
+          "engines": [
+            "N20",
+            "N55",
+            "B48"
+          ],
+          "year_range": [
+            2012,
+            2019
+          ]
+        }
+      }
+    },
+    "mini": {
+      "display_name": "Mini",
+      "wmi_prefixes": [
+        "WMW",
+        "WMZ"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "WMW",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "mercedes-benz": {
+      "display_name": "Mercedes-Benz",
+      "wmi_prefixes": [
+        "WDD",
+        "WDB",
+        "4JG",
+        "WDY"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "WDD",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "smart": {
+      "display_name": "Smart",
+      "wmi_prefixes": [
+        "WME",
+        "W1K"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "WME",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "audi": {
+      "display_name": "Audi",
+      "wmi_prefixes": [
+        "WAU",
+        "WA1",
+        "TRU"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "WAU",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "volkswagen": {
+      "display_name": "Volkswagen",
+      "wmi_prefixes": [
+        "WVW",
+        "WV1",
+        "WV2",
+        "3VW",
+        "1VW"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "WVW",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "skoda": {
+      "display_name": "Skoda",
+      "wmi_prefixes": [
+        "TMB"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "TMB",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "seat": {
+      "display_name": "Seat",
+      "wmi_prefixes": [
+        "VSS"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "VSS",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "porsche": {
+      "display_name": "Porsche",
+      "wmi_prefixes": [
+        "WP0",
+        "WP1"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "WP0",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "ford": {
+      "display_name": "Ford",
+      "wmi_prefixes": [
+        "1FA",
+        "1FT",
+        "1FM",
+        "WF0",
+        "6FP"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1FA",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "lincoln": {
+      "display_name": "Lincoln",
+      "wmi_prefixes": [
+        "5L1",
+        "5LM",
+        "1LN"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "5L1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "chevrolet": {
+      "display_name": "Chevrolet",
+      "wmi_prefixes": [
+        "1G1",
+        "1GC",
+        "1GN",
+        "3G1"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1G1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "cadillac": {
+      "display_name": "Cadillac",
+      "wmi_prefixes": [
+        "1G6",
+        "1GY"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1G6",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "buick": {
+      "display_name": "Buick",
+      "wmi_prefixes": [
+        "1G4",
+        "2G4"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1G4",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "gmc": {
+      "display_name": "GMC",
+      "wmi_prefixes": [
+        "1GT",
+        "1GK"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1GT",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "jeep": {
+      "display_name": "Jeep",
+      "wmi_prefixes": [
+        "1C4",
+        "1J4"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1C4",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "dodge": {
+      "display_name": "Dodge",
+      "wmi_prefixes": [
+        "1B3",
+        "1D7",
+        "2B3"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1B3",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "chrysler": {
+      "display_name": "Chrysler",
+      "wmi_prefixes": [
+        "1C3",
+        "2C3"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1C3",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "ram": {
+      "display_name": "Ram",
+      "wmi_prefixes": [
+        "1C6",
+        "3C6"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "1C6",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "volvo": {
+      "display_name": "Volvo",
+      "wmi_prefixes": [
+        "YV1",
+        "YV4"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "YV1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "land-rover": {
+      "display_name": "Land Rover",
+      "wmi_prefixes": [
+        "SAL"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "SAL",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "jaguar": {
+      "display_name": "Jaguar",
+      "wmi_prefixes": [
+        "SAJ"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "SAJ",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "peugeot": {
+      "display_name": "Peugeot",
+      "wmi_prefixes": [
+        "VF3"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "VF3",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "citroen": {
+      "display_name": "Citroen",
+      "wmi_prefixes": [
+        "VF7"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "VF7",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "renault": {
+      "display_name": "Renault",
+      "wmi_prefixes": [
+        "VF1"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "VF1",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "opel": {
+      "display_name": "Opel",
+      "wmi_prefixes": [
+        "W0L"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "W0L",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "fiat": {
+      "display_name": "Fiat",
+      "wmi_prefixes": [
+        "ZFA"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "ZFA",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    },
+    "alfa-romeo": {
+      "display_name": "Alfa Romeo",
+      "wmi_prefixes": [
+        "ZAR"
+      ],
+      "epc_stub": {
+        "enabled": true,
+        "primary_wmi": "ZAR",
+        "pattern": "{wmi}{chassis}"
+      },
+      "chassis": {}
+    }
+  }
+}

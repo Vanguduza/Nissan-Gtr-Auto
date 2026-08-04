@@ -1,0 +1,32 @@
+{
+  "image_url": "https://cdn.example.com/diagrams/navara-engine.png",
+  "image_width": 1000,
+  "image_height": 800,
+  "parts": [
+    {
+      "pnc": "15208",
+      "part_number": "1520865F0C",
+      "description": "Oil Filter",
+      "category_name": "Engine",
+      "subcategory_name": "Lubrication",
+      "x": 80,
+      "y": 120,
+      "width": 140,
+      "height": 160
+    },
+    {
+      "pnc_code": "40206",
+      "oem_number": "40206-EA00A",
+      "description": "Front Brake Disc",
+      "category": "Brakes",
+      "left": 520,
+      "top": 300,
+      "right": 660,
+      "bottom": 440
+    },
+    {
+      "part_number": "NOT-A-REAL",
+      "pnc": "99999"
+    }
+  ]
+}
