@@ -1,0 +1,7 @@
+{
+  "_comment": "Residential proxies for Amayama crawl. Copy to proxies.json (gitignored) and fill real endpoints. Formats supported: http://user:pass@host:port | https://user:pass@host:port | socks5://user:pass@host:port | host:port:user:pass",
+  "proxies": [
+    "http://USER:PASS@residential.example-provider.com:10000",
+    "http://USER:PASS@residential.example-provider.com:10001"
+  ]
+}

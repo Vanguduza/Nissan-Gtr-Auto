@@ -98,6 +98,28 @@ class CatalogIndex:
             if (v.get("vin_prefix") or "").upper().startswith(prefix)
             or prefix.startswith((v.get("vin_prefix") or "").upper())
         ]
+        # B-lite: when stored prefixes miss, decode VIN → chassis and match master.
+        if not vehicles:
+            from data_pipeline.vin_decode import decode_vin_local
+
+            decoded = decode_vin_local(query)
+            chassis = (decoded.chassis_code or "").upper()
+            if chassis:
+                year = decoded.production_year
+                candidates = [
+                    v
+                    for v in self.vehicle_master
+                    if (v.get("chassis_code") or "").upper() == chassis
+                ]
+                if year is not None:
+                    year_hits = [
+                        v
+                        for v in candidates
+                        if v.get("production_year") in (None, year)
+                    ]
+                    vehicles = year_hits or candidates
+                else:
+                    vehicles = candidates
         results: list[dict[str, Any]] = []
         for vehicle in vehicles:
             chassis = vehicle.get("chassis_code")

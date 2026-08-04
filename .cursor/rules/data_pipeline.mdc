@@ -14,9 +14,10 @@ depend on it at build time. Output is ingested into Supabase via batch import sc
 - Respect `robots.txt` on target sites.
 - Implement retry with exponential backoff (base 2s, max 60s, 5 retries).
 - Rotate proxies when rate-limited (configurable proxy pool in `data-pipeline/config/`).
-- Rate limit: max 1 request/second per domain unless robots.txt permits more.
+- Rate limit: ≥1.5s between requests on PartSouq (see `config/scrape.json`) unless robots.txt permits more; keep jitter on.
 - User-Agent: identify as `GTR-Auto-CatalogBot/1.0 (+https://nissangtrauto.co.zw/bot)`.
 - Cache responses locally to avoid re-scraping unchanged pages.
+- **Catalog crawl (competitive defaults):** `queue_mode: hybrid` (prefer `/vehicle` then deep-first parts); concurrency 1 for FlareSolverr/host politeness; persist FS session + keepalive; never wipe VISITED cache/DBs to change claim order. Prefer one URL per distinct `vid` when touching claim logic. Exit on coverage (vids/identities/parse/CF), not PENDING=0 alone. Guide: `docs/guides/partsouq-multimake-catalog-pipeline.md` §2b.
 
 ## Nissan FAST EPC Parsing
 - Hierarchy: Model Variant → Engine/Chassis Code → Sub-Assembly → Diagram.

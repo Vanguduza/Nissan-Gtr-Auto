@@ -38,6 +38,17 @@ def test_search_vin_prefix() -> None:
     assert len(hits[0]["fitments"]) >= 4
 
 
+def test_search_vin_decode_fallback_when_prefix_missing() -> None:
+    """B-lite: VIN with unknown stored prefix still matches via chassis decode."""
+    index = _index()
+    # Strip stored prefixes so prefix-match fails; decode should recover D40.
+    for v in index.vehicle_master:
+        v["vin_prefix"] = None
+    hits = index.search("vin", "MNTCCND40A1234567")
+    assert hits
+    assert all(h["chassis_code"] == "D40" for h in hits)
+
+
 def test_search_model() -> None:
     hits = _index().search("model", "Navara D40")
     assert any("Navara" in h["model_variant"] for h in hits)
