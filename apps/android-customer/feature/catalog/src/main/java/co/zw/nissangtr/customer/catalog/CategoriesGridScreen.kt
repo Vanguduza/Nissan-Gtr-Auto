@@ -57,7 +57,7 @@ data class CatalogCategoryCard(
 val DefaultCatalogCategoryCards: List<CatalogCategoryCard> = listOf(
     CatalogCategoryCard("Service Parts", Icons.Filled.CarRepair),
     CatalogCategoryCard("Braking", Icons.Filled.Speed),
-    CatalogCategoryCard("Steering & Suspension", Icons.Filled.AirlineSeatReclineNormal),
+    CatalogCategoryCard("Steering & Suspension", Icons.Filled.Settings),
     CatalogCategoryCard("Engine Parts", Icons.Filled.Build),
     CatalogCategoryCard("Transmission", Icons.Filled.Settings),
     CatalogCategoryCard("Electrical", Icons.Filled.ElectricBolt),

@@ -90,7 +90,7 @@ val GtrCarPartCategories: List<MenuCategory> = listOf(
     ),
     MenuCategory(
         "Steering & Suspension",
-        Icons.Filled.AirlineSeatReclineNormal,
+        Icons.Filled.Settings,
         listOf(
             "Shock absorbers" to Icons.Filled.Settings,
             "Coil springs" to Icons.Filled.Settings,
