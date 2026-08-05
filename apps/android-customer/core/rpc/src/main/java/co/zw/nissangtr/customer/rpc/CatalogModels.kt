@@ -77,7 +77,24 @@ data class CatalogProduct(
     val stock: StockState,
     val coreCharge: Double = 0.0,
     val fitmentLines: List<String> = emptyList(),
+    /** OEM / product photo URLs when published (Storage or CDN). */
+    val imageUrls: List<String> = emptyList(),
+    /** EPC diagram public URL from `catalog-diagrams` when `diagram_path` is set. */
+    val diagramUrl: String? = null,
+    val specs: List<String> = emptyList(),
+    val replaces: List<String> = emptyList(),
 )
+
+/** Rich expandable PDP copy — name + metadata when present. */
+fun CatalogProduct.descriptionText(): String = buildString {
+    append(name.trim())
+    brand?.trim()?.takeIf { it.isNotEmpty() }?.let { append("\nBrand: $it") }
+    category?.trim()?.takeIf { it.isNotEmpty() }?.let { append("\nCategory: $it") }
+    specs.forEach { append("\n· $it") }
+    if (replaces.isNotEmpty()) {
+        append("\nReplaces / cross-ref: ${replaces.joinToString(", ")}")
+    }
+}.trim()
 
 fun stockStateFromQty(qty: Double, reorderPoint: Double?): StockState {
     if (qty <= 0) return StockState.BACKORDER
