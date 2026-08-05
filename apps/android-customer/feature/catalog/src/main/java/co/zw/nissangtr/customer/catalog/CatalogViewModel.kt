@@ -110,7 +110,8 @@ class CatalogViewModel(
     }
 
     fun applyCategoryFilter(category: String?) {
-        openCategoryBrowse(category ?: return, fromHome = true)
+        val label = category?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        openCategoryBrowse(label, fromHome = true)
     }
 
     fun openCategoryBrowse(categoryLabel: String, fromHome: Boolean = false) {
@@ -118,7 +119,7 @@ class CatalogViewModel(
         if (label.isEmpty()) return
         _state.update {
             it.copy(
-                route = if (fromHome) CatalogScreenRoute.CategoryBrowse else CatalogScreenRoute.CategoryBrowse,
+                route = CatalogScreenRoute.CategoryBrowse,
                 activeCategory = label,
                 categoryBrowseTitle = label,
                 filterState = it.filterState.copy(category = label),
