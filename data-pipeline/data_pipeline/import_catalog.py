@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -15,9 +16,89 @@ PNC_KEY = ("pnc_code",)
 FITMENT_KEY = ("oem_part_number", "chassis_code", "engine_code", "pnc_code")
 OE_CROSS_REF_KEY = ("oem_part_number", "oe_number", "brand")
 
+# PostgREST/supabase-py batch size (fitments ~8k → ~16 requests).
+UPSERT_BATCH_SIZE = 500
+
+# Columns accepted by live table writes (exclude generated / server defaults).
+_VEHICLE_COLS = ("vin_prefix", "chassis_code", "engine_code", "production_year", "model_variant")
+_PNC_COLS = ("pnc_code", "category_name", "subcategory_name")
+_FITMENT_COLS = (
+    "oem_part_number",
+    "pnc_code",
+    "chassis_code",
+    "engine_code",
+    "superseded_by",
+    "bbox_x",
+    "bbox_y",
+    "bbox_width",
+    "bbox_height",
+    "diagram_path",
+)
+_STOCK_COLS = ("oem_part_number", "description", "base_uom_id")
+
 
 def _key_tuple(record: dict[str, Any], fields: tuple[str, ...]) -> tuple[Any, ...]:
     return tuple(record.get(f) for f in fields)
+
+
+def _norm_key_part(value: Any) -> Any:
+    """Match COALESCE(..., '') / COALESCE(..., 0) expression unique indexes."""
+    if value is None:
+        return ""
+    return value
+
+
+def _vehicle_db_key(record: dict[str, Any]) -> tuple[Any, ...]:
+    year = record.get("production_year")
+    return (
+        _norm_key_part(record.get("vin_prefix")),
+        record.get("chassis_code") or "",
+        _norm_key_part(record.get("engine_code")),
+        0 if year is None else year,
+        record.get("model_variant") or "",
+    )
+
+
+def _fitment_db_key(record: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        record.get("oem_part_number") or "",
+        _norm_key_part(record.get("chassis_code")),
+        _norm_key_part(record.get("engine_code")),
+        _norm_key_part(record.get("pnc_code")),
+    )
+
+
+def _project(row: dict[str, Any], cols: tuple[str, ...]) -> dict[str, Any]:
+    return {c: row[c] for c in cols if c in row and row[c] is not None}
+
+
+def _chunks(rows: list[dict[str, Any]], size: int = UPSERT_BATCH_SIZE):
+    for i in range(0, len(rows), size):
+        yield rows[i : i + size]
+
+
+def load_env_files(*paths: Path) -> None:
+    """Load KEY=VALUE from .env files into os.environ (does not override existing)."""
+    for path in paths:
+        if not path.is_file():
+            continue
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            if not key or key in os.environ:
+                continue
+            val = val.strip().strip("'").strip('"')
+            os.environ[key] = val
+
+
+def resolve_supabase_credentials() -> tuple[str | None, str | None]:
+    """SUPABASE_URL + service key (SERVICE_ROLE_KEY or SERVICE_KEY alias)."""
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_KEY")
+    return url, key
 
 
 @dataclass
@@ -41,6 +122,7 @@ class InMemoryCatalogStore:
     part_fitment: dict[tuple[Any, ...], dict[str, Any]] = field(default_factory=dict)
     oe_cross_refs: dict[tuple[Any, ...], dict[str, Any]] = field(default_factory=dict)
     diagram_assets: dict[str, dict[str, Any]] = field(default_factory=dict)
+    stock_items: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def upsert_table(
         self,
@@ -63,6 +145,23 @@ class InMemoryCatalogStore:
                 stats.updated += 1
         return stats
 
+    def upsert_stock_items(self, records: list[dict[str, Any]]) -> ImportStats:
+        stats = ImportStats()
+        for record in records:
+            oem = record.get("oem_part_number")
+            if not oem:
+                continue
+            existing = self.stock_items.get(oem)
+            if existing is None:
+                self.stock_items[oem] = dict(record)
+                stats.inserted += 1
+            elif existing == record:
+                stats.unchanged += 1
+            else:
+                self.stock_items[oem] = dict(record)
+                stats.updated += 1
+        return stats
+
     def row_counts(self) -> dict[str, int]:
         return {
             "vehicle_master": len(self.vehicle_master),
@@ -70,6 +169,7 @@ class InMemoryCatalogStore:
             "part_fitment": len(self.part_fitment),
             "oe_cross_refs": len(self.oe_cross_refs),
             "diagram_assets": len(self.diagram_assets),
+            "stock_items": len(self.stock_items),
         }
 
 
@@ -100,10 +200,41 @@ def load_bundle(path: Path) -> dict[str, list[dict[str, Any]]]:
     return payload
 
 
+def build_stock_items_from_fitment(
+    part_fitment: list[dict[str, Any]],
+    pnc_categories: list[dict[str, Any]] | None = None,
+    *,
+    base_uom_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Distinct OEM → stock_items rows (description from PNC category when available)."""
+    pnc_desc: dict[str, str] = {}
+    for cat in pnc_categories or []:
+        code = cat.get("pnc_code")
+        if not code:
+            continue
+        name = cat.get("category_name") or ""
+        sub = cat.get("subcategory_name") or ""
+        pnc_desc[code] = f"{name} / {sub}".strip(" /") if sub else name
+
+    by_oem: dict[str, dict[str, Any]] = {}
+    for row in part_fitment:
+        oem = row.get("oem_part_number")
+        if not oem or oem in by_oem:
+            continue
+        pnc = row.get("pnc_code")
+        desc = pnc_desc.get(pnc or "", "") or f"OEM {oem}"
+        item: dict[str, Any] = {"oem_part_number": oem, "description": desc}
+        if base_uom_id:
+            item["base_uom_id"] = base_uom_id
+        by_oem[oem] = item
+    return list(by_oem.values())
+
+
 @dataclass
 class ImportResult:
     stats: dict[str, ImportStats]
     store: InMemoryCatalogStore | None = None
+    notes: list[str] = field(default_factory=list)
 
 
 def import_catalog(
@@ -112,12 +243,14 @@ def import_catalog(
     *,
     oe_cross_refs: list[dict[str, Any]] | None = None,
     validate: bool = True,
+    ensure_stock_items: bool = False,
 ) -> ImportResult:
     if validate:
         validate_bundle(bundle)
 
     mem = store if store is not None else InMemoryCatalogStore()
     stats: dict[str, ImportStats] = {}
+    notes: list[str] = []
 
     if "vehicle_master" in bundle:
         stats["vehicle_master"] = mem.upsert_table(
@@ -137,24 +270,137 @@ def import_catalog(
         )
     if "diagram_assets" in bundle:
         diagram_stats = ImportStats()
-        for asset in bundle["diagram_assets"]:
-            path = asset["storage_path"]
-            existing = mem.diagram_assets.get(path)
-            if existing is None:
-                mem.diagram_assets[path] = dict(asset)
-                diagram_stats.inserted += 1
-            elif existing == asset:
-                diagram_stats.unchanged += 1
-            else:
-                mem.diagram_assets[path] = dict(asset)
-                diagram_stats.updated += 1
+        if isinstance(mem, InMemoryCatalogStore):
+            for asset in bundle["diagram_assets"]:
+                path = asset["storage_path"]
+                existing = mem.diagram_assets.get(path)
+                if existing is None:
+                    mem.diagram_assets[path] = dict(asset)
+                    diagram_stats.inserted += 1
+                elif existing == asset:
+                    diagram_stats.unchanged += 1
+                else:
+                    mem.diagram_assets[path] = dict(asset)
+                    diagram_stats.updated += 1
+        else:
+            diagram_stats.unchanged = len(bundle["diagram_assets"])
         stats["diagram_assets"] = diagram_stats
+        notes.append(
+            "diagram_assets: Storage only (bucket catalog-diagrams) — "
+            "use supabase/seed_catalog_diagrams.mjs for fixture PNGs, or "
+            "python -m data_pipeline.amayama_catalog_auto --transform-only --upload-diagrams"
+        )
 
-    return ImportResult(stats=stats, store=mem if isinstance(mem, InMemoryCatalogStore) else None)
+    if ensure_stock_items and "part_fitment" in bundle and isinstance(mem, InMemoryCatalogStore):
+        stock_rows = build_stock_items_from_fitment(
+            bundle["part_fitment"], bundle.get("pnc_categories")
+        )
+        stats["stock_items"] = mem.upsert_stock_items(stock_rows)
+
+    return ImportResult(
+        stats=stats,
+        store=mem if isinstance(mem, InMemoryCatalogStore) else None,
+        notes=notes,
+    )
 
 
-def import_supabase(bundle: dict[str, list[dict[str, Any]]], *, url: str, key: str) -> ImportResult:
-    """Optional live import via supabase-py (service role). Not used in unit tests."""
+def _fetch_all(client: Any, table: str, select: str = "*") -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    offset = 0
+    page = UPSERT_BATCH_SIZE
+    while True:
+        resp = client.table(table).select(select).range(offset, offset + page - 1).execute()
+        batch = resp.data or []
+        rows.extend(batch)
+        if len(batch) < page:
+            break
+        offset += page
+    return rows
+
+
+def _batch_upsert_pnc(client: Any, rows: list[dict[str, Any]]) -> ImportStats:
+    """pnc_code is PRIMARY KEY — PostgREST on_conflict works."""
+    stats = ImportStats()
+    projected = [_project(r, _PNC_COLS) for r in rows]
+    for chunk in _chunks(projected):
+        if not chunk:
+            continue
+        client.table("pnc_categories").upsert(chunk, on_conflict="pnc_code").execute()
+        stats.updated += len(chunk)  # upsert cannot distinguish insert vs update cheaply
+    return stats
+
+
+def _batch_upsert_by_natural_key(
+    client: Any,
+    table: str,
+    rows: list[dict[str, Any]],
+    *,
+    cols: tuple[str, ...],
+    key_fn: Any,
+    existing_select: str,
+) -> ImportStats:
+    """
+    Expression unique indexes (COALESCE) block PostgREST on_conflict=<columns>.
+    Workaround: load existing id+keys, then batch insert (new) / upsert by id (existing).
+    """
+    stats = ImportStats()
+    existing_rows = _fetch_all(client, table, existing_select)
+    id_by_key: dict[tuple[Any, ...], str] = {}
+    for er in existing_rows:
+        id_by_key[key_fn(er)] = er["id"]
+
+    to_insert: list[dict[str, Any]] = []
+    to_update: list[dict[str, Any]] = []
+    for row in rows:
+        payload = _project(row, cols)
+        key = key_fn(row)
+        existing_id = id_by_key.get(key)
+        if existing_id:
+            payload["id"] = existing_id
+            to_update.append(payload)
+        else:
+            to_insert.append(payload)
+
+    for chunk in _chunks(to_insert):
+        if chunk:
+            client.table(table).insert(chunk).execute()
+            stats.inserted += len(chunk)
+    for chunk in _chunks(to_update):
+        if chunk:
+            # PK upsert — expression natural-key index is not usable via on_conflict
+            client.table(table).upsert(chunk, on_conflict="id").execute()
+            stats.updated += len(chunk)
+    return stats
+
+
+def _batch_upsert_stock_items(client: Any, rows: list[dict[str, Any]]) -> ImportStats:
+    stats = ImportStats()
+    projected = [_project(r, _STOCK_COLS) for r in rows]
+    for chunk in _chunks(projected):
+        if not chunk:
+            continue
+        client.table("stock_items").upsert(chunk, on_conflict="oem_part_number").execute()
+        stats.updated += len(chunk)
+    return stats
+
+
+def _resolve_ea_uom_id(client: Any) -> str | None:
+    try:
+        resp = client.table("uoms").select("id").eq("code", "EA").limit(1).execute()
+        data = resp.data or []
+        return data[0]["id"] if data else None
+    except Exception:  # noqa: BLE001 — optional enrichment
+        return None
+
+
+def import_supabase(
+    bundle: dict[str, list[dict[str, Any]]],
+    *,
+    url: str,
+    key: str,
+    ensure_stock_items: bool = True,
+) -> ImportResult:
+    """Live import via supabase-py (service role). Batched upserts for ~8k fitments."""
     try:
         from supabase import create_client
     except ImportError as exc:
@@ -162,65 +408,109 @@ def import_supabase(bundle: dict[str, list[dict[str, Any]]], *, url: str, key: s
 
     client = create_client(url, key)
     mem = InMemoryCatalogStore()
-    result = import_catalog(bundle, store=mem, validate=True)
+    result = import_catalog(
+        bundle, store=mem, validate=True, ensure_stock_items=ensure_stock_items
+    )
+    live_stats: dict[str, ImportStats] = {}
 
-    def _upsert_rows(table: str, rows: list[dict[str, Any]], key_fields: tuple[str, ...]) -> None:
-        for row in rows:
-            q = client.table(table).select("*")
-            for field in key_fields:
-                value = row.get(field)
-                if value is None:
-                    q = q.is_(field, "null")
-                else:
-                    q = q.eq(field, value)
-            existing = q.limit(1).execute().data
-            if existing:
-                client.table(table).update(row).eq("id", existing[0]["id"]).execute()
-            else:
-                client.table(table).insert(row).execute()
+    if bundle.get("vehicle_master"):
+        live_stats["vehicle_master"] = _batch_upsert_by_natural_key(
+            client,
+            "vehicle_master",
+            bundle["vehicle_master"],
+            cols=_VEHICLE_COLS,
+            key_fn=_vehicle_db_key,
+            existing_select="id,vin_prefix,chassis_code,engine_code,production_year,model_variant",
+        )
+    if bundle.get("pnc_categories"):
+        live_stats["pnc_categories"] = _batch_upsert_pnc(client, bundle["pnc_categories"])
+    if bundle.get("part_fitment"):
+        live_stats["part_fitment"] = _batch_upsert_by_natural_key(
+            client,
+            "part_fitment",
+            bundle["part_fitment"],
+            cols=_FITMENT_COLS,
+            key_fn=_fitment_db_key,
+            existing_select="id,oem_part_number,chassis_code,engine_code,pnc_code",
+        )
 
-    _upsert_rows("vehicle_master", bundle.get("vehicle_master", []), VEHICLE_KEY)
-    for row in bundle.get("pnc_categories", []):
-        client.table("pnc_categories").upsert(row, on_conflict="pnc_code").execute()
-    _upsert_rows("part_fitment", bundle.get("part_fitment", []), FITMENT_KEY)
+    if ensure_stock_items and bundle.get("part_fitment"):
+        uom_id = _resolve_ea_uom_id(client)
+        stock_rows = build_stock_items_from_fitment(
+            bundle["part_fitment"],
+            bundle.get("pnc_categories"),
+            base_uom_id=uom_id,
+        )
+        live_stats["stock_items"] = _batch_upsert_stock_items(client, stock_rows)
 
+    # Prefer live DB stats when available; keep in-memory diagram/stock dry counts otherwise.
+    merged = dict(result.stats)
+    merged.update(live_stats)
+    result.stats = merged
+    result.notes.append(
+        "NOTE: vehicle_master / part_fitment unique indexes are expression-based "
+        "(COALESCE); PostgREST on_conflict=<cols> cannot use them. Live path "
+        "fetches existing ids then batch insert/upsert-by-id. Optional @backend_agent "
+        "follow-up: generated columns or plain UNIQUE for true on_conflict upsert."
+    )
+    if bundle.get("diagram_assets"):
+        result.notes.append(
+            f"diagram_assets skipped for Postgres ({len(bundle['diagram_assets'])} Storage paths) — "
+            "seed via supabase/seed_catalog_diagrams.mjs or amayama --upload-diagrams"
+        )
     return result
 
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
+    root = Path(__file__).resolve().parent.parent
+    repo_root = root.parent
+
     parser = argparse.ArgumentParser(description="Import validated catalog JSON (dry-run by default).")
     parser.add_argument(
         "fixture",
         nargs="?",
         type=Path,
-        default=Path(__file__).resolve().parent.parent / "fixtures" / "navara_d40_yd25",
+        default=root / "fixtures" / "navara_d40_yd25",
     )
     parser.add_argument(
         "--live",
         action="store_true",
-        help="Import to Supabase (requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)",
+        help="Import to Supabase (requires SUPABASE_URL and service role key)",
+    )
+    parser.add_argument(
+        "--ensure-stock-items",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Upsert distinct OEMs into stock_items (default: on for POS/receiving readiness)",
     )
     args = parser.parse_args(argv)
 
+    load_env_files(repo_root / ".env", root / ".env")
+
     bundle = load_bundle(args.fixture)
     if args.live:
-        import os
-
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        url, key = resolve_supabase_credentials()
         if not url or not key:
-            print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required for --live")
+            print(
+                "ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY "
+                "(or SUPABASE_SERVICE_KEY) required for --live"
+            )
             return 1
-        result = import_supabase(bundle, url=url, key=key)
+        result = import_supabase(
+            bundle, url=url, key=key, ensure_stock_items=args.ensure_stock_items
+        )
+        print("Live import OK")
     else:
-        result = import_catalog(bundle)
+        result = import_catalog(bundle, ensure_stock_items=args.ensure_stock_items)
         counts = result.store.row_counts() if result.store else {}
         print(f"Dry-run import OK: {counts}")
 
     for table, stat in result.stats.items():
         print(f"  {table}: +{stat.inserted} ~{stat.updated} ={stat.unchanged}")
+    for note in result.notes:
+        print(f"  # {note}")
     return 0
 
 
