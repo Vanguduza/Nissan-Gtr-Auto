@@ -252,4 +252,7 @@ interface RpcClient {
 
     /** Active kits — PostgREST `item_kits` + components (web `listActiveKits`). */
     suspend fun listActiveKits(limit: Int = 50): List<KitListItem>
+
+    /** Invoice lines for returns — PostgREST `sales_invoice_lines` (web `listInvoiceLines`). */
+    suspend fun listInvoiceLines(invoiceId: String): List<InvoiceLineSummary>
 }
