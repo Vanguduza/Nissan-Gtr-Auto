@@ -415,6 +415,7 @@ private fun KmpPdp(
     onBack: () -> Unit,
     onAddToCart: () -> Unit,
     onToggleWishlist: () -> Unit,
+    onOpenReviews: () -> Unit,
 ) {
     val priceLabel = when {
         product.usd == null -> "Price on request"
@@ -422,6 +423,8 @@ private fun KmpPdp(
             "USD %.2f + %.2f core".format(product.usd, product.coreCharge)
         else -> "USD %.2f".format(product.usd)
     }
+    val galleryUrls = product.imageUrls.filter { it.isNotBlank() }.distinct()
+    var selectedThumb by remember(product.oem) { mutableStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -436,11 +439,11 @@ private fun KmpPdp(
                     .height(320.dp)
                     .background(GtrColors.Mist),
             ) {
-                Text(
-                    product.oem,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = GtrColors.Steel,
-                    modifier = Modifier.align(Alignment.Center),
+                ShopProductGalleryHero(
+                    imageUrls = galleryUrls,
+                    heroLabel = product.oem,
+                    modifier = Modifier.fillMaxSize(),
+                    selectedIndex = selectedThumb,
                 )
                 Box(modifier = Modifier.padding(16.dp).align(Alignment.TopStart)) {
                     ShopCircleIconButton(
@@ -456,30 +459,30 @@ private fun KmpPdp(
                         contentDescription = "Wishlist",
                     )
                 }
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = MaterialTheme.shapes.small,
-                ) {
-                    LazyRow(
-                        contentPadding = PaddingValues(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                if (galleryUrls.size > 1) {
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = MaterialTheme.shapes.small,
                     ) {
-                        rowItems(listOf(0, 1, 2, 3), key = { it }) { i ->
-                            Box(
-                                modifier = Modifier
-                                    .size(65.dp)
-                                    .clip(MaterialTheme.shapes.small)
-                                    .background(if (i == 0) GtrColors.Steel else GtrColors.Mist),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    "${i + 1}",
-                                    color = if (i == 0) GtrColors.Chalk else GtrColors.Steel,
-                                    style = MaterialTheme.typography.labelMedium,
+                        LazyRow(
+                            contentPadding = PaddingValues(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowItems(galleryUrls.indices.toList(), key = { it }) { i ->
+                                ShopRemoteImage(
+                                    url = galleryUrls[i],
+                                    contentDescription = "Image ${i + 1}",
+                                    modifier = Modifier
+                                        .size(65.dp)
+                                        .clip(MaterialTheme.shapes.small)
+                                        .background(
+                                            if (i == selectedThumb) GtrColors.Steel else GtrColors.Mist,
+                                        ),
+                                    placeholderLabel = "${i + 1}",
                                 )
                             }
                         }
@@ -496,10 +499,13 @@ private fun KmpPdp(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(product.stock.label(), style = MaterialTheme.typography.titleMedium)
-                ShopRatingRow(
-                    avgRating = reviewStats?.avgRating ?: 0.0,
-                    reviewCount = reviewStats?.reviewCount ?: 0,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ShopRatingRow(
+                        avgRating = reviewStats?.avgRating ?: 0.0,
+                        reviewCount = reviewStats?.reviewCount ?: 0,
+                    )
+                    TextButton(onClick = onOpenReviews) { Text("Reviews") }
+                }
             }
             Spacer(Modifier.height(16.dp))
             Text(
@@ -522,7 +528,7 @@ private fun KmpPdp(
             )
             Spacer(Modifier.height(8.dp))
             ShopExpandableDescription(
-                text = product.name,
+                text = product.descriptionText(),
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             if (product.coreCharge > 0) {
