@@ -76,7 +76,7 @@
 		A10000000000000000000029 /* DeliveryTrackScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryTrackScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000002B /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000002D /* CompareScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareScreen.swift; sourceTree = "<group>"; };
-		A1000000000000000000002F /* ReviewsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewsScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000002F /* PdpReviewsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PdpReviewsScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000053 /* CatalogScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000051 /* GuestCompareStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GuestCompareStore.swift; path = ../Sources/GTRCustomerCore/GuestCompareStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000055 /* GTRTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GTRTheme.swift; sourceTree = "<group>"; };
@@ -93,6 +93,13 @@
 		A10000000000000000000093 /* AddressScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000095 /* CustomerShellChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomerShellChrome.swift; sourceTree = "<group>"; };
 		A10000000000000000000097 /* CategoriesGridScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesGridScreen.swift; sourceTree = "<group>"; };
+		A10000000000000000000099 /* PdpReviewsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PdpReviewsScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000009B /* EditProfileScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000009D /* LoyaltyWalletScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoyaltyWalletScreen.swift; sourceTree = "<group>"; };
+		A1000000000000000000009F /* ReturnsCreditScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReturnsCreditScreen.swift; sourceTree = "<group>"; };
+		A100000000000000000000A1 /* KitsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KitsScreen.swift; sourceTree = "<group>"; };
+		A100000000000000000000A3 /* CategoryPlpScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPlpScreen.swift; sourceTree = "<group>"; };
+		A100000000000000000000A5 /* CatalogBrowseFilters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogBrowseFilters.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
