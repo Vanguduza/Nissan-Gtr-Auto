@@ -120,11 +120,12 @@ fun ShellLabeledIconButton(
     modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
+    val indication = LocalIndication.current
     Column(
         modifier = modifier
             .clickable(
                 interactionSource = interaction,
-                indication = ripple(bounded = false, radius = 28.dp),
+                indication = indication,
                 onClick = onClick,
             )
             .padding(horizontal = 6.dp, vertical = 4.dp)
