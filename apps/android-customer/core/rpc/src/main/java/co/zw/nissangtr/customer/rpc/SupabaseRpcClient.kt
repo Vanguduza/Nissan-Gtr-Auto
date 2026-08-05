@@ -127,7 +127,7 @@ class SupabaseRpcClient(
         CatalogRpcLive.loadCatalogProduct(client, supabaseUrl, oem)
 
     override suspend fun addCustomerCartLineByOem(oem: String, qty: Double): Pair<String, String> =
-        CatalogRpcLive.addCartLineByOem(client, this, oem, qty)
+        CatalogRpcLive.addCartLineByOem(client, supabaseUrl, this, oem, qty)
 
     override suspend fun fetchZigExchangeRate(asOf: String?): Double {
         return try {

@@ -194,7 +194,7 @@ internal object CatalogRpcLive {
         val price = loadDefaultPrices(client, listOf(item.id))[item.id]
         val qty = loadSaleableQty(client, listOf(item.id))[item.id] ?: 0.0
         val fitmentMeta = loadFitmentMeta(client, item.oemPartNumber)
-        val diagramUrl = loadDiagramPublicUrl(supabaseUrl, item.oemPartNumber)
+        val diagramUrl = loadDiagramPublicUrl(client, supabaseUrl, item.oemPartNumber)
         val replaces = loadReplaces(client, item.oemPartNumber)
 
         val imageUrls = buildList {
