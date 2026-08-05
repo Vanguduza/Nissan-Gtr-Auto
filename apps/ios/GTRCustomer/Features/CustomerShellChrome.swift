@@ -109,7 +109,8 @@ let gtrCarPartCategories: [MenuCategoryDef] = [
     .init(label: "Electrical", systemImage: "bolt.fill", subs: [
         ("Batteries", "battery.100"),
         ("Alternators", "bolt.car"),
-        ("Starters", " Ignition"),
+        ("Starters", "bolt.car"),
+        ("Ignition", "flame"),
     ]),
     .init(label: "Lighting", systemImage: "lightbulb.fill", subs: [
         ("Headlamp bulbs", "light.max"),
