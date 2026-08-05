@@ -78,6 +78,7 @@ import co.zw.nissangtr.customer.orders.OrdersScreen
 import co.zw.nissangtr.customer.pay.PayIntentScreen
 import co.zw.nissangtr.customer.pay.PayModule
 import co.zw.nissangtr.customer.profile.EditProfileScreen
+import co.zw.nissangtr.customer.returns.ReturnsScreen
 import co.zw.nissangtr.customer.prefs.CustomerPrefs
 import co.zw.nissangtr.customer.prefs.ThemeMode
 import co.zw.nissangtr.customer.rpc.FakeRpcClient
@@ -95,7 +96,6 @@ import co.zw.nissangtr.customer.wishlist.WishlistScreen
 import co.zw.nissangtr.customer.wishlist.WishlistStore
 import co.zw.nissangtr.ui.shop.ShopBottomBar
 import co.zw.nissangtr.ui.shop.ShopBottomTab
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopProfileAvatar
