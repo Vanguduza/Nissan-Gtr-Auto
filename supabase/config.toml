@@ -95,6 +95,10 @@ verify_jwt = true
 [functions.stores-insights]
 verify_jwt = true
 
+# Authenticated catalog typeahead — Meili proxy with FTS fallback
+[functions.catalog-search-meili]
+verify_jwt = true
+
 # Optional chat notify worker (x-worker-secret); stub delivery by default
 [functions.chat-notify-on-message]
 verify_jwt = true
