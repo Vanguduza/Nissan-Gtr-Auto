@@ -600,11 +600,23 @@ public struct SearchCatalogResponse: Sendable, Equatable {
     public let mode: CatalogSearchMode
     public let query: String
     public let parts: [CatalogPartHit]
+    /// `meili` when Edge proxy succeeded; `fts` on Postgres fallback.
+    public let backend: String?
+    /// Meili facet counts when available.
+    public let facetDistribution: [String: [String: Int]]
 
-    public init(mode: CatalogSearchMode, query: String, parts: [CatalogPartHit]) {
+    public init(
+        mode: CatalogSearchMode,
+        query: String,
+        parts: [CatalogPartHit],
+        backend: String? = nil,
+        facetDistribution: [String: [String: Int]] = [:]
+    ) {
         self.mode = mode
         self.query = query
         self.parts = parts
+        self.backend = backend
+        self.facetDistribution = facetDistribution
     }
 }
 
