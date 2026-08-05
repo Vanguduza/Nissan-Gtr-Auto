@@ -51,9 +51,16 @@ import co.zw.nissangtr.customer.rpc.CatalogProduct
 import co.zw.nissangtr.customer.rpc.GarageVehicle
 import co.zw.nissangtr.customer.rpc.ProductReviewStats
 import co.zw.nissangtr.customer.rpc.RpcClient
+import co.zw.nissangtr.customer.rpc.descriptionText
 import co.zw.nissangtr.customer.rpc.summaryLabel
+import co.zw.nissangtr.customer.reviews.PdpReviewsScreen
+import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
 import co.zw.nissangtr.customer.wishlist.WishlistStore
-import co.zw.nissangtr.ui.shop.ShopBannerCarousel
+import co.zw.nissangtr.ui.shop.ShopProductGalleryHero
+import co.zw.nissangtr.ui.shop.ShopRemoteImage
+import co.zw.nissangtr.ui.shop.ShopFilterSortBar
+import co.zw.nissangtr.ui.shop.ShopFilterDialog
+import co.zw.nissangtr.ui.shop.ShopSortDialog
 import co.zw.nissangtr.ui.shop.ShopCategoryChipRow
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
 import co.zw.nissangtr.ui.shop.ShopExpandableDescription
