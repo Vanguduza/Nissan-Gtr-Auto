@@ -2298,6 +2298,26 @@ private struct ItemKitRow: Decodable {
         case stockItemId = "stock_item_id"
         case stockItems = "stock_items"
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try Self.decodeUUID(c, key: .id)
+        sellMode = try c.decodeIfPresent(String.self, forKey: .sellMode) ?? "bundle"
+        stockItemId = try Self.decodeUUID(c, key: .stockItemId)
+        if let embed = try? c.decodeIfPresent(StockItemBriefEmbed.self, forKey: .stockItems) {
+            stockItems = embed
+        } else if let arr = try? c.decodeIfPresent([StockItemBriefEmbed].self, forKey: .stockItems) {
+            stockItems = arr.first
+        } else {
+            stockItems = nil
+        }
+    }
+
+    private static func decodeUUID(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) throws -> UUID {
+        if let id = try? c.decode(UUID.self, forKey: key) { return id }
+        if let s = try c.decode(String.self, forKey: key), let id = UUID(uuidString: s) { return id }
+        throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "UUID required")
+    }
 }
 
 private struct KitComponentRow: Decodable {
