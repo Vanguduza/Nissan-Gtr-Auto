@@ -72,6 +72,7 @@ import co.zw.nissangtr.customer.orders.OrdersModule
 import co.zw.nissangtr.customer.orders.OrdersScreen
 import co.zw.nissangtr.customer.pay.PayIntentScreen
 import co.zw.nissangtr.customer.pay.PayModule
+import co.zw.nissangtr.customer.profile.EditProfileScreen
 import co.zw.nissangtr.customer.prefs.CustomerPrefs
 import co.zw.nissangtr.customer.prefs.ThemeMode
 import co.zw.nissangtr.customer.rpc.FakeRpcClient
