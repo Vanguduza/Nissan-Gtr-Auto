@@ -387,7 +387,7 @@ private fun CustomerApp(
     var lastPartsSeq by remember { mutableIntStateOf(0) }
     var cartBadge by remember { mutableIntStateOf(0) }
     var cartRefresh by remember { mutableIntStateOf(0) }
-    var menuCategories by remember { mutableStateOf(GtrPartCategories) }
+    var payInvoiceId by remember { mutableStateOf<String?>(null) }
 
     val wishlistStore: WishlistStore = viewModel(factory = WishlistStore.factory(rpc))
 
