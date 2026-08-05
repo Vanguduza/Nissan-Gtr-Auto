@@ -7,7 +7,6 @@ import co.zw.nissangtr.customer.rpc.CustomerContactPatch
 import co.zw.nissangtr.customer.rpc.CustomerProfile
 import co.zw.nissangtr.customer.rpc.PreferredReceiptChannel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

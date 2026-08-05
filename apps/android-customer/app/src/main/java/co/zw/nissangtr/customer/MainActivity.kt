@@ -19,7 +19,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.CreditCard
