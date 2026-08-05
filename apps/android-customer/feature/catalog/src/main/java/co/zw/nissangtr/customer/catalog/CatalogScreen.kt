@@ -65,6 +65,8 @@ import co.zw.nissangtr.ui.shop.ShopMerchTitleRow
 import co.zw.nissangtr.ui.shop.ShopProductCard
 import co.zw.nissangtr.ui.shop.ShopRatingRow
 import co.zw.nissangtr.ui.shop.ShopStickyCtaBar
+import co.zw.nissangtr.ui.shop.ShopProductGalleryHero
+import co.zw.nissangtr.ui.shop.ShopRemoteImage
 import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
@@ -84,6 +86,7 @@ fun CatalogScreen(
     categorySeedSeq: Int = 0,
     showShellChrome: Boolean = false,
     viewModelKey: String = "catalog",
+    camera: PodCameraBridge? = null,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: CatalogViewModel = viewModel(
@@ -92,6 +95,23 @@ fun CatalogScreen(
     )
     val state by viewModel.state.collectAsState()
     val wishOems by wishlistStore.oemKeys.collectAsState()
+    var reviewsProduct by remember { mutableStateOf<CatalogProduct?>(null) }
+    val displayItems = remember(state.browseItems, state.filterState, state.sortOption) {
+        applyCatalogFilterSort(state.browseItems, state.filterState, state.sortOption)
+    }
+    val categoryLabels = remember { DefaultCatalogCategoryCards.map { it.label } }
+
+    reviewsProduct?.let { product ->
+        PdpReviewsScreen(
+            rpc = rpc,
+            camera = camera,
+            oem = product.oem,
+            stockItemId = product.stockItemId,
+            onBack = { reviewsProduct = null },
+            modifier = modifier,
+        )
+        return
+    }
 
     LaunchedEffect(initialOem) {
         val oem = initialOem?.trim()?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
