@@ -21,6 +21,7 @@ import {
 import { isOemInCompare } from "@/lib/compare-selection";
 import {
   getProductReviewStats,
+  listApprovedReviewPhotoUrlsForOem,
   listApprovedReviewsForOem,
   submitProductReview,
   uploadReviewPhoto,
