@@ -1,6 +1,7 @@
 package co.zw.nissangtr.customer.catalog
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,53 +20,81 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AirlineSeatReclineNormal
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CarRepair
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ElectricBolt
-import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import co.zw.nissangtr.ui.shop.ShopCircleIconButton
 import co.zw.nissangtr.ui.theme.GtrColors
 
-/** Default GTR storefront categories — layout-inspired only; no proprietary GSF assets. */
-val DefaultCatalogCategories = listOf(
-    "Brakes", "Filters", "Engine", "Suspension", "Electrical", "Cooling", "Body", "Drivetrain",
+data class CatalogCategoryCard(
+    val label: String,
+    val icon: ImageVector,
 )
 
-private fun categoryIcon(name: String): ImageVector = when {
-    name.contains("brake", ignoreCase = true) -> Icons.Filled.Speed
-    name.contains("filter", ignoreCase = true) -> Icons.Filled.FilterAlt
-    name.contains("engine", ignoreCase = true) -> Icons.Filled.Build
-    name.contains("suspension", ignoreCase = true) -> Icons.Filled.Settings
-    name.contains("electric", ignoreCase = true) -> Icons.Filled.ElectricBolt
-    name.contains("cool", ignoreCase = true) -> Icons.Filled.Thermostat
-    name.contains("body", ignoreCase = true) -> Icons.Filled.DirectionsCar
-    name.contains("drive", ignoreCase = true) -> Icons.Filled.Build
-    else -> Icons.Filled.Build
-}
+/** All-categories page cards — large icon tiles (layout reference only). */
+val DefaultCatalogCategoryCards: List<CatalogCategoryCard> = listOf(
+    CatalogCategoryCard("Service Parts", Icons.Filled.CarRepair),
+    CatalogCategoryCard("Braking", Icons.Filled.Speed),
+    CatalogCategoryCard("Steering & Suspension", Icons.Filled.AirlineSeatReclineNormal),
+    CatalogCategoryCard("Engine Parts", Icons.Filled.Build),
+    CatalogCategoryCard("Transmission", Icons.Filled.Settings),
+    CatalogCategoryCard("Electrical", Icons.Filled.ElectricBolt),
+    CatalogCategoryCard("Lighting", Icons.Filled.Lightbulb),
+    CatalogCategoryCard("Body & Exhaust", Icons.Filled.DirectionsCar),
+    CatalogCategoryCard("Cooling & Heating", Icons.Filled.Thermostat),
+    CatalogCategoryCard("Fuel System", Icons.Filled.LocalGasStation),
+)
+
+@Deprecated("Use DefaultCatalogCategoryCards", ReplaceWith("DefaultCatalogCategoryCards.map { it.label }"))
+val DefaultCatalogCategories: List<String> = DefaultCatalogCategoryCards.map { it.label }
 
 /**
- * Categories grid — large image/icon cards (GSF layout reference, GTR brand).
+ * Categories grid — large cards with red accent bar. Category tap shows empty inventory dialog
+ * (does not navigate home / search).
  */
 @Composable
 fun CategoriesGridScreen(
-    categories: List<String> = DefaultCatalogCategories,
+    categories: List<CatalogCategoryCard> = DefaultCatalogCategoryCards,
     onBack: () -> Unit,
-    onCategory: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val list = categories.ifEmpty { DefaultCatalogCategories }
+    var emptyTitle by remember { mutableStateOf<String?>(null) }
+    val list = categories.ifEmpty { DefaultCatalogCategoryCards }
+
+    emptyTitle?.let { title ->
+        AlertDialog(
+            onDismissRequest = { emptyTitle = null },
+            title = { Text(title) },
+            text = {
+                Text("No items added yet. Stock for this category will appear here when catalog listings are published.")
+            },
+            confirmButton = {
+                TextButton(onClick = { emptyTitle = null }) { Text("OK") }
+            },
+        )
+    }
+
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
@@ -73,13 +102,11 @@ fun CategoriesGridScreen(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ShopCircleIconButton(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                onClick = onBack,
-                contentDescription = "Back",
-            )
-            Spacer(modifier = Modifier.size(12.dp))
-            Text("Categories", style = MaterialTheme.typography.titleLarge)
+            TextButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(modifier = Modifier.size(8.dp))
+            Text("All Car Parts", style = MaterialTheme.typography.titleLarge)
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -88,45 +115,58 @@ fun CategoriesGridScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(list, key = { it }) { cat ->
-                CategoryCard(label = cat, onClick = { onCategory(cat) })
+            items(list, key = { it.label }) { cat ->
+                CategoryCard(card = cat, onClick = { emptyTitle = cat.label })
             }
         }
     }
 }
 
 @Composable
-private fun CategoryCard(label: String, onClick: () -> Unit) {
+private fun CategoryCard(card: CatalogCategoryCard, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.95f)
+            .aspectRatio(0.9f)
+            .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.small)
             .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
-            .padding(12.dp),
+            .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .background(GtrColors.Mist, MaterialTheme.shapes.small),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = categoryIcon(label),
-                contentDescription = null,
-                tint = GtrColors.Steel,
-                modifier = Modifier.size(56.dp),
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface,
+                .height(4.dp)
+                .background(MaterialTheme.colorScheme.primary),
         )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                card.label,
+                style = MaterialTheme.typography.titleSmall,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(GtrColors.Mist, MaterialTheme.shapes.small),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = card.icon,
+                    contentDescription = null,
+                    tint = GtrColors.Steel,
+                    modifier = Modifier.size(56.dp),
+                )
+            }
+        }
     }
 }
