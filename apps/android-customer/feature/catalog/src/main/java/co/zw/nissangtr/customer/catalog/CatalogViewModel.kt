@@ -110,11 +110,23 @@ class CatalogViewModel(
     }
 
     fun applyCategoryFilter(category: String?) {
-        val cat = category?.trim()?.takeIf { it.isNotEmpty() }
+        openCategoryBrowse(category ?: return, fromHome = true)
+    }
+
+    fun openCategoryBrowse(categoryLabel: String, fromHome: Boolean = false) {
+        val label = categoryLabel.trim()
+        if (label.isEmpty()) return
         _state.update {
-            it.copy(route = CatalogScreenRoute.Home, activeCategory = cat, error = null, message = null)
+            it.copy(
+                route = if (fromHome) CatalogScreenRoute.CategoryBrowse else CatalogScreenRoute.CategoryBrowse,
+                activeCategory = label,
+                categoryBrowseTitle = label,
+                filterState = it.filterState.copy(category = label),
+                error = null,
+                message = null,
+            )
         }
-        refreshBrowse(cat)
+        refreshBrowse(label)
     }
 
     fun openCategories() {
@@ -125,10 +137,26 @@ class CatalogViewModel(
 
     fun openNewest() {
         _state.update {
-            it.copy(route = CatalogScreenRoute.Newest, error = null, message = null)
+            it.copy(
+                route = CatalogScreenRoute.Newest,
+                categoryBrowseTitle = "Newest products",
+                error = null,
+                message = null,
+            )
         }
-        // Ensure we have a fresh browse list for the newest rail.
         if (_state.value.browseItems.isEmpty()) refreshBrowse(category = null)
+    }
+
+    fun applyBrowseFilter(filter: ShopFilterState) {
+        _state.update { it.copy(filterState = filter, error = null) }
+        val cat = filter.category?.trim()?.takeIf { it.isNotEmpty() }
+        if (cat != null && cat != _state.value.activeCategory) {
+            refreshBrowse(cat)
+        }
+    }
+
+    fun applyBrowseSort(sort: ShopSortOption) {
+        _state.update { it.copy(sortOption = sort, error = null) }
     }
 
     fun openProduct(oem: String) {
