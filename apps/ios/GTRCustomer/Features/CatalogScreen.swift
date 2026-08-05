@@ -681,10 +681,14 @@ struct CatalogScreen: View {
 
     private func fetchSuggestions(query: String) async -> [SearchSuggestion] {
         var out: [String: SearchSuggestion] = [:]
+        var backend: String?
+        var facetCounts: [String: [String: Int]] = [:]
+
         func put(_ s: SearchSuggestion) {
             let key = "\(s.kind.rawValue):\(s.title.uppercased()):\(s.oem ?? "")"
             if out[key] == nil { out[key] = s }
         }
+
         func absorb(_ hits: [CatalogPartHit], asParts: Bool) {
             for hit in hits.prefix(8) {
                 if asParts {
@@ -709,19 +713,49 @@ struct CatalogScreen: View {
                 }
             }
         }
-        if let part = try? await session.api.searchCatalog(mode: .part, query: query) {
-            absorb(part.parts, asParts: true)
+
+        func absorbMeili(_ mode: CatalogSearchMode) async {
+            let facets = ["category_name", "pnc_code", "chassis_code", "model_variant"]
+            guard let res = try? await session.api.searchCatalogMeili(
+                mode: mode,
+                query: query,
+                limit: 20,
+                facets: facets
+            ) else { return }
+            backend = res.backend ?? backend
+            absorb(res.parts, asParts: mode == .part || mode == .vin)
+            for (facet, values) in res.facetDistribution {
+                var bucket = facetCounts[facet, default: [:]]
+                for (label, count) in values {
+                    bucket[label, default: 0] += count
+                }
+                facetCounts[facet] = bucket
+            }
         }
-        if let model = try? await session.api.searchCatalog(mode: .model, query: query) {
-            absorb(model.parts, asParts: false)
+
+        await absorbMeili(.part)
+        if !out.values.contains(where: { $0.kind == .model }) {
+            await absorbMeili(.model)
         }
-        if let pnc = try? await session.api.searchCatalog(mode: .pnc, query: query) {
-            absorb(pnc.parts, asParts: false)
-        }
+        await absorbMeili(.pnc)
+
         let vinLike = query.count >= 11 && query.count <= 17 && query.allSatisfy(\.isLetterOrNumber)
-        if vinLike, let vin = try? await session.api.searchCatalog(mode: .vin, query: query) {
-            absorb(vin.parts, asParts: true)
+        if vinLike { await absorbMeili(.vin) }
+
+        if out.isEmpty {
+            for mode in [CatalogSearchMode.part, .model, .pnc] {
+                if let res = try? await session.api.searchCatalog(mode: mode, query: query) {
+                    backend = res.backend ?? "fts"
+                    absorb(res.parts, asParts: mode == .part)
+                }
+            }
         }
+
+        facetChips = facetCounts.flatMap { facet, values in
+            values.sorted { $0.value > $1.value }.prefix(3).map { (facet, $0.key) }
+        }.prefix(8).map { $0 }
+
+        searchBackend = backend
         return Array(out.values.prefix(24))
     }
 }
