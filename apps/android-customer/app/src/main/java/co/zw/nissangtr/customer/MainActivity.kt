@@ -453,17 +453,6 @@ private fun CustomerApp(
         }
     }
 
-    LaunchedEffect(Unit) {
-        try {
-            val browse = rpc.listCatalogBrowse(category = null, limit = 80)
-            if (browse.categories.isNotEmpty()) {
-                menuCategories = browse.categories
-            }
-        } catch (_: Exception) {
-            // Keep GTR fallback categories.
-        }
-    }
-
     val bottomTabs = remember {
         ShellTab.entries.map { ShopBottomTab(it.name, it.label, it.icon) }
     }
@@ -471,33 +460,70 @@ private fun CustomerApp(
     when (overlay) {
         ShellOverlay.Menu -> {
             HamburgerMenuOverlay(
-                categories = menuCategories,
-                subcategoriesByCategory = emptyMap(),
                 onAction = { action ->
                     when (action) {
                         is HamburgerMenuAction.Close -> overlay = ShellOverlay.None
-                        is HamburgerMenuAction.OpenCatalog -> {
-                            val seed = listOfNotNull(action.subcategory, action.category)
-                                .firstOrNull()
-                            openCatalog(seed = seed)
+                        is HamburgerMenuAction.OpenAllCategories -> {
+                            overlay = ShellOverlay.Categories
                         }
                         HamburgerMenuAction.OpenDeals,
                         HamburgerMenuAction.OpenAbout,
-                        HamburgerMenuAction.OpenContact -> Unit
+                        HamburgerMenuAction.OpenContact,
+                        HamburgerMenuAction.OpenStoreLocator -> Unit
                     }
                 },
+            )
+        }
+        ShellOverlay.Categories -> {
+            CategoriesGridScreen(
+                onBack = { overlay = ShellOverlay.None },
             )
         }
         ShellOverlay.Cart -> {
             CartScreen(
                 rpc = rpc,
-                onContinueShopping = {
+                onBack = {
                     refreshCartBadge()
                     overlay = ShellOverlay.None
                 },
-                onPay = { _ -> openAccount(ProfileDest.Pay) },
+                onContinueShopping = {
+                    refreshCartBadge()
+                    overlay = ShellOverlay.None
+                    tab = ShellTab.Shop
+                },
+                onPay = { invoiceId ->
+                    payInvoiceId = invoiceId
+                    refreshCartBadge()
+                    overlay = ShellOverlay.Pay
+                },
                 onManageAddresses = { openAccount(ProfileDest.Addresses) },
+                onManageOrders = { overlay = ShellOverlay.Orders },
             )
+        }
+        ShellOverlay.Pay -> {
+            PayIntentScreen(
+                rpc = rpc,
+                initialInvoiceId = payInvoiceId,
+                onBack = {
+                    payInvoiceId = null
+                    overlay = ShellOverlay.Cart
+                },
+            )
+        }
+        ShellOverlay.Orders -> {
+            ShopDefaultScreen(
+                title = "Orders",
+                onBack = { overlay = ShellOverlay.Cart },
+                scrollable = false,
+            ) {
+                OrdersScreen(
+                    rpc = rpc,
+                    onBack = { overlay = ShellOverlay.Cart },
+                    onOpenTrack = { jobId, token ->
+                        openTrack(jobId = jobId, token = token)
+                    },
+                )
+            }
         }
         ShellOverlay.Account -> {
             ProfileStack(
