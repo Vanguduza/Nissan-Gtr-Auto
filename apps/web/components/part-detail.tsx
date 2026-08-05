@@ -103,15 +103,22 @@ export function PartDetail({ oem }: { oem: string }) {
       setStatus({ kind: "ready", product: result.data });
       setInCompare(isOemInCompare(result.data.oem));
 
-      const [wish, approved, stats] = await Promise.all([
+      const [wish, approved, stats, photos] = await Promise.all([
         isOemOnWishlist(client, result.data.oem),
         listApprovedReviewsForOem(client, result.data.oem),
         getProductReviewStats(client, { oem: result.data.oem }),
+        listApprovedReviewPhotoUrlsForOem(client, result.data.oem),
       ]);
       if (cancelled) return;
       if (wish.ok) setOnWishlist(wish.data);
       if (approved.ok) setReviews(approved.data);
       if (stats.ok) setReviewStats(stats.data);
+      if (photos.ok) {
+        setPhotoUrls(photos.data);
+        if (!result.data.diagram && photos.data.length > 0) {
+          setGalleryTab("photo");
+        }
+      }
     }
 
     void run();
