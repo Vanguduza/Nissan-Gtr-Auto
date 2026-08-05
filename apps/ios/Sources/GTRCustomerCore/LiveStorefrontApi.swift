@@ -1006,13 +1006,19 @@ public final class LiveStorefrontApi: StorefrontApi {
                 "qty": JSONValue.number(line.qty),
             ]
         }
-        let raw: String = try await client.rpcDecode(
+        let data = try await client.rpc(
             RpcName.postCustomerReturnCreditNote,
             body: [
                 "p_invoice_id": JSONValue.uuid(invoiceId),
                 "p_lines": payload,
             ]
         )
+        if let s = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\" \n\r\t")),
+           let id = UUID(uuidString: s) {
+            return id
+        }
+        let raw: String = try JSONDecoder().decode(String.self, from: data)
         guard let id = UUID(uuidString: raw) else {
             throw StorefrontError.message("post_customer_return_credit_note returned invalid UUID")
         }
