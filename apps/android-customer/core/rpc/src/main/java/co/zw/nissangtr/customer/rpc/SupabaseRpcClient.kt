@@ -36,6 +36,7 @@ import java.util.UUID
  */
 class SupabaseRpcClient(
     val client: SupabaseClient,
+    private val supabaseUrl: String,
 ) : RpcClient {
 
     /** GoTrue Auth plugin — [signInWithEmail] (preferred) or [importAccessToken] fallback. */

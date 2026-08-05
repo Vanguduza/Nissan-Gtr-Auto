@@ -168,7 +168,7 @@ internal object CatalogRpcLive {
         return out
     }
 
-    suspend fun loadCatalogProduct(client: SupabaseClient, oemParam: String): CatalogProduct {
+    suspend fun loadCatalogProduct(client: SupabaseClient, supabaseUrl: String, oemParam: String): CatalogProduct {
         val oem = oemParam.trim()
         require(oem.isNotEmpty()) { "OEM required" }
         val item = client.from("stock_items")
