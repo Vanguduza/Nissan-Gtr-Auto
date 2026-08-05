@@ -59,6 +59,7 @@ export function PartDetail({ oem }: { oem: string }) {
   const [reviewPhoto, setReviewPhoto] = useState<File | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [galleryTab, setGalleryTab] = useState<"diagram" | "photo">("diagram");
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [descOpen, setDescOpen] = useState(false);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export function PartDetail({ oem }: { oem: string }) {
       setStatus({ kind: "loading" });
       setActionMsg(null);
       setGalleryTab("diagram");
+      setPhotoUrls([]);
       setDescOpen(false);
       const client = createWebClient();
       if (!client) {
