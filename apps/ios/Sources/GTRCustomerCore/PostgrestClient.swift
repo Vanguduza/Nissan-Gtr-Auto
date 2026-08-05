@@ -132,6 +132,31 @@ public final class PostgrestClient: @unchecked Sendable {
         }
     }
 
+    // MARK: - Table patch
+
+    /// `PATCH {url}/rest/v1/{table}?{query}` — profiles row update, etc.
+    public func patch(
+        table: String,
+        query: String,
+        body: [String: Any]
+    ) async throws {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("rest/v1/\(table)"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.percentEncodedQuery = query
+        guard let url = components.url else {
+            throw StorefrontError.message("Invalid PostgREST patch query.")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        applyAuthHeaders(&request)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        _ = try await perform(request)
+    }
+
     // MARK: - Edge functions
 
     /// `POST {url}/functions/v1/{name}` — preferred for pay-initiate when edge returns checkout_url.

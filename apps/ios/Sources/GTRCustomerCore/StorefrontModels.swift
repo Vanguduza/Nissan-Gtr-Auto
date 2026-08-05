@@ -669,6 +669,10 @@ public struct CatalogProduct: Identifiable, Sendable, Equatable {
     public let stock: CatalogStockState
     public let coreCharge: Decimal
     public let fitmentLines: [String]
+    public let imageUrls: [String]
+    public let diagramUrl: String?
+    public let specs: [String]
+    public let replaces: [String]
 
     public init(
         stockItemId: UUID,
@@ -680,7 +684,11 @@ public struct CatalogProduct: Identifiable, Sendable, Equatable {
         usd: Decimal?,
         stock: CatalogStockState,
         coreCharge: Decimal = 0,
-        fitmentLines: [String] = []
+        fitmentLines: [String] = [],
+        imageUrls: [String] = [],
+        diagramUrl: String? = nil,
+        specs: [String] = [],
+        replaces: [String] = []
     ) {
         self.stockItemId = stockItemId
         self.baseUomId = baseUomId
@@ -692,6 +700,218 @@ public struct CatalogProduct: Identifiable, Sendable, Equatable {
         self.stock = stock
         self.coreCharge = coreCharge
         self.fitmentLines = fitmentLines
+        self.imageUrls = imageUrls
+        self.diagramUrl = diagramUrl
+        self.specs = specs
+        self.replaces = replaces
+    }
+}
+
+public extension CatalogProduct {
+    /// Rich expandable PDP copy — name + metadata when present.
+    var descriptionText: String {
+        var lines: [String] = [name.trimmingCharacters(in: .whitespacesAndNewlines)]
+        if let brand = brand?.trimmingCharacters(in: .whitespacesAndNewlines), !brand.isEmpty {
+            lines.append("Brand: \(brand)")
+        }
+        if let category = category?.trimmingCharacters(in: .whitespacesAndNewlines), !category.isEmpty {
+            lines.append("Category: \(category)")
+        }
+        for spec in specs {
+            lines.append("· \(spec)")
+        }
+        if !replaces.isEmpty {
+            lines.append("Replaces / cross-ref: \(replaces.joined(separator: ", "))")
+        }
+        return lines.joined(separator: "\n")
+    }
+}
+
+// MARK: - Profile (mirrors web profile-form + Android ProfileModels)
+
+public struct UserProfile: Sendable, Equatable {
+    public let id: UUID
+    public var fullName: String?
+
+    public init(id: UUID, fullName: String? = nil) {
+        self.id = id
+        self.fullName = fullName
+    }
+}
+
+public struct CustomerProfile: Sendable, Equatable {
+    public let id: UUID
+    public var displayName: String?
+    public var email: String?
+    public var phoneE164: String?
+    public var whatsappE164: String?
+    public var smsReceipts: Bool
+    public var emailReceipts: Bool
+    public var whatsappReceipts: Bool
+    public var marketingOptIn: Bool
+    public var lastPromoAt: String?
+
+    public init(
+        id: UUID,
+        displayName: String? = nil,
+        email: String? = nil,
+        phoneE164: String? = nil,
+        whatsappE164: String? = nil,
+        smsReceipts: Bool = false,
+        emailReceipts: Bool = false,
+        whatsappReceipts: Bool = false,
+        marketingOptIn: Bool = false,
+        lastPromoAt: String? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.email = email
+        self.phoneE164 = phoneE164
+        self.whatsappE164 = whatsappE164
+        self.smsReceipts = smsReceipts
+        self.emailReceipts = emailReceipts
+        self.whatsappReceipts = whatsappReceipts
+        self.marketingOptIn = marketingOptIn
+        self.lastPromoAt = lastPromoAt
+    }
+}
+
+public enum PreferredReceiptChannel: String, Sendable, CaseIterable {
+    case whatsapp, sms, email
+
+    public var label: String {
+        switch self {
+        case .whatsapp: return "WhatsApp"
+        case .sms: return "SMS"
+        case .email: return "Email"
+        }
+    }
+}
+
+public struct CustomerContactPatch: Sendable {
+    public var displayName: String?
+    public var email: String?
+    public var phoneE164: String?
+    public var whatsappE164: String?
+    public var smsReceipts: Bool?
+    public var emailReceipts: Bool?
+    public var whatsappReceipts: Bool?
+
+    public init(
+        displayName: String? = nil,
+        email: String? = nil,
+        phoneE164: String? = nil,
+        whatsappE164: String? = nil,
+        smsReceipts: Bool? = nil,
+        emailReceipts: Bool? = nil,
+        whatsappReceipts: Bool? = nil
+    ) {
+        self.displayName = displayName
+        self.email = email
+        self.phoneE164 = phoneE164
+        self.whatsappE164 = whatsappE164
+        self.smsReceipts = smsReceipts
+        self.emailReceipts = emailReceipts
+        self.whatsappReceipts = whatsappReceipts
+    }
+}
+
+// MARK: - Loyalty / returns / kits
+
+public struct LoyaltyBalance: Sendable, Equatable {
+    public let customerId: UUID
+    public let pointsBalance: Double
+    public let currency: String
+    public let liabilityPerPoint: Double
+    public let estimatedLiability: Double
+
+    public init(
+        customerId: UUID,
+        pointsBalance: Double,
+        currency: String = "USD",
+        liabilityPerPoint: Double = 0,
+        estimatedLiability: Double = 0
+    ) {
+        self.customerId = customerId
+        self.pointsBalance = pointsBalance
+        self.currency = currency
+        self.liabilityPerPoint = liabilityPerPoint
+        self.estimatedLiability = estimatedLiability
+    }
+}
+
+public struct ReturnCreditNoteLine: Sendable, Equatable {
+    public let stockItemId: UUID
+    public let uomId: UUID
+    public let qty: Decimal
+
+    public init(stockItemId: UUID, uomId: UUID, qty: Decimal) {
+        self.stockItemId = stockItemId
+        self.uomId = uomId
+        self.qty = qty
+    }
+}
+
+public struct InvoiceLineSummary: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public let stockItemId: UUID
+    public let uomId: UUID
+    public let qty: Decimal
+    public let oemPartNumber: String?
+    public let description: String?
+
+    public init(
+        id: UUID,
+        stockItemId: UUID,
+        uomId: UUID,
+        qty: Decimal,
+        oemPartNumber: String? = nil,
+        description: String? = nil
+    ) {
+        self.id = id
+        self.stockItemId = stockItemId
+        self.uomId = uomId
+        self.qty = qty
+        self.oemPartNumber = oemPartNumber
+        self.description = description
+    }
+}
+
+public struct KitComponent: Sendable, Equatable {
+    public let oem: String
+    public let name: String
+    public let qty: Double
+
+    public init(oem: String, name: String, qty: Double) {
+        self.oem = oem
+        self.name = name
+        self.qty = qty
+    }
+}
+
+public struct KitListItem: Identifiable, Sendable, Equatable {
+    public var id: String { kitId.uuidString }
+    public let kitId: UUID
+    public let stockItemId: UUID
+    public let oem: String
+    public let name: String
+    public let sellMode: String
+    public let components: [KitComponent]
+
+    public init(
+        kitId: UUID,
+        stockItemId: UUID,
+        oem: String,
+        name: String,
+        sellMode: String,
+        components: [KitComponent] = []
+    ) {
+        self.kitId = kitId
+        self.stockItemId = stockItemId
+        self.oem = oem
+        self.name = name
+        self.sellMode = sellMode
+        self.components = components
     }
 }
 
