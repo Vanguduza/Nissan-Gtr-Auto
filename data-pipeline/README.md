@@ -189,9 +189,17 @@ Proxy pool: set `proxy_list` in `config/scrape.json` or `PROXY_LIST` env (comma-
 
 ## Search
 
-Production search is exposed via Supabase RPC `search_catalog(p_mode, p_query)` with modes `part | vin | model | pnc`. **Meilisearch is deferred** — see `docs/decisions/2026-07-24-search-index-interim-pg-fts.md`.
+**Primary (when synced):** Meilisearch derived index + Edge proxy `catalog-search-meili` — see `docs/decisions/2026-08-05-meilisearch-catalog-search.md` and `infra/satellites/README.md`.
 
-Offline tests use `data_pipeline.search_index.CatalogIndex` to smoke-test the same response shapes.
+**Fallback:** Supabase RPC `search_catalog(p_mode, p_query)` with modes `part | vin | model | pnc` (PostgreSQL FTS).
+
+```bash
+# Full sync (after import)
+export SUPABASE_URL=... SUPABASE_SERVICE_KEY=... MEILI_HOST=http://127.0.0.1:7700 MEILI_MASTER_KEY=...
+python -m data_pipeline.meili_sync --full
+```
+
+Offline tests use `data_pipeline.search_index.CatalogIndex` and `data_pipeline.meili_documents` to smoke-test response shapes.
 
 ## Fixture OEMs (storefront demo alignment)
 

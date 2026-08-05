@@ -71,19 +71,68 @@ curl -X POST "http://127.0.0.1:7700/keys" \
   --data "{\"description\":\"web search\",\"actions\":[\"search\"],\"indexes\":[\"parts\"],\"expiresAt\":null}"
 ```
 
-Put the returned `key` into `NEXT_PUBLIC_MEILI_SEARCH_KEY` only if the client will hit Meili directly; prefer proxying search through Next.js / Edge so the key stays server-side.
+Put the returned `key` into `MEILI_SEARCH_KEY` for the Edge Function `catalog-search-meili` and local sync smoke tests. **Do not** expose via `NEXT_PUBLIC_*`. Master key is for index setup/sync only.
 
-## Indexer stub (not implemented here)
+## Indexer (Meilisearch catalog sync)
 
-Production search today: Postgres FTS (`search_catalog`) — see
-`docs/decisions/2026-07-24-search-index-interim-pg-fts.md`.
+Supabase catalog tables remain source of truth. Meili holds a derived `parts` index.
 
-When promoting Meilisearch:
+### 1. Start Meilisearch
 
-1. Keep Supabase catalog tables as source of truth.
-2. Sync documents (SKU, name, fitment tokens, PNC) on write or via cron/edge job.
-3. Dual-read or feature-flag Meili behind `/api/v1/store/search` — do not rewrite FTS until ranking/typo need is proven.
-4. Use **Community Edition** features only (no BUSL Enterprise).
+```bash
+docker compose -f docker-compose.satellites.yml --profile search up -d
+```
+
+### 2. Create search-only key (once per environment)
+
+```bash
+curl -s -X POST "http://127.0.0.1:7700/keys" \
+  -H "Authorization: Bearer gtr_dev_meili_master_change_me" \
+  -H "Content-Type: application/json" \
+  --data '{"description":"edge search","actions":["search"],"indexes":["parts"],"expiresAt":null}'
+```
+
+Save the returned `key` as `MEILI_SEARCH_KEY` (Edge secrets + local `.env`).
+
+### 3. Full sync from Supabase
+
+Requires `pip install -e ".[supabase]"` in `data-pipeline/` and applied migration `20260805190000_catalog_meili_sync_state.sql`.
+
+```bash
+export SUPABASE_URL=http://127.0.0.1:54321
+export SUPABASE_SERVICE_KEY=<service_role>
+export MEILI_HOST=http://127.0.0.1:7700
+export MEILI_MASTER_KEY=gtr_dev_meili_master_change_me
+
+cd data-pipeline
+python -m data_pipeline.meili_sync --full
+# dry-run document counts only:
+python -m data_pipeline.meili_sync --dry-run
+```
+
+Updates singleton `catalog_meili_sync_state` (staff-readable via RLS).
+
+### 4. Search proxy (clients)
+
+Edge Function `catalog-search-meili` — authenticated JWT in, Meili search-only key server-side.
+
+```bash
+curl -s -X POST "$SUPABASE_URL/functions/v1/catalog-search-meili" \
+  -H "Authorization: Bearer $USER_JWT" \
+  -H "apikey: $SUPABASE_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"part","query":"15208","limit":10}'
+```
+
+Set Edge secrets: `MEILI_HOST`, `MEILI_SEARCH_KEY`. Optional `CATALOG_SEARCH_BACKEND=fts` forces Postgres FTS fallback (`search_catalog` RPC).
+
+Typed client: `searchCatalogMeili()` in `@gtr/supabase-client`. ADR: `docs/decisions/2026-08-05-meilisearch-catalog-search.md`.
+
+### Rollout notes
+
+- Run sync after each catalog import batch.
+- FTS (`search_catalog`) stays fallback until Meili is populated and verified.
+- Use **Community Edition** features only (no BUSL Enterprise).
 
 ## Traccar notes
 
