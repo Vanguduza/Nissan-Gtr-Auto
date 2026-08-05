@@ -98,7 +98,12 @@ struct PayScreen: View {
             .scrollContentBackground(.hidden)
             .background(GTRColors.chalk)
             .navigationBarTitleDisplayMode(.inline)
-            .task { await refresh() }
+            .task {
+                if let initialInvoiceId {
+                    selectedInvoiceId = initialInvoiceId
+                }
+                await refresh()
+            }
             .refreshable { await refresh() }
         }
     }
