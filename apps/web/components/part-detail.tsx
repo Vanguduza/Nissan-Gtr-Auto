@@ -8,6 +8,7 @@ import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
 import { ChatEntryLink } from "@/components/chat-entry-link";
 import { WhatsAppCta } from "@/components/whatsapp-cta";
+import { Heart, Images, Star, iconSizeMd, iconStroke } from "@/components/icons";
 import {
   fitmentLabel,
   loadCatalogProduct,
@@ -56,6 +57,8 @@ export function PartDetail({ oem }: { oem: string }) {
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewPhoto, setReviewPhoto] = useState<File | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [galleryTab, setGalleryTab] = useState<"diagram" | "photo">("diagram");
+  const [descOpen, setDescOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +66,8 @@ export function PartDetail({ oem }: { oem: string }) {
     async function run() {
       setStatus({ kind: "loading" });
       setActionMsg(null);
+      setGalleryTab("diagram");
+      setDescOpen(false);
       const client = createWebClient();
       if (!client) {
         if (!cancelled) {
@@ -291,17 +296,109 @@ export function PartDetail({ oem }: { oem: string }) {
           ),
         ].slice(0, 6);
 
+  const descriptionBits = [
+    p.category ? `Category: ${p.category}` : null,
+    ...p.specs,
+    p.replaces.length
+      ? `Also replaces: ${p.replaces.slice(0, 4).join(", ")}`
+      : null,
+  ].filter(Boolean) as string[];
+
+  const descPreview = descriptionBits.slice(0, 2).join(" · ");
+  const ratingAvg =
+    reviewStats && reviewStats.review_count > 0
+      ? Number(reviewStats.avg_rating)
+      : null;
+
   return (
     <article className={styles.wrap}>
-      <div className={styles.gallery} aria-label="Product media">
-        <CatalogCanvasStub diagram={p.diagram} oem={p.oem} />
+      <div className={styles.galleryCol}>
+        <div className={styles.gallery} aria-label="Product media">
+          {galleryTab === "diagram" ? (
+            <CatalogCanvasStub diagram={p.diagram} oem={p.oem} />
+          ) : (
+            <div className={styles.photo}>
+              <Images size={28} strokeWidth={iconStroke} aria-hidden />
+              <span>OEM photo placeholder</span>
+              <span className={styles.photoHint}>
+                Pipeline imagery when assets are seeded
+              </span>
+            </div>
+          )}
+        </div>
+        <div className={styles.thumbs} role="tablist" aria-label="Gallery">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={galleryTab === "diagram"}
+            className={
+              galleryTab === "diagram" ? styles.thumbActive : styles.thumb
+            }
+            onClick={() => setGalleryTab("diagram")}
+          >
+            Diagram
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={galleryTab === "photo"}
+            className={
+              galleryTab === "photo" ? styles.thumbActive : styles.thumb
+            }
+            onClick={() => setGalleryTab("photo")}
+          >
+            Photo
+          </button>
+        </div>
       </div>
       <div className={styles.info}>
-        <p className={styles.brand}>{p.brand}</p>
-        <h1 className={styles.title}>{p.name}</h1>
+        <div className={styles.titleRow}>
+          <div>
+            <p className={styles.brand}>{p.brand}</p>
+            <h1 className={styles.title}>{p.name}</h1>
+          </div>
+          <button
+            type="button"
+            className={onWishlist ? styles.heartOn : styles.heart}
+            disabled={wishBusy}
+            aria-pressed={onWishlist}
+            aria-label={onWishlist ? "Remove from wishlist" : "Add to wishlist"}
+            onClick={() => void toggleWishlist(p.oem)}
+          >
+            <Heart
+              size={22}
+              strokeWidth={iconStroke}
+              fill={onWishlist ? "currentColor" : "none"}
+              aria-hidden
+            />
+          </button>
+        </div>
         <p className={styles.oem}>
           OEM <code>{p.oem}</code>
         </p>
+        <div className={styles.ratingRow}>
+          {ratingAvg != null ? (
+            <>
+              <span className={styles.stars} aria-hidden>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
+                    size={iconSizeMd}
+                    strokeWidth={iconStroke}
+                    fill={n <= Math.round(ratingAvg) ? "currentColor" : "none"}
+                  />
+                ))}
+              </span>
+              <strong>{ratingAvg.toFixed(1)}</strong>
+              <span className={styles.muted}>
+                · {reviewStats!.review_count} review
+                {reviewStats!.review_count === 1 ? "" : "s"}
+              </span>
+            </>
+          ) : (
+            <span className={styles.muted}>No rating yet</span>
+          )}
+        </div>
         <StockBadge state={p.stock} />
         <div className={styles.priceRow}>
           {p.usd != null ? (
@@ -339,7 +436,29 @@ export function PartDetail({ oem }: { oem: string }) {
             </p>
           )}
         </div>
-        <div className={styles.actions}>
+        <section className={styles.descBlock}>
+          <h2 className={styles.descTitle}>Description</h2>
+          {descriptionBits.length === 0 ? (
+            <p className={styles.muted}>No description on this part row yet.</p>
+          ) : (
+            <>
+              <p className={descOpen ? undefined : styles.descClamped}>
+                {descOpen ? descriptionBits.join(" · ") : descPreview || descriptionBits[0]}
+              </p>
+              {descriptionBits.length > 2 || (descPreview?.length ?? 0) > 120 ? (
+                <button
+                  type="button"
+                  className={styles.descToggle}
+                  onClick={() => setDescOpen((o) => !o)}
+                  aria-expanded={descOpen}
+                >
+                  {descOpen ? "Show less" : "Read more"}
+                </button>
+              ) : null}
+            </>
+          )}
+        </section>
+        <div className={styles.stickyBar}>
           <AddToCartButton oem={p.oem} />
           <button
             type="button"
@@ -424,10 +543,10 @@ export function PartDetail({ oem }: { oem: string }) {
           {reviews.length === 0 ? (
             <p className={styles.muted}>No approved reviews yet.</p>
           ) : (
-            <ul>
+            <ul className={styles.reviewList}>
               {reviews.map((r) => (
                 <li key={r.id}>
-                  {r.rating}/5
+                  <strong>{r.rating}/5</strong>
                   {r.body ? ` — ${r.body}` : ""}
                   <span className={styles.muted}>
                     {" "}
@@ -439,7 +558,7 @@ export function PartDetail({ oem }: { oem: string }) {
           )}
           <form
             onSubmit={(e) => void onSubmitReview(e, p.oem)}
-            style={{ marginTop: "0.85rem" }}
+            className={styles.reviewForm}
           >
             <p className={styles.muted}>Write a review (pending moderation)</p>
             <div className={styles.actions}>
@@ -467,7 +586,7 @@ export function PartDetail({ oem }: { oem: string }) {
               </button>
             </div>
             <label className={styles.muted} style={{ display: "block", marginTop: "0.5rem" }}>
-              Photo (optional, jpeg/png/webp · file upload)
+              Photo (optional, jpeg/png/webp · file upload — not camera capture)
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"

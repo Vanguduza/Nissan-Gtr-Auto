@@ -42,6 +42,10 @@ android {
             "WHATSAPP_E164",
             "\"${localProp("WHATSAPP_E164").ifBlank { "263770000000" }}\"",
         )
+        // Maps — never commit real keys; empty disables live map tiles.
+        val mapsKey = localProp("GOOGLE_MAPS_API_KEY")
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsKey
     }
 
     buildTypes {
@@ -74,6 +78,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:cart"))
     implementation(project(":feature:orders"))
@@ -85,12 +90,15 @@ dependencies {
     implementation(project(":feature:compare"))
     implementation(project(":feature:reviews"))
     implementation(project(":feature:catalog"))
+    implementation(project(":feature:address"))
     implementation(project(":pod-camera"))
+    implementation(project(":maps-nav"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")

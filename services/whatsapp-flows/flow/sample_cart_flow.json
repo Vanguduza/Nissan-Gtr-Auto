@@ -1,0 +1,285 @@
+{
+  "version": "3.0",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "VIN_SEARCH": ["PARTS_SELECT"],
+    "PARTS_SELECT": ["CART_REVIEW"],
+    "CART_REVIEW": ["CHECKOUT", "PARTS_SELECT"],
+    "CHECKOUT": ["ECOCASH_PAYER", "SUCCESS"],
+    "ECOCASH_PAYER": ["SUCCESS", "CHECKOUT"]
+  },
+  "screens": [
+    {
+      "id": "VIN_SEARCH",
+      "title": "Find your vehicle",
+      "data": {
+        "welcome_text": {
+          "type": "string",
+          "__example__": "Enter your VIN or continue to diagram parts."
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.welcome_text}"
+          },
+          {
+            "type": "TextInput",
+            "name": "vin",
+            "label": "VIN",
+            "required": false
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "next": { "type": "screen", "name": "PARTS_SELECT" },
+              "payload": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PARTS_SELECT",
+      "title": "Select parts",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "CheckboxGroup",
+            "name": "part_ids",
+            "label": "Parts from diagram",
+            "required": true,
+            "data-source": [
+              { "id": "16100-JF00A", "title": "Water Pump" },
+              { "id": "16101-JF00B", "title": "Thermostat" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Review cart",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "action": "calculate_cart",
+                "part_ids": "${form.part_ids}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CART_REVIEW",
+      "title": "Cart",
+      "data": {
+        "cart_summary_text": {
+          "type": "string",
+          "__example__": "1x Water Pump — USD 250.00\nTotal: USD 250.00"
+        },
+        "part_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "__example__": ["16100-JF00A"]
+        },
+        "delivery_method": {
+          "type": "string",
+          "__example__": "counter_collect"
+        },
+        "error_message": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.cart_summary_text}"
+          },
+          {
+            "type": "Footer",
+            "label": "Checkout",
+            "on-click-action": {
+              "name": "navigate",
+              "next": { "type": "screen", "name": "CHECKOUT" },
+              "payload": {
+                "part_ids": "${data.part_ids}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CHECKOUT",
+      "title": "Delivery & pay",
+      "data": {
+        "part_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "__example__": ["16100-JF00A"]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "RadioButtonsGroup",
+            "name": "delivery_method",
+            "label": "Delivery",
+            "required": true,
+            "data-source": [
+              { "id": "counter_collect", "title": "Collect at counter" },
+              { "id": "harare", "title": "Harare delivery" },
+              { "id": "nationwide", "title": "Nationwide delivery" }
+            ]
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "payment_method",
+            "label": "Pay with",
+            "required": true,
+            "data-source": [
+              { "id": "ecocash", "title": "EcoCash (direct PIN prompt)" },
+              { "id": "paynow", "title": "Paynow (EcoCash / OneMoney / InnBucks / card)" }
+            ]
+          },
+          {
+            "type": "TextArea",
+            "name": "delivery_notes",
+            "label": "Address / notes",
+            "required": false
+          },
+          {
+            "type": "Footer",
+            "label": "Place order",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "action": "checkout",
+                "part_ids": "${data.part_ids}",
+                "delivery_method": "${form.delivery_method}",
+                "payment_method": "${form.payment_method}",
+                "delivery_notes": "${form.delivery_notes}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SUCCESS",
+      "title": "Done",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Order created"
+          },
+          {
+            "type": "TextBody",
+            "text": "You will receive an EcoCash PIN prompt or Paynow payment link in WhatsApp shortly."
+          }
+        ]
+      }
+    },
+    {
+      "id": "ECOCASH_PAYER",
+      "title": "EcoCash number",
+      "data": {
+        "part_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "__example__": ["16100-JF00A"]
+        },
+        "delivery_method": {
+          "type": "string",
+          "__example__": "counter_collect"
+        },
+        "delivery_notes": {
+          "type": "string",
+          "__example__": ""
+        },
+        "payment_method": {
+          "type": "string",
+          "__example__": "ecocash"
+        },
+        "error_message": {
+          "type": "string",
+          "__example__": ""
+        },
+        "hint_text": {
+          "type": "string",
+          "__example__": "Use this WhatsApp number for speed, or enter another EcoCash wallet."
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.hint_text}"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.error_message}"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "ecocash_payer_mode",
+            "label": "Which EcoCash number should we charge?",
+            "required": true,
+            "data-source": [
+              {
+                "id": "whatsapp",
+                "title": "Use this WhatsApp number (fastest)"
+              },
+              {
+                "id": "saved",
+                "title": "Use my saved / profile EcoCash number"
+              },
+              {
+                "id": "other",
+                "title": "Use a different EcoCash number"
+              }
+            ]
+          },
+          {
+            "type": "TextInput",
+            "name": "ecocash_msisdn",
+            "label": "Other EcoCash number (07… or +263…)",
+            "required": false,
+            "input-type": "phone"
+          },
+          {
+            "type": "Footer",
+            "label": "Send EcoCash PIN request",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "action": "checkout",
+                "part_ids": "${data.part_ids}",
+                "delivery_method": "${data.delivery_method}",
+                "delivery_notes": "${data.delivery_notes}",
+                "payment_method": "ecocash",
+                "ecocash_payer_mode": "${form.ecocash_payer_mode}",
+                "ecocash_msisdn": "${form.ecocash_msisdn}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

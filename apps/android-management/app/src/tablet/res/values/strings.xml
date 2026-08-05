@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kiosk_device_admin_desc">GTR POS kiosk Device Owner policies (Lock Task allow-list).</string>
+</resources>

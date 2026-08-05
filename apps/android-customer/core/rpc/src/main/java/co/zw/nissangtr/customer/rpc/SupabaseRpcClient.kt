@@ -56,6 +56,25 @@ class SupabaseRpcClient(
         }
     }
 
+    /**
+     * Email/password register via GoTrue (mirrors web signup).
+     * May require email confirmation depending on project Auth settings.
+     */
+    suspend fun signUpWithEmail(email: String, password: String) {
+        require(email.isNotBlank()) { "email required" }
+        require(password.length >= 6) { "password must be at least 6 characters" }
+        auth.signUpWith(Email) {
+            this.email = email.trim()
+            this.password = password
+        }
+    }
+
+    /** Sends a password-recovery email via GoTrue (no fake stub in production). */
+    suspend fun resetPasswordForEmail(email: String) {
+        require(email.isNotBlank()) { "email required" }
+        auth.resetPasswordForEmail(email.trim())
+    }
+
     /** Clears the persisted GoTrue session. */
     suspend fun signOut() {
         auth.signOut()
@@ -99,6 +118,67 @@ class SupabaseRpcClient(
 
     override suspend fun addCustomerCartLineByOem(oem: String, qty: Double): Pair<String, String> =
         CatalogRpcLive.addCartLineByOem(client, this, oem, qty)
+
+    override suspend fun fetchZigExchangeRate(asOf: String?): Double {
+        return try {
+            val raw = client.postgrest.rpc(
+                RpcNames.GET_ZIG_EXCHANGE_RATE,
+                buildJsonObject {
+                    if (asOf != null) put("p_as_of", asOf) else put("p_as_of", JsonNull)
+                },
+            ).decodeAs<JsonElement>()
+            val n = when (raw) {
+                is kotlinx.serialization.json.JsonPrimitive -> raw.content.toDoubleOrNull()
+                else -> null
+            }
+            if (n != null && n.isFinite() && n > 0) n else 1.0
+        } catch (_: Exception) {
+            1.0
+        }
+    }
+
+    override suspend fun resolveMainWarehouseId(): String {
+        val main = client.from("warehouses")
+            .select(Columns.list("id")) {
+                filter {
+                    eq("is_active", true)
+                    eq("is_quarantine", false)
+                    eq("code", "MAIN")
+                }
+                limit(1)
+            }
+            .decodeList<WarehouseIdRow>()
+            .firstOrNull()
+        if (main != null) return main.id
+        return client.from("warehouses")
+            .select(Columns.list("id")) {
+                filter {
+                    eq("is_active", true)
+                    eq("is_quarantine", false)
+                }
+                order("code", Order.ASCENDING)
+                limit(1)
+            }
+            .decodeList<WarehouseIdRow>()
+            .firstOrNull()
+            ?.id
+            ?: error("no active warehouse")
+    }
+
+    override suspend fun ensureOpenCart(
+        currency: CurrencyCode,
+        fulfillmentMode: FulfillmentMode,
+        exchangeRate: Double,
+    ): CartSummary {
+        getOpenCart()?.let { return it }
+        createCustomerCart(
+            warehouseId = resolveMainWarehouseId(),
+            currency = currency,
+            fulfillmentMode = fulfillmentMode,
+            exchangeRate = exchangeRate,
+        )
+        return getOpenCart() ?: error("ensureOpenCart failed")
+    }
 
     override suspend fun createCustomerCart(
         warehouseId: String,
@@ -251,6 +331,25 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
         // Intent create only — no Paynow hash / secrets in the app.
         return PaymentIntentResult(intentId = intentId, provider = "paynow")
+    }
+
+    override suspend fun createCustomerEcocashIntent(
+        salesInvoiceId: String,
+        payerMsisdn: String,
+        payerMode: String,
+        metadataJson: String,
+    ): PaymentIntentResult {
+        val intentId = client.postgrest.rpc(
+            RpcNames.CREATE_CUSTOMER_ECOCASH_INTENT,
+            buildJsonObject {
+                put("p_sales_invoice_id", salesInvoiceId)
+                put("p_payer_msisdn", payerMsisdn)
+                put("p_payer_mode", payerMode)
+                put("p_channel", "android_customer")
+                put("p_metadata", parseMetadata(metadataJson))
+            },
+        ).decodeAs<String>()
+        return PaymentIntentResult(intentId = intentId, provider = "ecocash")
     }
 
     override suspend fun listGarageVehicles(): List<GarageVehicle> =
@@ -598,6 +697,55 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun listOwnAddresses(): List<CustomerAddress> =
+        client.from("customer_addresses")
+            .select(
+                Columns.list(
+                    "id",
+                    "label",
+                    "line1",
+                    "line2",
+                    "city",
+                    "province",
+                    "postal_code",
+                    "country",
+                    "is_default",
+                    "created_at",
+                    "updated_at",
+                ),
+            ) {
+                order("is_default", Order.DESCENDING)
+                order("created_at", Order.DESCENDING)
+            }
+            .decodeList<AddressRow>()
+            .map { it.toModel() }
+
+    override suspend fun upsertCustomerAddress(input: CustomerAddressInput): String {
+        require(input.line1.isNotBlank()) { "line1 required for ${RpcNames.UPSERT_CUSTOMER_ADDRESS}" }
+        val line2 = AddressGeo.embed(input.line2, input.latitude, input.longitude)
+        return client.postgrest.rpc(
+            RpcNames.UPSERT_CUSTOMER_ADDRESS,
+            buildJsonObject {
+                putNullable("p_id", input.id)
+                put("p_label", input.label)
+                put("p_line1", input.line1.trim())
+                putNullable("p_line2", line2)
+                putNullable("p_city", input.city)
+                putNullable("p_province", input.province)
+                putNullable("p_postal_code", input.postalCode)
+                put("p_country", input.country.ifBlank { "Zimbabwe" })
+                put("p_is_default", input.isDefault)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun deleteCustomerAddress(id: String) {
+        client.postgrest.rpc(
+            RpcNames.DELETE_CUSTOMER_ADDRESS,
+            buildJsonObject { put("p_id", id) },
+        )
+    }
+
     private suspend fun ensureOpenCartId(): String {
         getOpenCart()?.id?.let { return it }
         val warehouseId = resolveMainWarehouseId()
@@ -607,34 +755,6 @@ class SupabaseRpcClient(
             fulfillmentMode = FulfillmentMode.IMMEDIATE,
             exchangeRate = 1.0,
         )
-    }
-
-    private suspend fun resolveMainWarehouseId(): String {
-        val main = client.from("warehouses")
-            .select(Columns.list("id")) {
-                filter {
-                    eq("is_active", true)
-                    eq("is_quarantine", false)
-                    eq("code", "MAIN")
-                }
-                limit(1)
-            }
-            .decodeList<WarehouseIdRow>()
-            .firstOrNull()
-        if (main != null) return main.id
-        return client.from("warehouses")
-            .select(Columns.list("id")) {
-                filter {
-                    eq("is_active", true)
-                    eq("is_quarantine", false)
-                }
-                order("code", Order.ASCENDING)
-                limit(1)
-            }
-            .decodeList<WarehouseIdRow>()
-            .firstOrNull()
-            ?.id
-            ?: error("no active warehouse for wishlist_move_to_cart")
     }
 
     private suspend fun currentCustomerId(): String? =
@@ -901,6 +1021,35 @@ private data class ProductReviewStatsRow(
         stockItemId = stockItemId,
         avgRating = avgRating,
         reviewCount = reviewCount.toInt(),
+    )
+}
+
+@Serializable
+private data class AddressRow(
+    val id: String,
+    val label: String = "",
+    val line1: String,
+    val line2: String? = null,
+    val city: String? = null,
+    val province: String? = null,
+    @SerialName("postal_code") val postalCode: String? = null,
+    val country: String = "Zimbabwe",
+    @SerialName("is_default") val isDefault: Boolean = false,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+) {
+    fun toModel() = CustomerAddress(
+        id = id,
+        label = label,
+        line1 = line1,
+        line2 = line2,
+        city = city,
+        province = province,
+        postalCode = postalCode,
+        country = country,
+        isDefault = isDefault,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
     )
 }
 

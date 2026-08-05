@@ -1,114 +1,136 @@
 package co.zw.nissangtr.customer.wishlist
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.items as lazyRowItems
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
+import co.zw.nissangtr.ui.shop.ShopHonestEmpty
+import co.zw.nissangtr.ui.shop.ShopProductCard
 
 /**
- * Wishlist scaffold — list / add / remove / back-in-stock notify / move-to-cart.
+ * Wishlist tab — Shopping-By-KMP grid, hearts driven by shared [WishlistStore].
  */
 @Composable
 fun WishlistScreen(
     rpc: RpcClient,
-    onBack: () -> Unit,
+    wishlistStore: WishlistStore,
+    onBack: () -> Unit = {},
+    onOpenProduct: (oem: String) -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: WishlistViewModel = viewModel(factory = WishlistViewModel.factory(rpc)),
 ) {
-    val state by viewModel.state.collectAsState()
+    @Suppress("UNUSED_PARAMETER")
+    val unusedRpc = rpc
+    @Suppress("UNUSED_PARAMETER")
+    val unusedBack = onBack
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("Wishlist", style = MaterialTheme.typography.headlineSmall)
+    val wishItems by wishlistStore.items.collectAsState()
+    val busy by wishlistStore.busy.collectAsState()
+    val error by wishlistStore.error.collectAsState()
+
+    LaunchedEffect(Unit) {
+        wishlistStore.refresh()
+    }
+
+    val categories = remember(wishItems) {
+        listOf("All") + wishItems.mapNotNull {
+            it.description?.substringBefore(' ')?.takeIf { s -> s.isNotBlank() }
+        }
+            .distinct()
+            .take(8)
+    }
+    var selectedCategory by remember { mutableStateOf("All") }
+    val filtered = remember(wishItems, selectedCategory) {
+        if (selectedCategory == "All") wishItems
+        else wishItems.filter {
+            it.description?.contains(selectedCategory, ignoreCase = true) == true ||
+                it.oemPartNumber.contains(selectedCategory, ignoreCase = true)
+        }
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
         Text(
-            "RPCs: ${RpcNames.ADD_CUSTOMER_WISHLIST_ITEM}, " +
-                "${RpcNames.REMOVE_CUSTOMER_WISHLIST_ITEM}, " +
-                "${RpcNames.SET_WISHLIST_NOTIFY_WHEN_IN_STOCK}, " +
-                RpcNames.WISHLIST_MOVE_TO_CART,
-            style = MaterialTheme.typography.bodySmall,
+            text = "Wishlist",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(16.dp),
         )
 
-        Text("Saved", style = MaterialTheme.typography.titleSmall)
-        if (state.items.isEmpty()) {
-            Text("No wishlist items", style = MaterialTheme.typography.bodyMedium)
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 8.dp),
+        ) {
+            lazyRowItems(categories) { cat ->
+                FilterChip(
+                    selected = selectedCategory == cat,
+                    onClick = { selectedCategory = cat },
+                    label = { Text(cat) },
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
         }
-        state.items.forEach { item ->
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+
+        error?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+
+        if (filtered.isEmpty() && !busy) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(item.oemPartNumber, style = MaterialTheme.typography.titleSmall)
-                item.description?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = item.notifyWhenInStock,
-                        onCheckedChange = { viewModel.setNotify(item, it) },
-                        enabled = !state.busy,
+                ShopHonestEmpty(
+                    title = "Wishlist is empty",
+                    body = "Tap the heart on a part to save it here. Nested PDP opens from any card.",
+                )
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(8.dp),
+                contentPadding = PaddingValues(8.dp),
+            ) {
+                gridItems(filtered, key = { it.id }) { item ->
+                    ShopProductCard(
+                        title = item.oemPartNumber,
+                        subtitle = item.description,
+                        priceLabel = "Saved",
+                        liked = true,
+                        onLikeClick = { wishlistStore.remove(item) },
+                        onClick = { onOpenProduct(item.oemPartNumber) },
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    Text("Notify when back in stock", style = MaterialTheme.typography.bodySmall)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { viewModel.moveToCart(item) },
-                        enabled = !state.busy,
-                    ) { Text("Move to cart") }
-                    OutlinedButton(
-                        onClick = { viewModel.remove(item) },
-                        enabled = !state.busy,
-                    ) { Text("Remove") }
                 }
             }
-            HorizontalDivider()
         }
-
-        Text("Add by OEM", style = MaterialTheme.typography.titleSmall)
-        OutlinedTextField(
-            value = state.oem,
-            onValueChange = viewModel::onOemChange,
-            label = { Text("OEM part number") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-        )
-        Button(
-            onClick = viewModel::add,
-            enabled = !state.busy && state.oem.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Add to wishlist") }
-
-        OutlinedButton(onClick = viewModel::refresh, enabled = !state.busy) {
-            Text("Refresh")
-        }
-
-        state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack) { Text("Back") }
     }
 }

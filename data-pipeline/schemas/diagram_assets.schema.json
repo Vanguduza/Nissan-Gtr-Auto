@@ -7,7 +7,11 @@
   "additionalProperties": false,
   "properties": {
     "storage_path": { "type": "string", "minLength": 1 },
-    "pnc_code": { "type": "string", "maxLength": 8 },
+    "pnc_code": {
+      "type": "string",
+      "maxLength": 8,
+      "pattern": "^[0-9A-Z]{2,8}$"
+    },
     "chassis_code": { "type": "string", "maxLength": 32 },
     "engine_code": { "type": "string", "maxLength": 32 },
     "content_type": {
@@ -17,8 +21,13 @@
     "source_url": { "type": "string" },
     "provenance": {
       "type": "string",
-      "description": "Asset origin marker. Fixture packs use 'original-fixture-art' (rights-cleared placeholder art, never scraped).",
-      "enum": ["original-fixture-art", "licensed-fast", "customer-supplied"]
+      "description": "Asset origin marker. Fixture packs use 'original-fixture-art' (rights-cleared placeholder art, never scraped). 'scraped-reference' is for Amayama/7zap/PartSouq captures — review rights before production publish.",
+      "enum": [
+        "original-fixture-art",
+        "licensed-fast",
+        "customer-supplied",
+        "scraped-reference"
+      ]
     }
   }
 }

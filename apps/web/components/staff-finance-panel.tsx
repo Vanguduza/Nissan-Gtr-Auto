@@ -82,13 +82,20 @@ import {
   type PnLRow,
   type TrialBalanceRow,
   type ZigExchangeRateRow,
+  buildStatementExportHook,
+  downloadBrandedStatementPdf,
 } from "@/lib/staff-finance";
 import { createWebClient } from "@/lib/supabase";
 
 const FINANCE_TAB_IDS = [
+  "accounts",
+  "statements",
   "petty-cash",
   "cash-sales",
   "online-sales",
+  "contipay",
+  "paynow",
+  "ecocash",
   "exchange-rate",
   "journals",
   "requisitions",
@@ -99,9 +106,12 @@ const FINANCE_TAB_IDS = [
 ] as const;
 
 const ACCOUNT_TAB_CODES: Record<string, { code: string; title: string }> = {
-  "petty-cash": { code: "1110", title: "Petty Cash (1110)" },
-  "cash-sales": { code: "1120", title: "Cash Sales Till (1120)" },
-  "online-sales": { code: "1130", title: "Online Payment Clearing (1130)" },
+  "petty-cash": { code: "1110", title: "Petty cash float" },
+  "cash-sales": { code: "1120", title: "Cash till" },
+  "online-sales": { code: "1130", title: "Online payments (legacy)" },
+  contipay: { code: "1140", title: "ContiPay" },
+  paynow: { code: "1150", title: "Paynow" },
+  ecocash: { code: "1160", title: "EcoCash (direct)" },
 };
 
 type Boot =
@@ -1871,6 +1881,257 @@ function StaffFinancePanelInner() {
         </fieldset>
       ) : null}
 
+      {tab === "accounts" ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Accounts (CoA register)</legend>
+          <p className={styles.muted}>
+            Pick any GL account for a period register. Per-method tills remain
+            under Petty cash / Cash sales / ContiPay / Paynow / EcoCash.
+          </p>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Account
+              <select
+                value={journalRegisterAccount}
+                onChange={(e) => setJournalRegisterAccount(e.target.value)}
+                disabled={busy}
+              >
+                {boot.accounts.map((a) => (
+                  <option key={a.code} value={a.code}>
+                    {a.code} · {a.display_name || a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              From
+              <input
+                type="date"
+                value={registerFrom}
+                onChange={(e) => setRegisterFrom(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              To
+              <input
+                type="date"
+                value={registerTo}
+                onChange={(e) => setRegisterTo(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className={styles.field}>
+              Currency
+              <select
+                value={registerCurrency}
+                onChange={(e) =>
+                  setRegisterCurrency(e.target.value as CurrencyCode)
+                }
+                disabled={busy}
+              >
+                <option value="USD">USD</option>
+                <option value="ZIG">ZIG</option>
+              </select>
+            </label>
+          </div>
+          <div className={styles.formActions}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || !journalRegisterAccount}
+              onClick={() =>
+                void loadAccountRegister(journalRegisterAccount, registerCurrency)
+              }
+            >
+              Load register
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || registerRows.length === 0}
+              onClick={() => {
+                void (async () => {
+                  const client = createWebClient();
+                  if (!client) {
+                    setMessage("Supabase is not configured.");
+                    return;
+                  }
+                  const payload = buildStatementExportHook({
+                    storeName: "Nissan GTR Auto",
+                    documentLabel: `Account ${journalRegisterAccount}`,
+                    currency: registerCurrency,
+                    asOf: registerTo,
+                    lines: registerRows.map((r) => ({
+                      description:
+                        r.description ??
+                        r.document_number ??
+                        r.journal_entry_id.slice(0, 8),
+                      lineTotal: Number(r.debit) - Number(r.credit),
+                    })),
+                    closingBalance:
+                      registerRows.length > 0
+                        ? Number(
+                            registerRows[registerRows.length - 1]
+                              ?.running_balance ?? 0,
+                          )
+                        : undefined,
+                  });
+                  const session = await client.auth.getSession();
+                  const token = session.data.session?.access_token;
+                  if (!token) {
+                    setMessage("Sign in required for PDF export.");
+                    return;
+                  }
+                  setBusy(true);
+                  const pdf = await downloadBrandedStatementPdf(token, payload);
+                  setBusy(false);
+                  setMessage(
+                    pdf.ok
+                      ? `Statement PDF downloaded · ${payload.lines.length} lines (no fiscal QR)`
+                      : pdf.error,
+                  );
+                })();
+              }}
+            >
+              Export statement PDF
+            </button>
+          </div>
+          {registerRows.length === 0 ? (
+            <p className={styles.muted}>No register rows loaded.</p>
+          ) : (
+            <ul className={styles.list}>
+              {registerRows.map((r) => (
+                <li key={`${r.journal_entry_id}-${r.entry_date}-${r.debit}`}>
+                  {r.entry_date} · {r.document_number ?? "—"} · Dr{" "}
+                  {Number(r.debit).toFixed(2)} / Cr {Number(r.credit).toFixed(2)}{" "}
+                  · bal {Number(r.running_balance).toFixed(2)} {r.currency}
+                </li>
+              ))}
+            </ul>
+          )}
+        </fieldset>
+      ) : null}
+
+      {tab === "statements" ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Statements</legend>
+          <p className={styles.muted}>
+            Export a branded bank statement PDF (tax-agnostic — no ZIMRA fiscal
+            QR). Line matching stays under Bank recon. Account register PDFs also
+            live under Accounts → Export statement PDF.
+          </p>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              Bank statement
+              <select
+                value={selectedStmtId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedStmtId(id);
+                  if (id) void loadStatementDetail(id);
+                }}
+                disabled={busy || boot.statements.length === 0}
+              >
+                {boot.statements.length === 0 ? (
+                  <option value="">No statements</option>
+                ) : (
+                  boot.statements.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.statement_date} · {s.account_code} · {s.currency}
+                      {s.document_number ? ` · ${s.document_number}` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+          </div>
+          <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || !selectedStmtId}
+              onClick={() => {
+                void (async () => {
+                  const client = createWebClient();
+                  if (!client || !selectedStmtId) return;
+                  const stmt = boot.statements.find(
+                    (s) => s.id === selectedStmtId,
+                  );
+                  if (!stmt) {
+                    setMessage("Select a bank statement first.");
+                    return;
+                  }
+                  setBusy(true);
+                  const linesRes = await listBankStatementLines(
+                    client,
+                    selectedStmtId,
+                  );
+                  if (!linesRes.ok) {
+                    setBusy(false);
+                    setMessage(linesRes.error);
+                    return;
+                  }
+                  setStmtLines(linesRes.data);
+                  const payload = buildStatementExportHook({
+                    storeName: "Nissan GTR Auto",
+                    documentLabel: `Bank statement · ${stmt.account_code}${
+                      stmt.document_number ? ` · ${stmt.document_number}` : ""
+                    }`,
+                    currency: stmt.currency,
+                    asOf: stmt.statement_date,
+                    partyName: stmt.account_code,
+                    openingBalance: Number(stmt.opening_balance),
+                    closingBalance: Number(stmt.closing_balance),
+                    lines: linesRes.data.map((l) => ({
+                      description:
+                        `${l.line_date} · ${l.description ?? "—"} · ${l.status}`,
+                      lineTotal: Number(l.amount),
+                    })),
+                  });
+                  const session = await client.auth.getSession();
+                  const token = session.data.session?.access_token;
+                  if (!token) {
+                    setBusy(false);
+                    setMessage("Sign in required for PDF export.");
+                    return;
+                  }
+                  const pdf = await downloadBrandedStatementPdf(token, payload);
+                  setBusy(false);
+                  setMessage(
+                    pdf.ok
+                      ? `Bank statement PDF downloaded · ${payload.lines.length} lines (no fiscal QR)`
+                      : pdf.error,
+                  );
+                })();
+              }}
+            >
+              Export statement PDF
+            </button>
+          </div>
+          {stmtLines.length > 0 ? (
+            <ul className={styles.list}>
+              {stmtLines.slice(0, 12).map((l) => (
+                <li key={l.id}>
+                  {l.line_date} · {l.description ?? "—"} ·{" "}
+                  {Number(l.amount).toFixed(2)} · {l.status}
+                </li>
+              ))}
+              {stmtLines.length > 12 ? (
+                <li className={styles.muted}>
+                  …and {stmtLines.length - 12} more
+                </li>
+              ) : null}
+            </ul>
+          ) : (
+            <p className={styles.muted}>
+              {boot.statements.length} bank statement(s) on file — select one and
+              export, or open Bank recon to match lines.
+            </p>
+          )}
+        </fieldset>
+      ) : null}
+
       {tab === "exchange-rate" ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Daily ZiG exchange rate</legend>
@@ -2013,7 +2274,7 @@ function StaffFinancePanelInner() {
               >
                 {boot.accounts.map((a) => (
                   <option key={a.code} value={a.code}>
-                    {a.code} — {a.name}
+                    {(a.display_name || a.name) + ` (${a.code})`}
                   </option>
                 ))}
               </select>
@@ -2027,7 +2288,7 @@ function StaffFinancePanelInner() {
               >
                 {boot.accounts.map((a) => (
                   <option key={`c-${a.code}`} value={a.code}>
-                    {a.code} — {a.name}
+                    {(a.display_name || a.name) + ` (${a.code})`}
                   </option>
                 ))}
               </select>
@@ -2134,7 +2395,7 @@ function StaffFinancePanelInner() {
               <option value="">Select account…</option>
               {boot.accounts.map((a) => (
                 <option key={`reg-${a.code}`} value={a.code}>
-                  {a.code} — {a.name}
+                  {(a.display_name || a.name) + ` (${a.code})`}
                 </option>
               ))}
             </select>
@@ -2313,7 +2574,7 @@ function StaffFinancePanelInner() {
                         key={`req-exp-${idx}-${a.code}`}
                         value={a.code}
                       >
-                        {a.code} — {a.name}
+                        {(a.display_name || a.name) + ` (${a.code})`}
                       </option>
                     ))}
                   </select>
@@ -2421,6 +2682,7 @@ function StaffFinancePanelInner() {
                     <th>Doc</th>
                     <th>Type</th>
                     <th>Status</th>
+                    <th>Approvals</th>
                     <th>Amount</th>
                     <th>Lines</th>
                     <th>Payee / memo</th>
@@ -2437,6 +2699,9 @@ function StaffFinancePanelInner() {
                         </td>
                         <td>{r.req_type}</td>
                         <td>{r.status}</td>
+                        <td>
+                          {r.approval_count}/{r.required_approvals}
+                        </td>
                         <td>
                           {Number(r.amount).toFixed(2)} {r.currency}
                           {r.currency === "ZIG" &&
@@ -2512,6 +2777,9 @@ function StaffFinancePanelInner() {
                                   }
                                 >
                                   Approve
+                                  {r.required_approvals > 1
+                                    ? ` (${r.approval_count + 1}/${r.required_approvals})`
+                                    : ""}
                                 </button>
                                 <button
                                   type="button"
@@ -2897,6 +3165,7 @@ function StaffFinancePanelInner() {
                 <option value="bank">bank</option>
                 <option value="contipay">contipay</option>
                 <option value="paynow">paynow</option>
+                <option value="ecocash">ecocash (direct)</option>
                 <option value="store_credit">store_credit</option>
               </select>
             </label>
@@ -3249,7 +3518,7 @@ function StaffFinancePanelInner() {
               >
                 {boot.accounts.map((a) => (
                   <option key={`ba-${a.code}`} value={a.code}>
-                    {a.code} — {a.name}
+                    {(a.display_name || a.name) + ` (${a.code})`}
                   </option>
                 ))}
               </select>

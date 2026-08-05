@@ -11,6 +11,7 @@ import {
 import {
   checkoutCustomerCart,
   createCustomerContipayIntent,
+  createCustomerEcocashIntent,
   createCustomerPaynowIntent,
   ensureOpenCart,
   fetchZigExchangeRate,
@@ -39,8 +40,9 @@ function CartTitle() {
 }
 
 type Fulfillment = "immediate" | "dispatch";
-type Tender = "cash" | "contipay" | "paynow";
+type Tender = "cash" | "contipay" | "paynow" | "ecocash";
 type SettleCurrency = "USD" | "ZIG";
+type EcoCashMode = "saved" | "other";
 
 type Status =
   | { kind: "loading" }
@@ -60,6 +62,8 @@ export function CartCheckout() {
   const [settleCurrency, setSettleCurrency] = useState<SettleCurrency>("USD");
   const [zigRate, setZigRate] = useState<number>(1);
   const [tender, setTender] = useState<Tender>("cash");
+  const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
+  const [ecocashOther, setEcocashOther] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -255,6 +259,29 @@ export function CartCheckout() {
         settlement
           ? `Invoice created. Paynow intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}). Opening order…`
           : "Invoice created. Paynow intent ready. Opening order…",
+      );
+      setBusy(false);
+      router.push(`/account/orders/${invoice.data}`);
+      return;
+    }
+
+    if (tender === "ecocash") {
+      const intent = await createCustomerEcocashIntent(client, invoice.data, {
+        payerMode: ecocashMode,
+        payerMsisdn: ecocashMode === "other" ? ecocashOther : null,
+        settlement,
+      });
+      if (!intent.ok) {
+        setMessage(
+          `Invoice created, but EcoCash direct failed: ${intent.error}. Pay from order page.`,
+        );
+        setBusy(false);
+        router.push(`/account/orders/${invoice.data}`);
+        return;
+      }
+      setMessage(
+        intent.data.message ??
+          "Invoice created. EcoCash PIN request sent — approve on the EcoCash handset.",
       );
       setBusy(false);
       router.push(`/account/orders/${invoice.data}`);
@@ -508,7 +535,59 @@ export function CartCheckout() {
               <span className={styles.muted}>Mobile money &amp; card</span>
             </span>
           </label>
+          <label className={styles.fulfillCard}>
+            <input
+              type="radio"
+              name="tender"
+              checked={tender === "ecocash"}
+              onChange={() => setTender("ecocash")}
+            />
+            <span>
+              <strong>EcoCash direct</strong>
+              <span className={styles.muted}>
+                PIN on phone — not via ContiPay/Paynow
+              </span>
+            </span>
+          </label>
         </div>
+        {tender === "ecocash" ? (
+          <div className={styles.fulfillOptions} style={{ marginTop: "0.75rem" }}>
+            <label className={styles.fulfillCard}>
+              <input
+                type="radio"
+                name="ecocashMode"
+                checked={ecocashMode === "saved"}
+                onChange={() => setEcocashMode("saved")}
+              />
+              <span>
+                <strong>Use saved / profile number</strong>
+                <span className={styles.muted}>Fastest if your EcoCash is on file</span>
+              </span>
+            </label>
+            <label className={styles.fulfillCard}>
+              <input
+                type="radio"
+                name="ecocashMode"
+                checked={ecocashMode === "other"}
+                onChange={() => setEcocashMode("other")}
+              />
+              <span>
+                <strong>Different EcoCash number</strong>
+                <span className={styles.muted}>07… or +263…</span>
+              </span>
+            </label>
+            {ecocashMode === "other" ? (
+              <input
+                type="tel"
+                className={styles.input ?? undefined}
+                placeholder="EcoCash number"
+                value={ecocashOther}
+                onChange={(e) => setEcocashOther(e.target.value)}
+                style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>

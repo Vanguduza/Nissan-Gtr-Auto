@@ -11,7 +11,11 @@
       "maxLength": 32,
       "pattern": "^[0-9A-Z]{5}-[0-9A-Z]{5}$"
     },
-    "pnc_code": { "type": "string", "maxLength": 8 },
+    "pnc_code": {
+      "type": "string",
+      "maxLength": 8,
+      "pattern": "^[0-9A-Z]{2,8}$"
+    },
     "chassis_code": { "type": "string", "maxLength": 32 },
     "engine_code": { "type": "string", "maxLength": 32 },
     "superseded_by": { "type": "string", "maxLength": 32 },

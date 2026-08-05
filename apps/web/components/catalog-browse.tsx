@@ -1,16 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CatalogCanvasStub } from "@/components/catalog-canvas-stub";
 import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
 import {
+  applyCatalogFiltersAndSort,
   listCatalogProducts,
   type CatalogListItem,
+  type CatalogSort,
 } from "@/lib/catalog-product";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
+import filterStyles from "./plp-filters.module.css";
+
+const SORT_OPTIONS: { value: CatalogSort; label: string }[] = [
+  { value: "oem", label: "OEM" },
+  { value: "name", label: "Name" },
+  { value: "price_asc", label: "Price · low → high" },
+  { value: "price_desc", label: "Price · high → low" },
+  { value: "newest", label: "Newest" },
+  { value: "movers", label: "Top movers" },
+];
+
+function parseSort(raw: string | undefined): CatalogSort {
+  const hit = SORT_OPTIONS.find((o) => o.value === raw);
+  return hit?.value ?? "oem";
+}
 
 type Status =
   | { kind: "loading" }
@@ -22,8 +40,29 @@ type Status =
       categories: string[];
     };
 
-export function CatalogBrowse({ category }: { category?: string }) {
+export function CatalogBrowse({
+  category,
+  sort: sortParam,
+  minUsd: minParam,
+  maxUsd: maxParam,
+}: {
+  category?: string;
+  sort?: string;
+  minUsd?: string;
+  maxUsd?: string;
+}) {
+  const router = useRouter();
+  const sort = parseSort(sortParam);
+  const minUsd = minParam != null && minParam !== "" ? Number(minParam) : null;
+  const maxUsd = maxParam != null && maxParam !== "" ? Number(maxParam) : null;
   const [status, setStatus] = useState<Status>({ kind: "loading" });
+  const [draftMin, setDraftMin] = useState(minParam ?? "");
+  const [draftMax, setDraftMax] = useState(maxParam ?? "");
+
+  useEffect(() => {
+    setDraftMin(minParam ?? "");
+    setDraftMax(maxParam ?? "");
+  }, [minParam, maxParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +88,10 @@ export function CatalogBrowse({ category }: { category?: string }) {
 
       const result = await listCatalogProducts(client, {
         category: category ?? null,
+        sort,
+        minUsd: Number.isFinite(minUsd) ? minUsd : null,
+        maxUsd: Number.isFinite(maxUsd) ? maxUsd : null,
+        limit: 60,
       });
       if (cancelled) return;
 
@@ -68,7 +111,35 @@ export function CatalogBrowse({ category }: { category?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [category]);
+  }, [category, sort, minUsd, maxUsd]);
+
+  const nextQuery = useMemo(() => {
+    const q = new URLSearchParams();
+    if (category) q.set("cat", category);
+    if (sort && sort !== "oem") q.set("sort", sort);
+    return q;
+  }, [category, sort]);
+
+  function pushFilters(e: FormEvent) {
+    e.preventDefault();
+    const q = new URLSearchParams(nextQuery);
+    if (draftMin.trim()) q.set("min", draftMin.trim());
+    else q.delete("min");
+    if (draftMax.trim()) q.set("max", draftMax.trim());
+    else q.delete("max");
+    const qs = q.toString();
+    router.push(qs ? `/catalog?${qs}` : "/catalog");
+  }
+
+  function setSort(next: CatalogSort) {
+    const q = new URLSearchParams();
+    if (category) q.set("cat", category);
+    if (next !== "oem") q.set("sort", next);
+    if (minParam) q.set("min", minParam);
+    if (maxParam) q.set("max", maxParam);
+    const qs = q.toString();
+    router.push(qs ? `/catalog?${qs}` : "/catalog");
+  }
 
   if (status.kind === "loading") {
     return (
@@ -110,11 +181,18 @@ export function CatalogBrowse({ category }: { category?: string }) {
       ? status.categories
       : ["Brakes", "Filters", "Cooling", "Engine"];
 
+  const displayItems = applyCatalogFiltersAndSort(status.items, {
+    sort,
+    minUsd: Number.isFinite(minUsd as number) ? minUsd : null,
+    maxUsd: Number.isFinite(maxUsd as number) ? maxUsd : null,
+  });
+
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Catalog</h1>
       <p className={styles.lede}>
-        Live stock list from inventory. Use search for VIN / PNC / OEM lookups.
+        Live stock list from inventory. Filter by category and USD price; sort
+        like the KMP PLP (price, newest, movers).
       </p>
       <div className={styles.plp}>
         <aside className={styles.facets} aria-label="Filters">
@@ -123,6 +201,11 @@ export function CatalogBrowse({ category }: { category?: string }) {
             <p>Category</p>
             {facetCats.map((c) => {
               const slug = c.toLowerCase();
+              const q = new URLSearchParams();
+              q.set("cat", slug);
+              if (sort !== "oem") q.set("sort", sort);
+              if (minParam) q.set("min", minParam);
+              if (maxParam) q.set("max", maxParam);
               return (
                 <label key={c}>
                   <input
@@ -130,13 +213,43 @@ export function CatalogBrowse({ category }: { category?: string }) {
                     readOnly
                     checked={category?.toLowerCase() === slug}
                   />{" "}
-                  <Link href={`/catalog?cat=${encodeURIComponent(slug)}`}>
-                    {c}
-                  </Link>
+                  <Link href={`/catalog?${q.toString()}`}>{c}</Link>
                 </label>
               );
             })}
           </div>
+          <form className={styles.facetGroup} onSubmit={pushFilters}>
+            <p>Price (USD)</p>
+            <div className={filterStyles.priceRow}>
+              <label>
+                Min
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  value={draftMin}
+                  onChange={(e) => setDraftMin(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+              <label>
+                Max
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  value={draftMax}
+                  onChange={(e) => setDraftMax(e.target.value)}
+                  placeholder="Any"
+                />
+              </label>
+            </div>
+            <button type="submit" className={styles.rowCta}>
+              Apply price
+            </button>
+          </form>
           <div className={styles.facetGroup}>
             <p>Brand</p>
             <label>
@@ -144,20 +257,30 @@ export function CatalogBrowse({ category }: { category?: string }) {
               OE
             </label>
           </div>
-          <div className={styles.facetGroup}>
-            <p>Availability</p>
-            <label>
-              <input type="checkbox" readOnly /> In stock
-            </label>
-            <label>
-              <input type="checkbox" readOnly /> Counter only
-            </label>
-          </div>
           <Link href="/catalog" className={styles.rowCta}>
             Clear
           </Link>
         </aside>
         <div>
+          <div className={filterStyles.toolbar}>
+            <label className={filterStyles.sort}>
+              Sort
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as CatalogSort)}
+                aria-label="Sort catalog"
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className={styles.muted}>
+              {displayItems.length} part{displayItems.length === 1 ? "" : "s"}
+            </p>
+          </div>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -170,15 +293,18 @@ export function CatalogBrowse({ category }: { category?: string }) {
                 </tr>
               </thead>
               <tbody>
-                {status.items.length === 0 ? (
+                {displayItems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className={styles.muted}>
                       No parts in inventory
-                      {category ? ` for category “${category}”` : ""}.
+                      {category ? ` for category “${category}”` : ""}
+                      {(minUsd != null || maxUsd != null) &&
+                        " matching this price range"}
+                      .
                     </td>
                   </tr>
                 ) : (
-                  status.items.map((p) => (
+                  displayItems.map((p) => (
                     <tr key={p.oem}>
                       <td>
                         <code className={styles.sku}>{p.oem}</code>

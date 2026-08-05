@@ -11,27 +11,31 @@ struct CompareScreen: View {
     @State private var usingGuestStore = false
 
     var body: some View {
-        List {
+        ShopDefaultScreen(title: "Compare", subtitle: "Attribute matrix", scrollable: false) {
+            List {
             Section {
                 Text(usingGuestStore
                      ? "Guest mode — OEMs stored on-device (UserDefaults)."
                      : "Synced via list_customer_compare_items / add / remove.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(GTRType.body(.footnote))
+                    .foregroundStyle(GTRColors.silverDim)
             }
 
             Section("Compare list") {
                 if items.isEmpty {
                     Text("No items to compare")
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.subheadline))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
                 ForEach(items) { item in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(item.oemPartNumber).font(.headline.monospaced())
+                            Text(item.oemPartNumber)
+                                .font(GTRType.displaySemi(.headline))
+                                .monospaced()
                             Text(item.description ?? "—")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .font(GTRType.body(.subheadline))
+                                .foregroundStyle(GTRColors.silverDim)
                         }
                         Spacer()
                         Button(role: .destructive) {
@@ -63,40 +67,47 @@ struct CompareScreen: View {
             Section("Add by OEM") {
                 TextField("OEM part number", text: $oem)
                     .textInputAutocapitalization(.characters)
-                    .font(.body.monospaced())
+                    .font(GTRType.body())
+                    .monospaced()
                 Button("Add to compare") { Task { await add() } }
                     .disabled(busy || oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               || items.count >= maxCompareItems)
                 Text("Max \(maxCompareItems) items")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(GTRType.label(.caption))
+                    .foregroundStyle(GTRColors.silverDim)
             }
 
             if let status {
                 Section {
                     Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
             }
+            }
+            .scrollContentBackground(.hidden)
+            .background(GTRColors.chalk)
+            .navigationBarTitleDisplayMode(.inline)
+            .task { await refresh() }
+            .refreshable { await refresh() }
         }
-        .navigationTitle("Compare")
-        .task { await refresh() }
-        .refreshable { await refresh() }
     }
 
     @ViewBuilder
     private func matrixRow(label: String, values: [String]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(label)
+                .font(GTRType.label(.caption))
+                .foregroundStyle(GTRColors.silverDim)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(Array(values.enumerated()), id: \.offset) { _, value in
                         Text(value)
-                            .font(.caption.monospaced())
+                            .font(GTRType.label(.caption))
+                            .monospaced()
                             .frame(width: 120, alignment: .leading)
                             .padding(8)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                            .background(GTRColors.mist, in: RoundedRectangle(cornerRadius: GTRRadius.sharp))
                     }
                 }
             }

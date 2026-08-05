@@ -4,25 +4,25 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.bridges.location.FusedLocationGpsBridge
 import co.zw.nissangtr.bridges.location.GpsBridge
@@ -33,23 +33,27 @@ import co.zw.nissangtr.bridges.podsignature.CanvasPodSignatureBridge
 import co.zw.nissangtr.bridges.podsignature.PodSignatureBridge
 import co.zw.nissangtr.delivery.auth.AuthGate
 import co.zw.nissangtr.delivery.auth.AuthModule
+import co.zw.nissangtr.delivery.jobs.DeliveryMeTab
+import co.zw.nissangtr.delivery.jobs.DeliveryRouteTab
+import co.zw.nissangtr.delivery.jobs.JobDetailScreen
+import co.zw.nissangtr.delivery.jobs.JobsListScreen
 import co.zw.nissangtr.delivery.jobs.JobsModule
-import co.zw.nissangtr.delivery.jobs.JobsScreen
+import co.zw.nissangtr.delivery.jobs.JobsViewModel
 import co.zw.nissangtr.delivery.pod.PodModule
 import co.zw.nissangtr.delivery.rpc.RpcClient
 import co.zw.nissangtr.delivery.rpc.RpcClientFactory
 import co.zw.nissangtr.delivery.rpc.SupabaseRpcClient
 import co.zw.nissangtr.delivery.tracking.TrackingModule
 import co.zw.nissangtr.delivery.tracking.TrackingViewModel
-
-private enum class DeliveryRoute {
-    Home,
-    Jobs,
-}
+import co.zw.nissangtr.ui.shop.ShopBottomBar
+import co.zw.nissangtr.ui.shop.ShopBottomTab
+import co.zw.nissangtr.ui.shop.ShopSplash
+import co.zw.nissangtr.ui.shop.ShopTheme
 
 /**
- * Driver-only shell. Feature screens over [RpcClient] (Live or Fake).
- * Hardware: bridges only — GPS FGS, POD camera, POD signature.
+ * Driver shell — Shopping-By-KMP MainNav IA (Jobs / Route / Me) over [RpcClient].
+ * Full ShopKit visual system (ShopTheme Standard + ShopBottomBar), not staff compact.
+ * Hardware stays Bridge-First: GPS FGS, POD camera, POD signature, Maps nav.
  */
 class MainActivity : ComponentActivity() {
 
@@ -77,19 +81,33 @@ class MainActivity : ComponentActivity() {
         val supabase = rpc as? SupabaseRpcClient
 
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
-                        DeliveryApp(
-                            rpc = rpc,
-                            gps = gpsBridge,
-                            camera = cameraBridge,
-                            signature = signatureBridge,
-                            liveRpc = live,
-                            signedInEmail = email,
-                            supportPhone = BuildConfig.SUPPORT_PHONE,
-                            onSignOut = onSignOut,
+            // Full ShopKit density (Standard) — same entry as customer; no compact shortcut.
+            ShopTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    var splashDone by remember { mutableStateOf(false) }
+                    if (!splashDone) {
+                        ShopSplash(
+                            brand = "Nissan GTR Auto",
+                            tagline = "Driver · jobs · live maps · POD",
+                            onFinished = { splashDone = true },
                         )
+                    } else {
+                        AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
+                            DeliveryApp(
+                                rpc = rpc,
+                                gps = gpsBridge,
+                                camera = cameraBridge,
+                                signature = signatureBridge,
+                                liveRpc = live,
+                                signedInEmail = email,
+                                supportPhone = BuildConfig.SUPPORT_PHONE,
+                                mapsApiKey = BuildConfig.GOOGLE_MAPS_API_KEY,
+                                onSignOut = onSignOut,
+                            )
+                        }
                     }
                 }
             }
@@ -144,6 +162,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private enum class DriverTab(val label: String, val icon: ImageVector) {
+    Jobs("Jobs", Icons.Filled.LocalShipping),
+    Route("Route", Icons.Filled.Map),
+    Me("Me", Icons.Filled.AccountCircle),
+}
+
 @Composable
 private fun DeliveryApp(
     rpc: RpcClient,
@@ -153,83 +177,78 @@ private fun DeliveryApp(
     liveRpc: Boolean,
     signedInEmail: String?,
     supportPhone: String,
+    mapsApiKey: String,
     onSignOut: () -> Unit,
 ) {
-    var route by remember { mutableStateOf(DeliveryRoute.Home) }
     val context = LocalContext.current
     val trackingVm: TrackingViewModel = viewModel(
         factory = TrackingViewModel.factory(rpc, gps, context),
     )
+    val jobsVm: JobsViewModel = viewModel(
+        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, mapsApiKey),
+    )
+    val state by jobsVm.state.collectAsState()
+    val tracking by trackingVm.state.collectAsState()
+    val selected = jobsVm.selectedJob()
+    var tab by remember { mutableStateOf(DriverTab.Jobs) }
+    val modeLabel = if (liveRpc) "Live · GPS/POD" else "Fake · GPS/POD"
 
-    when (route) {
-        DeliveryRoute.Home -> DeliveryHome(
-            liveRpc = liveRpc,
-            signedInEmail = signedInEmail,
-            supportPhone = supportPhone,
-            onSignOut = onSignOut,
-            onJobs = { route = DeliveryRoute.Jobs },
-        )
-        DeliveryRoute.Jobs -> JobsScreen(
+    if (selected != null) {
+        JobDetailScreen(
+            job = selected,
+            state = state,
+            tracking = tracking,
+            vm = jobsVm,
+            trackingVm = trackingVm,
             rpc = rpc,
-            gps = gps,
             camera = camera,
             signature = signature,
-            supportPhone = supportPhone,
-            trackingVm = trackingVm,
-            onBack = { route = DeliveryRoute.Home },
+            onBack = { jobsVm.selectJob(null) },
         )
+        return
     }
-}
 
-@Composable
-private fun DeliveryHome(
-    liveRpc: Boolean,
-    signedInEmail: String?,
-    supportPhone: String,
-    onSignOut: () -> Unit,
-    onJobs: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Nissan GTR Auto", style = MaterialTheme.typography.headlineMedium)
-        Text("Delivery driver app", style = MaterialTheme.typography.bodyMedium)
-        Text(
-            "Modules: ${AuthModule.id}, ${JobsModule.id}, ${TrackingModule.id}, ${PodModule.id}",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            if (liveRpc) "RPC: Live (supabase-kt)"
-            else "RPC: Fake (set SUPABASE_URL + SUPABASE_ANON_KEY)",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        if (signedInEmail != null) {
-            Text("Signed in: $signedInEmail", style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
-                Text("Sign out")
-            }
-        } else if (!liveRpc) {
-            Text("Fake mode — auth optional / bypassed", style = MaterialTheme.typography.bodySmall)
-        }
-        if (supportPhone.isNotBlank()) {
-            Text("Support: $supportPhone", style = MaterialTheme.typography.bodySmall)
-        } else {
-            Text(
-                "SUPPORT_PHONE not set — panic dialer limited",
-                style = MaterialTheme.typography.bodySmall,
+    val bottomTabs = remember {
+        DriverTab.entries.map { ShopBottomTab(it.name, it.label, it.icon) }
+    }
+    // KMP MainNav: elevated ShopBottomBar + tab bodies (same chrome as customer 4-tab).
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            ShopBottomBar(
+                tabs = bottomTabs,
+                selectedKey = tab.name,
+                onSelect = { key -> tab = DriverTab.valueOf(key) },
             )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            when (tab) {
+                DriverTab.Jobs -> JobsListScreen(
+                    state = state,
+                    vm = jobsVm,
+                    trackingVm = trackingVm,
+                    shellSubtitle = modeLabel,
+                )
+                DriverTab.Route -> DeliveryRouteTab(
+                    state = state,
+                    tracking = tracking,
+                    vm = jobsVm,
+                    trackingVm = trackingVm,
+                )
+                DriverTab.Me -> DeliveryMeTab(
+                    state = state,
+                    vm = jobsVm,
+                    trackingVm = trackingVm,
+                    signedInEmail = signedInEmail,
+                    modeLabel = modeLabel,
+                    onSignOut = onSignOut,
+                )
+            }
         }
-        Button(onClick = onJobs, modifier = Modifier.fillMaxWidth()) {
-            Text("My jobs — GPS / POD / navigate")
-        }
-        Text(
-            "Driver-only. No POS/warehouse/HR/finance. No ZIMRA. Bridge-First GPS/camera/signature.",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 8.dp),
-        )
     }
 }

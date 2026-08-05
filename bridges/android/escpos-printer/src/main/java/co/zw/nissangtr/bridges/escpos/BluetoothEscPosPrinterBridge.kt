@@ -58,6 +58,24 @@ class BluetoothEscPosPrinterBridge(
     fun getPrinterAddress(): String? =
         prefs.getString(KEY_MAC, null)?.takeIf { it.isNotBlank() }
 
+    override fun getConfiguredPrinterAddress(): String? = getPrinterAddress()
+
+    @SuppressLint("MissingPermission")
+    override suspend fun listBondedDevices(): List<BondedEscPosDevice> =
+        withContext(Dispatchers.IO) {
+            ensureBluetoothAllowed()
+            val adapter = bluetoothAdapter()
+                ?: throw IllegalStateException("Bluetooth adapter unavailable")
+            adapter.bondedDevices.orEmpty()
+                .map { device ->
+                    BondedEscPosDevice(
+                        name = device.name?.takeIf { it.isNotBlank() } ?: "Unknown",
+                        address = device.address,
+                    )
+                }
+                .sortedBy { it.name.lowercase() }
+        }
+
     fun onPermissionResult() {
         BluetoothPermissionRelay.complete(resolvePermissionStatus())
     }

@@ -1,91 +1,234 @@
 import SwiftUI
 
+/// KMP 5-tab shell — Home / Shop / Wishlist / My Garage / Settings.
+/// Cart + Account / Sign-in live in the top strip (GSF layout reference, GTR brand).
 struct ContentView: View {
     @EnvironmentObject private var session: StorefrontSession
+    @Binding var pendingPartsOem: String?
+    @State private var selectedTab: ShopTab = .home
+    @State private var overlay: ShellOverlay = .none
+    @State private var catalogSeed: String?
+    @State private var catalogSeedToken = UUID()
+    @State private var cartBadge = 0
+    @State private var menuCategories: [String] = gtrPartCategories
+    @State private var showSignInSheet = false
+
+    private enum ShopTab: Hashable {
+        case home, shop, wishlist, garage, settings
+    }
+
+    private enum ShellOverlay: Equatable {
+        case none, menu, cart, account
+    }
+
+    init(pendingPartsOem: Binding<String?>) {
+        _pendingPartsOem = pendingPartsOem
+        configureShopTabBar()
+    }
 
     var body: some View {
         Group {
             if session.requiresSignIn {
                 SignInScreen()
             } else {
-                mainTabs
+                mainShell
+            }
+        }
+        .preferredColorScheme(session.preferredColorScheme)
+        .task {
+            await refreshCartBadge()
+            await session.refreshWishlist()
+        }
+        .task { await loadMenuCategories() }
+        .onChange(of: overlay) { _, _ in
+            Task { await refreshCartBadge() }
+        }
+        .onChange(of: selectedTab) { _, _ in
+            Task { await refreshCartBadge() }
+        }
+        .onChange(of: session.isSignedIn) { _, signedIn in
+            if signedIn { showSignInSheet = false }
+        }
+        .sheet(isPresented: $showSignInSheet) {
+            NavigationStack {
+                SignInScreen(allowsSkip: session.usesFake, onSkip: { showSignInSheet = false })
+                    .environmentObject(session)
             }
         }
     }
 
-    private var mainTabs: some View {
-        TabView {
-            ForEach(FeatureTab.allCases) { tab in
+    private var mainShell: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                if overlay == .none {
+                    CustomerShellTopBar(
+                        signedInEmail: session.userEmail,
+                        cartBadgeCount: cartBadge,
+                        onOpenMenu: { overlay = .menu },
+                        onOpenAccount: { overlay = .account },
+                        onOpenCart: { overlay = .cart },
+                        onSignIn: {
+                            if session.isSignedIn && session.userEmail != nil {
+                                overlay = .account
+                            } else {
+                                showSignInSheet = true
+                            }
+                        }
+                    )
+                }
+
+                TabView(selection: $selectedTab) {
+                    NavigationStack {
+                        CatalogScreen(
+                            initialOem: $pendingPartsOem,
+                            onCartChanged: { Task { await refreshCartBadge() } }
+                        )
+                    }
+                    .tabItem { Label("Home", systemImage: "house.fill") }
+                    .tag(ShopTab.home)
+
+                    NavigationStack {
+                        CatalogScreen(
+                            initialOem: $pendingPartsOem,
+                            categorySeed: $catalogSeed,
+                            categorySeedToken: $catalogSeedToken,
+                            onCartChanged: { Task { await refreshCartBadge() } }
+                        )
+                    }
+                    .tabItem { Label("Shop", systemImage: "storefront.fill") }
+                    .tag(ShopTab.shop)
+
+                    NavigationStack {
+                        WishlistScreen()
+                    }
+                    .tabItem { Label("Wishlist", systemImage: "heart.fill") }
+                    .tag(ShopTab.wishlist)
+
+                    NavigationStack {
+                        GarageScreen()
+                    }
+                    .tabItem { Label("My Garage", systemImage: "car.fill") }
+                    .tag(ShopTab.garage)
+
+                    NavigationStack {
+                        SettingsHubScreen(onOpenAccount: { overlay = .account })
+                    }
+                    .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+                    .tag(ShopTab.settings)
+                }
+                .tint(GTRColors.primary)
+                .toolbarBackground(.visible, for: .tabBar)
+                .toolbarBackground(Color.white, for: .tabBar)
+                .safeAreaInset(edge: .bottom) {
+                    if session.usesFake {
+                        Text(fakeBannerText)
+                            .font(GTRType.label(.caption2))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(8)
+                            .background(GTRColors.mist)
+                            .foregroundStyle(GTRColors.steel)
+                    } else if let email = session.userEmail {
+                        Text(email)
+                            .font(GTRType.label(.caption2))
+                            .frame(maxWidth: .infinity)
+                            .padding(6)
+                            .background(GTRColors.mist)
+                            .foregroundStyle(GTRColors.silverDim)
+                    }
+                }
+            }
+
+            switch overlay {
+            case .none:
+                EmptyView()
+            case .menu:
+                HamburgerMenuOverlay(categories: menuCategories) { action in
+                    switch action {
+                    case .close:
+                        overlay = .none
+                    case .openCatalog(let category, let subcategory):
+                        catalogSeed = subcategory ?? category
+                        catalogSeedToken = UUID()
+                        selectedTab = .shop
+                        overlay = .none
+                    }
+                }
+                .zIndex(2)
+            case .cart:
                 NavigationStack {
-                    tabRoot(tab)
+                    CartScreen()
                         .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                HStack(spacing: 8) {
-                                    Text(session.usesFake ? "Fake" : "Live")
-                                        .font(.caption2)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(.quaternary, in: Capsule())
-                                    if !session.usesFake {
-                                        Button("Sign out") {
-                                            session.signOut()
-                                        }
-                                        .font(.caption)
-                                    }
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Close") {
+                                    Task { await refreshCartBadge() }
+                                    overlay = .none
                                 }
                             }
                         }
                 }
-                .tabItem {
-                    Label(tab.title, systemImage: tab.systemImage)
+                .zIndex(2)
+            case .account:
+                NavigationStack {
+                    AccountHubScreen(
+                        onClose: { overlay = .none },
+                        onOpenGarage: {
+                            overlay = .none
+                            selectedTab = .garage
+                        }
+                    )
                 }
+                .zIndex(2)
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            if session.usesFake {
-                Text(fakeBannerText)
-                    .font(.caption2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(8)
-                    .background(.ultraThinMaterial)
-            } else if let email = session.userEmail {
-                Text(email)
-                    .font(.caption2)
-                    .frame(maxWidth: .infinity)
-                    .padding(6)
-                    .background(.ultraThinMaterial)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func tabRoot(_ tab: FeatureTab) -> some View {
-        switch tab {
-        case .catalog: CatalogScreen()
-        case .cart: CartScreen()
-        case .orders: OrdersScreen()
-        case .garage: GarageScreen()
-        case .wishlist: WishlistScreen()
-        case .compare: CompareScreen()
-        case .reviews: ReviewsScreen()
-        case .pay: PayScreen()
-        case .chat: ChatScreen()
         }
     }
 
     private var fakeBannerText: String {
         if AppEnv.forceFake {
-            return "STOREFRONT_FORCE_FAKE — using FakeStorefrontApi (sign-in optional / skipped)"
+            return "STOREFRONT_FORCE_FAKE — FakeStorefrontApi"
         }
         if !AppEnv.isConfigured {
-            return "SUPABASE_URL / ANON_KEY unset — using FakeStorefrontApi (sign-in skipped)"
+            return "SUPABASE unset — FakeStorefrontApi"
         }
-        return "Using FakeStorefrontApi (sign-in skipped)"
+        return "Using FakeStorefrontApi"
+    }
+
+    private func refreshCartBadge() async {
+        do {
+            let cart = try await session.api.loadOpenCart()
+            cartBadge = cart?.lines.reduce(0) { partial, line in
+                partial + max(1, NSDecimalNumber(decimal: line.qty).intValue)
+            } ?? 0
+        } catch {
+            cartBadge = 0
+        }
+    }
+
+    private func loadMenuCategories() async {
+        do {
+            let browse = try await session.api.listCatalogBrowse(category: nil, limit: 80)
+            if !browse.categories.isEmpty {
+                menuCategories = browse.categories
+            }
+        } catch {
+            // Keep GTR fallback list.
+        }
+    }
+
+    private func configureShopTabBar() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor.white
+        appearance.shadowColor = UIColor(GTRColors.mist)
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        UITabBar.appearance().layer.cornerRadius = 16
+        UITabBar.appearance().layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        UITabBar.appearance().layer.masksToBounds = true
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(pendingPartsOem: .constant(nil))
         .environmentObject(StorefrontSession(api: FakeStorefrontApi()))
 }

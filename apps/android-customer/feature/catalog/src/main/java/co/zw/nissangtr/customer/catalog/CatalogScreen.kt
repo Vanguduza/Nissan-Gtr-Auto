@@ -1,190 +1,394 @@
 package co.zw.nissangtr.customer.catalog
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.items as rowItems
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.CatalogListItem
-import co.zw.nissangtr.customer.rpc.CatalogPartHit
+import co.zw.nissangtr.customer.rpc.CatalogProduct
+import co.zw.nissangtr.customer.rpc.GarageVehicle
+import co.zw.nissangtr.customer.rpc.ProductReviewStats
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
-import co.zw.nissangtr.customer.rpc.SearchMode
+import co.zw.nissangtr.customer.rpc.summaryLabel
+import co.zw.nissangtr.customer.wishlist.WishlistStore
+import co.zw.nissangtr.ui.shop.ShopBannerCarousel
+import co.zw.nissangtr.ui.shop.ShopCategoryChipRow
+import co.zw.nissangtr.ui.shop.ShopCircleIconButton
+import co.zw.nissangtr.ui.shop.ShopExpandableDescription
+import co.zw.nissangtr.ui.shop.ShopHonestEmpty
+import co.zw.nissangtr.ui.shop.ShopMerchTitleRow
+import co.zw.nissangtr.ui.shop.ShopProductCard
+import co.zw.nissangtr.ui.shop.ShopRatingRow
+import co.zw.nissangtr.ui.shop.ShopStickyCtaBar
+import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
- * Storefront catalog — home browse, four-way search, PLP hits, PDP + add-to-cart.
- * Live: [RpcNames.SEARCH_CATALOG] + PostgREST pricing (USD). Bridge-First not used here.
+ * Storefront catalog — Home / Categories / Newest / PDP.
+ * Inline typeahead stays on Home; never opens a discarded SearchResults page.
  */
 @Composable
 fun CatalogScreen(
     rpc: RpcClient,
+    wishlistStore: WishlistStore,
     onBack: () -> Unit,
     onOpenCart: () -> Unit = {},
+    onCartChanged: () -> Unit = {},
+    onManageVehicle: () -> Unit = {},
+    initialOem: String? = null,
+    initialCategorySeed: String? = null,
+    categorySeedSeq: Int = 0,
+    showShellChrome: Boolean = false,
+    viewModelKey: String = "catalog",
     modifier: Modifier = Modifier,
-    viewModel: CatalogViewModel = viewModel(factory = CatalogViewModel.factory(rpc)),
 ) {
+    val viewModel: CatalogViewModel = viewModel(
+        key = viewModelKey,
+        factory = CatalogViewModel.factory(rpc),
+    )
     val state by viewModel.state.collectAsState()
+    val wishOems by wishlistStore.oemKeys.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Catalog", style = MaterialTheme.typography.headlineSmall)
-            OutlinedButton(onClick = onBack, enabled = !state.busy) {
-                Text("Home")
-            }
-        }
+    LaunchedEffect(initialOem) {
+        val oem = initialOem?.trim()?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        viewModel.openProduct(oem)
+    }
 
-        Text(
-            "RPC: ${RpcNames.SEARCH_CATALOG} · USD via default price list",
-            style = MaterialTheme.typography.bodySmall,
-        )
+    LaunchedEffect(categorySeedSeq) {
+        if (categorySeedSeq == 0) return@LaunchedEffect
+        val seed = initialCategorySeed?.trim()?.takeIf { it.isNotEmpty() }
+        viewModel.applyCategoryFilter(seed)
+    }
 
-        state.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        }
-        state.message?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall)
-        }
-
+    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (state.route) {
-            CatalogScreenRoute.Home -> CatalogHome(
+            CatalogScreenRoute.Home -> KmpHome(
                 state = state,
-                onQueryChange = viewModel::onQueryChange,
-                onModeChange = viewModel::onSearchModeChange,
-                onSearch = viewModel::runSearch,
-                onRefreshBrowse = viewModel::refreshBrowse,
+                rpc = rpc,
+                wishOems = wishOems,
+                showShellChrome = showShellChrome,
+                onBack = onBack,
+                onManageVehicle = onManageVehicle,
+                onCategory = { viewModel.applyCategoryFilter(it) },
+                onSeeAllCategories = viewModel::openCategories,
+                onSeeAllNewest = viewModel::openNewest,
+                onSeeAllMostSale = viewModel::openNewest,
                 onOpenProduct = viewModel::openProduct,
+                onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
+                onApplySearchFilter = { viewModel.applyCategoryFilter(it) },
             )
-            CatalogScreenRoute.SearchResults -> CatalogSearchResults(
-                hits = state.searchHits,
-                query = state.query,
-                mode = state.searchMode,
+            CatalogScreenRoute.Categories -> CategoriesGridScreen(
+                categories = DefaultCatalogCategories,
+                onBack = viewModel::navigateHome,
+                onCategory = { viewModel.applyCategoryFilter(it) },
+            )
+            CatalogScreenRoute.Newest -> NewestProductsScreen(
+                products = state.browseItems,
+                wishOems = wishOems,
                 busy = state.busy,
                 onBack = viewModel::navigateHome,
                 onOpenProduct = viewModel::openProduct,
+                onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
             )
             CatalogScreenRoute.Product -> state.product?.let { product ->
-                CatalogProductDetail(
+                KmpPdp(
                     product = product,
+                    primaryVehicle = state.primaryVehicle,
                     qty = state.addQty,
                     busy = state.busy,
+                    reviewStats = state.reviewStats,
+                    liked = wishOems.contains(product.oem.trim().uppercase()),
                     onQtyChange = viewModel::onAddQtyChange,
                     onBack = viewModel::navigateBackFromProduct,
-                    onAddToCart = { viewModel.addToCart(onOpenCart) },
+                    onAddToCart = {
+                        viewModel.addToCart {
+                            onCartChanged()
+                            onOpenCart()
+                        }
+                    },
+                    onToggleWishlist = {
+                        wishlistStore.toggle(product.stockItemId, product.oem)
+                    },
                 )
             }
         }
-    }
-}
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CatalogHome(
-    state: CatalogUiState,
-    onQueryChange: (String) -> Unit,
-    onModeChange: (SearchMode) -> Unit,
-    onSearch: () -> Unit,
-    onRefreshBrowse: () -> Unit,
-    onOpenProduct: (String) -> Unit,
-) {
-    OutlinedTextField(
-        value = state.query,
-        onValueChange = onQueryChange,
-        label = { Text("Search query") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        SearchMode.entries.forEach { mode ->
-            FilterChip(
-                selected = state.searchMode == mode,
-                onClick = { onModeChange(mode) },
-                label = { Text(mode.rpcValue.uppercase()) },
-                enabled = !state.busy,
+        state.error?.let { err ->
+            Text(
+                err,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
+                    .padding(12.dp),
             )
         }
     }
-    Button(onClick = onSearch, modifier = Modifier.fillMaxWidth(), enabled = !state.busy) {
-        Text("Search catalog")
-    }
-    OutlinedButton(onClick = onRefreshBrowse, modifier = Modifier.fillMaxWidth(), enabled = !state.busy) {
-        Text("Refresh browse")
-    }
-    HorizontalDivider()
-    Text("Browse", style = MaterialTheme.typography.titleMedium)
-    LazyColumn(
-        modifier = Modifier.weight(1f, fill = true),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+}
+
+private val homeBanners = listOf(
+    "Genuine Nissan parts · Harare counter & nationwide dispatch",
+    "Click & Collect same day at the Harare counter",
+    "ZiG settlement available at checkout",
+)
+
+@Composable
+private fun KmpHome(
+    state: CatalogUiState,
+    rpc: RpcClient,
+    wishOems: Set<String>,
+    showShellChrome: Boolean,
+    onBack: () -> Unit,
+    onManageVehicle: () -> Unit,
+    onCategory: (String) -> Unit,
+    onSeeAllCategories: () -> Unit,
+    onSeeAllMostSale: () -> Unit,
+    onSeeAllNewest: () -> Unit,
+    onOpenProduct: (String) -> Unit,
+    onToggleWish: (CatalogListItem) -> Unit,
+    onApplySearchFilter: (String) -> Unit,
+) {
+    val newest = state.browseItems.take(8)
+    val mostSale = state.browseItems.drop(8).take(8).ifEmpty { state.browseItems.take(8) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
     ) {
-        items(state.browseItems, key = { it.stockItemId }) { item ->
-            CatalogListRow(item = item, onClick = { onOpenProduct(item.oem) })
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Spacer(Modifier.height(8.dp))
+            if (showShellChrome) {
+                InlineCatalogSearch(
+                    rpc = rpc,
+                    onOpenProduct = onOpenProduct,
+                    onApplyFilter = onApplySearchFilter,
+                )
+                if (state.primaryVehicle != null) {
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = onManageVehicle) {
+                        Text("Fitment: ${state.primaryVehicle.summaryLabel()} · My Garage")
+                    }
+                }
+                state.activeCategory?.let { cat ->
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = { onCategory("") }) {
+                        Text("Filtered: $cat · Clear")
+                    }
+                }
+            } else {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    TextButton(onClick = onBack) { Text("Home") }
+                }
+                InlineCatalogSearch(
+                    rpc = rpc,
+                    onOpenProduct = onOpenProduct,
+                    onApplyFilter = onApplySearchFilter,
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface),
+        ) {
+            Text(
+                "Special for you",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(16.dp),
+            )
+            ShopBannerCarousel(banners = homeBanners)
+            Spacer(Modifier.height(16.dp))
+
+            ShopMerchTitleRow(
+                title = "Category",
+                actionLabel = "See all",
+                onAction = onSeeAllCategories,
+            )
+            ShopCategoryChipRow(
+                categories = DefaultCatalogCategories,
+                onCategory = onCategory,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+
+            Spacer(Modifier.height(16.dp))
+            if (state.deals.isEmpty()) {
+                ShopHonestEmpty(
+                    title = "No flash deals",
+                    body = "Deals appear here when a live promotions feed ships - never a fake countdown on hardcoded SKUs.",
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            } else {
+                ShopMerchTitleRow(title = "Flash deals", actionLabel = null)
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    rowItems(state.deals, key = { it.id }) { deal ->
+                        ShopProductCard(
+                            title = deal.title,
+                            subtitle = deal.subtitle,
+                            priceLabel = "Deal",
+                            liked = false,
+                            onLikeClick = {},
+                            onClick = {},
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            ShopMerchTitleRow(
+                title = "Most sale",
+                actionLabel = "See all",
+                onAction = onSeeAllMostSale,
+            )
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(8.dp),
+            ) {
+                rowItems(mostSale, key = { it.stockItemId }) { item ->
+                    ShopProductCard(
+                        title = item.oem,
+                        subtitle = item.name,
+                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
+                        liked = wishOems.contains(item.oem.trim().uppercase()),
+                        onLikeClick = { onToggleWish(item) },
+                        onClick = { onOpenProduct(item.oem) },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            ShopMerchTitleRow(
+                title = "Newest products",
+                actionLabel = "See all",
+                onAction = onSeeAllNewest,
+            )
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(8.dp),
+            ) {
+                rowItems(newest, key = { "n-${it.stockItemId}" }) { item ->
+                    ShopProductCard(
+                        title = item.oem,
+                        subtitle = item.name,
+                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
+                        liked = wishOems.contains(item.oem.trim().uppercase()),
+                        onLikeClick = { onToggleWish(item) },
+                        onClick = { onOpenProduct(item.oem) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
 
+/** Dedicated page of recently added products (browse order = newest-first when available). */
 @Composable
-private fun CatalogSearchResults(
-    hits: List<CatalogPartHit>,
-    query: String,
-    mode: SearchMode,
+fun NewestProductsScreen(
+    products: List<CatalogListItem>,
+    wishOems: Set<String>,
     busy: Boolean,
     onBack: () -> Unit,
     onOpenProduct: (String) -> Unit,
+    onToggleWish: (CatalogListItem) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Results for \"$query\" (${mode.rpcValue})", style = MaterialTheme.typography.titleMedium)
-        OutlinedButton(onClick = onBack, enabled = !busy) { Text("Back to browse") }
-        if (hits.isEmpty()) {
-            Text("No parts matched.", style = MaterialTheme.typography.bodyMedium)
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ShopCircleIconButton(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                onClick = onBack,
+                contentDescription = "Back",
+            )
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Newest products", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Recently added parts",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (products.isEmpty() && !busy) {
+            ShopHonestEmpty(
+                title = "No recent parts yet",
+                body = "Newest products appear here from catalog browse when stock is indexed.",
+                modifier = Modifier.padding(24.dp),
+            )
         } else {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxSize().padding(8.dp),
+                contentPadding = PaddingValues(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                hits.forEach { hit ->
-                    AssistChip(
-                        onClick = { onOpenProduct(hit.oemPartNumber) },
-                        label = { Text(hit.oemPartNumber) },
+                gridItems(products, key = { it.stockItemId }) { item ->
+                    ShopProductCard(
+                        title = item.oem,
+                        subtitle = item.name,
+                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
+                        liked = wishOems.contains(item.oem.trim().uppercase()),
+                        onLikeClick = { onToggleWish(item) },
+                        onClick = { onOpenProduct(item.oem) },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    hit.categoryName?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall)
-                    }
                 }
             }
         }
@@ -192,62 +396,233 @@ private fun CatalogSearchResults(
 }
 
 @Composable
-private fun CatalogProductDetail(
-    product: co.zw.nissangtr.customer.rpc.CatalogProduct,
+private fun KmpPdp(
+    product: CatalogProduct,
+    primaryVehicle: GarageVehicle?,
     qty: String,
     busy: Boolean,
+    reviewStats: ProductReviewStats?,
+    liked: Boolean,
     onQtyChange: (String) -> Unit,
     onBack: () -> Unit,
     onAddToCart: () -> Unit,
+    onToggleWishlist: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        OutlinedButton(onClick = onBack, enabled = !busy) { Text("Back") }
-        Text(product.oem, style = MaterialTheme.typography.headlineSmall)
-        Text(product.name, style = MaterialTheme.typography.bodyLarge)
-        product.brand?.let { Text("Brand: $it", style = MaterialTheme.typography.bodyMedium) }
-        product.category?.let { Text("Category: $it", style = MaterialTheme.typography.bodyMedium) }
-        Text(
-            product.usd?.let { "USD %.2f".format(it) } ?: "Price on request",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        if (product.coreCharge > 0) {
-            Text("Core charge USD %.2f".format(product.coreCharge), style = MaterialTheme.typography.bodySmall)
+    val priceLabel = when {
+        product.usd == null -> "Price on request"
+        product.coreCharge > 0 ->
+            "USD %.2f + %.2f core".format(product.usd, product.coreCharge)
+        else -> "USD %.2f".format(product.usd)
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 88.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
+                    .background(GtrColors.Mist),
+            ) {
+                Text(
+                    product.oem,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = GtrColors.Steel,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+                Box(modifier = Modifier.padding(16.dp).align(Alignment.TopStart)) {
+                    ShopCircleIconButton(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        onClick = onBack,
+                        contentDescription = "Back",
+                    )
+                }
+                Box(modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
+                    ShopCircleIconButton(
+                        imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        onClick = onToggleWishlist,
+                        contentDescription = "Wishlist",
+                    )
+                }
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = MaterialTheme.shapes.small,
+                ) {
+                    LazyRow(
+                        contentPadding = PaddingValues(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        rowItems(listOf(0, 1, 2, 3), key = { it }) { i ->
+                            Box(
+                                modifier = Modifier
+                                    .size(65.dp)
+                                    .clip(MaterialTheme.shapes.small)
+                                    .background(if (i == 0) GtrColors.Steel else GtrColors.Mist),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "${i + 1}",
+                                    color = if (i == 0) GtrColors.Chalk else GtrColors.Steel,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(product.stock.label(), style = MaterialTheme.typography.titleMedium)
+                ShopRatingRow(
+                    avgRating = reviewStats?.avgRating ?: 0.0,
+                    reviewCount = reviewStats?.reviewCount ?: 0,
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                product.oem,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.headlineLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                product.name,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Product details",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Spacer(Modifier.height(8.dp))
+            ShopExpandableDescription(
+                text = product.name,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            if (product.coreCharge > 0) {
+                Text(
+                    "Part USD %.2f".format(product.usd ?: 0.0),
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    "Core deposit USD %.2f (separate cart line - refundable on core return)".format(
+                        product.coreCharge,
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            HorizontalDivider(modifier = Modifier.padding(16.dp), color = GtrColors.Mist)
+            Text(
+                "Reviews",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                when {
+                    reviewStats == null || reviewStats.reviewCount == 0 ->
+                        "No reviews yet for this part."
+                    else ->
+                        "%.1f average · %d review(s)".format(
+                            reviewStats.avgRating,
+                            reviewStats.reviewCount,
+                        )
+                },
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = GtrColors.Mist)
+            Text(
+                "Fitment",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                fitmentVersusGarage(product, primaryVehicle),
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (product.fitmentLines.isNotEmpty()) {
+                product.fitmentLines.forEach { line ->
+                    Text(
+                        "· $line",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            OutlinedTextField(
+                value = qty,
+                onValueChange = onQtyChange,
+                label = { Text("Qty") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                singleLine = true,
+                enabled = !busy,
+                shape = MaterialTheme.shapes.small,
+            )
+            Spacer(Modifier.height(16.dp))
         }
-        Text(product.stock.label(), style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(
-            value = qty,
-            onValueChange = onQtyChange,
-            label = { Text("Qty") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !busy,
-        )
-        Button(onClick = onAddToCart, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
-            Text("Add to cart")
+
+        Card(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(8.dp),
+            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+        ) {
+            ShopStickyCtaBar(
+                priceLabel = priceLabel,
+                ctaLabel = if (busy) "Adding…" else "Add to cart",
+                onCta = onAddToCart,
+                enabled = !busy,
+            )
         }
     }
 }
 
-@Composable
-private fun CatalogListRow(
-    item: CatalogListItem,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text(item.oem, style = MaterialTheme.typography.titleSmall)
-        Text(item.name, style = MaterialTheme.typography.bodyMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(item.stock.label(), style = MaterialTheme.typography.bodySmall)
-            item.usd?.let { Text("USD %.2f".format(it), style = MaterialTheme.typography.bodySmall) }
-        }
+private fun fitmentVersusGarage(product: CatalogProduct, vehicle: GarageVehicle?): String {
+    if (vehicle == null) {
+        return "Add a vehicle in My Garage for sticky fitment."
+    }
+    val garage = vehicle.summaryLabel()
+    if (product.fitmentLines.isEmpty()) {
+        return "Garage: $garage - no published fitment lines for this OEM yet."
+    }
+    val tokens = listOfNotNull(vehicle.model, vehicle.generation, vehicle.engine)
+        .map { it.trim() }
+        .filter { it.length >= 2 }
+    val matches = tokens.isNotEmpty() && product.fitmentLines.any { line ->
+        tokens.any { tok -> line.contains(tok, ignoreCase = true) }
+    }
+    return if (matches) {
+        "Fits your garage vehicle: $garage"
+    } else {
+        "May not fit your garage vehicle ($garage). Check OEM fitment below."
     }
 }

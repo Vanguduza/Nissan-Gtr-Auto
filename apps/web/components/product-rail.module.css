@@ -1,0 +1,135 @@
+.rail {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 2.2vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gtr-steel);
+}
+
+.lede {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: rgba(18, 21, 28, 0.62);
+  max-width: 42ch;
+}
+
+.seeAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gtr-red);
+  letter-spacing: 0.02em;
+}
+
+.track {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 0.35rem;
+  display: flex;
+  gap: 0.85rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.track > li {
+  flex: 0 0 min(15.5rem, 78vw);
+  scroll-snap-align: start;
+}
+
+.card {
+  display: grid;
+  gap: 0.4rem;
+  height: 100%;
+  padding: 0.85rem;
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(18, 21, 28, 0.03);
+  transition: border-color var(--gtr-hover), box-shadow var(--gtr-hover),
+    transform var(--gtr-hover);
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: color-mix(in srgb, var(--gtr-red) 35%, transparent);
+  box-shadow: 0 10px 28px rgba(18, 21, 28, 0.07);
+  transform: translateY(-2px);
+}
+
+.thumb {
+  display: grid;
+  place-items: center;
+  min-height: 5.5rem;
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, var(--gtr-mist), #fff 55%, color-mix(in srgb, var(--gtr-steel) 8%, white));
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(18, 21, 28, 0.4);
+}
+
+.oem {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.oem code {
+  font-family: var(--font-mono);
+}
+
+.name {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--gtr-steel);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.price {
+  margin-top: 0.15rem;
+}
+
+.onRequest {
+  font-size: 0.85rem;
+  color: rgba(18, 21, 28, 0.5);
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border: 1px dashed rgba(18, 21, 28, 0.18);
+  border-radius: 10px;
+  color: rgba(18, 21, 28, 0.58);
+  font-size: 0.92rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card:hover {
+    transform: none;
+  }
+}

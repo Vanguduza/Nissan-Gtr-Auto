@@ -1,0 +1,90 @@
+.host {
+  position: relative;
+  min-height: 100%;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--gtr-steel) 92%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.card {
+  width: min(22rem, 100%);
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2px;
+  color: #fff;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+}
+
+.email {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  word-break: break-all;
+}
+
+.label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.input {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+}
+
+.submit {
+  margin-top: 0.25rem;
+  border: 0;
+  border-radius: 2px;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  background: var(--gtr-red);
+  color: #fff;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #ffb4b4;
+  text-align: center;
+}

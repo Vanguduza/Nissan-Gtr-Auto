@@ -30,6 +30,13 @@ supabase/.temp/
 # Data pipeline outputs
 data-pipeline/output/
 data-pipeline/cache/
+data-pipeline/out/
+data-pipeline/config/proxies.json
+crawler_state.db
+**/crawler_state.db
+
+# Reverse-engineered reference material (never ship/merge into production)
+reference/
 
 # OS / IDE
 .DS_Store

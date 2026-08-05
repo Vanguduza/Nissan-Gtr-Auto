@@ -11,6 +11,7 @@ import {
   type CustomerCreditSnapshot,
   type CustomerOption,
 } from "@/lib/staff-credit";
+import { setCustomerMarketingOptIn } from "@/lib/staff-hr";
 import { requireSession } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 
@@ -31,6 +32,7 @@ export function StaffCreditPanel() {
   const [snapshot, setSnapshot] = useState<CustomerCreditSnapshot | null>(null);
   const [limitInput, setLimitInput] = useState("");
   const [hold, setHold] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -98,6 +100,7 @@ export function StaffCreditPanel() {
     setSnapshot(null);
     setLimitInput(String(loaded.data.credit_limit));
     setHold(loaded.data.credit_hold);
+    setMarketingOptIn(loaded.data.marketing_opt_in);
     setQuery(hit.display_name);
     setHits([]);
   }
@@ -266,10 +269,61 @@ export function StaffCreditPanel() {
                   <option value="yes">On hold</option>
                 </select>
               </label>
+              <label className={styles.field}>
+                Marketing opt-in
+                <select
+                  value={marketingOptIn ? "yes" : "no"}
+                  onChange={(e) => setMarketingOptIn(e.target.value === "yes")}
+                  disabled={busy}
+                >
+                  <option value="no">Opted out</option>
+                  <option value="yes">Opted in</option>
+                </select>
+              </label>
             </div>
+            <p className={styles.muted}>
+              Promo cooldown stamp is worker-only
+              {selected.last_promotional_message_at
+                ? ` · last promo ${new Date(selected.last_promotional_message_at).toLocaleString()}`
+                : ""}
+              .
+            </p>
             <div className={styles.formActions}>
               <button type="submit" className={styles.btn} disabled={busy}>
                 Save via set_customer_credit
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() => {
+                  void (async () => {
+                    if (!selected) return;
+                    const client = createWebClient();
+                    if (!client) return;
+                    setBusy(true);
+                    const res = await setCustomerMarketingOptIn(client, {
+                      customerId: selected.id,
+                      optIn: marketingOptIn,
+                    });
+                    setBusy(false);
+                    if (!res.ok) {
+                      setMessage(res.error);
+                      return;
+                    }
+                    setSelected({
+                      ...selected,
+                      marketing_opt_in: marketingOptIn,
+                    });
+                    setMessage(
+                      marketingOptIn
+                        ? "Marketing opt-in enabled (cooldown still applies)."
+                        : "Marketing opt-in cleared.",
+                    );
+                  })();
+                }}
+              >
+                Save marketing opt-in
               </button>
               {hold ? (
                 <button

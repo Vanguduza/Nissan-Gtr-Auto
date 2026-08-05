@@ -1,14 +1,10 @@
 package co.zw.nissangtr.delivery.auth
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,13 +13,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.delivery.rpc.SupabaseRpcClient
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.ui.shop.ShopPrimaryButton
+import co.zw.nissangtr.ui.shop.ShopProfileAvatar
+import co.zw.nissangtr.ui.shop.ShopSecondaryButton
+import co.zw.nissangtr.ui.theme.GtrColors
 
 @Composable
 fun SignInScreen(
@@ -32,27 +32,28 @@ fun SignInScreen(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "Driver sign in",
-    subtitle: String = "Staff role: driver",
+    subtitle: String = "Nissan GTR Auto · delivery",
     sessionViewModel: AuthSessionViewModel? = null,
 ) {
     if (supabase == null) {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        // Shopping-By-KMP DefaultScreenUI — full ShopKit density (no ShopStaff*).
+        ShopDefaultScreen(
+            title = title,
+            subtitle = subtitle,
+            modifier = modifier,
         ) {
-            Text(title, style = MaterialTheme.typography.headlineMedium)
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+            ShopProfileAvatar(initials = "DR")
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 "RPC Fake mode — GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (allowSkip) {
-                Button(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                    Text("Continue without signing in")
-                }
+                ShopPrimaryButton(
+                    label = "Continue without signing in",
+                    onClick = onSkip,
+                )
             }
         }
         return
@@ -62,18 +63,17 @@ fun SignInScreen(
         ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
     val state by vm.signIn.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    ShopDefaultScreen(
+        title = title,
+        subtitle = subtitle,
+        modifier = modifier,
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+        ShopProfileAvatar(initials = state.email.take(2).ifBlank { "DR" })
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "Session persisted by supabase-kt Auth — no JWTs in BuildConfig.",
+            "Session via supabase-kt Auth — no JWTs in BuildConfig.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = state.email,
@@ -83,6 +83,7 @@ fun SignInScreen(
             singleLine = true,
             enabled = !state.busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            shape = MaterialTheme.shapes.small,
         )
         OutlinedTextField(
             value = state.password,
@@ -93,22 +94,19 @@ fun SignInScreen(
             enabled = !state.busy,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            shape = MaterialTheme.shapes.small,
         )
-        Button(
+        ShopPrimaryButton(
+            label = if (state.busy) "Signing in…" else "Sign in",
             onClick = vm::signIn,
-            modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
-        ) {
-            Text(if (state.busy) "Signing in…" else "Sign in")
-        }
+        )
         if (allowSkip) {
-            OutlinedButton(
+            ShopSecondaryButton(
+                label = "Continue without signing in",
                 onClick = onSkip,
-                modifier = Modifier.fillMaxWidth(),
                 enabled = !state.busy,
-            ) {
-                Text("Continue without signing in")
-            }
+            )
         }
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
@@ -146,14 +144,16 @@ fun AuthGate(
 
     when (val g = gate) {
         is AuthGateState.Checking -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
+            ShopDefaultScreen(
+                title = "Nissan GTR Auto",
+                subtitle = "Driver",
             ) {
                 Text("Restoring session…", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Shopping-By-KMP splash → auth gate",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GtrColors.SilverDim,
+                )
             }
         }
         is AuthGateState.NeedsSignIn -> {
@@ -165,22 +165,18 @@ fun AuthGate(
             )
         }
         is AuthGateState.WrongRole -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            ShopDefaultScreen(
+                title = "Driver access required",
+                subtitle = "Wrong staff role",
             ) {
-                Text("Driver access required", style = MaterialTheme.typography.headlineSmall)
+                ShopProfileAvatar(initials = "!")
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     "Signed in but staff roles ${g.roles} do not include driver. " +
                         "Use a driver account or ask admin to grant role.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Button(onClick = vm::signOut, modifier = Modifier.fillMaxWidth()) {
-                    Text("Sign out")
-                }
+                ShopPrimaryButton(label = "Sign out", onClick = vm::signOut)
             }
         }
         is AuthGateState.SignedIn -> {

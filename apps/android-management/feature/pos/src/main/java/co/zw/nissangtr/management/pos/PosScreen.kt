@@ -2,38 +2,76 @@ package co.zw.nissangtr.management.pos
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
+import co.zw.nissangtr.management.pos.offline.InMemoryOfflinePosStore
+import co.zw.nissangtr.management.pos.offline.OfflinePosConnectivity
+import co.zw.nissangtr.management.pos.offline.OfflinePosRpcHolder
+import co.zw.nissangtr.management.pos.offline.OfflinePosSyncEngine
+import co.zw.nissangtr.management.pos.offline.OfflinePosSyncWorker
+import co.zw.nissangtr.management.pos.offline.SqlCipherOfflinePosStore
 import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.FulfillmentMode
 import co.zw.nissangtr.management.rpc.RpcClient
+import co.zw.nissangtr.ui.shop.ShopHonestEmpty
+import co.zw.nissangtr.ui.shop.ShopListCard
+import co.zw.nissangtr.ui.shop.ShopOrderBox
+import co.zw.nissangtr.ui.shop.ShopPresenceBanner
+import co.zw.nissangtr.ui.shop.ShopPrimaryButton
+import co.zw.nissangtr.ui.shop.ShopProductCard
+import co.zw.nissangtr.ui.shop.ShopSecondaryButton
+import co.zw.nissangtr.ui.shop.ShopStaffPanel
+import co.zw.nissangtr.ui.shop.ShopStaffScreen
+import co.zw.nissangtr.ui.shop.ShopStatusChip
+import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
- * Sales POS workspace: standalone search/catalog/cart/checkout + optional companion.
- * QR via bridges only — never browser/HTML5 scan. No ZIMRA.
+ * Tablet counter POS: two-pane landscape layout — LEFT: catalog/search + every POS function
+ * entry point (till setup, companion, quotations, discount/void/refund/price-override
+ * triggers, offline status); RIGHT: the active cart (line items, totals, tender/checkout).
+ * Falls back to a stacked single column below [TWO_PANE_MIN_WIDTH] (phone-width fallback —
+ * `feature/pos` has no separate tablet source set, see `app/src/tablet` for the flavor that
+ * only overrides kiosk lock-task wiring, not this screen).
+ * QR / print via bridges only — never browser/HTML5 / Web Bluetooth. No ZIMRA.
  */
 @Composable
 fun PosScreen(
@@ -44,47 +82,55 @@ fun PosScreen(
     isSalesHome: Boolean = false,
     onOpenHub: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    viewModel: PosViewModel = viewModel(
-        factory = PosViewModel.factory(rpc, qr, printer),
-    ),
 ) {
+    val context = LocalContext.current
+    val offlineStore = remember {
+        runCatching { SqlCipherOfflinePosStore.open(context) }
+            .getOrElse { InMemoryOfflinePosStore() }
+    }
+    DisposableEffect(rpc) {
+        OfflinePosRpcHolder.set(rpc)
+        onDispose { OfflinePosRpcHolder.set(null) }
+    }
+    val offlineEngine = remember(offlineStore) {
+        OfflinePosSyncEngine(
+            rpc = rpc,
+            store = offlineStore,
+            deviceId = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID,
+            ) ?: "tablet",
+        )
+    }
+    val onlineFlow = remember { OfflinePosConnectivity.onlineFlow(context) }
+    val viewModel: PosViewModel = viewModel(
+        factory = PosViewModel.factory(rpc, qr, printer, offlineEngine, onlineFlow),
+    )
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(isSalesHome) {
         viewModel.setSalesHome(isSalesHome)
     }
+    LaunchedEffect(state.pendingOfflineSales, state.isOffline) {
+        if (!state.isOffline && state.pendingOfflineSales > 0) {
+            OfflinePosSyncWorker.enqueue(context)
+        }
+    }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ShopStaffScreen(
+        title = "POS",
+        subtitle = "Companion · Bridge QR/print",
+        modifier = modifier,
+        scrollable = false,
+        onBack = onBack,
     ) {
         Text(
-            if (isSalesHome) "POS — Sales till" else "POS — Cart / Checkout",
-            style = MaterialTheme.typography.headlineSmall,
+            "Counter till · Bridge QR / ESC/POS · No ZIMRA",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = state.mode == PosWorkspaceMode.Till,
-                onClick = { viewModel.setMode(PosWorkspaceMode.Till) },
-                label = { Text("Till") },
-                enabled = !state.busy,
-            )
-            FilterChip(
-                selected = state.mode == PosWorkspaceMode.Companion,
-                onClick = { viewModel.setMode(PosWorkspaceMode.Companion) },
-                label = { Text("Scan companion") },
-                enabled = !state.busy,
-            )
-        }
-
-        when (state.mode) {
-            PosWorkspaceMode.Till -> TillSection(state = state, viewModel = viewModel)
-            PosWorkspaceMode.Companion -> CompanionSection(state = state, viewModel = viewModel)
-        }
+        PosWorkspace(state = state, viewModel = viewModel)
 
         state.lastBindMessage?.let {
             Text("Last bind: $it", style = MaterialTheme.typography.bodyMedium)
@@ -99,267 +145,724 @@ fun PosScreen(
             Text(it, color = MaterialTheme.colorScheme.error)
         }
 
-        if (isSalesHome) {
-            OutlinedButton(
-                onClick = { onOpenHub?.invoke() ?: onBack() },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("All modules (hub)") }
+        if (onOpenHub != null) {
+            ShopSecondaryButton(
+                label = if (isSalesHome) "All modules (hub)" else "Hub",
+                onClick = { onOpenHub.invoke() },
+            )
+        }
+    }
+
+    if (state.managerPrompt != null) {
+        ManagerAuthDialog(state = state, viewModel = viewModel)
+    }
+}
+
+private val TWO_PANE_MIN_WIDTH = 700.dp
+
+/**
+ * Outer two-pane split. Left ~60% hosts catalog + every non-cart POS function; right ~40%
+ * is always the active cart (line items / totals / tender / checkout) regardless of which
+ * left-pane function is open, so a cashier can companion-pair or browse quotations without
+ * losing sight of the cart in progress.
+ */
+@Composable
+private fun PosWorkspace(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val twoPane = maxWidth >= TWO_PANE_MIN_WIDTH
+        if (twoPane) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 480.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                LeftFunctionsPane(
+                    state = state,
+                    viewModel = viewModel,
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxHeight(),
+                )
+                RightCartPane(
+                    state = state,
+                    viewModel = viewModel,
+                    modifier = Modifier
+                        .weight(0.4f)
+                        .fillMaxHeight(),
+                )
+            }
         } else {
-            OutlinedButton(onClick = onBack) { Text("Back") }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LeftFunctionsPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
+                RightCartPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+/**
+ * LEFT pane: offline status, mode switcher (Till / Companion / Quotations), and every
+ * function entry point that isn't part of the cart itself (catalog, setup, discount/void/
+ * refund/price-override triggers, printer, park/resume, companion pairing).
+ */
+@Composable
+private fun LeftFunctionsPane(
+    state: PosUiState,
+    viewModel: PosViewModel,
+    modifier: Modifier = Modifier,
+) {
+    ShopStaffPanel(modifier = modifier, title = null) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (state.isOffline || state.pendingOfflineSales > 0) {
+                OfflineStatusBanner(state = state, viewModel = viewModel)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = state.mode == PosWorkspaceMode.Till,
+                    onClick = { viewModel.setMode(PosWorkspaceMode.Till) },
+                    label = { Text("Till") },
+                    enabled = !state.busy,
+                    shape = MaterialTheme.shapes.extraSmall,
+                )
+                FilterChip(
+                    selected = state.mode == PosWorkspaceMode.Companion,
+                    onClick = { viewModel.setMode(PosWorkspaceMode.Companion) },
+                    label = { Text("Scan companion") },
+                    enabled = !state.busy && !state.isOffline,
+                    shape = MaterialTheme.shapes.extraSmall,
+                )
+                FilterChip(
+                    selected = state.showQuotes,
+                    onClick = viewModel::toggleQuotes,
+                    label = { Text("Quotations") },
+                    enabled = !state.busy && !state.isOffline,
+                    shape = MaterialTheme.shapes.extraSmall,
+                )
+            }
+
+            when {
+                state.showQuotes -> QuotesPanel(state = state, viewModel = viewModel)
+                state.mode == PosWorkspaceMode.Till -> TillFunctionsSection(state = state, viewModel = viewModel)
+                else -> CompanionSection(state = state, viewModel = viewModel)
+            }
         }
     }
 }
 
 @Composable
-private fun TillSection(
+private fun OfflineStatusBanner(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
-    Text("Warehouse", style = MaterialTheme.typography.titleSmall)
-    if (state.warehouses.isNotEmpty()) {
-        state.warehouses.forEach { wh ->
-            FilterChip(
-                selected = state.warehouseId == wh.id,
-                onClick = { viewModel.selectWarehouse(wh) },
-                label = { Text("${wh.code} — ${wh.name}") },
-                enabled = !state.busy,
-            )
-        }
-    }
-    OutlinedTextField(
-        value = state.warehouseId,
-        onValueChange = viewModel::onWarehouseIdChange,
-        label = { Text("Warehouse UUID") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    OutlinedTextField(
-        value = state.customerQuery,
-        onValueChange = viewModel::onCustomerQueryChange,
-        label = { Text("Named customer search") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    OutlinedButton(
-        onClick = viewModel::searchCustomers,
-        enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth(),
-    ) { Text("Search customers") }
-    state.customerHits.forEach { c ->
-        Text(
-            c.displayName,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { viewModel.selectCustomer(c) }
-                .padding(vertical = 4.dp),
-            style = MaterialTheme.typography.bodyMedium,
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ShopPresenceBanner(
+            label = if (state.isOffline) {
+                "OFFLINE — cash walk-in sales only · list price from snapshot"
+            } else {
+                "Online · ${state.pendingOfflineSales} sale(s) queued for sync"
+            },
+            detail = "Blocked offline: discount / refund / EcoCash·Paynow / companion / quotes / credit customers",
+            accent = if (state.isOffline) GtrColors.Danger else GtrColors.Accent,
         )
-    }
-    if (state.customerName.isNotBlank()) {
-        Text(
-            "Selected: ${state.customerName}",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        TextButton(onClick = viewModel::clearCustomer, enabled = !state.busy) {
-            Text("Clear customer")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = viewModel::pullOfflineSnapshot,
+                enabled = !state.busy && !state.isOffline,
+            ) { Text("Pull snapshot") }
+            OutlinedButton(
+                onClick = viewModel::syncOfflineQueue,
+                enabled = !state.busy && !state.isOffline,
+            ) { Text("Sync queue") }
         }
     }
-    OutlinedTextField(
-        value = state.customerId,
-        onValueChange = viewModel::onCustomerIdChange,
-        label = { Text("Customer UUID (optional / from search)") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
+}
 
-    Text("Currency", style = MaterialTheme.typography.titleSmall)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CurrencyCode.entries.forEach { code ->
-            FilterChip(
-                selected = state.currency == code,
-                onClick = { viewModel.onCurrencyChange(code) },
-                label = { Text(code.rpcValue) },
-                enabled = !state.busy,
-            )
-        }
+/** Till mode content for the left pane: setup → catalog → cart-level action triggers. */
+@Composable
+private fun TillFunctionsSection(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CartSetupSection(state = state, viewModel = viewModel)
+        CatalogPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
+        CartActionTriggers(state = state, viewModel = viewModel)
+        PrinterSection(state = state, viewModel = viewModel)
+        ParkedAndPairingSection(state = state, viewModel = viewModel)
     }
-    Text("Fulfillment", style = MaterialTheme.typography.titleSmall)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FulfillmentMode.entries.forEach { mode ->
-            FilterChip(
-                selected = state.fulfillmentMode == mode,
-                onClick = { viewModel.onFulfillmentModeChange(mode) },
-                label = { Text(mode.rpcValue) },
-                enabled = !state.busy,
-            )
-        }
-    }
+}
 
-    Button(
-        onClick = viewModel::createCart,
-        enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth(),
-    ) { Text("Open cart") }
-
-    if (state.cartId.isNotBlank()) {
-        Text("Cart: ${state.cartId}", style = MaterialTheme.typography.bodySmall)
-    }
-
-    HorizontalDivider()
-    Text("Parts search / catalog", style = MaterialTheme.typography.titleMedium)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CatalogSearchMode.entries.forEach { mode ->
-            FilterChip(
-                selected = state.searchMode == mode,
-                onClick = { viewModel.onSearchModeChange(mode) },
-                label = { Text(mode.rpcValue) },
-                enabled = !state.busy,
-            )
-        }
-    }
-    OutlinedTextField(
-        value = state.searchQuery,
-        onValueChange = viewModel::onSearchQueryChange,
-        label = { Text("Query (OEM / VIN / model / PNC)") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    OutlinedTextField(
-        value = state.addQty,
-        onValueChange = viewModel::onAddQtyChange,
-        label = { Text("Qty") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = viewModel::searchCatalog, enabled = !state.busy) {
-            Text("Search")
-        }
-        OutlinedButton(onClick = viewModel::tillScanAddLine, enabled = !state.busy) {
-            Text("Scan QR → add")
-        }
-    }
-
-    state.searchHits.forEach { hit ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = !state.busy) { viewModel.addPartFromCatalog(hit) }
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(hit.oemPartNumber, style = MaterialTheme.typography.bodyMedium)
-                val meta = listOfNotNull(
-                    hit.categoryName,
-                    hit.subcategoryName,
-                    hit.pncCode?.let { "PNC $it" },
-                ).joinToString(" · ")
-                if (meta.isNotBlank()) {
-                    Text(meta, style = MaterialTheme.typography.bodySmall)
+@Composable
+private fun CatalogPane(
+    state: PosUiState,
+    viewModel: PosViewModel,
+    modifier: Modifier = Modifier,
+) {
+    ShopStaffPanel(modifier = modifier, title = "Catalog") {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CatalogSearchMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = state.searchMode == mode,
+                        onClick = { viewModel.onSearchModeChange(mode) },
+                        label = { Text(mode.rpcValue) },
+                        enabled = !state.busy,
+                    )
                 }
             }
-            TextButton(
-                onClick = { viewModel.addPartFromCatalog(hit) },
+            OutlinedTextField(
+                value = state.searchQuery,
+                onValueChange = viewModel::onSearchQueryChange,
+                label = { Text("OEM / VIN / model / PNC") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 enabled = !state.busy,
-            ) { Text("Add") }
-        }
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ShopPrimaryButton(
+                    label = "Search",
+                    onClick = viewModel::searchCatalog,
+                    enabled = !state.busy,
+                    modifier = Modifier.weight(1f),
+                )
+                ShopSecondaryButton(
+                    label = "Scan QR",
+                    onClick = viewModel::tillScanAddLine,
+                    enabled = !state.busy,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 140.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 180.dp, max = 360.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(state.searchHits, key = { it.oemPartNumber + (it.pncCode ?: "") }) { hit ->
+                    val meta = listOfNotNull(
+                        hit.categoryName,
+                        hit.pncCode?.let { "PNC $it" },
+                    ).joinToString(" · ").ifBlank { null }
+                    ShopProductCard(
+                        title = hit.oemPartNumber,
+                        subtitle = meta,
+                        priceLabel = hit.saleableQty?.let { "Stock ${formatQty(it)}" } ?: "Stock —",
+                        onClick = { if (!state.busy) viewModel.addPartFromCatalog(hit) },
+                        modifier = Modifier.fillMaxWidth(),
+                        cardHeight = 160.dp,
+                    )
+                }
+            }
+            if (state.searchHits.isEmpty()) {
+                ShopHonestEmpty(
+                    title = "Empty catalog grid",
+                    body = "Search or scan to fill the catalog grid",
+                )
+            }
     }
+}
 
-    HorizontalDivider()
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text("Cart lines", style = MaterialTheme.typography.titleMedium)
-        TextButton(onClick = viewModel::refreshCart, enabled = !state.busy) {
-            Text("Refresh")
-        }
+/** Warehouse / currency / fulfillment / customer selection + cart-open trigger. */
+@Composable
+private fun CartSetupSection(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    ShopStaffPanel(title = "Till setup") {
+            if (state.warehouses.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    state.warehouses.forEach { wh ->
+                        FilterChip(
+                            selected = state.warehouseId == wh.id,
+                            onClick = { viewModel.selectWarehouse(wh) },
+                            label = { Text(wh.code) },
+                            enabled = !state.busy,
+                        )
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CurrencyCode.entries.forEach { code ->
+                    FilterChip(
+                        selected = state.currency == code,
+                        onClick = { viewModel.onCurrencyChange(code) },
+                        label = { Text(code.rpcValue) },
+                        enabled = !state.busy,
+                    )
+                }
+                FulfillmentMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = state.fulfillmentMode == mode,
+                        onClick = { viewModel.onFulfillmentModeChange(mode) },
+                        label = { Text(mode.label) },
+                        enabled = !state.busy,
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = state.customerQuery,
+                onValueChange = viewModel::onCustomerQueryChange,
+                label = { Text("Customer") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = viewModel::searchCustomers,
+                    enabled = !state.busy,
+                    modifier = Modifier.height(48.dp),
+                ) { Text("Find") }
+                if (state.customerName.isNotBlank()) {
+                    TextButton(onClick = viewModel::clearCustomer) {
+                        Text(state.customerName)
+                    }
+                }
+            }
+            state.customerHits.take(4).forEach { c ->
+                Text(
+                    c.displayName,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.selectCustomer(c) }
+                        .padding(vertical = 6.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+
+            if (state.cartId.isBlank()) {
+                ShopPrimaryButton(
+                    label = "Open cart",
+                    onClick = viewModel::createCart,
+                    enabled = !state.busy,
+                )
+            } else {
+                Text("Cart ${state.cartId.take(8)}…", style = MaterialTheme.typography.bodySmall)
+            }
     }
-    if (state.cartLines.isEmpty()) {
-        Text("No lines yet — search or scan to add", style = MaterialTheme.typography.bodySmall)
-    } else {
-        state.cartLines.forEach { line ->
+}
+
+/** Park / quote / discount / void / refund — cart-level function triggers (manager reauth
+ * for discount/void/refund gates through [ManagerAuthDialog]; per-line price override stays
+ * attached to its line in [RightCartPane]). */
+@Composable
+private fun CartActionTriggers(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    ShopStaffPanel(title = "Cart actions") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = viewModel::parkCart,
+                    enabled = !state.busy,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                ) { Text("Park") }
+                OutlinedButton(
+                    onClick = viewModel::createQuotation,
+                    enabled = !state.busy,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                ) { Text("Quote") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = viewModel::requestDiscount,
+                    enabled = !state.busy,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                ) { Text("Discount") }
+                OutlinedButton(
+                    onClick = viewModel::requestVoidCart,
+                    enabled = !state.busy,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                ) { Text("Void") }
+            }
+            if (!state.lastInvoiceId.isNullOrBlank()) {
+                OutlinedButton(
+                    onClick = viewModel::requestRefund,
+                    enabled = !state.busy,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                ) { Text("Refund via finance pipeline") }
+            }
+    }
+}
+
+@Composable
+private fun PrinterSection(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    ShopStaffPanel(title = "ESC/POS (Bluetooth bridge)") {
+            OutlinedButton(
+                onClick = viewModel::refreshBondedPrinters,
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("List bonded printers") }
+            state.bondedPrinters.forEach { device ->
+                Text(
+                    "${device.name} · ${device.address}",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !state.busy) {
+                            viewModel.selectBondedPrinter(device)
+                        }
+                        .padding(vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+            OutlinedTextField(
+                value = state.printerMac,
+                onValueChange = viewModel::onPrinterMacChange,
+                label = { Text("Printer MAC") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedButton(
+                onClick = viewModel::connectPrinter,
+                enabled = !state.busy,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+            ) {
+                Text(if (state.printerConnected) "Printer connected" else "Connect printer")
+            }
+    }
+}
+
+/** Parked-cart resume + owner-side companion pairing code (create/revoke). */
+@Composable
+private fun ParkedAndPairingSection(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    ShopStaffPanel(title = "Park / companion") {
+            OutlinedTextField(
+                value = state.parkedCartId,
+                onValueChange = viewModel::onParkedCartIdChange,
+                label = { Text("Resume parked cart UUID") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedButton(
+                onClick = viewModel::resumeParkedCart,
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Resume parked") }
+
+            if (state.pairingCodeDisplay.isNotBlank()) {
+                Text("Pairing: ${state.pairingCodeDisplay}", style = MaterialTheme.typography.headlineMedium)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = viewModel::createPairingSession, enabled = !state.busy) {
+                    Text("Companion code")
+                }
+                TextButton(onClick = viewModel::revokePairingSession, enabled = !state.busy) {
+                    Text("Revoke")
+                }
+            }
+    }
+}
+
+/** RIGHT pane: the active cart only — line items, totals, tender/receipt, checkout. */
+@Composable
+private fun RightCartPane(
+    state: PosUiState,
+    viewModel: PosViewModel,
+    modifier: Modifier = Modifier,
+) {
+    val cartTotal = PosCartLineOps.cartTotal(state.cartLines)
+    ShopStaffPanel(modifier = modifier, title = "Cart") {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text(
-                "${line.oemPartNumber ?: line.stockItemId.take(8)}  ×${line.qty}  " +
-                    "@ ${line.unitPrice} = ${line.lineTotal}" +
-                    if (line.isCoreCharge) " (core)" else "",
+                if (state.cartId.isBlank()) {
+                    "No cart open — use the left panel to open one"
+                } else {
+                    "Cart ${state.cartId.take(8)}…"
+                },
                 style = MaterialTheme.typography.bodySmall,
+            )
+
+            HorizontalDivider()
+            state.cartLines.forEach { line ->
+                ShopListCard(
+                    title = line.oemPartNumber ?: line.stockItemId.take(8),
+                    subtitle = "@ ${line.unitPrice} = ${line.lineTotal}" +
+                        if (line.isCoreCharge) " (core)" else "",
+                    onClick = {},
+                    trailing = if (!line.isCoreCharge) {
+                        {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(
+                                    onClick = { viewModel.requestPriceOverride(line) },
+                                    enabled = !state.busy,
+                                ) { Text("Price") }
+                                OutlinedButton(
+                                    onClick = { viewModel.bumpLineQty(line, -1.0) },
+                                    enabled = !state.busy,
+                                    modifier = Modifier.height(40.dp),
+                                ) { Text("−") }
+                                Text(
+                                    "×${line.qty.toInt()}",
+                                    modifier = Modifier.padding(horizontal = 6.dp),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                OutlinedButton(
+                                    onClick = { viewModel.bumpLineQty(line, 1.0) },
+                                    enabled = !state.busy,
+                                    modifier = Modifier.height(40.dp),
+                                ) { Text("+") }
+                            }
+                        }
+                    } else {
+                        null
+                    },
+                    badges = if (line.isCoreCharge) {
+                        { ShopStatusChip(label = "core", background = GtrColors.Mist) }
+                    } else {
+                        null
+                    },
+                )
+            }
+            if (state.cartLines.isEmpty()) {
+                ShopHonestEmpty(
+                    title = "Empty cart",
+                    body = "Tap catalog tiles to add lines",
+                )
+            }
+            Text(
+                "Total ${state.currency.rpcValue} ${"%.2f".format(cartTotal)}",
+                style = MaterialTheme.typography.headlineSmall,
+            )
+
+            HorizontalDivider()
+            Text("Tender / receipt", style = MaterialTheme.typography.titleSmall)
+            OutlinedTextField(
+                value = state.receiptEmail,
+                onValueChange = viewModel::onReceiptEmailChange,
+                label = { Text("Receipt email") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedTextField(
+                value = state.receiptWhatsapp,
+                onValueChange = viewModel::onReceiptWhatsappChange,
+                label = { Text("Receipt WhatsApp") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            state.tenderLines.forEachIndexed { index, row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("cash", "ecocash", "paynow").forEach { t ->
+                        FilterChip(
+                            selected = row.tender == t,
+                            onClick = { viewModel.onTenderChange(index, t) },
+                            label = { Text(t) },
+                            enabled = !state.busy,
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = row.amount,
+                    onValueChange = { viewModel.onTenderAmountChange(index, it) },
+                    label = { Text("Amount (optional split)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
+            }
+
+            ShopPrimaryButton(
+                label = "Checkout",
+                onClick = viewModel::checkout,
+                enabled = !state.busy,
             )
         }
     }
+}
 
-    HorizontalDivider()
-    Text("Checkout — receipt contacts", style = MaterialTheme.typography.titleMedium)
-    Text(
-        "WhatsApp and/or email for PDF receipt. Unique match binds registered/trade account; " +
-            "otherwise walk-in.",
-        style = MaterialTheme.typography.bodySmall,
+/** Manager reauth overlay for discount / void / refund / price-override — modal by design so
+ * it blocks the whole till regardless of which left-pane function triggered it. */
+@Composable
+private fun ManagerAuthDialog(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    val title = when (state.managerPrompt) {
+        ManagerPrompt.Discount -> "Manager approve discount"
+        ManagerPrompt.VoidCart -> "Manager approve void"
+        ManagerPrompt.Refund -> "Manager approve refund (finance pipeline)"
+        ManagerPrompt.PriceOverride -> "Manager approve price override"
+        null -> "Manager approve"
+    }
+    AlertDialog(
+        onDismissRequest = { if (!state.busy) viewModel.dismissManagerPrompt() },
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Admin or shop manager reauth — attendant cannot self-approve.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (state.managerPrompt == ManagerPrompt.Discount) {
+                    OutlinedTextField(
+                        value = state.discountPercent,
+                        onValueChange = viewModel::onDiscountPercentChange,
+                        label = { Text("Discount %") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                }
+                if (state.managerPrompt == ManagerPrompt.PriceOverride) {
+                    OutlinedTextField(
+                        value = state.overrideUnitPrice,
+                        onValueChange = viewModel::onOverrideUnitPriceChange,
+                        label = { Text("New unit price") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                }
+                OutlinedTextField(
+                    value = state.managerIdentifier,
+                    onValueChange = viewModel::onManagerIdentifierChange,
+                    label = { Text("Manager emp# / email / phone") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                OutlinedTextField(
+                    value = state.managerPassword,
+                    onValueChange = viewModel::onManagerPasswordChange,
+                    label = { Text("Manager password") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = viewModel::confirmManagerAction,
+                enabled = !state.busy,
+            ) { Text(if (state.busy) "Approving…" else "Approve") }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = viewModel::dismissManagerPrompt,
+                enabled = !state.busy,
+            ) { Text("Cancel") }
+        },
     )
-    OutlinedTextField(
-        value = state.receiptEmail,
-        onValueChange = viewModel::onReceiptEmailChange,
-        label = { Text("Receipt email") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    OutlinedTextField(
-        value = state.receiptWhatsapp,
-        onValueChange = viewModel::onReceiptWhatsappChange,
-        label = { Text("Receipt WhatsApp (E.164)") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    Button(
-        onClick = viewModel::checkout,
-        enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth(),
-    ) { Text("Checkout") }
+}
 
-    HorizontalDivider()
-    Text("Optional phone companion", style = MaterialTheme.typography.titleMedium)
-    if (state.pairingCodeDisplay.isNotBlank()) {
-        Text(
-            "Code: ${state.pairingCodeDisplay}",
-            style = MaterialTheme.typography.headlineMedium,
+private fun formatQty(qty: Double): String =
+    if (qty == qty.toLong().toDouble()) qty.toLong().toString() else "%.1f".format(qty)
+
+@Composable
+private fun QuotesPanel(
+    state: PosUiState,
+    viewModel: PosViewModel,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Quotations", style = MaterialTheme.typography.titleLarge)
+        OutlinedTextField(
+            value = state.quoteNotes,
+            onValueChange = viewModel::onQuoteNotesChange,
+            label = { Text("Notes (for new quote from cart)") },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.busy,
         )
-        Text("Expires: ${state.pairingExpiresAt}", style = MaterialTheme.typography.bodySmall)
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = viewModel::createPairingSession, enabled = !state.busy) {
-            Text("Show pairing code")
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("print", "email", "sms", "whatsapp").forEach { ch ->
+                FilterChip(
+                    selected = state.quoteSendChannel == ch,
+                    onClick = { viewModel.onQuoteSendChannelChange(ch) },
+                    label = { Text(ch) },
+                    enabled = !state.busy,
+                )
+            }
         }
-        OutlinedButton(onClick = viewModel::revokePairingSession, enabled = !state.busy) {
-            Text("Revoke")
-        }
-    }
+        OutlinedTextField(
+            value = state.quoteSendContact,
+            onValueChange = viewModel::onQuoteSendContactChange,
+            label = { Text("Send contact (email/phone)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !state.busy,
+        )
+        Button(
+            onClick = viewModel::createQuotation,
+            enabled = !state.busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+        ) { Text("Create quote from current cart") }
 
-    HorizontalDivider()
-    Text("ESC/POS printer (optional)", style = MaterialTheme.typography.titleMedium)
-    OutlinedTextField(
-        value = state.printerMac,
-        onValueChange = viewModel::onPrinterMacChange,
-        label = { Text("Printer Bluetooth MAC") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    OutlinedButton(
-        onClick = viewModel::connectPrinter,
-        enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(if (state.printerConnected) "Printer connected — reconnect" else "Connect printer")
-    }
-    state.lastQrPayload?.let {
-        Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
+        if (state.quotations.isEmpty()) {
+            Text("No quotations yet", style = MaterialTheme.typography.bodySmall)
+        }
+        state.quotations.forEach { q ->
+            ShopOrderBox(
+                title = "${q.documentNumber ?: q.id.take(8)} · ${q.status}",
+                subtitle = "${q.lineCount} lines · ${q.createdAt ?: ""}",
+                onClick = {},
+                metaLabel = q.currency.rpcValue,
+                metaValue = "%.2f".format(q.total),
+                badges = {
+                    ShopStatusChip(label = q.status)
+                },
+                expanded = true,
+                expandedContent = {
+                    if (q.status in setOf("issued", "sent")) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ShopSecondaryButton(
+                                label = "Send",
+                                onClick = { viewModel.sendQuotation(q.id) },
+                                enabled = !state.busy,
+                                modifier = Modifier.weight(1f),
+                            )
+                            ShopPrimaryButton(
+                                label = "Convert → sale",
+                                onClick = { viewModel.convertQuotation(q.id) },
+                                enabled = !state.busy,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -368,45 +871,51 @@ private fun CompanionSection(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
-    OutlinedTextField(
-        value = state.companionPairingInput,
-        onValueChange = viewModel::onCompanionPairingInputChange,
-        label = { Text("6-digit pairing code") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    Button(
-        onClick = viewModel::claimCompanionSession,
-        enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth(),
-    ) { Text("Claim session") }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = state.companionPairingInput,
+            onValueChange = viewModel::onCompanionPairingInputChange,
+            label = { Text("6-digit pairing code") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !state.busy,
+        )
+        Button(
+            onClick = viewModel::claimCompanionSession,
+            enabled = !state.busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+        ) { Text("Claim session") }
 
-    if (state.companionSessionId.isNotBlank()) {
-        Text("Session: ${state.companionSessionId}", style = MaterialTheme.typography.bodySmall)
-    }
-    OutlinedTextField(
-        value = state.companionCartId,
-        onValueChange = viewModel::onCompanionCartIdChange,
-        label = { Text("Cart UUID (auto after claim)") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    OutlinedTextField(
-        value = state.addQty,
-        onValueChange = viewModel::onAddQtyChange,
-        label = { Text("Qty") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !state.busy,
-    )
-    Button(
-        onClick = viewModel::companionScanAddLine,
-        enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth(),
-    ) { Text("Scan inventory QR → add line") }
-    state.lastQrPayload?.let {
-        Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
+        if (state.companionSessionId.isNotBlank()) {
+            Text("Session: ${state.companionSessionId}", style = MaterialTheme.typography.bodySmall)
+        }
+        OutlinedTextField(
+            value = state.companionCartId,
+            onValueChange = viewModel::onCompanionCartIdChange,
+            label = { Text("Cart UUID (auto after claim)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !state.busy,
+        )
+        OutlinedTextField(
+            value = state.addQty,
+            onValueChange = viewModel::onAddQtyChange,
+            label = { Text("Qty") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !state.busy,
+        )
+        Button(
+            onClick = viewModel::companionScanAddLine,
+            enabled = !state.busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+        ) { Text("Scan inventory QR → add line") }
+        state.lastQrPayload?.let {
+            Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }

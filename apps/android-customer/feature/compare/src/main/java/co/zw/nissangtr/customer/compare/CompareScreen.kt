@@ -4,12 +4,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.ui.shop.ShopSectionHeader
 
 /**
  * Compare tray — auth RPCs, or [GuestCompareStore] when signed out.
@@ -43,15 +43,13 @@ fun CompareScreen(
         factory = CompareViewModel.factory(rpc, context, isSignedIn),
     )
     val state by viewModel.state.collectAsState()
+    val sharp = MaterialTheme.shapes.extraSmall
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("Compare", style = MaterialTheme.typography.headlineSmall)
+    ShopDefaultScreen(
+        title = "Compare",
+        subtitle = "Attribute matrix",
+        onBack = onBack,
+        modifier = modifier) {
         Text(
             if (state.usingGuestStore) {
                 "Guest mode — OEMs stored on-device (SharedPreferences)."
@@ -59,29 +57,32 @@ fun CompareScreen(
                 "Synced via ${RpcNames.LIST_CUSTOMER_COMPARE_ITEMS} / add / remove."
             },
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Text("Compare list", style = MaterialTheme.typography.titleSmall)
+        ShopSectionHeader(title = "Compare list", actionLabel = null)
         if (state.items.isEmpty()) {
             Text("No items to compare", style = MaterialTheme.typography.bodyMedium)
         }
         state.items.forEach { item ->
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(item.oemPartNumber, style = MaterialTheme.typography.titleSmall)
                 Text(
                     item.description?.takeIf { it.isNotBlank() } ?: "—",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(
                     onClick = { viewModel.remove(item) },
                     enabled = !state.busy,
+                    shape = sharp,
                 ) { Text("Remove") }
             }
             HorizontalDivider()
         }
 
         if (state.items.size >= 2) {
-            Text("Attribute matrix", style = MaterialTheme.typography.titleSmall)
+            ShopSectionHeader(title = "Attribute matrix", actionLabel = null)
             MatrixRow(label = "OEM", values = state.items.map { it.oemPartNumber })
             MatrixRow(
                 label = "Description",
@@ -95,7 +96,7 @@ fun CompareScreen(
             )
         }
 
-        Text("Add by OEM", style = MaterialTheme.typography.titleSmall)
+        ShopSectionHeader(title = "Add by OEM", actionLabel = null)
         OutlinedTextField(
             value = state.oem,
             onValueChange = viewModel::onOemChange,
@@ -103,6 +104,7 @@ fun CompareScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
+            shape = sharp,
         )
         Button(
             onClick = viewModel::add,
@@ -110,18 +112,20 @@ fun CompareScreen(
                 state.oem.isNotBlank() &&
                 state.items.size < RpcNames.MAX_COMPARE_ITEMS,
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) { Text("Add to compare") }
         Text(
             "Max ${RpcNames.MAX_COMPARE_ITEMS} items",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        OutlinedButton(onClick = viewModel::refresh, enabled = !state.busy) {
+        OutlinedButton(onClick = viewModel::refresh, enabled = !state.busy, shape = sharp) {
             Text("Refresh")
         }
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack) { Text("Back") }
+        OutlinedButton(onClick = onBack, shape = sharp) { Text("Back") }
     }
 }
 
@@ -134,7 +138,10 @@ private fun MatrixRow(label: String, values: List<String>) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             values.forEach { value ->
-                Surface(tonalElevation = 2.dp) {
+                Surface(
+                    tonalElevation = 1.dp,
+                    shape = MaterialTheme.shapes.extraSmall,
+                ) {
                     Text(
                         value,
                         style = MaterialTheme.typography.bodySmall,

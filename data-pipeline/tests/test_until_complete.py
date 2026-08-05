@@ -47,6 +47,27 @@ def test_claim_hybrid_falls_back_to_deep_first(tmp_path) -> None:
     assert url and "unit" in url
 
 
+def test_reclaim_stale_processing(tmp_path) -> None:
+    import sqlite3
+    from datetime import datetime, timedelta, timezone
+
+    from data_pipeline.amayama_catalog_auto import reclaim_stale_processing
+
+    db = tmp_path / "q.db"
+    init_db(db)
+    enqueue_url(db, "https://partsouq.com/en/catalog/genuine/vehicle?c=Nissan&vid=1", hierarchy_level=2)
+    conn = sqlite3.connect(db)
+    stale = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("UPDATE queue SET status = 'PROCESSING', updated_at = ?", (stale,))
+    conn.commit()
+    conn.close()
+
+    assert reclaim_stale_processing(db, stale_seconds=900) == 1
+    counts = queue_status_counts(db)
+    assert counts.get("PENDING") == 1
+    assert counts.get("PROCESSING", 0) == 0
+
+
 def test_config_until_complete_defaults() -> None:
     cfg = ScrapeConfig.load()
     assert cfg.run_until_complete is True

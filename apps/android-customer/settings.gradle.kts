@@ -28,8 +28,19 @@ include(":feature:wishlist")
 include(":feature:compare")
 include(":feature:reviews")
 include(":feature:catalog")
+include(":feature:address")
+
+// Shared GTR Material3 theme (packages/ui brand-tokens.json)
+include(":android-ui")
+project(":android-ui").projectDir =
+    file("../../packages/android-ui")
 
 // Bridge-First — review photo camera (consume only; impl under bridges/)
 include(":pod-camera")
 project(":pod-camera").projectDir =
     file("../../bridges/android/pod-camera")
+
+// Bridge-First — Google Maps address pick / display (maps-nav)
+include(":maps-nav")
+project(":maps-nav").projectDir =
+    file("../../bridges/android/maps-nav")

@@ -14,7 +14,11 @@ import {
   toE164,
 } from "@/lib/country-dial-codes";
 import { createWebClient } from "@/lib/supabase";
-import { loadStaffContext, postLoginPath } from "@/lib/staff-auth";
+import {
+  loadStaffContext,
+  postLoginPath,
+  signInWithStaffIdentifier,
+} from "@/lib/staff-auth";
 import styles from "./auth.module.css";
 
 const DEFAULT_COUNTRY_OPTION =
@@ -30,15 +34,24 @@ function safeNext(raw: string | null): string | null {
   return raw;
 }
 
-type LoginMethod = "email" | "phone";
+type LoginMethod = "email" | "phone" | "employee";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
+  const staffNext =
+    Boolean(next) &&
+    (next === "/staff" ||
+      next?.startsWith("/staff/") ||
+      next === "/procurement" ||
+      next?.startsWith("/procurement/"));
 
-  const [method, setMethod] = useState<LoginMethod>("email");
+  const [method, setMethod] = useState<LoginMethod>(
+    staffNext ? "employee" : "email",
+  );
   const [email, setEmail] = useState("");
+  const [employeeCode, setEmployeeCode] = useState("");
   const [countryOption, setCountryOption] = useState(
     countryDialOptionValue(DEFAULT_COUNTRY_OPTION),
   );
@@ -55,7 +68,9 @@ function LoginForm() {
   const canSubmit =
     method === "email"
       ? Boolean(email.trim())
-      : Boolean(nationalDigitsOnly(phoneNational));
+      : method === "employee"
+        ? Boolean(employeeCode.trim())
+        : Boolean(nationalDigitsOnly(phoneNational));
 
   async function finishStaffRedirect(
     client: NonNullable<ReturnType<typeof createWebClient>>,
@@ -69,11 +84,14 @@ function LoginForm() {
       Boolean(ctx.data?.isStaff),
       next,
       ctx.data?.roles ?? [],
+      Boolean(ctx.data?.mustChangePassword),
     );
     setMessage(
-      ctx.data?.isStaff
-        ? "Signed in — opening staff…"
-        : "Signed in — redirecting…",
+      ctx.data?.mustChangePassword
+        ? "Signed in — password change required…"
+        : ctx.data?.isStaff
+          ? "Signed in — opening staff…"
+          : "Signed in — redirecting…",
     );
     router.replace(dest);
   }
@@ -88,16 +106,31 @@ function LoginForm() {
       setBusy(false);
       return;
     }
-    // Tab chooses a single identifier — password auth only (no OTP on login).
-    const loggedIn = await signInWithEmailOrPhone(client, {
-      email: method === "email" ? email || null : null,
-      phoneE164: method === "phone" ? phoneE164 : null,
-      password,
-    });
-    if (!loggedIn.ok) {
-      setBusy(false);
-      setMessage(loggedIn.error);
-      return;
+
+    if (method === "employee") {
+      // Staff emp# (or email/phone via same RPC) — Android parity.
+      const loggedIn = await signInWithStaffIdentifier(
+        client,
+        employeeCode,
+        password,
+      );
+      if (!loggedIn.ok) {
+        setBusy(false);
+        setMessage(loggedIn.error);
+        return;
+      }
+    } else {
+      // Customer / staff email|phone — password auth only (no OTP on login).
+      const loggedIn = await signInWithEmailOrPhone(client, {
+        email: method === "email" ? email || null : null,
+        phoneE164: method === "phone" ? phoneE164 : null,
+        password,
+      });
+      if (!loggedIn.ok) {
+        setBusy(false);
+        setMessage(loggedIn.error);
+        return;
+      }
     }
     await finishStaffRedirect(client);
     setBusy(false);
@@ -112,7 +145,7 @@ function LoginForm() {
         </p>
       ) : null}
       <p className={styles.alt}>
-        Sign in with the email or phone saved at registration.
+        Email or phone for customers. Staff may use employee #, email, or phone.
       </p>
 
       <div className={styles.tabs} role="tablist" aria-label="Sign in with">
@@ -144,6 +177,20 @@ function LoginForm() {
         >
           Phone number
         </button>
+        <button
+          type="button"
+          role="tab"
+          id="login-tab-employee"
+          aria-selected={method === "employee"}
+          aria-controls="login-panel-employee"
+          className={method === "employee" ? styles.tabActive : styles.tab}
+          onClick={() => {
+            setMethod("employee");
+            setMessage(null);
+          }}
+        >
+          Employee #
+        </button>
       </div>
 
       <form onSubmit={(e) => void onSubmit(e)}>
@@ -165,7 +212,7 @@ function LoginForm() {
               />
             </label>
           </div>
-        ) : (
+        ) : method === "phone" ? (
           <div
             role="tabpanel"
             id="login-panel-phone"
@@ -202,6 +249,28 @@ function LoginForm() {
               </div>
             </label>
           </div>
+        ) : (
+          <div
+            role="tabpanel"
+            id="login-panel-employee"
+            aria-labelledby="login-tab-employee"
+          >
+            <label className={styles.label}>
+              Emp # / email / phone
+              <input
+                className={styles.input}
+                type="text"
+                autoComplete="username"
+                value={employeeCode}
+                onChange={(e) => setEmployeeCode(e.target.value)}
+                placeholder="GTR…"
+                required
+              />
+            </label>
+            <p className={styles.alt}>
+              Staff only — resolves via secure lookup, then password.
+            </p>
+          </div>
         )}
         <label className={styles.label}>
           Password
@@ -224,9 +293,11 @@ function LoginForm() {
       </form>
 
       {message ? <p className={styles.message}>{message}</p> : null}
-      <p className={styles.alt}>
-        No account? <Link href="/signup">Create one</Link>
-      </p>
+      {method !== "employee" ? (
+        <p className={styles.alt}>
+          No account? <Link href="/signup">Create one</Link>
+        </p>
+      ) : null}
     </div>
   );
 }

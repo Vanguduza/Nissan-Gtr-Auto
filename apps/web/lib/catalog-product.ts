@@ -41,6 +41,26 @@ export type CatalogListItem = {
   usd: number | null;
   zig: number | null;
   category: string | null;
+  /** Saleable qty across active non-quarantine warehouses (for movers rail). */
+  qty?: number;
+  createdAt?: string | null;
+};
+
+export type CatalogSort =
+  | "oem"
+  | "newest"
+  | "price_asc"
+  | "price_desc"
+  | "movers"
+  | "name";
+
+export type CatalogListOpts = {
+  category?: string | null;
+  limit?: number;
+  sort?: CatalogSort;
+  /** Inclusive USD bounds — applied client-side after price join. */
+  minUsd?: number | null;
+  maxUsd?: number | null;
 };
 
 function decodeOem(raw: string): string {
@@ -437,16 +457,27 @@ async function loadAlternatives(
 
 /**
  * Browse list for /catalog — stock_items with optional category facet via PNC name.
+ * Sort / price filters are applied after price + qty join (KMP FilterDialog parity).
  */
 export async function listCatalogProducts(
   client: SupabaseClient,
-  opts: { category?: string | null; limit?: number } = {},
+  opts: CatalogListOpts = {},
 ): Promise<
   | { ok: true; data: CatalogListItem[]; categories: string[] }
   | { ok: false; error: string }
 > {
   const limit = opts.limit ?? 50;
   const cat = opts.category?.trim().toLowerCase() || null;
+  const sort = opts.sort ?? "oem";
+  /** Fetch a wider window when we sort/filter client-side. */
+  const fetchLimit =
+    sort === "movers" ||
+    sort === "price_asc" ||
+    sort === "price_desc" ||
+    opts.minUsd != null ||
+    opts.maxUsd != null
+      ? Math.max(limit * 3, 80)
+      : limit;
 
   const { data: categoriesRows } = await client
     .from("pnc_categories")
@@ -487,11 +518,12 @@ export async function listCatalogProducts(
     }
   }
 
+  const orderCol = sort === "newest" ? "created_at" : "oem_part_number";
   let query = client
     .from("stock_items")
-    .select("id, oem_part_number, description, reorder_point")
-    .order("oem_part_number")
-    .limit(limit);
+    .select("id, oem_part_number, description, reorder_point, created_at")
+    .order(orderCol, { ascending: sort !== "newest" })
+    .limit(fetchLimit);
 
   if (oemFilter) {
     query = query.in("oem_part_number", oemFilter);
@@ -548,7 +580,7 @@ export async function listCatalogProducts(
   }
 
   const rate = zigExchangeRate();
-  const list: CatalogListItem[] = items.map((item) => {
+  let list: CatalogListItem[] = items.map((item) => {
     const price = prices.data.get(item.id);
     const usd =
       price?.currency === "USD"
@@ -562,21 +594,96 @@ export async function listCatalogProducts(
         : usd != null
           ? usd * rate
           : null;
+    const qty = qtyByItem.get(item.id) ?? 0;
 
     return {
       oem: item.oem_part_number,
       name: item.description?.trim() || item.oem_part_number,
-      stock: stockStateFromQty(
-        qtyByItem.get(item.id) ?? 0,
-        item.reorder_point,
-      ),
+      stock: stockStateFromQty(qty, item.reorder_point),
       usd,
       zig,
       category: catByOem.get(item.oem_part_number) ?? null,
+      qty,
+      createdAt: item.created_at ?? null,
     };
   });
 
+  list = applyCatalogFiltersAndSort(list, {
+    sort,
+    minUsd: opts.minUsd,
+    maxUsd: opts.maxUsd,
+  }).slice(0, limit);
+
   return { ok: true, data: list, categories };
+}
+
+export function applyCatalogFiltersAndSort(
+  items: CatalogListItem[],
+  opts: {
+    sort?: CatalogSort;
+    minUsd?: number | null;
+    maxUsd?: number | null;
+  },
+): CatalogListItem[] {
+  let list = [...items];
+  const min = opts.minUsd;
+  const max = opts.maxUsd;
+  if (min != null && Number.isFinite(min)) {
+    list = list.filter((i) => i.usd != null && i.usd >= min);
+  }
+  if (max != null && Number.isFinite(max)) {
+    list = list.filter((i) => i.usd != null && i.usd <= max);
+  }
+
+  const sort = opts.sort ?? "oem";
+  list.sort((a, b) => {
+    switch (sort) {
+      case "newest":
+        return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+      case "price_asc":
+        return (a.usd ?? Number.POSITIVE_INFINITY) - (b.usd ?? Number.POSITIVE_INFINITY);
+      case "price_desc":
+        return (b.usd ?? Number.NEGATIVE_INFINITY) - (a.usd ?? Number.NEGATIVE_INFINITY);
+      case "movers":
+        return (b.qty ?? 0) - (a.qty ?? 0);
+      case "name":
+        return a.name.localeCompare(b.name);
+      case "oem":
+      default:
+        return a.oem.localeCompare(b.oem);
+    }
+  });
+  return list;
+}
+
+/**
+ * Home merchandising rails (KMP most-sale / newest) — stock qty proxy for movers;
+ * no fake flash-sale SKUs.
+ */
+export async function listHomeMerchRails(
+  client: SupabaseClient,
+  railLimit = 12,
+): Promise<
+  | {
+      ok: true;
+      movers: CatalogListItem[];
+      newest: CatalogListItem[];
+      categories: string[];
+    }
+  | { ok: false; error: string }
+> {
+  const [movers, newest] = await Promise.all([
+    listCatalogProducts(client, { sort: "movers", limit: railLimit }),
+    listCatalogProducts(client, { sort: "newest", limit: railLimit }),
+  ]);
+  if (!movers.ok) return movers;
+  if (!newest.ok) return newest;
+  return {
+    ok: true,
+    movers: movers.data,
+    newest: newest.data,
+    categories: movers.categories,
+  };
 }
 
 async function loadPricesForItems(

@@ -24,6 +24,7 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let deleteGarage = "delete_customer_garage_vehicle"
         public static let createContipayIntent = "create_customer_contipay_intent"
         public static let createPaynowIntent = "create_customer_paynow_intent"
+        public static let createEcocashIntent = "create_customer_ecocash_intent"
         public static let startChatThread = "start_chat_thread"
         public static let postChatMessage = "post_chat_message"
         public static let markChatThreadRead = "mark_chat_thread_read"
@@ -39,11 +40,16 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let submitCustomerProductReview = "submit_customer_product_review"
         public static let getProductReviewStats = "get_product_review_stats"
         public static let addCustomerProductReviewPhoto = "add_customer_product_review_photo"
+        public static let searchCatalog = "search_catalog"
+        public static let getZigExchangeRate = "get_zig_exchange_rate"
+        public static let upsertCustomerAddress = "upsert_customer_address"
+        public static let deleteCustomerAddress = "delete_customer_address"
     }
 
     public enum EdgeName {
         public static let contipayInitiate = "contipay-initiate"
         public static let paynowInitiate = "paynow-initiate"
+        public static let ecocashInitiate = "ecocash-initiate"
     }
 
     public static let reviewPhotosBucket = "review-photos"
@@ -92,6 +98,75 @@ public final class LiveStorefrontApi: StorefrontApi {
                 "p_exchange_rate": JSONValue.number(exchangeRate),
             ]
         )
+    }
+
+    public func fetchZigExchangeRate(asOf: String?) async throws -> Decimal {
+        do {
+            let data = try await client.rpc(
+                RpcName.getZigExchangeRate,
+                body: ["p_as_of": asOf as Any? ?? NSNull()]
+            )
+            if let n = try? JSONDecoder().decode(Decimal.self, from: data), n > 0 {
+                return n
+            }
+            if let d = try? JSONDecoder().decode(Double.self, from: data), d > 0 {
+                return Decimal(d)
+            }
+            if let s = String(data: data, encoding: .utf8),
+               let d = Double(s.trimmingCharacters(in: CharacterSet(charactersIn: "\""))),
+               d > 0 {
+                return Decimal(d)
+            }
+        } catch {
+            // fall through to default
+        }
+        return 1
+    }
+
+    public func resolveMainWarehouseId() async throws -> UUID {
+        let main: [WarehouseIdRow] = try await client.selectDecode(
+            table: "warehouses",
+            query: [
+                "select=id",
+                "is_active=eq.true",
+                "is_quarantine=eq.false",
+                "code=eq.MAIN",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        if let id = main.first?.id { return id }
+        let any: [WarehouseIdRow] = try await client.selectDecode(
+            table: "warehouses",
+            query: [
+                "select=id",
+                "is_active=eq.true",
+                "is_quarantine=eq.false",
+                "order=code.asc",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        guard let id = any.first?.id else {
+            throw StorefrontError.message("No saleable warehouse found.")
+        }
+        return id
+    }
+
+    public func ensureOpenCart(
+        currency: StorefrontCurrency,
+        fulfillmentMode: FulfillmentMode,
+        exchangeRate: Decimal
+    ) async throws -> CartSummary {
+        if let open = try await loadOpenCart() { return open }
+        _ = try await createCart(
+            warehouseId: try await resolveMainWarehouseId(),
+            currency: currency,
+            fulfillmentMode: fulfillmentMode,
+            exchangeRate: exchangeRate
+        )
+        guard let open = try await loadOpenCart() else {
+            throw StorefrontError.message("ensureOpenCart failed")
+        }
+        return open
     }
 
     public func addCartLine(
@@ -314,6 +389,49 @@ public final class LiveStorefrontApi: StorefrontApi {
             rail: .paynow,
             checkoutURL: nil,
             stubMessage: "Paynow intent created via RPC (no checkout_url). Settlement is webhook-only — no client PSP crypto."
+        )
+    }
+
+    public func createEcocashIntent(
+        invoiceId: UUID,
+        payerMsisdn: String,
+        payerMode: String
+    ) async throws -> PaymentIntentResult {
+        let metadata: [String: Any] = [
+            "sales_invoice_id": JSONValue.uuid(invoiceId),
+            "channel": "ios",
+        ]
+        let edgeBody: [String: Any] = [
+            "sales_invoice_id": JSONValue.uuid(invoiceId),
+            "payer_msisdn": payerMsisdn,
+            "payer_mode": payerMode,
+            "channel": "ios",
+            "metadata": metadata,
+        ]
+
+        if let fromEdge = try await tryEdgeIntent(
+            EdgeName.ecocashInitiate,
+            body: edgeBody,
+            rail: .ecocash
+        ) {
+            return fromEdge
+        }
+
+        let intentId = try await client.rpcUUID(
+            RpcName.createEcocashIntent,
+            body: [
+                "p_sales_invoice_id": JSONValue.uuid(invoiceId),
+                "p_payer_msisdn": payerMsisdn,
+                "p_payer_mode": payerMode,
+                "p_channel": "ios",
+                "p_metadata": metadata,
+            ]
+        )
+        return PaymentIntentResult(
+            intentId: intentId,
+            rail: .ecocash,
+            checkoutURL: nil,
+            stubMessage: "EcoCash direct intent created. Approve PIN on the EcoCash handset; settlement is webhook-only."
         )
     }
 
@@ -583,7 +701,211 @@ public final class LiveStorefrontApi: StorefrontApi {
         )
     }
 
+    // MARK: - Catalog
+
+    public func searchCatalog(mode: CatalogSearchMode, query: String) async throws -> SearchCatalogResponse {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw StorefrontError.message("search query required")
+        }
+        let data = try await client.rpc(
+            RpcName.searchCatalog,
+            body: [
+                "p_mode": mode.rawValue,
+                "p_query": trimmed,
+            ]
+        )
+        return try CatalogSearchParser.parse(data: data, fallbackMode: mode, fallbackQuery: trimmed)
+    }
+
+    public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
+        let cap = min(max(limit, 1), 100)
+        let items: [StockItemBrowseRow] = try await client.selectDecode(
+            table: "stock_items",
+            query: [
+                "select=id,oem_part_number,description,reorder_point",
+                "order=oem_part_number.asc",
+                "limit=\(cap)",
+            ].joined(separator: "&")
+        )
+        if items.isEmpty {
+            return CatalogBrowseResult(items: [], categories: [])
+        }
+        let ids = items.map(\.id)
+        let priceByItem = try await loadDefaultPrices(ids)
+        let qtyByItem = try await loadSaleableQty(ids)
+        let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let list = items.map { row in
+            let price = priceByItem[row.id]
+            let usd = price.map { Decimal($0.unitPrice) }
+            return CatalogListItem(
+                stockItemId: row.id,
+                oem: row.oemPartNumber,
+                name: row.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                    ?? row.oemPartNumber,
+                stock: catalogStockState(qty: qtyByItem[row.id] ?? 0, reorderPoint: row.reorderPoint),
+                usd: usd,
+                category: cat
+            )
+        }
+        return CatalogBrowseResult(items: list, categories: [])
+    }
+
+    public func loadCatalogProduct(oem: String) async throws -> CatalogProduct {
+        let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { throw StorefrontError.message("OEM required") }
+        let items: [StockItemPdpRow] = try await client.selectDecode(
+            table: "stock_items",
+            query: [
+                "select=id,oem_part_number,description,reorder_point,base_uom_id",
+                "oem_part_number=eq.\(Self.percentEncodeQueryValue(needle))",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        guard let item = items.first else {
+            throw StorefrontError.message("Part not found: \(needle)")
+        }
+        guard let uomId = item.baseUomId else {
+            throw StorefrontError.message("Part \(needle) has no base UOM")
+        }
+        let price = try await loadDefaultPrices([item.id])[item.id]
+        let qty = try await loadSaleableQty([item.id])[item.id] ?? 0
+        let fitmentLines = try await loadFitmentLabels(oem: item.oemPartNumber)
+        return CatalogProduct(
+            stockItemId: item.id,
+            baseUomId: uomId,
+            oem: item.oemPartNumber,
+            name: item.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                ?? item.oemPartNumber,
+            usd: price.map { Decimal($0.unitPrice) },
+            stock: catalogStockState(qty: qty, reorderPoint: item.reorderPoint),
+            coreCharge: Decimal(price?.coreCharge ?? 0),
+            fitmentLines: fitmentLines
+        )
+    }
+
+    public func addCartLineByOem(oem: String, qty: Decimal) async throws -> (cartId: UUID, lineId: UUID) {
+        guard qty > 0 else { throw StorefrontError.message("qty must be > 0") }
+        let product = try await loadCatalogProduct(oem: oem)
+        let cartId = try await ensureOpenCartId()
+        let lineId = try await addCartLine(
+            cartId: cartId,
+            stockItemId: product.stockItemId,
+            uomId: product.baseUomId,
+            qty: qty
+        )
+        return (cartId, lineId)
+    }
+
+    // MARK: - Addresses
+
+    public func listOwnAddresses() async throws -> [CustomerAddress] {
+        let rows: [AddressRow] = try await client.selectDecode(
+            table: "customer_addresses",
+            query: [
+                "select=id,label,line1,line2,city,province,postal_code,country,is_default,created_at,updated_at",
+                "order=is_default.desc,created_at.desc",
+            ].joined(separator: "&")
+        )
+        return rows.map { $0.toModel() }
+    }
+
+    public func upsertCustomerAddress(_ input: CustomerAddressInput) async throws -> UUID {
+        let line1 = input.line1.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !line1.isEmpty else {
+            throw StorefrontError.message("line1 required for \(RpcName.upsertCustomerAddress)")
+        }
+        let line2 = AddressGeo.embed(
+            line2: input.line2,
+            latitude: input.latitude,
+            longitude: input.longitude
+        )
+        let country = input.country.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try await client.rpcUUID(
+            RpcName.upsertCustomerAddress,
+            body: [
+                "p_id": input.id.map { JSONValue.uuid($0) } ?? NSNull(),
+                "p_label": input.label,
+                "p_line1": line1,
+                "p_line2": line2 as Any? ?? NSNull(),
+                "p_city": input.city as Any? ?? NSNull(),
+                "p_province": input.province as Any? ?? NSNull(),
+                "p_postal_code": input.postalCode as Any? ?? NSNull(),
+                "p_country": country.isEmpty ? "Zimbabwe" : country,
+                "p_is_default": input.isDefault,
+            ]
+        )
+    }
+
+    public func deleteCustomerAddress(id: UUID) async throws {
+        _ = try await client.rpc(
+            RpcName.deleteCustomerAddress,
+            body: ["p_id": JSONValue.uuid(id)]
+        )
+    }
+
     // MARK: - Private
+
+    private func loadFitmentLabels(oem: String) async throws -> [String] {
+        let rows: [FitmentLabelRow] = try await client.selectDecode(
+            table: "part_fitment",
+            query: [
+                "select=chassis_code,engine_code,pnc_code",
+                "oem_part_number=ilike.\(Self.percentEncodeQueryValue(oem))",
+                "limit=12",
+            ].joined(separator: "&")
+        )
+        return rows.compactMap { row in
+            let bits = [row.chassisCode, row.engineCode, row.pncCode.map { "PNC \($0)" }]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            return bits.isEmpty ? nil : bits.joined(separator: " · ")
+        }
+    }
+
+    private func loadSaleableQty(_ stockItemIds: [UUID]) async throws -> [UUID: Double] {
+        guard !stockItemIds.isEmpty else { return [:] }
+        let idList = stockItemIds.map { $0.uuidString.lowercased() }.joined(separator: ",")
+        let rows: [StockLevelQtyRow] = try await client.selectDecode(
+            table: "stock_levels",
+            query: [
+                "select=stock_item_id,quantity,warehouses!inner(is_quarantine,is_active)",
+                "stock_item_id=in.(\(idList))",
+            ].joined(separator: "&")
+        )
+        var out: [UUID: Double] = [:]
+        for row in rows {
+            guard !row.warehouses.isQuarantine, row.warehouses.isActive else { continue }
+            out[row.stockItemId, default: 0] += row.quantity
+        }
+        return out
+    }
+
+    private func loadDefaultPrices(_ stockItemIds: [UUID]) async throws -> [UUID: CatalogPriceRow] {
+        guard !stockItemIds.isEmpty else { return [:] }
+        let lists: [PriceListHeadRow] = try await client.selectDecode(
+            table: "price_lists",
+            query: [
+                "select=id,currency",
+                "is_default=eq.true",
+                "is_active=eq.true",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        guard let list = lists.first else { return [:] }
+        let idList = stockItemIds.map { $0.uuidString.lowercased() }.joined(separator: ",")
+        let rows: [PriceListItemPriceRow] = try await client.selectDecode(
+            table: "price_list_items",
+            query: [
+                "select=stock_item_id,unit_price,core_charge",
+                "price_list_id=eq.\(list.id.uuidString.lowercased())",
+                "stock_item_id=in.(\(idList))",
+            ].joined(separator: "&")
+        )
+        return Dictionary(uniqueKeysWithValues: rows.map {
+            ($0.stockItemId, CatalogPriceRow(unitPrice: $0.unitPrice, coreCharge: $0.coreCharge))
+        })
+    }
 
     private func ensureOpenCartId() async throws -> UUID {
         if let open = try await loadOpenCart() {
@@ -596,34 +918,6 @@ public final class LiveStorefrontApi: StorefrontApi {
             fulfillmentMode: .immediate,
             exchangeRate: 1
         )
-    }
-
-    private func resolveMainWarehouseId() async throws -> UUID {
-        let main: [WarehouseIdRow] = try await client.selectDecode(
-            table: "warehouses",
-            query: [
-                "select=id",
-                "is_active=eq.true",
-                "is_quarantine=eq.false",
-                "code=eq.MAIN",
-                "limit=1",
-            ].joined(separator: "&")
-        )
-        if let id = main.first?.id { return id }
-        let any: [WarehouseIdRow] = try await client.selectDecode(
-            table: "warehouses",
-            query: [
-                "select=id",
-                "is_active=eq.true",
-                "is_quarantine=eq.false",
-                "order=code.asc",
-                "limit=1",
-            ].joined(separator: "&")
-        )
-        guard let id = any.first?.id else {
-            throw StorefrontError.message("No saleable warehouse found.")
-        }
-        return id
     }
 
     private func stockItemOemBody(stockItemId: UUID?, oem: String?) -> [String: Any] {
@@ -1087,6 +1381,65 @@ private struct ChatMessageRow: Decodable {
     }
 }
 
+private struct AddressRow: Decodable {
+    let id: UUID
+    let label: String
+    let line1: String
+    let line2: String?
+    let city: String?
+    let province: String?
+    let postalCode: String?
+    let country: String
+    let isDefault: Bool
+    let createdAt: Date?
+    let updatedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, line1, line2, city, province, country
+        case postalCode = "postal_code"
+        case isDefault = "is_default"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .id) {
+            self.id = id
+        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+            self.id = id
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
+        }
+        label = try c.decodeIfPresent(String.self, forKey: .label) ?? ""
+        line1 = try c.decode(String.self, forKey: .line1)
+        line2 = try c.decodeIfPresent(String.self, forKey: .line2)
+        city = try c.decodeIfPresent(String.self, forKey: .city)
+        province = try c.decodeIfPresent(String.self, forKey: .province)
+        postalCode = try c.decodeIfPresent(String.self, forKey: .postalCode)
+        country = try c.decodeIfPresent(String.self, forKey: .country) ?? "Zimbabwe"
+        isDefault = try c.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt)
+    }
+
+    func toModel() -> CustomerAddress {
+        CustomerAddress(
+            id: id,
+            label: label,
+            line1: line1,
+            line2: line2,
+            city: city,
+            province: province,
+            postalCode: postalCode,
+            country: country,
+            isDefault: isDefault,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+}
+
 private struct WarehouseIdRow: Decodable {
     let id: UUID
 }
@@ -1299,5 +1652,279 @@ private struct ProductReviewStatsDTO: Decodable {
             avgRating: avgRating.value,
             reviewCount: reviewCount
         )
+    }
+}
+
+// MARK: - Catalog DTOs
+
+private struct StockItemBrowseRow: Decodable {
+    let id: UUID
+    let oemPartNumber: String
+    let description: String?
+    let reorderPoint: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id, description
+        case oemPartNumber = "oem_part_number"
+        case reorderPoint = "reorder_point"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .id) {
+            self.id = id
+        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+            self.id = id
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
+        }
+        oemPartNumber = try c.decode(String.self, forKey: .oemPartNumber)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        if let d = try c.decodeIfPresent(Double.self, forKey: .reorderPoint) {
+            reorderPoint = d
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .reorderPoint), let d = Double(s) {
+            reorderPoint = d
+        } else {
+            reorderPoint = nil
+        }
+    }
+}
+
+private struct StockItemPdpRow: Decodable {
+    let id: UUID
+    let oemPartNumber: String
+    let description: String?
+    let reorderPoint: Double?
+    let baseUomId: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case id, description
+        case oemPartNumber = "oem_part_number"
+        case reorderPoint = "reorder_point"
+        case baseUomId = "base_uom_id"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .id) {
+            self.id = id
+        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+            self.id = id
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
+        }
+        oemPartNumber = try c.decode(String.self, forKey: .oemPartNumber)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        if let d = try c.decodeIfPresent(Double.self, forKey: .reorderPoint) {
+            reorderPoint = d
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .reorderPoint), let d = Double(s) {
+            reorderPoint = d
+        } else {
+            reorderPoint = nil
+        }
+        if let id = try? c.decodeIfPresent(UUID.self, forKey: .baseUomId) {
+            baseUomId = id
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .baseUomId) {
+            baseUomId = UUID(uuidString: s)
+        } else {
+            baseUomId = nil
+        }
+    }
+}
+
+private struct FitmentLabelRow: Decodable {
+    let chassisCode: String?
+    let engineCode: String?
+    let pncCode: String?
+
+    enum CodingKeys: String, CodingKey {
+        case chassisCode = "chassis_code"
+        case engineCode = "engine_code"
+        case pncCode = "pnc_code"
+    }
+}
+
+private struct StockLevelQtyRow: Decodable {
+    let stockItemId: UUID
+    let quantity: Double
+    let warehouses: WarehouseFlagsRow
+
+    enum CodingKeys: String, CodingKey {
+        case quantity, warehouses
+        case stockItemId = "stock_item_id"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .stockItemId) {
+            stockItemId = id
+        } else if let s = try c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
+            stockItemId = id
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .stockItemId, in: c, debugDescription: "stock_item_id")
+        }
+        if let d = try c.decodeIfPresent(Double.self, forKey: .quantity) {
+            quantity = d
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .quantity), let d = Double(s) {
+            quantity = d
+        } else {
+            quantity = 0
+        }
+        if let w = try? c.decode(WarehouseFlagsRow.self, forKey: .warehouses) {
+            warehouses = w
+        } else if let arr = try c.decode([WarehouseFlagsRow].self, forKey: .warehouses), let first = arr.first {
+            warehouses = first
+        } else {
+            warehouses = WarehouseFlagsRow(isQuarantine: false, isActive: true)
+        }
+    }
+}
+
+private struct WarehouseFlagsRow: Decodable {
+    let isQuarantine: Bool
+    let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case isQuarantine = "is_quarantine"
+        case isActive = "is_active"
+    }
+
+    init(isQuarantine: Bool, isActive: Bool) {
+        self.isQuarantine = isQuarantine
+        self.isActive = isActive
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        isQuarantine = try c.decodeIfPresent(Bool.self, forKey: .isQuarantine) ?? false
+        isActive = try c.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+    }
+}
+
+private struct PriceListHeadRow: Decodable {
+    let id: UUID
+    let currency: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, currency
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .id) {
+            self.id = id
+        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+            self.id = id
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
+        }
+        currency = try c.decodeIfPresent(String.self, forKey: .currency) ?? "USD"
+    }
+}
+
+private struct PriceListItemPriceRow: Decodable {
+    let stockItemId: UUID
+    let unitPrice: Double
+    let coreCharge: Double
+
+    enum CodingKeys: String, CodingKey {
+        case stockItemId = "stock_item_id"
+        case unitPrice = "unit_price"
+        case coreCharge = "core_charge"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .stockItemId) {
+            stockItemId = id
+        } else if let s = try c.decode(String.self, forKey: .stockItemId), let id = UUID(uuidString: s) {
+            stockItemId = id
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .stockItemId, in: c, debugDescription: "stock_item_id")
+        }
+        if let d = try c.decodeIfPresent(Double.self, forKey: .unitPrice) {
+            unitPrice = d
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .unitPrice), let d = Double(s) {
+            unitPrice = d
+        } else {
+            unitPrice = 0
+        }
+        if let d = try c.decodeIfPresent(Double.self, forKey: .coreCharge) {
+            coreCharge = d
+        } else if let s = try c.decodeIfPresent(String.self, forKey: .coreCharge), let d = Double(s) {
+            coreCharge = d
+        } else {
+            coreCharge = 0
+        }
+    }
+}
+
+private struct CatalogPriceRow {
+    let unitPrice: Double
+    let coreCharge: Double
+}
+
+private enum CatalogSearchParser {
+    static func parse(
+        data: Data,
+        fallbackMode: CatalogSearchMode,
+        fallbackQuery: String
+    ) throws -> SearchCatalogResponse {
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return SearchCatalogResponse(mode: fallbackMode, query: fallbackQuery, parts: [])
+        }
+        let mode = CatalogSearchMode(rawValue: (root["mode"] as? String)?.lowercased() ?? "") ?? fallbackMode
+        let query = (root["query"] as? String) ?? fallbackQuery
+        let results = root["results"] as? [Any] ?? []
+        var parts: [CatalogPartHit] = []
+        for row in results {
+            collectPartHits(row, into: &parts)
+        }
+        var seen = Set<String>()
+        let distinct = parts.filter { hit in
+            let key = hit.oemPartNumber.uppercased()
+            if seen.contains(key) { return false }
+            seen.insert(key)
+            return true
+        }
+        return SearchCatalogResponse(mode: mode, query: query, parts: distinct)
+    }
+
+    private static func collectPartHits(_ row: Any, into out: inout [CatalogPartHit]) {
+        guard let o = row as? [String: Any] else { return }
+        let type = (o["type"] as? String) ?? "part"
+        switch type {
+        case "part":
+            if let hit = toPartHit(o) { out.append(hit) }
+        case "vehicle", "pnc":
+            let fitments = o["fitments"] as? [Any] ?? []
+            for f in fitments {
+                if let fo = f as? [String: Any], let hit = toPartHit(fo) {
+                    out.append(hit)
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    private static func toPartHit(_ o: [String: Any]) -> CatalogPartHit? {
+        let oem = ((o["oem_part_number"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !oem.isEmpty else { return nil }
+        return CatalogPartHit(
+            oemPartNumber: oem,
+            pncCode: o["pnc_code"] as? String,
+            categoryName: o["category_name"] as? String,
+            subcategoryName: o["subcategory_name"] as? String,
+            chassisCode: o["chassis_code"] as? String,
+            engineCode: o["engine_code"] as? String
+        )
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        let t = trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
     }
 }

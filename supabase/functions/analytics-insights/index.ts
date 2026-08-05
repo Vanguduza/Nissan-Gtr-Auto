@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     if (!bounds) {
       return json({ error: "valid from/to ISO timestamps required" }, 400);
     }
-    if (kpiSet !== "ops_sales_v1") {
+    if (kpiSet !== "ops_sales_v1" && kpiSet !== "finance_performance_v1") {
       return json({ error: "unsupported kpi_set" }, 400);
     }
 
@@ -73,14 +73,19 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: kpis, error: kpiErr } = await supabase.rpc(
-      "kpi_ops_sales_v1",
-      {
+    const kpiRpc = kpiSet === "finance_performance_v1"
+      ? supabase.rpc("kpi_finance_performance_v1", {
+        p_from: bounds.from,
+        p_to: bounds.to,
+        p_top_expenses: 8,
+      })
+      : supabase.rpc("kpi_ops_sales_v1", {
         p_from: bounds.from,
         p_to: bounds.to,
         p_top_limit: 10,
-      },
-    );
+      });
+
+    const { data: kpis, error: kpiErr } = await kpiRpc;
 
     if (kpiErr) {
       const status = /role required/i.test(kpiErr.message) ? 403 : 400;
@@ -108,7 +113,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const narrativeResult = await generateKpiNarrative(kpis);
+    const narrativeResult = await generateKpiNarrative(kpis, {
+      mode: kpiSet === "finance_performance_v1" ? "finance" : "ops",
+    });
     if (narrativeResult.error) {
       return json(
         {

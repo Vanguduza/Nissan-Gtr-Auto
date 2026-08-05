@@ -1,6 +1,12 @@
 {
   "version": 1,
   "hooks": {
+    "sessionStart": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/catalogue-watchdog-alert.ps1",
+        "description": "Inject PartSouq catalogue crawl watchdog alert context"
+      }
+    ],
     "afterFileEdit": [
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/format.ps1",

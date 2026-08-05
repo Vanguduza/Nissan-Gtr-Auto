@@ -22,9 +22,12 @@ geolocation APIs directly.
 | QR scan | `contracts/qr-inventory.ts` → `QrScannerBridge` | `bridges/android/qr-scanner/` | `bridges/ios/QRScanner/` (stub) | CameraX+ML Kit / AVFoundation |
 | ESC/POS print | `contracts/qr-inventory.ts` → `EscPosPrinterBridge` | `bridges/android/escpos-printer/` | `bridges/ios/escpos-printer/` (stub) | BluetoothAdapter / CoreBluetooth |
 | Biometric auth | `contracts/biometric.ts` → `BiometricBridge` | `bridges/android/biometric-auth/` (stub) | `bridges/ios/BiometricAuth/` | BiometricPrompt / LocalAuthentication |
+| Biometric photo (HR) | `contracts/biometric.ts` → `BiometricPhotoCaptureBridge` | `bridges/android/biometric-photo/` | — | CameraX ImageCapture (profile photo only) |
 | GPS / delivery ingest | `contracts/gps.ts` → `GpsBridge` | `bridges/android/location-tracker/` | `bridges/ios/LocationTracker/` | FusedLocationProvider / CoreLocation |
 | POD photo | `contracts/pod.ts` → `PodCameraBridge` | `bridges/android/pod-camera/` | — (no iOS driver app) | CameraX ImageCapture |
-| POD signature | `contracts/pod.ts` → `PodSignatureBridge` | `bridges/android/pod-signature/` | — (no iOS driver app) | Native Canvas View |
+| Review photo (customer) | same local-path shape as POD | Android pod-camera reuse | `bridges/ios/ReviewCamera/` | UIImagePickerController |
+| POD signature | `contracts/pod.ts` → `PodSignatureBridge` | `bridges/android/pod-signature/` | — (no iOS driver app) | Compose Canvas pad |
+| Delivery maps (display) | — (helper) | `bridges/android/maps-nav/` | — | Maps Compose + Directions REST |
 | Barrel export | `contracts/index.ts` | — | — | — |
 
 ## Android modules
@@ -35,7 +38,9 @@ geolocation APIs directly.
 | `:qr-scanner` | `android/qr-scanner/` | Implemented — CameraX + ML Kit |
 | `:escpos-printer` | `android/escpos-printer/` | Implemented — RFCOMM ESC/POS |
 | `:pod-camera` | `android/pod-camera/` | **P0** — CameraX still capture → local JPEG path |
-| `:pod-signature` | `android/pod-signature/` | **P0** — Canvas ink pad → local PNG path |
+| `:pod-signature` | `android/pod-signature/` | **P0** — Compose Canvas ink pad → local PNG path |
+| `:maps-nav` | `android/maps-nav/` | **Delivery** — Maps Compose + Directions polyline (display only; no ingest) |
+| `:biometric-photo` | `android/biometric-photo/` | **P0** — HR onboarding profile photo (CameraX; no matching) |
 
 Include from `apps/android-delivery/settings.gradle.kts` (scaffold lane):
 
@@ -46,6 +51,8 @@ include(":pod-camera")
 project(":pod-camera").projectDir = file("../../bridges/android/pod-camera")
 include(":pod-signature")
 project(":pod-signature").projectDir = file("../../bridges/android/pod-signature")
+include(":maps-nav")
+project(":maps-nav").projectDir = file("../../bridges/android/maps-nav")
 ```
 
 Management app may keep `:qr-scanner` / `:escpos-printer` / `:location-tracker` until

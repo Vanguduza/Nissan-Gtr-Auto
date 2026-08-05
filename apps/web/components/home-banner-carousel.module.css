@@ -1,0 +1,133 @@
+.wrap {
+  position: relative;
+}
+
+.slide {
+  min-height: 11.5rem;
+  padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.15rem, 3vw, 1.85rem);
+  border-radius: 10px;
+  color: #fff;
+  display: grid;
+  gap: 0.35rem;
+  align-content: center;
+  transition: background var(--gtr-entrance, 320ms) ease;
+}
+
+.steel {
+  background:
+    radial-gradient(ellipse 80% 120% at 100% 0%, rgba(200, 16, 46, 0.35), transparent 55%),
+    linear-gradient(125deg, #0a0c11 0%, var(--gtr-steel-lift) 55%, var(--gtr-steel) 100%);
+}
+
+.red {
+  background:
+    radial-gradient(ellipse 70% 100% at 0% 100%, rgba(18, 21, 28, 0.45), transparent 50%),
+    linear-gradient(135deg, #9a0c22 0%, var(--gtr-red) 48%, #e01234 100%);
+}
+
+.mist {
+  color: var(--gtr-steel);
+  background:
+    linear-gradient(145deg, var(--gtr-mist) 0%, #fff 45%, color-mix(in srgb, var(--gtr-silver) 35%, white) 100%);
+  border: 1px solid rgba(18, 21, 28, 0.08);
+}
+
+.mist .kicker {
+  color: var(--gtr-red);
+}
+
+.mist .lede {
+  color: rgba(18, 21, 28, 0.68);
+}
+
+.mist .cta {
+  background: var(--gtr-red);
+  color: #fff;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gtr-silver);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  max-width: 28ch;
+  line-height: 1.15;
+}
+
+.lede {
+  margin: 0.15rem 0 0;
+  max-width: 46ch;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.cta {
+  margin-top: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  min-height: 2.4rem;
+  padding: 0 1rem;
+  background: #fff;
+  color: var(--gtr-steel);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  transition: transform var(--gtr-hover), background var(--gtr-hover);
+}
+
+.cta:hover,
+.cta:focus-visible {
+  transform: translateY(-1px);
+  background: var(--gtr-chalk);
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.dot,
+.dotActive {
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(18, 21, 28, 0.2);
+  cursor: pointer;
+  transition: width var(--gtr-hover), background var(--gtr-hover);
+}
+
+.dotActive {
+  width: 1.35rem;
+  background: var(--gtr-red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide {
+    transition: none;
+  }
+
+  .cta:hover {
+    transform: none;
+  }
+}

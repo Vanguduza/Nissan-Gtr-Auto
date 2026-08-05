@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   partHref,
   searchCatalog,
+  type PartHit,
   type SearchMode,
   type SearchResult,
 } from "@/lib/catalog-search";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
+import filterStyles from "./plp-filters.module.css";
 
 type Status =
   | { kind: "loading" }
@@ -17,6 +19,8 @@ type Status =
   | { kind: "error"; message: string }
   | { kind: "empty" }
   | { kind: "ready"; results: SearchResult[]; query: string };
+
+type PartSort = "relevance" | "oem" | "category";
 
 export function SearchResults({
   mode,
@@ -26,6 +30,13 @@ export function SearchResults({
   query: string;
 }) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [sort, setSort] = useState<PartSort>("relevance");
+
+  useEffect(() => {
+    setCategoryFilter(null);
+    setSort("relevance");
+  }, [mode, query]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -81,6 +92,41 @@ export function SearchResults({
     };
   }, [mode, query]);
 
+  const partCategories = useMemo(() => {
+    if (status.kind !== "ready" || mode !== "part") return [];
+    const cats = new Set<string>();
+    for (const r of status.results) {
+      if (r.type === "part" && r.category_name?.trim()) {
+        cats.add(r.category_name.trim());
+      }
+    }
+    return [...cats].sort((a, b) => a.localeCompare(b));
+  }, [status, mode]);
+
+  const filteredParts = useMemo(() => {
+    if (status.kind !== "ready" || mode !== "part") return [];
+    let parts = status.results.filter(
+      (r): r is PartHit => r.type === "part",
+    );
+    if (categoryFilter) {
+      parts = parts.filter(
+        (p) =>
+          p.category_name?.trim().toLowerCase() ===
+          categoryFilter.toLowerCase(),
+      );
+    }
+    if (sort === "oem") {
+      parts = [...parts].sort((a, b) =>
+        a.oem_part_number.localeCompare(b.oem_part_number),
+      );
+    } else if (sort === "category") {
+      parts = [...parts].sort((a, b) =>
+        (a.category_name ?? "").localeCompare(b.category_name ?? ""),
+      );
+    }
+    return parts;
+  }, [status, mode, categoryFilter, sort]);
+
   if (status.kind === "loading") {
     return (
       <div className={styles.resultStub} aria-live="polite">
@@ -131,7 +177,70 @@ export function SearchResults({
         <strong>{status.query}</strong>
       </p>
       {mode === "part" ? (
-        <PartResultsTable results={status.results} />
+        <>
+          <div className={filterStyles.searchFilters}>
+            <div className={filterStyles.searchFiltersRow}>
+              <label className={filterStyles.sort}>
+                Sort
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as PartSort)}
+                  aria-label="Sort search results"
+                >
+                  <option value="relevance">Relevance</option>
+                  <option value="oem">OEM</option>
+                  <option value="category">Category</option>
+                </select>
+              </label>
+              <p className={styles.muted}>
+                Showing {filteredParts.length}
+                {categoryFilter ? ` in ${categoryFilter}` : ""}
+              </p>
+            </div>
+            {partCategories.length > 0 ? (
+              <div>
+                <p className={styles.muted} style={{ marginBottom: "0.4rem" }}>
+                  Categories
+                </p>
+                <div className={filterStyles.chipGroup}>
+                  <button
+                    type="button"
+                    className={
+                      categoryFilter == null
+                        ? filterStyles.chipBtnActive
+                        : filterStyles.chipBtn
+                    }
+                    onClick={() => setCategoryFilter(null)}
+                  >
+                    All
+                  </button>
+                  {partCategories.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={
+                        categoryFilter === c
+                          ? filterStyles.chipBtnActive
+                          : filterStyles.chipBtn
+                      }
+                      onClick={() =>
+                        setCategoryFilter((prev) => (prev === c ? null : c))
+                      }
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <p className={styles.muted}>
+              USD price range filters apply on{" "}
+              <Link href="/catalog">Catalog</Link> (priced inventory). Search
+              hits are OEM/fitment first.
+            </p>
+          </div>
+          <PartResultsTable results={filteredParts} />
+        </>
       ) : mode === "model" || mode === "vin" ? (
         <VehicleResultsList results={status.results} />
       ) : (
@@ -141,11 +250,7 @@ export function SearchResults({
   );
 }
 
-function PartResultsTable({ results }: { results: SearchResult[] }) {
-  const parts = results.filter(
-    (r): r is Extract<SearchResult, { type: "part" }> => r.type === "part",
-  );
-
+function PartResultsTable({ results }: { results: PartHit[] }) {
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
@@ -159,40 +264,48 @@ function PartResultsTable({ results }: { results: SearchResult[] }) {
           </tr>
         </thead>
         <tbody>
-          {parts.map((row) => {
-            const href = partHref(row.oem_part_number);
-            const key = `${row.oem_part_number}-${row.pnc_code ?? ""}`;
-            return (
-              <tr key={key}>
-                <td>
-                  <code className={styles.sku}>{row.oem_part_number}</code>
-                  {row.matched_oe_number ? (
-                    <span className={styles.muted}>
-                      {" "}
-                      (matched {row.matched_oe_number}
-                      {row.matched_brand ? ` · ${row.matched_brand}` : ""})
-                    </span>
-                  ) : null}
-                </td>
-                <td>{row.pnc_code ?? "—"}</td>
-                <td>
-                  {[row.category_name, row.subcategory_name]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </td>
-                <td>{row.chassis_code ?? "—"}</td>
-                <td>
-                  {href ? (
-                    <Link href={href} className={styles.rowCta}>
-                      View
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-              </tr>
-            );
-          })}
+          {results.length === 0 ? (
+            <tr>
+              <td colSpan={5} className={styles.muted}>
+                No parts match this category filter.
+              </td>
+            </tr>
+          ) : (
+            results.map((row) => {
+              const href = partHref(row.oem_part_number);
+              const key = `${row.oem_part_number}-${row.pnc_code ?? ""}`;
+              return (
+                <tr key={key}>
+                  <td>
+                    <code className={styles.sku}>{row.oem_part_number}</code>
+                    {row.matched_oe_number ? (
+                      <span className={styles.muted}>
+                        {" "}
+                        (matched {row.matched_oe_number}
+                        {row.matched_brand ? ` · ${row.matched_brand}` : ""})
+                      </span>
+                    ) : null}
+                  </td>
+                  <td>{row.pnc_code ?? "—"}</td>
+                  <td>
+                    {[row.category_name, row.subcategory_name]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </td>
+                  <td>{row.chassis_code ?? "—"}</td>
+                  <td>
+                    {href ? (
+                      <Link href={href} className={styles.rowCta}>
+                        View
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              );
+            })
+          )}
         </tbody>
       </table>
     </div>

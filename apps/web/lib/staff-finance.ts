@@ -1,5 +1,11 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
 import {
+  buildStatementExportPayload,
+  toRenderBrandedDocBody,
+  type BrandedStatementInput,
+  type DocumentCurrency,
+} from "@gtr/documents";
+import {
   fetchZigExchangeRate,
   requireSession,
   zigExchangeRate,
@@ -92,6 +98,7 @@ export type CustomerOption = {
 export type AccountOption = {
   code: string;
   name: string;
+  display_name: string;
   account_type: string;
   is_active: boolean;
 };
@@ -194,12 +201,19 @@ export async function listChartAccounts(
 ): Promise<StorefrontResult<AccountOption[]>> {
   const { data, error } = await client
     .from("chart_of_accounts")
-    .select("code, name, account_type, is_active")
+    .select("code, name, display_name, account_type, is_active")
     .eq("is_active", true)
     .order("code")
     .limit(200);
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: (data as AccountOption[]) ?? [] };
+  const rows = (data as AccountOption[] | null) ?? [];
+  return {
+    ok: true,
+    data: rows.map((a) => ({
+      ...a,
+      display_name: a.display_name || a.name,
+    })),
+  };
 }
 
 export async function listJournalEntries(
@@ -844,6 +858,8 @@ export type FinanceRequisitionOption = {
   disbursed_at: string | null;
   journal_entry_id: string | null;
   payment_entry_id: string | null;
+  required_approvals: number;
+  approval_count: number;
   created_at: string;
   lines: FinanceRequisitionLineOption[];
 };
@@ -994,7 +1010,7 @@ export async function listFinanceRequisitions(
   const { data, error } = await client
     .from("finance_requisitions")
     .select(
-      "id, document_number, req_type, status, amount, currency, exchange_rate_applied, payee, memo, expense_account_code, cash_account_code, requested_by, submitted_at, approved_at, rejected_at, rejection_reason, disbursed_at, journal_entry_id, payment_entry_id, created_at",
+      "id, document_number, req_type, status, amount, currency, exchange_rate_applied, payee, memo, expense_account_code, cash_account_code, requested_by, submitted_at, approved_at, rejected_at, rejection_reason, disbursed_at, journal_entry_id, payment_entry_id, required_approvals, approval_count, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -1050,6 +1066,8 @@ export async function listFinanceRequisitions(
     disbursed_at: r.disbursed_at,
     journal_entry_id: r.journal_entry_id,
     payment_entry_id: r.payment_entry_id,
+    required_approvals: Number(r.required_approvals ?? 1),
+    approval_count: Number(r.approval_count ?? 0),
     created_at: r.created_at,
     lines: linesByReq.get(r.id) ?? [],
   }));
@@ -1211,4 +1229,84 @@ export async function disburseFinanceRequisition(
     return { ok: false, error: "disburse_finance_requisition returned no id." };
   }
   return { ok: true, data };
+}
+
+/** Batch 1 §3.2 — statement export via @gtr/documents → render-branded-doc. */
+export type StatementExportLine = {
+  description: string;
+  lineTotal: number;
+};
+
+export type StatementExportPayload = {
+  storeName: string;
+  documentLabel: string;
+  currency: CurrencyCode;
+  asOf?: string | null;
+  lines: StatementExportLine[];
+  openingBalance?: number;
+  closingBalance?: number;
+  partyName?: string | null;
+};
+
+export function buildStatementExportHook(
+  input: StatementExportPayload,
+): StatementExportPayload {
+  const built = buildStatementExportPayload({
+    storeName: input.storeName,
+    documentLabel: input.documentLabel,
+    currency: input.currency as DocumentCurrency,
+    asOf: input.asOf ?? null,
+    lines: input.lines ?? [],
+    openingBalance: input.openingBalance,
+    closingBalance: input.closingBalance,
+    partyName: input.partyName ?? null,
+  });
+  return {
+    storeName: built.storeName,
+    documentLabel: built.documentLabel,
+    currency: built.currency as CurrencyCode,
+    asOf: built.asOf ?? null,
+    lines: built.lines,
+    openingBalance: built.openingBalance,
+    closingBalance: built.closingBalance,
+    partyName: built.partyName ?? null,
+  };
+}
+
+/** Call Edge `render-branded-doc` and trigger a browser download. */
+export async function downloadBrandedStatementPdf(
+  accessToken: string,
+  payload: StatementExportPayload,
+): Promise<StorefrontResult<true>> {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  if (!base) {
+    return { ok: false, error: "NEXT_PUBLIC_SUPABASE_URL not configured." };
+  }
+  const body = toRenderBrandedDocBody(
+    "statement",
+    buildStatementExportPayload({
+      ...payload,
+      currency: payload.currency as DocumentCurrency,
+    }) as BrandedStatementInput,
+  );
+  const res = await fetch(`${base}/functions/v1/render-branded-doc`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => res.statusText);
+    return { ok: false, error: `PDF render failed: ${errText}` };
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `gtr-statement-${payload.currency}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+  return { ok: true, data: true };
 }

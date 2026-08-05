@@ -538,3 +538,99 @@ export function defaultWebhookUrl(functionName: string): string {
   const base = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
   return `${base}/functions/v1/${functionName}`;
 }
+
+/** Normalize Zimbabwe EcoCash MSISDN to 263XXXXXXXXX. */
+export function normalizeEcocashMsisdn(raw: string): string | null {
+  let digits = String(raw || "").replace(/\D/g, "");
+  if (digits.startsWith("0") && digits.length === 10) {
+    digits = "263" + digits.slice(1);
+  }
+  if (/^263\d{9}$/.test(digits)) return digits;
+  return null;
+}
+
+export type EcoCashC2bResult = {
+  ok: boolean;
+  stub: boolean;
+  providerReference: string | null;
+  status: string;
+  raw: unknown;
+};
+
+/**
+ * EcoCash Instant Payments C2B push (direct — not ContiPay/Paynow).
+ * Portal: https://developers.ecocash.co.zw/
+ */
+export async function initiateEcocashC2b(params: {
+  apiKey: string;
+  msisdn: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  sourceReference: string;
+  environment?: "sandbox" | "live";
+}): Promise<EcoCashC2bResult> {
+  const env = params.environment === "live" ? "live" : "sandbox";
+  const base = (
+    Deno.env.get("ECOCASH_API_BASE_URL") ??
+    "https://developers.ecocash.co.zw/api/ecocash_pay"
+  ).replace(/\/$/, "");
+  const path =
+    env === "live"
+      ? (Deno.env.get("ECOCASH_C2B_PATH_LIVE") ??
+        "/api/v2/payment/instant/c2b/live")
+      : (Deno.env.get("ECOCASH_C2B_PATH_SANDBOX") ??
+        "/api/v2/payment/instant/c2b/sandbox");
+  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  const authMode = (Deno.env.get("ECOCASH_AUTH_HEADER") ?? "x-api-key")
+    .trim()
+    .toLowerCase();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (authMode === "bearer" || authMode === "authorization") {
+    headers.Authorization = `Bearer ${params.apiKey}`;
+  } else {
+    headers["X-API-KEY"] = params.apiKey;
+  }
+
+  const body = {
+    customerEcocashPhoneNumber: params.msisdn,
+    amount: Number(params.amount.toFixed(2)),
+    reason: params.reason.slice(0, 50),
+    currency: params.currency,
+    sourceReference: params.sourceReference,
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  let raw: unknown = {};
+  try {
+    raw = text ? JSON.parse(text) : {};
+  } catch {
+    raw = { raw: text };
+  }
+  if (!res.ok) {
+    throw new Error(`EcoCash C2B HTTP ${res.status}: ${text.slice(0, 400)}`);
+  }
+  const obj = raw && typeof raw === "object"
+    ? (raw as Record<string, unknown>)
+    : {};
+  const providerReference = String(
+    obj.ecocashReference ??
+      obj.transactionReference ??
+      obj.reference ??
+      obj.id ??
+      "",
+  ) || null;
+  const status = String(
+    obj.transactionStatus ?? obj.status ?? obj.message ?? "PENDING_CUSTOMER",
+  );
+  return { ok: true, stub: false, providerReference, status, raw };
+}
+

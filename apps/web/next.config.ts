@@ -8,6 +8,10 @@ const extensionAlias = {
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@gtr/ui", "@gtr/shared", "@gtr/supabase-client"],
+  // Next 16 blocks cross-origin /_next/webpack-hmr by default. Visiting
+  // http://127.0.0.1:3000 while the server advertises localhost prevents
+  // client hydration — Menu and other "use client" controls stay dead SSR.
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   webpack: (config) => {
     config.resolve.extensionAlias = {
       ...(config.resolve.extensionAlias ?? {}),

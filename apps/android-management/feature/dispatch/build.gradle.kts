@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     // location-tracker NOT depended here — management must not produce driver GPS.
     // Sole producer: apps/android-delivery → bridges/android/location-tracker.
     implementation("androidx.core:core-ktx:1.13.1")
@@ -38,4 +39,5 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
 }

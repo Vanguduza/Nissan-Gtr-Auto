@@ -59,6 +59,32 @@ interface RpcClient {
     ): CheckoutPosResult
 
     /**
+     * Split-bill checkout — [RpcNames.CHECKOUT_POS_CART_WITH_TENDERS].
+     * Tenders must sum to open invoice balance in cart currency.
+     */
+    suspend fun checkoutPosCartWithTenders(
+        cartId: String,
+        tenders: List<PosTenderLine>,
+        receiptEmail: String? = null,
+        receiptWhatsappE164: String? = null,
+        receiptPhoneE164: String? = null,
+    ): CheckoutPosResult
+
+    /**
+     * EcoCash direct C2B intent (staff). Not ContiPay/Paynow.
+     * Returns intent UUID; Edge ecocash-initiate pushes PIN when keys are set.
+     */
+    suspend fun createEcocashIntent(
+        externalRef: String,
+        payerMsisdn: String,
+        amount: Double,
+        currency: CurrencyCode = CurrencyCode.USD,
+        payerMode: String = "pos_entered",
+        customerId: String? = null,
+        salesInvoiceId: String? = null,
+    ): String
+
+    /**
      * Resolve OEM (from parsed inventory QR) to stock_item + base UOM.
      * Used by warehouse receive / cycle-count after bridge scan — not inside the bridge.
      */
@@ -72,6 +98,15 @@ interface RpcClient {
 
     /** Open cart lines (poll refresh for companion scans). */
     suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary>
+
+    /**
+     * Staff till qty stepper — updates [pos_cart_lines.qty] + [line_total]
+     * (RLS [cart_lines_staff]). Prefer over inventing a parallel cart SoR.
+     */
+    suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double)
+
+    /** Remove a cart line (core-charge children CASCADE on parent). */
+    suspend fun deletePosCartLine(lineId: String)
 
     /** Whether cart already has a customer_id (for bind messaging). */
     suspend fun getPosCartCustomerId(cartId: String): String?
@@ -90,6 +125,103 @@ interface RpcClient {
 
     /** Load cart_id for a claimed/open session (companion after claim). */
     suspend fun getPosScanSessionCartId(sessionId: String): String?
+
+    /** Hold open cart ([RpcNames.PARK_POS_CART]). */
+    suspend fun parkPosCart(cartId: String): String
+
+    /** Resume parked cart ([RpcNames.RESUME_POS_CART]). */
+    suspend fun resumePosCart(cartId: String): String
+
+    /** True when signed-in user is Admin or shop manager (POS approval gate). */
+    suspend fun isPosApprover(): Boolean
+
+    /**
+     * Apply percent discount to non-core open cart lines.
+     * Caller must be Admin|shop-manager (second-user reauth on device).
+     */
+    suspend fun applyPosCartDiscount(
+        cartId: String,
+        discountPercent: Double,
+        notes: String? = null,
+    ): String
+
+    /**
+     * Override unit price on a single open non-core line.
+     * Same Admin|shop-manager gate as discount.
+     */
+    suspend fun applyPosLinePriceOverride(
+        lineId: String,
+        unitPrice: Double,
+        notes: String? = null,
+    ): String
+
+    /** Void (abandon) open/parked cart — Admin|shop-manager. */
+    suspend fun voidPosCart(cartId: String, notes: String? = null): String
+
+    /**
+     * POS counter refund — posts through [RpcNames.POST_POS_REFUND] → finance
+     * reversing JE. No parallel POS-only ledger path.
+     */
+    suspend fun postPosRefund(invoiceId: String, notes: String? = null): String
+
+    /** Save open cart as issued quotation (no tender / no ledger). */
+    suspend fun createPosQuotationFromCart(
+        cartId: String,
+        validUntil: String? = null,
+        notes: String? = null,
+    ): String
+
+    /** Record send audit (print|email|sms|whatsapp). */
+    suspend fun sendPosQuotation(
+        quotationId: String,
+        channel: String,
+        contact: String? = null,
+    ): String
+
+    /** Convert issued/sent quote → new open cart; cannot double-convert. */
+    suspend fun convertPosQuotationToCart(quotationId: String): String
+
+    /** List quotations for till quote browser. */
+    suspend fun listPosQuotations(
+        status: String? = null,
+        limit: Int = 50,
+    ): List<PosQuotationSummary>
+
+    /**
+     * Pull retail catalog + warehouse qty for encrypted offline POS cache.
+     * [RpcNames.PULL_POS_OFFLINE_SNAPSHOT].
+     */
+    suspend fun pullPosOfflineSnapshot(warehouseId: String): OfflinePosSnapshot
+
+    /**
+     * Idempotent offline cash-sale replay.
+     * Duplicate [clientSaleId] returns the original invoice id.
+     */
+    suspend fun replayOfflinePosSale(
+        clientSaleId: String,
+        payload: OfflineSaleReplayPayload,
+    ): String
+
+    /**
+     * Pre-auth: emp#|email|phone → GoTrue email for staff password sign-in.
+     * Non-enumerating failures. Not for customer storefront.
+     */
+    suspend fun resolveStaffLoginEmail(identifier: String): String
+
+    /** True when identifier is temporarily locked out (≥5 fails / 15 min). */
+    suspend fun staffLoginIsLocked(identifier: String): Boolean
+
+    /** Record password attempt outcome (clears failures on success). */
+    suspend fun recordStaffLoginAttempt(identifier: String, success: Boolean)
+
+    /** Optional DB landing override: "pos" | "hub" | null. */
+    suspend fun myDefaultLanding(): String?
+
+    /**
+     * Saleable qty summed across warehouses for OEM (PostgREST stock_levels).
+     * Null when OEM not in stock_items.
+     */
+    suspend fun lookupSaleableQtyByOem(oemPartNumber: String): Double?
 
     // --- Warehouse ---
 
@@ -256,6 +388,12 @@ interface RpcClient {
     /** Own rows from `staff_roles` (RLS). Used for chat nav gate. */
     suspend fun listMyStaffRoles(): List<String>
 
+    /**
+     * Organogram `hr_roles.module_access` module ids for the signed-in employee.
+     * Empty → hub falls back to staff_roles-only gating (admins bypass in UI).
+     */
+    suspend fun listMyModuleAccess(): List<String>
+
     /** Live: SELECT chat_threads via PostgREST + RLS (open / mine / closed). */
     suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary>
 
@@ -401,4 +539,30 @@ interface RpcClient {
     ): String
 
     suspend fun setFleetVehicleStatus(id: String, status: FleetVehicleStatus): String
+
+    // --- HR onboarding (admin|hr — banking/health via RLS) ---
+
+    suspend fun listHrOnboardingDrafts(): List<HrOnboardingDraft>
+
+    suspend fun listHrGrades(): List<HrGradeOption>
+
+    suspend fun listHrRoles(): List<HrRoleOption>
+
+    suspend fun saveHrOnboardingStage(
+        draftId: String? = null,
+        stage: HrOnboardingStage,
+        payload: Map<String, String?>,
+        bankingJson: Map<String, String?>? = null,
+        healthJson: Map<String, String?>? = null,
+        employeeId: String? = null,
+    ): String
+
+    /** Returns employee_id, employee_code, user_id (nullable), never temp password for UI. */
+    suspend fun completeHrOnboarding(draftId: String): HrOnboardingCompleteResult
+
+    /**
+     * Edge [RpcNames.HR_ONBOARDING_CREATE_AUTH_FN] when complete left user_id null.
+     * Never returns the temp password.
+     */
+    suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult
 }

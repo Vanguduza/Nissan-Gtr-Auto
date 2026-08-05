@@ -12,7 +12,7 @@ Usage (from data-pipeline/)::
   python -m data_pipeline.cache_parse_worker --once
 
   # keep watching for new cache files while scrape runs
-  python -m data_pipeline.cache_parse_worker --watch --poll-seconds 20
+  python -m data_pipeline.cache_parse_worker --watch --poll-seconds 10 --batch-size 75 --write-bundle-every 17
 """
 
 from __future__ import annotations
@@ -30,13 +30,16 @@ from urllib.parse import urlparse
 
 from data_pipeline.amayama_catalog_auto import (
     ResponseCache,
+    decode_from_chassis,
     enrich_hints_with_vin,
     extract_page_vehicle_meta,
     init_db,
     load_scraped_records,
+    merge_bundles,
     store_payload,
     transform_raw_records,
     write_bundle,
+    _omit_none,
 )
 from data_pipeline.chassis_discovery import ensure_schema as ensure_unmapped_schema
 from data_pipeline.chassis_discovery import set_discovery_db
@@ -669,16 +672,69 @@ def parse_one(
     return "parts", len(payloads), parts
 
 
-def refresh_bundle(*, crawl_db: Path, out_dir: Path) -> dict[str, int]:
+def vehicle_master_from_identities(identities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build vehicle_master rows from /vehicle identity map (no parts required)."""
+    rows: list[dict[str, Any]] = []
+    for identity in identities:
+        chassis = identity.get("chassis_code")
+        if not chassis:
+            continue
+        hints = identity_hints(identity)
+        model_variant = (
+            hints.get("model_variant") or identity.get("model_variant") or "Unknown"
+        )
+        year_expand = hints.get("_year_expand")
+        if isinstance(year_expand, list) and year_expand:
+            for year in year_expand:
+                rows.append(
+                    _omit_none(
+                        {
+                            "vin_prefix": hints.get("vin_prefix") or hints.get("_vin_prefix"),
+                            "chassis_code": str(chassis),
+                            "engine_code": hints.get("engine_code"),
+                            "production_year": year,
+                            "model_variant": model_variant,
+                        }
+                    )
+                )
+            continue
+        for decoded in decode_from_chassis(
+            str(chassis),
+            engine_code=hints.get("engine_code"),
+            production_year=hints.get("production_year"),
+            model_variant=model_variant,
+            year_start=hints.get("year_start"),
+            year_end=hints.get("year_end"),
+            example_vid=str(identity.get("vid") or "") or None,
+            example_url=str(identity.get("source_url") or "") or None,
+            discover_unmapped=False,
+        ):
+            rows.append(_omit_none(decoded.as_hints() | {"model_variant": model_variant}))
+    return rows
+
+
+def refresh_bundle(*, crawl_db: Path, parse_db: Path, out_dir: Path) -> dict[str, int]:
     records = load_scraped_records(crawl_db)
-    bundle = transform_raw_records(records, validate=False)
+    parts_bundle = transform_raw_records(records, validate=False)
+    identities = list_vehicle_identities(parse_db)
+    identity_bundle = {
+        "vehicle_master": vehicle_master_from_identities(identities),
+        "pnc_categories": [],
+        "part_fitment": [],
+        "diagram_assets": [],
+    }
+    # Parts-derived rows win on duplicate natural keys (richer engine/year from hotspots).
+    bundle = merge_bundles([identity_bundle, parts_bundle])
     write_bundle(bundle, out_dir)
     counts = {
         "vehicles": len(bundle.get("vehicle_master") or []),
+        "vehicles_from_identity": len(identity_bundle["vehicle_master"]),
+        "vehicles_from_parts": len(parts_bundle.get("vehicle_master") or []),
         "fitments": len(bundle.get("part_fitment") or []),
         "diagrams": len(bundle.get("diagram_assets") or []),
         "pncs": len(bundle.get("pnc_categories") or []),
         "records": len(records),
+        "identities": len(identities),
     }
     meta_path = out_dir / "parse_bundle_meta.json"
     meta_path.write_text(json.dumps(counts, indent=2) + "\n", encoding="utf-8")
@@ -771,7 +827,9 @@ def run_pass(
                 processed += 1
 
             if write_bundle_every > 0 and since_bundle >= write_bundle_every:
-                counts = refresh_bundle(crawl_db=crawl_db, out_dir=out_dir)
+                counts = refresh_bundle(
+                    crawl_db=crawl_db, parse_db=parse_db, out_dir=out_dir
+                )
                 logger.info("Bundle refresh %s", counts)
                 since_bundle = 0
 
@@ -790,7 +848,9 @@ def run_pass(
 
     bundle_counts: dict[str, int] = {}
     if processed or backfill_stats.get("rows") or identity_updated:
-        bundle_counts = refresh_bundle(crawl_db=crawl_db, out_dir=out_dir)
+        bundle_counts = refresh_bundle(
+            crawl_db=crawl_db, parse_db=parse_db, out_dir=out_dir
+        )
 
     identity_count = 0
     conn = sqlite3.connect(parse_db, timeout=60.0)
@@ -824,7 +884,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--parse-db", type=Path, default=DEFAULT_PARSE_DB)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--base-url", default="https://partsouq.com")
-    parser.add_argument("--batch-size", type=int, default=25)
+    parser.add_argument("--batch-size", type=int, default=75)
     parser.add_argument(
         "--limit",
         type=int,
@@ -834,12 +894,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--write-bundle-every",
         type=int,
-        default=50,
+        default=17,
         help="Rewrite catalog JSON every N parsed pages (0=only at end of pass)",
     )
     parser.add_argument("--once", action="store_true", help="Single pass then exit")
     parser.add_argument("--watch", action="store_true", help="Loop and pick up new cache files")
-    parser.add_argument("--poll-seconds", type=float, default=20.0)
+    parser.add_argument("--poll-seconds", type=float, default=10.0)
     parser.add_argument(
         "--no-catch-up",
         action="store_true",

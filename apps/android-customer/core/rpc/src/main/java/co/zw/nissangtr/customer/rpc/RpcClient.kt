@@ -33,6 +33,25 @@ interface RpcClient {
      */
     suspend fun addCustomerCartLineByOem(oem: String, qty: Double = 1.0): Pair<String, String>
 
+    /**
+     * Official daily ZiG rate (ZiG per 1 USD) via [RpcNames.GET_ZIG_EXCHANGE_RATE].
+     * Falls back to 1.0 when unset (matches web env default).
+     */
+    suspend fun fetchZigExchangeRate(asOf: String? = null): Double
+
+    /** Resolve active MAIN (or first non-quarantine) warehouse — mirrors web `resolveMainWarehouseId`. */
+    suspend fun resolveMainWarehouseId(): String
+
+    /**
+     * Open cart or create one — mirrors web `ensureOpenCart`.
+     * Returns the open [CartSummary].
+     */
+    suspend fun ensureOpenCart(
+        currency: CurrencyCode = CurrencyCode.USD,
+        fulfillmentMode: FulfillmentMode = FulfillmentMode.IMMEDIATE,
+        exchangeRate: Double = 1.0,
+    ): CartSummary
+
     suspend fun createCustomerCart(
         warehouseId: String,
         currency: CurrencyCode = CurrencyCode.USD,
@@ -66,6 +85,14 @@ interface RpcClient {
     suspend fun createCustomerPaynowIntent(
         salesInvoiceId: String,
         method: PaynowMethod = PaynowMethod.ECOCASH,
+        metadataJson: String = "{}",
+    ): PaymentIntentResult
+
+    /** EcoCash direct C2B — not ContiPay/Paynow. */
+    suspend fun createCustomerEcocashIntent(
+        salesInvoiceId: String,
+        payerMsisdn: String,
+        payerMode: String = "other",
         metadataJson: String = "{}",
     ): PaymentIntentResult
 
@@ -176,4 +203,13 @@ interface RpcClient {
         mimeType: String = "image/jpeg",
         sortOrder: Int = 0,
     ): String
+
+    /** Live: SELECT own `customer_addresses` via RLS (default first). */
+    suspend fun listOwnAddresses(): List<CustomerAddress>
+
+    /** [RpcNames.UPSERT_CUSTOMER_ADDRESS] — returns address id. Map lat/lng → line2 geo tag. */
+    suspend fun upsertCustomerAddress(input: CustomerAddressInput): String
+
+    /** [RpcNames.DELETE_CUSTOMER_ADDRESS]. */
+    suspend fun deleteCustomerAddress(id: String)
 }

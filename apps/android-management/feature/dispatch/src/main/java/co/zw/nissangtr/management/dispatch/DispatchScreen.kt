@@ -2,21 +2,13 @@ package co.zw.nissangtr.management.dispatch
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,6 +17,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.management.rpc.RpcClient
+import co.zw.nissangtr.ui.shop.ShopListCard
+import co.zw.nissangtr.ui.shop.ShopPrimaryButton
+import co.zw.nissangtr.ui.shop.ShopSecondaryButton
+import co.zw.nissangtr.ui.shop.ShopStaffPanel
+import co.zw.nissangtr.ui.shop.ShopStaffScreen
+import co.zw.nissangtr.ui.shop.ShopStatusChip
+import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
  * Scaffold: pick/DN + create job + **assignment** (suggest/override) +
@@ -48,266 +47,295 @@ fun DispatchScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ShopStaffScreen(
+        title = "Dispatch",
+        subtitle = "Pick · assign · track",
+        modifier = modifier,
+        onBack = onBack,
     ) {
-        Text("Logistics — Pick / DN / Dispatch", style = MaterialTheme.typography.headlineSmall)
-
-        OutlinedTextField(
-            value = state.salesInvoiceId,
-            onValueChange = viewModel::onSalesInvoiceIdChange,
-            label = { Text("Sales invoice UUID") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-        )
-        OutlinedTextField(
-            value = state.invoiceLineId,
-            onValueChange = viewModel::onInvoiceLineIdChange,
-            label = { Text("Invoice line UUID") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-        )
-        OutlinedTextField(
-            value = state.qty,
-            onValueChange = viewModel::onQtyChange,
-            label = { Text("Qty (pick / DN line)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+        ShopStaffPanel(title = "Pick / delivery note") {
+            OutlinedTextField(
+                value = state.salesInvoiceId,
+                onValueChange = viewModel::onSalesInvoiceIdChange,
+                label = { Text("Sales invoice UUID") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedTextField(
+                value = state.invoiceLineId,
+                onValueChange = viewModel::onInvoiceLineIdChange,
+                label = { Text("Invoice line UUID") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedTextField(
+                value = state.qty,
+                onValueChange = viewModel::onQtyChange,
+                label = { Text("Qty (pick / DN line)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            ShopPrimaryButton(
+                label = "Create pick",
                 onClick = viewModel::createPickList,
                 enabled = !state.busy,
-            ) { Text("Create pick") }
-            Button(
+            )
+            ShopSecondaryButton(
+                label = "Confirm pick",
                 onClick = viewModel::confirmSelectedPick,
                 enabled = !state.busy,
-            ) { Text("Confirm pick") }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+            )
+            ShopPrimaryButton(
+                label = "Create DN",
                 onClick = viewModel::createDeliveryNote,
                 enabled = !state.busy,
-            ) { Text("Create DN") }
-            Button(
+            )
+            ShopPrimaryButton(
+                label = "Submit DN",
                 onClick = viewModel::submitSelectedDn,
                 enabled = !state.busy,
-            ) { Text("Submit DN") }
-            OutlinedButton(
+            )
+            ShopSecondaryButton(
+                label = "Refresh",
                 onClick = viewModel::refresh,
                 enabled = !state.busy,
-            ) { Text("Refresh") }
+            )
         }
 
-        HorizontalDivider()
-        Text("Delivery job", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = state.deliveryJobId,
-            onValueChange = viewModel::onDeliveryJobIdChange,
-            label = { Text("Delivery job UUID") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ShopStaffPanel(title = "Delivery job") {
             OutlinedTextField(
-                value = state.pickupLat,
-                onValueChange = viewModel::onPickupLatChange,
-                label = { Text("Pickup lat") },
-                modifier = Modifier.weight(1f),
+                value = state.deliveryJobId,
+                onValueChange = viewModel::onDeliveryJobIdChange,
+                label = { Text("Delivery job UUID") },
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !state.busy,
             )
-            OutlinedTextField(
-                value = state.pickupLng,
-                onValueChange = viewModel::onPickupLngChange,
-                label = { Text("Pickup lng") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = state.dropoffLat,
-                onValueChange = viewModel::onDropoffLatChange,
-                label = { Text("Dropoff lat") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            OutlinedTextField(
-                value = state.dropoffLng,
-                onValueChange = viewModel::onDropoffLngChange,
-                label = { Text("Dropoff lng") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.pickupLat,
+                    onValueChange = viewModel::onPickupLatChange,
+                    label = { Text("Pickup lat") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                OutlinedTextField(
+                    value = state.pickupLng,
+                    onValueChange = viewModel::onPickupLngChange,
+                    label = { Text("Pickup lng") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.dropoffLat,
+                    onValueChange = viewModel::onDropoffLatChange,
+                    label = { Text("Dropoff lat") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                OutlinedTextField(
+                    value = state.dropoffLng,
+                    onValueChange = viewModel::onDropoffLngChange,
+                    label = { Text("Dropoff lng") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+            }
+            ShopPrimaryButton(
+                label = "Create job",
                 onClick = viewModel::createDeliveryJob,
                 enabled = !state.busy,
-            ) { Text("Create job") }
-            OutlinedButton(
+            )
+            ShopSecondaryButton(
+                label = "Save coords",
                 onClick = viewModel::saveJobCoords,
                 enabled = !state.busy,
-            ) { Text("Save coords") }
-            Button(
+            )
+            ShopPrimaryButton(
+                label = "Mark dispatched",
                 onClick = viewModel::markJobDispatched,
                 enabled = !state.busy,
-            ) { Text("Mark dispatched") }
-        }
-        state.trackShareToken?.let { token ->
-            Text(
-                "Share track token:\n$token",
-                style = MaterialTheme.typography.bodyMedium,
             )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
+            state.trackShareToken?.let { token ->
+                Text(
+                    "Share track token:\n$token",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            ShopSecondaryButton(
+                label = "Rotate share token",
                 onClick = viewModel::rotateShareToken,
                 enabled = !state.busy,
-            ) { Text("Rotate share token") }
-            OutlinedButton(
+            )
+            ShopSecondaryButton(
+                label = "Generate POD OTP",
                 onClick = viewModel::generatePodOtp,
                 enabled = !state.busy,
-            ) { Text("Generate POD OTP") }
-        }
-        state.podOtp?.let { otp ->
-            Text(
-                "POD OTP (read to customer): $otp",
-                style = MaterialTheme.typography.titleMedium,
             )
+            state.podOtp?.let { otp ->
+                Text(
+                    "POD OTP (read to customer): $otp",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
         }
 
-        HorizontalDivider()
-        Text("Assignment", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = state.assigneeUserId,
-            onValueChange = viewModel::onAssigneeUserIdChange,
-            label = { Text("Assignee driver UUID") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+        ShopStaffPanel(title = "Assignment") {
+            OutlinedTextField(
+                value = state.assigneeUserId,
+                onValueChange = viewModel::onAssigneeUserIdChange,
+                label = { Text("Assignee driver UUID") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            ShopSecondaryButton(
+                label = "Suggest",
                 onClick = viewModel::suggestAssignees,
                 enabled = !state.busy,
-            ) { Text("Suggest") }
-            Button(
+            )
+            ShopPrimaryButton(
+                label = "Assign",
                 onClick = { viewModel.assignJob(override = false) },
                 enabled = !state.busy,
-            ) { Text("Assign") }
-            OutlinedButton(
+            )
+            ShopSecondaryButton(
+                label = "Override assign",
                 onClick = { viewModel.assignJob(override = true) },
                 enabled = !state.busy,
-            ) { Text("Override assign") }
-        }
-        state.assigneeSuggestions.forEachIndexed { index, s ->
-            val selected = s.userId == state.assigneeUserId
-            val dist = s.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
-            Text(
-                text = "#${index + 1}  ${s.userId.take(8)}…  ${s.status}  dist=$dist  " +
-                    "open=${s.openJobs}/${s.capacity}" +
-                    if (selected) "  ✓" else "",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !state.busy) {
-                        viewModel.selectSuggestedAssignee(s.userId)
-                    }
-                    .padding(vertical = 4.dp),
-                style = if (selected) {
-                    MaterialTheme.typography.bodyLarge
-                } else {
-                    MaterialTheme.typography.bodyMedium
-                },
             )
+            state.assigneeSuggestions.forEachIndexed { index, s ->
+                val selected = s.userId == state.assigneeUserId
+                val dist = s.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
+                ShopListCard(
+                    title = "#${index + 1}  ${s.userId.take(8)}…  ${s.status}",
+                    subtitle = "dist=$dist  open=${s.openJobs}/${s.capacity}",
+                    onClick = { viewModel.selectSuggestedAssignee(s.userId) },
+                    badges = {
+                        if (selected) {
+                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                )
+            }
         }
 
-        HorizontalDivider()
-        Text("Route order", style = MaterialTheme.typography.titleMedium)
-        Button(
-            onClick = viewModel::optimizeStops,
-            enabled = !state.busy,
-        ) { Text("Optimize stops") }
-        state.optimizedStops.forEach { stop ->
-            val dist = stop.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
-            Text(
-                "#${stop.routeSequence}  ${stop.deliveryJobId.take(8)}…  $dist",
-                style = MaterialTheme.typography.bodyMedium,
+        ShopStaffPanel(title = "Route order") {
+            ShopSecondaryButton(
+                label = "Optimize stops",
+                onClick = viewModel::optimizeStops,
+                enabled = !state.busy,
             )
+            state.optimizedStops.forEach { stop ->
+                val dist = stop.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
+                Text(
+                    "#${stop.routeSequence}  ${stop.deliveryJobId.take(8)}…  $dist",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
 
-        HorizontalDivider()
-        Text("Live location / ETA", style = MaterialTheme.typography.titleMedium)
-        Button(
-            onClick = viewModel::refreshLiveTrack,
-            enabled = !state.busy,
-        ) { Text("Refresh live track") }
-        state.liveTrack?.let { t ->
-            Text(
-                "lat=%.5f lng=%.5f  recorded=${t.recordedAt}".format(t.lat, t.lng) +
-                    (t.etaAt?.let { "  eta=$it" } ?: "") +
-                    (t.etaSeconds?.let { "  (${it}s)" } ?: "") +
-                    "  status=${t.status}",
-                style = MaterialTheme.typography.bodySmall,
+        ShopStaffPanel(title = "Live location / ETA") {
+            ShopSecondaryButton(
+                label = "Refresh live track",
+                onClick = viewModel::refreshLiveTrack,
+                enabled = !state.busy,
             )
+            state.liveTrack?.let { t ->
+                Text(
+                    "lat=%.5f lng=%.5f  recorded=${t.recordedAt}".format(t.lat, t.lng) +
+                        (t.etaAt?.let { "  eta=$it" } ?: "") +
+                        (t.etaSeconds?.let { "  (${it}s)" } ?: "") +
+                        "  status=${t.status}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
 
-        HorizontalDivider()
-        Text("Panic inbox", style = MaterialTheme.typography.titleMedium)
-        Text(state.pollNote, style = MaterialTheme.typography.bodySmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
+        ShopStaffPanel(title = "Panic inbox") {
+            Text(state.pollNote, style = MaterialTheme.typography.bodySmall)
+            ShopSecondaryButton(
+                label = "Refresh panics",
                 onClick = viewModel::refreshPanicInbox,
                 enabled = !state.busy,
-            ) { Text("Refresh panics") }
+            )
             val phone = state.supportPhone
             if (phone.isNotBlank()) {
-                Button(
+                ShopPrimaryButton(
+                    label = "Dial support",
                     onClick = {
                         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
                         context.startActivity(intent)
                     },
                     enabled = !state.busy,
-                ) { Text("Dial support") }
+                )
             } else {
                 Text(
                     "Set DELIVERY_SUPPORT_PHONE in local.properties to enable dial.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-        }
-        if (state.panicEvents.isEmpty()) {
-            Text("No open panic events", style = MaterialTheme.typography.bodyMedium)
-        }
-        state.panicEvents.forEach { p ->
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text(
-                    "driver=${p.driverUserId.take(8)}…  at=${p.createdAt}" +
-                        (p.deliveryJobId?.let { "  job=${it.take(8)}…" } ?: "") +
-                        (if (p.lat != null && p.lng != null) {
-                            "  %.4f,%.4f".format(p.lat, p.lng)
-                        } else {
-                            ""
-                        }),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                OutlinedButton(
+            if (state.panicEvents.isEmpty()) {
+                Text("No open panic events", style = MaterialTheme.typography.bodyMedium)
+            }
+            state.panicEvents.forEach { p ->
+                ShopListCard(
+                    title = "driver=${p.driverUserId.take(8)}…  at=${p.createdAt}",
+                    subtitle = buildString {
+                        p.deliveryJobId?.let { append("job=${it.take(8)}…  ") }
+                        if (p.lat != null && p.lng != null) {
+                            append("%.4f,%.4f".format(p.lat, p.lng))
+                        }
+                    }.trim(),
                     onClick = { viewModel.acknowledgePanic(p.id) },
-                    enabled = !state.busy,
-                ) { Text("Mark handled") }
+                    trailing = {
+                        TextButton(
+                            onClick = { viewModel.acknowledgePanic(p.id) },
+                            enabled = !state.busy,
+                        ) { Text("Handled") }
+                    },
+                )
+            }
+        }
+
+        ShopStaffPanel(title = "Pick lists") {
+            state.pickLists.forEach { pl ->
+                val selected = pl.id == state.selectedPickListId
+                ShopListCard(
+                    title = pl.documentNumber,
+                    subtitle = pl.status,
+                    onClick = { viewModel.selectPickList(pl.id) },
+                    badges = {
+                        if (selected) {
+                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                )
+            }
+        }
+
+        ShopStaffPanel(title = "Delivery notes") {
+            state.deliveryNotes.forEach { dn ->
+                val selected = dn.id == state.selectedDnId
+                ShopListCard(
+                    title = dn.documentNumber,
+                    subtitle = dn.status,
+                    onClick = { viewModel.selectDn(dn.id) },
+                    badges = {
+                        if (selected) {
+                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                )
             }
         }
 
@@ -315,45 +343,5 @@ fun DispatchScreen(
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
         }
-
-        HorizontalDivider()
-        Text("Pick lists", style = MaterialTheme.typography.titleMedium)
-        state.pickLists.forEach { pl ->
-            val selected = pl.id == state.selectedPickListId
-            Text(
-                text = "${pl.documentNumber}  ${pl.status}" +
-                    if (selected) "  ✓" else "",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !state.busy) { viewModel.selectPickList(pl.id) }
-                    .padding(vertical = 4.dp),
-                style = if (selected) {
-                    MaterialTheme.typography.bodyLarge
-                } else {
-                    MaterialTheme.typography.bodyMedium
-                },
-            )
-        }
-
-        HorizontalDivider()
-        Text("Delivery notes", style = MaterialTheme.typography.titleMedium)
-        state.deliveryNotes.forEach { dn ->
-            val selected = dn.id == state.selectedDnId
-            Text(
-                text = "${dn.documentNumber}  ${dn.status}" +
-                    if (selected) "  ✓" else "",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !state.busy) { viewModel.selectDn(dn.id) }
-                    .padding(vertical = 4.dp),
-                style = if (selected) {
-                    MaterialTheme.typography.bodyLarge
-                } else {
-                    MaterialTheme.typography.bodyMedium
-                },
-            )
-        }
-
-        OutlinedButton(onClick = onBack) { Text("Back") }
     }
 }

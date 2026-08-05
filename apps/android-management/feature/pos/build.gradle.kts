@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     implementation(project(":qr-scanner"))
     implementation(project(":escpos-printer"))
     implementation("androidx.core:core-ktx:1.13.1")
@@ -35,4 +36,16 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Offline POS — SQLCipher + Keystore-wrapped passphrase + WorkManager drain
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("androidx.sqlite:sqlite:2.4.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // org.json for offline payload encode/decode (JVM unit tests + Android)
+    implementation("org.json:json:20240303")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation(project(":core:rpc"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

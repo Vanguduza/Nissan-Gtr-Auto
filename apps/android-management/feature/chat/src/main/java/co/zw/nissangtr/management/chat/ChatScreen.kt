@@ -1,7 +1,6 @@
 package co.zw.nissangtr.management.chat
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +28,10 @@ import co.zw.nissangtr.management.rpc.ChatMessageSummary
 import co.zw.nissangtr.management.rpc.ChatThreadSummary
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.StaffChatFilter
+import co.zw.nissangtr.ui.shop.ShopListCard
+import co.zw.nissangtr.ui.shop.ShopPrimaryButton
+import co.zw.nissangtr.ui.shop.ShopSecondaryButton
+import co.zw.nissangtr.ui.shop.ShopStaffScreen
 
 /**
  * Thin staff live-chat scaffold: open / mine / closed list, bubbles, claim / reply / close.
@@ -47,23 +47,24 @@ fun ChatScreen(
     val state by viewModel.state.collectAsState()
     val selected = state.threads.find { it.id == state.selectedId }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ShopStaffScreen(
+        title = "Staff chat",
+        subtitle = "Live support threads",
+        modifier = modifier,
+        scrollable = false,
+        onBack = onBack,
     ) {
-        Text("Staff chat", style = MaterialTheme.typography.headlineSmall)
         if (state.unread > 0) {
             Text("Unread: ${state.unread}", style = MaterialTheme.typography.bodyMedium)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBack) { Text("Back") }
-            OutlinedButton(
+            ShopSecondaryButton(
+                label = "Refresh",
                 onClick = viewModel::refreshThreads,
                 enabled = !state.busy,
-            ) { Text("Refresh") }
+                modifier = Modifier.weight(1f),
+            )
         }
 
         if (state.selectedId == null) {
@@ -87,11 +88,12 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(state.threads, key = { it.id }) { thread ->
-                        ThreadRow(
-                            thread = thread,
+                        ShopListCard(
+                            title = threadPreview(thread),
+                            subtitle = "${thread.status} · ${thread.kind}" +
+                                (thread.lastMessageAt?.let { " · $it" } ?: ""),
                             onClick = { viewModel.selectThread(thread.id) },
                         )
-                        HorizontalDivider()
                     }
                 }
             }
@@ -151,26 +153,6 @@ private fun FilterRow(
 }
 
 @Composable
-private fun ThreadRow(
-    thread: ChatThreadSummary,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-    ) {
-        Text(threadPreview(thread), style = MaterialTheme.typography.titleSmall)
-        Text(
-            "${thread.status} · ${thread.kind}" +
-                (thread.lastMessageAt?.let { " · $it" } ?: ""),
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-}
-
-@Composable
 private fun ThreadDetail(
     thread: ChatThreadSummary?,
     messages: List<ChatMessageSummary>,
@@ -206,17 +188,33 @@ private fun ThreadDetail(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedButton(onClick = onBackToList) { Text("List") }
+            ShopSecondaryButton(
+                label = "List",
+                onClick = onBackToList,
+                modifier = Modifier.weight(0.35f),
+            )
             Text(
                 thread?.let { threadPreview(it) } ?: "Thread",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (canClaim) {
-                Button(onClick = onClaim, enabled = !busy) { Text("Claim") }
+                ShopPrimaryButton(
+                    label = "Claim",
+                    onClick = onClaim,
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                )
             }
             if (!closed) {
-                OutlinedButton(onClick = onClose, enabled = !busy) { Text("Close") }
+                ShopSecondaryButton(
+                    label = "Close",
+                    onClick = onClose,
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
 
@@ -240,11 +238,11 @@ private fun ThreadDetail(
             enabled = !closed && !sendBusy,
             minLines = 2,
         )
-        Button(
+        ShopPrimaryButton(
+            label = if (sendBusy) "Sending…" else "Send",
             onClick = onSend,
             enabled = !closed && !sendBusy && draft.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(if (sendBusy) "Sending…" else "Send") }
+        )
     }
 }
 

@@ -11,6 +11,7 @@
     "test": "echo \"no tests yet\""
   },
   "dependencies": {
+    "@gtr/documents": "workspace:*",
     "@gtr/shared": "workspace:*",
     "@gtr/supabase-client": "workspace:*",
     "@gtr/ui": "workspace:*",

@@ -1,0 +1,78 @@
+{
+  "$schema": "./brand-tokens.schema.json",
+  "meta": {
+    "name": "Nissan GTR Auto",
+    "source": "apps/web + docs/decisions/2026-07-23-storefront-autodoc-logo.md",
+    "version": "1.0.0",
+    "note": "Canonical brand tokens. Web CSS vars via @gtr/ui tokensToCssVars; mobile maps these hex values into Material3 / SwiftUI themes."
+  },
+  "color": {
+    "brand": {
+      "primary": "#C8102E",
+      "primaryHover": "#E01234",
+      "primaryInk": "#FFFFFF",
+      "steel": "#12151C",
+      "steelLift": "#1E2430",
+      "silver": "#C0C5CE",
+      "silverDim": "#8B929E",
+      "mist": "#E8ECF1",
+      "chalk": "#F4F5F7",
+      "white": "#FFFFFF",
+      "accent": "#0B6E4F",
+      "warning": "#B45309",
+      "danger": "#C8102E"
+    },
+    "stock": {
+      "inStock": "#0B6E4F",
+      "low": "#B45309",
+      "backorder": "#6B7280",
+      "counterOnly": "#1E2430"
+    },
+    "money": {
+      "usd": "#0B6E4F",
+      "zig": "#B45309"
+    }
+  },
+  "font": {
+    "web": {
+      "display": "Titillium Web",
+      "body": "Source Sans 3",
+      "mono": "IBM Plex Mono"
+    },
+    "android": {
+      "display": "Titillium Web (OFL res/font)",
+      "body": "Source Sans 3 (OFL res/font)",
+      "mono": "monospace"
+    },
+    "ios": {
+      "display": "Titillium Web (OFL UIAppFonts)",
+      "body": "Source Sans 3 (OFL UIAppFonts)",
+      "mono": "SF Mono"
+    }
+  },
+  "space": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 40,
+    "xxl": 64,
+    "shopMaxPx": 1120
+  },
+  "radius": {
+    "sharp": 2,
+    "control": 8,
+    "staff": 10,
+    "staffSm": 6
+  },
+  "motion": {
+    "entranceMs": 320,
+    "hoverMs": 150
+  },
+  "avoid": [
+    "Inter + purple gradients",
+    "cream-serif terracotta",
+    "broadsheet hairline newspaper layouts",
+    "generic Material purple seed"
+  ]
+}

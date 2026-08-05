@@ -36,10 +36,14 @@ enabled = true
 # Local only. Production Auth site URL: https://nissangtrauto.co.zw
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://127.0.0.1:3000", "https://nissangtrauto.co.zw", "https://www.nissangtrauto.co.zw"]
+# Global: block public GoTrue signup (invite/seed/OTP complete_signup only).
 enable_signup = false
 
 [auth.email]
-enable_signup = false
+# GoTrue maps this to EXTERNAL_EMAIL_ENABLED — false disables ALL email auth
+# (including password login). Keep true so seeded/staff users can sign in;
+# public signup remains blocked by [auth].enable_signup above.
+enable_signup = true
 enable_confirmations = false
 
 [analytics]
@@ -83,6 +87,14 @@ verify_jwt = true
 [functions.process-ai-reports]
 verify_jwt = true
 
+# Cron worker: opt-in CRM promos (x-worker-secret)
+[functions.process-crm-promos]
+verify_jwt = true
+
+# Staff JWT → ABC + forecast KPIs + optional Gemini directives
+[functions.stores-insights]
+verify_jwt = true
+
 # Optional chat notify worker (x-worker-secret); stub delivery by default
 [functions.chat-notify-on-message]
 verify_jwt = true
@@ -90,6 +102,15 @@ verify_jwt = true
 # Public company-domain receipt links (Next.js proxies with anon JWT).
 # AuthZ = download_token lookup; service_role stays inside the function.
 [functions.receipt-download]
+verify_jwt = true
+
+[functions.render-branded-doc]
+verify_jwt = true
+
+# HR/admin: create/link Auth user after complete_hr_onboarding; deliver temp
+# credentials via hr_credential_outbox + existing email/SMS/WA gateways.
+# AuthZ = staff JWT + has_staff_role(admin|hr); never returns password to client.
+[functions.hr-onboarding-create-auth]
 verify_jwt = true
 
 # Customer signup/login OTP (email | phone). Fail-closed without gateway secrets;

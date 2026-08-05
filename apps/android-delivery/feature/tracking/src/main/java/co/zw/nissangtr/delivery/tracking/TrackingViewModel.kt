@@ -28,6 +28,8 @@ data class TrackingUiState(
     val tracking: Boolean = false,
     val lastIngestId: String? = null,
     val lastLatLng: String? = null,
+    val lastLat: Double? = null,
+    val lastLng: Double? = null,
     val ingestCount: Int = 0,
     val queuedCount: Int = 0,
     val message: String? = null,
@@ -105,6 +107,8 @@ class TrackingViewModel(
                                         it.copy(
                                             queuedCount = locationQueue.size(),
                                             lastLatLng = "%.5f, %.5f".format(payload.lat, payload.lng),
+                                            lastLat = payload.lat,
+                                            lastLng = payload.lng,
                                             message = "Offline — queued GPS ping",
                                         )
                                     }
@@ -122,6 +126,8 @@ class TrackingViewModel(
                                         it.copy(
                                             lastIngestId = ingestId,
                                             lastLatLng = "%.5f, %.5f".format(payload.lat, payload.lng),
+                                            lastLat = payload.lat,
+                                            lastLng = payload.lng,
                                             ingestCount = it.ingestCount + 1,
                                             message = "${RpcNames.INGEST_DELIVERY_LOCATION} → $ingestId",
                                             error = null,

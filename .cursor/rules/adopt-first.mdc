@@ -1,32 +1,36 @@
 ---
-description: Adopt-first discovery — search skills, MCP, OSS repos, and SaaS APIs before scaffolding new code
+description: Adopt-first — discover OSS (skills, MCP, self-hosted repos) before scaffolding; no proprietary buy pitches
 alwaysApply: true
 ---
 
 # Adopt-First (discovery before scaffold)
 
-Before inventing modules, services, or substantial new code, **search then decide**. Full runbook: `docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md`.
+Before inventing modules, services, or substantial new code, **search then decide**.  
+Runbook (research-backed): `docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md`  
+Findings: `docs/plans/2026-08-02-cursor-oss-strategy-findings.md`
 
 ## Mandatory order (skip only for tiny in-file fixes)
 
-1. **In-repo** — `docs/decisions/`, existing packages/apps, claude-mem / prior plans.
-2. **Skills** — project `.cursor/skills/` → [skills.sh](https://skills.sh/) / `npx skills find <query>` → install only after license + exclusion check.
-3. **MCP** — [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) / Glama; prefer read-only; do not mass-enable.
-4. **Buy / API / OSS** — GitHub topics, SaaS APIs, satellite compose — prefer **Buy → Integrate → Fork → Build**.
-5. **Only then invent** — thin adapters; keep system of record; write a short discovery note in the plan or PR.
+1. **In-repo** — `docs/decisions/`, packages/apps, progressive memory (claude-mem / plans), and lane map (`rufler.yaml` / `AGENTS.md`).
+2. **Skills** — `.cursor/skills/` → [skills.sh](https://skills.sh/) / `npx skills find` — license + exclusion check before install.
+3. **MCP** — [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers); prefer read-only; do not mass-enable.
+4. **Open source** — GitHub topics, [awesome-selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted) — **Integrate → Fork → Build**. Prefer MIT / Apache-2.0 / BSD; **flag AGPL/GPL**.
+5. **Only then invent** — thin adapters; one system of record; Discovery note in plan/PR.
 
 ## Decision shorthand
 
 | Path | When |
 |------|------|
-| **Buy** | Commodity (auth, email, payments, flags, analytics) with acceptable lock-in |
-| **Integrate** | OSS/SaaS as satellite or library; you own the adapter |
-| **Fork** | Need durable control of an MIT/Apache base; budget upstream merge cost |
-| **Build** | Differentiator, hard exclusions, or no fit after honest search |
+| **Integrate** | Self-hostable OSS satellite or library; you own the adapter |
+| **Fork** | Durable control of a permissive base; budget merge cost |
+| **Build** | Differentiator, hard exclusions, or no OSS fit after honest search |
 
-## Hard stops (GTR — never “discover into”)
+**No proprietary “Buy” recommendations** unless the user explicitly asks for commercial/SaaS options.
+
+## Hard stops (GTR)
 
 - No ZIMRA / FDMS / fiscalisation / payroll-tax skills, MCP, or modules.
 - Bridge-First: no HTML5/WebView QR, printer, biometric, or GPS shortcuts.
-- Do not rebase the system of record onto ERPNext/Odoo mid-project.
-- Do not auto-install every skill or every MCP server.
+- Do not rebase SoR onto ERPNext/Odoo mid-project.
+- Do not auto-install every skill or MCP server.
+- Do not dual-run Ruflo swarm orchestration and Cursor manager on one dirty tree.

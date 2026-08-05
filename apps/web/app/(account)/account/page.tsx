@@ -22,6 +22,12 @@ const cards = [
   { href: "/account/orders", label: "Orders", blurb: "Status & tracking" },
   { href: "/account/chat", label: "Live chat", blurb: "Support & parts" },
   { href: "/account/wishlist", label: "Wishlist", blurb: "Saved parts" },
+  { href: "/account/coupons", label: "Coupons", blurb: "Promos when live" },
+  {
+    href: "/account/notifications",
+    label: "Notifications",
+    blurb: "Order & stock alerts",
+  },
   { href: "/account/returns", label: "Returns", blurb: "Quarantine path" },
   { href: "/account/compare", label: "Compare", blurb: "Side-by-side SKUs" },
   { href: "/account/loyalty", label: "Loyalty", blurb: "Points & rewards" },

@@ -1,0 +1,95 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(18, 21, 28, 0.7);
+}
+
+.sort select {
+  min-height: 2.25rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgba(18, 21, 28, 0.15);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  color: var(--gtr-steel);
+}
+
+.priceRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+}
+
+.priceRow label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(18, 21, 28, 0.55);
+}
+
+.priceRow input {
+  min-height: 2.15rem;
+  padding: 0 0.5rem;
+  border: 1px solid rgba(18, 21, 28, 0.15);
+  border-radius: 6px;
+  font: inherit;
+  width: 100%;
+}
+
+.searchFilters {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.1);
+  border-radius: 10px;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.searchFiltersRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: flex-end;
+}
+
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chipBtn,
+.chipBtnActive {
+  min-height: 2rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(18, 21, 28, 0.14);
+  background: var(--gtr-chalk);
+  color: var(--gtr-steel);
+}
+
+.chipBtnActive {
+  border-color: var(--gtr-red);
+  background: color-mix(in srgb, var(--gtr-red) 10%, white);
+  color: var(--gtr-red);
+}

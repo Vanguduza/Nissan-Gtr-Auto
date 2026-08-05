@@ -585,6 +585,148 @@ export async function createCustomerPaynowIntent(
   return { ok: true, data: { intentId: data, checkoutUrl: null } };
 }
 
+export type EcoCashPayerMode = "saved" | "other" | "profile";
+
+/**
+ * EcoCash direct C2B (not ContiPay/Paynow). Edge pushes PIN to payer_msisdn.
+ * payerMode saved|profile uses profile phone; other uses explicit msisdn.
+ */
+export async function createCustomerEcocashIntent(
+  client: SupabaseClient,
+  invoiceId: string,
+  opts: {
+    payerMode: EcoCashPayerMode;
+    payerMsisdn?: string | null;
+    settlement?: {
+      currency: Currency;
+      amount: number;
+      exchangeRate: number;
+    };
+  },
+): Promise<StorefrontResult<PaymentIntentResult & { message?: string }>> {
+  const customer = await loadOwnCustomer(client);
+  const profilePhone =
+    customer.ok && customer.data
+      ? (customer.data.phone_e164?.trim() ||
+          customer.data.whatsapp_e164?.trim() ||
+          null)
+      : null;
+
+  let payerMsisdn = opts.payerMsisdn?.trim() || null;
+  let payerMode: string = opts.payerMode;
+  if (opts.payerMode === "saved" || opts.payerMode === "profile") {
+    if (!profilePhone) {
+      return {
+        ok: false,
+        error:
+          "No saved mobile on your profile. Enter a different EcoCash number.",
+      };
+    }
+    payerMsisdn = profilePhone;
+    payerMode = opts.payerMode === "profile" ? "profile" : "saved";
+  } else if (!payerMsisdn) {
+    return {
+      ok: false,
+      error: "Enter the EcoCash number that will approve the PIN.",
+    };
+  }
+
+  const settlement = opts.settlement;
+  const metadata = {
+    sales_invoice_id: invoiceId,
+    channel: "web",
+    ...(settlement
+      ? {
+          settlement_currency: settlement.currency,
+          settlement_amount: settlement.amount,
+          settlement_exchange_rate: settlement.exchangeRate,
+        }
+      : {}),
+  };
+
+  const edge = await client.functions.invoke("ecocash-initiate", {
+    body: {
+      sales_invoice_id: invoiceId,
+      payer_msisdn: payerMsisdn,
+      payer_mode: payerMode,
+      channel: "web",
+      metadata,
+      ...(settlement
+        ? {
+            settlement_currency: settlement.currency,
+            settlement_amount: settlement.amount,
+            settlement_exchange_rate: settlement.exchangeRate,
+          }
+        : {}),
+    },
+  });
+
+  if (!edge.error && edge.data && typeof edge.data === "object") {
+    const o = edge.data as Record<string, unknown>;
+    if (typeof o.error === "string" && !o.intent_id) {
+      // fall through
+    } else {
+      const intentId =
+        typeof o.intent_id === "string"
+          ? o.intent_id
+          : typeof o.intentId === "string"
+            ? o.intentId
+            : null;
+      if (intentId) {
+        return {
+          ok: true,
+          data: {
+            intentId,
+            checkoutUrl: null,
+            message:
+              typeof o.message === "string"
+                ? o.message
+                : "EcoCash PIN request sent — approve on the EcoCash handset.",
+          },
+        };
+      }
+    }
+  }
+
+  const { data, error } = await client.rpc("create_customer_ecocash_intent", {
+    p_sales_invoice_id: invoiceId,
+    p_payer_msisdn: payerMsisdn,
+    p_payer_mode: payerMode,
+    p_channel: "web",
+    p_metadata: metadata,
+    ...(settlement
+      ? {
+          p_settlement_currency: settlement.currency,
+          p_settlement_amount: settlement.amount,
+          p_settlement_exchange_rate: settlement.exchangeRate,
+        }
+      : {}),
+  });
+  if (error) {
+    const edgeMsg =
+      edge.error?.message ??
+      (edge.data &&
+      typeof edge.data === "object" &&
+      "error" in edge.data
+        ? String((edge.data as { error: unknown }).error)
+        : null);
+    return {
+      ok: false,
+      error: edgeMsg ? `${error.message} (edge: ${edgeMsg})` : error.message,
+    };
+  }
+  if (!data) return { ok: false, error: "EcoCash intent returned no id." };
+  return {
+    ok: true,
+    data: {
+      intentId: data,
+      checkoutUrl: null,
+      message:
+        "EcoCash intent created. Approve PIN on the EcoCash phone when push is live.",
+    },
+  };
+}
+
 export async function listGarageVehicles(
   client: SupabaseClient,
 ): Promise<StorefrontResult<GarageVehicleRow[]>> {

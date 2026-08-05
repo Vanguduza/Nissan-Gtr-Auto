@@ -8,18 +8,62 @@ package co.zw.nissangtr.management.rpc
 object RpcNames {
     // Phase 9 HR (gross payroll only — no PAYE/NSSA UI)
     const val CLOCK_ATTENDANCE = "clock_attendance"
+    /** Batch 1 HR onboarding — resumable draft save. */
+    const val SAVE_HR_ONBOARDING_STAGE = "save_hr_onboarding_stage"
+    /** Batch 1 HR onboarding — create employee + emp#. */
+    const val COMPLETE_HR_ONBOARDING = "complete_hr_onboarding"
+    /** Edge: Admin create/link Auth user + credential outbox (no password to client). */
+    const val HR_ONBOARDING_CREATE_AUTH_FN = "hr-onboarding-create-auth"
 
     // Phase 5 POS (typed OEM/UUID lines — Bridge-First QR via add_cart_line_from_qr)
     const val CREATE_POS_CART = "create_pos_cart"
     const val ADD_CART_LINE = "add_cart_line"
     const val ADD_CART_LINE_FROM_QR = "add_cart_line_from_qr"
     const val CHECKOUT_POS_CART = "checkout_pos_cart"
+    /** Batch 1 §1.3 — multi-tender settle after checkout. */
+    const val CHECKOUT_POS_CART_WITH_TENDERS = "checkout_pos_cart_with_tenders"
+    /** EcoCash direct C2B (staff) — not ContiPay/Paynow. */
+    const val CREATE_ECOCASH_INTENT = "create_ecocash_intent"
     // Optional companion pairing (cart usable with zero sessions)
     const val CREATE_POS_SCAN_SESSION = "create_pos_scan_session"
     const val CLAIM_POS_SCAN_SESSION = "claim_pos_scan_session"
     const val REVOKE_POS_SCAN_SESSION = "revoke_pos_scan_session"
     // Catalog search (standalone add-line path — no session required)
     const val SEARCH_CATALOG = "search_catalog"
+    /** Organogram module_access for signed-in employee (Batch 1 §1.6). */
+    const val MY_MODULE_ACCESS = "my_module_access"
+    /** Optional hr_roles.default_landing (pos|hub). */
+    const val MY_DEFAULT_LANDING = "my_default_landing"
+
+    /** Park / resume open cart (Batch 1). */
+    const val PARK_POS_CART = "park_pos_cart"
+    const val RESUME_POS_CART = "resume_pos_cart"
+
+    /** Admin|shop-manager POS actions (tablet Phase 5). */
+    const val IS_POS_APPROVER = "is_pos_approver"
+    const val APPLY_POS_CART_DISCOUNT = "apply_pos_cart_discount"
+    const val APPLY_POS_LINE_PRICE_OVERRIDE = "apply_pos_line_price_override"
+    const val VOID_POS_CART = "void_pos_cart"
+    /** Counter refund — always posts through finance pipeline. */
+    const val POST_POS_REFUND = "post_pos_refund"
+    const val POST_FINANCE_REFUND = "post_finance_refund"
+
+    /** Offline POS: pull retail catalog + warehouse stock snapshot. */
+    const val PULL_POS_OFFLINE_SNAPSHOT = "pull_pos_offline_snapshot"
+    /** Offline POS: idempotent replay of queued cash sale. */
+    const val REPLAY_OFFLINE_POS_SALE = "replay_offline_pos_sale"
+
+    /** Customer POS quotations (create / send / convert). */
+    const val CREATE_POS_QUOTATION_FROM_CART = "create_pos_quotation_from_cart"
+    const val SEND_POS_QUOTATION = "send_pos_quotation"
+    const val CONVERT_POS_QUOTATION_TO_CART = "convert_pos_quotation_to_cart"
+    const val LIST_POS_QUOTATIONS = "list_pos_quotations"
+
+    /** Pre-auth staff identifier → GoTrue email (emp#|email|phone). */
+    const val RESOLVE_STAFF_LOGIN_EMAIL = "resolve_staff_login_email"
+    /** Password attempt lockout helpers (anon-safe, hashed identifier). */
+    const val STAFF_LOGIN_IS_LOCKED = "staff_login_is_locked"
+    const val RECORD_STAFF_LOGIN_ATTEMPT = "record_staff_login_attempt"
 
     // Phase 4 inventory / warehouse
     const val POST_STOCK_RECEIPT = "post_stock_receipt"

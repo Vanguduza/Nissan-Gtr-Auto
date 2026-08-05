@@ -31,6 +31,18 @@
 		A1000000000000000000002E /* ReviewsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* ReviewsScreen.swift */; };
 		A10000000000000000000052 /* CatalogScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000053 /* CatalogScreen.swift */; };
 		A10000000000000000000050 /* GuestCompareStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* GuestCompareStore.swift */; };
+		A10000000000000000000054 /* GTRTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000055 /* GTRTheme.swift */; };
+		A10000000000000000000070 /* TitilliumWeb-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000071 /* TitilliumWeb-Regular.ttf */; };
+		A10000000000000000000072 /* TitilliumWeb-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000073 /* TitilliumWeb-SemiBold.ttf */; };
+		A10000000000000000000074 /* TitilliumWeb-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000075 /* TitilliumWeb-Bold.ttf */; };
+		A10000000000000000000076 /* SourceSans3-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000077 /* SourceSans3-Regular.ttf */; };
+		A10000000000000000000078 /* SourceSans3-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000079 /* SourceSans3-SemiBold.ttf */; };
+		A1000000000000000000007A /* SourceSans3-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000007B /* SourceSans3-Bold.ttf */; };
+		A10000000000000000000080 /* AccountHubScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000081 /* AccountHubScreen.swift */; };
+		A10000000000000000000082 /* ReviewCameraBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000083 /* ReviewCameraBridge.swift */; };
+		A10000000000000000000090 /* ShopKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000091 /* ShopKit.swift */; };
+		A10000000000000000000092 /* AddressScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000093 /* AddressScreen.swift */; };
+		A10000000000000000000094 /* CustomerShellChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000095 /* CustomerShellChrome.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,7 +71,19 @@
 		A1000000000000000000002F /* ReviewsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewsScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000053 /* CatalogScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000051 /* GuestCompareStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GuestCompareStore.swift; path = ../Sources/GTRCustomerCore/GuestCompareStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000055 /* GTRTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GTRTheme.swift; sourceTree = "<group>"; };
 		A10000000000000000000025 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Shared.xcconfig; path = Config/Shared.xcconfig; sourceTree = "<group>"; };
+		A10000000000000000000071 /* TitilliumWeb-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "TitilliumWeb-Regular.ttf"; sourceTree = "<group>"; };
+		A10000000000000000000073 /* TitilliumWeb-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "TitilliumWeb-SemiBold.ttf"; sourceTree = "<group>"; };
+		A10000000000000000000075 /* TitilliumWeb-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "TitilliumWeb-Bold.ttf"; sourceTree = "<group>"; };
+		A10000000000000000000077 /* SourceSans3-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SourceSans3-Regular.ttf"; sourceTree = "<group>"; };
+		A10000000000000000000079 /* SourceSans3-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SourceSans3-SemiBold.ttf"; sourceTree = "<group>"; };
+		A1000000000000000000007B /* SourceSans3-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SourceSans3-Bold.ttf"; sourceTree = "<group>"; };
+		A10000000000000000000081 /* AccountHubScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHubScreen.swift; sourceTree = "<group>"; };
+		A10000000000000000000083 /* ReviewCameraBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCameraBridge.swift; sourceTree = "<group>"; };
+		A10000000000000000000091 /* ShopKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShopKit.swift; sourceTree = "<group>"; };
+		A10000000000000000000093 /* AddressScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressScreen.swift; sourceTree = "<group>"; };
+		A10000000000000000000095 /* CustomerShellChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomerShellChrome.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,10 +113,26 @@
 				A10000000000000000000012 /* ContentView.swift */,
 				A10000000000000000000018 /* StorefrontSession.swift */,
 				A10000000000000000000033 /* Features */,
+				A10000000000000000000084 /* Bridges */,
+				A10000000000000000000056 /* Theme */,
 				A10000000000000000000034 /* Core */,
 				A10000000000000000000014 /* Assets.xcassets */,
+				A1000000000000000000007C /* Fonts */,
 			);
 			path = GTRCustomer;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000007C /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000071 /* TitilliumWeb-Regular.ttf */,
+				A10000000000000000000073 /* TitilliumWeb-SemiBold.ttf */,
+				A10000000000000000000075 /* TitilliumWeb-Bold.ttf */,
+				A10000000000000000000077 /* SourceSans3-Regular.ttf */,
+				A10000000000000000000079 /* SourceSans3-SemiBold.ttf */,
+				A1000000000000000000007B /* SourceSans3-Bold.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000032 /* Products */ = {
@@ -109,6 +149,9 @@
 				A10000000000000000000022 /* SignInScreen.swift */,
 				A10000000000000000000053 /* CatalogScreen.swift */,
 				A10000000000000000000019 /* CartScreen.swift */,
+				A10000000000000000000081 /* AccountHubScreen.swift */,
+				A10000000000000000000095 /* CustomerShellChrome.swift */,
+				A10000000000000000000093 /* AddressScreen.swift */,
 				A1000000000000000000001A /* OrdersScreen.swift */,
 				A1000000000000000000001B /* GarageScreen.swift */,
 				A1000000000000000000002B /* WishlistScreen.swift */,
@@ -119,6 +162,14 @@
 				A10000000000000000000029 /* DeliveryTrackScreen.swift */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000084 /* Bridges */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000083 /* ReviewCameraBridge.swift */,
+			);
+			path = Bridges;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000034 /* Core */ = {
@@ -135,6 +186,15 @@
 				A10000000000000000000051 /* GuestCompareStore.swift */,
 			);
 			name = Core;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000056 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000055 /* GTRTheme.swift */,
+				A10000000000000000000091 /* ShopKit.swift */,
+			);
+			path = Theme;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -196,6 +256,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000004 /* Assets.xcassets in Resources */,
+				A10000000000000000000070 /* TitilliumWeb-Regular.ttf in Resources */,
+				A10000000000000000000072 /* TitilliumWeb-SemiBold.ttf in Resources */,
+				A10000000000000000000074 /* TitilliumWeb-Bold.ttf in Resources */,
+				A10000000000000000000076 /* SourceSans3-Regular.ttf in Resources */,
+				A10000000000000000000078 /* SourceSans3-SemiBold.ttf in Resources */,
+				A1000000000000000000007A /* SourceSans3-Bold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,6 +295,12 @@
 				A1000000000000000000002E /* ReviewsScreen.swift in Sources */,
 				A10000000000000000000050 /* GuestCompareStore.swift in Sources */,
 				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
+				A10000000000000000000054 /* GTRTheme.swift in Sources */,
+				A10000000000000000000090 /* ShopKit.swift in Sources */,
+				A10000000000000000000080 /* AccountHubScreen.swift in Sources */,
+				A10000000000000000000092 /* AddressScreen.swift in Sources */,
+				A10000000000000000000094 /* CustomerShellChrome.swift in Sources */,
+				A10000000000000000000082 /* ReviewCameraBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

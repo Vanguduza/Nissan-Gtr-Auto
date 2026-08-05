@@ -7,7 +7,8 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./brand-tokens.json": "./brand-tokens.json"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

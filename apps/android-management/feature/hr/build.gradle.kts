@@ -24,6 +24,10 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    // Shared brand theme (packages/ui brand-tokens.json)
+    implementation(project(":android-ui"))
+    // HR onboarding profile photo — Bridge-First CameraX.
+    implementation(project(":biometric-photo"))
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
@@ -33,4 +37,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation(project(":core:rpc"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

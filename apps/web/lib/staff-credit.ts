@@ -10,6 +10,8 @@ export type CustomerCreditRow = {
   credit_limit: number;
   credit_hold: boolean;
   open_balance: number;
+  marketing_opt_in: boolean;
+  last_promotional_message_at: string | null;
   /** Display currency for limit/balance — customers are multi-currency aware via RPC. */
   currency?: CurrencyCode;
 };
@@ -31,7 +33,9 @@ export async function loadCustomerCredit(
 ): Promise<StorefrontResult<CustomerCreditRow | null>> {
   const { data, error } = await client
     .from("customers")
-    .select("id, display_name, credit_limit, credit_hold, open_balance")
+    .select(
+      "id, display_name, credit_limit, credit_hold, open_balance, marketing_opt_in, last_promotional_message_at",
+    )
     .eq("id", customerId)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
@@ -44,6 +48,8 @@ export async function loadCustomerCredit(
       credit_limit: Number(data.credit_limit ?? 0),
       credit_hold: !!data.credit_hold,
       open_balance: Number(data.open_balance ?? 0),
+      marketing_opt_in: !!data.marketing_opt_in,
+      last_promotional_message_at: data.last_promotional_message_at ?? null,
     },
   };
 }
