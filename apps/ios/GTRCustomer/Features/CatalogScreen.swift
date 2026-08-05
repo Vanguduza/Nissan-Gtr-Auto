@@ -568,7 +568,8 @@ struct CatalogScreen: View {
         }
         .background(GTRColors.chalk.ignoresSafeArea())
         .onAppear {
-            selectedGalleryKey = galleryKeys(for: product).first ?? product.oem
+            selectedGalleryKey = product.imageUrls.isEmpty ? galleryKeys(for: product).first ?? product.oem : "img-0"
+            selectedGalleryIndex = 0
         }
     }
 
@@ -609,7 +610,8 @@ struct CatalogScreen: View {
 
     private func applyCategoryFilter(_ category: String?) async {
         activeCategory = category?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-        route = .home
+        filterState.category = activeCategory
+        route = .categoryPlp
         await refreshBrowse(category: activeCategory)
     }
 
