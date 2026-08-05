@@ -2,17 +2,19 @@ package co.zw.nissangtr.customer.shell
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
@@ -20,18 +22,21 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import co.zw.nissangtr.ui.shop.ShopCircleIconButton
+import androidx.compose.ui.unit.sp
 import co.zw.nissangtr.ui.theme.GtrLogo
 
 /**
- * Customer storefront top strip — menu + GTR logo left; My Account / Cart / Sign-in right.
- * Screen-local (frozen android-ui has no shell strip primitive).
+ * Customer storefront top strip — icon-over-label actions (same pattern as bottom bar),
+ * no rounded/circle chrome. Logo is larger than the action icons.
  */
 @Composable
 fun CustomerShellTopBar(
@@ -47,29 +52,35 @@ fun CustomerShellTopBar(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            ShopCircleIconButton(
-                imageVector = Icons.Filled.Menu,
+            ShellLabeledIconButton(
+                icon = Icons.Filled.Menu,
+                label = "Menu",
                 onClick = onOpenMenu,
-                contentDescription = "Menu",
             )
-            GtrLogo(modifier = Modifier.height(28.dp).width(96.dp))
+            GtrLogo(
+                modifier = Modifier
+                    .height(40.dp)
+                    .widthIn(min = 110.dp, max = 140.dp),
+            )
         }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            TextButton(onClick = onOpenAccount) {
-                Text("My Account", style = MaterialTheme.typography.labelMedium)
-            }
+            ShellLabeledIconButton(
+                icon = Icons.Filled.AccountCircle,
+                label = "My Account",
+                onClick = onOpenAccount,
+            )
             BadgedBox(
                 badge = {
                     if (cartBadgeCount > 0) {
@@ -77,37 +88,63 @@ fun CustomerShellTopBar(
                     }
                 },
             ) {
-                ShopCircleIconButton(
-                    imageVector = Icons.Filled.ShoppingCart,
+                ShellLabeledIconButton(
+                    icon = Icons.Filled.ShoppingCart,
+                    label = "Cart",
                     onClick = onOpenCart,
-                    contentDescription = "Cart",
                 )
             }
             if (signedInEmail != null) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                        .clickable(onClick = onOpenAccount),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        signedInEmail.take(2).uppercase(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                ShellLabeledIconButton(
+                    icon = Icons.Filled.AccountCircle,
+                    label = "Signed in",
+                    onClick = onOpenAccount,
+                )
             } else {
-                TextButton(onClick = onSignIn) {
-                    Icon(
-                        Icons.Filled.AccountCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(" Sign in", style = MaterialTheme.typography.labelMedium)
-                }
+                ShellLabeledIconButton(
+                    icon = Icons.Filled.Login,
+                    label = "Sign in",
+                    onClick = onSignIn,
+                )
             }
         }
+    }
+}
+
+/** Bottom-nav style: icon above label, flat (no rounded border / circle). */
+@Composable
+fun ShellLabeledIconButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    Column(
+        modifier = modifier
+            .clickable(
+                interactionSource = interaction,
+                indication = ripple(bounded = false, radius = 28.dp),
+                onClick = onClick,
+            )
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .widthIn(min = 52.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
