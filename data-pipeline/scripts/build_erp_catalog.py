@@ -43,33 +43,38 @@ def _fitment_key(row: dict) -> tuple:
     )
 
 
-def filter_completed_bundle(full: dict) -> tuple[dict, dict]:
-    """Keep vehicles that have at least one complete fitment row."""
-    fitments = full.get("part_fitment") or []
-    complete_fitments = [
+def _complete_fitments(full: dict) -> list[dict]:
+    return [
         f
-        for f in fitments
+        for f in (full.get("part_fitment") or [])
         if f.get("chassis_code")
         and f.get("bbox_x") is not None
         and f.get("diagram_path")
     ]
+
+
+def build_erp_bundle(full: dict, *, completed_only: bool) -> tuple[dict, dict]:
+    """ERP bundle: all parsed vehicles for VIN/model search + fitments where crawled.
+
+    ``completed_only=True`` restricts vehicle_master to chassis that already have parts.
+    Default (False) keeps every identity/parts vehicle row so ``search_catalog`` vin|model
+    works for the full parsed frontier while part|pnc modes cover fitment-backed chassis.
+    """
+    complete_fitments = _complete_fitments(full)
     chassis_with_parts = {f["chassis_code"] for f in complete_fitments}
     engines_by_chassis = Counter(
         (f["chassis_code"], f.get("engine_code")) for f in complete_fitments
     )
 
     vehicles = full.get("vehicle_master") or []
-    completed_vehicles = [
-        v
-        for v in vehicles
-        if v.get("chassis_code") in chassis_with_parts
-    ]
-    # Also include identity-only vehicles whose chassis has parts (even if engine/year differ)
-    vehicle_keys = {_vehicle_key(v) for v in completed_vehicles}
-    for v in vehicles:
-        if v.get("chassis_code") in chassis_with_parts and _vehicle_key(v) not in vehicle_keys:
-            completed_vehicles.append(v)
-            vehicle_keys.add(_vehicle_key(v))
+    if completed_only:
+        completed_vehicles = [v for v in vehicles if v.get("chassis_code") in chassis_with_parts]
+        vehicle_keys = {_vehicle_key(v) for v in completed_vehicles}
+        for v in vehicles:
+            if v.get("chassis_code") in chassis_with_parts and _vehicle_key(v) not in vehicle_keys:
+                completed_vehicles.append(v)
+                vehicle_keys.add(_vehicle_key(v))
+        vehicles = completed_vehicles
 
     pnc_codes = {f.get("pnc_code") for f in complete_fitments if f.get("pnc_code")}
     pncs = [p for p in (full.get("pnc_categories") or []) if p.get("pnc_code") in pnc_codes]
@@ -81,28 +86,36 @@ def filter_completed_bundle(full: dict) -> tuple[dict, dict]:
         if d.get("storage_path") in diagram_paths
     ]
 
-    filtered = {
-        "vehicle_master": completed_vehicles,
+    bundle = {
+        "vehicle_master": vehicles,
         "pnc_categories": pncs,
         "part_fitment": complete_fitments,
         "diagram_assets": diagrams,
     }
 
+    identity_chassis = sorted({v.get("chassis_code") for v in vehicles if v.get("chassis_code")})
     meta = {
-        "completed_chassis": sorted(chassis_with_parts),
+        "parts_complete_chassis": sorted(chassis_with_parts),
+        "identity_chassis": identity_chassis,
+        "identity_only_chassis": sorted(set(identity_chassis) - chassis_with_parts),
         "chassis_fitment_counts": dict(
             Counter(f["chassis_code"] for f in complete_fitments).most_common()
         ),
         "engines_by_chassis": {
             f"{c}|{e or '?'}": n for (c, e), n in engines_by_chassis.most_common()
         },
-        "vehicles": len(completed_vehicles),
+        "vehicles": len(vehicles),
         "fitments": len(complete_fitments),
         "pncs": len(pncs),
         "diagrams": len(diagrams),
-        "criteria": "chassis with >=1 fitment row having bbox_x + diagram_path",
+        "completed_only": completed_only,
+        "criteria": (
+            "vehicle_master: chassis with fitment data only"
+            if completed_only
+            else "vehicle_master: all parsed identity+parts rows; fitments: bbox+diagram complete"
+        ),
     }
-    return filtered, meta
+    return bundle, meta
 
 
 def write_bundle(bundle: dict, out_dir: Path) -> None:
