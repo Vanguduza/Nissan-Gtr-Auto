@@ -924,23 +924,291 @@ public final class LiveStorefrontApi: StorefrontApi {
         )
     }
 
+    // MARK: Profile
+
+    public func loadOwnProfile() async throws -> UserProfile? {
+        guard let userId = currentUserId() else { return nil }
+        let rows: [ProfileRow] = try await client.selectDecode(
+            table: "profiles",
+            query: [
+                "select=id,full_name",
+                "id=eq.\(userId.uuidString.lowercased())",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        return rows.first?.toModel()
+    }
+
+    public func loadOwnCustomer() async throws -> CustomerProfile? {
+        let rows: [CustomerProfileRow] = try await client.selectDecode(
+            table: "customers",
+            query: [
+                "select=id,display_name,email,phone_e164,whatsapp_e164,sms_receipts,email_receipts,whatsapp_receipts,marketing_opt_in,last_promotional_message_at",
+                "limit=1",
+            ].joined(separator: "&")
+        )
+        return rows.first?.toModel()
+    }
+
+    public func updateOwnFullName(_ fullName: String) async throws {
+        guard let userId = currentUserId() else {
+            throw StorefrontError.notAuthenticated
+        }
+        let trimmed = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        try await client.patch(
+            table: "profiles",
+            query: "id=eq.\(userId.uuidString.lowercased())",
+            body: ["full_name": trimmed.isEmpty ? NSNull() : trimmed]
+        )
+    }
+
+    public func updateOwnCustomerContact(_ patch: CustomerContactPatch) async throws {
+        var body: [String: Any] = [:]
+        body["p_display_name"] = patch.displayName as Any? ?? NSNull()
+        body["p_email"] = patch.email as Any? ?? NSNull()
+        body["p_phone_e164"] = patch.phoneE164 as Any? ?? NSNull()
+        body["p_whatsapp_e164"] = patch.whatsappE164 as Any? ?? NSNull()
+        body["p_sms_receipts"] = patch.smsReceipts as Any? ?? NSNull()
+        body["p_email_receipts"] = patch.emailReceipts as Any? ?? NSNull()
+        body["p_whatsapp_receipts"] = patch.whatsappReceipts as Any? ?? NSNull()
+        _ = try await client.rpc(RpcName.updateOwnCustomerProfile, body: body)
+    }
+
+    public func setOwnMarketingOptIn(_ optIn: Bool) async throws {
+        _ = try await client.rpc(
+            RpcName.setOwnMarketingOptIn,
+            body: ["p_opt_in": optIn]
+        )
+    }
+
+    // MARK: Loyalty / returns / kits
+
+    public func getLoyaltyBalance(customerId: UUID) async throws -> LoyaltyBalance {
+        let rows: [LoyaltyBalanceRow] = try await client.rpcDecodeArrayAllowEmpty(
+            RpcName.getLoyaltyBalance,
+            body: ["p_customer_id": JSONValue.uuid(customerId)]
+        )
+        guard let row = rows.first else {
+            throw StorefrontError.message("get_loyalty_balance returned no row")
+        }
+        return row.toModel(fallbackCustomerId: customerId)
+    }
+
+    public func postCustomerReturnCreditNote(
+        invoiceId: UUID,
+        lines: [ReturnCreditNoteLine]
+    ) async throws -> UUID {
+        guard !lines.isEmpty else { throw StorefrontError.message("return lines required") }
+        let payload: [[String: Any]] = lines.map { line in
+            [
+                "stock_item_id": JSONValue.uuid(line.stockItemId),
+                "uom_id": JSONValue.uuid(line.uomId),
+                "qty": JSONValue.number(line.qty),
+            ]
+        }
+        let raw: String = try await client.rpcDecode(
+            RpcName.postCustomerReturnCreditNote,
+            body: [
+                "p_invoice_id": JSONValue.uuid(invoiceId),
+                "p_lines": payload,
+            ]
+        )
+        guard let id = UUID(uuidString: raw) else {
+            throw StorefrontError.message("post_customer_return_credit_note returned invalid UUID")
+        }
+        return id
+    }
+
+    public func listActiveKits(limit: Int) async throws -> [KitListItem] {
+        let cap = min(max(limit, 1), 50)
+        let kits: [ItemKitRow] = try await client.selectDecode(
+            table: StorefrontTable.itemKits,
+            query: [
+                "select=id,sell_mode,stock_item_id,stock_items(oem_part_number,description)",
+                "is_active=eq.true",
+                "order=created_at.desc",
+                "limit=\(cap)",
+            ].joined(separator: "&")
+        )
+        if kits.isEmpty { return [] }
+        let kitIds = kits.map(\.id)
+        let idList = kitIds.map { $0.uuidString.lowercased() }.joined(separator: ",")
+        let comps: [KitComponentRow] = try await client.selectDecode(
+            table: StorefrontTable.itemKitComponents,
+            query: [
+                "select=kit_id,qty,stock_items:component_item_id(oem_part_number,description)",
+                "kit_id=in.(\(idList))",
+            ].joined(separator: "&")
+        )
+        var byKit: [UUID: [KitComponent]] = [:]
+        for c in comps {
+            let item = c.stockItems
+            let comp = KitComponent(
+                oem: item?.oemPartNumber ?? "—",
+                name: item?.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                    ?? item?.oemPartNumber ?? "Component",
+                qty: c.qty
+            )
+            byKit[c.kitId, default: []].append(comp)
+        }
+        return kits.map { k in
+            let item = k.stockItems
+            return KitListItem(
+                kitId: k.id,
+                stockItemId: k.stockItemId,
+                oem: item?.oemPartNumber ?? k.stockItemId.uuidString,
+                name: item?.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                    ?? item?.oemPartNumber ?? "Kit",
+                sellMode: k.sellMode,
+                components: byKit[k.id] ?? []
+            )
+        }
+    }
+
+    public func listInvoiceLines(invoiceId: UUID) async throws -> [InvoiceLineSummary] {
+        let rows: [InvoiceLineRow] = try await client.selectDecode(
+            table: "sales_invoice_lines",
+            query: [
+                "select=id,stock_item_id,uom_id,qty,stock_items(oem_part_number,description)",
+                "invoice_id=eq.\(invoiceId.uuidString.lowercased())",
+                "order=created_at.asc",
+            ].joined(separator: "&")
+        )
+        return rows.map { $0.toModel() }
+    }
+
     // MARK: - Private
 
-    private func loadFitmentLabels(oem: String) async throws -> [String] {
-        let rows: [FitmentLabelRow] = try await client.selectDecode(
+    private func loadFitmentMeta(oem: String) async throws -> FitmentMeta {
+        let rows: [FitmentMetaRow] = try await client.selectDecode(
             table: "part_fitment",
             query: [
-                "select=chassis_code,engine_code,pnc_code",
-                "oem_part_number=ilike.\(Self.percentEncodeQueryValue(oem))",
+                "select=chassis_code,engine_code,pnc_code,pnc_categories(category_name,subcategory_name)",
+                "oem_part_number=eq.\(Self.percentEncodeQueryValue(oem))",
                 "limit=12",
             ].joined(separator: "&")
         )
-        return rows.compactMap { row in
+        let lines = rows.compactMap { row -> String? in
             let bits = [row.chassisCode, row.engineCode, row.pncCode.map { "PNC \($0)" }]
                 .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
             return bits.isEmpty ? nil : bits.joined(separator: " · ")
         }
+        let primary = rows.first
+        var specs: [String] = []
+        if let pnc = primary?.pncCode?.trimmingCharacters(in: .whitespacesAndNewlines), !pnc.isEmpty {
+            specs.append("PNC \(pnc)")
+        }
+        if let chassis = primary?.chassisCode?.trimmingCharacters(in: .whitespacesAndNewlines), !chassis.isEmpty {
+            specs.append("Chassis \(chassis)")
+        }
+        if let engine = primary?.engineCode?.trimmingCharacters(in: .whitespacesAndNewlines), !engine.isEmpty {
+            specs.append("Engine \(engine)")
+        }
+        let category = primary?.pncCategories?.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            ?? primary?.pncCategories?.subcategoryName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        return FitmentMeta(lines: lines, specs: specs, category: category)
+    }
+
+    private func loadReplaces(oem: String) async throws -> [String] {
+        let xrefs: [OeNumberRow] = try await client.selectDecode(
+            table: "oe_cross_refs",
+            query: [
+                "select=oe_number",
+                "oem_part_number=eq.\(Self.percentEncodeQueryValue(oem))",
+                "limit=20",
+            ].joined(separator: "&")
+        )
+        let superseded: [SupersededRow] = try await client.selectDecode(
+            table: "part_fitment",
+            query: [
+                "select=superseded_by",
+                "oem_part_number=eq.\(Self.percentEncodeQueryValue(oem))",
+                "limit=20",
+            ].joined(separator: "&")
+        )
+        return (xrefs.compactMap(\.oeNumber) + superseded.compactMap(\.supersededBy))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !$0.caseInsensitiveCompare(oem).equals(.orderedSame) }
+            .uniqued()
+    }
+
+    private func loadDiagramPublicUrl(oem: String) async throws -> String? {
+        let rows: [DiagramPathRow] = try await client.selectDecode(
+            table: "part_fitment",
+            query: [
+                "select=diagram_path",
+                "oem_part_number=eq.\(Self.percentEncodeQueryValue(oem))",
+                "limit=20",
+            ].joined(separator: "&")
+        )
+        guard let path = rows.first(where: { !($0.diagramPath?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) })?
+            .diagramPath?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !path.isEmpty else { return nil }
+        if path.lowercased().hasPrefix("http://") || path.lowercased().hasPrefix("https://") {
+            return path
+        }
+        let base = client.baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let clean = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return "\(base)/storage/v1/object/public/\(Self.catalogDiagramsBucket)/\(clean)"
+    }
+
+    private func resolveOemFilterForCategory(_ categoryLabel: String) async throws -> [String] {
+        let cat = categoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cat.isEmpty else { return [] }
+        let pncRows: [PncCodeRow] = try await client.selectDecode(
+            table: "pnc_categories",
+            query: [
+                "select=pnc_code",
+                "category_name=ilike.\(Self.percentEncodeQueryValue(cat))",
+                "limit=200",
+            ].joined(separator: "&")
+        )
+        let codes = pncRows.map(\.pncCode).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if codes.isEmpty { return [] }
+        let codeList = codes.map { Self.percentEncodeQueryValue($0) }.joined(separator: ",")
+        let fits: [OemOnlyRow] = try await client.selectDecode(
+            table: "part_fitment",
+            query: [
+                "select=oem_part_number",
+                "pnc_code=in.(\(codeList))",
+                "limit=200",
+            ].joined(separator: "&")
+        )
+        return fits.map(\.oemPartNumber).uniqued()
+    }
+
+    private func loadCategoryByOem(_ oems: [String]) async throws -> [String: String] {
+        guard !oems.isEmpty else { return [:] }
+        let encoded = oems.map { Self.percentEncodeQueryValue($0) }.joined(separator: ",")
+        let rows: [FitmentCategoryRow] = try await client.selectDecode(
+            table: "part_fitment",
+            query: [
+                "select=oem_part_number,pnc_categories(category_name)",
+                "oem_part_number=in.(\(encoded))",
+                "limit=200",
+            ].joined(separator: "&")
+        )
+        var out: [String: String] = [:]
+        for row in rows {
+            if out[row.oemPartNumber] != nil { continue }
+            if let name = row.pncCategories?.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !name.isEmpty {
+                out[row.oemPartNumber] = name
+            }
+        }
+        return out
+    }
+
+    private func currentUserId() -> UUID? {
+        JWTSubjectParser.userId(from: client.accessToken)
+    }
+
+    private struct FitmentMeta {
+        let lines: [String]
+        let specs: [String]
+        let category: String?
     }
 
     private func loadSaleableQty(_ stockItemIds: [UUID]) async throws -> [UUID: Double] {
