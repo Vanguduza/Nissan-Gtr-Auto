@@ -125,7 +125,9 @@ export async function searchMeiliCatalog(
 
   const trimmed = query.trim();
   const limit = Math.min(Math.max(options.limit ?? 20, 1), 50);
-  const facetFields = options.facets ?? defaultFacetsForMode(mode);
+  const facetFields = allowlistedFacets(
+    options.facets ?? defaultFacetsForMode(mode),
+  );
 
   const body: Record<string, unknown> = {
     q: trimmed,
