@@ -273,7 +273,7 @@ internal object CatalogRpcLive {
             .distinct()
     }
 
-    private suspend fun loadDiagramPublicUrl(client: SupabaseClient, oem: String): String? {
+    private suspend fun loadDiagramPublicUrl(client: SupabaseClient, supabaseUrl: String, oem: String): String? {
         val rows = client.from("part_fitment")
             .select(Columns.list("diagram_path")) {
                 filter { eq("oem_part_number", oem) }
@@ -285,19 +285,20 @@ internal object CatalogRpcLive {
         if (path.startsWith("http://", ignoreCase = true) || path.startsWith("https://", ignoreCase = true)) {
             return path
         }
-        val base = client.supabaseUrl.trimEnd('/')
+        val base = supabaseUrl.trimEnd('/')
         val cleanPath = path.trimStart('/')
         return "$base/storage/v1/object/public/${RpcNames.CATALOG_DIAGRAMS_BUCKET}/$cleanPath"
     }
 
     suspend fun addCartLineByOem(
         client: SupabaseClient,
+        supabaseUrl: String,
         rpc: RpcClient,
         oem: String,
         qty: Double,
     ): Pair<String, String> {
         require(qty > 0) { "qty must be > 0" }
-        val product = loadCatalogProduct(client, oem)
+        val product = loadCatalogProduct(client, supabaseUrl, oem)
         val cartId = rpc.getOpenCart()?.id ?: rpc.createCustomerCart(
             warehouseId = resolveMainWarehouseId(client),
             currency = CurrencyCode.USD,
