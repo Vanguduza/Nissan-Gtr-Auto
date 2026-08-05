@@ -1010,4 +1010,40 @@ class FakeRpcClient : RpcClient {
         val removed = addresses.removeAll { it.id == id }
         require(removed) { "address not found for ${RpcNames.DELETE_CUSTOMER_ADDRESS}" }
     }
+
+    private var fakeFullName = "Fake Customer"
+    private var fakeCustomer = CustomerProfile(
+        id = "fake-customer-id",
+        displayName = "Fake mode customer",
+        email = "fake@nissangtr.local",
+        phoneE164 = "+263770000000",
+        whatsappE164 = "+263770000000",
+        whatsappReceipts = true,
+        marketingOptIn = false,
+    )
+
+    override suspend fun loadOwnProfile(): UserProfile? =
+        UserProfile(id = "fake-user", fullName = fakeFullName)
+
+    override suspend fun loadOwnCustomer(): CustomerProfile? = fakeCustomer
+
+    override suspend fun updateOwnFullName(fullName: String) {
+        fakeFullName = fullName.trim().ifEmpty { fakeFullName }
+    }
+
+    override suspend fun updateOwnCustomerContact(patch: CustomerContactPatch) {
+        fakeCustomer = fakeCustomer.copy(
+            displayName = patch.displayName ?: fakeCustomer.displayName,
+            email = patch.email ?: fakeCustomer.email,
+            phoneE164 = patch.phoneE164 ?: fakeCustomer.phoneE164,
+            whatsappE164 = patch.whatsappE164 ?: fakeCustomer.whatsappE164,
+            smsReceipts = patch.smsReceipts ?: fakeCustomer.smsReceipts,
+            emailReceipts = patch.emailReceipts ?: fakeCustomer.emailReceipts,
+            whatsappReceipts = patch.whatsappReceipts ?: fakeCustomer.whatsappReceipts,
+        )
+    }
+
+    override suspend fun setOwnMarketingOptIn(optIn: Boolean) {
+        fakeCustomer = fakeCustomer.copy(marketingOptIn = optIn)
+    }
 }
