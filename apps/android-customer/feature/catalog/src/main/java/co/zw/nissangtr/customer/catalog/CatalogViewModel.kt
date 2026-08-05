@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 enum class CatalogScreenRoute {
     Home,
     Categories,
+    CategoryBrowse,
     Newest,
     Product,
 }
@@ -31,6 +32,10 @@ data class CatalogUiState(
     val browseItems: List<CatalogListItem> = emptyList(),
     /** Category filter applied on Home rails (chip / categories grid). */
     val activeCategory: String? = null,
+    /** Title shown on category PLP. */
+    val categoryBrowseTitle: String? = null,
+    val filterState: ShopFilterState = ShopFilterState(),
+    val sortOption: ShopSortOption = ShopSortOption.Relevance,
     val product: CatalogProduct? = null,
     val addQty: String = "1",
     val primaryVehicle: GarageVehicle? = null,
@@ -51,6 +56,13 @@ class CatalogViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(CatalogUiState())
     val state: StateFlow<CatalogUiState> = _state.asStateFlow()
+
+    /** Filtered + sorted browse rows for PLP screens. */
+    val displayBrowseItems: List<CatalogListItem>
+        get() {
+            val s = _state.value
+            return applyCatalogFilterSort(s.browseItems, s.filterState, s.sortOption)
+        }
 
     /** Route before opening PDP — restore on back. */
     private var routeBeforeProduct: CatalogScreenRoute = CatalogScreenRoute.Home
