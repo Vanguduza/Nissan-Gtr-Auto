@@ -60,6 +60,7 @@ import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
 import co.zw.nissangtr.customer.catalog.CatalogModule
 import co.zw.nissangtr.customer.catalog.CatalogScreen
+import co.zw.nissangtr.customer.catalog.CategoriesGridScreen
 import co.zw.nissangtr.customer.chat.ChatModule
 import co.zw.nissangtr.customer.chat.ChatScreen
 import co.zw.nissangtr.customer.compare.CompareModule
@@ -79,7 +80,6 @@ import co.zw.nissangtr.customer.rpc.RpcClientFactory
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
 import co.zw.nissangtr.customer.settings.SettingsHubScreen
 import co.zw.nissangtr.customer.shell.CustomerShellTopBar
-import co.zw.nissangtr.customer.shell.GtrPartCategories
 import co.zw.nissangtr.customer.shell.HamburgerMenuAction
 import co.zw.nissangtr.customer.shell.HamburgerMenuOverlay
 import co.zw.nissangtr.customer.track.DeliveryTrackScreen
@@ -89,6 +89,7 @@ import co.zw.nissangtr.customer.wishlist.WishlistScreen
 import co.zw.nissangtr.customer.wishlist.WishlistStore
 import co.zw.nissangtr.ui.shop.ShopBottomBar
 import co.zw.nissangtr.ui.shop.ShopBottomTab
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopProfileAvatar
 import co.zw.nissangtr.ui.shop.ShopProfileItemBox
