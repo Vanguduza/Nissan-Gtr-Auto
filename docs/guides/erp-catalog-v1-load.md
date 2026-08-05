@@ -19,7 +19,7 @@ Chassis in pack: **B13, JJ10, K13, S14, Z33**. Sample OEM: **`28970-JD00A`**.
 cd data-pipeline
 pip install -e ".[supabase]"
 # Set SUPABASE_URL + privileged server key in repo-root .env or data-pipeline/.env
-# (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY)
+# (role key env or SUPABASE_SERVICE_KEY alias — see .env.example)
 ```
 
 ## Commands
