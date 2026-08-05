@@ -267,7 +267,28 @@ class FakeRpcClient : RpcClient {
                     categoryName = it.category,
                 )
             }
-        return SearchCatalogResponse(mode = mode, query = q, parts = hits)
+        return SearchCatalogResponse(mode = mode, query = q, parts = hits, backend = "fts")
+    }
+
+    override suspend fun searchCatalogMeili(
+        mode: SearchMode,
+        query: String,
+        limit: Int,
+        facets: List<String>?,
+    ): SearchCatalogResponse {
+        val base = searchCatalog(mode, query).copy(backend = "meili")
+        val facetMap = mutableMapOf<String, MutableMap<String, Int>>()
+        for (hit in base.parts.take(limit.coerceIn(1, 50))) {
+            hit.categoryName?.trim()?.takeIf { it.isNotEmpty() }?.let { cat ->
+                val bucket = facetMap.getOrPut("category_name") { mutableMapOf() }
+                bucket[cat] = (bucket[cat] ?: 0) + 1
+            }
+            hit.pncCode?.trim()?.takeIf { it.isNotEmpty() }?.let { pnc ->
+                val bucket = facetMap.getOrPut("pnc_code") { mutableMapOf() }
+                bucket[pnc] = (bucket[pnc] ?: 0) + 1
+            }
+        }
+        return base.copy(facetDistribution = facetMap)
     }
 
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult {
@@ -1081,5 +1102,30 @@ class FakeRpcClient : RpcClient {
                 ),
             ),
         ).take(cap)
+    }
+
+    private val fakeInvoiceLines = listOf(
+        InvoiceLineSummary(
+            id = "00000000-0000-4000-8000-0000000000l1",
+            stockItemId = SEED_OIL_FILTER_ID,
+            uomId = SEED_UOM_ID,
+            qty = 1.0,
+            oemPartNumber = "15208-65F0C",
+            description = "Oil filter (demo)",
+        ),
+        InvoiceLineSummary(
+            id = "00000000-0000-4000-8000-0000000000l2",
+            stockItemId = SEED_AIR_FILTER_ID,
+            uomId = SEED_UOM_ID,
+            qty = 1.0,
+            oemPartNumber = "16546-EB70A",
+            description = "Air cleaner element (demo)",
+        ),
+    )
+
+    override suspend fun listInvoiceLines(invoiceId: String): List<InvoiceLineSummary> {
+        invoices.firstOrNull { it.id == invoiceId }
+            ?: error("invoice not found or not owned")
+        return fakeInvoiceLines
     }
 }
