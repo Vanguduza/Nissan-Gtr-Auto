@@ -1,5 +1,4 @@
 import SwiftUI
-import GTRCustomerCore
 
 /// Category PLP — live browse with filter/sort sheets (ShopKit parity).
 struct CategoryPlpScreen: View {

@@ -1,5 +1,4 @@
 import SwiftUI
-import GTRCustomerCore
 
 struct KitsScreen: View {
     @EnvironmentObject private var session: StorefrontSession

@@ -1,5 +1,4 @@
 import SwiftUI
-import GTRCustomerCore
 
 struct LoyaltyWalletScreen: View {
     @EnvironmentObject private var session: StorefrontSession

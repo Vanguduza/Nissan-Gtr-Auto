@@ -1,5 +1,4 @@
 import Foundation
-import GTRCustomerCore
 
 /// Client-side filter + sort on browse rows (Android / web PLP parity).
 struct ShopFilterState: Equatable {
