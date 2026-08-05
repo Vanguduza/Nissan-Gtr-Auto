@@ -164,6 +164,10 @@ fun SettingsHubScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             Text("Account", style = MaterialTheme.typography.titleMedium)
             OutlinedButton(
+                onClick = onEditProfile,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Edit profile") }
+            OutlinedButton(
                 onClick = onOpenAccount,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("My Account") }
