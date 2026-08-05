@@ -124,7 +124,7 @@ class SupabaseRpcClient(
         CatalogRpcLive.listCatalogBrowse(client, category, limit)
 
     override suspend fun loadCatalogProduct(oem: String): CatalogProduct =
-        CatalogRpcLive.loadCatalogProduct(client, oem)
+        CatalogRpcLive.loadCatalogProduct(client, supabaseUrl, oem)
 
     override suspend fun addCustomerCartLineByOem(oem: String, qty: Double): Pair<String, String> =
         CatalogRpcLive.addCartLineByOem(client, this, oem, qty)
@@ -876,7 +876,7 @@ class SupabaseRpcClient(
                 install(Storage)
                 install(Functions)
             }
-            return SupabaseRpcClient(client)
+            return SupabaseRpcClient(client, supabaseUrl.trim())
         }
 
         private fun parseMetadata(raw: String): JsonElement {
