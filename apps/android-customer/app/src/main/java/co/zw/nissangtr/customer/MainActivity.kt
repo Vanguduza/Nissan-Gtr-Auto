@@ -126,6 +126,7 @@ private enum class ProfileDest(val title: String, val subtitle: String) {
     Orders("Orders", "History · track"),
     Returns("Returns", "Quarantine protocol"),
     Loyalty("Loyalty wallet", "Points"),
+    Kits("Service kits", "Bundles"),
     Addresses("Addresses", "Delivery · map pick"),
     Compare("Compare", "Attribute matrix"),
     Pay("Pay", "ContiPay · Paynow · EcoCash"),
@@ -571,6 +572,10 @@ private fun CustomerApp(
                 onOpenGarage = {
                     overlay = ShellOverlay.None
                     tab = ShellTab.Garage
+                },
+                onOpenProduct = { oem ->
+                    overlay = ShellOverlay.None
+                    openCatalog(oem = oem)
                 },
             )
         }
