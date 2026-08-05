@@ -46,6 +46,8 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let getZigExchangeRate = "get_zig_exchange_rate"
         public static let upsertCustomerAddress = "upsert_customer_address"
         public static let deleteCustomerAddress = "delete_customer_address"
+        public static let updateOwnCustomerProfile = "update_own_customer_profile"
+        public static let setOwnMarketingOptIn = "set_own_marketing_opt_in"
     }
 
     public enum EdgeName {
