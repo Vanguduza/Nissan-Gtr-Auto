@@ -32,3 +32,7 @@ CREATE POLICY catalog_meili_sync_state_service_role_all
 
 COMMENT ON TABLE public.catalog_meili_sync_state IS
   'Singleton row tracking last Meilisearch full sync from catalog tables.';
+
+GRANT SELECT ON TABLE public.catalog_meili_sync_state TO authenticated, service_role;
+GRANT INSERT, UPDATE, DELETE ON TABLE public.catalog_meili_sync_state TO service_role;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.catalog_meili_sync_state FROM authenticated;
