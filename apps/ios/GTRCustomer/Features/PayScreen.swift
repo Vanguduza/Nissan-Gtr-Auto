@@ -172,3 +172,5 @@ struct PayScreen: View {
     }
     .environmentObject(StorefrontSession(api: FakeStorefrontApi()))
 }
+
+typealias PayIntentScreen = PayScreen
