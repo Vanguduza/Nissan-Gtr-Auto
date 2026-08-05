@@ -1,5 +1,6 @@
 package co.zw.nissangtr.customer.catalog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -547,17 +548,22 @@ private fun KmpPdp(
                 )
             }
             HorizontalDivider(modifier = Modifier.padding(16.dp), color = GtrColors.Mist)
-            Text(
-                "Reviews",
-                modifier = Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.titleLarge,
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Reviews", style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = onOpenReviews) { Text("See all / write") }
+            }
             Text(
                 when {
                     reviewStats == null || reviewStats.reviewCount == 0 ->
-                        "No reviews yet for this part."
+                        "No reviews yet — reviews live on the product page."
                     else ->
-                        "%.1f average · %d review(s)".format(
+                        "%.1f average · %d review(s). Tap above to read or submit.".format(
                             reviewStats.avgRating,
                             reviewStats.reviewCount,
                         )

@@ -70,30 +70,16 @@ val DefaultCatalogCategoryCards: List<CatalogCategoryCard> = listOf(
 val DefaultCatalogCategories: List<String> = DefaultCatalogCategoryCards.map { it.label }
 
 /**
- * Categories grid — large cards with red accent bar. Category tap shows empty inventory dialog
- * (does not navigate home / search).
+ * Categories grid — large cards with red accent bar. Tap opens live category PLP.
  */
 @Composable
 fun CategoriesGridScreen(
     categories: List<CatalogCategoryCard> = DefaultCatalogCategoryCards,
     onBack: () -> Unit,
+    onCategoryClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var emptyTitle by remember { mutableStateOf<String?>(null) }
     val list = categories.ifEmpty { DefaultCatalogCategoryCards }
-
-    emptyTitle?.let { title ->
-        AlertDialog(
-            onDismissRequest = { emptyTitle = null },
-            title = { Text(title) },
-            text = {
-                Text("No items added yet. Stock for this category will appear here when catalog listings are published.")
-            },
-            confirmButton = {
-                TextButton(onClick = { emptyTitle = null }) { Text("OK") }
-            },
-        )
-    }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
