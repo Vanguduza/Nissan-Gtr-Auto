@@ -294,11 +294,9 @@ export function SearchResults({
               label="Models / chassis"
               entries={modelFacets}
               onPick={(value) => {
-                const q = new URLSearchParams({
-                  mode: "model",
-                  q: value,
-                });
-                window.location.assign(`/search?${q.toString()}`);
+                router.push(
+                  `/search?mode=model&q=${encodeURIComponent(value)}`,
+                );
               }}
             />
           ) : null}
@@ -311,8 +309,9 @@ export function SearchResults({
               label="PNC codes"
               entries={pncFacets}
               onPick={(value) => {
-                const q = new URLSearchParams({ mode: "pnc", q: value });
-                window.location.assign(`/search?${q.toString()}`);
+                router.push(
+                  `/search?mode=pnc&q=${encodeURIComponent(value)}`,
+                );
               }}
             />
           ) : null}
