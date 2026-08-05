@@ -18,7 +18,7 @@ struct ContentView: View {
     }
 
     private enum ShellOverlay: Equatable {
-        case none, menu, cart, account
+        case none, menu, cart, account, categories, pay(UUID?), orders
     }
 
     init(pendingPartsOem: Binding<String?>) {
