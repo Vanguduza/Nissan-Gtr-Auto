@@ -292,7 +292,7 @@ def import_catalog(
             diagram_stats.unchanged = len(bundle["diagram_assets"])
         stats["diagram_assets"] = diagram_stats
         notes.append(
-            "diagram_assets: Storage only (bucket catalog-diagrams) — "
+            "diagram_assets: Storage only (bucket catalog-diagrams) - "
             "use supabase/seed_catalog_diagrams.mjs for fixture PNGs, or "
             "python -m data_pipeline.amayama_catalog_auto --transform-only --upload-diagrams"
         )
@@ -461,7 +461,7 @@ def import_supabase(
     )
     if bundle.get("diagram_assets"):
         result.notes.append(
-            f"diagram_assets skipped for Postgres ({len(bundle['diagram_assets'])} Storage paths) — "
+            f"diagram_assets skipped for Postgres ({len(bundle['diagram_assets'])} Storage paths) - "
             "seed via supabase/seed_catalog_diagrams.mjs or amayama --upload-diagrams"
         )
     return result
