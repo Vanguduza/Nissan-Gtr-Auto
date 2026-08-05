@@ -500,8 +500,8 @@ def main(argv: list[str] | None = None) -> int:
         url, key = resolve_supabase_credentials()
         if not url or not key:
             print(
-                "ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY "
-                "(or SUPABASE_SERVICE_KEY) required for --live"
+                f"ERROR: {_ENV_URL} and {_ENV_SVC_KEY} "
+                f"(or {_ENV_SVC_KEY_ALIAS}) required for --live"
             )
             return 1
         result = import_supabase(
