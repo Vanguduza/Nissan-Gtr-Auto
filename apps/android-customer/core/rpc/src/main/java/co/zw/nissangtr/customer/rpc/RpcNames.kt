@@ -67,6 +67,13 @@ object RpcNames {
     const val UPDATE_OWN_CUSTOMER_PROFILE = "update_own_customer_profile"
     const val SET_OWN_MARKETING_OPT_IN = "set_own_marketing_opt_in"
 
+    // Loyalty / returns — mirrors web customer-storefront.ts
+    const val GET_LOYALTY_BALANCE = "get_loyalty_balance"
+    const val POST_CUSTOMER_RETURN_CREDIT_NOTE = "post_customer_return_credit_note"
+
+    /** Edge Function — Meili catalog search proxy (optional; FTS via SEARCH_CATALOG). */
+    const val CATALOG_SEARCH_MEILI_FN = "catalog-search-meili"
+
     /** Soft cap matching `_customer_compare_max_items()`. */
     const val MAX_COMPARE_ITEMS = 8
 }
