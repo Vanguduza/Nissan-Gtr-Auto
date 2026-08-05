@@ -10,8 +10,8 @@ struct ContentView: View {
     @State private var catalogSeed: String?
     @State private var catalogSeedToken = UUID()
     @State private var cartBadge = 0
-    @State private var menuCategories: [String] = gtrPartCategories
     @State private var showSignInSheet = false
+    @State private var payInvoiceId: UUID?
 
     private enum ShopTab: Hashable {
         case home, shop, wishlist, garage, settings
