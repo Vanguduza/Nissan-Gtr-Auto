@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  MEILI_FACETS,
   partHref,
   searchCatalog,
   type PartHit,
