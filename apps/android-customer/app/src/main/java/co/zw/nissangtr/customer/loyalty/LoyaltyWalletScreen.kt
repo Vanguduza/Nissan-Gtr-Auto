@@ -57,11 +57,13 @@ fun LoyaltyWalletScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        } ?: if (!state.busy && state.error == null) {
-            ShopHonestEmpty(
-                title = "No loyalty account",
-                body = "Points appear here when a loyalty account is linked to your customer profile.",
-            )
+        } ?: run {
+            if (!state.busy && state.error == null) {
+                ShopHonestEmpty(
+                    title = "No loyalty account",
+                    body = "Points appear here when a loyalty account is linked to your customer profile.",
+                )
+            }
         }
         Button(
             onClick = viewModel::refresh,
