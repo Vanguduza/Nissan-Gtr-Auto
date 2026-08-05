@@ -346,7 +346,7 @@ private suspend fun fetchSuggestions(rpc: RpcClient, query: String): FetchResult
         }
     }
 
-    fun absorbMeili(mode: SearchMode) {
+    suspend fun absorbMeili(mode: SearchMode) {
         val res = runCatching {
             rpc.searchCatalogMeili(mode, query, limit = 20, facets = meiliFacets)
         }.getOrNull() ?: return
