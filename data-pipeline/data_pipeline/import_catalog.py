@@ -406,11 +406,11 @@ def import_supabase(
     key: str,
     ensure_stock_items: bool = True,
 ) -> ImportResult:
-    """Live import via supabase-py (service role). Batched upserts for ~8k fitments."""
+    """Live import via supabase-py (privileged key). Batched upserts for ~8k fitments."""
     try:
         from supabase import create_client
     except ImportError as exc:
-        raise RuntimeError("Install optional deps: pip install data_pipeline[supabase]") from exc
+        raise RuntimeError("Install optional deps: pip install -e '.[supabase]'") from exc
 
     client = create_client(url, key)
     mem = InMemoryCatalogStore()
@@ -483,7 +483,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--live",
         action="store_true",
-        help="Import to Supabase (requires SUPABASE_URL and service role key)",
+        help="Import to Supabase (requires SUPABASE_URL and privileged server key)",
     )
     parser.add_argument(
         "--ensure-stock-items",
