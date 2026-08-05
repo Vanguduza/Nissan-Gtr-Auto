@@ -1,14 +1,17 @@
 import PhotosUI
 import SwiftUI
+import GTRCustomerCore
 
-/// Product reviews — submit / list / stats / photo attach.
-/// Photos: Bridge-First `UIKitReviewCameraBridge` + PhotosPicker fallback (no WebView camera).
-struct ReviewsScreen: View {
+/// PDP-scoped reviews — list approved + submit with Bridge-First photo attach.
+/// Reviews live on the product page, not the Account hub.
+struct PdpReviewsScreen: View {
     @EnvironmentObject private var session: StorefrontSession
-    @State private var ownReviews: [ProductReview] = []
+    let oem: String
+    let stockItemId: UUID?
+    var onBack: (() -> Void)? = nil
+
     @State private var approved: [ProductReview] = []
     @State private var stats: ProductReviewStats?
-    @State private var oem = "15208-65F0C"
     @State private var rating = 5
     @State private var bodyText = ""
     @State private var status: String?
@@ -18,88 +21,81 @@ struct ReviewsScreen: View {
     @State private var cameraBridge = UIKitReviewCameraBridge()
 
     var body: some View {
-        ShopDefaultScreen(title: "Reviews", subtitle: "Bridge photo attach", scrollable: false) {
+        ShopDefaultScreen(
+            title: "Reviews",
+            subtitle: oem,
+            onBack: onBack,
+            scrollable: false
+        ) {
             List {
-            Section("PDP stats (OEM)") {
-                TextField("OEM part number", text: $oem)
-                    .textInputAutocapitalization(.characters)
-                    .font(GTRType.body())
-                    .monospaced()
-                Button("Load stats + approved") { Task { await loadPdp() } }
-                    .disabled(busy || oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                if let stats {
-                    LabeledContent("Avg rating", value: "\(stats.avgRating)")
-                    LabeledContent("Approved count", value: "\(stats.reviewCount)")
-                }
-            }
-
-            Section("Approved for OEM") {
-                if approved.isEmpty {
-                    Text("None loaded")
-                        .font(GTRType.body(.subheadline))
-                        .foregroundStyle(GTRColors.silverDim)
-                }
-                ForEach(approved) { review in
-                    reviewRow(review)
-                }
-            }
-
-            Section("My reviews") {
-                if ownReviews.isEmpty {
-                    Text("No reviews yet")
-                        .font(GTRType.body(.subheadline))
-                        .foregroundStyle(GTRColors.silverDim)
-                }
-                ForEach(ownReviews) { review in
-                    reviewRow(review)
-                }
-            }
-
-            Section("Submit review") {
-                Stepper("Rating: \(rating)", value: $rating, in: 1 ... 5)
-                TextField("Comment (optional)", text: $bodyText, axis: .vertical)
-                    .lineLimit(3 ... 6)
-                Button("Submit") { Task { await submit() } }
-                    .disabled(busy || oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-
-            if let lastSubmittedId {
-                Section("Attach photo to last pending") {
-                    Text(lastSubmittedId.uuidString)
-                        .font(GTRType.label(.caption))
-                        .monospaced()
-                    Button {
-                        Task { await captureViaBridge() }
-                    } label: {
-                        Label("Take photo (camera bridge)", systemImage: "camera")
-                    }
-                    .disabled(busy)
-                    PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
-                        Label("Choose from Photos", systemImage: "photo.on.rectangle")
-                    }
-                    .disabled(busy)
-                    Text("Camera via bridges/ios/ReviewCamera (UIKit). Photos library fallback.")
-                        .font(GTRType.label(.caption2))
-                        .foregroundStyle(GTRColors.silverDim)
-                }
-            }
-
-            if let status {
                 Section {
-                    Text(status)
-                        .font(GTRType.body(.footnote))
+                    Text("Customer reviews for this part — submit from here, not Account.")
+                        .font(GTRType.body(.caption))
                         .foregroundStyle(GTRColors.silverDim)
+                    HStack {
+                        ShopRatingRow(
+                            ratingLabel: stats.map {
+                                String(format: "%.1f · %d", $0.avgRating, $0.reviewCount)
+                            } ?? "No reviews yet"
+                        )
+                        Spacer()
+                        Button("Refresh") { Task { await loadPdp() } }
+                            .disabled(busy)
+                    }
                 }
-            }
+
+                Section("Approved reviews") {
+                    if approved.isEmpty && !busy {
+                        Text("No approved reviews yet — be the first after purchase.")
+                            .font(GTRType.body(.subheadline))
+                            .foregroundStyle(GTRColors.silverDim)
+                    }
+                    ForEach(approved) { review in
+                        reviewRow(review)
+                    }
+                }
+
+                Section("Write a review") {
+                    Stepper("Rating: \(rating)", value: $rating, in: 1 ... 5)
+                    TextField("Comment (optional)", text: $bodyText, axis: .vertical)
+                        .lineLimit(3 ... 6)
+                    Button("Submit review") { Task { await submit() } }
+                        .disabled(busy || oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                if let lastSubmittedId {
+                    Section("Attach photo") {
+                        Button {
+                            Task { await captureViaBridge() }
+                        } label: {
+                            Label("Take photo (camera bridge)", systemImage: "camera")
+                        }
+                        .disabled(busy)
+                        PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                            Label("Choose from Photos", systemImage: "photo.on.rectangle")
+                        }
+                        .disabled(busy)
+                        Text("Bridge-First camera via bridges/ios/ReviewCamera — not WebView.")
+                            .font(GTRType.label(.caption2))
+                            .foregroundStyle(GTRColors.silverDim)
+                        Text(lastSubmittedId.uuidString)
+                            .font(GTRType.label(.caption))
+                            .monospaced()
+                    }
+                }
+
+                if let status {
+                    Section {
+                        Text(status)
+                            .font(GTRType.body(.footnote))
+                            .foregroundStyle(GTRColors.silverDim)
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background(GTRColors.chalk)
             .navigationBarTitleDisplayMode(.inline)
-            .task { await refreshOwn() }
-            .refreshable {
-                await refreshOwn()
-                await loadPdp()
-            }
+            .task { await loadPdp() }
             .onChange(of: photoItem) { _, newItem in
                 guard let newItem else { return }
                 Task { await uploadPickedPhoto(newItem) }
@@ -128,25 +124,14 @@ struct ReviewsScreen: View {
         .padding(.vertical, 2)
     }
 
-    private func refreshOwn() async {
-        busy = true
-        defer { busy = false }
-        do {
-            ownReviews = try await session.api.listOwnReviews()
-            status = nil
-        } catch {
-            status = error.localizedDescription
-        }
-    }
-
     private func loadPdp() async {
         busy = true
         defer { busy = false }
         let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
-            stats = try await session.api.getProductReviewStats(stockItemId: nil, oem: needle)
+            stats = try await session.api.getProductReviewStats(stockItemId: stockItemId, oem: needle)
             approved = try await session.api.listApprovedReviews(oem: needle)
-            status = "Loaded get_product_review_stats + approved list"
+            status = nil
         } catch {
             status = error.localizedDescription
         }
@@ -160,13 +145,13 @@ struct ReviewsScreen: View {
             let id = try await session.api.submitProductReview(
                 rating: rating,
                 body: bodyText,
-                stockItemId: nil,
+                stockItemId: stockItemId,
                 oem: needle
             )
             lastSubmittedId = id
             bodyText = ""
-            ownReviews = try await session.api.listOwnReviews()
-            status = "Submitted via submit_customer_product_review → \(id.uuidString.prefix(8))…"
+            await loadPdp()
+            status = "Submitted via submit_customer_product_review"
         } catch {
             status = error.localizedDescription
         }
@@ -208,7 +193,7 @@ struct ReviewsScreen: View {
                 photo: ReviewPhotoUpload(data: data, fileExtension: "jpg", contentType: shot.mimeType),
                 sortOrder: 0
             )
-            status = "Camera bridge → review-photos + add_customer_product_review_photo"
+            status = "Camera bridge → review-photos"
         } catch {
             status = error.localizedDescription
         }
@@ -217,7 +202,7 @@ struct ReviewsScreen: View {
 
 #Preview {
     NavigationStack {
-        ReviewsScreen()
+        PdpReviewsScreen(oem: "15208-65F0C", stockItemId: nil)
     }
     .environmentObject(StorefrontSession(api: FakeStorefrontApi()))
 }
