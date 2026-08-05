@@ -229,21 +229,8 @@ private fun KmpHome(
     onSeeAllNewest: () -> Unit,
     onOpenProduct: (String) -> Unit,
     onToggleWish: (CatalogListItem) -> Unit,
-    onApplySearchFilter: (String) -> Unit,
+    onCategoryBrowse: (String) -> Unit,
 ) {
-    var emptyCategory by remember { mutableStateOf<String?>(null) }
-    emptyCategory?.let { title ->
-        AlertDialog(
-            onDismissRequest = { emptyCategory = null },
-            title = { Text(title) },
-            text = {
-                Text("No items added yet. Stock for this category will appear here when catalog listings are published.")
-            },
-            confirmButton = {
-                TextButton(onClick = { emptyCategory = null }) { Text("OK") }
-            },
-        )
-    }
     val newest = state.browseItems.take(8)
     val mostSale = state.browseItems.drop(8).take(8).ifEmpty { state.browseItems.take(8) }
 
@@ -262,7 +249,7 @@ private fun KmpHome(
                 InlineCatalogSearch(
                     rpc = rpc,
                     onOpenProduct = onOpenProduct,
-                    onApplyFilter = onApplySearchFilter,
+                    onApplyFilter = onCategoryBrowse,
                 )
                 if (state.primaryVehicle != null) {
                     Spacer(Modifier.height(8.dp))
@@ -280,7 +267,7 @@ private fun KmpHome(
                 InlineCatalogSearch(
                     rpc = rpc,
                     onOpenProduct = onOpenProduct,
-                    onApplyFilter = onApplySearchFilter,
+                    onApplyFilter = onCategoryBrowse,
                 )
             }
         }
