@@ -74,7 +74,9 @@ internal object CatalogRpcLive {
             if (!err.isNullOrBlank()) {
                 return searchCatalog(client, mode, trimmed)
             }
-            parseSearchCatalogJson(el)
+            parseSearchCatalogJson(el).let { parsed ->
+                parsed.copy(backend = parsed.backend ?: "meili")
+            }
         } catch (_: Exception) {
             searchCatalog(client, mode, trimmed)
         }
