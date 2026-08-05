@@ -127,3 +127,114 @@
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
+
+.searchWrap {
+  position: relative;
+}
+
+.dropdown {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  background: #fff;
+  border: 1px solid rgba(18, 21, 28, 0.14);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(18, 21, 28, 0.12);
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.header .dropdown {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dropdownHint {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.82rem;
+  color: rgba(18, 21, 28, 0.55);
+}
+
+.facetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem 0.35rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.08);
+}
+
+.facetChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(18, 21, 28, 0.14);
+  background: var(--gtr-mist, #f4f5f7);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.facetChip:hover,
+.facetChip:focus-visible {
+  border-color: var(--gtr-red);
+  color: var(--gtr-red);
+}
+
+.facetCount {
+  opacity: 0.55;
+  font-weight: 500;
+}
+
+.suggestList {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.suggestItem,
+.suggestActive {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.1rem 0.55rem;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.suggestActive {
+  background: color-mix(in srgb, var(--gtr-red) 8%, white);
+}
+
+.suggestItem:hover,
+.suggestItem:focus-visible {
+  background: rgba(18, 21, 28, 0.04);
+}
+
+.suggestKind {
+  grid-row: span 2;
+  align-self: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(18, 21, 28, 0.45);
+}
+
+.suggestTitle {
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+.suggestSub {
+  font-size: 0.78rem;
+  color: rgba(18, 21, 28, 0.55);
+}
