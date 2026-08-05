@@ -231,6 +231,16 @@ public final class FakeStorefrontApi: StorefrontApi {
     private var reviewPhotoCounts: [UUID: Int] = [:]
     private var addresses: [CustomerAddress] = []
     /// Fake last-point only — never a trail. Demo token: `demo-track-token`.
+    private var fakeFullName = "Demo Customer"
+    private var fakeCustomer = CustomerProfile(
+        id: UUID(uuidString: "00000000-0000-4000-8000-000000000001")!,
+        displayName: "Demo Customer",
+        email: "demo@nissangtrauto.co.zw",
+        phoneE164: "+263770000000",
+        whatsappE164: "+263770000000",
+        whatsappReceipts: true,
+        marketingOptIn: false
+    )
     private var demoTrackJobId: UUID?
     private var demoTrackPoint: DeliveryTrackPoint?
     private let catalogProducts: [String: CatalogProduct]
