@@ -58,6 +58,7 @@ fun SettingsHubScreen(
     liveRpc: Boolean,
     onSignOut: (() -> Unit)?,
     onOpenAccount: () -> Unit,
+    onEditProfile: () -> Unit = onOpenAccount,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current

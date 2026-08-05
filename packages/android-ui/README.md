@@ -12,8 +12,7 @@ See repo-root `NOTICE`. License text: `reference/shopping-by-kmp/LICENSE`
 ## Phase A status (2026-08-05)
 
 ShopKit foundation is a **real KMP fork** of presentation chrome (not
-`Gtr*` renames). Status: **CODE-COMPLETE — FREEZE PENDING** (await `/verifier`
-compile-green + manager freeze). Public `Shop*` names held stable.
+`Gtr*` renames). Status: **FROZEN / DONE** (2026-08-05 manager gate). Public `Shop*` names held stable.
 
 **Preview harness (debug):** `src/debug/java/.../shop/ShopKitPreviews.kt` —
 home rails, PDP, cart, lists, splash, bottom nav (realistic OEM samples).
