@@ -1,93 +1,240 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
+import {
+  searchCatalogMeili,
+  type PartHit,
+  type PncHit,
+  type SearchCatalogResponse,
+  type SearchMode,
+  type SearchResult,
+  type VehicleHit,
+  isSearchMode,
+  normalizeSearchMode,
+  partHref,
+} from "@gtr/supabase-client";
 
-export type SearchMode = "part" | "vin" | "model" | "pnc";
-
-export type PartHit = {
-  type: "part";
-  oem_part_number: string;
-  pnc_code?: string | null;
-  chassis_code?: string | null;
-  engine_code?: string | null;
-  superseded_by?: string | null;
-  diagram_path?: string | null;
-  category_name?: string | null;
-  subcategory_name?: string | null;
-  matched_oe_number?: string | null;
-  matched_brand?: string | null;
+export {
+  type SearchMode,
+  type SearchCatalogResponse,
+  type SearchResult,
+  type PartHit,
+  type VehicleHit,
+  type PncHit,
+  isSearchMode,
+  normalizeSearchMode,
+  partHref,
 };
 
-export type VehicleHit = {
-  type: "vehicle";
-  vin_prefix?: string | null;
-  model_variant?: string | null;
-  chassis_code?: string | null;
-  engine_code?: string | null;
-  production_year?: number | null;
-  fitments?: PartHit[];
+/** Facets requested from Meili Edge proxy — mirrors mobile InlineSearch. */
+export const MEILI_FACETS = [
+  "category_name",
+  "pnc_code",
+  "chassis_code",
+  "model_variant",
+] as const;
+
+export type SearchSuggestionKind = "category" | "model" | "part";
+
+export type SearchSuggestion = {
+  kind: SearchSuggestionKind;
+  title: string;
+  subtitle?: string;
+  /** When set, navigate to PDP. */
+  oem?: string;
+  /** When set, apply as catalog/search filter query. */
+  filterQuery?: string;
 };
 
-export type PncHit = {
-  type: "pnc";
-  pnc_code: string;
-  category_name?: string | null;
-  subcategory_name?: string | null;
-  fitments?: PartHit[];
+export type FacetChip = {
+  facet: string;
+  value: string;
+  count: number;
 };
 
-export type SearchResult = PartHit | VehicleHit | PncHit;
-
-export type SearchCatalogResponse = {
-  mode: SearchMode;
-  query: string;
-  results: SearchResult[];
+export type SearchFetchResult = {
+  suggestions: SearchSuggestion[];
+  facetChips: FacetChip[];
+  backend?: "meili" | "fts";
 };
 
-const MODES: SearchMode[] = ["part", "vin", "model", "pnc"];
-
-export function isSearchMode(value: string): value is SearchMode {
-  return (MODES as readonly string[]).includes(value);
-}
-
-export function normalizeSearchMode(value: string | undefined): SearchMode {
-  return value && isSearchMode(value) ? value : "part";
-}
-
-function parseSearchCatalogResponse(raw: unknown): SearchCatalogResponse | null {
-  if (!raw || typeof raw !== "object") return null;
-  const obj = raw as Record<string, unknown>;
-  const mode = typeof obj.mode === "string" ? obj.mode : "";
-  const query = typeof obj.query === "string" ? obj.query : "";
-  const results = Array.isArray(obj.results) ? (obj.results as SearchResult[]) : [];
-  if (!isSearchMode(mode)) return null;
-  return { mode, query, results };
-}
-
+/**
+ * Meili-backed catalog search via Edge proxy with Postgres FTS fallback.
+ * Never calls Meili directly from the browser.
+ */
 export async function searchCatalog(
   client: SupabaseClient,
   mode: SearchMode,
   query: string,
+  opts?: { limit?: number; facets?: string[] },
 ): Promise<
   | { ok: true; data: SearchCatalogResponse }
   | { ok: false; error: string }
 > {
-  const { data, error } = await client.rpc("search_catalog", {
-    p_mode: mode,
-    p_query: query,
+  return searchCatalogMeili(client, {
+    mode,
+    query,
+    limit: opts?.limit,
+    facets: opts?.facets ?? [...MEILI_FACETS],
   });
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  const parsed = parseSearchCatalogResponse(data);
-  if (!parsed) {
-    return { ok: false, error: "Unexpected search response shape." };
-  }
-
-  return { ok: true, data: parsed };
 }
 
-export function partHref(oem: string | null | undefined): string | null {
-  if (!oem?.trim()) return null;
-  return `/parts/${encodeURIComponent(oem.trim())}`;
+function absorbPartSuggestions(
+  out: Map<string, SearchSuggestion>,
+  parts: PartHit[],
+  asParts: boolean,
+) {
+  for (const hit of parts) {
+    const oem = hit.oem_part_number?.trim();
+    if (!oem) continue;
+
+    if (asParts) {
+      const key = `part:${oem}`;
+      if (!out.has(key)) {
+        out.set(key, {
+          kind: "part",
+          title: oem,
+          subtitle: [hit.category_name, hit.pnc_code].filter(Boolean).join(" · ") || undefined,
+          oem,
+        });
+      }
+    }
+
+    const cat = hit.category_name?.trim();
+    if (cat) {
+      const key = `cat:${cat}`;
+      if (!out.has(key)) {
+        out.set(key, {
+          kind: "category",
+          title: cat,
+          subtitle: hit.subcategory_name ?? undefined,
+          filterQuery: cat,
+        });
+      }
+    }
+
+    const pnc = hit.pnc_code?.trim();
+    if (pnc) {
+      const key = `pnc:${pnc}`;
+      if (!out.has(key)) {
+        out.set(key, {
+          kind: "category",
+          title: pnc,
+          subtitle: "PNC",
+          filterQuery: pnc,
+        });
+      }
+    }
+
+    for (const model of [hit.chassis_code, hit.engine_code]) {
+      const m = model?.trim();
+      if (!m) continue;
+      const key = `model:${m}`;
+      if (!out.has(key)) {
+        out.set(key, {
+          kind: "model",
+          title: m,
+          subtitle: oem,
+          filterQuery: m,
+        });
+      }
+    }
+  }
+}
+
+function flattenParts(results: SearchResult[]): PartHit[] {
+  const parts: PartHit[] = [];
+  for (const hit of results) {
+    if (hit.type === "part") {
+      parts.push(hit);
+    } else if (hit.type === "vehicle" || hit.type === "pnc") {
+      for (const f of hit.fitments ?? []) {
+        if (f.type === "part") parts.push(f);
+      }
+    }
+  }
+  return parts;
+}
+
+function facetChipsFromDistribution(
+  distribution: Record<string, Record<string, number>> | undefined,
+  max = 8,
+): FacetChip[] {
+  if (!distribution) return [];
+  const chips: FacetChip[] = [];
+  for (const [facet, values] of Object.entries(distribution)) {
+    for (const [value, count] of Object.entries(values)) {
+      if (value.trim()) chips.push({ facet, value, count });
+    }
+  }
+  return chips.sort((a, b) => b.count - a.count).slice(0, max);
+}
+
+/**
+ * Debounced typeahead fetch — Meili first, FTS per-mode fallback when empty.
+ * Matches Android `InlineCatalogSearch` / iOS catalog typeahead contract.
+ */
+export async function fetchSearchSuggestions(
+  client: SupabaseClient,
+  query: string,
+): Promise<SearchFetchResult> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    return { suggestions: [], facetChips: [] };
+  }
+
+  const out = new Map<string, SearchSuggestion>();
+  const facetCounts = new Map<string, Map<string, number>>();
+  let backend: "meili" | "fts" | undefined;
+
+  async function absorbMeili(mode: SearchMode) {
+    const result = await searchCatalog(client, mode, trimmed, {
+      limit: 20,
+      facets: [...MEILI_FACETS],
+    });
+    if (!result.ok) return;
+    backend = result.data.backend ?? backend;
+    absorbPartSuggestions(out, flattenParts(result.data.results), mode === "part" || mode === "vin");
+    if (result.data.facetDistribution) {
+      for (const [facet, values] of Object.entries(result.data.facetDistribution)) {
+        const bucket = facetCounts.get(facet) ?? new Map<string, number>();
+        for (const [label, count] of Object.entries(values)) {
+          bucket.set(label, (bucket.get(label) ?? 0) + count);
+        }
+        facetCounts.set(facet, bucket);
+      }
+    }
+  }
+
+  await absorbMeili("part");
+  if (![...out.values()].some((s) => s.kind === "model")) {
+    await absorbMeili("model");
+  }
+  await absorbMeili("pnc");
+
+  const vinLike =
+    trimmed.length >= 11 &&
+    trimmed.length <= 17 &&
+    /^[a-z0-9]+$/i.test(trimmed);
+  if (vinLike) {
+    await absorbMeili("vin");
+  }
+
+  if (out.size === 0) {
+    for (const mode of ["part", "model", "pnc"] as const) {
+      const result = await searchCatalog(client, mode, trimmed, { limit: 20 });
+      if (!result.ok) continue;
+      backend = result.data.backend ?? "fts";
+      absorbPartSuggestions(out, flattenParts(result.data.results), mode === "part");
+    }
+  }
+
+  const mergedDistribution: Record<string, Record<string, number>> = {};
+  for (const [facet, values] of facetCounts) {
+    mergedDistribution[facet] = Object.fromEntries(values);
+  }
+
+  return {
+    suggestions: [...out.values()].slice(0, 24),
+    facetChips: facetChipsFromDistribution(mergedDistribution),
+    backend,
+  };
 }
