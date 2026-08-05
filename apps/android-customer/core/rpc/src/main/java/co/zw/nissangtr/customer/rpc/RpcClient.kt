@@ -18,8 +18,19 @@ package co.zw.nissangtr.customer.rpc
  * QR / camera: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
  */
 interface RpcClient {
-    /** Mirrors web `searchCatalog` → `search_catalog`. */
+    /** Mirrors web `searchCatalog` → `search_catalog` (Postgres FTS). */
     suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse
+
+    /**
+     * Meili Edge proxy ([RpcNames.CATALOG_SEARCH_MEILI_FN]) with user JWT;
+     * falls back to [searchCatalog] on failure or missing Meili config.
+     */
+    suspend fun searchCatalogMeili(
+        mode: SearchMode,
+        query: String,
+        limit: Int = 20,
+        facets: List<String>? = null,
+    ): SearchCatalogResponse
 
     /** Browse PLP — PostgREST stock_items + default price list (web `listCatalogProducts` subset). */
     suspend fun listCatalogBrowse(category: String? = null, limit: Int = 50): CatalogBrowseResult
