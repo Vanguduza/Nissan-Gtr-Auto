@@ -180,6 +180,34 @@ struct CatalogScreen: View {
 
     private var suggestionPopup: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let searchBackend {
+                Text("Search via \(searchBackend == "meili" ? "Meili" : "catalog FTS")")
+                    .font(GTRType.label(.caption2))
+                    .foregroundStyle(GTRColors.silverDim)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
+            }
+            if !facetChips.isEmpty {
+                Text("Facets")
+                    .font(GTRType.label(.caption))
+                    .foregroundStyle(GTRColors.silverDim)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(facetChips.enumerated()), id: \.offset) { _, chip in
+                            Button(chip.1) {
+                                Task { await selectSuggestion(SearchSuggestion(kind: .category, title: chip.1, filterQuery: chip.1)) }
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(GTRColors.primary)
+                            .font(GTRType.label(.caption2))
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                }
+                Divider().overlay(GTRColors.mist)
+            }
             if suggestions.isEmpty && !busy {
                 Text("No matches")
                     .font(GTRType.body(.caption))
@@ -343,6 +371,25 @@ struct CatalogScreen: View {
     private var popularItems: [CatalogListItem] {
         let tail = Array(browseItems.dropFirst(8).prefix(8))
         return tail.isEmpty ? newestItems : tail
+    }
+
+    private var categoryPlpBody: some View {
+        CategoryPlpScreen(
+            title: activeCategory ?? "Browse",
+            products: browseItems,
+            categoryLabels: browseCategoryLabels,
+            busy: busy,
+            filterState: $filterState,
+            sortOption: $sortOption,
+            onBack: { route = .home },
+            onOpenProduct: { oem in Task { await openProduct(oem) } }
+        )
+    }
+
+    private var browseCategoryLabels: [String] {
+        let fromItems = browseItems.compactMap(\.category)
+        let merged = Array(Set(categories + fromItems)).sorted()
+        return merged.isEmpty ? categories : merged
     }
 
     // MARK: - PDP
