@@ -8,7 +8,6 @@ import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
 import co.zw.nissangtr.customer.rpc.ProductReview
 import co.zw.nissangtr.customer.rpc.ProductReviewStats
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +18,8 @@ data class ReviewsUiState(
     val ownReviews: List<ProductReview> = emptyList(),
     val approved: List<ProductReview> = emptyList(),
     val stats: ProductReviewStats? = null,
-    val oem: String = "15208-65F0C",
+    val oem: String = "",
+    val stockItemId: String? = null,
     val rating: Int = 5,
     val body: String = "",
     val lastSubmittedId: String? = null,
@@ -31,17 +31,26 @@ data class ReviewsUiState(
 class ReviewsViewModel(
     private val rpc: RpcClient,
     private val camera: PodCameraBridge?,
+    initialOem: String = "",
+    initialStockItemId: String? = null,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(ReviewsUiState())
+    private val _state = MutableStateFlow(
+        ReviewsUiState(
+            oem = initialOem.trim(),
+            stockItemId = initialStockItemId,
+        ),
+    )
     val state: StateFlow<ReviewsUiState> = _state.asStateFlow()
 
     val cameraAvailable: Boolean get() = camera != null
 
     init {
         refreshOwn()
+        if (initialOem.isNotBlank()) {
+            loadPdp()
+        }
     }
 
-    fun onOemChange(v: String) = _state.update { it.copy(oem = v, error = null) }
     fun onRatingChange(v: Int) = _state.update { it.copy(rating = v.coerceIn(1, 5)) }
     fun onBodyChange(v: String) = _state.update { it.copy(body = v) }
 
@@ -59,22 +68,17 @@ class ReviewsViewModel(
 
     fun loadPdp() {
         val oem = _state.value.oem.trim()
-        if (oem.isEmpty()) {
-            _state.update { it.copy(error = "OEM required") }
-            return
-        }
+        if (oem.isEmpty()) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
-                val stats = rpc.getProductReviewStats(oem = oem)
+                val stats = rpc.getProductReviewStats(
+                    stockItemId = _state.value.stockItemId,
+                    oem = oem,
+                )
                 val approved = rpc.listApprovedReviews(oem)
                 _state.update {
-                    it.copy(
-                        busy = false,
-                        stats = stats,
-                        approved = approved,
-                        message = "${RpcNames.GET_PRODUCT_REVIEW_STATS} + approved list",
-                    )
+                    it.copy(busy = false, stats = stats, approved = approved)
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "PDP load failed") }
@@ -95,16 +99,18 @@ class ReviewsViewModel(
                 val id = rpc.submitCustomerProductReview(
                     rating = s.rating,
                     body = s.body,
+                    stockItemId = s.stockItemId,
                     oem = oem,
                 )
                 val own = rpc.listOwnReviews()
+                loadPdp()
                 _state.update {
                     it.copy(
                         busy = false,
                         lastSubmittedId = id,
                         body = "",
                         ownReviews = own,
-                        message = "${RpcNames.SUBMIT_CUSTOMER_PRODUCT_REVIEW} → ${id.take(8)}…",
+                        message = "Review submitted — pending approval.",
                     )
                 }
             } catch (e: Exception) {
@@ -129,11 +135,7 @@ class ReviewsViewModel(
                     sortOrder = 0,
                 )
                 _state.update {
-                    it.copy(
-                        busy = false,
-                        message = "Uploaded to ${RpcNames.REVIEW_PHOTOS_BUCKET} + " +
-                            "${RpcNames.ADD_CUSTOMER_PRODUCT_REVIEW_PHOTO} → ${photoId.take(8)}…",
-                    )
+                    it.copy(busy = false, message = "Photo attached (${photoId.take(8)}…)")
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "upload failed") }
@@ -172,8 +174,7 @@ class ReviewsViewModel(
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "Bridge camera → ${RpcNames.REVIEW_PHOTOS_BUCKET} + " +
-                            "${RpcNames.ADD_CUSTOMER_PRODUCT_REVIEW_PHOTO} → ${photoId.take(8)}…",
+                        message = "Bridge camera photo attached (${photoId.take(8)}…)",
                     )
                 }
             } catch (e: Exception) {
@@ -188,11 +189,13 @@ class ReviewsViewModel(
         fun factory(
             rpc: RpcClient,
             camera: PodCameraBridge?,
+            initialOem: String = "",
+            initialStockItemId: String? = null,
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ReviewsViewModel(rpc, camera) as T
+                    ReviewsViewModel(rpc, camera, initialOem, initialStockItemId) as T
             }
     }
 }
