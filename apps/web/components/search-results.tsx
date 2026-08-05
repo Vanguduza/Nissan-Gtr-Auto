@@ -106,6 +106,12 @@ export function SearchResults({
 
   const partCategories = useMemo(() => {
     if (status.kind !== "ready" || mode !== "part") return [];
+    const meiliCats = status.facetDistribution?.category_name;
+    if (meiliCats && Object.keys(meiliCats).length > 0) {
+      return Object.entries(meiliCats)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([name]) => name);
+    }
     const cats = new Set<string>();
     for (const r of status.results) {
       if (r.type === "part" && r.category_name?.trim()) {
@@ -113,6 +119,26 @@ export function SearchResults({
       }
     }
     return [...cats].sort((a, b) => a.localeCompare(b));
+  }, [status, mode]);
+
+  const pncFacets = useMemo(() => {
+    if (status.kind !== "ready" || mode !== "pnc") return [];
+    const dist = status.facetDistribution?.pnc_code;
+    if (!dist) return [];
+    return Object.entries(dist)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 12);
+  }, [status, mode]);
+
+  const modelFacets = useMemo(() => {
+    if (status.kind !== "ready" || (mode !== "model" && mode !== "vin")) return [];
+    const dist =
+      status.facetDistribution?.model_variant ??
+      status.facetDistribution?.chassis_code;
+    if (!dist) return [];
+    return Object.entries(dist)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 12);
   }, [status, mode]);
 
   const filteredParts = useMemo(() => {
@@ -187,6 +213,12 @@ export function SearchResults({
         {status.results.length} result
         {status.results.length === 1 ? "" : "s"} for{" "}
         <strong>{status.query}</strong>
+        {status.backend ? (
+          <>
+            {" "}
+            · index <strong>{status.backend}</strong>
+          </>
+        ) : null}
       </p>
       {mode === "part" ? (
         <>
