@@ -106,13 +106,12 @@ fun CatalogScreen(
                 showShellChrome = showShellChrome,
                 onBack = onBack,
                 onManageVehicle = onManageVehicle,
-                onCategory = { viewModel.applyCategoryFilter(it) },
                 onSeeAllCategories = viewModel::openCategories,
                 onSeeAllNewest = viewModel::openNewest,
                 onSeeAllMostSale = viewModel::openNewest,
                 onOpenProduct = viewModel::openProduct,
                 onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
-                onApplySearchFilter = { viewModel.applyCategoryFilter(it) },
+                onApplySearchFilter = { /* typeahead may pass category label — show empty dialog via InlineCatalogSearch host */ },
             )
             CatalogScreenRoute.Categories -> CategoriesGridScreen(
                 onBack = viewModel::navigateHome,
