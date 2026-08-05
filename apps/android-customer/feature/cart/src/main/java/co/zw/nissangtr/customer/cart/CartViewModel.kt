@@ -7,10 +7,6 @@ import co.zw.nissangtr.customer.rpc.CartSummary
 import co.zw.nissangtr.customer.rpc.CurrencyCode
 import co.zw.nissangtr.customer.rpc.FulfillmentMode
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
