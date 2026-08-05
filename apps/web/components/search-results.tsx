@@ -19,7 +19,13 @@ type Status =
   | { kind: "auth" }
   | { kind: "error"; message: string }
   | { kind: "empty" }
-  | { kind: "ready"; results: SearchResult[]; query: string };
+  | {
+      kind: "ready";
+      results: SearchResult[];
+      query: string;
+      backend?: "meili" | "fts";
+      facetDistribution?: Record<string, Record<string, number>>;
+    };
 
 type PartSort = "relevance" | "oem" | "category";
 
@@ -67,7 +73,10 @@ export function SearchResults({
         return;
       }
 
-      const result = await searchCatalog(client, mode, trimmed);
+      const result = await searchCatalog(client, mode, trimmed, {
+        limit: 60,
+        facets: [...MEILI_FACETS],
+      });
       if (cancelled) return;
 
       if (!result.ok) {
@@ -84,6 +93,8 @@ export function SearchResults({
         kind: "ready",
         results: result.data.results,
         query: result.data.query,
+        backend: result.data.backend,
+        facetDistribution: result.data.facetDistribution,
       });
     }
 
