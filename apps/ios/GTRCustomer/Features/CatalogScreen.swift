@@ -662,9 +662,11 @@ struct CatalogScreen: View {
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
-            let hits = await fetchSuggestions(query: q)
+            let result = await fetchSuggestions(query: q)
             guard !Task.isCancelled else { return }
-            suggestions = hits
+            suggestions = result.suggestions
+            facetChips = result.facetChips
+            searchBackend = result.backend
         }
     }
 
