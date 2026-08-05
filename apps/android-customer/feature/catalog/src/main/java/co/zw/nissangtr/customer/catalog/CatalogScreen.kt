@@ -226,12 +226,6 @@ private fun KmpHome(
                         Text("Fitment: ${state.primaryVehicle.summaryLabel()} · My Garage")
                     }
                 }
-                state.activeCategory?.let { cat ->
-                    Spacer(Modifier.height(4.dp))
-                    TextButton(onClick = { onCategory("") }) {
-                        Text("Filtered: $cat · Clear")
-                    }
-                }
             } else {
                 Row(
                     Modifier.fillMaxWidth(),
