@@ -120,6 +120,8 @@ private enum class ProfileDest(val title: String, val subtitle: String) {
     Hub("My Account", "Orders · pay · extras"),
     EditProfile("Edit profile", "Personal · contact"),
     Orders("Orders", "History · track"),
+    Returns("Returns", "Quarantine protocol"),
+    Loyalty("Loyalty wallet", "Points"),
     Addresses("Addresses", "Delivery · map pick"),
     Compare("Compare", "Attribute matrix"),
     Pay("Pay", "ContiPay · Paynow · EcoCash"),
@@ -701,6 +703,27 @@ private fun ProfileStack(
             rpc = rpc,
             onBack = { onDest(ProfileDest.Hub) },
         )
+        ProfileDest.Returns -> ShopDefaultScreen(
+            title = "Returns",
+            subtitle = "Quarantine CN",
+            onBack = { onDest(ProfileDest.Hub) },
+        ) {
+            ShopHonestEmpty(
+                title = "Returns not wired on mobile yet",
+                body = "post_customer_return_credit_note exists on web but is not bound in android-customer RpcClient. " +
+                    "Faulty returns debit Sales Returns and credit AR; SKU goes to quarantine — never direct exchange.",
+            )
+        }
+        ProfileDest.Loyalty -> ShopDefaultScreen(
+            title = "Loyalty wallet",
+            subtitle = "Points balance",
+            onBack = { onDest(ProfileDest.Hub) },
+        ) {
+            ShopHonestEmpty(
+                title = "MISSING backend bind",
+                body = "get_loyalty_balance is not in android-customer RpcClient yet. @backend_agent to add client binding before a wallet screen ships.",
+            )
+        }
         ProfileDest.Orders -> OrdersScreen(
             rpc = rpc,
             onBack = { onDest(ProfileDest.Hub) },
@@ -795,13 +818,14 @@ private fun ProfileHub(
                 onOpen(ProfileDest.EditProfile)
             }
             ShopProfileItemBox("My orders", Icons.Filled.ReceiptLong) { onOpen(ProfileDest.Orders) }
+            ShopProfileItemBox("Returns", Icons.Filled.LocalShipping) { onOpen(ProfileDest.Returns) }
+            ShopProfileItemBox("Loyalty wallet", Icons.Filled.CardGiftcard) { onOpen(ProfileDest.Loyalty) }
             ShopProfileItemBox("Manage address", Icons.Filled.LocationOn) { onOpen(ProfileDest.Addresses) }
             ShopProfileItemBox("Payment methods", Icons.Filled.CreditCard) { onOpen(ProfileDest.Pay) }
             ShopProfileItemBox("My garage", Icons.Filled.DirectionsCar, onClick = onOpenGarage)
             ShopProfileItemBox("Compare", Icons.Filled.CompareArrows) { onOpen(ProfileDest.Compare) }
             ShopProfileItemBox("Track delivery", Icons.Filled.LocalShipping, onClick = onDemoTrack)
             ShopProfileItemBox("Live chat", Icons.Filled.Chat) { onOpen(ProfileDest.Chat) }
-            ShopProfileItemBox("Notifications", Icons.Filled.Notifications) { onOpen(ProfileDest.Notifications) }
             ShopProfileItemBox("My coupons", Icons.Filled.CardGiftcard, isLastItem = true) {
                 onOpen(ProfileDest.Coupons)
             }
