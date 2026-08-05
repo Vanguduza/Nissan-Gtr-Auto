@@ -697,6 +697,7 @@ private fun ProfileStack(
     onOpenTrack: (jobId: String?, token: String?) -> Unit,
     onDemoTrack: () -> Unit,
     onOpenGarage: () -> Unit,
+    onOpenProduct: (oem: String) -> Unit,
 ) {
     when (dest) {
         ProfileDest.Hub -> ProfileHub(
@@ -712,27 +713,19 @@ private fun ProfileStack(
             rpc = rpc,
             onBack = { onDest(ProfileDest.Hub) },
         )
-        ProfileDest.Returns -> ShopDefaultScreen(
-            title = "Returns",
-            subtitle = "Quarantine CN",
+        ProfileDest.Returns -> ReturnsScreen(
+            rpc = rpc,
             onBack = { onDest(ProfileDest.Hub) },
-        ) {
-            ShopHonestEmpty(
-                title = "Returns not wired on mobile yet",
-                body = "post_customer_return_credit_note exists on web but is not bound in android-customer RpcClient. " +
-                    "Faulty returns debit Sales Returns and credit AR; SKU goes to quarantine — never direct exchange.",
-            )
-        }
-        ProfileDest.Loyalty -> ShopDefaultScreen(
-            title = "Loyalty wallet",
-            subtitle = "Points balance",
+        )
+        ProfileDest.Loyalty -> LoyaltyWalletScreen(
+            rpc = rpc,
             onBack = { onDest(ProfileDest.Hub) },
-        ) {
-            ShopHonestEmpty(
-                title = "MISSING backend bind",
-                body = "get_loyalty_balance is not in android-customer RpcClient yet. @backend_agent to add client binding before a wallet screen ships.",
-            )
-        }
+        )
+        ProfileDest.Kits -> KitsScreen(
+            rpc = rpc,
+            onBack = { onDest(ProfileDest.Hub) },
+            onOpenProduct = onOpenProduct,
+        )
         ProfileDest.Orders -> OrdersScreen(
             rpc = rpc,
             onBack = { onDest(ProfileDest.Hub) },
