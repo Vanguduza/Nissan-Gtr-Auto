@@ -39,7 +39,6 @@ struct ContentView: View {
             await refreshCartBadge()
             await session.refreshWishlist()
         }
-        .task { await loadMenuCategories() }
         .onChange(of: overlay) { _, _ in
             Task { await refreshCartBadge() }
         }
