@@ -128,55 +128,65 @@ def write_bundle(bundle: dict, out_dir: Path) -> None:
 
 
 def main() -> int:
-    print("Refreshing full bundle from crawl + parse DBs...")
-    refresh_counts = refresh_bundle(crawl_db=CRAWL_DB, parse_db=PARSE_DB, out_dir=BUNDLE)
-    print("Full bundle:", refresh_counts)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Build ERP-importable catalog snapshot.")
+    parser.add_argument(
+        "--skip-refresh",
+        action="store_true",
+        help="Use existing out/partsouq_bundle (faster if watcher already refreshed).",
+    )
+    parser.add_argument(
+        "--completed-only",
+        action="store_true",
+        help="Restrict vehicle_master to chassis that already have fitment rows.",
+    )
+    args = parser.parse_args()
+
+    if args.skip_refresh and BUNDLE.exists():
+        print("Using existing bundle at", BUNDLE)
+    else:
+        print("Refreshing full bundle from crawl + parse DBs...")
+        refresh_counts = refresh_bundle(crawl_db=CRAWL_DB, parse_db=PARSE_DB, out_dir=BUNDLE)
+        print("Full bundle:", refresh_counts)
 
     full = load_bundle(BUNDLE)
-    filtered, meta = filter_completed_bundle(full)
+    erp_bundle, meta = build_erp_bundle(full, completed_only=args.completed_only)
 
-    # Identity summary for chassis without fitments yet
     conn = sqlite3.connect(PARSE_DB)
     try:
-        identity_chassis = Counter(
-            row[0]
-            for row in conn.execute(
-                "SELECT chassis_code FROM vehicle_identity WHERE chassis_code IS NOT NULL"
-            )
-            if row[0]
-        )
+        meta["identities_parsed"] = conn.execute(
+            "SELECT COUNT(*) FROM vehicle_identity"
+        ).fetchone()[0]
     finally:
         conn.close()
 
-    meta["identity_only_chassis"] = sorted(
-        set(identity_chassis) - set(meta["completed_chassis"])
-    )
-    meta["identity_chassis_total"] = len(identity_chassis)
-
-    write_bundle(filtered, OUT)
+    write_bundle(erp_bundle, OUT)
     (OUT / "catalog_meta.json").write_text(
         json.dumps(meta, indent=2) + "\n", encoding="utf-8"
     )
 
-    validate_bundle(filtered)
-    result = import_catalog(filtered)
+    validate_bundle(erp_bundle)
+    result = import_catalog(erp_bundle)
     counts = result.store.row_counts() if result.store else {}
 
-    print("\n=== ERP catalog v1 (completed vehicles) ===")
+    print("\n=== ERP catalog v1 ===")
     print(f"Output: {OUT}")
     print(f"  vehicle_master: {counts.get('vehicle_master', 0)}")
     print(f"  part_fitment:   {counts.get('part_fitment', 0)}")
     print(f"  pnc_categories: {counts.get('pnc_categories', 0)}")
     print(f"  diagram_assets: {counts.get('diagram_assets', 0)}")
-    print(f"Completed chassis ({len(meta['completed_chassis'])}): {meta['completed_chassis']}")
     print(
-        f"Identity-only chassis pending parts ({len(meta['identity_only_chassis'])}): "
-        f"{meta['identity_only_chassis'][:20]}{'...' if len(meta['identity_only_chassis']) > 20 else ''}"
+        f"Parts-complete chassis ({len(meta['parts_complete_chassis'])}): "
+        f"{meta['parts_complete_chassis']}"
+    )
+    pending = meta["identity_only_chassis"]
+    print(
+        f"Identity-only (VIN/model search, no parts yet) ({len(pending)}): "
+        f"{pending[:15]}{'...' if len(pending) > 15 else ''}"
     )
     print("\nImport to Supabase when ready:")
-    print(
-        f"  python -m data_pipeline.import_catalog {OUT} --live"
-    )
+    print(f"  python -m data_pipeline.import_catalog {OUT} --live")
     return 0
 
 
