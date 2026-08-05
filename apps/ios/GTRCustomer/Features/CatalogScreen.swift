@@ -12,7 +12,9 @@ struct CatalogScreen: View {
         case home
         case categories
         case newest
+        case categoryPlp
         case product
+        case pdpReviews
     }
 
     @State private var route: Route = .home
@@ -21,6 +23,11 @@ struct CatalogScreen: View {
     @State private var activeCategory: String?
     @State private var product: CatalogProduct?
     @State private var selectedGalleryKey = ""
+    @State private var selectedGalleryIndex = 0
+    @State private var filterState = ShopFilterState()
+    @State private var sortOption = ShopSortOption.relevance
+    @State private var facetChips: [(String, String)] = []
+    @State private var searchBackend: String?
     @State private var qty = "1"
     @State private var busy = false
     @State private var status: String?
@@ -62,6 +69,8 @@ struct CatalogScreen: View {
                 categoriesBody
             case .newest:
                 newestBody
+            case .categoryPlp:
+                categoryPlpBody
             case .product:
                 if let product {
                     productBody(product)
@@ -69,6 +78,14 @@ struct CatalogScreen: View {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(GTRColors.chalk)
+                }
+            case .pdpReviews:
+                if let product {
+                    PdpReviewsScreen(
+                        oem: product.oem,
+                        stockItemId: product.stockItemId,
+                        onBack: { route = .product }
+                    )
                 }
             }
         }
