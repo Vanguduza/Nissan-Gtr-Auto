@@ -161,6 +161,14 @@ public protocol StorefrontApi: AnyObject {
     /// Four-way `search_catalog` (part / vin / model / pnc).
     func searchCatalog(mode: CatalogSearchMode, query: String) async throws -> SearchCatalogResponse
 
+    /// Meili Edge proxy first (`catalog-search-meili` + JWT); FTS fallback server-side.
+    func searchCatalogMeili(
+        mode: CatalogSearchMode,
+        query: String,
+        limit: Int,
+        facets: [String]?
+    ) async throws -> SearchCatalogResponse
+
     /// Browse PLP — stock_items + default USD price + saleable qty.
     func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult
 
@@ -181,6 +189,31 @@ public protocol StorefrontApi: AnyObject {
 
     /// `delete_customer_address`
     func deleteCustomerAddress(id: UUID) async throws
+
+    // MARK: Profile
+
+    func loadOwnProfile() async throws -> UserProfile?
+
+    func loadOwnCustomer() async throws -> CustomerProfile?
+
+    func updateOwnFullName(_ fullName: String) async throws
+
+    func updateOwnCustomerContact(_ patch: CustomerContactPatch) async throws
+
+    func setOwnMarketingOptIn(_ optIn: Bool) async throws
+
+    // MARK: Loyalty / returns / kits
+
+    func getLoyaltyBalance(customerId: UUID) async throws -> LoyaltyBalance
+
+    func postCustomerReturnCreditNote(
+        invoiceId: UUID,
+        lines: [ReturnCreditNoteLine]
+    ) async throws -> UUID
+
+    func listActiveKits(limit: Int) async throws -> [KitListItem]
+
+    func listInvoiceLines(invoiceId: UUID) async throws -> [InvoiceLineSummary]
 }
 
 /// In-memory Fake for Simulator / Windows scaffold — no network.
