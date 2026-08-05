@@ -506,7 +506,11 @@ struct CatalogScreen: View {
                         ShopMerchTitleRow(title: "Product details", actionLabel: nil)
                         ShopExpandableDescription(text: product.descriptionText)
 
-                        ShopMerchTitleRow(title: "Reviews", actionLabel: "See all")
+                        ShopMerchTitleRow(
+                            title: "Reviews",
+                            actionLabel: "See all",
+                            onAction: { route = .pdpReviews }
+                        )
                         Button {
                             route = .pdpReviews
                         } label: {
@@ -681,7 +685,13 @@ struct CatalogScreen: View {
         }
     }
 
-    private func fetchSuggestions(query: String) async -> [SearchSuggestion] {
+    private struct SuggestionFetchResult {
+        let suggestions: [SearchSuggestion]
+        let facetChips: [(String, String)]
+        let backend: String?
+    }
+
+    private func fetchSuggestions(query: String) async -> SuggestionFetchResult {
         var out: [String: SearchSuggestion] = [:]
         var backend: String?
         var facetCounts: [String: [String: Int]] = [:]
