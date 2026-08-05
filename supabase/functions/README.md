@@ -274,10 +274,6 @@ curl -sS -X POST "$SUPABASE_URL/functions/v1/process-ai-reports" \
 
 Optional: after a successful cron run, `touch_ai_worker_schedule('process-crm-promos-daily')` (service_role / admin).
 
-## Stores insights (`stores-insights`)
-
-Staff JWT → warehouse ABC / forecast KPIs + optional Gemini directives. See function source for body schema.
-
 ## Catalog search Meili (`catalog-search-meili`)
 
 Authenticated catalog typeahead proxy. Meilisearch key stays server-side; Postgres FTS fallback on error or `CATALOG_SEARCH_BACKEND=fts`.
