@@ -160,15 +160,11 @@ val GtrCarPartCategories: List<MenuCategory> = listOf(
         Icons.Filled.LocalGasStation,
         listOf(
             "Fuel injectors" to Icons.Filled.LocalGasStation,
-            "Fuel filters" to Icons.Filled.FilterLike,
+            "Fuel filters" to Icons.Filled.FilterAlt,
             "Throttle bodies" to Icons.Filled.Build,
         ),
     ),
 )
-
-/** Shared filter-style icon (Material has no FilterAlt on all AGP sets — use WaterDrop/Widgets fallback via alias). */
-private val Icons.Filled.FilterLike: ImageVector
-    get() = Widgets
 
 data class RootMenuItem(
     val label: String,
