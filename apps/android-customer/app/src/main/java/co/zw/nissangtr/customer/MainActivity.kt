@@ -511,19 +511,13 @@ private fun CustomerApp(
             )
         }
         ShellOverlay.Orders -> {
-            ShopDefaultScreen(
-                title = "Orders",
+            OrdersScreen(
+                rpc = rpc,
                 onBack = { overlay = ShellOverlay.Cart },
-                scrollable = false,
-            ) {
-                OrdersScreen(
-                    rpc = rpc,
-                    onBack = { overlay = ShellOverlay.Cart },
-                    onOpenTrack = { jobId, token ->
-                        openTrack(jobId = jobId, token = token)
-                    },
-                )
-            }
+                onTrackDelivery = { jobId, token ->
+                    openTrack(jobId = jobId, token = token)
+                },
+            )
         }
         ShellOverlay.Account -> {
             ProfileStack(
