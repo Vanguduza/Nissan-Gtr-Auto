@@ -2086,6 +2086,264 @@ private struct StockItemPdpRow: Decodable {
     }
 }
 
+private struct FitmentMetaRow: Decodable {
+    let chassisCode: String?
+    let engineCode: String?
+    let pncCode: String?
+    let pncCategories: PncCategoryEmbed?
+
+    enum CodingKeys: String, CodingKey {
+        case chassisCode = "chassis_code"
+        case engineCode = "engine_code"
+        case pncCode = "pnc_code"
+        case pncCategories = "pnc_categories"
+    }
+}
+
+private struct PncCategoryEmbed: Decodable {
+    let categoryName: String?
+    let subcategoryName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case categoryName = "category_name"
+        case subcategoryName = "subcategory_name"
+    }
+}
+
+private struct FitmentCategoryRow: Decodable {
+    let oemPartNumber: String
+    let pncCategories: PncCategoryEmbed?
+
+    enum CodingKeys: String, CodingKey {
+        case oemPartNumber = "oem_part_number"
+        case pncCategories = "pnc_categories"
+    }
+}
+
+private struct PncCodeRow: Decodable {
+    let pncCode: String
+
+    enum CodingKeys: String, CodingKey {
+        case pncCode = "pnc_code"
+    }
+}
+
+private struct OemOnlyRow: Decodable {
+    let oemPartNumber: String
+
+    enum CodingKeys: String, CodingKey {
+        case oemPartNumber = "oem_part_number"
+    }
+}
+
+private struct OeNumberRow: Decodable {
+    let oeNumber: String?
+
+    enum CodingKeys: String, CodingKey {
+        case oeNumber = "oe_number"
+    }
+}
+
+private struct SupersededRow: Decodable {
+    let supersededBy: String?
+
+    enum CodingKeys: String, CodingKey {
+        case supersededBy = "superseded_by"
+    }
+}
+
+private struct DiagramPathRow: Decodable {
+    let diagramPath: String?
+
+    enum CodingKeys: String, CodingKey {
+        case diagramPath = "diagram_path"
+    }
+}
+
+private struct ProfileRow: Decodable {
+    let id: UUID
+    let fullName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case fullName = "full_name"
+    }
+
+    func toModel() -> UserProfile {
+        UserProfile(id: id, fullName: fullName)
+    }
+}
+
+private struct CustomerProfileRow: Decodable {
+    let id: UUID
+    let displayName: String?
+    let email: String?
+    let phoneE164: String?
+    let whatsappE164: String?
+    let smsReceipts: Bool
+    let emailReceipts: Bool
+    let whatsappReceipts: Bool
+    let marketingOptIn: Bool
+    let lastPromoAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, email
+        case displayName = "display_name"
+        case phoneE164 = "phone_e164"
+        case whatsappE164 = "whatsapp_e164"
+        case smsReceipts = "sms_receipts"
+        case emailReceipts = "email_receipts"
+        case whatsappReceipts = "whatsapp_receipts"
+        case marketingOptIn = "marketing_opt_in"
+        case lastPromoAt = "last_promotional_message_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let id = try? c.decode(UUID.self, forKey: .id) {
+            self.id = id
+        } else if let s = try c.decode(String.self, forKey: .id), let id = UUID(uuidString: s) {
+            self.id = id
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "id required")
+        }
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName)
+        email = try c.decodeIfPresent(String.self, forKey: .email)
+        phoneE164 = try c.decodeIfPresent(String.self, forKey: .phoneE164)
+        whatsappE164 = try c.decodeIfPresent(String.self, forKey: .whatsappE164)
+        smsReceipts = try c.decodeIfPresent(Bool.self, forKey: .smsReceipts) ?? false
+        emailReceipts = try c.decodeIfPresent(Bool.self, forKey: .emailReceipts) ?? false
+        whatsappReceipts = try c.decodeIfPresent(Bool.self, forKey: .whatsappReceipts) ?? false
+        marketingOptIn = try c.decodeIfPresent(Bool.self, forKey: .marketingOptIn) ?? false
+        lastPromoAt = try c.decodeIfPresent(String.self, forKey: .lastPromoAt)
+    }
+
+    func toModel() -> CustomerProfile {
+        CustomerProfile(
+            id: id,
+            displayName: displayName,
+            email: email,
+            phoneE164: phoneE164,
+            whatsappE164: whatsappE164,
+            smsReceipts: smsReceipts,
+            emailReceipts: emailReceipts,
+            whatsappReceipts: whatsappReceipts,
+            marketingOptIn: marketingOptIn,
+            lastPromoAt: lastPromoAt
+        )
+    }
+}
+
+private struct LoyaltyBalanceRow: Decodable {
+    let customerId: UUID?
+    let pointsBalance: Double
+    let currency: String
+    let liabilityPerPoint: Double
+    let estimatedLiability: Double
+
+    enum CodingKeys: String, CodingKey {
+        case currency
+        case customerId = "customer_id"
+        case pointsBalance = "points_balance"
+        case liabilityPerPoint = "liability_per_point"
+        case estimatedLiability = "estimated_liability"
+    }
+
+    func toModel(fallbackCustomerId: UUID) -> LoyaltyBalance {
+        LoyaltyBalance(
+            customerId: customerId ?? fallbackCustomerId,
+            pointsBalance: pointsBalance,
+            currency: currency,
+            liabilityPerPoint: liabilityPerPoint,
+            estimatedLiability: estimatedLiability
+        )
+    }
+}
+
+private struct ItemKitRow: Decodable {
+    let id: UUID
+    let sellMode: String
+    let stockItemId: UUID
+    let stockItems: StockItemBriefEmbed?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case sellMode = "sell_mode"
+        case stockItemId = "stock_item_id"
+        case stockItems = "stock_items"
+    }
+}
+
+private struct KitComponentRow: Decodable {
+    let kitId: UUID
+    let qty: Double
+    let stockItems: StockItemBriefEmbed?
+
+    enum CodingKeys: String, CodingKey {
+        case qty
+        case kitId = "kit_id"
+        case stockItems = "stock_items"
+    }
+}
+
+private struct StockItemBriefEmbed: Decodable {
+    let oemPartNumber: String?
+    let description: String?
+
+    enum CodingKeys: String, CodingKey {
+        case description
+        case oemPartNumber = "oem_part_number"
+    }
+}
+
+private struct InvoiceLineRow: Decodable {
+    let id: UUID
+    let stockItemId: UUID
+    let uomId: UUID
+    let qty: FlexibleDecimal
+    let stockItems: StockItemBriefEmbed?
+
+    enum CodingKeys: String, CodingKey {
+        case id, qty
+        case stockItemId = "stock_item_id"
+        case uomId = "uom_id"
+        case stockItems = "stock_items"
+    }
+
+    func toModel() -> InvoiceLineSummary {
+        InvoiceLineSummary(
+            id: id,
+            stockItemId: stockItemId,
+            uomId: uomId,
+            qty: qty.value,
+            oemPartNumber: stockItems?.oemPartNumber,
+            description: stockItems?.description
+        )
+    }
+}
+
+private enum JWTSubjectParser {
+    static func userId(from token: String) -> UUID? {
+        let parts = token.split(separator: ".")
+        guard parts.count >= 2 else { return nil }
+        var payload = String(parts[1])
+        let pad = 4 - payload.count % 4
+        if pad < 4 { payload += String(repeating: "=", count: pad) }
+        guard let data = Data(base64Encoded: payload.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sub = obj["sub"] as? String,
+              let id = UUID(uuidString: sub) else { return nil }
+        return id
+    }
+}
+
+private extension Array where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
+    }
+}
+
 private struct FitmentLabelRow: Decodable {
     let chassisCode: String?
     let engineCode: String?
@@ -2222,10 +2480,11 @@ private enum CatalogSearchParser {
     static func parse(
         data: Data,
         fallbackMode: CatalogSearchMode,
-        fallbackQuery: String
+        fallbackQuery: String,
+        backend: String? = nil
     ) throws -> SearchCatalogResponse {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return SearchCatalogResponse(mode: fallbackMode, query: fallbackQuery, parts: [])
+            return SearchCatalogResponse(mode: fallbackMode, query: fallbackQuery, parts: [], backend: backend)
         }
         let mode = CatalogSearchMode(rawValue: (root["mode"] as? String)?.lowercased() ?? "") ?? fallbackMode
         let query = (root["query"] as? String) ?? fallbackQuery
@@ -2241,7 +2500,35 @@ private enum CatalogSearchParser {
             seen.insert(key)
             return true
         }
-        return SearchCatalogResponse(mode: mode, query: query, parts: distinct)
+        let resolvedBackend = (root["backend"] as? String) ?? backend
+        let facets = parseFacetDistribution(root["facetDistribution"])
+        return SearchCatalogResponse(
+            mode: mode,
+            query: query,
+            parts: distinct,
+            backend: resolvedBackend,
+            facetDistribution: facets
+        )
+    }
+
+    private static func parseFacetDistribution(_ element: Any?) -> [String: [String: Int]] {
+        guard let root = element as? [String: Any] else { return [:] }
+        var out: [String: [String: Int]] = [:]
+        for (facet, valuesEl) in root {
+            guard let values = valuesEl as? [String: Any] else { continue }
+            var counts: [String: Int] = [:]
+            for (label, countEl) in values {
+                if let n = countEl as? Int {
+                    counts[label] = n
+                } else if let d = countEl as? Double {
+                    counts[label] = Int(d)
+                } else if let s = countEl as? String, let n = Int(s) {
+                    counts[label] = n
+                }
+            }
+            if !counts.isEmpty { out[facet] = counts }
+        }
+        return out
     }
 
     private static func collectPartHits(_ row: Any, into out: inout [CatalogPartHit]) {
