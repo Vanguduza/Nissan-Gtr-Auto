@@ -131,6 +131,9 @@ private enum class ShellOverlay {
     Cart,
     Account,
     SignIn,
+    Categories,
+    Pay,
+    Orders,
 }
 
 private data class TrackLaunchArgs(
