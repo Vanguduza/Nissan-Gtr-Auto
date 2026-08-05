@@ -695,6 +695,10 @@ private fun ProfileStack(
             onClose = onClose,
             onOpenGarage = onOpenGarage,
         )
+        ProfileDest.EditProfile -> EditProfileScreen(
+            rpc = rpc,
+            onBack = { onDest(ProfileDest.Hub) },
+        )
         ProfileDest.Orders -> OrdersScreen(
             rpc = rpc,
             onBack = { onDest(ProfileDest.Hub) },
@@ -785,6 +789,9 @@ private fun ProfileHub(
         Spacer(modifier = Modifier.height(32.dp))
 
         Column(modifier = Modifier.fillMaxWidth()) {
+            ShopProfileItemBox("Edit profile", Icons.Filled.AccountCircle) {
+                onOpen(ProfileDest.EditProfile)
+            }
             ShopProfileItemBox("My orders", Icons.Filled.ReceiptLong) { onOpen(ProfileDest.Orders) }
             ShopProfileItemBox("Manage address", Icons.Filled.LocationOn) { onOpen(ProfileDest.Addresses) }
             ShopProfileItemBox("Payment methods", Icons.Filled.CreditCard) { onOpen(ProfileDest.Pay) }
