@@ -292,7 +292,7 @@ private fun KmpHome(
             )
             ShopCategoryChipRow(
                 categories = DefaultCatalogCategoryCards.map { it.label },
-                onCategory = { emptyCategory = it },
+                onCategory = onCategoryBrowse,
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
 
@@ -376,61 +376,31 @@ fun NewestProductsScreen(
     products: List<CatalogListItem>,
     wishOems: Set<String>,
     busy: Boolean,
+    filterState: co.zw.nissangtr.ui.shop.ShopFilterState,
+    sortOption: co.zw.nissangtr.ui.shop.ShopSortOption,
+    categoryLabels: List<String>,
     onBack: () -> Unit,
     onOpenProduct: (String) -> Unit,
     onToggleWish: (CatalogListItem) -> Unit,
+    onApplyFilter: (co.zw.nissangtr.ui.shop.ShopFilterState) -> Unit,
+    onApplySort: (co.zw.nissangtr.ui.shop.ShopSortOption) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ShopCircleIconButton(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                onClick = onBack,
-                contentDescription = "Back",
-            )
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text("Newest products", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "Recently added parts",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (products.isEmpty() && !busy) {
-            ShopHonestEmpty(
-                title = "No recent parts yet",
-                body = "Newest products appear here from catalog browse when stock is indexed.",
-                modifier = Modifier.padding(24.dp),
-            )
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(8.dp),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                gridItems(products, key = { it.stockItemId }) { item ->
-                    ShopProductCard(
-                        title = item.oem,
-                        subtitle = item.name,
-                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
-                        liked = wishOems.contains(item.oem.trim().uppercase()),
-                        onLikeClick = { onToggleWish(item) },
-                        onClick = { onOpenProduct(item.oem) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-    }
+    CategoryPlpScreen(
+        title = "Newest products",
+        products = products,
+        wishOems = wishOems,
+        busy = busy,
+        filterState = filterState,
+        sortOption = sortOption,
+        categoryLabels = categoryLabels,
+        onBack = onBack,
+        onOpenProduct = onOpenProduct,
+        onToggleWish = onToggleWish,
+        onApplyFilter = onApplyFilter,
+        onApplySort = onApplySort,
+        modifier = modifier,
+    )
 }
 
 @Composable
