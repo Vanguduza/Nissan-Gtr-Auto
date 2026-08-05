@@ -222,24 +222,20 @@ internal object CatalogRpcLive {
     }
 
     private suspend fun loadDiagramPublicUrl(client: SupabaseClient, oem: String): String? {
-        val row = client.from("part_fitment")
+        val rows = client.from("part_fitment")
             .select(Columns.list("diagram_path")) {
-                filter {
-                    eq("oem_part_number", oem)
-                    neq("diagram_path", null)
-                }
-                limit(1)
+                filter { eq("oem_part_number", oem) }
+                limit(20)
             }
             .decodeList<DiagramPathRow>()
-            .firstOrNull()
-        val path = row?.diagramPath?.trim().orEmpty()
+        val path = rows.firstOrNull { !it.diagramPath.isNullOrBlank() }?.diagramPath?.trim().orEmpty()
         if (path.isEmpty()) return null
         if (path.startsWith("http://", ignoreCase = true) || path.startsWith("https://", ignoreCase = true)) {
             return path
         }
-        return client.storage
-            .from(RpcNames.CATALOG_DIAGRAMS_BUCKET)
-            .publicUrl(path.trimStart('/'))
+        val base = client.supabaseUrl.trimEnd('/')
+        val cleanPath = path.trimStart('/')
+        return "$base/storage/v1/object/public/${RpcNames.CATALOG_DIAGRAMS_BUCKET}/$cleanPath"
     }
 
     suspend fun addCartLineByOem(
