@@ -317,13 +317,13 @@ fun HamburgerMenuOverlay(
                         MenuRow(
                             icon = cat?.icon ?: Icons.Filled.Build,
                             label = "All ${cat?.label.orEmpty()}",
-                            onClick = { emptyDialogTitle = cat?.label ?: "Category" },
+                            onClick = { browseCategory(cat?.label.orEmpty()) },
                         )
                         cat?.subcategories.orEmpty().forEach { (sub, icon) ->
                             MenuRow(
                                 icon = icon,
                                 label = sub,
-                                onClick = { emptyDialogTitle = sub },
+                                onClick = { browseCategory(sub) },
                             )
                         }
                     }
