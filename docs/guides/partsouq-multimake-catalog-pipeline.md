@@ -78,6 +78,8 @@ Each maker gets its own `--state-db`, `--cache-dir`, `--out-dir`, `--parse-db`, 
 
 Full `--makers all` is **long-running** (hours–days depending on PartSouq size and pacing). **VIN enrichment runs for every maker** via `config/chassis_catalogs.json` (curated platforms + per-brand EPC stubs — §3). Supabase import is optional (`--import-dry-run` / `--live-import`).
 
+**Cloud, maker-by-maker, popularity queue:** single runbook → [`cloud-multi-make-catalog.md`](./cloud-multi-make-catalog.md) + `config/makers-by-popularity.json`.
+
 ### Command examples (from `data-pipeline/`)
 
 ```bash
