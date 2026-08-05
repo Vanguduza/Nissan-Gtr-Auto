@@ -28,7 +28,6 @@
 		A10000000000000000000028 /* DeliveryTrackScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* DeliveryTrackScreen.swift */; };
 		A1000000000000000000002A /* WishlistScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* WishlistScreen.swift */; };
 		A1000000000000000000002C /* CompareScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002D /* CompareScreen.swift */; };
-		A1000000000000000000002E /* ReviewsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* ReviewsScreen.swift */; };
 		A10000000000000000000052 /* CatalogScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000053 /* CatalogScreen.swift */; };
 		A10000000000000000000050 /* GuestCompareStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* GuestCompareStore.swift */; };
 		A10000000000000000000054 /* GTRTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000055 /* GTRTheme.swift */; };
