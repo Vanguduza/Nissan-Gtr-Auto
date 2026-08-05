@@ -1046,4 +1046,40 @@ class FakeRpcClient : RpcClient {
     override suspend fun setOwnMarketingOptIn(optIn: Boolean) {
         fakeCustomer = fakeCustomer.copy(marketingOptIn = optIn)
     }
+
+    override suspend fun getLoyaltyBalance(customerId: String): LoyaltyBalance =
+        LoyaltyBalance(
+            customerId = customerId,
+            pointsBalance = 120.0,
+            currency = "USD",
+            liabilityPerPoint = 0.01,
+            estimatedLiability = 1.2,
+        )
+
+    override suspend fun postCustomerReturnCreditNote(
+        invoiceId: String,
+        lines: List<ReturnCreditNoteLine>,
+    ): String {
+        require(lines.isNotEmpty()) { "return lines required" }
+        invoices.firstOrNull { it.id == invoiceId }
+            ?: error("invoice not found or not owned")
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun listActiveKits(limit: Int): List<KitListItem> {
+        val cap = limit.coerceIn(1, 50)
+        return listOf(
+            KitListItem(
+                kitId = "00000000-0000-4000-8000-0000000000k1",
+                stockItemId = SEED_OIL_FILTER_ID,
+                oem = "15208-65F0C",
+                name = "Oil filter service kit (demo)",
+                sellMode = "bundle",
+                components = listOf(
+                    KitComponent(oem = "15208-65F0C", name = "Oil filter", qty = 1.0),
+                    KitComponent(oem = "11026-JA00A", name = "Drain plug washer", qty = 1.0),
+                ),
+            ),
+        ).take(cap)
+    }
 }

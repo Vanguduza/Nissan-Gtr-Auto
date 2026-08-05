@@ -316,3 +316,36 @@ object AddressGeo {
         return if (base.isNullOrBlank()) tag else "$base\n$tag"
     }
 }
+
+/** Mirrors web `LoyaltyBalance` / `get_loyalty_balance` row. */
+data class LoyaltyBalance(
+    val customerId: String,
+    val pointsBalance: Double,
+    val currency: String = "USD",
+    val liabilityPerPoint: Double = 0.0,
+    val estimatedLiability: Double = 0.0,
+)
+
+/** Line payload for [RpcNames.POST_CUSTOMER_RETURN_CREDIT_NOTE] — prices forced server-side. */
+data class ReturnCreditNoteLine(
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+)
+
+/** Kit component row — mirrors web `KitListItem.components`. */
+data class KitComponent(
+    val oem: String,
+    val name: String,
+    val qty: Double,
+)
+
+/** Mirrors web `KitListItem` / PostgREST `item_kits` browse. */
+data class KitListItem(
+    val kitId: String,
+    val stockItemId: String,
+    val oem: String,
+    val name: String,
+    val sellMode: String,
+    val components: List<KitComponent> = emptyList(),
+)
