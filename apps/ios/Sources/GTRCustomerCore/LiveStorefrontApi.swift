@@ -2098,6 +2098,20 @@ private struct FitmentMetaRow: Decodable {
         case pncCode = "pnc_code"
         case pncCategories = "pnc_categories"
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        chassisCode = try c.decodeIfPresent(String.self, forKey: .chassisCode)
+        engineCode = try c.decodeIfPresent(String.self, forKey: .engineCode)
+        pncCode = try c.decodeIfPresent(String.self, forKey: .pncCode)
+        if let embed = try? c.decodeIfPresent(PncCategoryEmbed.self, forKey: .pncCategories) {
+            pncCategories = embed
+        } else if let arr = try? c.decodeIfPresent([PncCategoryEmbed].self, forKey: .pncCategories) {
+            pncCategories = arr.first
+        } else {
+            pncCategories = nil
+        }
+    }
 }
 
 private struct PncCategoryEmbed: Decodable {
@@ -2117,6 +2131,18 @@ private struct FitmentCategoryRow: Decodable {
     enum CodingKeys: String, CodingKey {
         case oemPartNumber = "oem_part_number"
         case pncCategories = "pnc_categories"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        oemPartNumber = try c.decode(String.self, forKey: .oemPartNumber)
+        if let embed = try? c.decodeIfPresent(PncCategoryEmbed.self, forKey: .pncCategories) {
+            pncCategories = embed
+        } else if let arr = try? c.decodeIfPresent([PncCategoryEmbed].self, forKey: .pncCategories) {
+            pncCategories = arr.first
+        } else {
+            pncCategories = nil
+        }
     }
 }
 
