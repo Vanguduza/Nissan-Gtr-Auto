@@ -3,6 +3,7 @@ import SwiftUI
 /// Pay initiate — ContiPay / Paynow create intent; shows intent id + stub redirect (no PSP crypto).
 struct PayScreen: View {
     @EnvironmentObject private var session: StorefrontSession
+    var initialInvoiceId: UUID? = nil
     @State private var orders: [CustomerOrder] = []
     @State private var selectedInvoiceId: UUID?
     @State private var rail: PaymentRail = .contipay
@@ -14,7 +15,7 @@ struct PayScreen: View {
 
     var body: some View {
         ShopDefaultScreen(
-            title: "Pay",
+            title: "Secure payment",
             subtitle: "ContiPay · Paynow · EcoCash",
             scrollable: false
         ) {
