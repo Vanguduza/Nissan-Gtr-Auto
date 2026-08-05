@@ -783,9 +783,7 @@ class SupabaseRpcClient(
     override suspend fun updateOwnFullName(fullName: String) {
         val userId = currentUserId() ?: error("sign in required")
         client.from("profiles")
-            .update(buildJsonObject {
-                put("full_name", fullName.trim().ifEmpty { null })
-            }) {
+            .update(ProfileNameUpdate(fullName = fullName.trim().ifEmpty { null })) {
                 filter { eq("id", userId) }
             }
     }
