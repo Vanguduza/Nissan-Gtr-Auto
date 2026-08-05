@@ -373,7 +373,7 @@ private fun CustomerApp(
     mapsKeyPresent: Boolean,
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
     partsLaunch: PartsLaunchArgs = PartsLaunchArgs(),
-    @Suppress("UNUSED_PARAMETER") camera: PodCameraBridge?,
+    camera: PodCameraBridge?,
 ) {
     var tab by remember { mutableStateOf(ShellTab.Home) }
     var overlay by remember { mutableStateOf(ShellOverlay.None) }
@@ -466,6 +466,10 @@ private fun CustomerApp(
                         is HamburgerMenuAction.Close -> overlay = ShellOverlay.None
                         is HamburgerMenuAction.OpenAllCategories -> {
                             overlay = ShellOverlay.Categories
+                        }
+                        is HamburgerMenuAction.BrowseCategory -> {
+                            openCatalog(seed = action.label)
+                            overlay = ShellOverlay.None
                         }
                         HamburgerMenuAction.OpenDeals,
                         HamburgerMenuAction.OpenAbout,
