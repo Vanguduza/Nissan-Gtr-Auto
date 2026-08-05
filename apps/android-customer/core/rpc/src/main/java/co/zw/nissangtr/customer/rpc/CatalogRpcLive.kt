@@ -141,28 +141,50 @@ internal object CatalogRpcLive {
 
         val price = loadDefaultPrices(client, listOf(item.id))[item.id]
         val qty = loadSaleableQty(client, listOf(item.id))[item.id] ?: 0.0
-        val fitmentLines = loadFitmentLabels(client, item.oemPartNumber)
+        val fitmentMeta = loadFitmentMeta(client, item.oemPartNumber)
+        val diagramUrl = loadDiagramPublicUrl(client, item.oemPartNumber)
+        val replaces = loadReplaces(client, item.oemPartNumber)
+
+        val imageUrls = buildList {
+            diagramUrl?.let { add(it) }
+        }
 
         return CatalogProduct(
             stockItemId = item.id,
             baseUomId = uomId,
             oem = item.oemPartNumber,
             name = item.description?.trim().orEmpty().ifEmpty { item.oemPartNumber },
+            brand = "Nissan OE",
+            category = fitmentMeta.category,
             usd = if (price?.currency == "USD") price.unitPrice else price?.unitPrice,
             stock = stockStateFromQty(qty, item.reorderPoint),
             coreCharge = price?.coreCharge ?: 0.0,
-            fitmentLines = fitmentLines,
+            fitmentLines = fitmentMeta.lines,
+            imageUrls = imageUrls,
+            diagramUrl = diagramUrl,
+            specs = fitmentMeta.specs,
+            replaces = replaces,
         )
     }
 
-    private suspend fun loadFitmentLabels(client: SupabaseClient, oem: String): List<String> {
+    private data class FitmentMeta(
+        val lines: List<String>,
+        val specs: List<String>,
+        val category: String? = null,
+    )
+
+    private suspend fun loadFitmentMeta(client: SupabaseClient, oem: String): FitmentMeta {
         val rows = client.from("part_fitment")
-            .select(Columns.list("chassis_code", "engine_code", "pnc_code")) {
+            .select(
+                Columns.raw(
+                    "chassis_code, engine_code, pnc_code, pnc_categories ( category_name, subcategory_name )",
+                ),
+            ) {
                 filter { eq("oem_part_number", oem) }
                 limit(12)
             }
-            .decodeList<FitmentLabelRow>()
-        return rows.mapNotNull { row ->
+            .decodeList<FitmentMetaRow>()
+        val lines = rows.mapNotNull { row ->
             val bits = listOfNotNull(
                 row.chassisCode?.trim()?.takeIf { it.isNotEmpty() },
                 row.engineCode?.trim()?.takeIf { it.isNotEmpty() },
@@ -170,6 +192,54 @@ internal object CatalogRpcLive {
             )
             bits.takeIf { it.isNotEmpty() }?.joinToString(" · ")
         }
+        val primary = rows.firstOrNull()
+        val specs = buildList {
+            primary?.pncCode?.trim()?.takeIf { it.isNotEmpty() }?.let { add("PNC $it") }
+            primary?.chassisCode?.trim()?.takeIf { it.isNotEmpty() }?.let { add("Chassis $it") }
+            primary?.engineCode?.trim()?.takeIf { it.isNotEmpty() }?.let { add("Engine $it") }
+        }
+        val category = primary?.pncCategories?.categoryName?.trim()?.takeIf { it.isNotEmpty() }
+            ?: primary?.pncCategories?.subcategoryName?.trim()?.takeIf { it.isNotEmpty() }
+        return FitmentMeta(lines = lines, specs = specs, category = category)
+    }
+
+    private suspend fun loadReplaces(client: SupabaseClient, oem: String): List<String> {
+        val xrefs = client.from("oe_cross_refs")
+            .select(Columns.list("oe_number")) {
+                filter { eq("oem_part_number", oem) }
+                limit(20)
+            }
+            .decodeList<OeNumberRow>()
+        val superseded = client.from("part_fitment")
+            .select(Columns.list("superseded_by")) {
+                filter { eq("oem_part_number", oem) }
+                limit(20)
+            }
+            .decodeList<SupersededRow>()
+        return (xrefs.mapNotNull { it.oeNumber } + superseded.mapNotNull { it.supersededBy })
+            .filter { it.trim().isNotEmpty() && !it.equals(oem, ignoreCase = true) }
+            .distinct()
+    }
+
+    private suspend fun loadDiagramPublicUrl(client: SupabaseClient, oem: String): String? {
+        val row = client.from("part_fitment")
+            .select(Columns.list("diagram_path")) {
+                filter {
+                    eq("oem_part_number", oem)
+                    neq("diagram_path", null)
+                }
+                limit(1)
+            }
+            .decodeList<DiagramPathRow>()
+            .firstOrNull()
+        val path = row?.diagramPath?.trim().orEmpty()
+        if (path.isEmpty()) return null
+        if (path.startsWith("http://", ignoreCase = true) || path.startsWith("https://", ignoreCase = true)) {
+            return path
+        }
+        return client.storage
+            .from(RpcNames.CATALOG_DIAGRAMS_BUCKET)
+            .publicUrl(path.trimStart('/'))
     }
 
     suspend fun addCartLineByOem(
@@ -325,6 +395,51 @@ private data class FitmentLabelRow(
     @SerialName("chassis_code") val chassisCode: String? = null,
     @SerialName("engine_code") val engineCode: String? = null,
     @SerialName("pnc_code") val pncCode: String? = null,
+)
+
+@Serializable
+private data class FitmentMetaRow(
+    @SerialName("chassis_code") val chassisCode: String? = null,
+    @SerialName("engine_code") val engineCode: String? = null,
+    @SerialName("pnc_code") val pncCode: String? = null,
+    @SerialName("pnc_categories") val pncCategories: PncCategoryEmbed? = null,
+)
+
+@Serializable
+private data class PncCategoryEmbed(
+    @SerialName("category_name") val categoryName: String? = null,
+    @SerialName("subcategory_name") val subcategoryName: String? = null,
+)
+
+@Serializable
+private data class FitmentCategoryRow(
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    @SerialName("pnc_categories") val pncCategories: PncCategoryEmbed? = null,
+)
+
+@Serializable
+private data class PncCodeRow(
+    @SerialName("pnc_code") val pncCode: String,
+)
+
+@Serializable
+private data class OemOnlyRow(
+    @SerialName("oem_part_number") val oemPartNumber: String,
+)
+
+@Serializable
+private data class OeNumberRow(
+    @SerialName("oe_number") val oeNumber: String? = null,
+)
+
+@Serializable
+private data class SupersededRow(
+    @SerialName("superseded_by") val supersededBy: String? = null,
+)
+
+@Serializable
+private data class DiagramPathRow(
+    @SerialName("diagram_path") val diagramPath: String? = null,
 )
 
 private data class PriceRow(
