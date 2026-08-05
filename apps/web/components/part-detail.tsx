@@ -300,6 +300,7 @@ export function PartDetail({ oem }: { oem: string }) {
   const hasDiagram = Boolean(p.diagram?.publicUrl);
   const hasPhotos = photoUrls.length > 0;
   const showGalleryTabs = hasDiagram && hasPhotos;
+  const fitmentSummary =
     p.fitments.length === 0
       ? null
       : [
