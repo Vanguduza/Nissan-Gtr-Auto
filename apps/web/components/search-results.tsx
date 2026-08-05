@@ -286,9 +286,36 @@ export function SearchResults({
           <PartResultsTable results={filteredParts} />
         </>
       ) : mode === "model" || mode === "vin" ? (
-        <VehicleResultsList results={status.results} />
+        <>
+          {modelFacets.length > 0 ? (
+            <FacetChipRow
+              label="Models / chassis"
+              entries={modelFacets}
+              onPick={(value) => {
+                const q = new URLSearchParams({
+                  mode: "model",
+                  q: value,
+                });
+                window.location.assign(`/search?${q.toString()}`);
+              }}
+            />
+          ) : null}
+          <VehicleResultsList results={status.results} />
+        </>
       ) : (
-        <PncResultsList results={status.results} />
+        <>
+          {pncFacets.length > 0 ? (
+            <FacetChipRow
+              label="PNC codes"
+              entries={pncFacets}
+              onPick={(value) => {
+                const q = new URLSearchParams({ mode: "pnc", q: value });
+                window.location.assign(`/search?${q.toString()}`);
+              }}
+            />
+          ) : null}
+          <PncResultsList results={status.results} />
+        </>
       )}
     </div>
   );
