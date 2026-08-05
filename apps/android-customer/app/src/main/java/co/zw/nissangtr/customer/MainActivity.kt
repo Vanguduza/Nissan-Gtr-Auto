@@ -633,6 +633,7 @@ private fun CustomerApp(
                                 categorySeedSeq = catalogSeedSeq,
                                 showShellChrome = true,
                                 viewModelKey = "shop",
+                                camera = camera,
                             )
                         }
                         ShellTab.Wishlist -> {
@@ -655,6 +656,7 @@ private fun CustomerApp(
                                 liveRpc = liveRpc,
                                 onSignOut = if (signedInEmail != null) onSignOut else null,
                                 onOpenAccount = { openAccount() },
+                                onEditProfile = { openAccount(ProfileDest.EditProfile) },
                             )
                         }
                     }
