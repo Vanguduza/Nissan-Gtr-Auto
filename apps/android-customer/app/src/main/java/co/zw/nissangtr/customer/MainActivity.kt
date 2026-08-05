@@ -826,6 +826,7 @@ private fun ProfileHub(
             ShopProfileItemBox("Compare", Icons.Filled.CompareArrows) { onOpen(ProfileDest.Compare) }
             ShopProfileItemBox("Track delivery", Icons.Filled.LocalShipping, onClick = onDemoTrack)
             ShopProfileItemBox("Live chat", Icons.Filled.Chat) { onOpen(ProfileDest.Chat) }
+            ShopProfileItemBox("Notifications", Icons.Filled.Notifications) { onOpen(ProfileDest.Notifications) }
             ShopProfileItemBox("My coupons", Icons.Filled.CardGiftcard, isLastItem = true) {
                 onOpen(ProfileDest.Coupons)
             }
