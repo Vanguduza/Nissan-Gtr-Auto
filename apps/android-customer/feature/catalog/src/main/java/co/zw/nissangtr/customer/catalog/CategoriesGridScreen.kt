@@ -102,7 +102,7 @@ fun CategoriesGridScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             items(list, key = { it.label }) { cat ->
-                CategoryCard(card = cat, onClick = { emptyTitle = cat.label })
+                CategoryCard(card = cat, onClick = { onCategoryClick(cat.label) })
             }
         }
     }

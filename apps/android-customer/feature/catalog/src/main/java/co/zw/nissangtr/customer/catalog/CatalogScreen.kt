@@ -474,17 +474,19 @@ private fun KmpPdp(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             rowItems(galleryUrls.indices.toList(), key = { it }) { i ->
-                                ShopRemoteImage(
-                                    url = galleryUrls[i],
-                                    contentDescription = "Image ${i + 1}",
+                                Box(
                                     modifier = Modifier
                                         .size(65.dp)
                                         .clip(MaterialTheme.shapes.small)
-                                        .background(
-                                            if (i == selectedThumb) GtrColors.Steel else GtrColors.Mist,
-                                        ),
-                                    placeholderLabel = "${i + 1}",
-                                )
+                                        .clickable { selectedThumb = i },
+                                ) {
+                                    ShopRemoteImage(
+                                        url = galleryUrls[i],
+                                        contentDescription = "Image ${i + 1}",
+                                        modifier = Modifier.fillMaxSize(),
+                                        placeholderLabel = "${i + 1}",
+                                    )
+                                }
                             }
                         }
                     }

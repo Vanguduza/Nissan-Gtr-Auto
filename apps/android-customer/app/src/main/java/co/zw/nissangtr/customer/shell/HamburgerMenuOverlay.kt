@@ -194,6 +194,8 @@ val GtrRootMenuItems: List<RootMenuItem> = listOf(
 sealed class HamburgerMenuAction {
     /** Opens the All Categories grid (not home / not root menu). */
     data object OpenAllCategories : HamburgerMenuAction()
+    /** Browse a category / subcategory PLP in Shop tab. */
+    data class BrowseCategory(val label: String) : HamburgerMenuAction()
     data object OpenDeals : HamburgerMenuAction()
     data object OpenAbout : HamburgerMenuAction()
     data object OpenContact : HamburgerMenuAction()
@@ -223,6 +225,10 @@ fun HamburgerMenuOverlay(
     var pane by remember { mutableStateOf(MenuPane.Root) }
     var selectedCategory by remember { mutableStateOf<MenuCategory?>(null) }
     var emptyDialogTitle by remember { mutableStateOf<String?>(null) }
+
+    fun browseCategory(label: String) {
+        onAction(HamburgerMenuAction.BrowseCategory(label))
+    }
 
     emptyDialogTitle?.let { title ->
         EmptyCatalogDialog(
