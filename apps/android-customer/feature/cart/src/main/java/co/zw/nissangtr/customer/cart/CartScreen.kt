@@ -11,15 +11,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,22 +37,27 @@ import co.zw.nissangtr.customer.rpc.CartLineSummary
 import co.zw.nissangtr.customer.rpc.CurrencyCode
 import co.zw.nissangtr.customer.rpc.FulfillmentMode
 import co.zw.nissangtr.customer.rpc.RpcClient
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.ui.shop.ShopGtrPayMethod
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
+import co.zw.nissangtr.ui.shop.ShopPaymentMethodList
 import co.zw.nissangtr.ui.shop.ShopProceedButtonBox
 import co.zw.nissangtr.ui.shop.ShopSectionHeader
 import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
- * Cart tab — Shopping-By-KMP [CartScreen] (LazyColumn basket + bottom ProceedButtonBox).
- * GTR checkout options (fulfillment / address / currency) open as a step after Proceed.
+ * Shopping-By-KMP cart + checkout pattern adapted for GTR:
+ * back toolbar · basket lines · delivery options · payment method ·
+ * proceed places order then opens secure PayIntent · order management link.
  */
 @Composable
 fun CartScreen(
     rpc: RpcClient,
-    onBack: (() -> Unit)? = null,
+    onBack: () -> Unit,
     onContinueShopping: (() -> Unit)? = null,
-    onPay: ((invoiceId: String) -> Unit)? = null,
+    onPay: (invoiceId: String) -> Unit,
     onManageAddresses: (() -> Unit)? = null,
+    onManageOrders: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: CartViewModel = viewModel(factory = CartViewModel.factory(rpc)),
 ) {
@@ -59,151 +65,187 @@ fun CartScreen(
     val cart = state.cart
     val lines = cart?.lines.orEmpty()
     val hasLines = lines.isNotEmpty()
-    var checkoutStep by remember { mutableStateOf(false) }
+    var payMethod by remember { mutableStateOf(ShopGtrPayMethod.ContiPay) }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        if (!hasLines) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
+    ShopDefaultScreen(
+        title = "Cart",
+        onBack = onBack,
+        scrollable = false,
+        loading = state.busy && !hasLines,
+        modifier = modifier,
+        bottomBar = {
+            if (hasLines) {
+                ShopProceedButtonBox(
+                    totalLabel = buildString {
+                        append(cart?.currency?.rpcValue ?: "USD")
+                        append(" · ")
+                        append(lines.size)
+                        append(" line(s)")
+                    },
+                    ctaLabel = when {
+                        state.busy -> "Working…"
+                        state.lastInvoiceId != null -> "Continue to secure payment"
+                        else -> "Place order & pay"
+                    },
+                    onClick = {
+                        val invoice = state.lastInvoiceId
+                        if (invoice != null) {
+                            onPay(invoice)
+                        } else {
+                            viewModel.ensureCart()
+                            viewModel.checkout { id -> onPay(id) }
+                        }
+                    },
+                    enabled = !state.busy,
+                )
+            }
+        },
+    ) {
+        if (!hasLines && state.lastInvoiceId == null) {
+            Column(
+                Modifier.fillMaxSize().padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(24.dp),
-                ) {
-                    ShopHonestEmpty(
-                        title = "Basket is empty",
-                        body = "Add parts from Home or Search. Core deposits appear as sibling lines when applicable.",
-                    )
-                    if (onContinueShopping != null) {
-                        Spacer(Modifier.height(16.dp))
-                        androidx.compose.material3.Button(
-                            onClick = onContinueShopping,
-                            shape = MaterialTheme.shapes.small,
-                        ) { Text("Continue shopping") }
+                ShopHonestEmpty(
+                    title = "Basket is empty",
+                    body = "Add parts from Home or Shop. Core deposits appear as sibling lines when applicable.",
+                )
+                if (onContinueShopping != null) {
+                    Spacer(Modifier.height(12.dp))
+                    androidx.compose.material3.Button(
+                        onClick = onContinueShopping,
+                        shape = MaterialTheme.shapes.small,
+                    ) { Text("Continue shopping") }
+                }
+                if (onManageOrders != null) {
+                    TextButton(onClick = onManageOrders) { Text("My orders") }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (hasLines) {
+                    items(lines, key = { it.id }) { line ->
+                        KmpCartLineBox(line = line)
                     }
                 }
-            }
-        } else if (!checkoutStep) {
-            // KMP CartScreen — product list only
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 120.dp),
-            ) {
+
                 item {
-                    Text(
-                        "Cart",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                }
-                items(lines, key = { it.id }) { line ->
-                    KmpCartLineBox(line = line)
-                }
-            }
-            ShopProceedButtonBox(
-                totalLabel = "${cart!!.currency.rpcValue} · ${lines.size} line(s)",
-                ctaLabel = if (state.busy) "Working…" else "Proceed to checkout",
-                onClick = { checkoutStep = true },
-                enabled = !state.busy,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        } else {
-            // GTR checkout options (not in KMP demo — ContiPay path)
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-                    .padding(bottom = 120.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Checkout", style = MaterialTheme.typography.titleLarge)
-                ShopSectionHeader(title = "Fulfillment", actionLabel = null)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = state.fulfillmentMode == FulfillmentMode.IMMEDIATE,
-                        onClick = { viewModel.onFulfillmentChange(FulfillmentMode.IMMEDIATE) },
-                        enabled = !state.busy,
-                        label = { Text("Click & collect") },
-                    )
-                    FilterChip(
-                        selected = state.fulfillmentMode == FulfillmentMode.DISPATCH,
-                        onClick = { viewModel.onFulfillmentChange(FulfillmentMode.DISPATCH) },
-                        enabled = !state.busy,
-                        label = { Text("Nationwide") },
-                    )
-                }
-                if (state.fulfillmentMode == FulfillmentMode.DISPATCH) {
-                    ShopSectionHeader(
-                        title = "Delivery address",
-                        actionLabel = if (onManageAddresses != null) "Manage" else null,
-                        onAction = onManageAddresses,
-                    )
-                    if (state.addresses.isEmpty()) {
-                        ShopHonestEmpty(
-                            title = "Add an address",
-                            body = "Nationwide dispatch needs a saved shipping address (map pick available).",
+                    Spacer(modifier.height(8.dp))
+                    ShopSectionHeader(title = "Delivery", actionLabel = null)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = state.fulfillmentMode == FulfillmentMode.IMMEDIATE,
+                            onClick = { viewModel.onFulfillmentChange(FulfillmentMode.IMMEDIATE) },
+                            enabled = !state.busy,
+                            label = { Text("Click & collect") },
                         )
-                    } else {
-                        state.addresses.forEach { addr ->
-                            FilterChip(
-                                selected = state.selectedAddressId == addr.id,
-                                onClick = { viewModel.onAddressSelect(addr.id) },
-                                enabled = !state.busy,
-                                label = { Text(addr.summaryLabel()) },
+                        FilterChip(
+                            selected = state.fulfillmentMode == FulfillmentMode.DISPATCH,
+                            onClick = { viewModel.onFulfillmentChange(FulfillmentMode.DISPATCH) },
+                            enabled = !state.busy,
+                            label = { Text("Nationwide delivery") },
+                        )
+                    }
+                }
+
+                if (state.fulfillmentMode == FulfillmentMode.DISPATCH) {
+                    item {
+                        ShopSectionHeader(
+                            title = "Shipping address",
+                            actionLabel = if (onManageAddresses != null) "Change" else null,
+                            onAction = onManageAddresses,
+                        )
+                        if (state.addresses.isEmpty()) {
+                            ShopHonestEmpty(
+                                title = "Add an address",
+                                body = "Nationwide dispatch needs a saved shipping address.",
                             )
+                        } else {
+                            state.addresses.forEach { addr ->
+                                FilterChip(
+                                    selected = state.selectedAddressId == addr.id,
+                                    onClick = { viewModel.onAddressSelect(addr.id) },
+                                    enabled = !state.busy,
+                                    label = { Text(addr.summaryLabel()) },
+                                    modifier = Modifier.padding(end = 4.dp, bottom = 4.dp),
+                                )
+                            }
                         }
                     }
                 }
-                ShopSectionHeader(title = "Settle in", actionLabel = null)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = state.currency == CurrencyCode.USD,
-                        onClick = { viewModel.onCurrencyChange(CurrencyCode.USD) },
-                        enabled = !state.busy,
-                        label = { Text("USD") },
-                    )
-                    FilterChip(
-                        selected = state.currency == CurrencyCode.ZIG,
-                        onClick = { viewModel.onCurrencyChange(CurrencyCode.ZIG) },
-                        enabled = !state.busy,
-                        label = { Text("ZiG") },
-                    )
-                }
-                state.error?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-                state.lastInvoiceId?.let { invoiceId ->
-                    ShopSectionHeader(title = "Last checkout", actionLabel = null)
-                    Text(invoiceId, style = MaterialTheme.typography.bodySmall)
-                    if (onPay != null) {
-                        androidx.compose.material3.Button(
-                            onClick = { onPay(invoiceId) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.small,
-                        ) { Text("Pay · ContiPay / Paynow / EcoCash") }
+
+                item {
+                    HorizontalDivider(color = GtrColors.Mist)
+                    Spacer(Modifier.height(8.dp))
+                    ShopSectionHeader(title = "Settle currency", actionLabel = null)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = state.currency == CurrencyCode.USD,
+                            onClick = { viewModel.onCurrencyChange(CurrencyCode.USD) },
+                            enabled = !state.busy,
+                            label = { Text("USD") },
+                        )
+                        FilterChip(
+                            selected = state.currency == CurrencyCode.ZIG,
+                            onClick = { viewModel.onCurrencyChange(CurrencyCode.ZIG) },
+                            enabled = !state.busy,
+                            label = { Text("ZiG") },
+                        )
                     }
                 }
+
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    ShopSectionHeader(title = "Payment method", actionLabel = null)
+                    ShopPaymentMethodList(
+                        selected = payMethod,
+                        onSelect = { payMethod = it },
+                    )
+                    Text(
+                        "You will be redirected to a secure ContiPay / Paynow / EcoCash payment page after placing the order.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+
+                if (onManageOrders != null) {
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        ShopSectionHeader(title = "Orders", actionLabel = null)
+                        TextButton(onClick = onManageOrders) {
+                            Text("Order management · track & history")
+                        }
+                    }
+                }
+
+                state.error?.let {
+                    item {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                state.message?.let {
+                    item {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                item { Spacer(Modifier.height(100.dp)) }
             }
-            ShopProceedButtonBox(
-                totalLabel = cart?.currency?.rpcValue ?: "USD",
-                ctaLabel = if (state.busy) "Working…" else "Place order",
-                onClick = viewModel::checkout,
-                enabled = !state.busy,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
         }
     }
 }
 
-/** KMP CartBox-shaped row — image placeholder + title + qty. */
 @Composable
 private fun KmpCartLineBox(line: CartLineSummary) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp),
         shape = MaterialTheme.shapes.small,
@@ -235,7 +277,7 @@ private fun KmpCartLineBox(line: CartLineSummary) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(modifier.height(4.dp))
                 Text(
                     buildString {
                         append("Qty ${line.qty}")
