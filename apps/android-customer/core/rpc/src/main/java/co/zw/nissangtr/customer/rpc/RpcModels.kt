@@ -340,6 +340,16 @@ data class KitComponent(
     val qty: Double,
 )
 
+/** Line row for customer returns CN — prices forced server-side from invoice. */
+data class InvoiceLineSummary(
+    val id: String,
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+    val oemPartNumber: String? = null,
+    val description: String? = null,
+)
+
 /** Mirrors web `KitListItem` / PostgREST `item_kits` browse. */
 data class KitListItem(
     val kitId: String,

@@ -106,7 +106,7 @@ fun stockStateFromQty(qty: Double, reorderPoint: Double?): StockState {
     return StockState.IN_STOCK
 }
 
-/** Flatten mixed `search_catalog` JSON into part hits (web parity). */
+/** Flatten mixed search JSON into part hits (web / Meili Edge parity). */
 fun parseSearchCatalogJson(element: JsonElement): SearchCatalogResponse {
     val obj = element as? JsonObject ?: return SearchCatalogResponse(SearchMode.PART, "", emptyList())
     val mode = SearchMode.fromRpc(obj["mode"]?.jsonPrimitive?.contentOrNull)
@@ -117,7 +117,26 @@ fun parseSearchCatalogJson(element: JsonElement): SearchCatalogResponse {
         collectPartHits(row, parts)
     }
     val distinct = parts.distinctBy { it.oemPartNumber.uppercase() }
-    return SearchCatalogResponse(mode = mode, query = query, parts = distinct)
+    val backend = obj["backend"]?.jsonPrimitive?.contentOrNull
+    return SearchCatalogResponse(
+        mode = mode,
+        query = query,
+        parts = distinct,
+        backend = backend,
+        facetDistribution = parseFacetDistribution(obj["facetDistribution"]),
+    )
+}
+
+private fun parseFacetDistribution(element: JsonElement?): Map<String, Map<String, Int>> {
+    val root = element as? JsonObject ?: return emptyMap()
+    return root.mapNotNull { (facet, valuesEl) ->
+        val values = valuesEl as? JsonObject ?: return@mapNotNull null
+        val counts = values.mapNotNull { (label, countEl) ->
+            val n = countEl.jsonPrimitive.content.toIntOrNull() ?: return@mapNotNull null
+            label to n
+        }.toMap()
+        if (counts.isEmpty()) null else facet to counts
+    }.toMap()
 }
 
 private fun collectPartHits(row: JsonElement, out: MutableList<CatalogPartHit>) {
