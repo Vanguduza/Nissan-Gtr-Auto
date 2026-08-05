@@ -70,6 +70,7 @@ struct CustomerShellTopBar: View {
 enum HamburgerMenuAction: Equatable {
     case close
     case openAllCategories
+    case openCategory(String)
 }
 
 struct MenuCategoryDef: Identifiable {
