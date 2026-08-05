@@ -88,6 +88,33 @@ export {
 } from "./storefront";
 
 export {
+  CATALOG_SEARCH_MEILI_FN,
+  SEARCH_CATALOG_RPC,
+  GET_LOYALTY_BALANCE_RPC,
+  POST_CUSTOMER_RETURN_CREDIT_NOTE_RPC,
+  KITS_TABLE,
+  KIT_COMPONENTS_TABLE,
+  searchCatalogMeili,
+  searchCatalogFts,
+  searchCatalogRpcArgs,
+  getLoyaltyBalanceArgs,
+  postCustomerReturnCreditNoteArgs,
+  isSearchMode,
+  normalizeSearchMode,
+  partHref,
+  type SearchMode,
+  type SearchCatalogResponse,
+  type SearchResult,
+  type PartHit,
+  type VehicleHit,
+  type PncHit,
+  type CatalogSearchArgs,
+  type LoyaltyBalance,
+  type ReturnCreditNoteLine,
+  type KitListItem,
+} from "./catalog-search";
+
+export {
   DELIVERY_PODS_BUCKET,
   deliveryPodPhotoPath,
   deliveryPodSignaturePath,
