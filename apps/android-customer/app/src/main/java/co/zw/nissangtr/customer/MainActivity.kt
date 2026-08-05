@@ -94,7 +94,6 @@ import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopProfileAvatar
 import co.zw.nissangtr.ui.shop.ShopProfileItemBox
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopSplash
 import co.zw.nissangtr.ui.shop.ShopTheme
 import kotlinx.coroutines.CoroutineScope
@@ -117,6 +116,7 @@ private enum class ShellTab(val label: String, val icon: ImageVector) {
 /** Nested account destinations — Reviews / Wallet / Settings / Help removed from hub. */
 private enum class ProfileDest(val title: String, val subtitle: String) {
     Hub("My Account", "Orders · pay · extras"),
+    EditProfile("Edit profile", "Personal · contact"),
     Orders("Orders", "History · track"),
     Addresses("Addresses", "Delivery · map pick"),
     Compare("Compare", "Attribute matrix"),
