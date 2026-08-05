@@ -34,8 +34,17 @@ internal object CatalogRpcLive {
         limit: Int,
     ): CatalogBrowseResult {
         val cap = limit.coerceIn(1, 100)
+        val cat = category?.trim()?.takeIf { it.isNotEmpty() }
+        val oemFilter = if (cat != null) resolveOemFilterForCategory(client, cat) else null
+        if (cat != null && oemFilter != null && oemFilter.isEmpty()) {
+            return CatalogBrowseResult(emptyList(), emptyList())
+        }
+
         val items = client.from("stock_items")
             .select(Columns.list("id", "oem_part_number", "description", "reorder_point")) {
+                if (oemFilter != null) {
+                    filter { isIn("oem_part_number", oemFilter) }
+                }
                 order("oem_part_number", Order.ASCENDING)
                 limit(cap.toLong())
             }
@@ -44,8 +53,10 @@ internal object CatalogRpcLive {
         if (items.isEmpty()) return CatalogBrowseResult(emptyList(), emptyList())
 
         val ids = items.map { it.id }
+        val oems = items.map { it.oemPartNumber }
         val priceByItem = loadDefaultPrices(client, ids)
         val qtyByItem = loadSaleableQty(client, ids)
+        val catByOem = loadCategoryByOem(client, oems)
 
         val list = items.map { row ->
             val price = priceByItem[row.id]
@@ -56,10 +67,53 @@ internal object CatalogRpcLive {
                 name = row.description?.trim().orEmpty().ifEmpty { row.oemPartNumber },
                 stock = stockStateFromQty(qtyByItem[row.id] ?: 0.0, row.reorderPoint),
                 usd = usd,
-                category = category,
+                category = catByOem[row.oemPartNumber],
             )
         }
         return CatalogBrowseResult(items = list, categories = emptyList())
+    }
+
+    private suspend fun resolveOemFilterForCategory(
+        client: SupabaseClient,
+        categoryLabel: String,
+    ): List<String>? {
+        val cat = categoryLabel.trim()
+        if (cat.isEmpty()) return null
+        val pncRows = client.from("pnc_categories")
+            .select(Columns.list("pnc_code")) {
+                filter { ilike("category_name", cat) }
+                limit(200)
+            }
+            .decodeList<PncCodeRow>()
+        val codes = pncRows.map { it.pncCode }.filter { it.isNotBlank() }
+        if (codes.isEmpty()) return emptyList()
+        val fits = client.from("part_fitment")
+            .select(Columns.list("oem_part_number")) {
+                filter { isIn("pnc_code", codes) }
+                limit(200)
+            }
+            .decodeList<OemOnlyRow>()
+        return fits.map { it.oemPartNumber }.distinct()
+    }
+
+    private suspend fun loadCategoryByOem(
+        client: SupabaseClient,
+        oems: List<String>,
+    ): Map<String, String> {
+        if (oems.isEmpty()) return emptyMap()
+        val rows = client.from("part_fitment")
+            .select(Columns.raw("oem_part_number, pnc_categories ( category_name )")) {
+                filter { isIn("oem_part_number", oems) }
+                limit(200)
+            }
+            .decodeList<FitmentCategoryRow>()
+        val out = mutableMapOf<String, String>()
+        for (row in rows) {
+            if (out.containsKey(row.oemPartNumber)) continue
+            val name = row.pncCategories?.categoryName?.trim().orEmpty()
+            if (name.isNotEmpty()) out[row.oemPartNumber] = name
+        }
+        return out
     }
 
     suspend fun loadCatalogProduct(client: SupabaseClient, oemParam: String): CatalogProduct {
