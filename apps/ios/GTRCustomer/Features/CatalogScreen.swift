@@ -623,7 +623,7 @@ struct CatalogScreen: View {
         busy = true
         defer { busy = false }
         do {
-            routeBeforeProduct = route == .product ? .home : route
+            routeBeforeProduct = route == .product || route == .pdpReviews ? routeBeforeProduct : route
             product = try await session.api.loadCatalogProduct(oem: oem)
             reviewStats = try? await session.api.getProductReviewStats(
                 stockItemId: product?.stockItemId,
@@ -763,12 +763,15 @@ struct CatalogScreen: View {
             }
         }
 
-        facetChips = facetCounts.flatMap { facet, values in
+        let chips = facetCounts.flatMap { facet, values in
             values.sorted { $0.value > $1.value }.prefix(3).map { (facet, $0.key) }
         }.prefix(8).map { $0 }
 
-        searchBackend = backend
-        return Array(out.values.prefix(24))
+        return SuggestionFetchResult(
+            suggestions: Array(out.values.prefix(24)),
+            facetChips: chips,
+            backend: backend
+        )
     }
 }
 
