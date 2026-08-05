@@ -69,8 +69,10 @@ fun ReturnsScreen(
                 val selected = state.selectedLineIds.contains(line.id)
                 ShopListCard(
                     title = line.oemPartNumber ?: line.stockItemId.take(8),
-                    subtitle = line.description ?: "Qty ${line.qty}",
-                    meta = if (selected) "Selected" else "Tap to select",
+                    subtitle = buildString {
+                        append(line.description ?: "Qty ${line.qty}")
+                        append(if (selected) " · Selected" else " · Tap to select")
+                    },
                     onClick = { viewModel.toggleLine(line.id) },
                 )
             }

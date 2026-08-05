@@ -57,8 +57,7 @@ fun KitsScreen(
             ShopSectionHeader(title = kit.name, actionLabel = kit.sellMode)
             ShopListCard(
                 title = kit.oem,
-                subtitle = "Kit header · tap to open PDP",
-                meta = "${kit.components.size} component(s)",
+                subtitle = "${kit.components.size} component(s) · tap to open PDP",
                 onClick = { onOpenProduct(kit.oem) },
             )
             kit.components.forEach { comp ->
