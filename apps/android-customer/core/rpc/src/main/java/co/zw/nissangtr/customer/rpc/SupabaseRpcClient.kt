@@ -1126,6 +1126,11 @@ private data class AddressRow(
 private data class WarehouseIdRow(val id: String)
 
 @Serializable
+private data class ProfileNameUpdate(
+    @SerialName("full_name") val fullName: String? = null,
+)
+
+@Serializable
 private data class ProfileRow(
     val id: String,
     @SerialName("full_name") val fullName: String? = null,
