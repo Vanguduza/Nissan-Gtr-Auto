@@ -203,9 +203,9 @@ struct HamburgerMenuOverlay: View {
                     case .category(let cat):
                         backButton("Car Parts") { pane = .carParts }
                         sectionTitle(cat.label)
-                        menuRow("All \(cat.label)", cat.systemImage) { emptyTitle = cat.label }
+                        menuRow("All \(cat.label)", cat.systemImage) { onAction(.openCategory(cat.label)) }
                         ForEach(cat.subs, id: \.0) { sub in
-                            menuRow(sub.0, sub.1) { emptyTitle = sub.0 }
+                            menuRow(sub.0, sub.1) { onAction(.openCategory(sub.0)) }
                         }
                     case .deals:
                         backButton("Menu") { pane = .root }
@@ -240,14 +240,6 @@ struct HamburgerMenuOverlay: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(GTRColors.chalk.ignoresSafeArea())
-        .alert(emptyTitle ?? "", isPresented: Binding(
-            get: { emptyTitle != nil },
-            set: { if !$0 { emptyTitle = nil } }
-        )) {
-            Button("OK", role: .cancel) { emptyTitle = nil }
-        } message: {
-            Text("No items added yet. Stock for this category will appear here when catalog listings are published.")
-        }
     }
 
     private func sectionTitle(_ text: String) -> some View {
