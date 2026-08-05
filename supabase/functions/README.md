@@ -276,6 +276,25 @@ Optional: after a successful cron run, `touch_ai_worker_schedule('process-crm-pr
 
 ## Stores insights (`stores-insights`)
 
+Staff JWT → warehouse ABC / forecast KPIs + optional Gemini directives. See function source for body schema.
+
+## Catalog search Meili (`catalog-search-meili`)
+
+Authenticated catalog typeahead proxy. Meilisearch key stays server-side; Postgres FTS fallback on error or `CATALOG_SEARCH_BACKEND=fts`.
+
+| Item | Detail |
+|------|--------|
+| Method | `POST /functions/v1/catalog-search-meili` |
+| Auth | Bearer user JWT (`verify_jwt = true`) |
+| Body | `{ "mode": "part\|vin\|model\|pnc", "query": "…", "limit"?: 20, "facets"?: ["category_name"] }` |
+| Success | `{ mode, query, results[], backend?: "meili"\|"fts", facetDistribution? }` |
+| Secrets | `MEILI_HOST`, `MEILI_SEARCH_KEY` (preferred; master key dev-only) |
+| Sync | `python -m data_pipeline.meili_sync --full` — see `infra/satellites/README.md` |
+
+Typed helper: `@gtr/supabase-client` → `searchCatalogMeili()`. ADR: `docs/decisions/2026-08-05-meilisearch-catalog-search.md`.
+
+## Stores insights (`stores-insights`)
+
 Staff JWT (`admin` | `warehouse` | `finance`). Runs ABC classification + forecast suggestion KPIs; optional structured Gemini directives (never auto-PO).
 
 ```json

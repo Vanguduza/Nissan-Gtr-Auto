@@ -810,6 +810,17 @@ class SupabaseRpcClient(
         )
     }
 
+    override suspend fun getLoyaltyBalance(customerId: String): LoyaltyBalance =
+        CommerceRpcLive.getLoyaltyBalance(client, customerId)
+
+    override suspend fun postCustomerReturnCreditNote(
+        invoiceId: String,
+        lines: List<ReturnCreditNoteLine>,
+    ): String = CommerceRpcLive.postCustomerReturnCreditNote(client, invoiceId, lines)
+
+    override suspend fun listActiveKits(limit: Int): List<KitListItem> =
+        CommerceRpcLive.listActiveKits(client, limit)
+
     fun currentUserId(): String? =
         auth.currentSessionOrNull()?.user?.id
 
