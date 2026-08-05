@@ -53,6 +53,18 @@ def _complete_fitments(full: dict) -> list[dict]:
     ]
 
 
+def _sanitize_vehicle_rows(rows: list[dict]) -> list[dict]:
+    """Drop invalid production_year so bundle passes JSON schema (min 1980)."""
+    out: list[dict] = []
+    for row in rows:
+        cleaned = dict(row)
+        year = cleaned.get("production_year")
+        if isinstance(year, int) and year < 1980:
+            cleaned.pop("production_year", None)
+        out.append(cleaned)
+    return out
+
+
 def build_erp_bundle(full: dict, *, completed_only: bool) -> tuple[dict, dict]:
     """ERP bundle: all parsed vehicles for VIN/model search + fitments where crawled.
 
@@ -87,7 +99,7 @@ def build_erp_bundle(full: dict, *, completed_only: bool) -> tuple[dict, dict]:
     ]
 
     bundle = {
-        "vehicle_master": vehicles,
+        "vehicle_master": _sanitize_vehicle_rows(vehicles),
         "pnc_categories": pncs,
         "part_fitment": complete_fitments,
         "diagram_assets": diagrams,
