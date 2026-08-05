@@ -822,6 +822,7 @@ private fun ProfileHub(
             ShopProfileItemBox("My orders", Icons.Filled.ReceiptLong) { onOpen(ProfileDest.Orders) }
             ShopProfileItemBox("Returns", Icons.Filled.LocalShipping) { onOpen(ProfileDest.Returns) }
             ShopProfileItemBox("Loyalty wallet", Icons.Filled.Star) { onOpen(ProfileDest.Loyalty) }
+            ShopProfileItemBox("Service kits", Icons.Filled.Build) { onOpen(ProfileDest.Kits) }
             ShopProfileItemBox("Manage address", Icons.Filled.LocationOn) { onOpen(ProfileDest.Addresses) }
             ShopProfileItemBox("Payment methods", Icons.Filled.CreditCard) { onOpen(ProfileDest.Pay) }
             ShopProfileItemBox("My garage", Icons.Filled.DirectionsCar, onClick = onOpenGarage)
