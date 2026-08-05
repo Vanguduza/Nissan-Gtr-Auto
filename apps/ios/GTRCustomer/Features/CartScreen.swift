@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Cart / checkout — KMP CartScreen density (line cards, sticky proceed) + GTR fulfillment.
+/// Cart / checkout — KMP pattern: back · lines · delivery · payment · secure pay · orders.
 struct CartScreen: View {
     @EnvironmentObject private var session: StorefrontSession
+    var onPay: ((UUID) -> Void)? = nil
+    var onManageOrders: (() -> Void)? = nil
     @State private var cart: CartSummary?
     @State private var addresses: [CustomerAddress] = []
     @State private var selectedAddressId: UUID?
@@ -12,16 +14,12 @@ struct CartScreen: View {
     @State private var fulfillmentMode: FulfillmentMode = .immediate
     @State private var settleCurrency: StorefrontCurrency = .USD
     @State private var zigRate: Decimal = 1
-    @State private var showCheckoutOptions = false
+    @State private var payRail: PaymentRail = .contipay
 
     var body: some View {
         ZStack(alignment: .bottom) {
             ShopTabBody {
                 if let cart, !cart.lines.isEmpty {
-                    Text("\(cart.lines.count) line(s) · \(cart.currency.rawValue)")
-                        .font(GTRType.body(.caption))
-                        .foregroundStyle(GTRColors.silverDim)
-
                     ForEach(cart.lines) { line in
                         ShopCartLineRow(
                             oem: line.oemPartNumber,
@@ -39,24 +37,12 @@ struct CartScreen: View {
                     )
                 }
 
-                if cart == nil {
-                    ShopPrimaryButton(title: "Start cart", enabled: !busy) {
-                        Task { await ensureCart() }
-                    }
-                }
+                deliveryAndPaySection
 
-                if showCheckoutOptions {
-                    checkoutOptionsSection
-                }
-
-                if let lastInvoiceId {
-                    ShopMerchTitleRow(title: "Last checkout", actionLabel: nil)
-                    Text("Invoice \(lastInvoiceId.uuidString)")
-                        .font(GTRType.label(.caption))
-                        .monospaced()
-                    Text("Pay from Profile → Payment methods (ContiPay / Paynow / EcoCash).")
-                        .font(GTRType.body(.footnote))
-                        .foregroundStyle(GTRColors.silverDim)
+                if let onManageOrders {
+                    Button("Order management · track & history", action: onManageOrders)
+                        .font(GTRType.label(.body))
+                        .padding(.top, 8)
                 }
 
                 if let status {
@@ -67,16 +53,16 @@ struct CartScreen: View {
             }
             .padding(.bottom, cartHasLines ? 120 : 0)
 
-            if cartHasLines {
+            if cartHasLines || lastInvoiceId != nil {
                 ShopProceedButtonBox(
                     totalLabel: cartTotalLabel,
-                    ctaTitle: showCheckoutOptions ? "Confirm checkout" : "Proceed to checkout",
+                    ctaTitle: lastInvoiceId != nil ? "Continue to secure payment" : "Place order & pay",
                     enabled: !busy && !dispatchNeedsAddress,
                     onCta: {
-                        if showCheckoutOptions {
-                            Task { await checkout() }
+                        if let lastInvoiceId {
+                            onPay?(lastInvoiceId)
                         } else {
-                            showCheckoutOptions = true
+                            Task { await checkout() }
                         }
                     }
                 )
@@ -101,44 +87,19 @@ struct CartScreen: View {
     }
 
     @ViewBuilder
-    private var checkoutOptionsSection: some View {
-        ShopMerchTitleRow(title: "How do you want it?", actionLabel: nil)
+    private var deliveryAndPaySection: some View {
+        ShopMerchTitleRow(title: "Delivery", actionLabel: nil)
         Picker("Fulfillment", selection: $fulfillmentMode) {
             Text("Click & collect").tag(FulfillmentMode.immediate)
-            Text("Nationwide dispatch").tag(FulfillmentMode.dispatch)
-        }
-        .pickerStyle(.inline)
-        .labelsHidden()
-        Text(
-            fulfillmentMode == .immediate
-                ? "Pick up at Harare counter when ready"
-                : "Courier to your selected address"
-        )
-        .font(GTRType.body(.caption))
-        .foregroundStyle(GTRColors.silverDim)
-
-        ShopMerchTitleRow(title: "Settle in", actionLabel: nil)
-        Picker("Currency", selection: $settleCurrency) {
-            Text("USD").tag(StorefrontCurrency.USD)
-            Text("ZiG").tag(StorefrontCurrency.ZIG)
+            Text("Nationwide delivery").tag(FulfillmentMode.dispatch)
         }
         .pickerStyle(.segmented)
-        if settleCurrency == .ZIG {
-            Text("Official rate · \(zigRate) ZiG / USD")
-                .font(GTRType.body(.caption))
-                .foregroundStyle(GTRColors.silverDim)
-        }
 
         if fulfillmentMode == .dispatch {
-            ShopMerchTitleRow(title: "Delivery address", actionLabel: nil)
+            ShopMerchTitleRow(title: "Shipping address", actionLabel: nil)
             if addresses.isEmpty {
-                ShopHonestEmpty(
-                    title: "No addresses",
-                    bodyText: "Add one under Profile → Manage address (MapKit pick)."
-                )
-                NavigationLink("Manage addresses") {
-                    AddressScreen()
-                }
+                ShopHonestEmpty(title: "Add an address", bodyText: "Nationwide dispatch needs a saved address.")
+                NavigationLink("Manage addresses") { AddressScreen() }
             } else {
                 ForEach(addresses) { addr in
                     ShopAddressPickerRow(
@@ -147,19 +108,30 @@ struct CartScreen: View {
                         onSelect: { selectedAddressId = addr.id }
                     )
                 }
-                NavigationLink("Manage addresses") {
-                    AddressScreen()
-                }
             }
         }
 
-        Button("Refresh cart") { Task { await refresh() } }
-            .font(GTRType.label(.caption))
-            .disabled(busy)
+        ShopMerchTitleRow(title: "Settle currency", actionLabel: nil)
+        Picker("Currency", selection: $settleCurrency) {
+            Text("USD").tag(StorefrontCurrency.USD)
+            Text("ZiG").tag(StorefrontCurrency.ZIG)
+        }
+        .pickerStyle(.segmented)
+
+        ShopMerchTitleRow(title: "Payment method", actionLabel: nil)
+        Picker("PSP", selection: $payRail) {
+            ForEach(PaymentRail.allCases) { r in
+                Text(r.title).tag(r)
+            }
+        }
+        .pickerStyle(.segmented)
+        Text("You will be redirected to a secure ContiPay / Paynow / EcoCash page after placing the order.")
+            .font(GTRType.body(.caption))
+            .foregroundStyle(GTRColors.silverDim)
     }
 
     private var dispatchNeedsAddress: Bool {
-        showCheckoutOptions && fulfillmentMode == .dispatch && selectedAddressId == nil
+        fulfillmentMode == .dispatch && selectedAddressId == nil
     }
 
     private func refresh() async {
@@ -182,25 +154,6 @@ struct CartScreen: View {
         }
     }
 
-    private func ensureCart() async {
-        busy = true
-        defer { busy = false }
-        do {
-            let rate: Decimal = settleCurrency == .ZIG
-                ? (try await session.api.fetchZigExchangeRate(asOf: nil))
-                : 1
-            zigRate = rate
-            cart = try await session.api.ensureOpenCart(
-                currency: settleCurrency,
-                fulfillmentMode: fulfillmentMode,
-                exchangeRate: rate
-            )
-            status = "Cart ready · \(StorefrontFormat.fulfillment(fulfillmentMode))"
-        } catch {
-            status = error.localizedDescription
-        }
-    }
-
     private func bumpQty(_ line: CartLineSummary) async {
         busy = true
         defer { busy = false }
@@ -214,25 +167,26 @@ struct CartScreen: View {
     }
 
     private func checkout() async {
-        guard let cart else { return }
-        if fulfillmentMode == .dispatch, selectedAddressId == nil {
-            status = "Select a delivery address for Nationwide dispatch"
-            return
-        }
         busy = true
         defer { busy = false }
         do {
-            let invoiceId = try await session.api.checkoutCart(cartId: cart.id)
-            lastInvoiceId = invoiceId
-            self.cart = nil
-            showCheckoutOptions = false
-            let addrNote: String
-            if fulfillmentMode == .dispatch, let id = selectedAddressId {
-                addrNote = " · address \(id.uuidString.prefix(8))…"
-            } else {
-                addrNote = ""
+            if fulfillmentMode == .dispatch, selectedAddressId == nil {
+                status = "Select a delivery address for Nationwide dispatch"
+                return
             }
-            status = "Checked out → \(invoiceId.uuidString.prefix(8))…\(addrNote). Pay from Profile."
+            let rate: Decimal = settleCurrency == .ZIG
+                ? (try await session.api.fetchZigExchangeRate(asOf: nil))
+                : 1
+            let open = try await session.api.ensureOpenCart(
+                currency: settleCurrency,
+                fulfillmentMode: fulfillmentMode,
+                exchangeRate: rate
+            )
+            let invoiceId = try await session.api.checkoutCart(cartId: open.id)
+            lastInvoiceId = invoiceId
+            cart = nil
+            status = "Order placed · opening secure payment…"
+            onPay?(invoiceId)
         } catch {
             status = error.localizedDescription
         }
