@@ -43,6 +43,7 @@
 		A10000000000000000000090 /* ShopKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000091 /* ShopKit.swift */; };
 		A10000000000000000000092 /* AddressScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000093 /* AddressScreen.swift */; };
 		A10000000000000000000094 /* CustomerShellChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000095 /* CustomerShellChrome.swift */; };
+		A10000000000000000000096 /* CategoriesGridScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000097 /* CategoriesGridScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,6 +85,7 @@
 		A10000000000000000000091 /* ShopKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShopKit.swift; sourceTree = "<group>"; };
 		A10000000000000000000093 /* AddressScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000095 /* CustomerShellChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomerShellChrome.swift; sourceTree = "<group>"; };
+		A10000000000000000000097 /* CategoriesGridScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesGridScreen.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +153,7 @@
 				A10000000000000000000019 /* CartScreen.swift */,
 				A10000000000000000000081 /* AccountHubScreen.swift */,
 				A10000000000000000000095 /* CustomerShellChrome.swift */,
+				A10000000000000000000097 /* CategoriesGridScreen.swift */,
 				A10000000000000000000093 /* AddressScreen.swift */,
 				A1000000000000000000001A /* OrdersScreen.swift */,
 				A1000000000000000000001B /* GarageScreen.swift */,
@@ -300,6 +303,7 @@
 				A10000000000000000000080 /* AccountHubScreen.swift in Sources */,
 				A10000000000000000000092 /* AddressScreen.swift in Sources */,
 				A10000000000000000000094 /* CustomerShellChrome.swift in Sources */,
+				A10000000000000000000096 /* CategoriesGridScreen.swift in Sources */,
 				A10000000000000000000082 /* ReviewCameraBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
