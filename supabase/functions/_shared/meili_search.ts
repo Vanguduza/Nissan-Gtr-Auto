@@ -170,6 +170,17 @@ export async function searchMeiliCatalog(
   };
 }
 
+const ALLOWED_FACETS = new Set([
+  "category_name",
+  "pnc_code",
+  "chassis_code",
+  "model_variant",
+]);
+
+function allowlistedFacets(fields: string[]): string[] {
+  return fields.filter((f) => ALLOWED_FACETS.has(f));
+}
+
 function defaultFacetsForMode(mode: SearchMode): string[] {
   switch (mode) {
     case "part":

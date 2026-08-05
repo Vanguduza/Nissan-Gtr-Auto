@@ -29,7 +29,7 @@ Production search remains Postgres FTS (`search_catalog`). Optional local Meilis
 docker compose -f docker-compose.satellites.yml --profile search up -d
 ```
 
-Env stubs: `MEILI_HOST`, `MEILI_MASTER_KEY` (server-only), optional `NEXT_PUBLIC_MEILI_*` — see `infra/satellites/README.md`. No full indexer rewrite in-app yet; dual-read behind `/api/v1/store/search` when promoted.
+Meili is Edge-proxied (`catalog-search-meili`); never `NEXT_PUBLIC_MEILI_*`. Sync via `python -m data_pipeline.meili_sync --full`. See `infra/satellites/README.md` and `docs/decisions/2026-08-05-meilisearch-catalog-search.md`.
 
 Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`, `(staff)`.
 
