@@ -396,6 +396,7 @@ struct CatalogScreen: View {
 
     @ViewBuilder
     private func productBody(_ product: CatalogProduct) -> some View {
+        let galleryUrls = product.imageUrls.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         let gallery = galleryKeys(for: product)
         VStack(spacing: 0) {
             ScrollView {
@@ -405,10 +406,11 @@ struct CatalogScreen: View {
                             .fill(GTRColors.mist)
                             .frame(height: 320)
                             .overlay {
-                                Text(selectedGalleryKey.isEmpty ? product.oem : selectedGalleryKey)
-                                    .font(GTRType.displaySemi(.title))
-                                    .foregroundStyle(GTRColors.steel)
-                                    .padding()
+                                ShopProductGalleryHero(
+                                    imageUrls: galleryUrls,
+                                    heroLabel: product.oem,
+                                    selectedIndex: selectedGalleryIndex
+                                )
                             }
 
                         HStack {
@@ -445,8 +447,14 @@ struct CatalogScreen: View {
                             Spacer()
                             ShopImageGalleryStrip(
                                 items: gallery,
-                                selected: selectedGalleryKey.isEmpty ? gallery.first ?? product.oem : selectedGalleryKey,
-                                onSelect: { selectedGalleryKey = $0 }
+                                imageUrls: galleryUrls,
+                                selected: selectedGalleryKey.isEmpty ? (galleryUrls.isEmpty ? gallery.first ?? product.oem : "img-0") : selectedGalleryKey,
+                                onSelect: { key in
+                                    selectedGalleryKey = key
+                                    if key.hasPrefix("img-"), let idx = Int(key.dropFirst(4)) {
+                                        selectedGalleryIndex = idx
+                                    }
+                                }
                             )
                             .padding(.horizontal, 16)
                             .padding(.bottom, 12)
@@ -470,6 +478,8 @@ struct CatalogScreen: View {
                             } else {
                                 ShopRatingRow(ratingLabel: "No reviews yet")
                             }
+                            Button("Reviews") { route = .pdpReviews }
+                                .font(GTRType.label(.caption))
                         }
 
                         Text(product.name)
@@ -494,20 +504,24 @@ struct CatalogScreen: View {
                         }
 
                         ShopMerchTitleRow(title: "Product details", actionLabel: nil)
-                        ShopExpandableDescription(
-                            text: "\(product.name). OEM \(product.oem). Genuine Nissan spare part for Harare counter or nationwide dispatch."
-                        )
+                        ShopExpandableDescription(text: product.descriptionText)
 
-                        ShopMerchTitleRow(title: "Reviews", actionLabel: nil)
-                        Text(
-                            reviewStats.map {
-                                $0.reviewCount == 0
-                                    ? "No reviews yet for this part."
-                                    : String(format: "%.1f average · %d review(s)", $0.avgRating, $0.reviewCount)
-                            } ?? "No reviews yet for this part."
-                        )
-                        .font(GTRType.body(.subheadline))
-                        .foregroundStyle(GTRColors.silverDim)
+                        ShopMerchTitleRow(title: "Reviews", actionLabel: "See all")
+                        Button {
+                            route = .pdpReviews
+                        } label: {
+                            Text(
+                                reviewStats.map {
+                                    $0.reviewCount == 0
+                                        ? "No reviews yet · Write the first"
+                                        : String(format: "%.1f average · %d review(s) · Write review", $0.avgRating, $0.reviewCount)
+                                } ?? "No reviews yet · Write the first"
+                            )
+                            .font(GTRType.body(.subheadline))
+                            .foregroundStyle(GTRColors.silverDim)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
 
                         if !product.fitmentLines.isEmpty {
                             ShopMerchTitleRow(title: "Fitment vs garage", actionLabel: nil)
