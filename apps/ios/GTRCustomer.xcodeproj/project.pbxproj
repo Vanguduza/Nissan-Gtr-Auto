@@ -75,7 +75,6 @@
 		A10000000000000000000029 /* DeliveryTrackScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryTrackScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000002B /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
 		A1000000000000000000002D /* CompareScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareScreen.swift; sourceTree = "<group>"; };
-		A1000000000000000000002F /* PdpReviewsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PdpReviewsScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000053 /* CatalogScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000051 /* GuestCompareStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GuestCompareStore.swift; path = ../Sources/GTRCustomerCore/GuestCompareStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000055 /* GTRTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GTRTheme.swift; sourceTree = "<group>"; };
