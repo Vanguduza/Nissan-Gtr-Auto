@@ -21,7 +21,7 @@ export default async function SearchPage({
       <h1 className={styles.title}>Search</h1>
       <p className={styles.lede}>
         Four-way catalog lookup by part number, VIN, model, or PNC. Live
-        results use the signed-in catalog index.
+        results use Meilisearch via Edge proxy with Postgres FTS fallback.
       </p>
       <SearchFourWay initialMode={mode} initialQuery={q} />
       {q ? (

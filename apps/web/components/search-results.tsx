@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   MEILI_FACETS,
@@ -36,6 +37,7 @@ export function SearchResults({
   mode: SearchMode;
   query: string;
 }) {
+  const router = useRouter();
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [sort, setSort] = useState<PartSort>("relevance");
