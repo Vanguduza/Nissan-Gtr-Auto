@@ -746,6 +746,75 @@ class SupabaseRpcClient(
         )
     }
 
+    override suspend fun loadOwnProfile(): UserProfile? {
+        val userId = currentUserId() ?: return null
+        return client.from("profiles")
+            .select(Columns.list("id", "full_name")) {
+                filter { eq("id", userId) }
+                limit(1)
+            }
+            .decodeList<ProfileRow>()
+            .firstOrNull()
+            ?.toModel()
+    }
+
+    override suspend fun loadOwnCustomer(): CustomerProfile? =
+        client.from("customers")
+            .select(
+                Columns.list(
+                    "id",
+                    "display_name",
+                    "email",
+                    "phone_e164",
+                    "whatsapp_e164",
+                    "sms_receipts",
+                    "email_receipts",
+                    "whatsapp_receipts",
+                    "marketing_opt_in",
+                    "last_promotional_message_at",
+                ),
+            ) {
+                limit(1)
+            }
+            .decodeList<CustomerProfileRow>()
+            .firstOrNull()
+            ?.toModel()
+
+    override suspend fun updateOwnFullName(fullName: String) {
+        val userId = currentUserId() ?: error("sign in required")
+        client.from("profiles")
+            .update(buildJsonObject {
+                put("full_name", fullName.trim().ifEmpty { null })
+            }) {
+                filter { eq("id", userId) }
+            }
+    }
+
+    override suspend fun updateOwnCustomerContact(patch: CustomerContactPatch) {
+        client.postgrest.rpc(
+            RpcNames.UPDATE_OWN_CUSTOMER_PROFILE,
+            buildJsonObject {
+                putNullable("p_display_name", patch.displayName)
+                putNullable("p_email", patch.email)
+                putNullable("p_phone_e164", patch.phoneE164)
+                putNullable("p_whatsapp_e164", patch.whatsappE164)
+                putNullable("p_sms_receipts", patch.smsReceipts)
+                putNullable("p_email_receipts", patch.emailReceipts)
+                putNullable("p_whatsapp_receipts", patch.whatsappReceipts)
+            },
+        )
+    }
+
+    override suspend fun setOwnMarketingOptIn(optIn: Boolean) {
+        client.postgrest.rpc(
+            RpcNames.SET_OWN_MARKETING_OPT_IN,
+            buildJsonObject { put("p_opt_in", optIn) },
+        )
+    }
+
+    fun currentUserId(): String? =
+        auth.currentSessionOrNull()?.user?.id
+
     private suspend fun ensureOpenCartId(): String {
         getOpenCart()?.id?.let { return it }
         val warehouseId = resolveMainWarehouseId()
@@ -1055,6 +1124,41 @@ private data class AddressRow(
 
 @Serializable
 private data class WarehouseIdRow(val id: String)
+
+@Serializable
+private data class ProfileRow(
+    val id: String,
+    @SerialName("full_name") val fullName: String? = null,
+) {
+    fun toModel() = UserProfile(id = id, fullName = fullName)
+}
+
+@Serializable
+private data class CustomerProfileRow(
+    val id: String,
+    @SerialName("display_name") val displayName: String? = null,
+    val email: String? = null,
+    @SerialName("phone_e164") val phoneE164: String? = null,
+    @SerialName("whatsapp_e164") val whatsappE164: String? = null,
+    @SerialName("sms_receipts") val smsReceipts: Boolean = false,
+    @SerialName("email_receipts") val emailReceipts: Boolean = false,
+    @SerialName("whatsapp_receipts") val whatsappReceipts: Boolean = false,
+    @SerialName("marketing_opt_in") val marketingOptIn: Boolean = false,
+    @SerialName("last_promotional_message_at") val lastPromoAt: String? = null,
+) {
+    fun toModel() = CustomerProfile(
+        id = id,
+        displayName = displayName,
+        email = email,
+        phoneE164 = phoneE164,
+        whatsappE164 = whatsappE164,
+        smsReceipts = smsReceipts,
+        emailReceipts = emailReceipts,
+        whatsappReceipts = whatsappReceipts,
+        marketingOptIn = marketingOptIn,
+        lastPromoAt = lastPromoAt,
+    )
+}
 
 @Serializable
 private data class CustomerIdRow(val id: String)
