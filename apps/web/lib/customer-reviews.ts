@@ -156,6 +156,26 @@ export async function uploadReviewPhoto(
   return { ok: true, data };
 }
 
+export async function listApprovedReviewPhotoUrlsForOem(
+  client: SupabaseClient,
+  oem: string,
+): Promise<StorefrontResult<string[]>> {
+  const reviews = await listApprovedReviewsForOem(client, oem);
+  if (!reviews.ok) return reviews;
+  if (!reviews.data.length) return { ok: true, data: [] };
+
+  const urls: string[] = [];
+  for (const review of reviews.data) {
+    const photos = await listReviewPhotos(client, review.id);
+    if (!photos.ok) continue;
+    for (const ph of photos.data) {
+      const url = await signedReviewPhotoUrl(client, ph.storage_path);
+      if (url) urls.push(url);
+    }
+  }
+  return { ok: true, data: urls.slice(0, 6) };
+}
+
 export async function listReviewPhotos(
   client: SupabaseClient,
   reviewId: string,

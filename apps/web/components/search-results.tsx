@@ -321,6 +321,36 @@ export function SearchResults({
   );
 }
 
+function FacetChipRow({
+  label,
+  entries,
+  onPick,
+}: {
+  label: string;
+  entries: [string, number][];
+  onPick: (value: string) => void;
+}) {
+  return (
+    <div className={filterStyles.searchFilters}>
+      <p className={styles.muted} style={{ marginBottom: "0.4rem" }}>
+        {label}
+      </p>
+      <div className={filterStyles.chipGroup}>
+        {entries.map(([value, count]) => (
+          <button
+            key={value}
+            type="button"
+            className={filterStyles.chipBtn}
+            onClick={() => onPick(value)}
+          >
+            {value} ({count})
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PartResultsTable({ results }: { results: PartHit[] }) {
   return (
     <div className={styles.tableWrap}>
