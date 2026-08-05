@@ -71,9 +71,9 @@ val GtrCarPartCategories: List<MenuCategory> = listOf(
         "Service Parts",
         Icons.Filled.CarRepair,
         listOf(
-            "Oil filters" to Icons.Filled.FilterLike,
-            "Air filters" to Icons.Filled.FilterLike,
-            "Cabin filters" to Icons.Filled.FilterLike,
+            "Oil filters" to Icons.Filled.FilterAlt,
+            "Air filters" to Icons.Filled.FilterAlt,
+            "Cabin filters" to Icons.Filled.FilterAlt,
             "Belts" to Icons.Filled.Settings,
             "Fluids" to Icons.Filled.OilBarrel,
         ),
