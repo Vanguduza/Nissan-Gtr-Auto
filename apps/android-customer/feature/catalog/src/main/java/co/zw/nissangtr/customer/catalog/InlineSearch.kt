@@ -3,6 +3,7 @@ package co.zw.nissangtr.customer.catalog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -58,10 +60,11 @@ data class SearchSuggestion(
     val filterQuery: String? = null,
 )
 
+private val meiliFacets = listOf("category_name", "pnc_code", "chassis_code", "model_variant")
+
 /**
  * Editable inline search under the shell top bar.
- * Debounced (~300ms) live suggestions via [RpcClient.searchCatalog] — not Meili.
- * Focus/type stays on Home; never opens the discarded SearchResults page.
+ * Debounced (~300ms) via Meili Edge proxy when available; falls back to `search_catalog` FTS.
  */
 @Composable
 fun InlineCatalogSearch(
@@ -75,17 +78,24 @@ fun InlineCatalogSearch(
     var focused by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<SearchSuggestion>>(emptyList()) }
+    var facetChips by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var searchBackend by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(query) {
         val q = query.trim()
         if (q.length < 2) {
             suggestions = emptyList()
+            facetChips = emptyList()
+            searchBackend = null
             busy = false
             return@LaunchedEffect
         }
         busy = true
         delay(300)
-        suggestions = runCatching { fetchSuggestions(rpc, q) }.getOrElse { emptyList() }
+        val result = runCatching { fetchSuggestions(rpc, q) }.getOrNull()
+        suggestions = result?.suggestions.orEmpty()
+        facetChips = result?.facetChips.orEmpty()
+        searchBackend = result?.backend
         busy = false
     }
 
@@ -140,7 +150,15 @@ fun InlineCatalogSearch(
         if (showPopup) {
             SuggestionPopup(
                 suggestions = suggestions,
+                facetChips = facetChips,
+                backend = searchBackend,
                 busy = busy,
+                onFacet = { label ->
+                    focused = false
+                    query = label
+                    onApplyFilter(label)
+                    suggestions = emptyList()
+                },
                 onSelect = { hit ->
                     focused = false
                     query = hit.title
@@ -158,18 +176,53 @@ fun InlineCatalogSearch(
 @Composable
 private fun SuggestionPopup(
     suggestions: List<SearchSuggestion>,
+    facetChips: List<Pair<String, String>>,
+    backend: String?,
     busy: Boolean,
+    onFacet: (String) -> Unit,
     onSelect: (SearchSuggestion) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 4.dp)
-            .heightIn(max = 320.dp)
+            .heightIn(max = 360.dp)
             .border(1.dp, GtrColors.Mist, RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
             .verticalScroll(rememberScrollState()),
     ) {
+        backend?.let {
+            Text(
+                "Search via ${if (it == "meili") "Meili" else "catalog FTS"}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+        if (facetChips.isNotEmpty()) {
+            Text(
+                "Facets",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                facetChips.forEach { (facet, value) ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { onFacet(value) },
+                        label = { Text("$value") },
+                    )
+                }
+            }
+            HorizontalDivider(color = GtrColors.Mist)
+        }
         if (suggestions.isEmpty() && !busy) {
             Text(
                 "No matches",
@@ -229,8 +282,16 @@ private fun SuggestionRow(row: SearchSuggestion, onClick: () -> Unit) {
     }
 }
 
-private suspend fun fetchSuggestions(rpc: RpcClient, query: String): List<SearchSuggestion> {
+private data class FetchResult(
+    val suggestions: List<SearchSuggestion>,
+    val facetChips: List<Pair<String, String>>,
+    val backend: String?,
+)
+
+private suspend fun fetchSuggestions(rpc: RpcClient, query: String): FetchResult {
     val out = LinkedHashMap<String, SearchSuggestion>()
+    var backend: String? = null
+    val facetCounts = linkedMapOf<String, LinkedHashMap<String, Int>>()
 
     fun put(s: SearchSuggestion) {
         val key = "${s.kind}:${s.title.uppercase()}:${s.oem.orEmpty()}"
@@ -285,31 +346,50 @@ private suspend fun fetchSuggestions(rpc: RpcClient, query: String): List<Search
         }
     }
 
-    val partRes = runCatching { rpc.searchCatalog(SearchMode.PART, query) }.getOrNull()
-    absorbParts(partRes?.parts.orEmpty(), asParts = true)
-
-    val modelRes = runCatching { rpc.searchCatalog(SearchMode.MODEL, query) }.getOrNull()
-    absorbParts(modelRes?.parts.orEmpty(), asParts = false)
-    modelRes?.parts.orEmpty().take(6).forEach { hit ->
-        put(
-            SearchSuggestion(
-                kind = SuggestKind.Model,
-                title = hit.chassisCode ?: hit.engineCode ?: hit.oemPartNumber,
-                subtitle = hit.categoryName,
-                oem = hit.oemPartNumber.takeIf { hit.chassisCode.isNullOrBlank() && hit.engineCode.isNullOrBlank() },
-                filterQuery = hit.chassisCode ?: hit.engineCode ?: query,
-            ),
-        )
+    fun absorbMeili(mode: SearchMode) {
+        val res = runCatching {
+            rpc.searchCatalogMeili(mode, query, limit = 20, facets = meiliFacets)
+        }.getOrNull() ?: return
+        backend = res.backend ?: backend
+        absorbParts(res.parts, asParts = mode == SearchMode.PART || mode == SearchMode.VIN)
+        for ((facet, values) in res.facetDistribution) {
+            val bucket = facetCounts.getOrPut(facet) { linkedMapOf() }
+            for ((label, count) in values) {
+                bucket[label] = (bucket[label] ?: 0) + count
+            }
+        }
     }
 
-    val pncRes = runCatching { rpc.searchCatalog(SearchMode.PNC, query) }.getOrNull()
-    absorbParts(pncRes?.parts.orEmpty(), asParts = false)
+    absorbMeili(SearchMode.PART)
+    if (out.values.none { it.kind == SuggestKind.Model }) {
+        absorbMeili(SearchMode.MODEL)
+    }
+    absorbMeili(SearchMode.PNC)
 
     val vinLike = query.length in 11..17 && query.all { it.isLetterOrDigit() }
     if (vinLike) {
-        val vinRes = runCatching { rpc.searchCatalog(SearchMode.VIN, query) }.getOrNull()
-        absorbParts(vinRes?.parts.orEmpty(), asParts = true)
+        absorbMeili(SearchMode.VIN)
     }
 
-    return out.values.toList().take(24)
+    // FTS fallback per mode when Meili returned nothing.
+    if (out.isEmpty()) {
+        for (mode in listOf(SearchMode.PART, SearchMode.MODEL, SearchMode.PNC)) {
+            val res = runCatching { rpc.searchCatalog(mode, query) }.getOrNull() ?: continue
+            backend = res.backend ?: "fts"
+            absorbParts(res.parts, asParts = mode == SearchMode.PART)
+        }
+    }
+
+    val facetChips = facetCounts.flatMap { (facet, values) ->
+        values.entries
+            .sortedByDescending { it.value }
+            .take(3)
+            .map { facet to it.key }
+    }.take(8)
+
+    return FetchResult(
+        suggestions = out.values.toList().take(24),
+        facetChips = facetChips,
+        backend = backend,
+    )
 }
