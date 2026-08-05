@@ -895,6 +895,14 @@ private fun kotlinx.serialization.json.JsonObjectBuilder.putNullable(
     else put(key, value)
 }
 
+private fun kotlinx.serialization.json.JsonObjectBuilder.putNullable(
+    key: String,
+    value: Boolean?,
+) {
+    if (value == null) put(key, JsonNull)
+    else put(key, value)
+}
+
 @Serializable
 private data class PosCartRow(
     val id: String,
