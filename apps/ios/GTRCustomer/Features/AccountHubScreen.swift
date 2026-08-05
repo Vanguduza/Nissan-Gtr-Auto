@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// My Account hub — Reviews / Wallet / Settings / Help removed (Settings is its own tab; reviews live on PDP).
+/// My Account hub — Reviews live on PDP; Settings is its own tab.
 struct AccountHubScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     var onClose: (() -> Void)? = nil
     var onOpenGarage: (() -> Void)? = nil
+    var onOpenProduct: ((String) -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -25,7 +26,22 @@ struct AccountHubScreen: View {
                 ShopProfileAvatar(email: session.userEmail, usesFake: session.usesFake, large: true)
 
                 VStack(spacing: 0) {
+                    profileLink("Edit profile", "person.crop.circle") { EditProfileScreen() }
                     profileLink("My orders", "list.bullet.rectangle") { OrdersScreen() }
+                    profileLink("Returns", "arrow.uturn.backward") { ReturnsCreditScreen() }
+                    profileLink("Loyalty wallet", "star.fill") { LoyaltyWalletScreen() }
+                    if let onOpenProduct {
+                        NavigationLink {
+                            KitsScreen(onOpenProduct: onOpenProduct)
+                        } label: {
+                            ShopProfileItemBox(title: "Service kits", systemImage: "wrench.and.screwdriver", onTap: {})
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        profileLink("Service kits", "wrench.and.screwdriver") {
+                            KitsScreen(onOpenProduct: { _ in })
+                        }
+                    }
                     profileLink("Manage address", "mappin.and.ellipse") { AddressScreen() }
                     profileLink("Payment methods", "creditcard") { PayScreen() }
                     if let onOpenGarage {

@@ -153,7 +153,15 @@ struct ContentView: View {
                 .zIndex(2)
             case .categories:
                 NavigationStack {
-                    CategoriesGridScreen(onBack: { overlay = .none })
+                    CategoriesGridScreen(
+                        onBack: { overlay = .none },
+                        onSelectCategory: { label in
+                            catalogSeed = label
+                            catalogSeedToken = UUID()
+                            overlay = .none
+                            selectedTab = .shop
+                        }
+                    )
                 }
                 .zIndex(2)
             case .cart:
@@ -202,6 +210,11 @@ struct ContentView: View {
                         onOpenGarage: {
                             overlay = .none
                             selectedTab = .garage
+                        },
+                        onOpenProduct: { oem in
+                            pendingPartsOem = oem
+                            overlay = .none
+                            selectedTab = .home
                         }
                     )
                 }

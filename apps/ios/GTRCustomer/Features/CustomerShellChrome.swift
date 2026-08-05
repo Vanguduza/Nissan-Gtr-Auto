@@ -339,6 +339,8 @@ struct SettingsHubScreen: View {
                     }
 
                     Text("Account").font(GTRType.displaySemi(.headline))
+                    NavigationLink("Edit profile") { EditProfileScreen() }
+                        .font(GTRType.label(.body))
                     Button("My Account", action: onOpenAccount)
                         .font(GTRType.label(.body))
                     if session.isSignedIn && (!session.usesFake || session.userEmail != nil) {
