@@ -212,4 +212,18 @@ interface RpcClient {
 
     /** [RpcNames.DELETE_CUSTOMER_ADDRESS]. */
     suspend fun deleteCustomerAddress(id: String)
+
+    /** PostgREST `profiles` own row (RLS). */
+    suspend fun loadOwnProfile(): UserProfile?
+
+    /** PostgREST `customers` own row (RLS). */
+    suspend fun loadOwnCustomer(): CustomerProfile?
+
+    suspend fun updateOwnFullName(fullName: String)
+
+    /** [RpcNames.UPDATE_OWN_CUSTOMER_PROFILE]. */
+    suspend fun updateOwnCustomerContact(patch: CustomerContactPatch)
+
+    /** [RpcNames.SET_OWN_MARKETING_OPT_IN]. */
+    suspend fun setOwnMarketingOptIn(optIn: Boolean)
 }

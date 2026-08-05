@@ -60,6 +60,13 @@ object RpcNames {
     /** Storage bucket for review photo object keys (`{review_id}/{uuid}.jpg`). */
     const val REVIEW_PHOTOS_BUCKET = "review-photos"
 
+    /** EPC diagram assets — mirrors web `catalog-diagrams`. */
+    const val CATALOG_DIAGRAMS_BUCKET = "catalog-diagrams"
+
+    // Profile — mirrors apps/web/lib/customer-storefront.ts
+    const val UPDATE_OWN_CUSTOMER_PROFILE = "update_own_customer_profile"
+    const val SET_OWN_MARKETING_OPT_IN = "set_own_marketing_opt_in"
+
     /** Soft cap matching `_customer_compare_max_items()`. */
     const val MAX_COMPARE_ITEMS = 8
 }
