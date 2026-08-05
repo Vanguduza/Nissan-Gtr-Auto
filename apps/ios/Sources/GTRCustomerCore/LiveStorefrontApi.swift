@@ -65,6 +65,7 @@ public final class LiveStorefrontApi: StorefrontApi {
     }
 
     public static let reviewPhotosBucket = "review-photos"
+    public static let catalogDiagramsBucket = "catalog-diagrams"
 
     private let client: PostgrestClient
     private let returnURLScheme: String
@@ -727,26 +728,82 @@ public final class LiveStorefrontApi: StorefrontApi {
                 "p_query": trimmed,
             ]
         )
-        return try CatalogSearchParser.parse(data: data, fallbackMode: mode, fallbackQuery: trimmed)
+        return try CatalogSearchParser.parse(
+            data: data,
+            fallbackMode: mode,
+            fallbackQuery: trimmed,
+            backend: "fts"
+        )
+    }
+
+    public func searchCatalogMeili(
+        mode: CatalogSearchMode,
+        query: String,
+        limit: Int,
+        facets: [String]?
+    ) async throws -> SearchCatalogResponse {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw StorefrontError.message("search query required")
+        }
+        var edgeBody: [String: Any] = [
+            "mode": mode.rawValue,
+            "query": trimmed,
+            "limit": min(max(limit, 1), 50),
+        ]
+        if let facets, !facets.isEmpty {
+            edgeBody["facets"] = facets
+        }
+        do {
+            let data = try await client.invokeFunction(EdgeName.catalogSearchMeili, body: edgeBody)
+            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               obj["error"] != nil {
+                return try await searchCatalog(mode: mode, query: trimmed)
+            }
+            let parsed = try CatalogSearchParser.parse(
+                data: data,
+                fallbackMode: mode,
+                fallbackQuery: trimmed,
+                backend: "meili"
+            )
+            if parsed.parts.isEmpty {
+                return try await searchCatalog(mode: mode, query: trimmed)
+            }
+            return parsed
+        } catch {
+            return try await searchCatalog(mode: mode, query: trimmed)
+        }
     }
 
     public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
         let cap = min(max(limit, 1), 100)
+        let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        let oemFilter = cat.map { try await resolveOemFilterForCategory($0) }
+        if let oemFilter, oemFilter.isEmpty {
+            return CatalogBrowseResult(items: [], categories: [])
+        }
+
+        var queryParts = [
+            "select=id,oem_part_number,description,reorder_point",
+            "order=oem_part_number.asc",
+            "limit=\(cap)",
+        ]
+        if let oemFilter, !oemFilter.isEmpty {
+            let encoded = oemFilter.map { Self.percentEncodeQueryValue($0) }.joined(separator: ",")
+            queryParts.insert("oem_part_number=in.(\(encoded))", at: 1)
+        }
         let items: [StockItemBrowseRow] = try await client.selectDecode(
             table: "stock_items",
-            query: [
-                "select=id,oem_part_number,description,reorder_point",
-                "order=oem_part_number.asc",
-                "limit=\(cap)",
-            ].joined(separator: "&")
+            query: queryParts.joined(separator: "&")
         )
         if items.isEmpty {
             return CatalogBrowseResult(items: [], categories: [])
         }
         let ids = items.map(\.id)
+        let oems = items.map(\.oemPartNumber)
         let priceByItem = try await loadDefaultPrices(ids)
         let qtyByItem = try await loadSaleableQty(ids)
-        let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let catByOem = try await loadCategoryByOem(oems)
         let list = items.map { row in
             let price = priceByItem[row.id]
             let usd = price.map { Decimal($0.unitPrice) }
@@ -757,7 +814,7 @@ public final class LiveStorefrontApi: StorefrontApi {
                     ?? row.oemPartNumber,
                 stock: catalogStockState(qty: qtyByItem[row.id] ?? 0, reorderPoint: row.reorderPoint),
                 usd: usd,
-                category: cat
+                category: catByOem[row.oemPartNumber] ?? cat
             )
         }
         return CatalogBrowseResult(items: list, categories: [])
@@ -782,17 +839,28 @@ public final class LiveStorefrontApi: StorefrontApi {
         }
         let price = try await loadDefaultPrices([item.id])[item.id]
         let qty = try await loadSaleableQty([item.id])[item.id] ?? 0
-        let fitmentLines = try await loadFitmentLabels(oem: item.oemPartNumber)
+        let fitmentMeta = try await loadFitmentMeta(oem: item.oemPartNumber)
+        let diagramUrl = try await loadDiagramPublicUrl(oem: item.oemPartNumber)
+        let replaces = try await loadReplaces(oem: item.oemPartNumber)
+        var imageUrls: [String] = []
+        if let diagramUrl { imageUrls.append(diagramUrl) }
+
         return CatalogProduct(
             stockItemId: item.id,
             baseUomId: uomId,
             oem: item.oemPartNumber,
             name: item.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
                 ?? item.oemPartNumber,
+            brand: "Nissan OE",
+            category: fitmentMeta.category,
             usd: price.map { Decimal($0.unitPrice) },
             stock: catalogStockState(qty: qty, reorderPoint: item.reorderPoint),
             coreCharge: Decimal(price?.coreCharge ?? 0),
-            fitmentLines: fitmentLines
+            fitmentLines: fitmentMeta.lines,
+            imageUrls: imageUrls,
+            diagramUrl: diagramUrl,
+            specs: fitmentMeta.specs,
+            replaces: replaces
         )
     }
 
