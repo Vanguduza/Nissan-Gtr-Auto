@@ -207,8 +207,6 @@ struct ContentView: View {
                 }
                 .zIndex(2)
             }
-                .zIndex(2)
-            }
         }
     }
 
@@ -230,17 +228,6 @@ struct ContentView: View {
             } ?? 0
         } catch {
             cartBadge = 0
-        }
-    }
-
-    private func loadMenuCategories() async {
-        do {
-            let browse = try await session.api.listCatalogBrowse(category: nil, limit: 80)
-            if !browse.categories.isEmpty {
-                menuCategories = browse.categories
-            }
-        } catch {
-            // Keep GTR fallback list.
         }
     }
 
