@@ -36,14 +36,20 @@ fun PayIntentScreen(
     rpc: RpcClient,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    initialInvoiceId: String? = null,
     viewModel: PayIntentViewModel = viewModel(factory = PayIntentViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
     val sharp = MaterialTheme.shapes.extraSmall
     var payMethod by remember { mutableStateOf(ShopGtrPayMethod.ContiPay) }
 
+    LaunchedEffect(initialInvoiceId) {
+        val id = initialInvoiceId?.trim().orEmpty()
+        if (id.isNotEmpty()) viewModel.onInvoiceIdChange(id)
+    }
+
     ShopDefaultScreen(
-        title = "Pay",
+        title = "Secure payment",
         subtitle = "ContiPay · Paynow · EcoCash",
         onBack = onBack,
         modifier = modifier) {
