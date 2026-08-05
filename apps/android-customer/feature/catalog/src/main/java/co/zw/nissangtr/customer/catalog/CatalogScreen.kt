@@ -138,18 +138,38 @@ fun CatalogScreen(
                 onSeeAllMostSale = viewModel::openNewest,
                 onOpenProduct = viewModel::openProduct,
                 onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
-                onApplySearchFilter = { /* typeahead may pass category label — show empty dialog via InlineCatalogSearch host */ },
+                onCategoryBrowse = viewModel::openCategoryBrowse,
             )
             CatalogScreenRoute.Categories -> CategoriesGridScreen(
                 onBack = viewModel::navigateHome,
+                onCategoryClick = viewModel::openCategoryBrowse,
             )
-            CatalogScreenRoute.Newest -> NewestProductsScreen(
-                products = state.browseItems,
+            CatalogScreenRoute.CategoryBrowse -> CategoryPlpScreen(
+                title = state.categoryBrowseTitle ?: state.activeCategory ?: "Parts",
+                products = displayItems,
                 wishOems = wishOems,
                 busy = state.busy,
+                filterState = state.filterState,
+                sortOption = state.sortOption,
+                categoryLabels = categoryLabels,
                 onBack = viewModel::navigateHome,
                 onOpenProduct = viewModel::openProduct,
                 onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
+                onApplyFilter = viewModel::applyBrowseFilter,
+                onApplySort = viewModel::applyBrowseSort,
+            )
+            CatalogScreenRoute.Newest -> NewestProductsScreen(
+                products = displayItems,
+                wishOems = wishOems,
+                busy = state.busy,
+                filterState = state.filterState,
+                sortOption = state.sortOption,
+                categoryLabels = categoryLabels,
+                onBack = viewModel::navigateHome,
+                onOpenProduct = viewModel::openProduct,
+                onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
+                onApplyFilter = viewModel::applyBrowseFilter,
+                onApplySort = viewModel::applyBrowseSort,
             )
             CatalogScreenRoute.Product -> state.product?.let { product ->
                 KmpPdp(
@@ -170,6 +190,7 @@ fun CatalogScreen(
                     onToggleWishlist = {
                         wishlistStore.toggle(product.stockItemId, product.oem)
                     },
+                    onOpenReviews = { reviewsProduct = product },
                 )
             }
         }
