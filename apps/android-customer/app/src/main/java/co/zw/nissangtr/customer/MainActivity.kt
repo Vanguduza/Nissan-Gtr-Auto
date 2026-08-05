@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.LocalShipping
@@ -819,7 +820,7 @@ private fun ProfileHub(
             }
             ShopProfileItemBox("My orders", Icons.Filled.ReceiptLong) { onOpen(ProfileDest.Orders) }
             ShopProfileItemBox("Returns", Icons.Filled.LocalShipping) { onOpen(ProfileDest.Returns) }
-            ShopProfileItemBox("Loyalty wallet", Icons.Filled.CardGiftcard) { onOpen(ProfileDest.Loyalty) }
+            ShopProfileItemBox("Loyalty wallet", Icons.Filled.Star) { onOpen(ProfileDest.Loyalty) }
             ShopProfileItemBox("Manage address", Icons.Filled.LocationOn) { onOpen(ProfileDest.Addresses) }
             ShopProfileItemBox("Payment methods", Icons.Filled.CreditCard) { onOpen(ProfileDest.Pay) }
             ShopProfileItemBox("My garage", Icons.Filled.DirectionsCar, onClick = onOpenGarage)
