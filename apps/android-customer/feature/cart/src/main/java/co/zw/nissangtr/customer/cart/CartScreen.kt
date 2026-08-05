@@ -92,7 +92,6 @@ fun CartScreen(
                         if (invoice != null) {
                             onPay(invoice)
                         } else {
-                            viewModel.ensureCart()
                             viewModel.checkout { id -> onPay(id) }
                         }
                     },
