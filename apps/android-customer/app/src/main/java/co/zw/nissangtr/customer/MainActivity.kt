@@ -30,7 +30,7 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -68,7 +68,8 @@ import co.zw.nissangtr.customer.chat.ChatScreen
 import co.zw.nissangtr.customer.compare.CompareModule
 import co.zw.nissangtr.customer.compare.CompareScreen
 import co.zw.nissangtr.customer.compare.GuestCompareStore
-import co.zw.nissangtr.customer.garage.GarageModule
+import co.zw.nissangtr.customer.kits.KitsScreen
+import co.zw.nissangtr.customer.loyalty.LoyaltyWalletScreen
 import co.zw.nissangtr.customer.garage.GarageScreen
 import co.zw.nissangtr.customer.orders.OrdersModule
 import co.zw.nissangtr.customer.orders.OrdersScreen
