@@ -226,4 +226,19 @@ interface RpcClient {
 
     /** [RpcNames.SET_OWN_MARKETING_OPT_IN]. */
     suspend fun setOwnMarketingOptIn(optIn: Boolean)
+
+    /** [RpcNames.GET_LOYALTY_BALANCE] — requires own customer id. */
+    suspend fun getLoyaltyBalance(customerId: String): LoyaltyBalance
+
+    /**
+     * Quarantine CN path — [RpcNames.POST_CUSTOMER_RETURN_CREDIT_NOTE].
+     * Unit prices forced server-side from source invoice.
+     */
+    suspend fun postCustomerReturnCreditNote(
+        invoiceId: String,
+        lines: List<ReturnCreditNoteLine>,
+    ): String
+
+    /** Active kits — PostgREST `item_kits` + components (web `listActiveKits`). */
+    suspend fun listActiveKits(limit: Int = 50): List<KitListItem>
 }
