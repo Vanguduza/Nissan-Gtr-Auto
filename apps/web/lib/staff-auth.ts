@@ -7,6 +7,14 @@ export type StaffContext = {
   userId: string;
   isStaff: boolean;
   roles: StaffRole[];
+  /**
+   * Organogram `hr_roles.module_access` module ids (e.g. `pos`, `finance`).
+   * `null` = not loaded / empty → fall back to staff_roles-only nav filter.
+   * Admins bypass module gating.
+   */
+  moduleAccess: string[] | null;
+  /** Force password change before staff surfaces (Batch 1 §2.5). */
+  mustChangePassword: boolean;
 };
 
 /** Nav + gate matrix — mirrors plan `2026-07-25-web-management-parity-rbac`. */
@@ -110,6 +118,11 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         label: "Consignment",
         roles: ["admin", "warehouse"],
       },
+      {
+        href: "/staff/warehouse/insights",
+        label: "AI insights",
+        roles: ["admin", "warehouse", "finance"],
+      },
     ],
   },
   {
@@ -120,6 +133,20 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
     defaultTab: "journals",
     roles: ["admin", "finance"],
     children: [
+      {
+        href: "/staff/finance?tab=accounts",
+        label: "Accounts",
+        tab: "accounts",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=statements",
+        label: "Statements",
+        tab: "statements",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
       {
         href: "/staff/finance?tab=petty-cash",
         label: "Petty cash",
@@ -136,8 +163,29 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       },
       {
         href: "/staff/finance?tab=online-sales",
-        label: "Online sales",
+        label: "Online (legacy)",
         tab: "online-sales",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=contipay",
+        label: "ContiPay",
+        tab: "contipay",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=paynow",
+        label: "Paynow",
+        tab: "paynow",
+        exact: true,
+        roles: ["admin", "finance"],
+      },
+      {
+        href: "/staff/finance?tab=ecocash",
+        label: "EcoCash",
+        tab: "ecocash",
         exact: true,
         roles: ["admin", "finance"],
       },
@@ -263,6 +311,16 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
     roles: ["admin", "hr"],
     children: [
       { href: "/staff/hr", label: "HR desk", roles: ["admin", "hr"] },
+      {
+        href: "/staff/hr?tab=organogram",
+        label: "Organogram",
+        roles: ["admin", "hr"],
+      },
+      {
+        href: "/staff/hr?tab=onboarding",
+        label: "Onboarding",
+        roles: ["admin", "hr"],
+      },
     ],
   },
   {
@@ -443,9 +501,13 @@ export function pathAccessFor(pathname: string): PathAccess {
   const path = pathname.split("?")[0] || pathname;
   if (path === "/staff/forbidden") return { kind: "forbidden_page" };
   if (path === "/staff") return { kind: "any" };
+  if (path === "/staff/change-password") return { kind: "any" };
 
   if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
     return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
+  }
+  if (path.startsWith("/staff/warehouse/insights")) {
+    return { kind: "roles", roles: ["admin", "warehouse", "finance"] };
   }
   if (path.startsWith("/staff/warehouse")) {
     return { kind: "roles", roles: ["admin", "warehouse"] };
@@ -565,6 +627,42 @@ export function filterNavTreeForRoles(roles: StaffRole[]): StaffNavEntry[] {
   return out;
 }
 
+/**
+ * Apply organogram `module_access` on top of staff_roles filtering.
+ * - Admins always see the role-filtered tree (bypass).
+ * - Empty / null module_access → staff_roles-only fallback.
+ * - Otherwise keep modules whose `id` is listed (links always kept if role-ok).
+ */
+export function filterNavTreeForModuleAccess(
+  roles: StaffRole[],
+  moduleAccess: string[] | null | undefined,
+): StaffNavEntry[] {
+  const roleFiltered = filterNavTreeForRoles(roles);
+  if (roles.includes("admin")) return roleFiltered;
+  const allowed = (moduleAccess ?? []).map((m) => m.trim().toLowerCase()).filter(Boolean);
+  if (allowed.length === 0) return roleFiltered;
+
+  const out: StaffNavEntry[] = [];
+  for (const entry of roleFiltered) {
+    if (entry.kind === "link") {
+      out.push(entry);
+      continue;
+    }
+    if (allowed.includes(entry.id.toLowerCase())) {
+      out.push(entry);
+    }
+  }
+  return out;
+}
+
+function parseModuleAccess(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((v): v is string => typeof v === "string")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /** Pathname (+ optional tab) for a nav href that may include `?tab=`. */
 export function navHrefParts(href: string): { pathname: string; tab: string | null } {
   const q = href.indexOf("?");
@@ -636,21 +734,49 @@ export async function loadStaffContext(
   const userId = data.session.user.id;
 
   const [profileRes, rolesRes] = await Promise.all([
-    client.from("profiles").select("is_staff").eq("id", userId).maybeSingle(),
+    client
+      .from("profiles")
+      .select("is_staff, must_change_password")
+      .eq("id", userId)
+      .maybeSingle(),
     client.from("staff_roles").select("role").eq("user_id", userId),
   ]);
 
-  if (profileRes.error) return { ok: false, error: profileRes.error.message };
+  // Pre-migration: must_change_password column may be missing — retry is_staff only.
+  let profile = profileRes.data as {
+    is_staff?: boolean;
+    must_change_password?: boolean;
+  } | null;
+  let profileError = profileRes.error;
+  if (profileError?.message?.includes("must_change_password")) {
+    const fallback = await client
+      .from("profiles")
+      .select("is_staff")
+      .eq("id", userId)
+      .maybeSingle();
+    profileError = fallback.error;
+    profile = fallback.data as { is_staff?: boolean } | null;
+  }
+  if (profileError) return { ok: false, error: profileError.message };
   if (rolesRes.error) return { ok: false, error: rolesRes.error.message };
 
   const roles = (rolesRes.data ?? []).map((row) => row.role as StaffRole);
+
+  let moduleAccess: string[] | null = null;
+  const modRes = await client.rpc("my_module_access");
+  if (!modRes.error) {
+    const parsed = parseModuleAccess(modRes.data);
+    moduleAccess = parsed.length > 0 ? parsed : null;
+  }
 
   return {
     ok: true,
     data: {
       userId,
-      isStaff: Boolean(profileRes.data?.is_staff),
+      isStaff: Boolean(profile?.is_staff),
       roles,
+      moduleAccess,
+      mustChangePassword: Boolean(profile?.must_change_password),
     },
   };
 }
@@ -682,16 +808,57 @@ export function staffLoginHref(returnPath: string): string {
   return `/login?next=${encodeURIComponent(next)}`;
 }
 
+/** Web staff idle lock — parity with Android kiosk default (3 min). */
+export const STAFF_IDLE_LOCK_MINUTES = 3;
+export const STAFF_IDLE_LOCK_MS = STAFF_IDLE_LOCK_MINUTES * 60_000;
+
+/**
+ * Pre-auth staff identifier (emp# | email | phone) → GoTrue password.
+ * Uses `resolve_staff_login_email` (anon, rate-limited, non-enumerating).
+ * Same flow as Android management SignIn.
+ */
+export async function signInWithStaffIdentifier(
+  client: SupabaseClient,
+  identifier: string,
+  password: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const id = identifier.trim();
+  if (!id || !password) {
+    return { ok: false, error: "Sign-in failed" };
+  }
+  const { data: email, error: resolveError } = await client.rpc(
+    "resolve_staff_login_email",
+    { p_identifier: id },
+  );
+  if (resolveError || typeof email !== "string" || !email.trim()) {
+    // Non-enumerating UX — do not leak whether emp#/email exists.
+    return { ok: false, error: "Sign-in failed" };
+  }
+  const { error } = await client.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  if (error) {
+    return { ok: false, error: "Sign-in failed" };
+  }
+  return { ok: true };
+}
+
 /**
  * After password sign-in: staff land on management, not the storefront.
  * Sales-only default = `/staff/pos`; admin/warehouse = hub.
  * Honor `next` only for staff surfaces (`/staff`, `/procurement`).
+ * When `mustChangePassword`, always `/staff/change-password` first.
  */
 export function postLoginPath(
   isStaff: boolean,
   next: string | null | undefined,
   roles: readonly StaffRole[] = [],
+  mustChangePassword = false,
 ): string {
+  if (isStaff && mustChangePassword) {
+    return "/staff/change-password";
+  }
   const path = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
   if (isStaff) {
     if (

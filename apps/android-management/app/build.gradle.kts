@@ -22,13 +22,13 @@ android {
     compileSdk = 34
 
     defaultConfig {
+        // Flavors override applicationId (L1: tablet ≠ phone).
         applicationId = "co.zw.nissangtr.management"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0-scaffold"
         // Placeholders — set via local.properties / CI; never commit real keys.
-        // Names align with root `.env.example` (and web `NEXT_PUBLIC_SUPABASE_*`).
         buildConfigField("String", "SUPABASE_URL", "\"${localProp("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")
         buildConfigField(
@@ -36,7 +36,6 @@ android {
             "RPC_FORCE_FAKE",
             localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
         )
-        // Optional panic-inbox dial target (E.164 or local). Empty = hide Dial support.
         buildConfigField(
             "String",
             "DELIVERY_SUPPORT_PHONE",
@@ -44,12 +43,29 @@ android {
         )
     }
 
+    flavorDimensions += "formFactor"
+    productFlavors {
+        create("phone") {
+            dimension = "formFactor"
+            // Portable management — keep historic package id (no DO / Lock Task).
+            applicationId = "co.zw.nissangtr.management"
+            buildConfigField("boolean", "IS_TABLET_KIOSK", "false")
+            resValue("string", "app_name", "GTR Management")
+        }
+        create("tablet") {
+            dimension = "formFactor"
+            applicationId = "co.zw.nissangtr.management.tablet"
+            buildConfigField("boolean", "IS_TABLET_KIOSK", "true")
+            resValue("string", "app_name", "GTR POS Kiosk")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -69,7 +85,9 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     implementation(project(":feature:auth"))
+    implementation(project(":feature:kiosk"))
     implementation(project(":feature:pos"))
     implementation(project(":feature:warehouse"))
     implementation(project(":feature:dispatch"))
@@ -78,18 +96,20 @@ dependencies {
     implementation(project(":feature:procurement"))
     implementation(project(":feature:credit"))
     implementation(project(":feature:fleet"))
-    // Host Activity attaches hardware bridges for permission / Activity results
-    // (QR / ESC/POS). Driver GPS FGS removed — sole producer is android-delivery.
     implementation(project(":qr-scanner"))
     implementation(project(":escpos-printer"))
+    implementation(project(":biometric-photo"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

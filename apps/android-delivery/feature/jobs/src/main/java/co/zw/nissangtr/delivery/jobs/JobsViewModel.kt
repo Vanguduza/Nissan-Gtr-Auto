@@ -8,6 +8,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.location.LocationPermissionStatus
+import co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher
+import co.zw.nissangtr.bridges.maps.ExternalNavigation
+import co.zw.nissangtr.bridges.maps.MapLatLng
+import co.zw.nissangtr.bridges.maps.RouteFetchResult
 import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
@@ -31,6 +35,10 @@ data class JobsUiState(
     val failNotes: String = "",
     val createReattempt: Boolean = true,
     val supportPhone: String = "",
+    val mapsKeyPresent: Boolean = false,
+    val routePoints: List<MapLatLng> = emptyList(),
+    val routeLabel: String? = null,
+    val routeBusy: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
@@ -41,9 +49,17 @@ class JobsViewModel(
     private val gps: GpsBridge,
     private val appContext: Context,
     supportPhone: String,
+    private val mapsApiKey: String,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(JobsUiState(supportPhone = supportPhone))
+    private val _state = MutableStateFlow(
+        JobsUiState(
+            supportPhone = supportPhone,
+            mapsKeyPresent = mapsApiKey.isNotBlank(),
+        ),
+    )
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
+
+    private val directions by lazy { DirectionsRouteFetcher(mapsApiKey) }
 
     init {
         refresh()
@@ -56,7 +72,14 @@ class JobsViewModel(
     }
 
     fun selectJob(id: String?) = _state.update {
-        it.copy(selectedJobId = id, geofence = null, error = null, message = null)
+        it.copy(
+            selectedJobId = id,
+            geofence = null,
+            routePoints = emptyList(),
+            routeLabel = null,
+            error = null,
+            message = null,
+        )
     }
 
     fun onFailReason(reason: DeliveryFailureReason) =
@@ -185,21 +208,117 @@ class JobsViewModel(
             _state.update { it.copy(error = "Dropoff coordinates missing") }
             return
         }
-        val uri = Uri.parse("google.navigation:q=$lat,$lng")
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            setPackage("com.google.android.apps.maps")
+        val ok = ExternalNavigation.openTurnByTurn(
+            appContext,
+            MapLatLng(lat, lng),
+        )
+        if (!ok) {
+            _state.update { it.copy(error = "Cannot open maps") }
         }
-        runCatching {
-            appContext.startActivity(intent)
-        }.recoverCatching {
-            val fallback = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("geo:$lat,$lng?q=$lat,$lng"),
-            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            appContext.startActivity(fallback)
-        }.onFailure { e ->
-            _state.update { it.copy(error = e.message ?: "Cannot open maps") }
+    }
+
+    /**
+     * Fetch driving polyline for in-app map guidance.
+     * Origin: tracking last fix, else one-shot GPS, else destination-only markers.
+     * Does not replace FGS ingest.
+     */
+    fun refreshRouteGuidance(
+        driverLat: Double? = null,
+        driverLng: Double? = null,
+    ) {
+        val job = selectedJob() ?: return
+        val destLat = job.dropoffLat
+        val destLng = job.dropoffLng
+        if (destLat == null || destLng == null) {
+            _state.update { it.copy(error = "Dropoff coordinates missing", routePoints = emptyList()) }
+            return
+        }
+        if (mapsApiKey.isBlank()) {
+            _state.update {
+                it.copy(
+                    routeLabel = "Maps key missing — markers only; set GOOGLE_MAPS_API_KEY",
+                    routePoints = emptyList(),
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(routeBusy = true, error = null) }
+            var originLat = driverLat
+            var originLng = driverLng
+            if (originLat == null || originLng == null) {
+                runCatching {
+                    val perm = gps.getLocationPermissionStatus()
+                    if (perm == LocationPermissionStatus.GRANTED ||
+                        perm == LocationPermissionStatus.APPROXIMATE
+                    ) {
+                        val coord = gps.getCurrentPosition()
+                        originLat = coord.latitude
+                        originLng = coord.longitude
+                    }
+                }
+            }
+            if (originLat == null || originLng == null) {
+                _state.update {
+                    it.copy(
+                        routeBusy = false,
+                        routePoints = emptyList(),
+                        routeLabel = "Waiting for GPS for route — destination marked",
+                    )
+                }
+                return@launch
+            }
+            val otherWaypoints = _state.value.jobs
+                .filter {
+                    it.id != job.id &&
+                        it.status != "completed" &&
+                        it.status != "failed" &&
+                        it.dropoffLat != null &&
+                        it.dropoffLng != null &&
+                        (it.routeSequence ?: Int.MAX_VALUE) > (job.routeSequence ?: -1)
+                }
+                .sortedBy { it.routeSequence ?: Int.MAX_VALUE }
+                .take(3)
+                .map { MapLatLng(it.dropoffLat!!, it.dropoffLng!!) }
+
+            when (
+                val result = directions.fetchDrivingRoute(
+                    origin = MapLatLng(originLat!!, originLng!!),
+                    destination = MapLatLng(destLat, destLng),
+                    waypoints = otherWaypoints,
+                )
+            ) {
+                is RouteFetchResult.Ok -> {
+                    val r = result.route
+                    val dist = r.distanceMeters?.let { d ->
+                        if (d >= 1000) "%.1f km".format(d / 1000.0) else "${d}m"
+                    }
+                    val dur = r.durationSeconds?.let { s ->
+                        val m = s / 60
+                        if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
+                    }
+                    _state.update {
+                        it.copy(
+                            routeBusy = false,
+                            routePoints = r.points,
+                            routeLabel = listOfNotNull(
+                                r.summary,
+                                dist,
+                                dur,
+                            ).joinToString(" · ").ifBlank { "Route ready" },
+                        )
+                    }
+                }
+                is RouteFetchResult.Failed -> {
+                    _state.update {
+                        it.copy(
+                            routeBusy = false,
+                            routePoints = emptyList(),
+                            routeLabel = result.message,
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -325,11 +444,18 @@ class JobsViewModel(
             gps: GpsBridge,
             appContext: Context,
             supportPhone: String,
+            mapsApiKey: String,
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    JobsViewModel(rpc, gps, appContext.applicationContext, supportPhone) as T
+                    JobsViewModel(
+                        rpc,
+                        gps,
+                        appContext.applicationContext,
+                        supportPhone,
+                        mapsApiKey,
+                    ) as T
             }
     }
 }

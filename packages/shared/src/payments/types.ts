@@ -1,9 +1,10 @@
-/** Payment tender and ContiPay / Paynow status enums (no secrets). */
+/** Payment tender and ContiPay / Paynow / EcoCash direct status enums (no secrets). */
 export const PAYMENT_TENDERS = [
   "cash",
   "bank",
   "contipay",
   "paynow",
+  "ecocash",
   "store_credit",
 ] as const;
 export type PaymentTender = (typeof PAYMENT_TENDERS)[number];
@@ -35,6 +36,25 @@ export const PAYNOW_INTENT_STATUSES = [
   "cancelled",
 ] as const;
 export type PaynowIntentStatus = (typeof PAYNOW_INTENT_STATUSES)[number];
+
+/** EcoCash direct C2B payer choice (not ContiPay/Paynow aggregator method). */
+export const ECOCASH_PAYER_MODES = [
+  "whatsapp",
+  "saved",
+  "other",
+  "pos_entered",
+  "profile",
+] as const;
+export type EcoCashPayerMode = (typeof ECOCASH_PAYER_MODES)[number];
+
+export const ECOCASH_INTENT_STATUSES = [
+  "pending",
+  "authorized",
+  "settled",
+  "failed",
+  "cancelled",
+] as const;
+export type EcoCashIntentStatus = (typeof ECOCASH_INTENT_STATUSES)[number];
 
 export interface PaymentAllocationInput {
   salesInvoiceId: string;

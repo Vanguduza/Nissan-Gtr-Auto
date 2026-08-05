@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 data class PayUiState(
     val invoices: List<InvoiceSummary> = emptyList(),
     val invoiceId: String = "",
+    val ecocashMsisdn: String = "",
     val lastIntentId: String? = null,
     val lastProvider: String? = null,
     val busy: Boolean = false,
@@ -35,6 +36,8 @@ class PayIntentViewModel(
     }
 
     fun onInvoiceIdChange(v: String) = _state.update { it.copy(invoiceId = v, error = null) }
+
+    fun onEcocashMsisdnChange(v: String) = _state.update { it.copy(ecocashMsisdn = v, error = null) }
 
     fun selectInvoice(id: String) = _state.update { it.copy(invoiceId = id, error = null) }
 
@@ -109,6 +112,40 @@ class PayIntentViewModel(
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "paynow failed") }
+            }
+        }
+    }
+
+    fun createEcocash() {
+        val invoiceId = _state.value.invoiceId.trim()
+        val msisdn = _state.value.ecocashMsisdn.trim()
+        if (invoiceId.isEmpty()) {
+            _state.update { it.copy(error = "Invoice UUID required") }
+            return
+        }
+        if (msisdn.isEmpty()) {
+            _state.update { it.copy(error = "EcoCash number required (saved or other)") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val result = rpc.createCustomerEcocashIntent(
+                    salesInvoiceId = invoiceId,
+                    payerMsisdn = msisdn,
+                    payerMode = "other",
+                    metadataJson = """{"channel":"android_customer","sales_invoice_id":"$invoiceId"}""",
+                )
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        lastIntentId = result.intentId,
+                        lastProvider = result.provider,
+                        message = "${RpcNames.CREATE_CUSTOMER_ECOCASH_INTENT} → ${result.intentId} — approve PIN on EcoCash handset",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "ecocash failed") }
             }
         }
     }

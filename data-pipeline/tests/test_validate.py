@@ -27,6 +27,26 @@ def test_invalid_oem_pattern_rejected() -> None:
         )
 
 
+def test_partsouq_alphanumeric_pnc_accepted() -> None:
+    for code in ("C8320", "16132PA", "15208"):
+        validate_record(
+            "pnc_categories",
+            {"pnc_code": code, "category_name": "Throttle"},
+        )
+        validate_record(
+            "part_fitment",
+            {"oem_part_number": "16132-73C10", "pnc_code": code},
+        )
+
+
+def test_invalid_pnc_pattern_rejected() -> None:
+    with pytest.raises(ValidationError):
+        validate_record(
+            "pnc_categories",
+            {"pnc_code": "TOO-LONG!!", "category_name": "x"},
+        )
+
+
 def test_validate_cli_ok(capsys) -> None:
     from data_pipeline.validate import main
 

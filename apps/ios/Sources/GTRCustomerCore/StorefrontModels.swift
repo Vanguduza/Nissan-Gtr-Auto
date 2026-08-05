@@ -257,6 +257,7 @@ public struct GarageVehicleInput: Sendable {
 public enum PaymentRail: String, Sendable, CaseIterable, Identifiable {
     case contipay
     case paynow
+    case ecocash
 
     public var id: String { rawValue }
 
@@ -264,6 +265,7 @@ public enum PaymentRail: String, Sendable, CaseIterable, Identifiable {
         switch self {
         case .contipay: return "ContiPay"
         case .paynow: return "Paynow"
+        case .ecocash: return "EcoCash direct"
         }
     }
 }
@@ -536,5 +538,276 @@ public struct ReviewPhotoUpload: Sendable {
         self.data = data
         self.fileExtension = fileExtension
         self.contentType = contentType
+    }
+}
+
+// MARK: - Catalog (search / browse / PDP)
+
+/// Mirrors web `SearchMode` / `search_catalog` p_mode.
+public enum CatalogSearchMode: String, Sendable, CaseIterable, Identifiable {
+    case part
+    case vin
+    case model
+    case pnc
+
+    public var id: String { rawValue }
+
+    public var label: String { rawValue.uppercased() }
+}
+
+/// Mirrors web catalog stock badge.
+public enum CatalogStockState: String, Sendable {
+    case inStock = "in_stock"
+    case low
+    case backorder
+
+    public var label: String {
+        switch self {
+        case .inStock: return "In stock"
+        case .low: return "Low stock"
+        case .backorder: return "Backorder"
+        }
+    }
+}
+
+public struct CatalogPartHit: Identifiable, Sendable, Equatable {
+    public var id: String { oemPartNumber.uppercased() }
+    public let oemPartNumber: String
+    public let pncCode: String?
+    public let categoryName: String?
+    public let subcategoryName: String?
+    public let chassisCode: String?
+    public let engineCode: String?
+
+    public init(
+        oemPartNumber: String,
+        pncCode: String? = nil,
+        categoryName: String? = nil,
+        subcategoryName: String? = nil,
+        chassisCode: String? = nil,
+        engineCode: String? = nil
+    ) {
+        self.oemPartNumber = oemPartNumber
+        self.pncCode = pncCode
+        self.categoryName = categoryName
+        self.subcategoryName = subcategoryName
+        self.chassisCode = chassisCode
+        self.engineCode = engineCode
+    }
+}
+
+public struct SearchCatalogResponse: Sendable, Equatable {
+    public let mode: CatalogSearchMode
+    public let query: String
+    public let parts: [CatalogPartHit]
+
+    public init(mode: CatalogSearchMode, query: String, parts: [CatalogPartHit]) {
+        self.mode = mode
+        self.query = query
+        self.parts = parts
+    }
+}
+
+public struct CatalogListItem: Identifiable, Sendable, Equatable {
+    public var id: String { stockItemId.uuidString }
+    public let stockItemId: UUID
+    public let oem: String
+    public let name: String
+    public let stock: CatalogStockState
+    public let usd: Decimal?
+    public let category: String?
+
+    public init(
+        stockItemId: UUID,
+        oem: String,
+        name: String,
+        stock: CatalogStockState,
+        usd: Decimal?,
+        category: String? = nil
+    ) {
+        self.stockItemId = stockItemId
+        self.oem = oem
+        self.name = name
+        self.stock = stock
+        self.usd = usd
+        self.category = category
+    }
+}
+
+public struct CatalogBrowseResult: Sendable, Equatable {
+    public let items: [CatalogListItem]
+    public let categories: [String]
+
+    public init(items: [CatalogListItem], categories: [String] = []) {
+        self.items = items
+        self.categories = categories
+    }
+}
+
+/// PDP subset aligned with web `CatalogProduct`.
+public struct CatalogProduct: Identifiable, Sendable, Equatable {
+    public var id: String { stockItemId.uuidString }
+    public let stockItemId: UUID
+    public let baseUomId: UUID
+    public let oem: String
+    public let name: String
+    public let brand: String?
+    public let category: String?
+    public let usd: Decimal?
+    public let stock: CatalogStockState
+    public let coreCharge: Decimal
+    public let fitmentLines: [String]
+
+    public init(
+        stockItemId: UUID,
+        baseUomId: UUID,
+        oem: String,
+        name: String,
+        brand: String? = nil,
+        category: String? = nil,
+        usd: Decimal?,
+        stock: CatalogStockState,
+        coreCharge: Decimal = 0,
+        fitmentLines: [String] = []
+    ) {
+        self.stockItemId = stockItemId
+        self.baseUomId = baseUomId
+        self.oem = oem
+        self.name = name
+        self.brand = brand
+        self.category = category
+        self.usd = usd
+        self.stock = stock
+        self.coreCharge = coreCharge
+        self.fitmentLines = fitmentLines
+    }
+}
+
+public func catalogStockState(qty: Double, reorderPoint: Double?) -> CatalogStockState {
+    if qty <= 0 { return .backorder }
+    if let reorderPoint, qty <= reorderPoint { return .low }
+    return .inStock
+}
+
+/// Own-row shipping address — mirrors `customer_addresses` + Android `CustomerAddress`.
+public struct CustomerAddress: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public var label: String
+    public var line1: String
+    public var line2: String?
+    public var city: String?
+    public var province: String?
+    public var postalCode: String?
+    public var country: String
+    public var isDefault: Bool
+    public var createdAt: Date?
+    public var updatedAt: Date?
+
+    public init(
+        id: UUID,
+        label: String = "",
+        line1: String,
+        line2: String? = nil,
+        city: String? = nil,
+        province: String? = nil,
+        postalCode: String? = nil,
+        country: String = "Zimbabwe",
+        isDefault: Bool = false,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
+        self.id = id
+        self.label = label
+        self.line1 = line1
+        self.line2 = line2
+        self.city = city
+        self.province = province
+        self.postalCode = postalCode
+        self.country = country
+        self.isDefault = isDefault
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public var summaryLabel: String {
+        let parts = [label.isEmpty ? nil : label, line1, city, province].compactMap { $0 }
+        return parts.isEmpty ? id.uuidString : parts.joined(separator: " · ")
+    }
+
+    public var geoLatLng: (lat: Double, lng: Double)? {
+        AddressGeo.parse(line2)
+    }
+}
+
+public struct CustomerAddressInput: Sendable {
+    public var id: UUID?
+    public var label: String
+    public var line1: String
+    public var line2: String?
+    public var city: String?
+    public var province: String?
+    public var postalCode: String?
+    public var country: String
+    public var isDefault: Bool
+    public var latitude: Double?
+    public var longitude: Double?
+
+    public init(
+        id: UUID? = nil,
+        label: String = "",
+        line1: String,
+        line2: String? = nil,
+        city: String? = nil,
+        province: String? = nil,
+        postalCode: String? = nil,
+        country: String = "Zimbabwe",
+        isDefault: Bool = false,
+        latitude: Double? = nil,
+        longitude: Double? = nil
+    ) {
+        self.id = id
+        self.label = label
+        self.line1 = line1
+        self.line2 = line2
+        self.city = city
+        self.province = province
+        self.postalCode = postalCode
+        self.country = country
+        self.isDefault = isDefault
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
+/// Encode/decode map coordinates in `customer_addresses.line2` until a geo migration lands.
+public enum AddressGeo {
+    private static let pattern = /#gtr_geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/
+
+    public static func parse(_ line2: String?) -> (lat: Double, lng: Double)? {
+        guard let line2, let match = line2.firstMatch(of: pattern) else { return nil }
+        guard let lat = Double(match.1), let lng = Double(match.2) else { return nil }
+        guard (-90 ... 90).contains(lat), (-180 ... 180).contains(lng) else { return nil }
+        return (lat, lng)
+    }
+
+    public static func strip(_ line2: String?) -> String? {
+        guard let raw = line2?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
+        let cleaned = raw.replacing(pattern, with: "")
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    public static func embed(line2: String?, latitude: Double?, longitude: Double?) -> String? {
+        let base = strip(line2)
+        guard let latitude, let longitude else { return base }
+        precondition((-90 ... 90).contains(latitude) && (-180 ... 180).contains(longitude))
+        let marker = "#gtr_geo:\(latitude),\(longitude)"
+        if let base, !base.isEmpty { return "\(base)\n\(marker)" }
+        return marker
     }
 }

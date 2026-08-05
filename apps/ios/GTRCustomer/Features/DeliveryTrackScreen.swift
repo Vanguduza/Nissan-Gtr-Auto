@@ -21,13 +21,14 @@ struct DeliveryTrackScreen: View {
     private let pollNanos: UInt64 = 15_000_000_000
 
     var body: some View {
-        List {
+        ShopDefaultScreen(title: "Live delivery", subtitle: "Last point · ETA only", scrollable: false) {
+            List {
             Section {
                 Text(
                     "Shows the driver’s last known location and ETA while the job is out for delivery. Full GPS history is never shared."
                 )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(GTRType.body(.footnote))
+                .foregroundStyle(GTRColors.silverDim)
             }
 
             if let point {
@@ -55,7 +56,7 @@ struct DeliveryTrackScreen: View {
                         )) {
                             Image(systemName: "truck.box.fill")
                                 .padding(8)
-                                .background(.tint, in: Circle())
+                                .background(GTRColors.primary, in: Circle())
                                 .foregroundStyle(.white)
                         }
                     }
@@ -76,16 +77,16 @@ struct DeliveryTrackScreen: View {
                         status
                             ?? "Tracking is inactive, expired, or the delivery is not out for delivery yet. Last point is only available while a job is actively dispatched."
                     )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(GTRType.body(.footnote))
+                    .foregroundStyle(GTRColors.silverDim)
                 }
             }
 
             if let status, point != nil {
                 Section {
                     Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
             }
 
@@ -108,21 +109,24 @@ struct DeliveryTrackScreen: View {
                         ? "Privacy: last point + ETA only. Polling every 15s while active."
                         : "Privacy: tracking stopped — job ended or link inactive. No historical GPS trail."
                 )
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(GTRType.label(.caption2))
+                .foregroundStyle(GTRColors.silverDim)
             }
-        }
-        .navigationTitle("Live delivery")
-        .task {
-            await refresh(fromPoll: false)
-            await pollLoop()
-        }
-        .refreshable { await refresh(fromPoll: false) }
-        .onChange(of: point?.lat) { _, _ in
-            if let point { centerCamera(on: point) }
-        }
-        .onChange(of: point?.lng) { _, _ in
-            if let point { centerCamera(on: point) }
+            }
+            .scrollContentBackground(.hidden)
+            .background(GTRColors.chalk)
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await refresh(fromPoll: false)
+                await pollLoop()
+            }
+            .refreshable { await refresh(fromPoll: false) }
+            .onChange(of: point?.lat) { _, _ in
+                if let point { centerCamera(on: point) }
+            }
+            .onChange(of: point?.lng) { _, _ in
+                if let point { centerCamera(on: point) }
+            }
         }
     }
 

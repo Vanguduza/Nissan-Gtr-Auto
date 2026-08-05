@@ -18,14 +18,15 @@ sealed class AuthGateState {
 }
 
 data class SignInUiState(
-    val email: String = "",
+    /** Emp# or email or phone — resolved before GoTrue password. */
+    val identifier: String = "",
     val password: String = "",
     val busy: Boolean = false,
     val error: String? = null,
 )
 
 /**
- * Observes GoTrue [SessionStatus] and drives email/password sign-in / sign-out.
+ * Observes GoTrue [SessionStatus] and drives staff identifier + password sign-in.
  * Live only — Fake mode bypasses this ViewModel in [AuthGate].
  */
 class AuthSessionViewModel(
@@ -51,20 +52,51 @@ class AuthSessionViewModel(
         }
     }
 
-    fun onEmailChange(v: String) = _signIn.update { it.copy(email = v, error = null) }
+    fun onIdentifierChange(v: String) = _signIn.update { it.copy(identifier = v, error = null) }
+
+    /** @deprecated Prefer [onIdentifierChange] — kept for any email-only call sites. */
+    fun onEmailChange(v: String) = onIdentifierChange(v)
+
     fun onPasswordChange(v: String) = _signIn.update { it.copy(password = v, error = null) }
 
     fun signIn() {
-        val email = _signIn.value.email
+        val identifier = _signIn.value.identifier
         val password = _signIn.value.password
         viewModelScope.launch {
             _signIn.update { it.copy(busy = true, error = null) }
             try {
-                supabase.signInWithEmail(email, password)
-                _signIn.update { it.copy(busy = false, password = "") }
+                val locked = runCatching { supabase.staffLoginIsLocked(identifier) }
+                    .getOrDefault(false)
+                if (locked) {
+                    _signIn.update {
+                        it.copy(
+                            busy = false,
+                            error = "Too many attempts — try again later",
+                        )
+                    }
+                    return@launch
+                }
+                val email = supabase.resolveStaffLoginEmail(identifier)
+                try {
+                    supabase.signInWithEmail(email, password)
+                    runCatching { supabase.recordStaffLoginAttempt(identifier, true) }
+                    _signIn.update { it.copy(busy = false, password = "") }
+                } catch (e: Exception) {
+                    runCatching { supabase.recordStaffLoginAttempt(identifier, false) }
+                    _signIn.update {
+                        it.copy(
+                            busy = false,
+                            // Non-enumerating UX — do not leak whether emp#/email exists.
+                            error = "Sign-in failed",
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 _signIn.update {
-                    it.copy(busy = false, error = e.message ?: "Sign-in failed")
+                    it.copy(
+                        busy = false,
+                        error = "Sign-in failed",
+                    )
                 }
             }
         }

@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { StaffAuthProvider } from "@/components/staff-auth-context";
 import { StaffChrome } from "@/components/staff-chrome";
+import { StaffIdleLock } from "@/components/staff-idle-lock";
 import layoutStyles from "@/components/staff-layout.module.css";
 import {
   canAccessPath,
@@ -146,11 +147,25 @@ export function StaffGate({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Batch 1 §2.5 — force password change before other staff surfaces.
+      const onChangePassword = pathname === "/staff/change-password";
+      if (
+        ctx.isStaff &&
+        ctx.mustChangePassword &&
+        !onChangePassword &&
+        !onForbidden
+      ) {
+        setState({ kind: "redirecting", message: "Password change required…" });
+        router.replace("/staff/change-password");
+        return;
+      }
+
       // Sales-only default home is POS (not full hub).
       if (
         ctx.isStaff &&
         prefersPosHome(ctx.roles) &&
-        pathname === "/staff"
+        pathname === "/staff" &&
+        !ctx.mustChangePassword
       ) {
         setState({ kind: "redirecting", message: "Opening POS…" });
         router.replace("/staff/pos");
@@ -184,7 +199,9 @@ export function StaffGate({ children }: { children: ReactNode }) {
 
   return (
     <StaffAuthProvider value={state.ctx}>
-      <StaffChrome>{children}</StaffChrome>
+      <StaffIdleLock enabled={state.ctx.isStaff}>
+        <StaffChrome>{children}</StaffChrome>
+      </StaffIdleLock>
     </StaffAuthProvider>
   );
 }

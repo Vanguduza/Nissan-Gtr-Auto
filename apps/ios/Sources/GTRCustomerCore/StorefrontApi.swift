@@ -41,6 +41,19 @@ public protocol StorefrontApi: AnyObject {
 
     func loadOpenCart() async throws -> CartSummary?
 
+    /// Official daily ZiG rate (ZiG per 1 USD) — mirrors web `fetchZigExchangeRate`.
+    func fetchZigExchangeRate(asOf: String?) async throws -> Decimal
+
+    /// Active MAIN warehouse (or first non-quarantine) — mirrors web `resolveMainWarehouseId`.
+    func resolveMainWarehouseId() async throws -> UUID
+
+    /// Open cart or create — mirrors web `ensureOpenCart`.
+    func ensureOpenCart(
+        currency: StorefrontCurrency,
+        fulfillmentMode: FulfillmentMode,
+        exchangeRate: Decimal
+    ) async throws -> CartSummary
+
     func listOrders() async throws -> [CustomerOrder]
 
     func getOrder(invoiceId: UUID) async throws -> CustomerOrder
@@ -59,6 +72,13 @@ public protocol StorefrontApi: AnyObject {
     func createPaynowIntent(
         invoiceId: UUID,
         method: PaynowMethod
+    ) async throws -> PaymentIntentResult
+
+    /// EcoCash direct C2B — payerMsisdn required unless using profile/saved via nil + mode.
+    func createEcocashIntent(
+        invoiceId: UUID,
+        payerMsisdn: String,
+        payerMode: String
     ) async throws -> PaymentIntentResult
 
     // MARK: Chat
@@ -135,6 +155,32 @@ public protocol StorefrontApi: AnyObject {
         photo: ReviewPhotoUpload,
         sortOrder: Int
     ) async throws -> UUID
+
+    // MARK: Catalog
+
+    /// Four-way `search_catalog` (part / vin / model / pnc).
+    func searchCatalog(mode: CatalogSearchMode, query: String) async throws -> SearchCatalogResponse
+
+    /// Browse PLP — stock_items + default USD price + saleable qty.
+    func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult
+
+    /// PDP load — stock_items + price + saleable qty + fitment labels.
+    func loadCatalogProduct(oem: String) async throws -> CatalogProduct
+
+    /// Ensures open cart then `add_customer_cart_line` for OEM.
+    @discardableResult
+    func addCartLineByOem(oem: String, qty: Decimal) async throws -> (cartId: UUID, lineId: UUID)
+
+    // MARK: Addresses
+
+    /// Live: SELECT own `customer_addresses` via RLS (default first).
+    func listOwnAddresses() async throws -> [CustomerAddress]
+
+    /// `upsert_customer_address` — embeds optional map pick into line2 via `AddressGeo`.
+    func upsertCustomerAddress(_ input: CustomerAddressInput) async throws -> UUID
+
+    /// `delete_customer_address`
+    func deleteCustomerAddress(id: UUID) async throws
 }
 
 /// In-memory Fake for Simulator / Windows scaffold — no network.
@@ -150,11 +196,19 @@ public final class FakeStorefrontApi: StorefrontApi {
     private var compare: [CompareItem] = []
     private var reviews: [ProductReview] = []
     private var reviewPhotoCounts: [UUID: Int] = [:]
+    private var addresses: [CustomerAddress] = []
     /// Fake last-point only — never a trail. Demo token: `demo-track-token`.
     private var demoTrackJobId: UUID?
     private var demoTrackPoint: DeliveryTrackPoint?
+    private let catalogProducts: [String: CatalogProduct]
+
+    private static let seedOilFilterId = UUID(uuidString: "00000000-0000-4000-8000-0000000000a1")!
+    private static let seedAirFilterId = UUID(uuidString: "00000000-0000-4000-8000-0000000000a2")!
+    private static let seedUomId = UUID(uuidString: "00000000-0000-4000-8000-0000000000u1")!
+    private static let seedWarehouseId = UUID(uuidString: "00000000-0000-4000-8000-0000000000w1")!
 
     public init(seedDemo: Bool = true) {
+        catalogProducts = Self.seedCatalogProducts()
         if seedDemo {
             let inv = UUID()
             let jobId = UUID()
@@ -193,8 +247,22 @@ public final class FakeStorefrontApi: StorefrontApi {
                     isPrimary: true
                 ),
             ]
-            let threadId = UUID()
             let now = Date()
+            addresses = [
+                CustomerAddress(
+                    id: UUID(),
+                    label: "Home",
+                    line1: "15 Samora Machel Ave",
+                    line2: AddressGeo.embed(line2: nil, latitude: -17.8292, longitude: 31.0522),
+                    city: "Harare",
+                    province: "Harare",
+                    country: "Zimbabwe",
+                    isDefault: true,
+                    createdAt: now,
+                    updatedAt: now
+                ),
+            ]
+            let threadId = UUID()
             threads = [
                 ChatThread(
                     id: threadId,
@@ -350,6 +418,30 @@ public final class FakeStorefrontApi: StorefrontApi {
         cart
     }
 
+    public func fetchZigExchangeRate(asOf _: String?) async throws -> Decimal {
+        26.5
+    }
+
+    public func resolveMainWarehouseId() async throws -> UUID {
+        UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
+    }
+
+    public func ensureOpenCart(
+        currency: StorefrontCurrency,
+        fulfillmentMode: FulfillmentMode,
+        exchangeRate: Decimal
+    ) async throws -> CartSummary {
+        if let open = cart { return open }
+        _ = try await createCart(
+            warehouseId: try await resolveMainWarehouseId(),
+            currency: currency,
+            fulfillmentMode: fulfillmentMode,
+            exchangeRate: exchangeRate
+        )
+        guard let open = cart else { throw StorefrontError.message("ensureOpenCart failed") }
+        return open
+    }
+
     public func listOrders() async throws -> [CustomerOrder] {
         orders
     }
@@ -410,6 +502,14 @@ public final class FakeStorefrontApi: StorefrontApi {
         method _: PaynowMethod
     ) async throws -> PaymentIntentResult {
         try stubIntent(invoiceId: invoiceId, rail: .paynow)
+    }
+
+    public func createEcocashIntent(
+        invoiceId: UUID,
+        payerMsisdn _: String,
+        payerMode _: String
+    ) async throws -> PaymentIntentResult {
+        try stubIntent(invoiceId: invoiceId, rail: .ecocash)
     }
 
     // MARK: Chat (Fake)
@@ -846,6 +946,172 @@ public final class FakeStorefrontApi: StorefrontApi {
         }
         reviewPhotoCounts[reviewId] = count + 1
         return UUID()
+    }
+
+    // MARK: Catalog (Fake)
+
+    public func searchCatalog(mode: CatalogSearchMode, query: String) async throws -> SearchCatalogResponse {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { throw StorefrontError.message("search query required") }
+        let needle = q.uppercased()
+        let hits = catalogProducts.values.filter { p in
+            switch mode {
+            case .part:
+                return p.oem.uppercased().contains(needle) || p.name.uppercased().contains(needle)
+            case .vin:
+                return needle.hasPrefix("JN") || p.oem.contains("15208")
+            case .model:
+                return p.name.uppercased().contains(needle) || needle.contains("NAVARA")
+            case .pnc:
+                return p.category?.uppercased().contains(needle) == true || needle.contains("FILTER")
+            }
+        }
+        .map { CatalogPartHit(oemPartNumber: $0.oem, categoryName: $0.category) }
+        return SearchCatalogResponse(mode: mode, query: q, parts: hits)
+    }
+
+    public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
+        let cap = min(max(limit, 1), 100)
+        let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let items = catalogProducts.values
+            .filter { item in
+                guard let cat, !cat.isEmpty else { return true }
+                return item.category?.lowercased().contains(cat) == true
+            }
+            .prefix(cap)
+            .map {
+                CatalogListItem(
+                    stockItemId: $0.stockItemId,
+                    oem: $0.oem,
+                    name: $0.name,
+                    stock: $0.stock,
+                    usd: $0.usd,
+                    category: $0.category
+                )
+            }
+        return CatalogBrowseResult(items: Array(items), categories: ["Filters", "Brakes", "Engine"])
+    }
+
+    public func loadCatalogProduct(oem: String) async throws -> CatalogProduct {
+        let key = oem.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if let hit = catalogProducts[key] { return hit }
+        if let hit = catalogProducts.values.first(where: {
+            $0.oem.caseInsensitiveCompare(oem) == .orderedSame
+        }) {
+            return hit
+        }
+        throw StorefrontError.message("Part not found: \(oem)")
+    }
+
+    public func addCartLineByOem(oem: String, qty: Decimal) async throws -> (cartId: UUID, lineId: UUID) {
+        guard qty > 0 else { throw StorefrontError.message("qty must be > 0") }
+        let product = try await loadCatalogProduct(oem: oem)
+        let cartId: UUID
+        if let open = cart {
+            cartId = open.id
+        } else {
+            cartId = try await createCart(
+                warehouseId: Self.seedWarehouseId,
+                currency: .USD,
+                fulfillmentMode: .immediate,
+                exchangeRate: 1
+            )
+        }
+        let lineId = try await addCartLine(
+            cartId: cartId,
+            stockItemId: product.stockItemId,
+            uomId: product.baseUomId,
+            qty: qty
+        )
+        return (cartId, lineId)
+    }
+
+    // MARK: Addresses (Fake)
+
+    public func listOwnAddresses() async throws -> [CustomerAddress] {
+        addresses.sorted {
+            if $0.isDefault != $1.isDefault { return $0.isDefault && !$1.isDefault }
+            return ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
+        }
+    }
+
+    public func upsertCustomerAddress(_ input: CustomerAddressInput) async throws -> UUID {
+        let line1 = input.line1.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !line1.isEmpty else {
+            throw StorefrontError.message("line1 required for upsert_customer_address")
+        }
+        let line2 = AddressGeo.embed(
+            line2: input.line2,
+            latitude: input.latitude,
+            longitude: input.longitude
+        )
+        let id = input.id ?? UUID()
+        if input.isDefault {
+            for i in addresses.indices {
+                addresses[i].isDefault = false
+            }
+        }
+        let now = Date()
+        let existing = addresses.first(where: { $0.id == id })
+        let row = CustomerAddress(
+            id: id,
+            label: input.label,
+            line1: line1,
+            line2: line2,
+            city: input.city,
+            province: input.province,
+            postalCode: input.postalCode,
+            country: input.country.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "Zimbabwe"
+                : input.country,
+            isDefault: input.isDefault,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now
+        )
+        if let idx = addresses.firstIndex(where: { $0.id == id }) {
+            addresses[idx] = row
+        } else {
+            addresses.insert(row, at: 0)
+        }
+        return id
+    }
+
+    public func deleteCustomerAddress(id: UUID) async throws {
+        let before = addresses.count
+        addresses.removeAll { $0.id == id }
+        if addresses.count == before {
+            throw StorefrontError.message("address not found for delete_customer_address")
+        }
+    }
+
+    private static func seedCatalogProducts() -> [String: CatalogProduct] {
+        let products = [
+            CatalogProduct(
+                stockItemId: seedOilFilterId,
+                baseUomId: seedUomId,
+                oem: "15208-65F0C",
+                name: "Oil filter (demo)",
+                brand: "Nissan",
+                category: "Filters",
+                usd: 12.50,
+                stock: .inStock,
+                coreCharge: 0,
+                fitmentLines: ["Navara D40 · YD25DDTi · 2005"]
+            ),
+            CatalogProduct(
+                stockItemId: seedAirFilterId,
+                baseUomId: seedUomId,
+                oem: "16546-EB70A",
+                name: "Air cleaner element (demo)",
+                brand: "Nissan",
+                category: "Filters",
+                usd: 28.00,
+                stock: .low,
+                coreCharge: 0,
+                fitmentLines: ["Navara D40 · YD25DDTi"]
+            ),
+        ]
+        return Dictionary(uniqueKeysWithValues: products.map { ($0.oem.uppercased(), $0) })
     }
 
     private func stubIntent(invoiceId: UUID, rail: PaymentRail) throws -> PaymentIntentResult {

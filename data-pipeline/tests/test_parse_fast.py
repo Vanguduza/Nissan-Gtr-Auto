@@ -12,15 +12,17 @@ FAST_SOURCE = FIXTURE_DIR / "fast_source.json"
 def test_parse_fast_produces_valid_bundle() -> None:
     bundle = parse_fast_file(FAST_SOURCE)
     assert len(bundle["vehicle_master"]) == 1
-    assert len(bundle["pnc_categories"]) == 4
+    expected_pncs = json.loads((FIXTURE_DIR / "pnc_categories.json").read_text(encoding="utf-8"))
+    assert len(bundle["pnc_categories"]) == len(expected_pncs)
     oems = {row["oem_part_number"] for row in bundle["part_fitment"]}
-    assert oems == {
+    # Storefront demo OEMs must remain present
+    assert {
         "15208-65F0C",
         "40206-EA00A",
         "21410-JF00A",
         "21010-JF00A",
         "16546-00Q0A",
-    }
+    }.issubset(oems)
 
 
 def test_parse_matches_checked_in_fixtures() -> None:

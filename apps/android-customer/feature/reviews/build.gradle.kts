@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     implementation(project(":pod-camera"))
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")

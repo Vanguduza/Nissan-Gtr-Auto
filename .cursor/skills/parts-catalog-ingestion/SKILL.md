@@ -23,7 +23,7 @@ Align with common single-host catalog / EPC crawls (priority frontier + politene
 | **Priority** | Blessed `queue_mode: "hybrid"` — claim PENDING `/vehicle` (L2) before L5 parts; then deep-first. Do **not** switch long runs back to pure `deep_first` (identity starvation) without explicit operator ask. |
 | **Politeness** | One concurrent FlareSolverr/worker; rate limit ≥1.5s + jitter; exponential backoff. Never raise concurrency on PartSouq without a CF plan. |
 | **Cache** | Preserve VISITED HTML + `scraped_data` / `vehicle_identity`. Queue mode changes only reorder PENDING claims — never wipe DBs/cache to “fix” priority. |
-| **Crawl ≠ parse** | Blessed: `amayama_catalog_auto --crawl-only` + `cache_parse_worker --watch`. Parse owns the bundle; do not dual-write checkpoints that race the watcher. |
+| **Crawl ≠ parse** | Blessed: `amayama_catalog_auto --crawl-only` + `cache_parse_worker --watch` (`--batch-size 75`, `--poll-seconds 10`, `--write-bundle-every 17` — 3× bundle throughput). Parse owns the bundle; do not dual-write checkpoints that race the watcher. |
 | **Multi-make VIN** | Use `config/chassis_catalogs.json` + `--brand` / `allowed_brand`. Curated prefixes when present; else brand `epc_stub`. Never invent full ISO VINs. Orchestrator must pass brand into parse. |
 | **Dedup** | Prefer one `/vehicle` URL per distinct `vid` when implementing claim improvements (`ssd=` variants). |
 | **Exit criteria** | PENDING=0 is insufficient. Gate on: distinct vids visited ≈ enqueued; identities present; parse caught up; CF residuals accepted/cleared; bundle VIN policy; spot-check `search_catalog` modes. |
@@ -36,7 +36,7 @@ Config SoT: `data-pipeline/config/scrape.json` (`queue_mode`, rate limits, Flare
 ## Pipeline Stages
 
 1. **Scrape** PartSouq (FlareSolverr + hybrid queue) → HTML cache + crawl `queue`
-2. **Parse watch** `cache_parse_worker` → `scraped_data`, `vehicle_identity`, mid-run bundle
+2. **Parse watch** `cache_parse_worker` → `scraped_data`, `vehicle_identity`, mid-run bundle (`vehicle_master` merges identity + parts; parts win on dup keys)
 3. **Parse FAST EPC** when in scope — see `/nissan-fast-parser`
 4. **Merge & validate** against `data-pipeline/schemas/`
 5. **Import** diagrams to Supabase Storage; spatial data to `part_fitment`

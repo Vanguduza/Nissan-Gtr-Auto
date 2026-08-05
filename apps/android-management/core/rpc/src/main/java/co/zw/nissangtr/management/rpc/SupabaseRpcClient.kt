@@ -7,20 +7,33 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 /**
  * Live supabase-kt [RpcClient] for HR, POS, warehouse, and pick/DN logistics RPCs.
@@ -205,6 +218,96 @@ class SupabaseRpcClient(
         )
     }
 
+    override suspend fun checkoutPosCartWithTenders(
+        cartId: String,
+        tenders: List<PosTenderLine>,
+        receiptEmail: String?,
+        receiptWhatsappE164: String?,
+        receiptPhoneE164: String?,
+    ): CheckoutPosResult {
+        require(cartId.isNotBlank())
+        require(tenders.isNotEmpty()) { "tenders required for split-bill" }
+        val hadCustomer = getPosCartCustomerId(cartId) != null
+        val tendersJson = kotlinx.serialization.json.buildJsonArray {
+            tenders.forEach { t ->
+                add(
+                    buildJsonObject {
+                        put("tender", t.tender)
+                        put("amount", t.amount)
+                        if (t.currency != null) put("currency", t.currency)
+                        if (t.exchangeRate != null) put("exchange_rate", t.exchangeRate)
+                    },
+                )
+            }
+        }
+        val invoiceId = client.postgrest.rpc(
+            RpcNames.CHECKOUT_POS_CART_WITH_TENDERS,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_tenders", tendersJson)
+                if (receiptEmail.isNullOrBlank()) put("p_receipt_email", JsonNull)
+                else put("p_receipt_email", receiptEmail.trim())
+                if (receiptWhatsappE164.isNullOrBlank()) put("p_receipt_whatsapp_e164", JsonNull)
+                else put("p_receipt_whatsapp_e164", receiptWhatsappE164.trim())
+                if (receiptPhoneE164.isNullOrBlank()) put("p_receipt_phone_e164", JsonNull)
+                else put("p_receipt_phone_e164", receiptPhoneE164.trim())
+            },
+        ).decodeAs<String>()
+
+        val inv = client.from("sales_invoices")
+            .select(
+                Columns.list(
+                    "id",
+                    "customer_id",
+                    "customer_email",
+                    "customer_whatsapp_e164",
+                ),
+            ) {
+                filter { eq("id", invoiceId) }
+                limit(1)
+            }
+            .decodeList<SalesInvoiceContactRow>()
+            .firstOrNull()
+
+        return CheckoutPosResult(
+            invoiceId = invoiceId,
+            customerId = inv?.customerId,
+            receiptEmail = inv?.customerEmail ?: receiptEmail?.trim()?.ifBlank { null },
+            receiptWhatsappE164 = inv?.customerWhatsappE164
+                ?: receiptWhatsappE164?.trim()?.ifBlank { null },
+            hadCustomerBeforeCheckout = hadCustomer,
+        )
+    }
+
+    override suspend fun createEcocashIntent(
+        externalRef: String,
+        payerMsisdn: String,
+        amount: Double,
+        currency: CurrencyCode,
+        payerMode: String,
+        customerId: String?,
+        salesInvoiceId: String?,
+    ): String {
+        require(externalRef.isNotBlank())
+        require(payerMsisdn.isNotBlank())
+        require(amount > 0)
+        return client.postgrest.rpc(
+            RpcNames.CREATE_ECOCASH_INTENT,
+            buildJsonObject {
+                put("p_external_ref", externalRef)
+                put("p_payer_msisdn", payerMsisdn)
+                put("p_amount", amount)
+                put("p_currency", currency.rpcValue)
+                put("p_payer_mode", payerMode)
+                put("p_channel", "pos")
+                if (customerId.isNullOrBlank()) put("p_customer_id", JsonNull)
+                else put("p_customer_id", customerId)
+                if (salesInvoiceId.isNullOrBlank()) put("p_sales_invoice_id", JsonNull)
+                else put("p_sales_invoice_id", salesInvoiceId)
+            },
+        ).decodeAs<String>()
+    }
+
     override suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef {
         val oem = oemPartNumber.trim()
         require(oem.isNotBlank())
@@ -237,6 +340,24 @@ class SupabaseRpcClient(
             },
         ).decodeAs<kotlinx.serialization.json.JsonObject>()
         return parseCatalogSearchResult(raw, mode, query.trim())
+    }
+
+    override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {
+        require(lineId.isNotBlank())
+        require(qty > 0) { "qty must be > 0" }
+        val total = kotlin.math.round(unitPrice * qty * 100.0) / 100.0
+        client.from("pos_cart_lines").update(
+            PosCartLineQtyUpdate(qty = qty, lineTotal = total),
+        ) {
+            filter { eq("id", lineId) }
+        }
+    }
+
+    override suspend fun deletePosCartLine(lineId: String) {
+        require(lineId.isNotBlank())
+        client.from("pos_cart_lines").delete {
+            filter { eq("id", lineId) }
+        }
     }
 
     override suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary> {
@@ -347,6 +468,344 @@ class SupabaseRpcClient(
             .decodeList<PosScanSessionCartRow>()
             .firstOrNull()
             ?.cartId
+    }
+
+    override suspend fun parkPosCart(cartId: String): String {
+        require(cartId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.PARK_POS_CART,
+            buildJsonObject { put("p_cart_id", cartId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun resumePosCart(cartId: String): String {
+        require(cartId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.RESUME_POS_CART,
+            buildJsonObject { put("p_cart_id", cartId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun isPosApprover(): Boolean =
+        client.postgrest.rpc(RpcNames.IS_POS_APPROVER).decodeAs<Boolean>()
+
+    override suspend fun applyPosCartDiscount(
+        cartId: String,
+        discountPercent: Double,
+        notes: String?,
+    ): String {
+        require(cartId.isNotBlank())
+        require(discountPercent in 0.0..100.0)
+        return client.postgrest.rpc(
+            RpcNames.APPLY_POS_CART_DISCOUNT,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_discount_percent", discountPercent)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun applyPosLinePriceOverride(
+        lineId: String,
+        unitPrice: Double,
+        notes: String?,
+    ): String {
+        require(lineId.isNotBlank())
+        require(unitPrice >= 0.0) { "unit price must be >= 0" }
+        return client.postgrest.rpc(
+            RpcNames.APPLY_POS_LINE_PRICE_OVERRIDE,
+            buildJsonObject {
+                put("p_line_id", lineId)
+                put("p_unit_price", unitPrice)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun voidPosCart(cartId: String, notes: String?): String {
+        require(cartId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.VOID_POS_CART,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun postPosRefund(invoiceId: String, notes: String?): String {
+        require(invoiceId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.POST_POS_REFUND,
+            buildJsonObject {
+                put("p_invoice_id", invoiceId)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun createPosQuotationFromCart(
+        cartId: String,
+        validUntil: String?,
+        notes: String?,
+    ): String {
+        require(cartId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CREATE_POS_QUOTATION_FROM_CART,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                if (validUntil.isNullOrBlank()) put("p_valid_until", JsonNull)
+                else put("p_valid_until", validUntil)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull)
+                else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun sendPosQuotation(
+        quotationId: String,
+        channel: String,
+        contact: String?,
+    ): String {
+        require(quotationId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SEND_POS_QUOTATION,
+            buildJsonObject {
+                put("p_quotation_id", quotationId)
+                put("p_channel", channel.trim().lowercase())
+                if (contact.isNullOrBlank()) put("p_contact", JsonNull)
+                else put("p_contact", contact.trim())
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun convertPosQuotationToCart(quotationId: String): String {
+        require(quotationId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.CONVERT_POS_QUOTATION_TO_CART,
+            buildJsonObject { put("p_quotation_id", quotationId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listPosQuotations(
+        status: String?,
+        limit: Int,
+    ): List<PosQuotationSummary> {
+        val rows = client.postgrest.rpc(
+            RpcNames.LIST_POS_QUOTATIONS,
+            buildJsonObject {
+                if (status.isNullOrBlank()) put("p_status", JsonNull)
+                else put("p_status", status.trim().lowercase())
+                put("p_limit", limit.coerceIn(1, 200))
+            },
+        ).decodeList<PosQuotationRow>()
+        return rows.map { row ->
+            PosQuotationSummary(
+                id = row.id,
+                documentNumber = row.documentNumber,
+                customerId = row.customerId,
+                warehouseId = row.warehouseId,
+                currency = CurrencyCode.entries.find { it.rpcValue == row.currency }
+                    ?: CurrencyCode.USD,
+                status = row.status,
+                validUntil = row.validUntil,
+                sentChannel = row.sentChannel,
+                createdAt = row.createdAt,
+                lineCount = row.lineCount,
+                total = row.total,
+            )
+        }
+    }
+
+    override suspend fun pullPosOfflineSnapshot(warehouseId: String): OfflinePosSnapshot {
+        require(warehouseId.isNotBlank())
+        val raw = client.postgrest.rpc(
+            RpcNames.PULL_POS_OFFLINE_SNAPSHOT,
+            buildJsonObject { put("p_warehouse_id", warehouseId) },
+        ).decodeAs<JsonObject>()
+        val currency = CurrencyCode.entries.find {
+            it.rpcValue == raw["currency"]?.jsonPrimitive?.contentOrNull
+        } ?: CurrencyCode.USD
+        val items = raw["items"]?.jsonArray?.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val stockId = o["stock_item_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val oem = o["oem_part_number"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val uom = o["uom_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            OfflineCatalogItem(
+                stockItemId = stockId,
+                oemPartNumber = oem,
+                description = o["description"]?.jsonPrimitive?.contentOrNull,
+                uomId = uom,
+                unitPrice = o["unit_price"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                coreCharge = o["core_charge"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                saleableQty = o["saleable_qty"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                currency = CurrencyCode.entries.find {
+                    it.rpcValue == o["currency"]?.jsonPrimitive?.contentOrNull
+                } ?: currency,
+            )
+        }.orEmpty()
+        return OfflinePosSnapshot(
+            warehouseId = raw["warehouse_id"]?.jsonPrimitive?.contentOrNull ?: warehouseId,
+            pulledAt = raw["pulled_at"]?.jsonPrimitive?.contentOrNull ?: "",
+            priceListId = raw["price_list_id"]?.jsonPrimitive?.contentOrNull,
+            currency = currency,
+            items = items,
+        )
+    }
+
+    override suspend fun replayOfflinePosSale(
+        clientSaleId: String,
+        payload: OfflineSaleReplayPayload,
+    ): String {
+        require(clientSaleId.isNotBlank())
+        require(payload.lines.isNotEmpty())
+        require(payload.tenders.isNotEmpty())
+        return client.postgrest.rpc(
+            RpcNames.REPLAY_OFFLINE_POS_SALE,
+            buildJsonObject {
+                put("p_client_sale_id", clientSaleId)
+                put(
+                    "p_payload",
+                    buildJsonObject {
+                        put("warehouse_id", payload.warehouseId)
+                        put("currency", payload.currency.rpcValue)
+                        put("exchange_rate", payload.exchangeRate)
+                        if (payload.deviceId.isNullOrBlank()) put("device_id", JsonNull)
+                        else put("device_id", payload.deviceId)
+                        putJsonArray("lines") {
+                            payload.lines.forEach { line ->
+                                add(
+                                    buildJsonObject {
+                                        put("stock_item_id", line.stockItemId)
+                                        put("uom_id", line.uomId)
+                                        put("qty", line.qty)
+                                        put("expected_unit_price", line.expectedUnitPrice)
+                                    },
+                                )
+                            }
+                        }
+                        putJsonArray("tenders") {
+                            payload.tenders.forEach { t ->
+                                add(
+                                    buildJsonObject {
+                                        put("tender", t.tender)
+                                        put("amount", t.amount)
+                                        put("currency", t.currency ?: payload.currency.rpcValue)
+                                        if (t.exchangeRate != null) put("exchange_rate", t.exchangeRate)
+                                    },
+                                )
+                            }
+                        }
+                        if (payload.receiptEmail.isNullOrBlank()) put("receipt_email", JsonNull)
+                        else put("receipt_email", payload.receiptEmail)
+                        if (payload.receiptWhatsappE164.isNullOrBlank()) {
+                            put("receipt_whatsapp_e164", JsonNull)
+                        } else {
+                            put("receipt_whatsapp_e164", payload.receiptWhatsappE164)
+                        }
+                        if (payload.receiptPhoneE164.isNullOrBlank()) {
+                            put("receipt_phone_e164", JsonNull)
+                        } else {
+                            put("receipt_phone_e164", payload.receiptPhoneE164)
+                        }
+                        if (payload.soldAt.isNullOrBlank()) put("sold_at", JsonNull)
+                        else put("sold_at", payload.soldAt)
+                    },
+                )
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun resolveStaffLoginEmail(identifier: String): String {
+        require(identifier.isNotBlank()) { "invalid credentials" }
+        return client.postgrest.rpc(
+            RpcNames.RESOLVE_STAFF_LOGIN_EMAIL,
+            buildJsonObject { put("p_identifier", identifier.trim()) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun staffLoginIsLocked(identifier: String): Boolean {
+        val raw = identifier.trim()
+        if (raw.isEmpty()) return false
+        return client.postgrest.rpc(
+            RpcNames.STAFF_LOGIN_IS_LOCKED,
+            buildJsonObject { put("p_identifier", raw) },
+        ).decodeAs<Boolean>()
+    }
+
+    override suspend fun recordStaffLoginAttempt(identifier: String, success: Boolean) {
+        val raw = identifier.trim()
+        if (raw.isEmpty()) return
+        client.postgrest.rpc(
+            RpcNames.RECORD_STAFF_LOGIN_ATTEMPT,
+            buildJsonObject {
+                put("p_identifier", raw)
+                put("p_success", success)
+            },
+        )
+    }
+
+    override suspend fun myDefaultLanding(): String? {
+        val raw = runCatching {
+            client.postgrest.rpc(RpcNames.MY_DEFAULT_LANDING).decodeAs<String>()
+        }.getOrNull()
+        return raw?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+    }
+
+    override suspend fun lookupSaleableQtyByOem(oemPartNumber: String): Double? {
+        val oem = oemPartNumber.trim()
+        if (oem.isEmpty()) return null
+        val item = client.from("stock_items")
+            .select(Columns.list("id")) {
+                filter { eq("oem_part_number", oem) }
+                limit(1)
+            }
+            .decodeList<StockItemIdRow>()
+            .firstOrNull()
+            ?: return null
+        val levels = client.from("stock_levels")
+            .select(Columns.list("quantity")) {
+                filter { eq("stock_item_id", item.id) }
+                limit(200)
+            }
+            .decodeList<StockLevelQtyRow>()
+        return levels.sumOf { it.quantity }
+    }
+
+    /**
+     * Second-user manager reauth for POS approval RPCs.
+     * Saves attendant session → signs in manager → runs [block] → restores attendant.
+     */
+    suspend fun <T> withManagerApproval(
+        managerIdentifier: String,
+        managerPassword: String,
+        block: suspend () -> T,
+    ): T {
+        val attendant = auth.currentSessionOrNull()
+            ?: error("attendant session required before manager approval")
+        val email = resolveStaffLoginEmail(managerIdentifier)
+        try {
+            auth.signInWith(Email) {
+                this.email = email
+                this.password = managerPassword
+            }
+            return block()
+        } finally {
+            auth.importSession(
+                UserSession(
+                    accessToken = attendant.accessToken,
+                    refreshToken = attendant.refreshToken,
+                    expiresIn = attendant.expiresIn,
+                    tokenType = attendant.tokenType,
+                    user = attendant.user,
+                ),
+            )
+        }
     }
 
     override suspend fun postStockReceipt(
@@ -824,6 +1283,15 @@ class SupabaseRpcClient(
             }
             .decodeList<StaffRoleRow>()
             .map { it.role }
+    }
+
+    override suspend fun listMyModuleAccess(): List<String> {
+        val arr = runCatching {
+            client.postgrest.rpc(RpcNames.MY_MODULE_ACCESS).decodeAs<JsonArray>()
+        }.getOrNull() ?: return emptyList()
+        return arr.mapNotNull { el ->
+            (el as? JsonPrimitive)?.content?.trim()?.takeIf { it.isNotEmpty() }
+        }
     }
 
     override suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary> {
@@ -1437,6 +1905,129 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    // --- HR onboarding ---
+
+    override suspend fun listHrOnboardingDrafts(): List<HrOnboardingDraft> {
+        return client.from("hr_onboarding_drafts")
+            .select(
+                Columns.list(
+                    "id",
+                    "employee_id",
+                    "stage",
+                    "payload",
+                    "banking_json",
+                    "health_json",
+                    "completed_at",
+                    "updated_at",
+                ),
+            ) {
+                filter { exact("completed_at", null) }
+                order("updated_at", Order.DESCENDING)
+                limit(40)
+            }
+            .decodeList<HrOnboardingDraftRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun listHrGrades(): List<HrGradeOption> {
+        return client.from("hr_grades")
+            .select(Columns.list("id", "code", "title", "sort_order")) {
+                filter { eq("is_active", true) }
+                order("sort_order", Order.ASCENDING)
+            }
+            .decodeList<HrGradeRow>()
+            .map { it.toOption() }
+    }
+
+    override suspend fun listHrRoles(): List<HrRoleOption> {
+        return client.from("hr_roles")
+            .select(Columns.list("id", "title", "department", "grade_id")) {
+                filter { eq("is_active", true) }
+                order("title", Order.ASCENDING)
+            }
+            .decodeList<HrRoleRow>()
+            .map { it.toOption() }
+    }
+
+    override suspend fun saveHrOnboardingStage(
+        draftId: String?,
+        stage: HrOnboardingStage,
+        payload: Map<String, String?>,
+        bankingJson: Map<String, String?>?,
+        healthJson: Map<String, String?>?,
+        employeeId: String?,
+    ): String {
+        return client.postgrest.rpc(
+            RpcNames.SAVE_HR_ONBOARDING_STAGE,
+            buildJsonObject {
+                if (draftId.isNullOrBlank()) put("p_draft_id", JsonNull)
+                else put("p_draft_id", draftId)
+                put("p_stage", stage.rpcValue)
+                put("p_payload", payload.toJsonObject())
+                if (bankingJson == null) put("p_banking_json", JsonNull)
+                else put("p_banking_json", bankingJson.toJsonObject())
+                if (healthJson == null) put("p_health_json", JsonNull)
+                else put("p_health_json", healthJson.toJsonObject())
+                if (employeeId.isNullOrBlank()) put("p_employee_id", JsonNull)
+                else put("p_employee_id", employeeId)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun completeHrOnboarding(draftId: String): HrOnboardingCompleteResult {
+        require(draftId.isNotBlank())
+        val raw = client.postgrest.rpc(
+            RpcNames.COMPLETE_HR_ONBOARDING,
+            buildJsonObject { put("p_draft_id", draftId) },
+        ).decodeAs<JsonObject>()
+        // Never surface temp_password_hint in UI models.
+        return HrOnboardingCompleteResult(
+            draftId = raw.stringOrNull("draft_id"),
+            employeeId = raw.stringOrNull("employee_id"),
+            employeeCode = raw.stringOrNull("employee_code"),
+            email = raw.stringOrNull("email"),
+            phoneE164 = raw.stringOrNull("phone_e164"),
+            userId = raw.stringOrNull("user_id"),
+            mustChangePassword = raw["must_change_password"]?.jsonPrimitive?.booleanOrNull == true,
+            message = raw.stringOrNull("message"),
+        )
+    }
+
+    override suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult {
+        require(employeeId.isNotBlank())
+        val response = client.functions.invoke(RpcNames.HR_ONBOARDING_CREATE_AUTH_FN) {
+            setBody(
+                buildJsonObject {
+                    put("employee_id", employeeId)
+                },
+            )
+        }
+        val text = response.bodyAsText()
+        val root = Json.parseToJsonElement(text).jsonObject
+        val err = root.stringOrNull("error")
+        if (!err.isNullOrBlank()) error(err)
+        require(root["ok"]?.jsonPrimitive?.booleanOrNull == true) {
+            "hr-onboarding-create-auth failed"
+        }
+        val userId = root.stringOrNull("user_id")
+            ?: error("hr-onboarding-create-auth missing user_id")
+        val channels = root["channels"]?.jsonArray?.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            HrOnboardingAuthChannel(
+                channel = o.stringOrNull("channel") ?: return@mapNotNull null,
+                status = o.stringOrNull("status") ?: "unknown",
+                error = o.stringOrNull("error"),
+            )
+        }.orEmpty()
+        return HrOnboardingAuthResult(
+            employeeId = root.stringOrNull("employee_id") ?: employeeId,
+            userId = userId,
+            created = root["created"]?.jsonPrimitive?.booleanOrNull == true,
+            mustChangePassword = root["must_change_password"]?.jsonPrimitive?.booleanOrNull != false,
+            channels = channels,
+        )
+    }
+
     companion object {
         private val UUID_REGEX =
             Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)
@@ -1448,6 +2039,7 @@ class SupabaseRpcClient(
             ) {
                 install(Auth)
                 install(Postgrest)
+                install(Functions)
             }
             return SupabaseRpcClient(client)
         }
@@ -1523,6 +2115,16 @@ private data class StockItemRow(
     val id: String,
     @SerialName("base_uom_id") val baseUomId: String,
     @SerialName("oem_part_number") val oemPartNumber: String,
+)
+
+@Serializable
+private data class StockItemIdRow(
+    val id: String,
+)
+
+@Serializable
+private data class StockLevelQtyRow(
+    val quantity: Double = 0.0,
 )
 
 @Serializable
@@ -1695,6 +2297,21 @@ private data class PosScanSessionCartRow(
 )
 
 @Serializable
+private data class PosQuotationRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String? = null,
+    @SerialName("customer_id") val customerId: String? = null,
+    @SerialName("warehouse_id") val warehouseId: String,
+    val currency: String,
+    val status: String,
+    @SerialName("valid_until") val validUntil: String? = null,
+    @SerialName("sent_channel") val sentChannel: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("line_count") val lineCount: Long = 0,
+    val total: Double = 0.0,
+)
+
+@Serializable
 private data class PosCartLineRow(
     val id: String,
     @SerialName("stock_item_id") val stockItemId: String,
@@ -1702,6 +2319,12 @@ private data class PosCartLineRow(
     @SerialName("unit_price") val unitPrice: Double,
     @SerialName("line_total") val lineTotal: Double,
     @SerialName("is_core_charge") val isCoreCharge: Boolean = false,
+)
+
+@Serializable
+private data class PosCartLineQtyUpdate(
+    val qty: Double,
+    @SerialName("line_total") val lineTotal: Double,
 )
 
 @Serializable
@@ -1876,6 +2499,67 @@ private data class FleetVehicleRow(
         assignedDriverUserId = assignedDriverUserId,
         notes = notes,
     )
+}
+
+@Serializable
+private data class HrOnboardingDraftRow(
+    val id: String,
+    @SerialName("employee_id") val employeeId: String? = null,
+    val stage: String,
+    val payload: JsonObject? = null,
+    @SerialName("banking_json") val bankingJson: JsonObject? = null,
+    @SerialName("health_json") val healthJson: JsonObject? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String,
+) {
+    fun toSummary() = HrOnboardingDraft(
+        id = id,
+        employeeId = employeeId,
+        stage = HrOnboardingStage.fromRpc(stage),
+        payload = payload?.toStringMap().orEmpty(),
+        bankingJson = bankingJson?.toStringMap(),
+        healthJson = healthJson?.toStringMap(),
+        completedAt = completedAt,
+        updatedAt = updatedAt,
+    )
+}
+
+@Serializable
+private data class HrGradeRow(
+    val id: String,
+    val code: String,
+    val title: String,
+    @SerialName("sort_order") val sortOrder: Int = 100,
+) {
+    fun toOption() = HrGradeOption(id = id, code = code, title = title, sortOrder = sortOrder)
+}
+
+@Serializable
+private data class HrRoleRow(
+    val id: String,
+    val title: String,
+    val department: String? = null,
+    @SerialName("grade_id") val gradeId: String? = null,
+) {
+    fun toOption() = HrRoleOption(id = id, title = title, department = department, gradeId = gradeId)
+}
+
+private fun JsonObject.stringOrNull(key: String): String? =
+    this[key]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+
+private fun JsonObject.toStringMap(): Map<String, String?> =
+    entries.associate { (k, v) ->
+        k to when (v) {
+            is JsonPrimitive -> v.contentOrNull
+            JsonNull -> null
+            else -> v.toString()
+        }
+    }
+
+private fun Map<String, String?>.toJsonObject(): JsonObject = buildJsonObject {
+    forEach { (k, v) ->
+        if (v == null) put(k, JsonNull) else put(k, v)
+    }
 }
 
 private fun parseCatalogSearchResult(

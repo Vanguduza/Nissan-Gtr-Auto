@@ -9,6 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Documented live RPC → param map:
  * - [RpcNames.CLOCK_ATTENDANCE]: p_employee_id, p_event_type, p_occurred_at?, p_notes?
+ * - [RpcNames.SAVE_HR_ONBOARDING_STAGE] / [RpcNames.COMPLETE_HR_ONBOARDING]
+ * - createHrOnboardingAuthUser → Edge [RpcNames.HR_ONBOARDING_CREATE_AUTH_FN]
+ * - listHrOnboardingDrafts / listHrGrades / listHrRoles: PostgREST
  * - [RpcNames.CREATE_POS_CART]: p_warehouse_id, p_customer_id?, p_currency, p_fulfillment_mode?
  * - [RpcNames.ADD_CART_LINE]: p_cart_id, p_stock_item_id, p_uom_id, p_qty
  * - [RpcNames.ADD_CART_LINE_FROM_QR]: p_cart_id, p_qr_payload, p_qty?
@@ -79,6 +82,8 @@ class FakeRpcClient : RpcClient {
     private val claimedSessions = mutableSetOf<String>()
     /** sessionId → cartId (after claim) */
     private val claimedSessionCarts = mutableMapOf<String, String>()
+    /** client_sale_id → invoice_id (offline replay idempotency). */
+    private val offlineSaleReceipts = mutableMapOf<String, String>()
     private val pendingTransfers = mutableSetOf<String>()
     private val reconDrafts = mutableSetOf<String>()
     private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
@@ -393,6 +398,36 @@ class FakeRpcClient : RpcClient {
         )
     }
 
+    override suspend fun checkoutPosCartWithTenders(
+        cartId: String,
+        tenders: List<PosTenderLine>,
+        receiptEmail: String?,
+        receiptWhatsappE164: String?,
+        receiptPhoneE164: String?,
+    ): CheckoutPosResult {
+        require(cartId.isNotBlank()) {
+            "cartId required for ${RpcNames.CHECKOUT_POS_CART_WITH_TENDERS}"
+        }
+        require(tenders.isNotEmpty()) { "tenders required" }
+        require(tenders.all { it.amount > 0 }) { "each tender amount must be > 0" }
+        return checkoutPosCart(cartId, receiptEmail, receiptWhatsappE164, receiptPhoneE164)
+    }
+
+    override suspend fun createEcocashIntent(
+        externalRef: String,
+        payerMsisdn: String,
+        amount: Double,
+        currency: CurrencyCode,
+        payerMode: String,
+        customerId: String?,
+        salesInvoiceId: String?,
+    ): String {
+        require(externalRef.isNotBlank())
+        require(payerMsisdn.isNotBlank())
+        require(amount > 0)
+        return UUID.randomUUID().toString()
+    }
+
     override suspend fun lookupStockItemByOem(oemPartNumber: String): StockItemRef {
         val oem = oemPartNumber.trim()
         require(oem.isNotBlank()) { "oemPartNumber required" }
@@ -417,15 +452,43 @@ class FakeRpcClient : RpcClient {
                 pncCode = "PNC-001",
                 categoryName = "Demo",
                 subcategoryName = mode.rpcValue,
+                saleableQty = 4.0,
             ),
             CatalogPartHit(
                 oemPartNumber = "P2-POS-SMOKE-001",
                 pncCode = "PNC-002",
                 categoryName = "Brakes",
                 subcategoryName = "Pads",
+                saleableQty = 12.0,
             ),
         )
         return CatalogSearchResult(mode = mode, query = q, parts = parts)
+    }
+
+    override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {
+        require(lineId.isNotBlank()) { "lineId required" }
+        require(qty > 0) { "qty must be > 0" }
+        cartLines.values.forEach { lines ->
+            val idx = lines.indexOfFirst { it.id == lineId }
+            if (idx >= 0) {
+                val prev = lines[idx]
+                lines[idx] = prev.copy(
+                    qty = qty,
+                    unitPrice = unitPrice,
+                    lineTotal = kotlin.math.round(unitPrice * qty * 100.0) / 100.0,
+                )
+                return
+            }
+        }
+        error("cart line not found: $lineId")
+    }
+
+    override suspend fun deletePosCartLine(lineId: String) {
+        require(lineId.isNotBlank()) { "lineId required" }
+        cartLines.values.forEach { lines ->
+            if (lines.removeAll { it.id == lineId }) return
+        }
+        error("cart line not found: $lineId")
     }
 
     override suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary> {
@@ -482,6 +545,272 @@ class FakeRpcClient : RpcClient {
         openScanSessions.values.firstOrNull { it.first == sessionId }?.let { return it.second }
         // After claim the open map entry is gone — track claimed cart via reverse lookup from create
         return claimedSessionCarts[sessionId]
+    }
+
+    private val parkedCarts = mutableSetOf<String>()
+    private val quotations = mutableListOf<PosQuotationSummary>()
+    private var fakeIsPosApprover = true
+
+    fun setFakePosApprover(value: Boolean) {
+        fakeIsPosApprover = value
+    }
+
+    override suspend fun parkPosCart(cartId: String): String {
+        require(cartId.isNotBlank()) { "cartId required for ${RpcNames.PARK_POS_CART}" }
+        require(openCarts.contains(cartId)) { "open cart required" }
+        parkedCarts.add(cartId)
+        return cartId
+    }
+
+    override suspend fun resumePosCart(cartId: String): String {
+        require(cartId.isNotBlank()) { "cartId required for ${RpcNames.RESUME_POS_CART}" }
+        require(parkedCarts.remove(cartId)) { "parked cart required" }
+        openCarts.add(cartId)
+        return cartId
+    }
+
+    override suspend fun isPosApprover(): Boolean = fakeIsPosApprover
+
+    override suspend fun applyPosCartDiscount(
+        cartId: String,
+        discountPercent: Double,
+        notes: String?,
+    ): String {
+        require(fakeIsPosApprover) { "admin or shop manager approval required" }
+        require(cartId.isNotBlank())
+        require(discountPercent in 0.0..100.0)
+        val lines = cartLines[cartId] ?: error("cart not found")
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (line.isCoreCharge) continue
+            val unit = kotlin.math.round(line.unitPrice * (1 - discountPercent / 100.0) * 10000.0) / 10000.0
+            lines[i] = line.copy(
+                unitPrice = unit,
+                lineTotal = kotlin.math.round(unit * line.qty * 100.0) / 100.0,
+            )
+        }
+        return cartId
+    }
+
+    override suspend fun voidPosCart(cartId: String, notes: String?): String {
+        require(fakeIsPosApprover) { "admin or shop manager approval required" }
+        require(cartId.isNotBlank())
+        openCarts.remove(cartId)
+        parkedCarts.remove(cartId)
+        cartLines.remove(cartId)
+        return cartId
+    }
+
+    override suspend fun postPosRefund(invoiceId: String, notes: String?): String {
+        require(fakeIsPosApprover) { "admin or shop manager approval required" }
+        require(invoiceId.isNotBlank()) { "invoiceId required for ${RpcNames.POST_POS_REFUND}" }
+        // Fake: finance pipeline id — same SoR name as Live post_finance_refund.
+        return UUID.randomUUID().toString()
+    }
+
+    override suspend fun createPosQuotationFromCart(
+        cartId: String,
+        validUntil: String?,
+        notes: String?,
+    ): String {
+        require(cartId.isNotBlank())
+        val lines = cartLines[cartId].orEmpty()
+        require(lines.any { !it.isCoreCharge }) { "quotation requires at least one non-core line" }
+        val id = UUID.randomUUID().toString()
+        quotations.add(
+            0,
+            PosQuotationSummary(
+                id = id,
+                documentNumber = "QT-FAKE-${quotations.size + 1}",
+                customerId = cartCustomers[cartId],
+                warehouseId = FAKE_WAREHOUSE_ID,
+                currency = CurrencyCode.USD,
+                status = "issued",
+                validUntil = validUntil,
+                sentChannel = null,
+                createdAt = "2026-08-03T00:00:00Z",
+                lineCount = lines.size.toLong(),
+                total = lines.filter { !it.isCoreCharge }.sumOf { it.lineTotal },
+            ),
+        )
+        return id
+    }
+
+    override suspend fun sendPosQuotation(
+        quotationId: String,
+        channel: String,
+        contact: String?,
+    ): String {
+        require(quotationId.isNotBlank())
+        val ch = channel.trim().lowercase()
+        require(ch in setOf("print", "email", "sms", "whatsapp")) { "invalid channel" }
+        if (ch != "print") require(!contact.isNullOrBlank()) { "contact required" }
+        val idx = quotations.indexOfFirst { it.id == quotationId }
+        require(idx >= 0) { "quotation not found" }
+        quotations[idx] = quotations[idx].copy(status = "sent", sentChannel = ch)
+        return quotationId
+    }
+
+    override suspend fun convertPosQuotationToCart(quotationId: String): String {
+        require(quotationId.isNotBlank())
+        val idx = quotations.indexOfFirst { it.id == quotationId }
+        require(idx >= 0) { "quotation not found" }
+        val q = quotations[idx]
+        require(q.status in setOf("issued", "sent")) { "cannot convert status=${q.status}" }
+        quotations[idx] = q.copy(status = "converted")
+        val cartId = UUID.randomUUID().toString()
+        openCarts.add(cartId)
+        cartLines[cartId] = mutableListOf(
+            PosCartLineSummary(
+                id = UUID.randomUUID().toString(),
+                stockItemId = FAKE_STOCK_ITEM_ID,
+                oemPartNumber = "OEM-QUOTE",
+                qty = 1.0,
+                unitPrice = q.total.coerceAtLeast(1.0),
+                lineTotal = q.total.coerceAtLeast(1.0),
+            ),
+        )
+        return cartId
+    }
+
+    override suspend fun listPosQuotations(
+        status: String?,
+        limit: Int,
+    ): List<PosQuotationSummary> =
+        quotations
+            .filter { status.isNullOrBlank() || it.status.equals(status, ignoreCase = true) }
+            .take(limit.coerceIn(1, 200))
+
+    override suspend fun pullPosOfflineSnapshot(warehouseId: String): OfflinePosSnapshot {
+        require(warehouseId.isNotBlank()) { "warehouseId required for ${RpcNames.PULL_POS_OFFLINE_SNAPSHOT}" }
+        val oemA = "P2-POS-SMOKE-001"
+        val oemB = "FAKE-PAD-001"
+        val refA = lookupStockItemByOem(oemA)
+        val refB = lookupStockItemByOem(oemB)
+        return OfflinePosSnapshot(
+            warehouseId = warehouseId,
+            pulledAt = "2026-08-03T00:00:00Z",
+            priceListId = "00000000-0000-4000-8000-0000000000pl",
+            currency = CurrencyCode.USD,
+            items = listOf(
+                OfflineCatalogItem(
+                    stockItemId = refA.stockItemId,
+                    oemPartNumber = oemA,
+                    description = "Smoke pad",
+                    uomId = refA.uomId,
+                    unitPrice = 12.5,
+                    coreCharge = 0.0,
+                    saleableQty = 20.0,
+                    currency = CurrencyCode.USD,
+                ),
+                OfflineCatalogItem(
+                    stockItemId = refB.stockItemId,
+                    oemPartNumber = oemB,
+                    description = "Demo pad",
+                    uomId = refB.uomId,
+                    unitPrice = 8.0,
+                    coreCharge = 2.0,
+                    saleableQty = 5.0,
+                    currency = CurrencyCode.USD,
+                ),
+            ),
+        )
+    }
+
+    override suspend fun replayOfflinePosSale(
+        clientSaleId: String,
+        payload: OfflineSaleReplayPayload,
+    ): String {
+        require(clientSaleId.isNotBlank()) { "clientSaleId required for ${RpcNames.REPLAY_OFFLINE_POS_SALE}" }
+        offlineSaleReceipts[clientSaleId]?.let { return it }
+        require(payload.warehouseId.isNotBlank()) { "warehouseId required" }
+        require(payload.lines.isNotEmpty()) { "lines required" }
+        require(payload.tenders.isNotEmpty()) { "tenders required" }
+        require(payload.tenders.all { it.tender.equals("cash", ignoreCase = true) }) {
+            "offline_tender_not_allowed: cash only"
+        }
+        val snap = pullPosOfflineSnapshot(payload.warehouseId)
+        for (line in payload.lines) {
+            require(line.qty > 0) { "qty must be > 0" }
+            val item = snap.items.find { it.stockItemId == line.stockItemId }
+                ?: throw IllegalStateException("offline_price_conflict: unknown item ${line.stockItemId}")
+            if (kotlin.math.abs(item.unitPrice - line.expectedUnitPrice) > 0.05) {
+                throw IllegalStateException(
+                    "offline_price_conflict: item ${line.stockItemId} expected ${line.expectedUnitPrice} got ${item.unitPrice}",
+                )
+            }
+        }
+        val invoiceId = UUID.randomUUID().toString()
+        offlineSaleReceipts[clientSaleId] = invoiceId
+        return invoiceId
+    }
+
+    override suspend fun resolveStaffLoginEmail(identifier: String): String {
+        val raw = identifier.trim()
+        require(raw.isNotBlank()) { "invalid credentials" }
+        return when {
+            raw.contains("@") -> raw.lowercase()
+            raw.equals("GTRB1001", ignoreCase = true) -> "manager@gtr.local"
+            raw.startsWith("+") || raw.all { it.isDigit() } -> "phone.staff@gtr.local"
+            else -> "$raw@staff.gtr.local"
+        }
+    }
+
+    private val loginFailCounts = mutableMapOf<String, Int>()
+    private var fakeDefaultLanding: String? = null
+
+    /** Test hook: set organogram landing override (`pos`|`hub`|null). */
+    fun setFakeDefaultLanding(value: String?) {
+        fakeDefaultLanding = value?.trim()?.lowercase()
+    }
+
+    override suspend fun staffLoginIsLocked(identifier: String): Boolean {
+        val key = identifier.trim().lowercase()
+        if (key.isEmpty()) return false
+        return (loginFailCounts[key] ?: 0) >= 5
+    }
+
+    override suspend fun recordStaffLoginAttempt(identifier: String, success: Boolean) {
+        val key = identifier.trim().lowercase()
+        if (key.isEmpty()) return
+        if (success) {
+            loginFailCounts.remove(key)
+        } else {
+            loginFailCounts[key] = (loginFailCounts[key] ?: 0) + 1
+        }
+    }
+
+    override suspend fun myDefaultLanding(): String? = fakeDefaultLanding
+
+    override suspend fun applyPosLinePriceOverride(
+        lineId: String,
+        unitPrice: Double,
+        notes: String?,
+    ): String {
+        require(fakeIsPosApprover) { "admin or shop manager approval required" }
+        require(lineId.isNotBlank())
+        require(unitPrice >= 0.0) { "unit price must be >= 0" }
+        cartLines.values.forEach { lines ->
+            val idx = lines.indexOfFirst { it.id == lineId }
+            if (idx >= 0) {
+                val prev = lines[idx]
+                require(!prev.isCoreCharge) { "cannot override core-charge lines" }
+                val unit = kotlin.math.round(unitPrice * 10000.0) / 10000.0
+                lines[idx] = prev.copy(
+                    unitPrice = unit,
+                    lineTotal = kotlin.math.round(unit * prev.qty * 100.0) / 100.0,
+                )
+                return lineId
+            }
+        }
+        error("line not found: $lineId")
+    }
+
+    override suspend fun lookupSaleableQtyByOem(oemPartNumber: String): Double? {
+        val oem = oemPartNumber.trim()
+        if (oem.isEmpty()) return null
+        // Deterministic demo qty for Fake catalog tiles.
+        return if (oem.contains("SMOKE", ignoreCase = true)) 12.0 else 4.0
     }
 
     override suspend fun postStockReceipt(
@@ -902,7 +1231,9 @@ class FakeRpcClient : RpcClient {
     override fun currentUserId(): String? = fakeStaffUserId
 
     override suspend fun listMyStaffRoles(): List<String> =
-        listOf("admin", "sales", "warehouse", "finance")
+        listOf("admin", "hr", "sales", "warehouse", "finance")
+
+    override suspend fun listMyModuleAccess(): List<String> = emptyList()
 
     override suspend fun searchCustomers(query: String): List<CustomerOption> {
         val q = query.trim()
@@ -1295,6 +1626,138 @@ class FakeRpcClient : RpcClient {
         return id
     }
 
+    // --- HR onboarding ---
+
+    private val hrOnboardingDrafts = mutableListOf(
+        HrOnboardingDraft(
+            id = FAKE_HR_DRAFT_ID,
+            employeeId = null,
+            stage = HrOnboardingStage.PERSONAL,
+            payload = mapOf(
+                "full_name" to "Fake New Hire",
+                "email" to "newhire@example.com",
+                "phone_e164" to "+263771000999",
+                "grade_id" to FAKE_HR_GRADE_ID,
+            ),
+            bankingJson = null,
+            healthJson = null,
+            completedAt = null,
+            updatedAt = "2026-08-03T12:00:00Z",
+        ),
+    )
+    private val hrGrades = listOf(
+        HrGradeOption(FAKE_HR_GRADE_ID, "A1", "Grade A1", 10),
+        HrGradeOption(FAKE_HR_GRADE_ID_2, "B2", "Grade B2", 20),
+    )
+    private val hrRoles = listOf(
+        HrRoleOption(FAKE_HR_ROLE_ID, "Parts Counter", "Sales", FAKE_HR_GRADE_ID),
+        HrRoleOption(FAKE_HR_ROLE_ID_2, "Warehouse Clerk", "Warehouse", FAKE_HR_GRADE_ID_2),
+    )
+    private val hrDraftSeq = AtomicInteger(2)
+
+    override suspend fun listHrOnboardingDrafts(): List<HrOnboardingDraft> =
+        hrOnboardingDrafts.filter { it.completedAt == null }
+            .sortedByDescending { it.updatedAt }
+
+    override suspend fun listHrGrades(): List<HrGradeOption> =
+        hrGrades.sortedBy { it.sortOrder }
+
+    override suspend fun listHrRoles(): List<HrRoleOption> =
+        hrRoles.sortedBy { it.title }
+
+    override suspend fun saveHrOnboardingStage(
+        draftId: String?,
+        stage: HrOnboardingStage,
+        payload: Map<String, String?>,
+        bankingJson: Map<String, String?>?,
+        healthJson: Map<String, String?>?,
+        employeeId: String?,
+    ): String {
+        val now = java.time.Instant.now().toString()
+        if (draftId.isNullOrBlank()) {
+            val id = "00000000-0000-4000-8000-0000000000h${hrDraftSeq.getAndIncrement()}"
+            hrOnboardingDrafts.add(
+                0,
+                HrOnboardingDraft(
+                    id = id,
+                    employeeId = employeeId,
+                    stage = stage,
+                    payload = payload,
+                    bankingJson = bankingJson,
+                    healthJson = healthJson,
+                    completedAt = null,
+                    updatedAt = now,
+                ),
+            )
+            return id
+        }
+        val idx = hrOnboardingDrafts.indexOfFirst { it.id == draftId }
+        require(idx >= 0) { "onboarding draft not found" }
+        val prev = hrOnboardingDrafts[idx]
+        require(prev.completedAt == null) { "onboarding already completed" }
+        hrOnboardingDrafts[idx] = prev.copy(
+            stage = stage,
+            payload = payload,
+            bankingJson = bankingJson ?: prev.bankingJson,
+            healthJson = healthJson ?: prev.healthJson,
+            employeeId = employeeId ?: prev.employeeId,
+            updatedAt = now,
+        )
+        return draftId
+    }
+
+    override suspend fun completeHrOnboarding(draftId: String): HrOnboardingCompleteResult {
+        require(draftId.isNotBlank())
+        val idx = hrOnboardingDrafts.indexOfFirst { it.id == draftId }
+        require(idx >= 0) { "onboarding draft not found" }
+        val draft = hrOnboardingDrafts[idx]
+        require(draft.completedAt == null) { "onboarding already completed" }
+        require(!draft.payload["full_name"].isNullOrBlank()) { "payload.full_name required" }
+        require(!draft.payload["grade_id"].isNullOrBlank()) { "payload.grade_id required" }
+        require(draft.bankingJson != null) { "banking_json required before completion" }
+        val gradeCode = hrGrades.firstOrNull { it.id == draft.payload["grade_id"] }?.code ?: "A1"
+        val empId = draft.employeeId ?: UUID.randomUUID().toString()
+        val empCode = "GTR${gradeCode}001"
+        val userId = draft.payload["user_id"]
+        val now = java.time.Instant.now().toString()
+        hrOnboardingDrafts[idx] = draft.copy(
+            employeeId = empId,
+            stage = HrOnboardingStage.CREDENTIALS,
+            completedAt = now,
+            updatedAt = now,
+            payload = draft.payload + mapOf(
+                "employee_code" to empCode,
+                "completed" to "true",
+            ),
+        )
+        return HrOnboardingCompleteResult(
+            draftId = draftId,
+            employeeId = empId,
+            employeeCode = empCode,
+            email = draft.payload["email"],
+            phoneE164 = draft.payload["phone_e164"],
+            userId = userId,
+            mustChangePassword = !userId.isNullOrBlank(),
+            message = "Fake complete — create auth via Edge when user_id absent",
+        )
+    }
+
+    override suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult {
+        require(employeeId.isNotBlank())
+        val userId = UUID.randomUUID().toString()
+        return HrOnboardingAuthResult(
+            employeeId = employeeId,
+            userId = userId,
+            created = true,
+            mustChangePassword = true,
+            channels = listOf(
+                HrOnboardingAuthChannel("email", "stub"),
+                HrOnboardingAuthChannel("sms", "stub"),
+                HrOnboardingAuthChannel("whatsapp", "skipped"),
+            ),
+        )
+    }
+
     override suspend fun listStaffChatThreads(filter: StaffChatFilter): List<ChatThreadSummary> {
         val uid = fakeStaffUserId
         return chatThreads.filter { t ->
@@ -1380,6 +1843,11 @@ class FakeRpcClient : RpcClient {
         const val FAKE_BIN_B_ID = "00000000-0000-4000-8000-0000000000bb"
         const val FAKE_CONSIGNMENT_ID = "00000000-0000-4000-8000-0000000000n1"
         const val FAKE_FLEET_VEHICLE_ID = "00000000-0000-4000-8000-0000000000fv"
+        const val FAKE_HR_DRAFT_ID = "00000000-0000-4000-8000-0000000000hd"
+        const val FAKE_HR_GRADE_ID = "00000000-0000-4000-8000-0000000000hg"
+        const val FAKE_HR_GRADE_ID_2 = "00000000-0000-4000-8000-0000000000hh"
+        const val FAKE_HR_ROLE_ID = "00000000-0000-4000-8000-0000000000hr"
+        const val FAKE_HR_ROLE_ID_2 = "00000000-0000-4000-8000-0000000000hs"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"

@@ -66,7 +66,7 @@ Each maker gets its own `--state-db`, `--cache-dir`, `--out-dir`, `--parse-db`, 
 
 1. Start **parse watcher** first (`cache_parse_worker --watch`) so early HTML is not missed.
 2. Start **crawl** (`amayama_catalog_auto --local-ip --until-complete --crawl-only`) and leave it running.
-3. Watcher parses new cache, builds `vehicle_identity`, backfills, refreshes the bundle — **while scrape continues**.
+3. Watcher parses new cache, builds `vehicle_identity`, backfills, refreshes the bundle — **while scrape continues**. Blessed throughput is **3×** vs the prior runbook (`--batch-size 75`, `--poll-seconds 10`, `--write-bundle-every 17`; §6).
 4. When crawl exits, stop **only** that maker’s watcher PID, run `--once` catch-up, then optional `--transform-only` / `--import-dry-run` / `--live-import` / diagram flags.
 
 ### Parallelism / resource cost
@@ -139,7 +139,7 @@ amayama_catalog_auto  ──HTML──►  out/<maker>_cache
 | **`crawler_state.db`** | Crawl `queue` + `scraped_data` (WAL). Parse worker reads queue read-only; writes only `scraped_data` |
 | **`cache_parse_worker`** | Watches visited URLs + cache; parses parts + vehicle identity; refreshes JSON bundle |
 | **`out/cache_parse_state.db`** | Parse queue + `vehicle_identity` (+ `unmapped_chassis` discovery) |
-| **Transform** | `scraped_data` → `vehicle_master` / `pnc_categories` / `part_fitment` / `diagram_assets` |
+| **Transform** | `vehicle_identity` + `scraped_data` → `vehicle_master` / `pnc_categories` / `part_fitment` / `diagram_assets` (parts rows win on duplicate vehicle keys) |
 | **Import** | Idempotent upsert; optional diagram download/upload |
 | **Supabase FTS** | Interim index; Meili later when volume/typo/facets justify it |
 
@@ -220,8 +220,9 @@ Do **not** treat “PENDING≈0” alone as done. Competitive catalog jobs gate 
 | Hybrid priority | **Live** | `queue_mode: hybrid` |
 | Politeness + FS session | **Live** | concurrency 1, persist + keepalive, watchdog |
 | Crawl / parse split + cache | **Live** | `--crawl-only` + watcher |
+| **Parse / bundle throughput (3×)** | **Live** | Watcher defaults: `--batch-size 75`, `--poll-seconds 10`, `--write-bundle-every 17` (~3× pages/pass, poll rate, bundle refresh vs prior 25 / 30 / 50) |
 | **ssd / vid dedup** | Follow-on | Prefer one PENDING `/vehicle` URL per distinct `vid` |
-| **FS session recycle** | Ops / follow-on | Destroy+recreate session after N requests or repeated 500s (watchdog already covers some crashes) |
+| **FS session recycle** | **Live** | Auto destroy+recreate after 3 consecutive CF blocks; stale `PROCESSING` reclaim (>15m); crawl waits/backoffs when FS down |
 | Unmapped chassis | **Live** | `python -m data_pipeline.chassis_discovery --list` / `--export-stubs` — never invent prefixes |
 
 ---
@@ -292,7 +293,19 @@ The watcher **never** changes the crawl `queue` table. It only:
 - Reads HTML from the cache directory
 - Upserts `scraped_data` rows for those URLs
 - Maintains `vehicle_identity` in `out/cache_parse_state.db`
-- Periodically rewrites the catalog JSON bundle
+- Periodically rewrites the catalog JSON bundle (blessed: every **17** pages, **75** pages/batch, **10**s poll — §6). **`vehicle_master` merges `vehicle_identity` with parts-derived rows** so VIN/garage coverage tracks `/vehicle` pages even before L5 fitments exist; parts-derived rows win on duplicate natural keys.
+
+### Bundle refresh (`vehicle_master` + fitments)
+
+On each bundle write, `refresh_bundle`:
+
+1. Transforms **`scraped_data`** (parts pages) → fitments, diagrams, PNCs, and any vehicle rows inferred from stamped parts context.
+2. Expands **`vehicle_identity`** (`/vehicle` pages) → additional `vehicle_master` rows via the same `decode_from_chassis` / VIN enrichment path.
+3. **Merges** both sets; when the same `(vin_prefix, chassis_code, engine_code, production_year, model_variant)` appears in both, the **parts-derived** row wins (hotspot context is authoritative for engine/year).
+
+So **`vehicle_identity` count can exceed `vehicle_master` only after merge dedup** (many vids → fewer chassis/engine/year rows), not because identities were omitted. **`part_fitment` still requires visited parts pages** — identity-only vehicles appear in VIN/model search before hotspots land.
+
+`parse_bundle_meta.json` includes `vehicles`, `vehicles_from_identity`, `vehicles_from_parts`, and `identities` for ops checks.
 
 ### Identity path (`/vehicle` pages)
 
@@ -365,7 +378,7 @@ cd data-pipeline
 pip install -e ".[dev,scraping,supabase]"
 patchright install chromium
 
-# FlareSolverr (repo root)
+# FlareSolverr (repo root) — required; crawl waits up to 1h if Docker is starting
 docker compose -f docker-compose.satellites.yml --profile scrape up -d
 
 export SUPABASE_URL=...
@@ -388,6 +401,8 @@ python -m data_pipeline.amayama_catalog_auto \
 ```
 
 Confirm in the crawl log: `Until-complete mode ON (queue_mode=hybrid, …)`.
+
+**Crawl stalled (visited count flat, no new cache):** check FlareSolverr at `http://127.0.0.1:8191/health`. If down, start Docker Desktop then `docker start gtr-flaresolverr` (or compose `up -d`). Restart crawl with `requeue_failed` (automatic on `--until-complete` rounds) — do **not** wipe `crawler_state.db`. The blessed crawl now waits for FS on startup and backs off in-worker when FS drops mid-run.
 
 **Toyota (configure-for-other-makes — live crawl gate; VIN map still Nissan-centric):**
 
@@ -416,7 +431,9 @@ Start **before or alongside** crawl so new `/vehicle` HTML is mapped promptly un
 
 ```bash
 # Catch-up on every pass is ON by default (re-stamp scraped_data from vehicle_identity)
-python -m data_pipeline.cache_parse_worker --watch --poll-seconds 30 --write-bundle-every 50 \
+# Blessed 3× bundle throughput: larger batches, faster poll, more frequent bundle refresh
+python -m data_pipeline.cache_parse_worker --watch \
+  --poll-seconds 10 --batch-size 75 --write-bundle-every 17 \
   --state-db crawler_state.db \
   --cache-dir out/partsouq_cache \
   --parse-db out/cache_parse_state.db \
@@ -427,10 +444,15 @@ python -m data_pipeline.cache_parse_worker --watch --poll-seconds 30 --write-bun
 |------|---------|
 | `--once` | Single pass (default if neither `--once` nor `--watch`) |
 | `--watch` | Loop forever; poll for new/changed cache |
-| `--poll-seconds` | Sleep between passes (blessed runbook: 30) |
+| `--poll-seconds` | Sleep between passes (blessed: **10**; prior runbook: 30) |
+| `--batch-size` | Pages parsed per inner loop (blessed: **75**; prior: 25) |
 | `--no-catch-up` | Skip start-of-pass `backfill_all_identities` |
 | `--limit N` | Cap pages parsed this pass |
-| `--write-bundle-every N` | Rewrite JSON every N pages (blessed: 50; `0` = end of pass only) |
+| `--write-bundle-every N` | Rewrite JSON every N pages (blessed: **17** ≈3× refresh rate vs 50; `0` = end of pass only) |
+
+**Bundle meta:** `out/…_bundle/parse_bundle_meta.json` reports `vehicles`, `vehicles_from_identity`, `vehicles_from_parts`, `identities`, and fitment/diagram counts after each refresh.
+
+**Restart parse only** to pick up new watcher flags — leave crawl and `catalogue_watchdog` untouched.
 
 ### C. How catch-up avoids missed cache after watcher restart
 

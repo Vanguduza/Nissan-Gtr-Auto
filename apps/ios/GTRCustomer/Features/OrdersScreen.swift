@@ -9,10 +9,12 @@ struct OrdersScreen: View {
     @State private var busy = false
 
     var body: some View {
-        List {
+        ShopDefaultScreen(title: "Orders", subtitle: "History · track", scrollable: false) {
+            List {
             if orders.isEmpty {
                 Text("No orders yet")
-                    .foregroundStyle(.secondary)
+                    .font(GTRType.body(.subheadline))
+                    .foregroundStyle(GTRColors.silverDim)
             }
             ForEach(orders) { order in
                 NavigationLink {
@@ -20,19 +22,19 @@ struct OrdersScreen: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(order.documentNumber ?? String(order.invoiceId.uuidString.prefix(8)) + "…")
-                            .font(.headline)
+                            .font(GTRType.displaySemi(.headline))
                         Text("\(order.status) · \(StorefrontFormat.money(order.total, currency: order.currency))")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(GTRType.body(.subheadline))
+                            .foregroundStyle(GTRColors.silverDim)
                         HStack(spacing: 6) {
                             Text(StorefrontFormat.fulfillment(order.fulfillmentMode))
-                                .font(.caption)
+                                .font(GTRType.label(.caption))
                             if order.activeDeliveryJobId != nil {
                                 Text("Live track")
-                                    .font(.caption2)
+                                    .font(GTRType.label(.caption2))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(.tint.opacity(0.15), in: Capsule())
+                                    .background(GTRColors.primary.opacity(0.15), in: RoundedRectangle(cornerRadius: GTRRadius.sharp))
                             }
                         }
                     }
@@ -42,14 +44,17 @@ struct OrdersScreen: View {
             if let status {
                 Section {
                     Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
             }
+            }
+            .scrollContentBackground(.hidden)
+            .background(GTRColors.chalk)
+            .navigationBarTitleDisplayMode(.inline)
+            .task { await refresh() }
+            .refreshable { await refresh() }
         }
-        .navigationTitle("Orders")
-        .task { await refresh() }
-        .refreshable { await refresh() }
     }
 
     private func refresh() async {
@@ -92,12 +97,13 @@ struct OrderDetailScreen: View {
                 }
 
                 if order.offersLiveDeliveryTrack {
-                    Section("Live delivery") {
+                    Section {
+                        GTRSectionLabel(text: "Live delivery")
                         Text(
                             "Last point + ETA while out for delivery. No historical GPS trail."
                         )
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
 
                         if let jobId = order.activeDeliveryJobId {
                             NavigationLink {
@@ -110,7 +116,8 @@ struct OrderDetailScreen: View {
                         TextField("Share track token", text: $trackToken)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                            .font(.body.monospaced())
+                            .font(GTRType.body())
+                            .monospaced()
 
                         Button("Track with token") {
                             let trimmed = trackToken.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -124,13 +131,17 @@ struct OrderDetailScreen: View {
                     }
                 }
 
-                Section("Invoice id") {
+                Section {
+                    GTRSectionLabel(text: "Invoice id")
                     Text(order.invoiceId.uuidString)
-                        .font(.caption.monospaced())
+                        .font(GTRType.label(.caption))
+                        .monospaced()
                         .textSelection(.enabled)
                 }
             } else if let status {
-                Text(status).foregroundStyle(.secondary)
+                Text(status)
+                    .font(GTRType.body(.subheadline))
+                    .foregroundStyle(GTRColors.silverDim)
             } else {
                 ProgressView()
             }
@@ -138,12 +149,15 @@ struct OrderDetailScreen: View {
             if let status, order != nil {
                 Section {
                     Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(GTRColors.chalk)
         .navigationTitle("Order")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $tokenNavActive) {
             DeliveryTrackScreen(
                 ref: .token(trackToken.trimmingCharacters(in: .whitespacesAndNewlines))

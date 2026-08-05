@@ -20,9 +20,13 @@ sealed class AuthGateState {
 data class SignInUiState(
     val email: String = "",
     val password: String = "",
+    val mode: AuthFormMode = AuthFormMode.SignIn,
     val busy: Boolean = false,
     val error: String? = null,
+    val info: String? = null,
 )
+
+enum class AuthFormMode { SignIn, SignUp }
 
 /**
  * Observes GoTrue [SessionStatus] and drives email/password sign-in / sign-out.
@@ -51,20 +55,70 @@ class AuthSessionViewModel(
         }
     }
 
-    fun onEmailChange(v: String) = _signIn.update { it.copy(email = v, error = null) }
-    fun onPasswordChange(v: String) = _signIn.update { it.copy(password = v, error = null) }
+    fun onEmailChange(v: String) = _signIn.update { it.copy(email = v, error = null, info = null) }
+    fun onPasswordChange(v: String) = _signIn.update { it.copy(password = v, error = null, info = null) }
+    fun setMode(mode: AuthFormMode) = _signIn.update {
+        it.copy(mode = mode, error = null, info = null)
+    }
 
     fun signIn() {
         val email = _signIn.value.email
         val password = _signIn.value.password
         viewModelScope.launch {
-            _signIn.update { it.copy(busy = true, error = null) }
+            _signIn.update { it.copy(busy = true, error = null, info = null) }
             try {
                 supabase.signInWithEmail(email, password)
                 _signIn.update { it.copy(busy = false, password = "") }
             } catch (e: Exception) {
                 _signIn.update {
                     it.copy(busy = false, error = e.message ?: "Sign-in failed")
+                }
+            }
+        }
+    }
+
+    fun signUp() {
+        val email = _signIn.value.email
+        val password = _signIn.value.password
+        viewModelScope.launch {
+            _signIn.update { it.copy(busy = true, error = null, info = null) }
+            try {
+                supabase.signUpWithEmail(email, password)
+                _signIn.update {
+                    it.copy(
+                        busy = false,
+                        password = "",
+                        mode = AuthFormMode.SignIn,
+                        info = "Account created. Check email if confirmation is required, then sign in.",
+                    )
+                }
+            } catch (e: Exception) {
+                _signIn.update {
+                    it.copy(busy = false, error = e.message ?: "Sign-up failed")
+                }
+            }
+        }
+    }
+
+    fun forgotPassword() {
+        val email = _signIn.value.email
+        if (email.isBlank()) {
+            _signIn.update { it.copy(error = "Enter your email to reset password") }
+            return
+        }
+        viewModelScope.launch {
+            _signIn.update { it.copy(busy = true, error = null, info = null) }
+            try {
+                supabase.resetPasswordForEmail(email)
+                _signIn.update {
+                    it.copy(
+                        busy = false,
+                        info = "Password reset email sent (if the account exists).",
+                    )
+                }
+            } catch (e: Exception) {
+                _signIn.update {
+                    it.copy(busy = false, error = e.message ?: "Reset failed")
                 }
             }
         }

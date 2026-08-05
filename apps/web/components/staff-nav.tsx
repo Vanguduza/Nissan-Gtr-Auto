@@ -29,7 +29,7 @@ import {
 } from "@/components/icons";
 import { useStaffAuth } from "@/components/staff-auth-context";
 import {
-  filterNavTreeForRoles,
+  filterNavTreeForModuleAccess,
   isStaffNavLeafActive,
   isStaffNavModuleActive,
   navHrefParts,
@@ -54,6 +54,7 @@ const staffNavIcons: Record<string, LucideIcon> = {
   procurement: PackageSearch,
   "/staff/pos": Monitor,
   "/staff/warehouse": Warehouse,
+  "/staff/warehouse/insights": BarChart3,
   "/staff/finance": Banknote,
   "/staff/crm/credit": Users,
   "/staff/crm/reviews": Star,
@@ -101,7 +102,7 @@ function StaffNavInner({ current }: { current: string }) {
   const searchTab = searchParams?.get("tab") ?? null;
 
   const entries: StaffNavEntry[] = useMemo(() => {
-    if (ctx) return filterNavTreeForRoles(ctx.roles);
+    if (ctx) return filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess);
     return STAFF_NAV_TREE.filter(
       (e) => e.kind === "link" && e.roles === "any",
     );
@@ -270,7 +271,7 @@ function StaffNavStatic({ current }: { current: string }) {
   const ctx = useStaffAuth();
   const pathname = navHrefParts(current).pathname;
   const entries = ctx
-    ? filterNavTreeForRoles(ctx.roles)
+    ? filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess)
     : STAFF_NAV_TREE.filter((e) => e.kind === "link" && e.roles === "any");
 
   return (

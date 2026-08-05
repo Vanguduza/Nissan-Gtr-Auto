@@ -12,7 +12,11 @@ struct SignInScreen: View {
     var onSkip: (() -> Void)?
 
     var body: some View {
-        NavigationStack {
+        ShopDefaultScreen(
+            title: "Nissan GTR Auto",
+            subtitle: session.usesFake ? "Sign in · Fake" : "Sign in · Live",
+            scrollable: false
+        ) {
             Form {
                 Section {
                     TextField("Email", text: $email)
@@ -35,10 +39,13 @@ struct SignInScreen: View {
                                 .frame(maxWidth: .infinity)
                         } else {
                             Text("Sign in")
+                                .font(GTRType.label(.body))
                                 .frame(maxWidth: .infinity)
                         }
                     }
                     .disabled(busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty)
+                    .listRowBackground(GTRColors.primary)
+                    .foregroundStyle(GTRColors.primaryInk)
 
                     if allowsSkip, let onSkip {
                         Button("Continue without signing in", action: onSkip)
@@ -50,20 +57,11 @@ struct SignInScreen: View {
                     Section {
                         Text(errorText)
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(GTRColors.primary)
                     }
                 }
             }
-            .navigationTitle("Sign in")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Text(session.usesFake ? "Fake" : "Live")
-                        .font(.caption2)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.quaternary, in: Capsule())
-                }
-            }
+            .scrollContentBackground(.hidden)
         }
     }
 

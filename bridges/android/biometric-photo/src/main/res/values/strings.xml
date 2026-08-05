@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+
+    <string name="gtr_biometric_photo_title">Staff profile photo</string>
+
+    <string name="gtr_biometric_photo_hint">Capture the employee profile photo (not used for fingerprint/face unlock)</string>
+
+    <string name="gtr_biometric_photo_capture">Capture</string>
+
+    <string name="gtr_biometric_photo_cancel">Cancel</string>
+
+</resources>
+
+

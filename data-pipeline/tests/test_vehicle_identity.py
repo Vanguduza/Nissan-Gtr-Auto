@@ -4,12 +4,14 @@ import json
 import sqlite3
 from pathlib import Path
 
+from data_pipeline.amayama_catalog_auto import init_db
 from data_pipeline.cache_parse_worker import (
     apply_identity_to_payloads,
     backfill_scraped_for_vid,
     enqueue_new_from_cache,
     init_parse_db,
     identity_hints,
+    refresh_bundle,
     upsert_vehicle_identity,
 )
 from data_pipeline.parse_partsouq_html import (
@@ -199,3 +201,92 @@ def test_enqueue_rescans_missing_and_vehicle(tmp_path: Path) -> None:
 def test_vid_from_url() -> None:
     assert vid_from_url(VEHICLE_URL) == "190773"
     assert vid_from_url("https://partsouq.com/en/catalog/genuine/vehicle") is None
+
+
+def test_vehicle_master_from_identities_without_parts(tmp_path: Path) -> None:
+    parse_db = tmp_path / "parse.db"
+    crawl_db = tmp_path / "crawl.db"
+    out_dir = tmp_path / "bundle"
+    init_parse_db(parse_db)
+    init_db(crawl_db)
+
+    identity = parse_partsouq_vehicle_html(VEHICLE_HTML, source_url=VEHICLE_URL)
+    assert identity is not None
+    upsert_vehicle_identity(parse_db, identity)
+
+    counts = refresh_bundle(crawl_db=crawl_db, parse_db=parse_db, out_dir=out_dir)
+    assert counts["identities"] == 1
+    assert counts["vehicles_from_parts"] == 0
+    assert counts["vehicles_from_identity"] >= 1
+    assert counts["vehicles"] >= counts["vehicles_from_identity"]
+
+    vm = json.loads((out_dir / "vehicle_master.json").read_text(encoding="utf-8"))
+    assert any(row.get("chassis_code") == "JJ10" for row in vm)
+    assert any(row.get("vin_prefix") == "SJNFBAJ10" for row in vm)
+
+
+def test_refresh_bundle_parts_row_wins_on_merge(tmp_path: Path) -> None:
+    parse_db = tmp_path / "parse.db"
+    crawl_db = tmp_path / "crawl.db"
+    out_dir = tmp_path / "bundle"
+    init_parse_db(parse_db)
+    init_db(crawl_db)
+
+    identity = parse_partsouq_vehicle_html(VEHICLE_HTML, source_url=VEHICLE_URL)
+    assert identity is not None
+    upsert_vehicle_identity(parse_db, identity)
+
+    conn = sqlite3.connect(crawl_db)
+    conn.execute(
+        """
+        INSERT INTO scraped_data (source_url, payload, vehicle_context)
+        VALUES (?, ?, ?)
+        """,
+        (
+            PARTS_URL,
+            json.dumps(
+                {
+                    "vehicle": {
+                        "vid": "190773",
+                        "chassis_code": "JJ10",
+                        "model_variant": "QASHQAI+2",
+                        "engine_code": "MR20DE",
+                        "production_year": 2010,
+                        "vin_prefix": "SJNFBAJ10",
+                    },
+                    "parts": [
+                        {
+                            "oem_part_number": "12345-ABCDE",
+                            "pnc_code": "12345",
+                            "bbox_x": 0.1,
+                            "bbox_y": 0.2,
+                            "bbox_width": 0.03,
+                            "bbox_height": 0.04,
+                        }
+                    ],
+                    "image_url": "https://partsouq.com/static/diagram.png",
+                }
+            ),
+            json.dumps(
+                {
+                    "vid": "190773",
+                    "chassis_code": "JJ10",
+                    "model_variant": "QASHQAI+2",
+                    "engine_code": "MR20DE",
+                    "production_year": 2010,
+                    "vin_prefix": "SJNFBAJ10",
+                }
+            ),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    counts = refresh_bundle(crawl_db=crawl_db, parse_db=parse_db, out_dir=out_dir)
+    assert counts["vehicles_from_parts"] >= 1
+    assert counts["vehicles"] >= counts["vehicles_from_parts"]
+
+    vm = json.loads((out_dir / "vehicle_master.json").read_text(encoding="utf-8"))
+    mr20 = [r for r in vm if r.get("engine_code") == "MR20DE" and r.get("chassis_code") == "JJ10"]
+    assert mr20
+    assert mr20[0]["vin_prefix"] == "SJNFBAJ10"

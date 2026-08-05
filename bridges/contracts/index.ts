@@ -21,6 +21,9 @@ export type {
   BiometricPromptOptions,
   BiometricAuthResult,
   BiometricBridge,
+  BiometricPhotoCaptureResult,
+  BiometricPhotoCaptureOptions,
+  BiometricPhotoCaptureBridge,
 } from "./biometric.ts";
 
 export type {

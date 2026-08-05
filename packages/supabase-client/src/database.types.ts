@@ -34,36 +34,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      accounting_periods: {
-        Row: {
-          created_at: string
-          id: string
-          label: string
-          locked_at: string | null
-          locked_by: string | null
-          period_end: string
-          period_start: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          label: string
-          locked_at?: string | null
-          locked_by?: string | null
-          period_end: string
-          period_start: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          label?: string
-          locked_at?: string | null
-          locked_by?: string | null
-          period_end?: string
-          period_start?: string
-        }
-        Relationships: []
-      }
       account_period_balances: {
         Row: {
           account_code: string
@@ -128,6 +98,171 @@ export type Database = {
             referencedColumns: ["code"]
           },
         ]
+      }
+      accounting_periods: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          locked_at: string | null
+          locked_by: string | null
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          locked_at?: string | null
+          locked_by?: string | null
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: []
+      }
+      ai_promo_deliveries: {
+        Row: {
+          body_preview: string | null
+          channel: Database["public"]["Enums"]["ai_delivery_channel"]
+          created_at: string
+          customer_id: string
+          error: string | null
+          gemini_used: boolean
+          id: string
+          oem_skus: string[]
+          provider_ref: string | null
+          recipient: string
+          run_id: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["ai_delivery_status"]
+          vehicle_label: string | null
+        }
+        Insert: {
+          body_preview?: string | null
+          channel: Database["public"]["Enums"]["ai_delivery_channel"]
+          created_at?: string
+          customer_id: string
+          error?: string | null
+          gemini_used?: boolean
+          id?: string
+          oem_skus?: string[]
+          provider_ref?: string | null
+          recipient: string
+          run_id: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["ai_delivery_status"]
+          vehicle_label?: string | null
+        }
+        Update: {
+          body_preview?: string | null
+          channel?: Database["public"]["Enums"]["ai_delivery_channel"]
+          created_at?: string
+          customer_id?: string
+          error?: string | null
+          gemini_used?: boolean
+          id?: string
+          oem_skus?: string[]
+          provider_ref?: string | null
+          recipient?: string
+          run_id?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["ai_delivery_status"]
+          vehicle_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_promo_deliveries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_promo_deliveries_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_promo_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_promo_runs: {
+        Row: {
+          candidates_considered: number
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          gemini_used: boolean
+          id: string
+          messages_queued: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["ai_promo_run_status"]
+        }
+        Insert: {
+          candidates_considered?: number
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          gemini_used?: boolean
+          id?: string
+          messages_queued?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["ai_promo_run_status"]
+        }
+        Update: {
+          candidates_considered?: number
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          gemini_used?: boolean
+          id?: string
+          messages_queued?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["ai_promo_run_status"]
+        }
+        Relationships: []
+      }
+      ai_promo_settings: {
+        Row: {
+          active: boolean
+          channels: Database["public"]["Enums"]["ai_delivery_channel"][]
+          cooldown_days: number
+          id: string
+          inactivity_days: number
+          include_llm_copy: boolean
+          max_skus_per_message: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          channels?: Database["public"]["Enums"]["ai_delivery_channel"][]
+          cooldown_days?: number
+          id?: string
+          inactivity_days?: number
+          include_llm_copy?: boolean
+          max_skus_per_message?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          channels?: Database["public"]["Enums"]["ai_delivery_channel"][]
+          cooldown_days?: number
+          id?: string
+          inactivity_days?: number
+          include_llm_copy?: boolean
+          max_skus_per_message?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       ai_report_deliveries: {
         Row: {
@@ -274,6 +409,48 @@ export type Database = {
           recipient_whatsapp_e164?: string[]
           timezone?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_worker_schedules: {
+        Row: {
+          body_json: Json
+          cadence: string
+          created_at: string
+          cron_expr: string
+          edge_path: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          notes: string | null
+          updated_at: string
+          worker_key: string
+        }
+        Insert: {
+          body_json?: Json
+          cadence: string
+          created_at?: string
+          cron_expr: string
+          edge_path: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          notes?: string | null
+          updated_at?: string
+          worker_key: string
+        }
+        Update: {
+          body_json?: Json
+          cadence?: string
+          created_at?: string
+          cron_expr?: string
+          edge_path?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          notes?: string | null
+          updated_at?: string
+          worker_key?: string
         }
         Relationships: []
       }
@@ -525,6 +702,7 @@ export type Database = {
           account_type: Database["public"]["Enums"]["account_type"]
           code: string
           created_at: string
+          display_name: string
           is_active: boolean
           name: string
         }
@@ -532,6 +710,7 @@ export type Database = {
           account_type: Database["public"]["Enums"]["account_type"]
           code: string
           created_at?: string
+          display_name: string
           is_active?: boolean
           name: string
         }
@@ -539,6 +718,7 @@ export type Database = {
           account_type?: Database["public"]["Enums"]["account_type"]
           code?: string
           created_at?: string
+          display_name?: string
           is_active?: boolean
           name?: string
         }
@@ -1431,6 +1611,8 @@ export type Database = {
           email: string | null
           email_receipts: boolean
           id: string
+          last_promotional_message_at: string | null
+          marketing_opt_in: boolean
           open_balance: number
           phone_e164: string | null
           price_list_id: string | null
@@ -1449,6 +1631,8 @@ export type Database = {
           email?: string | null
           email_receipts?: boolean
           id?: string
+          last_promotional_message_at?: string | null
+          marketing_opt_in?: boolean
           open_balance?: number
           phone_e164?: string | null
           price_list_id?: string | null
@@ -1467,6 +1651,8 @@ export type Database = {
           email?: string | null
           email_receipts?: boolean
           id?: string
+          last_promotional_message_at?: string | null
+          marketing_opt_in?: boolean
           open_balance?: number
           phone_e164?: string | null
           price_list_id?: string | null
@@ -2007,13 +2193,162 @@ export type Database = {
           },
         ]
       }
+      ecocash_payment_intents: {
+        Row: {
+          amount: number
+          channel: string
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string | null
+          exchange_rate_applied: number
+          external_ref: string
+          failure_reason: string | null
+          id: string
+          last_webhook_at: string | null
+          metadata: Json
+          payer_mode: string
+          payer_msisdn: string
+          payment_entry_id: string | null
+          provider_ref: string | null
+          sales_invoice_id: string | null
+          settlement_amount: number | null
+          settlement_currency:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate: number | null
+          status: Database["public"]["Enums"]["ecocash_intent_status"]
+          updated_at: string
+          webhook_payload_hash: string | null
+          whatsapp_flow_order_id: string | null
+        }
+        Insert: {
+          amount: number
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          exchange_rate_applied?: number
+          external_ref: string
+          failure_reason?: string | null
+          id?: string
+          last_webhook_at?: string | null
+          metadata?: Json
+          payer_mode?: string
+          payer_msisdn: string
+          payment_entry_id?: string | null
+          provider_ref?: string | null
+          sales_invoice_id?: string | null
+          settlement_amount?: number | null
+          settlement_currency?:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate?: number | null
+          status?: Database["public"]["Enums"]["ecocash_intent_status"]
+          updated_at?: string
+          webhook_payload_hash?: string | null
+          whatsapp_flow_order_id?: string | null
+        }
+        Update: {
+          amount?: number
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          exchange_rate_applied?: number
+          external_ref?: string
+          failure_reason?: string | null
+          id?: string
+          last_webhook_at?: string | null
+          metadata?: Json
+          payer_mode?: string
+          payer_msisdn?: string
+          payment_entry_id?: string | null
+          provider_ref?: string | null
+          sales_invoice_id?: string | null
+          settlement_amount?: number | null
+          settlement_currency?:
+            | Database["public"]["Enums"]["currency_code"]
+            | null
+          settlement_exchange_rate?: number | null
+          status?: Database["public"]["Enums"]["ecocash_intent_status"]
+          updated_at?: string
+          webhook_payload_hash?: string | null
+          whatsapp_flow_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecocash_payment_intents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecocash_payment_intents_payment_entry_id_fkey"
+            columns: ["payment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "payment_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecocash_payment_intents_whatsapp_flow_order_id_fkey"
+            columns: ["whatsapp_flow_order_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_flow_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ecocash_webhook_events: {
+        Row: {
+          created_at: string
+          external_ref: string | null
+          id: string
+          intent_id: string | null
+          payload_hash: string
+          processed: boolean
+          result_note: string | null
+        }
+        Insert: {
+          created_at?: string
+          external_ref?: string | null
+          id?: string
+          intent_id?: string | null
+          payload_hash: string
+          processed?: boolean
+          result_note?: string | null
+        }
+        Update: {
+          created_at?: string
+          external_ref?: string | null
+          id?: string
+          intent_id?: string | null
+          payload_hash?: string
+          processed?: boolean
+          result_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecocash_webhook_events_intent_id_fkey"
+            columns: ["intent_id"]
+            isOneToOne: false
+            referencedRelation: "ecocash_payment_intents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           created_at: string
           email: string | null
           employee_code: string
           full_name: string
+          grade_id: string | null
           hire_date: string | null
+          hr_role_id: string | null
           id: string
           phone_e164: string | null
           status: Database["public"]["Enums"]["employee_status"]
@@ -2025,7 +2360,9 @@ export type Database = {
           email?: string | null
           employee_code: string
           full_name: string
+          grade_id?: string | null
           hire_date?: string | null
+          hr_role_id?: string | null
           id?: string
           phone_e164?: string | null
           status?: Database["public"]["Enums"]["employee_status"]
@@ -2037,7 +2374,9 @@ export type Database = {
           email?: string | null
           employee_code?: string
           full_name?: string
+          grade_id?: string | null
           hire_date?: string | null
+          hr_role_id?: string | null
           id?: string
           phone_e164?: string | null
           status?: Database["public"]["Enums"]["employee_status"]
@@ -2046,6 +2385,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "employees_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "hr_grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_hr_role_id_fkey"
+            columns: ["hr_role_id"]
+            isOneToOne: false
+            referencedRelation: "hr_roles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "employees_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
@@ -2053,6 +2406,361 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      finance_audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      finance_refunds: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          document_number: string | null
+          exchange_rate_applied: number
+          id: string
+          notes: string | null
+          original_invoice_id: string
+          posted_at: string
+          posted_by: string | null
+          reversing_journal_entry_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          notes?: string | null
+          original_invoice_id: string
+          posted_at?: string
+          posted_by?: string | null
+          reversing_journal_entry_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          notes?: string | null
+          original_invoice_id?: string
+          posted_at?: string
+          posted_by?: string | null
+          reversing_journal_entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_refunds_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_refunds_reversing_journal_entry_id_fkey"
+            columns: ["reversing_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_requisition_approvals: {
+        Row: {
+          approved_at: string
+          approver_user_id: string
+          id: string
+          note: string | null
+          requisition_id: string
+        }
+        Insert: {
+          approved_at?: string
+          approver_user_id: string
+          id?: string
+          note?: string | null
+          requisition_id: string
+        }
+        Update: {
+          approved_at?: string
+          approver_user_id?: string
+          id?: string
+          note?: string | null
+          requisition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_requisition_approvals_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "finance_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_requisition_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          expense_account_code: string
+          id: string
+          line_no: number
+          requisition_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          expense_account_code: string
+          id?: string
+          line_no: number
+          requisition_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          expense_account_code?: string
+          id?: string
+          line_no?: number
+          requisition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_requisition_lines_expense_account_code_fkey"
+            columns: ["expense_account_code"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_requisition_lines_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "finance_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_requisition_thresholds: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          id: string
+          is_active: boolean
+          min_amount: number
+          req_type: Database["public"]["Enums"]["finance_requisition_type"]
+          required_approvals: number
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          is_active?: boolean
+          min_amount?: number
+          req_type: Database["public"]["Enums"]["finance_requisition_type"]
+          required_approvals?: number
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          is_active?: boolean
+          min_amount?: number
+          req_type?: Database["public"]["Enums"]["finance_requisition_type"]
+          required_approvals?: number
+        }
+        Relationships: []
+      }
+      finance_requisitions: {
+        Row: {
+          amount: number
+          approval_count: number
+          approved_at: string | null
+          approved_by: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cash_account_code: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          disbursed_at: string | null
+          disbursed_by: string | null
+          document_number: string | null
+          exchange_rate_applied: number | null
+          expense_account_code: string
+          id: string
+          journal_entry_id: string | null
+          memo: string | null
+          payee: string | null
+          payment_entry_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          req_type: Database["public"]["Enums"]["finance_requisition_type"]
+          requested_by: string
+          required_approvals: number
+          status: Database["public"]["Enums"]["finance_requisition_status"]
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approval_count?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cash_account_code: string
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          document_number?: string | null
+          exchange_rate_applied?: number | null
+          expense_account_code: string
+          id?: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          payee?: string | null
+          payment_entry_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          req_type: Database["public"]["Enums"]["finance_requisition_type"]
+          requested_by: string
+          required_approvals?: number
+          status?: Database["public"]["Enums"]["finance_requisition_status"]
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approval_count?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cash_account_code?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          document_number?: string | null
+          exchange_rate_applied?: number | null
+          expense_account_code?: string
+          id?: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          payee?: string | null
+          payment_entry_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          req_type?: Database["public"]["Enums"]["finance_requisition_type"]
+          requested_by?: string
+          required_approvals?: number
+          status?: Database["public"]["Enums"]["finance_requisition_status"]
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_requisitions_cash_account_code_fkey"
+            columns: ["cash_account_code"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_requisitions_expense_account_code_fkey"
+            columns: ["expense_account_code"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_requisitions_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_requisitions_payment_entry_id_fkey"
+            columns: ["payment_entry_id"]
+            isOneToOne: false
+            referencedRelation: "payment_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_vehicles: {
+        Row: {
+          assigned_driver_user_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          notes: string | null
+          plate: string
+          status: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at: string
+        }
+        Insert: {
+          assigned_driver_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          plate: string
+          status?: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at?: string
+        }
+        Update: {
+          assigned_driver_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          plate?: string
+          status?: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       forecast_suggestions: {
         Row: {
@@ -2114,203 +2822,6 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      fleet_vehicles: {
-        Row: {
-          assigned_driver_user_id: string | null
-          created_at: string
-          created_by: string | null
-          id: string
-          label: string | null
-          notes: string | null
-          plate: string
-          status: Database["public"]["Enums"]["fleet_vehicle_status"]
-          updated_at: string
-        }
-        Insert: {
-          assigned_driver_user_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          label?: string | null
-          notes?: string | null
-          plate: string
-          status?: Database["public"]["Enums"]["fleet_vehicle_status"]
-          updated_at?: string
-        }
-        Update: {
-          assigned_driver_user_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          label?: string | null
-          notes?: string | null
-          plate?: string
-          status?: Database["public"]["Enums"]["fleet_vehicle_status"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      finance_requisition_lines: {
-        Row: {
-          amount: number
-          created_at: string
-          description: string | null
-          expense_account_code: string
-          id: string
-          line_no: number
-          requisition_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          description?: string | null
-          expense_account_code: string
-          id?: string
-          line_no: number
-          requisition_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          description?: string | null
-          expense_account_code?: string
-          id?: string
-          line_no?: number
-          requisition_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "finance_requisition_lines_expense_account_code_fkey"
-            columns: ["expense_account_code"]
-            isOneToOne: false
-            referencedRelation: "chart_of_accounts"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "finance_requisition_lines_requisition_id_fkey"
-            columns: ["requisition_id"]
-            isOneToOne: false
-            referencedRelation: "finance_requisitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      finance_requisitions: {
-        Row: {
-          amount: number
-          approved_at: string | null
-          approved_by: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          cash_account_code: string
-          created_at: string
-          currency: Database["public"]["Enums"]["currency_code"]
-          disbursed_at: string | null
-          disbursed_by: string | null
-          document_number: string | null
-          exchange_rate_applied: number | null
-          expense_account_code: string
-          id: string
-          journal_entry_id: string | null
-          memo: string | null
-          payee: string | null
-          payment_entry_id: string | null
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_reason: string | null
-          req_type: Database["public"]["Enums"]["finance_requisition_type"]
-          requested_by: string
-          status: Database["public"]["Enums"]["finance_requisition_status"]
-          submitted_at: string | null
-          updated_at: string
-        }
-        Insert: {
-          amount: number
-          approved_at?: string | null
-          approved_by?: string | null
-          cancelled_at?: string | null
-          cancelled_by?: string | null
-          cash_account_code: string
-          created_at?: string
-          currency: Database["public"]["Enums"]["currency_code"]
-          disbursed_at?: string | null
-          disbursed_by?: string | null
-          document_number?: string | null
-          exchange_rate_applied?: number | null
-          expense_account_code: string
-          id?: string
-          journal_entry_id?: string | null
-          memo?: string | null
-          payee?: string | null
-          payment_entry_id?: string | null
-          rejected_at?: string | null
-          rejected_by?: string | null
-          rejection_reason?: string | null
-          req_type: Database["public"]["Enums"]["finance_requisition_type"]
-          requested_by: string
-          status?: Database["public"]["Enums"]["finance_requisition_status"]
-          submitted_at?: string | null
-          updated_at?: string
-        }
-        Update: {
-          amount?: number
-          approved_at?: string | null
-          approved_by?: string | null
-          cancelled_at?: string | null
-          cancelled_by?: string | null
-          cash_account_code?: string
-          created_at?: string
-          currency?: Database["public"]["Enums"]["currency_code"]
-          disbursed_at?: string | null
-          disbursed_by?: string | null
-          document_number?: string | null
-          exchange_rate_applied?: number | null
-          expense_account_code?: string
-          id?: string
-          journal_entry_id?: string | null
-          memo?: string | null
-          payee?: string | null
-          payment_entry_id?: string | null
-          rejected_at?: string | null
-          rejected_by?: string | null
-          rejection_reason?: string | null
-          req_type?: Database["public"]["Enums"]["finance_requisition_type"]
-          requested_by?: string
-          status?: Database["public"]["Enums"]["finance_requisition_status"]
-          submitted_at?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "finance_requisitions_cash_account_code_fkey"
-            columns: ["cash_account_code"]
-            isOneToOne: false
-            referencedRelation: "chart_of_accounts"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "finance_requisitions_expense_account_code_fkey"
-            columns: ["expense_account_code"]
-            isOneToOne: false
-            referencedRelation: "chart_of_accounts"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "finance_requisitions_journal_entry_id_fkey"
-            columns: ["journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "finance_requisitions_payment_entry_id_fkey"
-            columns: ["payment_entry_id"]
-            isOneToOne: false
-            referencedRelation: "payment_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -2463,6 +2974,563 @@ export type Database = {
           },
           {
             foreignKeyName: "goods_receipts_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_auth_provision_locks: {
+        Row: {
+          claim_token: string
+          claimed_at: string
+          employee_id: string
+          expires_at: string
+        }
+        Insert: {
+          claim_token: string
+          claimed_at?: string
+          employee_id: string
+          expires_at: string
+        }
+        Update: {
+          claim_token?: string
+          claimed_at?: string
+          employee_id?: string
+          expires_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_auth_provision_locks_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_contract_clause_templates: {
+        Row: {
+          body_md: string
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body_md: string
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body_md?: string
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hr_credential_outbox: {
+        Row: {
+          attempt_count: number
+          body: string
+          channel: Database["public"]["Enums"]["hr_credential_channel"]
+          claimed_at: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          id: string
+          last_error: string | null
+          provider_message_id: string | null
+          recipient: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["hr_credential_outbox_status"]
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          body: string
+          channel: Database["public"]["Enums"]["hr_credential_channel"]
+          claimed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          last_error?: string | null
+          provider_message_id?: string | null
+          recipient: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["hr_credential_outbox_status"]
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          body?: string
+          channel?: Database["public"]["Enums"]["hr_credential_channel"]
+          claimed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          last_error?: string | null
+          provider_message_id?: string | null
+          recipient?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["hr_credential_outbox_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_credential_outbox_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_credential_outbox_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_grades: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hr_leave_balances: {
+        Row: {
+          employee_id: string
+          entitlement_days: number
+          id: string
+          leave_type_id: string
+          updated_at: string
+          used_days: number
+          year: number
+        }
+        Insert: {
+          employee_id: string
+          entitlement_days?: number
+          id?: string
+          leave_type_id: string
+          updated_at?: string
+          used_days?: number
+          year: number
+        }
+        Update: {
+          employee_id?: string
+          entitlement_days?: number
+          id?: string
+          leave_type_id?: string
+          updated_at?: string
+          used_days?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_leave_balances_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_leave_balances_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "hr_leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_leave_requests: {
+        Row: {
+          created_at: string
+          days: number
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          employee_id: string
+          end_date: string
+          id: string
+          leave_type_id: string
+          reason: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["hr_leave_request_status"]
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          days: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          employee_id: string
+          end_date: string
+          id?: string
+          leave_type_id: string
+          reason?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["hr_leave_request_status"]
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          days?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          employee_id?: string
+          end_date?: string
+          id?: string
+          leave_type_id?: string
+          reason?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["hr_leave_request_status"]
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_leave_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_leave_requests_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "hr_leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_leave_types: {
+        Row: {
+          annual_allowance_days: number
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_paid: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          annual_allowance_days?: number
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_paid?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          annual_allowance_days?: number
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_paid?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hr_onboarding_drafts: {
+        Row: {
+          banking_json: Json | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string | null
+          health_json: Json | null
+          id: string
+          payload: Json
+          stage: Database["public"]["Enums"]["hr_onboarding_stage"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          banking_json?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          health_json?: Json | null
+          id?: string
+          payload?: Json
+          stage?: Database["public"]["Enums"]["hr_onboarding_stage"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          banking_json?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          health_json?: Json | null
+          id?: string
+          payload?: Json
+          stage?: Database["public"]["Enums"]["hr_onboarding_stage"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_onboarding_drafts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payslip_schedules: {
+        Row: {
+          created_at: string
+          cron_expr: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          pay_frequency: Database["public"]["Enums"]["hr_pay_frequency"]
+        }
+        Insert: {
+          created_at?: string
+          cron_expr: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          pay_frequency: Database["public"]["Enums"]["hr_pay_frequency"]
+        }
+        Update: {
+          created_at?: string
+          cron_expr?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          pay_frequency?: Database["public"]["Enums"]["hr_pay_frequency"]
+        }
+        Relationships: []
+      }
+      hr_roles: {
+        Row: {
+          approval_flags: Json
+          archived_at: string | null
+          clause_template_ids: string[]
+          comms_preferences: Json
+          created_at: string
+          created_by: string | null
+          default_landing: string | null
+          department: string | null
+          duties_md: string | null
+          grade_id: string
+          id: string
+          is_active: boolean
+          module_access: Json
+          parent_role_id: string | null
+          pay_frequency: Database["public"]["Enums"]["hr_pay_frequency"]
+          remuneration_notes: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approval_flags?: Json
+          archived_at?: string | null
+          clause_template_ids?: string[]
+          comms_preferences?: Json
+          created_at?: string
+          created_by?: string | null
+          default_landing?: string | null
+          department?: string | null
+          duties_md?: string | null
+          grade_id: string
+          id?: string
+          is_active?: boolean
+          module_access?: Json
+          parent_role_id?: string | null
+          pay_frequency?: Database["public"]["Enums"]["hr_pay_frequency"]
+          remuneration_notes?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approval_flags?: Json
+          archived_at?: string | null
+          clause_template_ids?: string[]
+          comms_preferences?: Json
+          created_at?: string
+          created_by?: string | null
+          default_landing?: string | null
+          department?: string | null
+          duties_md?: string | null
+          grade_id?: string
+          id?: string
+          is_active?: boolean
+          module_access?: Json
+          parent_role_id?: string | null
+          pay_frequency?: Database["public"]["Enums"]["hr_pay_frequency"]
+          remuneration_notes?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_roles_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "hr_grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_roles_parent_role_id_fkey"
+            columns: ["parent_role_id"]
+            isOneToOne: false
+            referencedRelation: "hr_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_abc_snapshots: {
+        Row: {
+          abc_class: Database["public"]["Enums"]["inventory_abc_class"]
+          as_of: string
+          cumulative_share: number
+          id: string
+          oem_part_number: string
+          period_end: string
+          period_start: string
+          qty_sold: number
+          revenue_share: number
+          revenue_usd: number
+          stock_item_id: string
+        }
+        Insert: {
+          abc_class: Database["public"]["Enums"]["inventory_abc_class"]
+          as_of?: string
+          cumulative_share?: number
+          id?: string
+          oem_part_number: string
+          period_end: string
+          period_start: string
+          qty_sold?: number
+          revenue_share?: number
+          revenue_usd?: number
+          stock_item_id: string
+        }
+        Update: {
+          abc_class?: Database["public"]["Enums"]["inventory_abc_class"]
+          as_of?: string
+          cumulative_share?: number
+          id?: string
+          oem_part_number?: string
+          period_end?: string
+          period_start?: string
+          qty_sold?: number
+          revenue_share?: number
+          revenue_usd?: number
+          stock_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_abc_snapshots_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_ai_directives: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          directives: Json
+          error: string | null
+          gemini_used: boolean
+          id: string
+          kpi_json: Json
+          narrative: string | null
+          period_end: string | null
+          period_start: string | null
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          directives?: Json
+          error?: string | null
+          gemini_used?: boolean
+          id?: string
+          kpi_json?: Json
+          narrative?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          directives?: Json
+          error?: string | null
+          gemini_used?: boolean
+          id?: string
+          kpi_json?: Json
+          narrative?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_ai_directives_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
@@ -3401,6 +4469,39 @@ export type Database = {
           },
         ]
       }
+      password_reset_challenges: {
+        Row: {
+          attempt_count: number
+          channel: string
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          identifier: string
+        }
+        Insert: {
+          attempt_count?: number
+          channel: string
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          identifier: string
+        }
+        Update: {
+          attempt_count?: number
+          channel?: string
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          identifier?: string
+        }
+        Relationships: []
+      }
       payment_allocations: {
         Row: {
           amount: number
@@ -3543,6 +4644,32 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "journal_entries"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_tender_gl_accounts: {
+        Row: {
+          account_code: string
+          tender: Database["public"]["Enums"]["payment_tender"]
+          updated_at: string
+        }
+        Insert: {
+          account_code: string
+          tender: Database["public"]["Enums"]["payment_tender"]
+          updated_at?: string
+        }
+        Update: {
+          account_code?: string
+          tender?: Database["public"]["Enums"]["payment_tender"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_tender_gl_accounts_account_code_fkey"
+            columns: ["account_code"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -4059,6 +5186,42 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_action_audit: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: []
+      }
       pos_cart_lines: {
         Row: {
           cart_id: string
@@ -4209,6 +5372,230 @@ export type Database = {
           },
         ]
       }
+      pos_offline_sale_receipts: {
+        Row: {
+          actor_user_id: string
+          client_sale_id: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          device_id: string | null
+          id: string
+          invoice_id: string
+          payload_hash: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          actor_user_id: string
+          client_sale_id: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          device_id?: string | null
+          id?: string
+          invoice_id: string
+          payload_hash: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          actor_user_id?: string
+          client_sale_id?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          device_id?: string | null
+          id?: string
+          invoice_id?: string
+          payload_hash?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_offline_sale_receipts_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_offline_sale_receipts_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_quotation_lines: {
+        Row: {
+          created_at: string
+          id: string
+          is_core_charge: boolean
+          line_total: number
+          parent_line_id: string | null
+          qty: number
+          qty_base: number
+          quotation_id: string
+          sort_order: number
+          stock_item_id: string
+          unit_price: number
+          uom_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_core_charge?: boolean
+          line_total: number
+          parent_line_id?: string | null
+          qty: number
+          qty_base: number
+          quotation_id: string
+          sort_order?: number
+          stock_item_id: string
+          unit_price: number
+          uom_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_core_charge?: boolean
+          line_total?: number
+          parent_line_id?: string | null
+          qty?: number
+          qty_base?: number
+          quotation_id?: string
+          sort_order?: number
+          stock_item_id?: string
+          unit_price?: number
+          uom_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_quotation_lines_parent_line_id_fkey"
+            columns: ["parent_line_id"]
+            isOneToOne: false
+            referencedRelation: "pos_quotation_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotation_lines_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "pos_quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotation_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotation_lines_uom_id_fkey"
+            columns: ["uom_id"]
+            isOneToOne: false
+            referencedRelation: "uoms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_quotations: {
+        Row: {
+          converted_cart_id: string | null
+          converted_invoice_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string | null
+          document_number: string | null
+          exchange_rate_applied: number
+          id: string
+          notes: string | null
+          sent_at: string | null
+          sent_channel: string | null
+          sent_contact: string | null
+          source_cart_id: string | null
+          status: Database["public"]["Enums"]["pos_quotation_status"]
+          updated_at: string
+          valid_until: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          converted_cart_id?: string | null
+          converted_invoice_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          notes?: string | null
+          sent_at?: string | null
+          sent_channel?: string | null
+          sent_contact?: string | null
+          source_cart_id?: string | null
+          status?: Database["public"]["Enums"]["pos_quotation_status"]
+          updated_at?: string
+          valid_until?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          converted_cart_id?: string | null
+          converted_invoice_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          customer_id?: string | null
+          document_number?: string | null
+          exchange_rate_applied?: number
+          id?: string
+          notes?: string | null
+          sent_at?: string | null
+          sent_channel?: string | null
+          sent_contact?: string | null
+          source_cart_id?: string | null
+          status?: Database["public"]["Enums"]["pos_quotation_status"]
+          updated_at?: string
+          valid_until?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_quotations_converted_cart_id_fkey"
+            columns: ["converted_cart_id"]
+            isOneToOne: false
+            referencedRelation: "pos_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotations_converted_invoice_id_fkey"
+            columns: ["converted_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotations_source_cart_id_fkey"
+            columns: ["source_cart_id"]
+            isOneToOne: false
+            referencedRelation: "pos_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotations_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pos_scan_sessions: {
         Row: {
           cart_id: string
@@ -4348,6 +5735,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_staff: boolean
+          must_change_password: boolean
           phone_e164: string | null
           updated_at: string
         }
@@ -4356,6 +5744,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_staff?: boolean
+          must_change_password?: boolean
           phone_e164?: string | null
           updated_at?: string
         }
@@ -4364,6 +5753,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_staff?: boolean
+          must_change_password?: boolean
           phone_e164?: string | null
           updated_at?: string
         }
@@ -5132,6 +6522,106 @@ export type Database = {
             columns: ["recipient_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_login_failures: {
+        Row: {
+          attempted_at: string
+          id: string
+          identifier_hash: string
+          success: boolean
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          identifier_hash: string
+          success?: boolean
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          identifier_hash?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      staff_login_resolve_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          identifier_hash: string
+          success: boolean
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          identifier_hash: string
+          success?: boolean
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          identifier_hash?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      staff_ops_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          delivery_job_id: string | null
+          id: string
+          kind: Database["public"]["Enums"]["staff_ops_notification_kind"]
+          read_at: string | null
+          recipient_user_id: string
+          sales_invoice_id: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          delivery_job_id?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["staff_ops_notification_kind"]
+          read_at?: string | null
+          recipient_user_id: string
+          sales_invoice_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          delivery_job_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["staff_ops_notification_kind"]
+          read_at?: string | null
+          recipient_user_id?: string
+          sales_invoice_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_ops_notifications_delivery_job_id_fkey"
+            columns: ["delivery_job_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_ops_notifications_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_ops_notifications_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -6266,6 +7756,72 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_flow_orders: {
+        Row: {
+          channel: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          delivery_fee: number
+          delivery_method: string
+          delivery_notes: string | null
+          ecocash_payer_mode: string | null
+          ecocash_payer_msisdn: string | null
+          id: string
+          lines: Json
+          payment_link: string | null
+          payment_provider: string
+          payment_reference: string | null
+          payment_source_reference: string | null
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+          wa_id: string | null
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          delivery_fee?: number
+          delivery_method?: string
+          delivery_notes?: string | null
+          ecocash_payer_mode?: string | null
+          ecocash_payer_msisdn?: string | null
+          id?: string
+          lines?: Json
+          payment_link?: string | null
+          payment_provider?: string
+          payment_reference?: string | null
+          payment_source_reference?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          wa_id?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          delivery_fee?: number
+          delivery_method?: string
+          delivery_notes?: string | null
+          ecocash_payer_mode?: string | null
+          ecocash_payer_msisdn?: string | null
+          id?: string
+          lines?: Json
+          payment_link?: string | null
+          payment_provider?: string
+          payment_reference?: string | null
+          payment_source_reference?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          wa_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       product_review_aggregates: {
@@ -6340,6 +7896,9 @@ export type Database = {
         Returns: string
       }
       _assert_ai_analytics_staff: { Args: never; Returns: undefined }
+      _assert_ai_crm_staff: { Args: never; Returns: undefined }
+      _assert_ai_finance_staff: { Args: never; Returns: undefined }
+      _assert_ai_stores_staff: { Args: never; Returns: undefined }
       _assert_bin_in_warehouse: {
         Args: { p_bin_id: string; p_warehouse_id: string }
         Returns: undefined
@@ -6384,6 +7943,10 @@ export type Database = {
         Args: { p_delivery_job_id: string; p_kind: string; p_path: string }
         Returns: string
       }
+      _assert_fleet_driver_assignee: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       _assert_journal_balanced: {
         Args: { p_entry_id: string }
         Returns: undefined
@@ -6392,6 +7955,10 @@ export type Database = {
       _assert_supplier_invited_to_rfq: {
         Args: { p_rfq_id: string; p_supplier_id: string }
         Returns: undefined
+      }
+      _auto_ship_online_dispatch_after_pick: {
+        Args: { p_pick_list_id: string }
+        Returns: string
       }
       _can_select_chat_thread: {
         Args: { p_thread: Database["public"]["Tables"]["chat_threads"]["Row"] }
@@ -6477,6 +8044,10 @@ export type Database = {
         }
         Returns: string
       }
+      _ensure_pick_list_for_invoice: {
+        Args: { p_invoice_id: string }
+        Returns: string
+      }
       _ensure_store_credit_account: {
         Args: {
           p_currency: Database["public"]["Enums"]["currency_code"]
@@ -6488,6 +8059,34 @@ export type Database = {
         Args: { p_cart_id?: string }
         Returns: undefined
       }
+      _finalize_online_dispatch_order: {
+        Args: { p_invoice_id: string }
+        Returns: string
+      }
+      _finance_period_rpc_active: { Args: never; Returns: boolean }
+      _finance_period_rpc_enter: { Args: never; Returns: undefined }
+      _finance_req_approver_on_reporting_line: {
+        Args: { p_approver_user_id: string; p_requester_user_id: string }
+        Returns: boolean
+      }
+      _finance_req_can_approve: {
+        Args: {
+          p_requisition: Database["public"]["Tables"]["finance_requisitions"]["Row"]
+        }
+        Returns: boolean
+      }
+      _finance_req_required_approvals: {
+        Args: {
+          p_amount: number
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_req_type: Database["public"]["Enums"]["finance_requisition_type"]
+        }
+        Returns: number
+      }
+      _finance_req_rpc_active: { Args: never; Returns: boolean }
+      _finance_req_rpc_enter: { Args: never; Returns: undefined }
+      _fleet_begin_rpc: { Args: never; Returns: undefined }
+      _fleet_rpc_active: { Args: never; Returns: boolean }
       _hash_delivery_pod_otp: { Args: { p_code: string }; Returns: string }
       _hash_delivery_track_token: { Args: { p_token: string }; Returns: string }
       _haversine_eta_seconds: {
@@ -6503,6 +8102,10 @@ export type Database = {
         Args: { p_lat1: number; p_lat2: number; p_lng1: number; p_lng2: number }
         Returns: number
       }
+      _invoice_is_storefront_dispatch: {
+        Args: { p_invoice_id: string }
+        Returns: boolean
+      }
       _invoice_line_open_qty_base: {
         Args: { p_invoice_line_id: string }
         Returns: number
@@ -6516,6 +8119,17 @@ export type Database = {
         }
         Returns: number
       }
+      _log_pos_action: {
+        Args: {
+          p_action: string
+          p_after?: Json
+          p_before?: Json
+          p_entity_id: string
+          p_entity_type: string
+          p_notes?: string
+        }
+        Returns: string
+      }
       _logistics_begin_rpc: { Args: never; Returns: undefined }
       _logistics_rpc_active: { Args: never; Returns: boolean }
       _loyalty_money_value: { Args: { p_points: number }; Returns: number }
@@ -6526,15 +8140,20 @@ export type Database = {
         Returns: string
       }
       _normalize_e164: { Args: { p_phone: string }; Returns: string }
+      _normalize_fleet_plate: { Args: { p_plate: string }; Returns: string }
       _normalize_receipt_email: { Args: { p_email: string }; Returns: string }
       _notify_out_for_delivery: {
         Args: { p_delivery_job_id: string; p_track_token: string }
         Returns: undefined
       }
+      _notify_sales_prep: { Args: { p_invoice_id: string }; Returns: undefined }
       _notify_wishlist_back_in_stock: {
         Args: { p_stock_item_id: string }
         Returns: undefined
       }
+      _online_dispatch_auto_active: { Args: never; Returns: boolean }
+      _online_dispatch_auto_begin: { Args: never; Returns: undefined }
+      _online_dispatch_auto_clear: { Args: never; Returns: undefined }
       _payments_rpc_active: { Args: never; Returns: boolean }
       _payments_rpc_enter: { Args: never; Returns: undefined }
       _payroll_begin_rpc: { Args: never; Returns: undefined }
@@ -6581,6 +8200,7 @@ export type Database = {
       _require_cart_mutate: { Args: { p_cart_id: string }; Returns: undefined }
       _require_consignment_staff: { Args: never; Returns: undefined }
       _require_dispatcher_staff: { Args: never; Returns: undefined }
+      _require_fleet_staff: { Args: never; Returns: undefined }
       _require_hr_staff: { Args: never; Returns: undefined }
       _require_logistics_staff: { Args: never; Returns: undefined }
       _require_loyalty_staff: { Args: never; Returns: undefined }
@@ -6603,10 +8223,14 @@ export type Database = {
         Args: { p_name: string }
         Returns: string
       }
+      _staff_ops_notify_begin: { Args: never; Returns: undefined }
       _storefront_rpc_active: { Args: never; Returns: boolean }
       _storefront_rpc_enter: { Args: never; Returns: undefined }
       _storefront_rpc_exit: { Args: never; Returns: undefined }
-      _test_set_auth_uid: { Args: { p_uid: string }; Returns: undefined }
+      _try_auto_assign_delivery_job: {
+        Args: { p_delivery_job_id: string }
+        Returns: string
+      }
       _warranty_begin_rpc: { Args: never; Returns: undefined }
       _warranty_rpc_active: { Args: never; Returns: boolean }
       add_cart_line: {
@@ -6676,6 +8300,30 @@ export type Database = {
         Args: { p_allocations: Json; p_payment_entry_id: string }
         Returns: string
       }
+      apply_pos_cart_discount: {
+        Args: {
+          p_cart_id: string
+          p_discount_percent: number
+          p_notes?: string
+        }
+        Returns: string
+      }
+      apply_pos_line_price_override: {
+        Args: { p_line_id: string; p_notes?: string; p_unit_price: number }
+        Returns: string
+      }
+      approve_finance_requisition: {
+        Args: { p_note?: string; p_requisition_id: string }
+        Returns: string
+      }
+      approve_material_request: {
+        Args: { p_material_request_id: string }
+        Returns: string
+      }
+      approve_purchase_order: {
+        Args: { p_purchase_order_id: string }
+        Returns: string
+      }
       approve_stock_reconciliation: {
         Args: { p_reconciliation_id: string }
         Returns: string
@@ -6690,18 +8338,7 @@ export type Database = {
         }
         Returns: string
       }
-      approve_finance_requisition: {
-        Args: { p_requisition_id: string }
-        Returns: string
-      }
-      approve_material_request: {
-        Args: { p_material_request_id: string }
-        Returns: string
-      }
-      approve_purchase_order: {
-        Args: { p_purchase_order_id: string }
-        Returns: string
-      }
+      archive_hr_role: { Args: { p_role_id: string }; Returns: string }
       assign_delivery_job: {
         Args: {
           p_assignee_user_id: string
@@ -6808,7 +8445,25 @@ export type Database = {
         }
         Returns: string
       }
+      checkout_pos_cart_with_tenders: {
+        Args: {
+          p_cart_id: string
+          p_receipt_email?: string
+          p_receipt_phone_e164?: string
+          p_receipt_whatsapp_e164?: string
+          p_tenders: Json
+        }
+        Returns: string
+      }
       claim_chat_thread: { Args: { p_thread_id: string }; Returns: undefined }
+      claim_hr_auth_provision: {
+        Args: {
+          p_claim_token: string
+          p_employee_id: string
+          p_ttl_seconds?: number
+        }
+        Returns: Json
+      }
       claim_pos_scan_session: {
         Args: { p_pairing_code: string }
         Returns: string
@@ -6864,6 +8519,7 @@ export type Database = {
         }
       }
       clear_bank_matches: { Args: { p_match_ids: string[] }; Returns: number }
+      clear_must_change_password: { Args: never; Returns: undefined }
       clock_attendance: {
         Args: {
           p_employee_id: string
@@ -6873,8 +8529,6 @@ export type Database = {
         }
         Returns: string
       }
-      close_chat_thread: { Args: { p_thread_id: string }; Returns: undefined }
-      close_warranty_claim: { Args: { p_claim_id: string }; Returns: string }
       close_account_period: {
         Args: {
           p_notes?: string
@@ -6883,6 +8537,18 @@ export type Database = {
         }
         Returns: string
       }
+      close_chat_thread: { Args: { p_thread_id: string }; Returns: undefined }
+      close_warranty_claim: { Args: { p_claim_id: string }; Returns: string }
+      complete_hr_credential_outbox: {
+        Args: {
+          p_error?: string
+          p_id: string
+          p_provider_message_id?: string
+          p_success: boolean
+        }
+        Returns: undefined
+      }
+      complete_hr_onboarding: { Args: { p_draft_id: string }; Returns: Json }
       complete_receipt_outbox: {
         Args: { p_error?: string; p_id: string; p_success: boolean }
         Returns: undefined
@@ -6919,6 +8585,10 @@ export type Database = {
           p_material_request_id: string
           p_supplier_id: string
         }
+        Returns: string
+      }
+      convert_pos_quotation_to_cart: {
+        Args: { p_quotation_id: string }
         Returns: string
       }
       convert_to_base_uom: {
@@ -6996,6 +8666,21 @@ export type Database = {
         }
         Returns: string
       }
+      create_customer_ecocash_intent: {
+        Args: {
+          p_amount?: number
+          p_channel?: string
+          p_external_ref?: string
+          p_metadata?: Json
+          p_payer_mode?: string
+          p_payer_msisdn: string
+          p_sales_invoice_id: string
+          p_settlement_amount?: number
+          p_settlement_currency?: Database["public"]["Enums"]["currency_code"]
+          p_settlement_exchange_rate?: number
+        }
+        Returns: string
+      }
       create_customer_paynow_intent: {
         Args: {
           p_amount?: number
@@ -7026,6 +8711,25 @@ export type Database = {
         }
         Returns: string
       }
+      create_ecocash_intent: {
+        Args: {
+          p_amount: number
+          p_channel?: string
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_customer_id?: string
+          p_exchange_rate?: number
+          p_external_ref: string
+          p_metadata?: Json
+          p_payer_mode?: string
+          p_payer_msisdn: string
+          p_sales_invoice_id?: string
+          p_settlement_amount?: number
+          p_settlement_currency?: Database["public"]["Enums"]["currency_code"]
+          p_settlement_exchange_rate?: number
+          p_whatsapp_flow_order_id?: string
+        }
+        Returns: string
+      }
       create_employee: {
         Args: {
           p_email?: string
@@ -7052,6 +8756,25 @@ export type Database = {
       }
       create_goods_receipt: {
         Args: { p_lines: Json; p_notes?: string; p_purchase_order_id: string }
+        Returns: string
+      }
+      create_hr_grade: {
+        Args: { p_code: string; p_sort_order?: number; p_title: string }
+        Returns: string
+      }
+      create_hr_role: {
+        Args: {
+          p_clause_template_ids?: string[]
+          p_comms_preferences?: Json
+          p_department?: string
+          p_duties_md?: string
+          p_grade_id: string
+          p_module_access?: Json
+          p_parent_role_id?: string
+          p_pay_frequency?: Database["public"]["Enums"]["hr_pay_frequency"]
+          p_remuneration_notes?: string
+          p_title: string
+        }
         Returns: string
       }
       create_item_kit: {
@@ -7160,6 +8883,10 @@ export type Database = {
             }
             Returns: string
           }
+      create_pos_quotation_from_cart: {
+        Args: { p_cart_id: string; p_notes?: string; p_valid_until?: string }
+        Returns: string
+      }
       create_pos_scan_session: {
         Args: { p_cart_id: string; p_ttl?: string }
         Returns: {
@@ -7236,6 +8963,10 @@ export type Database = {
       current_employee_id: { Args: never; Returns: string }
       current_supplier_id: { Args: never; Returns: string }
       deactivate_warehouse_bin: { Args: { p_bin_id: string }; Returns: string }
+      decide_leave_request: {
+        Args: { p_approve: boolean; p_note?: string; p_request_id: string }
+        Returns: string
+      }
       delete_customer_address: { Args: { p_id: string }; Returns: undefined }
       delete_customer_garage_vehicle: {
         Args: { p_id: string }
@@ -7254,6 +8985,10 @@ export type Database = {
           suggest_arrive: boolean
           suggest_complete: boolean
         }[]
+      }
+      disburse_finance_requisition: {
+        Args: { p_entry_date?: string; p_requisition_id: string }
+        Returns: string
       }
       drain_sms_outbox_batch: {
         Args: { p_limit?: number; p_stub_success?: boolean }
@@ -7299,6 +9034,17 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: number
       }
+      enqueue_hr_credential_outbox: {
+        Args: {
+          p_body: string
+          p_channel: Database["public"]["Enums"]["hr_credential_channel"]
+          p_employee_id: string
+          p_recipient: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      ensure_pos_walkin_customer: { Args: never; Returns: string }
       expire_loyalty_points: {
         Args: {
           p_currency?: Database["public"]["Enums"]["currency_code"]
@@ -7310,10 +9056,6 @@ export type Database = {
         Returns: string
       }
       export_payslip: { Args: { p_payroll_line_id: string }; Returns: string }
-      disburse_finance_requisition: {
-        Args: { p_entry_date?: string; p_requisition_id: string }
-        Returns: string
-      }
       fail_delivery_job: {
         Args: {
           p_create_reattempt?: boolean
@@ -7322,6 +9064,17 @@ export type Database = {
           p_reason: Database["public"]["Enums"]["delivery_failure_reason"]
         }
         Returns: string
+      }
+      finalize_ai_promo_run: {
+        Args: {
+          p_candidates: number
+          p_error?: string
+          p_gemini_used: boolean
+          p_queued: number
+          p_run_id: string
+          p_status: Database["public"]["Enums"]["ai_promo_run_status"]
+        }
+        Returns: undefined
       }
       finalize_ai_report_run: {
         Args: {
@@ -7392,9 +9145,10 @@ export type Database = {
           stock_item_id: string
         }[]
       }
-      get_zig_exchange_rate: {
-        Args: { p_as_of?: string }
-        Returns: number
+      get_zig_exchange_rate: { Args: { p_as_of?: string }; Returns: number }
+      gl_account_for_payment_tender: {
+        Args: { p_tender: Database["public"]["Enums"]["payment_tender"] }
+        Returns: string
       }
       has_staff_role: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
@@ -7410,6 +9164,23 @@ export type Database = {
         }
         Returns: string
       }
+      insert_ai_promo_delivery: {
+        Args: {
+          p_body_preview: string
+          p_channel: Database["public"]["Enums"]["ai_delivery_channel"]
+          p_customer_id: string
+          p_error?: string
+          p_gemini_used?: boolean
+          p_oem_skus: string[]
+          p_provider_ref?: string
+          p_recipient: string
+          p_run_id: string
+          p_status: Database["public"]["Enums"]["ai_delivery_status"]
+          p_vehicle_label: string
+        }
+        Returns: string
+      }
+      insert_ai_promo_run: { Args: never; Returns: string }
       insert_ai_report_delivery: {
         Args: {
           p_channel: Database["public"]["Enums"]["ai_delivery_channel"]
@@ -7430,7 +9201,21 @@ export type Database = {
         }
         Returns: string
       }
+      insert_inventory_ai_directive: {
+        Args: {
+          p_directives: Json
+          p_error?: string
+          p_gemini_used: boolean
+          p_kpi_json: Json
+          p_narrative: string
+          p_period_end: string
+          p_period_start: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       is_period_locked: { Args: { p_date: string }; Returns: boolean }
+      is_pos_approver: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
       issue_store_credit: {
         Args: {
@@ -7445,6 +9230,10 @@ export type Database = {
       }
       kpi_ar_aging_snapshot: { Args: never; Returns: Json }
       kpi_credit_holds_summary: { Args: never; Returns: Json }
+      kpi_finance_performance_v1: {
+        Args: { p_from: string; p_to: string; p_top_expenses?: number }
+        Returns: Json
+      }
       kpi_inventory_summary: { Args: never; Returns: Json }
       kpi_open_deliveries_summary: { Args: never; Returns: Json }
       kpi_ops_sales_v1: {
@@ -7459,13 +9248,35 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Json
       }
+      kpi_stores_forecast_v1: {
+        Args: {
+          p_from?: string
+          p_run_abc?: boolean
+          p_to?: string
+          p_warehouse_id: string
+        }
+        Returns: Json
+      }
       kpi_top_skus: {
         Args: { p_from: string; p_limit?: number; p_to: string }
         Returns: Json
       }
+      link_employee_auth_user: {
+        Args: {
+          p_employee_id: string
+          p_full_name?: string
+          p_phone_e164?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       link_supplier_profile: {
         Args: { p_profile_id: string; p_supplier_id: string }
         Returns: undefined
+      }
+      list_crm_promo_candidates: {
+        Args: { p_force?: boolean; p_limit?: number }
+        Returns: Json
       }
       list_customer_compare_items: {
         Args: never
@@ -7475,20 +9286,6 @@ export type Database = {
           id: string
           oem_part_number: string
           stock_item_id: string
-        }[]
-      }
-      list_fleet_vehicles: {
-        Args: { p_status?: Database["public"]["Enums"]["fleet_vehicle_status"] }
-        Returns: {
-          assigned_driver_user_id: string | null
-          created_at: string
-          created_by: string | null
-          id: string
-          label: string | null
-          notes: string | null
-          plate: string
-          status: Database["public"]["Enums"]["fleet_vehicle_status"]
-          updated_at: string
         }[]
       }
       list_due_ai_report_subscriptions: {
@@ -7520,32 +9317,130 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      list_fleet_vehicles: {
+        Args: { p_status?: Database["public"]["Enums"]["fleet_vehicle_status"] }
+        Returns: {
+          assigned_driver_user_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          notes: string | null
+          plate: string
+          status: Database["public"]["Enums"]["fleet_vehicle_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "fleet_vehicles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      list_online_prep_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          assignee_user_id: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          delivery_job_id: string
+          delivery_job_status: Database["public"]["Enums"]["delivery_job_status"]
+          document_number: string
+          invoice_id: string
+          pick_list_id: string
+          pick_status: Database["public"]["Enums"]["pick_list_status"]
+          posted_at: string
+          total: number
+        }[]
+      }
+      list_pos_quotations: {
+        Args: {
+          p_limit?: number
+          p_status?: Database["public"]["Enums"]["pos_quotation_status"]
+        }
+        Returns: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          customer_id: string
+          document_number: string
+          id: string
+          line_count: number
+          sent_channel: string
+          status: Database["public"]["Enums"]["pos_quotation_status"]
+          total: number
+          valid_until: string
+          warehouse_id: string
+        }[]
+      }
       list_receipt_documents_needing_pdf: {
         Args: { p_limit?: number }
         Returns: {
           document_id: string
         }[]
       }
+      list_staff_ops_notifications: {
+        Args: { p_limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          delivery_job_id: string | null
+          id: string
+          kind: Database["public"]["Enums"]["staff_ops_notification_kind"]
+          read_at: string | null
+          recipient_user_id: string
+          sales_invoice_id: string | null
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "staff_ops_notifications"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       list_zig_exchange_rates: {
         Args: { p_limit?: number }
         Returns: {
           created_at: string
           id: string
-          notes: string | null
+          notes: string
           rate: number
           rate_date: string
-          set_by: string | null
+          set_by: string
         }[]
       }
       lock_accounting_period: {
         Args: { p_period_id: string }
         Returns: undefined
       }
+      log_finance_audit: {
+        Args: {
+          p_action: string
+          p_after?: Json
+          p_before?: Json
+          p_entity_id: string
+          p_entity_type: string
+        }
+        Returns: string
+      }
       mark_chat_thread_read: {
         Args: { p_thread_id: string }
         Returns: undefined
       }
       mark_contipay_settled: {
+        Args: {
+          p_allocations?: Json
+          p_external_ref: string
+          p_failure_reason?: string
+          p_payload_hash: string
+          p_provider_ref?: string
+          p_settlement_amount?: number
+          p_settlement_currency?: Database["public"]["Enums"]["currency_code"]
+          p_settlement_exchange_rate?: number
+          p_success?: boolean
+        }
+        Returns: string
+      }
+      mark_ecocash_settled: {
         Args: {
           p_allocations?: Json
           p_external_ref: string
@@ -7584,6 +9479,10 @@ export type Database = {
         }
         Returns: string
       }
+      mark_staff_ops_notification_read: {
+        Args: { p_id: string }
+        Returns: string
+      }
       mint_delivery_track_token: {
         Args: { p_delivery_job_id: string; p_ttl?: string }
         Returns: string
@@ -7593,6 +9492,12 @@ export type Database = {
           p_review_id: string
           p_status: Database["public"]["Enums"]["product_review_status"]
         }
+        Returns: string
+      }
+      my_default_landing: { Args: never; Returns: string }
+      my_module_access: { Args: never; Returns: Json }
+      next_employee_code_for_grade: {
+        Args: { p_grade_code: string }
         Returns: string
       }
       next_series_value: { Args: { p_prefix: string }; Returns: string }
@@ -7624,6 +9529,8 @@ export type Database = {
           route_sequence: number
         }[]
       }
+      park_pos_cart: { Args: { p_cart_id: string }; Returns: string }
+      petty_cash_funding_account_code: { Args: never; Returns: string }
       post_chat_message: {
         Args: { p_body: string; p_thread_id: string }
         Returns: string
@@ -7632,7 +9539,10 @@ export type Database = {
         Args: { p_invoice_id: string; p_lines: Json }
         Returns: string
       }
-      petty_cash_funding_account_code: { Args: never; Returns: string }
+      post_finance_refund: {
+        Args: { p_invoice_id: string; p_notes?: string }
+        Returns: string
+      }
       post_journal: { Args: { p_entry_id: string }; Returns: string }
       post_journal_entry: {
         Args: {
@@ -7657,6 +9567,10 @@ export type Database = {
         Args: { p_payment_entry_id: string }
         Returns: string
       }
+      post_pos_refund: {
+        Args: { p_invoice_id: string; p_notes?: string }
+        Returns: string
+      }
       post_return_credit_note: {
         Args: { p_invoice_id: string; p_lines: Json }
         Returns: string
@@ -7677,6 +9591,10 @@ export type Database = {
         Args: { p_limit?: number; p_stub_success?: boolean }
         Returns: number
       }
+      pull_pos_offline_snapshot: {
+        Args: { p_warehouse_id: string }
+        Returns: Json
+      }
       purge_delivery_locations: {
         Args: { p_older_than?: string }
         Returns: number
@@ -7684,6 +9602,10 @@ export type Database = {
       raise_delivery_panic: {
         Args: { p_delivery_job_id?: string; p_lat?: number; p_lng?: number }
         Returns: string
+      }
+      record_staff_login_attempt: {
+        Args: { p_identifier: string; p_success: boolean }
+        Returns: undefined
       }
       redeem_loyalty_points: {
         Args: {
@@ -7724,6 +9646,10 @@ export type Database = {
         Args: { p_claim_id: string; p_reason?: string }
         Returns: string
       }
+      release_hr_auth_provision: {
+        Args: { p_claim_token: string; p_employee_id: string }
+        Returns: boolean
+      }
       remove_customer_compare_item: {
         Args: {
           p_compare_id?: string
@@ -7744,6 +9670,10 @@ export type Database = {
         Args: { p_component_item_id: string; p_kit_id: string }
         Returns: undefined
       }
+      replay_offline_pos_sale: {
+        Args: { p_client_sale_id: string; p_payload: Json }
+        Returns: string
+      }
       report_account_register: {
         Args: {
           p_account_code: string
@@ -7755,8 +9685,8 @@ export type Database = {
           credit: number
           currency: Database["public"]["Enums"]["currency_code"]
           debit: number
-          description: string | null
-          document_number: string | null
+          description: string
+          document_number: string
           entry_date: string
           journal_entry_id: string
           running_balance: number
@@ -7836,6 +9766,11 @@ export type Database = {
           unit_price: number
         }[]
       }
+      resolve_staff_login_email: {
+        Args: { p_identifier: string }
+        Returns: string
+      }
+      resume_pos_cart: { Args: { p_cart_id: string }; Returns: string }
       reverse_journal: {
         Args: { p_description?: string; p_entry_id: string }
         Returns: string
@@ -7855,12 +9790,41 @@ export type Database = {
         }
         Returns: undefined
       }
+      run_inventory_abc_classification: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
+      }
+      run_scheduled_payroll_for_frequency: {
+        Args: {
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_exchange_rate?: number
+          p_frequency: Database["public"]["Enums"]["hr_pay_frequency"]
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: string
+      }
+      save_hr_onboarding_stage: {
+        Args: {
+          p_banking_json?: Json
+          p_draft_id?: string
+          p_employee_id?: string
+          p_health_json?: Json
+          p_payload?: Json
+          p_stage?: Database["public"]["Enums"]["hr_onboarding_stage"]
+        }
+        Returns: string
+      }
+      scrub_hr_credential_outbox_bodies: {
+        Args: { p_max_age_seconds?: number }
+        Returns: number
+      }
       search_catalog: {
         Args: { p_mode: string; p_query: string }
         Returns: Json
       }
-      set_finance_requisition_lines: {
-        Args: { p_lines: Json; p_requisition_id: string }
+      send_pos_quotation: {
+        Args: { p_channel: string; p_contact?: string; p_quotation_id: string }
         Returns: string
       }
       set_customer_credit: {
@@ -7876,6 +9840,10 @@ export type Database = {
           customer_id: string
           open_balance: number
         }[]
+      }
+      set_customer_marketing_opt_in: {
+        Args: { p_customer_id: string; p_opt_in: boolean }
+        Returns: string
       }
       set_delivery_job_geo: {
         Args: {
@@ -7898,6 +9866,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_finance_requisition_lines: {
+        Args: { p_lines: Json; p_requisition_id: string }
+        Returns: string
+      }
       set_fleet_vehicle_status: {
         Args: {
           p_id: string
@@ -7914,6 +9886,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_must_change_password: {
+        Args: { p_required?: boolean; p_user_id: string }
+        Returns: undefined
+      }
+      set_own_marketing_opt_in: { Args: { p_opt_in: boolean }; Returns: string }
       set_stock_level_bin: {
         Args: {
           p_bin_id?: string
@@ -7932,12 +9909,16 @@ export type Database = {
         Returns: string
       }
       set_zig_exchange_rate: {
-        Args: {
-          p_notes?: string
-          p_rate: number
-          p_rate_date?: string
-        }
+        Args: { p_notes?: string; p_rate: number; p_rate_date?: string }
         Returns: string
+      }
+      settle_invoice_tenders: {
+        Args: { p_invoice_id: string; p_tenders: Json }
+        Returns: string
+      }
+      staff_login_is_locked: {
+        Args: { p_identifier: string }
+        Returns: boolean
       }
       start_chat_thread: {
         Args: {
@@ -7945,10 +9926,6 @@ export type Database = {
           p_kind?: Database["public"]["Enums"]["chat_thread_kind"]
           p_subject?: string
         }
-        Returns: string
-      }
-      submit_finance_requisition: {
-        Args: { p_requisition_id: string }
         Returns: string
       }
       submit_consignment_entry: {
@@ -7978,6 +9955,10 @@ export type Database = {
         }
         Returns: string
       }
+      submit_finance_requisition: {
+        Args: { p_requisition_id: string }
+        Returns: string
+      }
       submit_goods_receipt: {
         Args: { p_goods_receipt_id: string }
         Returns: string
@@ -7986,6 +9967,7 @@ export type Database = {
         Args: { p_landed_cost_voucher_id: string }
         Returns: string
       }
+      submit_leave_request: { Args: { p_request_id: string }; Returns: string }
       submit_material_request: {
         Args: { p_material_request_id: string }
         Returns: string
@@ -8019,6 +10001,10 @@ export type Database = {
           status: Database["public"]["Enums"]["driver_presence_status"]
           user_id: string
         }[]
+      }
+      touch_ai_worker_schedule: {
+        Args: { p_worker_key: string }
+        Returns: undefined
       }
       update_delivery_job_status: {
         Args: {
@@ -8126,6 +10112,10 @@ export type Database = {
         Args: { p_code: string; p_delivery_job_id: string }
         Returns: boolean
       }
+      void_pos_cart: {
+        Args: { p_cart_id: string; p_notes?: string }
+        Returns: string
+      }
       wishlist_move_to_cart: {
         Args: {
           p_cart_id: string
@@ -8139,10 +10129,17 @@ export type Database = {
       }
     }
     Enums: {
-      account_type: "asset" | "liability" | "equity" | "income" | "expense"
       account_period_status: "open" | "closed"
+      account_type: "asset" | "liability" | "equity" | "income" | "expense"
       ai_delivery_channel: "email" | "whatsapp"
       ai_delivery_status: "queued" | "sent" | "failed" | "skipped"
+      ai_promo_run_status:
+        | "pending"
+        | "running"
+        | "succeeded"
+        | "partial"
+        | "failed"
+        | "skipped"
       ai_report_cadence: "daily" | "weekly" | "monthly"
       ai_report_run_status:
         | "pending"
@@ -8184,8 +10181,13 @@ export type Database = {
       delivery_job_status: "pending" | "dispatched" | "completed" | "failed"
       delivery_note_status: "draft" | "submitted" | "cancelled"
       driver_presence_status: "available" | "on_duty" | "break" | "offline"
+      ecocash_intent_status:
+        | "pending"
+        | "authorized"
+        | "settled"
+        | "failed"
+        | "cancelled"
       employee_status: "active" | "inactive" | "terminated"
-      fleet_vehicle_status: "active" | "in_service" | "retired"
       finance_requisition_status:
         | "draft"
         | "submitted"
@@ -8193,15 +10195,49 @@ export type Database = {
         | "rejected"
         | "disbursed"
         | "cancelled"
-      finance_requisition_type: "petty_cash" | "payment"
+      finance_requisition_type:
+        | "petty_cash"
+        | "payment"
+        | "salary"
+        | "refund"
+        | "asset_capex"
+        | "vendor"
+      fleet_vehicle_status: "active" | "in_service" | "retired"
       forecast_suggestion_status: "open" | "converted" | "dismissed"
       fulfillment_mode: "immediate" | "dispatch"
+      hr_credential_channel: "email" | "sms" | "whatsapp"
+      hr_credential_outbox_status:
+        | "pending"
+        | "sending"
+        | "sent"
+        | "failed"
+        | "skipped"
+      hr_leave_request_status:
+        | "draft"
+        | "submitted"
+        | "approved"
+        | "rejected"
+        | "cancelled"
+      hr_onboarding_stage:
+        | "personal"
+        | "role_contract"
+        | "banking_health"
+        | "documents"
+        | "credentials"
+      hr_pay_frequency: "weekly" | "fortnightly" | "monthly"
+      inventory_abc_class: "A" | "B" | "C"
       journal_status: "draft" | "posted"
       kit_line_kind: "header" | "component"
       kit_sell_mode: "stocked" | "explode"
       loyalty_movement: "earn" | "redeem" | "expire" | "reverse"
       payment_entry_status: "draft" | "posted" | "cancelled"
-      payment_tender: "cash" | "bank" | "contipay" | "store_credit" | "paynow"
+      payment_tender:
+        | "cash"
+        | "bank"
+        | "contipay"
+        | "store_credit"
+        | "paynow"
+        | "ecocash"
       paynow_intent_status:
         | "pending"
         | "authorized"
@@ -8211,8 +10247,20 @@ export type Database = {
       paynow_method: "ecocash" | "onemoney" | "innbucks" | "visa"
       payroll_run_status: "draft" | "submitted" | "cancelled"
       pick_list_status: "draft" | "done" | "cancelled"
+      pos_quotation_status:
+        | "draft"
+        | "issued"
+        | "sent"
+        | "converted"
+        | "cancelled"
+        | "expired"
       pos_scan_session_status: "open" | "claimed" | "revoked" | "expired"
-      procurement_doc_status: "draft" | "submitted" | "approved" | "rejected" | "cancelled"
+      procurement_doc_status:
+        | "draft"
+        | "submitted"
+        | "cancelled"
+        | "approved"
+        | "rejected"
       product_review_status: "pending" | "approved" | "rejected"
       receipt_channel: "sms" | "email" | "whatsapp"
       receipt_outbox_status:
@@ -8227,6 +10275,7 @@ export type Database = {
       sales_doc_type: "invoice" | "credit_note"
       sms_event_priority: "low" | "normal" | "high"
       sms_outbox_status: "pending" | "sending" | "sent" | "failed" | "cancelled"
+      staff_ops_notification_kind: "sales_prep" | "driver_assigned"
       staff_role:
         | "admin"
         | "finance"
@@ -8381,10 +10430,18 @@ export const Constants = {
   },
   public: {
     Enums: {
-      account_type: ["asset", "liability", "equity", "income", "expense"],
       account_period_status: ["open", "closed"],
+      account_type: ["asset", "liability", "equity", "income", "expense"],
       ai_delivery_channel: ["email", "whatsapp"],
       ai_delivery_status: ["queued", "sent", "failed", "skipped"],
+      ai_promo_run_status: [
+        "pending",
+        "running",
+        "succeeded",
+        "partial",
+        "failed",
+        "skipped",
+      ],
       ai_report_cadence: ["daily", "weekly", "monthly"],
       ai_report_run_status: [
         "pending",
@@ -8430,8 +10487,14 @@ export const Constants = {
       delivery_job_status: ["pending", "dispatched", "completed", "failed"],
       delivery_note_status: ["draft", "submitted", "cancelled"],
       driver_presence_status: ["available", "on_duty", "break", "offline"],
+      ecocash_intent_status: [
+        "pending",
+        "authorized",
+        "settled",
+        "failed",
+        "cancelled",
+      ],
       employee_status: ["active", "inactive", "terminated"],
-      forecast_suggestion_status: ["open", "converted", "dismissed"],
       finance_requisition_status: [
         "draft",
         "submitted",
@@ -8440,14 +10503,54 @@ export const Constants = {
         "disbursed",
         "cancelled",
       ],
-      finance_requisition_type: ["petty_cash", "payment"],
+      finance_requisition_type: [
+        "petty_cash",
+        "payment",
+        "salary",
+        "refund",
+        "asset_capex",
+        "vendor",
+      ],
+      fleet_vehicle_status: ["active", "in_service", "retired"],
+      forecast_suggestion_status: ["open", "converted", "dismissed"],
       fulfillment_mode: ["immediate", "dispatch"],
+      hr_credential_channel: ["email", "sms", "whatsapp"],
+      hr_credential_outbox_status: [
+        "pending",
+        "sending",
+        "sent",
+        "failed",
+        "skipped",
+      ],
+      hr_leave_request_status: [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected",
+        "cancelled",
+      ],
+      hr_onboarding_stage: [
+        "personal",
+        "role_contract",
+        "banking_health",
+        "documents",
+        "credentials",
+      ],
+      hr_pay_frequency: ["weekly", "fortnightly", "monthly"],
+      inventory_abc_class: ["A", "B", "C"],
       journal_status: ["draft", "posted"],
       kit_line_kind: ["header", "component"],
       kit_sell_mode: ["stocked", "explode"],
       loyalty_movement: ["earn", "redeem", "expire", "reverse"],
       payment_entry_status: ["draft", "posted", "cancelled"],
-      payment_tender: ["cash", "bank", "contipay", "store_credit", "paynow"],
+      payment_tender: [
+        "cash",
+        "bank",
+        "contipay",
+        "store_credit",
+        "paynow",
+        "ecocash",
+      ],
       paynow_intent_status: [
         "pending",
         "authorized",
@@ -8458,8 +10561,22 @@ export const Constants = {
       paynow_method: ["ecocash", "onemoney", "innbucks", "visa"],
       payroll_run_status: ["draft", "submitted", "cancelled"],
       pick_list_status: ["draft", "done", "cancelled"],
+      pos_quotation_status: [
+        "draft",
+        "issued",
+        "sent",
+        "converted",
+        "cancelled",
+        "expired",
+      ],
       pos_scan_session_status: ["open", "claimed", "revoked", "expired"],
-      procurement_doc_status: ["draft", "submitted", "approved", "rejected", "cancelled"],
+      procurement_doc_status: [
+        "draft",
+        "submitted",
+        "cancelled",
+        "approved",
+        "rejected",
+      ],
       product_review_status: ["pending", "approved", "rejected"],
       receipt_channel: ["sms", "email", "whatsapp"],
       receipt_outbox_status: [
@@ -8475,6 +10592,7 @@ export const Constants = {
       sales_doc_type: ["invoice", "credit_note"],
       sms_event_priority: ["low", "normal", "high"],
       sms_outbox_status: ["pending", "sending", "sent", "failed", "cancelled"],
+      staff_ops_notification_kind: ["sales_prep", "driver_assigned"],
       staff_role: [
         "admin",
         "finance",

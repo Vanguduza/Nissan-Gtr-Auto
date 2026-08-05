@@ -9,6 +9,8 @@ import {
   Cog,
   Droplets,
   Filter,
+  Bell,
+  Heart,
   iconSizeMd,
   iconSizeSm,
   iconStroke,
@@ -82,6 +84,12 @@ export function SiteHeader() {
 
           <nav className={styles.actions} aria-label="Shop actions">
             <SiteMenu />
+            <Link href="/account/notifications" className={styles.action}>
+              <ActionIcon Icon={Bell} label="Alerts" />
+            </Link>
+            <Link href="/account/wishlist" className={styles.action}>
+              <ActionIcon Icon={Heart} label="Wishlist" />
+            </Link>
             <Link href="/account" className={styles.action}>
               <ActionIcon Icon={UserRound} label="Account" />
             </Link>

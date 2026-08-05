@@ -7,8 +7,11 @@ import {
   addPayrollDeduction,
   attendanceHoursInPeriod,
   clockAttendance,
+  downloadBrandedPayslipPdf,
+  exportPayslip,
   listEmployees,
   listOpenPayrollLines,
+  listPayrollDeductions,
   requireSession,
   resolveSelfEmployeeId,
   type EmployeeOption,
@@ -201,6 +204,60 @@ export function StaffHrPanel() {
     await refresh();
   }
 
+  async function onExportPayslipPdf() {
+    const client = createWebClient();
+    if (!client || !payrollLineId) return;
+    const line = boot.kind === "ready"
+      ? boot.payrollLines.find((l) => l.id === payrollLineId)
+      : null;
+    const emp = selected;
+    if (!line || !emp) {
+      setMessage("Select employee and payroll line first.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const exported = await exportPayslip(client, payrollLineId);
+    if (!exported.ok) {
+      setBusy(false);
+      setMessage(exported.error);
+      return;
+    }
+    const deductions = await listPayrollDeductions(client, payrollLineId);
+    if (!deductions.ok) {
+      setBusy(false);
+      setMessage(deductions.error);
+      return;
+    }
+    const session = await client.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (!token) {
+      setBusy(false);
+      setMessage("Sign in required for payslip PDF.");
+      return;
+    }
+    const pdf = await downloadBrandedPayslipPdf(token, {
+      storeName: "Nissan GTR Auto",
+      employeeName: emp.full_name,
+      employeeCode: emp.employee_code,
+      periodStart,
+      periodEnd,
+      currency: line.currency,
+      grossPay: Number(line.gross_amount),
+      manualDeductions: deductions.data.map((d) => ({
+        label: d.label,
+        amount: Number(d.amount),
+      })),
+      netPay: Number(line.net_amount),
+    });
+    setBusy(false);
+    setMessage(
+      pdf.ok
+        ? `Payslip PDF downloaded · export row ${exported.data.slice(0, 8)}… · ${deductions.data.length} manual deduction(s) · no fiscal QR`
+        : pdf.error,
+    );
+  }
+
   if (boot.kind === "loading") {
     return <p className={styles.muted}>Loading HR…</p>;
   }
@@ -351,7 +408,8 @@ export function StaffHrPanel() {
               >
                 {boot.payrollLines.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.id.slice(0, 8)}… · gross {l.gross_amount} {l.currency}
+                    {l.id.slice(0, 8)}… · gross {l.gross_amount} / net{" "}
+                    {l.net_amount} {l.currency}
                   </option>
                 ))}
               </select>
@@ -382,6 +440,14 @@ export function StaffHrPanel() {
               disabled={busy || !payrollLineId}
             >
               Add deduction
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              disabled={busy || !payrollLineId}
+              onClick={() => void onExportPayslipPdf()}
+            >
+              Download payslip PDF
             </button>
           </div>
         </form>

@@ -38,6 +38,10 @@ data class CartLineSummary(
     val uomId: String,
     val qty: Double,
     val oemPartNumber: String? = null,
+    /** True when this line is the core-charge / deposit sibling (parent–child cart split). */
+    val isCoreDeposit: Boolean = false,
+    /** Unit price USD when known (fake / browse); null live until list cart exposes amounts. */
+    val unitPriceUsd: Double? = null,
 )
 
 /** Shape from [RpcNames.GET_CUSTOMER_ORDER] JSONB. */
@@ -92,6 +96,12 @@ data class GarageVehicleInput(
     val vin: String? = null,
     val isPrimary: Boolean = false,
 )
+
+/** Human-readable "make · model · generation · engine" summary, falling back to VIN/id. */
+fun GarageVehicle.summaryLabel(): String =
+    listOfNotNull(make, model, generation, engine)
+        .joinToString(" · ")
+        .ifBlank { vin?.let { "VIN $it" } ?: id }
 
 /** Intent create result — no PSP crypto; settle stays webhook/service_role. */
 data class PaymentIntentResult(
@@ -225,3 +235,84 @@ data class ProductReviewStats(
     val avgRating: Double,
     val reviewCount: Int,
 )
+
+/** Own-row shipping address — mirrors `customer_addresses` + web `CustomerAddressRow`. */
+data class CustomerAddress(
+    val id: String,
+    val label: String,
+    val line1: String,
+    val line2: String? = null,
+    val city: String? = null,
+    val province: String? = null,
+    val postalCode: String? = null,
+    val country: String = "Zimbabwe",
+    val isDefault: Boolean = false,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+) {
+    /** Human one-liner for list / checkout chips. */
+    fun summaryLabel(): String {
+        val parts = listOfNotNull(
+            label.takeIf { it.isNotBlank() },
+            line1,
+            city,
+            province,
+        )
+        return parts.joinToString(" · ").ifBlank { id }
+    }
+
+    /** Lat/lng encoded in line2 as `#gtr_geo:lat,lng` (no geo columns on table yet). */
+    fun geoLatLng(): Pair<Double, Double>? = AddressGeo.parse(line2)
+}
+
+data class CustomerAddressInput(
+    val id: String? = null,
+    val label: String = "",
+    val line1: String,
+    val line2: String? = null,
+    val city: String? = null,
+    val province: String? = null,
+    val postalCode: String? = null,
+    val country: String = "Zimbabwe",
+    val isDefault: Boolean = false,
+    /** Optional map pick — stored in line2 via [AddressGeo.embed] when set. */
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+)
+
+/**
+ * Encode/decode map coordinates in `customer_addresses.line2` until a geo migration lands.
+ * User apartment text stays above the `#gtr_geo:` marker.
+ */
+object AddressGeo {
+    private val GEO = Regex("""#gtr_geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)""")
+
+    fun parse(line2: String?): Pair<Double, Double>? {
+        val m = GEO.find(line2.orEmpty()) ?: return null
+        val lat = m.groupValues[1].toDoubleOrNull() ?: return null
+        val lng = m.groupValues[2].toDoubleOrNull() ?: return null
+        if (lat !in -90.0..90.0 || lng !in -180.0..180.0) return null
+        return lat to lng
+    }
+
+    fun strip(line2: String?): String? {
+        val raw = line2?.trim().orEmpty()
+        if (raw.isEmpty()) return null
+        val cleaned = GEO.replace(raw, "").trim()
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .joinToString("\n")
+        return cleaned.takeIf { it.isNotEmpty() }
+    }
+
+    fun embed(line2: String?, latitude: Double?, longitude: Double?): String? {
+        val base = strip(line2)
+        if (latitude == null || longitude == null) return base
+        require(latitude in -90.0..90.0 && longitude in -180.0..180.0) {
+            "latitude/longitude out of range"
+        }
+        val tag = "#gtr_geo:$latitude,$longitude"
+        return if (base.isNullOrBlank()) tag else "$base\n$tag"
+    }
+}

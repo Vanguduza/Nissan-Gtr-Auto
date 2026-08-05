@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     // No :location-tracker — management must not produce driver GPS.
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
@@ -37,5 +38,6 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

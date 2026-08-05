@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
 
       try {
         const kpiSet = sub.kpi_set || "ops_sales_v1";
-        if (kpiSet !== "ops_sales_v1") {
+        if (kpiSet !== "ops_sales_v1" && kpiSet !== "finance_performance_v1") {
           await supabase.rpc("finalize_ai_report_run", {
             p_run_id: runId,
             p_status: "failed",
@@ -286,14 +286,17 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { data: kpis, error: kpiErr } = await supabase.rpc(
-          "kpi_ops_sales_v1",
-          {
+        const { data: kpis, error: kpiErr } = kpiSet === "finance_performance_v1"
+          ? await supabase.rpc("kpi_finance_performance_v1", {
+            p_from: period.from,
+            p_to: period.to,
+            p_top_expenses: 8,
+          })
+          : await supabase.rpc("kpi_ops_sales_v1", {
             p_from: period.from,
             p_to: period.to,
             p_top_limit: 10,
-          },
-        );
+          });
         if (kpiErr) {
           await supabase.rpc("finalize_ai_report_run", {
             p_run_id: runId,
@@ -314,7 +317,9 @@ Deno.serve(async (req) => {
         let geminiUsed = false;
         let narrativeError: string | null = null;
         if (sub.include_narrative) {
-          const nr = await generateKpiNarrative(kpis);
+          const nr = await generateKpiNarrative(kpis, {
+            mode: kpiSet === "finance_performance_v1" ? "finance" : "ops",
+          });
           narrative = nr.narrative;
           geminiUsed = nr.gemini_used;
           narrativeError = nr.error;
@@ -322,7 +327,9 @@ Deno.serve(async (req) => {
         }
 
         const subject =
-          `GTR ops report (${cadence}) ${period.from.slice(0, 10)} → ${
+          `GTR ${
+            kpiSet === "finance_performance_v1" ? "finance" : "ops"
+          } report (${cadence}) ${period.from.slice(0, 10)} → ${
             period.to.slice(0, 10)
           }`;
         const bodyText = formatNumericBody(kpis, narrative);

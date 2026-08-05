@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Bell,
   ClipboardList,
   Columns2,
   Gift,
@@ -13,6 +14,7 @@ import {
   Smartphone,
   Star,
   Car,
+  Ticket,
   UserRound,
   type LucideIcon,
 } from "@/components/icons";
@@ -31,6 +33,8 @@ const nav: {
   { href: "/account/orders", label: "Orders & tracking", Icon: ClipboardList },
   { href: "/account/chat", label: "Live chat", Icon: MessageCircle },
   { href: "/account/wishlist", label: "Wishlist", Icon: Heart },
+  { href: "/account/coupons", label: "Coupons", Icon: Ticket },
+  { href: "/account/notifications", label: "Notifications", Icon: Bell },
   { href: "/account/returns", label: "Returns", Icon: RotateCcw },
   { href: "/account/compare", label: "Compare", Icon: Columns2 },
   { href: "/account/loyalty", label: "Loyalty", Icon: Gift },
@@ -75,6 +79,8 @@ export const accountCardIcons: Record<string, LucideIcon> = {
   "/account/orders": ClipboardList,
   "/account/chat": MessageCircle,
   "/account/wishlist": Heart,
+  "/account/coupons": Ticket,
+  "/account/notifications": Bell,
   "/account/returns": RotateCcw,
   "/account/compare": Columns2,
   "/account/loyalty": Gift,

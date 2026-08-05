@@ -67,16 +67,21 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 
 ## Screens
 
+**Shell (Phase E / ShopKit):** Home · Wishlist · Cart · Profile (KMP 4-tab — not thin 3-tab).
+
 | Tab / screen | Actions |
 |--------------|---------|
 | Sign in | Email + password → GoTrue JWT → `setAccessToken` |
-| Cart | Create cart, add demo line, checkout |
+| Home | Rails + search_catalog + PDP (fitment, core charge, sticky ATC, wishlist heart) |
+| Wishlist | Tab — list / add / remove; back-in-stock toggle; `wishlist_move_to_cart` |
+| Cart | Open lines, fulfillment, **address step** (dispatch), USD/ZiG, checkout |
+| Profile | Hub — orders, **addresses** (MapKit pick), pay, garage, compare, track, chat, reviews |
+| Addresses | `listOwnAddresses` / `upsert_customer_address` / `delete_customer_address` + MapKit pin |
 | Orders | List + detail (`get_customer_order`); **Live delivery** last-point track when dispatch / job known |
 | Garage | Upsert / delete vehicles |
-| Wishlist | List / add / remove; back-in-stock toggle; `wishlist_move_to_cart` |
 | Compare | Auth list/add/remove RPCs; guest `GuestCompareStore` (UserDefaults); OEM+description matrix |
 | Reviews | Submit / own list / approved+stats by OEM; photo via PhotosPicker → Storage `review-photos` |
-| Pay | ContiPay or Paynow create-intent → intent id / checkout URL |
+| Pay | ContiPay / Paynow / EcoCash create-intent → intent id / checkout URL |
 | Chat | Thread list, start support/parts, bubbles + composer; WhatsApp `wa.me` CTA |
 | Chat → Thread | Messages + send via `post_chat_message`; **4s poll** refresh (no Realtime client) |
 | Live delivery | `get_delivery_track_point` — last point + ETA only; MapKit single pin; **15s poll**; deep link `gtr-customer://track?token=` |
@@ -105,6 +110,9 @@ Requires **authenticated** customer session and a `customers` row with `profile_
 | `markChatThreadRead` | `mark_chat_thread_read` | `p_thread_id` |
 | `chatUnreadCount` | `chat_unread_count` | optional `p_thread_id` |
 | `getDeliveryTrackPoint` | `get_delivery_track_point` | `p_delivery_job_id` and/or `p_token` → **one** last point + ETA; never trail / never `delivery_locations` SELECT |
+| `listOwnAddresses` | RLS `customer_addresses` | Own rows; default first |
+| `upsertCustomerAddress` | `upsert_customer_address` | Embeds MapKit lat/lng into `line2` via `AddressGeo` |
+| `deleteCustomerAddress` | `delete_customer_address` | `p_id` |
 
 Migration: `supabase/migrations/20260724130000_customer_storefront_authz.sql` (+ live chat migration). Decision: [`docs/decisions/2026-07-24-customer-self-pay.md`](../../docs/decisions/2026-07-24-customer-self-pay.md), [`docs/decisions/2026-07-25-in-app-live-chat.md`](../../docs/decisions/2026-07-25-in-app-live-chat.md).
 
@@ -136,6 +144,17 @@ apps/ios/
 
 - macOS with Xcode 16+ (iOS Simulator) to build the app target
 - This host may lack Xcode — core sources stay conceptually buildable; Fake mode needs no backend
+
+### Phase E build verification (2026-08-05)
+
+Windows coding host: **no `xcodebuild`** available. Verify on macOS:
+
+```bash
+cd apps/ios
+xcodebuild -scheme GTRCustomer -destination 'platform=iOS Simulator,name=iPhone 16' build
+```
+
+ShopKit parity markers: `ShopSplash` → 4-tab Home/Wishlist/Cart/Profile; `ShopTopBar` circle chrome (zero `GTRBrandBar` in Features); address Fake+Live + MapKit; ContiPay/Paynow/EcoCash only.
 
 ## Env placeholders
 

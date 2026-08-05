@@ -29,6 +29,10 @@ import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.ReconciliationScope
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.ValuationMethod
+import co.zw.nissangtr.ui.shop.ShopPrimaryButton
+import co.zw.nissangtr.ui.shop.ShopSecondaryButton
+import co.zw.nissangtr.ui.shop.ShopStaffPanel
+import co.zw.nissangtr.ui.shop.ShopStaffScreen
 
 private enum class WarehouseTab { Receive, Transfers, CycleCount }
 
@@ -50,40 +54,43 @@ fun WarehouseScreen(
     val state by viewModel.state.collectAsState()
     var tab by remember { mutableStateOf(WarehouseTab.Receive) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ShopStaffScreen(
+        title = "Warehouse",
+        subtitle = "Transfers · receiving",
+        modifier = modifier,
+        onBack = onBack,
     ) {
-        Text("Warehouse", style = MaterialTheme.typography.headlineSmall)
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            WarehouseTab.entries.forEach { section ->
-                FilterChip(
-                    selected = tab == section,
-                    onClick = { tab = section },
-                    label = {
-                        Text(
-                            when (section) {
-                                WarehouseTab.Receive -> "Receive"
-                                WarehouseTab.Transfers -> "Transfers"
-                                WarehouseTab.CycleCount -> "Cycle count"
-                            },
-                        )
-                    },
-                    enabled = !state.busy,
-                )
+        ShopStaffPanel(title = "Operations") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WarehouseTab.entries.forEach { section ->
+                    FilterChip(
+                        selected = tab == section,
+                        onClick = { tab = section },
+                        label = {
+                            Text(
+                                when (section) {
+                                    WarehouseTab.Receive -> "Receive"
+                                    WarehouseTab.Transfers -> "Transfers"
+                                    WarehouseTab.CycleCount -> "Cycle count"
+                                },
+                            )
+                        },
+                        enabled = !state.busy,
+                    )
+                }
             }
         }
 
-        HorizontalDivider()
-
         when (tab) {
-            WarehouseTab.Receive -> WarehouseReceiveSection(state, viewModel)
-            WarehouseTab.Transfers -> WarehouseTransfersSection(state, viewModel)
-            WarehouseTab.CycleCount -> WarehouseCycleSection(state, viewModel)
+            WarehouseTab.Receive -> ShopStaffPanel(title = "Receive") {
+                WarehouseReceiveSection(state, viewModel)
+            }
+            WarehouseTab.Transfers -> ShopStaffPanel(title = "Transfers (dual-auth)") {
+                WarehouseTransfersSection(state, viewModel)
+            }
+            WarehouseTab.CycleCount -> ShopStaffPanel(title = "Cycle count") {
+                WarehouseCycleSection(state, viewModel)
+            }
         }
 
         state.lastQrPayload?.let {
@@ -96,9 +103,7 @@ fun WarehouseScreen(
             Text(it, style = MaterialTheme.typography.bodyMedium)
         }
 
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text("Back")
-        }
+        ShopSecondaryButton(label = "Back", onClick = onBack)
     }
 }
 
@@ -108,7 +113,6 @@ private fun WarehouseReceiveSection(
     viewModel: WarehouseViewModel,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Receive", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.receiveWarehouseId,
             onValueChange = viewModel::onReceiveWarehouseIdChange,
@@ -183,11 +187,11 @@ private fun WarehouseReceiveSection(
                 )
             }
         }
-        Button(
+        ShopPrimaryButton(
+            label = "Post receipt",
             onClick = viewModel::postReceipt,
             enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Post receipt") }
+        )
     }
 }
 
@@ -197,7 +201,6 @@ private fun WarehouseTransfersSection(
     viewModel: WarehouseViewModel,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Transfers (dual-auth)", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.fromWarehouseId,
             onValueChange = viewModel::onFromWarehouseIdChange,
@@ -277,7 +280,6 @@ private fun WarehouseCycleSection(
     viewModel: WarehouseViewModel,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Cycle count", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = state.reconWarehouseId,
             onValueChange = viewModel::onReconWarehouseIdChange,

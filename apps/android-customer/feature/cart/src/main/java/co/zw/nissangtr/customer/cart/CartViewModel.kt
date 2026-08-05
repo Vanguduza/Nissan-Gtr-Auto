@@ -15,19 +15,22 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class CartUiState(
-    val warehouseId: String = "00000000-0000-4000-8000-0000000000w1",
-    val stockItemId: String = "00000000-0000-4000-8000-0000000000s1",
-    val uomId: String = "00000000-0000-4000-8000-0000000000u1",
-    val qty: String = "1",
     val currency: CurrencyCode = CurrencyCode.USD,
     val fulfillmentMode: FulfillmentMode = FulfillmentMode.IMMEDIATE,
+    val zigRate: Double = 1.0,
     val cart: CartSummary? = null,
+    val addresses: List<co.zw.nissangtr.customer.rpc.CustomerAddress> = emptyList(),
+    val selectedAddressId: String? = null,
     val lastInvoiceId: String? = null,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
 
+/**
+ * Cart / checkout ViewModel — mirrors web `CartCheckout`.
+ * Lines come from catalog add-to-cart (no UUID stubs in primary UX).
+ */
 class CartViewModel(
     private val rpc: RpcClient,
 ) : ViewModel() {
@@ -38,107 +41,107 @@ class CartViewModel(
         refresh()
     }
 
-    fun onWarehouseIdChange(v: String) = _state.update { it.copy(warehouseId = v, error = null) }
-    fun onStockItemIdChange(v: String) = _state.update { it.copy(stockItemId = v, error = null) }
-    fun onUomIdChange(v: String) = _state.update { it.copy(uomId = v, error = null) }
-    fun onQtyChange(v: String) = _state.update { it.copy(qty = v, error = null) }
     fun onCurrencyChange(v: CurrencyCode) = _state.update { it.copy(currency = v) }
     fun onFulfillmentChange(v: FulfillmentMode) = _state.update { it.copy(fulfillmentMode = v) }
+    fun onAddressSelect(id: String) = _state.update { it.copy(selectedAddressId = id) }
 
     fun refresh() {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null) }
             try {
+                val rate = rpc.fetchZigExchangeRate()
                 val cart = rpc.getOpenCart()
-                _state.update { it.copy(busy = false, cart = cart) }
+                val addresses = runCatching { rpc.listOwnAddresses() }.getOrDefault(emptyList())
+                val defaultId = addresses.firstOrNull { it.isDefault }?.id
+                    ?: addresses.firstOrNull()?.id
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        zigRate = rate,
+                        cart = cart,
+                        addresses = addresses,
+                        selectedAddressId = it.selectedAddressId ?: defaultId,
+                        currency = cart?.currency ?: it.currency,
+                        fulfillmentMode = cart?.fulfillmentMode ?: it.fulfillmentMode,
+                    )
+                }
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "refresh failed") }
             }
         }
     }
 
-    fun createCart() {
-        val warehouseId = _state.value.warehouseId.trim()
-        if (warehouseId.isEmpty()) {
-            _state.update { it.copy(error = "Warehouse UUID required") }
-            return
-        }
+    fun ensureCart() {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val s = _state.value
-                val rate = if (s.currency == CurrencyCode.ZIG) 1.0 else 1.0
-                val id = rpc.createCustomerCart(
-                    warehouseId = warehouseId,
+                val rate = if (s.currency == CurrencyCode.ZIG) {
+                    rpc.fetchZigExchangeRate().also { r ->
+                        _state.update { it.copy(zigRate = r) }
+                    }
+                } else {
+                    1.0
+                }
+                val cart = rpc.ensureOpenCart(
                     currency = s.currency,
                     fulfillmentMode = s.fulfillmentMode,
                     exchangeRate = rate,
                 )
-                val cart = rpc.getOpenCart()
                 _state.update {
                     it.copy(
                         busy = false,
                         cart = cart,
-                        message = "${RpcNames.CREATE_CUSTOMER_CART} → $id",
+                        message = "Cart ready · ${fulfillmentLabel(cart.fulfillmentMode)}",
                     )
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "create failed") }
-            }
-        }
-    }
-
-    fun addLine() {
-        val cartId = _state.value.cart?.id
-        if (cartId.isNullOrBlank()) {
-            _state.update { it.copy(error = "Create an open cart first") }
-            return
-        }
-        val qty = _state.value.qty.toDoubleOrNull()
-        if (qty == null || qty <= 0) {
-            _state.update { it.copy(error = "Qty must be > 0") }
-            return
-        }
-        viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
-            try {
-                val s = _state.value
-                val lineId = rpc.addCustomerCartLine(
-                    cartId = cartId,
-                    stockItemId = s.stockItemId.trim(),
-                    uomId = s.uomId.trim(),
-                    qty = qty,
-                )
-                val cart = rpc.getOpenCart()
-                _state.update {
-                    it.copy(
-                        busy = false,
-                        cart = cart,
-                        message = "${RpcNames.ADD_CUSTOMER_CART_LINE} → $lineId",
-                    )
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "add line failed") }
+                _state.update { it.copy(busy = false, error = e.message ?: "ensure cart failed") }
             }
         }
     }
 
     fun checkout() {
-        val cartId = _state.value.cart?.id
-        if (cartId.isNullOrBlank()) {
-            _state.update { it.copy(error = "No open cart") }
-            return
-        }
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
-                val invoiceId = rpc.checkoutCustomerCart(cartId)
+                var cart = _state.value.cart ?: rpc.getOpenCart()
+                if (cart == null) {
+                    _state.update { it.copy(busy = false, error = "Add a part before checkout.") }
+                    return@launch
+                }
+                if (cart.lines.isEmpty()) {
+                    cart = rpc.getOpenCart()
+                }
+                if (cart == null || cart.lines.isEmpty()) {
+                    _state.update { it.copy(busy = false, error = "Add a part before checkout.") }
+                    return@launch
+                }
+                val mode = cart.fulfillmentMode
+                if (mode == FulfillmentMode.DISPATCH) {
+                    val addrId = _state.value.selectedAddressId
+                    if (addrId.isNullOrBlank()) {
+                        _state.update {
+                            it.copy(
+                                busy = false,
+                                error = "Select a delivery address for Nationwide dispatch.",
+                            )
+                        }
+                        return@launch
+                    }
+                }
+                val invoiceId = rpc.checkoutCustomerCart(cart.id)
+                val addrNote = if (mode == FulfillmentMode.DISPATCH) {
+                    " · address ${_state.value.selectedAddressId?.take(8)}"
+                } else {
+                    ""
+                }
                 _state.update {
                     it.copy(
                         busy = false,
                         cart = null,
                         lastInvoiceId = invoiceId,
-                        message = "${RpcNames.CHECKOUT_CUSTOMER_CART} → invoice $invoiceId",
+                        message = "${RpcNames.CHECKOUT_CUSTOMER_CART} → invoice $invoiceId$addrNote. Pay from Account → Pay.",
                     )
                 }
             } catch (e: Exception) {
@@ -148,6 +151,12 @@ class CartViewModel(
     }
 
     companion object {
+        fun fulfillmentLabel(mode: FulfillmentMode): String =
+            when (mode) {
+                FulfillmentMode.IMMEDIATE -> "Click & collect"
+                FulfillmentMode.DISPATCH -> "Nationwide dispatch"
+            }
+
         fun factory(rpc: RpcClient): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

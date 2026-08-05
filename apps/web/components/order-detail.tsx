@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CustomerDeliveryTrackPanel } from "@/components/customer-delivery-track-panel";
 import {
   createCustomerContipayIntent,
+  createCustomerEcocashIntent,
   createCustomerPaynowIntent,
   formatMoney,
   fulfillmentLabel,
@@ -24,8 +25,10 @@ type Status =
 
 export function OrderDetail({ invoiceId }: { invoiceId: string }) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
-  const [busy, setBusy] = useState<"contipay" | "paynow" | null>(null);
+  const [busy, setBusy] = useState<"contipay" | "paynow" | "ecocash" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [ecocashMode, setEcocashMode] = useState<"saved" | "other">("saved");
+  const [ecocashOther, setEcocashOther] = useState("");
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -55,7 +58,7 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
     void refresh();
   }, [refresh]);
 
-  async function pay(rail: "contipay" | "paynow") {
+  async function pay(rail: "contipay" | "paynow" | "ecocash") {
     setBusy(rail);
     setMessage(null);
     const client = createWebClient();
@@ -68,7 +71,12 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
     const result =
       rail === "contipay"
         ? await createCustomerContipayIntent(client, invoiceId)
-        : await createCustomerPaynowIntent(client, invoiceId);
+        : rail === "paynow"
+          ? await createCustomerPaynowIntent(client, invoiceId)
+          : await createCustomerEcocashIntent(client, invoiceId, {
+              payerMode: ecocashMode,
+              payerMsisdn: ecocashMode === "other" ? ecocashOther : null,
+            });
 
     setBusy(null);
     if (!result.ok) {
@@ -80,7 +88,10 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
       return;
     }
     setMessage(
-      `${rail === "contipay" ? "ContiPay" : "Paynow"} intent ${result.data.intentId} created. Settlement confirms via webhook — return URL is /checkout/return when the provider redirects.`,
+      rail === "ecocash"
+        ? ((result.data as { message?: string }).message ??
+            `EcoCash intent ${result.data.intentId} — approve PIN on the EcoCash handset.`)
+        : `${rail === "contipay" ? "ContiPay" : "Paynow"} intent ${result.data.intentId} created. Settlement confirms via webhook — return URL is /checkout/return when the provider redirects.`,
     );
     await refresh();
   }
@@ -180,6 +191,41 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
             onClick={() => void pay("paynow")}
           >
             {busy === "paynow" ? "Starting…" : "Pay with Paynow"}
+          </button>
+          <div style={{ flexBasis: "100%", height: 0 }} />
+          <label>
+            <input
+              type="radio"
+              name="ecocashMode"
+              checked={ecocashMode === "saved"}
+              onChange={() => setEcocashMode("saved")}
+            />{" "}
+            EcoCash: saved number
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="ecocashMode"
+              checked={ecocashMode === "other"}
+              onChange={() => setEcocashMode("other")}
+            />{" "}
+            EcoCash: other number
+          </label>
+          {ecocashMode === "other" ? (
+            <input
+              type="tel"
+              placeholder="07… or +263…"
+              value={ecocashOther}
+              onChange={(e) => setEcocashOther(e.target.value)}
+            />
+          ) : null}
+          <button
+            type="button"
+            className={styles.btn}
+            disabled={busy !== null}
+            onClick={() => void pay("ecocash")}
+          >
+            {busy === "ecocash" ? "Starting…" : "Pay with EcoCash direct"}
           </button>
         </div>
       ) : null}

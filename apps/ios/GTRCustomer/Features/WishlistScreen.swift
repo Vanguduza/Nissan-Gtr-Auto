@@ -1,102 +1,135 @@
 import SwiftUI
 
-/// Wishlist — list / add / remove / notify / move-to-cart via AuthZ RPCs.
+/// Wishlist tab — KMP 2-column ProductBox grid; hearts driven by shared StorefrontSession wish-set.
 struct WishlistScreen: View {
     @EnvironmentObject private var session: StorefrontSession
-    @State private var items: [WishlistItem] = []
     @State private var oem = "15208-65F0C"
+    @State private var selectedCategory: String?
     @State private var status: String?
     @State private var busy = false
 
+    private let chipCategories = ["All", "Brakes", "Filters", "Engine", "Electrical"]
+
+    private var items: [WishlistItem] { session.wishlistItems }
+
     var body: some View {
-        List {
-            Section("Saved") {
-                if items.isEmpty {
-                    Text("No wishlist items")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(items) { item in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.oemPartNumber).font(.headline.monospaced())
-                                if let description = item.description, !description.isEmpty {
-                                    Text(description)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            Button(role: .destructive) {
-                                Task { await remove(item) }
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .disabled(busy)
+        ShopTabBody {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(chipCategories, id: \.self) { cat in
+                        let selected = (cat == "All" && selectedCategory == nil) || selectedCategory == cat
+                        Button(cat) {
+                            selectedCategory = cat == "All" ? nil : cat
                         }
-                        Toggle(
-                            "Notify when back in stock",
-                            isOn: Binding(
-                                get: {
-                                    items.first(where: { $0.id == item.id })?.notifyWhenInStock ?? false
-                                },
-                                set: { next in
-                                    Task { await setNotify(item, notify: next) }
-                                }
-                            )
+                        .font(GTRType.label(.caption))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            selected ? GTRColors.primary.opacity(0.15) : GTRColors.mist,
+                            in: Capsule()
                         )
-                        .disabled(busy)
-                        Button("Move to cart") {
-                            Task { await moveToCart(item) }
-                        }
-                        .disabled(busy)
+                        .foregroundStyle(selected ? GTRColors.primary : GTRColors.steel)
                     }
-                    .padding(.vertical, 4)
                 }
             }
 
-            Section("Add by OEM") {
-                TextField("OEM part number", text: $oem)
-                    .textInputAutocapitalization(.characters)
-                    .font(.body.monospaced())
-                Button("Add to wishlist") { Task { await add() } }
-                    .disabled(busy || oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            if filteredItems.isEmpty {
+                ShopHonestEmpty(
+                    title: "Wishlist is empty",
+                    bodyText: "Heart a part on Home / PDP, or add by OEM below."
+                )
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(filteredItems) { item in
+                        VStack(alignment: .leading, spacing: 6) {
+                            ShopProductCard(
+                                title: item.oemPartNumber,
+                                subtitle: item.description,
+                                priceLabel: "Saved",
+                                liked: true,
+                                onLike: { Task { await remove(item) } },
+                                onTap: {}
+                            )
+                            Toggle(
+                                "Notify in stock",
+                                isOn: Binding(
+                                    get: {
+                                        session.wishlistItems.first(where: { $0.id == item.id })?.notifyWhenInStock ?? false
+                                    },
+                                    set: { next in
+                                        Task { await setNotify(item, notify: next) }
+                                    }
+                                )
+                            )
+                            .font(GTRType.label(.caption2))
+                            .disabled(busy)
+                            Button("Move to cart") {
+                                Task { await moveToCart(item) }
+                            }
+                            .font(GTRType.label(.caption))
+                            .disabled(busy)
+                        }
+                    }
+                }
+            }
+
+            ShopMerchTitleRow(title: "Add by OEM", actionLabel: nil)
+            TextField("OEM part number", text: $oem)
+                .textInputAutocapitalization(.characters)
+                .font(GTRType.body())
+                .monospaced()
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: GTRRadius.sharp)
+                        .stroke(GTRColors.mist, lineWidth: 1)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: GTRRadius.sharp))
+                )
+            ShopPrimaryButton(
+                title: "Add to wishlist",
+                enabled: !busy && !oem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ) {
+                Task { await add() }
             }
 
             if let status {
-                Section {
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                Text(status)
+                    .font(GTRType.body(.footnote))
+                    .foregroundStyle(GTRColors.silverDim)
             }
         }
         .navigationTitle("Wishlist")
+        .navigationBarTitleDisplayMode(.inline)
         .task { await refresh() }
         .refreshable { await refresh() }
+    }
+
+    private var filteredItems: [WishlistItem] {
+        guard let selectedCategory else { return items }
+        return items.filter { item in
+            (item.description ?? item.oemPartNumber).localizedCaseInsensitiveContains(selectedCategory)
+        }
     }
 
     private func refresh() async {
         busy = true
         defer { busy = false }
-        do {
-            items = try await session.api.listWishlist()
-            status = nil
-        } catch {
-            status = error.localizedDescription
-        }
+        await session.refreshWishlist()
+        status = nil
     }
 
     private func add() async {
+        let needle = oem.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return }
         busy = true
         defer { busy = false }
         do {
-            _ = try await session.api.addWishlistItem(
-                stockItemId: nil,
-                oem: oem.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
-            items = try await session.api.listWishlist()
-            status = "Added via add_customer_wishlist_item"
+            if session.isLiked(oem: needle) {
+                status = "Already on wishlist"
+            } else {
+                _ = try await session.api.addWishlistItem(stockItemId: nil, oem: needle)
+                await session.refreshWishlist()
+                status = "Added \(needle)"
+            }
         } catch {
             status = error.localizedDescription
         }
@@ -106,13 +139,8 @@ struct WishlistScreen: View {
         busy = true
         defer { busy = false }
         do {
-            try await session.api.removeWishlistItem(
-                wishlistId: item.id,
-                stockItemId: nil,
-                oem: nil
-            )
-            items = try await session.api.listWishlist()
-            status = "Removed via remove_customer_wishlist_item"
+            try await session.toggleWishlist(oem: item.oemPartNumber, stockItemId: item.stockItemId)
+            status = "Removed"
         } catch {
             status = error.localizedDescription
         }
@@ -125,11 +153,10 @@ struct WishlistScreen: View {
             _ = try await session.api.setWishlistNotifyWhenInStock(
                 notify: notify,
                 wishlistId: item.id,
-                stockItemId: nil,
-                oem: nil
+                stockItemId: item.stockItemId,
+                oem: item.oemPartNumber
             )
-            items = try await session.api.listWishlist()
-            status = "Updated via set_wishlist_notify_when_in_stock"
+            await session.refreshWishlist()
         } catch {
             status = error.localizedDescription
         }
@@ -141,13 +168,13 @@ struct WishlistScreen: View {
         do {
             let lineId = try await session.api.wishlistMoveToCart(
                 wishlistId: item.id,
-                stockItemId: nil,
-                oem: nil,
+                stockItemId: item.stockItemId,
+                oem: item.oemPartNumber,
                 qty: 1,
                 removeFromWishlist: true
             )
-            items = try await session.api.listWishlist()
-            status = "Moved via wishlist_move_to_cart → line \(lineId.uuidString.prefix(8))…"
+            await session.refreshWishlist()
+            status = "Moved to cart · line \(lineId.uuidString.prefix(8))…"
         } catch {
             status = error.localizedDescription
         }

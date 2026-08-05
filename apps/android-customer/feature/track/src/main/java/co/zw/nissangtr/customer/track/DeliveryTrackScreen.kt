@@ -1,12 +1,6 @@
 package co.zw.nissangtr.customer.track
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -15,11 +9,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.customer.rpc.etaLabel
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.ui.shop.ShopSectionHeader
 
 /**
  * Privacy-safe active delivery track: **last point + ETA only**.
@@ -43,26 +38,27 @@ fun DeliveryTrackScreen(
     ),
 ) {
     val state by viewModel.state.collectAsState()
+    val sharp = MaterialTheme.shapes.extraSmall
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("Live delivery", style = MaterialTheme.typography.headlineSmall)
+    ShopDefaultScreen(
+        title = "Live delivery",
+        subtitle = "Last point · ETA only",
+        onBack = onBack,
+        modifier = modifier) {
         Text(
             "Last known location and ETA while your order is out for delivery. " +
                 "Historical GPS trail is never shown.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             "RPC: ${RpcNames.GET_DELIVERY_TRACK_POINT} (p_delivery_job_id / p_token)",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         if (!state.tracking) {
+            ShopSectionHeader(title = "Start", actionLabel = null)
             OutlinedTextField(
                 value = state.tokenDraft,
                 onValueChange = viewModel::onTokenChange,
@@ -70,6 +66,7 @@ fun DeliveryTrackScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !state.busy,
+                shape = sharp,
             )
             OutlinedTextField(
                 value = state.jobIdDraft,
@@ -78,11 +75,13 @@ fun DeliveryTrackScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !state.busy,
+                shape = sharp,
             )
             OutlinedButton(
                 onClick = viewModel::startFromDrafts,
                 enabled = !state.busy,
                 modifier = Modifier.fillMaxWidth(),
+                shape = sharp,
             ) { Text("Start tracking") }
         } else {
             Text(
@@ -93,37 +92,38 @@ fun DeliveryTrackScreen(
                     if (state.polling) append(" · polling ~8s")
                 },
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (!state.ended) {
                 OutlinedButton(
                     onClick = viewModel::refreshOnce,
                     enabled = !state.busy,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = sharp,
                 ) { Text("Refresh now") }
             }
             OutlinedButton(
                 onClick = viewModel::stopTracking,
                 modifier = Modifier.fillMaxWidth(),
+                shape = sharp,
             ) { Text(if (state.ended) "Done" else "Stop") }
 
             state.point?.let { p ->
-                Text("Status", style = MaterialTheme.typography.titleSmall)
+                ShopSectionHeader(title = "Live", actionLabel = null)
                 Text(
                     if (p.status == "dispatched") "Out for delivery" else p.status,
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Text("ETA", style = MaterialTheme.typography.titleSmall)
-                Text(p.etaLabel() ?: "Updating…", style = MaterialTheme.typography.bodyMedium)
-                Text("Last update", style = MaterialTheme.typography.titleSmall)
-                Text(p.recordedAt, style = MaterialTheme.typography.bodyMedium)
-                Text("Last coordinates", style = MaterialTheme.typography.titleSmall)
+                Text("ETA: ${p.etaLabel() ?: "Updating…"}", style = MaterialTheme.typography.bodyMedium)
+                Text("Last update: ${p.recordedAt}", style = MaterialTheme.typography.bodySmall)
                 Text(
-                    "${"%.5f".format(p.lat)}, ${"%.5f".format(p.lng)}",
+                    "Coords: ${"%.5f".format(p.lat)}, ${"%.5f".format(p.lng)}",
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
                     "Map tiles not bundled — last point + ETA only. No GPS trail.",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -141,6 +141,6 @@ fun DeliveryTrackScreen(
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack) { Text("Back") }
+        OutlinedButton(onClick = onBack, shape = sharp) { Text("Back") }
     }
 }

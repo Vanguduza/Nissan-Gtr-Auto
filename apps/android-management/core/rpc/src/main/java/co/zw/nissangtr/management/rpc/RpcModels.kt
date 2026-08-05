@@ -12,11 +12,19 @@ enum class CurrencyCode(val rpcValue: String) {
     ZIG("ZIG"),
 }
 
-/** Mirrors `public.fulfillment_mode`. */
-enum class FulfillmentMode(val rpcValue: String) {
-    IMMEDIATE("immediate"),
-    DISPATCH("dispatch"),
+/** Mirrors `public.fulfillment_mode` — UX: pickup = immediate, delivery = dispatch. */
+enum class FulfillmentMode(val rpcValue: String, val label: String) {
+    IMMEDIATE("immediate", "Pickup"),
+    DISPATCH("dispatch", "Delivery"),
 }
+
+/** One split-bill tender line for [RpcNames.CHECKOUT_POS_CART_WITH_TENDERS]. */
+data class PosTenderLine(
+    val tender: String,
+    val amount: Double,
+    val currency: String? = null,
+    val exchangeRate: Double? = null,
+)
 
 /** Mirrors `public.valuation_method`. */
 enum class ValuationMethod(val rpcValue: String) {
@@ -179,13 +187,91 @@ object ChatStaffRoles {
 }
 
 /**
- * Role home: sales-only → POS workspace; admin/warehouse keep hub.
- * Admin or warehouse wins over sales when both present.
+ * Post-auth landing (tablet kiosk plan §3).
+ * [Deny] = missing / empty / unknown roles (fail closed).
+ */
+enum class ManagementHomeLanding {
+    Deny,
+    Pos,
+    Hub,
+}
+
+/**
+ * Role landing: sales → POS; warehouse / finance / HR / admin / dispatcher → hub.
+ * Dashboard roles win over sales when multi-role. Unknown strings do not grant access.
  */
 object ManagementHomeRoles {
+    val KNOWN: Set<String> = setOf(
+        "admin",
+        "sales",
+        "warehouse",
+        "finance",
+        "hr",
+        "dispatcher",
+    )
+
+    private val DASHBOARD_ROLES: Set<String> =
+        setOf("admin", "warehouse", "finance", "hr", "dispatcher")
+
+    fun normalize(roles: Collection<String>): List<String> =
+        roles
+            .map { it.trim().lowercase() }
+            .filter { it in KNOWN }
+            .distinct()
+
+    /**
+     * Sales-only → POS. Admin | warehouse | finance | hr | dispatcher → hub
+     * (hub wins when combined with sales).
+     */
     fun prefersPosHome(roles: Collection<String>): Boolean {
-        if (roles.any { it == "admin" || it == "warehouse" }) return false
-        return roles.any { it == "sales" }
+        val n = normalize(roles)
+        if (n.any { it in DASHBOARD_ROLES }) return false
+        return n.any { it == "sales" }
+    }
+
+    /** Fail closed when auth has no recognized staff role. */
+    fun hasStaffAccess(roles: Collection<String>): Boolean =
+        normalize(roles).isNotEmpty()
+
+    /** Alias for [hasStaffAccess] — Fake-friendly routing helper. */
+    fun hasActiveStaffRole(roles: Collection<String>): Boolean =
+        hasStaffAccess(roles)
+
+    fun resolveLanding(roles: Collection<String>): ManagementHomeLanding {
+        val n = normalize(roles)
+        if (n.isEmpty()) return ManagementHomeLanding.Deny
+        return if (prefersPosHome(n)) ManagementHomeLanding.Pos else ManagementHomeLanding.Hub
+    }
+
+    /**
+     * Prefer DB [defaultLanding] (`pos`|`hub`) when set; otherwise [resolveLanding] from roles.
+     * Empty/unknown roles still Deny regardless of DB landing.
+     */
+    fun resolveLanding(
+        roles: Collection<String>,
+        defaultLanding: String?,
+    ): ManagementHomeLanding {
+        val n = normalize(roles)
+        if (n.isEmpty()) return ManagementHomeLanding.Deny
+        return when (defaultLanding?.trim()?.lowercase()) {
+            "pos" -> ManagementHomeLanding.Pos
+            "hub" -> ManagementHomeLanding.Hub
+            else -> resolveLanding(n)
+        }
+    }
+
+    /**
+     * Thin module gate from organogram module_access.
+     * Admins bypass; empty access → show all (staff_roles already applied by caller).
+     */
+    fun moduleAllowed(
+        moduleKey: String,
+        roles: Collection<String>,
+        moduleAccess: Collection<String>,
+    ): Boolean {
+        if (normalize(roles).any { it == "admin" }) return true
+        if (moduleAccess.isEmpty()) return true
+        return moduleAccess.any { it.equals(moduleKey, ignoreCase = true) }
     }
 }
 
@@ -205,6 +291,8 @@ data class CatalogPartHit(
     val subcategoryName: String? = null,
     val chassisCode: String? = null,
     val engineCode: String? = null,
+    /** Saleable on-hand across warehouses; null when OEM unknown / lookup skipped. */
+    val saleableQty: Double? = null,
 )
 
 data class CatalogSearchResult(
@@ -227,6 +315,21 @@ data class PosCartLineSummary(
     val unitPrice: Double,
     val lineTotal: Double,
     val isCoreCharge: Boolean = false,
+)
+
+/** Row from [RpcNames.LIST_POS_QUOTATIONS]. */
+data class PosQuotationSummary(
+    val id: String,
+    val documentNumber: String?,
+    val customerId: String?,
+    val warehouseId: String,
+    val currency: CurrencyCode,
+    val status: String,
+    val validUntil: String?,
+    val sentChannel: String?,
+    val createdAt: String?,
+    val lineCount: Long = 0,
+    val total: Double = 0.0,
 )
 
 data class PosScanSessionCreated(
@@ -258,6 +361,51 @@ data class CheckoutPosResult(
                 "Walk-in — no receipt contacts"
         }
 }
+
+/** Line from [RpcNames.PULL_POS_OFFLINE_SNAPSHOT] items[]. */
+data class OfflineCatalogItem(
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String? = null,
+    val uomId: String,
+    val unitPrice: Double,
+    val coreCharge: Double = 0.0,
+    val saleableQty: Double = 0.0,
+    val currency: CurrencyCode = CurrencyCode.USD,
+)
+
+/** Result of [RpcNames.PULL_POS_OFFLINE_SNAPSHOT]. */
+data class OfflinePosSnapshot(
+    val warehouseId: String,
+    val pulledAt: String,
+    val priceListId: String? = null,
+    val currency: CurrencyCode = CurrencyCode.USD,
+    val items: List<OfflineCatalogItem> = emptyList(),
+)
+
+/**
+ * Payload for [RpcNames.REPLAY_OFFLINE_POS_SALE].
+ * Cash tender only; walk-in (no named credit customer).
+ */
+data class OfflineSaleReplayPayload(
+    val warehouseId: String,
+    val currency: CurrencyCode,
+    val exchangeRate: Double = 1.0,
+    val deviceId: String? = null,
+    val lines: List<OfflineSaleLine>,
+    val tenders: List<PosTenderLine>,
+    val receiptEmail: String? = null,
+    val receiptWhatsappE164: String? = null,
+    val receiptPhoneE164: String? = null,
+    val soldAt: String? = null,
+)
+
+data class OfflineSaleLine(
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+    val expectedUnitPrice: Double,
+)
 
 /** Row from `chat_threads` (staff list / detail header). */
 data class ChatThreadSummary(
@@ -495,4 +643,79 @@ data class CustomerCreditSnapshot(
     val creditHold: Boolean,
     val openBalance: Double,
     val currency: CurrencyCode,
+)
+
+/** HR onboarding + sensitive banking/health — admin|hr only (mirrors web RLS). */
+object HrOnboardingStaffRoles {
+    fun allows(roles: Collection<String>): Boolean =
+        roles.any { it == "admin" || it == "hr" }
+}
+
+/** Mirrors `public.hr_onboarding_stage`. */
+enum class HrOnboardingStage(val rpcValue: String) {
+    PERSONAL("personal"),
+    BANKING_HEALTH("banking_health"),
+    DOCUMENTS("documents"),
+    ROLE_CONTRACT("role_contract"),
+    CREDENTIALS("credentials"),
+    ;
+
+    companion object {
+        fun fromRpc(raw: String?): HrOnboardingStage =
+            entries.firstOrNull { it.rpcValue.equals(raw, ignoreCase = true) }
+                ?: PERSONAL
+    }
+}
+
+data class HrGradeOption(
+    val id: String,
+    val code: String,
+    val title: String,
+    val sortOrder: Int = 100,
+)
+
+data class HrRoleOption(
+    val id: String,
+    val title: String,
+    val department: String? = null,
+    val gradeId: String? = null,
+)
+
+data class HrOnboardingDraft(
+    val id: String,
+    val employeeId: String? = null,
+    val stage: HrOnboardingStage,
+    val payload: Map<String, String?>,
+    val bankingJson: Map<String, String?>? = null,
+    val healthJson: Map<String, String?>? = null,
+    val completedAt: String? = null,
+    val updatedAt: String,
+)
+
+data class HrOnboardingCompleteResult(
+    val draftId: String?,
+    val employeeId: String?,
+    val employeeCode: String?,
+    val email: String?,
+    val phoneE164: String?,
+    val userId: String?,
+    val mustChangePassword: Boolean,
+    /** Channel delivery status from Edge when auth was created; empty if skipped. */
+    val auth: HrOnboardingAuthResult? = null,
+    val authError: String? = null,
+    val message: String? = null,
+)
+
+data class HrOnboardingAuthChannel(
+    val channel: String,
+    val status: String,
+    val error: String? = null,
+)
+
+data class HrOnboardingAuthResult(
+    val employeeId: String,
+    val userId: String,
+    val created: Boolean,
+    val mustChangePassword: Boolean,
+    val channels: List<HrOnboardingAuthChannel> = emptyList(),
 )

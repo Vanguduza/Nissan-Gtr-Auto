@@ -177,6 +177,32 @@ export async function createPosCart(
   return { ok: true, data };
 }
 
+/** Park an open cart for later resume (Batch 1 park/hold). */
+export async function parkPosCart(
+  client: SupabaseClient,
+  cartId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("park_pos_cart", {
+    p_cart_id: cartId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "park_pos_cart returned no id." };
+  return { ok: true, data };
+}
+
+/** Resume a parked cart back to open. */
+export async function resumePosCart(
+  client: SupabaseClient,
+  cartId: string,
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("resume_pos_cart", {
+    p_cart_id: cartId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "resume_pos_cart returned no id." };
+  return { ok: true, data };
+}
+
 export async function loadPosCart(
   client: SupabaseClient,
   cartId: string,
@@ -254,6 +280,13 @@ export async function checkoutPosCart(
     receiptEmail?: string | null;
     receiptWhatsappE164?: string | null;
     receiptPhoneE164?: string | null;
+    /** Batch 1 §1.3 — when set, uses checkout_pos_cart_with_tenders (multi-tender settle). */
+    tenders?: Array<{
+      tender: string;
+      amount: number;
+      currency?: string;
+      exchange_rate?: number;
+    }> | null;
   },
 ): Promise<StorefrontResult<CheckoutPosResult>> {
   const cartRes = await loadPosCart(client, args.cartId);
@@ -266,14 +299,37 @@ export async function checkoutPosCart(
     phoneE164: args.receiptPhoneE164,
   });
 
-  const { data, error } = await client.rpc("checkout_pos_cart", {
-    p_cart_id: args.cartId,
-    p_receipt_email: contacts.p_receipt_email ?? undefined,
-    p_receipt_whatsapp_e164: contacts.p_receipt_whatsapp_e164 ?? undefined,
-    p_receipt_phone_e164: contacts.p_receipt_phone_e164 ?? undefined,
-  });
+  const tenders = (args.tenders ?? []).filter((t) => t.amount > 0);
+  const useSplit = tenders.length > 0;
+
+  const { data, error } = useSplit
+    ? await client.rpc("checkout_pos_cart_with_tenders", {
+        p_cart_id: args.cartId,
+        p_tenders: tenders.map((t) => ({
+          tender: t.tender,
+          amount: t.amount,
+          currency: t.currency,
+          exchange_rate: t.exchange_rate,
+        })),
+        p_receipt_email: contacts.p_receipt_email ?? undefined,
+        p_receipt_whatsapp_e164: contacts.p_receipt_whatsapp_e164 ?? undefined,
+        p_receipt_phone_e164: contacts.p_receipt_phone_e164 ?? undefined,
+      })
+    : await client.rpc("checkout_pos_cart", {
+        p_cart_id: args.cartId,
+        p_receipt_email: contacts.p_receipt_email ?? undefined,
+        p_receipt_whatsapp_e164: contacts.p_receipt_whatsapp_e164 ?? undefined,
+        p_receipt_phone_e164: contacts.p_receipt_phone_e164 ?? undefined,
+      });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "checkout_pos_cart returned no id." };
+  if (!data) {
+    return {
+      ok: false,
+      error: useSplit
+        ? "checkout_pos_cart_with_tenders returned no id."
+        : "checkout_pos_cart returned no id.",
+    };
+  }
 
   const { data: inv, error: invErr } = await client
     .from("sales_invoices")

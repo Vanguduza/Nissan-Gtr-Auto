@@ -11,21 +11,27 @@ struct GarageScreen: View {
     @State private var busy = false
 
     var body: some View {
-        List {
+        ShopDefaultScreen(title: "My Garage", subtitle: "VIN · vehicles", scrollable: false) {
+            List {
             Section("Saved") {
                 if vehicles.isEmpty {
                     Text("No vehicles")
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.subheadline))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
                 ForEach(vehicles) { v in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(v.label).font(.headline)
+                            Text(v.label).font(GTRType.displaySemi(.headline))
                             if v.isPrimary {
-                                Text("Primary").font(.caption).foregroundStyle(.secondary)
+                                Text("Primary")
+                                    .font(GTRType.label(.caption))
+                                    .foregroundStyle(GTRColors.silverDim)
                             }
                             if let vin = v.vin, !vin.isEmpty {
-                                Text(vin).font(.caption.monospaced())
+                                Text(vin)
+                                    .font(GTRType.label(.caption))
+                                    .monospaced()
                             }
                         }
                         Spacer()
@@ -51,14 +57,17 @@ struct GarageScreen: View {
             if let status {
                 Section {
                     Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
             }
+            }
+            .scrollContentBackground(.hidden)
+            .background(GTRColors.chalk)
+            .navigationBarTitleDisplayMode(.inline)
+            .task { await refresh() }
+            .refreshable { await refresh() }
         }
-        .navigationTitle("Garage")
-        .task { await refresh() }
-        .refreshable { await refresh() }
     }
 
     private func refresh() async {

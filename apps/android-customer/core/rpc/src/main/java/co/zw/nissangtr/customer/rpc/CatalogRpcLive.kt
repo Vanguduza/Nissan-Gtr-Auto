@@ -87,6 +87,7 @@ internal object CatalogRpcLive {
 
         val price = loadDefaultPrices(client, listOf(item.id))[item.id]
         val qty = loadSaleableQty(client, listOf(item.id))[item.id] ?: 0.0
+        val fitmentLines = loadFitmentLabels(client, item.oemPartNumber)
 
         return CatalogProduct(
             stockItemId = item.id,
@@ -96,8 +97,25 @@ internal object CatalogRpcLive {
             usd = if (price?.currency == "USD") price.unitPrice else price?.unitPrice,
             stock = stockStateFromQty(qty, item.reorderPoint),
             coreCharge = price?.coreCharge ?: 0.0,
-            fitmentLines = emptyList(),
+            fitmentLines = fitmentLines,
         )
+    }
+
+    private suspend fun loadFitmentLabels(client: SupabaseClient, oem: String): List<String> {
+        val rows = client.from("part_fitment")
+            .select(Columns.list("chassis_code", "engine_code", "pnc_code")) {
+                filter { eq("oem_part_number", oem) }
+                limit(12)
+            }
+            .decodeList<FitmentLabelRow>()
+        return rows.mapNotNull { row ->
+            val bits = listOfNotNull(
+                row.chassisCode?.trim()?.takeIf { it.isNotEmpty() },
+                row.engineCode?.trim()?.takeIf { it.isNotEmpty() },
+                row.pncCode?.trim()?.takeIf { it.isNotEmpty() }?.let { "PNC $it" },
+            )
+            bits.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+        }
     }
 
     suspend fun addCartLineByOem(
@@ -246,6 +264,13 @@ private data class PriceListItemRow(
     @SerialName("stock_item_id") val stockItemId: String,
     @SerialName("unit_price") val unitPrice: Double? = null,
     @SerialName("core_charge") val coreCharge: Double = 0.0,
+)
+
+@Serializable
+private data class FitmentLabelRow(
+    @SerialName("chassis_code") val chassisCode: String? = null,
+    @SerialName("engine_code") val engineCode: String? = null,
+    @SerialName("pnc_code") val pncCode: String? = null,
 )
 
 private data class PriceRow(

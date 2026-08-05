@@ -5,6 +5,14 @@
 **Audience:** Cursor Desktop workflow for this monorepo (Supabase + Next.js + Android/iOS, agent lanes in `AGENTS.md` / `rufler.yaml`, MCP, skills).  
 **Hard exclusions (unchanged):** no ZIMRA; no payroll tax; Bridge-First for QR/printer/biometric/GPS.
 
+### Alignment (2026-08-02 later same day)
+
+The general playbook [`docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md`](../CURSOR_ERP_SAAS_SETUP_GUIDE.md) was **rewritten** as an OSS-first Cursor + ERP/SaaS guide (community research, not GTR-only). Policy updates that supersede older “Buy / SaaS” wording elsewhere:
+
+- Discovery = **Integrate / Fork / Build** open source (MIT/Apache/BSD preferred). **No proprietary buy pitches** unless the user explicitly asks.
+- Dev tooling landscape must include **Claude Code**, **Ruflo vs `rufler.yaml`**, and **memory** (claude-mem / docs-as-memory) as optional scale tools — see guide §4.
+- This note’s tooling verdicts (Awesome MCP, Ponytail, Goose, skip CrewAI/Skyvern) remain valid; treat them as **OSS agent-stack** research, not a commercial catalog.
+
 ---
 
 ## Implemented (2026-08-02 follow-through)
@@ -14,7 +22,7 @@
 | **Ponytail** | Done — agent-requestable **lite** rule | `.cursor/rules/ponytail.mdc` (+ note in `session_discipline.mdc`) |
 | **Emil Kowalski** | Done — global install; explicit-invoke | `emil-design-eng`, `review-animations`, `improve-animations` under `~/.cursor/skills/` (skip `apple-design` / `pick-ui-library`) |
 | **Awesome MCP shortlist** | Done — curated example (7 servers) | `.cursor/mcp.json.example` (+ local gitignored `.cursor/mcp.json`); docs in `TOOLING_SETUP.md` / guide |
-| **Master playbook** | Done | `docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md` |
+| **Master playbook** | Done → **rewritten OSS-only** | `docs/CURSOR_ERP_SAAS_SETUP_GUIDE.md` (general Cursor + OSS; GTR = short appendix) |
 | **Satellites** | Done — Meilisearch compose + Traccar profile + OSRM stub; Casbin/Gorse Phase-2 docs | `docker-compose.satellites.yml`, `infra/satellites/` |
 | Goose / CrewAI / Skyvern / Omni | Unchanged — optional / skip per verdicts below | — |
 

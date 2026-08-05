@@ -1,0 +1,22 @@
+Nissan GTR Auto ERP — third-party notices
+========================================
+
+Shopping-By-KMP (UI architecture fork)
+-------------------------------------
+Portions of the Android Compose storefront / staff shared UI kit
+(`packages/android-ui` shop components and adapted screens under
+`apps/android-customer`, `apps/android-management`, `apps/android-delivery`)
+are derived from:
+
+  Shopping-By-KMP
+  https://github.com/razaghimahdi/Shopping-By-KMP
+  Copyright (c) 2023 Mahdi Razzaghi Ghaleh (rq_mehdi)
+  License: MIT
+
+The MIT license text is included in `reference/shopping-by-kmp/LICENSE`
+(local shallow clone; directory is gitignored). A copy of the permission
+notice applies to substantial portions adapted from that project.
+
+GTR brand tokens, Supabase RPC clients, Bridge-First hardware modules, and
+business domain logic are original to this repository and are not part of
+Shopping-By-KMP.

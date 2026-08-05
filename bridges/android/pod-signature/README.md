@@ -1,8 +1,11 @@
 # Android POD signature bridge — pod-signature
 
 Implements `PodSignatureBridge` from `bridges/contracts/pod.ts` using a native
-**Canvas ink pad** (`SignaturePadView`). Emits **local PNG paths only** —
-**no Supabase / network / WebView** inside this module.
+**Compose Canvas** ink pad (`ComposeSignaturePad`) plus legacy `SignaturePadView`.
+Emits **local PNG paths only** — **no Supabase / network / WebView** inside this module.
+
+Prefer embedding `ComposeSignaturePad` on POD UI; `captureSignature()` opens the
+full-screen Compose Activity when a larger pad is needed.
 
 ## Include from android-delivery
 

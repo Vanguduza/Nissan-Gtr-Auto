@@ -71,6 +71,9 @@ supabase gen types typescript --local > packages/supabase-client/src/database.ty
 # Data pipeline
 cd data-pipeline && python -m pytest
 
+# WhatsApp Flows (FastAPI satellite — Meta Flow crypto + Paynow callback)
+cd services/whatsapp-flows && uvicorn app.main:app --reload --port 8088
+
 # Web (when scaffolded)
 cd apps/web && pnpm dev
 

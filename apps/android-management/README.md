@@ -14,9 +14,10 @@ Thin Compose scaffolds — not App Store polish.
 
 | Module | Package | Role |
 |--------|---------|------|
-| `:app` | `co.zw.nissangtr.management` | Launcher + route shell + auth gate |
+| `:app` | `co.zw.nissangtr.management` | Launcher + route shell + auth gate; **phone** / **tablet** flavors |
 | `:core:rpc` | `…management.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
 | `:feature:auth` | `…management.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
+| `:feature:kiosk` | `…management.kiosk` | Idle lock, Device Admin console, Lock Task / DO hooks (tablet owns DO) |
 | `:feature:hr` | `…management.hr` | Clock in/out → `clock_attendance` |
 | `:feature:dispatch` | `…management.dispatch` | Pick/DN + assign/route/panic + staff live view (no GPS producer) |
 | `:feature:pos` | `…management.pos` | Standalone sales till (search/catalog/checkout) + optional companion |
@@ -44,7 +45,16 @@ Thin Compose scaffolds — not App Store polish.
 
 Also named: `cancel_delivery_note` (RPC wired; not a dedicated button).
 
-**Role home:** sales-only → POS till as default (hub via “All modules”). Admin or warehouse → hub as home. Fake roles include admin/warehouse so hub is the Fake landing.
+**Role home:** sales-only → POS till as default (hub via “All modules”). Admin / warehouse / finance / HR / dispatcher → staff dashboard gated by `module_access`. Fake roles include admin so hub is the Fake landing. Live with no staff role → access denied (fail closed).
+
+**Flavors (separate `applicationId`s):**
+
+| Flavor | applicationId | Owns |
+|--------|---------------|------|
+| `phone` | `co.zw.nissangtr.management` | Portable management; no Device Owner / Magisk |
+| `tablet` | `co.zw.nissangtr.management.tablet` | Kiosk: DO receiver, HOME category, Lock Task, Path B hooks |
+
+Idle lock default **3 min** (Device Admin override 1–15); engine audio default **OFF**. Ops: [`docs/guides/android-management-kiosk-device-owner.md`](../../docs/guides/android-management-kiosk-device-owner.md).
 
 Home hub: **POS**, **Warehouse**, **Bins**, **Consignment**, **Blankets**, **Credit** (admin\|sales\|finance), **HR**, **Logistics**, **Chat**.
 
@@ -178,10 +188,14 @@ Optional: `rpc.forceFake=true` in `local.properties`.
 
 ```bash
 cd apps/android-management
-./gradlew assembleDebug          # macOS/Linux
-.\gradlew.bat assembleDebug      # Windows
+./gradlew :app:assemblePhoneDebug    # portable management
+./gradlew :app:assembleTabletDebug   # kiosk (DO / Path B hooks)
+.\gradlew.bat :app:assemblePhoneDebug
+.\gradlew.bat :app:assembleTabletDebug
 
-# Dispatch unit tests (throttle + GPS gate + assign/panic Fake RPCs)
+# Unit tests
+.\gradlew.bat :feature:kiosk:testDebugUnitTest
+.\gradlew.bat :core:rpc:testDebugUnitTest
 .\gradlew.bat :feature:dispatch:testDebugUnitTest
 ```
 

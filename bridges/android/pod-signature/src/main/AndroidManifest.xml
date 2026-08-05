@@ -6,6 +6,6 @@
             android:name=".PodSignatureCaptureActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
 </manifest>

@@ -20,8 +20,9 @@ data class PodSignatureOptions(
 )
 
 /**
- * Native ink signature pad (Canvas View — no WebView).
+ * Native ink signature pad (Compose Canvas / View — no WebView).
  * Returns a local PNG path — no network inside the bridge.
+ * Prefer inline [ComposeSignaturePad] on PodScreen; this launches full-screen capture.
  */
 interface PodSignatureBridge {
     suspend fun captureSignature(options: PodSignatureOptions = PodSignatureOptions()): PodCaptureResult

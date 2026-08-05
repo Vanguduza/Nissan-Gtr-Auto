@@ -643,6 +643,7 @@ class FlareSolverrSession:
         self.session_id: str | None = None
         self._last_used = 0.0
         self._lock = asyncio.Lock()
+        self._cf_streak = 0
 
     def _read_persisted(self) -> str | None:
         if not self.persist_path or not self.persist_path.exists():
@@ -752,6 +753,21 @@ class FlareSolverrSession:
                     raise
             self._last_used = time.monotonic()
             return solution
+
+    async def note_success(self) -> None:
+        self._cf_streak = 0
+
+    async def note_cf_block(self, *, recycle_after: int = 3) -> None:
+        """Destroy/recreate session after consecutive Cloudflare challenge pages."""
+        self._cf_streak += 1
+        if self._cf_streak < max(1, recycle_after):
+            return
+        logger.warning(
+            "Recycling FlareSolverr session after %s consecutive CF blocks",
+            self._cf_streak,
+        )
+        await self.close(destroy=True)
+        self._cf_streak = 0
 
     async def maybe_keepalive(self) -> None:
         """Touch the session if idle too long so CF cookies stay warm."""
@@ -2294,6 +2310,7 @@ def mark_visit_result(
 
 def requeue_failed(db_path: Path) -> int:
     """Reset FAILED / stuck / CF-blocked URLs back to PENDING for another pass."""
+    reclaim_stale_processing(db_path)
     conn = sqlite3.connect(db_path, timeout=30.0)
     try:
         cur = conn.execute(
@@ -2305,6 +2322,30 @@ def requeue_failed(db_path: Path) -> int:
         )
         conn.commit()
         return int(cur.rowcount)
+    finally:
+        conn.close()
+
+
+def reclaim_stale_processing(db_path: Path, *, stale_seconds: float = 900.0) -> int:
+    """Re-queue PROCESSING rows left by a crashed worker (older than ``stale_seconds``)."""
+    if stale_seconds <= 0:
+        return 0
+    conn = sqlite3.connect(db_path, timeout=30.0)
+    try:
+        cur = conn.execute(
+            """
+            UPDATE queue
+            SET status = 'PENDING', updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'PROCESSING'
+              AND updated_at < datetime('now', ?)
+            """,
+            (f"-{int(stale_seconds)} seconds",),
+        )
+        conn.commit()
+        n = int(cur.rowcount)
+        if n:
+            logger.info("Reclaimed %s stale PROCESSING URLs (>%ss)", n, int(stale_seconds))
+        return n
     finally:
         conn.close()
 
@@ -2617,6 +2658,16 @@ async def flaresolverr_crawl_worker(
         async with pages_lock:
             if max_pages is not None and pages_done["n"] >= max_pages:
                 break
+
+        if not await flaresolverr_health(config.flaresolverr_url):
+            logger.warning(
+                "[FS worker %s] FlareSolverr unreachable at %s — backing off 30s",
+                worker_id,
+                config.flaresolverr_url,
+            )
+            await asyncio.sleep(30.0)
+            continue
+
         claimed = claim_next_url(db_path, mode=config.resolved_queue_mode())
         if not claimed:
             await asyncio.sleep(0.3 + random.uniform(0.0, 0.2))
@@ -2653,6 +2704,7 @@ async def flaresolverr_crawl_worker(
 
             if is_cloudflare_challenge(html):
                 set_url_status(db_path, url, "BLOCKED_CF")
+                await fs_session.note_cf_block()
                 logger.error("Cloudflare challenge still present: %s", url)
                 continue
 
@@ -2693,6 +2745,7 @@ async def flaresolverr_crawl_worker(
                 )
 
             mark_visit_result(db_path, url, ok=True, max_attempts=config.max_attempts)
+            await fs_session.note_success()
             async with pages_lock:
                 pages_done["n"] += 1
                 done = pages_done["n"]
@@ -2947,6 +3000,35 @@ async def scraper_worker(
     logger.info("[Worker %s] Shutdown", worker_id)
 
 
+async def wait_for_flaresolverr(
+    api_url: str,
+    *,
+    interval_seconds: float = 30.0,
+    max_wait_seconds: float = 3600.0,
+) -> None:
+    """Block until FlareSolverr responds (or ``max_wait_seconds`` elapses)."""
+    deadline = time.monotonic() + max(0.0, max_wait_seconds)
+    attempt = 0
+    while True:
+        if await flaresolverr_health(api_url):
+            if attempt:
+                logger.info("FlareSolverr reachable at %s after %s wait(s)", api_url, attempt)
+            return
+        attempt += 1
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"FlareSolverr not reachable at {api_url} after {max_wait_seconds:.0f}s. "
+                "docker compose -f docker-compose.satellites.yml --profile scrape up -d"
+            )
+        logger.warning(
+            "FlareSolverr not reachable at %s — retry in %.0fs (attempt %s)",
+            api_url,
+            interval_seconds,
+            attempt,
+        )
+        await asyncio.sleep(interval_seconds)
+
+
 async def run_crawl(
     *,
     config: ScrapeConfig,
@@ -2964,6 +3046,8 @@ async def run_crawl(
     pruned = prune_out_of_scope_queue(db_path, config)
     if pruned:
         logger.info("Pruned %s out-of-scope queue URLs (English %s / brand %s only)", pruned, config.allowed_locale, config.allowed_brand)
+
+    reclaim_stale_processing(db_path)
 
     if retry_failed:
         n = requeue_failed(db_path)
@@ -3020,11 +3104,7 @@ async def run_crawl(
     paths["profile"].mkdir(parents=True, exist_ok=True)
 
     if use_flaresolverr_fetch:
-        if not await flaresolverr_health(config.flaresolverr_url):
-            raise RuntimeError(
-                f"FlareSolverr not reachable at {config.flaresolverr_url}. "
-                "docker compose -f docker-compose.satellites.yml --profile scrape up -d"
-            )
+        await wait_for_flaresolverr(config.flaresolverr_url)
         logger.info(
             "Crawl mode: FlareSolverr fetch (proxy=%s, workers=%s, concurrent=%s)",
             proxy.redacted() if proxy else "direct",

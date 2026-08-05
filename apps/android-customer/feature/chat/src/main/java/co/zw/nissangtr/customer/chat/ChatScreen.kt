@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -42,6 +41,8 @@ import co.zw.nissangtr.customer.rpc.ChatThreadKind
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.customer.rpc.previewLabel
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.ui.shop.ShopSectionHeader
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -61,6 +62,7 @@ fun ChatScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val listState = rememberLazyListState()
+    val sharp = MaterialTheme.shapes.extraSmall
 
     LaunchedEffect(state.messages.size, state.selectedId) {
         if (state.messages.isNotEmpty()) {
@@ -68,18 +70,19 @@ fun ChatScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ShopDefaultScreen(
+        title = "Live chat",
+        subtitle = "Counter support",
+        onBack = onBack,
+        scrollable = false,
+        modifier = modifier,
     ) {
-        Text("Live chat", style = MaterialTheme.typography.headlineSmall)
         Text(
             "RPCs: ${RpcNames.START_CHAT_THREAD}, ${RpcNames.POST_CHAT_MESSAGE}, " +
                 "${RpcNames.MARK_CHAT_THREAD_READ}, ${RpcNames.CHAT_UNREAD_COUNT}. " +
                 if (state.polling) "Poll ${POLL_NOTE}" else "Select a thread to poll.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (state.unread > 0) {
             Text("Unread: ${state.unread}", style = MaterialTheme.typography.bodySmall)
@@ -90,6 +93,7 @@ fun ChatScreen(
                 openWhatsApp(context, whatsappE164Digits)
             },
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) {
             Text("Ask counter on WhatsApp")
         }
@@ -119,7 +123,7 @@ fun ChatScreen(
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = sharp) {
             Text("Back")
         }
     }
@@ -136,23 +140,26 @@ private fun ThreadListPane(
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val sharp = MaterialTheme.shapes.extraSmall
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("New thread", style = MaterialTheme.typography.titleSmall)
+        ShopSectionHeader(title = "New thread", actionLabel = null)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = state.kind == ChatThreadKind.SUPPORT,
                 onClick = { onKind(ChatThreadKind.SUPPORT) },
                 label = { Text("Support") },
                 enabled = !state.busy,
+                shape = sharp,
             )
             FilterChip(
                 selected = state.kind == ChatThreadKind.PARTS,
                 onClick = { onKind(ChatThreadKind.PARTS) },
                 label = { Text("Parts") },
                 enabled = !state.busy,
+                shape = sharp,
             )
         }
         OutlinedTextField(
@@ -162,6 +169,7 @@ private fun ThreadListPane(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
+            shape = sharp,
         )
         OutlinedTextField(
             value = state.firstBody,
@@ -169,11 +177,13 @@ private fun ThreadListPane(
             label = { Text("First message (optional)") },
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy,
+            shape = sharp,
         )
         Button(
             onClick = onStart,
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) {
             Text(if (state.busy) "Starting…" else "Start thread")
         }
@@ -181,11 +191,12 @@ private fun ThreadListPane(
             onClick = onRefresh,
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) {
             Text("Refresh threads")
         }
         HorizontalDivider()
-        Text("Your threads", style = MaterialTheme.typography.titleSmall)
+        ShopSectionHeader(title = "Your threads", actionLabel = null)
         if (state.threads.isEmpty()) {
             Text(
                 "No threads yet — start one above.",
@@ -230,6 +241,7 @@ private fun ThreadDetailPane(
     modifier: Modifier = Modifier,
 ) {
     val selected = state.selected
+    val sharp = MaterialTheme.shapes.extraSmall
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -247,14 +259,16 @@ private fun ThreadDetailPane(
                 Text(
                     selected?.status?.rpcValue ?: "",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onBackToList) { Text("Threads") }
+            OutlinedButton(onClick = onBackToList, shape = sharp) { Text("Threads") }
         }
         OutlinedButton(
             onClick = onRefresh,
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) {
             Text("Refresh messages")
         }
@@ -280,11 +294,13 @@ private fun ThreadDetailPane(
                 label = { Text("Message the counter…") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.sendBusy,
+                shape = sharp,
             )
             Button(
                 onClick = onSend,
                 enabled = !state.sendBusy && state.draft.trim().isNotEmpty(),
                 modifier = Modifier.fillMaxWidth(),
+                shape = sharp,
             ) {
                 Text(if (state.sendBusy) "Sending…" else "Send")
             }
@@ -306,7 +322,7 @@ private fun MessageBubble(msg: ChatMessage) {
             modifier = Modifier
                 .align(align)
                 .widthIn(max = 320.dp)
-                .background(bg, RoundedCornerShape(12.dp))
+                .background(bg, MaterialTheme.shapes.medium)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             Text(

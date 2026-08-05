@@ -149,6 +149,7 @@ export default function SignupPage() {
           Boolean(ctx.data?.isStaff),
           null,
           ctx.data?.roles ?? [],
+          Boolean(ctx.data?.mustChangePassword),
         ),
       );
     } else {

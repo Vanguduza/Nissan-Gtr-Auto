@@ -6,7 +6,12 @@
   "required": ["pnc_code", "category_name"],
   "additionalProperties": false,
   "properties": {
-    "pnc_code": { "type": "string", "maxLength": 8, "pattern": "^[0-9]{5}$" },
+    "pnc_code": {
+      "type": "string",
+      "maxLength": 8,
+      "pattern": "^[0-9A-Z]{2,8}$",
+      "description": "Classic Nissan FAST 5-digit PNC, or PartSouq alphanumeric code-on-image (e.g. C8320, 16132PA)."
+    },
     "category_name": { "type": "string", "minLength": 1 },
     "subcategory_name": { "type": "string" }
   }

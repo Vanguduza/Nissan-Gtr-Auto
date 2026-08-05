@@ -44,6 +44,35 @@ services:
   #     - ./infra/satellites/osrm/data:/data
   #   command: osrm-routed --algorithm mld /data/region.osrm
 
+  # FlareSolverr — Cloudflare challenge solver for catalog scrape (Amayama).
+  # Usage: docker compose -f docker-compose.satellites.yml --profile scrape up -d
+  flaresolverr:
+    profiles: ["scrape"]
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: gtr-flaresolverr
+    ports:
+      - "8191:8191"
+    environment:
+      LOG_LEVEL: info
+      TZ: Africa/Harare
+    restart: unless-stopped
+
+  # Gorse — Phase C collaborative filtering (Apache-2.0). Scaffold only.
+  # Do not enable until sales event feed + staff UI are ready.
+  # Docs: infra/satellites/PHASE2_PROPHET_GORSE.md
+  # gorse:
+  #   profiles: ["recommend"]
+  #   image: zhenghaoz/gorse-in-one:latest
+  #   container_name: gtr-gorse
+  #   ports:
+  #     - "8086:8086"
+  #     - "8087:8087"
+  #     - "8088:8088"
+  #   environment:
+  #     GORSE_CACHE_STORE: redis://redis:6379
+  #     GORSE_DATA_STORE: mysql://gorse:gorse@tcp(mysql:3306)/gorse
+  #   # Prefer Postgres event export from completed sales — never cart speculation alone.
+
 volumes:
   meili_data:
   traccar_data:

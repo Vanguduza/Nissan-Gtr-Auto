@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.WISHLIST_MOVE_TO_CART]: p_cart_id, p_qty?, p_remove_from_wishlist?, …
  * - [RpcNames.LIST_CUSTOMER_COMPARE_ITEMS] / ADD / REMOVE
  * - [RpcNames.SUBMIT_CUSTOMER_PRODUCT_REVIEW] / GET_PRODUCT_REVIEW_STATS / ADD_…_PHOTO
+ * - [RpcNames.UPSERT_CUSTOMER_ADDRESS] / [RpcNames.DELETE_CUSTOMER_ADDRESS]
  *
  * No PSP secrets or crypto here — intent UUID only.
  */
@@ -117,6 +118,21 @@ class FakeRpcClient : RpcClient {
         ),
     )
     private val reviewPhotoCounts = mutableMapOf<String, Int>()
+    private val addresses = mutableListOf(
+        CustomerAddress(
+            id = "00000000-0000-4000-8000-0000000000a1",
+            label = "Home",
+            line1 = "15 Samora Machel Ave",
+            line2 = AddressGeo.embed(null, -17.8292, 31.0522),
+            city = "Harare",
+            province = "Harare",
+            postalCode = null,
+            country = "Zimbabwe",
+            isDefault = true,
+            createdAt = "2026-07-25T10:00:00Z",
+            updatedAt = "2026-07-25T10:00:00Z",
+        ),
+    )
 
     /** Fake active job → last point (single row only; no trail). Nudged on each poll. */
     private var fakeTrackPoint: DeliveryTrackPoint? = seedTrackPoint()
@@ -180,7 +196,11 @@ class FakeRpcClient : RpcClient {
         const val SEED_TRACK_TOKEN = "fake_customer_track_token_demo_00000001"
         const val SEED_OIL_FILTER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val SEED_AIR_FILTER_ID = "00000000-0000-4000-8000-0000000000a2"
+        const val SEED_STARTER_ID = "00000000-0000-4000-8000-0000000000a3"
+        const val SEED_CORE_DEPOSIT_ID = "00000000-0000-4000-8000-0000000000a4"
         const val SEED_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
+        /** Fake ZiG per 1 USD — mirrors a typical staff-posted daily rate. */
+        const val SEED_ZIG_RATE = 26.5
         const val SEED_UOM_ID = "00000000-0000-4000-8000-0000000000u1"
 
         private fun seedCatalogProducts(): List<CatalogProduct> = listOf(
@@ -194,6 +214,7 @@ class FakeRpcClient : RpcClient {
                 usd = 12.50,
                 stock = StockState.IN_STOCK,
                 coreCharge = 0.0,
+                fitmentLines = listOf("Navara D40 · YD25DDTi · 2005"),
             ),
             CatalogProduct(
                 stockItemId = SEED_AIR_FILTER_ID,
@@ -205,6 +226,19 @@ class FakeRpcClient : RpcClient {
                 usd = 28.00,
                 stock = StockState.LOW,
                 coreCharge = 0.0,
+                fitmentLines = listOf("Navara D40 · YD25DDTi"),
+            ),
+            CatalogProduct(
+                stockItemId = SEED_STARTER_ID,
+                baseUomId = SEED_UOM_ID,
+                oem = "23300-AL510",
+                name = "Starter motor (demo)",
+                brand = "Nissan",
+                category = "Electrical",
+                usd = 185.00,
+                stock = StockState.IN_STOCK,
+                coreCharge = 45.00,
+                fitmentLines = listOf("GT-R R35 · VR38DETT"),
             ),
         )
     }
@@ -274,13 +308,47 @@ class FakeRpcClient : RpcClient {
             fulfillmentMode = FulfillmentMode.IMMEDIATE,
             exchangeRate = 1.0,
         )
-        val lineId = addCustomerCartLine(
+        // Parent–child core-charge split at cart insertion (GTR SoR rule).
+        val lineId = appendCartLine(
             cartId = cartId,
             stockItemId = product.stockItemId,
             uomId = product.baseUomId,
             qty = qty,
+            oem = product.oem,
+            unitPriceUsd = product.usd,
+            isCoreDeposit = false,
         )
+        if (product.coreCharge > 0) {
+            appendCartLine(
+                cartId = cartId,
+                stockItemId = SEED_CORE_DEPOSIT_ID,
+                uomId = product.baseUomId,
+                qty = qty,
+                oem = "${product.oem} · CORE",
+                unitPriceUsd = product.coreCharge,
+                isCoreDeposit = true,
+            )
+        }
         return cartId to lineId
+    }
+
+    override suspend fun fetchZigExchangeRate(asOf: String?): Double = SEED_ZIG_RATE
+
+    override suspend fun resolveMainWarehouseId(): String = SEED_WAREHOUSE_ID
+
+    override suspend fun ensureOpenCart(
+        currency: CurrencyCode,
+        fulfillmentMode: FulfillmentMode,
+        exchangeRate: Double,
+    ): CartSummary {
+        openCart?.let { return it }
+        createCustomerCart(
+            warehouseId = SEED_WAREHOUSE_ID,
+            currency = currency,
+            fulfillmentMode = fulfillmentMode,
+            exchangeRate = exchangeRate,
+        )
+        return openCart ?: error("ensureOpenCart failed")
     }
 
     override suspend fun createCustomerCart(
@@ -308,6 +376,27 @@ class FakeRpcClient : RpcClient {
         uomId: String,
         qty: Double,
     ): String {
+        val product = catalogProducts.values.firstOrNull { it.stockItemId == stockItemId }
+        return appendCartLine(
+            cartId = cartId,
+            stockItemId = stockItemId,
+            uomId = uomId,
+            qty = qty,
+            oem = product?.oem ?: "OEM",
+            unitPriceUsd = product?.usd,
+            isCoreDeposit = false,
+        )
+    }
+
+    private fun appendCartLine(
+        cartId: String,
+        stockItemId: String,
+        uomId: String,
+        qty: Double,
+        oem: String,
+        unitPriceUsd: Double?,
+        isCoreDeposit: Boolean,
+    ): String {
         require(qty > 0) { "qty must be > 0" }
         val cart = openCart
         require(cart != null && cart.id == cartId && cart.status == "open") {
@@ -320,7 +409,9 @@ class FakeRpcClient : RpcClient {
                 stockItemId = stockItemId,
                 uomId = uomId,
                 qty = qty,
-                oemPartNumber = "FAKE-OEM",
+                oemPartNumber = oem,
+                isCoreDeposit = isCoreDeposit,
+                unitPriceUsd = unitPriceUsd,
             ),
         )
         // TODO(live): supabase.rpc(RpcNames.ADD_CUSTOMER_CART_LINE, …)
@@ -408,6 +499,22 @@ class FakeRpcClient : RpcClient {
         val id = UUID.randomUUID().toString()
         // TODO(live): supabase.rpc(RpcNames.CREATE_CUSTOMER_PAYNOW_INTENT, …) — no PSP crypto
         return PaymentIntentResult(intentId = id, provider = "paynow")
+    }
+
+    override suspend fun createCustomerEcocashIntent(
+        salesInvoiceId: String,
+        payerMsisdn: String,
+        payerMode: String,
+        metadataJson: String,
+    ): PaymentIntentResult {
+        val inv = invoices.find { it.id == salesInvoiceId }
+            ?: error("invoice required for ${RpcNames.CREATE_CUSTOMER_ECOCASH_INTENT}")
+        require(inv.status == "posted" && inv.total > inv.amountPaid) {
+            "only unpaid posted invoices"
+        }
+        require(payerMsisdn.isNotBlank()) { "payerMsisdn required" }
+        val id = UUID.randomUUID().toString()
+        return PaymentIntentResult(intentId = id, provider = "ecocash")
     }
 
     override suspend fun listGarageVehicles(): List<GarageVehicle> =
@@ -859,5 +966,48 @@ class FakeRpcClient : RpcClient {
         // Fake accepts missing file (gallery/camera demos may pass a stub path).
         reviewPhotoCounts[reviewId] = count + 1
         return UUID.randomUUID().toString()
+    }
+
+    // --- Addresses ---
+
+    override suspend fun listOwnAddresses(): List<CustomerAddress> =
+        addresses.sortedWith(
+            compareByDescending<CustomerAddress> { it.isDefault }
+                .thenByDescending { it.createdAt ?: "" },
+        )
+
+    override suspend fun upsertCustomerAddress(input: CustomerAddressInput): String {
+        require(input.line1.isNotBlank()) {
+            "line1 required for ${RpcNames.UPSERT_CUSTOMER_ADDRESS}"
+        }
+        val line2 = AddressGeo.embed(input.line2, input.latitude, input.longitude)
+        val id = input.id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        if (input.isDefault) {
+            for (i in addresses.indices) {
+                addresses[i] = addresses[i].copy(isDefault = false)
+            }
+        }
+        val now = "2026-08-05T12:00:00Z"
+        val row = CustomerAddress(
+            id = id,
+            label = input.label,
+            line1 = input.line1.trim(),
+            line2 = line2,
+            city = input.city,
+            province = input.province,
+            postalCode = input.postalCode,
+            country = input.country.ifBlank { "Zimbabwe" },
+            isDefault = input.isDefault,
+            createdAt = addresses.firstOrNull { it.id == id }?.createdAt ?: now,
+            updatedAt = now,
+        )
+        val idx = addresses.indexOfFirst { it.id == id }
+        if (idx >= 0) addresses[idx] = row else addresses.add(0, row)
+        return id
+    }
+
+    override suspend fun deleteCustomerAddress(id: String) {
+        val removed = addresses.removeAll { it.id == id }
+        require(removed) { "address not found for ${RpcNames.DELETE_CUSTOMER_ADDRESS}" }
     }
 }

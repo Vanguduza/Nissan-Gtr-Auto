@@ -1,13 +1,8 @@
 package co.zw.nissangtr.customer.garage
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
@@ -20,10 +15,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
+import co.zw.nissangtr.customer.rpc.summaryLabel
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.ui.shop.ShopSectionHeader
 
 /**
  * Thin My Garage scaffold — upsert / delete via AuthZ RPCs; list via RLS.
@@ -36,20 +33,20 @@ fun GarageScreen(
     viewModel: GarageViewModel = viewModel(factory = GarageViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
+    val sharp = MaterialTheme.shapes.extraSmall
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("My Garage", style = MaterialTheme.typography.headlineSmall)
+    ShopDefaultScreen(
+        title = "My Garage",
+        subtitle = "VIN · vehicles",
+        onBack = onBack,
+        modifier = modifier) {
         Text(
             "RPCs: ${RpcNames.UPSERT_CUSTOMER_GARAGE_VEHICLE}, ${RpcNames.DELETE_CUSTOMER_GARAGE_VEHICLE}",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        ShopSectionHeader(title = "Vehicle", actionLabel = null)
         OutlinedTextField(
             value = state.make,
             onValueChange = viewModel::onMakeChange,
@@ -57,6 +54,7 @@ fun GarageScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
+            shape = sharp,
         )
         OutlinedTextField(
             value = state.model,
@@ -65,6 +63,7 @@ fun GarageScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
+            shape = sharp,
         )
         OutlinedTextField(
             value = state.generation,
@@ -73,6 +72,7 @@ fun GarageScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
+            shape = sharp,
         )
         OutlinedTextField(
             value = state.engine,
@@ -81,6 +81,7 @@ fun GarageScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
+            shape = sharp,
         )
         OutlinedTextField(
             value = state.vin,
@@ -89,6 +90,7 @@ fun GarageScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
+            shape = sharp,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(
@@ -102,14 +104,13 @@ fun GarageScreen(
             onClick = viewModel::upsert,
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) { Text("Save vehicle") }
 
-        Text("Saved vehicles", style = MaterialTheme.typography.titleSmall)
+        ShopSectionHeader(title = "Saved vehicles", actionLabel = null)
         state.vehicles.forEach { v ->
-            val label = listOfNotNull(v.make, v.model, v.generation, v.engine)
-                .joinToString(" · ")
-                .ifBlank { v.vin?.let { "VIN $it" } ?: v.id }
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            val label = v.summaryLabel()
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     if (v.isPrimary) "★ $label" else label,
                     style = MaterialTheme.typography.bodyMedium,
@@ -117,6 +118,7 @@ fun GarageScreen(
                 OutlinedButton(
                     onClick = { viewModel.delete(v.id) },
                     enabled = !state.busy,
+                    shape = sharp,
                 ) { Text("Delete") }
             }
             HorizontalDivider()
@@ -124,6 +126,6 @@ fun GarageScreen(
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack) { Text("Back") }
+        OutlinedButton(onClick = onBack, shape = sharp) { Text("Back") }
     }
 }

@@ -36,13 +36,24 @@ data class EscPosReceiptLine(
     val emphasis: Boolean = false,
 )
 
+/** System-bonded Bluetooth device selectable as an ESC/POS printer. */
+data class BondedEscPosDevice(
+    val name: String,
+    val address: String,
+)
+
 /**
  * Bluetooth ESC/POS inventory label + receipt printer.
  * Configure printer MAC via [configurePrinterAddress] before [connect].
+ * Classic RFCOMM only — no Web Bluetooth.
  */
 interface EscPosPrinterBridge {
     /** Persist bonded printer MAC (e.g. `00:11:22:33:44:55`). */
     fun configurePrinterAddress(macAddress: String)
+    /** Last configured MAC from prefs, if any. */
+    fun getConfiguredPrinterAddress(): String?
+    /** Bonded devices from system Bluetooth settings (already paired). */
+    suspend fun listBondedDevices(): List<BondedEscPosDevice>
     suspend fun getBluetoothPermissionStatus(): BluetoothPermissionStatus
     suspend fun requestBluetoothPermission(): BluetoothPermissionStatus
     suspend fun connect()

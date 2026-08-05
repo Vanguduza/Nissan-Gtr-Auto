@@ -1,6 +1,6 @@
 # Edge Functions
 
-## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `process-ai-reports`, `chat-notify-on-message`)
+## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `process-ai-reports`, `process-crm-promos`, `chat-notify-on-message`)
 
 These use `service_role` internally and **must not** be publicly callable without a shared secret.
 
@@ -78,6 +78,11 @@ curl -sS -X POST "$SUPABASE_URL/functions/v1/receipt-download" \
 
 Tax-agnostic PDF (no ZIMRA/FDMS/fiscal QR). Public download host: `https://nissangtrauto.co.zw/receipts/{token}` (resolved via `receipt-download`).
 
+## Branded docs (`render-branded-doc`)
+
+Staff JWT. Body `{ "kind": "statement"|"payslip"|"id_card"|"business_card", …payload }` → `application/pdf`.
+Shared renderer: `_shared/branded_docs_pdf.ts` (pdf-lib). No fiscal QR. ID = CR80; business card = 90×50mm.
+
 ### Flow
 
 1. Auth via worker secret.
@@ -136,6 +141,26 @@ Public GoTrue signup is **disabled** (`enable_signup = false` in `config.toml`).
 
 Never set `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` on production Edge.
 
+## HR onboarding auth create (`hr-onboarding-create-auth`)
+
+After `complete_hr_onboarding` leaves `user_id` null, staff HR/admin invokes this Edge to
+Admin-create (or link) a GoTrue user, set `must_change_password`, and deliver the temp
+password via `hr_credential_outbox` + existing email / SMS / WhatsApp gateways.
+
+| Item | Detail |
+|------|--------|
+| Method | `POST /functions/v1/hr-onboarding-create-auth` |
+| JWT | `verify_jwt = true` + `has_staff_role(['admin','hr'])` |
+| Body | `{ "employee_id": "<uuid>" }` |
+| Success | `{ ok, employee_id, user_id, created, must_change_password, channels }` — **no password** |
+| Gateways | Same as auth-otp / receipts (`EMAIL_*`, `SMS_GATEWAY_*`, `WHATSAPP_*`); local stub via `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` |
+| Table | `hr_credential_outbox` (RLS: HR/admin SELECT metadata only — **no `body`**; writes via SECURITY DEFINER RPCs) |
+| Locks | `hr_auth_provision_locks` + `claim_hr_auth_provision` / `release_hr_auth_provision` (service_role) |
+| Orphans | On `link_employee_auth_user` failure after `createUser`, Edge deletes the Auth user |
+| Body TTL | Enqueue marks `sending`; `complete_*` redacts; `scrub_hr_credential_outbox_bodies(90)` clears stale plaintext |
+
+Never return or log the temp password to the browser client.
+
 ## WhatsApp Cloud (`_shared/whatsapp_cloud.ts`)
 
 Outbound Cloud API client shared by **receipt delivery** (`process-customer-receipts`) and the **parts-finder bot** (`whatsapp-webhook`). Do not mix receipt PDF sends into bot dialog turns. **Not** a browser QR / WebView bridge.
@@ -157,15 +182,17 @@ Aggregates-only KPIs (sales, returns/CN, top SKUs, inventory/low-stock/stockouts
 Staff JWT (`admin` | `finance` | `sales`). Body:
 
 ```json
-{ "from": "ISO", "to": "ISO", "kpi_set": "ops_sales_v1", "include_narrative": true }
+{ "from": "ISO", "to": "ISO", "kpi_set": "ops_sales_v1|finance_performance_v1", "include_narrative": true }
 ```
 
 Response: `{ "kpis", "narrative", "gemini_used", "error" }`.  
 If `GEMINI_API_KEY` missing and narrative requested → **422** with KPIs still present, `error: "gemini_unavailable"`.
 
+`finance_performance_v1` requires `admin|finance` (P&L account aggregates + margin; no Text-to-SQL / journal dumps).
+
 ### Cron worker (`process-ai-reports`)
 
-`x-worker-secret` + optional gateway JWT. Due subscriptions for `daily` | `weekly` | `monthly` → `kpi_ops_sales_v1` → optional Gemini → email / WhatsApp via `_shared/email_send.ts` + `_shared/whatsapp_cloud.ts`. Missing Gemini → **numeric-only** delivery (`gemini_used=false`).
+`x-worker-secret` + optional gateway JWT. Due subscriptions for `daily` | `weekly` | `monthly` → `kpi_ops_sales_v1` or `kpi_finance_performance_v1` → optional Gemini → email / WhatsApp via `_shared/email_send.ts` + `_shared/whatsapp_cloud.ts`. Missing Gemini → **numeric-only** delivery (`gemini_used=false`).
 
 | Env | Notes |
 |-----|--------|
@@ -204,6 +231,58 @@ curl -sS -X POST "$SUPABASE_URL/functions/v1/process-ai-reports" \
 Optional: `"subscription_id":"<uuid>"` to target one subscription. Verify `ai_report_runs` + `ai_report_deliveries`; without Gemini → numeric body, `gemini_used=false`.
 
 Shared narrative helper: `_shared/gemini_narrative.ts`.
+
+## CRM promotional outreach (`process-crm-promos`)
+
+Opt-in only (`customers.marketing_opt_in`). Plan/ADR: `docs/plans/2026-08-03-ai-autonomous-erp-layer.md`.
+
+| Item | Detail |
+|------|--------|
+| Method | `POST /functions/v1/process-crm-promos` |
+| Auth | `x-worker-secret` |
+| Body | `{ "limit": 25, "force": false }` |
+| Flow | `list_crm_promo_candidates` → Gemini or template copy → email / WhatsApp (SMS fallback) → `ai_promo_*` rows + cooldown stamp |
+
+```bash
+curl -sS -X POST "$SUPABASE_URL/functions/v1/process-crm-promos" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "x-worker-secret: $WORKER_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":10,"force":false}'
+```
+
+### Cron schedule (suggested — mirrors `ai_worker_schedules`)
+
+Rows in `public.ai_worker_schedules` document cadence + Edge path/body. Call with `x-worker-secret` (same AuthZ as `process-ai-reports`):
+
+```bash
+# Daily CRM promos (e.g. 07:00 Africa/Harare) — opt-in + cooldown
+curl -sS -X POST "$SUPABASE_URL/functions/v1/process-crm-promos" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "x-worker-secret: $WORKER_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":25,"force":false}'
+
+# Report cadences — same pattern as analytics subscriptions
+curl -sS -X POST "$SUPABASE_URL/functions/v1/process-ai-reports" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "x-worker-secret: $WORKER_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"cadence":"daily"}'
+# weekly / monthly: change cadence in body (see ai_worker_schedules.cron_expr)
+```
+
+Optional: after a successful cron run, `touch_ai_worker_schedule('process-crm-promos-daily')` (service_role / admin).
+
+## Stores insights (`stores-insights`)
+
+Staff JWT (`admin` | `warehouse` | `finance`). Runs ABC classification + forecast suggestion KPIs; optional structured Gemini directives (never auto-PO).
+
+```json
+{ "warehouse_id": "<uuid>", "include_directives": true, "run_abc": true }
+```
+
+UI: `/staff/warehouse/insights`.
 
 ## WhatsApp parts-finder bot (`whatsapp-webhook`)
 

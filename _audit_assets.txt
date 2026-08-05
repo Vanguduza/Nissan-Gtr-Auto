@@ -1,0 +1,29 @@
+﻿=== packages\android-ui\src\main\res\font ===
+source_sans_3_bold.ttf:428176
+source_sans_3_regular.ttf:431196
+source_sans_3_semibold.ttf:425904
+titillium_web_bold.ttf:59884
+titillium_web_regular.ttf:63660
+titillium_web_semibold.ttf:63008
+=== apps\ios\GTRCustomer\Fonts ===
+SourceSans3-Bold.ttf:428176
+SourceSans3-Regular.ttf:431196
+SourceSans3-SemiBold.ttf:425904
+TitilliumWeb-Bold.ttf:59884
+TitilliumWeb-Regular.ttf:63660
+TitilliumWeb-SemiBold.ttf:63008
+=== packages\ui\fonts ===
+ATTRIBUTION.md:851
+OFL-SourceSans3.txt:4579
+OFL-TitilliumWeb.txt:4523
+SourceSans3-Bold.ttf:428176
+SourceSans3-Regular.ttf:431196
+SourceSans3-SemiBold.ttf:425904
+TitilliumWeb-Bold.ttf:59884
+TitilliumWeb-Regular.ttf:63660
+TitilliumWeb-SemiBold.ttf:63008
+=== apps\ios\GTRCustomer\Assets.xcassets\BrandLogo.imageset ===
+Contents.json:323
+logo.png:65415
+=== packages\android-ui\src\main\res\drawable ===
+gtr_logo.png:65415

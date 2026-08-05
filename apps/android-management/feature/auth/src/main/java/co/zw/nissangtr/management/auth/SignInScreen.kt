@@ -1,16 +1,25 @@
 package co.zw.nissangtr.management.auth
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,15 +28,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
+import co.zw.nissangtr.ui.shop.ShopPrimaryButton
+import co.zw.nissangtr.ui.shop.ShopSecondaryButton
+import co.zw.nissangtr.ui.theme.GtrColors
+import co.zw.nissangtr.ui.theme.GtrLogo
 
 /**
- * Email/password sign-in. Live: [SupabaseRpcClient.signInWithEmail] → GoTrue session.
- * Fake: [allowSkip] shows Continue without signing in.
+ * Staff tablet login — Shopping-By-KMP [LoginScreen] layout (display title, label-above
+ * fields, 60dp pill CTA, divider row) with GTR brand tokens. Emp# / email / phone + password
+ * via [resolve_staff_login_email] then GoTrue. Not for customer storefront.
  */
 @Composable
 fun SignInScreen(
@@ -36,7 +51,7 @@ fun SignInScreen(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "Sign in",
-    subtitle: String = "Staff account",
+    subtitle: String = "Welcome to Nissan GTR Auto staff",
     sessionViewModel: AuthSessionViewModel? = null,
 ) {
     if (supabase == null) {
@@ -54,56 +69,135 @@ fun SignInScreen(
         ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
     val state by vm.signIn.collectAsState()
 
-    Column(
+    KmpLoginScaffold(modifier = modifier) {
+        Text(title, style = MaterialTheme.typography.displaySmall)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(subtitle, style = MaterialTheme.typography.labelMedium)
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
+            Text("Emp # / email / phone", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+            TextField(
+                value = state.identifier,
+                onValueChange = vm::onIdentifierChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+                shape = MaterialTheme.shapes.small,
+                colors = kmpTextFieldColors(),
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Next,
+                    keyboardType = KeyboardType.Email,
+                ),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Password", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+            TextField(
+                value = state.password,
+                onValueChange = vm::onPasswordChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+                shape = MaterialTheme.shapes.small,
+                visualTransformation = PasswordVisualTransformation(),
+                colors = kmpTextFieldColors(),
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Done,
+                    keyboardType = KeyboardType.Password,
+                ),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        ShopPrimaryButton(
+            label = if (state.busy) "Signing in…" else "Sign in",
+            onClick = vm::signIn,
+            enabled = !state.busy && state.identifier.isNotBlank() && state.password.isNotBlank(),
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+        LaterAuthDivider()
+        Spacer(modifier = Modifier.height(24.dp))
+        LaterAuthStubs(enabled = false)
+
+        if (allowSkip) {
+            Spacer(modifier = Modifier.height(16.dp))
+            ShopSecondaryButton(
+                label = "Continue without signing in",
+                onClick = onSkip,
+                enabled = !state.busy,
+            )
+        }
+
+        state.error?.let {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun KmpLoginScaffold(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium)
-        Text(
-            "Session persisted by supabase-kt Auth — no JWTs in BuildConfig.",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        OutlinedTextField(
-            value = state.email,
-            onValueChange = vm::onEmailChange,
-            label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        )
-        OutlinedTextField(
-            value = state.password,
-            onValueChange = vm::onPasswordChange,
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        )
-        Button(
-            onClick = vm::signIn,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text(if (state.busy) "Signing in…" else "Sign in")
+            GtrLogo(modifier = Modifier.height(40.dp).width(140.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+            content()
         }
-        if (allowSkip) {
+    }
+}
+
+@Composable
+private fun LaterAuthDivider() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        HorizontalDivider(modifier = Modifier.width(72.dp), color = GtrColors.Mist)
+        Text(
+            "Later sign-in methods",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        HorizontalDivider(modifier = Modifier.width(72.dp), color = GtrColors.Mist)
+    }
+}
+
+/**
+ * Catalog features #16–19 — visible but disabled until ADR + Bridge work.
+ * Do not wire NFC / QR badge / biometric here (Bridge-First Later).
+ */
+@Composable
+private fun LaterAuthStubs(enabled: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        listOf("PIN", "NFC", "QR", "Bio").forEach { label ->
             OutlinedButton(
-                onClick = onSkip,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.busy,
-            ) {
-                Text("Continue without signing in")
-            }
-        }
-        state.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
+                onClick = {},
+                enabled = enabled,
+                shape = MaterialTheme.shapes.extraLarge,
+                modifier = Modifier.height(44.dp),
+            ) { Text(label, style = MaterialTheme.typography.labelMedium) }
         }
     }
 }
@@ -116,26 +210,38 @@ private fun FakeSignInPlaceholder(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+    KmpLoginScaffold(modifier = modifier) {
+        Text(title, style = MaterialTheme.typography.displaySmall)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(subtitle, style = MaterialTheme.typography.labelMedium)
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "RPC Fake mode — GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
+            "RPC Fake mode — emp#|email|phone resolve needs Live SUPABASE_URL + ANON_KEY.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(modifier = Modifier.height(32.dp))
+        LaterAuthDivider()
+        Spacer(modifier = Modifier.height(24.dp))
+        LaterAuthStubs(enabled = false)
         if (allowSkip) {
-            Button(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                Text("Continue without signing in")
-            }
+            Spacer(modifier = Modifier.height(24.dp))
+            ShopPrimaryButton(
+                label = "Continue without signing in",
+                onClick = onSkip,
+            )
         }
     }
 }
+
+@Composable
+private fun kmpTextFieldColors() = TextFieldDefaults.colors(
+    focusedContainerColor = GtrColors.Mist,
+    unfocusedContainerColor = GtrColors.Mist,
+    disabledContainerColor = GtrColors.Mist.copy(alpha = 0.6f),
+    focusedIndicatorColor = GtrColors.Primary,
+    unfocusedIndicatorColor = GtrColors.Silver,
+)
 
 /**
  * Live: block until Authenticated. Fake: bypass by default ([allowFakeSkip]).
@@ -157,7 +263,7 @@ fun AuthGate(
                 supabase = null,
                 allowSkip = allowFakeSkip,
                 onSkip = { skipped = true },
-                subtitle = "Staff account",
+                subtitle = "Welcome to Nissan GTR Auto staff",
             )
         }
         return
@@ -168,12 +274,11 @@ fun AuthGate(
 
     when (val g = gate) {
         is AuthGateState.Checking -> {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center,
             ) {
                 Text("Restoring session…", style = MaterialTheme.typography.bodyMedium)
             }
@@ -183,7 +288,7 @@ fun AuthGate(
                 supabase = supabase,
                 allowSkip = false,
                 onSkip = {},
-                subtitle = "Staff account",
+                subtitle = "Welcome to Nissan GTR Auto staff",
                 sessionViewModel = vm,
             )
         }

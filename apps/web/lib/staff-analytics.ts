@@ -13,6 +13,11 @@ export { requireSession };
 export type { AiDeliveryChannel, AiReportCadence, AiReportSubscriptionRow };
 
 export const KPI_SET_OPS_SALES_V1 = "ops_sales_v1" as const;
+export const KPI_SET_FINANCE_PERFORMANCE_V1 = "finance_performance_v1" as const;
+
+export type AnalyticsKpiSet =
+  | typeof KPI_SET_OPS_SALES_V1
+  | typeof KPI_SET_FINANCE_PERFORMANCE_V1;
 
 export type CurrencyBucket = {
   currency: string;

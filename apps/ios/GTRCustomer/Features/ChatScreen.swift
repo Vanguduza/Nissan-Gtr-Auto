@@ -18,11 +18,12 @@ struct ChatScreen: View {
     @State private var showStartedThread = false
 
     var body: some View {
-        List {
+        ShopDefaultScreen(title: "Live chat", subtitle: "Counter support", scrollable: false) {
+            List {
             Section {
                 Text("Message the counter for support or parts fitment. WhatsApp remains available.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(GTRType.body(.footnote))
+                    .foregroundStyle(GTRColors.silverDim)
                 Link(destination: whatsappURL) {
                     Label("Ask counter on WhatsApp", systemImage: "message.fill")
                 }
@@ -31,7 +32,7 @@ struct ChatScreen: View {
             if unread > 0 {
                 Section {
                     Text("Unread messages: \(unread)")
-                        .font(.subheadline)
+                        .font(GTRType.body(.subheadline))
                 }
             }
 
@@ -54,7 +55,8 @@ struct ChatScreen: View {
             Section("Threads") {
                 if threads.isEmpty {
                     Text("No threads yet — start one above.")
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.subheadline))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
                 ForEach(threads) { thread in
                     NavigationLink {
@@ -62,21 +64,21 @@ struct ChatScreen: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(thread.preview).font(.headline)
+                                Text(thread.preview).font(GTRType.displaySemi(.headline))
                                 Spacer()
                                 Text(thread.status.rawValue)
-                                    .font(.caption2)
+                                    .font(GTRType.label(.caption2))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 2)
-                                    .background(.quaternary, in: Capsule())
+                                    .background(GTRColors.mist, in: RoundedRectangle(cornerRadius: GTRRadius.sharp))
                             }
                             Text(thread.kind.title)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(GTRType.label(.caption))
+                                .foregroundStyle(GTRColors.silverDim)
                             if let at = thread.lastMessageAt {
                                 Text(StorefrontFormat.chatTime(at))
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                                    .font(GTRType.label(.caption2))
+                                    .foregroundStyle(GTRColors.silverDim)
                             }
                         }
                     }
@@ -85,27 +87,30 @@ struct ChatScreen: View {
 
             Section {
                 Text("Open threads refresh on a short poll with backoff (no Realtime SDK). Pull to refresh anytime.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(GTRType.label(.caption2))
+                    .foregroundStyle(GTRColors.silverDim)
                 if let status {
                     Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
                 }
             }
-        }
-        .navigationTitle("Chat")
-        .navigationDestination(isPresented: $showStartedThread) {
-            if let startedThreadId {
-                ChatThreadScreen(threadId: startedThreadId)
             }
-        }
-        // Single owner for initial load — avoid `.onAppear` duplicate fetch.
-        .task { await refresh() }
-        .refreshable { await refresh() }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await refresh() }
+            .scrollContentBackground(.hidden)
+            .background(GTRColors.chalk)
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showStartedThread) {
+                if let startedThreadId {
+                    ChatThreadScreen(threadId: startedThreadId)
+                }
+            }
+            // Single owner for initial load — avoid `.onAppear` duplicate fetch.
+            .task { await refresh() }
+            .refreshable { await refresh() }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await refresh() }
+            }
         }
     }
 

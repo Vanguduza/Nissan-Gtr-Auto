@@ -1,13 +1,8 @@
 package co.zw.nissangtr.customer.orders
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -16,11 +11,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import co.zw.nissangtr.customer.rpc.CustomerOrder
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.ui.shop.ShopHonestEmpty
+import co.zw.nissangtr.ui.shop.ShopOrderBox
+import co.zw.nissangtr.ui.shop.ShopStatusChip
+import co.zw.nissangtr.ui.shop.ShopSectionHeader
 
 /**
  * Thin orders scaffold: list own invoices + [RpcNames.GET_CUSTOMER_ORDER].
@@ -35,47 +33,48 @@ fun OrdersScreen(
     viewModel: OrdersViewModel = viewModel(factory = OrdersViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
+    val sharp = MaterialTheme.shapes.extraSmall
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("Orders", style = MaterialTheme.typography.headlineSmall)
+    ShopDefaultScreen(
+        title = "Orders",
+        subtitle = "History · track",
+        onBack = onBack,
+        modifier = modifier) {
         Text(
             "RPC: ${RpcNames.GET_CUSTOMER_ORDER} (p_invoice_id). List via RLS SELECT.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedButton(
             onClick = viewModel::refresh,
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) { Text("Refresh invoices") }
 
+        ShopSectionHeader(title = "Invoices", actionLabel = null)
+        if (state.invoices.isEmpty()) {
+            ShopHonestEmpty(
+                title = "No invoices yet",
+                body = "Checkout from Cart to create an order. Track opens when a delivery job is active.",
+            )
+        }
         state.invoices.forEach { inv ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !state.busy) { viewModel.loadOrder(inv.id) }
-                    .padding(vertical = 4.dp),
-            ) {
-                Text(
-                    inv.documentNumber ?: inv.id,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    "${inv.status} · ${inv.currency.rpcValue} ${"%.2f".format(inv.total)} " +
-                        "(paid ${"%.2f".format(inv.amountPaid)})",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            HorizontalDivider()
+            ShopOrderBox(
+                title = inv.documentNumber ?: inv.id,
+                subtitle = "${inv.status} · ${inv.currency.rpcValue}",
+                metaLabel = "Total",
+                metaValue = "%.2f".format(inv.total),
+                thumbLabel = inv.currency.rpcValue.take(3),
+                badges = {
+                    ShopStatusChip(label = inv.status)
+                },
+                onClick = { if (!state.busy) viewModel.loadOrder(inv.id) },
+            )
         }
 
         state.selected?.let { o ->
-            Text("Selected order", style = MaterialTheme.typography.titleSmall)
+            ShopSectionHeader(title = "Selected order", actionLabel = null)
             Text(
                 "${o.documentNumber ?: o.invoiceId}\n" +
                     "status=${o.status} fulfillment=${o.fulfillmentMode.rpcValue}\n" +
@@ -88,11 +87,13 @@ fun OrdersScreen(
                 Text(
                     "Active delivery — track shows last point + ETA only (no trail).",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(
                     onClick = { onTrackDelivery(jobId, null) },
                     enabled = !state.busy,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = sharp,
                 ) { Text("Track delivery") }
             }
         }
@@ -100,10 +101,11 @@ fun OrdersScreen(
         OutlinedButton(
             onClick = { onTrackDelivery(null, null) },
             modifier = Modifier.fillMaxWidth(),
+            shape = sharp,
         ) { Text("Track with share token") }
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack) { Text("Back") }
+        OutlinedButton(onClick = onBack, shape = sharp) { Text("Back") }
     }
 }

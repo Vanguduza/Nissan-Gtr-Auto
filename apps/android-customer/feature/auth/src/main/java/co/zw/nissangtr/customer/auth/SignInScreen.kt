@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 
 /**
  * Email/password sign-in. Live: [SupabaseRpcClient.signInWithEmail] → GoTrue session.
@@ -54,18 +56,15 @@ fun SignInScreen(
         ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
     val state by vm.signIn.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    ShopDefaultScreen(
+        title = title,
+        subtitle = subtitle,
+        modifier = modifier,
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium)
         Text(
             "Session persisted by supabase-kt Auth — no JWTs in BuildConfig.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = state.email,
@@ -75,6 +74,7 @@ fun SignInScreen(
             singleLine = true,
             enabled = !state.busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            shape = MaterialTheme.shapes.extraSmall,
         )
         OutlinedTextField(
             value = state.password,
@@ -85,22 +85,64 @@ fun SignInScreen(
             enabled = !state.busy,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            shape = MaterialTheme.shapes.extraSmall,
         )
         Button(
-            onClick = vm::signIn,
+            onClick = {
+                if (state.mode == AuthFormMode.SignIn) vm.signIn() else vm.signUp()
+            },
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
+            shape = MaterialTheme.shapes.extraSmall,
         ) {
-            Text(if (state.busy) "Signing in…" else "Sign in")
+            Text(
+                when {
+                    state.busy && state.mode == AuthFormMode.SignIn -> "Signing in…"
+                    state.busy -> "Creating account…"
+                    state.mode == AuthFormMode.SignUp -> "Create account"
+                    else -> "Sign in"
+                },
+            )
         }
+        OutlinedButton(
+            onClick = {
+                vm.setMode(
+                    if (state.mode == AuthFormMode.SignIn) AuthFormMode.SignUp
+                    else AuthFormMode.SignIn,
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.busy,
+            shape = MaterialTheme.shapes.extraSmall,
+        ) {
+            Text(
+                if (state.mode == AuthFormMode.SignIn) "Need an account? Sign up"
+                else "Have an account? Sign in",
+            )
+        }
+        TextButton(
+            onClick = vm::forgotPassword,
+            enabled = !state.busy,
+        ) {
+            Text("Forgot password?")
+        }
+        Text(
+            "Social login (Google / Facebook) appears only when GoTrue providers are configured — hidden until then.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (allowSkip) {
             OutlinedButton(
                 onClick = onSkip,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.busy,
+                shape = MaterialTheme.shapes.extraSmall,
             ) {
                 Text("Continue without signing in")
             }
+        }
+        state.info?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall)
         }
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
@@ -116,21 +158,22 @@ private fun FakeSignInPlaceholder(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    ShopDefaultScreen(
+        title = title,
+        subtitle = subtitle,
+        modifier = modifier,
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium)
         Text(
             "RPC Fake mode — GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (allowSkip) {
-            Button(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onSkip,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraSmall,
+            ) {
                 Text("Continue without signing in")
             }
         }
@@ -139,6 +182,7 @@ private fun FakeSignInPlaceholder(
 
 /**
  * Live: block until Authenticated. Fake: bypass by default ([allowFakeSkip]).
+ * Exposes the single [AuthSessionViewModel] to content so shell SignIn overlay never creates an orphan VM.
  */
 @Composable
 fun AuthGate(
@@ -146,12 +190,16 @@ fun AuthGate(
     supabase: SupabaseRpcClient?,
     allowFakeSkip: Boolean = true,
     showFakeLogin: Boolean = false,
-    content: @Composable (email: String?, onSignOut: () -> Unit) -> Unit,
+    content: @Composable (
+        email: String?,
+        onSignOut: () -> Unit,
+        sessionViewModel: AuthSessionViewModel?,
+    ) -> Unit,
 ) {
     if (!liveRpc || supabase == null) {
         var skipped by remember { mutableStateOf(allowFakeSkip && !showFakeLogin) }
         if (skipped) {
-            content(null) { /* no session in Fake */ }
+            content(null, { /* no session in Fake */ }, null)
         } else {
             SignInScreen(
                 supabase = null,
@@ -186,7 +234,7 @@ fun AuthGate(
             )
         }
         is AuthGateState.SignedIn -> {
-            content(g.email, vm::signOut)
+            content(g.email, vm::signOut, vm)
         }
     }
 }

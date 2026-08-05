@@ -29,13 +29,18 @@ docker compose -f docker-compose.satellites.yml --profile search down
 |---------|----------|------|
 | `search` (default) | Meilisearch CE | Parts / SKU typo-tolerant search |
 | `gps` | Traccar | Fleet live GPS (optional; heavy Java image) |
+| `scrape` | FlareSolverr | Cloudflare solve for Amayama catalog crawl |
 | `routing` | OSRM stub note only | See OSRM section — map data required |
+| `recommend` | Gorse (commented) | Phase C — see `PHASE2_PROPHET_GORSE.md` |
 
 Enable multiple:
 
 ```bash
 docker compose -f docker-compose.satellites.yml --profile search --profile gps up -d
+docker compose -f docker-compose.satellites.yml --profile scrape up -d
 ```
+
+FlareSolverr API: http://127.0.0.1:8191 — used by `python -m data_pipeline.amayama_catalog_auto`.
 
 ## Environment
 
@@ -90,14 +95,15 @@ When promoting Meilisearch:
 
 OSRM needs a downloaded OSM extract and `osrm-extract` / `osrm-partition` / `osrm-customize` before `osrm-routed` is useful. This repo ships a **commented stub** in compose — enable after you place map data under `infra/satellites/osrm/data/`. Until then, keep ETA logic as-is (or call a public routing API only if licensed for your use).
 
-## Phase-2 libraries (not in compose)
+## Phase-2 / Phase C libraries (not in default compose)
 
 | Tool | Role | Status |
 |------|------|--------|
 | **Casbin** (`casbin` / `node-casbin`) | Fine-grained RBAC at API layer | Documented only — **do not** replace Supabase RLS. Optional future npm dep for edge/BFF policy checks that *complement* RLS. |
-| **Gorse** | Cross-sell recommender | Documented only — feed sales events later; separate Go service when POS volume justifies it. |
+| **Gorse** | Cross-sell recommender (Apache-2.0) | Phase C scaffold — commented `recommend` profile; see `PHASE2_PROPHET_GORSE.md` + `PHASE2_CASBIN_GORSE.md`. |
+| **StatsForecast / Prophet** | Tier-A demand forecast satellite | Phase C stub in `data-pipeline` (`forecast_statsforecast`); optional `.[forecast]` extra. |
 
-See `infra/satellites/PHASE2_CASBIN_GORSE.md`.
+See `PHASE2_CASBIN_GORSE.md` and `PHASE2_PROPHET_GORSE.md`.
 
 ## Security
 

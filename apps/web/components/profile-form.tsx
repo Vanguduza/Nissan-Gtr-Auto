@@ -20,6 +20,8 @@ type ProfileState = {
   company: string;
   preferredContact: "sms" | "email" | "whatsapp";
   customerId: string | null;
+  marketingOptIn: boolean;
+  lastPromoAt: string | null;
 };
 
 function splitName(full: string | null | undefined): {
@@ -90,6 +92,8 @@ export function ProfileForm() {
         ? preferredFromFlags(c)
         : "whatsapp",
       customerId: c?.id ?? null,
+      marketingOptIn: Boolean(c?.marketing_opt_in),
+      lastPromoAt: c?.last_promotional_message_at ?? null,
     });
     setLoadError(null);
   }, []);
@@ -143,6 +147,19 @@ export function ProfileForm() {
         notes.push(`Contact / receipt prefs not saved: ${contact.error}`);
       } else {
         notes.push("Customer contact + receipt prefs updated.");
+      }
+
+      const { error: optErr } = await client.rpc("set_own_marketing_opt_in", {
+        p_opt_in: form.marketingOptIn,
+      });
+      if (optErr) {
+        notes.push(`Marketing opt-in not saved: ${optErr.message}`);
+      } else {
+        notes.push(
+          form.marketingOptIn
+            ? "Marketing opt-in enabled (cooldown still applies)."
+            : "Marketing opt-in disabled.",
+        );
       }
     } else {
       notes.push(
@@ -252,6 +269,28 @@ export function ProfileForm() {
           </label>
         </div>
       </fieldset>
+
+      {form.customerId ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Marketing</legend>
+          <label className={styles.field}>
+            <input
+              type="checkbox"
+              checked={form.marketingOptIn}
+              onChange={(e) => set("marketingOptIn", e.target.checked)}
+              disabled={busy}
+            />{" "}
+            Opt in to promotional messages (parts / garage fitment tips)
+          </label>
+          <p className={styles.muted}>
+            Promo worker respects this flag and a cooldown after the last send
+            {form.lastPromoAt
+              ? ` (last promo ${new Date(form.lastPromoAt).toLocaleString()})`
+              : ""}
+            .
+          </p>
+        </fieldset>
+      ) : null}
 
       <div className={styles.formActions}>
         <button type="submit" className={styles.btn} disabled={busy}>

@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.podcamera.CameraPermissionStatus
 import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
+import co.zw.nissangtr.bridges.podsignature.PodCaptureResult
 import co.zw.nissangtr.bridges.podsignature.PodSignatureBridge
 import co.zw.nissangtr.bridges.podsignature.PodSignatureOptions
 import co.zw.nissangtr.delivery.rpc.FakeRpcClient
@@ -111,7 +112,27 @@ class PodViewModel(
         }
     }
 
-    fun captureSignature() {
+    /** Accept a PNG from inline Compose Canvas pad (preferred UX). */
+    fun acceptSignature(result: PodCaptureResult) {
+        if (_state.value.jobId.isBlank()) {
+            _state.update { it.copy(error = "Job required") }
+            return
+        }
+        _state.update {
+            it.copy(
+                signatureLocalPath = result.localPath,
+                message = "Signature captured",
+                error = null,
+            )
+        }
+    }
+
+    fun clearSignature() {
+        _state.update { it.copy(signatureLocalPath = null, message = "Signature cleared") }
+    }
+
+    /** Full-screen bridge Activity fallback when inline pad is not used. */
+    fun captureSignatureFullscreen() {
         if (_state.value.jobId.isBlank()) {
             _state.update { it.copy(error = "Job required") }
             return

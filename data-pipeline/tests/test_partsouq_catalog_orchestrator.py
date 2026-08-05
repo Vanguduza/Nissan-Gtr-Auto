@@ -132,6 +132,10 @@ def test_crawl_and_parse_argv_isolation() -> None:
     parse = build_parse_watch_argv(paths, opts)
     assert "data_pipeline.cache_parse_worker" in parse
     assert "--watch" in parse
+    assert "--batch-size" in parse
+    assert "75" in parse
+    assert "--write-bundle-every" in parse
+    assert "17" in parse
     assert str(paths.parse_db) in parse
     # Identity/backfill live in the watcher — no separate mapping module argv.
     assert not any("vin_decode" in a or "mapping" in a.lower() for a in parse)

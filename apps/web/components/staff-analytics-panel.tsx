@@ -7,10 +7,13 @@ import {
   dateInputToPeriodBounds,
   fetchAnalyticsInsights,
   formatMoney,
+  KPI_SET_FINANCE_PERFORMANCE_V1,
+  KPI_SET_OPS_SALES_V1,
   monthStartInput,
   requireSession,
   todayInput,
   type AnalyticsInsightsResult,
+  type AnalyticsKpiSet,
   type OpsSalesKpis,
 } from "@/lib/staff-analytics";
 import { createWebClient } from "@/lib/supabase";
@@ -103,11 +106,39 @@ function SalesTiles({ kpis }: { kpis: OpsSalesKpis }) {
   );
 }
 
+function FinanceTiles({ kpis }: { kpis: Record<string, unknown> }) {
+  return (
+    <>
+      <KpiTile
+        label="Income (USD eq)"
+        value={formatMoney(num(kpis.income_usd), "USD")}
+      />
+      <KpiTile
+        label="Expense (USD eq)"
+        value={formatMoney(num(kpis.expense_usd), "USD")}
+      />
+      <KpiTile
+        label="Net profit (USD eq)"
+        value={formatMoney(num(kpis.net_profit_usd), "USD")}
+      />
+      <KpiTile
+        label="Net margin %"
+        value={
+          num(kpis.net_margin_pct) != null
+            ? `${num(kpis.net_margin_pct)}%`
+            : "—"
+        }
+      />
+    </>
+  );
+}
+
 export function StaffAnalyticsPanel() {
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [from, setFrom] = useState(monthStartInput);
   const [to, setTo] = useState(todayInput);
   const [includeNarrative, setIncludeNarrative] = useState(true);
+  const [kpiSet, setKpiSet] = useState<AnalyticsKpiSet>(KPI_SET_OPS_SALES_V1);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<AnalyticsInsightsResult | null>(null);
@@ -150,6 +181,7 @@ export function StaffAnalyticsPanel() {
       from: bounds.data.from,
       to: bounds.data.to,
       includeNarrative,
+      kpiSet,
     });
     setBusy(false);
 
@@ -188,18 +220,34 @@ export function StaffAnalyticsPanel() {
   }
 
   const topSkus = result?.kpis.top_skus?.items ?? [];
+  const isFinance = kpiSet === KPI_SET_FINANCE_PERFORMANCE_V1;
 
   return (
     <div className={styles.form}>
       <p className={styles.muted}>
-        Aggregates only (no customer PII). Scheduled deliveries:{" "}
+        Aggregates only (no customer PII / journal dumps). Scheduled deliveries:{" "}
         <Link href="/staff/analytics/subscriptions">report subscriptions</Link>.
       </p>
 
       <form onSubmit={onLoad}>
         <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>Period · ops_sales_v1</legend>
+          <legend className={styles.legend}>Period · KPI set</legend>
           <div className={styles.formGrid}>
+            <label className={styles.field}>
+              KPI set
+              <select
+                value={kpiSet}
+                onChange={(e) =>
+                  setKpiSet(e.target.value as AnalyticsKpiSet)
+                }
+                disabled={busy}
+              >
+                <option value={KPI_SET_OPS_SALES_V1}>Ops / sales</option>
+                <option value={KPI_SET_FINANCE_PERFORMANCE_V1}>
+                  Finance performance
+                </option>
+              </select>
+            </label>
             <label className={styles.field}>
               From
               <input
@@ -252,7 +300,13 @@ export function StaffAnalyticsPanel() {
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>KPIs</legend>
             <div className={styles.kpiGrid}>
-              <SalesTiles kpis={result.kpis} />
+              {isFinance ? (
+                <FinanceTiles
+                  kpis={result.kpis as unknown as Record<string, unknown>}
+                />
+              ) : (
+                <SalesTiles kpis={result.kpis} />
+              )}
             </div>
           </fieldset>
 
@@ -265,7 +319,7 @@ export function StaffAnalyticsPanel() {
             </fieldset>
           ) : null}
 
-          {topSkus.length > 0 ? (
+          {!isFinance && topSkus.length > 0 ? (
             <fieldset className={styles.fieldset}>
               <legend className={styles.legend}>Top SKUs</legend>
               <table className={styles.table}>

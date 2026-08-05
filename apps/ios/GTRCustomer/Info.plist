@@ -11,11 +11,25 @@
 			<string>co.zw.nissangtr.customer</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
+				<string>gtrcustomer</string>
 				<string>gtr-customer</string>
 			</array>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Capture product review photos with the native camera bridge.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Optional — center the delivery address MapKit picker on your current location.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Attach product review photos from your library.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>TitilliumWeb-Regular.ttf</string>
+		<string>TitilliumWeb-SemiBold.ttf</string>
+		<string>TitilliumWeb-Bold.ttf</string>
+		<string>SourceSans3-Regular.ttf</string>
+		<string>SourceSans3-SemiBold.ttf</string>
+		<string>SourceSans3-Bold.ttf</string>
+	</array>
 </dict>
 </plist>

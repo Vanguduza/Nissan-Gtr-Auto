@@ -10,6 +10,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@gtr/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
       '@gtr/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -44,6 +47,12 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/documents:
+    devDependencies:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3

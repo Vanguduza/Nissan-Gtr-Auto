@@ -4,5 +4,9 @@ jsonschema>=4.21
 pytest>=8.0
 ruff>=0.4
 
+[scraping]
+httpx>=0.27
+patchright>=1.52
+
 [supabase]
 supabase>=2.4

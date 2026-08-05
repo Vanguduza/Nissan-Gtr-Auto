@@ -1,6 +1,7 @@
 /**
  * Design tokens — AutoDoc-inspired spare-parts shop (nissangtrauto.co.zw).
  * Fonts: Titillium Web (chrome) + Source Sans 3 (body). Not Inter/Roboto/purple.
+ * Cross-platform mirror: brand-tokens.json + BRAND_TOKENS.md
  */
 export const tokens = {
   color: {
@@ -44,6 +45,12 @@ export const tokens = {
     "2xl": "4rem",
     shopMax: "1120px",
   },
+  radius: {
+    sharp: "2px",
+    control: "8px",
+    staff: "10px",
+    staffSm: "6px",
+  },
   motion: {
     entrance: "320ms cubic-bezier(0.22, 1, 0.36, 1)",
     hover: "150ms ease-out",
@@ -71,6 +78,10 @@ export function tokensToCssVars(t: DesignTokens = tokens): Record<string, string
     "--gtr-usd": t.color.money.usd,
     "--gtr-zig": t.color.money.zig,
     "--gtr-hover": t.motion.hover,
+    "--gtr-radius-sharp": t.radius.sharp,
+    "--gtr-radius-control": t.radius.control,
+    "--gtr-radius-staff": t.radius.staff,
+    "--gtr-radius-staff-sm": t.radius.staffSm,
     "--font-display": t.font.display,
     "--font-body": t.font.body,
     "--font-mono": t.font.mono,

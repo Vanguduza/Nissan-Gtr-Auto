@@ -32,10 +32,16 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")
         buildConfigField("String", "SUPPORT_PHONE", "\"${localProp("SUPPORT_PHONE")}\"")
         buildConfigField(
+            "String",
+            "GOOGLE_MAPS_API_KEY",
+            "\"${localProp("GOOGLE_MAPS_API_KEY")}\"",
+        )
+        buildConfigField(
             "boolean",
             "RPC_FORCE_FAKE",
             localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
         )
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = localProp("GOOGLE_MAPS_API_KEY")
     }
 
     buildTypes {
@@ -63,6 +69,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:jobs"))
     implementation(project(":feature:tracking"))
@@ -70,11 +77,13 @@ dependencies {
     implementation(project(":location-tracker"))
     implementation(project(":pod-camera"))
     implementation(project(":pod-signature"))
+    implementation(project(":maps-nav"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")

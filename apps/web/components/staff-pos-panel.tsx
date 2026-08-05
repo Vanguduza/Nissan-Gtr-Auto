@@ -12,7 +12,9 @@ import {
   listSaleableWarehouses,
   loadPosCart,
   loadPosCartLines,
+  parkPosCart,
   requireSession,
+  resumePosCart,
   revokePosScanSession,
   searchPosCatalog,
   searchStockItems,
@@ -26,6 +28,10 @@ import {
   type StockItemOption,
   type WarehouseOption,
 } from "@/lib/staff-pos";
+import {
+  posCartLinesChannel,
+  posScanSessionsChannel,
+} from "@/lib/staff-pos-realtime";
 import { searchCustomers, type CustomerOption } from "@/lib/staff-finance";
 import { createWebClient } from "@/lib/supabase";
 
@@ -36,7 +42,6 @@ type Boot =
   | { kind: "ready"; warehouses: WarehouseOption[] };
 
 const CART_KEY = "gtr.staff.pos_cart_id";
-const CART_POLL_MS = 4000;
 
 function readStoredCartId(): string | null {
   if (typeof window === "undefined") return null;
@@ -72,7 +77,11 @@ export function StaffPosPanel() {
   const [customerHits, setCustomerHits] = useState<CustomerOption[]>([]);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerLabel, setCustomerLabel] = useState("");
-  const pollRef = useRef<number | null>(null);
+  /** Split-bill tender lines (Batch 1 §1.3). Empty → classic checkout (no settle). */
+  const [tenderLines, setTenderLines] = useState<
+    Array<{ tender: string; amount: string }>
+  >([{ tender: "cash", amount: "" }]);
+  const realtimeCartIdRef = useRef<string | null>(null);
 
   const refreshCart = useCallback(async (cartId: string) => {
     const client = createWebClient();
@@ -88,7 +97,7 @@ export function StaffPosPanel() {
       writeStoredCartId(null);
       return;
     }
-    if (!c.data || c.data.status !== "open") {
+    if (!c.data || (c.data.status !== "open" && c.data.status !== "parked")) {
       setCart(null);
       setLines([]);
       writeStoredCartId(null);
@@ -127,30 +136,54 @@ export function StaffPosPanel() {
     }
 
     setBoot({ kind: "ready", warehouses: wh.data });
-    setWarehouseId((prev) => prev || wh.data[0]?.id || "");
+    const defaultWh = wh.data[0]?.id || "";
+    setWarehouseId((prev) => prev || defaultWh);
 
     const stored = readStoredCartId();
-    if (stored) await refreshCart(stored);
-  }, [refreshCart]);
+    if (stored) {
+      await refreshCart(stored);
+      return;
+    }
+    // Batch 1 §1.2 — open a cart invisibly so staff never click "Create cart"
+    const whId = warehouseId || defaultWh;
+    if (!whId) return;
+    const created = await createPosCart(client, {
+      warehouseId: whId,
+      currency,
+      fulfillmentMode: fulfillment,
+      customerId: null,
+    });
+    if (created.ok) {
+      writeStoredCartId(created.data);
+      await refreshCart(created.data);
+    }
+  }, [refreshCart, warehouseId, currency, fulfillment]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  // Poll open cart so companion phone scans appear without Realtime.
+  // Realtime: companion scans + pairing status (no browser camera).
   useEffect(() => {
-    if (pollRef.current != null) {
-      window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-    if (!cart?.id) return;
-    pollRef.current = window.setInterval(() => {
-      void refreshCart(cart.id);
-    }, CART_POLL_MS);
+    const cartId = cart?.id;
+    if (!cartId) return;
+    const client = createWebClient();
+    if (!client) return;
+    realtimeCartIdRef.current = cartId;
+    const linesCh = posCartLinesChannel(client, cartId, () => {
+      void refreshCart(cartId);
+    }).subscribe();
+    const sessionsCh = posScanSessionsChannel(client, cartId, (row) => {
+      void refreshCart(cartId);
+      if (row.status === "revoked" || row.status === "expired") {
+        setPairing((prev) => (prev?.id === row.id ? null : prev));
+      }
+    }).subscribe();
     return () => {
-      if (pollRef.current != null) {
-        window.clearInterval(pollRef.current);
-        pollRef.current = null;
+      void client.removeChannel(linesCh);
+      void client.removeChannel(sessionsCh);
+      if (realtimeCartIdRef.current === cartId) {
+        realtimeCartIdRef.current = null;
       }
     };
   }, [cart?.id, refreshCart]);
@@ -347,9 +380,53 @@ export function StaffPosPanel() {
     setMessage("Companion pairing revoked");
   }
 
+  async function onParkCart() {
+    const client = createWebClient();
+    if (!client || !cart) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await parkPosCart(client, cart.id);
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage("Cart parked — resume anytime");
+    await refreshCart(cart.id);
+  }
+
+  async function onResumeCart() {
+    const client = createWebClient();
+    if (!client || !cart) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await resumePosCart(client, cart.id);
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage("Cart resumed");
+    await refreshCart(cart.id);
+  }
+
   async function onCheckout() {
     const client = createWebClient();
     if (!client || !cart) return;
+    const tenders = tenderLines
+      .map((t) => ({
+        tender: t.tender,
+        amount: Number(t.amount),
+        currency: cart.currency,
+      }))
+      .filter((t) => Number.isFinite(t.amount) && t.amount > 0);
+    const tenderSum = tenders.reduce((s, t) => s + t.amount, 0);
+    if (tenders.length > 0 && Math.abs(tenderSum - lineTotal) > 0.01) {
+      setMessage(
+        `Tenders sum ${tenderSum.toFixed(2)} must equal cart ${lineTotal.toFixed(2)} ${cart.currency}`,
+      );
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const res = await checkoutPosCart(client, {
@@ -357,6 +434,7 @@ export function StaffPosPanel() {
       receiptEmail: receiptEmail.trim() || null,
       receiptWhatsappE164: receiptWhatsapp.trim() || null,
       receiptPhoneE164: receiptWhatsapp.trim() || null,
+      tenders: tenders.length > 0 ? tenders : null,
     });
     setBusy(false);
     if (!res.ok) {
@@ -369,8 +447,11 @@ export function StaffPosPanel() {
     setPairing(null);
     setReceiptEmail("");
     setReceiptWhatsapp("");
+    setTenderLines([{ tender: "cash", amount: "" }]);
     setMessage(
-      `Checked out · invoice ${res.data.invoiceId.slice(0, 8)}… · ${res.data.bindMessage}`,
+      `Checked out · invoice ${res.data.invoiceId.slice(0, 8)}… · ${res.data.bindMessage}${
+        tenders.length > 0 ? ` · ${tenders.length} tender(s)` : ""
+      }`,
     );
   }
 
@@ -429,12 +510,17 @@ export function StaffPosPanel() {
       </p>
 
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>1 · Open cart</legend>
+        <legend className={styles.legend}>Till · warehouse &amp; cart</legend>
         {!cart ? (
           <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-            No open cart — choose warehouse and create one to add lines.
+            Opening cart…
           </p>
-        ) : null}
+        ) : (
+          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+            Cart open — search and add parts below. Change warehouse only on a new
+            cart (Clear / checkout first).
+          </p>
+        )}
         <form onSubmit={(e) => void onCreateCart(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -485,8 +571,8 @@ export function StaffPosPanel() {
                 }
                 disabled={busy || !!cart}
               >
-                <option value="immediate">Immediate</option>
-                <option value="dispatch">Dispatch</option>
+                <option value="immediate">Pickup (collection)</option>
+                <option value="dispatch">Delivery</option>
               </select>
             </label>
           </div>
@@ -528,29 +614,56 @@ export function StaffPosPanel() {
             </p>
           ) : null}
           <div className={styles.formActions}>
-            <button
-              type="submit"
-              className={styles.btn}
-              disabled={busy || !!cart || !warehouseId}
-            >
-              Create cart
-            </button>
-            {cart ? (
+            {!cart ? (
               <button
-                type="button"
-                className={styles.btnGhost}
-                disabled={busy}
-                onClick={clearCartLocal}
+                type="submit"
+                className={styles.btn}
+                disabled={busy || !warehouseId}
               >
-                Clear local
+                {busy ? "Opening…" : "Retry open cart"}
               </button>
+            ) : null}
+            {cart ? (
+              <>
+                {cart.status === "open" ? (
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy}
+                    onClick={() => void onParkCart()}
+                  >
+                    Park cart
+                  </button>
+                ) : null}
+                {cart.status === "parked" ? (
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy}
+                    onClick={() => void onResumeCart()}
+                  >
+                    Resume cart
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  disabled={busy}
+                  onClick={clearCartLocal}
+                >
+                  Clear local
+                </button>
+              </>
             ) : null}
           </div>
         </form>
         {cart ? (
           <p className={styles.muted} style={{ marginTop: "0.65rem" }}>
             Open cart {cart.document_number ?? cart.id.slice(0, 8)} ·{" "}
-            {cart.currency} · {cart.fulfillment_mode}
+            {cart.status} · {cart.currency} ·{" "}
+            {cart.fulfillment_mode === "dispatch"
+              ? "delivery"
+              : "pickup"}
             {cart.customer_id
               ? ` · customer ${cart.customer_id.slice(0, 8)}…`
               : " · walk-in"}
@@ -738,7 +851,7 @@ export function StaffPosPanel() {
           <p className={styles.muted}>
             {cart
               ? "No lines yet — search an OEM or catalog above, or wait for companion scans."
-              : "Create a cart first, then add OEM lines."}
+              : "Cart opens automatically — add OEM lines when ready."}
           </p>
         ) : (
           <ul className={styles.list}>
@@ -762,6 +875,96 @@ export function StaffPosPanel() {
           <p className={styles.muted} style={{ marginTop: "0.65rem" }}>
             Subtotal {lineTotal.toFixed(2)} {cart.currency}
           </p>
+        ) : null}
+
+        {lines.length > 0 && cart ? (
+          <div style={{ marginTop: "1rem" }}>
+            <p className={styles.muted} style={{ marginBottom: "0.5rem" }}>
+              Split bill (optional) — leave empty for classic checkout; fill
+              tenders that sum to the subtotal to settle Cash / EcoCash /
+              Paynow / ContiPay to their own GL accounts.
+            </p>
+            {tenderLines.map((row, i) => (
+              <div className={styles.formGrid} key={`tender-${i}`}>
+                <label className={styles.field}>
+                  Tender
+                  <select
+                    value={row.tender}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const next = [...tenderLines];
+                      next[i] = { ...next[i], tender: e.target.value };
+                      setTenderLines(next);
+                    }}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="ecocash">EcoCash</option>
+                    <option value="paynow">Paynow</option>
+                    <option value="contipay">ContiPay</option>
+                    <option value="bank">Bank</option>
+                    <option value="store_credit">Store credit</option>
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Amount ({cart.currency})
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.amount}
+                    placeholder={
+                      i === 0 && tenderLines.length === 1
+                        ? lineTotal.toFixed(2)
+                        : "0.00"
+                    }
+                    disabled={busy}
+                    onChange={(e) => {
+                      const next = [...tenderLines];
+                      next[i] = { ...next[i], amount: e.target.value };
+                      setTenderLines(next);
+                    }}
+                  />
+                </label>
+              </div>
+            ))}
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() =>
+                  setTenderLines((prev) => [
+                    ...prev,
+                    { tender: "ecocash", amount: "" },
+                  ])
+                }
+              >
+                Add tender
+              </button>
+              {tenderLines.length > 1 ? (
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  disabled={busy}
+                  onClick={() =>
+                    setTenderLines((prev) => prev.slice(0, -1))
+                  }
+                >
+                  Remove last
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy}
+                onClick={() =>
+                  setTenderLines([{ tender: "cash", amount: lineTotal.toFixed(2) }])
+                }
+              >
+                Fill cash = total
+              </button>
+            </div>
+          </div>
         ) : null}
 
         <p className={styles.muted} style={{ margin: "1rem 0 0.75rem" }}>
@@ -795,7 +998,7 @@ export function StaffPosPanel() {
           <button
             type="button"
             className={styles.btn}
-            disabled={busy || !cart || lines.length === 0}
+            disabled={busy || !cart || lines.length === 0 || cart.status === "parked"}
             onClick={() => void onCheckout()}
           >
             Checkout

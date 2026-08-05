@@ -45,6 +45,7 @@ export {
   PackageSearch,
   PackageCheck,
   ChevronDown,
+  Ticket,
   X,
   type LucideIcon,
 } from "lucide-react";

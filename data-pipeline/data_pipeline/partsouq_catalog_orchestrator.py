@@ -446,7 +446,9 @@ class OrchestratorOptions:
     base_config: Path = DEFAULT_SCRAPE_CONFIG
     cwd: Path = field(default_factory=Path.cwd)
     parallel_makers: int = 1
-    poll_seconds: float = 20.0
+    poll_seconds: float = 10.0
+    batch_size: int = 75
+    write_bundle_every: int = 17
     max_pages: int | None = None
     until_complete: bool = True
     local_ip: bool = True
@@ -512,6 +514,10 @@ def build_parse_watch_argv(paths: MakerPaths, opts: OrchestratorOptions) -> list
         "--watch",
         "--poll-seconds",
         str(opts.poll_seconds),
+        "--batch-size",
+        str(opts.batch_size),
+        "--write-bundle-every",
+        str(opts.write_bundle_every),
         "--state-db",
         str(paths.state_db),
         "--cache-dir",
@@ -838,7 +844,14 @@ resource notes:
     p.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
     p.add_argument("--config", type=Path, default=DEFAULT_SCRAPE_CONFIG)
     p.add_argument("--parallel-makers", type=int, default=1)
-    p.add_argument("--poll-seconds", type=float, default=20.0)
+    p.add_argument("--poll-seconds", type=float, default=10.0)
+    p.add_argument("--batch-size", type=int, default=75)
+    p.add_argument(
+        "--write-bundle-every",
+        type=int,
+        default=17,
+        help="Parse watcher bundle refresh interval (pages)",
+    )
     p.add_argument("--max-pages", type=int, default=None)
     p.add_argument("--no-until-complete", action="store_true")
     p.add_argument("--workers", type=int, default=None)
@@ -869,6 +882,8 @@ def options_from_args(args: argparse.Namespace, makers: list[str]) -> Orchestrat
         cwd=Path.cwd(),
         parallel_makers=max(1, args.parallel_makers),
         poll_seconds=args.poll_seconds,
+        batch_size=args.batch_size,
+        write_bundle_every=args.write_bundle_every,
         max_pages=args.max_pages,
         until_complete=not args.no_until_complete,
         local_ip=not args.no_local_ip,

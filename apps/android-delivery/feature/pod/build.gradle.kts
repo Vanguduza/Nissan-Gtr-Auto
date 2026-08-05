@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    implementation(project(":android-ui"))
     implementation(project(":pod-camera"))
     implementation(project(":pod-signature"))
     implementation("androidx.core:core-ktx:1.13.1")
