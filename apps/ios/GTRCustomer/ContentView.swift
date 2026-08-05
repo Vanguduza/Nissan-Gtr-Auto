@@ -142,27 +142,55 @@ struct ContentView: View {
             case .none:
                 EmptyView()
             case .menu:
-                HamburgerMenuOverlay(categories: menuCategories) { action in
+                HamburgerMenuOverlay { action in
                     switch action {
                     case .close:
                         overlay = .none
-                    case .openCatalog(let category, let subcategory):
-                        catalogSeed = subcategory ?? category
-                        catalogSeedToken = UUID()
-                        selectedTab = .shop
-                        overlay = .none
+                    case .openAllCategories:
+                        overlay = .categories
                     }
+                }
+                .zIndex(2)
+            case .categories:
+                NavigationStack {
+                    CategoriesGridScreen(onBack: { overlay = .none })
                 }
                 .zIndex(2)
             case .cart:
                 NavigationStack {
-                    CartScreen()
+                    CartScreen(
+                        onPay: { id in
+                            payInvoiceId = id
+                            overlay = .pay(id)
+                        },
+                        onManageOrders: { overlay = .orders }
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Back") {
+                                Task { await refreshCartBadge() }
+                                overlay = .none
+                            }
+                        }
+                    }
+                }
+                .zIndex(2)
+            case .pay(let invoiceId):
+                NavigationStack {
+                    PayIntentScreen(initialInvoiceId: invoiceId)
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
-                                Button("Close") {
-                                    Task { await refreshCartBadge() }
-                                    overlay = .none
-                                }
+                                Button("Back") { overlay = .cart }
+                            }
+                        }
+                }
+                .zIndex(2)
+            case .orders:
+                NavigationStack {
+                    OrdersScreen()
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Back") { overlay = .cart }
                             }
                         }
                 }
@@ -177,6 +205,8 @@ struct ContentView: View {
                         }
                     )
                 }
+                .zIndex(2)
+            }
                 .zIndex(2)
             }
         }
