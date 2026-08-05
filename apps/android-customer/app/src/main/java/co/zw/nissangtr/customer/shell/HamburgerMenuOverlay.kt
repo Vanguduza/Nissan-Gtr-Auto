@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.CarRepair
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
