@@ -1,6 +1,31 @@
 import SwiftUI
 
-/// Customer storefront top strip — menu + GTR logo left; My Account / Cart / Sign-in right.
+/// Icon-over-label shell action — matches bottom-bar style; no rounded circle chrome.
+struct ShellLabeledIconButton: View {
+    var systemImage: String
+    var label: String
+    var onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 2) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18))
+                    .foregroundStyle(GTRColors.primary)
+                Text(label)
+                    .font(.system(size: 10))
+                    .foregroundStyle(GTRColors.primary.opacity(0.85))
+                    .lineLimit(1)
+            }
+            .frame(minWidth: 52)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Customer storefront top strip — labeled icons + large logo.
 struct CustomerShellTopBar: View {
     var signedInEmail: String?
     var cartBadgeCount: Int
@@ -10,94 +35,142 @@ struct CustomerShellTopBar: View {
     var onSignIn: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 4) {
-                ShopCircleIconButton(systemImage: "line.3.horizontal", onTap: onOpenMenu)
-                GTRLogo(height: 28)
-                    .frame(maxWidth: 96, alignment: .leading)
+        HStack(spacing: 2) {
+            HStack(spacing: 2) {
+                ShellLabeledIconButton(systemImage: "line.3.horizontal", label: "Menu", onTap: onOpenMenu)
+                GTRLogo(height: 40)
+                    .frame(minWidth: 110, maxWidth: 140, alignment: .leading)
             }
             Spacer(minLength: 4)
-            Button("My Account", action: onOpenAccount)
-                .font(GTRType.label(.caption))
-                .foregroundStyle(GTRColors.steel)
+            ShellLabeledIconButton(systemImage: "person.crop.circle", label: "My Account", onTap: onOpenAccount)
             ZStack(alignment: .topTrailing) {
-                ShopCircleIconButton(systemImage: "cart.fill", onTap: onOpenCart)
+                ShellLabeledIconButton(systemImage: "cart.fill", label: "Cart", onTap: onOpenCart)
                 if cartBadgeCount > 0 {
                     Text(cartBadgeCount > 99 ? "99+" : "\(cartBadgeCount)")
-                        .font(GTRType.label(.caption2))
+                        .font(.system(size: 10).bold())
                         .foregroundStyle(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(GTRColors.primary, in: Capsule())
-                        .offset(x: 4, y: -4)
+                        .offset(x: 6, y: -2)
                 }
             }
-            if let email = signedInEmail {
-                Button(action: onOpenAccount) {
-                    Text(String(email.prefix(2)).uppercased())
-                        .font(GTRType.label(.caption))
-                        .foregroundStyle(GTRColors.primary)
-                        .frame(width: 36, height: 36)
-                        .background(GTRColors.primary.opacity(0.12), in: Circle())
-                }
-                .buttonStyle(.plain)
+            if signedInEmail != nil {
+                ShellLabeledIconButton(systemImage: "person.crop.circle.fill", label: "Signed in", onTap: onOpenAccount)
             } else {
-                Button(action: onSignIn) {
-                    Label("Sign in", systemImage: "person.crop.circle")
-                        .font(GTRType.label(.caption))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(GTRColors.steel)
+                ShellLabeledIconButton(systemImage: "arrow.right.circle", label: "Sign in", onTap: onSignIn)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 6)
         .background(GTRColors.chalk)
     }
 }
 
 enum HamburgerMenuAction: Equatable {
     case close
-    case openCatalog(category: String?, subcategory: String?)
+    case openAllCategories
 }
 
-/// Fallback part categories when browse API returns none.
-let gtrPartCategories = [
-    "Brakes", "Filters", "Engine", "Suspension", "Electrical", "Cooling", "Body", "Drivetrain",
+struct MenuCategoryDef: Identifiable {
+    var id: String { label }
+    let label: String
+    let systemImage: String
+    let subs: [(String, String)]
+}
+
+let gtrCarPartCategories: [MenuCategoryDef] = [
+    .init(label: "Service Parts", systemImage: "wrench.and.screwdriver.fill", subs: [
+        ("Oil filters", "line.3.horizontal.decrease.circle"),
+        ("Air filters", "wind"),
+        ("Belts", "circle.circle"),
+        ("Fluids", "drop.fill"),
+    ]),
+    .init(label: "Braking", systemImage: "brake.signal", subs: [
+        ("Brake pads", "square.stack.3d.up"),
+        ("Brake discs", "circle.dashed"),
+        ("Calipers", "wrench"),
+        ("Brake fluid", "drop"),
+    ]),
+    .init(label: "Steering & Suspension", systemImage: "car.side", subs: [
+        ("Shock absorbers", "arrow.up.arrow.down"),
+        ("Coil springs", "corkscrew"),
+        ("Control arms", "wrench.adjustable"),
+    ]),
+    .init(label: "Engine Parts", systemImage: "engine.combustion", subs: [
+        ("Gaskets", "square.on.square"),
+        ("Timing belts", "circle.circle"),
+        ("Sensors", "sensor.tag.radiowaves.forward"),
+    ]),
+    .init(label: "Transmission", systemImage: "gearshape.2", subs: [
+        ("Clutch kits", "gearshape"),
+        ("Flywheels", "circle"),
+    ]),
+    .init(label: "Electrical", systemImage: "bolt.fill", subs: [
+        ("Batteries", "battery.100"),
+        ("Alternators", "bolt.car"),
+        ("Starters", " Ignition"),
+    ]),
+    .init(label: "Lighting", systemImage: "lightbulb.fill", subs: [
+        ("Headlamp bulbs", "light.max"),
+        ("LED kits", "lightbulb"),
+    ]),
+    .init(label: "Body & Exhaust", systemImage: "car.fill", subs: [
+        ("Exhaust systems", "smoke"),
+        ("Body panels", "rectangle.split.3x3"),
+    ]),
+    .init(label: "Cooling & Heating", systemImage: "thermometer.medium", subs: [
+        ("Radiators", "fan"),
+        ("Water pumps", "drop.triangle"),
+        ("Thermostats", "thermometer"),
+    ]),
+    .init(label: "Fuel System", systemImage: "fuelpump.fill", subs: [
+        ("Fuel injectors", "fuelpump"),
+        ("Fuel filters", "line.3.horizontal.decrease"),
+    ]),
 ]
 
-private let defaultSubcategories: [String: [String]] = [
-    "Brakes": ["Pads", "Discs", "Calipers", "Fluid"],
-    "Filters": ["Oil", "Air", "Cabin", "Fuel"],
-    "Engine": ["Belts", "Gaskets", "Sensors", "Mounts"],
-    "Suspension": ["Shocks", "Bushings", "Arms", "Springs"],
-    "Electrical": ["Batteries", "Lighting", "Ignition", "Sensors"],
-    "Cooling": ["Radiators", "Hoses", "Thermostats", "Pumps"],
-    "Body": ["Mirrors", "Panels", "Trim", "Glass"],
-    "Drivetrain": ["Clutch", "CV joints", "Differentials", "Mounts"],
+struct RootMenuDef: Identifiable {
+    var id: String { label }
+    let label: String
+    let systemImage: String
+    let kind: RootKind
+    enum RootKind { case carParts, emptySoon, deals }
+}
+
+let gtrRootMenu: [RootMenuDef] = [
+    .init(label: "Car Parts", systemImage: "wrench.and.screwdriver", kind: .carParts),
+    .init(label: "Accessories", systemImage: "shippingbox", kind: .emptySoon),
+    .init(label: "Detailing", systemImage: "sparkles", kind: .emptySoon),
+    .init(label: "Tools", systemImage: "hammer", kind: .emptySoon),
+    .init(label: "Service Kits", systemImage: "toolbox", kind: .emptySoon),
+    .init(label: "Engine Oils", systemImage: "oilcan", kind: .emptySoon),
+    .init(label: "Car Batteries", systemImage: "battery.100", kind: .emptySoon),
+    .init(label: "Wiper Blades", systemImage: "drop", kind: .emptySoon),
+    .init(label: "Deals", systemImage: "tag", kind: .deals),
+    .init(label: "Shop By Brand", systemImage: "car", kind: .emptySoon),
+    .init(label: "MOT / Service", systemImage: "checkmark.shield", kind: .emptySoon),
 ]
 
-/// Full-screen hamburger — Car Parts → categories → subcategories.
 struct HamburgerMenuOverlay: View {
-    var categories: [String]
     var onAction: (HamburgerMenuAction) -> Void
 
     private enum Pane {
-        case root, carParts, category(String), deals, about, contact
+        case root, carParts, category(MenuCategoryDef), deals, about, contact, store
     }
 
     @State private var pane: Pane = .root
-
-    private var resolvedCategories: [String] {
-        categories.isEmpty ? gtrPartCategories : categories
-    }
+    @State private var emptyTitle: String?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                GTRLogo(height: 28)
+                GTRLogo(height: 36)
                 Spacer()
-                ShopCircleIconButton(systemImage: "xmark", onTap: { onAction(.close) })
+                Button { onAction(.close) } label: {
+                    Image(systemName: "xmark")
+                        .foregroundStyle(GTRColors.primary)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -108,81 +181,72 @@ struct HamburgerMenuOverlay: View {
                 VStack(spacing: 0) {
                     switch pane {
                     case .root:
-                        menuRow("Car Parts", "wrench.and.screwdriver") { pane = .carParts }
-                        menuRow("Deals", "tag") { pane = .deals }
-                        menuRow("Shop catalog", "storefront") {
-                            onAction(.openCatalog(category: nil, subcategory: nil))
+                        ForEach(gtrRootMenu) { item in
+                            menuRow(item.label, item.systemImage) {
+                                switch item.kind {
+                                case .carParts: pane = .carParts
+                                case .deals: pane = .deals
+                                case .emptySoon: emptyTitle = item.label
+                                }
+                            }
                         }
                     case .carParts:
                         backButton("Menu") { pane = .root }
                         sectionTitle("Car Parts")
-                        menuRow("All car parts", "wrench.and.screwdriver") {
-                            onAction(.openCatalog(category: nil, subcategory: nil))
+                        menuRow("All car parts", "square.grid.2x2") {
+                            onAction(.openAllCategories)
                         }
-                        ForEach(resolvedCategories, id: \.self) { cat in
-                            menuRow(cat, "wrench.and.screwdriver") { pane = .category(cat) }
+                        ForEach(gtrCarPartCategories) { cat in
+                            menuRow(cat.label, cat.systemImage) { pane = .category(cat) }
                         }
                     case .category(let cat):
                         backButton("Car Parts") { pane = .carParts }
-                        sectionTitle(cat)
-                        menuRow("All \(cat)", "wrench.and.screwdriver") {
-                            onAction(.openCatalog(category: cat, subcategory: nil))
-                        }
-                        let subs = defaultSubcategories[cat] ?? []
-                        if subs.isEmpty {
-                            ShopHonestEmpty(
-                                title: "No subcategories yet",
-                                bodyText: "Browse all \(cat) — deep tree ships when catalog API exposes it."
-                            )
-                            .padding()
-                        } else {
-                            ForEach(subs, id: \.self) { sub in
-                                menuRow(sub, "wrench.and.screwdriver") {
-                                    onAction(.openCatalog(category: cat, subcategory: sub))
-                                }
-                            }
+                        sectionTitle(cat.label)
+                        menuRow("All \(cat.label)", cat.systemImage) { emptyTitle = cat.label }
+                        ForEach(cat.subs, id: \.0) { sub in
+                            menuRow(sub.0, sub.1) { emptyTitle = sub.0 }
                         }
                     case .deals:
                         backButton("Menu") { pane = .root }
-                        ShopHonestEmpty(
-                            title: "No deals feed yet",
-                            bodyText: "Promo / deals API is not wired — we never invent sale SKUs."
-                        )
-                        .padding()
+                        ShopHonestEmpty(title: "No deals feed yet", bodyText: "Promo API is not wired — we never invent sale SKUs.")
+                            .padding()
                     case .about:
                         backButton("Menu") { pane = .root }
-                        ShopHonestEmpty(
-                            title: "About Nissan GTR Auto",
-                            bodyText: "Genuine Nissan parts · Harare counter & nationwide dispatch."
-                        )
-                        .padding()
+                        ShopHonestEmpty(title: "About Nissan GTR Auto", bodyText: "Genuine Nissan parts · Harare counter & nationwide dispatch.")
+                            .padding()
                     case .contact:
                         backButton("Menu") { pane = .root }
-                        ShopHonestEmpty(
-                            title: "Contact",
-                            bodyText: "Harare counter · WhatsApp via Live chat · nissangtrauto.co.zw/contact"
-                        )
-                        .padding()
+                        ShopHonestEmpty(title: "Contact", bodyText: "Harare counter · WhatsApp via Live chat · nissangtrauto.co.zw/contact")
+                            .padding()
+                    case .store:
+                        backButton("Menu") { pane = .root }
+                        ShopHonestEmpty(title: "Store locator", bodyText: "Harare counter map ships with the storefront map module.")
+                            .padding()
                     }
                 }
             }
 
             Divider().overlay(GTRColors.mist)
-            HStack {
-                Button { pane = .about } label: {
-                    Label("About", systemImage: "info.circle")
-                }
-                Spacer()
-                Button { pane = .contact } label: {
-                    Label("Contact", systemImage: "phone")
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                Button { pane = .store } label: { Label("Store Locator", systemImage: "mappin.and.ellipse") }
+                Button { pane = .about } label: { Label("About Us", systemImage: "info.circle") }
+                Button { pane = .contact } label: { Label("Contact Us", systemImage: "phone") }
             }
             .font(GTRType.label(.subheadline))
             .foregroundStyle(GTRColors.steel)
             .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(GTRColors.chalk.ignoresSafeArea())
+        .alert(emptyTitle ?? "", isPresented: Binding(
+            get: { emptyTitle != nil },
+            set: { if !$0 { emptyTitle = nil } }
+        )) {
+            Button("OK", role: .cancel) { emptyTitle = nil }
+        } message: {
+            Text("No items added yet. Stock for this category will appear here when catalog listings are published.")
+        }
     }
 
     private func sectionTitle(_ text: String) -> some View {
@@ -208,7 +272,7 @@ struct HamburgerMenuOverlay: View {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
                     .foregroundStyle(GTRColors.primary)
-                    .frame(width: 22)
+                    .frame(width: 24)
                 Text(title)
                     .font(GTRType.body(.body))
                     .foregroundStyle(GTRColors.steel)
