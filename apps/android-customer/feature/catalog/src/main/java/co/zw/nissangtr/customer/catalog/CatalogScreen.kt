@@ -115,9 +115,7 @@ fun CatalogScreen(
                 onApplySearchFilter = { viewModel.applyCategoryFilter(it) },
             )
             CatalogScreenRoute.Categories -> CategoriesGridScreen(
-                categories = DefaultCatalogCategories,
                 onBack = viewModel::navigateHome,
-                onCategory = { viewModel.applyCategoryFilter(it) },
             )
             CatalogScreenRoute.Newest -> NewestProductsScreen(
                 products = state.browseItems,
