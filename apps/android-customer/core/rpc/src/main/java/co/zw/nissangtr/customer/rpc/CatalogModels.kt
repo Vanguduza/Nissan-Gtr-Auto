@@ -49,6 +49,10 @@ data class SearchCatalogResponse(
     val mode: SearchMode,
     val query: String,
     val parts: List<CatalogPartHit>,
+    /** `meili` when Edge proxy succeeded; `fts` on Postgres fallback. */
+    val backend: String? = null,
+    /** Meili facet counts — category / model / part facets when available. */
+    val facetDistribution: Map<String, Map<String, Int>> = emptyMap(),
 )
 
 data class CatalogListItem(
