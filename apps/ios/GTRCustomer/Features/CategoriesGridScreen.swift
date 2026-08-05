@@ -19,10 +19,10 @@ let defaultCatalogCategoryCards: [CatalogCategoryCard] = [
     .init(label: "Fuel System", systemImage: "fuelpump.fill"),
 ]
 
-/// All Car Parts grid — category tap shows empty inventory dialog (not home navigation).
+/// All Car Parts grid — navigates to live category PLP (no empty-only dialogs).
 struct CategoriesGridScreen: View {
     var onBack: () -> Void
-    @State private var emptyTitle: String?
+    var onSelectCategory: (String) -> Void
 
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
@@ -43,7 +43,7 @@ struct CategoriesGridScreen: View {
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(defaultCatalogCategoryCards) { card in
                         Button {
-                            emptyTitle = card.label
+                            onSelectCategory(card.label)
                         } label: {
                             VStack(spacing: 0) {
                                 Rectangle()
@@ -76,13 +76,5 @@ struct CategoriesGridScreen: View {
             }
         }
         .background(GTRColors.chalk.ignoresSafeArea())
-        .alert(emptyTitle ?? "", isPresented: Binding(
-            get: { emptyTitle != nil },
-            set: { if !$0 { emptyTitle = nil } }
-        )) {
-            Button("OK", role: .cancel) { emptyTitle = nil }
-        } message: {
-            Text("No items added yet. Stock for this category will appear here when catalog listings are published.")
-        }
     }
 }
