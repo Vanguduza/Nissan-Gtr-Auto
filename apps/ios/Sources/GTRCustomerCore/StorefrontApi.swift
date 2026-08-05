@@ -1010,7 +1010,25 @@ public final class FakeStorefrontApi: StorefrontApi {
             }
         }
         .map { CatalogPartHit(oemPartNumber: $0.oem, categoryName: $0.category) }
-        return SearchCatalogResponse(mode: mode, query: q, parts: hits)
+        return SearchCatalogResponse(mode: mode, query: q, parts: hits, backend: "fts")
+    }
+
+    public func searchCatalogMeili(
+        mode: CatalogSearchMode,
+        query: String,
+        limit: Int,
+        facets: [String]?
+    ) async throws -> SearchCatalogResponse {
+        let res = try await searchCatalog(mode: mode, query: query)
+        return SearchCatalogResponse(
+            mode: res.mode,
+            query: res.query,
+            parts: Array(res.parts.prefix(min(max(limit, 1), 50))),
+            backend: "meili",
+            facetDistribution: res.parts.compactMap(\.categoryName).reduce(into: [:]) { acc, cat in
+                acc["category_name", default: [:]][cat, default: 0] += 1
+            }
+        )
     }
 
     public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
@@ -1125,6 +1143,113 @@ public final class FakeStorefrontApi: StorefrontApi {
         if addresses.count == before {
             throw StorefrontError.message("address not found for delete_customer_address")
         }
+    }
+
+    // MARK: Profile (Fake)
+
+    public func loadOwnProfile() async throws -> UserProfile? {
+        UserProfile(id: UUID(uuidString: "00000000-0000-4000-8000-0000000000f1")!, fullName: fakeFullName)
+    }
+
+    public func loadOwnCustomer() async throws -> CustomerProfile? {
+        fakeCustomer
+    }
+
+    public func updateOwnFullName(_ fullName: String) async throws {
+        let trimmed = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { fakeFullName = trimmed }
+    }
+
+    public func updateOwnCustomerContact(_ patch: CustomerContactPatch) async throws {
+        fakeCustomer = CustomerProfile(
+            id: fakeCustomer.id,
+            displayName: patch.displayName ?? fakeCustomer.displayName,
+            email: patch.email ?? fakeCustomer.email,
+            phoneE164: patch.phoneE164 ?? fakeCustomer.phoneE164,
+            whatsappE164: patch.whatsappE164 ?? fakeCustomer.whatsappE164,
+            smsReceipts: patch.smsReceipts ?? fakeCustomer.smsReceipts,
+            emailReceipts: patch.emailReceipts ?? fakeCustomer.emailReceipts,
+            whatsappReceipts: patch.whatsappReceipts ?? fakeCustomer.whatsappReceipts,
+            marketingOptIn: fakeCustomer.marketingOptIn,
+            lastPromoAt: fakeCustomer.lastPromoAt
+        )
+    }
+
+    public func setOwnMarketingOptIn(_ optIn: Bool) async throws {
+        fakeCustomer = CustomerProfile(
+            id: fakeCustomer.id,
+            displayName: fakeCustomer.displayName,
+            email: fakeCustomer.email,
+            phoneE164: fakeCustomer.phoneE164,
+            whatsappE164: fakeCustomer.whatsappE164,
+            smsReceipts: fakeCustomer.smsReceipts,
+            emailReceipts: fakeCustomer.emailReceipts,
+            whatsappReceipts: fakeCustomer.whatsappReceipts,
+            marketingOptIn: optIn,
+            lastPromoAt: fakeCustomer.lastPromoAt
+        )
+    }
+
+    // MARK: Loyalty / returns / kits (Fake)
+
+    public func getLoyaltyBalance(customerId: UUID) async throws -> LoyaltyBalance {
+        LoyaltyBalance(
+            customerId: customerId,
+            pointsBalance: 120,
+            currency: "USD",
+            liabilityPerPoint: 0.01,
+            estimatedLiability: 1.2
+        )
+    }
+
+    public func postCustomerReturnCreditNote(
+        invoiceId: UUID,
+        lines: [ReturnCreditNoteLine]
+    ) async throws -> UUID {
+        guard !lines.isEmpty else { throw StorefrontError.message("return lines required") }
+        guard orders.contains(where: { $0.invoiceId == invoiceId }) else {
+            throw StorefrontError.message("invoice not found or not owned")
+        }
+        return UUID()
+    }
+
+    public func listActiveKits(limit: Int) async throws -> [KitListItem] {
+        let cap = min(max(limit, 1), 50)
+        return [
+            KitListItem(
+                kitId: UUID(uuidString: "00000000-0000-4000-8000-0000000000k1")!,
+                stockItemId: Self.seedOilFilterId,
+                oem: "15208-65F0C",
+                name: "Oil filter service kit (demo)",
+                sellMode: "bundle",
+                components: [
+                    KitComponent(oem: "15208-65F0C", name: "Oil filter", qty: 1),
+                    KitComponent(oem: "11026-JA00A", name: "Drain plug washer", qty: 1),
+                ]
+            ),
+        ].prefix(cap).map { $0 }
+    }
+
+    public func listInvoiceLines(invoiceId: UUID) async throws -> [InvoiceLineSummary] {
+        guard orders.contains(where: { $0.invoiceId == invoiceId }) else { return [] }
+        return [
+            InvoiceLineSummary(
+                id: UUID(uuidString: "00000000-0000-4000-8000-0000000000l1")!,
+                stockItemId: Self.seedOilFilterId,
+                uomId: Self.seedUomId,
+                qty: 1,
+                oemPartNumber: "15208-65F0C",
+                description: "Oil filter (demo)"
+            ),
+            InvoiceLineSummary(
+                id: UUID(uuidString: "00000000-0000-4000-8000-0000000000l2")!,
+                stockItemId: Self.seedAirFilterId,
+                uomId: Self.seedUomId,
+                qty: 1,
+                oemPartNumber: "16546-EB70A",
+                description: "Air cleaner element (demo)"
+            ),
+        ]
     }
 
     private static func seedCatalogProducts() -> [String: CatalogProduct] {
