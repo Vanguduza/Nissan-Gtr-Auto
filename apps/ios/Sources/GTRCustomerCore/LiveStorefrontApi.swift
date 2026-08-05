@@ -41,6 +41,8 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let getProductReviewStats = "get_product_review_stats"
         public static let addCustomerProductReviewPhoto = "add_customer_product_review_photo"
         public static let searchCatalog = "search_catalog"
+        public static let getLoyaltyBalance = "get_loyalty_balance"
+        public static let postCustomerReturnCreditNote = "post_customer_return_credit_note"
         public static let getZigExchangeRate = "get_zig_exchange_rate"
         public static let upsertCustomerAddress = "upsert_customer_address"
         public static let deleteCustomerAddress = "delete_customer_address"
@@ -50,6 +52,14 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let contipayInitiate = "contipay-initiate"
         public static let paynowInitiate = "paynow-initiate"
         public static let ecocashInitiate = "ecocash-initiate"
+        /// Meili catalog search proxy — prefer over direct Meili; FTS fallback server-side.
+        public static let catalogSearchMeili = "catalog-search-meili"
+    }
+
+    /// PostgREST tables for kits browse (no RPC) — mirrors web `listActiveKits`.
+    public enum StorefrontTable {
+        public static let itemKits = "item_kits"
+        public static let itemKitComponents = "item_kit_components"
     }
 
     public static let reviewPhotosBucket = "review-photos"
