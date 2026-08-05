@@ -108,6 +108,31 @@ internal object CommerceRpcLive {
             )
         }
     }
+
+    /** Mirrors web `listInvoiceLines` — RLS-scoped invoice line read for returns. */
+    suspend fun listInvoiceLines(client: SupabaseClient, invoiceId: String): List<InvoiceLineSummary> {
+        require(invoiceId.isNotBlank()) { "invoiceId required" }
+        return client.from("sales_invoice_lines")
+            .select(
+                Columns.raw(
+                    "id, stock_item_id, uom_id, qty, stock_items ( oem_part_number, description )",
+                ),
+            ) {
+                filter { eq("invoice_id", invoiceId) }
+                order("created_at", Order.ASCENDING)
+            }
+            .decodeList<InvoiceLineRow>()
+            .map { row ->
+                InvoiceLineSummary(
+                    id = row.id,
+                    stockItemId = row.stockItemId,
+                    uomId = row.uomId,
+                    qty = row.qty,
+                    oemPartNumber = row.stockItems?.oemPartNumber,
+                    description = row.stockItems?.description,
+                )
+            }
+    }
 }
 
 @Serializable
@@ -146,4 +171,13 @@ private data class KitComponentRow(
 private data class StockItemBriefEmbed(
     @SerialName("oem_part_number") val oemPartNumber: String? = null,
     val description: String? = null,
+)
+
+@Serializable
+private data class InvoiceLineRow(
+    val id: String,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("uom_id") val uomId: String,
+    val qty: Double = 0.0,
+    @SerialName("stock_items") val stockItems: StockItemBriefEmbed? = null,
 )

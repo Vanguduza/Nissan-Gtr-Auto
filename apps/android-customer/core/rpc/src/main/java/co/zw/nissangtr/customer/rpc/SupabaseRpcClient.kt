@@ -7,6 +7,7 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -109,6 +110,14 @@ class SupabaseRpcClient(
 
     override suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse =
         CatalogRpcLive.searchCatalog(client, mode, query)
+
+    override suspend fun searchCatalogMeili(
+        mode: SearchMode,
+        query: String,
+        limit: Int,
+        facets: List<String>?,
+    ): SearchCatalogResponse =
+        CatalogRpcLive.searchCatalogMeili(client, mode, query, limit, facets)
 
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult =
         CatalogRpcLive.listCatalogBrowse(client, category, limit)
@@ -821,6 +830,9 @@ class SupabaseRpcClient(
     override suspend fun listActiveKits(limit: Int): List<KitListItem> =
         CommerceRpcLive.listActiveKits(client, limit)
 
+    override suspend fun listInvoiceLines(invoiceId: String): List<InvoiceLineSummary> =
+        CommerceRpcLive.listInvoiceLines(client, invoiceId)
+
     fun currentUserId(): String? =
         auth.currentSessionOrNull()?.user?.id
 
@@ -861,6 +873,7 @@ class SupabaseRpcClient(
                 install(Auth)
                 install(Postgrest)
                 install(Storage)
+                install(Functions)
             }
             return SupabaseRpcClient(client)
         }

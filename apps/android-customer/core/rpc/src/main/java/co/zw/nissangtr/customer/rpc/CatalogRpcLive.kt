@@ -1,20 +1,29 @@
 package co.zw.nissangtr.customer.rpc
 
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /**
  * Live catalog reads for [SupabaseRpcClient] — mirrors web catalog-search + catalog-product.
  */
 internal object CatalogRpcLive {
+    private val json = Json { ignoreUnknownKeys = true }
+
     suspend fun searchCatalog(client: SupabaseClient, mode: SearchMode, query: String): SearchCatalogResponse {
         val trimmed = query.trim()
         require(trimmed.isNotEmpty()) { "search query required" }
@@ -25,7 +34,50 @@ internal object CatalogRpcLive {
                 put("p_query", trimmed)
             },
         ).decodeAs<JsonElement>()
-        return parseSearchCatalogJson(raw)
+        return parseSearchCatalogJson(raw).copy(backend = "fts")
+    }
+
+    /**
+     * Edge Function Meili proxy — JWT forwarded by supabase-kt; no Meili key in app.
+     * Falls back to [searchCatalog] on any failure.
+     */
+    suspend fun searchCatalogMeili(
+        client: SupabaseClient,
+        mode: SearchMode,
+        query: String,
+        limit: Int = 20,
+        facets: List<String>? = null,
+    ): SearchCatalogResponse {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            return SearchCatalogResponse(mode = mode, query = "", parts = emptyList())
+        }
+        return try {
+            val response = client.functions.invoke(RpcNames.CATALOG_SEARCH_MEILI_FN) {
+                setBody(
+                    buildJsonObject {
+                        put("mode", mode.rpcValue)
+                        put("query", trimmed)
+                        put("limit", limit.coerceIn(1, 50))
+                        if (!facets.isNullOrEmpty()) {
+                            put(
+                                "facets",
+                                JsonArray(facets.map { JsonPrimitive(it) }),
+                            )
+                        }
+                    },
+                )
+            }
+            val text = response.bodyAsText()
+            val el = json.parseToJsonElement(text)
+            val err = (el as? JsonObject)?.get("error")?.jsonPrimitive?.contentOrNull
+            if (!err.isNullOrBlank()) {
+                return searchCatalog(client, mode, trimmed)
+            }
+            parseSearchCatalogJson(el)
+        } catch (_: Exception) {
+            searchCatalog(client, mode, trimmed)
+        }
     }
 
     suspend fun listCatalogBrowse(
