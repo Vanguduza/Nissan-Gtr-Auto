@@ -297,7 +297,9 @@ export function PartDetail({ oem }: { oem: string }) {
   }
 
   const p = status.product;
-  const fitmentSummary =
+  const hasDiagram = Boolean(p.diagram?.publicUrl);
+  const hasPhotos = photoUrls.length > 0;
+  const showGalleryTabs = hasDiagram && hasPhotos;
     p.fitments.length === 0
       ? null
       : [
