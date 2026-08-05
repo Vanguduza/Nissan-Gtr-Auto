@@ -276,7 +276,7 @@ private fun KmpCartLineBox(line: CartLineSummary) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     buildString {
                         append("Qty ${line.qty}")
