@@ -482,6 +482,10 @@ private fun CustomerApp(
         ShellOverlay.Categories -> {
             CategoriesGridScreen(
                 onBack = { overlay = ShellOverlay.None },
+                onCategoryClick = { label ->
+                    openCatalog(seed = label)
+                    overlay = ShellOverlay.None
+                },
             )
         }
         ShellOverlay.Cart -> {
@@ -613,6 +617,7 @@ private fun CustomerApp(
                                 initialOem = null,
                                 showShellChrome = true,
                                 viewModelKey = "home",
+                                camera = camera,
                             )
                         }
                         ShellTab.Shop -> {
