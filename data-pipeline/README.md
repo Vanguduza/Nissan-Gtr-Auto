@@ -76,9 +76,14 @@ python -m data_pipeline.validate fixtures/navara_d40_yd25
 
 # Dry-run import (in-memory; no Supabase required)
 python -m data_pipeline.import_catalog
+python -m data_pipeline.import_catalog out/erp_catalog_v1
 
-# Live import (service role)
-python -m data_pipeline.import_catalog --live
+# Live import (privileged server key; stock_items upsert on by default)
+python -m data_pipeline.import_catalog out/erp_catalog_v1 --live
+# python -m data_pipeline.import_catalog out/erp_catalog_v1 --live --no-ensure-stock-items
+
+# Meilisearch sync after live import (requires MEILI_HOST + MEILI_MASTER_KEY)
+python -m data_pipeline.meili_sync --full
 
 # Tests
 pytest
@@ -201,9 +206,17 @@ python -m data_pipeline.meili_sync --full
 
 Offline tests use `data_pipeline.search_index.CatalogIndex` and `data_pipeline.meili_documents` to smoke-test response shapes.
 
+## ERP catalog v1 reload
+
+Curated pack: `out/erp_catalog_v1/` (133 vehicles / 4142 PNC / 8079 fitments / 635 diagram paths).  
+Full reload steps: [`docs/guides/erp-catalog-v1-load.md`](../docs/guides/erp-catalog-v1-load.md).
+
+Diagram Storage: `supabase/seed_catalog_diagrams.mjs` (fixtures) or `amayama_catalog_auto --upload-diagrams` (scraped assets). No Postgres `diagram_assets` table.
+
 ## Fixture OEMs (storefront demo alignment)
 
 - `15208-65F0C` — oil filter
 - `40206-EA00A` — front brake disc
 - `21410-JF00A` — water pump (supersedes `21010-JF00A`)
 - `16546-00Q0A` — air filter
+- `28970-JD00A` — erp_catalog_v1 sample (JJ10 / washer motor family)
