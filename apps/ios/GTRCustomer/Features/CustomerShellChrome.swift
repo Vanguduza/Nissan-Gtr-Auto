@@ -162,7 +162,6 @@ struct HamburgerMenuOverlay: View {
     }
 
     @State private var pane: Pane = .root
-    @State private var emptyTitle: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -188,7 +187,7 @@ struct HamburgerMenuOverlay: View {
                                 switch item.kind {
                                 case .carParts: pane = .carParts
                                 case .deals: pane = .deals
-                                case .emptySoon: emptyTitle = item.label
+                                case .emptySoon: onAction(.openCategory(item.label))
                                 }
                             }
                         }
