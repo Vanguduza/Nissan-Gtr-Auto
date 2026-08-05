@@ -46,8 +46,10 @@ struct KitsScreen: View {
                 }
                 .buttonStyle(.plain)
                 ForEach(kit.components, id: \.oem) { comp in
-                    Button("\(comp.oem) · \(comp.name) × \(comp.qty, specifier: "%.0f")") {
+                    Button {
                         onOpenProduct(comp.oem)
+                    } label: {
+                        Text("\(comp.oem) · \(comp.name) × \(Int(comp.qty))")
                     }
                     .font(GTRType.body(.caption))
                     .foregroundStyle(GTRColors.primary)
