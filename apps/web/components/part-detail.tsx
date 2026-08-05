@@ -327,42 +327,70 @@ export function PartDetail({ oem }: { oem: string }) {
     <article className={styles.wrap}>
       <div className={styles.galleryCol}>
         <div className={styles.gallery} aria-label="Product media">
-          {galleryTab === "diagram" ? (
+          {hasDiagram && (!hasPhotos || galleryTab === "diagram") ? (
             <CatalogCanvasStub diagram={p.diagram} oem={p.oem} />
+          ) : hasPhotos ? (
+            <div className={styles.photoGallery}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className={styles.photoHero}
+                src={photoUrls[0]}
+                alt={`Customer photo for ${p.oem}`}
+              />
+              {photoUrls.length > 1 ? (
+                <div className={styles.photoThumbs}>
+                  {photoUrls.slice(1, 4).map((url) => (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      key={url}
+                      className={styles.photoThumb}
+                      src={url}
+                      alt=""
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <p className={styles.photoHint}>
+                Approved customer review photos
+              </p>
+            </div>
           ) : (
             <div className={styles.photo}>
               <Images size={28} strokeWidth={iconStroke} aria-hidden />
-              <span>OEM photo placeholder</span>
+              <span>No diagram or photo yet</span>
               <span className={styles.photoHint}>
-                Pipeline imagery when assets are seeded
+                FAST diagram when part_fitment.diagram_path is seeded; photos
+                from approved reviews when uploaded.
               </span>
             </div>
           )}
         </div>
-        <div className={styles.thumbs} role="tablist" aria-label="Gallery">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={galleryTab === "diagram"}
-            className={
-              galleryTab === "diagram" ? styles.thumbActive : styles.thumb
-            }
-            onClick={() => setGalleryTab("diagram")}
-          >
-            Diagram
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={galleryTab === "photo"}
-            className={
-              galleryTab === "photo" ? styles.thumbActive : styles.thumb
-            }
-            onClick={() => setGalleryTab("photo")}
-          >
-            Photo
-          </button>
-        </div>
+        {showGalleryTabs ? (
+          <div className={styles.thumbs} role="tablist" aria-label="Gallery">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={galleryTab === "diagram"}
+              className={
+                galleryTab === "diagram" ? styles.thumbActive : styles.thumb
+              }
+              onClick={() => setGalleryTab("diagram")}
+            >
+              Diagram
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={galleryTab === "photo"}
+              className={
+                galleryTab === "photo" ? styles.thumbActive : styles.thumb
+              }
+              onClick={() => setGalleryTab("photo")}
+            >
+              Photo
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className={styles.info}>
         <div className={styles.titleRow}>
