@@ -262,8 +262,8 @@ private fun KmpHome(
                 onAction = onSeeAllCategories,
             )
             ShopCategoryChipRow(
-                categories = DefaultCatalogCategories,
-                onCategory = onCategory,
+                categories = DefaultCatalogCategoryCards.map { it.label },
+                onCategory = { emptyCategory = it },
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
 
