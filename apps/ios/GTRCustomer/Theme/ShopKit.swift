@@ -724,37 +724,219 @@ struct ShopPdpBuyBar: View {
 
 struct ShopImageGalleryStrip: View {
     let items: [String]
+    var imageUrls: [String] = []
     var selected: String
     var onSelect: (String) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(items, id: \.self) { item in
-                    Button {
-                        onSelect(item)
-                    } label: {
-                        RoundedRectangle(cornerRadius: GTRRadius.sharp)
-                            .fill(selected == item ? GTRColors.primary.opacity(0.2) : GTRColors.mist)
+                if !imageUrls.isEmpty {
+                    ForEach(Array(imageUrls.enumerated()), id: \.offset) { index, url in
+                        let key = "img-\(index)"
+                        Button { onSelect(key) } label: {
+                            ShopRemoteImage(
+                                url: url,
+                                placeholderLabel: "\(index + 1)",
+                                selected: selected == key
+                            )
                             .frame(width: 56, height: 56)
-                            .overlay {
-                                Text(item.prefix(4))
-                                    .font(GTRType.label(.caption2))
-                                    .foregroundStyle(GTRColors.steel)
-                            }
-                            .overlay {
-                                if selected == item {
-                                    RoundedRectangle(cornerRadius: GTRRadius.sharp)
-                                        .stroke(GTRColors.primary, lineWidth: 2)
-                                }
-                            }
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                } else {
+                    ForEach(items, id: \.self) { item in
+                        Button { onSelect(item) } label: {
+                            RoundedRectangle(cornerRadius: GTRRadius.sharp)
+                                .fill(selected == item ? GTRColors.primary.opacity(0.2) : GTRColors.mist)
+                                .frame(width: 56, height: 56)
+                                .overlay {
+                                    Text(item.prefix(4))
+                                        .font(GTRType.label(.caption2))
+                                        .foregroundStyle(GTRColors.steel)
+                                }
+                                .overlay {
+                                    if selected == item {
+                                        RoundedRectangle(cornerRadius: GTRRadius.sharp)
+                                            .stroke(GTRColors.primary, lineWidth: 2)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .padding(8)
         }
         .background(Color.white, in: RoundedRectangle(cornerRadius: GTRRadius.control))
+    }
+}
+
+struct ShopRemoteImage: View {
+    let url: String
+    var placeholderLabel: String = "—"
+    var selected: Bool = false
+
+    var body: some View {
+        Group {
+            if let link = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                AsyncImage(url: link) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure:
+                        placeholder
+                    default:
+                        ProgressView()
+                    }
+                }
+            } else {
+                placeholder
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: GTRRadius.sharp))
+        .overlay {
+            if selected {
+                RoundedRectangle(cornerRadius: GTRRadius.sharp)
+                    .stroke(GTRColors.primary, lineWidth: 2)
+            }
+        }
+    }
+
+    private var placeholder: some View {
+        RoundedRectangle(cornerRadius: GTRRadius.sharp)
+            .fill(GTRColors.mist)
+            .overlay {
+                Text(placeholderLabel)
+                    .font(GTRType.label(.caption2))
+                    .foregroundStyle(GTRColors.steel)
+            }
+    }
+}
+
+struct ShopProductGalleryHero: View {
+    let imageUrls: [String]
+    let heroLabel: String
+    var selectedIndex: Int = 0
+
+    var body: some View {
+        Group {
+            if imageUrls.isEmpty {
+                Text(heroLabel)
+                    .font(GTRType.displaySemi(.title))
+                    .foregroundStyle(GTRColors.steel)
+                    .padding()
+            } else {
+                let idx = min(max(selectedIndex, 0), imageUrls.count - 1)
+                ShopRemoteImage(url: imageUrls[idx], placeholderLabel: heroLabel)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct ShopFilterSortBar: View {
+    var sortLabel: String = "Sort"
+    var onFilter: () -> Void
+    var onSort: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button("Filter", action: onFilter)
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity)
+            Button(sortLabel, action: onSort)
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+struct ShopFilterSheet: View {
+    let state: ShopFilterState
+    let categories: [String]
+    var onApply: (ShopFilterState) -> Void
+    var onCancel: () -> Void
+
+    @State private var draft: ShopFilterState
+    @Environment(\.dismiss) private var dismiss
+
+    init(
+        state: ShopFilterState,
+        categories: [String],
+        onApply: @escaping (ShopFilterState) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.state = state
+        self.categories = categories
+        self.onApply = onApply
+        self.onCancel = onCancel
+        _draft = State(initialValue: state)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("USD price range") {
+                    Text("USD \(Int(draft.minPrice)) – \(Int(draft.maxPrice))")
+                    Slider(value: $draft.minPrice, in: 0 ... draft.maxPrice)
+                    Slider(value: $draft.maxPrice, in: draft.minPrice ... 500)
+                }
+                Section("Category") {
+                    Picker("Category", selection: Binding(
+                        get: { draft.category ?? "Any" },
+                        set: { draft.category = $0 == "Any" ? nil : $0 }
+                    )) {
+                        Text("Any").tag("Any")
+                        ForEach(categories, id: \.self) { cat in
+                            Text(cat).tag(cat)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Filter")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { onCancel(); dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Apply") { onApply(draft); dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct ShopSortSheet: View {
+    let selected: ShopSortOption
+    var onSelect: (ShopSortOption) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(ShopSortOption.allCases) { opt in
+                Button {
+                    onSelect(opt)
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(opt.label)
+                            .foregroundStyle(opt == selected ? GTRColors.primary : GTRColors.steel)
+                        Spacer()
+                        if opt == selected {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(GTRColors.primary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Sort")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
     }
 }
 
