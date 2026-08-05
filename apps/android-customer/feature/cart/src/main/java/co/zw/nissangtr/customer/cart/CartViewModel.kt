@@ -101,19 +101,28 @@ class CartViewModel(
         }
     }
 
-    fun checkout() {
+    fun checkout(onInvoice: (String) -> Unit = {}) {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
-                var cart = _state.value.cart ?: rpc.getOpenCart()
-                if (cart == null) {
-                    _state.update { it.copy(busy = false, error = "Add a part before checkout.") }
-                    return@launch
+                // Sync fulfillment / currency onto open cart before checkout.
+                val s = _state.value
+                val rate = if (s.currency == CurrencyCode.ZIG) {
+                    rpc.fetchZigExchangeRate().also { r ->
+                        _state.update { it.copy(zigRate = r) }
+                    }
+                } else {
+                    1.0
+                }
+                var cart = rpc.ensureOpenCart(
+                    currency = s.currency,
+                    fulfillmentMode = s.fulfillmentMode,
+                    exchangeRate = rate,
+                )
+                if (cart.lines.isEmpty()) {
+                    cart = rpc.getOpenCart() ?: cart
                 }
                 if (cart.lines.isEmpty()) {
-                    cart = rpc.getOpenCart()
-                }
-                if (cart == null || cart.lines.isEmpty()) {
                     _state.update { it.copy(busy = false, error = "Add a part before checkout.") }
                     return@launch
                 }
@@ -131,19 +140,15 @@ class CartViewModel(
                     }
                 }
                 val invoiceId = rpc.checkoutCustomerCart(cart.id)
-                val addrNote = if (mode == FulfillmentMode.DISPATCH) {
-                    " · address ${_state.value.selectedAddressId?.take(8)}"
-                } else {
-                    ""
-                }
                 _state.update {
                     it.copy(
                         busy = false,
                         cart = null,
                         lastInvoiceId = invoiceId,
-                        message = "${RpcNames.CHECKOUT_CUSTOMER_CART} → invoice $invoiceId$addrNote. Pay from Account → Pay.",
+                        message = "Order placed · invoice $invoiceId. Opening secure payment…",
                     )
                 }
+                onInvoice(invoiceId)
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "checkout failed") }
             }
