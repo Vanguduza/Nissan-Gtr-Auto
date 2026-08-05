@@ -148,6 +148,11 @@ struct ContentView: View {
                         overlay = .none
                     case .openAllCategories:
                         overlay = .categories
+                    case .openCategory(let label):
+                        catalogSeed = label
+                        catalogSeedToken = UUID()
+                        overlay = .none
+                        selectedTab = .shop
                     }
                 }
                 .zIndex(2)
