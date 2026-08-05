@@ -44,6 +44,13 @@
 		A10000000000000000000092 /* AddressScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000093 /* AddressScreen.swift */; };
 		A10000000000000000000094 /* CustomerShellChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000095 /* CustomerShellChrome.swift */; };
 		A10000000000000000000096 /* CategoriesGridScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000097 /* CategoriesGridScreen.swift */; };
+		A10000000000000000000098 /* PdpReviewsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000099 /* PdpReviewsScreen.swift */; };
+		A1000000000000000000009A /* EditProfileScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000009B /* EditProfileScreen.swift */; };
+		A1000000000000000000009C /* LoyaltyWalletScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000009D /* LoyaltyWalletScreen.swift */; };
+		A1000000000000000000009E /* ReturnsCreditScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000009F /* ReturnsCreditScreen.swift */; };
+		A100000000000000000000A0 /* KitsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A1 /* KitsScreen.swift */; };
+		A100000000000000000000A2 /* CategoryPlpScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A3 /* CategoryPlpScreen.swift */; };
+		A100000000000000000000A4 /* CatalogBrowseFilters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A5 /* CatalogBrowseFilters.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
