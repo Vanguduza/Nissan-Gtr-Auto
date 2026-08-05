@@ -1,5 +1,4 @@
 import SwiftUI
-import GTRCustomerCore
 
 /// Edit profile — mirrors web profile-form via PostgREST + storefront RPCs.
 struct EditProfileScreen: View {

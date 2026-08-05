@@ -1,6 +1,5 @@
 import PhotosUI
 import SwiftUI
-import GTRCustomerCore
 
 /// PDP-scoped reviews — list approved + submit with Bridge-First photo attach.
 /// Reviews live on the product page, not the Account hub.

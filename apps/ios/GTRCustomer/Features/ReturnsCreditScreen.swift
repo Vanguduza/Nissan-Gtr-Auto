@@ -1,5 +1,4 @@
 import SwiftUI
-import GTRCustomerCore
 
 /// Faulty returns — quarantine CN via post_customer_return_credit_note.
 struct ReturnsCreditScreen: View {
