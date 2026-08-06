@@ -112,7 +112,7 @@ export function StaffCreditPanel() {
     if (!client) return;
     const limit = Number(limitInput);
     if (!Number.isFinite(limit) || limit < 0) {
-      setMessage("Credit limit must be a number ≥ 0.");
+      setMessage("Credit limit must be a number â‰¥ 0.");
       return;
     }
     setBusy(true);
@@ -129,15 +129,15 @@ export function StaffCreditPanel() {
     }
     setSnapshot(res.data);
     setSelected({
+      ...selected,
       id: res.data.customer_id,
-      display_name: selected.display_name,
       credit_limit: Number(res.data.credit_limit),
       credit_hold: res.data.credit_hold,
       open_balance: Number(res.data.open_balance),
       currency: res.data.currency,
     });
     setMessage(
-      `Saved · limit ${Number(res.data.credit_limit).toFixed(2)} ${res.data.currency} · hold ${res.data.credit_hold ? "ON" : "off"} · open ${Number(res.data.open_balance).toFixed(2)} ${res.data.currency}`,
+      `Saved Â· limit ${Number(res.data.credit_limit).toFixed(2)} ${res.data.currency} Â· hold ${res.data.credit_hold ? "ON" : "off"} Â· open ${Number(res.data.open_balance).toFixed(2)} ${res.data.currency}`,
     );
   }
 
@@ -158,11 +158,11 @@ export function StaffCreditPanel() {
     }
     setHold(false);
     setSnapshot(res.data);
-    setMessage(`Credit hold cleared · open ${Number(res.data.open_balance).toFixed(2)} ${res.data.currency}`);
+    setMessage(`Credit hold cleared Â· open ${Number(res.data.open_balance).toFixed(2)} ${res.data.currency}`);
   }
 
   if (boot.kind === "loading") {
-    return <p className={styles.muted}>Loading credit desk…</p>;
+    return <p className={styles.muted}>Loading credit deskâ€¦</p>;
   }
   if (boot.kind === "auth") {
     return (
@@ -210,7 +210,7 @@ export function StaffCreditPanel() {
               setSnapshot(null);
             }}
             disabled={busy}
-            placeholder="Search display name…"
+            placeholder="Search display nameâ€¦"
             autoComplete="off"
           />
         </label>
@@ -234,16 +234,16 @@ export function StaffCreditPanel() {
       {selected && display ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>
-            Credit · {selected.display_name}
+            Credit Â· {selected.display_name}
           </legend>
           <p className={styles.muted}>
             Open balance{" "}
             <strong>
               {display.open.toFixed(2)} {display.currency}
             </strong>
-            {" · "}
+            {" Â· "}
             hold {display.hold ? "ON" : "off"}
-            {" · "}
+            {" Â· "}
             current limit {display.limit.toFixed(2)} {display.currency}
           </p>
           <form onSubmit={(e) => void onSave(e)}>
@@ -284,7 +284,7 @@ export function StaffCreditPanel() {
             <p className={styles.muted}>
               Promo cooldown stamp is worker-only
               {selected.last_promotional_message_at
-                ? ` · last promo ${new Date(selected.last_promotional_message_at).toLocaleString()}`
+                ? ` Â· last promo ${new Date(selected.last_promotional_message_at).toLocaleString()}`
                 : ""}
               .
             </p>
