@@ -54,18 +54,3 @@
   padding: 0;
   background: transparent;
 }
-
-.copy {
-  margin: 0.65rem 0 0;
-  max-width: 52ch;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: rgba(18, 21, 28, 0.68);
-}
-
-.copy a {
-  color: var(--gtr-red);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
