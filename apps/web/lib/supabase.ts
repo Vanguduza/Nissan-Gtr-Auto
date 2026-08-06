@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@gtr/supabase-client";
+import { publicSiteUrl } from "@/lib/site-url";
 
 export function hasSupabaseEnv(): boolean {
   return Boolean(
@@ -16,6 +17,7 @@ export function createWebClient() {
   return createBrowserClient(url, anon);
 }
 
+/** Absolute origin for OAuth / absolute links — https in prod, http OK locally. */
 export function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://nissangtrauto.co.zw";
+  return publicSiteUrl();
 }

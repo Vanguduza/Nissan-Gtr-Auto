@@ -1,4 +1,5 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
+import { publicSiteUrl } from "@/lib/site-url";
 
 type Currency = Database["public"]["Enums"]["currency_code"];
 type FulfillmentMode = Database["public"]["Enums"]["fulfillment_mode"];
@@ -369,10 +370,7 @@ function siteOrigin(): string {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin;
   }
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-    "https://nissangtrauto.co.zw"
-  );
+  return publicSiteUrl();
 }
 
 function parseEdgeIntent(raw: unknown): PaymentIntentResult | null {
