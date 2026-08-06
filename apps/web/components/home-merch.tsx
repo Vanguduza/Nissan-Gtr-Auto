@@ -145,18 +145,6 @@ export function HomeMerch() {
                 <ArrowRight size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
               </Link>
             </div>
-            <ul className={chipStyles.chips}>
-              {categoryTiles.map((c) => (
-                <li key={c.href}>
-                  <Link href={c.href} className={chipStyles.chip}>
-                    <span className={chipStyles.chipIcon} aria-hidden>
-                      <c.Icon size={iconSizeMd} strokeWidth={iconStroke} />
-                    </span>
-                    <span className={chipStyles.chipLabel}>{c.label}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
             <ul className={styles.catGrid}>
               {categoryTiles.map((c) => (
                 <li key={`tile-${c.href}`}>
