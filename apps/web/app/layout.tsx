@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { Source_Sans_3, Titillium_Web } from "next/font/google";
+import { publicSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 /**
@@ -22,8 +23,7 @@ const body = Source_Sans_3({
   display: "swap",
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://nissangtrauto.co.zw";
+const siteUrl = publicSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
