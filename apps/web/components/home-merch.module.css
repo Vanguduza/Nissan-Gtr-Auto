@@ -19,54 +19,6 @@
   color: var(--gtr-red);
 }
 
-.chips {
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0 0 0.35rem;
-  display: flex;
-  gap: 0.55rem;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-
-.chip {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-  scroll-snap-align: start;
-  min-width: 4.5rem;
-  padding: 0.35rem;
-  border-radius: 10px;
-  transition: background var(--gtr-hover);
-}
-
-.chip:hover,
-.chip:focus-visible {
-  background: color-mix(in srgb, var(--gtr-red) 8%, white);
-}
-
-.chipIcon {
-  display: grid;
-  place-items: center;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 999px;
-  color: var(--gtr-red);
-  background: color-mix(in srgb, var(--gtr-red) 12%, white);
-  border: 1px solid color-mix(in srgb, var(--gtr-red) 18%, transparent);
-}
-
-.chipLabel {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--gtr-steel);
-}
-
 .flashWrap {
   margin-top: 1.5rem;
 }

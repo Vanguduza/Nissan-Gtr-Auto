@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { iconSizeMd, iconStroke, Zap } from "@/components/icons";
 import styles from "./flash-sale-panel.module.css";
 
@@ -24,12 +23,6 @@ export function FlashSalePanel() {
           <span>--</span>
         </div>
       </div>
-      <p className={styles.copy}>
-        Timed counter promotions will appear here when the deals feed is wired
-        (CRM promo / stock deal RPC). Until then, no fake countdown or
-        discounted SKUs — check{" "}
-        <Link href="/catalog">live catalog</Link> for current USD pricing.
-      </p>
       {/* TODO(backend): wire customer deals feed + expired_at countdown when RPC exists */}
     </section>
   );

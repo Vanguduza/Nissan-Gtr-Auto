@@ -19,8 +19,7 @@ export function SiteFooter() {
             <span>B2B price lists & credit hold</span>
           </p>
           <p>
-            <strong>No browser QR</strong>
-            <span>Counter & warehouse bridges only</span>
+            <strong>Genuine quality spares</strong>
           </p>
         </div>
       </div>
