@@ -190,7 +190,13 @@ export async function listHrRoles(
     .eq("is_active", true)
     .order("title");
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: (data as HrRoleOption[]) ?? [] };
+  const rows = (data ?? []).map((row) => {
+    const grade = Array.isArray(row.hr_grades)
+      ? (row.hr_grades[0] ?? null)
+      : (row.hr_grades ?? null);
+    return { ...row, hr_grades: grade } as HrRoleOption;
+  });
+  return { ok: true, data: rows };
 }
 
 export async function createHrGrade(

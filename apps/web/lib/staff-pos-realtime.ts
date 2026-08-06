@@ -3,7 +3,9 @@
  * Tablet SUBSCRIBES only — never captures camera in the browser.
  * Pattern mirrors deliveryLocationInsertChannel in staff-delivery-tracking.ts.
  */
-import type { RealtimeChannel, SupabaseClient } from "@gtr/supabase-client";
+import type { SupabaseClient } from "@gtr/supabase-client";
+
+type RealtimeChannel = ReturnType<SupabaseClient["channel"]>;
 
 export type PosCartLineChange = {
   id: string;

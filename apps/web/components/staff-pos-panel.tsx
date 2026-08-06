@@ -176,7 +176,7 @@ export function StaffPosPanel() {
     const sessionsCh = posScanSessionsChannel(client, cartId, (row) => {
       void refreshCart(cartId);
       if (row.status === "revoked" || row.status === "expired") {
-        setPairing((prev) => (prev?.id === row.id ? null : prev));
+        setPairing((prev) => (prev?.sessionId === row.id ? null : prev));
       }
     }).subscribe();
     return () => {
