@@ -1,192 +1,202 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
-import { VEHICLE_CATALOG } from "@/lib/vehicle-catalog";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  VehicleCascadeFields,
+  vehicleCascadeCanSubmit,
+  type VehicleCascadeFormValue,
+} from "@/components/vehicle-cascade-fields";
+import {
+  listVehicleMaster,
+  searchQueryForVehicle,
+  VehicleCascade,
+  type VehicleMasterRow,
+} from "@/lib/vehicle-catalog";
+import { createWebClient } from "@/lib/supabase";
 import styles from "./vehicle-selector.module.css";
 
-export function VehicleSelector() {
+type VehicleSelectorProps = {
+  /** Hide the UK-plate / cascade helper under VIN (homepage). Default: show. */
+  showNote?: boolean;
+};
+
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "auth" }
+  | { kind: "error"; message: string }
+  | { kind: "ready"; rows: VehicleMasterRow[] };
+
+const emptyForm: VehicleCascadeFormValue = {
+  maker: "",
+  model: "",
+  generation: "",
+  engine: "",
+  vin: "",
+};
+
+export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   const router = useRouter();
-  const [makerId, setMakerId] = useState("");
-  const [modelId, setModelId] = useState("");
-  const [generationId, setGenerationId] = useState("");
-  const [engineId, setEngineId] = useState("");
-  const [vin, setVin] = useState("");
+  const pathname = usePathname();
+  const [load, setLoad] = useState<LoadState>({ kind: "loading" });
+  const [form, setForm] = useState<VehicleCascadeFormValue>(emptyForm);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const maker = useMemo(
-    () => VEHICLE_CATALOG.find((m) => m.id === makerId),
-    [makerId],
-  );
-  const model = useMemo(
-    () => maker?.models.find((m) => m.id === modelId),
-    [maker, modelId],
-  );
-  const generation = useMemo(
-    () => model?.generations.find((g) => g.id === generationId),
-    [model, generationId],
-  );
+  useEffect(() => {
+    let cancelled = false;
 
-  function pickMaker(id: string) {
-    setMakerId(id);
-    setModelId("");
-    setGenerationId("");
-    setEngineId("");
-  }
+    async function loadRows() {
+      const client = createWebClient();
+      if (!client) {
+        if (!cancelled) {
+          setLoad({
+            kind: "error",
+            message: "Supabase is not configured on this environment.",
+          });
+        }
+        return;
+      }
 
-  function pickModel(id: string) {
-    setModelId(id);
-    setGenerationId("");
-    setEngineId("");
-  }
+      const { data: sessionData } = await client.auth.getSession();
+      if (!sessionData.session) {
+        if (!cancelled) setLoad({ kind: "auth" });
+        return;
+      }
 
-  function pickGeneration(id: string) {
-    setGenerationId(id);
-    setEngineId("");
+      const result = await listVehicleMaster(client);
+      if (cancelled) return;
+      if (!result.ok) {
+        setLoad({ kind: "error", message: result.error });
+        return;
+      }
+      setLoad({ kind: "ready", rows: result.data });
+    }
+
+    void loadRows();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const rows = load.kind === "ready" ? load.rows : [];
+  const controlsDisabled = load.kind !== "ready";
+
+  function navigateForVehicle(
+    selected: NonNullable<ReturnType<typeof VehicleCascade.fromCascade>>,
+  ) {
+    if (selected.vin && selected.vin.length >= 11) {
+      router.push(
+        `/search?mode=vin&q=${encodeURIComponent(selected.vin)}`,
+      );
+      return;
+    }
+    const prefix = selected.vinPrefix?.trim();
+    if (prefix) {
+      router.push(
+        `/search?mode=vin&q=${encodeURIComponent(prefix)}`,
+      );
+      return;
+    }
+    const q = searchQueryForVehicle(selected);
+    if (!q) return;
+    router.push(`/search?mode=model&q=${encodeURIComponent(q)}`);
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (vin.trim().length >= 11) {
-      router.push(`/search?mode=vin&q=${encodeURIComponent(vin.trim())}`);
+    setFormError(null);
+
+    const vinTrim = form.vin.trim();
+    if (vinTrim.length >= 11) {
+      const resolved = VehicleCascade.resolveVin(rows, vinTrim);
+      if (!resolved) {
+        setFormError(
+          "VIN not found in live catalog. Only prefixes present in vehicle_master are identifiable.",
+        );
+        return;
+      }
+      navigateForVehicle(resolved);
       return;
     }
-    if (!maker || !model || !generation || !engineId) return;
-    const engine = generation.engines.find((en) => en.id === engineId);
-    const q = [maker.label, model.label, generation.label, engine?.label]
-      .filter(Boolean)
-      .join(" · ");
-    router.push(`/search?mode=model&q=${encodeURIComponent(q)}`);
+
+    if (!form.maker || !form.model || !form.generation) return;
+    const engines = VehicleCascade.engines(
+      rows,
+      form.maker,
+      form.model,
+      form.generation,
+    );
+    if (engines.length > 0 && !form.engine) return;
+
+    const selected = VehicleCascade.fromCascade(
+      form.maker,
+      form.model,
+      form.generation,
+      form.engine || null,
+      rows,
+    );
+    if (!selected) {
+      setFormError("Selection not found in live catalog.");
+      return;
+    }
+    navigateForVehicle(selected);
   }
 
-  const canSubmitCascade = Boolean(makerId && modelId && generationId && engineId);
-  const canSubmitVin = vin.trim().length >= 11;
+  if (load.kind === "loading") {
+    return (
+      <div className={styles.form} aria-busy="true" aria-live="polite">
+        <p className={styles.note}>Loading vehicles from catalog…</p>
+      </div>
+    );
+  }
+
+  if (load.kind === "auth") {
+    const next = pathname || "/vehicle";
+    return (
+      <div className={styles.form}>
+        <p className={styles.note}>
+          Live vehicle selection requires a signed-in account.{" "}
+          <Link href={`/login?next=${encodeURIComponent(next)}`}>Sign in</Link>{" "}
+          to load maker / model / generation / engine from the catalog.
+        </p>
+      </div>
+    );
+  }
+
+  if (load.kind === "error") {
+    return (
+      <div className={styles.form} role="alert">
+        <p className={styles.note}>Catalog unavailable: {load.message}</p>
+      </div>
+    );
+  }
 
   return (
-    <form className={styles.form} onSubmit={onSubmit} aria-label="Vehicle selector">
-      <ol className={styles.steps} aria-label="Selection steps">
-        <li className={makerId ? styles.stepDone : styles.stepActive}>1 · Maker</li>
-        <li className={modelId ? styles.stepDone : makerId ? styles.stepActive : styles.stepIdle}>
-          2 · Model
-        </li>
-        <li
-          className={
-            generationId
-              ? styles.stepDone
-              : modelId
-                ? styles.stepActive
-                : styles.stepIdle
-          }
-        >
-          3 · Generation
-        </li>
-        <li
-          className={
-            engineId ? styles.stepDone : generationId ? styles.stepActive : styles.stepIdle
-          }
-        >
-          4 · Engine
-        </li>
-      </ol>
-
-      <div className={styles.grid}>
-        <label className={styles.field}>
-          Select maker
-          <select
-            value={makerId}
-            onChange={(e) => pickMaker(e.target.value)}
-            required={!canSubmitVin}
-          >
-            <option value="">Select maker</option>
-            {VEHICLE_CATALOG.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={styles.field}>
-          Select model
-          <select
-            value={modelId}
-            onChange={(e) => pickModel(e.target.value)}
-            disabled={!maker}
-            required={!canSubmitVin}
-          >
-            <option value="">
-              {maker ? "Select model" : "Choose maker first"}
-            </option>
-            {maker?.models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={styles.field}>
-          Select generation
-          <select
-            value={generationId}
-            onChange={(e) => pickGeneration(e.target.value)}
-            disabled={!model}
-            required={!canSubmitVin}
-          >
-            <option value="">
-              {model ? "Select generation" : "Choose model first"}
-            </option>
-            {model?.generations.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={styles.field}>
-          Select engine
-          <select
-            value={engineId}
-            onChange={(e) => setEngineId(e.target.value)}
-            disabled={!generation}
-            required={!canSubmitVin}
-          >
-            <option value="">
-              {generation ? "Select engine" : "Choose generation first"}
-            </option>
-            {generation?.engines.map((en) => (
-              <option key={en.id} value={en.id}>
-                {en.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className={styles.divider} role="separator">
-        or identify by VIN
-      </div>
-
-      <label className={styles.field}>
-        VIN
-        <input
-          value={vin}
-          onChange={(e) => setVin(e.target.value.toUpperCase())}
-          placeholder="17 characters"
-          maxLength={17}
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
-
-      <p className={styles.note}>
-        Options filter from the previous step. No UK registration-plate lookup —
-        maker/model/generation/engine or VIN only.
-      </p>
+    <form
+      className={styles.form}
+      onSubmit={onSubmit}
+      aria-label="Vehicle selector"
+    >
+      <VehicleCascadeFields
+        rows={rows}
+        value={form}
+        onChange={(next) => {
+          setForm(next);
+          setFormError(null);
+        }}
+        disabled={controlsDisabled}
+        showNote={showNote}
+        error={formError}
+      />
       <button
         type="submit"
         className={styles.submit}
-        disabled={!canSubmitCascade && !canSubmitVin}
+        disabled={
+          controlsDisabled ||
+          rows.length === 0 ||
+          !vehicleCascadeCanSubmit(form, rows)
+        }
       >
         Find parts for this vehicle
       </button>
