@@ -1,164 +1,335 @@
-/** Demo fitment tree — maker → model → generation → engine (cascading UI). */
-export type VehicleEngine = { id: string; label: string };
-export type VehicleGeneration = {
-  id: string;
-  label: string;
-  engines: VehicleEngine[];
-};
-export type VehicleModel = {
-  id: string;
-  label: string;
-  generations: VehicleGeneration[];
-};
-export type VehicleMaker = {
-  id: string;
-  label: string;
-  models: VehicleModel[];
+import type { SupabaseClient } from "@gtr/supabase-client";
+
+/** Live `vehicle_master` row — cascade source for maker → model → generation → engine. */
+export type VehicleMasterRow = {
+  id: string | null;
+  vinPrefix: string | null;
+  chassisCode: string;
+  engineCode: string | null;
+  productionYear: number | null;
+  modelVariant: string;
 };
 
-export const VEHICLE_CATALOG: VehicleMaker[] = [
-  {
-    id: "nissan",
-    label: "Nissan",
-    models: [
-      {
-        id: "navara",
-        label: "Navara",
-        generations: [
-          {
-            id: "d40",
-            label: "D40 (2005–2015)",
-            engines: [
-              { id: "yd25", label: "YD25DDTi 2.5 Diesel" },
-              { id: "vq40", label: "VQ40DE 4.0 Petrol" },
-            ],
-          },
-          {
-            id: "d23",
-            label: "D23 NP300 (2015–)",
-            engines: [
-              { id: "ys23", label: "YS23DDTT 2.3 Diesel" },
-              { id: "qr25-d23", label: "QR25DE 2.5 Petrol" },
-            ],
-          },
-        ],
-      },
-      {
-        id: "xtrail",
-        label: "X-Trail",
-        generations: [
-          {
-            id: "t31",
-            label: "T31 (2007–2013)",
-            engines: [
-              { id: "qr25-t31", label: "QR25DE 2.5 Petrol" },
-              { id: "yd25-t31", label: "YD25DDTi 2.5 Diesel" },
-            ],
-          },
-          {
-            id: "t32",
-            label: "T32 (2013–2021)",
-            engines: [
-              { id: "mr20", label: "MR20DD 2.0 Petrol" },
-              { id: "qr25-t32", label: "QR25DE 2.5 Petrol" },
-              { id: "r9m", label: "R9M 1.6 Diesel" },
-            ],
-          },
-        ],
-      },
-      {
-        id: "patrol",
-        label: "Patrol",
-        generations: [
-          {
-            id: "y61",
-            label: "Y61 (1997–2016)",
-            engines: [
-              { id: "td42", label: "TD42 4.2 Diesel" },
-              { id: "zd30", label: "ZD30DDTi 3.0 Diesel" },
-              { id: "tb48", label: "TB48DE 4.8 Petrol" },
-            ],
-          },
-          {
-            id: "y62",
-            label: "Y62 (2010–)",
-            engines: [
-              { id: "vk56", label: "VK56VD 5.6 Petrol" },
-              { id: "ys26", label: "YS26DDTT 2.8 Diesel" },
-            ],
-          },
-        ],
-      },
-      {
-        id: "qashqai",
-        label: "Qashqai",
-        generations: [
-          {
-            id: "j10",
-            label: "J10 (2006–2013)",
-            engines: [
-              { id: "hr16", label: "HR16DE 1.6 Petrol" },
-              { id: "mr20-j10", label: "MR20DE 2.0 Petrol" },
-            ],
-          },
-          {
-            id: "j11",
-            label: "J11 (2013–2021)",
-            engines: [
-              { id: "hr16-j11", label: "HR16DE 1.6 Petrol" },
-              { id: "mr20-j11", label: "MR20DD 2.0 Petrol" },
-            ],
-          },
-        ],
-      },
-      {
-        id: "np200",
-        label: "NP200",
-        generations: [
-          {
-            id: "np200-1",
-            label: "NP200 (2008–)",
-            engines: [
-              { id: "k7m", label: "K7M 1.6 Petrol" },
-              { id: "k9k", label: "K9K 1.5 Diesel" },
-            ],
-          },
-        ],
-      },
-    ],
+/** Session fitment after Select vehicle confirm (cascade or VIN). */
+export type SelectedFitmentVehicle = {
+  make: string | null;
+  model: string;
+  generation: string;
+  engine: string | null;
+  vin?: string | null;
+  vinPrefix?: string | null;
+};
+
+export function searchQueryForVehicle(v: SelectedFitmentVehicle): string {
+  return [v.model, v.generation, v.engine].filter(Boolean).join(" ").trim();
+}
+
+/**
+ * Brand labels matched at the start of `model_variant` (longest first).
+ * Mirrors display names in data-pipeline/config/chassis_catalogs.json.
+ */
+const VARIANT_BRAND_PREFIXES = [
+  "Mercedes-Benz",
+  "Land Rover",
+  "Alfa Romeo",
+  "Volkswagen",
+  "Infiniti",
+  "Datsun",
+  "Nissan",
+  "Toyota",
+  "Lexus",
+  "Honda",
+  "Acura",
+  "Mazda",
+  "Mitsubishi",
+  "Subaru",
+  "Suzuki",
+  "Daihatsu",
+  "Isuzu",
+  "Hino",
+  "Hyundai",
+  "Kia",
+  "Genesis",
+  "BMW",
+  "Mini",
+  "Smart",
+  "Audi",
+  "Skoda",
+  "Seat",
+  "Porsche",
+  "Ford",
+  "Lincoln",
+  "Chevrolet",
+  "Cadillac",
+  "Buick",
+  "GMC",
+  "Jeep",
+  "Dodge",
+  "Chrysler",
+  "Ram",
+  "Volvo",
+  "Jaguar",
+  "Peugeot",
+  "Citroen",
+  "Renault",
+  "Opel",
+  "Fiat",
+].sort((a, b) => b.length - a.length);
+
+/**
+ * VIN WMI → maker (longest prefix first).
+ * Nissan WMIs include SJN / MNT / VSK / MDH / ADN (not only JN*) — required for
+ * SA / Thai / EU plants present in live vehicle_master.
+ */
+const VIN_WMI_MAKERS: [string, string][] = (
+  [
+    // Infiniti-specific before shared JN*
+    ["JNK", "Infiniti"],
+    ["5N3", "Infiniti"],
+    // Nissan (incl. regional plants)
+    ["SJN", "Nissan"],
+    ["MNT", "Nissan"],
+    ["MDH", "Nissan"],
+    ["VSK", "Nissan"],
+    ["ADN", "Nissan"],
+    ["3N1", "Nissan"],
+    ["5N1", "Nissan"],
+    ["1N4", "Nissan"],
+    ["1N6", "Nissan"],
+    ["JN1", "Nissan"],
+    ["JN", "Nissan"],
+    // Other makers from chassis_catalogs.json
+    ["JTD", "Toyota"],
+    ["JT2", "Toyota"],
+    ["JTE", "Toyota"],
+    ["JTM", "Toyota"],
+    ["4T1", "Toyota"],
+    ["5TD", "Toyota"],
+    ["2T1", "Toyota"],
+    ["MR0", "Toyota"],
+    ["JTJ", "Lexus"],
+    ["JTH", "Lexus"],
+    ["2T2", "Lexus"],
+    ["58A", "Lexus"],
+    ["JHM", "Honda"],
+    ["1HG", "Honda"],
+    ["2HG", "Honda"],
+    ["3CZ", "Honda"],
+    ["SHH", "Honda"],
+    ["JH4", "Acura"],
+    ["19U", "Acura"],
+    ["2HN", "Acura"],
+    ["JM1", "Mazda"],
+    ["JM3", "Mazda"],
+    ["1YV", "Mazda"],
+    ["3MZ", "Mazda"],
+    ["JA3", "Mitsubishi"],
+    ["JA4", "Mitsubishi"],
+    ["4A3", "Mitsubishi"],
+    ["6MM", "Mitsubishi"],
+    ["JF1", "Subaru"],
+    ["JF2", "Subaru"],
+    ["4S3", "Subaru"],
+    ["4S4", "Subaru"],
+    ["JS2", "Suzuki"],
+    ["JS3", "Suzuki"],
+    ["JSA", "Suzuki"],
+    ["TSM", "Suzuki"],
+    ["KMH", "Hyundai"],
+    ["KM8", "Hyundai"],
+    ["5NP", "Hyundai"],
+    ["5NM", "Hyundai"],
+    ["KNA", "Kia"],
+    ["KND", "Kia"],
+    ["5XY", "Kia"],
+    ["3KP", "Kia"],
+    ["WBA", "BMW"],
+    ["WBS", "BMW"],
+    ["WBY", "BMW"],
+    ["4US", "BMW"],
+    ["5UX", "BMW"],
+    ["WDD", "Mercedes-Benz"],
+    ["WDB", "Mercedes-Benz"],
+    ["4JG", "Mercedes-Benz"],
+    ["WAU", "Audi"],
+    ["WA1", "Audi"],
+    ["WVW", "Volkswagen"],
+    ["WV1", "Volkswagen"],
+    ["WV2", "Volkswagen"],
+    ["3VW", "Volkswagen"],
+    ["1VW", "Volkswagen"],
+    ["1FA", "Ford"],
+    ["1FT", "Ford"],
+    ["1FM", "Ford"],
+    ["WF0", "Ford"],
+    ["SAL", "Land Rover"],
+    ["SAJ", "Jaguar"],
+  ] as [string, string][]
+).sort((a, b) => b[0].length - a[0].length);
+
+/** Bare model names common in vehicle_master without a brand prefix → Nissan. */
+const NISSAN_MODEL_TOKEN =
+  /^(MICRA|QASHQAI\+?\d*|JUKE|NAVARA|X-?TRAIL|PULSAR|PATROL|ALTIMA|SENTRA|MAXIMA|LEAF|370Z|350Z|GT-?R|SKYLINE|ALMERA|TIIDA|TEANA|PATHFINDER|MURANO|NP300|HARDBODY|CARAVAN|SYLPHY|PRIMERA|NOTE|CUBE)\b/i;
+
+/** Build cascading option lists from live rows only — never invent options. */
+export const VehicleCascade = {
+  deriveMaker(row: VehicleMasterRow): string | null {
+    const variant = row.modelVariant.trim();
+    const upper = variant.toUpperCase();
+    for (const brand of VARIANT_BRAND_PREFIXES) {
+      if (upper.startsWith(brand.toUpperCase())) return brand;
+    }
+    const vp = (row.vinPrefix ?? "").trim().toUpperCase();
+    if (vp) {
+      for (const [prefix, maker] of VIN_WMI_MAKERS) {
+        if (vp.startsWith(prefix)) return maker;
+      }
+    }
+    // Bare Nissan model tokens (e.g. "NAVARA", "X-TRAIL") when WMI absent
+    if (NISSAN_MODEL_TOKEN.test(variant)) return "Nissan";
+    return null;
   },
-  {
-    id: "infiniti",
-    label: "Infiniti",
-    models: [
-      {
-        id: "q50",
-        label: "Q50",
-        generations: [
-          {
-            id: "v37",
-            label: "V37 (2013–)",
-            engines: [
-              { id: "vr30", label: "VR30DDTT 3.0 Petrol" },
-              { id: "vq37", label: "VQ37VHR 3.7 Petrol" },
-            ],
-          },
-        ],
-      },
-      {
-        id: "fx",
-        label: "FX / QX70",
-        generations: [
-          {
-            id: "s51",
-            label: "S51 (2008–2017)",
-            engines: [
-              { id: "vq37-fx", label: "VQ37VHR 3.7 Petrol" },
-              { id: "vk50", label: "VK50VE 5.0 Petrol" },
-            ],
-          },
-        ],
-      },
-    ],
+
+  makers(rows: VehicleMasterRow[]): string[] {
+    return [
+      ...new Set(
+        rows
+          .map((r) => this.deriveMaker(r))
+          .filter((m): m is string => Boolean(m)),
+      ),
+    ].sort();
   },
-];
+
+  models(rows: VehicleMasterRow[], maker: string): string[] {
+    return [
+      ...new Set(
+        rows
+          .filter((r) => this.deriveMaker(r) === maker)
+          .map((r) => r.modelVariant.trim())
+          .filter(Boolean),
+      ),
+    ].sort();
+  },
+
+  generations(
+    rows: VehicleMasterRow[],
+    maker: string,
+    model: string,
+  ): string[] {
+    return [
+      ...new Set(
+        rows
+          .filter(
+            (r) =>
+              this.deriveMaker(r) === maker &&
+              r.modelVariant.trim() === model,
+          )
+          .map((r) => r.chassisCode.trim())
+          .filter(Boolean),
+      ),
+    ].sort();
+  },
+
+  engines(
+    rows: VehicleMasterRow[],
+    maker: string,
+    model: string,
+    generation: string,
+  ): string[] {
+    return [
+      ...new Set(
+        rows
+          .filter(
+            (r) =>
+              this.deriveMaker(r) === maker &&
+              r.modelVariant.trim() === model &&
+              r.chassisCode.trim() === generation,
+          )
+          .map((r) => r.engineCode?.trim())
+          .filter((e): e is string => Boolean(e)),
+      ),
+    ].sort();
+  },
+
+  resolveVin(
+    rows: VehicleMasterRow[],
+    vinRaw: string,
+  ): SelectedFitmentVehicle | null {
+    const vin = vinRaw.trim().toUpperCase();
+    if (vin.length < 11) return null;
+    const needle = vin.slice(0, 11);
+    const match = rows.find((row) => {
+      const vp = (row.vinPrefix ?? "").trim().toUpperCase();
+      if (!vp) return false;
+      return (
+        needle.startsWith(vp) ||
+        vp.startsWith(needle.slice(0, Math.min(vp.length, needle.length)))
+      );
+    });
+    if (!match) return null;
+    return {
+      make: this.deriveMaker(match),
+      model: match.modelVariant.trim(),
+      generation: match.chassisCode.trim(),
+      engine: match.engineCode?.trim() || null,
+      vin,
+      vinPrefix: match.vinPrefix,
+    };
+  },
+
+  fromCascade(
+    maker: string,
+    model: string,
+    generation: string,
+    engine: string | null,
+    rows: VehicleMasterRow[],
+  ): SelectedFitmentVehicle | null {
+    const row = rows.find(
+      (r) =>
+        this.deriveMaker(r) === maker &&
+        r.modelVariant.trim() === model &&
+        r.chassisCode.trim() === generation &&
+        (!engine || r.engineCode?.trim() === engine),
+    );
+    if (!row) return null;
+    return {
+      make: maker,
+      model,
+      generation,
+      engine: engine || row.engineCode?.trim() || null,
+      vinPrefix: row.vinPrefix,
+    };
+  },
+};
+
+/**
+ * Load live vehicle_master rows (authenticated — RLS). Cap matches mobile clients.
+ */
+export async function listVehicleMaster(
+  client: SupabaseClient,
+): Promise<
+  | { ok: true; data: VehicleMasterRow[] }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await client
+    .from("vehicle_master")
+    .select(
+      "id, vin_prefix, chassis_code, engine_code, production_year, model_variant",
+    )
+    .order("model_variant", { ascending: true })
+    .limit(500);
+
+  if (error) return { ok: false, error: error.message };
+
+  return {
+    ok: true,
+    data: (data ?? []).map((row) => ({
+      id: row.id ?? null,
+      vinPrefix: row.vin_prefix ?? null,
+      chassisCode: row.chassis_code,
+      engineCode: row.engine_code ?? null,
+      productionYear: row.production_year ?? null,
+      modelVariant: row.model_variant,
+    })),
+  };
+}
