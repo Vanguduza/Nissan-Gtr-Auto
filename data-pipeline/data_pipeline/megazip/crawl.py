@@ -327,7 +327,11 @@ async def crawl_maker(
 
     if skip_crawl:
         logger.info("[%s] skip-crawl — using cached HTML only", paths.maker)
-        return {"pages_fetched": 0, "queue": queue_stats(paths.state_db)}
+        return {
+            "pages_fetched": 0,
+            "queue": queue_stats(paths.state_db),
+            "self_heal": heal_stats,
+        }
 
     try:
         import httpx
