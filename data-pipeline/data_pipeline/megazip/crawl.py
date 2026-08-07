@@ -203,6 +203,78 @@ def prepare_remaining_crawl(
     return stats
 
 
+def self_heal_queue(paths: MakerPaths, hub_url: str) -> dict[str, int]:
+    """Recover a stale crawl queue before a fresh pass (applies to every maker).
+
+    Two failure modes are made self-correcting so coverage can never
+    permanently freeze to seed models:
+
+    1. **Lost cache** — any ``VISITED``/``ERROR`` page whose cached HTML file no
+       longer exists on disk is re-queued to ``PENDING``. A missing cache file
+       otherwise strands the page (``parse`` skips it) with no way to re-fetch.
+    2. **Unproductive hub** — a maker hub that was visited but parsed to zero
+       models is re-queued. A 0-model hub makes model fan-out impossible, so the
+       maker would yield only its priority seeds (the X-Trail-only symptom).
+
+    Only ``VISITED``/``ERROR`` rows are touched, never ``PENDING``/``PROCESSING``,
+    so a live worker is never disturbed.
+    """
+    conn = sqlite3.connect(paths.state_db, timeout=60.0)
+    missing_cache = 0
+    hub_reset = 0
+    try:
+        rows = conn.execute(
+            "SELECT url FROM queue WHERE status IN ('VISITED', 'ERROR')"
+        ).fetchall()
+        for (url,) in rows:
+            cache_file = paths.cache_dir / f"{cache_key(url)}.html"
+            if not cache_file.is_file():
+                conn.execute(
+                    "UPDATE queue SET status = 'PENDING', last_error = NULL, "
+                    "updated_at = datetime('now') WHERE url = ? "
+                    "AND status IN ('VISITED', 'ERROR')",
+                    (url,),
+                )
+                missing_cache += 1
+
+        hub_status_row = conn.execute(
+            "SELECT status FROM queue WHERE url = ?", (hub_url,)
+        ).fetchone()
+        hub_payload_row = conn.execute(
+            "SELECT payload_json FROM parsed_pages WHERE url = ?", (hub_url,)
+        ).fetchone()
+        hub_models: list[Any] = []
+        if hub_payload_row:
+            try:
+                hub_models = (json.loads(hub_payload_row[0]) or {}).get("models") or []
+            except (json.JSONDecodeError, TypeError):
+                hub_models = []
+        if (
+            hub_status_row
+            and hub_status_row[0] in ("VISITED", "ERROR")
+            and not hub_models
+        ):
+            conn.execute(
+                "UPDATE queue SET status = 'PENDING', last_error = NULL, "
+                "updated_at = datetime('now') WHERE url = ? "
+                "AND status IN ('VISITED', 'ERROR')",
+                (hub_url,),
+            )
+            hub_reset = 1
+        conn.commit()
+    finally:
+        conn.close()
+
+    if missing_cache or hub_reset:
+        logger.info(
+            "[%s] self-heal: re-queued %s page(s) with missing cache; hub_reset=%s",
+            paths.maker,
+            missing_cache,
+            hub_reset,
+        )
+    return {"missing_cache_requeued": missing_cache, "hub_reset": hub_reset}
+
+
 async def crawl_maker(
     paths: MakerPaths,
     config: MegazipConfig,
@@ -215,6 +287,13 @@ async def crawl_maker(
 ) -> dict[str, Any]:
     init_db(paths.state_db)
     paths.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Self-heal a stale/partial queue so a lost cache file or an unproductive
+    # hub can never permanently freeze coverage (all makers). Skipped when not
+    # crawling, since healing re-queues pages that only a network pass can fetch.
+    heal_stats: dict[str, int] = {}
+    if not skip_crawl:
+        heal_stats = self_heal_queue(paths, config.hub_url(paths.maker))
 
     if prepare_remaining_before is not None:
         requeue_stats = prepare_remaining_crawl(
