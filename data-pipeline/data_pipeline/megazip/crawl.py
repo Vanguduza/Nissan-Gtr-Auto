@@ -432,11 +432,20 @@ async def crawl_maker(
                 mark_url(paths.state_db, url, ok=False, error=str(exc))
                 logger.warning("[%s] fetch failed %s: %s", paths.maker, url, exc)
 
+    hub_models = _hub_model_count(paths.state_db, config.hub_url(paths.maker))
+    if hub_models == 0:
+        logger.error(
+            "[%s] maker hub yielded 0 models after crawl — model fan-out will be "
+            "empty (coverage limited to priority seeds). Check hub markup/parser.",
+            paths.maker,
+        )
+
     return {
         "pages_fetched": pages_done,
         "queue": queue_stats(paths.state_db),
         "requeue": requeue_stats,
         "self_heal": heal_stats,
+        "hub_models": hub_models,
     }
 
 
