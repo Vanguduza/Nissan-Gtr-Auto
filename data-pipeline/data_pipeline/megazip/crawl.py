@@ -428,7 +428,12 @@ async def crawl_maker(
                 mark_url(paths.state_db, url, ok=False, error=str(exc))
                 logger.warning("[%s] fetch failed %s: %s", paths.maker, url, exc)
 
-    return {"pages_fetched": pages_done, "queue": queue_stats(paths.state_db), "requeue": requeue_stats}
+    return {
+        "pages_fetched": pages_done,
+        "queue": queue_stats(paths.state_db),
+        "requeue": requeue_stats,
+        "self_heal": heal_stats,
+    }
 
 
 def _fetch_png_header_bytes(client, url: str) -> bytes | None:
