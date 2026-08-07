@@ -47,6 +47,19 @@ def test_invalid_pnc_pattern_rejected() -> None:
         )
 
 
+def test_diagram_asset_gif_content_type_accepted() -> None:
+    validate_record(
+        "diagram_assets",
+        {
+            "storage_path": "partsouq/nissan/jj10/diagram.gif",
+            "pnc_code": "22100",
+            "chassis_code": "JJ10",
+            "content_type": "image/gif",
+            "provenance": "scraped-reference",
+        },
+    )
+
+
 def test_validate_cli_ok(capsys) -> None:
     from data_pipeline.validate import main
 

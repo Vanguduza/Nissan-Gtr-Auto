@@ -128,16 +128,85 @@ final class StorefrontSession: ObservableObject {
         }
 
         let session = try await goTrue.signIn(email: email, password: password)
+        try await applyGoTrueSession(session, liveApi: liveApi)
+    }
+
+    /// Sign in with Apple → GoTrue `grant_type=id_token` (raw nonce must match hashed request nonce).
+    func signInWithApple(idToken: String, rawNonce: String, email: String?) async throws {
+        guard let liveApi else {
+            isSignedIn = true
+            userEmail = email
+            await refreshWishlist()
+            return
+        }
+        guard let goTrue else {
+            throw StorefrontError.notConfigured
+        }
+        let session = try await goTrue.signInWithIdToken(
+            provider: .apple,
+            idToken: idToken,
+            nonce: rawNonce
+        )
+        try await applyGoTrueSession(session, liveApi: liveApi, emailOverride: email)
+    }
+
+    /// Google via ASWebAuthenticationSession → Supabase OAuth PKCE (no GoogleSignIn SDK).
+    func signInWithGoogle() async throws {
+        guard let liveApi else {
+            isSignedIn = true
+            userEmail = userEmail ?? "google@local"
+            await refreshWishlist()
+            return
+        }
+        guard let goTrue else {
+            throw StorefrontError.notConfigured
+        }
+        let session = try await GoogleOAuthBrowser.signIn(using: goTrue)
+        try await applyGoTrueSession(session, liveApi: liveApi)
+    }
+
+    /// Deep-link `gtrcustomer://auth/callback` (OAuth / email confirm). Returns true if handled.
+    @discardableResult
+    func handleAuthCallbackURL(_ url: URL) async -> Bool {
+        guard let payload = GoTrueAuthClient.parseAuthCallback(url) else { return false }
+        guard let liveApi, let goTrue else { return true }
+        do {
+            switch payload {
+            case .error(let message):
+                throw StorefrontError.message(message)
+            case .session(let session):
+                try await applyGoTrueSession(session, liveApi: liveApi)
+            case .pkce(let code):
+                // Browser flow stores verifier in GoogleOAuthBrowser; cold deep-link without
+                // verifier cannot complete PKCE — ignore (in-session ASWebAuth handles it).
+                _ = code
+                _ = goTrue
+                return true
+            }
+        } catch {
+            // Leave signed-out; SignInScreen shows its own errors for in-app flows.
+        }
+        return true
+    }
+
+    private func applyGoTrueSession(
+        _ session: GoTrueAuthClient.Session,
+        liveApi: LiveStorefrontApi,
+        emailOverride: String? = nil
+    ) async throws {
         liveApi.setAccessToken(session.accessToken)
+        let email = emailOverride ?? session.email
         AuthTokenStore.save(
             AuthTokenRecord(
                 accessToken: session.accessToken,
                 refreshToken: session.refreshToken,
-                email: session.email
+                email: email
             )
         )
-        userEmail = session.email
+        userEmail = email
         isSignedIn = true
+        // Defense-in-depth: mint retail customers row if AuthZ context still null.
+        _ = try? await liveApi.ensureOwnCustomerIfNeeded()
         await syncGuestCompareToServer()
         await refreshWishlist()
     }

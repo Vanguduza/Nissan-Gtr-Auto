@@ -718,7 +718,7 @@ public extension CatalogProduct {
             lines.append("Category: \(category)")
         }
         for spec in specs {
-            lines.append("· \(spec)")
+            lines.append(" · \(spec)")
         }
         if !replaces.isEmpty {
             lines.append("Replaces / cross-ref: \(replaces.joined(separator: ", "))")

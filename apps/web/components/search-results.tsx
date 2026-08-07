@@ -11,6 +11,11 @@ import {
   type SearchMode,
   type SearchResult,
 } from "@/lib/catalog-search";
+import {
+  catalogPath,
+  lookupVariantByChassis,
+  saveEpcContext,
+} from "@/lib/catalog-hierarchy";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
 import filterStyles from "./plp-filters.module.css";
@@ -281,7 +286,7 @@ export function SearchResults({
             ) : null}
             <p className={styles.muted}>
               USD price range filters apply on{" "}
-              <Link href="/catalog">Catalog</Link> (priced inventory). Search
+              <Link href="/shop">Shop stock</Link> (priced inventory). Search
               hits are OEM/fitment first.
             </p>
           </div>
@@ -294,9 +299,20 @@ export function SearchResults({
               label="Models / chassis"
               entries={modelFacets}
               onPick={(value) => {
-                router.push(
-                  `/search?mode=model&q=${encodeURIComponent(value)}`,
-                );
+                void (async () => {
+                  const client = createWebClient();
+                  if (client) {
+                    const ctx = await lookupVariantByChassis(client, value);
+                    if (ctx) {
+                      saveEpcContext(ctx);
+                      router.push(catalogPath(ctx));
+                      return;
+                    }
+                  }
+                  router.push(
+                    `/search?mode=model&q=${encodeURIComponent(value)}`,
+                  );
+                })();
               }}
             />
           ) : null}
@@ -436,15 +452,48 @@ function VehicleResultsList({ results }: { results: SearchResult[] }) {
             {row.chassis_code ? ` · ${row.chassis_code}` : null}
             {row.engine_code ? ` · ${row.engine_code}` : null}
             {row.vin_prefix ? ` · VIN prefix ${row.vin_prefix}` : null}
+            {row.chassis_code ? (
+              <ChassisEpcLink chassis={row.chassis_code} />
+            ) : null}
             {row.fitments?.length ? (
               <FitmentLinks fitments={row.fitments} />
             ) : (
-              <p className={styles.muted}>No fitment lines listed.</p>
+              <p className={styles.muted}>
+                No parts crawled for this chassis yet — VIN identity only until
+                the catalog pipeline finishes its parts pages.
+              </p>
             )}
           </li>
         );
       })}
     </ul>
+  );
+}
+
+function ChassisEpcLink({ chassis }: { chassis: string }) {
+  const [href, setHref] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      const client = createWebClient();
+      if (!client) return;
+      const ctx = await lookupVariantByChassis(client, chassis);
+      if (cancelled || !ctx) return;
+      saveEpcContext(ctx);
+      setHref(catalogPath(ctx));
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [chassis]);
+  if (!href) return null;
+  return (
+    <p>
+      <Link href={href} className={styles.rowCta}>
+        Browse EPC diagrams
+      </Link>
+    </p>
   );
 }
 

@@ -1,0 +1,418 @@
+Initialized native services in: C:\Users\j\.gradle\native
+Initialized jansi services in: C:\Users\j\.gradle\native
+Received JVM installation metadata from 'C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot': {JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot, JAVA_VERSION=17.0.19, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.19+10, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.19+10, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Checking if the launcher JVM can be re-used for build. To be re-used, the launcher JVM needs to match the parameters required for the build process: -XX:MaxMetaspaceSize=512m --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx1536m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Starting process 'Gradle build daemon'. Working directory: C:\Users\j\.gradle\daemon\8.7 Command: C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin\java.exe -XX:MaxMetaspaceSize=512m --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx1536m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -cp C:\Users\j\.gradle\wrapper\dists\gradle-8.7-bin\bhs2wmbdwecv87pi65oeuq5iu\gradle-8.7\lib\gradle-launcher-8.7.jar -javaagent:C:\Users\j\.gradle\wrapper\dists\gradle-8.7-bin\bhs2wmbdwecv87pi65oeuq5iu\gradle-8.7\lib\agents\gradle-instrumentation-agent-8.7.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.7
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 4.596 secs.
+The client will now receive all logging from the daemon (pid: 32408). The daemon log file: C:\Users\j\.gradle\daemon\8.7\daemon-32408.out.log
+Closing daemon's stdin at end of input.
+The daemon will no longer process any standard input.
+Daemon will be stopped at the end of the build 
+Using 1 worker leases.
+Received JVM installation metadata from 'C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot': {JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot, JAVA_VERSION=17.0.19, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.19+10, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.19+10, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Watching the file system is configured to be enabled if available
+Now considering [C:\Users\j\Desktop\nissan gtr\apps\android-customer] as hierarchies to watch
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\Users\j\Desktop\nissan gtr\apps\android-customer\settings.gradle.kts'.
+Projects loaded. Root project using build file 'C:\Users\j\Desktop\nissan gtr\apps\android-customer\build.gradle.kts'.
+Included projects: [root project 'gtr-android-customer', project ':android-ui', project ':app', project ':core', project ':feature', project ':maps-nav', project ':pod-camera', project ':core:rpc', project ':feature:address', project ':feature:auth', project ':feature:cart', project ':feature:catalog', project ':feature:chat', project ':feature:compare', project ':feature:garage', project ':feature:orders', project ':feature:pay', project ':feature:reviews', project ':feature:track', project ':feature:wishlist']
+
+> Configure project :
+Evaluating root project 'gtr-android-customer' using build file 'C:\Users\j\Desktop\nissan gtr\apps\android-customer\build.gradle.kts'.
+Downloading https://dl.google.com/dl/android/maven2/com/android/library/com.android.library.gradle.plugin/8.5.2/com.android.library.gradle.plugin-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download2656501232984443951bin
+Resource missing. [HTTP HEAD: https://dl.google.com/dl/android/maven2/com/android/library/com.android.library.gradle.plugin/8.5.2/com.android.library.gradle.plugin-8.5.2.jar]
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.0.21/org.jetbrains.kotlin.android.gradle.plugin-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.0.21/org.jetbrains.kotlin.android.gradle.plugin-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download681681101137468997bin
+Resource missing. [HTTP HEAD: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.0.21/org.jetbrains.kotlin.android.gradle.plugin-2.0.21.jar]
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/plugin/compose/org.jetbrains.kotlin.plugin.compose.gradle.plugin/2.0.21/org.jetbrains.kotlin.plugin.compose.gradle.plugin-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/plugin/compose/org.jetbrains.kotlin.plugin.compose.gradle.plugin/2.0.21/org.jetbrains.kotlin.plugin.compose.gradle.plugin-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download4228857179781690698bin
+Resource missing. [HTTP HEAD: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/plugin/compose/org.jetbrains.kotlin.plugin.compose.gradle.plugin/2.0.21/org.jetbrains.kotlin.plugin.compose.gradle.plugin-2.0.21.jar]
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/plugin/serialization/org.jetbrains.kotlin.plugin.serialization.gradle.plugin/2.0.21/org.jetbrains.kotlin.plugin.serialization.gradle.plugin-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/plugin/serialization/org.jetbrains.kotlin.plugin.serialization.gradle.plugin/2.0.21/org.jetbrains.kotlin.plugin.serialization.gradle.plugin-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download18353913112341036474bin
+Resource missing. [HTTP HEAD: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/plugin/serialization/org.jetbrains.kotlin.plugin.serialization.gradle.plugin/2.0.21/org.jetbrains.kotlin.plugin.serialization.gradle.plugin-2.0.21.jar]
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.5.2/gradle-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download5330150616923537953bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.5.2/gradle-8.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download17750432250469133719bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download224299331657159430bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download12791468292561494660bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.module to C:\Users\j\.gradle\.tmp\gradle_download2663159269296797404bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.module to C:\Users\j\.gradle\.tmp\gradle_download16194040065359392866bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/compose-compiler-gradle-plugin/2.0.21/compose-compiler-gradle-plugin-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/compose-compiler-gradle-plugin/2.0.21/compose-compiler-gradle-plugin-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download1701538170369819120bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/compose-compiler-gradle-plugin/2.0.21/compose-compiler-gradle-plugin-2.0.21.module to C:\Users\j\.gradle\.tmp\gradle_download8053254039544731631bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-serialization/2.0.21/kotlin-serialization-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-serialization/2.0.21/kotlin-serialization-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download8137649371119236686bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-serialization/2.0.21/kotlin-serialization-2.0.21.module to C:\Users\j\.gradle\.tmp\gradle_download12302912420792996991bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-settings-api/8.5.2/gradle-settings-api-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download17243930330910334352bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-settings-api/8.5.2/gradle-settings-api-8.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download3461664727052953458bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/sdklib/31.5.2/sdklib-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download12113945092253479639bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/repository/31.5.2/repository-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download16551038440491884992bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/ddms/ddmlib/31.5.2/ddmlib-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download1722119688363088761bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2-proto/8.5.2-11315950/aapt2-proto-8.5.2-11315950.pom to C:\Users\j\.gradle\.tmp\gradle_download5481830675618002734bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2-proto/8.5.2-11315950/aapt2-proto-8.5.2-11315950.module to C:\Users\j\.gradle\.tmp\gradle_download4526902313219859499bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/aaptcompiler/8.5.2/aaptcompiler-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download11015999712940765217bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/aaptcompiler/8.5.2/aaptcompiler-8.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download7849665474845344040bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/crash/31.5.2/crash-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download9776561830338655135bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/shared/31.5.2/shared-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download12549390116185399187bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-model/31.5.2/lint-model-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download13560759238256311517bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-typedef-remover/31.5.2/lint-typedef-remover-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download15973196835256420633bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/databinding/databinding-compiler-common/8.5.2/databinding-compiler-common-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download2779115541113135693bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/databinding/databinding-common/8.5.2/databinding-common-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download10500713300125295987bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/databinding/baseLibrary/8.5.2/baseLibrary-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download2135292553845012561bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-test-api/8.5.2/builder-test-api-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download16765501558222989295bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-test-api/8.5.2/builder-test-api-8.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download18289120487712607334bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/layoutlib/layoutlib-api/31.5.2/layoutlib-api-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download141833982604837262bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-ddmlib-proto/31.5.2/android-device-provider-ddmlib-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download1876893714656806103bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-gradle-proto/31.5.2/android-device-provider-gradle-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download13964870910880731865bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-additional-test-output-proto/31.5.2/android-test-plugin-host-additional-test-output-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download6897596310727786113bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-coverage-proto/31.5.2/android-test-plugin-host-coverage-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download503439896452991286bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-emulator-control-proto/31.5.2/android-test-plugin-host-emulator-control-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download6956000537176273835bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-logcat-proto/31.5.2/android-test-plugin-host-logcat-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download11378807606245557192bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-apk-installer-proto/31.5.2/android-test-plugin-host-apk-installer-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download10842406740162619640bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-retention-proto/31.5.2/android-test-plugin-host-retention-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download2990549800900766664bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-result-listener-gradle-proto/31.5.2/android-test-plugin-result-listener-gradle-proto-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download868168785922023316bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom to C:\Users\j\.gradle\.tmp\gradle_download10831891305922165814bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/transform-api/2.0.0-deprecated-use-gradle-api/transform-api-2.0.0-deprecated-use-gradle-api.pom to C:\Users\j\.gradle\.tmp\gradle_download8569558881947650187bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom to C:\Users\j\.gradle\.tmp\gradle_download3199167351218339769bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpcomponents-client/4.5.6/httpcomponents-client-4.5.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-client/4.5.6/httpcomponents-client-4.5.6.pom to C:\Users\j\.gradle\.tmp\gradle_download18024116363438621732bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpcomponents-parent/10/httpcomponents-parent-10.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-parent/10/httpcomponents-parent-10.pom to C:\Users\j\.gradle\.tmp\gradle_download2842849394336158622bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/apache/18/apache-18.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/apache/18/apache-18.pom to C:\Users\j\.gradle\.tmp\gradle_download2706130937266840412bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom]
+Downloading https://repo.maven.apache.org/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom to C:\Users\j\.gradle\.tmp\gradle_download2385349705136577238bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/commons/commons-parent/58/commons-parent-58.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/58/commons-parent-58.pom to C:\Users\j\.gradle\.tmp\gradle_download6349995574783546546bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/apache/29/apache-29.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/apache/29/apache-29.pom to C:\Users\j\.gradle\.tmp\gradle_download17750220374023810265bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/junit/junit-bom/5.9.3/junit-bom-5.9.3.pom]
+Downloading https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.9.3/junit-bom-5.9.3.pom to C:\Users\j\.gradle\.tmp\gradle_download15858775635156357601bin
+Downloading https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.9.3/junit-bom-5.9.3.module to C:\Users\j\.gradle\.tmp\gradle_download15591392516906373469bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom to C:\Users\j\.gradle\.tmp\gradle_download10001943627409373053bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/ow2/ow2/1.5.1/ow2-1.5.1.pom]
+Downloading https://repo.maven.apache.org/maven2/org/ow2/ow2/1.5.1/ow2-1.5.1.pom to C:\Users\j\.gradle\.tmp\gradle_download5871182019899929415bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom to C:\Users\j\.gradle\.tmp\gradle_download8417324093330588821bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom to C:\Users\j\.gradle\.tmp\gradle_download5966549420345396506bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom to C:\Users\j\.gradle\.tmp\gradle_download11473235945529955849bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom]
+Downloading https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom to C:\Users\j\.gradle\.tmp\gradle_download3255096121515051335bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download2477989558753715828bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/xml/bind/mvn/jaxb-runtime-parent/2.3.2/jaxb-runtime-parent-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-runtime-parent/2.3.2/jaxb-runtime-parent-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download2295204454683589343bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/xml/bind/mvn/jaxb-parent/2.3.2/jaxb-parent-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-parent/2.3.2/jaxb-parent-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download9357114712991911909bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/xml/bind/jaxb-bom-ext/2.3.2/jaxb-bom-ext-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/xml/bind/jaxb-bom-ext/2.3.2/jaxb-bom-ext-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download297674435539317753bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/glassfish/jaxb/jaxb-bom/2.3.2/jaxb-bom-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-bom/2.3.2/jaxb-bom-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download4099241298866915751bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/eclipse/ee4j/project/1.0.5/project-1.0.5.pom]
+Downloading https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.5/project-1.0.5.pom to C:\Users\j\.gradle\.tmp\gradle_download8016267033590489431bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom]
+Downloading https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom to C:\Users\j\.gradle\.tmp\gradle_download16748137118443698667bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/sonatype/oss/oss-parent/7/oss-parent-7.pom]
+Downloading https://repo.maven.apache.org/maven2/org/sonatype/oss/oss-parent/7/oss-parent-7.pom to C:\Users\j\.gradle\.tmp\gradle_download10397116921677185475bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/bundletool/1.16.0/bundletool-1.16.0.pom to C:\Users\j\.gradle\.tmp\gradle_download3471037231879257202bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-core/1.0.0-beta10/jetifier-core-1.0.0-beta10.pom to C:\Users\j\.gradle\.tmp\gradle_download5247660846298997375bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-core/1.0.0-beta10/jetifier-core-1.0.0-beta10.module to C:\Users\j\.gradle\.tmp\gradle_download12754878404783230391bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-processor/1.0.0-beta10/jetifier-processor-1.0.0-beta10.pom to C:\Users\j\.gradle\.tmp\gradle_download12060073616247689559bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-processor/1.0.0-beta10/jetifier-processor-1.0.0-beta10.module to C:\Users\j\.gradle\.tmp\gradle_download9266848326938113302bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom to C:\Users\j\.gradle\.tmp\gradle_download2097634589356918882bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom to C:\Users\j\.gradle\.tmp\gradle_download12923212218799679536bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/protobuf/protobuf-parent/3.22.3/protobuf-parent-3.22.3.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-parent/3.22.3/protobuf-parent-3.22.3.pom to C:\Users\j\.gradle\.tmp\gradle_download13454364975066094701bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/protobuf/protobuf-bom/3.22.3/protobuf-bom-3.22.3.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-bom/3.22.3/protobuf-bom-3.22.3.pom to C:\Users\j\.gradle\.tmp\gradle_download11864482299295683658bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom to C:\Users\j\.gradle\.tmp\gradle_download7383837482029492257bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom to C:\Users\j\.gradle\.tmp\gradle_download1430561586982349633bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/code/gson/gson-parent/2.10.1/gson-parent-2.10.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/code/gson/gson-parent/2.10.1/gson-parent-2.10.1.pom to C:\Users\j\.gradle\.tmp\gradle_download16389738558533064512bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom to C:\Users\j\.gradle\.tmp\gradle_download12348608736095155064bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom to C:\Users\j\.gradle\.tmp\gradle_download13170584043940839131bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom to C:\Users\j\.gradle\.tmp\gradle_download11533404187997606790bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom to C:\Users\j\.gradle\.tmp\gradle_download6323921704443430031bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom to C:\Users\j\.gradle\.tmp\gradle_download2540413802712933951bin
+Downloading https://dl.google.com/dl/android/maven2/com/google/testing/platform/core-proto/0.0.9-alpha02/core-proto-0.0.9-alpha02.pom to C:\Users\j\.gradle\.tmp\gradle_download5754368507656913716bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom]
+Downloading https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom to C:\Users\j\.gradle\.tmp\gradle_download8571016104862363179bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom to C:\Users\j\.gradle\.tmp\gradle_download2044573107827514829bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom]
+Downloading https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom to C:\Users\j\.gradle\.tmp\gradle_download9305794328577367158bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.5.2/builder-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download885020834440785020bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.5.2/builder-8.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download16135249218203029178bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-model/8.5.2/builder-model-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download6804713937079311738bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-model/8.5.2/builder-model-8.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download3204511290884642679bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-api/8.5.2/gradle-api-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download7521816333811403194bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-api/8.5.2/gradle-api-8.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download453985101577561692bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/sdk-common/31.5.2/sdk-common-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download11486653737227907264bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-api/2.0.21/kotlin-gradle-plugin-api-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-api/2.0.21/kotlin-gradle-plugin-api-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download15342936924706501636bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-api/2.0.21/kotlin-gradle-plugin-api-2.0.21.module to C:\Users\j\.gradle\.tmp\gradle_download15400987184241122465bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-idea/2.0.21/kotlin-gradle-plugin-idea-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-idea/2.0.21/kotlin-gradle-plugin-idea-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download11629003188183248250bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-idea/2.0.21/kotlin-gradle-plugin-idea-2.0.21.module to C:\Users\j\.gradle\.tmp\gradle_download6893219610777758664bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-idea-proto/2.0.21/kotlin-gradle-plugin-idea-proto-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-idea-proto/2.0.21/kotlin-gradle-plugin-idea-proto-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download7265517923665559768bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-klib-commonizer-api/2.0.21/kotlin-klib-commonizer-api-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-klib-commonizer-api/2.0.21/kotlin-klib-commonizer-api-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download2338032929154748527bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-build-tools-api/2.0.21/kotlin-build-tools-api-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-build-tools-api/2.0.21/kotlin-build-tools-api-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download16279925463749264425bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-build-statistics/2.0.21/kotlin-build-statistics-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-build-statistics/2.0.21/kotlin-build-statistics-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download11472840934752441043bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-compiler-runner/2.0.21/kotlin-compiler-runner-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-runner/2.0.21/kotlin-compiler-runner-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download8123773580100822339bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-util-klib/2.0.21/kotlin-util-klib-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-klib/2.0.21/kotlin-util-klib-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download11023178073997939299bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.0.21/kotlin-compiler-embeddable-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.0.21/kotlin-compiler-embeddable-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download12016207902745100467bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-model/2.0.21/kotlin-gradle-plugin-model-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-model/2.0.21/kotlin-gradle-plugin-model-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download18181725086451089741bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-model/2.0.21/kotlin-gradle-plugin-model-2.0.21.module to C:\Users\j\.gradle\.tmp\gradle_download10032648199841114793bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/common/31.5.2/common-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download11565216437788855856bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/javax/inject/javax.inject/1/javax.inject-1.pom]
+Downloading https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom to C:\Users\j\.gradle\.tmp\gradle_download6138158684179519452bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom]
+Downloading https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom to C:\Users\j\.gradle\.tmp\gradle_download3852039747096739971bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom to C:\Users\j\.gradle\.tmp\gradle_download9755692923566919898bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom to C:\Users\j\.gradle\.tmp\gradle_download8297950301798626312bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/guava/guava-parent/32.0.1-jre/guava-parent-32.0.1-jre.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/32.0.1-jre/guava-parent-32.0.1-jre.pom to C:\Users\j\.gradle\.tmp\gradle_download2338378275597400901bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.22/kotlin-reflect-1.9.22.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.22/kotlin-reflect-1.9.22.pom to C:\Users\j\.gradle\.tmp\gradle_download522813494278005108bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/dvlib/31.5.2/dvlib-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download9334024659847736482bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom to C:\Users\j\.gradle\.tmp\gradle_download899390296362734939bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpcomponents-core/4.4.16/httpcomponents-core-4.4.16.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-core/4.4.16/httpcomponents-core-4.4.16.pom to C:\Users\j\.gradle\.tmp\gradle_download15492707060256528830bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpcomponents-parent/11/httpcomponents-parent-11.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-parent/11/httpcomponents-parent-11.pom to C:\Users\j\.gradle\.tmp\gradle_download3744627201294206224bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/apache/21/apache-21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/apache/21/apache-21.pom to C:\Users\j\.gradle\.tmp\gradle_download10412110442584113783bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom to C:\Users\j\.gradle\.tmp\gradle_download15625167660736791316bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/commons/commons-parent/52/commons-parent-52.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/52/commons-parent-52.pom to C:\Users\j\.gradle\.tmp\gradle_download2701415722944254677bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/apache/23/apache-23.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/apache/23/apache-23.pom to C:\Users\j\.gradle\.tmp\gradle_download9056661102246263608bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom to C:\Users\j\.gradle\.tmp\gradle_download6790070496536510520bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/jimfs/jimfs-parent/1.1/jimfs-parent-1.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs-parent/1.1/jimfs-parent-1.1.pom to C:\Users\j\.gradle\.tmp\gradle_download9954679015011029610bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom to C:\Users\j\.gradle\.tmp\gradle_download10481881491331815401bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/activation/all/1.2.0/all-1.2.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/activation/all/1.2.0/all-1.2.0.pom to C:\Users\j\.gradle\.tmp\gradle_download5106578632195799117bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/net/java/jvnet-parent/1/jvnet-parent-1.pom]
+Downloading https://repo.maven.apache.org/maven2/net/java/jvnet-parent/1/jvnet-parent-1.pom to C:\Users\j\.gradle\.tmp\gradle_download6222017165765794990bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom to C:\Users\j\.gradle\.tmp\gradle_download12220853473628894333bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/annotations/31.5.2/annotations-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download4633336082654182334bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom to C:\Users\j\.gradle\.tmp\gradle_download6633114563794989334bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/httpcomponents/httpcomponents-client/4.5.14/httpcomponents-client-4.5.14.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-client/4.5.14/httpcomponents-client-4.5.14.pom to C:\Users\j\.gradle\.tmp\gradle_download3113844829177597197bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/protos/31.5.2/protos-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download16767599113219546417bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom]
+Downloading https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom to C:\Users\j\.gradle\.tmp\gradle_download17238374597884170940bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom]
+Downloading https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom to C:\Users\j\.gradle\.tmp\gradle_download7743497090382437266bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download4174561156509214503bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/net/java/jvnet-parent/3/jvnet-parent-3.pom]
+Downloading https://repo.maven.apache.org/maven2/net/java/jvnet-parent/3/jvnet-parent-3.pom to C:\Users\j\.gradle\.tmp\gradle_download10777062504326199969bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.9.20/kotlin-stdlib-jdk7-1.9.20.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.9.20/kotlin-stdlib-jdk7-1.9.20.pom to C:\Users\j\.gradle\.tmp\gradle_download15441612062998683912bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.22/kotlin-stdlib-1.9.22.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.22/kotlin-stdlib-1.9.22.pom to C:\Users\j\.gradle\.tmp\gradle_download13471277701225924449bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.22/kotlin-stdlib-1.9.22.module to C:\Users\j\.gradle\.tmp\gradle_download8360504539670286890bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/ow2/asm/asm-tree/9.6/asm-tree-9.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.6/asm-tree-9.6.pom to C:\Users\j\.gradle\.tmp\gradle_download1180233845610993617bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/bouncycastle/bcutil-jdk18on/1.77/bcutil-jdk18on-1.77.pom]
+Downloading https://repo.maven.apache.org/maven2/org/bouncycastle/bcutil-jdk18on/1.77/bcutil-jdk18on-1.77.pom to C:\Users\j\.gradle\.tmp\gradle_download4238209131551938880bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download900636560392037828bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/jakarta/xml/bind/jakarta.xml.bind-api-parent/2.3.2/jakarta.xml.bind-api-parent-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api-parent/2.3.2/jakarta.xml.bind-api-parent-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download4791609546056027454bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.pom to C:\Users\j\.gradle\.tmp\gradle_download10609846006810980054bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/istack/istack-commons/3.0.8/istack-commons-3.0.8.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons/3.0.8/istack-commons-3.0.8.pom to C:\Users\j\.gradle\.tmp\gradle_download7057602842858666568bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.pom to C:\Users\j\.gradle\.tmp\gradle_download2113824581013152988bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.pom to C:\Users\j\.gradle\.tmp\gradle_download5368183750232944927bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/xml/fastinfoset/fastinfoset-project/1.2.16/fastinfoset-project-1.2.16.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/xml/fastinfoset/fastinfoset-project/1.2.16/fastinfoset-project-1.2.16.pom to C:\Users\j\.gradle\.tmp\gradle_download14479537197282449480bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.pom]
+Downloading https://repo.maven.apache.org/maven2/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.pom to C:\Users\j\.gradle\.tmp\gradle_download5331004420907563263bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/activation/all/1.2.1/all-1.2.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/activation/all/1.2.1/all-1.2.1.pom to C:\Users\j\.gradle\.tmp\gradle_download7969919493088123975bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/eclipse/ee4j/project/1.0.2/project-1.0.2.pom]
+Downloading https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.2/project-1.0.2.pom to C:\Users\j\.gradle\.tmp\gradle_download8197201649141941600bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download17438335182374498924bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/sun/xml/bind/mvn/jaxb-txw-parent/2.3.2/jaxb-txw-parent-2.3.2.pom]
+Downloading https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-txw-parent/2.3.2/jaxb-txw-parent-2.3.2.pom to C:\Users\j\.gradle\.tmp\gradle_download2360962276406758927bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom to C:\Users\j\.gradle\.tmp\gradle_download6775507639899342850bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/auto/value/auto-value-parent/1.6.2/auto-value-parent-1.6.2.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-parent/1.6.2/auto-value-parent-1.6.2.pom to C:\Users\j\.gradle\.tmp\gradle_download745594402679199993bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/auto/auto-parent/6/auto-parent-6.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/auto/auto-parent/6/auto-parent-6.pom to C:\Users\j\.gradle\.tmp\gradle_download5316480248692503877bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom to C:\Users\j\.gradle\.tmp\gradle_download3682827988090276753bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom]
+Downloading https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom to C:\Users\j\.gradle\.tmp\gradle_download5867625549603140897bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom]
+Downloading https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom to C:\Users\j\.gradle\.tmp\gradle_download10655740128825219006bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/slf4j/slf4j-parent/1.7.30/slf4j-parent-1.7.30.pom]
+Downloading https://repo.maven.apache.org/maven2/org/slf4j/slf4j-parent/1.7.30/slf4j-parent-1.7.30.pom to C:\Users\j\.gradle\.tmp\gradle_download7276664612284138768bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom to C:\Users\j\.gradle\.tmp\gradle_download12709210322701759134bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/errorprone/error_prone_parent/2.3.1/error_prone_parent-2.3.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.3.1/error_prone_parent-2.3.1.pom to C:\Users\j\.gradle\.tmp\gradle_download1899879302955642778bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom to C:\Users\j\.gradle\.tmp\gradle_download16784850815432049229bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/errorprone/error_prone_annotations/2.11.0/error_prone_annotations-2.11.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.11.0/error_prone_annotations-2.11.0.pom to C:\Users\j\.gradle\.tmp\gradle_download3533770512222132747bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/errorprone/error_prone_parent/2.11.0/error_prone_parent-2.11.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.11.0/error_prone_parent-2.11.0.pom to C:\Users\j\.gradle\.tmp\gradle_download10963844183900669530bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom to C:\Users\j\.gradle\.tmp\gradle_download1760565557052188441bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.pom to C:\Users\j\.gradle\.tmp\gradle_download16475373652538849118bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/errorprone/error_prone_annotations/2.18.0/error_prone_annotations-2.18.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.18.0/error_prone_annotations-2.18.0.pom to C:\Users\j\.gradle\.tmp\gradle_download5314474067180004536bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/errorprone/error_prone_parent/2.18.0/error_prone_parent-2.18.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.18.0/error_prone_parent-2.18.0.pom to C:\Users\j\.gradle\.tmp\gradle_download763959187908430528bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/grpc/grpc-api/1.57.0/grpc-api-1.57.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-api/1.57.0/grpc-api-1.57.0.pom to C:\Users\j\.gradle\.tmp\gradle_download7104672482733667573bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.23/animal-sniffer-annotations-1.23.pom]
+Downloading https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.23/animal-sniffer-annotations-1.23.pom to C:\Users\j\.gradle\.tmp\gradle_download17003317130293167523bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/codehaus/mojo/animal-sniffer-parent/1.23/animal-sniffer-parent-1.23.pom]
+Downloading https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-parent/1.23/animal-sniffer-parent-1.23.pom to C:\Users\j\.gradle\.tmp\gradle_download11138912622726233251bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/codehaus/mojo/mojo-parent/74/mojo-parent-74.pom]
+Downloading https://repo.maven.apache.org/maven2/org/codehaus/mojo/mojo-parent/74/mojo-parent-74.pom to C:\Users\j\.gradle\.tmp\gradle_download13614121453049290442bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/junit/junit-bom/5.9.2/junit-bom-5.9.2.pom]
+Downloading https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.9.2/junit-bom-5.9.2.pom to C:\Users\j\.gradle\.tmp\gradle_download9799478482604846707bin
+Downloading https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.9.2/junit-bom-5.9.2.module to C:\Users\j\.gradle\.tmp\gradle_download11749805702597944654bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/perfmark/perfmark-api/0.26.0/perfmark-api-0.26.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/perfmark/perfmark-api/0.26.0/perfmark-api-0.26.0.pom to C:\Users\j\.gradle\.tmp\gradle_download17807781690633332772bin
+Downloading https://repo.maven.apache.org/maven2/io/perfmark/perfmark-api/0.26.0/perfmark-api-0.26.0.module to C:\Users\j\.gradle\.tmp\gradle_download1166361437830557052bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/grpc/grpc-context/1.57.0/grpc-context-1.57.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-context/1.57.0/grpc-context-1.57.0.pom to C:\Users\j\.gradle\.tmp\gradle_download16454066793345432601bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.pom to C:\Users\j\.gradle\.tmp\gradle_download13105379512918246980bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-codec-http2/4.1.93.Final/netty-codec-http2-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.93.Final/netty-codec-http2-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download8522328387042025117bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-parent/4.1.93.Final/netty-parent-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-parent/4.1.93.Final/netty-parent-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download17915132178797148bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/sonatype/oss/oss-parent/9/oss-parent-9.pom]
+Downloading https://repo.maven.apache.org/maven2/org/sonatype/oss/oss-parent/9/oss-parent-9.pom to C:\Users\j\.gradle\.tmp\gradle_download1394958738717285959bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-transport-native-unix-common/4.1.93.Final/netty-transport-native-unix-common-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.93.Final/netty-transport-native-unix-common-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download16780081127943657488bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-handler-proxy/4.1.93.Final/netty-handler-proxy-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.93.Final/netty-handler-proxy-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download6368730729636101048bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/api/grpc/proto-google-common-protos/2.17.0/proto-google-common-protos-2.17.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.17.0/proto-google-common-protos-2.17.0.pom to C:\Users\j\.gradle\.tmp\gradle_download9370501039317266445bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/grpc/grpc-protobuf-lite/1.57.0/grpc-protobuf-lite-1.57.0.pom]
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf-lite/1.57.0/grpc-protobuf-lite-1.57.0.pom to C:\Users\j\.gradle\.tmp\gradle_download2304884189911985166bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/checkerframework/checker-qual/2.5.8/checker-qual-2.5.8.pom]
+Downloading https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/2.5.8/checker-qual-2.5.8.pom to C:\Users\j\.gradle\.tmp\gradle_download2639231931094381592bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/signflinger/8.5.2/signflinger-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download10632539133720661388bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom]
+Downloading https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom to C:\Users\j\.gradle\.tmp\gradle_download7343760614435763815bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/commons/commons-parent/35/commons-parent-35.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/35/commons-parent-35.pom to C:\Users\j\.gradle\.tmp\gradle_download13500569529773898684bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/apache/15/apache-15.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/apache/15/apache-15.pom to C:\Users\j\.gradle\.tmp\gradle_download2217590744051480726bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/manifest-merger/31.5.2/manifest-merger-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download14294523779844463981bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/manifest-merger/31.5.2/manifest-merger-31.5.2.module to C:\Users\j\.gradle\.tmp\gradle_download3778202446884222509bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/zipflinger/8.5.2/zipflinger-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download14003689683723113187bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.5.2/apksig-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download13485548421685373457bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/apkzlib/8.5.2/apkzlib-8.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download10970224636077805187bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom]
+Downloading https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom to C:\Users\j\.gradle\.tmp\gradle_download10772044762843818055bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/tracker/31.5.2/tracker-31.5.2.pom to C:\Users\j\.gradle\.tmp\gradle_download15544457805085275898bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-annotations/2.0.21/kotlin-gradle-plugin-annotations-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin-annotations/2.0.21/kotlin-gradle-plugin-annotations-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download3804543958132586823bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-tooling-core/2.0.21/kotlin-tooling-core-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-tooling-core/2.0.21/kotlin-tooling-core-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download809892341897947444bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-native-utils/2.0.21/kotlin-native-utils-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-native-utils/2.0.21/kotlin-native-utils-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download252334086316553086bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-daemon-client/2.0.21/kotlin-daemon-client-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-daemon-client/2.0.21/kotlin-daemon-client-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download15977537113638583349bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom to C:\Users\j\.gradle\.tmp\gradle_download1491268085076302139bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.6.4/kotlinx-coroutines-bom-1.6.4.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.6.4/kotlinx-coroutines-bom-1.6.4.pom to C:\Users\j\.gradle\.tmp\gradle_download4769622833026164928bin
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.module to C:\Users\j\.gradle\.tmp\gradle_download8444347006204565902bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-util-io/2.0.21/kotlin-util-io-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-io/2.0.21/kotlin-util-io-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download4010629190785578509bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-daemon-embeddable/2.0.21/kotlin-daemon-embeddable-2.0.21.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-daemon-embeddable/2.0.21/kotlin-daemon-embeddable-2.0.21.pom to C:\Users\j\.gradle\.tmp\gradle_download8686128409594760439bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/checkerframework/checker-qual/3.33.0/checker-qual-3.33.0.pom]
+Downloading https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.33.0/checker-qual-3.33.0.pom to C:\Users\j\.gradle\.tmp\gradle_download406993375862725925bin
+Downloading https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.33.0/checker-qual-3.33.0.module to C:\Users\j\.gradle\.tmp\gradle_download9995937099340756452bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/j2objc/j2objc-annotations/2.8/j2objc-annotations-2.8.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/2.8/j2objc-annotations-2.8.pom to C:\Users\j\.gradle\.tmp\gradle_download11576841057996364630bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.pom to C:\Users\j\.gradle\.tmp\gradle_download5677533952279365374bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/guava/guava-parent/26.0-android/guava-parent-26.0-android.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/26.0-android/guava-parent-26.0-android.pom to C:\Users\j\.gradle\.tmp\gradle_download3678682246914424235bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom]
+Downloading https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom to C:\Users\j\.gradle\.tmp\gradle_download16431414923080747494bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/commons-codec/commons-codec/1.11/commons-codec-1.11.pom]
+Downloading https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.11/commons-codec-1.11.pom to C:\Users\j\.gradle\.tmp\gradle_download11451228292913962026bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/commons/commons-parent/42/commons-parent-42.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/42/commons-parent-42.pom to C:\Users\j\.gradle\.tmp\gradle_download5336060698649549981bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.pom]
+Downloading https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.pom to C:\Users\j\.gradle\.tmp\gradle_download18190781506714807477bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/commons/commons-parent/34/commons-parent-34.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/34/commons-parent-34.pom to C:\Users\j\.gradle\.tmp\gradle_download9538530879303480680bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/apache/apache/13/apache-13.pom]
+Downloading https://repo.maven.apache.org/maven2/org/apache/apache/13/apache-13.pom to C:\Users\j\.gradle\.tmp\gradle_download555336104582149985bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/net/java/dev/jna/jna/5.6.0/jna-5.6.0.pom]
+Downloading https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.6.0/jna-5.6.0.pom to C:\Users\j\.gradle\.tmp\gradle_download17018801552864136393bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-common/4.1.93.Final/netty-common-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.93.Final/netty-common-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download10009046952307410892bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-transport/4.1.93.Final/netty-transport-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.93.Final/netty-transport-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download15413512640040627275bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-codec/4.1.93.Final/netty-codec-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.93.Final/netty-codec-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download7064238626249695906bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-handler/4.1.93.Final/netty-handler-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.93.Final/netty-handler-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download13230105934537155316bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-codec-http/4.1.93.Final/netty-codec-http-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.93.Final/netty-codec-http-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download12535171389406597607bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-buffer/4.1.93.Final/netty-buffer-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.93.Final/netty-buffer-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download9599380788279525326bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-codec-socks/4.1.93.Final/netty-codec-socks-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.93.Final/netty-codec-socks-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download12894008783318201539bin
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/io/netty/netty-resolver/4.1.93.Final/netty-resolver-4.1.93.Final.pom]
+Downloading https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.93.Final/netty-resolver-4.1.93.Final.pom to C:\Users\j\.gradle\.tmp\gradle_download18258144033169983354bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-settings-api/8.5.2/gradle-settings-api-8.5.2.jar to C:\Users\j\.gradle\.tmp\gradle_download14087073616951899443bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-model/31.5.2/lint-model-31.5.2.jar to C:\Users\j\.gradle\.tmp\gradle_download9209823139172010547bin
+Downloading https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.5.2/builder-8.5.2.jar to C:\Users\j\.gradle\.tmp\gradle_download554099673776579020bin

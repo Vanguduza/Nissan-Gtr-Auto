@@ -37,6 +37,25 @@ struct CatalogScreen: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var routeBeforeProduct: Route = .home
     @State private var reviewStats: ProductReviewStats?
+    @State private var vehicleRows: [VehicleMasterRow] = []
+    @State private var selectedFitment: SelectedFitmentVehicle?
+    @State private var garagePrimary: GarageVehicle?
+    @State private var vehicleBusy = false
+    @State private var vehicleError: String?
+    @State private var showEpcBrowse = false
+
+    private var fitmentBarLabel: String {
+        if let selectedFitment {
+            let label = selectedFitment.compactLabel
+            if !label.isEmpty { return label }
+        }
+        if let g = garagePrimary {
+            let parts = [g.model, g.generation, g.engine].compactMap { $0 }.filter { !$0.isEmpty }
+            if !parts.isEmpty { return parts.joined(separator: " · ") }
+            if let vin = g.vin, !vin.isEmpty { return "VIN \(vin)" }
+        }
+        return "No vehicle selected"
+    }
 
     private let homeBanners = [
         "Genuine Nissan parts · Harare counter & nationwide dispatch",
@@ -94,6 +113,7 @@ struct CatalogScreen: View {
         .task {
             await refreshBrowse()
             await session.refreshWishlist()
+            await loadVehicleCatalog()
         }
         .task(id: initialOem) {
             guard let oem = initialOem?.trimmingCharacters(in: .whitespacesAndNewlines), !oem.isEmpty else {
@@ -112,6 +132,16 @@ struct CatalogScreen: View {
         .onChange(of: query) { _, newValue in
             scheduleSuggestions(for: newValue)
         }
+        .sheet(isPresented: $showEpcBrowse) {
+            EpcBrowseScreen(
+                onOpenOem: { oem in
+                    showEpcBrowse = false
+                    Task { await openProduct(oem) }
+                },
+                onClose: { showEpcBrowse = false }
+            )
+            .environmentObject(session)
+        }
     }
 
     // MARK: - Home
@@ -123,6 +153,28 @@ struct CatalogScreen: View {
                 if showSuggestions && query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 {
                     suggestionPopup
                 }
+                Text("Shopping for · \(fitmentBarLabel)")
+                    .font(GTRType.label(.caption2))
+                    .foregroundStyle(GTRColors.silverDim)
+                    .lineLimit(1)
+                VehicleSelectorSection(
+                    vehicleRows: vehicleRows,
+                    confirmedVehicle: selectedFitment, busy: vehicleBusy,
+                    error: vehicleError,
+                    onConfirmCascade: { maker, model, generation, engine in
+                        Task { await confirmCascade(maker: maker, model: model, generation: generation, engine: engine) }
+                    },
+                    onConfirmVin: { vin in
+                        Task { await confirmVin(vin) }
+                    },
+                    onClear: {
+                        selectedFitment = nil
+                        vehicleError = nil
+                    }
+                )
+                Button("Browse EPC diagrams") { showEpcBrowse = true }
+                    .font(GTRType.label(.caption))
+                    .foregroundStyle(GTRColors.primary)
                 if let activeCategory {
                     Button("Filtered: \(activeCategory) · Clear") {
                         Task { await applyCategoryFilter(nil) }
@@ -261,7 +313,7 @@ struct CatalogScreen: View {
     // MARK: - Categories / Newest
 
     private var categoriesBody: some View {
-        ShopDefaultScreen(title: "Categories", subtitle: "Browse by type", onBack: { route = .home }) {
+        ShopDefaultScreen(title: "Categories", subtitle: nil, onBack: { route = .home }) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(categories, id: \.self) { cat in
                     Button {
@@ -293,14 +345,14 @@ struct CatalogScreen: View {
     private var newestBody: some View {
         ShopDefaultScreen(
             title: "Newest products",
-            subtitle: "Recently added parts",
+            subtitle: nil,
             onBack: { route = .home },
             scrollable: true
         ) {
             if browseItems.isEmpty {
                 ShopHonestEmpty(
                     title: "No recent parts yet",
-                    bodyText: "Newest products appear here from catalog browse when stock is indexed."
+                    bodyText: "No items."
                 )
             } else {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
@@ -339,7 +391,7 @@ struct CatalogScreen: View {
         if items.isEmpty {
             ShopHonestEmpty(
                 title: "No parts yet",
-                bodyText: "Browse loads from stock_items when Live; Fake seeds Filters demo SKUs."
+                bodyText: "No items."
             )
         } else {
             ShopHorizontalRail(items: items) { item in
@@ -375,7 +427,7 @@ struct CatalogScreen: View {
 
     private var categoryPlpBody: some View {
         CategoryPlpScreen(
-            title: activeCategory ?? "Browse",
+            title: (selectedFitment?.compactLabel).flatMap { $0.isEmpty ? nil : $0 } ?? activeCategory ?? "Browse",
             products: browseItems,
             categoryLabels: browseCategoryLabels,
             busy: busy,
@@ -517,9 +569,9 @@ struct CatalogScreen: View {
                             Text(
                                 reviewStats.map {
                                     $0.reviewCount == 0
-                                        ? "No reviews yet · Write the first"
-                                        : String(format: "%.1f average · %d review(s) · Write review", $0.avgRating, $0.reviewCount)
-                                } ?? "No reviews yet · Write the first"
+                                        ? "No reviews yet"
+                                        : String(format: "%.1f average · %d review(s). Tap to read or submit.", $0.avgRating, $0.reviewCount)
+                                } ?? "No reviews yet"
                             )
                             .font(GTRType.body(.subheadline))
                             .foregroundStyle(GTRColors.silverDim)
@@ -609,6 +661,75 @@ struct CatalogScreen: View {
             error = nil
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    private func loadVehicleCatalog() async {
+        vehicleBusy = true
+        defer { vehicleBusy = false }
+        do {
+            vehicleRows = try await session.api.listVehicleMaster()
+            vehicleError = nil
+        } catch {
+            vehicleError = error.localizedDescription
+        }
+        if let garage = try? await session.api.listGarage() {
+            garagePrimary = garage.first(where: \.isPrimary) ?? garage.first
+        }
+    }
+
+    private func confirmCascade(
+        maker: String,
+        model: String,
+        generation: String,
+        engine: String?
+    ) async {
+        guard let selected = VehicleCascade.fromCascade(
+            maker: maker,
+            model: model,
+            generation: generation,
+            engine: engine,
+            rows: vehicleRows
+        ) else {
+            vehicleError = "Selection not found."
+            return
+        }
+        await applySelectedVehicle(selected)
+    }
+
+    private func confirmVin(_ vin: String) async {
+        guard let selected = VehicleCascade.resolveVin(vehicleRows, vinRaw: vin) else {
+            vehicleError = "VIN not found."
+            return
+        }
+        await applySelectedVehicle(selected)
+    }
+
+    private func applySelectedVehicle(_ selected: SelectedFitmentVehicle) async {
+        selectedFitment = selected
+        vehicleBusy = true
+        busy = true
+        defer {
+            vehicleBusy = false
+            busy = false
+        }
+        do {
+            let result = try await session.api.listCatalogForVehicle(
+                chassisCode: selected.generation,
+                engineCode: selected.engine,
+                limit: 50
+            )
+            browseItems = result.items
+            activeCategory = selected.generation
+            filterState.category = selected.generation
+            route = .categoryPlp
+            vehicleError = nil
+            status = result.items.isEmpty
+                ? "Vehicle set — no stocked parts for this chassis/engine yet."
+                : "Scoped to \(selected.compactLabel)"
+            error = nil
+        } catch {
+            vehicleError = error.localizedDescription
         }
     }
 

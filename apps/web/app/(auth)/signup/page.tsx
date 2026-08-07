@@ -9,6 +9,10 @@ import {
   requestAuthOtp,
   verifyAuthOtp,
 } from "@/lib/auth-otp";
+import {
+  startCustomerOAuth,
+  type CustomerOAuthProvider,
+} from "@/lib/auth-oauth";
 import { createWebClient } from "@/lib/supabase";
 import { loadStaffContext, postLoginPath } from "@/lib/staff-auth";
 import styles from "../login/auth.module.css";
@@ -157,6 +161,23 @@ export default function SignupPage() {
     }
   }
 
+  async function onOAuth(provider: CustomerOAuthProvider) {
+    setBusy(true);
+    setMessage(null);
+    const client = createWebClient();
+    if (!client) {
+      setMessage("Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local");
+      setBusy(false);
+      return;
+    }
+    const started = await startCustomerOAuth(client, provider, "/account");
+    if (!started.ok) {
+      setBusy(false);
+      setMessage(started.error);
+      return;
+    }
+  }
+
   return (
     <div className={styles.shell}>
       <Link href="/" className={styles.brand}>
@@ -179,41 +200,68 @@ export default function SignupPage() {
         </p>
 
         {step === "identifiers" ? (
-          <form onSubmit={(e) => void onRequestOtp(e)}>
-            <label className={styles.label}>
-              Full name
-              <input
-                className={styles.input}
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                autoComplete="name"
-              />
-            </label>
-            <label className={styles.label}>
-              Email
-              <input
-                className={styles.input}
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-            <label className={styles.label}>
-              Phone (E.164)
-              <input
-                className={styles.input}
-                type="tel"
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+263…"
-              />
-            </label>
-            <button className={styles.submit} type="submit" disabled={busy}>
-              {busy ? "Requesting…" : "Request OTP"}
-            </button>
-          </form>
+          <>
+            <form onSubmit={(e) => void onRequestOtp(e)}>
+              <label className={styles.label}>
+                Full name
+                <input
+                  className={styles.input}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  autoComplete="name"
+                />
+              </label>
+              <label className={styles.label}>
+                Email
+                <input
+                  className={styles.input}
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </label>
+              <label className={styles.label}>
+                Phone (E.164)
+                <input
+                  className={styles.input}
+                  type="tel"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+263…"
+                />
+              </label>
+              <button className={styles.submit} type="submit" disabled={busy}>
+                {busy ? "Requesting…" : "Request OTP"}
+              </button>
+            </form>
+            <div className={styles.oauthBlock}>
+              <p className={styles.oauthDivider} role="presentation">
+                <span>or continue with</span>
+              </p>
+              <button
+                type="button"
+                className={styles.oauthGoogle}
+                disabled={busy}
+                onClick={() => void onOAuth("google")}
+              >
+                Google
+              </button>
+              <button
+                type="button"
+                className={styles.oauthApple}
+                disabled={busy}
+                onClick={() => void onOAuth("apple")}
+              >
+                Apple
+              </button>
+              <p className={styles.oauthHint}>
+                Google/Apple skip OTP — first login creates your account when
+                providers are enabled in Supabase.
+              </p>
+            </div>
+          </>
         ) : null}
 
         {step === "otp" ? (

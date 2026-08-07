@@ -30,9 +30,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -306,17 +307,41 @@ private fun CatalogPane(
     viewModel: PosViewModel,
     modifier: Modifier = Modifier,
 ) {
+    var showEpc by remember { mutableStateOf(false) }
     ShopStaffPanel(modifier = modifier, title = "Catalog") {
+            // EPC hierarchy is online-only; offline cache stays flat catalog_items.
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 CatalogSearchMode.entries.forEach { mode ->
                     FilterChip(
-                        selected = state.searchMode == mode,
-                        onClick = { viewModel.onSearchModeChange(mode) },
+                        selected = !showEpc && state.searchMode == mode,
+                        onClick = {
+                            showEpc = false
+                            viewModel.onSearchModeChange(mode)
+                        },
                         label = { Text(mode.rpcValue) },
                         enabled = !state.busy,
                     )
                 }
+                FilterChip(
+                    selected = showEpc,
+                    onClick = { showEpc = true },
+                    label = { Text("EPC") },
+                    enabled = !state.busy && !state.isOffline,
+                )
             }
+            if (showEpc) {
+                PosEpcBrowseScreen(
+                    rpc = viewModel.rpcForEpc(),
+                    onBack = { showEpc = false },
+                    onSelectOem = { oem ->
+                        viewModel.addOemToCart(oem)
+                        showEpc = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 320.dp, max = 520.dp),
+                )
+            } else {
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
@@ -367,6 +392,7 @@ private fun CatalogPane(
                     title = "Empty catalog grid",
                     body = "Search or scan to fill the catalog grid",
                 )
+            }
             }
     }
 }

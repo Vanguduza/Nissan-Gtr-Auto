@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -34,8 +35,6 @@ import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.customer.BuildConfig
 import co.zw.nissangtr.customer.prefs.CustomerPrefs
 import co.zw.nissangtr.customer.prefs.ThemeMode
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
-import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 
 private data class LegalLink(val title: String, val url: String)
 
@@ -49,155 +48,154 @@ private val legalLinks = listOf(
     LegalLink("FAQ", "https://nissangtrauto.co.zw/faq"),
 )
 
+/**
+ * Settings tab content under the shell Scaffold.
+ *
+ * Must NOT use ShopDefaultScreen here: that wraps a nested Material3 Scaffold with
+ * fillMaxSize + verticalScroll. As a child of the shell Column (unbounded max height),
+ * nested Scaffold measurement throws and crashes when opening Settings.
+ */
 @Composable
 fun SettingsHubScreen(
     prefs: CustomerPrefs,
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     signedInEmail: String?,
-    liveRpc: Boolean,
     onSignOut: (() -> Unit)?,
     onOpenAccount: () -> Unit,
     onEditProfile: () -> Unit = onOpenAccount,
-    modifier: Modifier = Modifier,
+    onSignIn: (() -> Unit)? = null,
+    rootModifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var receivePush by remember { mutableStateOf(prefs.receivePush) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var deleteMessage by remember { mutableStateOf<String?>(null) }
 
-    ShopDefaultScreen(
-        title = "Settings",
-        subtitle = "Prefs · legal · account",
-        onBack = null,
-        modifier = modifier,
+    Column(
+        rootModifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                if (liveRpc) "Live Supabase session" else "Fake mode — auth optional",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            signedInEmail?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium)
-            }
+        Text("Settings", style = MaterialTheme.typography.titleLarge)
 
-            Spacer(Modifier.height(8.dp))
-            Text("Appearance", style = MaterialTheme.typography.titleMedium)
-            Column(Modifier.selectableGroup()) {
-                ThemeMode.entries.forEach { mode ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = themeMode == mode,
-                                onClick = {
-                                    onThemeModeChange(mode)
-                                    prefs.themeMode = mode
-                                },
-                                role = Role.RadioButton,
-                            )
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(
+        signedInEmail?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text("Appearance", style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.selectableGroup()) {
+            ThemeMode.entries.forEach { mode ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .selectable(
                             selected = themeMode == mode,
-                            onClick = null,
-                        )
-                        Text(
-                            when (mode) {
-                                ThemeMode.System -> "System"
-                                ThemeMode.Light -> "Light"
-                                ThemeMode.Dark -> "Dark"
+                            onClick = {
+                                onThemeModeChange(mode)
+                                prefs.themeMode = mode
                             },
-                            modifier = Modifier.padding(start = 8.dp),
+                            role = Role.RadioButton,
                         )
-                    }
-                }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text("Notifications", style = MaterialTheme.typography.titleMedium)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Receive push notifications")
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = themeMode == mode,
+                        onClick = null,
+                    )
                     Text(
-                        "Preference saved on device. Push delivery needs FCM wiring — not enabled yet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        when (mode) {
+                            ThemeMode.System -> "System"
+                            ThemeMode.Light -> "Light"
+                            ThemeMode.Dark -> "Dark"
+                        },
+                        Modifier.padding(start = 8.dp),
                     )
                 }
-                Switch(
-                    checked = receivePush,
-                    onCheckedChange = {
-                        receivePush = it
-                        prefs.receivePush = it
-                    },
-                )
             }
+        }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text("Legal & help", style = MaterialTheme.typography.titleMedium)
-            legalLinks.forEach { link ->
-                OutlinedButton(
-                    onClick = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(link.url)),
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(link.title) }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text("Account", style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(
-                onClick = onEditProfile,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Edit profile") }
-            OutlinedButton(
-                onClick = onOpenAccount,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("My Account") }
-            if (onSignOut != null && signedInEmail != null) {
-                OutlinedButton(
-                    onClick = onSignOut,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Sign out") }
-            }
-            OutlinedButton(
-                onClick = { showDeleteConfirm = true },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Delete account") }
-            deleteMessage?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text("Notifications", style = MaterialTheme.typography.titleMedium)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                "App version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                "Receive push notifications",
+                Modifier.weight(1f),
+            )
+            Switch(
+                checked = receivePush,
+                onCheckedChange = {
+                    receivePush = it
+                    prefs.receivePush = it
+                },
+            )
+        }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text("Legal & help", style = MaterialTheme.typography.titleMedium)
+        legalLinks.forEach { link ->
+            OutlinedButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(link.url)),
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(link.title) }
+        }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text("Account", style = MaterialTheme.typography.titleMedium)
+        if (signedInEmail == null && onSignIn != null) {
+            OutlinedButton(
+                onClick = onSignIn,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Sign in") }
+        }
+        OutlinedButton(
+            onClick = onEditProfile,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Edit profile") }
+        OutlinedButton(
+            onClick = onOpenAccount,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("My Account") }
+        if (onSignOut != null && signedInEmail != null) {
+            OutlinedButton(
+                onClick = onSignOut,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Sign out") }
+        }
+        OutlinedButton(
+            onClick = { showDeleteConfirm = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Delete account") }
+        deleteMessage?.let {
+            Text(
+                it,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
             )
-            Spacer(Modifier.height(24.dp))
         }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text(
+            "App version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(24.dp))
     }
 
     if (showDeleteConfirm) {
@@ -205,9 +203,8 @@ fun SettingsHubScreen(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Delete account?") },
             text = {
-                ShopHonestEmpty(
-                    title = "No delete-account RPC",
-                    body = "There is no customer delete-account endpoint yet. Contact support at nissangtrauto.co.zw/contact — we will not pretend this succeeded.",
+                Text(
+                    "There is no customer delete-account endpoint yet. Contact support at nissangtrauto.co.zw/contact — we will not pretend this succeeded.",
                 )
             },
             confirmButton = {

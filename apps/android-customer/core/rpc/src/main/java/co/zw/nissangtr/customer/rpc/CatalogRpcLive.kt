@@ -173,6 +173,89 @@ internal object CatalogRpcLive {
         return out
     }
 
+
+    suspend fun listVehicleMaster(client: SupabaseClient): List<VehicleMasterRow> {
+        val rows = client.from("vehicle_master")
+            .select(
+                Columns.list(
+                    "id",
+                    "vin_prefix",
+                    "chassis_code",
+                    "engine_code",
+                    "production_year",
+                    "model_variant",
+                ),
+            ) {
+                order("model_variant", Order.ASCENDING)
+                limit(500)
+            }
+            .decodeList<VehicleMasterDbRow>()
+        return rows.map { row ->
+            VehicleMasterRow(
+                id = row.id,
+                vinPrefix = row.vinPrefix,
+                chassisCode = row.chassisCode,
+                engineCode = row.engineCode,
+                productionYear = row.productionYear,
+                modelVariant = row.modelVariant,
+            )
+        }
+    }
+
+    suspend fun listCatalogForVehicle(
+        client: SupabaseClient,
+        chassisCode: String,
+        engineCode: String?,
+        limit: Int,
+    ): CatalogBrowseResult {
+        val chassis = chassisCode.trim()
+        require(chassis.isNotEmpty()) { "chassis required" }
+        val cap = limit.coerceIn(1, 100)
+        val engine = engineCode?.trim()?.takeIf { it.isNotEmpty() }
+        val oemRows = client.from("part_fitment")
+            .select(Columns.list("oem_part_number")) {
+                filter {
+                    eq("chassis_code", chassis)
+                    if (engine != null) {
+                        eq("engine_code", engine)
+                    }
+                }
+                limit(200)
+            }
+            .decodeList<OemOnlyRow>()
+        val oemFilter = oemRows.map { it.oemPartNumber }.distinct()
+        if (oemFilter.isEmpty()) return CatalogBrowseResult(emptyList(), emptyList())
+
+        val items = client.from("stock_items")
+            .select(Columns.list("id", "oem_part_number", "description", "reorder_point")) {
+                filter { isIn("oem_part_number", oemFilter) }
+                order("oem_part_number", Order.ASCENDING)
+                limit(cap.toLong())
+            }
+            .decodeList<StockItemBrowseRow>()
+
+        if (items.isEmpty()) return CatalogBrowseResult(emptyList(), emptyList())
+
+        val ids = items.map { it.id }
+        val oems = items.map { it.oemPartNumber }
+        val priceByItem = loadDefaultPrices(client, ids)
+        val qtyByItem = loadSaleableQty(client, ids)
+        val catByOem = loadCategoryByOem(client, oems)
+
+        val list = items.map { row ->
+            val price = priceByItem[row.id]
+            val usd = if (price?.currency == "USD") price.unitPrice else price?.unitPrice
+            CatalogListItem(
+                stockItemId = row.id,
+                oem = row.oemPartNumber,
+                name = row.description?.trim().orEmpty().ifEmpty { row.oemPartNumber },
+                stock = stockStateFromQty(qtyByItem[row.id] ?: 0.0, row.reorderPoint),
+                usd = usd,
+                category = catByOem[row.oemPartNumber],
+            )
+        }
+        return CatalogBrowseResult(items = list, categories = emptyList())
+    }
     suspend fun loadCatalogProduct(client: SupabaseClient, supabaseUrl: String, oemParam: String): CatalogProduct {
         val oem = oemParam.trim()
         require(oem.isNotEmpty()) { "OEM required" }
@@ -293,6 +376,82 @@ internal object CatalogRpcLive {
         val base = supabaseUrl.trimEnd('/')
         val cleanPath = path.trimStart('/')
         return "$base/storage/v1/object/public/${RpcNames.CATALOG_DIAGRAMS_BUCKET}/$cleanPath"
+    }
+
+    suspend fun listCatalogMakers(client: SupabaseClient): List<EpcMaker> {
+        val raw = client.postgrest.rpc(RpcNames.LIST_CATALOG_MAKERS).decodeAs<JsonElement>()
+        return parseEpcMakerList(raw)
+    }
+
+    suspend fun listCatalogModels(client: SupabaseClient, makerSlug: String): List<EpcModel> {
+        val raw = client.postgrest.rpc(
+            RpcNames.LIST_CATALOG_MODELS,
+            buildJsonObject { put("p_maker_slug", makerSlug) },
+        ).decodeAs<JsonElement>()
+        return parseEpcModelList(raw)
+    }
+
+    suspend fun listCatalogVariants(
+        client: SupabaseClient,
+        makerSlug: String,
+        modelSlug: String,
+    ): List<EpcVariant> {
+        val raw = client.postgrest.rpc(
+            RpcNames.LIST_CATALOG_VARIANTS,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+            },
+        ).decodeAs<JsonElement>()
+        return parseEpcVariantList(raw)
+    }
+
+    suspend fun listCatalogSections(
+        client: SupabaseClient,
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+    ): List<EpcSection> {
+        val raw = client.postgrest.rpc(
+            RpcNames.LIST_CATALOG_SECTIONS,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+                put("p_variant_slug", variantSlug)
+            },
+        ).decodeAs<JsonElement>()
+        return parseEpcSectionList(raw)
+    }
+
+    suspend fun getCatalogDiagram(
+        client: SupabaseClient,
+        supabaseUrl: String,
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): EpcDiagramResponse {
+        val raw = client.postgrest.rpc(
+            RpcNames.GET_CATALOG_DIAGRAM,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+                put("p_variant_slug", variantSlug)
+                put("p_section_slug", sectionSlug)
+            },
+        ).decodeAs<JsonElement>()
+        val parsed = parseEpcDiagram(raw)
+        val storage = parsed.storagePath?.trim().orEmpty()
+        if (parsed.imageUrl.isNullOrBlank() && storage.isNotEmpty()) {
+            val base = supabaseUrl.trimEnd('/')
+            val url = if (storage.startsWith("http")) {
+                storage
+            } else {
+                "$base/storage/v1/object/public/${RpcNames.CATALOG_DIAGRAMS_BUCKET}/${storage.trimStart('/')}"
+            }
+            return parsed.copy(imageUrl = url)
+        }
+        return parsed
     }
 
     suspend fun addCartLineByOem(
@@ -476,6 +635,16 @@ private data class PncCodeRow(
     @SerialName("pnc_code") val pncCode: String,
 )
 
+
+@Serializable
+private data class VehicleMasterDbRow(
+    val id: String? = null,
+    @SerialName("vin_prefix") val vinPrefix: String? = null,
+    @SerialName("chassis_code") val chassisCode: String,
+    @SerialName("engine_code") val engineCode: String? = null,
+    @SerialName("production_year") val productionYear: Int? = null,
+    @SerialName("model_variant") val modelVariant: String,
+)
 @Serializable
 private data class OemOnlyRow(
     @SerialName("oem_part_number") val oemPartNumber: String,

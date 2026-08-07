@@ -179,8 +179,9 @@ Do not scaffold TODOs or “temporary” browser QR/GPS to unblock web staff.
 
 | Concern | How it works |
 |---------|----------------|
-| Public GoTrue signup | Disabled (`enable_signup = false`); signup goes through Edge OTP proof |
+| Public GoTrue email signup | Blocked by `hook_before_user_created` (`enable_signup = true` for OAuth first login) |
 | OTP | Edge `auth-otp`: `request` → `verify` → HMAC `proof_token` in `auth_otp_proofs` → `complete_signup` / `complete_login` |
+| OAuth | Google / Apple via Supabase Auth; `customers` ensured on first login — [`CUSTOMER_OAUTH_SETUP.md`](./CUSTOMER_OAUTH_SETUP.md) |
 | Returning login | Email **or** phone + **password** (OTP not required on password login) |
 | Phone login | `complete_login` resolves `profiles.phone_e164` → Auth email → session |
 | Staff vs customer | `loadStaffContext` / `staff_roles`; `postLoginPath` → `/staff` (sales-only → `/staff/pos`) |

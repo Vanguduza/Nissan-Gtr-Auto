@@ -2,7 +2,9 @@
 
 Independent Python batch pipeline: parse Nissan FAST-like exports, scrape reference catalogs (Amayama), validate against JSON Schema, and idempotently import into Supabase catalog tables.
 
-**Operator guide (PartSouq multi-make, real-time cache parse, hotspots, VIN mapping):** [`docs/guides/partsouq-multimake-catalog-pipeline.md`](../docs/guides/partsouq-multimake-catalog-pipeline.md) — **one-script orchestrator** (`python -m data_pipeline.partsouq_catalog_orchestrator`), crawl + `cache_parse_worker` alongside scrape, brand isolation (`out/makers/<slug>/`), import → PG FTS search.
+**Operator guide (PartSouq multi-make):** [`docs/guides/partsouq-multimake-catalog-pipeline.md`](../docs/guides/partsouq-multimake-catalog-pipeline.md) — `python -m data_pipeline.partsouq_catalog_orchestrator`
+
+**Megazip multivehicle EPC hierarchy (Maker → Model → Variant → Diagram):** [`docs/guides/megazip-multivehicle-catalog.md`](../docs/guides/megazip-multivehicle-catalog.md) — `python -m data_pipeline.megazip_catalog_orchestrator`
 
 **Not coupled to client apps** — `apps/web` and mobile builds do not import this package at build time.
 

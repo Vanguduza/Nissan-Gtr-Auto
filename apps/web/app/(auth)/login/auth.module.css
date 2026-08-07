@@ -151,3 +151,70 @@
 .alt a {
   text-decoration: underline;
 }
+
+.oauthBlock {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+}
+
+.oauthDivider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+}
+
+.oauthDivider::before,
+.oauthDivider::after {
+  content: "";
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.oauthDivider span {
+  white-space: nowrap;
+}
+
+.oauthGoogle,
+.oauthApple {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 2px;
+  padding: 0.65rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.oauthGoogle:hover,
+.oauthGoogle:focus-visible,
+.oauthApple:hover,
+.oauthApple:focus-visible {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.oauthGoogle:disabled,
+.oauthApple:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.oauthApple {
+  background: #000;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.oauthHint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}

@@ -128,7 +128,7 @@ export function CatalogBrowse({
     if (draftMax.trim()) q.set("max", draftMax.trim());
     else q.delete("max");
     const qs = q.toString();
-    router.push(qs ? `/catalog?${qs}` : "/catalog");
+    router.push(qs ? `/shop?${qs}` : "/shop");
   }
 
   function setSort(next: CatalogSort) {
@@ -138,13 +138,13 @@ export function CatalogBrowse({
     if (minParam) q.set("min", minParam);
     if (maxParam) q.set("max", maxParam);
     const qs = q.toString();
-    router.push(qs ? `/catalog?${qs}` : "/catalog");
+    router.push(qs ? `/shop?${qs}` : "/shop");
   }
 
   if (status.kind === "loading") {
     return (
       <div className={styles.page}>
-        <h1 className={styles.title}>Catalog</h1>
+        <h1 className={styles.title}>Shop stock</h1>
         <p className={styles.lede}>Loading live inventory…</p>
       </div>
     );
@@ -152,11 +152,11 @@ export function CatalogBrowse({
 
   if (status.kind === "auth") {
     const next = category
-      ? `/catalog?cat=${encodeURIComponent(category)}`
-      : "/catalog";
+      ? `/shop?cat=${encodeURIComponent(category)}`
+      : "/shop";
     return (
       <div className={styles.page}>
-        <h1 className={styles.title}>Catalog</h1>
+        <h1 className={styles.title}>Shop stock</h1>
         <p className={styles.lede}>
           Sign in to browse live stock and prices.{" "}
           <Link href={`/login?next=${encodeURIComponent(next)}`}>Sign in</Link>
@@ -168,7 +168,7 @@ export function CatalogBrowse({
   if (status.kind === "error") {
     return (
       <div className={styles.page}>
-        <h1 className={styles.title}>Catalog</h1>
+        <h1 className={styles.title}>Shop stock</h1>
         <p className={styles.lede} role="alert">
           {status.message}
         </p>
@@ -189,10 +189,11 @@ export function CatalogBrowse({
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Catalog</h1>
+      <h1 className={styles.title}>Shop stock</h1>
       <p className={styles.lede}>
         Live stock list from inventory. Filter by category and USD price; sort
-        like the KMP PLP (price, newest, movers).
+        like the KMP PLP (price, newest, movers). For vehicle diagrams use{" "}
+        <Link href="/catalog">Parts catalog (EPC)</Link>.
       </p>
       <div className={styles.plp}>
         <aside className={styles.facets} aria-label="Filters">
@@ -213,7 +214,7 @@ export function CatalogBrowse({
                     readOnly
                     checked={category?.toLowerCase() === slug}
                   />{" "}
-                  <Link href={`/catalog?${q.toString()}`}>{c}</Link>
+                  <Link href={`/shop?${q.toString()}`}>{c}</Link>
                 </label>
               );
             })}
@@ -257,7 +258,7 @@ export function CatalogBrowse({
               OE
             </label>
           </div>
-          <Link href="/catalog" className={styles.rowCta}>
+          <Link href="/shop" className={styles.rowCta}>
             Clear
           </Link>
         </aside>

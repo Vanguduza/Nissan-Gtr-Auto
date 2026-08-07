@@ -7,7 +7,7 @@ struct LoyaltyWalletScreen: View {
     @State private var error: String?
 
     var body: some View {
-        ShopDefaultScreen(title: "Loyalty wallet", subtitle: "Points balance", scrollable: true) {
+        ShopDefaultScreen(title: "Loyalty wallet", subtitle: nil, scrollable: true) {
             Text("Live balance via get_loyalty_balance.")
                 .font(GTRType.body(.caption))
                 .foregroundStyle(GTRColors.silverDim)
@@ -28,7 +28,7 @@ struct LoyaltyWalletScreen: View {
             } else if !busy && error == nil {
                 ShopHonestEmpty(
                     title: "No loyalty account",
-                    bodyText: "Points appear here when a loyalty account is linked to your customer profile."
+                    bodyText: "No loyalty points."
                 )
             }
 

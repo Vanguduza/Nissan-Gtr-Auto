@@ -6,8 +6,14 @@ from typing import Any
 
 
 def _slug_id(prefix: str, *parts: Any) -> str:
-    raw = ":".join(str(p or "").strip() for p in parts)
-    return f"{prefix}:{raw}" if raw else prefix
+    """Meili primaryKey: alphanumeric, hyphen, underscore only (no ':')."""
+
+    def _seg(p: Any) -> str:
+        s = str(p or "").strip()
+        return "".join(c if c.isalnum() or c in "-_" else "_" for c in s)
+
+    raw = "_".join(s for s in (_seg(p) for p in parts) if s)
+    return f"{prefix}_{raw}" if raw else prefix
 
 
 def build_part_documents(

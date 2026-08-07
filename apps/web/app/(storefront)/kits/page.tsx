@@ -12,7 +12,7 @@ export default function KitsPage() {
         <p className={styles.sectionLede}>
           Brake job packs and service kits — Phase 16 BOM sell from{" "}
           <code>item_kits</code>.{" "}
-          <Link href="/catalog">Browse catalog</Link>
+          <Link href="/catalog">Browse EPC catalog</Link>
         </p>
       </div>
       <KitsList />

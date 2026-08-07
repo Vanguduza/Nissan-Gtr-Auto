@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from data_pipeline.validate import validate_bundle
+from data_pipeline.validate import SCHEMA_NAMES, validate_bundle
 
 # Hierarchy: model_variant → chassis/engine → PNC → diagram → OEM part
 FASTRecord = dict[str, Any]
@@ -122,7 +122,16 @@ def parse_fast_file(path: Path) -> dict[str, list[dict[str, Any]]]:
 
 def write_bundle(bundle: dict[str, list[dict[str, Any]]], out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name, records in bundle.items():
+    oem_names = bundle.get("_oem_display_names")
+    if isinstance(oem_names, dict) and oem_names:
+        target = out_dir / "oem_display_names.json"
+        with target.open("w", encoding="utf-8") as fh:
+            json.dump(oem_names, fh, indent=2, sort_keys=True)
+            fh.write("\n")
+    for name in SCHEMA_NAMES:
+        records = bundle.get(name)
+        if records is None:
+            continue
         target = out_dir / f"{name}.json"
         with target.open("w", encoding="utf-8") as fh:
             json.dump(records, fh, indent=2)

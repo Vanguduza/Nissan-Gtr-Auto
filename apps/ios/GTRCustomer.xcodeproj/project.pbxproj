@@ -23,6 +23,8 @@
 		A1000000000000000000000E /* LiveStorefrontApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* LiveStorefrontApi.swift */; };
 		A1000000000000000000000F /* GoTrueAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* GoTrueAuthClient.swift */; };
 		A10000000000000000000023 /* AuthTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* AuthTokenStore.swift */; };
+		A100000000000000000000B0 /* AuthNonce.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B1 /* AuthNonce.swift */; };
+		A100000000000000000000B2 /* GoogleOAuthBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B3 /* GoogleOAuthBrowser.swift */; };
 		A10000000000000000000024 /* SignInScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SignInScreen.swift */; };
 		A10000000000000000000026 /* ChatScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* ChatScreen.swift */; };
 		A10000000000000000000028 /* DeliveryTrackScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* DeliveryTrackScreen.swift */; };
@@ -50,6 +52,8 @@
 		A100000000000000000000A0 /* KitsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A1 /* KitsScreen.swift */; };
 		A100000000000000000000A2 /* CategoryPlpScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A3 /* CategoryPlpScreen.swift */; };
 		A100000000000000000000A4 /* CatalogBrowseFilters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A5 /* CatalogBrowseFilters.swift */; };
+		A100000000000000000000A6 /* VehicleCatalogModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A7 /* VehicleCatalogModels.swift */; };
+		A100000000000000000000A8 /* VehicleSelectorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A9 /* VehicleSelectorSection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -70,6 +74,9 @@
 		A1000000000000000000001E /* LiveStorefrontApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LiveStorefrontApi.swift; path = ../Sources/GTRCustomerCore/LiveStorefrontApi.swift; sourceTree = "<group>"; };
 		A1000000000000000000001F /* GoTrueAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoTrueAuthClient.swift; path = ../Sources/GTRCustomerCore/GoTrueAuthClient.swift; sourceTree = "<group>"; };
 		A10000000000000000000021 /* AuthTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthTokenStore.swift; path = ../Sources/GTRCustomerCore/AuthTokenStore.swift; sourceTree = "<group>"; };
+		A100000000000000000000B1 /* AuthNonce.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthNonce.swift; path = ../Sources/GTRCustomerCore/AuthNonce.swift; sourceTree = "<group>"; };
+		A100000000000000000000B3 /* GoogleOAuthBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoogleOAuthBrowser.swift; path = ../Sources/GTRCustomerCore/GoogleOAuthBrowser.swift; sourceTree = "<group>"; };
+		A100000000000000000000B4 /* GTRCustomer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GTRCustomer.entitlements; sourceTree = "<group>"; };
 		A10000000000000000000022 /* SignInScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000027 /* ChatScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000029 /* DeliveryTrackScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryTrackScreen.swift; sourceTree = "<group>"; };
@@ -98,6 +105,8 @@
 		A100000000000000000000A1 /* KitsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KitsScreen.swift; sourceTree = "<group>"; };
 		A100000000000000000000A3 /* CategoryPlpScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPlpScreen.swift; sourceTree = "<group>"; };
 		A100000000000000000000A5 /* CatalogBrowseFilters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogBrowseFilters.swift; sourceTree = "<group>"; };
+		A100000000000000000000A7 /* VehicleCatalogModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VehicleCatalogModels.swift; path = ../Sources/GTRCustomerCore/VehicleCatalogModels.swift; sourceTree = "<group>"; };
+		A100000000000000000000A9 /* VehicleSelectorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleSelectorSection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,6 +135,7 @@
 				A10000000000000000000011 /* GTRCustomerApp.swift */,
 				A10000000000000000000012 /* ContentView.swift */,
 				A10000000000000000000018 /* StorefrontSession.swift */,
+				A100000000000000000000B4 /* GTRCustomer.entitlements */,
 				A10000000000000000000033 /* Features */,
 				A10000000000000000000084 /* Bridges */,
 				A10000000000000000000056 /* Theme */,
@@ -162,6 +172,7 @@
 			children = (
 				A10000000000000000000022 /* SignInScreen.swift */,
 				A10000000000000000000053 /* CatalogScreen.swift */,
+				A100000000000000000000A9 /* VehicleSelectorSection.swift */,
 				A10000000000000000000019 /* CartScreen.swift */,
 				A10000000000000000000081 /* AccountHubScreen.swift */,
 				A10000000000000000000095 /* CustomerShellChrome.swift */,
@@ -198,11 +209,14 @@
 			children = (
 				A10000000000000000000013 /* AppEnv.swift */,
 				A10000000000000000000015 /* StorefrontModels.swift */,
+				A100000000000000000000A7 /* VehicleCatalogModels.swift */,
 				A10000000000000000000016 /* StorefrontApi.swift */,
 				A1000000000000000000001D /* PostgrestClient.swift */,
 				A1000000000000000000001E /* LiveStorefrontApi.swift */,
 				A1000000000000000000001F /* GoTrueAuthClient.swift */,
 				A10000000000000000000021 /* AuthTokenStore.swift */,
+				A100000000000000000000B1 /* AuthNonce.swift */,
+				A100000000000000000000B3 /* GoogleOAuthBrowser.swift */,
 				A10000000000000000000017 /* StorefrontFormat.swift */,
 				A10000000000000000000051 /* GuestCompareStore.swift */,
 			);
@@ -307,8 +321,12 @@
 				A1000000000000000000000E /* LiveStorefrontApi.swift in Sources */,
 				A1000000000000000000000F /* GoTrueAuthClient.swift in Sources */,
 				A10000000000000000000023 /* AuthTokenStore.swift in Sources */,
+				A100000000000000000000B0 /* AuthNonce.swift in Sources */,
+				A100000000000000000000B2 /* GoogleOAuthBrowser.swift in Sources */,
 				A10000000000000000000024 /* SignInScreen.swift in Sources */,
 				A10000000000000000000052 /* CatalogScreen.swift in Sources */,
+				A100000000000000000000A8 /* VehicleSelectorSection.swift in Sources */,
+				A100000000000000000000A6 /* VehicleCatalogModels.swift in Sources */,
 				A10000000000000000000026 /* ChatScreen.swift in Sources */,
 				A10000000000000000000028 /* DeliveryTrackScreen.swift in Sources */,
 				A1000000000000000000002A /* WishlistScreen.swift in Sources */,
@@ -371,6 +389,7 @@
 			baseConfigurationReference = A10000000000000000000025 /* Shared.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = GTRCustomer/GTRCustomer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -401,6 +420,7 @@
 			baseConfigurationReference = A10000000000000000000025 /* Shared.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = GTRCustomer/GTRCustomer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";

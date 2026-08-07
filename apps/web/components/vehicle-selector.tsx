@@ -14,6 +14,12 @@ import {
   VehicleCascade,
   type VehicleMasterRow,
 } from "@/lib/vehicle-catalog";
+import {
+  catalogPath,
+  lookupVariantByChassis,
+  saveEpcContext,
+  type CatalogBrowseContext,
+} from "@/lib/catalog-hierarchy";
 import { createWebClient } from "@/lib/supabase";
 import styles from "./vehicle-selector.module.css";
 
@@ -42,6 +48,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
   const [form, setForm] = useState<VehicleCascadeFormValue>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const [epcCtx, setEpcCtx] = useState<CatalogBrowseContext | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,9 +89,27 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   const rows = load.kind === "ready" ? load.rows : [];
   const controlsDisabled = load.kind !== "ready";
 
+  async function resolveEpcLink(chassis: string | null | undefined) {
+    const code = chassis?.trim();
+    if (!code) {
+      setEpcCtx(null);
+      return;
+    }
+    const client = createWebClient();
+    if (!client) return;
+    const ctx = await lookupVariantByChassis(client, code);
+    if (ctx) {
+      saveEpcContext(ctx);
+      setEpcCtx(ctx);
+    } else {
+      setEpcCtx(null);
+    }
+  }
+
   function navigateForVehicle(
     selected: NonNullable<ReturnType<typeof VehicleCascade.fromCascade>>,
   ) {
+    void resolveEpcLink(selected.generation);
     if (selected.vin && selected.vin.length >= 11) {
       router.push(
         `/search?mode=vin&q=${encodeURIComponent(selected.vin)}`,
@@ -200,6 +225,23 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
       >
         Find parts for this vehicle
       </button>
+      {epcCtx ? (
+        <p className={styles.note}>
+          <Link href={catalogPath(epcCtx)}>Browse EPC diagrams</Link> for
+          chassis {epcCtx.variant ?? form.generation}
+        </p>
+      ) : form.generation ? (
+        <p className={styles.note}>
+          <button
+            type="button"
+            className={styles.submit}
+            style={{ marginTop: "0.5rem" }}
+            onClick={() => void resolveEpcLink(form.generation)}
+          >
+            Check EPC diagrams
+          </button>
+        </p>
+      ) : null}
     </form>
   );
 }

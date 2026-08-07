@@ -1,0 +1,96 @@
+Initialized native services in: C:\Users\j\AppData\Local\Temp\cursor-sandbox-cache\ed478d626eec82b6ddcf2e7607f9349e\gradle\native
+Initialized jansi services in: C:\Users\j\AppData\Local\Temp\cursor-sandbox-cache\ed478d626eec82b6ddcf2e7607f9349e\gradle\native
+Received JVM installation metadata from 'C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot': {JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot, JAVA_VERSION=17.0.19, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.19+10, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.19+10, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Checking if the launcher JVM can be re-used for build. To be re-used, the launcher JVM needs to match the parameters required for the build process: -XX:MaxMetaspaceSize=512m --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx1536m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Starting process 'Gradle build daemon'. Working directory: C:\Users\j\AppData\Local\Temp\cursor-sandbox-cache\ed478d626eec82b6ddcf2e7607f9349e\gradle\daemon\8.7 Command: C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin\java.exe -XX:MaxMetaspaceSize=512m --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx1536m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -cp C:\Users\j\.gradle\wrapper\dists\gradle-8.7-bin\bhs2wmbdwecv87pi65oeuq5iu\gradle-8.7\lib\gradle-launcher-8.7.jar -javaagent:C:\Users\j\.gradle\wrapper\dists\gradle-8.7-bin\bhs2wmbdwecv87pi65oeuq5iu\gradle-8.7\lib\agents\gradle-instrumentation-agent-8.7.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.7
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 5.873 secs.
+The client will now receive all logging from the daemon (pid: 30704). The daemon log file: C:\Users\j\AppData\Local\Temp\cursor-sandbox-cache\ed478d626eec82b6ddcf2e7607f9349e\gradle\daemon\8.7\daemon-30704.out.log
+Daemon will be stopped at the end of the build 
+Closing daemon's stdin at end of input.
+The daemon will no longer process any standard input.
+Using 1 worker leases.
+Received JVM installation metadata from 'C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot': {JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot, JAVA_VERSION=17.0.19, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.19+10, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.19+10, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Watching the file system is configured to be enabled if available
+Now considering [C:\Users\j\Desktop\nissan gtr\apps\android-customer] as hierarchies to watch
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\Users\j\Desktop\nissan gtr\apps\android-customer\settings.gradle.kts'.
+Projects loaded. Root project using build file 'C:\Users\j\Desktop\nissan gtr\apps\android-customer\build.gradle.kts'.
+Included projects: [root project 'gtr-android-customer', project ':android-ui', project ':app', project ':core', project ':feature', project ':maps-nav', project ':pod-camera', project ':core:rpc', project ':feature:address', project ':feature:auth', project ':feature:cart', project ':feature:catalog', project ':feature:chat', project ':feature:compare', project ':feature:garage', project ':feature:orders', project ':feature:pay', project ':feature:reviews', project ':feature:track', project ':feature:wishlist']
+
+> Configure project :
+Evaluating root project 'gtr-android-customer' using build file 'C:\Users\j\Desktop\nissan gtr\apps\android-customer\build.gradle.kts'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+A problem occurred configuring root project 'gtr-android-customer'.
+> Could not resolve all artifacts for configuration ':classpath'.
+   > Could not download guava-32.0.1-jre.jar (com.google.guava:guava:32.0.1-jre): No cached version available for offline mode
+   > Could not download dagger-2.28.3.jar (com.google.dagger:dagger:2.28.3): No cached version available for offline mode
+   > Could not download javax.inject-1.jar (javax.inject:javax.inject:1): No cached version available for offline mode
+   > Could not download bcutil-jdk18on-1.77.jar (org.bouncycastle:bcutil-jdk18on:1.77): No cached version available for offline mode
+   > Could not download bcprov-jdk18on-1.77.jar (org.bouncycastle:bcprov-jdk18on:1.77): No cached version available for offline mode
+   > Could not download trove4j-1.0.20200330.jar (org.jetbrains.intellij.deps:trove4j:1.0.20200330): No cached version available for offline mode
+   > Could not download commons-compress-1.21.jar (org.apache.commons:commons-compress:1.21): No cached version available for offline mode
+   > Could not download httpclient-4.5.14.jar (org.apache.httpcomponents:httpclient:4.5.14): No cached version available for offline mode
+   > Could not download httpcore-4.4.16.jar (org.apache.httpcomponents:httpcore:4.4.16): No cached version available for offline mode
+   > Could not download javax.activation-1.2.0.jar (com.sun.activation:javax.activation:1.2.0): No cached version available for offline mode
+   > Could not download signflinger-8.5.2.jar (com.android:signflinger:8.5.2): No cached version available for offline mode
+   > Could not download zipflinger-8.5.2.jar (com.android:zipflinger:8.5.2): No cached version available for offline mode
+   > Could not download annotations-31.5.2.jar (com.android.tools:annotations:31.5.2): No cached version available for offline mode
+   > Could not download jna-platform-5.6.0.jar (net.java.dev.jna:jna-platform:5.6.0): No cached version available for offline mode
+   > Could not download juniversalchardet-1.0.3.jar (com.googlecode.juniversalchardet:juniversalchardet:1.0.3): No cached version available for offline mode
+   > Could not download javax.annotation-api-1.3.2.jar (javax.annotation:javax.annotation-api:1.3.2): No cached version available for offline mode
+   > Could not download stax-ex-1.8.1.jar (org.jvnet.staxex:stax-ex:1.8.1): No cached version available for offline mode
+   > Could not download jakarta.xml.bind-api-2.3.2.jar (jakarta.xml.bind:jakarta.xml.bind-api:2.3.2): No cached version available for offline mode
+   > Could not download txw2-2.3.2.jar (org.glassfish.jaxb:txw2:2.3.2): No cached version available for offline mode
+   > Could not download istack-commons-runtime-3.0.8.jar (com.sun.istack:istack-commons-runtime:3.0.8): No cached version available for offline mode
+   > Could not download FastInfoset-1.2.16.jar (com.sun.xml.fastinfoset:FastInfoset:1.2.16): No cached version available for offline mode
+   > Could not download jakarta.activation-api-1.2.1.jar (jakarta.activation:jakarta.activation-api:1.2.1): No cached version available for offline mode
+   > Could not download auto-value-annotations-1.6.2.jar (com.google.auto.value:auto-value-annotations:1.6.2): No cached version available for offline mode
+   > Could not download error_prone_annotations-2.18.0.jar (com.google.errorprone:error_prone_annotations:2.18.0): No cached version available for offline mode
+   > Could not download jose4j-0.9.5.jar (org.bitbucket.b_c:jose4j:0.9.5): No cached version available for offline mode
+   > Could not download slf4j-api-1.7.30.jar (org.slf4j:slf4j-api:1.7.30): No cached version available for offline mode
+   > Could not download jdom2-2.0.6.jar (org.jdom:jdom2:2.0.6): No cached version available for offline mode
+   > Could not download jsr305-3.0.2.jar (com.google.code.findbugs:jsr305:3.0.2): No cached version available for offline mode
+   > Could not download j2objc-annotations-2.8.jar (com.google.j2objc:j2objc-annotations:2.8): No cached version available for offline mode
+   > Could not download annotations-4.1.1.4.jar (com.google.android:annotations:4.1.1.4): No cached version available for offline mode
+   > Could not download animal-sniffer-annotations-1.23.jar (org.codehaus.mojo:animal-sniffer-annotations:1.23): No cached version available for offline mode
+   > Could not download perfmark-api-0.26.0.jar (io.perfmark:perfmark-api:0.26.0): No cached version available for offline mode
+   > Could not download netty-codec-http2-4.1.93.Final.jar (io.netty:netty-codec-http2:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-handler-proxy-4.1.93.Final.jar (io.netty:netty-handler-proxy:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-codec-http-4.1.93.Final.jar (io.netty:netty-codec-http:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-handler-4.1.93.Final.jar (io.netty:netty-handler:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-transport-native-unix-common-4.1.93.Final.jar (io.netty:netty-transport-native-unix-common:4.1.93.Final): No cached version available for offline mode
+   > Could not download checker-qual-3.33.0.jar (org.checkerframework:checker-qual:3.33.0): No cached version available for offline mode
+   > Could not download commons-codec-1.11.jar (commons-codec:commons-codec:1.11): No cached version available for offline mode
+   > Could not download apksig-8.5.2.jar (com.android.tools.build:apksig:8.5.2): No cached version available for offline mode
+   > Could not download javawriter-2.5.0.jar (com.squareup:javawriter:2.5.0): No cached version available for offline mode
+   > Could not download kotlin-gradle-plugin-annotations-2.0.21.jar (org.jetbrains.kotlin:kotlin-gradle-plugin-annotations:2.0.21): No cached version available for offline mode
+   > Could not download kotlin-tooling-core-2.0.21.jar (org.jetbrains.kotlin:kotlin-tooling-core:2.0.21): No cached version available for offline mode
+   > Could not download kotlin-daemon-client-2.0.21.jar (org.jetbrains.kotlin:kotlin-daemon-client:2.0.21): No cached version available for offline mode
+   > Could not download kotlinx-coroutines-core-jvm-1.6.4.jar (org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4): No cached version available for offline mode
+   > Could not download kotlin-util-io-2.0.21.jar (org.jetbrains.kotlin:kotlin-util-io:2.0.21): No cached version available for offline mode
+   > Could not download kotlin-daemon-embeddable-2.0.21.jar (org.jetbrains.kotlin:kotlin-daemon-embeddable:2.0.21): No cached version available for offline mode
+   > Could not download failureaccess-1.0.1.jar (com.google.guava:failureaccess:1.0.1): No cached version available for offline mode
+   > Could not download listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar (com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava): No cached version available for offline mode
+   > Could not download commons-logging-1.2.jar (commons-logging:commons-logging:1.2): No cached version available for offline mode
+   > Could not download jna-5.6.0.jar (net.java.dev.jna:jna:5.6.0): No cached version available for offline mode
+   > Could not download netty-codec-socks-4.1.93.Final.jar (io.netty:netty-codec-socks:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-codec-4.1.93.Final.jar (io.netty:netty-codec:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-transport-4.1.93.Final.jar (io.netty:netty-transport:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-buffer-4.1.93.Final.jar (io.netty:netty-buffer:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-resolver-4.1.93.Final.jar (io.netty:netty-resolver:4.1.93.Final): No cached version available for offline mode
+   > Could not download netty-common-4.1.93.Final.jar (io.netty:netty-common:4.1.93.Final): No cached version available for offline mode
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 35s
+Watched directory hierarchies: []

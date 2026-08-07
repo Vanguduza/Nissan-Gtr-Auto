@@ -6,6 +6,10 @@ import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailOrPhone } from "@/lib/auth-otp";
 import {
+  startCustomerOAuth,
+  type CustomerOAuthProvider,
+} from "@/lib/auth-oauth";
+import {
   COUNTRY_DIAL_CODES,
   DEFAULT_COUNTRY_DIAL,
   countryDialOptionValue,
@@ -135,6 +139,26 @@ function LoginForm() {
     await finishStaffRedirect(client);
     setBusy(false);
   }
+
+  async function onOAuth(provider: CustomerOAuthProvider) {
+    setBusy(true);
+    setMessage(null);
+    const client = createWebClient();
+    if (!client) {
+      setMessage("Add NEXT_PUBLIC_SUPABASE_URL and ANON_KEY to .env.local");
+      setBusy(false);
+      return;
+    }
+    const started = await startCustomerOAuth(client, provider, next);
+    if (!started.ok) {
+      setBusy(false);
+      setMessage(started.error);
+      return;
+    }
+    // Browser redirects to provider; keep busy until navigation.
+  }
+
+  const showCustomerOAuth = method !== "employee";
 
   return (
     <div className={styles.form}>
@@ -291,6 +315,33 @@ function LoginForm() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      {showCustomerOAuth ? (
+        <div className={styles.oauthBlock}>
+          <p className={styles.oauthDivider} role="presentation">
+            <span>or continue with</span>
+          </p>
+          <button
+            type="button"
+            className={styles.oauthGoogle}
+            disabled={busy}
+            onClick={() => void onOAuth("google")}
+          >
+            Google
+          </button>
+          <button
+            type="button"
+            className={styles.oauthApple}
+            disabled={busy}
+            onClick={() => void onOAuth("apple")}
+          >
+            Apple
+          </button>
+          <p className={styles.oauthHint}>
+            First Google or Apple sign-in creates your storefront account.
+          </p>
+        </div>
+      ) : null}
 
       {message ? <p className={styles.message}>{message}</p> : null}
       {method !== "employee" ? (

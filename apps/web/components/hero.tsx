@@ -33,7 +33,7 @@ export function StorefrontHero() {
             <Car size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
             Find parts for your vehicle
           </h2>
-          <VehicleSelector />
+          <VehicleSelector showNote={false} />
         </div>
       </div>
     </section>

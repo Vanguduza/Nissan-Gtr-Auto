@@ -30,6 +30,12 @@ object RpcNames {
     const val REVOKE_POS_SCAN_SESSION = "revoke_pos_scan_session"
     // Catalog search (standalone add-line path — no session required)
     const val SEARCH_CATALOG = "search_catalog"
+    /** Megazip hierarchy browse — online-only; offline POS cache stays flat. */
+    const val LIST_CATALOG_MAKERS = "list_catalog_makers"
+    const val LIST_CATALOG_MODELS = "list_catalog_models"
+    const val LIST_CATALOG_VARIANTS = "list_catalog_variants"
+    const val LIST_CATALOG_SECTIONS = "list_catalog_sections"
+    const val GET_CATALOG_DIAGRAM = "get_catalog_diagram"
     /** Organogram module_access for signed-in employee (Batch 1 §1.6). */
     const val MY_MODULE_ACCESS = "my_module_access"
     /** Optional hr_roles.default_landing (pos|hub). */

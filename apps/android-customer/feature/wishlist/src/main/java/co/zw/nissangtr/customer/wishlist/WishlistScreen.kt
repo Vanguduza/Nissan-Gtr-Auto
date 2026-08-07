@@ -107,7 +107,7 @@ fun WishlistScreen(
             ) {
                 ShopHonestEmpty(
                     title = "Wishlist is empty",
-                    body = "Tap the heart on a part to save it here. Nested PDP opens from any card.",
+                    body = "No saved items.",
                 )
             }
         } else {

@@ -17,15 +17,20 @@ export async function generateMetadata({
 
 export default async function PartPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ oem: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { oem } = await params;
+  const sp = await searchParams;
   let decoded = oem;
   try {
     decoded = decodeURIComponent(oem);
   } catch {
     /* keep raw */
   }
-  return <PartDetail oem={decoded} />;
+  return (
+    <PartDetail oem={decoded} fromEpc={sp.from === "epc"} />
+  );
 }
