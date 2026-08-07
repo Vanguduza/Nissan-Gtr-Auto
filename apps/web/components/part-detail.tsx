@@ -15,6 +15,10 @@ import {
   type CatalogProduct,
 } from "@/lib/catalog-product";
 import {
+  catalogPath,
+  loadEpcContext,
+} from "@/lib/catalog-hierarchy";
+import {
   addOemToCompareTray,
   removeOemFromCompareTray,
 } from "@/lib/customer-compare";
@@ -43,7 +47,13 @@ type Status =
   | { kind: "missing" }
   | { kind: "ready"; product: CatalogProduct };
 
-export function PartDetail({ oem }: { oem: string }) {
+export function PartDetail({
+  oem,
+  fromEpc = false,
+}: {
+  oem: string;
+  fromEpc?: boolean;
+}) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [onWishlist, setOnWishlist] = useState(false);
   const [inCompare, setInCompare] = useState(false);
@@ -61,6 +71,21 @@ export function PartDetail({ oem }: { oem: string }) {
   const [galleryTab, setGalleryTab] = useState<"diagram" | "photo">("diagram");
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [descOpen, setDescOpen] = useState(false);
+  const [epcBackHref, setEpcBackHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!fromEpc) {
+      const ctx = loadEpcContext();
+      if (ctx?.section) {
+        setEpcBackHref(catalogPath(ctx));
+        return;
+      }
+      setEpcBackHref(null);
+      return;
+    }
+    const ctx = loadEpcContext();
+    setEpcBackHref(ctx?.section ? catalogPath(ctx) : "/catalog");
+  }, [fromEpc, oem]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,8 +292,8 @@ export function PartDetail({ oem }: { oem: string }) {
           <p className={styles.muted} role="alert">
             {status.message}
           </p>
-          <Link href="/catalog" className={styles.wish}>
-            Back to catalog
+          <Link href="/shop" className={styles.wish}>
+            Back to shop
           </Link>
         </div>
       </article>
@@ -287,8 +312,8 @@ export function PartDetail({ oem }: { oem: string }) {
             <Link href="/search" className={styles.add}>
               Search
             </Link>
-            <Link href="/catalog" className={styles.wish}>
-              Catalog
+            <Link href="/shop" className={styles.wish}>
+              Shop stock
             </Link>
           </div>
         </div>
@@ -325,6 +350,13 @@ export function PartDetail({ oem }: { oem: string }) {
 
   return (
     <article className={styles.wrap}>
+      {epcBackHref ? (
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          <Link href={epcBackHref} className={styles.wish}>
+            ← Back to diagram
+          </Link>
+        </p>
+      ) : null}
       <div className={styles.galleryCol}>
         <div className={styles.gallery} aria-label="Product media">
           {hasDiagram && (!hasPhotos || galleryTab === "diagram") ? (

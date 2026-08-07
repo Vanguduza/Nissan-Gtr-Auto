@@ -61,18 +61,10 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 if overlay == .none {
                     CustomerShellTopBar(
-                        signedInEmail: session.userEmail,
                         cartBadgeCount: cartBadge,
                         onOpenMenu: { overlay = .menu },
                         onOpenAccount: { overlay = .account },
-                        onOpenCart: { overlay = .cart },
-                        onSignIn: {
-                            if session.isSignedIn && session.userEmail != nil {
-                                overlay = .account
-                            } else {
-                                showSignInSheet = true
-                            }
-                        }
+                        onOpenCart: { overlay = .cart }
                     )
                 }
 
@@ -110,7 +102,10 @@ struct ContentView: View {
                     .tag(ShopTab.garage)
 
                     NavigationStack {
-                        SettingsHubScreen(onOpenAccount: { overlay = .account })
+                        SettingsHubScreen(
+                            onOpenAccount: { overlay = .account },
+                            onSignIn: { showSignInSheet = true }
+                        )
                     }
                     .tabItem { Label("Settings", systemImage: "gearshape.fill") }
                     .tag(ShopTab.settings)
@@ -220,6 +215,10 @@ struct ContentView: View {
                             pendingPartsOem = oem
                             overlay = .none
                             selectedTab = .home
+                        },
+                        onSignIn: {
+                            overlay = .none
+                            showSignInSheet = true
                         }
                     )
                 }

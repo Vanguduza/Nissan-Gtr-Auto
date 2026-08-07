@@ -72,15 +72,13 @@ fun ChatScreen(
 
     ShopDefaultScreen(
         title = "Live chat",
-        subtitle = "Counter support",
+        subtitle = null,
         onBack = onBack,
         scrollable = false,
         modifier = modifier,
     ) {
         Text(
-            "RPCs: ${RpcNames.START_CHAT_THREAD}, ${RpcNames.POST_CHAT_MESSAGE}, " +
-                "${RpcNames.MARK_CHAT_THREAD_READ}, ${RpcNames.CHAT_UNREAD_COUNT}. " +
-                if (state.polling) "Poll ${POLL_NOTE}" else "Select a thread to poll.",
+            if (state.polling) "Polling…" else "Live chat",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -336,7 +334,6 @@ private fun MessageBubble(msg: ChatMessage) {
 }
 
 private const val DEFAULT_WHATSAPP_DIGITS = "263770000000"
-private const val POLL_NOTE = "every 3s (no realtime-kt)"
 
 private fun openWhatsApp(context: android.content.Context, digits: String) {
     val clean = digits.filter { it.isDigit() }.ifEmpty { DEFAULT_WHATSAPP_DIGITS }

@@ -33,7 +33,7 @@ struct CartScreen: View {
                 } else {
                     ShopHonestEmpty(
                         title: "Basket is empty",
-                        bodyText: "Browse Home and add parts. No fake coupons or countdown timers."
+                        bodyText: "No items."
                     )
                 }
 
@@ -98,7 +98,7 @@ struct CartScreen: View {
         if fulfillmentMode == .dispatch {
             ShopMerchTitleRow(title: "Shipping address", actionLabel: nil)
             if addresses.isEmpty {
-                ShopHonestEmpty(title: "Add an address", bodyText: "Nationwide dispatch needs a saved address.")
+                ShopHonestEmpty(title: "Add an address", bodyText: "No shipping address.")
                 NavigationLink("Manage addresses") { AddressScreen() }
             } else {
                 ForEach(addresses) { addr in

@@ -18,7 +18,7 @@ and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 |--------|---------|------|
 | `:app` | `co.zw.nissangtr.customer` | Launcher + route shell + auth gate |
 | `:core:rpc` | `…customer.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
-| `:feature:auth` | `…customer.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password) |
+| `:feature:auth` | `…customer.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password + Google ID token) |
 | `:feature:cart` | `…customer.cart` | Create / add line / checkout |
 | `:feature:orders` | `…customer.orders` | Invoice list + `get_customer_order` |
 | `:feature:garage` | `…customer.garage` | Upsert / delete / list vehicles |
@@ -34,7 +34,7 @@ and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 
 | Screen | Module | RPCs / role |
 |--------|--------|-------------|
-| `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` — session gate when Live |
+| `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` + Google Credential Manager → `signInWith(IDToken)`; then `ensure_own_customer` if needed |
 | `CartScreen` | `:feature:cart` | `create_customer_cart`, `add_customer_cart_line`, `checkout_customer_cart` |
 | `OrdersScreen` | `:feature:orders` | `get_customer_order` (+ own-invoice SELECT) |
 | `GarageScreen` | `:feature:garage` | `upsert_customer_garage_vehicle`, `delete_customer_garage_vehicle` |
@@ -85,6 +85,22 @@ Home → **Track delivery**, or Orders → select `INV-SEED-DISPATCH` → **Trac
 - Calls `get_delivery_track_point` only — **never** a GPS trail UI.
 - Polls **~8s** while active; stops when terminal.
 - Deep links: `gtrcustomer://track/{token}` or intent extras `track_token` / `track_job_id`.
+- Auth callback: `gtrcustomer://auth/callback` (Supabase OAuth / email confirm; native Google uses ID token and does not require the browser redirect).
+
+## Google Sign-In (local.properties)
+
+| Key | Role |
+|-----|------|
+| `GOOGLE_WEB_CLIENT_ID` | **Web** OAuth client ID → BuildConfig `GOOGLE_WEB_CLIENT_ID` (Credential Manager `serverClientId`) |
+| `GOOGLE_SERVER_CLIENT_ID` | Alias for the same Web client ID if `GOOGLE_WEB_CLIENT_ID` is unset |
+
+Also required outside the app (human / Google Cloud):
+
+1. **Android** OAuth client: package `co.zw.nissangtr.customer` + debug/release **SHA-1** (`.\gradlew.bat :app:signingReport`).
+2. Supabase Dashboard → Auth → Google enabled; Web client ID (+ secret) + authorized native client IDs.
+3. Redirect allow-list includes `gtrcustomer://auth/callback` (see `docs/CUSTOMER_OAUTH_SETUP.md`).
+
+Never commit client secrets. The Android client ID is not embedded — only the Web client ID.
 
 ## RPC binding: Fake vs Live
 

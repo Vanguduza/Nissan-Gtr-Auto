@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "notes": "Per-source Megazip availability for priority chassis. Orchestrator warns/skips when megazip_available=false. model_seed URLs supplement priority_chassis.json model_seed_urls.",
+  "chassis": {
+    "T31": {
+      "megazip_available": true,
+      "model_seed": "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064"
+    },
+    "T32": {
+      "megazip_available": false,
+      "megazip_proxy": "T31",
+      "primary_source": "partsouq",
+      "notes": "Megazip X-Trail page lists T30/T31 only; no T32 generation slug as of 2026-08."
+    },
+    "T30": {
+      "megazip_available": true,
+      "model_seed": "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064"
+    }
+  }
+}

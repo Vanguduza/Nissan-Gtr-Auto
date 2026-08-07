@@ -46,6 +46,14 @@ android {
         val mapsKey = localProp("GOOGLE_MAPS_API_KEY")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsKey
+        // Google Sign-In — Web OAuth client ID as Credential Manager serverClientId.
+        // Prefer GOOGLE_WEB_CLIENT_ID; GOOGLE_SERVER_CLIENT_ID accepted as alias.
+        // Android OAuth client (package + SHA-1) is required in Google Cloud but is NOT
+        // embedded here — only the Web client ID goes to BuildConfig. Never commit secrets.
+        val googleWebClientId = localProp("GOOGLE_WEB_CLIENT_ID")
+            .ifBlank { localProp("GOOGLE_SERVER_CLIENT_ID") }
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        manifestPlaceholders["GOOGLE_WEB_CLIENT_ID"] = googleWebClientId
     }
 
     buildTypes {

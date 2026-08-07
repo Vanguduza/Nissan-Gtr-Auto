@@ -41,6 +41,11 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let getProductReviewStats = "get_product_review_stats"
         public static let addCustomerProductReviewPhoto = "add_customer_product_review_photo"
         public static let searchCatalog = "search_catalog"
+        public static let listCatalogMakers = "list_catalog_makers"
+        public static let listCatalogModels = "list_catalog_models"
+        public static let listCatalogVariants = "list_catalog_variants"
+        public static let listCatalogSections = "list_catalog_sections"
+        public static let getCatalogDiagram = "get_catalog_diagram"
         public static let getLoyaltyBalance = "get_loyalty_balance"
         public static let postCustomerReturnCreditNote = "post_customer_return_credit_note"
         public static let getZigExchangeRate = "get_zig_exchange_rate"
@@ -48,6 +53,8 @@ public final class LiveStorefrontApi: StorefrontApi {
         public static let deleteCustomerAddress = "delete_customer_address"
         public static let updateOwnCustomerProfile = "update_own_customer_profile"
         public static let setOwnMarketingOptIn = "set_own_marketing_opt_in"
+        /// Defense-in-depth after OAuth / session — mint retail `customers` if AuthZ context null.
+        public static let ensureOwnCustomer = "ensure_own_customer"
     }
 
     public enum EdgeName {
@@ -92,6 +99,25 @@ public final class LiveStorefrontApi: StorefrontApi {
     /// Empty string clears to the anon key (signed-out Bearer).
     public func setAccessToken(_ token: String) {
         client.accessToken = token.isEmpty ? AppEnv.supabaseAnonKey : token
+    }
+
+    /// Own `customers.id` via RLS — nil when AuthZ customer context is missing.
+    public func currentCustomerId() async throws -> UUID? {
+        let customers: [CustomerIdRow] = try await client.selectDecode(
+            table: "customers",
+            query: ["select=id", "limit=1"].joined(separator: "&")
+        )
+        return customers.first?.id
+    }
+
+    /// Call after OAuth / password session when `_current_customer_id()` may still be null
+    /// (trigger race / legacy users). Idempotent; staff accounts are denied server-side.
+    @discardableResult
+    public func ensureOwnCustomerIfNeeded() async throws -> UUID? {
+        if let existing = try await currentCustomerId() {
+            return existing
+        }
+        return try await client.rpcUUID(RpcName.ensureOwnCustomer, body: [:])
     }
 
     // MARK: - Cart
@@ -815,6 +841,158 @@ public final class LiveStorefrontApi: StorefrontApi {
                 stock: catalogStockState(qty: qtyByItem[row.id] ?? 0, reorderPoint: row.reorderPoint),
                 usd: usd,
                 category: catByOem[row.oemPartNumber] ?? cat
+            )
+        }
+        return CatalogBrowseResult(items: list, categories: [])
+    }
+
+    public func listVehicleMaster() async throws -> [VehicleMasterRow] {
+        let rows: [VehicleMasterDbRow] = try await client.selectDecode(
+            table: "vehicle_master",
+            query: [
+                "select=id,vin_prefix,chassis_code,engine_code,production_year,model_variant",
+                "order=model_variant.asc",
+                "limit=500",
+            ].joined(separator: "&")
+        )
+        return rows.map {
+            VehicleMasterRow(
+                id: $0.id,
+                vinPrefix: $0.vinPrefix,
+                chassisCode: $0.chassisCode,
+                engineCode: $0.engineCode,
+                productionYear: $0.productionYear,
+                modelVariant: $0.modelVariant
+            )
+        }
+    }
+
+    public func listCatalogMakers() async throws -> [EpcMaker] {
+        let data = try await client.rpc(RpcName.listCatalogMakers, body: [:])
+        return try EpcCatalogParser.parseMakers(data)
+    }
+
+    public func listCatalogModels(makerSlug: String) async throws -> [EpcModel] {
+        let data = try await client.rpc(
+            RpcName.listCatalogModels,
+            body: ["p_maker_slug": makerSlug]
+        )
+        return try EpcCatalogParser.parseModels(data)
+    }
+
+    public func listCatalogVariants(makerSlug: String, modelSlug: String) async throws -> [EpcVariant] {
+        let data = try await client.rpc(
+            RpcName.listCatalogVariants,
+            body: [
+                "p_maker_slug": makerSlug,
+                "p_model_slug": modelSlug,
+            ]
+        )
+        return try EpcCatalogParser.parseVariants(data)
+    }
+
+    public func listCatalogSections(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String
+    ) async throws -> [EpcSection] {
+        let data = try await client.rpc(
+            RpcName.listCatalogSections,
+            body: [
+                "p_maker_slug": makerSlug,
+                "p_model_slug": modelSlug,
+                "p_variant_slug": variantSlug,
+            ]
+        )
+        return try EpcCatalogParser.parseSections(data)
+    }
+
+    public func getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String
+    ) async throws -> EpcDiagramResponse {
+        let data = try await client.rpc(
+            RpcName.getCatalogDiagram,
+            body: [
+                "p_maker_slug": makerSlug,
+                "p_model_slug": modelSlug,
+                "p_variant_slug": variantSlug,
+                "p_section_slug": sectionSlug,
+            ]
+        )
+        var parsed = try EpcCatalogParser.parseDiagram(data)
+        if (parsed.imageUrl == nil || parsed.imageUrl?.isEmpty == true),
+           let path = parsed.storagePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !path.isEmpty
+        {
+            if path.hasPrefix("http") {
+                parsed.imageUrl = path
+            } else {
+                let base = client.baseURL.absoluteString
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                let clean = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                parsed.imageUrl =
+                    "\(base)/storage/v1/object/public/\(Self.catalogDiagramsBucket)/\(clean)"
+            }
+        }
+        return parsed
+    }
+
+    public func listCatalogForVehicle(
+        chassisCode: String,
+        engineCode: String?,
+        limit: Int
+    ) async throws -> CatalogBrowseResult {
+        let chassis = chassisCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !chassis.isEmpty else { throw StorefrontError.message("chassis required") }
+        let cap = min(max(limit, 1), 100)
+        let engine = engineCode?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        var fitQuery = [
+            "select=oem_part_number",
+            "chassis_code=eq.\(Self.percentEncodeQueryValue(chassis))",
+            "limit=200",
+        ]
+        if let engine {
+            fitQuery.insert("engine_code=eq.\(Self.percentEncodeQueryValue(engine))", at: 2)
+        }
+        let oemRows: [OemOnlyRow] = try await client.selectDecode(
+            table: "part_fitment",
+            query: fitQuery.joined(separator: "&")
+        )
+        let oemFilter = Array(Set(oemRows.map(\.oemPartNumber)))
+        if oemFilter.isEmpty {
+            return CatalogBrowseResult(items: [], categories: [])
+        }
+        let encoded = oemFilter.map { Self.percentEncodeQueryValue($0) }.joined(separator: ",")
+        let items: [StockItemBrowseRow] = try await client.selectDecode(
+            table: "stock_items",
+            query: [
+                "select=id,oem_part_number,description,reorder_point",
+                "oem_part_number=in.(\(encoded))",
+                "order=oem_part_number.asc",
+                "limit=\(cap)",
+            ].joined(separator: "&")
+        )
+        if items.isEmpty {
+            return CatalogBrowseResult(items: [], categories: [])
+        }
+        let ids = items.map(\.id)
+        let oems = items.map(\.oemPartNumber)
+        let priceByItem = try await loadDefaultPrices(ids)
+        let qtyByItem = try await loadSaleableQty(ids)
+        let catByOem = try await loadCategoryByOem(oems)
+        let list = items.map { row in
+            let price = priceByItem[row.id]
+            return CatalogListItem(
+                stockItemId: row.id,
+                oem: row.oemPartNumber,
+                name: row.description?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                    ?? row.oemPartNumber,
+                stock: catalogStockState(qty: qtyByItem[row.id] ?? 0, reorderPoint: row.reorderPoint),
+                usd: price.map { Decimal($0.unitPrice) },
+                category: catByOem[row.oemPartNumber]
             )
         }
         return CatalogBrowseResult(items: list, categories: [])
@@ -2151,6 +2329,24 @@ private struct PncCodeRow: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case pncCode = "pnc_code"
+    }
+}
+
+private struct VehicleMasterDbRow: Decodable {
+    let id: String?
+    let vinPrefix: String?
+    let chassisCode: String
+    let engineCode: String?
+    let productionYear: Int?
+    let modelVariant: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case vinPrefix = "vin_prefix"
+        case chassisCode = "chassis_code"
+        case engineCode = "engine_code"
+        case productionYear = "production_year"
+        case modelVariant = "model_variant"
     }
 }
 

@@ -119,7 +119,7 @@ fun CategoryPlpScreen(
         if (products.isEmpty() && !busy) {
             ShopHonestEmpty(
                 title = "No parts in this category",
-                body = "Stock for “$title” will appear here when catalog listings are published for this filter.",
+                body = "No items.",
                 modifier = Modifier.padding(24.dp),
             )
         } else {

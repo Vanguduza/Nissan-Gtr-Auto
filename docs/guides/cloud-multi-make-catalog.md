@@ -3,7 +3,8 @@
 Build a **multi-vehicle catalog on a cloud VM**: one PartSouq maker at a time, in **popularity order**, until the queue is finished. No parallel makers, no extra crawl workers.
 
 **Code:** `data-pipeline/partsouq_catalog_orchestrator.py`  
-**Maker order:** `data-pipeline/config/makers-by-popularity.json` (edit the `makers` array to reprioritize)
+**Maker order:** `data-pipeline/config/makers-by-popularity.json` (edit the `makers` array to reprioritize)  
+**Full pipeline + gates:** [partsouq-multimake-catalog-pipeline.md](./partsouq-multimake-catalog-pipeline.md) §2b, **§2c**, **§10 ACES/PCdb**, **§11 agent prompt**
 
 ---
 
@@ -15,9 +16,13 @@ Build a **multi-vehicle catalog on a cloud VM**: one PartSouq maker at a time, i
 | 2 | Orchestrator takes **maker #1** from the popularity file |
 | 3 | Crawl + parse run together until that maker’s catalog is done |
 | 4 | Outputs land in `out/makers/<slug>/bundle/` |
-| 5 | Orchestrator moves to **maker #2**, repeats until the list ends |
+| 5 | **Quality gate** — `filter_complete_bundle` + `parse_bundle_meta.json` (§2c) |
+| 6 | Optional **`--live-import --complete-only`** — no identity-only vehicles in Supabase |
+| 7 | Orchestrator moves to **maker #2**, repeats until the list ends |
 
 Each maker is isolated (own DB, cache, bundle). Safe to stop/restart the VM — work resumes from existing `out/makers/<slug>/` data.
+
+**Do not go live** until every imported fitment has **chassis + bbox + diagram_path** and categories are normalized (not `UNCATEGORIZED`).
 
 ---
 
@@ -33,10 +38,12 @@ docker compose -f docker-compose.satellites.yml --profile scrape up -d
 
 cd data-pipeline
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[scraping,dev]"
+pip install -e ".[scraping,dev,supabase]"
 ```
 
 Check FlareSolverr: `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8191/` → `200`
+
+Set Supabase env in `data-pipeline/.env` (or repo root `.env`): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 ---
 
@@ -55,8 +62,35 @@ python -m data_pipeline.partsouq_catalog_orchestrator \
 - **`--parallel-makers 1`** — default; never start maker #2 until maker #1 finishes  
 - **Popularity** — edit `config/makers-by-popularity.json`; first name in the list runs first  
 - **Smoke test one maker:** add `--makers Toyota --max-pages 50` instead of `--makers-file`  
+- **Nissan priority platforms first:** add `--priority-chassis` (see main guide §2b)
 
-Optional after each maker (or at the end): `--import-dry-run` or `--live-import` if Supabase env vars are set on the VM.
+### Live import (after §2c gates pass)
+
+```bash
+# Prefer frozen bundle + complete-only (production)
+python scripts/republish_erp_catalog.py \
+  --skip-refresh --live-import --complete-only \
+  --out-dir out/makers/nissan/bundle
+
+# Or orchestrator flag (verify gates manually until auto-gate is wired)
+python -m data_pipeline.partsouq_catalog_orchestrator \
+  --makers Nissan --live-import
+```
+
+**Pre-flight checklist:**
+
+```bash
+# 1) Bundle meta — uncategorized_pncs should be 0
+cat out/makers/nissan/bundle/parse_bundle_meta.json
+
+# 2) Complete-only filter stats (Python one-liner or republish dry path)
+python -c "from pathlib import Path; from data_pipeline.import_catalog import load_bundle; from data_pipeline.bundle_filter import filter_complete_bundle; import json; b=load_bundle(Path('out/makers/nissan/bundle')); _, m=filter_complete_bundle(b); print(json.dumps(m, indent=2))"
+
+# 3) Dry-run import
+python -m data_pipeline.import_catalog out/makers/nissan/bundle
+```
+
+**Enrichment is automatic:** the parse watcher writes EPC category labels and part display names into `scraped_data`; transform uses `--parse-db` + `refresh_bundle`. Optional **`pcdb_part_type_id`** mapping is a post-process before import (main guide §10).
 
 ---
 
@@ -104,7 +138,11 @@ data-pipeline/out/makers/
   manifest.json           ← progress / which makers finished
 ```
 
-Import one maker: `python -m data_pipeline.import_catalog out/makers/toyota/bundle --live`
+Import one maker (production):
+
+```bash
+python -m data_pipeline.import_catalog out/makers/toyota/bundle --live --complete-only
+```
 
 ---
 
@@ -126,5 +164,7 @@ Only run the orchestrator **once** on the VM. Do not run a second copy or a sepa
 - Use `--parallel-makers` > 1 unless you accept Cloudflare blocks  
 - Raise crawl `--workers` above 1 on PartSouq  
 - Run two orchestrators on the same `out/makers/` tree  
+- **Live-import without `--complete-only`** — identity-only vehicles pollute search  
+- Treat PartSouq watermarked GIFs as production diagram art — use licensed FAST/fixtures for customer-facing quality  
 
 Full pipeline details: [partsouq-multimake-catalog-pipeline.md](./partsouq-multimake-catalog-pipeline.md)

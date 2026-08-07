@@ -43,7 +43,7 @@ export default async function CheckoutReturnPage({
           </Link>
         )}
         <Link
-          href="/catalog"
+          href="/shop"
           className={styles.button}
           style={{ background: "var(--gtr-steel)" }}
         >

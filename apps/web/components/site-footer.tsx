@@ -19,8 +19,7 @@ export function SiteFooter() {
             <span>B2B price lists & credit hold</span>
           </p>
           <p>
-            <strong>No browser QR</strong>
-            <span>Counter & warehouse bridges only</span>
+            <strong>Genuine quality spares</strong>
           </p>
         </div>
       </div>
@@ -28,7 +27,8 @@ export function SiteFooter() {
         <div className={styles.bottomInner}>
           <p className={styles.mark}>Nissan GTR Auto · nissangtrauto.co.zw</p>
           <nav className={styles.links} aria-label="Footer">
-            <Link href="/catalog">Catalog</Link>
+            <Link href="/catalog">EPC catalog</Link>
+            <Link href="/shop">Shop stock</Link>
             <Link href="/account">My Account</Link>
             <Link href="/account/garage">My Garage</Link>
             <Link href="/kits">Kits</Link>

@@ -17,7 +17,7 @@ depend on it at build time. Output is ingested into Supabase via batch import sc
 - Rate limit: ≥1.5s between requests on PartSouq (see `config/scrape.json`) unless robots.txt permits more; keep jitter on.
 - User-Agent: identify as `GTR-Auto-CatalogBot/1.0 (+https://nissangtrauto.co.zw/bot)`.
 - Cache responses locally to avoid re-scraping unchanged pages.
-- **Catalog crawl (competitive defaults):** `queue_mode: hybrid` (prefer `/vehicle` then deep-first parts); concurrency 1 for FlareSolverr/host politeness; persist FS session + keepalive; never wipe VISITED cache/DBs to change claim order. Prefer one URL per distinct `vid` when touching claim logic. Exit on coverage (vids/identities/parse/CF), not PENDING=0 alone. Guide: `docs/guides/partsouq-multimake-catalog-pipeline.md` §2b.
+- **Catalog crawl (competitive defaults):** `queue_mode: hybrid` (prefer `/vehicle` then deep-first parts); concurrency 1 for FlareSolverr/host politeness; persist FS session + keepalive; never wipe VISITED cache/DBs to change claim order. Prefer one URL per distinct `vid` when touching claim logic. Exit on coverage + **§2c publish gates** (complete fitments, normalized categories), not PENDING=0 alone. Production import: **`--complete-only`**. Guide: `docs/guides/partsouq-multimake-catalog-pipeline.md` §2b–§2c, §10 ACES/PCdb.
 
 ## Nissan FAST EPC Parsing
 - Hierarchy: Model Variant → Engine/Chassis Code → Sub-Assembly → Diagram.
@@ -33,11 +33,11 @@ depend on it at build time. Output is ingested into Supabase via batch import sc
 ## Output Schema
 All pipeline output must conform to the JSON schema in `data-pipeline/schemas/`:
 - `vehicle_master.schema.json`
-- `pnc_categories.schema.json`
+- `pnc_categories.schema.json` — includes optional `pcdb_part_type_id`, `assembly_group_id`, `catalog_section_path` (§10 ACES/PCdb in multimake guide)
 - `part_fitment.schema.json`
 - `diagram_assets.schema.json`
 
-Validate output with `jsonschema` before import.
+Validate output with `jsonschema` before import. Production import must use **`filter_complete_bundle`** / `--complete-only` (§2c).
 
 ## Indexing
 Push aggregated hierarchy into Meilisearch (or configured search index) after import.

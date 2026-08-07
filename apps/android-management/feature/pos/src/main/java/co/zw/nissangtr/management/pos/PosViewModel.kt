@@ -608,6 +608,13 @@ class PosViewModel(
         }
     }
 
+    /** EPC diagram / parts table → till cart (same path as search hit). */
+    fun addOemToCart(oem: String) {
+        addPartFromCatalog(CatalogPartHit(oemPartNumber = oem.trim()))
+    }
+
+    fun rpcForEpc(): RpcClient = rpc
+
     private suspend fun addPartFromCatalogWithCart(hit: CatalogPartHit, qty: Double?) {
         val cartId = _state.value.cartId.trim()
         when {

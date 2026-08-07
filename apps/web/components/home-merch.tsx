@@ -35,37 +35,37 @@ const categoryTiles: {
   Icon: LucideIcon;
 }[] = [
   {
-    href: "/catalog?cat=brakes",
+    href: "/shop?cat=brakes",
     label: "Brakes",
     blurb: "Pads, discs, hoses",
     Icon: CircleDot,
   },
   {
-    href: "/catalog?cat=filters",
+    href: "/shop?cat=filters",
     label: "Filters",
     blurb: "Oil, air, cabin, fuel",
     Icon: Filter,
   },
   {
-    href: "/catalog?cat=engine",
+    href: "/shop?cat=engine",
     label: "Engine",
     blurb: "Belts, sensors, gaskets",
     Icon: Cog,
   },
   {
-    href: "/catalog?cat=suspension",
+    href: "/shop?cat=suspension",
     label: "Suspension",
     blurb: "Arms, bushes, shocks",
     Icon: ArrowUpDown,
   },
   {
-    href: "/catalog?cat=electrical",
+    href: "/shop?cat=electrical",
     label: "Electrical",
     blurb: "Batteries, lighting",
     Icon: Zap,
   },
   {
-    href: "/catalog?cat=cooling",
+    href: "/shop?cat=cooling",
     label: "Cooling",
     blurb: "Radiators, pumps",
     Icon: Droplets,
@@ -140,23 +140,11 @@ export function HomeMerch() {
                 </span>
                 Categories
               </h2>
-              <Link href="/catalog" className={chipStyles.seeAll}>
+              <Link href="/shop" className={chipStyles.seeAll}>
                 See all
                 <ArrowRight size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
               </Link>
             </div>
-            <ul className={chipStyles.chips}>
-              {categoryTiles.map((c) => (
-                <li key={c.href}>
-                  <Link href={c.href} className={chipStyles.chip}>
-                    <span className={chipStyles.chipIcon} aria-hidden>
-                      <c.Icon size={iconSizeMd} strokeWidth={iconStroke} />
-                    </span>
-                    <span className={chipStyles.chipLabel}>{c.label}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
             <ul className={styles.catGrid}>
               {categoryTiles.map((c) => (
                 <li key={`tile-${c.href}`}>
@@ -208,14 +196,14 @@ export function HomeMerch() {
               <ProductRail
                 title="Top movers"
                 lede="Highest on-hand qty in saleable warehouses — demand proxy until sales analytics feed the storefront."
-                seeAllHref="/catalog?sort=movers"
+                seeAllHref="/shop?sort=movers"
                 items={rails.movers}
                 emptyHint="No stock rows yet for movers."
               />
               <ProductRail
                 title="Newest arrivals"
                 lede="Recently added stock items — newest first."
-                seeAllHref="/catalog?sort=newest"
+                seeAllHref="/shop?sort=newest"
                 items={rails.newest}
                 emptyHint="No recent stock items."
               />

@@ -24,6 +24,8 @@ export {
   partHref,
 };
 
+export { epcHref, catalogPath } from "@gtr/shared";
+
 /** Facets requested from Meili Edge proxy — mirrors mobile InlineSearch. */
 export const MEILI_FACETS = [
   "category_name",

@@ -16,7 +16,7 @@ struct PayScreen: View {
     var body: some View {
         ShopDefaultScreen(
             title: "Secure payment",
-            subtitle: "ContiPay · Paynow · EcoCash",
+            subtitle: nil,
             scrollable: false
         ) {
             List {

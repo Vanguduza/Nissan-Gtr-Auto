@@ -503,11 +503,15 @@ export function StaffPosPanel() {
 
   return (
     <div className={styles.form}>
-      <p className={styles.storeLinkWrap}>
-        <Link href="/catalog" className={styles.storeLink}>
-          Open store catalog
-        </Link>
-      </p>
+        <p className={styles.storeLinkWrap}>
+          <Link href="/catalog" className={styles.storeLink}>
+            EPC diagrams
+          </Link>
+          {" · "}
+          <Link href="/shop" className={styles.storeLink}>
+            Shop stock
+          </Link>
+        </p>
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>Till · warehouse &amp; cart</legend>

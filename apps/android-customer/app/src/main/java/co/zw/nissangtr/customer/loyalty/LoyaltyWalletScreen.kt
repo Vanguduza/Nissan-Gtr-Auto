@@ -10,7 +10,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopSectionHeader
@@ -27,16 +26,11 @@ fun LoyaltyWalletScreen(
 
     ShopDefaultScreen(
         title = "Loyalty wallet",
-        subtitle = "Points balance",
+        subtitle = null,
         onBack = onBack,
         modifier = modifier,
         loading = state.busy && state.balance == null,
     ) {
-        Text(
-            "Live balance via ${RpcNames.GET_LOYALTY_BALANCE}.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         state.balance?.let { bal ->
             ShopSectionHeader(title = "Balance", actionLabel = null)
             Text(
@@ -61,7 +55,7 @@ fun LoyaltyWalletScreen(
             if (!state.busy && state.error == null) {
                 ShopHonestEmpty(
                     title = "No loyalty account",
-                    body = "Points appear here when a loyalty account is linked to your customer profile.",
+                    body = "No loyalty points.",
                 )
             }
         }

@@ -38,6 +38,7 @@ logger = logging.getLogger("data_pipeline.partsouq_catalog_orchestrator")
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SCRAPE_CONFIG = PACKAGE_ROOT / "config" / "scrape.json"
 DEFAULT_MAKERS_FILE = PACKAGE_ROOT / "config" / "partsouq_makers.json"
+DEFAULT_PRIORITY_CHASSIS_FILE = PACKAGE_ROOT / "config" / "priority_chassis.json"
 DEFAULT_OUT_ROOT = Path("out/makers")
 DEFAULT_FLARESOLVERR_HEALTH = "http://127.0.0.1:8191"
 DEFAULT_BASE_URL = "https://partsouq.com"
@@ -226,6 +227,8 @@ def write_maker_scrape_config(
     data["chassis_catalogs_path"] = str(catalogs.resolve())
     if flaresolverr_url:
         data["flaresolverr_url"] = flaresolverr_url
+    # Priority chassis is passed via crawl CLI only — do not persist in scrape.json
+    # (would accidentally re-enable filter on full-crawl restart).
     proxies = data.get("proxies_file") or "config/proxies.json"
     if not Path(proxies).is_absolute():
         pkg_proxies = PACKAGE_ROOT / proxies
@@ -465,6 +468,7 @@ class OrchestratorOptions:
     max_concurrent: int | None = None
     verbose: bool = False
     dry_run: bool = False
+    priority_chassis_file: Path | None = None
 
 
 def build_crawl_argv(paths: MakerPaths, opts: OrchestratorOptions) -> list[str]:
@@ -503,6 +507,8 @@ def build_crawl_argv(paths: MakerPaths, opts: OrchestratorOptions) -> list[str]:
         argv.extend(["--max-concurrent", str(opts.max_concurrent)])
     if opts.verbose:
         argv.append("-v")
+    if opts.priority_chassis_file is not None:
+        argv.extend(["--priority-chassis-file", str(opts.priority_chassis_file)])
     return argv
 
 
@@ -570,6 +576,8 @@ def build_transform_argv(paths: MakerPaths, opts: OrchestratorOptions) -> list[s
         "--transform-only",
         "--state-db",
         str(paths.state_db),
+        "--parse-db",
+        str(paths.parse_db),
         "--cache-dir",
         str(paths.cache_dir),
         "--out-dir",
@@ -747,7 +755,9 @@ def run_orchestrator(opts: OrchestratorOptions) -> int:
             "mode": "dry_run" if opts.dry_run else "live",
             "identity_note": (
                 "vid→chassis→vin_prefix + backfill + catch-up run inside "
-                "cache_parse_worker per maker (no separate mapping process)."
+                "cache_parse_worker per maker (no separate mapping process). "
+                "Final transform merges identity + parts (refresh_bundle) with "
+                "EPC category + oem_display_names enrichment."
             ),
             "resource_note": (
                 "Default parallel_makers=1 queues makers one-at-a-time; within each, "
@@ -827,6 +837,8 @@ examples:
   python -m data_pipeline.partsouq_catalog_orchestrator --makers Toyota,Honda,Nissan
   python -m data_pipeline.partsouq_catalog_orchestrator --makers all --parallel-makers 2
   python -m data_pipeline.partsouq_catalog_orchestrator --makers Toyota --max-pages 30 --import-dry-run
+  python -m data_pipeline.partsouq_catalog_orchestrator --makers Nissan --live-import
+  # --live-import auto-enables diagram download+upload (Storage catalog-diagrams)
 
 resource notes:
   Default --parallel-makers 1 queues makers. Within each maker, crawl and
@@ -861,11 +873,27 @@ resource notes:
     p.add_argument("--flaresolverr-url", default=DEFAULT_FLARESOLVERR_HEALTH)
     p.add_argument("--download-diagrams", action="store_true")
     p.add_argument("--upload-diagrams", action="store_true")
+    p.add_argument(
+        "--skip-diagram-upload",
+        action="store_true",
+        help="With --live-import, do not auto-enable diagram download/upload",
+    )
     p.add_argument("--import-dry-run", action="store_true")
     p.add_argument("--live-import", action="store_true")
     p.add_argument("--no-transform-after", action="store_true")
     p.add_argument("--no-parse-watch", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="Prepare dirs/configs/manifest only")
+    p.add_argument(
+        "--priority-chassis",
+        action="store_true",
+        help="Crawl only config/priority_chassis.json platforms before full maker crawl",
+    )
+    p.add_argument(
+        "--priority-chassis-file",
+        type=Path,
+        default=None,
+        help="Explicit priority chassis JSON (overrides --priority-chassis default path)",
+    )
     p.add_argument("--list-makers", action="store_true")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
@@ -875,6 +903,16 @@ def options_from_args(args: argparse.Namespace, makers: list[str]) -> Orchestrat
     api = args.flaresolverr_url.rstrip("/")
     if not api.endswith("/v1"):
         api = api + "/v1"
+    download_diagrams = args.download_diagrams
+    upload_diagrams = args.upload_diagrams
+    if args.live_import and not args.skip_diagram_upload:
+        download_diagrams = True
+        upload_diagrams = True
+    priority_file: Path | None = None
+    if args.priority_chassis_file is not None:
+        priority_file = args.priority_chassis_file
+    elif args.priority_chassis:
+        priority_file = DEFAULT_PRIORITY_CHASSIS_FILE
     return OrchestratorOptions(
         makers=makers,
         out_root=args.out_root,
@@ -890,8 +928,8 @@ def options_from_args(args: argparse.Namespace, makers: list[str]) -> Orchestrat
         skip_flaresolverr_check=args.skip_flaresolverr_check,
         flaresolverr_health_url=args.flaresolverr_url,
         flaresolverr_api_url=api,
-        download_diagrams=args.download_diagrams,
-        upload_diagrams=args.upload_diagrams,
+        download_diagrams=download_diagrams,
+        upload_diagrams=upload_diagrams,
         import_dry_run=args.import_dry_run,
         live_import=args.live_import,
         transform_after=not args.no_transform_after,
@@ -900,6 +938,7 @@ def options_from_args(args: argparse.Namespace, makers: list[str]) -> Orchestrat
         max_concurrent=args.max_concurrent,
         verbose=args.verbose,
         dry_run=args.dry_run,
+        priority_chassis_file=priority_file.resolve() if priority_file else None,
     )
 
 

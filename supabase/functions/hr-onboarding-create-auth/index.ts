@@ -474,6 +474,7 @@ async function handleCreateAuth(req: Request): Promise<Response> {
             email,
             password: tempPassword,
             email_confirm: true,
+            app_metadata: { gtr_provisioned_via: "hr_onboarding" },
             user_metadata: { full_name: fullName, employee_code: employeeCode },
           });
         if (createErr || !createdUser.user) {

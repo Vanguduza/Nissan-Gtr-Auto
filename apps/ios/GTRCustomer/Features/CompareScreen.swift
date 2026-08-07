@@ -11,7 +11,7 @@ struct CompareScreen: View {
     @State private var usingGuestStore = false
 
     var body: some View {
-        ShopDefaultScreen(title: "Compare", subtitle: "Attribute matrix", scrollable: false) {
+        ShopDefaultScreen(title: "Compare", subtitle: nil, scrollable: false) {
             List {
             Section {
                 Text(usingGuestStore

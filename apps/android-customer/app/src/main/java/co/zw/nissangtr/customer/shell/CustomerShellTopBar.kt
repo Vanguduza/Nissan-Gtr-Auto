@@ -1,11 +1,11 @@
 package co.zw.nissangtr.customer.shell
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
@@ -27,25 +26,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import co.zw.nissangtr.ui.theme.GtrLogo
+import co.zw.nissangtr.customer.R
 
 /**
- * Customer storefront top strip — icon-over-label actions (same pattern as bottom bar),
- * no rounded/circle chrome. Logo is larger than the action icons.
+ * Large logo flush LEFT (transparent asset); icon-only Menu / Account / Cart on the RIGHT.
+ * Sign-in lives in Settings / Account.
  */
 @Composable
 fun CustomerShellTopBar(
-    signedInEmail: String?,
     cartBadgeCount: Int,
     onOpenMenu: () -> Unit,
     onOpenAccount: () -> Unit,
     onOpenCart: () -> Unit,
-    onSignIn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -56,29 +56,29 @@ fun CustomerShellTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            ShellLabeledIconButton(
-                icon = Icons.Filled.Menu,
-                label = "Menu",
-                onClick = onOpenMenu,
-            )
-            GtrLogo(
-                modifier = Modifier
-                    .height(40.dp)
-                    .widthIn(min = 110.dp, max = 140.dp),
-            )
-        }
-
+        Image(
+            painter = painterResource(R.drawable.gtr_logo_clear),
+            contentDescription = "Nissan GTR Auto",
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.CenterStart,
+            modifier = Modifier
+                .height(76.dp)
+                .widthIn(max = 220.dp)
+                .padding(start = 2.dp)
+                .background(Color.Transparent),
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            ShellLabeledIconButton(
+            ShellIconOnlyButton(
+                icon = Icons.Filled.Menu,
+                contentDescription = "Menu",
+                onClick = onOpenMenu,
+            )
+            ShellIconOnlyButton(
                 icon = Icons.Filled.AccountCircle,
-                label = "My Account",
+                contentDescription = "My Account",
                 onClick = onOpenAccount,
             )
             BadgedBox(
@@ -88,30 +88,40 @@ fun CustomerShellTopBar(
                     }
                 },
             ) {
-                ShellLabeledIconButton(
+                ShellIconOnlyButton(
                     icon = Icons.Filled.ShoppingCart,
-                    label = "Cart",
+                    contentDescription = "Cart",
                     onClick = onOpenCart,
-                )
-            }
-            if (signedInEmail != null) {
-                ShellLabeledIconButton(
-                    icon = Icons.Filled.AccountCircle,
-                    label = "Signed in",
-                    onClick = onOpenAccount,
-                )
-            } else {
-                ShellLabeledIconButton(
-                    icon = Icons.Filled.Login,
-                    label = "Sign in",
-                    onClick = onSignIn,
                 )
             }
         }
     }
 }
 
-/** Bottom-nav style: icon above label, flat (no rounded border / circle). */
+@Composable
+fun ShellIconOnlyButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val indication = LocalIndication.current
+    Icon(
+        imageVector = icon,
+        contentDescription = contentDescription,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = modifier
+            .clickable(
+                interactionSource = interaction,
+                indication = indication,
+                onClick = onClick,
+            )
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .size(26.dp),
+    )
+}
+
 @Composable
 fun ShellLabeledIconButton(
     icon: ImageVector,

@@ -144,7 +144,7 @@ export function WishlistPanel() {
     return (
       <p className={styles.muted}>
         No saved SKUs yet. Open a part page and use Wishlist, or browse the{" "}
-        <Link href="/catalog" className={styles.btnGhost}>
+        <Link href="/shop" className={styles.btnGhost}>
           catalog
         </Link>
         .{" "}

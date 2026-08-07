@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// Flat icon-only shell action (no label).
+struct ShellIconOnlyButton: View {
+    var systemImage: String
+    var contentDescription: String
+    var onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Image(systemName: systemImage)
+                .font(.system(size: 22))
+                .foregroundStyle(GTRColors.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .accessibilityLabel(contentDescription)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// Icon-over-label shell action — matches bottom-bar style; no rounded circle chrome.
 struct ShellLabeledIconButton: View {
     var systemImage: String
@@ -25,26 +44,36 @@ struct ShellLabeledIconButton: View {
     }
 }
 
-/// Customer storefront top strip — labeled icons + large logo.
+/// Customer storefront top strip — large logo LEFT; icon-only Menu / Account / Cart RIGHT.
+/// Sign-in lives in Settings / Account (not the top bar).
 struct CustomerShellTopBar: View {
-    var signedInEmail: String?
     var cartBadgeCount: Int
     var onOpenMenu: () -> Void
     var onOpenAccount: () -> Void
     var onOpenCart: () -> Void
-    var onSignIn: () -> Void
 
     var body: some View {
         HStack(spacing: 2) {
-            HStack(spacing: 2) {
-                ShellLabeledIconButton(systemImage: "line.3.horizontal", label: "Menu", onTap: onOpenMenu)
-                GTRLogo(height: 40)
-                    .frame(minWidth: 110, maxWidth: 140, alignment: .leading)
-            }
+            GTRLogo(height: 76)
+                .frame(maxHeight: 76, alignment: .leading)
+                .padding(.leading, 2)
             Spacer(minLength: 4)
-            ShellLabeledIconButton(systemImage: "person.crop.circle", label: "My Account", onTap: onOpenAccount)
+            ShellIconOnlyButton(
+                systemImage: "line.3.horizontal",
+                contentDescription: "Menu",
+                onTap: onOpenMenu
+            )
+            ShellIconOnlyButton(
+                systemImage: "person.crop.circle",
+                contentDescription: "My Account",
+                onTap: onOpenAccount
+            )
             ZStack(alignment: .topTrailing) {
-                ShellLabeledIconButton(systemImage: "cart.fill", label: "Cart", onTap: onOpenCart)
+                ShellIconOnlyButton(
+                    systemImage: "cart.fill",
+                    contentDescription: "Cart",
+                    onTap: onOpenCart
+                )
                 if cartBadgeCount > 0 {
                     Text(cartBadgeCount > 99 ? "99+" : "\(cartBadgeCount)")
                         .font(.system(size: 10).bold())
@@ -54,11 +83,6 @@ struct CustomerShellTopBar: View {
                         .background(GTRColors.primary, in: Capsule())
                         .offset(x: 6, y: -2)
                 }
-            }
-            if signedInEmail != nil {
-                ShellLabeledIconButton(systemImage: "person.crop.circle.fill", label: "Signed in", onTap: onOpenAccount)
-            } else {
-                ShellLabeledIconButton(systemImage: "arrow.right.circle", label: "Sign in", onTap: onSignIn)
             }
         }
         .padding(.horizontal, 4)
@@ -151,7 +175,6 @@ let gtrRootMenu: [RootMenuDef] = [
     .init(label: "Wiper Blades", systemImage: "drop", kind: .emptySoon),
     .init(label: "Deals", systemImage: "tag", kind: .deals),
     .init(label: "Shop By Brand", systemImage: "car", kind: .emptySoon),
-    .init(label: "MOT / Service", systemImage: "checkmark.shield", kind: .emptySoon),
 ]
 
 struct HamburgerMenuOverlay: View {
@@ -209,7 +232,7 @@ struct HamburgerMenuOverlay: View {
                         }
                     case .deals:
                         backButton("Menu") { pane = .root }
-                        ShopHonestEmpty(title: "No deals feed yet", bodyText: "Promo API is not wired — we never invent sale SKUs.")
+                        ShopHonestEmpty(title: "No deals feed yet", bodyText: "No deals.")
                             .padding()
                     case .about:
                         backButton("Menu") { pane = .root }
@@ -217,11 +240,11 @@ struct HamburgerMenuOverlay: View {
                             .padding()
                     case .contact:
                         backButton("Menu") { pane = .root }
-                        ShopHonestEmpty(title: "Contact", bodyText: "Harare counter · WhatsApp via Live chat · nissangtrauto.co.zw/contact")
+                        ShopHonestEmpty(title: "Contact", bodyText: "Harare counter · nissangtrauto.co.zw/contact")
                             .padding()
                     case .store:
                         backButton("Menu") { pane = .root }
-                        ShopHonestEmpty(title: "Store locator", bodyText: "Harare counter map ships with the storefront map module.")
+                        ShopHonestEmpty(title: "Store locator", bodyText: "Harare counter.")
                             .padding()
                     }
                 }
@@ -252,7 +275,7 @@ struct HamburgerMenuOverlay: View {
     }
 
     private func backButton(_ label: String, action: @escaping () -> Void) -> some View {
-        Button("← \(label)", action: action)
+        Button("â† \(label)", action: action)
             .font(GTRType.label(.subheadline))
             .foregroundStyle(GTRColors.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -284,6 +307,7 @@ struct HamburgerMenuOverlay: View {
 struct SettingsHubScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     var onOpenAccount: () -> Void
+    var onSignIn: (() -> Void)? = nil
     @State private var deleteMessage: String?
     @State private var showDeleteConfirm = false
 
@@ -298,63 +322,65 @@ struct SettingsHubScreen: View {
     ]
 
     var body: some View {
-        ShopDefaultScreen(title: "Settings", subtitle: "Prefs · legal · account", onBack: nil) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(session.usesFake ? "Fake mode — auth optional" : "Live Supabase session")
-                        .font(GTRType.body(.footnote))
-                        .foregroundStyle(GTRColors.silverDim)
-                    if let email = session.userEmail {
-                        Text(email).font(GTRType.body(.body))
+        // Body-only under TabView — avoid nested ShopDefaultScreen scroll/chrome crashes.
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Settings")
+                    .font(GTRType.displaySemi(.title2))
+                    .foregroundStyle(GTRColors.steel)
+
+                if let email = session.userEmail {
+                    Text(email).font(GTRType.body(.body))
+                }
+
+                Text("Appearance").font(GTRType.displaySemi(.headline))
+                Picker("Theme", selection: $session.themeMode) {
+                    ForEach(AppThemeMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
                     }
+                }
+                .pickerStyle(.segmented)
 
-                    Text("Appearance").font(GTRType.displaySemi(.headline))
-                    Picker("Theme", selection: $session.themeMode) {
-                        ForEach(AppThemeMode.allCases) { mode in
-                            Text(mode.label).tag(mode)
-                        }
+                Text("Notifications").font(GTRType.displaySemi(.headline))
+                Toggle("Receive push notifications", isOn: $session.receivePush)
+
+                Text("Legal & help").font(GTRType.displaySemi(.headline))
+                ForEach(legalLinks, id: \.0) { title, url in
+                    if let link = URL(string: url) {
+                        Link(title, destination: link)
+                            .font(GTRType.label(.body))
                     }
-                    .pickerStyle(.segmented)
+                }
 
-                    Text("Notifications").font(GTRType.displaySemi(.headline))
-                    Toggle("Receive push notifications", isOn: $session.receivePush)
-                    Text("Preference saved on device. Push delivery needs FCM wiring — not enabled yet.")
-                        .font(GTRType.body(.caption))
-                        .foregroundStyle(GTRColors.silverDim)
-
-                    Text("Legal & help").font(GTRType.displaySemi(.headline))
-                    ForEach(legalLinks, id: \.0) { title, url in
-                        if let link = URL(string: url) {
-                            Link(title, destination: link)
-                                .font(GTRType.label(.body))
-                        }
-                    }
-
-                    Text("Account").font(GTRType.displaySemi(.headline))
-                    NavigationLink("Edit profile") { EditProfileScreen() }
+                Text("Account").font(GTRType.displaySemi(.headline))
+                if session.userEmail == nil, let onSignIn {
+                    Button("Sign in", action: onSignIn)
                         .font(GTRType.label(.body))
-                    Button("My Account", action: onOpenAccount)
-                        .font(GTRType.label(.body))
-                    if session.isSignedIn && (!session.usesFake || session.userEmail != nil) {
-                        Button("Sign out", role: .destructive) { session.signOut() }
-                    }
-                    Button("Delete account", role: .destructive) { showDeleteConfirm = true }
-                    if let deleteMessage {
-                        Text(deleteMessage)
-                            .font(GTRType.body(.caption))
-                            .foregroundStyle(GTRColors.silverDim)
-                    }
-
-                    let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-                    let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-                    Text("App version \(version) (\(build))")
+                }
+                NavigationLink("Edit profile") { EditProfileScreen() }
+                    .font(GTRType.label(.body))
+                Button("My Account", action: onOpenAccount)
+                    .font(GTRType.label(.body))
+                if session.isSignedIn && (!session.usesFake || session.userEmail != nil) {
+                    Button("Sign out", role: .destructive) { session.signOut() }
+                }
+                Button("Delete account", role: .destructive) { showDeleteConfirm = true }
+                if let deleteMessage {
+                    Text(deleteMessage)
                         .font(GTRType.body(.caption))
                         .foregroundStyle(GTRColors.silverDim)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+
+                let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+                Text("App version \(version) (\(build))")
+                    .font(GTRType.body(.caption))
+                    .foregroundStyle(GTRColors.silverDim)
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(GTRColors.chalk.ignoresSafeArea())
         .confirmationDialog(
             "Delete account?",
             isPresented: $showDeleteConfirm,

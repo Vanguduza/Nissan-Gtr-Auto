@@ -47,7 +47,7 @@ fun AddressScreen(
 
     ShopDefaultScreen(
         title = if (state.route == AddressScreenRoute.Edit) "Edit address" else "Addresses",
-        subtitle = "Delivery · map pick",
+        subtitle = null,
         onBack = {
             if (state.route == AddressScreenRoute.Edit) viewModel.backToList() else onBack()
         },
@@ -70,7 +70,7 @@ fun AddressScreen(
                 if (state.addresses.isEmpty()) {
                     ShopHonestEmpty(
                         title = "No addresses yet",
-                        body = "Add a delivery address for Nationwide dispatch. Map pick stores lat/lng with the address.",
+                        body = "No addresses.",
                     )
                 } else {
                     state.addresses.forEach { addr ->
@@ -276,7 +276,7 @@ fun AddressCheckoutPicker(
         if (addresses.isEmpty()) {
             ShopHonestEmpty(
                 title = "Add an address",
-                body = "Nationwide dispatch needs a saved shipping address.",
+                body = "No shipping address.",
             )
             Button(onClick = onManageAddresses, modifier = Modifier.fillMaxWidth()) {
                 Text("Add address")
@@ -289,7 +289,7 @@ fun AddressCheckoutPicker(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        (if (selected) "✓ " else "") + addr.summaryLabel(),
+                        (if (selected) "âœ“ " else "") + addr.summaryLabel(),
                         maxLines = 2,
                     )
                 }

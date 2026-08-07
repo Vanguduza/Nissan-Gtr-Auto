@@ -41,10 +41,30 @@
   color: var(--gtr-red);
   font-weight: 600;
   text-decoration: none;
+  min-height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 .link:hover,
 .link:focus-visible {
   color: var(--gtr-red-hover);
   text-decoration: none;
+}
+
+@media (max-width: 520px) {
+  .inner {
+    padding: 0.55rem clamp(0.75rem, 3vw, 1rem);
+    gap: 0.45rem 0.65rem;
+  }
+
+  .vehicle {
+    flex: 1 1 100%;
+    word-break: break-word;
+  }
+
+  .links {
+    margin-left: 0;
+    width: 100%;
+  }
 }

@@ -17,19 +17,26 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import kotlinx.coroutines.launch
 
 /**
- * Email/password sign-in. Live: [SupabaseRpcClient.signInWithEmail] → GoTrue session.
+ * Email/password sign-in + optional Google (Credential Manager → GoTrue ID token).
+ * Live: [SupabaseRpcClient.signInWithEmail] / [SupabaseRpcClient.signInWithGoogleIdToken].
  * Fake: [allowSkip] shows Continue without signing in.
+ *
+ * Google button shows only when [googleServerClientId] is non-blank (Web client ID from
+ * `local.properties` → BuildConfig).
  */
 @Composable
 fun SignInScreen(
@@ -38,8 +45,9 @@ fun SignInScreen(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "Sign in",
-    subtitle: String = "Customer account",
+    subtitle: String? = null,
     sessionViewModel: AuthSessionViewModel? = null,
+    googleServerClientId: String = "",
 ) {
     if (supabase == null) {
         FakeSignInPlaceholder(
@@ -55,17 +63,16 @@ fun SignInScreen(
     val vm = sessionViewModel
         ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
     val state by vm.signIn.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val googleEnabled = googleServerClientId.isNotBlank()
+    var googleError by remember { mutableStateOf<String?>(null) }
 
     ShopDefaultScreen(
         title = title,
         subtitle = subtitle,
         modifier = modifier,
     ) {
-        Text(
-            "Session persisted by supabase-kt Auth — no JWTs in BuildConfig.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         OutlinedTextField(
             value = state.email,
             onValueChange = vm::onEmailChange,
@@ -93,7 +100,7 @@ fun SignInScreen(
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
-            shape = MaterialTheme.shapes.extraSmall,
+            shape = MaterialTheme.shapes.medium,
         ) {
             Text(
                 when {
@@ -113,7 +120,7 @@ fun SignInScreen(
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy,
-            shape = MaterialTheme.shapes.extraSmall,
+            shape = MaterialTheme.shapes.medium,
         ) {
             Text(
                 if (state.mode == AuthFormMode.SignIn) "Need an account? Sign up"
@@ -126,17 +133,41 @@ fun SignInScreen(
         ) {
             Text("Forgot password?")
         }
-        Text(
-            "Social login (Google / Facebook) appears only when GoTrue providers are configured — hidden until then.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (googleEnabled) {
+            OutlinedButton(
+                onClick = {
+                    googleError = null
+                    scope.launch {
+                        try {
+                            val result = GoogleIdTokenSignIn.requestIdToken(
+                                context = context,
+                                serverClientId = googleServerClientId,
+                            )
+                            vm.signInWithGoogleIdToken(result.idToken, result.rawNonce)
+                        } catch (e: Exception) {
+                            googleError = GoogleIdTokenSignIn.userMessage(e)
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.busy,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(if (state.busy) "Signing in with Google…" else "Continue with Google")
+            }
+        } else {
+            Text(
+                "Google Sign-In appears when GOOGLE_WEB_CLIENT_ID (or GOOGLE_SERVER_CLIENT_ID) is set in local.properties.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (allowSkip) {
             OutlinedButton(
                 onClick = onSkip,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.busy,
-                shape = MaterialTheme.shapes.extraSmall,
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("Continue without signing in")
             }
@@ -144,7 +175,7 @@ fun SignInScreen(
         state.info?.let {
             Text(it, style = MaterialTheme.typography.bodySmall)
         }
-        state.error?.let {
+        (googleError ?: state.error)?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
         }
     }
@@ -153,7 +184,7 @@ fun SignInScreen(
 @Composable
 private fun FakeSignInPlaceholder(
     title: String,
-    subtitle: String,
+    subtitle: String?,
     allowSkip: Boolean,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
@@ -164,9 +195,9 @@ private fun FakeSignInPlaceholder(
         modifier = modifier,
     ) {
         Text(
-            "RPC Fake mode — GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
+            "GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.error,
         )
         if (allowSkip) {
             Button(
@@ -190,6 +221,7 @@ fun AuthGate(
     supabase: SupabaseRpcClient?,
     allowFakeSkip: Boolean = true,
     showFakeLogin: Boolean = false,
+    googleServerClientId: String = "",
     content: @Composable (
         email: String?,
         onSignOut: () -> Unit,
@@ -231,6 +263,7 @@ fun AuthGate(
                 allowSkip = false,
                 onSkip = {},
                 sessionViewModel = vm,
+                googleServerClientId = googleServerClientId,
             )
         }
         is AuthGateState.SignedIn -> {

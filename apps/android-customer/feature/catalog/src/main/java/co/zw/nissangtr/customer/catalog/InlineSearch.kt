@@ -105,9 +105,9 @@ fun InlineCatalogSearch(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, GtrColors.Silver, RoundedCornerShape(4.dp))
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

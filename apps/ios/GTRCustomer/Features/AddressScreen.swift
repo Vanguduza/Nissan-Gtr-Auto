@@ -21,7 +21,7 @@ struct AddressScreen: View {
     var body: some View {
         ShopDefaultScreen(
             title: route == .edit ? "Edit address" : "Addresses",
-            subtitle: "Delivery · MapKit pick",
+            subtitle: nil,
             onBack: route == .edit ? addressEditBack : nil,
             scrollable: false
         ) {
@@ -91,7 +91,7 @@ struct AddressScreen: View {
                 if addresses.isEmpty {
                     ShopHonestEmpty(
                         title: "No addresses yet",
-                        bodyText: "Add a delivery address for Nationwide dispatch. Map pick stores lat/lng with the address."
+                        bodyText: "No addresses."
                     )
                 } else {
                     ForEach(addresses) { addr in
@@ -291,7 +291,7 @@ struct AddressScreen: View {
             addresses = try await session.api.listOwnAddresses()
             route = .list
             form = AddressFormState()
-            message = "upsert_customer_address → \(id.uuidString.prefix(8))…"
+            message = "Address saved"
             error = nil
         } catch {
             self.error = error.localizedDescription

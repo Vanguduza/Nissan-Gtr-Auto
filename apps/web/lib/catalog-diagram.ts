@@ -135,3 +135,54 @@ export async function loadSampleCatalogDiagram(
 
   return loadOemCatalogDiagram(client, first.oem_part_number);
 }
+
+/**
+ * Resolve hierarchy diagram image URL.
+ * Order: storage_path → catalog-diagrams public URL → image_url fallback.
+ */
+export function resolveDiagramImageUrl(
+  client: SupabaseClient,
+  diagram: { storage_path?: string | null; image_url?: string | null },
+): string | null {
+  const storage = diagram.storage_path?.trim();
+  if (storage) {
+    const fromStorage = catalogDiagramPublicUrl(client, storage);
+    if (fromStorage) return fromStorage;
+  }
+  const fallback = diagram.image_url?.trim();
+  return fallback || null;
+}
+
+/** Hotspot layout: 0–1 fractions vs absolute pixels (shared by EPC canvas + stub). */
+export function hotspotStyle(h: {
+  x: number | null;
+  y: number | null;
+  width: number | null;
+  height: number | null;
+}): import("react").CSSProperties | null {
+  if (
+    h.x == null ||
+    h.y == null ||
+    h.width == null ||
+    h.height == null ||
+    !(h.width > 0) ||
+    !(h.height > 0)
+  ) {
+    return null;
+  }
+  const asFraction = h.x <= 1 && h.y <= 1 && h.width <= 1 && h.height <= 1;
+  if (asFraction) {
+    return {
+      left: `${h.x * 100}%`,
+      top: `${h.y * 100}%`,
+      width: `${h.width * 100}%`,
+      height: `${h.height * 100}%`,
+    };
+  }
+  return {
+    left: h.x,
+    top: h.y,
+    width: h.width,
+    height: h.height,
+  };
+}

@@ -94,7 +94,7 @@ fun CatalogProduct.descriptionText(): String = buildString {
     append(name.trim())
     brand?.trim()?.takeIf { it.isNotEmpty() }?.let { append("\nBrand: $it") }
     category?.trim()?.takeIf { it.isNotEmpty() }?.let { append("\nCategory: $it") }
-    specs.forEach { append("\n· $it") }
+    specs.forEach { append("\n · $it") }
     if (replaces.isNotEmpty()) {
         append("\nReplaces / cross-ref: ${replaces.joinToString(", ")}")
     }

@@ -1,10 +1,11 @@
 import Foundation
 
-/// Minimal GoTrue password grant — same URLSession style as `PostgrestClient`.
+/// Minimal GoTrue client — password + OpenID `id_token` + PKCE exchange.
+/// Same URLSession style as `PostgrestClient` (no supabase-swift).
 ///
-/// `POST {SUPABASE_URL}/auth/v1/token?grant_type=password`
-/// Headers: `apikey`, `Content-Type: application/json`
-/// Body: `{ "email", "password" }`
+/// - Password: `POST …/auth/v1/token?grant_type=password`
+/// - Apple/Google native: `POST …/auth/v1/token?grant_type=id_token`
+/// - OAuth redirect: authorize → `gtrcustomer://auth/callback` → PKCE token
 public final class GoTrueAuthClient: @unchecked Sendable {
     public struct Session: Sendable, Equatable {
         public let accessToken: String
@@ -12,6 +13,16 @@ public final class GoTrueAuthClient: @unchecked Sendable {
         public let email: String?
         public let expiresIn: Int?
     }
+
+    public enum IdTokenProvider: String, Sendable {
+        case apple
+        case google
+    }
+
+    /// Preferred mobile auth callback — matches `docs/CUSTOMER_OAUTH_SETUP.md` + Android.
+    public static let preferredRedirectURL = "gtrcustomer://auth/callback"
+    public static let legacyRedirectURL = "gtr-customer://auth/callback"
+    public static let preferredCallbackScheme = "gtrcustomer"
 
     private let baseURL: URL
     private let anonKey: String
@@ -45,12 +56,130 @@ public final class GoTrueAuthClient: @unchecked Sendable {
         guard !trimmedEmail.isEmpty, !password.isEmpty else {
             throw StorefrontError.message("Email and password are required.")
         }
+        return try await postToken(
+            grantType: "password",
+            body: [
+                "email": trimmedEmail,
+                "password": password,
+            ],
+            fallbackEmail: trimmedEmail
+        )
+    }
 
+    /// Native Apple / Google ID token → GoTrue session.
+    /// `nonce` must be the **raw** nonce when a hashed nonce was sent to the provider.
+    public func signInWithIdToken(
+        provider: IdTokenProvider,
+        idToken: String,
+        nonce: String?
+    ) async throws -> Session {
+        let trimmed = idToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw StorefrontError.message("ID token is required.")
+        }
+        var body: [String: Any] = [
+            "provider": provider.rawValue,
+            "id_token": trimmed,
+        ]
+        if let nonce, !nonce.isEmpty {
+            body["nonce"] = nonce
+        }
+        return try await postToken(grantType: "id_token", body: body, fallbackEmail: nil)
+    }
+
+    /// Build Google (or other) OAuth authorize URL with PKCE + mobile redirect.
+    public func oauthAuthorizeURL(
+        provider: IdTokenProvider,
+        codeChallenge: String,
+        redirectTo: String = GoTrueAuthClient.preferredRedirectURL
+    ) throws -> URL {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("auth/v1/authorize"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(name: "provider", value: provider.rawValue),
+            URLQueryItem(name: "redirect_to", value: redirectTo),
+            URLQueryItem(name: "code_challenge", value: codeChallenge),
+            URLQueryItem(name: "code_challenge_method", value: "s256"),
+        ]
+        guard let url = components.url else {
+            throw StorefrontError.message("Invalid GoTrue authorize URL.")
+        }
+        return url
+    }
+
+    /// Exchange PKCE auth code from `gtrcustomer://auth/callback?code=…`.
+    public func exchangePKCE(authCode: String, codeVerifier: String) async throws -> Session {
+        let code = authCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let verifier = codeVerifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty, !verifier.isEmpty else {
+            throw StorefrontError.message("OAuth code and verifier are required.")
+        }
+        return try await postToken(
+            grantType: "pkce",
+            body: [
+                "auth_code": code,
+                "code_verifier": verifier,
+            ],
+            fallbackEmail: nil
+        )
+    }
+
+    /// Parse deep-link callback: `?code=` (PKCE) or `#access_token=` (implicit fallback).
+    public static func parseAuthCallback(_ url: URL) -> AuthCallbackPayload? {
+        guard isAuthCallbackURL(url) else { return nil }
+        let items = queryAndFragmentItems(url)
+        if let code = items["code"], !code.isEmpty {
+            return .pkce(code: code)
+        }
+        if let access = items["access_token"], !access.isEmpty {
+            let refresh = items["refresh_token"]
+            let email = items["email"]
+            let expires = items["expires_in"].flatMap(Int.init)
+            return .session(
+                Session(
+                    accessToken: access,
+                    refreshToken: (refresh?.isEmpty == false) ? refresh : nil,
+                    email: (email?.isEmpty == false) ? email : nil,
+                    expiresIn: expires
+                )
+            )
+        }
+        if let err = items["error_description"] ?? items["error"] {
+            return .error(err)
+        }
+        return nil
+    }
+
+    public static func isAuthCallbackURL(_ url: URL) -> Bool {
+        let scheme = (url.scheme ?? "").lowercased()
+        guard scheme == "gtrcustomer" || scheme == "gtr-customer" else { return false }
+        let host = (url.host ?? "").lowercased()
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
+        // gtrcustomer://auth/callback  → host=auth, path=callback
+        // gtrcustomer:///auth/callback → host empty, path=auth/callback
+        if host == "auth" && (path == "callback" || path.isEmpty || path.hasPrefix("callback")) {
+            return true
+        }
+        if host.isEmpty && (path == "auth/callback" || path.hasPrefix("auth/callback")) {
+            return true
+        }
+        return false
+    }
+
+    // MARK: - Internals
+
+    private func postToken(
+        grantType: String,
+        body: [String: Any],
+        fallbackEmail: String?
+    ) async throws -> Session {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("auth/v1/token"),
             resolvingAgainstBaseURL: false
         )!
-        components.queryItems = [URLQueryItem(name: "grant_type", value: "password")]
+        components.queryItems = [URLQueryItem(name: "grant_type", value: grantType)]
         guard let url = components.url else {
             throw StorefrontError.message("Invalid GoTrue token URL.")
         }
@@ -60,10 +189,7 @@ public final class GoTrueAuthClient: @unchecked Sendable {
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "email": trimmedEmail,
-            "password": password,
-        ])
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -88,7 +214,7 @@ public final class GoTrueAuthClient: @unchecked Sendable {
         }
 
         let refresh = obj["refresh_token"] as? String
-        var userEmail = trimmedEmail
+        var userEmail = fallbackEmail
         if let user = obj["user"] as? [String: Any],
            let fromUser = user["email"] as? String,
            !fromUser.isEmpty
@@ -103,4 +229,27 @@ public final class GoTrueAuthClient: @unchecked Sendable {
             expiresIn: obj["expires_in"] as? Int
         )
     }
+
+    private static func queryAndFragmentItems(_ url: URL) -> [String: String] {
+        var out: [String: String] = [:]
+        if let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
+            for item in items {
+                if let value = item.value { out[item.name] = value }
+            }
+        }
+        if let fragment = url.fragment, !fragment.isEmpty {
+            for pair in fragment.split(separator: "&") {
+                let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+                guard parts.count == 2 else { continue }
+                out[parts[0]] = parts[1].removingPercentEncoding ?? parts[1]
+            }
+        }
+        return out
+    }
+}
+
+public enum AuthCallbackPayload: Sendable {
+    case pkce(code: String)
+    case session(GoTrueAuthClient.Session)
+    case error(String)
 }

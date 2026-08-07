@@ -196,6 +196,58 @@ function defaultFacetsForMode(mode: SearchMode): string[] {
   }
 }
 
+function vehicleResultKey(hit: VehicleHit): string {
+  return [
+    hit.vin_prefix ?? "",
+    hit.chassis_code ?? "",
+    hit.engine_code ?? "",
+    hit.production_year ?? "",
+  ].join("|");
+}
+
+/**
+ * Meili vehicle/PNC docs omit nested fitments (typeahead scope). Merge fitment
+ * lines from Postgres FTS so storefront VIN/PNC search pages stay useful.
+ */
+export async function enrichMeiliResultsWithFtsFitments(
+  supabase: {
+    rpc: (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  },
+  mode: "vin" | "pnc",
+  query: string,
+  results: SearchResult[],
+): Promise<SearchResult[]> {
+  if (results.length === 0) return results;
+
+  const fts = await searchCatalogFtsFallback(supabase, mode, query);
+  if (mode === "vin") {
+    const fitmentsByVehicle = new Map<string, PartHit[]>();
+    for (const row of fts.results) {
+      if (row.type !== "vehicle" || !row.fitments?.length) continue;
+      fitmentsByVehicle.set(vehicleResultKey(row), row.fitments);
+    }
+    return results.map((row) => {
+      if (row.type !== "vehicle") return row;
+      const fitments = fitmentsByVehicle.get(vehicleResultKey(row));
+      return fitments?.length ? { ...row, fitments } : row;
+    });
+  }
+
+  const fitmentsByPnc = new Map<string, PartHit[]>();
+  for (const row of fts.results) {
+    if (row.type !== "pnc" || !row.fitments?.length) continue;
+    fitmentsByPnc.set(row.pnc_code, row.fitments);
+  }
+  return results.map((row) => {
+    if (row.type !== "pnc") return row;
+    const fitments = fitmentsByPnc.get(row.pnc_code);
+    return fitments?.length ? { ...row, fitments } : row;
+  });
+}
+
 export async function searchCatalogFtsFallback(
   supabase: {
     rpc: (

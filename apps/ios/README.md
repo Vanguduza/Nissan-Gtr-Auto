@@ -8,7 +8,7 @@ SwiftUI customer shell with thin Cart / Orders / Garage / **Wishlist** / **Compa
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Live** (`LiveStorefrontApi`) | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `STOREFRONT_FORCE_FAKE` off | Real HTTP + **email/password GoTrue sign-in** required before tabs |
+| **Live** (`LiveStorefrontApi`) | `SUPABASE_URL` + `SUPABASE_ANON_KEY` both non-empty **and** `STOREFRONT_FORCE_FAKE` off | Real HTTP + **email/password**, **Sign in with Apple**, and **Google OAuth** required before tabs |
 | **Fake** (`FakeStorefrontApi`) | URL/anon unset **or** `STOREFRONT_FORCE_FAKE=1` | In-memory demo cart, orders, garage, wishlist, compare, reviews, pay intents, chat — no network; **sign-in skipped** |
 
 `StorefrontApiFactory.make()` → `AppEnv.prefersLive`. Toolbar badge shows **Fake** or **Live**.
@@ -36,11 +36,24 @@ Live sends `apikey` + `Authorization: Bearer {token}` on every call.
 | Token | Source | Notes |
 |-------|--------|-------|
 | Anon (default / signed-out) | `SUPABASE_ANON_KEY` | Customer AuthZ RPCs fail until a user JWT is set |
-| Customer JWT | Sign-in UI → `LiveStorefrontApi.setAccessToken` | GoTrue `POST /auth/v1/token?grant_type=password` |
+| Customer JWT | Sign-in UI → `LiveStorefrontApi.setAccessToken` | Password grant, Apple `id_token`, or Google OAuth PKCE |
 | Restored JWT | `AuthTokenStore` (UserDefaults) | access_token + refresh_token + email restored on launch |
 | Env override | `SUPABASE_ACCESS_TOKEN` | Optional bootstrap JWT (scheme env); skips sign-in until sign-out clears store |
 
 **Live gating:** main tabs stay behind `SignInScreen` until a session exists. **Sign out** clears UserDefaults and resets Bearer to anon. **Fake** skips the gate.
+
+### OAuth (Apple + Google)
+
+| Provider | Client flow | Notes |
+|----------|-------------|-------|
+| **Apple** | `SignInWithAppleButton` → SHA-256 nonce → identity token → GoTrue `grant_type=id_token` | Requires Sign in with Apple entitlement + App ID capability. Bundle id: `co.zw.nissangtr.customer` |
+| **Google** | `ASWebAuthenticationSession` → Supabase `/auth/v1/authorize` (PKCE) → `gtrcustomer://auth/callback` | No GoogleSignIn SPM. Needs Google + redirect allow-list on Supabase (see [`docs/CUSTOMER_OAUTH_SETUP.md`](../../docs/CUSTOMER_OAUTH_SETUP.md)) |
+
+After any successful session, Live calls `ensure_own_customer` if `customers` RLS select is empty (defense-in-depth vs trigger race).
+
+URL schemes already in `Info.plist`: `gtrcustomer` (preferred) and `gtr-customer` (legacy). Auth path: `gtrcustomer://auth/callback`.
+
+Human checklist (Dashboard / Apple Developer — not in repo secrets): enable Apple + Google providers, add mobile redirect URIs, enable Sign in with Apple on the App ID. Full steps: [`docs/CUSTOMER_OAUTH_SETUP.md`](../../docs/CUSTOMER_OAUTH_SETUP.md).
 
 Transport is **URLSession** (PostgREST + GoTrue), not supabase-swift SPM (avoids package resolve on Windows). RPC / edge names match web.
 
@@ -71,7 +84,7 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 
 | Tab / screen | Actions |
 |--------------|---------|
-| Sign in | Email + password → GoTrue JWT → `setAccessToken` |
+| Sign in | Email + password → GoTrue JWT; **Sign in with Apple** (ID token); **Continue with Google** (OAuth PKCE) → `setAccessToken` + `ensure_own_customer` |
 | Home | Rails + search_catalog + PDP (fitment, core charge, sticky ATC, wishlist heart) |
 | Wishlist | Tab — list / add / remove; back-in-stock toggle; `wishlist_move_to_cart` |
 | Cart | Open lines, fulfillment, **address step** (dispatch), USD/ZiG, checkout |
@@ -154,7 +167,7 @@ cd apps/ios
 xcodebuild -scheme GTRCustomer -destination 'platform=iOS Simulator,name=iPhone 16' build
 ```
 
-ShopKit parity markers: `ShopSplash` → 4-tab Home/Wishlist/Cart/Profile; `ShopTopBar` circle chrome (zero `GTRBrandBar` in Features); address Fake+Live + MapKit; ContiPay/Paynow/EcoCash only.
+Sign in with Apple needs a **real device** or Simulator signed into an Apple ID; entitlements require a Development Team in Xcode. Google OAuth needs hosted/local Supabase providers enabled.
 
 ## Env placeholders
 

@@ -8,11 +8,7 @@ struct KitsScreen: View {
     @State private var error: String?
 
     var body: some View {
-        ShopDefaultScreen(title: "Service kits", subtitle: "Bundles", scrollable: true) {
-            Text("Active kits from inventory. Tap a component OEM to open the product page.")
-                .font(GTRType.body(.caption))
-                .foregroundStyle(GTRColors.silverDim)
-
+        ShopDefaultScreen(title: "Service kits", subtitle: nil, scrollable: true) {
             Button("Refresh kits") { Task { await refresh() } }
                 .buttonStyle(.borderedProminent)
                 .tint(GTRColors.primary)
@@ -22,7 +18,7 @@ struct KitsScreen: View {
             if kits.isEmpty && !busy {
                 ShopHonestEmpty(
                     title: "No active kits",
-                    bodyText: "Service kits appear here when published in item_kits."
+                    bodyText: "No kits."
                 )
             }
 

@@ -42,17 +42,12 @@ fun DeliveryTrackScreen(
 
     ShopDefaultScreen(
         title = "Live delivery",
-        subtitle = "Last point · ETA only",
+        subtitle = null,
         onBack = onBack,
         modifier = modifier) {
         Text(
             "Last known location and ETA while your order is out for delivery. " +
                 "Historical GPS trail is never shown.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            "RPC: ${RpcNames.GET_DELIVERY_TRACK_POINT} (p_delivery_job_id / p_token)",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -120,24 +115,12 @@ fun DeliveryTrackScreen(
                     "Coords: ${"%.5f".format(p.lat)}, ${"%.5f".format(p.lng)}",
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                Text(
-                    "Map tiles not bundled — last point + ETA only. No GPS trail.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             state.emptyHint?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
         }
-
-        Text(
-            "Privacy: last point + ETA only. Full GPS history is never exposed to customers. " +
-                "Active (`dispatched`) jobs only.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

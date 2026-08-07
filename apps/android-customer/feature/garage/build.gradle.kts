@@ -24,6 +24,8 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
+    // Homepage VehicleSelectorSection + VehicleCascade — no second cascade list.
+    implementation(project(":feature:catalog"))
     implementation(project(":android-ui"))
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")

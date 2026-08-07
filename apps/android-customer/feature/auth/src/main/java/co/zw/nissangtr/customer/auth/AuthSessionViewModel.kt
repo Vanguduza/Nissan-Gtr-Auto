@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
+import co.zw.nissangtr.customer.rpc.UserFacingErrors
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,7 @@ data class SignInUiState(
 enum class AuthFormMode { SignIn, SignUp }
 
 /**
- * Observes GoTrue [SessionStatus] and drives email/password sign-in / sign-out.
+ * Observes GoTrue [SessionStatus] and drives email/password + Google ID-token sign-in / sign-out.
  * Live only — Fake mode bypasses this ViewModel in [AuthGate].
  */
 class AuthSessionViewModel(
@@ -71,7 +72,24 @@ class AuthSessionViewModel(
                 _signIn.update { it.copy(busy = false, password = "") }
             } catch (e: Exception) {
                 _signIn.update {
-                    it.copy(busy = false, error = e.message ?: "Sign-in failed")
+                    it.copy(busy = false, error = UserFacingErrors.from(e, "Sign-in failed"))
+                }
+            }
+        }
+    }
+
+    /**
+     * Exchange a Google ID token for a GoTrue session, then ensure retail `customers` row.
+     */
+    fun signInWithGoogleIdToken(idToken: String, rawNonce: String?) {
+        viewModelScope.launch {
+            _signIn.update { it.copy(busy = true, error = null, info = null) }
+            try {
+                supabase.signInWithGoogleIdToken(idToken, rawNonce)
+                _signIn.update { it.copy(busy = false, password = "") }
+            } catch (e: Exception) {
+                _signIn.update {
+                    it.copy(busy = false, error = UserFacingErrors.from(e, "Google sign-in failed"))
                 }
             }
         }
@@ -94,7 +112,7 @@ class AuthSessionViewModel(
                 }
             } catch (e: Exception) {
                 _signIn.update {
-                    it.copy(busy = false, error = e.message ?: "Sign-up failed")
+                    it.copy(busy = false, error = UserFacingErrors.from(e, "Sign-up failed"))
                 }
             }
         }
@@ -118,7 +136,7 @@ class AuthSessionViewModel(
                 }
             } catch (e: Exception) {
                 _signIn.update {
-                    it.copy(busy = false, error = e.message ?: "Reset failed")
+                    it.copy(busy = false, error = UserFacingErrors.from(e, "Reset failed"))
                 }
             }
         }
@@ -129,7 +147,7 @@ class AuthSessionViewModel(
             try {
                 supabase.signOut()
             } catch (e: Exception) {
-                _signIn.update { it.copy(error = e.message ?: "Sign-out failed") }
+                _signIn.update { it.copy(error = UserFacingErrors.from(e, "Sign-out failed")) }
             }
         }
     }

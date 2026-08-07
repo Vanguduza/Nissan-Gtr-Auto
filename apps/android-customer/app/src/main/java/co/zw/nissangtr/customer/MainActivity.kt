@@ -3,7 +3,9 @@ package co.zw.nissangtr.customer
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -43,11 +45,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.bridges.podcamera.CameraxPodCameraBridge
@@ -64,6 +68,7 @@ import co.zw.nissangtr.customer.cart.CartScreen
 import co.zw.nissangtr.customer.catalog.CatalogModule
 import co.zw.nissangtr.customer.catalog.CatalogScreen
 import co.zw.nissangtr.customer.catalog.CategoriesGridScreen
+import co.zw.nissangtr.customer.catalog.EpcBrowseScreen
 import co.zw.nissangtr.customer.chat.ChatModule
 import co.zw.nissangtr.customer.chat.ChatScreen
 import co.zw.nissangtr.customer.compare.CompareModule
@@ -94,6 +99,7 @@ import co.zw.nissangtr.customer.track.TrackModule
 import co.zw.nissangtr.customer.wishlist.WishlistModule
 import co.zw.nissangtr.customer.wishlist.WishlistScreen
 import co.zw.nissangtr.customer.wishlist.WishlistStore
+import co.zw.nissangtr.customer.ui.CustomerShopTheme
 import co.zw.nissangtr.ui.shop.ShopBottomBar
 import co.zw.nissangtr.ui.shop.ShopBottomTab
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
@@ -101,7 +107,6 @@ import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopProfileAvatar
 import co.zw.nissangtr.ui.shop.ShopProfileItemBox
 import co.zw.nissangtr.ui.shop.ShopSplash
-import co.zw.nissangtr.ui.shop.ShopTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -143,6 +148,7 @@ private enum class ShellOverlay {
     Account,
     SignIn,
     Categories,
+    EpcBrowse,
     Pay,
     Orders,
 }
@@ -160,7 +166,7 @@ private data class PartsLaunchArgs(
 
 /**
  * Customer shell — Shopping-By-KMP fork (MIT) IA over live [RpcClient].
- * Deep links: `gtrcustomer://track/{token}`, `gtrcustomer://parts/{oem}`.
+ * Deep links: `gtrcustomer://track/{token}`, `gtrcustomer://parts/{oem}`, `gtrcustomer://auth/callback`.
  */
 class MainActivity : ComponentActivity() {
     private val trackLaunch = mutableStateOf(TrackLaunchArgs())
@@ -169,6 +175,7 @@ class MainActivity : ComponentActivity() {
     private var partsSeq = 0
     private lateinit var cameraBridge: CameraxPodCameraBridge
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var liveSupabase: SupabaseRpcClient? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -198,10 +205,13 @@ class MainActivity : ComponentActivity() {
             forceFake = BuildConfig.RPC_FORCE_FAKE,
         )
         val supabase = rpc as? SupabaseRpcClient
+        liveSupabase = supabase
         val mapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
+        val googleServerClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
         val prefs = CustomerPrefs(this)
         applyTrackIntent(intent)
         applyPartsIntent(intent)
+        applyAuthIntent(intent)
         setContent {
             var themeMode by remember { mutableStateOf(prefs.themeMode) }
             val darkTheme = when (themeMode) {
@@ -209,7 +219,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.Dark -> true
                 ThemeMode.System -> isSystemInDarkTheme()
             }
-            ShopTheme(darkTheme = darkTheme) {
+            CustomerShopTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -218,7 +228,11 @@ class MainActivity : ComponentActivity() {
                     if (!splashDone) {
                         ShopSplash(onFinished = { splashDone = true })
                     } else {
-                        AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut, authVm ->
+                        AuthGate(
+                            liveRpc = live,
+                            supabase = supabase,
+                            googleServerClientId = googleServerClientId,
+                        ) { email, onSignOut, authVm ->
                             val launch by trackLaunch
                             val parts by partsLaunch
                             val signedIn = !live || email != null
@@ -246,6 +260,7 @@ class MainActivity : ComponentActivity() {
                                 trackLaunch = launch,
                                 partsLaunch = parts,
                                 camera = cameraBridge,
+                                googleServerClientId = googleServerClientId,
                             )
                         }
                     }
@@ -291,6 +306,12 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         applyTrackIntent(intent)
         applyPartsIntent(intent)
+        applyAuthIntent(intent)
+    }
+
+    private fun applyAuthIntent(intent: Intent?) {
+        if (intent == null) return
+        liveSupabase?.handleAuthDeeplink(intent)
     }
 
     private fun syncGuestCompare(rpc: RpcClient) {
@@ -383,6 +404,7 @@ private fun CustomerApp(
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
     partsLaunch: PartsLaunchArgs = PartsLaunchArgs(),
     camera: PodCameraBridge?,
+    googleServerClientId: String = "",
 ) {
     var tab by remember { mutableStateOf(ShellTab.Home) }
     var overlay by remember { mutableStateOf(ShellOverlay.None) }
@@ -398,6 +420,8 @@ private fun CustomerApp(
     var cartBadge by remember { mutableIntStateOf(0) }
     var cartRefresh by remember { mutableIntStateOf(0) }
     var payInvoiceId by remember { mutableStateOf<String?>(null) }
+    var lastBackExitAt by remember { mutableLongStateOf(0L) }
+    val context = LocalContext.current
 
     val wishlistStore: WishlistStore = viewModel(factory = WishlistStore.factory(rpc))
 
@@ -426,6 +450,60 @@ private fun CustomerApp(
 
     fun refreshCartBadge() {
         cartRefresh += 1
+    }
+
+    fun handleSystemBack(): Boolean {
+        when (overlay) {
+            ShellOverlay.None -> Unit
+            ShellOverlay.Pay -> {
+                payInvoiceId = null
+                overlay = ShellOverlay.Cart
+                return true
+            }
+            ShellOverlay.Orders -> {
+                overlay = ShellOverlay.Cart
+                return true
+            }
+            ShellOverlay.Categories -> {
+                overlay = ShellOverlay.Menu
+                return true
+            }
+            ShellOverlay.EpcBrowse -> {
+                overlay = ShellOverlay.None
+                return true
+            }
+            ShellOverlay.Account -> {
+                if (profileDest != ProfileDest.Hub) {
+                    profileDest = ProfileDest.Hub
+                } else {
+                    overlay = ShellOverlay.None
+                }
+                return true
+            }
+            ShellOverlay.Menu,
+            ShellOverlay.Cart,
+            ShellOverlay.SignIn,
+            -> {
+                overlay = ShellOverlay.None
+                return true
+            }
+        }
+        if (tab != ShellTab.Home) {
+            tab = ShellTab.Home
+            return true
+        }
+        val now = System.currentTimeMillis()
+        if (now - lastBackExitAt < 2_000L) {
+            (context as? ComponentActivity)?.finish()
+        } else {
+            lastBackExitAt = now
+            Toast.makeText(context, "Press back again to exit", Toast.LENGTH_SHORT).show()
+        }
+        return true
+    }
+
+    BackHandler {
+        handleSystemBack()
     }
 
     // Dismiss SignIn overlay when the shared session becomes SignedIn.
@@ -476,6 +554,9 @@ private fun CustomerApp(
                         is HamburgerMenuAction.OpenAllCategories -> {
                             overlay = ShellOverlay.Categories
                         }
+                        is HamburgerMenuAction.OpenEpcBrowse -> {
+                            overlay = ShellOverlay.EpcBrowse
+                        }
                         is HamburgerMenuAction.BrowseCategory -> {
                             openCatalog(seed = action.label)
                             overlay = ShellOverlay.None
@@ -497,9 +578,20 @@ private fun CustomerApp(
                 },
             )
         }
+        ShellOverlay.EpcBrowse -> {
+            EpcBrowseScreen(
+                rpc = rpc,
+                onBack = { overlay = ShellOverlay.None },
+                onOpenOem = { oem ->
+                    openCatalog(oem = oem)
+                    overlay = ShellOverlay.None
+                },
+            )
+        }
         ShellOverlay.Cart -> {
             CartScreen(
                 rpc = rpc,
+                refreshKey = cartRefresh,
                 onBack = {
                     refreshCartBadge()
                     overlay = ShellOverlay.None
@@ -547,6 +639,7 @@ private fun CustomerApp(
                 signedIn = signedIn,
                 signedInEmail = signedInEmail,
                 onSignOut = onSignOut,
+                onSignIn = { overlay = ShellOverlay.SignIn },
                 whatsappE164 = whatsappE164,
                 mapsKeyPresent = mapsKeyPresent,
                 trackToken = trackToken,
@@ -585,21 +678,17 @@ private fun CustomerApp(
                 allowSkip = !liveRpc,
                 onSkip = { overlay = ShellOverlay.None },
                 sessionViewModel = authSessionViewModel,
+                googleServerClientId = googleServerClientId,
             )
         }
         ShellOverlay.None -> {
             Scaffold(
                 topBar = {
                     CustomerShellTopBar(
-                        signedInEmail = signedInEmail,
                         cartBadgeCount = cartBadge,
                         onOpenMenu = { overlay = ShellOverlay.Menu },
                         onOpenAccount = { openAccount() },
                         onOpenCart = { overlay = ShellOverlay.Cart },
-                        onSignIn = {
-                            if (signedInEmail != null) openAccount()
-                            else overlay = ShellOverlay.SignIn
-                        },
                     )
                 },
                 bottomBar = {
@@ -613,11 +702,14 @@ private fun CustomerApp(
                     )
                 },
             ) { padding ->
+                // weight(1f) bounds tab height so scrollable children are not measured
+                // with infinite max height under this Column.
                 Column(
                     Modifier
                         .fillMaxSize()
                         .padding(padding),
                 ) {
+                    val tabMod = Modifier.weight(1f).fillMaxWidth()
                     when (tab) {
                         ShellTab.Home -> {
                             CatalogScreen(
@@ -627,10 +719,12 @@ private fun CustomerApp(
                                 onOpenCart = { overlay = ShellOverlay.Cart },
                                 onCartChanged = { refreshCartBadge() },
                                 onManageVehicle = { tab = ShellTab.Garage },
+                                onOpenEpcBrowse = { overlay = ShellOverlay.EpcBrowse },
                                 initialOem = null,
                                 showShellChrome = true,
                                 viewModelKey = "home",
                                 camera = camera,
+                                modifier = tabMod,
                             )
                         }
                         ShellTab.Shop -> {
@@ -641,12 +735,14 @@ private fun CustomerApp(
                                 onOpenCart = { overlay = ShellOverlay.Cart },
                                 onCartChanged = { refreshCartBadge() },
                                 onManageVehicle = { tab = ShellTab.Garage },
+                                onOpenEpcBrowse = { overlay = ShellOverlay.EpcBrowse },
                                 initialOem = catalogOem,
                                 initialCategorySeed = catalogSeed,
                                 categorySeedSeq = catalogSeedSeq,
                                 showShellChrome = true,
                                 viewModelKey = "shop",
                                 camera = camera,
+                                modifier = tabMod,
                             )
                         }
                         ShellTab.Wishlist -> {
@@ -655,10 +751,15 @@ private fun CustomerApp(
                                 wishlistStore = wishlistStore,
                                 onBack = { tab = ShellTab.Home },
                                 onOpenProduct = { oem -> openCatalog(oem = oem) },
+                                modifier = tabMod,
                             )
                         }
                         ShellTab.Garage -> {
-                            GarageScreen(rpc = rpc, onBack = { tab = ShellTab.Home })
+                            GarageScreen(
+                                rpc = rpc,
+                                onBack = { tab = ShellTab.Home },
+                                modifier = tabMod,
+                            )
                         }
                         ShellTab.Settings -> {
                             SettingsHubScreen(
@@ -666,10 +767,15 @@ private fun CustomerApp(
                                 themeMode = themeMode,
                                 onThemeModeChange = onThemeModeChange,
                                 signedInEmail = signedInEmail,
-                                liveRpc = liveRpc,
                                 onSignOut = if (signedInEmail != null) onSignOut else null,
+                                onSignIn = if (signedInEmail == null) {
+                                    { overlay = ShellOverlay.SignIn }
+                                } else {
+                                    null
+                                },
                                 onOpenAccount = { openAccount() },
                                 onEditProfile = { openAccount(ProfileDest.EditProfile) },
+                                rootModifier = tabMod,
                             )
                         }
                     }
@@ -689,6 +795,7 @@ private fun ProfileStack(
     signedIn: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
+    onSignIn: () -> Unit,
     whatsappE164: String,
     mapsKeyPresent: Boolean,
     trackToken: String?,
@@ -704,6 +811,7 @@ private fun ProfileStack(
             liveRpc = liveRpc,
             signedInEmail = signedInEmail,
             onSignOut = onSignOut,
+            onSignIn = onSignIn,
             onOpen = onDest,
             onDemoTrack = onDemoTrack,
             onClose = onClose,
@@ -756,22 +864,22 @@ private fun ProfileStack(
         )
         ProfileDest.Notifications -> ShopDefaultScreen(
             title = "Notifications",
-            subtitle = "Inbox",
+            subtitle = null,
             onBack = { onDest(ProfileDest.Hub) },
         ) {
             ShopHonestEmpty(
                 title = "No notifications yet",
-                body = "When a customer inbox RPC ships, alerts will appear here. Mark-all-read is a no-op until then.",
+                body = "No notifications.",
             )
         }
         ProfileDest.Coupons -> ShopDefaultScreen(
             title = "Coupons",
-            subtitle = "Promos",
+            subtitle = null,
             onBack = { onDest(ProfileDest.Hub) },
         ) {
             ShopHonestEmpty(
                 title = "No coupons yet",
-                body = "Promo feed not wired — we never show hardcoded fake coupons.",
+                body = "No coupons.",
             )
         }
     }
@@ -782,6 +890,7 @@ private fun ProfileHub(
     liveRpc: Boolean,
     signedInEmail: String?,
     onSignOut: () -> Unit,
+    onSignIn: () -> Unit,
     onOpen: (ProfileDest) -> Unit,
     onDemoTrack: () -> Unit,
     onClose: () -> Unit,
@@ -836,6 +945,15 @@ private fun ProfileHub(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+        if (signedInEmail == null) {
+            OutlinedButton(
+                onClick = onSignIn,
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+            ) {
+                Text("Sign in")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         OutlinedButton(
             onClick = onSignOut,
             modifier = Modifier.padding(16.dp).fillMaxWidth(),

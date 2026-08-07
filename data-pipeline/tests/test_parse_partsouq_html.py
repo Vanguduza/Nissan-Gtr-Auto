@@ -37,13 +37,16 @@ SAMPLE = """
 
 
 def test_parse_hotspots_and_parts() -> None:
-    payloads = parse_partsouq_parts_html(
-        SAMPLE,
-        source_url="https://partsouq.com/en/catalog/genuine/parts?c=Nissan&vid=1&gid=2",
+    url = (
+        "https://partsouq.com/en/catalog/genuine/parts?"
+        "c=Nissan&vid=1&gid=2&cid=6&cname=POWER+TRAIN"
     )
+    payloads = parse_partsouq_parts_html(SAMPLE, source_url=url)
     assert len(payloads) == 1
     payload = payloads[0]
     assert is_catalog_payload(payload)
+    assert payload["category_name"] == "POWER TRAIN"
+    assert payload["subcategory_name"] == "THROTTLE CHAMBER"
     assert payload["image_url"].endswith("demo.gif")
     assert payload["vehicle"]["model_variant"] == "200SX"
     assert payload["vehicle"]["engine_code"] == "SR20DET"
@@ -64,6 +67,10 @@ def test_parse_hotspots_and_parts() -> None:
     assert len(bundle["diagram_assets"]) == 1
     assert any(p["pnc_code"] == "16132PA" for p in bundle["pnc_categories"])
     assert any(p["pnc_code"] == "16292" for p in bundle["pnc_categories"])
+    pnc_row = next(p for p in bundle["pnc_categories"] if p["pnc_code"] == "16132PA")
+    assert pnc_row["category_name"] == "POWER TRAIN"
+    assert pnc_row["subcategory_name"] == "THROTTLE CHAMBER"
+    assert bundle["_oem_display_names"]["16132-73C10"] == "NUT"
     validate_bundle(bundle)
 
 
