@@ -8,12 +8,12 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
-from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from data_pipeline.bundle_filter import filter_complete_bundle
 from data_pipeline.cache_parse_worker import refresh_bundle
 from data_pipeline.import_catalog import import_catalog, load_bundle
 from data_pipeline.validate import validate_bundle
@@ -24,119 +24,21 @@ CRAWL_DB = ROOT / "crawler_state.db"
 PARSE_DB = ROOT / "out" / "cache_parse_state.db"
 
 
-def _vehicle_key(row: dict) -> tuple:
-    return (
-        row.get("vin_prefix"),
-        row.get("chassis_code"),
-        row.get("engine_code"),
-        row.get("production_year"),
-        row.get("model_variant"),
-    )
-
-
-def _fitment_key(row: dict) -> tuple:
-    return (
-        row.get("oem_part_number"),
-        row.get("chassis_code"),
-        row.get("engine_code"),
-        row.get("pnc_code"),
-    )
-
-
-def _complete_fitments(full: dict) -> list[dict]:
-    return [
-        f
-        for f in (full.get("part_fitment") or [])
-        if f.get("chassis_code")
-        and f.get("bbox_x") is not None
-        and f.get("diagram_path")
-    ]
-
-
-def _sanitize_vehicle_rows(rows: list[dict]) -> list[dict]:
-    """Drop invalid production_year so bundle passes JSON schema (min 1980)."""
-    out: list[dict] = []
-    for row in rows:
-        cleaned = dict(row)
-        year = cleaned.get("production_year")
-        if isinstance(year, int) and year < 1980:
-            cleaned.pop("production_year", None)
-        out.append(cleaned)
-    return out
-
-
 def build_erp_bundle(full: dict, *, completed_only: bool) -> tuple[dict, dict]:
-    """ERP bundle: all parsed vehicles for VIN/model search + fitments where crawled.
-
-    ``completed_only=True`` restricts vehicle_master to chassis that already have parts.
-    Default (False) keeps every identity/parts vehicle row so ``search_catalog`` vin|model
-    works for the full parsed frontier while part|pnc modes cover fitment-backed chassis.
-    """
-    complete_fitments = _complete_fitments(full)
-    chassis_with_parts = {f["chassis_code"] for f in complete_fitments}
-    engines_by_chassis = Counter(
-        (f["chassis_code"], f.get("engine_code")) for f in complete_fitments
-    )
-
-    vehicles = full.get("vehicle_master") or []
-    if completed_only:
-        completed_vehicles = [v for v in vehicles if v.get("chassis_code") in chassis_with_parts]
-        vehicle_keys = {_vehicle_key(v) for v in completed_vehicles}
-        for v in vehicles:
-            if v.get("chassis_code") in chassis_with_parts and _vehicle_key(v) not in vehicle_keys:
-                completed_vehicles.append(v)
-                vehicle_keys.add(_vehicle_key(v))
-        vehicles = completed_vehicles
-
-    pnc_codes = {f.get("pnc_code") for f in complete_fitments if f.get("pnc_code")}
-    pncs = [p for p in (full.get("pnc_categories") or []) if p.get("pnc_code") in pnc_codes]
-
-    diagram_paths = {f.get("diagram_path") for f in complete_fitments if f.get("diagram_path")}
-    diagrams = [
-        d
-        for d in (full.get("diagram_assets") or [])
-        if d.get("storage_path") in diagram_paths
-    ]
-
-    bundle = {
-        "vehicle_master": _sanitize_vehicle_rows(vehicles),
-        "pnc_categories": pncs,
-        "part_fitment": complete_fitments,
-        "diagram_assets": diagrams,
-    }
-
-    identity_chassis = sorted({v.get("chassis_code") for v in vehicles if v.get("chassis_code")})
-    meta = {
-        "parts_complete_chassis": sorted(chassis_with_parts),
-        "identity_chassis": identity_chassis,
-        "identity_only_chassis": sorted(set(identity_chassis) - chassis_with_parts),
-        "chassis_fitment_counts": dict(
-            Counter(f["chassis_code"] for f in complete_fitments).most_common()
-        ),
-        "engines_by_chassis": {
-            f"{c}|{e or '?'}": n for (c, e), n in engines_by_chassis.most_common()
-        },
-        "vehicles": len(vehicles),
-        "fitments": len(complete_fitments),
-        "pncs": len(pncs),
-        "diagrams": len(diagrams),
-        "completed_only": completed_only,
-        "criteria": (
-            "vehicle_master: chassis with fitment data only"
-            if completed_only
-            else "vehicle_master: all parsed identity+parts rows; fitments: bbox+diagram complete"
-        ),
-    }
+    """Thin wrapper — see ``filter_complete_bundle`` for criteria."""
+    bundle, meta = filter_complete_bundle(full, completed_only=completed_only)
+    meta["vehicles"] = meta["vehicles_out"]
+    meta["fitments"] = meta["fitments_out"]
+    meta["pncs"] = meta["pncs_out"]
+    meta["diagrams"] = meta["diagrams_out"]
+    meta["identity_only_chassis"] = meta["excluded_identity_only_chassis"]
     return bundle, meta
 
 
 def write_bundle(bundle: dict, out_dir: Path) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for name, rows in bundle.items():
-        (out_dir / f"{name}.json").write_text(
-            json.dumps(rows, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+    from data_pipeline.parse_fast import write_bundle as _write_tables
+
+    _write_tables(bundle, out_dir)
 
 
 def main() -> int:

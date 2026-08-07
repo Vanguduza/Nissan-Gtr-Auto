@@ -134,6 +134,8 @@ pnpm db:types:linked
 
 Local edge functions (after `supabase start`): `npx supabase functions serve` — serves all under `supabase/functions/` at `http://127.0.0.1:54321/functions/v1/<name>` (leave running in a second terminal).
 
+**Hosted project** (ref `gylrgwqyuiwkyykardwc`): switch client env off `127.0.0.1:54321`, push migrations with `supabase link` + `supabase db push`, and configure Auth providers on Dashboard — see [`docs/guides/hosted-supabase-cutover.md`](./guides/hosted-supabase-cutover.md). Do **not** `db reset` remote.
+
 Commit `packages/supabase-client/src/database.types.ts` whenever migrations change public schema. **Never** put `service_role` in client packages — only anon via `createBrowserClient`.
 
 RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`  

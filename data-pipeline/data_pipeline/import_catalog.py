@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from data_pipeline.validate import SCHEMA_NAMES, validate_bundle
+from data_pipeline.bundle_filter import filter_complete_bundle
 
 # Natural keys used for idempotent upsert (documented for DB unique indexes).
 VEHICLE_KEY = ("vin_prefix", "chassis_code", "engine_code", "production_year", "model_variant")
@@ -83,8 +84,13 @@ def _chunks(rows: list[dict[str, Any]], size: int = UPSERT_BATCH_SIZE):
         yield rows[i : i + size]
 
 
-def load_env_files(*paths: Path) -> None:
-    """Load KEY=VALUE from .env files into os.environ (does not override existing)."""
+def load_env_files(*paths: Path, override: bool = False) -> None:
+    """Load KEY=VALUE from .env files into os.environ.
+
+    When *override* is False (default), existing ``os.environ`` keys are kept —
+    stale shell exports can shadow ``.env``. Republish/live import passes
+    ``override=True`` so repo-root cloud credentials win.
+    """
     for path in paths:
         if not path.is_file():
             continue
@@ -94,7 +100,7 @@ def load_env_files(*paths: Path) -> None:
                 continue
             key, _, val = line.partition("=")
             key = key.strip()
-            if not key or key in os.environ:
+            if not key or (not override and key in os.environ):
                 continue
             val = val.strip().strip("'").strip('"')
             os.environ[key] = val
@@ -197,6 +203,12 @@ def load_bundle(path: Path) -> dict[str, list[dict[str, Any]]]:
             if file_path.exists():
                 with file_path.open(encoding="utf-8") as fh:
                     bundle[name] = json.load(fh)
+        names_path = path / "oem_display_names.json"
+        if names_path.exists():
+            with names_path.open(encoding="utf-8") as fh:
+                names = json.load(fh)
+            if isinstance(names, dict):
+                bundle["_oem_display_names"] = names
         return bundle
 
     with path.open(encoding="utf-8") as fh:
@@ -211,16 +223,17 @@ def build_stock_items_from_fitment(
     pnc_categories: list[dict[str, Any]] | None = None,
     *,
     base_uom_id: str | None = None,
+    oem_display_names: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Distinct OEM → stock_items rows (description from PNC category when available)."""
-    pnc_desc: dict[str, str] = {}
+    """Distinct OEM → stock_items rows (human title from part name, not EPC group)."""
+    pnc_sub: dict[str, str] = {}
     for cat in pnc_categories or []:
         code = cat.get("pnc_code")
         if not code:
             continue
-        name = cat.get("category_name") or ""
         sub = cat.get("subcategory_name") or ""
-        pnc_desc[code] = f"{name} / {sub}".strip(" /") if sub else name
+        if sub:
+            pnc_sub[code] = str(sub).strip()
 
     by_oem: dict[str, dict[str, Any]] = {}
     for row in part_fitment:
@@ -228,8 +241,12 @@ def build_stock_items_from_fitment(
         if not oem or oem in by_oem:
             continue
         pnc = row.get("pnc_code")
-        desc = pnc_desc.get(pnc or "", "") or f"OEM {oem}"
-        item: dict[str, Any] = {"oem_part_number": oem, "description": desc}
+        desc = (oem_display_names or {}).get(oem) or ""
+        if not desc and pnc:
+            desc = pnc_sub.get(pnc or "", "")
+        if not desc:
+            desc = f"OEM {oem}"
+        item: dict[str, Any] = {"oem_part_number": oem, "description": desc[:200]}
         if base_uom_id:
             item["base_uom_id"] = base_uom_id
         by_oem[oem] = item
@@ -299,7 +316,9 @@ def import_catalog(
 
     if ensure_stock_items and "part_fitment" in bundle and isinstance(mem, InMemoryCatalogStore):
         stock_rows = build_stock_items_from_fitment(
-            bundle["part_fitment"], bundle.get("pnc_categories")
+            bundle["part_fitment"],
+            bundle.get("pnc_categories"),
+            oem_display_names=bundle.get("_oem_display_names"),
         )
         stats["stock_items"] = mem.upsert_stock_items(stock_rows)
 
@@ -315,7 +334,13 @@ def _fetch_all(client: Any, table: str, select: str = "*") -> list[dict[str, Any
     offset = 0
     page = UPSERT_BATCH_SIZE
     while True:
-        resp = client.table(table).select(select).range(offset, offset + page - 1).execute()
+        resp = (
+            client.table(table)
+            .select(select)
+            .order("id")
+            .range(offset, offset + page - 1)
+            .execute()
+        )
         batch = resp.data or []
         rows.extend(batch)
         if len(batch) < page:
@@ -399,12 +424,74 @@ def _resolve_ea_uom_id(client: Any) -> str | None:
         return None
 
 
+def _batch_delete_ids(client: Any, table: str, ids: list[str], *, batch_size: int = 200) -> int:
+    deleted = 0
+    for i in range(0, len(ids), batch_size):
+        chunk = ids[i : i + batch_size]
+        if chunk:
+            client.table(table).delete().in_("id", chunk).execute()
+            deleted += len(chunk)
+    return deleted
+
+
+def prune_stale_catalog(
+    client: Any,
+    bundle: dict[str, list[dict[str, Any]]],
+) -> dict[str, int]:
+    """Remove live rows not present in the filtered bundle (identity-only cleanup)."""
+    vehicle_keys = {_vehicle_db_key(v) for v in bundle.get("vehicle_master") or []}
+    fitment_keys = {_fitment_db_key(f) for f in bundle.get("part_fitment") or []}
+
+    stale_vehicle_ids: list[str] = []
+    for row in _fetch_all(
+        client,
+        "vehicle_master",
+        "id,vin_prefix,chassis_code,engine_code,production_year,model_variant",
+    ):
+        if _vehicle_db_key(row) not in vehicle_keys:
+            stale_vehicle_ids.append(row["id"])
+
+    stale_fitment_ids: list[str] = []
+    for row in _fetch_all(
+        client,
+        "part_fitment",
+        "id,oem_part_number,chassis_code,engine_code,pnc_code",
+    ):
+        if _fitment_db_key(row) not in fitment_keys:
+            stale_fitment_ids.append(row["id"])
+
+    keep_oems = {
+        row["oem_part_number"]
+        for row in build_stock_items_from_fitment(
+            bundle.get("part_fitment") or [],
+            bundle.get("pnc_categories"),
+            oem_display_names=(
+                bundle.get("oem_display_names")
+                if isinstance(bundle.get("oem_display_names"), dict)
+                else None
+            ),
+        )
+    }
+    stale_stock_ids: list[str] = []
+    for row in _fetch_all(client, "stock_items", "id,oem_part_number"):
+        oem = row.get("oem_part_number")
+        if oem and oem not in keep_oems:
+            stale_stock_ids.append(row["id"])
+
+    return {
+        "vehicle_master_deleted": _batch_delete_ids(client, "vehicle_master", stale_vehicle_ids),
+        "part_fitment_deleted": _batch_delete_ids(client, "part_fitment", stale_fitment_ids),
+        "stock_items_deleted": _batch_delete_ids(client, "stock_items", stale_stock_ids),
+    }
+
+
 def import_supabase(
     bundle: dict[str, list[dict[str, Any]]],
     *,
     url: str,
     key: str,
     ensure_stock_items: bool = True,
+    prune_stale: bool = False,
 ) -> ImportResult:
     """Live import via supabase-py (privileged key). Batched upserts for ~8k fitments."""
     try:
@@ -418,6 +505,13 @@ def import_supabase(
         bundle, store=mem, validate=True, ensure_stock_items=ensure_stock_items
     )
     live_stats: dict[str, ImportStats] = {}
+
+    if prune_stale:
+        pruned = prune_stale_catalog(client, bundle)
+        result.notes.append(
+            "pruned stale rows: "
+            + ", ".join(f"{k}={v}" for k, v in pruned.items())
+        )
 
     if bundle.get("vehicle_master"):
         live_stats["vehicle_master"] = _batch_upsert_by_natural_key(
@@ -446,6 +540,7 @@ def import_supabase(
             bundle["part_fitment"],
             bundle.get("pnc_categories"),
             base_uom_id=uom_id,
+            oem_display_names=bundle.get("_oem_display_names"),
         )
         live_stats["stock_items"] = _batch_upsert_stock_items(client, stock_rows)
 
@@ -491,11 +586,37 @@ def main(argv: list[str] | None = None) -> int:
         default=True,
         help="Upsert distinct OEMs into stock_items (default: on for POS/receiving readiness)",
     )
+    parser.add_argument(
+        "--complete-only",
+        action="store_true",
+        help="Import only vehicles with complete fitments (chassis+bbox+diagram); "
+        "exclude identity-only rows",
+    )
+    parser.add_argument(
+        "--prune-stale",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Delete live rows not in bundle (default: on with --complete-only --live)",
+    )
     args = parser.parse_args(argv)
 
-    load_env_files(repo_root / ".env", root / ".env")
+    if args.live:
+        load_env_files(repo_root / ".env", root / ".env", override=True)
 
     bundle = load_bundle(args.fixture)
+    filter_meta: dict[str, Any] | None = None
+    if args.complete_only:
+        bundle, filter_meta = filter_complete_bundle(bundle, completed_only=True)
+        print(
+            f"Complete-only filter: {filter_meta['vehicles_out']} vehicles "
+            f"(excluded {filter_meta['vehicles_in'] - filter_meta['vehicles_out']}), "
+            f"chassis {filter_meta['parts_complete_chassis']}"
+        )
+
+    prune_stale = args.prune_stale
+    if prune_stale is None:
+        prune_stale = bool(args.complete_only and args.live)
+
     if args.live:
         url, key = resolve_supabase_credentials()
         if not url or not key:
@@ -505,7 +626,11 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
         result = import_supabase(
-            bundle, url=url, key=key, ensure_stock_items=args.ensure_stock_items
+            bundle,
+            url=url,
+            key=key,
+            ensure_stock_items=args.ensure_stock_items,
+            prune_stale=prune_stale,
         )
         print("Live import OK")
     else:
@@ -517,6 +642,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {table}: +{stat.inserted} ~{stat.updated} ={stat.unchanged}")
     for note in result.notes:
         print(f"  # {note}")
+    if filter_meta:
+        excluded = filter_meta.get("excluded_identity_only_chassis") or []
+        if excluded:
+            print(
+                f"  # excluded identity-only chassis ({len(excluded)}): "
+                f"{excluded[:12]}{'...' if len(excluded) > 12 else ''}"
+            )
     return 0
 
 

@@ -1,9 +1,13 @@
 package co.zw.nissangtr.customer.rpc
 
+import android.content.Intent
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.handleDeeplinks
+import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
@@ -56,25 +60,62 @@ class SupabaseRpcClient(
             this.email = email.trim()
             this.password = password
         }
+        // Email/password users are not minted by handle_new_user (OAuth/OTP only) —
+        // ensure storefront AuthZ before cart / wishlist RPCs.
+        ensureOwnCustomerIfNeeded()
+    }
+
+    /**
+     * Native Google ID token → GoTrue [IDToken] (Credential Manager / Sign in with Google).
+     * [nonce] must be the raw nonce when a hashed nonce was sent to Google.
+     */
+    suspend fun signInWithGoogleIdToken(idToken: String, nonce: String? = null) {
+        require(idToken.isNotBlank()) { "idToken required" }
+        auth.signInWith(IDToken) {
+            this.idToken = idToken
+            provider = Google
+            this.nonce = nonce
+        }
+        ensureOwnCustomerIfNeeded()
+    }
+
+    /**
+     * Defense-in-depth after OAuth / session establish: mint retail `customers` if
+     * AuthZ context is still null (trigger race / legacy users).
+     */
+    override suspend fun ensureOwnCustomerIfNeeded(): String? {
+        if (!isSignedIn()) return null
+        currentCustomerId()?.let { return it }
+        return client.postgrest.rpc(RpcNames.ENSURE_OWN_CUSTOMER).decodeAs<String>()
+    }
+
+    /** OAuth / email-confirm deep links (`gtrcustomer://auth/callback`). */
+    fun handleAuthDeeplink(intent: Intent) {
+        // Platform extension on SupabaseClient (not Auth) — supabase-kt Android.
+        client.handleDeeplinks(intent)
     }
 
     /**
      * Email/password register via GoTrue (mirrors web signup).
      * May require email confirmation depending on project Auth settings.
+     * Confirm links must open the app — pass [AUTH_EMAIL_REDIRECT] (must be on Dashboard redirect allow-list).
+     * Hosted **Site URL** must not stay on localhost or confirm emails default there.
      */
     suspend fun signUpWithEmail(email: String, password: String) {
         require(email.isNotBlank()) { "email required" }
         require(password.length >= 6) { "password must be at least 6 characters" }
-        auth.signUpWith(Email) {
+        auth.signUpWith(Email, redirectUrl = AUTH_EMAIL_REDIRECT) {
             this.email = email.trim()
             this.password = password
         }
+        // When Confirm email is off, session exists immediately — mint customers now.
+        if (isSignedIn()) ensureOwnCustomerIfNeeded()
     }
 
     /** Sends a password-recovery email via GoTrue (no fake stub in production). */
     suspend fun resetPasswordForEmail(email: String) {
         require(email.isNotBlank()) { "email required" }
-        auth.resetPasswordForEmail(email.trim())
+        auth.resetPasswordForEmail(email.trim(), redirectUrl = AUTH_EMAIL_REDIRECT)
     }
 
     /** Clears the persisted GoTrue session. */
@@ -123,11 +164,54 @@ class SupabaseRpcClient(
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult =
         CatalogRpcLive.listCatalogBrowse(client, category, limit)
 
+    override suspend fun listCatalogMakers(): List<EpcMaker> =
+        CatalogRpcLive.listCatalogMakers(client)
+
+    override suspend fun listCatalogModels(makerSlug: String): List<EpcModel> =
+        CatalogRpcLive.listCatalogModels(client, makerSlug)
+
+    override suspend fun listCatalogVariants(makerSlug: String, modelSlug: String): List<EpcVariant> =
+        CatalogRpcLive.listCatalogVariants(client, makerSlug, modelSlug)
+
+    override suspend fun listCatalogSections(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+    ): List<EpcSection> =
+        CatalogRpcLive.listCatalogSections(client, makerSlug, modelSlug, variantSlug)
+
+    override suspend fun getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): EpcDiagramResponse =
+        CatalogRpcLive.getCatalogDiagram(
+            client,
+            supabaseUrl,
+            makerSlug,
+            modelSlug,
+            variantSlug,
+            sectionSlug,
+        )
+
+    override suspend fun listVehicleMaster(): List<VehicleMasterRow> =
+        CatalogRpcLive.listVehicleMaster(client)
+
+    override suspend fun listCatalogForVehicle(
+        chassisCode: String,
+        engineCode: String?,
+        limit: Int,
+    ): CatalogBrowseResult =
+        CatalogRpcLive.listCatalogForVehicle(client, chassisCode, engineCode, limit)
+
     override suspend fun loadCatalogProduct(oem: String): CatalogProduct =
         CatalogRpcLive.loadCatalogProduct(client, supabaseUrl, oem)
 
-    override suspend fun addCustomerCartLineByOem(oem: String, qty: Double): Pair<String, String> =
-        CatalogRpcLive.addCartLineByOem(client, supabaseUrl, this, oem, qty)
+    override suspend fun addCustomerCartLineByOem(oem: String, qty: Double): Pair<String, String> {
+        ensureOwnCustomerIfNeeded()
+        return CatalogRpcLive.addCartLineByOem(client, supabaseUrl, this, oem, qty)
+    }
 
     override suspend fun fetchZigExchangeRate(asOf: String?): Double {
         return try {
@@ -248,7 +332,9 @@ class SupabaseRpcClient(
             ?: return null
 
         val lines = client.from("pos_cart_lines")
-            .select(Columns.list("id", "stock_item_id", "uom_id", "qty")) {
+            .select(
+                Columns.raw("id, stock_item_id, uom_id, qty, stock_items ( oem_part_number )"),
+            ) {
                 filter { eq("cart_id", cart.id) }
                 order("created_at", Order.ASCENDING)
             }
@@ -266,6 +352,7 @@ class SupabaseRpcClient(
                     stockItemId = it.stockItemId,
                     uomId = it.uomId,
                     qty = it.qty,
+                    oemPartNumber = it.stockItems?.oemPartNumber,
                 )
             },
         )
@@ -848,7 +935,8 @@ class SupabaseRpcClient(
         )
     }
 
-    private suspend fun currentCustomerId(): String? =
+    /** Own `customers.id` via RLS — null when AuthZ customer context missing. */
+    suspend fun currentCustomerId(): String? =
         client.from("customers")
             .select(Columns.list("id")) {
                 limit(1)
@@ -871,13 +959,23 @@ class SupabaseRpcClient(
                 supabaseUrl = supabaseUrl,
                 supabaseKey = supabaseAnonKey,
             ) {
-                install(Auth)
+                install(Auth) {
+                    // Align with docs/CUSTOMER_OAUTH_SETUP.md redirect allow-list.
+                    scheme = AUTH_DEEP_LINK_SCHEME
+                    host = AUTH_DEEP_LINK_HOST
+                }
                 install(Postgrest)
                 install(Storage)
                 install(Functions)
             }
             return SupabaseRpcClient(client, supabaseUrl.trim())
         }
+
+        /** Deep link: `gtrcustomer://auth/callback` */
+        const val AUTH_DEEP_LINK_SCHEME = "gtrcustomer"
+        const val AUTH_DEEP_LINK_HOST = "auth/callback"
+        /** Email confirm / recovery redirect — must be on Dashboard redirect allow-list. */
+        const val AUTH_EMAIL_REDIRECT = "$AUTH_DEEP_LINK_SCHEME://$AUTH_DEEP_LINK_HOST"
 
         private fun parseMetadata(raw: String): JsonElement {
             if (raw.isBlank()) return buildJsonObject { }
@@ -917,6 +1015,12 @@ private data class PosCartLineRow(
     @SerialName("stock_item_id") val stockItemId: String,
     @SerialName("uom_id") val uomId: String,
     val qty: Double,
+    @SerialName("stock_items") val stockItems: PosCartLineStockItem? = null,
+)
+
+@Serializable
+private data class PosCartLineStockItem(
+    @SerialName("oem_part_number") val oemPartNumber: String? = null,
 )
 
 @Serializable

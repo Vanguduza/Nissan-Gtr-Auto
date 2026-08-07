@@ -36,7 +36,7 @@ struct WishlistScreen: View {
             if filteredItems.isEmpty {
                 ShopHonestEmpty(
                     title: "Wishlist is empty",
-                    bodyText: "Heart a part on Home / PDP, or add by OEM below."
+                    bodyText: "No saved items."
                 )
             } else {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {

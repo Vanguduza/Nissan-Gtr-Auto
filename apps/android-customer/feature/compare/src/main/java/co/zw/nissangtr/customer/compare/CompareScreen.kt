@@ -47,18 +47,16 @@ fun CompareScreen(
 
     ShopDefaultScreen(
         title = "Compare",
-        subtitle = "Attribute matrix",
+        subtitle = null,
         onBack = onBack,
         modifier = modifier) {
-        Text(
-            if (state.usingGuestStore) {
-                "Guest mode — OEMs stored on-device (SharedPreferences)."
-            } else {
-                "Synced via ${RpcNames.LIST_CUSTOMER_COMPARE_ITEMS} / add / remove."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (state.usingGuestStore) {
+            Text(
+                "Guest mode — OEMs stored on-device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         ShopSectionHeader(title = "Compare list", actionLabel = null)
         if (state.items.isEmpty()) {

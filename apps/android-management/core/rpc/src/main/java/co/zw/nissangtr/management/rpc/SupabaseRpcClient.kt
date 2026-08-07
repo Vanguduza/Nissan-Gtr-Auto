@@ -342,6 +342,67 @@ class SupabaseRpcClient(
         return parseCatalogSearchResult(raw, mode, query.trim())
     }
 
+    override suspend fun listCatalogMakers(): List<EpcMaker> {
+        val raw = client.postgrest.rpc(RpcNames.LIST_CATALOG_MAKERS)
+            .decodeAs<kotlinx.serialization.json.JsonElement>()
+        return parseEpcMakerList(raw)
+    }
+
+    override suspend fun listCatalogModels(makerSlug: String): List<EpcModel> {
+        val raw = client.postgrest.rpc(
+            RpcNames.LIST_CATALOG_MODELS,
+            buildJsonObject { put("p_maker_slug", makerSlug) },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return parseEpcModelList(raw)
+    }
+
+    override suspend fun listCatalogVariants(makerSlug: String, modelSlug: String): List<EpcVariant> {
+        val raw = client.postgrest.rpc(
+            RpcNames.LIST_CATALOG_VARIANTS,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return parseEpcVariantList(raw)
+    }
+
+    override suspend fun listCatalogSections(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+    ): List<EpcSection> {
+        val raw = client.postgrest.rpc(
+            RpcNames.LIST_CATALOG_SECTIONS,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+                put("p_variant_slug", variantSlug)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return parseEpcSectionList(raw)
+    }
+
+    override suspend fun getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): EpcDiagramResponse {
+        val raw = client.postgrest.rpc(
+            RpcNames.GET_CATALOG_DIAGRAM,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+                put("p_variant_slug", variantSlug)
+                put("p_section_slug", sectionSlug)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        val parsed = parseEpcDiagram(raw)
+        // image_url / storage_path come from RPC; UI resolves Storage when needed.
+        return parsed
+    }
+
     override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {
         require(lineId.isNotBlank())
         require(qty > 0) { "qty must be > 0" }

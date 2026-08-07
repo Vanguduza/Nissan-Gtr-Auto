@@ -18,6 +18,12 @@ package co.zw.nissangtr.customer.rpc
  * QR / camera: Bridge-First only (`bridges/android/`) — never HTML5 / WebView.
  */
 interface RpcClient {
+    /**
+     * Mint retail `customers` row for the signed-in auth user if missing
+     * (`ensure_own_customer`). No-op when already linked or unsigned.
+     */
+    suspend fun ensureOwnCustomerIfNeeded(): String? = null
+
     /** Mirrors web `searchCatalog` → `search_catalog` (Postgres FTS). */
     suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse
 
@@ -34,6 +40,42 @@ interface RpcClient {
 
     /** Browse PLP — PostgREST stock_items + default price list (web `listCatalogProducts` subset). */
     suspend fun listCatalogBrowse(category: String? = null, limit: Int = 50): CatalogBrowseResult
+
+    /** Megazip hierarchy — maker hub. */
+    suspend fun listCatalogMakers(): List<EpcMaker>
+
+    suspend fun listCatalogModels(makerSlug: String): List<EpcModel>
+
+    suspend fun listCatalogVariants(makerSlug: String, modelSlug: String): List<EpcVariant>
+
+    suspend fun listCatalogSections(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+    ): List<EpcSection>
+
+    suspend fun getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): EpcDiagramResponse
+
+    /**
+     * Live `vehicle_master` rows for cascading maker → model → generation → engine.
+     * PostgREST SELECT (RLS); never a fabricated maker/model list.
+     */
+    suspend fun listVehicleMaster(): List<VehicleMasterRow>
+
+    /**
+     * Parts that fit a chassis (+ optional engine) via `part_fitment` → `stock_items`.
+     * Used after Select vehicle confirm to scope browsing to the live catalog.
+     */
+    suspend fun listCatalogForVehicle(
+        chassisCode: String,
+        engineCode: String? = null,
+        limit: Int = 50,
+    ): CatalogBrowseResult
 
     /** PDP load — stock_items + price + saleable qty (web `loadCatalogProduct` subset). */
     suspend fun loadCatalogProduct(oem: String): CatalogProduct

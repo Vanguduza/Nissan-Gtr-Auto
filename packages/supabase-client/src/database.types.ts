@@ -1673,7 +1673,7 @@ export type Database = {
           {
             foreignKeyName: "customers_profile_id_fkey"
             columns: ["profile_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -9044,6 +9044,8 @@ export type Database = {
         }
         Returns: string
       }
+      ensure_customer_for_user: { Args: { p_uid: string }; Returns: string }
+      ensure_own_customer: { Args: never; Returns: string }
       ensure_pos_walkin_customer: { Args: never; Returns: string }
       expire_loyalty_points: {
         Args: {

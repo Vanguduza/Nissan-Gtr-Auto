@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.ui.shop.ShopGtrPayMethod
 import co.zw.nissangtr.ui.shop.ShopPaymentMethodList
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
@@ -51,16 +50,9 @@ fun PayIntentScreen(
 
     ShopDefaultScreen(
         title = "Secure payment",
-        subtitle = "ContiPay · Paynow · EcoCash",
+        subtitle = null,
         onBack = onBack,
         modifier = modifier) {
-        Text(
-            "RPCs: ${RpcNames.CREATE_CUSTOMER_CONTIPAY_INTENT}, " +
-                "${RpcNames.CREATE_CUSTOMER_PAYNOW_INTENT}, " +
-                RpcNames.CREATE_CUSTOMER_ECOCASH_INTENT,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Text(
             "EcoCash direct is separate from ContiPay/Paynow. Enter the EcoCash MSISDN for the PIN prompt.",
             style = MaterialTheme.typography.bodySmall,

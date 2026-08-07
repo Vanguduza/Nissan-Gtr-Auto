@@ -9,7 +9,7 @@ struct OrdersScreen: View {
     @State private var busy = false
 
     var body: some View {
-        ShopDefaultScreen(title: "Orders", subtitle: "History · track", scrollable: false) {
+        ShopDefaultScreen(title: "Orders", subtitle: nil, scrollable: false) {
             List {
             if orders.isEmpty {
                 Text("No orders yet")

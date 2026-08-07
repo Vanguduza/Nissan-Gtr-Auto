@@ -29,7 +29,7 @@ fun KitsScreen(
 
     ShopDefaultScreen(
         title = "Service kits",
-        subtitle = "Bundles",
+        subtitle = null,
         onBack = onBack,
         modifier = modifier,
         loading = state.busy && state.kits.isEmpty(),
@@ -49,7 +49,7 @@ fun KitsScreen(
         if (state.kits.isEmpty() && !state.busy) {
             ShopHonestEmpty(
                 title = "No active kits",
-                body = "Service kits appear here when published in item_kits.",
+                body = "No kits.",
             )
         }
 
@@ -57,7 +57,7 @@ fun KitsScreen(
             ShopSectionHeader(title = kit.name, actionLabel = kit.sellMode)
             ShopListCard(
                 title = kit.oem,
-                subtitle = "${kit.components.size} component(s) · tap to open PDP",
+                subtitle = "${kit.components.size} component(s)",
                 onClick = { onOpenProduct(kit.oem) },
             )
             kit.components.forEach { comp ->

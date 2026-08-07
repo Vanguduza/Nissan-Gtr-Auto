@@ -21,11 +21,11 @@ struct DeliveryTrackScreen: View {
     private let pollNanos: UInt64 = 15_000_000_000
 
     var body: some View {
-        ShopDefaultScreen(title: "Live delivery", subtitle: "Last point · ETA only", scrollable: false) {
+        ShopDefaultScreen(title: "Live delivery", subtitle: nil, scrollable: false) {
             List {
             Section {
                 Text(
-                    "Shows the driver’s last known location and ETA while the job is out for delivery. Full GPS history is never shared."
+                    "Shows the driver's last known location and ETA while the job is out for delivery. Full GPS history is never shared."
                 )
                 .font(GTRType.body(.footnote))
                 .foregroundStyle(GTRColors.silverDim)
@@ -104,11 +104,7 @@ struct DeliveryTrackScreen: View {
             }
 
             Section {
-                Text(
-                    polling
-                        ? "Privacy: last point + ETA only. Polling every 15s while active."
-                        : "Privacy: tracking stopped — job ended or link inactive. No historical GPS trail."
-                )
+                Text(polling ? "Tracking…" : "Tracking stopped")
                 .font(GTRType.label(.caption2))
                 .foregroundStyle(GTRColors.silverDim)
             }

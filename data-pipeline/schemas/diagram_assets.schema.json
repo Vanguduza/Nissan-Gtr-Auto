@@ -16,7 +16,7 @@
     "engine_code": { "type": "string", "maxLength": 32 },
     "content_type": {
       "type": "string",
-      "enum": ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
+      "enum": ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"]
     },
     "source_url": { "type": "string" },
     "provenance": {

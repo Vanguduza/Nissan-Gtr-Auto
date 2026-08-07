@@ -7,13 +7,14 @@ import co.zw.nissangtr.customer.rpc.CatalogProduct
 import co.zw.nissangtr.customer.rpc.GarageVehicle
 import co.zw.nissangtr.customer.rpc.SearchCatalogResponse
 import co.zw.nissangtr.customer.rpc.SearchMode
+import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 
 /**
  * One use case per user action, sitting between [co.zw.nissangtr.customer.catalog.CatalogViewModel]
  * and [CatalogRepository].
  *
  * **Adopt-first note (structural pattern only, no code/assets copied):** this
- * data ↔ domain(model/repository/usecase) ↔ presentation layering mirrors
+ * data â†” domain(model/repository/usecase) â†” presentation layering mirrors
  * [3wiida/OmniCart](https://github.com/3wiida/OmniCart) — a real, verified Jetpack
  * Compose Kotlin e-commerce sample (`app/src/main/java/com/mahmoudibrahem/omnicart/{data,domain,presentation}`,
  * with `domain/repository` + `domain/usecase` subpackages) confirmed via the GitHub API
@@ -64,6 +65,15 @@ class GetPrimaryVehicleUseCase(private val repository: CatalogRepository) {
     suspend operator fun invoke(): GarageVehicle? = repository.getPrimaryVehicle()
 }
 
+class ListVehicleMasterUseCase(private val repository: CatalogRepository) {
+    suspend operator fun invoke(): List<VehicleMasterRow> = repository.listVehicleMaster()
+}
+
+class ListCatalogForVehicleUseCase(private val repository: CatalogRepository) {
+    suspend operator fun invoke(chassisCode: String, engineCode: String?, limit: Int = 50): CatalogBrowseResult =
+        repository.listCatalogForVehicle(chassisCode, engineCode, limit)
+}
+
 class GetReviewStatsUseCase(private val repository: CatalogRepository) {
     suspend operator fun invoke(stockItemId: String?, oem: String?) =
         repository.getReviewStats(stockItemId, oem)
@@ -88,6 +98,8 @@ class CatalogUseCases(
     val addToWishlist: AddToWishlistUseCase,
     val addToCompare: AddToCompareUseCase,
     val getPrimaryVehicle: GetPrimaryVehicleUseCase,
+    val listVehicleMaster: ListVehicleMasterUseCase,
+    val listCatalogForVehicle: ListCatalogForVehicleUseCase,
     val getActiveDeals: GetActiveDealsUseCase,
     val reviewStats: GetReviewStatsUseCase,
 ) {
@@ -100,6 +112,8 @@ class CatalogUseCases(
             addToWishlist = AddToWishlistUseCase(repository),
             addToCompare = AddToCompareUseCase(repository),
             getPrimaryVehicle = GetPrimaryVehicleUseCase(repository),
+            listVehicleMaster = ListVehicleMasterUseCase(repository),
+            listCatalogForVehicle = ListCatalogForVehicleUseCase(repository),
             getActiveDeals = GetActiveDealsUseCase(),
             reviewStats = GetReviewStatsUseCase(repository),
         )

@@ -32,7 +32,7 @@ fun EditProfileScreen(
 
     ShopDefaultScreen(
         title = "Edit profile",
-        subtitle = "Personal · contact · marketing",
+        subtitle = null,
         onBack = onBack,
         modifier = modifier,
         loading = state.busy && state.firstName.isEmpty() && state.email.isEmpty(),

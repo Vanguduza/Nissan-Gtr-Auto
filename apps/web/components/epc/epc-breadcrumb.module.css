@@ -1,0 +1,27 @@
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--gtr-steel, #8896a4);
+}
+
+.link {
+  color: var(--gtr-red, #c8102e);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.sep {
+  user-select: none;
+}
+
+.current {
+  font-weight: 600;
+  color: var(--text, #e8eaee);
+}

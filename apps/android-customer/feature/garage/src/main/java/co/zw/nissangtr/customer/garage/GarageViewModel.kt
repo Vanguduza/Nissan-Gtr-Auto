@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.customer.rpc.GarageVehicle
 import co.zw.nissangtr.customer.rpc.GarageVehicleInput
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
+import co.zw.nissangtr.customer.rpc.SelectedFitmentVehicle
+import co.zw.nissangtr.customer.rpc.VehicleCascade
+import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,13 +17,13 @@ import kotlinx.coroutines.launch
 
 data class GarageUiState(
     val vehicles: List<GarageVehicle> = emptyList(),
-    val make: String = "Nissan",
-    val model: String = "",
-    val generation: String = "",
-    val engine: String = "",
-    val vin: String = "",
+    /** Live `vehicle_master` rows — same source as homepage Select Vehicle. */
+    val vehicleRows: List<VehicleMasterRow> = emptyList(),
     val isPrimary: Boolean = false,
     val busy: Boolean = false,
+    val catalogBusy: Boolean = false,
+    /** Bumped after successful save so [VehicleSelectorSection] local state resets. */
+    val formEpoch: Int = 0,
     val message: String? = null,
     val error: String? = null,
 )
@@ -34,14 +36,12 @@ class GarageViewModel(
 
     init {
         refresh()
+        loadVehicleCatalog()
     }
 
-    fun onMakeChange(v: String) = _state.update { it.copy(make = v, error = null) }
-    fun onModelChange(v: String) = _state.update { it.copy(model = v, error = null) }
-    fun onGenerationChange(v: String) = _state.update { it.copy(generation = v) }
-    fun onEngineChange(v: String) = _state.update { it.copy(engine = v) }
-    fun onVinChange(v: String) = _state.update { it.copy(vin = v, error = null) }
     fun onPrimaryChange(v: Boolean) = _state.update { it.copy(isPrimary = v) }
+
+    fun clearFormError() = _state.update { it.copy(error = null, message = null) }
 
     fun refresh() {
         viewModelScope.launch {
@@ -55,32 +55,83 @@ class GarageViewModel(
         }
     }
 
-    fun upsert() {
-        val s = _state.value
+    fun loadVehicleCatalog() {
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
+            _state.update { it.copy(catalogBusy = true, error = null) }
             try {
-                val id = rpc.upsertCustomerGarageVehicle(
-                    GarageVehicleInput(
-                        make = s.make.ifBlank { null },
-                        model = s.model.ifBlank { null },
-                        generation = s.generation.ifBlank { null },
-                        engine = s.engine.ifBlank { null },
-                        vin = s.vin.ifBlank { null },
-                        isPrimary = s.isPrimary,
-                    ),
-                )
-                val list = rpc.listGarageVehicles()
+                val rows = rpc.listVehicleMaster()
+                _state.update { it.copy(catalogBusy = false, vehicleRows = rows) }
+            } catch (e: Exception) {
                 _state.update {
                     it.copy(
-                        busy = false,
-                        vehicles = list,
-                        message = "${RpcNames.UPSERT_CUSTOMER_GARAGE_VEHICLE} → $id",
+                        catalogBusy = false,
+                        error = e.message ?: "Could not load vehicle catalog",
                     )
                 }
-            } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "upsert failed") }
             }
+        }
+    }
+
+    /** Persist cascade selection — options must resolve against live [vehicleRows]. */
+    fun saveFromCascade(
+        maker: String,
+        model: String,
+        generation: String,
+        engine: String?,
+    ) {
+        viewModelScope.launch {
+            val selected = VehicleCascade.fromCascade(
+                maker = maker,
+                model = model,
+                generation = generation,
+                engine = engine,
+                rows = _state.value.vehicleRows,
+            )
+            if (selected == null) {
+                _state.update { it.copy(error = "Selection not found.") }
+                return@launch
+            }
+            upsertSelected(selected)
+        }
+    }
+
+    /** Persist VIN only when identifiable in live catalog. */
+    fun saveFromVin(vin: String) {
+        viewModelScope.launch {
+            val selected = VehicleCascade.resolveVin(_state.value.vehicleRows, vin)
+            if (selected == null) {
+                _state.update { it.copy(error = "VIN not found.") }
+                return@launch
+            }
+            upsertSelected(selected)
+        }
+    }
+
+    private suspend fun upsertSelected(selected: SelectedFitmentVehicle) {
+        _state.update { it.copy(busy = true, error = null, message = null) }
+        try {
+            rpc.upsertCustomerGarageVehicle(
+                GarageVehicleInput(
+                    make = selected.make,
+                    model = selected.model,
+                    generation = selected.generation,
+                    engine = selected.engine,
+                    vin = selected.vin,
+                    isPrimary = _state.value.isPrimary,
+                ),
+            )
+            val list = rpc.listGarageVehicles()
+            _state.update {
+                it.copy(
+                    busy = false,
+                    vehicles = list,
+                    message = "Vehicle saved",
+                    isPrimary = false,
+                    formEpoch = it.formEpoch + 1,
+                )
+            }
+        } catch (e: Exception) {
+            _state.update { it.copy(busy = false, error = e.message ?: "upsert failed") }
         }
     }
 
@@ -94,7 +145,7 @@ class GarageViewModel(
                     it.copy(
                         busy = false,
                         vehicles = list,
-                        message = "${RpcNames.DELETE_CUSTOMER_GARAGE_VEHICLE} → $id",
+                        message = "Vehicle removed",
                     )
                 }
             } catch (e: Exception) {

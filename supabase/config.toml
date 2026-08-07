@@ -35,16 +35,57 @@ file_size_limit = "50MiB"
 enabled = true
 # Local only. Production Auth site URL: https://nissangtrauto.co.zw
 site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["http://127.0.0.1:3000", "https://nissangtrauto.co.zw", "https://www.nissangtrauto.co.zw"]
-# Global: block public GoTrue signup (invite/seed/OTP complete_signup only).
-enable_signup = false
+# Web + mobile OAuth / deep-link return paths (mirror on hosted Auth → URL config).
+additional_redirect_urls = [
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3000/auth/callback",
+  "https://nissangtrauto.co.zw",
+  "https://nissangtrauto.co.zw/auth/callback",
+  "https://www.nissangtrauto.co.zw",
+  "https://www.nissangtrauto.co.zw/auth/callback",
+  "gtrcustomer://auth/callback",
+  "gtr-customer://auth/callback",
+]
+# Must be true so first-time Google/Apple can create Auth users.
+# Public email/password GoTrue signup is blocked by hook_before_user_created
+# (OTP complete_signup + HR onboarding set app_metadata.gtr_provisioned_via).
+enable_signup = true
 
 [auth.email]
 # GoTrue maps this to EXTERNAL_EMAIL_ENABLED — false disables ALL email auth
 # (including password login). Keep true so seeded/staff users can sign in;
-# public signup remains blocked by [auth].enable_signup above.
+# public email signup is blocked by [auth.hook.before_user_created], not this flag.
 enable_signup = true
 enable_confirmations = false
+
+# Reject public /signup while allowing Google/Apple + Edge Admin provisioning.
+# Hosted: Dashboard → Authentication → Hooks → Before user created → same pg function.
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_before_user_created"
+
+# OAuth — secrets via env() only; never commit values.
+# Local: keep enabled=false until Client ID + Secret exist in supabase/.env
+#   (or shell). Then set enabled=true and restart (`supabase stop` / `start`).
+#   Env names: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID / _SECRET
+#              SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID / _SECRET
+# Hosted: Dashboard → Authentication → Providers (enable + paste credentials).
+# config.toml does not control hosted. See docs/CUSTOMER_OAUTH_SETUP.md
+[auth.external.google]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
+
+[auth.external.apple]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
 
 [analytics]
 enabled = false
@@ -119,6 +160,7 @@ verify_jwt = true
 
 # Customer signup/login OTP (email | phone). Fail-closed without gateway secrets;
 # AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset → stub code 000000 only (non-prod).
-# verify mints proof_token; complete_signup/login require it. Public signup disabled.
+# verify mints proof_token; complete_signup/login require it.
+# Public GoTrue email signup blocked by before_user_created hook (not enable_signup=false).
 [functions.auth-otp]
 verify_jwt = false

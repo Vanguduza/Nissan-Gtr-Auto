@@ -15,6 +15,7 @@ build/
 .turbo/
 out/
 coverage/
+.vercel/
 
 # Mobile
 .gradle/
@@ -48,3 +49,7 @@ __pycache__/
 .venv/
 *.egg-info/
 data-pipeline/.venv/
+
+# Local CLI binaries
+.tools/
+

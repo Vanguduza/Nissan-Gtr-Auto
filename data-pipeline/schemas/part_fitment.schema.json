@@ -9,7 +9,7 @@
     "oem_part_number": {
       "type": "string",
       "maxLength": 32,
-      "pattern": "^[0-9A-Z]{5}-[0-9A-Z]{5}$"
+      "pattern": "^[0-9A-Z][0-9A-Z\\-]{4,31}$"
     },
     "pnc_code": {
       "type": "string",

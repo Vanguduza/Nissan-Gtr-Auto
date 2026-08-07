@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "catalog_hierarchy_bundle.schema.json",
+  "title": "catalog_hierarchy_bundle",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "catalog_makers": { "type": "array", "items": { "$ref": "#/$defs/catalog_maker" } },
+    "catalog_models": { "type": "array", "items": { "$ref": "#/$defs/catalog_model" } },
+    "catalog_variants": { "type": "array", "items": { "$ref": "#/$defs/catalog_variant" } },
+    "catalog_sections": { "type": "array", "items": { "$ref": "#/$defs/catalog_section" } },
+    "catalog_diagrams": { "type": "array", "items": { "$ref": "#/$defs/catalog_diagram" } },
+    "catalog_diagram_parts": { "type": "array", "items": { "$ref": "#/$defs/catalog_diagram_part" } },
+    "vehicle_master": { "type": "array" },
+    "pnc_categories": { "type": "array" },
+    "part_fitment": { "type": "array" },
+    "diagram_assets": { "type": "array" }
+  },
+  "$defs": {
+    "catalog_maker": {
+      "type": "object",
+      "required": ["slug", "name"],
+      "additionalProperties": true,
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "sort_order": { "type": "integer" },
+        "source": { "type": "string" }
+      }
+    },
+    "catalog_model": {
+      "type": "object",
+      "required": ["maker_slug", "slug", "display_name", "sort_key"],
+      "additionalProperties": true,
+      "properties": {
+        "maker_slug": { "type": "string" },
+        "slug": { "type": "string" },
+        "display_name": { "type": "string" },
+        "body_type": { "type": "string" },
+        "sort_key": { "type": "string" },
+        "year_start": { "type": "integer" },
+        "year_end": { "type": "integer" },
+        "source_url": { "type": "string" }
+      }
+    },
+    "catalog_variant": {
+      "type": "object",
+      "required": ["maker_slug", "model_slug", "slug", "chassis_code"],
+      "additionalProperties": true,
+      "properties": {
+        "maker_slug": { "type": "string" },
+        "model_slug": { "type": "string" },
+        "slug": { "type": "string" },
+        "chassis_code": { "type": "string" },
+        "frame": { "type": "string" },
+        "grade": { "type": "string" },
+        "sales_region": { "type": "string" },
+        "year_start": { "type": "integer" },
+        "year_end": { "type": "integer" },
+        "engine_code": { "type": "string" },
+        "megazip_data_id": { "type": "string" },
+        "source_url": { "type": "string" }
+      }
+    },
+    "catalog_section": {
+      "type": "object",
+      "required": ["maker_slug", "model_slug", "variant_slug", "slug", "name"],
+      "additionalProperties": true,
+      "properties": {
+        "maker_slug": { "type": "string" },
+        "model_slug": { "type": "string" },
+        "variant_slug": { "type": "string" },
+        "slug": { "type": "string" },
+        "name": { "type": "string" },
+        "thumbnail_url": { "type": "string" },
+        "sort_order": { "type": "integer" },
+        "assembly_group_id": { "type": "string" },
+        "source_url": { "type": "string" }
+      }
+    },
+    "catalog_diagram": {
+      "type": "object",
+      "required": ["maker_slug", "model_slug", "variant_slug", "section_slug", "slug", "title"],
+      "additionalProperties": true,
+      "properties": {
+        "maker_slug": { "type": "string" },
+        "model_slug": { "type": "string" },
+        "variant_slug": { "type": "string" },
+        "section_slug": { "type": "string" },
+        "slug": { "type": "string" },
+        "title": { "type": "string" },
+        "image_url": { "type": "string" },
+        "image_width": { "type": "integer" },
+        "image_height": { "type": "integer" },
+        "diagram_kind": {
+          "type": "string",
+          "enum": ["exploded_diagram", "parts_list_raster", "ambiguous"]
+        },
+        "hotspot_count": { "type": "integer" },
+        "storage_path": { "type": "string" },
+        "source_url": { "type": "string" }
+      }
+    },
+    "catalog_diagram_part": {
+      "type": "object",
+      "required": [
+        "maker_slug",
+        "model_slug",
+        "variant_slug",
+        "section_slug",
+        "itemslist_id",
+        "oem_part_number"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "maker_slug": { "type": "string" },
+        "model_slug": { "type": "string" },
+        "variant_slug": { "type": "string" },
+        "section_slug": { "type": "string" },
+        "diagram_slug": { "type": "string" },
+        "diagram_path": { "type": "string" },
+        "itemslist_id": { "type": "string" },
+        "callout_ref": { "type": "string" },
+        "oem_part_number": { "type": "string" },
+        "description": { "type": "string" },
+        "quantity": { "type": "string" },
+        "megazip_item_id": { "type": "string" },
+        "bbox_x": { "type": "number" },
+        "bbox_y": { "type": "number" },
+        "bbox_width": { "type": "number" },
+        "bbox_height": { "type": "number" }
+      }
+    }
+  }
+}

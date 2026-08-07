@@ -20,6 +20,11 @@ import {
   VehicleCascade,
   type VehicleMasterRow,
 } from "@/lib/vehicle-catalog";
+import {
+  catalogPath,
+  lookupVariantByChassis,
+  saveEpcContext,
+} from "@/lib/catalog-hierarchy";
 import { createWebClient } from "@/lib/supabase";
 import accountStyles from "@/components/account.module.css";
 import cascadeStyles from "@/components/vehicle-selector.module.css";
@@ -278,6 +283,9 @@ export function GaragePanel() {
                 <Link href="/vehicle" className={accountStyles.btnGhost}>
                   Browse by vehicle
                 </Link>
+                {v.generation ? (
+                  <GarageEpcLink chassis={v.generation} />
+                ) : null}
               </div>
             </li>
           ))
@@ -351,5 +359,32 @@ export function GaragePanel() {
         Service reminders stay deferred until the marketing channel is live.
       </p>
     </>
+  );
+}
+
+function GarageEpcLink({ chassis }: { chassis: string }) {
+  const [href, setHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      const client = createWebClient();
+      if (!client) return;
+      const ctx = await lookupVariantByChassis(client, chassis);
+      if (cancelled || !ctx) return;
+      saveEpcContext(ctx);
+      setHref(catalogPath(ctx));
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [chassis]);
+
+  if (!href) return null;
+  return (
+    <Link href={href} className={accountStyles.btnGhost}>
+      Browse EPC diagrams
+    </Link>
   );
 }

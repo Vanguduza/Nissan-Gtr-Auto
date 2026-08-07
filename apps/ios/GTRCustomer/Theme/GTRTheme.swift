@@ -183,25 +183,15 @@ extension View {
 /// Official logo — `Assets.xcassets/BrandLogo` (mirrors web `public/brand/logo.png`).
 
 struct GTRLogo: View {
-
     var height: CGFloat = 36
 
-
-
     var body: some View {
-
         Image("BrandLogo")
-
             .resizable()
-
             .scaledToFit()
-
-            .frame(height: height)
-
+            .frame(height: height, alignment: .leading)
             .accessibilityLabel("Nissan GTR Auto")
-
     }
-
 }
 
 

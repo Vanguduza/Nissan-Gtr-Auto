@@ -9,6 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse, requireBearerJwt } from "../_shared/payment_edge.ts";
 import {
   catalogSearchBackend,
+  enrichMeiliResultsWithFtsFitments,
   isSearchMode,
   meiliConfig,
   searchCatalogFtsFallback,
@@ -81,6 +82,14 @@ Deno.serve(async (req) => {
 
     try {
       const data = await searchMeiliCatalog(mode, query, { limit, facets });
+      if (mode === "vin" || mode === "pnc") {
+        data.results = await enrichMeiliResultsWithFtsFitments(
+          supabase,
+          mode,
+          query,
+          data.results,
+        );
+      }
       return jsonResponse(data, 200, corsHeaders(req));
     } catch (meiliErr) {
       console.warn("Meili search failed; falling back to FTS:", meiliErr);

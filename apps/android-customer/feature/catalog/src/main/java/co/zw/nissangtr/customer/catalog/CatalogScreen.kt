@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,7 +61,6 @@ import co.zw.nissangtr.customer.wishlist.WishlistStore
 import co.zw.nissangtr.ui.shop.ShopBannerCarousel
 import co.zw.nissangtr.ui.shop.ShopCategoryChipRow
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
-import co.zw.nissangtr.ui.shop.ShopExpandableDescription
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopMerchTitleRow
 import co.zw.nissangtr.ui.shop.ShopProductCard
@@ -82,6 +82,7 @@ fun CatalogScreen(
     onOpenCart: () -> Unit = {},
     onCartChanged: () -> Unit = {},
     onManageVehicle: () -> Unit = {},
+    onOpenEpcBrowse: () -> Unit = {},
     initialOem: String? = null,
     initialCategorySeed: String? = null,
     categorySeedSeq: Int = 0,
@@ -103,6 +104,7 @@ fun CatalogScreen(
     val categoryLabels = remember { DefaultCatalogCategoryCards.map { it.label } }
 
     reviewsProduct?.let { product ->
+        BackHandler { reviewsProduct = null }
         PdpReviewsScreen(
             rpc = rpc,
             camera = camera,
@@ -112,6 +114,14 @@ fun CatalogScreen(
             modifier = modifier,
         )
         return
+    }
+
+    BackHandler(enabled = state.route != CatalogScreenRoute.Home) {
+        when (state.route) {
+            CatalogScreenRoute.Product -> viewModel.navigateBackFromProduct()
+            CatalogScreenRoute.Home -> Unit
+            else -> viewModel.navigateHome()
+        }
     }
 
     LaunchedEffect(initialOem) {
@@ -133,13 +143,16 @@ fun CatalogScreen(
                 wishOems = wishOems,
                 showShellChrome = showShellChrome,
                 onBack = onBack,
-                onManageVehicle = onManageVehicle,
                 onSeeAllCategories = viewModel::openCategories,
                 onSeeAllNewest = viewModel::openNewest,
                 onSeeAllMostSale = viewModel::openNewest,
                 onOpenProduct = viewModel::openProduct,
                 onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
                 onCategoryBrowse = viewModel::openCategoryBrowse,
+                onConfirmCascade = viewModel::confirmCascadeVehicle,
+                onConfirmVin = viewModel::confirmVinVehicle,
+                onClearVehicle = viewModel::clearSelectedVehicle,
+                onOpenEpcBrowse = onOpenEpcBrowse,
             )
             CatalogScreenRoute.Categories -> CategoriesGridScreen(
                 onBack = viewModel::navigateHome,
@@ -218,19 +231,36 @@ private val homeBanners = listOf(
 )
 
 @Composable
+private fun CompactFitmentBar(label: String) {
+    Text(
+        text = "Shopping for · $label",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
 private fun KmpHome(
     state: CatalogUiState,
     rpc: RpcClient,
     wishOems: Set<String>,
     showShellChrome: Boolean,
     onBack: () -> Unit,
-    onManageVehicle: () -> Unit,
     onSeeAllCategories: () -> Unit,
     onSeeAllMostSale: () -> Unit,
     onSeeAllNewest: () -> Unit,
     onOpenProduct: (String) -> Unit,
     onToggleWish: (CatalogListItem) -> Unit,
     onCategoryBrowse: (String) -> Unit,
+    onConfirmCascade: (String, String, String, String?) -> Unit,
+    onConfirmVin: (String) -> Unit,
+    onClearVehicle: () -> Unit,
+    onOpenEpcBrowse: () -> Unit = {},
 ) {
     val newest = state.browseItems.take(8)
     val mostSale = state.browseItems.drop(8).take(8).ifEmpty { state.browseItems.take(8) }
@@ -252,11 +282,19 @@ private fun KmpHome(
                     onOpenProduct = onOpenProduct,
                     onApplyFilter = onCategoryBrowse,
                 )
-                if (state.primaryVehicle != null) {
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = onManageVehicle) {
-                        Text("Fitment: ${state.primaryVehicle.summaryLabel()} · My Garage")
-                    }
+                CompactFitmentBar(label = state.fitmentBarLabel())
+                Spacer(Modifier.height(8.dp))
+                VehicleSelectorSection(
+                    vehicleRows = state.vehicleRows,
+                    confirmedVehicle = state.selectedFitment,
+                    busy = state.vehicleBusy,
+                    error = state.vehicleError,
+                    onConfirmCascade = onConfirmCascade,
+                    onConfirmVin = onConfirmVin,
+                    onClear = onClearVehicle,
+                )
+                TextButton(onClick = onOpenEpcBrowse) {
+                    Text("Browse EPC diagrams")
                 }
             } else {
                 Row(
@@ -269,6 +307,17 @@ private fun KmpHome(
                     rpc = rpc,
                     onOpenProduct = onOpenProduct,
                     onApplyFilter = onCategoryBrowse,
+                )
+                CompactFitmentBar(label = state.fitmentBarLabel())
+                Spacer(Modifier.height(8.dp))
+                VehicleSelectorSection(
+                    vehicleRows = state.vehicleRows,
+                    confirmedVehicle = state.selectedFitment,
+                    busy = state.vehicleBusy,
+                    error = state.vehicleError,
+                    onConfirmCascade = onConfirmCascade,
+                    onConfirmVin = onConfirmVin,
+                    onClear = onClearVehicle,
                 )
             }
         }
@@ -301,7 +350,7 @@ private fun KmpHome(
             if (state.deals.isEmpty()) {
                 ShopHonestEmpty(
                     title = "No flash deals",
-                    body = "Deals appear here when a live promotions feed ships - never a fake countdown on hardcoded SKUs.",
+                    body = "No deals.",
                     modifier = Modifier.padding(horizontal = 8.dp),
                 )
             } else {
@@ -530,7 +579,7 @@ private fun KmpPdp(
                 style = MaterialTheme.typography.titleLarge,
             )
             Spacer(Modifier.height(8.dp))
-            ShopExpandableDescription(
+            StableExpandableDescription(
                 text = product.descriptionText(),
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
@@ -563,7 +612,7 @@ private fun KmpPdp(
             Text(
                 when {
                     reviewStats == null || reviewStats.reviewCount == 0 ->
-                        "No reviews yet — reviews live on the product page."
+                        "No reviews yet"
                     else ->
                         "%.1f average · %d review(s). Tap above to read or submit.".format(
                             reviewStats.avgRating,
@@ -589,7 +638,7 @@ private fun KmpPdp(
             if (product.fitmentLines.isNotEmpty()) {
                 product.fitmentLines.forEach { line ->
                     Text(
-                        "· $line",
+                        " · $line",
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -616,7 +665,7 @@ private fun KmpPdp(
                 .fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(8.dp),
-            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         ) {
             ShopStickyCtaBar(
                 priceLabel = priceLabel,
@@ -624,6 +673,33 @@ private fun KmpPdp(
                 onCta = onAddToCart,
                 enabled = !busy,
             )
+        }
+    }
+}
+
+/**
+ * Stable Read More — no layout-measure loop. Collapsed text is truncated once;
+ * expand/collapse only toggles maxLines (no finalText rewrite that flashes).
+ */
+@Composable
+private fun StableExpandableDescription(
+    text: String,
+    modifier: Modifier = Modifier,
+    collapsedLines: Int = 2,
+) {
+    var expanded by remember(text) { mutableStateOf(false) }
+    val needsToggle = text.length > 120 || text.lines().size > collapsedLines
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = text,
+            maxLines = if (expanded) Int.MAX_VALUE else collapsedLines,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (needsToggle) {
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(if (expanded) "Show Less" else "Read More")
+            }
         }
     }
 }

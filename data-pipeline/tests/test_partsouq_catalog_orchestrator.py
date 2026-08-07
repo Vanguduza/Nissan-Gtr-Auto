@@ -141,6 +141,24 @@ def test_crawl_and_parse_argv_isolation() -> None:
     assert not any("vin_decode" in a or "mapping" in a.lower() for a in parse)
 
 
+def test_crawl_argv_priority_chassis() -> None:
+    paths = build_maker_paths("Nissan", Path("out/makers"))
+    opts = OrchestratorOptions(
+        makers=["Nissan"],
+        priority_chassis_file=Path("config/priority_chassis.json"),
+    )
+    crawl = build_crawl_argv(paths, opts)
+    assert "--priority-chassis-file" in crawl
+    assert "priority_chassis.json" in " ".join(crawl)
+
+
+def test_options_from_args_priority_chassis_flag() -> None:
+    args = build_parser().parse_args(["--makers", "Nissan", "--priority-chassis"])
+    opts = options_from_args(args, ["Nissan"])
+    assert opts.priority_chassis_file is not None
+    assert opts.priority_chassis_file.name == "priority_chassis.json"
+
+
 def test_transform_argv_flags() -> None:
     paths = build_maker_paths("Honda", Path("out/makers"))
     opts = OrchestratorOptions(
@@ -151,9 +169,34 @@ def test_transform_argv_flags() -> None:
     )
     argv = build_transform_argv(paths, opts)
     assert "--transform-only" in argv
+    assert "--parse-db" in argv
+    assert str(paths.parse_db) in argv
     assert "--download-diagrams" in argv
     assert "--import-dry-run" in argv
     assert "--live-import" not in argv
+
+
+def test_live_import_auto_diagram_upload() -> None:
+    args = build_parser().parse_args(
+        ["--makers", "Nissan", "--live-import", "--skip-flaresolverr-check"]
+    )
+    opts = options_from_args(args, ["Nissan"])
+    assert opts.live_import is True
+    assert opts.download_diagrams is True
+    assert opts.upload_diagrams is True
+
+    args_skip = build_parser().parse_args(
+        [
+            "--makers",
+            "Nissan",
+            "--live-import",
+            "--skip-diagram-upload",
+            "--skip-flaresolverr-check",
+        ]
+    )
+    opts_skip = options_from_args(args_skip, ["Nissan"])
+    assert opts_skip.download_diagrams is False
+    assert opts_skip.upload_diagrams is False
 
 
 def test_extract_makers_from_locate_html() -> None:

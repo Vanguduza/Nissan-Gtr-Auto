@@ -7,6 +7,7 @@ from data_pipeline.import_catalog import (
     build_stock_items_from_fitment,
     import_catalog,
     load_bundle,
+    resolve_supabase_credentials,
 )
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "navara_d40_yd25"
@@ -49,6 +50,24 @@ def test_ensure_stock_items_from_fitment() -> None:
         bundle["part_fitment"], bundle.get("pnc_categories")
     )
     assert len(stock) == result.store.row_counts()["stock_items"]
+
+
+def test_stock_items_use_part_display_names() -> None:
+    rows = build_stock_items_from_fitment(
+        [{"oem_part_number": "01121-04411", "pnc_code": "01121A"}],
+        [{"pnc_code": "01121A", "category_name": "POWER TRAIN", "subcategory_name": None}],
+        oem_display_names={"01121-04411": "BOLT"},
+    )
+    assert rows[0]["description"] == "BOLT"
+
+
+def test_resolve_supabase_credentials_service_key_alias(monkeypatch) -> None:
+    monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+    monkeypatch.setenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "test-key")
+    url, key = resolve_supabase_credentials()
+    assert url == "http://127.0.0.1:54321"
+    assert key == "test-key"
 
 
 def test_erp_catalog_v1_dry_run_counts() -> None:

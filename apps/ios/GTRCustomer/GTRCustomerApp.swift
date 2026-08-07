@@ -38,6 +38,10 @@ struct GTRCustomerApp: App {
                 .shopTheme()
             }
             .onOpenURL { url in
+                if GoTrueAuthClient.isAuthCallbackURL(url) {
+                    Task { await session.handleAuthCallbackURL(url) }
+                    return
+                }
                 if let ref = Self.parseTrackURL(url) {
                     pendingTrackRef = ref
                 }

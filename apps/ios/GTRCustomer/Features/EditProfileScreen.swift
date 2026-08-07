@@ -19,7 +19,7 @@ struct EditProfileScreen: View {
     var body: some View {
         ShopDefaultScreen(
             title: "Edit profile",
-            subtitle: "Personal · contact · marketing",
+            subtitle: nil,
             scrollable: true
         ) {
             if busy && firstName.isEmpty && email.isEmpty {

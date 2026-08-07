@@ -23,3 +23,4 @@ Cloud-hosted DB for shared schema/migrations across local Cursor agents; local `
 - Migrations are still authored in `supabase/migrations/` and pushed via CLI (`supabase db push` / link).
 - Clients use **anon** key only; **service_role** is server-only.
 - Do not paste keys into chat or commit them.
+- Human cutover checklist: [`docs/guides/hosted-supabase-cutover.md`](../guides/hosted-supabase-cutover.md).

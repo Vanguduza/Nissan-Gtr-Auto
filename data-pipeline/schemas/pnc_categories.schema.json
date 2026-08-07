@@ -13,6 +13,19 @@
       "description": "Classic Nissan FAST 5-digit PNC, or PartSouq alphanumeric code-on-image (e.g. C8320, 16132PA)."
     },
     "category_name": { "type": "string", "minLength": 1 },
-    "subcategory_name": { "type": "string" }
+    "subcategory_name": { "type": "string" },
+    "assembly_group_id": {
+      "type": "string",
+      "description": "Stable EPC section key (e.g. PartSouq cid= or FAST subgroup id) for hierarchical facets."
+    },
+    "catalog_section_path": {
+      "type": "string",
+      "description": "Human breadcrumb path, e.g. FUEL & ENGINE CONTROL > INJECTOR (shop-by-diagram navigation)."
+    },
+    "pcdb_part_type_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Auto Care PCdb PartTerminologyID when mapped; optional until PCdb subscription/import is live."
+    }
   }
 }

@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,8 +48,10 @@ import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
  * Shopping-By-KMP cart + checkout pattern adapted for GTR:
- * back toolbar · basket lines · delivery options · payment method ·
- * proceed places order then opens secure PayIntent · order management link.
+ * back toolbar · basket lines · delivery options · payment method · * proceed places order then opens secure PayIntent · order management link.
+ *
+ * Always reloads [RpcClient.getOpenCart] on appear so the list matches the shell badge
+ * (Activity-scoped ViewModel otherwise keeps a stale empty cart).
  */
 @Composable
 fun CartScreen(
@@ -58,14 +61,23 @@ fun CartScreen(
     onPay: (invoiceId: String) -> Unit,
     onManageAddresses: (() -> Unit)? = null,
     onManageOrders: (() -> Unit)? = null,
+    refreshKey: Int = 0,
     modifier: Modifier = Modifier,
-    viewModel: CartViewModel = viewModel(factory = CartViewModel.factory(rpc)),
+    viewModel: CartViewModel = viewModel(
+        key = "customer-cart",
+        factory = CartViewModel.factory(rpc),
+    ),
 ) {
     val state by viewModel.state.collectAsState()
     val cart = state.cart
     val lines = cart?.lines.orEmpty()
     val hasLines = lines.isNotEmpty()
     var payMethod by remember { mutableStateOf(ShopGtrPayMethod.ContiPay) }
+
+    // Same source of truth as the top-bar badge: getOpenCart().
+    LaunchedEffect(refreshKey) {
+        viewModel.refresh()
+    }
 
     ShopDefaultScreen(
         title = "Cart",
@@ -108,7 +120,7 @@ fun CartScreen(
             ) {
                 ShopHonestEmpty(
                     title = "Basket is empty",
-                    body = "Add parts from Home or Shop. Core deposits appear as sibling lines when applicable.",
+                    body = "No items.",
                 )
                 if (onContinueShopping != null) {
                     Spacer(Modifier.height(12.dp))
@@ -161,7 +173,7 @@ fun CartScreen(
                         if (state.addresses.isEmpty()) {
                             ShopHonestEmpty(
                                 title = "Add an address",
-                                body = "Nationwide dispatch needs a saved shipping address.",
+                                body = "No shipping address.",
                             )
                         } else {
                             state.addresses.forEach { addr ->

@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import {
+  hotspotStyle,
   loadOemCatalogDiagram,
   loadSampleCatalogDiagram,
   type CatalogDiagram,
-  type DiagramHotspot,
 } from "@/lib/catalog-diagram";
 import { createWebClient } from "@/lib/supabase";
 import styles from "./catalog-canvas-stub.module.css";
@@ -20,35 +20,6 @@ type Props = {
   sample?: boolean;
   className?: string;
 };
-
-function hotspotStyle(h: DiagramHotspot): CSSProperties | null {
-  if (
-    h.x == null ||
-    h.y == null ||
-    h.width == null ||
-    h.height == null ||
-    !(h.width > 0) ||
-    !(h.height > 0)
-  ) {
-    return null;
-  }
-  // Values may be 0–1 fractions or absolute pixels; prefer fraction layout.
-  const asFraction = h.x <= 1 && h.y <= 1 && h.width <= 1 && h.height <= 1;
-  if (asFraction) {
-    return {
-      left: `${h.x * 100}%`,
-      top: `${h.y * 100}%`,
-      width: `${h.width * 100}%`,
-      height: `${h.height * 100}%`,
-    };
-  }
-  return {
-    left: h.x,
-    top: h.y,
-    width: h.width,
-    height: h.height,
-  };
-}
 
 function GapFrame({ message }: { message: string }) {
   return (
