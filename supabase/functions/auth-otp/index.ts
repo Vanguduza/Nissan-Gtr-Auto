@@ -9,7 +9,11 @@
  *   verify → short-lived HMAC proof_token (DB-backed, one-time)
  *   complete_signup → require OTP proof; mint session via service_role
  *   complete_login → password only (email and/or phone); no OTP proof
- * Public GoTrue signup is disabled (config enable_signup=false).
+ * Public GoTrue email signup is blocked by hook_before_user_created; this Edge
+ * sets app_metadata.gtr_provisioned_via=auth_otp so Admin createUser is allowed.
+ * After createUser, mints retail customers via ensure_customer_for_user (service_role)
+ * — handle_new_user cannot see auth_otp meta on Admin AFTER INSERT.
+ * OAuth (Google/Apple) uses enable_signup=true + that hook allow-list.
  *
  * Local stub: AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset + non-prod → code 000000.
  * Production: stub refused even if flag set.
@@ -384,27 +388,64 @@ Deno.serve(async (req) => {
           email: expectEmail,
           password,
           email_confirm: true,
+          app_metadata: { gtr_provisioned_via: "auth_otp" },
           user_metadata: fullName ? { full_name: fullName } : undefined,
         });
       if (createErr || !created.user) {
         return jsonErr(createErr?.message ?? "signup failed", 400);
       }
 
-      await persistPhoneIfNeeded(supabase, created.user.id, phoneE164);
+      const userId = created.user.id;
+
+      // Admin createUser applies custom app_metadata after AFTER INSERT, so
+      // handle_new_user never mints customers for OTP — do it explicitly.
+      const { data: customerId, error: mintErr } = await supabase.rpc(
+        "ensure_customer_for_user",
+        { p_uid: userId },
+      );
+      if (mintErr || !customerId) {
+        try {
+          const { error: delErr } = await supabase.auth.admin.deleteUser(
+            userId,
+          );
+          if (delErr) {
+            console.error(
+              "auth-otp complete_signup: orphan delete failed",
+              userId,
+              delErr.message,
+            );
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error(
+            "auth-otp complete_signup: orphan delete threw",
+            userId,
+            msg,
+          );
+        }
+        return jsonErr(
+          mintErr?.message ?? "customer provisioning failed",
+          500,
+        );
+      }
+
+      await persistPhoneIfNeeded(supabase, userId, phoneE164);
 
       const { data: sessionData, error: signErr } = await anonClient().auth
         .signInWithPassword({ email: expectEmail, password });
       if (signErr || !sessionData.session) {
+        // OTP proof was already consumed; account exists — use password login.
         return jsonErr(
           signErr?.message ??
-            "account created but session mint failed — sign in with OTP again",
+            "account created but session mint failed — sign in via complete_login (or login) with your email and password",
           400,
         );
       }
 
       return jsonOk({
         ok: true,
-        user_id: created.user.id,
+        user_id: userId,
+        customer_id: customerId,
         access_token: sessionData.session.access_token,
         refresh_token: sessionData.session.refresh_token,
         expires_in: sessionData.session.expires_in,

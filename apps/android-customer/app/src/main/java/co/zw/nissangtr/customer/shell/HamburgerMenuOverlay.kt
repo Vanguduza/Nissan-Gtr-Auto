@@ -188,7 +188,6 @@ val GtrRootMenuItems: List<RootMenuItem> = listOf(
     RootMenuItem("Wiper Blades", Icons.Filled.WaterDrop, RootMenuKind.EmptySoon),
     RootMenuItem("Deals", Icons.Filled.LocalOffer, RootMenuKind.Deals),
     RootMenuItem("Shop By Brand", Icons.Filled.DirectionsCar, RootMenuKind.EmptySoon),
-    RootMenuItem("MOT / Service", Icons.Filled.CarRepair, RootMenuKind.EmptySoon),
 )
 
 sealed class HamburgerMenuAction {
@@ -196,6 +195,8 @@ sealed class HamburgerMenuAction {
     data object OpenAllCategories : HamburgerMenuAction()
     /** Browse a category / subcategory PLP in Shop tab. */
     data class BrowseCategory(val label: String) : HamburgerMenuAction()
+    /** Megazip hierarchy EPC diagrams. */
+    data object OpenEpcBrowse : HamburgerMenuAction()
     data object OpenDeals : HamburgerMenuAction()
     data object OpenAbout : HamburgerMenuAction()
     data object OpenContact : HamburgerMenuAction()
@@ -281,7 +282,7 @@ fun HamburgerMenuOverlay(
                     }
                     MenuPane.CarParts -> {
                         TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("← Menu")
+                            Text("â† Menu")
                         }
                         Text(
                             "Car Parts",
@@ -292,6 +293,11 @@ fun HamburgerMenuOverlay(
                             icon = Icons.Filled.Widgets,
                             label = "All car parts",
                             onClick = { onAction(HamburgerMenuAction.OpenAllCategories) },
+                        )
+                        MenuRow(
+                            icon = Icons.Filled.DirectionsCar,
+                            label = "EPC diagrams (by vehicle)",
+                            onClick = { onAction(HamburgerMenuAction.OpenEpcBrowse) },
                         )
                         GtrCarPartCategories.forEach { cat ->
                             MenuRow(
@@ -307,7 +313,7 @@ fun HamburgerMenuOverlay(
                     MenuPane.Category -> {
                         val cat = selectedCategory
                         TextButton(onClick = { pane = MenuPane.CarParts }) {
-                            Text("← Car Parts")
+                            Text("â† Car Parts")
                         }
                         Text(
                             cat?.label.orEmpty(),
@@ -329,16 +335,16 @@ fun HamburgerMenuOverlay(
                     }
                     MenuPane.Deals -> {
                         TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("← Menu")
+                            Text("â† Menu")
                         }
                         ShopHonestEmpty(
                             title = "No deals feed yet",
-                            body = "Promo / deals RPC is not wired — we never invent sale SKUs.",
+                            body = "No deals.",
                         )
                     }
                     MenuPane.About -> {
                         TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("← Menu")
+                            Text("â† Menu")
                         }
                         ShopHonestEmpty(
                             title = "About Nissan GTR Auto",
@@ -347,20 +353,20 @@ fun HamburgerMenuOverlay(
                     }
                     MenuPane.Contact -> {
                         TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("← Menu")
+                            Text("â† Menu")
                         }
                         ShopHonestEmpty(
                             title = "Contact",
-                            body = "Harare counter · WhatsApp via Live chat · nissangtrauto.co.zw/contact",
+                            body = "Harare counter · nissangtrauto.co.zw/contact",
                         )
                     }
                     MenuPane.StoreLocator -> {
                         TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("← Menu")
+                            Text("â† Menu")
                         }
                         ShopHonestEmpty(
                             title = "Store locator",
-                            body = "Harare counter location ships with the storefront map module — no third-party store list.",
+                            body = "Harare counter.",
                         )
                     }
                 }
@@ -394,7 +400,7 @@ fun EmptyCatalogDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Text("No items added yet. Stock for this category will appear here when catalog listings are published.")
+            Text("No items added yet.")
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("OK") }

@@ -18,8 +18,12 @@ Operator and architecture guide for producing a full genuine-parts catalog with 
 | Parallel scrape + parse | Crawl keeps writing HTML cache; a separate watcher parses cache into catalog data without stopping the scrape |
 | Hybrid queue (default) | Prefer `/vehicle` pages while any remain PENDING, then deep-first parts — competitive priority frontier (§2b) |
 | Multi-make ready | Scope by PartSouq `c=` brand + config; isolate outputs per maker (Toyota-only catalog, etc.) |
+| Faceted fitment | Chassis, engine, EPC category, optional PCdb part type — filterable from first publish (§10) |
+| Publish gates | `--complete-only` + `bundle_quality_report()` block live import until hotspots + categories pass (§2c) |
 
 Default production path today is **English Nissan** on PartSouq. Other makes reuse the same tools with config/path changes; some VIN/OEM helpers are still Nissan-oriented (see §8).
+
+**Industry alignment:** EPC scrape supplies diagram + hotspot geometry; **Auto Care ACES/PIES + VCdb/PCdb** supply cross-brand fitment taxonomy when licensed data is imported (§10). PartSouq remains the dev/integration-test source; licensed FAST/EPC or PCdb feeds are the production taxonomy path.
 
 ---
 
@@ -97,6 +101,11 @@ python -m data_pipeline.partsouq_catalog_orchestrator --makers Toyota,Honda,Niss
 
 # Bounded smoke + dry-run import after transform
 python -m data_pipeline.partsouq_catalog_orchestrator --makers Toyota --max-pages 30 --import-dry-run
+
+# Live import (production — complete fitments only; auto diagram upload)
+python -m data_pipeline.partsouq_catalog_orchestrator --makers Nissan --live-import
+# Operator must verify §2c gates before live; prefer:
+python scripts/republish_erp_catalog.py --skip-refresh --live-import --complete-only
 
 # Prepare isolation layout without crawling
 python -m data_pipeline.partsouq_catalog_orchestrator --makers all --dry-run
@@ -207,13 +216,16 @@ Per-maker orchestrator copies inherit this unless a maker `scrape.json` override
 
 ### Exit criteria (“finished” = usable catalog)
 
-Do **not** treat “PENDING≈0” alone as done. Competitive catalog jobs gate on coverage:
+Do **not** treat “PENDING≈0” alone as done. Competitive catalog jobs gate on coverage **and** publish-quality (§2c):
 
 1. Crawl: `PENDING=0`, `PROCESSING=0`; `BLOCKED_CF` / hard fails **cleared or explicitly accepted**.
 2. Vehicles: distinct visited `/vehicle` **vids** ≈ distinct enqueued vids (ssd-aware); every visited vehicle has `vehicle_identity`.
 3. Parse: `parse_queue` caught up (no PENDING/ERROR backlog); catch-up backfill run.
 4. VIN policy: every identity has `vin_prefix` (curated or epc_stub) for the maker; upgrade stubs via `chassis_discovery` when desired; final bundle refresh.
-5. Bundle: fitments have bbox + `diagram_path` for imported scope; spot-check `search_catalog` **part | vin | model | pnc**.
+5. **Hotspots:** every fitment in import scope has bbox + `diagram_path`; diagram assets uploaded for those paths.
+6. **Categories:** `uncategorized_pncs = 0` in import scope; EPC group names normalized (no vehicle prefix in `category_name`).
+7. **Publish gate:** `filter_complete_bundle` → `fitments_out > 0`; live import uses **`--complete-only --prune-stale`**.
+8. Bundle: spot-check `search_catalog` **part | vin | model | pnc**; facet filters return expected chassis/category chips.
 
 ### Ops follow-ons (align further with common practice)
 
@@ -223,9 +235,160 @@ Do **not** treat “PENDING≈0” alone as done. Competitive catalog jobs gate 
 | Politeness + FS session | **Live** | concurrency 1, persist + keepalive, watchdog |
 | Crawl / parse split + cache | **Live** | `--crawl-only` + watcher |
 | **Parse / bundle throughput (3×)** | **Live** | Watcher defaults: `--batch-size 75`, `--poll-seconds 10`, `--write-bundle-every 17` (~3× pages/pass, poll rate, bundle refresh vs prior 25 / 30 / 50) |
+| **Publish gate `--complete-only`** | **Live** | `bundle_filter.filter_complete_bundle`; default for production `--live-import` (§2c) |
+| **Category normalization** | **Live** | `normalize_epc_category_name()` at parse + transform; web `normalizeDisplayCategory()` |
 | **ssd / vid dedup** | Follow-on | Prefer one PENDING `/vehicle` URL per distinct `vid` |
+| **Orchestrator import gate** | Follow-on | Auto-fail `--live-import` when quality report fails (§2c) |
+| **PCdb part type mapping** | Follow-on | Optional `pcdb_part_type_id` on `pnc_categories` (§10) |
+| **ACES VCdb vehicle keys** | Follow-on | Map `vehicle_master` → Year/Make/Model/Engine for ACES export (§10) |
+| **Per-vid COMPLETE tracking** | Follow-on | Explicit state in crawl/parse meta (§2c state machine) |
 | **FS session recycle** | **Live** | Auto destroy+recreate after 3 consecutive CF blocks; stale `PROCESSING` reclaim (>15m); crawl waits/backoffs when FS down |
 | Unmapped chassis | **Live** | `python -m data_pipeline.chassis_discovery --list` / `--export-stubs` — never invent prefixes |
+
+### Priority chassis first (Nissan platforms)
+
+Use when you need **parts coverage for a curated chassis list** before draining the rest of the maker catalog. Non-priority URLs stay **PENDING** in `crawler_state.db` — no wipe, no cache loss.
+
+**Config:** `data-pipeline/config/priority_chassis.json` (33 Nissan platforms: Navara D22/D23/D40, X-Trail T30–T33, Qashqai J10/J11, Tiida C11/C12/SC11, AD0, Patrol Y60–Y62, Pathfinder R50–R52, etc.). Curated metadata merges from `config/chassis_catalogs.json` where present.
+
+**How claiming works**
+
+| PENDING row | Claimed in priority mode? |
+|-------------|---------------------------|
+| locate / filter / model (L0–L1) | Yes — bootstrap navigation |
+| `/vehicle` without chassis yet | Yes — discovery |
+| `vehicle_context.chassis_code` in priority set | Yes |
+| `vid` mapped to priority chassis in `cache_parse_state.db` | Yes |
+| Known non-priority chassis (e.g. R35) | **Skipped** — stays PENDING |
+| Unknown deep parts URL, no vid/chassis hint | Skipped (strict default) |
+
+PartSouq model codes normalize via `normalize_chassis_code` (e.g. `JJ10E` → `JJ10`, **`AD0NN` → `AD0`**). Aliases live in the JSON `chassis.*.aliases` field.
+
+**Start priority crawl (Nissan, orchestrator — recommended)**
+
+```powershell
+cd data-pipeline
+docker compose -f ../docker-compose.satellites.yml --profile scrape up -d
+
+# Priority-only until eligible PENDING = 0 (parse watcher runs in parallel)
+python -m data_pipeline.partsouq_catalog_orchestrator --makers Nissan --priority-chassis --local-ip
+```
+
+**Direct crawl module (same maker paths as orchestrator)**
+
+```powershell
+python -m data_pipeline.amayama_catalog_auto `
+  --config out/makers/nissan/scrape.json `
+  --state-db out/makers/nissan/crawler_state.db `
+  --cache-dir out/makers/nissan/cache `
+  --out-dir out/makers/nissan/bundle `
+  --session-dir out/makers/nissan/browser_session `
+  --priority-chassis-file config/priority_chassis.json `
+  --until-complete --crawl-only --retry-failed --local-ip
+```
+
+**Resume full maker crawl** — restart **without** `--priority-chassis` / `--priority-chassis-file`. Existing VISITED rows, HTML cache, `vehicle_identity`, and parse progress are unchanged; only claim order widens to all PENDING URLs.
+
+```powershell
+python -m data_pipeline.partsouq_catalog_orchestrator --makers Nissan --local-ip
+```
+
+**Coverage report** (identity-only vs fitments per priority chassis):
+
+```powershell
+python -m data_pipeline.amayama_catalog_auto `
+  --state-db out/makers/nissan/crawler_state.db `
+  --parse-db out/makers/nissan/cache_parse_state.db `
+  --out-dir out/makers/nissan/bundle `
+  --priority-chassis-file config/priority_chassis.json `
+  --chassis-coverage
+```
+
+Exit criteria for priority phase: log line `Priority chassis crawl complete — N non-priority URLs remain PENDING`. Then run parse catch-up (`cache_parse_worker --once`) and optional `--transform-only` if crawl-only was used.
+
+---
+
+## 2c. Publish-quality gates (PIM-style — required before live)
+
+Industry catalog pipelines (dealer EPC, ACES/PIES PIM, shop-by-diagram vendors) **validate then publish**. This repo mirrors that: the JSON bundle is the PIM layer; Supabase is the published storefront SoR.
+
+### Definition of “complete” (storefront-ready)
+
+| Layer | Rule |
+|-------|------|
+| **Fitment** | `chassis_code` + normalized `bbox_x/y/width/height` + non-empty `diagram_path` |
+| **Vehicle** | `vehicle_master` row only if that chassis has ≥1 complete fitment (`--complete-only`) |
+| **Category** | `pnc_categories.category_name` = normalized EPC assembly group — not `UNCATEGORIZED`, not vehicle model slug, not part description |
+| **Diagram asset** | Every `diagram_path` in fitments has a row in `diagram_assets` and a Storage object after upload |
+| **Facets** | `chassis_code`, `engine_code`, `category_name` / `subcategory_name` populated on fitments; optional `pcdb_part_type_id` when mapped (§10) |
+
+**Identity-only vehicles** (vid/chassis known, zero parts pages) are valid for crawl progress but **must not** appear in live import when `--complete-only` is set.
+
+### `bundle_quality_report()` (ops + import gate)
+
+Run before every `--live-import` / `--live`. Implemented via `filter_complete_bundle()` + `parse_bundle_meta.json` + chassis coverage CLI.
+
+| Check | Source | Fail live import? |
+|-------|--------|-------------------|
+| Complete fitments > 0 for target chassis | `filter_complete_bundle` meta | **Yes** (production) |
+| `uncategorized_pncs` = 0 or below threshold | `parse_bundle_meta.json` | **Yes** if any PNC in import scope |
+| `excluded_identity_only_chassis` logged | filter meta | No (informational) |
+| Diagram files on disk / Storage | `--download-diagrams` + upload | **Yes** if path missing |
+| Parse queue PENDING/ERROR | `cache_parse_worker` stats | **Yes** for production maker complete |
+| Priority chassis coverage | `--chassis-coverage` | **Yes** if priority phase claimed done but chassis has 0 fitments |
+
+**Commands:**
+
+```powershell
+# Filter + metadata (no DB)
+python scripts/build_erp_catalog.py --completed-only
+
+# Live import (production default — prune stale rows)
+python -m data_pipeline.import_catalog out/makers/nissan/bundle --live --complete-only
+
+# Orchestrator / republish (frozen bundle, skip mid-crawl refresh)
+python scripts/republish_erp_catalog.py --skip-refresh --live-import --complete-only
+```
+
+Orchestrator **`--live-import` must pass** the same gate: run `filter_complete_bundle` on the maker’s `bundle/`; abort if `fitments_out = 0` or target chassis list fails coverage (implement in orchestrator follow-on; **operators enforce manually until wired**).
+
+### Per-`vid` completion state machine (crawl + parse)
+
+Track progress per PartSouq `vid` (not only global PENDING=0):
+
+```text
+IDENTITY     → /vehicle visited; vehicle_identity row exists
+CATEGORIES   → L2 category URLs for vid enqueued/visited
+PARTS        → L5 /parts pages for vid visited
+PARSED       → scraped_data payloads with bbox + category_name
+COMPLETE     → all L5 pages for vid PARSED; fitments in bundle pass complete_fitments()
+```
+
+**Blessed behavior:**
+
+| Stage | Module | Rule |
+|-------|--------|------|
+| Crawl | `amayama_catalog_auto` | Hybrid queue; priority chassis boosts eligible vids; reclaim stale PROCESSING |
+| Parse | `cache_parse_worker` | Re-queue parts pages missing bbox or category; `normalize_epc_category_name()` at parse |
+| Transform | `refresh_bundle` | Drop fitment rows without bbox at source when building storefront bundle |
+| Import | `import_catalog --complete-only` | Scope PNCs/diagrams to kept fitments; prune stale `vehicle_master` / `part_fitment` / `stock_items` |
+
+### Test pipeline before expensive EPC (mandatory order)
+
+| Step | Source | Proves |
+|------|--------|--------|
+| 1 | FAST fixtures (`fixtures/navara_d40_yd25`, `fixtures/xtrail_t31_mr20`) | Schema, import, categories, **clean diagram art** (no watermark) |
+| 2 | Bounded PartSouq (`--max-pages 30` or `--priority-chassis`) | Real EPC shape, bbox, hybrid queue — **staging only** |
+| 3 | Quality report + `--import-dry-run` | Gates pass before cloud |
+| 4 | `--live-import --complete-only` | Production SoR |
+| 5 | Storefront QA | Facet filters, diagram canvas, VIN/model/PNC search |
+| 6 | Licensed EPC / PCdb | Infomedia FAST export, 17vin API, or Auto Care ACES/PIES feed (§10) |
+
+PartSouq GIFs carry **watermarks** — treat as `scraped-reference` provenance; production diagrams from **licensed-fast**, **original-fixture-art**, or **customer-supplied** assets.
+
+### Facet layer (web + mobile parity)
+
+Shared rules live in **`packages/shared/catalog-facets`** (follow-on module): normalize display category, chassis/engine facet keys, and “has interactive diagram” flag. Web (`normalizeDisplayCategory`), iOS, and Android must consume the same helpers — not duplicate string logic per app.
 
 ---
 
@@ -241,6 +404,7 @@ Do **not** treat “PENDING≈0” alone as done. Competitive catalog jobs gate 
 | `diagram_storage_prefix` | `scrape.json` | `partsouq/nissan` | `partsouq/toyota` |
 | `supabase_diagrams_bucket` | `scrape.json` | `catalog-diagrams` | same bucket, different prefix |
 | `queue_mode` | `scrape.json` | `"hybrid"` | same (recommended) |
+| `--priority-chassis` / `--priority-chassis-file` | crawl CLI / orchestrator | (unset) | Pass flag for priority phase only — **not** persisted in `scrape.json` |
 | `--state-db`, `--cache-dir`, `--out-dir` | CLI | `crawler_state.db`, `out/partsouq_cache`, `out/partsouq_bundle` | Use **separate** paths per maker (recommended) |
 | `--parse-db` (watcher) | CLI | `out/cache_parse_state.db` | e.g. `out/toyota_cache_parse_state.db` |
 
@@ -309,6 +473,33 @@ So **`vehicle_identity` count can exceed `vehicle_master` only after merge dedup
 
 `parse_bundle_meta.json` includes `vehicles`, `vehicles_from_identity`, `vehicles_from_parts`, and `identities` for ops checks.
 
+### Category + part-name enrichment (during parse, not pre-crawl)
+
+EPC assembly labels and part display names **cannot** be inferred before HTML is fetched — they come from parsed diagram markup (`img alt`, URL `cname`/`uname`, hotspot table rows). Enrichment therefore runs **during parse**, alongside crawl, not before or during the HTTP fetch itself.
+
+| Phase | Enrichment? | Why |
+|-------|-------------|-----|
+| Pre-crawl / URL queue | No | No HTML yet — only URLs and queued vehicle hints |
+| During crawl (HTTP fetch) | No | Crawl caches HTML and may capture embedded JSON; it does not parse hotspots |
+| **Parse watcher (`cache_parse_worker`)** | **Yes — primary path** | `parse_partsouq_html` writes `category_name`, `subcategory_name`, `diagram_title` into each payload; payloads land in `scraped_data` |
+| Post-crawl transform | Uses enriched payloads | Orchestrator final step passes `--parse-db` so `refresh_bundle` merges identity + parts (never bare `run_transform`, which would drop enrichment) |
+
+On each `refresh_bundle` write:
+
+1. `transform_raw_records(scraped_data)` → `pnc_categories`, `part_fitment`, `_oem_display_names`
+2. Merge with `vehicle_identity` → full bundle
+3. Write table JSON + `oem_display_names.json`
+4. Write `parse_bundle_meta.json` quality gates:
+
+| Field | Healthy signal |
+|-------|----------------|
+| `uncategorized_pncs` | **0** in import scope — high means missing `diagram_title` / `cname` |
+| `oem_display_names` | Grows with parsed hotspot descriptions |
+| `pncs`, `fitments`, `vehicles` | Track catalog size |
+| `fitments_out` / `excluded_identity_only_chassis` | After `filter_complete_bundle` — identity-only chassis must not reach live |
+
+A warning is logged when `uncategorized_pncs > 0`. Re-enrich an existing crawl without re-scraping: `python scripts/republish_erp_catalog.py`.
+
 ### Identity path (`/vehicle` pages)
 
 1. Detect vehicle URL/HTML (`…/vehicle`, cells `data-title="Model"` / `Name`).
@@ -322,8 +513,10 @@ Under **`queue_mode: hybrid`**, the crawl prioritizes these `/vehicle` pages whi
 ### Parts / hotspot path (parts pages)
 
 1. Parse diagram sections: `.lable-single` hotspots (`data-position`, `data-size`) + `part-search-tr` OEM rows.
-2. Attach `vid` from query string; merge page meta + known `vehicle_identity`.
-3. Replace `scraped_data` for that URL; later transform emits fitments with bbox + `diagram_path`.
+2. Derive `category_name` / `subcategory_name` from URL `cname`, diagram `alt`, and page breadcrumbs; **`normalize_epc_category_name()`** strips vehicle model prefixes; store on each payload in `scraped_data`.
+3. Optional follow-on: set `assembly_group_id` (PartSouq `cid=` / FAST subgroup), `catalog_section_path` (breadcrumb), and `pcdb_part_type_id` when a PCdb mapping table exists (§10).
+3. Attach `vid` from query string; merge page meta + known `vehicle_identity`.
+4. Replace `scraped_data` for that URL; `refresh_bundle` transform emits fitments with bbox, PNC categories, and `oem_display_names.json`.
 
 ### Mapping summary
 
@@ -480,18 +673,25 @@ Restarting the watcher therefore re-scans the whole visited set and does not dep
 
 ### E. Import dry-run / live
 
+**Production default:** always filter to complete fitments before live import (§2c).
+
 ```bash
 # From fixture or scrape bundle directory
 python -m data_pipeline.import_catalog out/partsouq_bundle
-python -m data_pipeline.import_catalog out/partsouq_bundle --live
+python -m data_pipeline.import_catalog out/partsouq_bundle --live --complete-only
+
+# Build filtered erp_catalog_v1 pack + quality meta
+python scripts/build_erp_catalog.py --completed-only
 
 # Or via auto pipeline after transform
 python -m data_pipeline.amayama_catalog_auto --transform-only --import-dry-run
 python -m data_pipeline.amayama_catalog_auto --transform-only --live-import \
   --download-diagrams --upload-diagrams
+# Prefer republish with frozen bundle:
+python scripts/republish_erp_catalog.py --skip-refresh --live-import --complete-only
 ```
 
-Idempotency keys: see `data-pipeline/README.md` (vehicle / PNC / fitment / OE cross-ref).
+Idempotency keys: see `data-pipeline/README.md` (vehicle / PNC / fitment / OE cross-ref). **`--complete-only --live`** prunes stale `vehicle_master`, `part_fitment`, and `stock_items` not in the filtered bundle.
 
 ### F. SQLite artifacts cheat-sheet
 
@@ -530,20 +730,150 @@ A “Toyota-only catalog” means: scrape Toyota into `out/makers/toyota/`, impo
 
 | Status | Item |
 |--------|------|
-| **Live** | FlareSolverr crawl, brand-scoped queue, HTML cache, parallel `cache_parse_worker` (vid → chassis → vin_prefix + backfill + catch-up inside watcher), hotspot bbox → `part_fitment`, bundle refresh, dry-run/live import, PG FTS `search_catalog`, diagram Storage upload path, **multi-make orchestrator** (`partsouq_catalog_orchestrator`), **`queue_mode: hybrid`** (§2b), **multi-make VIN maps** (`config/chassis_catalogs.json` + epc_stub) |
+| **Live** | FlareSolverr crawl, brand-scoped queue, HTML cache, parallel `cache_parse_worker` (vid → chassis → vin_prefix + backfill + catch-up inside watcher), hotspot bbox → `part_fitment`, bundle refresh, dry-run/live import, **`--complete-only` publish gate**, PG FTS `search_catalog`, diagram Storage upload path, **multi-make orchestrator** (`partsouq_catalog_orchestrator`), **`queue_mode: hybrid`** (§2b), **multi-make VIN maps** (`config/chassis_catalogs.json` + epc_stub), **category normalization** |
 | **Live for Nissan** | Dense curated `CHASSIS_CATALOG` platforms; chassis auto-discovery for upgrades; fixture packs (e.g. Navara D40) |
 | **Live for other makes** | Brand WMI + epc_stub garage keys for every chassis seen; curated seeds for Toyota/Honda/BMW platforms; denser curation over time |
 | **Configure now, incomplete enrichment** | OEM normalizer still Nissan-shaped; DB has no `manufacturer` column — isolate by maker paths |
-| **Follow-on** | Prefer one `/vehicle` URL per distinct `vid` (ssd-variant dedup); FlareSolverr session recycle on repeated 500s; stronger automated coverage reports (§2b ops table); expand curated chassis rows per make |
-| **Aspirational** | OEM format plugins; DB `manufacturer`; import filters; Meilisearch dual-write |
+| **Follow-on** | Prefer one `/vehicle` URL per distinct `vid` (ssd-variant dedup); orchestrator auto quality gate on `--live-import`; **ACES/VCdb/PCdb** mapping (§10); per-vid COMPLETE state in meta; `packages/shared/catalog-facets`; stronger automated coverage reports |
+| **Aspirational** | OEM format plugins; DB `manufacturer`; import filters; Meilisearch dual-write with facet attributes (`chassis`, `engine`, `pcdb_part_type_id`, `has_diagram`) |
 | **Out of scope** | ZIMRA, payroll tax, HTML5 QR, browser hardware bridges |
 
 **Vid-mapping code:** present when this guide was written — `parse_partsouq_vehicle_html` / `vid_from_url` in `data_pipeline/parse_partsouq_html.py`, and `vehicle_identity` + backfill in `data_pipeline/cache_parse_worker.py` (covered by `tests/test_vehicle_identity.py`). Hybrid claim tests: `tests/test_until_complete.py` (`test_claim_hybrid_*`).
 
 ---
 
-## 9. Related docs
+## 10. ACES / VCdb / PCdb fitment taxonomy
 
+[Auto Care Association](https://www.autocare.org/data-standards) data standards are the **aftermarket industry baseline** for fitment and part terminology. This pipeline is **EPC-first** (OEM diagram groups + Nissan FAST PNC); ACES/PIES layers sit **alongside** scrape output for cross-brand search, Amazon-style feeds, and validated facets.
+
+### Standards map
+
+| Standard | Database | What it carries | This repo today |
+|----------|----------|-----------------|-----------------|
+| **ACES** | **VCdb** (Vehicle Configuration) | Year / Make / Model / Submodel / Engine / qualifiers → **application** fitment | Partial — `vehicle_master` has chassis, engine, year, model_variant; no ACES XML export yet |
+| **PIES** | Product + media attributes | Descriptions, weights, hazmat, digital assets | Partial — `stock_items`, `oem_display_names`, diagram Storage paths |
+| **Part terminology** | **PCdb** (Part Terminology) | Stable **PartTerminologyID** + part type name (e.g. “Brake Pad Set”) | **Follow-on** — optional `pcdb_part_type_id` on `pnc_categories` (schema live) |
+| **Brand / label** | **PAdb** | Brand codes, label images | Out of scope until PIES import |
+| **Qualifier** | **Qdb** | Drive type, body, bed length, etc. | Partial — engine_code, model_variant, production_year act as qualifiers |
+
+**Paid data:** VCdb/PCdb/Qdb/PAdb reference files require an [Auto Care subscription](https://www.autocare.org/join-us/membership). Design tables and bundle fields to **accept** ACES/PIES imports without rebasing the SoR onto a third-party PIM.
+
+### Dual taxonomy model (recommended)
+
+```text
+EPC layer (diagram UX)          Aftermarket layer (faceted search / feeds)
+─────────────────────          ─────────────────────────────────────────
+category_name                  pcdb_part_type_id  → PCdb PartTerminology
+subcategory_name               PIES attributes (when imported)
+assembly_group_id              ACES BaseVehicle + EngineConfig refs
+catalog_section_path           ACES application qualifiers (Qdb)
+pnc_code (FAST / code-on-image)
+bbox + diagram_path
+```
+
+- **Shop-by-diagram** PLP/PDP uses **EPC `category_name`** and chassis/engine facets (matches dealer EPC and Black Dot–style UX).
+- **Cross-brand category browse** and marketplace feeds use **`pcdb_part_type_id`** when mapped.
+- Never replace EPC assembly names with PCdb labels on diagram pages — users expect OEM group names on exploded views.
+
+### `pcdb_part_type_id` on `pnc_categories`
+
+Bundle schema (`pnc_categories.schema.json`) supports optional fields:
+
+| Field | Purpose |
+|-------|---------|
+| `pcdb_part_type_id` | Integer **PartTerminologyID** from PCdb |
+| `assembly_group_id` | Stable EPC section key (PartSouq `cid=`, FAST subgroup) |
+| `catalog_section_path` | Breadcrumb for hierarchical facet UI |
+
+**Mapping strategies (pick one per deployment):**
+
+1. **Curated lookup table** — `data-pipeline/config/epc_to_pcdb.json`: EPC normalized group name → PCdb ID (start with top 50 assembly groups per make).
+2. **PIES supplier file** — if a supplier sends PIES with PartTerminologyID + OEM, join on normalized OEM.
+3. **Manual curation** — ops tool for unmapped groups; block `--live-import` only if `uncategorized_pncs > 0`, not if PCdb unmapped (PCdb is optional enhancement).
+
+Parse/transform **preserves** EPC names; PCdb IDs are **additive** — set in transform or a post-process `enrich_pcdb.py` before import.
+
+### ACES export (follow-on)
+
+When VCdb is licensed, emit ACES 4.x XML applications from:
+
+```text
+vehicle_master  → BaseVehicleID / EngineConfigID (VCdb lookup)
+part_fitment    → Part (+ OEM) + application rows per chassis/engine/year
+pnc_categories  → PartTerminologyID when pcdb_part_type_id set
+```
+
+Keep **ledger/catalog SoR in Supabase**; ACES XML is an **export satellite**, not the crawl source of truth.
+
+### Industry comparison (why gates matter)
+
+| Pattern | Examples | Lesson for this pipeline |
+|---------|----------|---------------------------|
+| Dealer EPC | Infomedia, Partslink24 | No section goes live without illustration + callout list |
+| Shop-by-diagram SaaS | Black Dot | All hotspots pre-mapped before publish |
+| Aftermarket PIM | ACES/PIES validators | Block rows missing required fitment fields |
+| Retail text catalog | RockAuto | YMM tree only — **no** interactive OEM diagrams |
+
+This guide’s **§2c gates** implement dealer-EPC + PIM discipline on top of PartSouq scrape geometry.
+
+---
+
+## 11. Multi-vehicle agent prompt (Cursor / `@data_pipeline_agent`)
+
+Copy or invoke when running orchestrator work, cloud multi-make crawls, or catalog import. **Skill mirror:** `.cursor/skills/parts-catalog-ingestion/SKILL.md`.
+
+```text
+You are building a multi-vehicle parts catalog for the GTR ERP data pipeline.
+
+READ FIRST: docs/guides/partsouq-multimake-catalog-pipeline.md (§2b crawl, §2c gates, §10 ACES/PCdb)
+Cloud runbook: docs/guides/cloud-multi-make-catalog.md
+
+HARD RULES
+- NO ZIMRA, NO payroll tax, NO HTML5/browser QR scanning
+- One maker per state DB / cache / bundle (out/makers/<slug>/)
+- queue_mode: hybrid — /vehicle before L5 parts; concurrency 1; never wipe VISITED cache/DBs to fix priority
+- Crawl ≠ parse: amayama_catalog_auto --crawl-only + cache_parse_worker --watch
+- Never invent full ISO VINs — chassis_catalogs.json curated prefix or epc_stub only
+- Production live import: ALWAYS --complete-only --prune-stale (chassis + bbox + diagram_path)
+- PartSouq = dev/staging scrape; watermarked GIFs are scraped-reference, not production art
+
+PUBLISH DEFINITION OF DONE (all required for --live-import)
+1. Every imported fitment: chassis_code + bbox_x/y/width/height + diagram_path
+2. vehicle_master: only chassis with ≥1 complete fitment (no identity-only vehicles live)
+3. pnc_categories: normalized EPC category_name (not UNCATEGORIZED, not model slug)
+4. diagram_assets uploaded to Storage for every diagram_path in fitments
+5. parse_bundle_meta: uncategorized_pncs = 0 in import scope
+6. filter_complete_bundle: fitments_out > 0; log excluded_identity_only_chassis
+7. search_catalog spot-check: part | vin | model | pnc on sample OEM/chassis
+
+TAXONOMY
+- EPC category_name/subcategory_name from parse (cname, diagram alt, breadcrumbs)
+- Optional pcdb_part_type_id on pnc_categories when mapping table exists (§10)
+- Facets: chassis_code, engine_code, category_name — shared via packages/shared/catalog-facets (follow-on)
+
+TEST ORDER (before full PartSouq / licensed EPC spend)
+1. FAST fixtures → import --live --complete-only
+2. Bounded orchestrator (--max-pages 30 or --priority-chassis)
+3. bundle quality report + --import-dry-run
+4. --live-import --complete-only
+5. Storefront diagram + facet QA
+
+ORCHESTRATOR DEFAULTS
+- --parallel-makers 1 (one maker until complete, then next)
+- Popularity order: config/makers-by-popularity.json
+- --live-import only after §2c gates pass; prefer republish_erp_catalog.py --skip-refresh --complete-only
+
+WHEN STUCK
+- Priority crawl 0 throughput: claim_next_url must scan beyond first batch for priority chassis
+- Wrong categories live: re-run normalize + re-import pnc_categories
+- Identity-only vehicles in search: re-import with --complete-only --prune-stale
+```
+
+---
+
+## 12. Related docs
+
+- [Megazip multivehicle EPC hierarchy pipeline](./megazip-multivehicle-catalog.md) — `megazip_catalog_orchestrator`, browse RPCs, re-run without re-crawl
 - [Phase 7 plan](../plans/2026-07-24-phase7-data-pipeline-search.md)
 - [Interim PG FTS ADR](../decisions/2026-07-24-search-index-interim-pg-fts.md)
 - [data-pipeline/README.md](../../data-pipeline/README.md) — install, scrape flags, watchdog

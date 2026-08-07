@@ -1,9 +1,6 @@
 package co.zw.nissangtr.customer.orders
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -13,7 +10,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopOrderBox
@@ -21,7 +17,7 @@ import co.zw.nissangtr.ui.shop.ShopStatusChip
 import co.zw.nissangtr.ui.shop.ShopSectionHeader
 
 /**
- * Thin orders scaffold: list own invoices + [RpcNames.GET_CUSTOMER_ORDER].
+ * Thin orders scaffold: list own invoices + order detail.
  * When [CustomerOrder.activeDeliveryJobId] is set, Track uses owner job-id path.
  */
 @Composable
@@ -37,14 +33,10 @@ fun OrdersScreen(
 
     ShopDefaultScreen(
         title = "Orders",
-        subtitle = "History · track",
+        subtitle = null,
         onBack = onBack,
-        modifier = modifier) {
-        Text(
-            "RPC: ${RpcNames.GET_CUSTOMER_ORDER} (p_invoice_id). List via RLS SELECT.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        modifier = modifier,
+    ) {
         OutlinedButton(
             onClick = viewModel::refresh,
             enabled = !state.busy,
@@ -56,7 +48,7 @@ fun OrdersScreen(
         if (state.invoices.isEmpty()) {
             ShopHonestEmpty(
                 title = "No invoices yet",
-                body = "Checkout from Cart to create an order. Track opens when a delivery job is active.",
+                body = "No orders.",
             )
         }
         state.invoices.forEach { inv ->
@@ -77,15 +69,13 @@ fun OrdersScreen(
             ShopSectionHeader(title = "Selected order", actionLabel = null)
             Text(
                 "${o.documentNumber ?: o.invoiceId}\n" +
-                    "status=${o.status} fulfillment=${o.fulfillmentMode.rpcValue}\n" +
-                    "${o.currency.rpcValue} total=${o.total} open=${o.amountOpen}\n" +
-                    "pick=${o.pickListStatus ?: "—"} dn=${o.deliveryNoteStatus ?: "—"}\n" +
-                    "activeJob=${o.activeDeliveryJobId ?: "—"}",
+                    "Status ${o.status} · ${o.fulfillmentMode.rpcValue}\n" +
+                    "${o.currency.rpcValue} total=${o.total} open=${o.amountOpen}",
                 style = MaterialTheme.typography.bodySmall,
             )
             o.activeDeliveryJobId?.let { jobId ->
                 Text(
-                    "Active delivery — track shows last point + ETA only (no trail).",
+                    "Active delivery — track shows last point and ETA only.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

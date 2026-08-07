@@ -7,6 +7,7 @@ import co.zw.nissangtr.customer.rpc.GarageVehicle
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.SearchCatalogResponse
 import co.zw.nissangtr.customer.rpc.SearchMode
+import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 
 /**
  * Live [CatalogRepository] — the only class in `feature/catalog` allowed to import
@@ -35,6 +36,16 @@ class CatalogRepositoryImpl(
     override suspend fun addToCompare(stockItemId: String, oem: String) {
         rpc.addCustomerCompareItem(stockItemId = stockItemId, oem = oem)
     }
+
+    override suspend fun listVehicleMaster(): List<VehicleMasterRow> =
+        rpc.listVehicleMaster()
+
+    override suspend fun listCatalogForVehicle(
+        chassisCode: String,
+        engineCode: String?,
+        limit: Int,
+    ): CatalogBrowseResult =
+        rpc.listCatalogForVehicle(chassisCode, engineCode, limit)
 
     override suspend fun getPrimaryVehicle(): GarageVehicle? {
         val vehicles = rpc.listGarageVehicles()

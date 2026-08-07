@@ -21,6 +21,10 @@ Never invent or commit credential values. Store only in Supabase Edge secrets, G
 | `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL` | Local only | `1` only when SMS/email OTP secrets unset; **never** production (`ENVIRONMENT=production` / hosted `*.supabase.co` refuse stub even if set) |
 | `AUTH_OTP_FROM_EMAIL` | Edge (optional) | From address fallback for auth OTP email |
 | `AUTH_OTP_PROOF_SECRET` | Edge (optional) | HMAC secret for OTP proof tokens; falls back to `SUPABASE_SERVICE_ROLE_KEY` |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Auth (local `config.toml` / hosted Dashboard) | Google OAuth Client ID(s); never commit values |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` | Auth | Google **Web** client secret |
+| `SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID` | Auth | Apple Services ID / client id |
+| `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET` | Auth | Apple secret JWT from Sign in with Apple key |
 | `SMS_GATEWAY_API_KEY` / `SMS_GATEWAY_BASE_URL` / `SMS_GATEWAY_SENDER` | Edge | Real SMS OTP + receipt/manager SMS |
 | `EMAIL_API_KEY` / `RESEND_API_KEY` / `EMAIL_FROM` / `RECEIPT_FROM_EMAIL` | Edge | Real email OTP + receipt email |
 | `CONTIPAY_API_KEY` | Edge | Initiate Basic Auth token |
@@ -37,6 +41,8 @@ Never invent or commit credential values. Store only in Supabase Edge secrets, G
 | `SUPABASE_SERVICE_ROLE_KEY` | Edge / PowerSync connector | **Never** in `apps/*` or client packages |
 
 Client packages use anon key + user JWT only (`packages/supabase-client`).
+
+Customer Google/Apple OAuth human checklist (redirect URIs, Dashboard toggles, signup gate): [`docs/CUSTOMER_OAUTH_SETUP.md`](./CUSTOMER_OAUTH_SETUP.md).
 
 ## 3. RLS
 

@@ -49,7 +49,7 @@ struct CategoryPlpScreen: View {
             if filtered.isEmpty && !busy {
                 ShopHonestEmpty(
                     title: "No parts in this category",
-                    bodyText: "Stock for “\(title)” will appear here when catalog listings are published for this filter."
+                    bodyText: "No items."
                 )
                 .padding(24)
             } else {

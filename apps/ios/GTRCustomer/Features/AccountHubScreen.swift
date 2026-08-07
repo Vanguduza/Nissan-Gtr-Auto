@@ -6,6 +6,7 @@ struct AccountHubScreen: View {
     var onClose: (() -> Void)? = nil
     var onOpenGarage: (() -> Void)? = nil
     var onOpenProduct: ((String) -> Void)? = nil
+    var onSignIn: (() -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -72,6 +73,12 @@ struct AccountHubScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: GTRRadius.control))
                 .padding(.horizontal, 12)
 
+                if session.userEmail == nil, let onSignIn {
+                    Button("Sign in", action: onSignIn)
+                        .font(GTRType.label(.body))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 8)
+                }
                 Button("Sign out", role: .destructive) { session.signOut() }
                     .font(GTRType.label(.body))
                     .frame(maxWidth: .infinity)

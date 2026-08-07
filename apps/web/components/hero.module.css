@@ -8,13 +8,15 @@
 }
 
 .inner {
-  width: min(1120px, 100%);
+  width: min(1200px, 100%);
   margin-inline: auto;
   padding: clamp(1.5rem, 4vw, 2.25rem) clamp(0.85rem, 3vw, 1.5rem);
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.85fr);
-  gap: 1.25rem 2rem;
+  /* Vehicle panel needs ~28rem so 2-col placeholders (e.g. "Choose generation first") fit */
+  grid-template-columns: minmax(0, 1fr) minmax(min(100%, 28rem), 1.2fr);
+  gap: 1.25rem 1.75rem;
   align-items: stretch;
+  min-width: 0;
 }
 
 .copy {
@@ -106,6 +108,8 @@
   padding: 0;
   background: transparent;
   border: 0;
+  min-width: 0;
+  width: 100%;
 }
 
 .vehicleTitle {
@@ -121,9 +125,31 @@
   color: var(--gtr-silver);
 }
 
-@media (max-width: 780px) {
+@media (max-width: 920px) {
   .inner {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vehicleCard {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .cta .primary,
+  .cta .secondary {
+    flex: 1 1 auto;
+    min-width: min(100%, 10rem);
+  }
+}
+
+@media (max-width: 520px) {
+  .headline {
+    max-width: none;
+    font-size: clamp(1.45rem, 7vw, 1.85rem);
+  }
+
+  .lede {
+    font-size: 0.95rem;
   }
 }
 

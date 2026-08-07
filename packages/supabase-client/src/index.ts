@@ -15,6 +15,9 @@ export function createBrowserClient(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      /** Required for web `signInWithOAuth` → `/auth/callback` code exchange. */
+      flowType: "pkce",
+      detectSessionInUrl: true,
     },
   });
 }

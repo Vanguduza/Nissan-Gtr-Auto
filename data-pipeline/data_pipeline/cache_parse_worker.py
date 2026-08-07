@@ -713,6 +713,21 @@ def vehicle_master_from_identities(identities: list[dict[str, Any]]) -> list[dic
     return rows
 
 
+def bundle_quality_counts(bundle: dict[str, Any]) -> dict[str, int]:
+    """Catalog enrichment metrics for ops checks (categories, part display names)."""
+    pncs = bundle.get("pnc_categories") or []
+    uncat = sum(
+        1
+        for p in pncs
+        if str(p.get("category_name") or "").lower() == "uncategorized"
+    )
+    oem_names = bundle.get("_oem_display_names") or {}
+    return {
+        "uncategorized_pncs": uncat,
+        "oem_display_names": len(oem_names) if isinstance(oem_names, dict) else 0,
+    }
+
+
 def refresh_bundle(*, crawl_db: Path, parse_db: Path, out_dir: Path) -> dict[str, int]:
     records = load_scraped_records(crawl_db)
     parts_bundle = transform_raw_records(records, validate=False)
@@ -726,6 +741,7 @@ def refresh_bundle(*, crawl_db: Path, parse_db: Path, out_dir: Path) -> dict[str
     # Parts-derived rows win on duplicate natural keys (richer engine/year from hotspots).
     bundle = merge_bundles([identity_bundle, parts_bundle])
     write_bundle(bundle, out_dir)
+    quality = bundle_quality_counts(bundle)
     counts = {
         "vehicles": len(bundle.get("vehicle_master") or []),
         "vehicles_from_identity": len(identity_bundle["vehicle_master"]),
@@ -735,9 +751,15 @@ def refresh_bundle(*, crawl_db: Path, parse_db: Path, out_dir: Path) -> dict[str
         "pncs": len(bundle.get("pnc_categories") or []),
         "records": len(records),
         "identities": len(identities),
+        **quality,
     }
     meta_path = out_dir / "parse_bundle_meta.json"
     meta_path.write_text(json.dumps(counts, indent=2) + "\n", encoding="utf-8")
+    if quality["uncategorized_pncs"]:
+        logger.warning(
+            "Bundle has %s uncategorized PNCs — check diagram_title / cname enrichment",
+            quality["uncategorized_pncs"],
+        )
     return counts
 
 

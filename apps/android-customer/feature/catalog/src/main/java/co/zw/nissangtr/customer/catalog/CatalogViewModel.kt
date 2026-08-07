@@ -11,6 +11,10 @@ import co.zw.nissangtr.customer.rpc.CatalogProduct
 import co.zw.nissangtr.customer.rpc.GarageVehicle
 import co.zw.nissangtr.customer.rpc.ProductReviewStats
 import co.zw.nissangtr.customer.rpc.RpcClient
+import co.zw.nissangtr.customer.rpc.SelectedFitmentVehicle
+import co.zw.nissangtr.customer.rpc.UserFacingErrors
+import co.zw.nissangtr.customer.rpc.VehicleCascade
+import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 import co.zw.nissangtr.ui.shop.ShopFilterState
 import co.zw.nissangtr.ui.shop.ShopSortOption
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,13 +43,27 @@ data class CatalogUiState(
     val product: CatalogProduct? = null,
     val addQty: String = "1",
     val primaryVehicle: GarageVehicle? = null,
+    /** Session fitment from Select vehicle (preferred over garage for the bar). */
+    val selectedFitment: SelectedFitmentVehicle? = null,
+    val vehicleRows: List<VehicleMasterRow> = emptyList(),
+    val vehicleBusy: Boolean = false,
+    val vehicleError: String? = null,
     /** Always empty until a real backend RPC ships — see [DealTile] TODO. Never fabricated. */
     val deals: List<DealTile> = emptyList(),
     val reviewStats: ProductReviewStats? = null,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
-)
+) {
+    /** Compact fitment bar label — no maker/Nissan tag, no My Garage. */
+    fun fitmentBarLabel(): String {
+        selectedFitment?.compactLabel()?.takeIf { it.isNotEmpty() }?.let { return it }
+        val g = primaryVehicle ?: return "No vehicle selected"
+        return listOfNotNull(g.model, g.generation, g.engine)
+            .joinToString(" · ")
+            .ifBlank { g.vin?.let { "VIN $it" } ?: "No vehicle selected" }
+    }
+}
 
 /**
  * Storefront catalog/home ViewModel — depends only on [CatalogUseCases], never on
@@ -83,10 +101,109 @@ class CatalogViewModel(
                 // Guest / signed-out — non-fatal.
             }
             try {
+                _state.update { it.copy(vehicleBusy = true, vehicleError = null) }
+                val rows = useCases.listVehicleMaster()
+                _state.update { it.copy(vehicleRows = rows, vehicleBusy = false) }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        vehicleBusy = false,
+                        vehicleError = e.message ?: "Could not load vehicle catalog",
+                    )
+                }
+            }
+            try {
                 val deals = useCases.getActiveDeals()
                 _state.update { it.copy(deals = deals) }
             } catch (_: Exception) {
                 // Stub use case never throws today.
+            }
+        }
+    }
+
+    fun confirmCascadeVehicle(
+        maker: String,
+        model: String,
+        generation: String,
+        engine: String?,
+    ) {
+        viewModelScope.launch {
+            val selected = VehicleCascade.fromCascade(
+                maker = maker,
+                model = model,
+                generation = generation,
+                engine = engine,
+                rows = _state.value.vehicleRows,
+            )
+            if (selected == null) {
+                _state.update {
+                    it.copy(vehicleError = "Selection not found.")
+                }
+                return@launch
+            }
+            applySelectedVehicle(selected)
+        }
+    }
+
+    fun confirmVinVehicle(vin: String) {
+        viewModelScope.launch {
+            val selected = VehicleCascade.resolveVin(_state.value.vehicleRows, vin)
+            if (selected == null) {
+                _state.update {
+                    it.copy(
+                        vehicleError = "VIN not found.",
+                    )
+                }
+                return@launch
+            }
+            applySelectedVehicle(selected)
+        }
+    }
+
+    fun clearSelectedVehicle() {
+        _state.update {
+            it.copy(selectedFitment = null, vehicleError = null, message = null)
+        }
+    }
+
+    private suspend fun applySelectedVehicle(selected: SelectedFitmentVehicle) {
+        _state.update {
+            it.copy(
+                selectedFitment = selected,
+                vehicleBusy = true,
+                vehicleError = null,
+                busy = true,
+                error = null,
+            )
+        }
+        try {
+            val browse = useCases.listCatalogForVehicle(
+                chassisCode = selected.generation,
+                engineCode = selected.engine,
+                limit = 50,
+            )
+            _state.update {
+                it.copy(
+                    busy = false,
+                    vehicleBusy = false,
+                    browseItems = browse.items,
+                    route = CatalogScreenRoute.CategoryBrowse,
+                    categoryBrowseTitle = selected.compactLabel(),
+                    activeCategory = selected.generation,
+                    message = if (browse.items.isEmpty()) {
+                        "Vehicle set — no stocked parts for this chassis/engine yet."
+                    } else {
+                        "Scoped to ${selected.compactLabel()}"
+                    },
+                )
+            }
+        } catch (e: Exception) {
+            _state.update {
+                it.copy(
+                    busy = false,
+                    vehicleBusy = false,
+                    vehicleError = e.message ?: "Could not load parts for vehicle",
+                )
             }
         }
     }
@@ -225,7 +342,12 @@ class CatalogViewModel(
                 }
                 onDone()
             } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "add to cart failed") }
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        error = UserFacingErrors.from(e, "Could not add to cart"),
+                    )
+                }
             }
         }
     }

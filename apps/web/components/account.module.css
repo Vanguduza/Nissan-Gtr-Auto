@@ -87,7 +87,8 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.48rem 0.85rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.85rem;
   font-size: 0.9rem;
   border-left: 3px solid transparent;
   transition: background var(--gtr-hover), color var(--gtr-hover), border-color var(--gtr-hover);
@@ -578,7 +579,7 @@
 .btn {
   display: inline-flex;
   margin-top: 0.75rem;
-  min-height: 2.4rem;
+  min-height: 2.75rem;
   padding: 0 1rem;
   align-items: center;
   justify-content: center;
@@ -735,11 +736,42 @@
   .formGrid {
     grid-template-columns: 1fr;
   }
+
+  .shell {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .panel:not(:has(.pageHeader)) {
+    padding: 1rem 0.9rem 1.25rem;
+  }
+
+  .pageHeader,
+  .pageBody {
+    padding-inline: 0.9rem;
+  }
+
+  .title {
+    font-size: 1.35rem;
+  }
+
+  .formActions .btn {
+    width: 100%;
+  }
+
+  .addrActions {
+    gap: 0.5rem;
+  }
+
+  .addrActions .btnGhost {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }
 
 .field {
   display: grid;
   gap: 0.3rem;
+  min-width: 0;
   font-family: var(--font-display);
   font-size: 0.72rem;
   font-weight: 700;
@@ -751,12 +783,16 @@
 .field input,
 .field select,
 .field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--staff-border-strong);
   border-radius: var(--staff-radius-sm);
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: 0.45rem 0.65rem;
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
@@ -764,6 +800,20 @@
   background: var(--gtr-white);
   box-shadow: inset 0 1px 2px rgba(18, 21, 28, 0.04);
   transition: border-color var(--gtr-hover), box-shadow var(--gtr-hover);
+}
+
+.field select {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.field select:disabled,
+.field input:disabled,
+.field textarea:disabled {
+  background: color-mix(in srgb, var(--gtr-mist) 80%, white);
+  color: rgba(18, 21, 28, 0.45);
+  cursor: not-allowed;
 }
 
 .field input:focus-visible,
@@ -876,8 +926,8 @@
 .btnGhost {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding: 0 0.75rem;
+  min-height: 2.4rem;
+  padding: 0 0.85rem;
   border: 1px solid var(--staff-border-strong);
   border-radius: var(--staff-radius-sm);
   background: var(--gtr-white);

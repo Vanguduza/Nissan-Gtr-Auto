@@ -1,0 +1,49 @@
+.layout {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lede {
+  margin: 0 0 1.25rem;
+  color: var(--gtr-steel, #8896a4);
+  max-width: 40rem;
+}
+
+.skeleton {
+  min-height: 12rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gtr-steel, #8896a4);
+}
+
+.empty {
+  padding: 2rem 0;
+}
+
+.emptyTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.emptyMsg {
+  margin: 0;
+  color: var(--gtr-steel, #8896a4);
+}
+
+.shopLink {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--gtr-red, #c8102e);
+}

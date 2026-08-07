@@ -33,8 +33,15 @@ from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse, unquote
 from urllib.robotparser import RobotFileParser
 
-from data_pipeline.import_catalog import import_catalog, import_supabase, load_bundle
+from data_pipeline.import_catalog import import_catalog, import_supabase, load_bundle, load_env_files, resolve_supabase_credentials
 from data_pipeline.parse_fast import write_bundle
+from data_pipeline.parse_partsouq_html import (
+    assembly_hints_from_diagram_title,
+    category_hints_from_url,
+    is_generic_part_name,
+    normalize_epc_category_name,
+    subcategory_from_diagram_title,
+)
 from data_pipeline.validate import validate_bundle
 
 logger = logging.getLogger("data_pipeline.amayama_catalog_auto")
@@ -1811,6 +1818,8 @@ def _image_url(payload: dict[str, Any]) -> str | None:
 
 def _content_type_from_url(url: str) -> str:
     lower = url.lower()
+    if lower.endswith(".gif"):
+        return "image/gif"
     if lower.endswith((".jpg", ".jpeg")):
         return "image/jpeg"
     if lower.endswith(".webp"):
@@ -1818,6 +1827,21 @@ def _content_type_from_url(url: str) -> str:
     if lower.endswith(".svg"):
         return "image/svg+xml"
     return "image/png"
+
+
+def _content_type_for_diagram(*, url: str = "", storage_path: str = "", declared: str = "") -> str:
+    """Resolve MIME type for PartSouq GIF/PNG diagram uploads."""
+    if declared and declared != "image/png":
+        return declared
+    for hint in (storage_path, url):
+        lower = hint.lower()
+        if lower.endswith(".gif"):
+            return "image/gif"
+        if lower.endswith((".jpg", ".jpeg")):
+            return "image/jpeg"
+        if lower.endswith(".webp"):
+            return "image/webp"
+    return _content_type_from_url(url)
 
 
 def _storage_path(prefix: str, image_url: str, chassis: str | None) -> str:
@@ -1833,6 +1857,56 @@ def is_catalog_payload(data: Any) -> bool:
         return True
     blob = str(data).lower()
     return "pnc" in blob and any(k in blob for k in ("part", "hotspot", "bbox", "coord", "pos_x"))
+
+
+def _pnc_category_rank(name: str | None) -> int:
+    """Higher = better EPC group label for ``pnc_categories.category_name``."""
+    if not name or not str(name).strip():
+        return 0
+    cleaned = str(name).strip()
+    lower = cleaned.lower()
+    if lower in {"uncategorized", "unknown", "misc", "other"}:
+        return 0
+    if is_generic_part_name(cleaned):
+        return 1
+    return 2
+
+
+def _resolve_pnc_category(
+    *,
+    payload: dict[str, Any],
+    source_url: str,
+    item: dict[str, Any],
+) -> tuple[str, str | None]:
+    """Resolve EPC assembly group + unit name; never use fastener labels as category."""
+    url_hints = category_hints_from_url(source_url)
+    diagram_hints = assembly_hints_from_diagram_title(str(payload.get("diagram_title") or ""))
+    payload_cat = (
+        payload.get("category_name")
+        or url_hints.get("category_name")
+        or diagram_hints.get("category_name")
+    )
+    payload_sub = (
+        payload.get("subcategory_name")
+        or url_hints.get("subcategory_name")
+        or diagram_hints.get("subcategory_name")
+    )
+    if not payload_sub:
+        unit = diagram_hints.get("category_name")
+        if unit and unit != payload_cat:
+            payload_sub = unit
+    item_cat = item.get("category_name") or item.get("category") or item.get("group_name")
+    if item_cat and not is_generic_part_name(str(item_cat)):
+        payload_cat = payload_cat or item_cat
+    item_sub = item.get("subcategory_name") or item.get("subcategory")
+    if item_sub and not is_generic_part_name(str(item_sub)):
+        payload_sub = payload_sub or item_sub
+
+    category = str(payload_cat).strip() if payload_cat else "Uncategorized"
+    category = normalize_epc_category_name(category) or "Uncategorized"
+    subcategory = str(payload_sub).strip() if payload_sub else None
+    subcategory = normalize_epc_category_name(subcategory)
+    return category[:200] or "Uncategorized", subcategory
 
 
 def transform_payload(
@@ -1898,6 +1972,7 @@ def transform_payload(
     pnc_map: dict[str, dict[str, Any]] = {}
     fitments: list[dict[str, Any]] = []
     diagrams: list[dict[str, Any]] = []
+    oem_display_names: dict[str, str] = {}
 
     image_url = _image_url(payload)
     diagram_path = (
@@ -1928,22 +2003,35 @@ def transform_payload(
         if not pnc:
             continue
 
-        category = (
-            item.get("category_name")
-            or item.get("category")
-            or item.get("group_name")
-            or item.get("description")
-            or "Uncategorized"
+        part_name = (
+            item.get("description")
+            or item.get("name")
+            or item.get("part_name")
+            or ""
         )
-        subcategory = item.get("subcategory_name") or item.get("subcategory")
+        part_name = str(part_name).strip()
+        if part_name:
+            oem_display_names[oem] = part_name[:200]
+
+        category, subcategory = _resolve_pnc_category(
+            payload=payload, source_url=source_url, item=item
+        )
         if pnc not in pnc_map:
             pnc_map[pnc] = _omit_none(
                 {
                     "pnc_code": pnc,
-                    "category_name": str(category)[:200] or "Uncategorized",
-                    "subcategory_name": str(subcategory) if subcategory else None,
+                    "category_name": category,
+                    "subcategory_name": subcategory,
                 }
             )
+        else:
+            existing = pnc_map[pnc]
+            if _pnc_category_rank(category) > _pnc_category_rank(
+                existing.get("category_name")
+            ):
+                existing["category_name"] = category
+            if subcategory and not existing.get("subcategory_name"):
+                existing["subcategory_name"] = subcategory
 
         merged = {**img_meta, **item}
         bbox = extract_bbox(merged) or {}
@@ -1982,6 +2070,7 @@ def transform_payload(
         "pnc_categories": list(pnc_map.values()),
         "part_fitment": fitments,
         "diagram_assets": diagrams,
+        "_oem_display_names": oem_display_names,
     }
 
 
@@ -1991,8 +2080,12 @@ def merge_bundles(bundles: list[dict[str, list[dict[str, Any]]]]) -> dict[str, l
     pncs: dict[str, dict[str, Any]] = {}
     fitments: dict[tuple, dict[str, Any]] = {}
     diagrams: dict[str, dict[str, Any]] = {}
+    oem_display_names: dict[str, str] = {}
 
     for bundle in bundles:
+        for oem, name in (bundle.get("_oem_display_names") or {}).items():
+            if oem and name:
+                oem_display_names[str(oem)] = str(name)
         for row in bundle.get("vehicle_master", []):
             key = (
                 row.get("vin_prefix"),
@@ -2003,7 +2096,16 @@ def merge_bundles(bundles: list[dict[str, list[dict[str, Any]]]]) -> dict[str, l
             )
             vehicles[key] = row
         for row in bundle.get("pnc_categories", []):
-            pncs[row["pnc_code"]] = row
+            code = row["pnc_code"]
+            prev = pncs.get(code)
+            if prev is None or _pnc_category_rank(row.get("category_name")) > _pnc_category_rank(
+                prev.get("category_name")
+            ):
+                pncs[code] = row
+            elif prev is not None and not prev.get("subcategory_name") and row.get(
+                "subcategory_name"
+            ):
+                prev["subcategory_name"] = row["subcategory_name"]
         for row in bundle.get("part_fitment", []):
             key = (
                 row.get("oem_part_number"),
@@ -2015,12 +2117,15 @@ def merge_bundles(bundles: list[dict[str, list[dict[str, Any]]]]) -> dict[str, l
         for row in bundle.get("diagram_assets", []):
             diagrams[row["storage_path"]] = row
 
-    return {
+    merged: dict[str, Any] = {
         "vehicle_master": list(vehicles.values()),
         "pnc_categories": list(pncs.values()),
         "part_fitment": list(fitments.values()),
         "diagram_assets": list(diagrams.values()),
     }
+    if oem_display_names:
+        merged["_oem_display_names"] = oem_display_names
+    return merged
 
 
 def transform_raw_records(
@@ -2153,11 +2258,33 @@ def enqueue_url(
         conn.close()
 
 
+def _pending_queue_order_sql(mode: str) -> tuple[str, tuple[Any, ...]]:
+    """Return (ORDER BY clause suffix, extra params) for PENDING candidate scan."""
+    chassis_level = int(HierarchyLevel.CHASSIS)
+    if mode == "hybrid":
+        return (
+            """
+            ORDER BY
+              CASE
+                WHEN hierarchy_level = ? OR url LIKE '%/vehicle%' THEN 0
+                ELSE 1
+              END ASC,
+              hierarchy_level DESC,
+              attempts ASC,
+              rowid ASC
+            """,
+            (chassis_level,),
+        )
+    order = "DESC" if mode in {"deep_first", "hybrid"} else "ASC"
+    return (f"ORDER BY hierarchy_level {order}, attempts ASC, rowid ASC", ())
+
+
 def claim_next_url(
     db_path: Path,
     *,
     deep_first: bool = False,
     mode: str | None = None,
+    priority: Any | None = None,
 ) -> tuple[str, dict[str, Any]] | None:
     """Atomically claim one PENDING URL.
 
@@ -2166,50 +2293,59 @@ def claim_next_url(
       - deep_first: highest hierarchy_level first (parts/units)
       - hybrid: prefer vehicle/L2 (CHASSIS) pages while any remain, else deep-first
 
+    When *priority* (:class:`~data_pipeline.priority_chassis.PriorityChassisFilter`)
+    is set, only bootstrap navigation, ``/vehicle`` discovery, and URLs whose
+    ``vehicle_context`` / ``vid`` map to a priority chassis are claimed. Other
+    PENDING rows stay queued for a later full crawl.
+
     ``deep_first=True`` is kept for callers/tests; ``mode`` overrides when set.
     Follow-up (not here): prefer one URL per distinct ``vid`` when claiming vehicles
     (ssd-variant dedup against VISITED / identity).
     """
+    from data_pipeline.priority_chassis import PriorityChassisFilter, _parse_vehicle_context
+
     resolved = (mode or "").strip().lower()
     if resolved not in {"deep_first", "bfs", "hybrid"}:
         resolved = "deep_first" if deep_first else "bfs"
 
-    chassis_level = int(HierarchyLevel.CHASSIS)
+    order_sql, order_params = _pending_queue_order_sql(resolved)
+    batch_size = 500
+    max_scan = 50_000 if priority is not None else batch_size
     conn = sqlite3.connect(db_path, timeout=30.0)
     try:
         conn.isolation_level = None
         conn.execute("BEGIN IMMEDIATE")
+        pf: PriorityChassisFilter | None = priority if isinstance(priority, PriorityChassisFilter) else None
         row = None
-        if resolved == "hybrid":
-            row = conn.execute(
-                """
-                SELECT url, vehicle_context, attempts
-                FROM queue
-                WHERE status = 'PENDING'
-                  AND (
-                    hierarchy_level = ?
-                    OR url LIKE '%/vehicle%'
-                  )
-                ORDER BY attempts ASC, rowid ASC
-                LIMIT 1
-                """,
-                (chassis_level,),
-            ).fetchone()
-        if row is None:
-            order = "DESC" if resolved in {"deep_first", "hybrid"} else "ASC"
-            row = conn.execute(
+        offset = 0
+        while offset < max_scan:
+            rows = conn.execute(
                 f"""
-                SELECT url, vehicle_context, attempts
+                SELECT url, vehicle_context, attempts, hierarchy_level
                 FROM queue
                 WHERE status = 'PENDING'
-                ORDER BY hierarchy_level {order}, attempts ASC, rowid ASC
-                LIMIT 1
-                """
-            ).fetchone()
+                {order_sql}
+                LIMIT ? OFFSET ?
+                """,
+                (*order_params, batch_size, offset),
+            ).fetchall()
+            if not rows:
+                break
+            for candidate in rows:
+                url, ctx_raw, _attempts, level = candidate
+                if pf is not None:
+                    ctx = _parse_vehicle_context(ctx_raw)
+                    if not pf.is_eligible(url, ctx, hierarchy_level=int(level)):
+                        continue
+                row = candidate
+                break
+            if row is not None:
+                break
+            offset += batch_size
         if not row:
             conn.execute("COMMIT")
             return None
-        url, ctx_raw, _attempts = row
+        url, ctx_raw, _attempts, _level = row
         cur = conn.execute(
             """
             UPDATE queue
@@ -2503,22 +2639,29 @@ def upload_diagram_supabase(
     bucket: str,
     content_type: str,
 ) -> None:
-    url = os.environ.get("SUPABASE_URL", "")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    url, key = resolve_supabase_credentials()
     if not url or not key:
         logger.warning("Skipping Supabase upload — credentials not set")
         return
     try:
-        from supabase import create_client
+        from supabase import ClientOptions, create_client
     except ImportError as exc:
         raise RuntimeError("pip install -e '.[supabase]'") from exc
 
-    client = create_client(url, key)
-    client.storage.from_(bucket).upload(
-        path=storage_path,
-        file=local_path.read_bytes(),
-        file_options={"content-type": content_type, "upsert": "true"},
+    client = create_client(
+        url,
+        key,
+        options=ClientOptions(storage_client_timeout=120),
     )
+    try:
+        client.storage.from_(bucket).upload(
+            path=storage_path,
+            file=local_path.read_bytes(),
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Supabase upload failed for %s: %s", storage_path, exc)
+        raise
 
 
 def fully_unescape(text: str) -> str:
@@ -2650,6 +2793,7 @@ async def flaresolverr_crawl_worker(
     max_pages: int | None,
     pages_done: dict[str, int],
     pages_lock: asyncio.Lock,
+    priority: Any | None = None,
 ) -> None:
     """Crawl via a shared persistent FlareSolverr session (cookies stay warm)."""
     paths = session_paths(session_dir)
@@ -2668,11 +2812,24 @@ async def flaresolverr_crawl_worker(
             await asyncio.sleep(30.0)
             continue
 
-        claimed = claim_next_url(db_path, mode=config.resolved_queue_mode())
+        claimed = claim_next_url(
+            db_path, mode=config.resolved_queue_mode(), priority=priority
+        )
         if not claimed:
             await asyncio.sleep(0.3 + random.uniform(0.0, 0.2))
             if pending_count(db_path) == 0:
                 break
+            if priority is not None:
+                from data_pipeline.priority_chassis import count_eligible_pending
+
+                eligible, total = count_eligible_pending(db_path, priority)
+                if total > 0 and eligible == 0:
+                    logger.info(
+                        "[FS worker %s] Priority chassis queue drained (%s non-priority PENDING deferred)",
+                        worker_id,
+                        total,
+                    )
+                    break
             continue
 
         url, queued_context = claimed
@@ -2787,6 +2944,7 @@ async def run_flaresolverr_crawl(
     session_dir: Path,
     proxy: ProxyEndpoint | None,
     max_pages: int | None,
+    priority: Any | None = None,
 ) -> int:
     """Run 1..N FlareSolverr workers against one persistent named session."""
     workers = max(1, min(config.max_concurrent_workers, config.flaresolverr_max_concurrent))
@@ -2828,6 +2986,7 @@ async def run_flaresolverr_crawl(
                     max_pages=max_pages,
                     pages_done=pages_done,
                     pages_lock=pages_lock,
+                    priority=priority,
                 )
             )
             for i in range(workers)
@@ -2851,6 +3010,7 @@ async def scraper_worker(
     pages_lock: asyncio.Lock,
     proxy_label: str,
     concurrency_gate: ConcurrencyGate | None = None,
+    priority: Any | None = None,
 ) -> None:
     if worker_id == 1 and context.pages:
         page = context.pages[0]
@@ -2890,11 +3050,24 @@ async def scraper_worker(
             if max_pages is not None and pages_done["n"] >= max_pages:
                 break
 
-        claimed = claim_next_url(db_path, mode=config.resolved_queue_mode())
+        claimed = claim_next_url(
+            db_path, mode=config.resolved_queue_mode(), priority=priority
+        )
         if not claimed:
             await asyncio.sleep(0.3 + random.uniform(0.0, 0.4))
             if pending_count(db_path) == 0:
                 break
+            if priority is not None:
+                from data_pipeline.priority_chassis import count_eligible_pending
+
+                eligible, total = count_eligible_pending(db_path, priority)
+                if total > 0 and eligible == 0:
+                    logger.info(
+                        "[Worker %s] Priority chassis queue drained (%s non-priority PENDING deferred)",
+                        worker_id,
+                        total,
+                    )
+                    break
             continue
 
         url, queued_context = claimed
@@ -3041,6 +3214,7 @@ async def run_crawl(
     headless: bool = True,
     retry_failed: bool = False,
     use_flaresolverr_fetch: bool = True,
+    priority: Any | None = None,
 ) -> None:
     init_db(db_path)
     pruned = prune_out_of_scope_queue(db_path, config)
@@ -3121,6 +3295,7 @@ async def run_crawl(
             session_dir=session_dir,
             proxy=proxy,
             max_pages=max_pages,
+            priority=priority,
         )
         if pages_done_n > 0:
             try:
@@ -3185,6 +3360,7 @@ async def run_crawl(
                         pages_lock=pages_lock,
                         proxy_label=proxy_label,
                         concurrency_gate=concurrency_gate,
+                        priority=priority,
                     )
                 )
                 for i in range(workers)
@@ -3219,6 +3395,7 @@ async def run_until_catalogue_complete(
     proxy: ProxyEndpoint | None,
     headless: bool = True,
     use_flaresolverr_fetch: bool = True,
+    priority: Any | None = None,
 ) -> dict[str, int]:
     """Drain the English-Nissan queue: crawl → retry failures → repeat until done."""
     max_rounds = max(1, int(config.completion_max_rounds))
@@ -3243,19 +3420,41 @@ async def run_until_catalogue_complete(
             headless=headless,
             retry_failed=True,
             use_flaresolverr_fetch=use_flaresolverr_fetch,
+            priority=priority,
         )
         final_stats = queue_status_counts(db_path)
         pending = final_stats.get("PENDING", 0) + final_stats.get("PROCESSING", 0)
         retriable = final_stats.get("FAILED", 0) + final_stats.get("BLOCKED_CF", 0)
         visited = final_stats.get("VISITED", 0)
-        logger.info(
-            "Round %s done — visited=%s pending=%s retriable=%s full=%s",
-            round_n,
-            visited,
-            pending,
-            retriable,
-            final_stats,
-        )
+        if priority is not None:
+            from data_pipeline.priority_chassis import count_eligible_pending
+
+            eligible, total_pending = count_eligible_pending(db_path, priority)
+            logger.info(
+                "Round %s done — visited=%s eligible_pending=%s/%s deferred=%s retriable=%s",
+                round_n,
+                visited,
+                eligible,
+                total_pending,
+                max(0, total_pending - eligible),
+                retriable,
+            )
+            if total_pending > 0 and eligible == 0:
+                logger.info(
+                    "Priority chassis crawl complete — %s non-priority URLs remain PENDING "
+                    "(restart without --priority-chassis-file to resume full crawl)",
+                    total_pending,
+                )
+                break
+        else:
+            logger.info(
+                "Round %s done — visited=%s pending=%s retriable=%s full=%s",
+                round_n,
+                visited,
+                pending,
+                retriable,
+                final_stats,
+            )
         if pending > 0:
             # Crawl returned early with work left — continue
             continue
@@ -3332,12 +3531,19 @@ async def download_bundle_diagrams(
             source, dest, config=config, rate_limiter=rate_limiter
         )
         if path and upload:
-            upload_diagram_supabase(
-                path,
-                storage_path,
-                bucket=config.supabase_diagrams_bucket,
-                content_type=asset.get("content_type") or "image/png",
-            )
+            try:
+                upload_diagram_supabase(
+                    path,
+                    storage_path,
+                    bucket=config.supabase_diagrams_bucket,
+                    content_type=_content_type_for_diagram(
+                        url=source,
+                        storage_path=storage_path,
+                        declared=str(asset.get("content_type") or ""),
+                    ),
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Skipping upload for %s after error: %s", storage_path, exc)
 
 
 def configure_logging(verbose: bool) -> None:
@@ -3363,6 +3569,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("crawler_state.db"),
         help="SQLite crawl state + captured JSON",
+    )
+    p.add_argument(
+        "--parse-db",
+        type=Path,
+        default=None,
+        help=(
+            "Parse worker DB with vehicle_identity (transform-only). "
+            "When set, merges identity + parts via refresh_bundle instead of parts-only transform."
+        ),
     )
     p.add_argument(
         "--out-dir",
@@ -3550,6 +3765,36 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Force crawl via host local IP (ignore proxy list / --proxy)",
     )
+    p.add_argument(
+        "--priority-chassis",
+        action="store_true",
+        help="Enable priority chassis filter using config/priority_chassis.json",
+    )
+    p.add_argument(
+        "--priority-chassis-file",
+        type=Path,
+        default=None,
+        help=(
+            "JSON file listing priority chassis codes (default: config/priority_chassis.json). "
+            "Only matching PENDING URLs are claimed; others stay queued for a later full crawl."
+        ),
+    )
+    p.add_argument(
+        "--extra-priority-chassis",
+        type=str,
+        default=None,
+        help="Comma-separated chassis codes merged with --priority-chassis-file when both set",
+    )
+    p.add_argument(
+        "--no-priority-strict",
+        action="store_true",
+        help="With priority filter: also claim unknown non-bootstrap URLs (not recommended)",
+    )
+    p.add_argument(
+        "--chassis-coverage",
+        action="store_true",
+        help="Print identity vs fitment coverage for priority chassis and exit (no crawl)",
+    )
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -3594,6 +3839,49 @@ def main(argv: list[str] | None = None) -> int:
         config.allowed_brand,
         len(CHASSIS_CATALOG),
     )
+
+    from data_pipeline.priority_chassis import (
+        DEFAULT_PRIORITY_FILE,
+        build_priority_filter,
+        chassis_coverage_report,
+        load_vid_chassis_map,
+        resolve_parse_db,
+    )
+
+    priority_path = args.priority_chassis_file
+    if priority_path is None and args.priority_chassis:
+        priority_path = DEFAULT_PRIORITY_FILE
+    if priority_path is not None and not priority_path.is_absolute():
+        priority_path = Path.cwd() / priority_path
+    extra_codes = [
+        c.strip() for c in (args.extra_priority_chassis or "").split(",") if c.strip()
+    ]
+    parse_db_for_vid = resolve_parse_db(state_db=args.state_db, explicit=args.parse_db)
+    priority_filter = build_priority_filter(
+        priority_path if (priority_path or extra_codes) else None,
+        extra_codes=extra_codes or None,
+        vid_chassis=load_vid_chassis_map(parse_db_for_vid),
+        strict=not args.no_priority_strict,
+    )
+    if priority_filter:
+        logger.info(
+            "Priority chassis mode ON — %s platforms (%s vid map entries)",
+            len(priority_filter.codes),
+            len(priority_filter.vid_chassis),
+        )
+    if args.chassis_coverage:
+        if not priority_filter:
+            priority_filter = build_priority_filter(DEFAULT_PRIORITY_FILE)
+        if not priority_filter:
+            print("ERROR: --chassis-coverage requires --priority-chassis-file or default config")
+            return 2
+        report = chassis_coverage_report(
+            parse_db=parse_db_for_vid,
+            bundle_dir=args.out_dir,
+            priority=priority_filter,
+        )
+        print(json.dumps(report, indent=2))
+        return 0
 
     until_complete = config.run_until_complete
     if args.until_complete:
@@ -3723,6 +4011,7 @@ def main(argv: list[str] | None = None) -> int:
                     proxy=active_proxy,
                     headless=not args.headed and not args.cf_pass,
                     use_flaresolverr_fetch=use_flare and not args.cf_pass,
+                    priority=priority_filter,
                 )
             )
             print(f"Catalogue complete — queue: {final_stats}")
@@ -3739,18 +4028,40 @@ def main(argv: list[str] | None = None) -> int:
                     headless=not args.headed and not args.cf_pass,
                     retry_failed=args.retry_failed,
                     use_flaresolverr_fetch=use_flare and not args.cf_pass,
+                    priority=priority_filter,
                 )
             )
 
     if args.crawl_only:
         return 0
 
-    bundle = run_transform(
-        db_path=args.state_db,
-        out_dir=args.out_dir,
-        config=config,
-        validate=True,
-    )
+    load_env_files(PACKAGE_ROOT.parent / ".env", PACKAGE_ROOT / ".env")
+
+    if args.parse_db is not None:
+        from data_pipeline.cache_parse_worker import refresh_bundle
+
+        counts = refresh_bundle(
+            crawl_db=args.state_db,
+            parse_db=args.parse_db,
+            out_dir=args.out_dir,
+        )
+        logger.info(
+            "Merged bundle (identity + parts) — vehicles=%s pncs=%s fitments=%s "
+            "uncategorized_pncs=%s oem_display_names=%s",
+            counts.get("vehicles"),
+            counts.get("pncs"),
+            counts.get("fitments"),
+            counts.get("uncategorized_pncs"),
+            counts.get("oem_display_names"),
+        )
+        bundle = load_bundle(args.out_dir)
+    else:
+        bundle = run_transform(
+            db_path=args.state_db,
+            out_dir=args.out_dir,
+            config=config,
+            validate=True,
+        )
 
     if args.download_diagrams or args.upload_diagrams:
         asyncio.run(
@@ -3770,14 +4081,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {table}: +{stat.inserted} ~{stat.updated} ={stat.unchanged}")
 
     if args.live_import:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        url, key = resolve_supabase_credentials()
         if not url or not key:
             print(
-                "ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required for --live-import"
+                "ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY "
+                "(or SUPABASE_SERVICE_KEY) required for --live-import"
             )
             return 1
-        result = import_supabase(load_bundle(args.out_dir), url=url, key=key)
+        result = import_supabase(
+            load_bundle(args.out_dir), url=url, key=key, ensure_stock_items=True
+        )
         for table, stat in result.stats.items():
             print(f"  {table}: +{stat.inserted} ~{stat.updated} ={stat.unchanged}")
 

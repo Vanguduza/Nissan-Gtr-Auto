@@ -18,7 +18,7 @@ struct ChatScreen: View {
     @State private var showStartedThread = false
 
     var body: some View {
-        ShopDefaultScreen(title: "Live chat", subtitle: "Counter support", scrollable: false) {
+        ShopDefaultScreen(title: "Live chat", subtitle: nil, scrollable: false) {
             List {
             Section {
                 Text("Message the counter for support or parts fitment. WhatsApp remains available.")

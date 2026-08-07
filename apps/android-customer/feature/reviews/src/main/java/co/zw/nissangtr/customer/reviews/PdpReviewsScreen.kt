@@ -99,7 +99,7 @@ fun PdpReviewsScreen(
         if (state.approved.isEmpty() && !state.busy) {
             ShopHonestEmpty(
                 title = "No approved reviews yet",
-                body = "Be the first to review this OEM after purchase.",
+                body = "No reviews.",
             )
         } else {
             state.approved.forEach { ReviewRow(it) }

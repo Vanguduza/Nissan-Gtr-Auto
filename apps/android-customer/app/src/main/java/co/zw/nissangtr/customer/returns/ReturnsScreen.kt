@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
@@ -31,24 +30,16 @@ fun ReturnsScreen(
 
     ShopDefaultScreen(
         title = "Returns",
-        subtitle = "Quarantine CN",
+        subtitle = null,
         onBack = onBack,
         modifier = modifier,
         loading = state.busy && state.invoices.isEmpty(),
     ) {
-        Text(
-            "Faulty returns via ${RpcNames.POST_CUSTOMER_RETURN_CREDIT_NOTE}. " +
-                "Unit prices are forced server-side from the invoice. " +
-                "Returned SKUs go to quarantine — never a direct exchange.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
         ShopSectionHeader(title = "Select invoice", actionLabel = null)
         if (state.invoices.isEmpty() && !state.busy) {
             ShopHonestEmpty(
                 title = "No invoices yet",
-                body = "Return a line from a posted order. Checkout from Cart first.",
+                body = "No invoices.",
             )
         }
         state.invoices.forEach { inv ->
@@ -71,7 +62,7 @@ fun ReturnsScreen(
                     title = line.oemPartNumber ?: line.stockItemId.take(8),
                     subtitle = buildString {
                         append(line.description ?: "Qty ${line.qty}")
-                        append(if (selected) " · Selected" else " · Tap to select")
+                        append(if (selected) " · Selected" else "")
                     },
                     onClick = { viewModel.toggleLine(line.id) },
                 )

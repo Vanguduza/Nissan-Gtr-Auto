@@ -172,6 +172,24 @@ public protocol StorefrontApi: AnyObject {
     /// Browse PLP — stock_items + default USD price + saleable qty.
     func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult
 
+    /// Megazip hierarchy browse RPCs.
+    func listCatalogMakers() async throws -> [EpcMaker]
+    func listCatalogModels(makerSlug: String) async throws -> [EpcModel]
+    func listCatalogVariants(makerSlug: String, modelSlug: String) async throws -> [EpcVariant]
+    func listCatalogSections(makerSlug: String, modelSlug: String, variantSlug: String) async throws -> [EpcSection]
+    func getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String
+    ) async throws -> EpcDiagramResponse
+
+    /// Live `vehicle_master` rows for cascading Select vehicle.
+    func listVehicleMaster() async throws -> [VehicleMasterRow]
+
+    /// Parts for chassis (+ optional engine) via `part_fitment` → `stock_items`.
+    func listCatalogForVehicle(chassisCode: String, engineCode: String?, limit: Int) async throws -> CatalogBrowseResult
+
     /// PDP load — stock_items + price + saleable qty + fitment labels.
     func loadCatalogProduct(oem: String) async throws -> CatalogProduct
 
@@ -1051,6 +1069,139 @@ public final class FakeStorefrontApi: StorefrontApi {
                 )
             }
         return CatalogBrowseResult(items: Array(items), categories: ["Filters", "Brakes", "Engine"])
+    }
+
+    public func listCatalogMakers() async throws -> [EpcMaker] {
+        [EpcMaker(slug: "nissan", name: "Nissan", modelCount: 2)]
+    }
+
+    public func listCatalogModels(makerSlug: String) async throws -> [EpcModel] {
+        guard makerSlug == "nissan" else { return [] }
+        return [
+            EpcModel(slug: "x-trail", displayName: "X-Trail", sortKey: "x-trail"),
+            EpcModel(slug: "navara", displayName: "Navara", sortKey: "navara"),
+        ]
+    }
+
+    public func listCatalogVariants(makerSlug: String, modelSlug: String) async throws -> [EpcVariant] {
+        switch modelSlug {
+        case "x-trail":
+            return [EpcVariant(slug: "t31-mr20", chassisCode: "T31", engineCode: "MR20", yearLabel: "2007–2013")]
+        case "navara":
+            return [EpcVariant(slug: "d40-yd25", chassisCode: "D40", engineCode: "YD25", yearLabel: "2005–2015")]
+        default:
+            return []
+        }
+    }
+
+    public func listCatalogSections(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String
+    ) async throws -> [EpcSection] {
+        [
+            EpcSection(slug: "section-filters", name: "Filters", sortOrder: 10),
+            EpcSection(slug: "section-engine", name: "Engine", sortOrder: 20),
+        ]
+    }
+
+    public func getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String
+    ) async throws -> EpcDiagramResponse {
+        EpcDiagramResponse(
+            diagramSlug: "demo",
+            diagramTitle: sectionSlug,
+            hotspots: [
+                EpcHotspot(
+                    oem: "15208-9N00A",
+                    pncCode: "15208",
+                    bboxX: 0.1,
+                    bboxY: 0.1,
+                    bboxWidth: 0.2,
+                    bboxHeight: 0.2
+                ),
+            ],
+            parts: [
+                EpcDiagramPart(
+                    oemPartNumber: "15208-9N00A",
+                    pncCode: "15208",
+                    categoryName: "Filters",
+                    stockItemId: "fake-stock",
+                    stockDescription: "Oil filter (demo)"
+                ),
+            ]
+        )
+    }
+
+    public func listVehicleMaster() async throws -> [VehicleMasterRow] {
+        [
+            VehicleMasterRow(
+                id: "vm-navara-d40",
+                vinPrefix: "MNTCCND40",
+                chassisCode: "D40",
+                engineCode: "YD25",
+                productionYear: 2010,
+                modelVariant: "NAVARA"
+            ),
+            VehicleMasterRow(
+                id: "vm-xtrail-t31",
+                vinPrefix: "JN1T31XX",
+                chassisCode: "T31",
+                engineCode: "QR25DE",
+                productionYear: 2010,
+                modelVariant: "X-TRAIL"
+            ),
+            VehicleMasterRow(
+                id: "vm-gtr-r35",
+                vinPrefix: "JN1AR5EF",
+                chassisCode: "R35",
+                engineCode: "VR38DETT",
+                productionYear: 2012,
+                modelVariant: "GT-R"
+            ),
+            VehicleMasterRow(
+                id: "vm-almera-n16",
+                vinPrefix: "JN1N16",
+                chassisCode: "N16",
+                engineCode: "QG18DE",
+                productionYear: 2002,
+                modelVariant: "ALMERA"
+            ),
+        ]
+    }
+
+    public func listCatalogForVehicle(
+        chassisCode: String,
+        engineCode: String?,
+        limit: Int
+    ) async throws -> CatalogBrowseResult {
+        let chassis = chassisCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !chassis.isEmpty else { throw StorefrontError.message("chassis required") }
+        let engine = engineCode?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let cap = min(max(limit, 1), 100)
+        let items = catalogProducts.values.filter { p in
+            let lines = p.fitmentLines.joined(separator: " ").uppercased()
+            guard lines.contains(chassis) else { return false }
+            if let engine, !engine.isEmpty {
+                return lines.contains(engine) || engine.count < 3
+            }
+            return true
+        }
+        .prefix(cap)
+        .map {
+            CatalogListItem(
+                stockItemId: $0.stockItemId,
+                oem: $0.oem,
+                name: $0.name,
+                stock: $0.stock,
+                usd: $0.usd,
+                category: $0.category
+            )
+        }
+        return CatalogBrowseResult(items: Array(items), categories: [])
     }
 
     public func loadCatalogProduct(oem: String) async throws -> CatalogProduct {

@@ -1,0 +1,269 @@
+{
+  "version": 1,
+  "maker": "nissan",
+  "notes": "Curated priority Nissan platforms for catalog crawl before resuming full maker crawl. Restart crawl without --priority-chassis-file to drain remaining PENDING URLs.",
+  "chassis_codes": [
+    "D22",
+    "D23",
+    "D40",
+    "T33",
+    "T31",
+    "T32",
+    "T30",
+    "J10",
+    "J11",
+    "C11",
+    "C12",
+    "SC11",
+    "AD0NN",
+    "N16",
+    "N17",
+    "E25",
+    "E26",
+    "C25",
+    "C26",
+    "C27",
+    "L33",
+    "L32",
+    "L31",
+    "JD23",
+    "Y61",
+    "Y62",
+    "Y60",
+    "R50",
+    "R51",
+    "R52",
+    "F15",
+    "Z50",
+    "Z51"
+  ],
+  "chassis": {
+    "D22": {
+      "model_variant": "Nissan Navara / Hardbody D22",
+      "curated": true,
+      "aliases": [
+        "D22"
+      ]
+    },
+    "D23": {
+      "model_variant": "Nissan Navara NP300 D23",
+      "curated": true,
+      "aliases": [
+        "D23"
+      ]
+    },
+    "D40": {
+      "model_variant": "Nissan Navara D40",
+      "curated": true,
+      "aliases": [
+        "D40"
+      ]
+    },
+    "T30": {
+      "model_variant": "Nissan X-Trail T30",
+      "aliases": [
+        "T30"
+      ],
+      "notes": "PartSouq may show market suffix letters on model code; normalize_chassis_code strips trailing alpha."
+    },
+    "T31": {
+      "model_variant": "Nissan X-Trail T31",
+      "curated": true,
+      "aliases": [
+        "T31"
+      ]
+    },
+    "T32": {
+      "model_variant": "Nissan X-Trail T32",
+      "curated": true,
+      "aliases": [
+        "T32"
+      ]
+    },
+    "T33": {
+      "model_variant": "Nissan X-Trail T33",
+      "aliases": [
+        "T33"
+      ]
+    },
+    "J10": {
+      "model_variant": "Nissan Qashqai J10",
+      "curated": true,
+      "aliases": [
+        "J10",
+        "JJ10"
+      ],
+      "notes": "Qashqai+2 uses JJ10 on PartSouq; JJ10 normalizes to JJ10 (distinct from J10 in registry)."
+    },
+    "J11": {
+      "model_variant": "Nissan Qashqai J11",
+      "curated": true,
+      "aliases": [
+        "J11"
+      ]
+    },
+    "C11": {
+      "model_variant": "Nissan Tiida / Pulsar C11",
+      "aliases": [
+        "C11"
+      ]
+    },
+    "C12": {
+      "model_variant": "Nissan Tiida / Pulsar C12",
+      "aliases": [
+        "C12"
+      ]
+    },
+    "SC11": {
+      "model_variant": "Nissan Tiida / Pulsar SC11",
+      "aliases": [
+        "SC11"
+      ],
+      "notes": "PartSouq model column may show SC11x; normalize_chassis_code peels market suffix."
+    },
+    "AD0": {
+      "canonical": "AD0",
+      "model_variant": "Nissan AD / AD Expert / NV200 AD platform",
+      "aliases": [
+        "AD0NN",
+        "AD0N",
+        "AD0"
+      ],
+      "notes": "User code AD0NN → canonical AD0 via normalize_chassis_code (trailing N peeled)."
+    },
+    "N16": {
+      "model_variant": "Nissan Tiida / Sentra / Bluebird Sylphy N16",
+      "aliases": [
+        "N16"
+      ]
+    },
+    "N17": {
+      "model_variant": "Nissan Tiida / Sentra N17",
+      "aliases": [
+        "N17"
+      ]
+    },
+    "E25": {
+      "model_variant": "Nissan Caravan / NV350 E25",
+      "aliases": [
+        "E25"
+      ]
+    },
+    "E26": {
+      "model_variant": "Nissan Caravan E26",
+      "aliases": [
+        "E26"
+      ]
+    },
+    "C25": {
+      "model_variant": "Nissan Caravan C25",
+      "aliases": [
+        "C25"
+      ]
+    },
+    "C26": {
+      "model_variant": "Nissan Caravan C26",
+      "aliases": [
+        "C26"
+      ]
+    },
+    "C27": {
+      "model_variant": "Nissan Caravan C27",
+      "aliases": [
+        "C27"
+      ]
+    },
+    "L31": {
+      "model_variant": "Nissan Teana / Maxima L31",
+      "aliases": [
+        "L31"
+      ]
+    },
+    "L32": {
+      "model_variant": "Nissan Teana / Maxima L32",
+      "aliases": [
+        "L32"
+      ]
+    },
+    "L33": {
+      "model_variant": "Nissan Teana / Maxima L33",
+      "aliases": [
+        "L33"
+      ]
+    },
+    "JD23": {
+      "model_variant": "Nissan Patrol / Safari JD23",
+      "aliases": [
+        "JD23",
+        "J23"
+      ],
+      "notes": "PartSouq may show JD23 or J23 depending on market listing."
+    },
+    "Y60": {
+      "model_variant": "Nissan Patrol Y60",
+      "aliases": [
+        "Y60"
+      ]
+    },
+    "Y61": {
+      "model_variant": "Nissan Patrol Y61",
+      "curated": true,
+      "aliases": [
+        "Y61"
+      ]
+    },
+    "Y62": {
+      "model_variant": "Nissan Patrol Y62",
+      "curated": true,
+      "aliases": [
+        "Y62"
+      ]
+    },
+    "R50": {
+      "model_variant": "Nissan Pathfinder R50",
+      "aliases": [
+        "R50"
+      ]
+    },
+    "R51": {
+      "model_variant": "Nissan Pathfinder R51",
+      "aliases": [
+        "R51"
+      ]
+    },
+    "R52": {
+      "model_variant": "Nissan Pathfinder R52",
+      "aliases": [
+        "R52"
+      ]
+    },
+    "F15": {
+      "model_variant": "Nissan Juke F15",
+      "aliases": [
+        "F15"
+      ]
+    },
+    "Z50": {
+      "model_variant": "Nissan Murano Z50",
+      "aliases": [
+        "Z50"
+      ]
+    },
+    "Z51": {
+      "model_variant": "Nissan Murano Z51",
+      "aliases": [
+        "Z51"
+      ]
+    }
+  },
+  "model_seed_urls": {
+    "nissan": {
+      "T32": [
+        "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064"
+      ],
+      "T31": [
+        "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064"
+      ]
+    }
+  }
+}

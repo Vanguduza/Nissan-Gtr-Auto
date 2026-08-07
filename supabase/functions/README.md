@@ -123,7 +123,11 @@ Customer signup/login OTP for **email and/or phone**. Fail-closed without gatewa
 
 **Server gate:** `verify` mints a short-lived HMAC `proof_token` (row in `auth_otp_proofs`).
 `complete_signup` / `complete_login` consume that proof before creating a user or minting a session.
-Public GoTrue signup is **disabled** (`enable_signup = false` in `config.toml`).
+Public GoTrue **email** signup is blocked by Auth hook `hook_before_user_created`
+(`enable_signup = true` so Google/Apple first login works). `complete_signup` sets
+`app_metadata.gtr_provisioned_via=auth_otp` and then calls `ensure_customer_for_user`
+(service_role) — Admin `createUser` does not make `handle_new_user` see that meta in time.
+See `docs/CUSTOMER_OAUTH_SETUP.md`.
 
 | Env | Behaviour |
 |-----|-----------|

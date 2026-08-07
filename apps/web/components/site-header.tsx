@@ -32,14 +32,14 @@ const categories: {
   label: string;
   Icon: LucideIcon;
 }[] = [
-  { href: "/catalog?cat=brakes", label: "Brakes", Icon: CircleDot },
-  { href: "/catalog?cat=filters", label: "Filters", Icon: Filter },
-  { href: "/catalog?cat=engine", label: "Engine", Icon: Cog },
-  { href: "/catalog?cat=suspension", label: "Suspension", Icon: ArrowUpDown },
-  { href: "/catalog?cat=electrical", label: "Electrical", Icon: Zap },
-  { href: "/catalog?cat=cooling", label: "Cooling", Icon: Droplets },
-  { href: "/catalog?cat=body", label: "Body", Icon: Car },
-  { href: "/catalog?cat=transmission", label: "Drivetrain", Icon: Wrench },
+  { href: "/shop?cat=brakes", label: "Brakes", Icon: CircleDot },
+  { href: "/shop?cat=filters", label: "Filters", Icon: Filter },
+  { href: "/shop?cat=engine", label: "Engine", Icon: Cog },
+  { href: "/shop?cat=suspension", label: "Suspension", Icon: ArrowUpDown },
+  { href: "/shop?cat=electrical", label: "Electrical", Icon: Zap },
+  { href: "/shop?cat=cooling", label: "Cooling", Icon: Droplets },
+  { href: "/shop?cat=body", label: "Body", Icon: Car },
+  { href: "/shop?cat=transmission", label: "Drivetrain", Icon: Wrench },
   { href: "/kits", label: "Kits", Icon: Package },
 ];
 
@@ -104,7 +104,10 @@ export function SiteHeader() {
         <div className={styles.categoriesInner}>
           <Link href="/catalog" className={styles.catAll}>
             <LayoutGrid size={iconSizeSm} strokeWidth={iconStroke} aria-hidden />
-            All categories
+            EPC catalog
+          </Link>
+          <Link href="/shop" className={styles.cat}>
+            Shop stock
           </Link>
           {categories.map((c) => (
             <Link key={c.href} href={c.href} className={styles.cat}>

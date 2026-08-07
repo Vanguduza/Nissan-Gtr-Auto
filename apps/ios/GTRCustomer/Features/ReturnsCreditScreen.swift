@@ -12,18 +12,12 @@ struct ReturnsCreditScreen: View {
     @State private var error: String?
 
     var body: some View {
-        ShopDefaultScreen(title: "Returns", subtitle: "Quarantine CN", scrollable: true) {
-            Text(
-                "Faulty returns via post_customer_return_credit_note. Unit prices are forced server-side. Returned SKUs go to quarantine — never a direct exchange."
-            )
-            .font(GTRType.body(.caption))
-            .foregroundStyle(GTRColors.silverDim)
-
+        ShopDefaultScreen(title: "Returns", subtitle: nil, scrollable: true) {
             ShopMerchTitleRow(title: "Select invoice", actionLabel: nil)
             if invoices.isEmpty && !busy {
                 ShopHonestEmpty(
                     title: "No invoices yet",
-                    bodyText: "Return a line from a posted order. Checkout from Cart first."
+                    bodyText: "No invoices."
                 )
             }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -61,7 +55,7 @@ struct ReturnsCreditScreen: View {
                             Text(line.oemPartNumber ?? line.stockItemId.uuidString.prefix(8).description)
                                 .font(GTRType.body(.body))
                                 .foregroundStyle(GTRColors.steel)
-                            Text("\(line.description ?? "Qty \(line.qty)") · \(selected ? "Selected" : "Tap to select")")
+                            Text("\(line.description ?? "Qty \(line.qty)")\(selected ? " · Selected" : "")")
                                 .font(GTRType.body(.caption))
                                 .foregroundStyle(GTRColors.silverDim)
                         }

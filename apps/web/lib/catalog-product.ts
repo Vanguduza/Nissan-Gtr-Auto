@@ -63,6 +63,55 @@ export type CatalogListOpts = {
   maxUsd?: number | null;
 };
 
+/** Strip PartSouq vehicle slug from EPC assembly labels for storefront display. */
+export function normalizeDisplayCategory(
+  name: string | null | undefined,
+): string | null {
+  if (!name?.trim()) return null;
+  let cleaned = name.trim();
+  for (let pass = 0; pass < 4; pass += 1) {
+    const slash = cleaned.match(/^([A-Z0-9/+\-]{2,24})\s+(.+)$/i);
+    if (slash && (slash[1].includes("/") || slash[1].includes("+"))) {
+      cleaned = slash[2].trim();
+      continue;
+    }
+    const body = cleaned.match(
+      /^(?:COUPE|SEDAN|WAGON|HATCHBACK|HATCH|VAN|TRUCK|PICKUP|BUS)\s+(.+)$/i,
+    );
+    if (body) {
+      cleaned = body[1].trim();
+      continue;
+    }
+    const model = cleaned.match(
+      /^(?:MICRA|QASHQAI\+?\d*|JUKE|NAVARA|X-TRAIL|PULSAR|PATROL|ALTIMA|SENTRA|MAXIMA|LEAF|370Z|350Z|GT-R|SKYLINE|DATSUN)\s+(.+)$/i,
+    );
+    if (model) {
+      cleaned = model[1].trim();
+      continue;
+    }
+    break;
+  }
+  return cleaned || name.trim();
+}
+
+/** Prefer canonical assembly group when an OEM spans multiple fitment categories. */
+export function pickDisplayCategory(
+  names: (string | null | undefined)[],
+): string | null {
+  const normalized = names
+    .map((n) => normalizeDisplayCategory(n))
+    .filter((n): n is string => Boolean(n));
+  if (!normalized.length) return null;
+  const counts = new Map<string, number>();
+  for (const name of normalized) {
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return b[0].length - a[0].length;
+  })[0][0];
+}
+
 function decodeOem(raw: string): string {
   try {
     return decodeURIComponent(raw).trim();
@@ -153,10 +202,9 @@ export async function loadCatalogProduct(
   }, 0);
 
   const primaryFit = fitments.data[0];
-  const category =
-    primaryFit?.category_name ??
-    primaryFit?.subcategory_name ??
-    null;
+  const category = pickDisplayCategory(
+    fitments.data.flatMap((f) => [f.category_name, f.subcategory_name]),
+  );
 
   const { data: fitRows } = await client
     .from("part_fitment")
@@ -248,9 +296,18 @@ async function loadFitmentOnlyProduct(
     data: {
       id: oem,
       oem,
-      name: oem,
+      name:
+        primary.subcategory_name?.trim() ||
+        (primary.category_name &&
+        primary.category_name.toLowerCase() !== "uncategorized"
+          ? primary.category_name
+          : null) ||
+        oem,
       brand: "Nissan OE",
-      category: primary.category_name,
+      category: pickDisplayCategory([
+        primary.category_name,
+        primary.subcategory_name,
+      ]),
       usd: null,
       zig: null,
       stock: "counter_only",
@@ -331,8 +388,8 @@ async function loadFitmentLines(
       chassis_code: row.chassis_code,
       engine_code: row.engine_code,
       pnc_code: row.pnc_code,
-      category_name: p?.category_name ?? null,
-      subcategory_name: p?.subcategory_name ?? null,
+      category_name: normalizeDisplayCategory(p?.category_name),
+      subcategory_name: normalizeDisplayCategory(p?.subcategory_name),
       model_variant: vehicle?.model_variant ?? null,
       production_year: vehicle?.production_year ?? null,
     };
@@ -488,19 +545,24 @@ export async function listCatalogProducts(
   const categories = [
     ...new Set(
       (categoriesRows ?? [])
-        .map((r) => r.category_name.trim())
+        .map((r) => normalizeDisplayCategory(r.category_name.trim()))
         .filter(Boolean),
     ),
-  ].slice(0, 24);
+  ].slice(0, 24) as string[];
 
   let oemFilter: string[] | null = null;
   if (cat) {
     const { data: pncs } = await client
       .from("pnc_categories")
-      .select("pnc_code")
-      .ilike("category_name", cat);
+      .select("pnc_code, category_name")
+      .limit(1000);
 
-    const codes = (pncs ?? []).map((p) => p.pnc_code);
+    const codes = (pncs ?? [])
+      .filter(
+        (p) =>
+          normalizeDisplayCategory(p.category_name)?.toLowerCase() === cat,
+      )
+      .map((p) => p.pnc_code);
     if (codes.length) {
       const { data: fits } = await client
         .from("part_fitment")
@@ -569,14 +631,21 @@ export async function listCatalogProducts(
   }
 
   const catByOem = new Map<string, string>();
+  const catsByOem = new Map<string, string[]>();
   for (const row of fitCats.data ?? []) {
-    if (catByOem.has(row.oem_part_number)) continue;
     const pnc = row.pnc_categories as
       | { category_name: string }
       | { category_name: string }[]
       | null;
     const p = Array.isArray(pnc) ? pnc[0] : pnc;
-    if (p?.category_name) catByOem.set(row.oem_part_number, p.category_name);
+    if (!p?.category_name) continue;
+    const list = catsByOem.get(row.oem_part_number) ?? [];
+    list.push(p.category_name);
+    catsByOem.set(row.oem_part_number, list);
+  }
+  for (const [oem, names] of catsByOem) {
+    const picked = pickDisplayCategory(names);
+    if (picked) catByOem.set(oem, picked);
   }
 
   const rate = zigExchangeRate();

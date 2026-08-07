@@ -111,3 +111,17 @@ export {
   type ChatParticipant,
   type StartChatThreadInput,
 } from "./chat/types";
+export {
+  EPC_CONTEXT_STORAGE_KEY,
+  catalogPath,
+  epcHref,
+  parseCatalogParams,
+  type CatalogMaker,
+  type CatalogModel,
+  type CatalogVariant,
+  type CatalogSection,
+  type CatalogDiagramHotspot,
+  type CatalogDiagramPart,
+  type CatalogDiagramResponse,
+  type CatalogBrowseContext,
+} from "./catalog-navigation";

@@ -96,6 +96,25 @@ interface RpcClient {
         query: String,
     ): CatalogSearchResult
 
+    /**
+     * Megazip hierarchy browse (online-only). Offline POS cache remains flat catalog_items.
+     */
+    suspend fun listCatalogMakers(): List<EpcMaker> = emptyList()
+    suspend fun listCatalogModels(makerSlug: String): List<EpcModel> = emptyList()
+    suspend fun listCatalogVariants(makerSlug: String, modelSlug: String): List<EpcVariant> =
+        emptyList()
+    suspend fun listCatalogSections(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+    ): List<EpcSection> = emptyList()
+    suspend fun getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): EpcDiagramResponse = EpcDiagramResponse()
+
     /** Open cart lines (poll refresh for companion scans). */
     suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary>
 

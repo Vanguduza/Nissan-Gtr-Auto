@@ -9,6 +9,13 @@ object RpcNames {
     /** Four-way catalog lookup — mirrors apps/web/lib/catalog-search.ts */
     const val SEARCH_CATALOG = "search_catalog"
 
+    /** Megazip hierarchy browse — mirrors apps/web/lib/catalog-hierarchy.ts */
+    const val LIST_CATALOG_MAKERS = "list_catalog_makers"
+    const val LIST_CATALOG_MODELS = "list_catalog_models"
+    const val LIST_CATALOG_VARIANTS = "list_catalog_variants"
+    const val LIST_CATALOG_SECTIONS = "list_catalog_sections"
+    const val GET_CATALOG_DIAGRAM = "get_catalog_diagram"
+
     const val CREATE_CUSTOMER_CART = "create_customer_cart"
     const val ADD_CUSTOMER_CART_LINE = "add_customer_cart_line"
     const val CHECKOUT_CUSTOMER_CART = "checkout_customer_cart"
@@ -66,6 +73,12 @@ object RpcNames {
     // Profile — mirrors apps/web/lib/customer-storefront.ts
     const val UPDATE_OWN_CUSTOMER_PROFILE = "update_own_customer_profile"
     const val SET_OWN_MARKETING_OPT_IN = "set_own_marketing_opt_in"
+
+    /**
+     * Idempotent retail `customers` row for auth.uid() — call after OAuth when
+     * `_current_customer_id()` / [SupabaseRpcClient.currentCustomerId] is null.
+     */
+    const val ENSURE_OWN_CUSTOMER = "ensure_own_customer"
 
     // Loyalty / returns — mirrors web customer-storefront.ts
     const val GET_LOYALTY_BALANCE = "get_loyalty_balance"

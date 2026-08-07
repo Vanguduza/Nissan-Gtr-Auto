@@ -245,6 +245,42 @@ class FakeRpcClient : RpcClient {
 
     private val catalogProducts = seedCatalogProducts().associateBy { it.oem.uppercase() }
 
+    private val vehicleMasterSeed = listOf(
+        VehicleMasterRow(
+            id = "vm-navara-d40",
+            vinPrefix = "MNTCCND40",
+            chassisCode = "D40",
+            engineCode = "YD25",
+            productionYear = 2010,
+            modelVariant = "NAVARA",
+        ),
+        VehicleMasterRow(
+            id = "vm-xtrail-t31",
+            vinPrefix = "JN1T31XX",
+            chassisCode = "T31",
+            engineCode = "QR25DE",
+            productionYear = 2010,
+            modelVariant = "X-TRAIL",
+        ),
+        VehicleMasterRow(
+            id = "vm-gtr-r35",
+            vinPrefix = "JN1AR5EF",
+            chassisCode = "R35",
+            engineCode = "VR38DETT",
+            productionYear = 2012,
+            modelVariant = "GT-R",
+        ),
+        VehicleMasterRow(
+            id = "vm-almera-n16",
+            vinPrefix = "JN1N16",
+            chassisCode = "N16",
+            engineCode = "QG18DE",
+            productionYear = 2002,
+            modelVariant = "ALMERA",
+        ),
+    )
+
+
     override suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse {
         val q = query.trim()
         require(q.isNotEmpty()) { "search query required" }
@@ -291,6 +327,31 @@ class FakeRpcClient : RpcClient {
         return base.copy(facetDistribution = facetMap)
     }
 
+    override suspend fun listVehicleMaster(): List<VehicleMasterRow> = vehicleMasterSeed
+
+    override suspend fun listCatalogForVehicle(
+        chassisCode: String,
+        engineCode: String?,
+        limit: Int,
+    ): CatalogBrowseResult {
+        val chassis = chassisCode.trim().uppercase()
+        require(chassis.isNotEmpty()) { "chassis required" }
+        val engine = engineCode?.trim()?.uppercase()
+        val items = catalogProducts.values.filter { p ->
+            val lines = p.fitmentLines.joinToString(" ").uppercase()
+            lines.contains(chassis) && (engine == null || lines.contains(engine) || engine.length < 3)
+        }.take(limit.coerceIn(1, 100)).map { p ->
+            CatalogListItem(
+                stockItemId = p.stockItemId,
+                oem = p.oem,
+                name = p.name,
+                stock = p.stock,
+                usd = p.usd,
+                category = p.category,
+            )
+        }
+        return CatalogBrowseResult(items = items, categories = emptyList())
+    }
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult {
         val cap = limit.coerceIn(1, 100)
         val cat = category?.trim()?.lowercase()
@@ -309,9 +370,72 @@ class FakeRpcClient : RpcClient {
             }
         return CatalogBrowseResult(
             items = items,
-            categories = listOf("Filters", "Brakes", "Engine"),
+            categories = items.mapNotNull { it.category }.distinct().sorted(),
         )
     }
+
+    override suspend fun listCatalogMakers(): List<EpcMaker> =
+        listOf(EpcMaker(slug = "nissan", name = "Nissan", modelCount = 2))
+
+    override suspend fun listCatalogModels(makerSlug: String): List<EpcModel> =
+        if (makerSlug == "nissan") {
+            listOf(
+                EpcModel(slug = "x-trail", displayName = "X-Trail", sortKey = "x-trail"),
+                EpcModel(slug = "navara", displayName = "Navara", sortKey = "navara"),
+            )
+        } else {
+            emptyList()
+        }
+
+    override suspend fun listCatalogVariants(makerSlug: String, modelSlug: String): List<EpcVariant> =
+        when (modelSlug) {
+            "x-trail" -> listOf(
+                EpcVariant(slug = "t31-mr20", chassisCode = "T31", engineCode = "MR20", yearLabel = "2007–2013"),
+            )
+            "navara" -> listOf(
+                EpcVariant(slug = "d40-yd25", chassisCode = "D40", engineCode = "YD25", yearLabel = "2005–2015"),
+            )
+            else -> emptyList()
+        }
+
+    override suspend fun listCatalogSections(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+    ): List<EpcSection> =
+        listOf(
+            EpcSection(slug = "section-filters", name = "Filters", sortOrder = 10),
+            EpcSection(slug = "section-engine", name = "Engine", sortOrder = 20),
+        )
+
+    override suspend fun getCatalogDiagram(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): EpcDiagramResponse =
+        EpcDiagramResponse(
+            diagramSlug = "demo",
+            diagramTitle = sectionSlug,
+            hotspots = listOf(
+                EpcHotspot(
+                    oem = "15208-9N00A",
+                    bboxX = 0.1,
+                    bboxY = 0.1,
+                    bboxWidth = 0.2,
+                    bboxHeight = 0.2,
+                ),
+            ),
+            parts = listOf(
+                EpcDiagramPart(
+                    oemPartNumber = "15208-9N00A",
+                    pncCode = "15208",
+                    categoryName = "Filters",
+                    stockItemId = "fake-stock",
+                    stockDescription = "Oil filter (demo)",
+                ),
+            ),
+        )
 
     override suspend fun loadCatalogProduct(oem: String): CatalogProduct {
         val key = oem.trim().uppercase()
