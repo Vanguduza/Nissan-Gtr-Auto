@@ -203,6 +203,23 @@ def prepare_remaining_crawl(
     return stats
 
 
+def _hub_model_count(db_path: Path, hub_url: str) -> int:
+    """Number of models the maker hub parsed to (0 signals a broken fan-out)."""
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        row = conn.execute(
+            "SELECT payload_json FROM parsed_pages WHERE url = ?", (hub_url,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return 0
+    try:
+        return len((json.loads(row[0]) or {}).get("models") or [])
+    except (json.JSONDecodeError, TypeError):
+        return 0
+
+
 def self_heal_queue(paths: MakerPaths, hub_url: str) -> dict[str, int]:
     """Recover a stale crawl queue before a fresh pass (applies to every maker).
 
