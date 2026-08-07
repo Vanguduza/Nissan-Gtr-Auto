@@ -467,3 +467,58 @@ def test_merged_priority_model_seeds_dedupe_chassis_map() -> None:
     )
     assert len(merged) == 1
     assert "x-trail-2064" in merged[0]
+
+
+def test_self_heal_requeues_missing_cache_and_empty_hub(tmp_path) -> None:
+    """Permanent guard: a lost cache file or a 0-model hub must self-recover.
+
+    Regression for the X-Trail-only freeze: a stale ``VISITED`` hub that parsed
+    to zero models (and whose cache file went missing) was never re-fetched, so
+    model fan-out stayed empty for the whole maker.
+    """
+    import sqlite3
+
+    from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
+    from data_pipeline.megazip.crawl import self_heal_queue
+    from data_pipeline.megazip.parse_html import cache_key
+    from data_pipeline.megazip import state
+
+    config = MegazipConfig.load()
+    paths = build_maker_paths("Nissan", tmp_path, config)
+    state.init_db(paths.state_db)
+    paths.cache_dir.mkdir(parents=True, exist_ok=True)
+    hub_url = config.hub_url("Nissan")
+
+    # Hub: cache present but parsed to zero models -> must be re-queued.
+    state.enqueue_url(paths.state_db, hub_url, page_type="maker_hub", maker_slug=paths.slug)
+    state.mark_url(paths.state_db, hub_url, ok=True)
+    hub_cache = paths.cache_dir / f"{cache_key(hub_url)}.html"
+    hub_cache.write_text("<html></html>", encoding="utf-8")
+    state.save_cache(paths.state_db, hub_url, str(hub_cache), "hash")
+    state.upsert_parsed(paths.state_db, hub_url, "maker_hub", paths.slug, {"models": []})
+
+    # Good page: cache present -> must stay VISITED.
+    good_url = "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064/t30/s/p-1"
+    state.enqueue_url(paths.state_db, good_url, page_type="diagram", maker_slug=paths.slug)
+    state.mark_url(paths.state_db, good_url, ok=True)
+    good_cache = paths.cache_dir / f"{cache_key(good_url)}.html"
+    good_cache.write_text("<html></html>", encoding="utf-8")
+    state.save_cache(paths.state_db, good_url, str(good_cache), "hash")
+
+    # Lost page: visited but cache file missing -> must be re-queued.
+    lost_url = "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064/t30/s/p-2"
+    state.enqueue_url(paths.state_db, lost_url, page_type="diagram", maker_slug=paths.slug)
+    state.mark_url(paths.state_db, lost_url, ok=True)
+
+    stats = self_heal_queue(paths, hub_url)
+    assert stats["hub_reset"] == 1
+    assert stats["missing_cache_requeued"] == 1
+
+    conn = sqlite3.connect(paths.state_db)
+    try:
+        statuses = dict(conn.execute("SELECT url, status FROM queue").fetchall())
+    finally:
+        conn.close()
+    assert statuses[hub_url] == "PENDING"
+    assert statuses[lost_url] == "PENDING"
+    assert statuses[good_url] == "VISITED"
