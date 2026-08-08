@@ -234,8 +234,17 @@ def claim_next_url(
     *,
     maker_slug: str | None = None,
     model_slugs: frozenset[str] | None = None,
+    exclude_leased: bool = False,
+    lease_owner: str | None = None,
 ) -> dict[str, Any] | None:
-    """Claim next PENDING URL. Optional ``model_slugs`` scopes parallel workers."""
+    """Claim next PENDING URL.
+
+    ``model_slugs`` — only claim these models (worker scope).
+    ``exclude_leased`` — skip models leased by other workers (main crawler).
+    ``lease_owner`` — when excluding, still allow models leased by this worker_id.
+    """
+    if exclude_leased:
+        expire_stale_leases(db_path)
     conn = sqlite3.connect(db_path, timeout=60.0)
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -248,6 +257,29 @@ def claim_next_url(
             placeholders = ",".join("?" for _ in model_slugs)
             where.append(f"model_slug IN ({placeholders})")
             params.extend(sorted(model_slugs))
+        if exclude_leased:
+            # Skip models leased by anyone else (TTL already applied via expire).
+            if lease_owner:
+                where.append(
+                    """
+                    model_slug NOT IN (
+                      SELECT model_slug FROM worker_leases
+                      WHERE worker_id != ?
+                        AND heartbeat_at >= datetime('now', ?)
+                    )
+                    """
+                )
+                params.extend([lease_owner, f"-{LEASE_TTL_SECONDS} seconds"])
+            else:
+                where.append(
+                    """
+                    model_slug NOT IN (
+                      SELECT model_slug FROM worker_leases
+                      WHERE heartbeat_at >= datetime('now', ?)
+                    )
+                    """
+                )
+                params.append(f"-{LEASE_TTL_SECONDS} seconds")
         sql = f"""
             SELECT url, page_type, maker_slug, model_slug, variant_slug, section_slug, chassis_code
             FROM queue
