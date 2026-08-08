@@ -83,14 +83,11 @@ def build_hierarchy_bundle(
                 chassis = v.get("chassis_code") or ""
                 if chassis:
                     vm_key = (None, chassis, None, None, f"{maker_name} {model_slug}")
+                    # Schema allows only chassis_code + model_variant (+ optional
+                    # non-null vin/engine/year). Hierarchy links live on catalog_*.
                     vehicles[vm_key] = {
-                        "vin_prefix": None,
                         "chassis_code": chassis,
-                        "engine_code": None,
-                        "production_year": None,
                         "model_variant": f"{maker_name} {models.get(model_slug, {}).get('display_name', model_slug)}",
-                        "catalog_variant_slug": vslug,
-                        "catalog_model_slug": model_slug,
                     }
 
         elif ptype == "section_list":
