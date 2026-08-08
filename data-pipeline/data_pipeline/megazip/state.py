@@ -76,51 +76,43 @@ def enqueue_url(
         conn.close()
 
 
-def claim_next_url(db_path: Path, *, maker_slug: str | None = None) -> dict[str, Any] | None:
+def claim_next_url(
+    db_path: Path,
+    *,
+    maker_slug: str | None = None,
+    model_slugs: frozenset[str] | None = None,
+) -> dict[str, Any] | None:
+    """Claim next PENDING URL. Optional ``model_slugs`` scopes parallel workers."""
     conn = sqlite3.connect(db_path, timeout=60.0)
     try:
         conn.execute("BEGIN IMMEDIATE")
+        where = ["status = 'PENDING'"]
+        params: list[Any] = []
         if maker_slug:
-            row = conn.execute(
-                """
-                SELECT url, page_type, maker_slug, model_slug, variant_slug, section_slug, chassis_code
-                FROM queue
-                WHERE status = 'PENDING' AND maker_slug = ?
-                ORDER BY
-                  CASE COALESCE(page_type, '')
-                    WHEN 'maker_hub' THEN 0
-                    WHEN 'model_catalog' THEN 1
-                    WHEN 'model_hub' THEN 1
-                    WHEN 'variant_list' THEN 2
-                    WHEN 'section_list' THEN 3
-                    WHEN 'diagram' THEN 4
-                    ELSE 5
-                  END,
-                  url
-                LIMIT 1
-                """,
-                (maker_slug,),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                """
-                SELECT url, page_type, maker_slug, model_slug, variant_slug, section_slug, chassis_code
-                FROM queue
-                WHERE status = 'PENDING'
-                ORDER BY
-                  CASE COALESCE(page_type, '')
-                    WHEN 'maker_hub' THEN 0
-                    WHEN 'model_catalog' THEN 1
-                    WHEN 'model_hub' THEN 1
-                    WHEN 'variant_list' THEN 2
-                    WHEN 'section_list' THEN 3
-                    WHEN 'diagram' THEN 4
-                    ELSE 5
-                  END,
-                  url
-                LIMIT 1
-                """
-            ).fetchone()
+            where.append("maker_slug = ?")
+            params.append(maker_slug)
+        if model_slugs:
+            placeholders = ",".join("?" for _ in model_slugs)
+            where.append(f"model_slug IN ({placeholders})")
+            params.extend(sorted(model_slugs))
+        sql = f"""
+            SELECT url, page_type, maker_slug, model_slug, variant_slug, section_slug, chassis_code
+            FROM queue
+            WHERE {' AND '.join(where)}
+            ORDER BY
+              CASE COALESCE(page_type, '')
+                WHEN 'maker_hub' THEN 0
+                WHEN 'model_catalog' THEN 1
+                WHEN 'model_hub' THEN 1
+                WHEN 'variant_list' THEN 2
+                WHEN 'section_list' THEN 3
+                WHEN 'diagram' THEN 4
+                ELSE 5
+              END,
+              url
+            LIMIT 1
+            """
+        row = conn.execute(sql, params).fetchone()
         if not row:
             conn.commit()
             return None
