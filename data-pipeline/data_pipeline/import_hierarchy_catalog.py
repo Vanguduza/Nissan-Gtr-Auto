@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from data_pipeline.bundle_filter import filter_complete_bundle
+from data_pipeline.bundle_filter import _sanitize_vehicle_rows, filter_complete_bundle
 from data_pipeline.import_catalog import (
     ImportResult,
     import_catalog,
@@ -17,6 +17,82 @@ from data_pipeline.import_catalog import (
     _project,
 )
 from data_pipeline.validate import validate_bundle
+
+_PNC_SCHEMA_KEYS = (
+    "pnc_code",
+    "category_name",
+    "subcategory_name",
+    "assembly_group_id",
+    "catalog_section_path",
+    "pcdb_part_type_id",
+)
+_FITMENT_SCHEMA_KEYS = (
+    "oem_part_number",
+    "pnc_code",
+    "chassis_code",
+    "engine_code",
+    "superseded_by",
+    "bbox_x",
+    "bbox_y",
+    "bbox_width",
+    "bbox_height",
+    "diagram_path",
+)
+
+
+def _drop_nulls(row: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key in keys:
+        if key not in row:
+            continue
+        value = row.get(key)
+        if value is None:
+            continue
+        out[key] = value
+    return out
+
+
+def sanitize_legacy_bundle_for_import(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Project Megazip/legacy tables to JSON-schema shapes used by validate_bundle."""
+    out = dict(bundle)
+    out["vehicle_master"] = _sanitize_vehicle_rows(bundle.get("vehicle_master") or [])
+    out["pnc_categories"] = [
+        _drop_nulls(row, _PNC_SCHEMA_KEYS) for row in (bundle.get("pnc_categories") or [])
+    ]
+    out["part_fitment"] = [
+        _drop_nulls(row, _FITMENT_SCHEMA_KEYS) for row in (bundle.get("part_fitment") or [])
+    ]
+
+    fit_by_path: dict[str, dict[str, Any]] = {}
+    for fit in out["part_fitment"]:
+        path = fit.get("diagram_path") or ""
+        if path and path not in fit_by_path:
+            fit_by_path[path] = fit
+
+    assets: list[dict[str, Any]] = []
+    for asset in bundle.get("diagram_assets") or []:
+        path = asset.get("storage_path") or ""
+        fit = fit_by_path.get(path) or {}
+        pnc = fit.get("pnc_code")
+        chassis = fit.get("chassis_code")
+        if not path or not pnc or not chassis:
+            continue
+        content_type = asset.get("content_type") or asset.get("mime_type") or "image/png"
+        row: dict[str, Any] = {
+            "storage_path": path,
+            "pnc_code": pnc,
+            "chassis_code": chassis,
+            "content_type": content_type,
+            "provenance": asset.get("provenance") or "scraped-reference",
+        }
+        if asset.get("source_url"):
+            row["source_url"] = asset["source_url"]
+        if fit.get("engine_code"):
+            row["engine_code"] = fit["engine_code"]
+        assets.append(row)
+    out["diagram_assets"] = assets
+    return out
+
 
 _HIERARCHY_TABLES = (
     "catalog_makers",
