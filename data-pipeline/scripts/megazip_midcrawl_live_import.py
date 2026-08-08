@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
+from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
 from data_pipeline.import_hierarchy_catalog import (
-    import_hierarchy_bundle_dir,
+    import_hierarchy_supabase,
     load_hierarchy_bundle,
     sanitize_legacy_bundle_for_import,
 )
@@ -26,9 +28,6 @@ def main() -> int:
     pipeline_root = Path(__file__).resolve().parents[1]
 
     # Prefer repo-root .env (hosted SoR) over data-pipeline/.env (often local Docker).
-    from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
-    from urllib.parse import urlparse
-
     load_env_files(pipeline_root / ".env", repo_root / ".env", override=True)
     url, key = resolve_supabase_credentials()
     host = urlparse(url or "").hostname or ""
@@ -56,42 +55,31 @@ def main() -> int:
     )
 
     t1 = time.perf_counter()
-    sanitized = sanitize_legacy_bundle_for_import(bundle)
+    bundle = sanitize_legacy_bundle_for_import(bundle)
     logger.info("sanitized legacy tables (%.1fs)", time.perf_counter() - t1)
 
     t2 = time.perf_counter()
     validate_bundle(
         {
-            k: sanitized[k]
+            k: bundle[k]
             for k in ("vehicle_master", "pnc_categories", "part_fitment", "diagram_assets")
         }
     )
     logger.info("validate OK (%.1fs)", time.perf_counter() - t2)
 
-    # Write sanitized legacy tables back so import path need not re-sanitize from dirty shapes.
-    for name in ("vehicle_master", "pnc_categories", "part_fitment", "diagram_assets"):
-        path = bundle_dir / f"{name}.json"
-        import json
-
-        path.write_text(
-            json.dumps(sanitized[name], indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        logger.info("wrote %s rows=%s", path.name, len(sanitized[name]))
-
-    logger.info("starting live import (complete_only=False; disk already filtered)")
-    result = import_hierarchy_bundle_dir(
-        bundle_dir,
-        live=True,
-        complete_only=False,
-        prune_stale=True,
+    logger.info("starting live import (in-memory; no second disk reload)")
+    result = import_hierarchy_supabase(
+        bundle,
+        url=url,
+        key=key,
         ensure_stock_items=True,
+        prune_stale=True,
     )
     logger.info("notes=%s", result.notes)
-    for key, stats in sorted(result.stats.items()):
+    for key_name, stats in sorted(result.stats.items()):
         logger.info(
             "%s inserted=%s updated=%s",
-            key,
+            key_name,
             getattr(stats, "inserted", stats),
             getattr(stats, "updated", None),
         )
