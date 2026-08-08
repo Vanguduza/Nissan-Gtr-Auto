@@ -522,3 +522,36 @@ def test_self_heal_requeues_missing_cache_and_empty_hub(tmp_path) -> None:
     assert statuses[hub_url] == "PENDING"
     assert statuses[lost_url] == "PENDING"
     assert statuses[good_url] == "VISITED"
+
+
+def test_claim_next_url_model_slug_filter(tmp_path) -> None:
+    """Parallel workers must only claim URLs for their assigned models."""
+    from data_pipeline.megazip import state
+
+    db = tmp_path / "q.db"
+    state.init_db(db)
+    state.enqueue_url(
+        db,
+        "https://example/a",
+        page_type="diagram",
+        maker_slug="nissan",
+        model_slug="pathfinder-2142",
+    )
+    state.enqueue_url(
+        db,
+        "https://example/b",
+        page_type="diagram",
+        maker_slug="nissan",
+        model_slug="frontier-2140",
+    )
+    claimed = state.claim_next_url(
+        db,
+        maker_slug="nissan",
+        model_slugs=frozenset({"pathfinder-2142"}),
+    )
+    assert claimed is not None
+    assert claimed["model_slug"] == "pathfinder-2142"
+    assert claimed["url"] == "https://example/a"
+    assert state.pending_count(db, model_slugs=frozenset({"pathfinder-2142"})) == 0
+    assert state.pending_count(db, model_slugs=frozenset({"frontier-2140"})) == 1
+
