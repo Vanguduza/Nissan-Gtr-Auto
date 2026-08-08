@@ -245,11 +245,17 @@ def _batch_upsert_slug_table(
 ) -> int:
     if not rows:
         return 0
+    import logging
+
+    log = logging.getLogger(__name__)
     projected = [_project(r, cols) for r in rows]
     count = 0
+    total = len(projected)
     for chunk in _chunks(projected):
         client.table(table).upsert(chunk, on_conflict=conflict_cols).execute()
         count += len(chunk)
+        if total >= 5000 and (count == len(chunk) or count % 20000 < len(chunk) or count >= total):
+            log.info("%s upsert progress %s/%s", table, count, total)
     return count
 
 
