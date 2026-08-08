@@ -54,12 +54,16 @@ def validate_record(name: str, record: dict[str, Any]) -> None:
 
 
 def validate_records(name: str, records: list[dict[str, Any]]) -> None:
+    validator = load_validator(name)
     all_errors: list[str] = []
     for idx, record in enumerate(records):
-        try:
-            validate_record(name, record)
-        except ValidationError as exc:
-            all_errors.extend(f"[{idx}] {msg}" for msg in exc.errors)
+        errors = sorted(validator.iter_errors(record), key=lambda e: e.path)
+        if errors:
+            all_errors.extend(
+                f"[{idx}] {name}: {e.message} @ {list(e.path)}" for e in errors
+            )
+            if len(all_errors) >= 50:
+                break
     if all_errors:
         raise ValidationError(all_errors)
 
