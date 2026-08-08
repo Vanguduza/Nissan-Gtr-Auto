@@ -20,12 +20,18 @@ from data_pipeline.megazip.parse_html import (
     parse_html_page,
 )
 from data_pipeline.megazip.state import (
+    acquire_model_leases,
     enqueue_url,
+    heartbeat_leases,
     init_db,
+    leased_pending_count,
+    list_active_leases,
     load_all_parsed,
     mark_url,
     claim_next_url,
     pending_count,
+    reclaim_stale_processing,
+    release_leases,
     reset_url_pending,
     save_cache,
     upsert_parsed,
