@@ -505,14 +505,27 @@ def test_self_heal_requeues_missing_cache_and_empty_hub(tmp_path) -> None:
     good_cache.write_text("<html></html>", encoding="utf-8")
     state.save_cache(paths.state_db, good_url, str(good_cache), "hash")
 
-    # Lost page: visited but cache file missing -> must be re-queued.
+    # Lost page: visited but cache file missing, no parse -> must be re-queued.
     lost_url = "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064/t30/s/p-2"
     state.enqueue_url(paths.state_db, lost_url, page_type="diagram", maker_slug=paths.slug)
     state.mark_url(paths.state_db, lost_url, ok=True)
 
+    # Parsed-only page: cache deleted after successful parse -> must stay VISITED.
+    parsed_url = "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064/t30/s/p-3"
+    state.enqueue_url(paths.state_db, parsed_url, page_type="diagram", maker_slug=paths.slug)
+    state.mark_url(paths.state_db, parsed_url, ok=True)
+    state.upsert_parsed(
+        paths.state_db,
+        parsed_url,
+        "diagram",
+        paths.slug,
+        {"image_url": "https://cdn.example/p3.png", "hotspots": []},
+    )
+
     stats = self_heal_queue(paths, hub_url)
     assert stats["hub_reset"] == 1
     assert stats["missing_cache_requeued"] == 1
+    assert stats["missing_cache_kept_parsed"] == 1
 
     conn = sqlite3.connect(paths.state_db)
     try:
@@ -522,6 +535,48 @@ def test_self_heal_requeues_missing_cache_and_empty_hub(tmp_path) -> None:
     assert statuses[hub_url] == "PENDING"
     assert statuses[lost_url] == "PENDING"
     assert statuses[good_url] == "VISITED"
+    assert statuses[parsed_url] == "VISITED"
+
+
+def test_prune_model_html_cache_requires_parsed(tmp_path) -> None:
+    from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
+    from data_pipeline.megazip.crawl import prune_model_html_cache
+    from data_pipeline.megazip.parse_html import cache_key
+    from data_pipeline.megazip import state
+
+    config = MegazipConfig.load()
+    paths = build_maker_paths("Nissan", tmp_path, config)
+    state.init_db(paths.state_db)
+    paths.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    keep_url = "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/serena-2090/c25/s/p-1"
+    drop_url = "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/serena-2090/c25/s/p-2"
+    other_url = "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/frontier-2140/d40/s/p-1"
+
+    for url, model, payload in (
+        (keep_url, "serena-2090", None),
+        (drop_url, "serena-2090", {"image_url": "https://cdn.example/p2.png"}),
+        (other_url, "frontier-2140", {"image_url": "https://cdn.example/p3.png"}),
+    ):
+        state.enqueue_url(
+            paths.state_db,
+            url,
+            page_type="diagram",
+            maker_slug=paths.slug,
+            model_slug=model,
+        )
+        state.mark_url(paths.state_db, url, ok=True)
+        cache = paths.cache_dir / f"{cache_key(url)}.html"
+        cache.write_text("<html></html>", encoding="utf-8")
+        if payload is not None:
+            state.upsert_parsed(paths.state_db, url, "diagram", paths.slug, payload)
+
+    stats = prune_model_html_cache(paths, ["serena-2090"])
+    assert stats["deleted"] == 1
+    assert stats["skipped_no_parsed"] == 1
+    assert (paths.cache_dir / f"{cache_key(drop_url)}.html").is_file() is False
+    assert (paths.cache_dir / f"{cache_key(keep_url)}.html").is_file()
+    assert (paths.cache_dir / f"{cache_key(other_url)}.html").is_file()
 
 
 def test_claim_next_url_model_slug_filter(tmp_path) -> None:
