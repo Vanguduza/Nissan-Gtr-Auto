@@ -422,7 +422,11 @@ def pending_count(
     *,
     maker_slug: str | None = None,
     model_slugs: frozenset[str] | None = None,
+    exclude_leased: bool = False,
+    lease_owner: str | None = None,
 ) -> int:
+    if exclude_leased:
+        expire_stale_leases(db_path)
     conn = sqlite3.connect(db_path, timeout=60.0)
     try:
         where = ["status = 'PENDING'"]
@@ -434,9 +438,52 @@ def pending_count(
             placeholders = ",".join("?" for _ in model_slugs)
             where.append(f"model_slug IN ({placeholders})")
             params.extend(sorted(model_slugs))
+        if exclude_leased:
+            if lease_owner:
+                where.append(
+                    """
+                    model_slug NOT IN (
+                      SELECT model_slug FROM worker_leases
+                      WHERE worker_id != ?
+                        AND heartbeat_at >= datetime('now', ?)
+                    )
+                    """
+                )
+                params.extend([lease_owner, f"-{LEASE_TTL_SECONDS} seconds"])
+            else:
+                where.append(
+                    """
+                    model_slug NOT IN (
+                      SELECT model_slug FROM worker_leases
+                      WHERE heartbeat_at >= datetime('now', ?)
+                    )
+                    """
+                )
+                params.append(f"-{LEASE_TTL_SECONDS} seconds")
         row = conn.execute(
             f"SELECT COUNT(*) FROM queue WHERE {' AND '.join(where)}",
             params,
+        ).fetchone()
+        return int(row[0]) if row else 0
+    finally:
+        conn.close()
+
+
+def leased_pending_count(db_path: Path) -> int:
+    """PENDING rows whose model is currently leased by any worker."""
+    expire_stale_leases(db_path)
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) FROM queue q
+            WHERE q.status = 'PENDING'
+              AND q.model_slug IN (
+                SELECT model_slug FROM worker_leases
+                WHERE heartbeat_at >= datetime('now', ?)
+              )
+            """,
+            (f"-{LEASE_TTL_SECONDS} seconds",),
         ).fetchone()
         return int(row[0]) if row else 0
     finally:
