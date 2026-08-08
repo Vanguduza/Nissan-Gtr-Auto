@@ -136,10 +136,15 @@ def build_hierarchy_bundle(
                 diagram_assets[storage_path] = {
                     "storage_path": storage_path,
                     "source_url": image_url,
-                    "mime_type": "image/png",
+                    "content_type": "image/png",
+                    "provenance": "scraped-reference",
+                    "chassis_code": variants.get((model_slug, variant_slug), {}).get("chassis_code")
+                    or "",
                 }
 
             variant_chassis = variants.get((model_slug, variant_slug), {}).get("chassis_code", "")
+            if storage_path and variant_chassis:
+                diagram_assets[storage_path]["chassis_code"] = variant_chassis
             category_name = payload.get("title") or section_slug.replace("-", " ").title()
 
             for row in payload.get("parts_table") or []:
