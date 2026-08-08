@@ -22,6 +22,27 @@ logger = logging.getLogger("midcrawl_import")
 
 def main() -> int:
     bundle_dir = Path("out/megazip/nissan/bundle")
+    repo_root = Path(__file__).resolve().parents[2]
+    pipeline_root = Path(__file__).resolve().parents[1]
+
+    # Prefer repo-root .env (hosted SoR) over data-pipeline/.env (often local Docker).
+    from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
+    from urllib.parse import urlparse
+
+    load_env_files(pipeline_root / ".env", repo_root / ".env", override=True)
+    url, key = resolve_supabase_credentials()
+    host = urlparse(url or "").hostname or ""
+    logger.info("supabase host=%s key=%s", host, "yes" if key else "no")
+    if not url or not key:
+        logger.error("missing Supabase credentials")
+        return 2
+    if host in {"127.0.0.1", "localhost"}:
+        logger.error(
+            "refusing import to local %s — start Docker/`pnpm db:start`, or use hosted URL in repo-root .env",
+            host,
+        )
+        return 3
+
     t0 = time.perf_counter()
     logger.info("loading bundle from %s", bundle_dir)
     bundle = load_hierarchy_bundle(bundle_dir)
