@@ -226,6 +226,17 @@ def _hub_model_count(db_path: Path, hub_url: str) -> int:
         return 0
 
 
+def _parsed_payload_usable(payload_json: str | None) -> bool:
+    """True when ``parsed_pages`` already holds a usable payload for transform."""
+    if not payload_json or not str(payload_json).strip():
+        return False
+    try:
+        payload = json.loads(payload_json)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(payload, dict)
+
+
 def self_heal_queue(paths: MakerPaths, hub_url: str) -> dict[str, int]:
     """Recover a stale crawl queue before a fresh pass (applies to every maker).
 
@@ -233,8 +244,9 @@ def self_heal_queue(paths: MakerPaths, hub_url: str) -> dict[str, int]:
     permanently freeze to seed models:
 
     1. **Lost cache** — any ``VISITED``/``ERROR`` page whose cached HTML file no
-       longer exists on disk is re-queued to ``PENDING``. A missing cache file
-       otherwise strands the page (``parse`` skips it) with no way to re-fetch.
+       longer exists on disk is re-queued to ``PENDING``, **unless**
+       ``parsed_pages`` already has a usable payload. Parsed rows are enough for
+       transform/import, so completed models can drop HTML cache safely.
     2. **Unproductive hub** — a maker hub that was visited but parsed to zero
        models is re-queued. A 0-model hub makes model fan-out impossible, so the
        maker would yield only its priority seeds (the X-Trail-only symptom).
@@ -244,6 +256,7 @@ def self_heal_queue(paths: MakerPaths, hub_url: str) -> dict[str, int]:
     """
     conn = sqlite3.connect(paths.state_db, timeout=60.0)
     missing_cache = 0
+    missing_cache_kept_parsed = 0
     hub_reset = 0
     try:
         rows = conn.execute(
@@ -251,14 +264,22 @@ def self_heal_queue(paths: MakerPaths, hub_url: str) -> dict[str, int]:
         ).fetchall()
         for (url,) in rows:
             cache_file = paths.cache_dir / f"{cache_key(url)}.html"
-            if not cache_file.is_file():
-                conn.execute(
-                    "UPDATE queue SET status = 'PENDING', last_error = NULL, "
-                    "updated_at = datetime('now') WHERE url = ? "
-                    "AND status IN ('VISITED', 'ERROR')",
-                    (url,),
-                )
-                missing_cache += 1
+            if cache_file.is_file():
+                continue
+            parsed_row = conn.execute(
+                "SELECT payload_json FROM parsed_pages WHERE url = ?",
+                (url,),
+            ).fetchone()
+            if parsed_row and _parsed_payload_usable(parsed_row[0]):
+                missing_cache_kept_parsed += 1
+                continue
+            conn.execute(
+                "UPDATE queue SET status = 'PENDING', last_error = NULL, "
+                "updated_at = datetime('now') WHERE url = ? "
+                "AND status IN ('VISITED', 'ERROR')",
+                (url,),
+            )
+            missing_cache += 1
 
         hub_status_row = conn.execute(
             "SELECT status FROM queue WHERE url = ?", (hub_url,)
@@ -288,14 +309,88 @@ def self_heal_queue(paths: MakerPaths, hub_url: str) -> dict[str, int]:
     finally:
         conn.close()
 
-    if missing_cache or hub_reset:
+    if missing_cache or hub_reset or missing_cache_kept_parsed:
         logger.info(
-            "[%s] self-heal: re-queued %s page(s) with missing cache; hub_reset=%s",
+            "[%s] self-heal: re-queued %s page(s) with missing cache; "
+            "kept_parsed=%s; hub_reset=%s",
             paths.maker,
             missing_cache,
+            missing_cache_kept_parsed,
             hub_reset,
         )
-    return {"missing_cache_requeued": missing_cache, "hub_reset": hub_reset}
+    return {
+        "missing_cache_requeued": missing_cache,
+        "missing_cache_kept_parsed": missing_cache_kept_parsed,
+        "hub_reset": hub_reset,
+    }
+
+
+def prune_model_html_cache(
+    paths: MakerPaths,
+    model_slugs: frozenset[str] | set[str] | list[str],
+    *,
+    require_parsed: bool = True,
+    dry_run: bool = False,
+) -> dict[str, int]:
+    """Delete cached HTML for crawl-complete models that already have parsed payloads.
+
+    Safe only after self-heal skips requeue when ``parsed_pages`` exists, and after
+    those models are published/imported. Never deletes files for URLs still
+    ``PENDING``/``PROCESSING``, or (when ``require_parsed``) without a usable parse.
+    """
+    wanted = frozenset(s for s in model_slugs if s)
+    if not wanted:
+        return {"models": 0, "urls": 0, "deleted": 0, "skipped_no_parsed": 0, "skipped_missing": 0}
+
+    conn = sqlite3.connect(paths.state_db, timeout=60.0)
+    try:
+        placeholders = ",".join("?" for _ in wanted)
+        rows = conn.execute(
+            f"""
+            SELECT q.url, p.payload_json
+            FROM queue q
+            LEFT JOIN parsed_pages p ON p.url = q.url
+            WHERE q.model_slug IN ({placeholders})
+              AND q.status IN ('VISITED', 'ERROR')
+            """,
+            sorted(wanted),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    deleted = 0
+    skipped_no_parsed = 0
+    skipped_missing = 0
+    for url, payload_json in rows:
+        cache_file = paths.cache_dir / f"{cache_key(url)}.html"
+        if require_parsed and not _parsed_payload_usable(payload_json):
+            skipped_no_parsed += 1
+            continue
+        if not cache_file.is_file():
+            skipped_missing += 1
+            continue
+        if not dry_run:
+            cache_file.unlink(missing_ok=True)
+        deleted += 1
+
+    logger.info(
+        "[%s] prune HTML cache models=%s urls=%s deleted=%s skipped_no_parsed=%s "
+        "skipped_missing=%s dry_run=%s",
+        paths.maker,
+        len(wanted),
+        len(rows),
+        deleted,
+        skipped_no_parsed,
+        skipped_missing,
+        dry_run,
+    )
+    return {
+        "models": len(wanted),
+        "urls": len(rows),
+        "deleted": deleted,
+        "skipped_no_parsed": skipped_no_parsed,
+        "skipped_missing": skipped_missing,
+    }
 
 
 async def crawl_maker(
