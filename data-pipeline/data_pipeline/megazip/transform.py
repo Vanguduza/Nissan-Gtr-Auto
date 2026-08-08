@@ -180,13 +180,18 @@ def build_hierarchy_bundle(
                         ),
                         "catalog_section_path": f"{category_name}",
                     }
+                    if storage_path and pnc and "pnc_code" not in diagram_assets.get(storage_path, {}):
+                        diagram_assets[storage_path]["pnc_code"] = pnc
                 fit: dict[str, Any] = {
                     "oem_part_number": oem,
-                    "pnc_code": pnc or None,
                     "chassis_code": part.get("chassis_code") or variant_chassis,
-                    "engine_code": part.get("engine_code"),
                     "diagram_path": storage_path,
                 }
+                if pnc:
+                    fit["pnc_code"] = pnc
+                engine = part.get("engine_code")
+                if engine:
+                    fit["engine_code"] = engine
                 for k in ("bbox_x", "bbox_y", "bbox_width", "bbox_height"):
                     if part.get(k) is not None:
                         fit[k] = part[k]
