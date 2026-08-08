@@ -194,10 +194,11 @@ def list_buckets(base: str, key: str) -> list[dict]:
 
 
 def main() -> int:
-    env = {}
-    for p in (ROOT / ".env", ROOT / "data-pipeline" / ".env"):
+    # Prefer root .env (hosted) over data-pipeline/.env (often local).
+    # Merge local first, then root overrides; process env wins last.
+    env: dict[str, str] = {}
+    for p in (ROOT / "data-pipeline" / ".env", ROOT / ".env"):
         env.update(load_env(p))
-    # Prefer process env overrides
     for k in (
         "SUPABASE_URL",
         "NEXT_PUBLIC_SUPABASE_URL",
@@ -207,9 +208,19 @@ def main() -> int:
         if os.environ.get(k):
             env[k] = os.environ[k]
 
-    base = (env.get("SUPABASE_URL") or env.get("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip(
-        "/"
-    )
+    candidates = [
+        env.get("SUPABASE_URL") or "",
+        env.get("NEXT_PUBLIC_SUPABASE_URL") or "",
+    ]
+    base = ""
+    for c in candidates:
+        c = c.rstrip("/")
+        if PROJECT_REF in c:
+            base = c
+            break
+    if not base:
+        base = (candidates[0] or candidates[1]).rstrip("/")
+
     key = env.get("SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_SERVICE_KEY") or ""
     if not base or not key:
         print("ERROR: missing SUPABASE_URL or service role key in .env", file=sys.stderr)
