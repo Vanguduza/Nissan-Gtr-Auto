@@ -37,7 +37,19 @@ CREATE TABLE IF NOT EXISTS parsed_pages (
   payload_json TEXT NOT NULL,
   parsed_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS worker_leases (
+  model_slug TEXT PRIMARY KEY,
+  worker_id TEXT NOT NULL,
+  leased_at TEXT NOT NULL DEFAULT (datetime('now')),
+  heartbeat_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS worker_leases_worker_idx ON worker_leases(worker_id);
+CREATE INDEX IF NOT EXISTS worker_leases_heartbeat_idx ON worker_leases(heartbeat_at);
 """
+
+# Leases older than this (no heartbeat) are treated as free.
+LEASE_TTL_SECONDS = 180
 
 
 def init_db(db_path: Path) -> None:
@@ -46,6 +58,147 @@ def init_db(db_path: Path) -> None:
     try:
         conn.executescript(_SCHEMA)
         conn.commit()
+    finally:
+        conn.close()
+
+
+def expire_stale_leases(db_path: Path, *, ttl_seconds: int = LEASE_TTL_SECONDS) -> int:
+    """Drop leases whose heartbeat is older than ttl. Returns rows deleted."""
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        cur = conn.execute(
+            """
+            DELETE FROM worker_leases
+            WHERE heartbeat_at < datetime('now', ?)
+            """,
+            (f"-{int(ttl_seconds)} seconds",),
+        )
+        conn.commit()
+        return int(cur.rowcount or 0)
+    finally:
+        conn.close()
+
+
+def list_active_leases(db_path: Path, *, ttl_seconds: int = LEASE_TTL_SECONDS) -> dict[str, str]:
+    """Return {model_slug: worker_id} for non-expired leases."""
+    expire_stale_leases(db_path, ttl_seconds=ttl_seconds)
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        rows = conn.execute(
+            """
+            SELECT model_slug, worker_id FROM worker_leases
+            WHERE heartbeat_at >= datetime('now', ?)
+            """,
+            (f"-{int(ttl_seconds)} seconds",),
+        ).fetchall()
+        return {str(m): str(w) for m, w in rows}
+    finally:
+        conn.close()
+
+
+def acquire_model_leases(
+    db_path: Path,
+    worker_id: str,
+    model_slugs: frozenset[str] | set[str] | list[str],
+    *,
+    ttl_seconds: int = LEASE_TTL_SECONDS,
+) -> tuple[frozenset[str], dict[str, str]]:
+    """Exclusively lease models for ``worker_id``.
+
+    Returns ``(acquired, blocked)`` where ``blocked`` maps model → other worker_id.
+    """
+    expire_stale_leases(db_path, ttl_seconds=ttl_seconds)
+    wanted = sorted({m for m in model_slugs if m})
+    acquired: list[str] = []
+    blocked: dict[str, str] = {}
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        for model in wanted:
+            row = conn.execute(
+                "SELECT worker_id FROM worker_leases WHERE model_slug = ?",
+                (model,),
+            ).fetchone()
+            if row and row[0] != worker_id:
+                blocked[model] = str(row[0])
+                continue
+            conn.execute(
+                """
+                INSERT INTO worker_leases (model_slug, worker_id, leased_at, heartbeat_at)
+                VALUES (?, ?, datetime('now'), datetime('now'))
+                ON CONFLICT(model_slug) DO UPDATE SET
+                  worker_id = excluded.worker_id,
+                  heartbeat_at = datetime('now')
+                WHERE worker_leases.worker_id = excluded.worker_id
+                """,
+                (model, worker_id),
+            )
+            check = conn.execute(
+                "SELECT worker_id FROM worker_leases WHERE model_slug = ?",
+                (model,),
+            ).fetchone()
+            if check and check[0] == worker_id:
+                acquired.append(model)
+            else:
+                blocked[model] = str(check[0]) if check else "unknown"
+        conn.commit()
+    finally:
+        conn.close()
+    return frozenset(acquired), blocked
+
+
+def heartbeat_leases(db_path: Path, worker_id: str) -> int:
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        cur = conn.execute(
+            """
+            UPDATE worker_leases
+            SET heartbeat_at = datetime('now')
+            WHERE worker_id = ?
+            """,
+            (worker_id,),
+        )
+        conn.commit()
+        return int(cur.rowcount or 0)
+    finally:
+        conn.close()
+
+
+def release_leases(db_path: Path, worker_id: str, model_slugs: frozenset[str] | None = None) -> int:
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        if model_slugs is None:
+            cur = conn.execute("DELETE FROM worker_leases WHERE worker_id = ?", (worker_id,))
+        else:
+            models = sorted(model_slugs)
+            if not models:
+                return 0
+            placeholders = ",".join("?" for _ in models)
+            cur = conn.execute(
+                f"DELETE FROM worker_leases WHERE worker_id = ? AND model_slug IN ({placeholders})",
+                (worker_id, *models),
+            )
+        conn.commit()
+        return int(cur.rowcount or 0)
+    finally:
+        conn.close()
+
+
+def reclaim_stale_processing(db_path: Path, *, older_than_seconds: int = 600) -> int:
+    """Re-queue PROCESSING rows stuck longer than ``older_than_seconds``."""
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        cur = conn.execute(
+            """
+            UPDATE queue SET status = 'PENDING', updated_at = datetime('now')
+            WHERE status = 'PROCESSING'
+              AND updated_at < datetime('now', ?)
+            """,
+            (f"-{int(older_than_seconds)} seconds",),
+        )
+        conn.commit()
+        return int(cur.rowcount or 0)
     finally:
         conn.close()
 
