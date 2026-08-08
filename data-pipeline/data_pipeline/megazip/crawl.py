@@ -309,27 +309,45 @@ async def crawl_maker(
     prepare_remaining_before: frozenset[str] | None = None,
     model_slugs: frozenset[str] | None = None,
     worker_mode: bool = False,
+    worker_id: str | None = None,
     rate_limit_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Crawl Megazip pages into cache.
 
-    ``worker_mode`` — drain PENDING pages only (optional ``model_slugs`` scope).
-    Skips hub/seed enqueue, self-heal, and remaining-pass prep so a live
-    orchestrator is not disturbed. Safe for parallel workers on one SQLite DB.
+    ``worker_mode`` — drain PENDING pages only for leased ``model_slugs``.
+    Skips hub/seed enqueue, self-heal, and remaining-pass prep. Acquires
+    exclusive model leases so parallel workers and the main crawler never
+    claim the same model.
     """
     init_db(paths.state_db)
     paths.cache_dir.mkdir(parents=True, exist_ok=True)
 
     heal_stats: dict[str, int] = {}
     requeue_stats: dict[str, int] = {}
+    leased_models: frozenset[str] = frozenset()
+    wid = worker_id or ("worker-" + "-".join(sorted(model_slugs or []))[:80])
 
     if worker_mode:
         if not model_slugs:
             raise ValueError("worker_mode requires model_slugs")
+        acquired, blocked = acquire_model_leases(paths.state_db, wid, model_slugs)
+        if blocked:
+            logger.warning(
+                "[%s] lease blocked for %s (already owned)",
+                paths.maker,
+                blocked,
+            )
+        if not acquired:
+            raise RuntimeError(
+                f"Could not lease any of {sorted(model_slugs)} — held by {blocked}"
+            )
+        leased_models = acquired
+        model_slugs = acquired
         logger.info(
-            "[%s] worker mode — models=%s (no hub/seed/self-heal)",
+            "[%s] worker %s leased models=%s",
             paths.maker,
-            ",".join(sorted(model_slugs)),
+            wid,
+            ",".join(sorted(leased_models)),
         )
     else:
         # Self-heal a stale/partial queue so a lost cache file or an unproductive
@@ -337,6 +355,9 @@ async def crawl_maker(
         # crawling, since healing re-queues pages that only a network pass can fetch.
         if not skip_crawl:
             heal_stats = self_heal_queue(paths, config.hub_url(paths.maker))
+            stuck = reclaim_stale_processing(paths.state_db)
+            if stuck:
+                heal_stats["stale_processing_requeued"] = stuck
 
         if prepare_remaining_before is not None:
             requeue_stats = prepare_remaining_crawl(
@@ -381,101 +402,154 @@ async def crawl_maker(
 
     pages_done = 0
     rate = float(rate_limit_seconds if rate_limit_seconds is not None else config.rate_limit_seconds)
+    last_heartbeat = 0.0
 
-    async with httpx.AsyncClient(
-        timeout=60.0,
-        follow_redirects=True,
-        limits=httpx.Limits(max_connections=config.max_concurrent_workers),
-    ) as client:
-        while True:
-            if max_pages is not None and pages_done >= max_pages:
-                break
-            if pending_count(paths.state_db, maker_slug=paths.slug, model_slugs=model_slugs) == 0:
-                break
-            row = claim_next_url(
-                paths.state_db,
-                maker_slug=paths.slug,
-                model_slugs=model_slugs,
-            )
-            if not row:
-                await asyncio.sleep(0.2)
-                continue
+    try:
+        async with httpx.AsyncClient(
+            timeout=60.0,
+            follow_redirects=True,
+            limits=httpx.Limits(max_connections=config.max_concurrent_workers),
+        ) as client:
+            while True:
+                if max_pages is not None and pages_done >= max_pages:
+                    break
 
-            url = row["url"]
-            chassis = row.get("chassis_code") or ""
-            if priority_chassis and row.get("page_type") in ("section_list", "diagram"):
-                if chassis and not _priority_allows(chassis, priority_chassis):
-                    mark_url(paths.state_db, url, ok=True)
-                    continue
+                # Heartbeat leases so other workers see this owner as alive.
+                if worker_mode and leased_models:
+                    now = asyncio.get_event_loop().time()
+                    if now - last_heartbeat >= 30:
+                        heartbeat_leases(paths.state_db, wid)
+                        last_heartbeat = now
 
-            await asyncio.sleep(rate + random.uniform(0, rate * 0.3))
-            try:
-                status, html = await fetch_html(client, url)
-                if status >= 400:
-                    mark_url(paths.state_db, url, ok=False, error=f"HTTP {status}")
-                    continue
-                digest = hashlib.sha256(html.encode("utf-8")).hexdigest()
-                cache_file = paths.cache_dir / f"{cache_key(url)}.html"
-                cache_file.write_text(html, encoding="utf-8")
-                save_cache(paths.state_db, url, str(cache_file), digest)
-
-                parsed = parse_html_page(
-                    html,
-                    url,
-                    maker_slug=paths.slug,
-                    model_slug=row.get("model_slug") or "",
-                    variant_slug=row.get("variant_slug") or "",
-                    section_slug=row.get("section_slug") or "",
-                    default_chassis=chassis,
-                )
-                if parsed.page_type == "diagram":
-                    img_url = parsed.payload.get("image_url") or ""
-                    if img_url:
-                        try:
-                            ir = await client.get(img_url)
-                            if ir.status_code == 200 and ir.content:
-                                parsed = parse_html_page(
-                                    html,
-                                    url,
-                                    maker_slug=paths.slug,
-                                    model_slug=row.get("model_slug") or "",
-                                    variant_slug=row.get("variant_slug") or "",
-                                    section_slug=row.get("section_slug") or "",
-                                    default_chassis=chassis,
-                                    image_bytes=ir.content,
-                                )
-                        except Exception as img_exc:  # noqa: BLE001
-                            logger.warning("[%s] diagram image fetch %s: %s", paths.maker, img_url, img_exc)
-
-                upsert_parsed(paths.state_db, url, parsed.page_type, paths.slug, parsed.payload)
-
-                for item in _discover_from_parsed(parsed, maker_slug=paths.slug):
-                    ch = item.get("chassis_code") or chassis
-                    if priority_chassis and item.get("page_type") in (
-                        "variant_list",
-                        "section_list",
-                        "diagram",
-                    ):
-                        if ch and not _priority_allows(ch, priority_chassis):
-                            continue
-                    enqueue_url(
+                if worker_mode:
+                    left = pending_count(
                         paths.state_db,
-                        item["url"],
-                        page_type=item.get("page_type") or "",
-                        maker_slug=item.get("maker_slug") or paths.slug,
-                        model_slug=item.get("model_slug") or "",
-                        variant_slug=item.get("variant_slug") or "",
-                        section_slug=item.get("section_slug") or "",
-                        chassis_code=ch,
+                        maker_slug=paths.slug,
+                        model_slugs=model_slugs,
+                    )
+                    if left == 0:
+                        break
+                    row = claim_next_url(
+                        paths.state_db,
+                        maker_slug=paths.slug,
+                        model_slugs=model_slugs,
+                    )
+                else:
+                    # Main crawler: never touch models leased by workers. If only
+                    # leased work remains, wait for workers instead of ending the
+                    # priority pass early (which would trigger nissan-remaining).
+                    left = pending_count(
+                        paths.state_db,
+                        maker_slug=paths.slug,
+                        exclude_leased=True,
+                    )
+                    if left == 0:
+                        leased_left = leased_pending_count(paths.state_db)
+                        if leased_left > 0:
+                            leases = list_active_leases(paths.state_db)
+                            logger.info(
+                                "[%s] waiting on %s leased PENDING pages (%s workers)",
+                                paths.maker,
+                                leased_left,
+                                len(set(leases.values())),
+                            )
+                            await asyncio.sleep(5.0)
+                            continue
+                        break
+                    row = claim_next_url(
+                        paths.state_db,
+                        maker_slug=paths.slug,
+                        exclude_leased=True,
                     )
 
-                mark_url(paths.state_db, url, ok=True)
-                pages_done += 1
-                if pages_done % 10 == 0:
-                    logger.info("[%s] crawl progress: %s pages", paths.maker, pages_done)
-            except Exception as exc:  # noqa: BLE001
-                mark_url(paths.state_db, url, ok=False, error=str(exc))
-                logger.warning("[%s] fetch failed %s: %s", paths.maker, url, exc)
+                if not row:
+                    await asyncio.sleep(0.2)
+                    continue
+
+                url = row["url"]
+                chassis = row.get("chassis_code") or ""
+                if priority_chassis and row.get("page_type") in ("section_list", "diagram"):
+                    if chassis and not _priority_allows(chassis, priority_chassis):
+                        mark_url(paths.state_db, url, ok=True)
+                        continue
+
+                await asyncio.sleep(rate + random.uniform(0, rate * 0.3))
+                try:
+                    status, html = await fetch_html(client, url)
+                    if status >= 400:
+                        mark_url(paths.state_db, url, ok=False, error=f"HTTP {status}")
+                        continue
+                    digest = hashlib.sha256(html.encode("utf-8")).hexdigest()
+                    cache_file = paths.cache_dir / f"{cache_key(url)}.html"
+                    cache_file.write_text(html, encoding="utf-8")
+                    save_cache(paths.state_db, url, str(cache_file), digest)
+
+                    parsed = parse_html_page(
+                        html,
+                        url,
+                        maker_slug=paths.slug,
+                        model_slug=row.get("model_slug") or "",
+                        variant_slug=row.get("variant_slug") or "",
+                        section_slug=row.get("section_slug") or "",
+                        default_chassis=chassis,
+                    )
+                    if parsed.page_type == "diagram":
+                        img_url = parsed.payload.get("image_url") or ""
+                        if img_url:
+                            try:
+                                ir = await client.get(img_url)
+                                if ir.status_code == 200 and ir.content:
+                                    parsed = parse_html_page(
+                                        html,
+                                        url,
+                                        maker_slug=paths.slug,
+                                        model_slug=row.get("model_slug") or "",
+                                        variant_slug=row.get("variant_slug") or "",
+                                        section_slug=row.get("section_slug") or "",
+                                        default_chassis=chassis,
+                                        image_bytes=ir.content,
+                                    )
+                            except Exception as img_exc:  # noqa: BLE001
+                                logger.warning(
+                                    "[%s] diagram image fetch %s: %s",
+                                    paths.maker,
+                                    img_url,
+                                    img_exc,
+                                )
+
+                    upsert_parsed(paths.state_db, url, parsed.page_type, paths.slug, parsed.payload)
+
+                    for item in _discover_from_parsed(parsed, maker_slug=paths.slug):
+                        ch = item.get("chassis_code") or chassis
+                        if priority_chassis and item.get("page_type") in (
+                            "variant_list",
+                            "section_list",
+                            "diagram",
+                        ):
+                            if ch and not _priority_allows(ch, priority_chassis):
+                                continue
+                        enqueue_url(
+                            paths.state_db,
+                            item["url"],
+                            page_type=item.get("page_type") or "",
+                            maker_slug=item.get("maker_slug") or paths.slug,
+                            model_slug=item.get("model_slug") or "",
+                            variant_slug=item.get("variant_slug") or "",
+                            section_slug=item.get("section_slug") or "",
+                            chassis_code=ch,
+                        )
+
+                    mark_url(paths.state_db, url, ok=True)
+                    pages_done += 1
+                    if pages_done % 10 == 0:
+                        logger.info("[%s] crawl progress: %s pages", paths.maker, pages_done)
+                except Exception as exc:  # noqa: BLE001
+                    mark_url(paths.state_db, url, ok=False, error=str(exc))
+                    logger.warning("[%s] fetch failed %s: %s", paths.maker, url, exc)
+    finally:
+        if worker_mode and leased_models:
+            release_leases(paths.state_db, wid, leased_models)
+            logger.info("[%s] worker %s released leases %s", paths.maker, wid, sorted(leased_models))
 
     hub_models = _hub_model_count(paths.state_db, config.hub_url(paths.maker))
     if hub_models == 0 and not worker_mode:
@@ -491,7 +565,8 @@ async def crawl_maker(
         "requeue": requeue_stats,
         "self_heal": heal_stats,
         "hub_models": hub_models,
-        "worker_models": sorted(model_slugs) if model_slugs else [],
+        "worker_models": sorted(leased_models) if leased_models else [],
+        "worker_id": wid if worker_mode else None,
     }
 
 
