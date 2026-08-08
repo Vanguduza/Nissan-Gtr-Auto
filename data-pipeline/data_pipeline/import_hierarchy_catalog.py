@@ -267,13 +267,21 @@ def import_hierarchy_supabase(
         raise RuntimeError("pip install -e '.[supabase]'") from exc
 
     client = create_client(url, key)
+    sanitized = sanitize_legacy_bundle_for_import(bundle)
     validate_bundle(
         {
-            k: v
-            for k, v in bundle.items()
-            if k in ("vehicle_master", "pnc_categories", "part_fitment", "diagram_assets")
+            k: sanitized.get(k) or []
+            for k in ("vehicle_master", "pnc_categories", "part_fitment", "diagram_assets")
         }
     )
+    # Keep hierarchy rows from the caller; replace only legacy tables that were sanitized.
+    bundle = {
+        **bundle,
+        "vehicle_master": sanitized["vehicle_master"],
+        "pnc_categories": sanitized["pnc_categories"],
+        "part_fitment": sanitized["part_fitment"],
+        "diagram_assets": sanitized["diagram_assets"],
+    }
 
     notes: list[str] = []
     _batch_upsert_slug_table(
