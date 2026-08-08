@@ -373,6 +373,9 @@ def _batch_upsert_by_natural_key(
     """
     Expression unique indexes (COALESCE) block PostgREST on_conflict=<columns>.
     Workaround: load existing id+keys, then batch insert (new) / upsert by id (existing).
+
+    Input rows are deduped by ``key_fn`` (last wins) so Megazip multi-diagram
+    duplicates of the same OEM/chassis/PNC do not trip 23505 on insert.
     """
     stats = ImportStats()
     existing_rows = _fetch_all(client, table, existing_select)
@@ -380,11 +383,14 @@ def _batch_upsert_by_natural_key(
     for er in existing_rows:
         id_by_key[key_fn(er)] = er["id"]
 
+    deduped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for row in rows:
+        deduped[key_fn(row)] = row
+
     to_insert: list[dict[str, Any]] = []
     to_update: list[dict[str, Any]] = []
-    for row in rows:
+    for key, row in deduped.items():
         payload = _project(row, cols)
-        key = key_fn(row)
         existing_id = id_by_key.get(key)
         if existing_id:
             payload["id"] = existing_id
