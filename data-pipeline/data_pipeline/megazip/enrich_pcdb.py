@@ -43,7 +43,7 @@ def enrich_pcdb(bundle: dict[str, Any], mapping_path: Path | None = None) -> dic
                     break
         if hit:
             pnc["pcdb_part_type_id"] = hit.get("pcdb_part_type_id")
-            if hit.get("pcdb_part_type_name"):
-                pnc["pcdb_part_type_label"] = hit["pcdb_part_type_name"]
+            # Keep label out of bundle rows — not in pnc_categories.schema.json /
+            # upsert columns; use mapping file if UI needs the name.
             applied += 1
     return {"pcdb_mapped": applied, "pnc_total": len(bundle.get("pnc_categories") or [])}
