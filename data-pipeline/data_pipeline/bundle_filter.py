@@ -31,14 +31,29 @@ def complete_fitments(bundle: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+_VEHICLE_MASTER_KEYS = (
+    "vin_prefix",
+    "chassis_code",
+    "engine_code",
+    "production_year",
+    "model_variant",
+)
+
+
 def _sanitize_vehicle_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Drop invalid production_year so bundle passes JSON schema (min 1980)."""
+    """Project to ``vehicle_master`` schema: drop extras/nulls and invalid years."""
     out: list[dict[str, Any]] = []
     for row in rows:
-        cleaned = dict(row)
-        year = cleaned.get("production_year")
-        if isinstance(year, int) and year < 1980:
-            cleaned.pop("production_year", None)
+        cleaned: dict[str, Any] = {}
+        for key in _VEHICLE_MASTER_KEYS:
+            if key not in row:
+                continue
+            value = row.get(key)
+            if value is None:
+                continue
+            if key == "production_year" and isinstance(value, int) and value < 1980:
+                continue
+            cleaned[key] = value
         out.append(cleaned)
     return out
 
