@@ -69,3 +69,22 @@ def test_filter_keeps_all_vehicles_when_not_completed_only() -> None:
     filtered, meta = filter_complete_bundle(_sample_bundle(), completed_only=False)
     assert meta["vehicles_out"] == 2
     assert len(filtered["part_fitment"]) == 1
+
+
+def test_sanitize_vehicle_rows_drops_nulls_and_extras() -> None:
+    bundle = _sample_bundle()
+    bundle["vehicle_master"] = [
+        {
+            "vin_prefix": None,
+            "chassis_code": "B13",
+            "engine_code": None,
+            "production_year": None,
+            "model_variant": "Nissan Sunny B13",
+            "catalog_model_slug": "sunny-1",
+            "catalog_variant_slug": "b13",
+        }
+    ]
+    filtered, _meta = filter_complete_bundle(bundle, completed_only=True)
+    assert filtered["vehicle_master"] == [
+        {"chassis_code": "B13", "model_variant": "Nissan Sunny B13"}
+    ]
