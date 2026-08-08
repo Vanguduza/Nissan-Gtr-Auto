@@ -232,10 +232,27 @@ def reset_url_pending(db_path: Path, url: str) -> None:
         conn.close()
 
 
-def pending_count(db_path: Path) -> int:
+def pending_count(
+    db_path: Path,
+    *,
+    maker_slug: str | None = None,
+    model_slugs: frozenset[str] | None = None,
+) -> int:
     conn = sqlite3.connect(db_path, timeout=60.0)
     try:
-        row = conn.execute("SELECT COUNT(*) FROM queue WHERE status = 'PENDING'").fetchone()
+        where = ["status = 'PENDING'"]
+        params: list[Any] = []
+        if maker_slug:
+            where.append("maker_slug = ?")
+            params.append(maker_slug)
+        if model_slugs:
+            placeholders = ",".join("?" for _ in model_slugs)
+            where.append(f"model_slug IN ({placeholders})")
+            params.extend(sorted(model_slugs))
+        row = conn.execute(
+            f"SELECT COUNT(*) FROM queue WHERE {' AND '.join(where)}",
+            params,
+        ).fetchone()
         return int(row[0]) if row else 0
     finally:
         conn.close()
