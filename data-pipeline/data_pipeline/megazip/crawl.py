@@ -301,46 +301,64 @@ async def crawl_maker(
     skip_crawl: bool = False,
     priority_model_seeds: tuple[str, ...] = (),
     prepare_remaining_before: frozenset[str] | None = None,
+    model_slugs: frozenset[str] | None = None,
+    worker_mode: bool = False,
+    rate_limit_seconds: float | None = None,
 ) -> dict[str, Any]:
+    """Crawl Megazip pages into cache.
+
+    ``worker_mode`` — drain PENDING pages only (optional ``model_slugs`` scope).
+    Skips hub/seed enqueue, self-heal, and remaining-pass prep so a live
+    orchestrator is not disturbed. Safe for parallel workers on one SQLite DB.
+    """
     init_db(paths.state_db)
     paths.cache_dir.mkdir(parents=True, exist_ok=True)
 
-    # Self-heal a stale/partial queue so a lost cache file or an unproductive
-    # hub can never permanently freeze coverage (all makers). Skipped when not
-    # crawling, since healing re-queues pages that only a network pass can fetch.
     heal_stats: dict[str, int] = {}
-    if not skip_crawl:
-        heal_stats = self_heal_queue(paths, config.hub_url(paths.maker))
+    requeue_stats: dict[str, int] = {}
 
-    if prepare_remaining_before is not None:
-        requeue_stats = prepare_remaining_crawl(
-            paths,
-            priority_chassis=prepare_remaining_before,
+    if worker_mode:
+        if not model_slugs:
+            raise ValueError("worker_mode requires model_slugs")
+        logger.info(
+            "[%s] worker mode — models=%s (no hub/seed/self-heal)",
+            paths.maker,
+            ",".join(sorted(model_slugs)),
         )
     else:
-        requeue_stats = {}
+        # Self-heal a stale/partial queue so a lost cache file or an unproductive
+        # hub can never permanently freeze coverage (all makers). Skipped when not
+        # crawling, since healing re-queues pages that only a network pass can fetch.
+        if not skip_crawl:
+            heal_stats = self_heal_queue(paths, config.hub_url(paths.maker))
 
-    start_url = config.hub_url(paths.maker)
-    # Priority phase must discover all models from hub; seeds alone only cover listed URLs.
-    if priority_chassis or not priority_model_seeds:
-        enqueue_url(
-            paths.state_db,
-            start_url,
-            page_type="maker_hub",
-            maker_slug=paths.slug,
-        )
+        if prepare_remaining_before is not None:
+            requeue_stats = prepare_remaining_crawl(
+                paths,
+                priority_chassis=prepare_remaining_before,
+            )
 
-    for seed_url in priority_model_seeds:
-        parts = seed_url.rstrip("/").split("/")
-        model_slug = parts[-1] if len(parts) >= 4 else ""
-        enqueue_url(
-            paths.state_db,
-            seed_url,
-            page_type="model_catalog",
-            maker_slug=paths.slug,
-            model_slug=model_slug,
-        )
-        logger.info("[%s] priority model seed: %s", paths.maker, seed_url)
+        start_url = config.hub_url(paths.maker)
+        # Priority phase must discover all models from hub; seeds alone only cover listed URLs.
+        if priority_chassis or not priority_model_seeds:
+            enqueue_url(
+                paths.state_db,
+                start_url,
+                page_type="maker_hub",
+                maker_slug=paths.slug,
+            )
+
+        for seed_url in priority_model_seeds:
+            parts = seed_url.rstrip("/").split("/")
+            model_slug = parts[-1] if len(parts) >= 4 else ""
+            enqueue_url(
+                paths.state_db,
+                seed_url,
+                page_type="model_catalog",
+                maker_slug=paths.slug,
+                model_slug=model_slug,
+            )
+            logger.info("[%s] priority model seed: %s", paths.maker, seed_url)
 
     if skip_crawl:
         logger.info("[%s] skip-crawl — using cached HTML only", paths.maker)
@@ -356,7 +374,7 @@ async def crawl_maker(
         raise RuntimeError("httpx required: pip install -e '.[scraping]'") from exc
 
     pages_done = 0
-    rate = config.rate_limit_seconds
+    rate = float(rate_limit_seconds if rate_limit_seconds is not None else config.rate_limit_seconds)
 
     async with httpx.AsyncClient(
         timeout=60.0,
@@ -366,9 +384,13 @@ async def crawl_maker(
         while True:
             if max_pages is not None and pages_done >= max_pages:
                 break
-            if pending_count(paths.state_db) == 0:
+            if pending_count(paths.state_db, maker_slug=paths.slug, model_slugs=model_slugs) == 0:
                 break
-            row = claim_next_url(paths.state_db, maker_slug=paths.slug)
+            row = claim_next_url(
+                paths.state_db,
+                maker_slug=paths.slug,
+                model_slugs=model_slugs,
+            )
             if not row:
                 await asyncio.sleep(0.2)
                 continue
@@ -450,7 +472,7 @@ async def crawl_maker(
                 logger.warning("[%s] fetch failed %s: %s", paths.maker, url, exc)
 
     hub_models = _hub_model_count(paths.state_db, config.hub_url(paths.maker))
-    if hub_models == 0:
+    if hub_models == 0 and not worker_mode:
         logger.error(
             "[%s] maker hub yielded 0 models after crawl — model fan-out will be "
             "empty (coverage limited to priority seeds). Check hub markup/parser.",
@@ -463,6 +485,7 @@ async def crawl_maker(
         "requeue": requeue_stats,
         "self_heal": heal_stats,
         "hub_models": hub_models,
+        "worker_models": sorted(model_slugs) if model_slugs else [],
     }
 
 
