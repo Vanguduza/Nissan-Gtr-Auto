@@ -373,7 +373,8 @@ def import_hierarchy_bundle_dir(
         notes_hint = "full bundle (no complete-only filter)"
     if live:
         root = Path(__file__).resolve().parent.parent
-        load_env_files(root.parent / ".env", root / ".env", override=True)
+        # Repo-root .env last so hosted SoR wins over data-pipeline/.env local Docker overrides.
+        load_env_files(root / ".env", root.parent / ".env", override=True)
         url, key = resolve_supabase_credentials()
         if not url or not key:
             raise RuntimeError("SUPABASE_URL and service role key required for live import")
