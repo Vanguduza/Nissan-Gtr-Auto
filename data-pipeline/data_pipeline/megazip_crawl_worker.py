@@ -1,16 +1,12 @@
-"""Model-scoped Megazip crawl worker — safe to run beside a live orchestrator.
+"""Model-scoped Megazip crawl worker — lease-aware, parallel-safe.
 
-Claims only PENDING URLs for the assigned ``--models`` set. Does **not**
-re-enqueue the hub, run two-phase remaining prep, self-heal, parse, transform,
-or import. Shares ``megazip_state.db`` with the main crawler via atomic claims.
+Acquires exclusive SQLite leases on ``--models`` so the main orchestrator and
+other workers never claim the same model. Heartbeats every ~30s; releases on exit.
 
 Usage (from ``data-pipeline/``)::
 
   python -m data_pipeline.megazip_crawl_worker --models pathfinder-2142 \\
-    --out-root out/megazip --rate-limit 0.55
-
-  python -m data_pipeline.megazip_crawl_worker --models tiida-tiida-latio-2092,murano-2120 \\
-    --out-root out/megazip --rate-limit 0.55
+    --worker-id pathfinder --out-root out/megazip --rate-limit 0.55
 """
 
 from __future__ import annotations
@@ -23,13 +19,14 @@ from pathlib import Path
 
 from data_pipeline.megazip.config import DEFAULT_OUT_ROOT, MegazipConfig, build_maker_paths
 from data_pipeline.megazip.crawl import crawl_maker
+from data_pipeline.megazip.state import init_db, list_active_leases
 
 logger = logging.getLogger("data_pipeline.megazip_crawl_worker")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Megazip model-scoped crawl worker (parallel-safe; no orchestrator phases)."
+        description="Megazip model-scoped crawl worker (lease-aware; no orchestrator phases)."
     )
     parser.add_argument("--maker", default="Nissan")
     parser.add_argument(
@@ -37,13 +34,18 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="Comma-separated model_slug values to drain (e.g. pathfinder-2142)",
     )
+    parser.add_argument(
+        "--worker-id",
+        default=None,
+        help="Stable worker id for leases (default: derived from models)",
+    )
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument("--makers-file", type=Path, default=None)
     parser.add_argument(
         "--rate-limit",
         type=float,
         default=0.55,
-        help="Seconds between page fetches (default 0.55 — gentler when multiple workers run)",
+        help="Seconds between page fetches (default 0.55)",
     )
     parser.add_argument("--max-pages", type=int, default=None)
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -65,23 +67,42 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("State DB missing: %s — start the main orchestrator first", paths.state_db)
         return 1
 
+    init_db(paths.state_db)
+    existing = list_active_leases(paths.state_db)
+    conflicts = {m: existing[m] for m in models if m in existing and existing[m] != (args.worker_id or "")}
+    # Allow same worker-id to re-acquire (restart). Block other owners.
+    wid = args.worker_id or ("worker-" + "-".join(sorted(models))[:80])
+    conflicts = {m: w for m, w in existing.items() if m in models and w != wid}
+    if conflicts:
+        logger.error("Models already leased: %s", conflicts)
+        return 2
+
     logger.info(
-        "=== Megazip worker: %s models=%s rate=%.2fs ===",
-        args.maker,
+        "=== Megazip worker %s: models=%s rate=%.2fs ===",
+        wid,
         ",".join(sorted(models)),
         args.rate_limit,
     )
-    stats = asyncio.run(
-        crawl_maker(
-            paths,
-            config,
-            max_pages=args.max_pages,
-            worker_mode=True,
-            model_slugs=models,
-            rate_limit_seconds=args.rate_limit,
+    logger.info("Active leases before start: %s", list_active_leases(paths.state_db) or "{}")
+
+    try:
+        stats = asyncio.run(
+            crawl_maker(
+                paths,
+                config,
+                max_pages=args.max_pages,
+                worker_mode=True,
+                worker_id=wid,
+                model_slugs=models,
+                rate_limit_seconds=args.rate_limit,
+            )
         )
-    )
+    except RuntimeError as exc:
+        logger.error("%s", exc)
+        return 2
+
     logger.info("Worker done: %s", stats)
+    logger.info("Active leases after exit: %s", list_active_leases(paths.state_db) or "{}")
     return 0
 
 
