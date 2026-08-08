@@ -555,3 +555,45 @@ def test_claim_next_url_model_slug_filter(tmp_path) -> None:
     assert state.pending_count(db, model_slugs=frozenset({"pathfinder-2142"})) == 0
     assert state.pending_count(db, model_slugs=frozenset({"frontier-2140"})) == 1
 
+
+def test_worker_leases_exclude_from_main_claim(tmp_path) -> None:
+    """Main crawler must skip models leased by workers (no double-work)."""
+    from data_pipeline.megazip import state
+
+    db = tmp_path / "leases.db"
+    state.init_db(db)
+    state.enqueue_url(
+        db,
+        "https://example/frontier",
+        page_type="diagram",
+        maker_slug="nissan",
+        model_slug="frontier-2140",
+    )
+    state.enqueue_url(
+        db,
+        "https://example/pathfinder",
+        page_type="diagram",
+        maker_slug="nissan",
+        model_slug="pathfinder-2142",
+    )
+    acquired, blocked = state.acquire_model_leases(
+        db, "worker-pathfinder", frozenset({"pathfinder-2142"})
+    )
+    assert acquired == frozenset({"pathfinder-2142"})
+    assert blocked == {}
+
+    # Second worker cannot steal the lease.
+    acquired2, blocked2 = state.acquire_model_leases(
+        db, "worker-other", frozenset({"pathfinder-2142"})
+    )
+    assert acquired2 == frozenset()
+    assert blocked2["pathfinder-2142"] == "worker-pathfinder"
+
+    # Main excludes leased pathfinder → gets frontier.
+    claimed = state.claim_next_url(db, maker_slug="nissan", exclude_leased=True)
+    assert claimed is not None
+    assert claimed["model_slug"] == "frontier-2140"
+    assert state.pending_count(db, exclude_leased=True) == 0
+    assert state.leased_pending_count(db) == 1
+
+
