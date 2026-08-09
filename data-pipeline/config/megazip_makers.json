@@ -25,5 +25,5 @@
   },
   "rate_limit_seconds": 0.35,
   "max_concurrent_workers": 4,
-  "diagram_storage_prefix_template": "megazip/{maker_slug}"
+  "diagram_storage_prefix_template": "epc/{maker_slug}"
 }

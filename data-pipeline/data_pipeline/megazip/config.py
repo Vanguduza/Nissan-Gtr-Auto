@@ -49,7 +49,7 @@ class MegazipConfig:
             rate_limit_seconds=float(data.get("rate_limit_seconds") or 0.35),
             max_concurrent_workers=int(data.get("max_concurrent_workers") or 4),
             diagram_storage_prefix_template=str(
-                data.get("diagram_storage_prefix_template") or "megazip/{maker_slug}"
+                data.get("diagram_storage_prefix_template") or "epc/{maker_slug}"
             ),
             makers=makers,
             maker_slugs=slugs,
