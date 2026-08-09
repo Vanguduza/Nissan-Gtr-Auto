@@ -1341,15 +1341,25 @@ public final class LiveStorefrontApi: StorefrontApi {
     private func resolveOemFilterForCategory(_ categoryLabel: String) async throws -> [String] {
         let cat = categoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cat.isEmpty else { return [] }
-        let pncRows: [PncCodeRow] = try await client.selectDecode(
+        // Fetch + match client-side — exact ILIKE misses EPC groups like
+        // "BRAKE PIPING & CONTROL" for shop slug "brakes".
+        let pncRows: [PncCategoryMatchRow] = try await client.selectDecode(
             table: "pnc_categories",
             query: [
-                "select=pnc_code",
-                "category_name=ilike.\(Self.percentEncodeQueryValue(cat))",
-                "limit=200",
+                "select=pnc_code,category_name,subcategory_name",
+                "limit=2000",
             ].joined(separator: "&")
         )
-        let codes = pncRows.map(\.pncCode).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let codes = pncRows
+            .filter {
+                CatalogCategoryFilter.matches(
+                    filter: cat,
+                    fields: $0.categoryName,
+                    $0.subcategoryName
+                )
+            }
+            .map(\.pncCode)
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         if codes.isEmpty { return [] }
         let codeList = codes.map { Self.percentEncodeQueryValue($0) }.joined(separator: ",")
         let fits: [OemOnlyRow] = try await client.selectDecode(
