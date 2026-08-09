@@ -352,7 +352,7 @@ struct CatalogScreen: View {
             if browseItems.isEmpty {
                 ShopHonestEmpty(
                     title: "No recent parts yet",
-                    bodyText: "No items."
+                    bodyText: "No stock rows yet. Reload the catalog SoR if the shop is empty across categories."
                 )
             } else {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
