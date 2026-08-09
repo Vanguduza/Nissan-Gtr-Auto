@@ -233,18 +233,22 @@ internal object CatalogRpcLive {
         require(chassis.isNotEmpty()) { "chassis required" }
         val cap = limit.coerceIn(1, 100)
         val engine = engineCode?.trim()?.takeIf { it.isNotEmpty() }
-        val oemRows = client.from("part_fitment")
-            .select(Columns.list("oem_part_number")) {
-                filter {
-                    eq("chassis_code", chassis)
-                    if (engine != null) {
-                        eq("engine_code", engine)
+        var oemFilter: List<String> = emptyList()
+        for (code in CatalogChassisAlias.lookupCodes(chassis)) {
+            val oemRows = client.from("part_fitment")
+                .select(Columns.list("oem_part_number")) {
+                    filter {
+                        eq("chassis_code", code)
+                        if (engine != null) {
+                            eq("engine_code", engine)
+                        }
                     }
+                    limit(200)
                 }
-                limit(200)
-            }
-            .decodeList<OemOnlyRow>()
-        val oemFilter = oemRows.map { it.oemPartNumber }.distinct()
+                .decodeList<OemOnlyRow>()
+            oemFilter = oemRows.map { it.oemPartNumber }.distinct()
+            if (oemFilter.isNotEmpty()) break
+        }
         if (oemFilter.isEmpty()) return CatalogBrowseResult(emptyList(), emptyList())
 
         val items = client.from("stock_items")
