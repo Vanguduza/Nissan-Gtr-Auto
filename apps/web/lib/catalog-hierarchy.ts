@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@gtr/supabase-client";
 import {
   catalogPath,
   epcHref,
+  epcChassisLookupCodes,
   parseCatalogParams,
   EPC_CONTEXT_STORAGE_KEY,
   type CatalogMaker,
@@ -17,6 +18,7 @@ import {
 export {
   catalogPath,
   epcHref,
+  epcChassisLookupCodes,
   parseCatalogParams,
   EPC_CONTEXT_STORAGE_KEY,
   type CatalogMaker,
@@ -103,26 +105,28 @@ export async function getCatalogDiagram(
 
 /**
  * Lookup catalog_variants by chassis_code for garage / vehicle-selector deep-links.
+ * Tries published aliases (e.g. D40→D22, T32→T31) when the exact chassis has no variant.
  * Returns the first matching variant context, or null.
  */
 export async function lookupVariantByChassis(
   client: SupabaseClient,
   chassisCode: string,
 ): Promise<CatalogBrowseContext | null> {
-  const code = chassisCode.trim().toUpperCase();
-  if (!code) return null;
-  const { data, error } = await client
-    .from("catalog_variants")
-    .select("maker_slug, model_slug, slug, chassis_code")
-    .ilike("chassis_code", code)
-    .limit(1);
-  if (error || !data || data.length === 0) return null;
-  const row = data[0];
-  return {
-    maker: row.maker_slug,
-    model: row.model_slug,
-    variant: row.slug,
-  };
+  for (const code of epcChassisLookupCodes(chassisCode)) {
+    const { data, error } = await client
+      .from("catalog_variants")
+      .select("maker_slug, model_slug, slug, chassis_code")
+      .ilike("chassis_code", code)
+      .limit(1);
+    if (error || !data || data.length === 0) continue;
+    const row = data[0];
+    return {
+      maker: row.maker_slug,
+      model: row.model_slug,
+      variant: row.slug,
+    };
+  }
+  return null;
 }
 
 /** Persist EPC browse context into sessionStorage. */
