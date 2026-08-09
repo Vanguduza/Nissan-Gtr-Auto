@@ -30,7 +30,7 @@ def test_sanitize_legacy_bundle_for_import_megazip_shapes() -> None:
                 "pnc_code": "11001",
                 "chassis_code": "T31",
                 "engine_code": None,
-                "diagram_path": "megazip/nissan/a.png",
+                "diagram_path": "epc/nissan/a.png",
                 "bbox_x": 1,
                 "bbox_y": 2,
                 "bbox_width": 3,
@@ -39,7 +39,7 @@ def test_sanitize_legacy_bundle_for_import_megazip_shapes() -> None:
         ],
         "diagram_assets": [
             {
-                "storage_path": "megazip/nissan/a.png",
+                "storage_path": "epc/nissan/a.png",
                 "source_url": "https://cdn.example/a.png",
                 "mime_type": "image/png",
             }
