@@ -1,7 +1,7 @@
 """Scrub megazip paths from hosted catalog via batched id PATCHes.
 
-Path-equality PATCHes on large tables time out (one path can touch 100k+ rows).
-Paging by id and rewriting in small batches stays under statement timeout.
+Paginates remaining megazip/* rows and rewrites to epc/ in small id chunks.
+Uses HTTP/1.1 (HTTP/2 hits stream-id limits under high concurrency).
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
+
 import httpx
 
 from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
@@ -20,16 +21,16 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger("scrub")
 
 PAGE = 1000
-PATCH_CHUNK = 80
-CONCURRENCY = 40
+PATCH_CHUNK = 100
+CONCURRENCY = 24
 
 
-def _headers(key: str, *, prefer: str = "return=minimal") -> dict[str, str]:
+def _headers(key: str) -> dict[str, str]:
     return {
         "apikey": key,
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
-        "Prefer": prefer,
+        "Prefer": "return=minimal",
     }
 
 
@@ -52,16 +53,22 @@ async def _patch_ids(
     if not ids:
         return
     async with sem:
-        # PostgREST in.() list
         id_list = ",".join(ids)
         url = f"{base}/rest/v1/{table}?id=in.({id_list})"
         payload = {col: new_value}
-        for attempt in range(8):
-            resp = await client.patch(url, json=payload, headers=_headers(key))
+        for attempt in range(10):
+            try:
+                resp = await client.patch(url, json=payload, headers=_headers(key))
+            except (httpx.RemoteProtocolError, httpx.ReadError, httpx.WriteError, httpx.ConnectError) as exc:
+                await asyncio.sleep(0.5 * (attempt + 1))
+                if attempt == 9:
+                    raise RuntimeError(f"{table} transport failed: {exc}") from exc
+                continue
             if resp.status_code < 300:
                 return
-            if resp.status_code in (429, 500, 502, 503, 504) or "timeout" in (resp.text or "").lower():
-                await asyncio.sleep(0.4 * (attempt + 1))
+            body = (resp.text or "").lower()
+            if resp.status_code in (429, 500, 502, 503, 504) or "timeout" in body:
+                await asyncio.sleep(0.5 * (attempt + 1))
                 continue
             raise RuntimeError(f"{table} patch {resp.status_code}: {resp.text[:240]}")
 
@@ -69,17 +76,22 @@ async def _patch_ids(
 async def rewrite_table(
     client: httpx.AsyncClient, base: str, key: str, table: str, col: str
 ) -> int:
-    """Page megazip rows and rewrite diagram_path / storage_path to epc/."""
     sem = asyncio.Semaphore(CONCURRENCY)
     total = 0
-    # Always fetch the first PAGE of remaining megazip rows (filter shrinks as we PATCH).
     while True:
         q = (
             f"{base}/rest/v1/{table}?select=id,{col}"
             f"&{col}=like.megazip/*"
             f"&order=id&limit={PAGE}"
         )
-        resp = await client.get(q, headers=_headers(key))
+        for attempt in range(8):
+            try:
+                resp = await client.get(q, headers=_headers(key))
+                break
+            except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ConnectError):
+                await asyncio.sleep(0.5 * (attempt + 1))
+        else:
+            raise RuntimeError(f"{table}: failed to page remaining megazip rows")
         resp.raise_for_status()
         rows = resp.json()
         if not rows:
@@ -145,7 +157,6 @@ async def scrub_urls_and_makers(client: httpx.AsyncClient, base: str, key: str) 
         json={"image_url": None},
         headers=headers,
     )
-    # diagrams storage_path (should already be epc/)
     await rewrite_table(client, base, key, "catalog_diagrams", "storage_path")
     logger.info("urls/makers/diagrams scrubbed")
 
@@ -154,11 +165,10 @@ async def sample_remaining(
     client: httpx.AsyncClient, base: str, key: str, table: str, col: str
 ) -> int:
     resp = await client.get(
-        f"{base}/rest/v1/{table}?select=id&{col}=ilike.*megazip*&limit=1",
-        headers={**_headers(key), "Prefer": "count=exact"},
+        f"{base}/rest/v1/{table}?select=id&{col}=like.megazip/*&limit=1",
+        headers={**_headers(key), "Prefer": "count=exact,return=minimal"},
     )
     if resp.status_code >= 300:
-        # presence check only
         resp2 = await client.get(
             f"{base}/rest/v1/{table}?select=id,{col}&{col}=like.megazip/*&limit=5",
             headers=_headers(key),
@@ -167,12 +177,11 @@ async def sample_remaining(
         n = len(resp2.json())
         logger.info("%s.%s leftover_sample=%s", table, col, n)
         return n
-    # Content-Range: 0-0/123
     cr = resp.headers.get("content-range") or ""
     total = -1
     if "/" in cr:
         try:
-            total = int(cr.split("/")[-1])
+            total = int(cr.rsplit("/", 1)[-1])
         except ValueError:
             total = -1
     logger.info("%s.%s leftover_count≈%s", table, col, total)
@@ -189,10 +198,10 @@ async def main_async() -> int:
         return 2
     base = url.rstrip("/")
     timeout = httpx.Timeout(180.0, connect=30.0)
-    limits = httpx.Limits(max_connections=CONCURRENCY + 10, max_keepalive_connections=CONCURRENCY)
-    async with httpx.AsyncClient(timeout=timeout, limits=limits, http2=True) as client:
+    limits = httpx.Limits(max_connections=CONCURRENCY + 8, max_keepalive_connections=CONCURRENCY)
+    # HTTP/1.1 — HTTP/2 stream ids exhaust under long PATCH storms
+    async with httpx.AsyncClient(timeout=timeout, limits=limits, http2=False) as client:
         await scrub_urls_and_makers(client, base, key)
-        # Smaller table first
         await rewrite_table(client, base, key, "part_fitment", "diagram_path")
         await rewrite_table(client, base, key, "catalog_diagram_parts", "diagram_path")
         for table, col in (
