@@ -125,3 +125,7 @@ export {
   type CatalogDiagramResponse,
   type CatalogBrowseContext,
 } from "./catalog-navigation";
+export {
+  categoryFilterNeedles,
+  categoryMatchesFilter,
+} from "./catalog-category-filter";
