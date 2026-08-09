@@ -36,7 +36,7 @@ func applyCatalogFilterSort(
         }
     }
     if let cat = filter.category?.trimmingCharacters(in: .whitespacesAndNewlines), !cat.isEmpty {
-        out = out.filter { $0.category?.caseInsensitiveCompare(cat) == .orderedSame }
+        out = out.filter { CatalogCategoryFilter.matches(filter: cat, fields: $0.category) }
     }
     switch sort {
     case .relevance:
