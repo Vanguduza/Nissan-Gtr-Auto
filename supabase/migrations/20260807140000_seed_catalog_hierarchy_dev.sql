@@ -25,7 +25,7 @@ SET
 
 INSERT INTO public.catalog_variants (
   maker_slug, model_slug, slug, chassis_code, frame, grade, sales_region,
-  year_start, year_end, year_label, engine_code, megazip_data_id, source_url
+  year_start, year_end, year_label, engine_code, external_data_id, source_url
 )
 VALUES
   (

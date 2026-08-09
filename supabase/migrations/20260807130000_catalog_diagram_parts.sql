@@ -160,6 +160,6 @@ END;
 $$;
 
 COMMENT ON TABLE public.catalog_diagram_parts IS
-  'Megazip HTML items-list companion rows (ref, OEM, qty) linked to diagram hotspots via itemslist_id.';
+  'EPC diagram companion rows (ref, OEM, qty) linked to diagram hotspots via itemslist_id.';
 COMMENT ON FUNCTION public.get_catalog_diagram IS
   'Hierarchy-first diagram + hotspots + fitment parts + HTML companion table; joins stock_items when stocked.';
