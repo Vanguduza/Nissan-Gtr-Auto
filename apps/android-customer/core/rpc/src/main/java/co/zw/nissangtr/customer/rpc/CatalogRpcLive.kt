@@ -136,13 +136,17 @@ internal object CatalogRpcLive {
     ): List<String>? {
         val cat = categoryLabel.trim()
         if (cat.isEmpty()) return null
+        // Fetch + match client-side (ILIKE exact misses EPC groups like
+        // "BRAKE PIPING & CONTROL" for shop slug "brakes" / tile "Braking").
         val pncRows = client.from("pnc_categories")
-            .select(Columns.list("pnc_code")) {
-                filter { ilike("category_name", cat) }
-                limit(200)
+            .select(Columns.list("pnc_code", "category_name", "subcategory_name")) {
+                limit(2000)
             }
-            .decodeList<PncCodeRow>()
-        val codes = pncRows.map { it.pncCode }.filter { it.isNotBlank() }
+            .decodeList<PncCategoryMatchRow>()
+        val codes = pncRows
+            .filter { CatalogCategoryFilter.matches(cat, it.categoryName, it.subcategoryName) }
+            .map { it.pncCode }
+            .filter { it.isNotBlank() }
         if (codes.isEmpty()) return emptyList()
         val fits = client.from("part_fitment")
             .select(Columns.list("oem_part_number")) {
