@@ -388,7 +388,8 @@ function PartResultsTable({ results }: { results: PartHit[] }) {
           {results.length === 0 ? (
             <tr>
               <td colSpan={5} className={styles.muted}>
-                No parts match this category filter.
+                No parts match this category filter. If every category is empty,
+                the catalog SoR may still be loading — try clearing the filter.
               </td>
             </tr>
           ) : (
