@@ -5,11 +5,25 @@
 -- Rename vendor-prefixed columns
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE public.catalog_variants
-  RENAME COLUMN megazip_data_id TO external_data_id;
-
-ALTER TABLE public.catalog_diagram_parts
-  RENAME COLUMN megazip_item_id TO external_item_id;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'catalog_variants'
+      AND column_name = 'megazip_data_id'
+  ) THEN
+    ALTER TABLE public.catalog_variants
+      RENAME COLUMN megazip_data_id TO external_data_id;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'catalog_diagram_parts'
+      AND column_name = 'megazip_item_id'
+  ) THEN
+    ALTER TABLE public.catalog_diagram_parts
+      RENAME COLUMN megazip_item_id TO external_item_id;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Scrub stored text / paths / URLs
@@ -53,7 +67,7 @@ SET diagram_path = 'epc/' || substr(diagram_path, length('megazip/') + 1)
 WHERE diagram_path ILIKE 'megazip/%';
 
 -- ---------------------------------------------------------------------------
--- RPCs: stop returning vendor URLs; use renamed external_item_id
+-- RPCs: omit crawl source_url; use renamed external_item_id
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.list_catalog_models(p_maker_slug text)
@@ -134,23 +148,34 @@ BEGIN
   LIMIT 1;
 
   IF NOT FOUND THEN
-    RETURN jsonb_build_object('diagram', null, 'hotspots', '[]'::jsonb, 'parts', '[]'::jsonb);
+    RETURN jsonb_build_object(
+      'diagram', null,
+      'hotspots', '[]'::jsonb,
+      'parts', '[]'::jsonb,
+      'companion_parts', '[]'::jsonb
+    );
   END IF;
 
-  SELECT COALESCE(jsonb_agg(row_to_json(t)::jsonb), '[]'::jsonb)
+  SELECT COALESCE(jsonb_agg(row_to_json(t)::jsonb ORDER BY t.oem_part_number), '[]'::jsonb)
   INTO v_parts
   FROM (
     SELECT
       pf.oem_part_number,
       pf.pnc_code,
+      pf.chassis_code,
+      pf.engine_code,
       pf.bbox_x,
       pf.bbox_y,
       pf.bbox_width,
       pf.bbox_height,
-      si.qty_on_hand,
-      si.unit_price,
-      si.currency
+      pf.diagram_path,
+      pc.category_name,
+      pc.subcategory_name,
+      pc.pcdb_part_type_id,
+      si.id AS stock_item_id,
+      si.description AS stock_description
     FROM part_fitment pf
+    LEFT JOIN pnc_categories pc ON pc.pnc_code = pf.pnc_code
     LEFT JOIN stock_items si ON si.oem_part_number = pf.oem_part_number
     WHERE pf.diagram_path = v_diagram.storage_path
     LIMIT 500
@@ -195,25 +220,26 @@ BEGIN
         'pnc_code', pf.pnc_code,
         'itemslist_id', cp.itemslist_id,
         'callout_ref', cp.callout_ref,
-        'bbox_x', COALESCE(cp.bbox_x, pf.bbox_x),
-        'bbox_y', COALESCE(cp.bbox_y, pf.bbox_y),
-        'bbox_width', COALESCE(cp.bbox_width, pf.bbox_width),
-        'bbox_height', COALESCE(cp.bbox_height, pf.bbox_height)
+        'bbox_x', pf.bbox_x,
+        'bbox_y', pf.bbox_y,
+        'bbox_width', pf.bbox_width,
+        'bbox_height', pf.bbox_height
       ) ORDER BY pf.oem_part_number), '[]'::jsonb)
       FROM part_fitment pf
       LEFT JOIN catalog_diagram_parts cp
-        ON cp.maker_slug = p_maker_slug
-       AND cp.model_slug = p_model_slug
-       AND cp.variant_slug = p_variant_slug
-       AND cp.section_slug = p_section_slug
-       AND cp.oem_part_number = pf.oem_part_number
+        ON cp.diagram_path = pf.diagram_path
+        AND cp.oem_part_number = pf.oem_part_number
       WHERE pf.diagram_path = v_diagram.storage_path
-      LIMIT 500
+        AND pf.bbox_x IS NOT NULL
     ),
-    'parts', COALESCE(v_companion, v_parts)
+    'parts', v_parts,
+    'companion_parts', v_companion
   );
 END;
 $$;
+
+COMMENT ON TABLE public.catalog_diagram_parts IS
+  'EPC diagram companion rows (ref, OEM, qty) linked to diagram hotspots via itemslist_id.';
 
 COMMENT ON COLUMN public.catalog_variants.external_data_id IS
   'Upstream EPC variant/data id (vendor-neutral).';
