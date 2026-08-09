@@ -92,9 +92,10 @@ internal object CatalogRpcLive {
     ): CatalogBrowseResult {
         val cap = limit.coerceIn(1, 100)
         val cat = category?.trim()?.takeIf { it.isNotEmpty() }
+        val categories = loadBrowseCategoryLabels(client)
         val oemFilter = if (cat != null) resolveOemFilterForCategory(client, cat) else null
         if (cat != null && oemFilter != null && oemFilter.isEmpty()) {
-            return CatalogBrowseResult(emptyList(), emptyList())
+            return CatalogBrowseResult(emptyList(), categories)
         }
 
         val items = client.from("stock_items")
@@ -107,7 +108,7 @@ internal object CatalogRpcLive {
             }
             .decodeList<StockItemBrowseRow>()
 
-        if (items.isEmpty()) return CatalogBrowseResult(emptyList(), emptyList())
+        if (items.isEmpty()) return CatalogBrowseResult(emptyList(), categories)
 
         val ids = items.map { it.id }
         val oems = items.map { it.oemPartNumber }
@@ -127,7 +128,23 @@ internal object CatalogRpcLive {
                 category = catByOem[row.oemPartNumber],
             )
         }
-        return CatalogBrowseResult(items = list, categories = emptyList())
+        return CatalogBrowseResult(items = list, categories = categories)
+    }
+
+    private suspend fun loadBrowseCategoryLabels(client: SupabaseClient): List<String> {
+        return try {
+            client.from("pnc_categories")
+                .select(Columns.list("category_name")) {
+                    order("category_name", Order.ASCENDING)
+                    limit(100)
+                }
+                .decodeList<PncCategoryNameRow>()
+                .mapNotNull { it.categoryName?.trim()?.takeIf(String::isNotEmpty) }
+                .distinct()
+                .take(24)
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     private suspend fun resolveOemFilterForCategory(
