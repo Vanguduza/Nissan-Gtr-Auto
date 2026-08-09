@@ -87,7 +87,10 @@ def build_hierarchy_bundle(
                     "sales_region": v.get("sales_region") or "",
                     "year_label": v.get("year_label") or "",
                     "megazip_data_id": v.get("megazip_data_id") or "",
-                    "source_url": v.get("source_url") or url,
+                    "external_data_id": v.get("external_data_id")
+                    or v.get("megazip_data_id")
+                    or "",
+                    "source_url": _public_catalog_url(v.get("source_url") or url),
                 }
                 chassis = v.get("chassis_code") or ""
                 if chassis:
