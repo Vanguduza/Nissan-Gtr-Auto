@@ -572,7 +572,7 @@ async def crawl_maker(
                 else:
                     # Main crawler: never touch models leased by workers. If only
                     # leased work remains, wait for workers instead of ending the
-                    # priority pass early (which would trigger nissan-remaining).
+                    # priority pass early (which would trigger remaining handoff).
                     left = pending_count(
                         paths.state_db,
                         maker_slug=paths.slug,
@@ -590,6 +590,51 @@ async def crawl_maker(
                             )
                             await asyncio.sleep(5.0)
                             continue
+                        if (
+                            auto_start_remaining
+                            and active_priority is not None
+                            and not remaining_started
+                        ):
+                            handoff = prepare_remaining_crawl(
+                                paths,
+                                priority_chassis=active_priority,
+                            )
+                            requeue_stats = {
+                                **requeue_stats,
+                                **{f"handoff_{k}": v for k, v in handoff.items()},
+                            }
+                            remaining_started = True
+                            active_priority = None
+                            logger.info(
+                                "[%s] priority models done — starting remaining "
+                                "Nissan models (%s)",
+                                paths.maker,
+                                handoff,
+                            )
+                            continue
+                        if auto_start_remaining and not coverage_ensured:
+                            coverage_ensured = True
+                            done_chassis = load_visited_deep_chassis(paths.state_db)
+                            ensure = prepare_remaining_crawl(
+                                paths,
+                                priority_chassis=done_chassis,
+                            )
+                            requeue_stats = {
+                                **requeue_stats,
+                                **{f"ensure_{k}": v for k, v in ensure.items()},
+                            }
+                            queued = (
+                                int(ensure.get("models_reset") or 0)
+                                + int(ensure.get("variants") or 0)
+                                + int(ensure.get("sections") or 0)
+                            )
+                            if queued > 0:
+                                logger.info(
+                                    "[%s] queued underexplored remaining models (%s)",
+                                    paths.maker,
+                                    ensure,
+                                )
+                                continue
                         break
                     row = claim_next_url(
                         paths.state_db,
@@ -603,8 +648,8 @@ async def crawl_maker(
 
                 url = row["url"]
                 chassis = row.get("chassis_code") or ""
-                if priority_chassis and row.get("page_type") in ("section_list", "diagram"):
-                    if chassis and not _priority_allows(chassis, priority_chassis):
+                if active_priority and row.get("page_type") in ("section_list", "diagram"):
+                    if chassis and not _priority_allows(chassis, active_priority):
                         mark_url(paths.state_db, url, ok=True)
                         continue
 
