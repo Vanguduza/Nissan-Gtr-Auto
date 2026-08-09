@@ -42,7 +42,7 @@ CREATE TABLE public.catalog_variants (
   year_end INT,
   year_label TEXT,
   engine_code TEXT,
-  megazip_data_id TEXT,
+  external_data_id TEXT,
   source_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (maker_slug, model_slug, slug)
