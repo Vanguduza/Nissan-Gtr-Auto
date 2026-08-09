@@ -212,6 +212,8 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
         onChange={(next) => {
           setForm(next);
           setFormError(null);
+          setEpcChecked(null);
+          setEpcCtx(null);
         }}
         disabled={controlsDisabled}
         showNote={showNote}
