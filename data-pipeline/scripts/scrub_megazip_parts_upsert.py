@@ -57,17 +57,18 @@ async def main_async(args: argparse.Namespace) -> int:
                 q += f"&id=gte.{args.id_gte}"
             if args.id_lt:
                 q += f"&id=lt.{args.id_lt}"
-            for attempt in range(8):
+            resp = None
+            for attempt in range(12):
                 try:
                     resp = await client.get(q, headers=_headers(key, "return=representation"))
+                    if resp.status_code >= 500:
+                        await asyncio.sleep(1.5 * (attempt + 1))
+                        continue
                     break
                 except Exception:
-                    await asyncio.sleep(0.4 * (attempt + 1))
-            else:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+            if resp is None:
                 raise RuntimeError("fetch failed")
-            if resp.status_code >= 500:
-                await asyncio.sleep(2 + attempt)
-                continue
             resp.raise_for_status()
             rows = resp.json()
             if not rows:
@@ -103,10 +104,6 @@ async def main_async(args: argparse.Namespace) -> int:
                 raise RuntimeError("upsert failed")
             total += len(payload)
             logger.info("%s upserted≈%s (page=%s)", label, total, len(payload))
-            continue
-
-            # unreachable — kept structure simple above
-            _ = None
     logger.info("%s DONE approx=%s", label, total)
     return 0
 
