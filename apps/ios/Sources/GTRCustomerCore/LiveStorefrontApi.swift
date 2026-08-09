@@ -977,19 +977,23 @@ public final class LiveStorefrontApi: StorefrontApi {
         guard !chassis.isEmpty else { throw StorefrontError.message("chassis required") }
         let cap = min(max(limit, 1), 100)
         let engine = engineCode?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-        var fitQuery = [
-            "select=oem_part_number",
-            "chassis_code=eq.\(Self.percentEncodeQueryValue(chassis))",
-            "limit=200",
-        ]
-        if let engine {
-            fitQuery.insert("engine_code=eq.\(Self.percentEncodeQueryValue(engine))", at: 2)
+        var oemFilter: [String] = []
+        for code in CatalogChassisAlias.lookupCodes(chassis) {
+            var fitQuery = [
+                "select=oem_part_number",
+                "chassis_code=eq.\(Self.percentEncodeQueryValue(code))",
+                "limit=200",
+            ]
+            if let engine {
+                fitQuery.insert("engine_code=eq.\(Self.percentEncodeQueryValue(engine))", at: 2)
+            }
+            let oemRows: [OemOnlyRow] = try await client.selectDecode(
+                table: "part_fitment",
+                query: fitQuery.joined(separator: "&")
+            )
+            oemFilter = Array(Set(oemRows.map(\.oemPartNumber)))
+            if !oemFilter.isEmpty { break }
         }
-        let oemRows: [OemOnlyRow] = try await client.selectDecode(
-            table: "part_fitment",
-            query: fitQuery.joined(separator: "&")
-        )
-        let oemFilter = Array(Set(oemRows.map(\.oemPartNumber)))
         if oemFilter.isEmpty {
             return CatalogBrowseResult(items: [], categories: [])
         }
