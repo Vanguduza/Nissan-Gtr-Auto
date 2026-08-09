@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("scrub_upsert")
 
-PAGE = 500
+PAGE = 1000
 
 
 def _headers(key: str, prefer: str) -> dict[str, str]:
