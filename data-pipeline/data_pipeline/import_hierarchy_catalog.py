@@ -126,7 +126,7 @@ _VARIANT_COLS = (
     "year_end",
     "year_label",
     "engine_code",
-    "megazip_data_id",
+    "external_data_id",
     "source_url",
 )
 _SECTION_COLS = (

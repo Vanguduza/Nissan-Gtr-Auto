@@ -59,6 +59,7 @@
         "year_end": { "type": "integer" },
         "engine_code": { "type": "string" },
         "megazip_data_id": { "type": "string" },
+        "external_data_id": { "type": "string" },
         "source_url": { "type": "string" }
       }
     },
