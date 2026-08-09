@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Per-source Megazip availability for priority chassis. Orchestrator warns/skips when megazip_available=false. model_seed URLs supplement priority_chassis.json model_seed_urls.",
+  "notes": "Per-source Megazip availability for priority chassis. Orchestrator warns/skips when megazip_available=false. model_seed URLs supplement priority_chassis.json model_seed_urls. Storefront EPC aliases: packages/shared catalog-chassis-alias.ts.",
   "chassis": {
     "T31": {
       "megazip_available": true,
@@ -15,6 +15,16 @@
     "T30": {
       "megazip_available": true,
       "model_seed": "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064"
+    },
+    "D40": {
+      "megazip_available": false,
+      "megazip_proxy": "D22",
+      "primary_source": "partsouq",
+      "notes": "Navara D40 fixtures exist in flat SoR; Megazip Navara/Frontier pack is D22-coded. Storefront EPC alias D40→D22."
+    },
+    "D22": {
+      "megazip_available": true,
+      "notes": "Frontier/Navara D22 — published Megazip hierarchy."
     }
   }
 }
