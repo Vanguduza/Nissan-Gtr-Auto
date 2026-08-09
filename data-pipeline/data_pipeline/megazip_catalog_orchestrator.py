@@ -13,7 +13,7 @@ Phases (``--phase``):
   all       — default pipeline for each maker
 
 Maker order (``config/megazip_makers.json``): Nissan → Toyota → Honda → Mazda → …
-Nissan default: two-phase crawl (priority chassis, then all remaining models).
+Nissan default: two-phase crawl in one process (priority chassis, then auto-start remaining models).
 
 Usage (from ``data-pipeline/``)::
 

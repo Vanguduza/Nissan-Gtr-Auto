@@ -652,3 +652,83 @@ def test_worker_leases_exclude_from_main_claim(tmp_path) -> None:
     assert state.leased_pending_count(db) == 1
 
 
+def test_prepare_remaining_requeues_non_priority_variants(tmp_path) -> None:
+    from data_pipeline.megazip.config import MakerPaths
+    from data_pipeline.megazip.crawl import prepare_remaining_crawl
+    from data_pipeline.megazip import state
+
+    root = tmp_path / "nissan"
+    paths = MakerPaths(
+        maker="Nissan",
+        slug="nissan",
+        root=root,
+        state_db=root / "state.db",
+        cache_dir=root / "cache",
+        diagrams_dir=root / "diagrams",
+        bundle_dir=root / "bundle",
+        meta_json=root / "meta.json",
+    )
+    paths.root.mkdir(parents=True)
+    state.init_db(paths.state_db)
+    state.upsert_parsed(
+        paths.state_db,
+        "https://example/hub",
+        "maker_hub",
+        "nissan",
+        {
+            "models": [
+                {
+                    "slug": "cube-2138",
+                    "source_url": "https://example/nissan/cube-2138",
+                }
+            ]
+        },
+    )
+    state.upsert_parsed(
+        paths.state_db,
+        "https://example/cube/variants",
+        "variant_list",
+        "nissan",
+        {
+            "model_slug": "cube-2138",
+            "variants": [
+                {
+                    "slug": "z12-1",
+                    "chassis_code": "Z12",
+                    "source_url": "https://example/cube/z12",
+                },
+                {
+                    "slug": "t31-1",
+                    "chassis_code": "T31",
+                    "source_url": "https://example/cube/t31",
+                },
+            ],
+        },
+    )
+    stats = prepare_remaining_crawl(paths, priority_chassis=frozenset({"T31"}))
+    assert stats["variants"] == 1
+    assert state.pending_count(paths.state_db) >= 1
+    claimed = state.claim_next_url(paths.state_db, maker_slug="nissan")
+    assert claimed is not None
+    assert "z12" in claimed["url"]
+
+
+def test_load_visited_deep_chassis(tmp_path) -> None:
+    from data_pipeline.megazip.crawl import load_visited_deep_chassis
+    from data_pipeline.megazip import state
+
+    db = tmp_path / "q.db"
+    state.init_db(db)
+    state.enqueue_url(
+        db,
+        "https://example/d22",
+        page_type="diagram",
+        maker_slug="nissan",
+        model_slug="frontier-2140",
+        chassis_code="D22",
+    )
+    state.mark_url(db, "https://example/d22", ok=True)
+    codes = load_visited_deep_chassis(db)
+    assert "D22" in codes
+
+
