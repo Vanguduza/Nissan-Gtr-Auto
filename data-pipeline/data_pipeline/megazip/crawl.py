@@ -701,12 +701,12 @@ async def crawl_maker(
 
                     for item in _discover_from_parsed(parsed, maker_slug=paths.slug):
                         ch = item.get("chassis_code") or chassis
-                        if priority_chassis and item.get("page_type") in (
+                        if active_priority and item.get("page_type") in (
                             "variant_list",
                             "section_list",
                             "diagram",
                         ):
-                            if ch and not _priority_allows(ch, priority_chassis):
+                            if ch and not _priority_allows(ch, active_priority):
                                 continue
                         enqueue_url(
                             paths.state_db,
