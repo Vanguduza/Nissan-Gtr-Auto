@@ -49,6 +49,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   const [form, setForm] = useState<VehicleCascadeFormValue>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [epcCtx, setEpcCtx] = useState<CatalogBrowseContext | null>(null);
+  const [epcChecked, setEpcChecked] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
