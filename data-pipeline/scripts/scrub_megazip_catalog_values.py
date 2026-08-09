@@ -74,34 +74,21 @@ async def rewrite_table(
     """Page megazip rows and rewrite diagram_path / storage_path to epc/."""
     sem = asyncio.Semaphore(CONCURRENCY)
     total = 0
-    # Prefer keyset on id to avoid offset drift while updating
-    after: str | None = None
+    # Always fetch the first PAGE of remaining megazip rows (filter shrinks as we PATCH).
     while True:
         q = (
             f"{base}/rest/v1/{table}?select=id,{col}"
-            f"&{col}=ilike.{quote('megazip/%', safe='')}"
+            f"&{col}=like.megazip/*"
             f"&order=id&limit={PAGE}"
         )
-        if after:
-            q += f"&id=gt.{after}"
         resp = await client.get(q, headers=_headers(key))
-        if resp.status_code >= 300:
-            # Fallback: plain filter if encode quirks
-            q2 = (
-                f"{base}/rest/v1/{table}?select=id,{col}"
-                f"&{col}=like.megazip/*"
-                f"&order=id&limit={PAGE}"
-            )
-            if after:
-                q2 += f"&id=gt.{after}"
-            resp = await client.get(q2, headers=_headers(key))
         resp.raise_for_status()
         rows = resp.json()
         if not rows:
             break
 
-        # Group ids by target path
         groups: dict[str, list[str]] = {}
+        unchanged = 0
         for row in rows:
             rid = row.get("id")
             old = row.get(col) or ""
@@ -109,8 +96,14 @@ async def rewrite_table(
                 continue
             new = _to_epc(old)
             if new == old:
+                unchanged += 1
                 continue
             groups.setdefault(new, []).append(str(rid))
+
+        if unchanged and not groups:
+            raise RuntimeError(
+                f"{table}: {unchanged} rows match megazip filter but need no rewrite — abort"
+            )
 
         tasks: list[asyncio.Task] = []
         for new_val, ids in groups.items():
@@ -125,10 +118,7 @@ async def rewrite_table(
             await asyncio.gather(*tasks)
 
         total += len(rows)
-        after = str(rows[-1]["id"])
-        logger.info("%s rewritten rows≈%s (page=%s after=%s…)", table, total, len(rows), after[:8])
-        if len(rows) < PAGE:
-            break
+        logger.info("%s rewritten rows≈%s (page=%s groups=%s)", table, total, len(rows), len(groups))
 
     logger.info("%s done approx_rows=%s", table, total)
     return total
