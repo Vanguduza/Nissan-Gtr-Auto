@@ -82,7 +82,7 @@ async def main_async() -> int:
             for attempt in range(8):
                 try:
                     up = await client.post(
-                        f"{base}/rest/v1/{table}?on_conflict=id",
+                        f"{base}/rest/v1/{table}?on_conflict=id&columns=id,{col}",
                         json=payload,
                         headers=_headers(key),
                     )
