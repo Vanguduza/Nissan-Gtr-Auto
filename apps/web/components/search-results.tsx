@@ -154,10 +154,12 @@ export function SearchResults({
       (r): r is PartHit => r.type === "part",
     );
     if (categoryFilter) {
-      parts = parts.filter(
-        (p) =>
-          p.category_name?.trim().toLowerCase() ===
-          categoryFilter.toLowerCase(),
+      parts = parts.filter((p) =>
+        categoryMatchesFilter(
+          categoryFilter,
+          p.category_name,
+          p.subcategory_name,
+        ),
       );
     }
     if (sort === "oem") {
