@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { categoryMatchesFilter } from "@gtr/shared";
 import {
   MEILI_FACETS,
   partHref,
