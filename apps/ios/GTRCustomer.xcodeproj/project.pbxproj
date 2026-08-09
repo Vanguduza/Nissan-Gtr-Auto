@@ -25,6 +25,7 @@
 		A10000000000000000000023 /* AuthTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* AuthTokenStore.swift */; };
 		A100000000000000000000B0 /* AuthNonce.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B1 /* AuthNonce.swift */; };
 		A100000000000000000000B2 /* GoogleOAuthBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B3 /* GoogleOAuthBrowser.swift */; };
+		A100000000000000000000C0 /* CatalogChassisAlias.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C1 /* CatalogChassisAlias.swift */; };
 		A10000000000000000000024 /* SignInScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SignInScreen.swift */; };
 		A10000000000000000000026 /* ChatScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* ChatScreen.swift */; };
 		A10000000000000000000028 /* DeliveryTrackScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* DeliveryTrackScreen.swift */; };
