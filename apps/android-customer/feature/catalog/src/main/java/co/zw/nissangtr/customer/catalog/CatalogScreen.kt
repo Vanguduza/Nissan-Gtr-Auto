@@ -378,19 +378,27 @@ private fun KmpHome(
                 actionLabel = "See all",
                 onAction = onSeeAllMostSale,
             )
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(8.dp),
-            ) {
-                rowItems(mostSale, key = { it.stockItemId }) { item ->
-                    ShopProductCard(
-                        title = item.oem,
-                        subtitle = item.name,
-                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
-                        liked = wishOems.contains(item.oem.trim().uppercase()),
-                        onLikeClick = { onToggleWish(item) },
-                        onClick = { onOpenProduct(item.oem) },
-                    )
+            if (mostSale.isEmpty()) {
+                ShopHonestEmpty(
+                    title = "No stock yet",
+                    body = "Catalog SoR has no saleable stock items. Reload inventory, then refresh.",
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            } else {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    rowItems(mostSale, key = { it.stockItemId }) { item ->
+                        ShopProductCard(
+                            title = item.oem,
+                            subtitle = item.name,
+                            priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
+                            liked = wishOems.contains(item.oem.trim().uppercase()),
+                            onLikeClick = { onToggleWish(item) },
+                            onClick = { onOpenProduct(item.oem) },
+                        )
+                    }
                 }
             }
 
@@ -400,19 +408,27 @@ private fun KmpHome(
                 actionLabel = "See all",
                 onAction = onSeeAllNewest,
             )
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(8.dp),
-            ) {
-                rowItems(newest, key = { "n-${it.stockItemId}" }) { item ->
-                    ShopProductCard(
-                        title = item.oem,
-                        subtitle = item.name,
-                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
-                        liked = wishOems.contains(item.oem.trim().uppercase()),
-                        onLikeClick = { onToggleWish(item) },
-                        onClick = { onOpenProduct(item.oem) },
-                    )
+            if (newest.isEmpty()) {
+                ShopHonestEmpty(
+                    title = "No recent parts",
+                    body = "No stock rows yet — empty catalog, not a filter bug.",
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            } else {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    rowItems(newest, key = { "n-${it.stockItemId}" }) { item ->
+                        ShopProductCard(
+                            title = item.oem,
+                            subtitle = item.name,
+                            priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
+                            liked = wishOems.contains(item.oem.trim().uppercase()),
+                            onLikeClick = { onToggleWish(item) },
+                            onClick = { onOpenProduct(item.oem) },
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(24.dp))
