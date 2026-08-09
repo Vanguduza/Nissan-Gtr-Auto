@@ -158,6 +158,7 @@ def run_maker_pipeline(
     skip_crawl: bool,
     priority_model_seeds: tuple[str, ...] = (),
     prepare_remaining_before: frozenset[str] | None = None,
+    auto_start_remaining: bool = False,
     refresh_diagram_dims: bool = False,
     pcdb_file: Path | None,
     live_import: bool,
