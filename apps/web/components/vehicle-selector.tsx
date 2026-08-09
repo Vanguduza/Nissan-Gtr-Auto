@@ -94,11 +94,13 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
     const code = chassis?.trim();
     if (!code) {
       setEpcCtx(null);
+      setEpcChecked(null);
       return;
     }
     const client = createWebClient();
     if (!client) return;
     const ctx = await lookupVariantByChassis(client, code);
+    setEpcChecked(code);
     if (ctx) {
       saveEpcContext(ctx);
       setEpcCtx(ctx);
