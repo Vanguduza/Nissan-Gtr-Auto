@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
+import { categoryMatchesFilter } from "@gtr/shared";
 import type { StockState } from "@/lib/shop-demo";
 import { zigExchangeRate } from "@/lib/customer-storefront";
 import {
