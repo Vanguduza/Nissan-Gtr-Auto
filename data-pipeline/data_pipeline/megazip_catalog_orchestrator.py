@@ -181,6 +181,7 @@ def run_maker_pipeline(
                 skip_crawl=skip_crawl,
                 priority_model_seeds=priority_model_seeds,
                 prepare_remaining_before=prepare_remaining_before,
+                auto_start_remaining=auto_start_remaining,
             )
         )
         result["phases"]["crawl"] = crawl_stats
