@@ -201,8 +201,10 @@ async def main_async() -> int:
     limits = httpx.Limits(max_connections=CONCURRENCY + 8, max_keepalive_connections=CONCURRENCY)
     # HTTP/1.1 — HTTP/2 stream ids exhaust under long PATCH storms
     async with httpx.AsyncClient(timeout=timeout, limits=limits, http2=False) as client:
-        await scrub_urls_and_makers(client, base, key)
-        await rewrite_table(client, base, key, "part_fitment", "diagram_path")
+        only = (os.environ.get("SCRUB_ONLY") or "").strip().lower()
+        if only not in ("parts", "diagram_parts", "catalog_diagram_parts"):
+            await scrub_urls_and_makers(client, base, key)
+            await rewrite_table(client, base, key, "part_fitment", "diagram_path")
         await rewrite_table(client, base, key, "catalog_diagram_parts", "diagram_path")
         for table, col in (
             ("part_fitment", "diagram_path"),
