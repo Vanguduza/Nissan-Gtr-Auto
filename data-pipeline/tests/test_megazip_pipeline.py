@@ -653,23 +653,13 @@ def test_worker_leases_exclude_from_main_claim(tmp_path) -> None:
 
 
 def test_prepare_remaining_requeues_non_priority_variants(tmp_path) -> None:
-    from data_pipeline.megazip.config import MakerPaths
+    from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
     from data_pipeline.megazip.crawl import prepare_remaining_crawl
     from data_pipeline.megazip import state
 
-    root = tmp_path / "nissan"
-    paths = MakerPaths(
-        maker="Nissan",
-        slug="nissan",
-        root=root,
-        state_db=root / "state.db",
-        cache_dir=root / "cache",
-        diagrams_dir=root / "diagrams",
-        bundle_dir=root / "bundle",
-        meta_json=root / "meta.json",
-    )
-    paths.root.mkdir(parents=True)
+    paths = build_maker_paths("Nissan", tmp_path, MegazipConfig.load())
     state.init_db(paths.state_db)
+    paths.root.mkdir(parents=True, exist_ok=True)
     state.upsert_parsed(
         paths.state_db,
         "https://example/hub",
