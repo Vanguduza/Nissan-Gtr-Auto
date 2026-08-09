@@ -391,7 +391,7 @@ def import_hierarchy_supabase(
         client,
         "catalog_diagram_parts",
         bundle.get("catalog_diagram_parts") or [],
-        _DIAGRAM_PART_COLS,
+        part_cols,
         _key_diagram_part,
         conflict_cols="maker_slug,model_slug,variant_slug,section_slug,itemslist_id",
     )
