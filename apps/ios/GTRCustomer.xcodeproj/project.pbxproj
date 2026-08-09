@@ -222,6 +222,7 @@
 				A10000000000000000000021 /* AuthTokenStore.swift */,
 				A100000000000000000000B1 /* AuthNonce.swift */,
 				A100000000000000000000B3 /* GoogleOAuthBrowser.swift */,
+				A100000000000000000000C1 /* CatalogChassisAlias.swift */,
 				A10000000000000000000017 /* StorefrontFormat.swift */,
 				A10000000000000000000051 /* GuestCompareStore.swift */,
 			);
@@ -328,6 +329,7 @@
 				A10000000000000000000023 /* AuthTokenStore.swift in Sources */,
 				A100000000000000000000B0 /* AuthNonce.swift in Sources */,
 				A100000000000000000000B2 /* GoogleOAuthBrowser.swift in Sources */,
+				A100000000000000000000C0 /* CatalogChassisAlias.swift in Sources */,
 				A10000000000000000000024 /* SignInScreen.swift in Sources */,
 				A10000000000000000000052 /* CatalogScreen.swift in Sources */,
 				A100000000000000000000A8 /* VehicleSelectorSection.swift in Sources */,
