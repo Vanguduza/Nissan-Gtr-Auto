@@ -2334,11 +2334,15 @@ private struct FitmentCategoryRow: Decodable {
     }
 }
 
-private struct PncCodeRow: Decodable {
+private struct PncCategoryMatchRow: Decodable {
     let pncCode: String
+    let categoryName: String?
+    let subcategoryName: String?
 
     enum CodingKeys: String, CodingKey {
         case pncCode = "pnc_code"
+        case categoryName = "category_name"
+        case subcategoryName = "subcategory_name"
     }
 }
 
