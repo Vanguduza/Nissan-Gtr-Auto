@@ -115,12 +115,43 @@ def _chassis_in_priority(chassis: str, priority: frozenset[str]) -> bool:
     return norm in priority or chassis.upper() in priority
 
 
+def load_visited_deep_chassis(db_path: Path) -> frozenset[str]:
+    """Chassis codes that already have VISITED section_list or diagram pages."""
+    conn = sqlite3.connect(db_path, timeout=60.0)
+    try:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT chassis_code FROM queue
+            WHERE status = 'VISITED'
+              AND page_type IN ('section_list', 'diagram')
+              AND chassis_code IS NOT NULL
+              AND trim(chassis_code) != ''
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+    out: set[str] = set()
+    for (raw,) in rows:
+        code = str(raw or "").strip()
+        if not code:
+            continue
+        norm = normalize_chassis_code(code) or code.upper()
+        out.add(norm)
+        out.add(code.upper())
+    return frozenset(out)
+
+
 def prepare_remaining_crawl(
     paths: MakerPaths,
     *,
     priority_chassis: frozenset[str],
 ) -> dict[str, int]:
-    """Re-enqueue model/variant branches skipped during priority-only crawl."""
+    """Re-enqueue model/variant branches skipped during priority-only crawl.
+
+    ``priority_chassis`` is treated as already-covered: those variants are not
+    re-queued. Pass the empty set only when you intentionally want every
+    chassis re-queued; prefer ``load_visited_deep_chassis`` for resume.
+    """
     init_db(paths.state_db)
     parsed = load_all_parsed(paths.state_db, maker_slug=paths.slug)
     parsed_variant_models = {
