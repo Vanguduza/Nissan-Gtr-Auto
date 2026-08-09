@@ -54,6 +54,7 @@
 		A100000000000000000000A4 /* CatalogBrowseFilters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A5 /* CatalogBrowseFilters.swift */; };
 		A100000000000000000000A6 /* VehicleCatalogModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A7 /* VehicleCatalogModels.swift */; };
 		A100000000000000000000A8 /* VehicleSelectorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A9 /* VehicleSelectorSection.swift */; };
+		A100000000000000000000AA /* CatalogCategoryFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000AB /* CatalogCategoryFilter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
