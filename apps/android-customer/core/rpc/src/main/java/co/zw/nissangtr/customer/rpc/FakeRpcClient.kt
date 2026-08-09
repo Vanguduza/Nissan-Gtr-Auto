@@ -354,9 +354,9 @@ class FakeRpcClient : RpcClient {
     }
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult {
         val cap = limit.coerceIn(1, 100)
-        val cat = category?.trim()?.lowercase()
+        val cat = category?.trim()?.takeIf { it.isNotEmpty() }
         val items = catalogProducts.values
-            .filter { cat == null || it.category?.lowercase()?.contains(cat) == true }
+            .filter { cat == null || CatalogCategoryFilter.matches(cat, it.category) }
             .take(cap)
             .map {
                 CatalogListItem(

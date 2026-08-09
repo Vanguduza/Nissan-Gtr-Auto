@@ -635,8 +635,10 @@ private data class FitmentCategoryRow(
 )
 
 @Serializable
-private data class PncCodeRow(
+private data class PncCategoryMatchRow(
     @SerialName("pnc_code") val pncCode: String,
+    @SerialName("category_name") val categoryName: String? = null,
+    @SerialName("subcategory_name") val subcategoryName: String? = null,
 )
 
 
