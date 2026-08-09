@@ -129,3 +129,7 @@ export {
   categoryFilterNeedles,
   categoryMatchesFilter,
 } from "./catalog-category-filter";
+export {
+  EPC_CHASSIS_ALIASES,
+  epcChassisLookupCodes,
+} from "./catalog-chassis-alias";
