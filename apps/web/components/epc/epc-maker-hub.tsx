@@ -68,7 +68,10 @@ export function EpcMakerHub() {
   if (status.makers.length === 0) {
     return (
       <EpcBrowseLayout title="Parts catalog">
-        <EpcEmptyState message="No makers seeded yet. Apply the hierarchy dev seed migration." />
+        <EpcEmptyState
+          title="EPC catalog empty"
+          message="No makers in catalog_makers yet. Reload hierarchy via docs/guides/megazip-multivehicle-catalog.md (--live-import) or the hierarchy seed migration, then refresh."
+        />
       </EpcBrowseLayout>
     );
   }
