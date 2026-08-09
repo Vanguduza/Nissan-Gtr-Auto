@@ -804,9 +804,10 @@ public final class LiveStorefrontApi: StorefrontApi {
     public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
         let cap = min(max(limit, 1), 100)
         let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        let categories = (try? await loadBrowseCategoryLabels()) ?? []
         let oemFilter = cat.map { try await resolveOemFilterForCategory($0) }
         if let oemFilter, oemFilter.isEmpty {
-            return CatalogBrowseResult(items: [], categories: [])
+            return CatalogBrowseResult(items: [], categories: categories)
         }
 
         var queryParts = [
@@ -823,7 +824,7 @@ public final class LiveStorefrontApi: StorefrontApi {
             query: queryParts.joined(separator: "&")
         )
         if items.isEmpty {
-            return CatalogBrowseResult(items: [], categories: [])
+            return CatalogBrowseResult(items: [], categories: categories)
         }
         let ids = items.map(\.id)
         let oems = items.map(\.oemPartNumber)
@@ -843,7 +844,34 @@ public final class LiveStorefrontApi: StorefrontApi {
                 category: catByOem[row.oemPartNumber] ?? cat
             )
         }
-        return CatalogBrowseResult(items: list, categories: [])
+        return CatalogBrowseResult(items: list, categories: categories)
+    }
+
+    private func loadBrowseCategoryLabels() async throws -> [String] {
+        struct PncCategoryNameRow: Decodable {
+            let categoryName: String?
+            enum CodingKeys: String, CodingKey {
+                case categoryName = "category_name"
+            }
+        }
+        let rows: [PncCategoryNameRow] = try await client.selectDecode(
+            table: "pnc_categories",
+            query: [
+                "select=category_name",
+                "order=category_name.asc",
+                "limit=100",
+            ].joined(separator: "&")
+        )
+        var seen = Set<String>()
+        var out: [String] = []
+        for row in rows {
+            guard let name = row.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty,
+                  seen.insert(name).inserted else { continue }
+            out.append(name)
+            if out.count >= 24 { break }
+        }
+        return out
     }
 
     public func listVehicleMaster() async throws -> [VehicleMasterRow] {
