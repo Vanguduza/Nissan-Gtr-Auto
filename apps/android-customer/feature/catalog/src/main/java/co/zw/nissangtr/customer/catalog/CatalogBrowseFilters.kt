@@ -1,5 +1,6 @@
 package co.zw.nissangtr.customer.catalog
 
+import co.zw.nissangtr.customer.rpc.CatalogCategoryFilter
 import co.zw.nissangtr.customer.rpc.CatalogListItem
 import co.zw.nissangtr.ui.shop.ShopFilterState
 import co.zw.nissangtr.ui.shop.ShopSortOption
@@ -19,7 +20,7 @@ internal fun applyCatalogFilterSort(
     }
     filter.category?.trim()?.takeIf { it.isNotEmpty() }?.let { cat ->
         out = out.filter { item ->
-            item.category?.equals(cat, ignoreCase = true) == true
+            CatalogCategoryFilter.matches(cat, item.category)
         }
     }
     val list = out.toList()
