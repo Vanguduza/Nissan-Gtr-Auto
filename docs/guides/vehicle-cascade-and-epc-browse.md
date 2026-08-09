@@ -179,7 +179,7 @@ catalog_makers
 |-------|-------------|
 | `catalog_makers` | `slug` PK, `name`, `sort_order`, `source` |
 | `catalog_models` | `maker_slug`, `slug`, `display_name`, `body_type`, `sort_key`, `year_start`/`year_end`, `source_url` |
-| `catalog_variants` | `chassis_code`, `frame`, `grade`, `sales_region`, `year_*` / `year_label`, `engine_code`, `megazip_data_id`, `source_url` |
+| `catalog_variants` | `chassis_code`, `frame`, `grade`, `sales_region`, `year_*` / `year_label`, `engine_code`, `external_data_id`, `source_url` |
 | `catalog_sections` | `name`, `thumbnail_url`, `sort_order`, `assembly_group_id` |
 | `catalog_diagrams` | `title`, `image_url`, `image_width`/`height`, `storage_path`, `diagram_kind`, `hotspot_count` |
 | `catalog_diagram_parts` | `itemslist_id`, `callout_ref`, `oem_part_number`, `description`, `quantity`, bbox_*, `diagram_path` |

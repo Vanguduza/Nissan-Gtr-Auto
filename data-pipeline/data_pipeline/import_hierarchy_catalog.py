@@ -207,25 +207,19 @@ def _normalize_hierarchy_rows_for_schema(
     if variant_cols is _VARIANT_COLS_LEGACY:
         rows = []
         for row in bundle.get("catalog_variants") or []:
-            mapped = dict(row)
-            if "external_data_id" in mapped and "megazip_data_id" not in mapped:
-                mapped["megazip_data_id"] = mapped.pop("external_data_id")
-            elif "external_data_id" in mapped:
-                mapped["megazip_data_id"] = mapped.get("megazip_data_id") or mapped.pop(
-                    "external_data_id"
-                )
+            mapped = {k: v for k, v in row.items() if k != "external_data_id"}
+            mapped["megazip_data_id"] = (
+                row.get("megazip_data_id") or row.get("external_data_id") or ""
+            )
             rows.append(mapped)
         out["catalog_variants"] = rows
     if part_cols is _DIAGRAM_PART_COLS_LEGACY:
         rows = []
         for row in bundle.get("catalog_diagram_parts") or []:
-            mapped = dict(row)
-            if "external_item_id" in mapped and "megazip_item_id" not in mapped:
-                mapped["megazip_item_id"] = mapped.pop("external_item_id")
-            elif "external_item_id" in mapped:
-                mapped["megazip_item_id"] = mapped.get("megazip_item_id") or mapped.pop(
-                    "external_item_id"
-                )
+            mapped = {k: v for k, v in row.items() if k != "external_item_id"}
+            mapped["megazip_item_id"] = row.get("megazip_item_id") or row.get(
+                "external_item_id"
+            )
             rows.append(mapped)
         out["catalog_diagram_parts"] = rows
     return variant_cols, part_cols, out
