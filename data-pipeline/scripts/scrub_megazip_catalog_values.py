@@ -97,7 +97,7 @@ async def rewrite_table(
             resp = await client.get(q2, headers=_headers(key))
         resp.raise_for_status()
         rows = resp.json()
-        if not by_path := rows:
+        if not rows:
             break
 
         # Group ids by target path
