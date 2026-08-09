@@ -344,6 +344,7 @@ def import_hierarchy_supabase(
         "part_fitment": sanitized["part_fitment"],
         "diagram_assets": sanitized["diagram_assets"],
     }
+    variant_cols, part_cols, bundle = _normalize_hierarchy_rows_for_schema(client, bundle)
 
     notes: list[str] = []
     _batch_upsert_slug_table(
@@ -366,7 +367,7 @@ def import_hierarchy_supabase(
         client,
         "catalog_variants",
         bundle.get("catalog_variants") or [],
-        _VARIANT_COLS,
+        variant_cols,
         _key_variant,
         conflict_cols="maker_slug,model_slug,slug",
     )
