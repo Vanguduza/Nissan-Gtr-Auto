@@ -176,10 +176,9 @@ export function CatalogBrowse({
     );
   }
 
-  const facetCats =
-    status.categories.length > 0
-      ? status.categories
-      : ["Brakes", "Filters", "Cooling", "Engine"];
+  const facetCats = status.categories;
+  const catalogEmpty =
+    status.items.length === 0 && status.categories.length === 0 && !category;
 
   const displayItems = applyCatalogFiltersAndSort(status.items, {
     sort,
@@ -195,29 +194,45 @@ export function CatalogBrowse({
         like the KMP PLP (price, newest, movers). For vehicle diagrams use{" "}
         <Link href="/catalog">Parts catalog (EPC)</Link>.
       </p>
+      {catalogEmpty ? (
+        <p className={styles.lede} role="status">
+          Catalog is empty — no stock items or PNC categories in Supabase yet.
+          Reload the SoR per{" "}
+          <code>docs/guides/erp-catalog-v1-load.md</code> or the Megazip import
+          guide, then refresh this page.
+        </p>
+      ) : null}
       <div className={styles.plp}>
         <aside className={styles.facets} aria-label="Filters">
           <h2>Filters</h2>
           <div className={styles.facetGroup}>
             <p>Category</p>
-            {facetCats.map((c) => {
-              const slug = c.toLowerCase();
-              const q = new URLSearchParams();
-              q.set("cat", slug);
-              if (sort !== "oem") q.set("sort", sort);
-              if (minParam) q.set("min", minParam);
-              if (maxParam) q.set("max", maxParam);
-              return (
-                <label key={c}>
-                  <input
-                    type="checkbox"
-                    readOnly
-                    checked={category?.toLowerCase() === slug}
-                  />{" "}
-                  <Link href={`/shop?${q.toString()}`}>{c}</Link>
-                </label>
-              );
-            })}
+            {facetCats.length === 0 ? (
+              <p className={styles.muted}>
+                {category
+                  ? `No PNC categories match “${category}”. Clear the filter or reload catalog data.`
+                  : "No categories loaded — filters unavailable until catalog data is imported."}
+              </p>
+            ) : (
+              facetCats.map((c) => {
+                const slug = c.toLowerCase();
+                const q = new URLSearchParams();
+                q.set("cat", slug);
+                if (sort !== "oem") q.set("sort", sort);
+                if (minParam) q.set("min", minParam);
+                if (maxParam) q.set("max", maxParam);
+                return (
+                  <label key={c}>
+                    <input
+                      type="checkbox"
+                      readOnly
+                      checked={category?.toLowerCase() === slug}
+                    />{" "}
+                    <Link href={`/shop?${q.toString()}`}>{c}</Link>
+                  </label>
+                );
+              })
+            )}
           </div>
           <form className={styles.facetGroup} onSubmit={pushFilters}>
             <p>Price (USD)</p>
