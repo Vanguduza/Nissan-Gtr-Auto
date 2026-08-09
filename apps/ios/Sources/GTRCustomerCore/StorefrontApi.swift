@@ -1051,11 +1051,11 @@ public final class FakeStorefrontApi: StorefrontApi {
 
     public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
         let cap = min(max(limit, 1), 100)
-        let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines)
         let items = catalogProducts.values
             .filter { item in
                 guard let cat, !cat.isEmpty else { return true }
-                return item.category?.lowercased().contains(cat) == true
+                return CatalogCategoryFilter.matches(filter: cat, fields: item.category)
             }
             .prefix(cap)
             .map {
