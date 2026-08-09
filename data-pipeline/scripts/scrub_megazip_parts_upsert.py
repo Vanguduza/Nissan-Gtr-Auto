@@ -66,7 +66,7 @@ async def main_async(args: argparse.Namespace) -> int:
             else:
                 raise RuntimeError("fetch failed")
             if resp.status_code >= 500:
-                await asyncio.sleep(2)
+                await asyncio.sleep(2 + attempt)
                 continue
             resp.raise_for_status()
             rows = resp.json()
@@ -103,6 +103,10 @@ async def main_async(args: argparse.Namespace) -> int:
                 raise RuntimeError("upsert failed")
             total += len(payload)
             logger.info("%s upserted≈%s (page=%s)", label, total, len(payload))
+            continue
+
+            # unreachable — kept structure simple above
+            _ = None
     logger.info("%s DONE approx=%s", label, total)
     return 0
 
