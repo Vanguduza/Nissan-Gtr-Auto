@@ -231,14 +231,14 @@ def test_variant_quality_breakdown() -> None:
         ],
         "catalog_diagrams": [
             {
-                "storage_path": "megazip/nissan/a.png",
+                "storage_path": "epc/nissan/a.png",
                 "diagram_kind": "exploded_diagram",
                 "hotspot_count": 8,
                 "model_slug": "m1",
                 "variant_slug": "v1",
             },
             {
-                "storage_path": "megazip/nissan/b.png",
+                "storage_path": "epc/nissan/b.png",
                 "diagram_kind": "parts_list_raster",
                 "hotspot_count": 3,
                 "model_slug": "m1",
@@ -246,14 +246,14 @@ def test_variant_quality_breakdown() -> None:
             },
         ],
         "catalog_diagram_parts": [
-            {"diagram_path": "megazip/nissan/b.png", "oem_part_number": "12345-ABCDE"},
+            {"diagram_path": "epc/nissan/b.png", "oem_part_number": "12345-ABCDE"},
         ],
         "part_fitment": [
             {
                 "oem_part_number": "09113-08061",
                 "chassis_code": "R35",
                 "bbox_x": 0.1,
-                "diagram_path": "megazip/nissan/a.png",
+                "diagram_path": "epc/nissan/a.png",
             }
             for _ in range(3)
         ],
@@ -278,25 +278,25 @@ def test_complete_only_requires_exploded_per_variant() -> None:
         ],
         "catalog_diagrams": [
             {
-                "storage_path": "megazip/nissan/raster.png",
+                "storage_path": "epc/nissan/raster.png",
                 "diagram_kind": "parts_list_raster",
                 "model_slug": "m1",
                 "variant_slug": "v1",
             },
         ],
         "catalog_diagram_parts": [
-            {"diagram_path": "megazip/nissan/raster.png", "oem_part_number": "12345-ABCDE"},
+            {"diagram_path": "epc/nissan/raster.png", "oem_part_number": "12345-ABCDE"},
         ],
         "part_fitment": [
             {
                 "oem_part_number": "12345-ABCDE",
                 "chassis_code": "R35",
-                "diagram_path": "megazip/nissan/raster.png",
+                "diagram_path": "epc/nissan/raster.png",
             },
         ],
         "vehicle_master": [{"chassis_code": "R35", "model_variant": "GT-R R35"}],
         "pnc_categories": [{"pnc_code": "MZ1", "category_name": "Gasket"}],
-        "diagram_assets": [{"storage_path": "megazip/nissan/raster.png", "source_url": "http://x"}],
+        "diagram_assets": [{"storage_path": "epc/nissan/raster.png", "source_url": "http://x"}],
     }
     filtered, meta = filter_complete_bundle(bundle, completed_only=True)
     assert filtered["part_fitment"] == []
@@ -310,7 +310,7 @@ def test_quality_report_publishable() -> None:
         "catalog_sections": [{}],
         "catalog_diagrams": [
             {
-                "storage_path": "megazip/toyota/x.png",
+                "storage_path": "epc/toyota/x.png",
                 "diagram_kind": "exploded_diagram",
                 "hotspot_count": 8,
                 "model_slug": "m1",
@@ -328,7 +328,7 @@ def test_quality_report_publishable() -> None:
                 "bbox_y": 0.2,
                 "bbox_width": 0.05,
                 "bbox_height": 0.02,
-                "diagram_path": "megazip/toyota/x.png",
+                "diagram_path": "epc/toyota/x.png",
             }
             for _ in range(3)
         ],
@@ -348,14 +348,14 @@ def test_two_tier_publish_variant_ready_maker_advisory() -> None:
         ],
         "catalog_diagrams": [
             {
-                "storage_path": "megazip/nissan/good.png",
+                "storage_path": "epc/nissan/good.png",
                 "diagram_kind": "exploded_diagram",
                 "hotspot_count": 8,
                 "model_slug": "m1",
                 "variant_slug": "v1",
             },
             {
-                "storage_path": "megazip/nissan/bad.png",
+                "storage_path": "epc/nissan/bad.png",
                 "diagram_kind": "exploded_diagram",
                 "hotspot_count": 1,
                 "model_slug": "m1",
@@ -370,7 +370,7 @@ def test_two_tier_publish_variant_ready_maker_advisory() -> None:
                 "pnc_code": "MZ1",
                 "chassis_code": "T31",
                 "bbox_x": 0.1,
-                "diagram_path": "megazip/nissan/good.png",
+                "diagram_path": "epc/nissan/good.png",
             }
             for _ in range(3)
         ],
@@ -391,14 +391,14 @@ def test_ambiguous_diagram_passes_with_table_only() -> None:
         "catalog_variants": [{"slug": "v1", "model_slug": "m1", "chassis_code": "T31"}],
         "catalog_diagrams": [
             {
-                "storage_path": "megazip/nissan/amb.png",
+                "storage_path": "epc/nissan/amb.png",
                 "diagram_kind": "ambiguous",
                 "hotspot_count": 1,
                 "model_slug": "m1",
                 "variant_slug": "v1",
             },
             {
-                "storage_path": "megazip/nissan/exp.png",
+                "storage_path": "epc/nissan/exp.png",
                 "diagram_kind": "exploded_diagram",
                 "hotspot_count": 8,
                 "model_slug": "m1",
@@ -406,14 +406,14 @@ def test_ambiguous_diagram_passes_with_table_only() -> None:
             },
         ],
         "catalog_diagram_parts": [
-            {"diagram_path": "megazip/nissan/amb.png", "oem_part_number": "12345-ABCDE"},
+            {"diagram_path": "epc/nissan/amb.png", "oem_part_number": "12345-ABCDE"},
         ],
         "part_fitment": [
             {
                 "oem_part_number": "09113-08061",
                 "chassis_code": "T31",
                 "bbox_x": 0.1,
-                "diagram_path": "megazip/nissan/exp.png",
+                "diagram_path": "epc/nissan/exp.png",
             }
             for _ in range(3)
         ],
@@ -422,7 +422,7 @@ def test_ambiguous_diagram_passes_with_table_only() -> None:
         "diagram_assets": [],
     }
     passing = _passing_diagram_paths(bundle)
-    assert "megazip/nissan/amb.png" in passing
+    assert "epc/nissan/amb.png" in passing
     filtered, _meta = filter_complete_bundle(bundle, completed_only=True)
     amb_diag = next(d for d in filtered["catalog_diagrams"] if d["storage_path"].endswith("amb.png"))
     assert amb_diag["publish_diagram"] is False
