@@ -406,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("Priority chassis mode: %s codes, %s model seeds", len(priority), len(model_seeds))
 
     manifest: dict[str, Any] = {
-        "source": "megazip",
+        "source": "epc",
         "makers": makers,
         "phases": phases,
         "results": [],
