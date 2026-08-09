@@ -78,6 +78,7 @@
 		A10000000000000000000021 /* AuthTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthTokenStore.swift; path = ../Sources/GTRCustomerCore/AuthTokenStore.swift; sourceTree = "<group>"; };
 		A100000000000000000000B1 /* AuthNonce.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthNonce.swift; path = ../Sources/GTRCustomerCore/AuthNonce.swift; sourceTree = "<group>"; };
 		A100000000000000000000B3 /* GoogleOAuthBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoogleOAuthBrowser.swift; path = ../Sources/GTRCustomerCore/GoogleOAuthBrowser.swift; sourceTree = "<group>"; };
+		A100000000000000000000C1 /* CatalogChassisAlias.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CatalogChassisAlias.swift; path = ../Sources/GTRCustomerCore/CatalogChassisAlias.swift; sourceTree = "<group>"; };
 		A100000000000000000000B4 /* GTRCustomer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GTRCustomer.entitlements; sourceTree = "<group>"; };
 		A10000000000000000000022 /* SignInScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInScreen.swift; sourceTree = "<group>"; };
 		A10000000000000000000027 /* ChatScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScreen.swift; sourceTree = "<group>"; };
