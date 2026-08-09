@@ -72,7 +72,7 @@ def build_hierarchy_bundle(
                     "slug": model_slug,
                     "display_name": model_slug.replace("-", " ").upper(),
                     "sort_key": model_slug.upper(),
-                    "source_url": url,
+                    "source_url": _public_catalog_url(url),
                 }
             for v in payload.get("variants") or []:
                 vslug = v["slug"]
@@ -86,7 +86,6 @@ def build_hierarchy_bundle(
                     "grade": v.get("grade") or "",
                     "sales_region": v.get("sales_region") or "",
                     "year_label": v.get("year_label") or "",
-                    "megazip_data_id": v.get("megazip_data_id") or "",
                     "external_data_id": v.get("external_data_id")
                     or v.get("megazip_data_id")
                     or "",
@@ -117,7 +116,7 @@ def build_hierarchy_bundle(
                     "thumbnail_url": s.get("thumbnail_url"),
                     "sort_order": i,
                     "assembly_group_id": s.get("assembly_group_id") or "",
-                    "source_url": s.get("source_url") or url,
+                    "source_url": _public_catalog_url(s.get("source_url") or url),
                 }
 
         elif ptype == "diagram":
@@ -135,24 +134,27 @@ def build_hierarchy_bundle(
                 "section_slug": section_slug,
                 "slug": dslug,
                 "title": payload.get("title") or section_slug,
-                "image_url": image_url,
+                "image_url": _public_catalog_url(image_url),
                 "image_width": payload.get("image_width"),
                 "image_height": payload.get("image_height"),
                 "diagram_kind": payload.get("diagram_kind") or "ambiguous",
                 "hotspot_count": payload.get("hotspot_count") or 0,
                 "publish_diagram": (payload.get("diagram_kind") or "ambiguous") != "parts_list_raster",
                 "storage_path": storage_path,
-                "source_url": url,
+                "source_url": _public_catalog_url(url),
             }
             if storage_path:
-                diagram_assets[storage_path] = {
+                asset: dict[str, Any] = {
                     "storage_path": storage_path,
-                    "source_url": image_url,
                     "content_type": "image/png",
                     "provenance": "scraped-reference",
                     "chassis_code": variants.get((model_slug, variant_slug), {}).get("chassis_code")
                     or "",
                 }
+                pub_img = _public_catalog_url(image_url)
+                if pub_img:
+                    asset["source_url"] = pub_img
+                diagram_assets[storage_path] = asset
 
             variant_chassis = variants.get((model_slug, variant_slug), {}).get("chassis_code", "")
             if storage_path and variant_chassis:
