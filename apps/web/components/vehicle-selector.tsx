@@ -240,6 +240,13 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
           >
             Check EPC diagrams
           </button>
+          {epcChecked === form.generation ? (
+            <span>
+              {" "}
+              No EPC hierarchy for chassis {form.generation} (and no published
+              alias). Use search by model, or Browse EPC from the maker hub.
+            </span>
+          ) : null}
         </p>
       ) : null}
     </form>
