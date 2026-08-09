@@ -424,6 +424,7 @@ def main(argv: list[str] | None = None) -> int:
         maker_seeds: tuple[str, ...],
         skip_crawl: bool,
         prepare_remaining_before: frozenset[str] | None = None,
+        auto_start_remaining: bool = False,
     ) -> bool:
         logger.info("=== Megazip pipeline: %s [%s] ===", maker, pass_label)
         try:
@@ -437,6 +438,7 @@ def main(argv: list[str] | None = None) -> int:
                 priority_model_seeds=maker_seeds,
                 skip_crawl=skip_crawl,
                 prepare_remaining_before=prepare_remaining_before,
+                auto_start_remaining=auto_start_remaining,
                 refresh_diagram_dims=args.refresh_diagram_dims,
                 pcdb_file=args.pcdb_file,
                 live_import=args.live_import,
@@ -486,23 +488,15 @@ def main(argv: list[str] | None = None) -> int:
                         code,
                         entry.get("megazip_proxy"),
                     )
+            # Single crawl: priority filter first, then auto-handoff to remaining models.
             if not _run_maker(
                 maker,
                 phases_run=("crawl",),
-                pass_label="nissan-priority",
+                pass_label="nissan-two-phase",
                 maker_priority=all_priority,
                 maker_seeds=seeds_a,
                 skip_crawl=False,
-            ):
-                return 1
-            if not _run_maker(
-                maker,
-                phases_run=("crawl",),
-                pass_label="nissan-remaining",
-                maker_priority=None,
-                maker_seeds=(),
-                skip_crawl=False,
-                prepare_remaining_before=all_priority,
+                auto_start_remaining=True,
             ):
                 return 1
             tail = tuple(p for p in phases if p != "crawl")
@@ -519,6 +513,8 @@ def main(argv: list[str] | None = None) -> int:
 
         maker_priority = priority if maker.lower() == "nissan" and priority else None
         maker_seeds = model_seeds if maker.lower() == "nissan" and model_seeds else ()
+        # --all-models: when the current drain finishes, queue underexplored hub models.
+        auto_remaining = bool(args.all_models and maker.lower() == "nissan")
         if not _run_maker(
             maker,
             phases_run=phases,
@@ -526,6 +522,7 @@ def main(argv: list[str] | None = None) -> int:
             maker_priority=maker_priority,
             maker_seeds=maker_seeds,
             skip_crawl=args.skip_crawl,
+            auto_start_remaining=auto_remaining,
         ):
             return 1
 
