@@ -77,7 +77,7 @@ class MakerPaths:
 
     @property
     def diagram_storage_prefix(self) -> str:
-        return f"megazip/{self.slug}"
+        return f"epc/{self.slug}"
 
 
 def build_maker_paths(maker: str, out_root: Path, config: MegazipConfig | None = None) -> MakerPaths:

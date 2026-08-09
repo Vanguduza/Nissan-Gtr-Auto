@@ -19,6 +19,15 @@ def _diagram_storage_path(prefix: str, image_url: str, slug: str) -> str:
     return f"{prefix}/{name}"
 
 
+def _public_catalog_url(url: str | None) -> str | None:
+    """Drop vendor crawl URLs so Supabase catalog never stores megazip hosts."""
+    if not url:
+        return None
+    if "megazip" in str(url).lower():
+        return None
+    return url
+
+
 def build_hierarchy_bundle(
     paths: MakerPaths,
     *,
