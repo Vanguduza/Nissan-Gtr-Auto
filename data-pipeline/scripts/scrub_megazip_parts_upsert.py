@@ -1,4 +1,4 @@
-"""Scrub megazip→epc on catalog_diagram_parts via bulk upsert (1 HTTP call / page)."""
+"""Scrub megazip→epc on catalog_diagram_parts via full-row bulk upsert."""
 
 from __future__ import annotations
 
@@ -15,16 +15,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("scrub_upsert")
 
-PAGE = 1000
-CONCURRENCY = 6  # parallel pages via id keyset shards would be better; keep serial+retry
+PAGE = 500
 
 
-def _headers(key: str) -> dict[str, str]:
+def _headers(key: str, prefer: str) -> dict[str, str]:
     return {
         "apikey": key,
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates,return=minimal",
+        "Prefer": prefer,
     }
 
 
@@ -43,28 +42,21 @@ async def main_async() -> int:
         return 2
     base = url.rstrip("/")
     table = "catalog_diagram_parts"
-    col = "diagram_path"
     timeout = httpx.Timeout(180.0, connect=30.0)
     total = 0
     async with httpx.AsyncClient(timeout=timeout, http2=False) as client:
         while True:
             q = (
-                f"{base}/rest/v1/{table}?select=id,{col}"
-                f"&{col}=like.megazip/*"
+                f"{base}/rest/v1/{table}?select=*"
+                f"&diagram_path=like.megazip/*"
                 f"&order=id&limit={PAGE}"
             )
             for attempt in range(8):
                 try:
-                    resp = await client.get(
-                        q,
-                        headers={
-                            "apikey": key,
-                            "Authorization": f"Bearer {key}",
-                        },
-                    )
+                    resp = await client.get(q, headers=_headers(key, "return=representation"))
                     break
                 except Exception:
-                    await asyncio.sleep(0.5 * (attempt + 1))
+                    await asyncio.sleep(0.4 * (attempt + 1))
             else:
                 raise RuntimeError("fetch failed")
             resp.raise_for_status()
@@ -73,18 +65,21 @@ async def main_async() -> int:
                 break
             payload = []
             for row in rows:
-                old = row.get(col) or ""
+                old = row.get("diagram_path") or ""
                 new = _to_epc(old)
-                if new != old and row.get("id"):
-                    payload.append({"id": row["id"], col: new})
+                if new == old:
+                    continue
+                row = dict(row)
+                row["diagram_path"] = new
+                payload.append(row)
             if not payload:
-                raise RuntimeError("page matched megazip but no rewrites")
+                raise RuntimeError("no rewrites in page")
             for attempt in range(8):
                 try:
                     up = await client.post(
-                        f"{base}/rest/v1/{table}?on_conflict=id&columns=id,{col}",
+                        f"{base}/rest/v1/{table}?on_conflict=id",
                         json=payload,
-                        headers=_headers(key),
+                        headers=_headers(key, "resolution=merge-duplicates,return=minimal"),
                     )
                 except Exception:
                     await asyncio.sleep(0.5 * (attempt + 1))
@@ -94,7 +89,7 @@ async def main_async() -> int:
                 if up.status_code in (429, 500, 502, 503, 504) or "timeout" in (up.text or "").lower():
                     await asyncio.sleep(0.6 * (attempt + 1))
                     continue
-                raise RuntimeError(f"upsert {up.status_code}: {up.text[:240]}")
+                raise RuntimeError(f"upsert {up.status_code}: {up.text[:300]}")
             else:
                 raise RuntimeError("upsert failed")
             total += len(payload)
