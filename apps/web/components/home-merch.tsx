@@ -198,14 +198,14 @@ export function HomeMerch() {
                 lede="Highest on-hand qty in saleable warehouses — demand proxy until sales analytics feed the storefront."
                 seeAllHref="/shop?sort=movers"
                 items={rails.movers}
-                emptyHint="No stock rows yet for movers."
+                emptyHint="No stock rows yet for movers — catalog may be empty."
               />
               <ProductRail
                 title="Newest arrivals"
                 lede="Recently added stock items — newest first."
                 seeAllHref="/shop?sort=newest"
                 items={rails.newest}
-                emptyHint="No recent stock items."
+                emptyHint="No recent stock items — reload the catalog SoR if /shop is also empty."
               />
             </div>
           ) : null}
