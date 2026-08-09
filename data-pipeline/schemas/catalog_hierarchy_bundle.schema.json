@@ -126,6 +126,7 @@
         "description": { "type": "string" },
         "quantity": { "type": "string" },
         "megazip_item_id": { "type": "string" },
+        "external_item_id": { "type": "string" },
         "bbox_x": { "type": "number" },
         "bbox_y": { "type": "number" },
         "bbox_width": { "type": "number" },

@@ -216,7 +216,7 @@ def build_hierarchy_bundle(
 
     bundle: dict[str, Any] = {
         "catalog_makers": [
-            {"slug": maker_slug, "name": maker_name, "sort_order": 0, "source": "megazip"}
+            {"slug": maker_slug, "name": maker_name, "sort_order": 0, "source": "epc"}
         ],
         "catalog_models": sorted(models.values(), key=lambda m: m.get("sort_key") or ""),
         "catalog_variants": list(variants.values()),

@@ -167,7 +167,7 @@ _DIAGRAM_PART_COLS = (
     "oem_part_number",
     "description",
     "quantity",
-    "megazip_item_id",
+    "external_item_id",
     "bbox_x",
     "bbox_y",
     "bbox_width",
