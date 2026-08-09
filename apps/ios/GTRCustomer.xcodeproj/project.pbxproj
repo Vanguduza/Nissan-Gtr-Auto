@@ -108,6 +108,7 @@
 		A100000000000000000000A5 /* CatalogBrowseFilters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogBrowseFilters.swift; sourceTree = "<group>"; };
 		A100000000000000000000A7 /* VehicleCatalogModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VehicleCatalogModels.swift; path = ../Sources/GTRCustomerCore/VehicleCatalogModels.swift; sourceTree = "<group>"; };
 		A100000000000000000000A9 /* VehicleSelectorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleSelectorSection.swift; sourceTree = "<group>"; };
+		A100000000000000000000AB /* CatalogCategoryFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CatalogCategoryFilter.swift; path = ../Sources/GTRCustomerCore/CatalogCategoryFilter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
