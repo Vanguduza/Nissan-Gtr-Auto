@@ -553,15 +553,20 @@ export async function listCatalogProducts(
 
   let oemFilter: string[] | null = null;
   if (cat) {
+    // Merchandising slugs (`brakes`) must match EPC assembly groups
+    // (`BRAKE PIPING & CONTROL`) — exact equality always misses PartSouq data.
     const { data: pncs } = await client
       .from("pnc_categories")
-      .select("pnc_code, category_name")
-      .limit(1000);
+      .select("pnc_code, category_name, subcategory_name")
+      .limit(2000);
 
     const codes = (pncs ?? [])
-      .filter(
-        (p) =>
-          normalizeDisplayCategory(p.category_name)?.toLowerCase() === cat,
+      .filter((p) =>
+        categoryMatchesFilter(
+          cat,
+          normalizeDisplayCategory(p.category_name),
+          normalizeDisplayCategory(p.subcategory_name),
+        ),
       )
       .map((p) => p.pnc_code);
     if (codes.length) {
