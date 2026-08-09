@@ -129,6 +129,9 @@ _VARIANT_COLS = (
     "external_data_id",
     "source_url",
 )
+_VARIANT_COLS_LEGACY = tuple(
+    "megazip_data_id" if c == "external_data_id" else c for c in _VARIANT_COLS
+)
 _SECTION_COLS = (
     "maker_slug",
     "model_slug",
@@ -173,6 +176,59 @@ _DIAGRAM_PART_COLS = (
     "bbox_width",
     "bbox_height",
 )
+_DIAGRAM_PART_COLS_LEGACY = tuple(
+    "megazip_item_id" if c == "external_item_id" else c for c in _DIAGRAM_PART_COLS
+)
+
+
+def _table_has_column(client: Any, table: str, column: str) -> bool:
+    try:
+        client.table(table).select(column).limit(1).execute()
+        return True
+    except Exception:  # noqa: BLE001 — PostgREST 400 when column missing
+        return False
+
+
+def _normalize_hierarchy_rows_for_schema(
+    client: Any, bundle: dict[str, Any]
+) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, Any]]:
+    """Map vendor-neutral fields onto live column names (pre/post rename migration)."""
+    variant_cols = (
+        _VARIANT_COLS
+        if _table_has_column(client, "catalog_variants", "external_data_id")
+        else _VARIANT_COLS_LEGACY
+    )
+    part_cols = (
+        _DIAGRAM_PART_COLS
+        if _table_has_column(client, "catalog_diagram_parts", "external_item_id")
+        else _DIAGRAM_PART_COLS_LEGACY
+    )
+    out = dict(bundle)
+    if variant_cols is _VARIANT_COLS_LEGACY:
+        rows = []
+        for row in bundle.get("catalog_variants") or []:
+            mapped = dict(row)
+            if "external_data_id" in mapped and "megazip_data_id" not in mapped:
+                mapped["megazip_data_id"] = mapped.pop("external_data_id")
+            elif "external_data_id" in mapped:
+                mapped["megazip_data_id"] = mapped.get("megazip_data_id") or mapped.pop(
+                    "external_data_id"
+                )
+            rows.append(mapped)
+        out["catalog_variants"] = rows
+    if part_cols is _DIAGRAM_PART_COLS_LEGACY:
+        rows = []
+        for row in bundle.get("catalog_diagram_parts") or []:
+            mapped = dict(row)
+            if "external_item_id" in mapped and "megazip_item_id" not in mapped:
+                mapped["megazip_item_id"] = mapped.pop("external_item_id")
+            elif "external_item_id" in mapped:
+                mapped["megazip_item_id"] = mapped.get("megazip_item_id") or mapped.pop(
+                    "external_item_id"
+                )
+            rows.append(mapped)
+        out["catalog_diagram_parts"] = rows
+    return variant_cols, part_cols, out
 
 
 def _key_maker(row: dict[str, Any]) -> tuple[Any, ...]:
