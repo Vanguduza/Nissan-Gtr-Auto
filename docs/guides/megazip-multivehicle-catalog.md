@@ -63,18 +63,20 @@ Orchestrator processes makers top-to-bottom from `config/megazip_makers.json`:
 
 When crawling Nissan without `--single-chassis`, `--priority-chassis`, or `--all-models`:
 
-1. **Phase A (`nissan-priority`)** — all codes in `config/priority_chassis.json` + model seeds
-2. **Phase B (`nissan-remaining`)** — drain queue for remaining Nissan models (no priority filter)
+1. **Priority pass** — chassis in `config/priority_chassis.json` + model seeds (filter on)
+2. **Auto remaining** — when priority PENDING drains (and worker leases are idle), the same crawl process calls `prepare_remaining_crawl` and continues with **no** chassis filter so the rest of the hub models are crawled
 3. **Post-crawl** — single `parse → transform → pcdb → filter → upload` pass from shared cache
+
+`--all-models` also enables an underexplored-model ensure before crawl exit (so models that only have a visited hub/catalog row still get variant/section work queued).
 
 Flags:
 
 | Flag | Effect |
 |------|--------|
-| *(default)* | Nissan two-phase on |
+| *(default)* | Nissan two-phase on (priority → auto remaining in one crawl) |
 | `--no-nissan-two-phase` | Single pass, no automatic priority-then-all |
-| `--priority-chassis` | Phase A only (priority codes) |
-| `--all-models` | Phase B only (no priority filter) |
+| `--priority-chassis` | Priority codes only (no auto remaining) |
+| `--all-models` | No priority filter; underexplored ensure on empty queue |
 | `--max-pages N` | Cap pages **per crawl pass** (smoke only; omit for production) |
 
 ### Two-tier publish model
