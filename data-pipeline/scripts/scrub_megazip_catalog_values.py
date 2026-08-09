@@ -12,6 +12,8 @@ import httpx
 from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger("scrub")
 
 PAGE = 1000
