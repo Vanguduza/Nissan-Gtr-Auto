@@ -174,7 +174,8 @@ def build_hierarchy_bundle(
                     "oem_part_number": row.get("oem_part_number") or "",
                     "description": row.get("description"),
                     "quantity": row.get("quantity"),
-                    "megazip_item_id": row.get("megazip_item_id"),
+                    "external_item_id": row.get("external_item_id")
+                    or row.get("megazip_item_id"),
                 }
                 for k in ("bbox_x", "bbox_y", "bbox_width", "bbox_height"):
                     if row.get(k) is not None:
