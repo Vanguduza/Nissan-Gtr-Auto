@@ -433,6 +433,7 @@ async def crawl_maker(
     skip_crawl: bool = False,
     priority_model_seeds: tuple[str, ...] = (),
     prepare_remaining_before: frozenset[str] | None = None,
+    auto_start_remaining: bool = False,
     model_slugs: frozenset[str] | None = None,
     worker_mode: bool = False,
     worker_id: str | None = None,
@@ -444,6 +445,11 @@ async def crawl_maker(
     Skips hub/seed enqueue, self-heal, and remaining-pass prep. Acquires
     exclusive model leases so parallel workers and the main crawler never
     claim the same model.
+
+    ``auto_start_remaining`` — when the main crawler's priority-filtered queue
+    drains (and no worker leases remain), call ``prepare_remaining_crawl`` and
+    continue without a chassis filter so the rest of the maker is crawled in
+    the same process. Also runs one underexplored-model ensure before exit.
     """
     init_db(paths.state_db)
     paths.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -452,6 +458,9 @@ async def crawl_maker(
     requeue_stats: dict[str, int] = {}
     leased_models: frozenset[str] = frozenset()
     wid = worker_id or ("worker-" + "-".join(sorted(model_slugs or []))[:80])
+    active_priority = priority_chassis
+    remaining_started = False
+    coverage_ensured = False
 
     if worker_mode:
         if not model_slugs:
