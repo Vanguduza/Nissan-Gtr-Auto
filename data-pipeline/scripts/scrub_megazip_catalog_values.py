@@ -10,8 +10,6 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from urllib.parse import quote
-
 import httpx
 
 from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
