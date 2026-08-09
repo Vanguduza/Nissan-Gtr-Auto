@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import os
@@ -33,7 +34,7 @@ def _to_epc(path: str) -> str:
     return path
 
 
-async def main_async() -> int:
+async def main_async(args: argparse.Namespace) -> int:
     repo = Path(__file__).resolve().parents[2]
     pipe = Path(__file__).resolve().parents[1]
     load_env_files(pipe / ".env", repo / ".env", override=True)
@@ -44,6 +45,7 @@ async def main_async() -> int:
     table = "catalog_diagram_parts"
     timeout = httpx.Timeout(180.0, connect=30.0)
     total = 0
+    label = args.label or "all"
     async with httpx.AsyncClient(timeout=timeout, http2=False) as client:
         while True:
             q = (
@@ -51,6 +53,10 @@ async def main_async() -> int:
                 f"&diagram_path=like.megazip/*"
                 f"&order=id&limit={PAGE}"
             )
+            if args.id_gte:
+                q += f"&id=gte.{args.id_gte}"
+            if args.id_lt:
+                q += f"&id=lt.{args.id_lt}"
             for attempt in range(8):
                 try:
                     resp = await client.get(q, headers=_headers(key, "return=representation"))
@@ -59,6 +65,9 @@ async def main_async() -> int:
                     await asyncio.sleep(0.4 * (attempt + 1))
             else:
                 raise RuntimeError("fetch failed")
+            if resp.status_code >= 500:
+                await asyncio.sleep(2)
+                continue
             resp.raise_for_status()
             rows = resp.json()
             if not rows:
@@ -93,15 +102,20 @@ async def main_async() -> int:
             else:
                 raise RuntimeError("upsert failed")
             total += len(payload)
-            logger.info("upserted≈%s (page=%s)", total, len(payload))
-    logger.info("DONE approx=%s", total)
+            logger.info("%s upserted≈%s (page=%s)", label, total, len(payload))
+    logger.info("%s DONE approx=%s", label, total)
     return 0
 
 
 def main() -> int:
+    p = argparse.ArgumentParser()
+    p.add_argument("--id-gte")
+    p.add_argument("--id-lt")
+    p.add_argument("--label", default="all")
+    args = p.parse_args()
     if os.name == "nt":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    return asyncio.run(main_async())
+    return asyncio.run(main_async(args))
 
 
 if __name__ == "__main__":
