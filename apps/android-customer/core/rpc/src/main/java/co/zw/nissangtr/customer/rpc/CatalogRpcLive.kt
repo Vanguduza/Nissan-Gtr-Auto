@@ -658,6 +658,11 @@ private data class PncCategoryMatchRow(
     @SerialName("subcategory_name") val subcategoryName: String? = null,
 )
 
+@Serializable
+private data class PncCategoryNameRow(
+    @SerialName("category_name") val categoryName: String? = null,
+)
+
 
 @Serializable
 private data class VehicleMasterDbRow(
