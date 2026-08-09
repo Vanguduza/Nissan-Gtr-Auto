@@ -391,7 +391,7 @@ struct CatalogScreen: View {
         if items.isEmpty {
             ShopHonestEmpty(
                 title: "No parts yet",
-                bodyText: "No items."
+                bodyText: "No stock rows yet. If filters also look empty, reload the catalog SoR."
             )
         } else {
             ShopHorizontalRail(items: items) { item in

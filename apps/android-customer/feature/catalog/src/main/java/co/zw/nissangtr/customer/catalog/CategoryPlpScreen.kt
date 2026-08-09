@@ -119,7 +119,7 @@ fun CategoryPlpScreen(
         if (products.isEmpty() && !busy) {
             ShopHonestEmpty(
                 title = "No parts in this category",
-                body = "No items.",
+                body = "No matching stock for this filter. If every category is empty, the catalog SoR may not be loaded yet.",
                 modifier = Modifier.padding(24.dp),
             )
         } else {

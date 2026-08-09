@@ -607,7 +607,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.live:
-        load_env_files(repo_root / ".env", root / ".env", override=True)
+        # data-pipeline/.env first, repo-root .env last so hosted SoR wins
+        # over local Docker overrides (parity with import_hierarchy_catalog).
+        load_env_files(root / ".env", repo_root / ".env", override=True)
 
     bundle = load_bundle(args.fixture)
     filter_meta: dict[str, Any] | None = None

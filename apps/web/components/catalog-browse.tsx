@@ -312,11 +312,17 @@ export function CatalogBrowse({
                 {displayItems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className={styles.muted}>
-                      No parts in inventory
-                      {category ? ` for category “${category}”` : ""}
-                      {(minUsd != null || maxUsd != null) &&
-                        " matching this price range"}
-                      .
+                      {catalogEmpty
+                        ? "No inventory rows yet — catalog SoR is empty."
+                        : category && status.categories.length === 0
+                          ? `Category “${category}” has no matching PNC groups (catalog may be empty or still loading).`
+                          : `No parts in inventory${
+                              category ? ` for category “${category}”` : ""
+                            }${
+                              minUsd != null || maxUsd != null
+                                ? " matching this price range"
+                                : ""
+                            }.`}
                     </td>
                   </tr>
                 ) : (
