@@ -158,8 +158,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if not args.pies and not args.aces:
-        parser.error("Provide at least --pies and/or --aces")
+    if not args.pies and not args.aces and not args.pcdb_only:
+        parser.error("Provide at least --pies, --aces, and/or --pcdb-only")
+    if args.pcdb_only and not args.bundle:
+        parser.error("--pcdb-only requires --bundle")
 
     out_dir: Path = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -168,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     report: dict[str, Any] = {
         "pies_file": str(args.pies) if args.pies else None,
         "aces_file": str(args.aces) if args.aces else None,
+        "pcdb_only": bool(args.pcdb_only),
         "bundle": str(args.bundle) if args.bundle else None,
         "notes": [
             "Enrichment only — Supabase/EPC remains system of record.",
@@ -196,7 +199,20 @@ def main(argv: list[str] | None = None) -> int:
 
     bundle: dict[str, Any] | None = None
     enrich_stats: dict[str, Any] = {}
-    if args.bundle and pies_items:
+    if args.pcdb_only and args.bundle:
+        bundle = load_bundle(args.bundle)
+        pcdb_stats = enrich_pcdb(bundle, mapping_path)
+        enrich_stats = {
+            **pcdb_stats,
+            "stock_descriptions": 0,
+            "notes": [
+                "PCdb-only pass via curated epc_to_pcdb.json (stem-aware).",
+                "Placeholder PartTerminologyIDs until licensed PCdb / supplier PIES.",
+            ],
+        }
+        _write_json(out_dir / "pnc_categories_enriched.json", bundle.get("pnc_categories") or [])
+        report["enrichment"] = enrich_stats
+    elif args.bundle and pies_items:
         bundle = load_bundle(args.bundle)
         if args.skip_curated_pcdb:
             result = apply_pies_to_bundle(bundle, pies_items)
@@ -232,9 +248,9 @@ def main(argv: list[str] | None = None) -> int:
         report["mapping_written"] = str(args.write_mapping)
 
     if args.live:
-        if not pies_items:
-            raise SystemExit("--live requires --pies")
-        stock_rows = stock_rows_from_pies(pies_items)
+        if not pies_items and not args.pcdb_only:
+            raise SystemExit("--live requires --pies and/or --pcdb-only")
+        stock_rows = stock_rows_from_pies(pies_items) if pies_items else []
         pnc_rows = (bundle or {}).get("pnc_categories") or []
         if not bundle:
             report["notes"].append(
