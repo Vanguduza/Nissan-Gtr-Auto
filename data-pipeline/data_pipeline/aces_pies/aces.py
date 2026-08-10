@@ -15,9 +15,11 @@ from typing import Any
 
 # Documented stub reason for CLI / enrichment reports.
 ACES_APPLY_STUB_REASON = (
-    "ACES application upsert is stubbed: part_fitment has no source/provenance "
-    "column for aces|epc separation. Parsed apps are written to enrichment output "
-    "only — never replace EPC bbox/diagram_path authority."
+    "ACES application upsert is stubbed until (1) an additive fitment_source "
+    "(aces|epc) column or aces_applications side table exists, (2) a VCdb "
+    "BaseVehicle↔vehicle_master bridge is curated, and (3) licensed/supplier "
+    "ACES XML is available. Parsed apps write to enrichment sidecars only — "
+    "never replace EPC bbox/diagram_path authority on part_fitment."
 )
 
 

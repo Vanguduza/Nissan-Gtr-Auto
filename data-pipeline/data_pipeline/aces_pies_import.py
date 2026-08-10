@@ -16,6 +16,9 @@ Examples::
   # Live: upsert stock_items.description + pnc_categories.pcdb_part_type_id
   python -m data_pipeline.aces_pies_import --pies ... --bundle ... --live
 
+  # PCdb-only whole-catalog enrich (curated epc_to_pcdb.json → live upsert)
+  python -m data_pipeline.aces_pies_import --pcdb-only --bundle out/megazip/nissan/bundle --live
+
 Auto Care VCdb/PCdb/PAdb reference data is a paid subscription — fixtures use
 synthetic IDs. Do not fork SandPIM into this monorepo; export XML from SandPIM
 (or a supplier) and run this importer.
@@ -51,6 +54,7 @@ from data_pipeline.import_catalog import (
     _project,
 )
 from data_pipeline.megazip.config import DEFAULT_PCDB_FILE
+from data_pipeline.megazip.enrich_pcdb import enrich_pcdb
 
 _STOCK_LIVE_COLS = ("oem_part_number", "description")
 _PNC_LIVE_COLS = (
