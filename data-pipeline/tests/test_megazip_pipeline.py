@@ -195,6 +195,20 @@ def test_pcdb_enrich_additive() -> None:
     assert bundle["pnc_categories"][0]["pcdb_part_type_id"] == 12000
 
 
+def test_pcdb_enrich_stems_megazip_for_suffix() -> None:
+    from data_pipeline.megazip.enrich_pcdb import epc_category_stem
+
+    title = "WIRING FOR 2004 - 2011 NISSAN ALTIMA L31 | U.S.A. SALES REGION"
+    assert epc_category_stem(title) == "WIRING"
+    bundle = {
+        "pnc_categories": [{"pnc_code": "MZ2", "category_name": title}],
+        "part_fitment": [],
+    }
+    stats = enrich_pcdb(bundle)
+    assert stats["pcdb_mapped"] == 1
+    assert bundle["pnc_categories"][0]["pcdb_part_type_id"] is not None
+
+
 def test_parse_model_catalog_variant_link() -> None:
     html = """
     <ul class="s-catalog__columns-list">

@@ -146,6 +146,39 @@ def test_cli_dry_run(tmp_path: Path) -> None:
     assert report["pies_items"] == 2
 
 
+def test_cli_pcdb_only(tmp_path: Path) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    (bundle_dir / "pnc_categories.json").write_text(
+        json.dumps(
+            [
+                {"pnc_code": "10000", "category_name": "ENGINE ASSEMBLY"},
+                {
+                    "pnc_code": "44000",
+                    "category_name": (
+                        "BRAKE PIPING & CONTROL FOR 2004 - 2011 NISSAN ALTIMA L31"
+                    ),
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "part_fitment.json").write_text("[]", encoding="utf-8")
+    (bundle_dir / "vehicle_master.json").write_text("[]", encoding="utf-8")
+    out = tmp_path / "out"
+    rc = aces_pies_main(
+        ["--pcdb-only", "--bundle", str(bundle_dir), "--out", str(out)]
+    )
+    assert rc == 0
+    pncs = json.loads((out / "pnc_categories_enriched.json").read_text(encoding="utf-8"))
+    by_pnc = {r["pnc_code"]: r for r in pncs}
+    assert by_pnc["10000"]["pcdb_part_type_id"] == 12000
+    assert by_pnc["44000"]["pcdb_part_type_id"] is not None
+    report = json.loads((out / "enrichment_report.json").read_text(encoding="utf-8"))
+    assert report["pcdb_only"] is True
+    assert report["enrichment"]["pcdb_mapped"] == 2
+
+
 def test_cli_with_bundle(tmp_path: Path) -> None:
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
