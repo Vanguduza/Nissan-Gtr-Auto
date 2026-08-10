@@ -150,7 +150,7 @@ def test_cli_with_bundle(tmp_path: Path) -> None:
     bundle_dir = tmp_path / "bundle"
     bundle_dir.mkdir()
     (bundle_dir / "pnc_categories.json").write_text(
-        json.dumps([{"pnc_code": "44000", "category_name": "BRAKE"}]),
+        json.dumps([{"pnc_code": "44000", "category_name": "UNMAPPED GROUP"}]),
         encoding="utf-8",
     )
     (bundle_dir / "part_fitment.json").write_text(
