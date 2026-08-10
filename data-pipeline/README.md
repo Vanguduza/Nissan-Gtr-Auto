@@ -89,6 +89,12 @@ python -m data_pipeline.import_catalog out/erp_catalog_v1 --live
 # Meilisearch sync after live import (requires MEILI_HOST + MEILI_MASTER_KEY)
 python -m data_pipeline.meili_sync --full
 
+# ACES/PIES enrichment (sample fixtures; see section below)
+python -m data_pipeline.aces_pies_import \
+  --pies fixtures/aces_pies/sample_pies.xml \
+  --aces fixtures/aces_pies/sample_aces.xml \
+  --out out/aces_pies_enrichment
+
 # Tests
 pytest
 
@@ -96,6 +102,49 @@ pytest
 python -m data_pipeline.forecast_statsforecast
 pytest tests/test_forecast_statsforecast.py -q
 ```
+
+## ACES / PIES enrichment (SandPIM-compatible XML)
+
+Thin adapters under `data_pipeline/aces_pies/` consume **Auto Care ACES/PIES XML** (supplier drop or optional SandPIM export) and enrich GTR tables. **Supabase + EPC remain the system of record** — do not fork SandPIM PHP into this monorepo or rebase the catalog SoR onto MySQL/LAMP.
+
+| Signal | Target | Notes |
+|--------|--------|-------|
+| PIES `PartTerminologyID` | `pnc_categories.pcdb_part_type_id` | Via OEM → PNC join on `part_fitment`; curated `config/epc_to_pcdb.json` runs first and is not overwritten |
+| PIES descriptions / brand | `stock_items.description` + `oem_display_names` | Existing columns only |
+| PIES attributes (weight, hazmat, …) | Sidecar `pies_attrs_by_oem.json` | No `attrs` jsonb on `stock_items` yet — deferred migration |
+| ACES `App` rows | Parsed to `aces_apps.json` only | **Apply stubbed** until fitment has `source=aces\|epc` (EPC bbox / `diagram_path` stay authoritative) |
+
+**Auto Care subscription:** Real VCdb / PCdb / PAdb / Brand Table files require an [Auto Care Association membership](https://www.autocare.org/data-standards/subscriptions). Fixture XML uses **synthetic** PartTerminologyIDs and BaseVehicleIDs for CI.
+
+```bash
+cd data-pipeline
+pip install -e ".[dev]"
+
+# Dry-run against sample PIES (+ optional ACES parse stub)
+python -m data_pipeline.aces_pies_import \
+  --pies fixtures/aces_pies/sample_pies.xml \
+  --aces fixtures/aces_pies/sample_aces.xml \
+  --out out/aces_pies_enrichment
+
+# Enrich a catalog bundle (sets pcdb_part_type_id + display names)
+python -m data_pipeline.aces_pies_import \
+  --pies path/to/supplier_pies.xml \
+  --bundle out/erp_catalog_v1 \
+  --out out/aces_pies_enrichment
+
+# Merge new PartTerminologyIDs into the curated EPC→PCdb map
+python -m data_pipeline.aces_pies_import \
+  --pies path/to/supplier_pies.xml \
+  --write-mapping config/epc_to_pcdb.json
+
+# Live upsert (needs SUPABASE_URL + service role; pip install -e ".[supabase]")
+python -m data_pipeline.aces_pies_import \
+  --pies path/to/supplier_pies.xml \
+  --bundle out/erp_catalog_v1 \
+  --live
+```
+
+Guide §10: `docs/guides/partsouq-multimake-catalog-pipeline.md`. Plans: `docs/plans/2026-08-10-sandpim-catalog-enrichment.md`.
 
 ## Phase C — StatsForecast / Prophet scaffold
 
