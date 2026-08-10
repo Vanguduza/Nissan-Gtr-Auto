@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from data_pipeline.aces_pies.aces import (
     ACES_APPLY_STUB_REASON,
     parse_aces_xml,

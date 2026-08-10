@@ -242,6 +242,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    # Avoid unused-import lint on _chunks if live path unused in some installs
-    _ = _chunks
     sys.exit(main())
