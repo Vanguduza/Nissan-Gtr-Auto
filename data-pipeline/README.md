@@ -46,6 +46,8 @@ export SUPABASE_SERVICE_ROLE_KEY=...
 | `config/partsouq_makers.json` | Curated PartSouq brand list for the orchestrator |
 | `schemas/` | JSON Schemas mirroring DB columns |
 | `fixtures/navara_d40_yd25/` | Navara D40 / YD25 sample pack (storefront demo OEMs) |
+| `fixtures/aces_pies/` | Synthetic ACES/PIES XML for enrichment importer tests |
+| `data_pipeline/aces_pies/` | Thin PIES/ACES XML → catalog enrichment (not SandPIM SoR) |
 | `tests/` | pytest suite |
 
 ## Idempotency keys
