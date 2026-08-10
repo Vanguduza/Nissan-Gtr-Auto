@@ -22,7 +22,14 @@ UPSERT_BATCH_SIZE = 500
 
 # Columns accepted by live table writes (exclude generated / server defaults).
 _VEHICLE_COLS = ("vin_prefix", "chassis_code", "engine_code", "production_year", "model_variant")
-_PNC_COLS = ("pnc_code", "category_name", "subcategory_name")
+_PNC_COLS = (
+    "pnc_code",
+    "category_name",
+    "subcategory_name",
+    "assembly_group_id",
+    "catalog_section_path",
+    "pcdb_part_type_id",
+)
 _FITMENT_COLS = (
     "oem_part_number",
     "pnc_code",
