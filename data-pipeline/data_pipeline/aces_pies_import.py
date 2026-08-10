@@ -114,6 +114,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pies", type=Path, help="Path to PIES XML file")
     parser.add_argument("--aces", type=Path, help="Path to ACES XML file (parse + stub apply)")
     parser.add_argument(
+        "--pcdb-only",
+        action="store_true",
+        help="Apply curated epc_to_pcdb.json to --bundle (no PIES/ACES XML required)",
+    )
+    parser.add_argument(
         "--bundle",
         type=Path,
         help="Catalog bundle directory (vehicle_master.json, pnc_categories.json, …)",
