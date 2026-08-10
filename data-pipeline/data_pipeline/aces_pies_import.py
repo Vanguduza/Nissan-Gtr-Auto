@@ -85,14 +85,17 @@ def _apply_live(
     url, key = resolve_supabase_credentials()
     if not url or not key:
         raise SystemExit(
-            "Live apply requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SERVICE_KEY)."
+            "Live apply requires SUPABASE_URL and a privileged server key "
+            "(SERVICE_KEY alias or role key)."
         )
     from supabase import create_client  # optional extra
 
     client = create_client(url, key)
-    stock_stats = _batch_upsert_stock_items(
-        client,
-        [_project(r, _STOCK_LIVE_COLS) for r in stock_rows if r.get("description")],
+    stock_payload = [
+        _project(r, _STOCK_LIVE_COLS) for r in stock_rows if r.get("description")
+    ]
+    stock_stats = (
+        _batch_upsert_stock_items(client, stock_payload) if stock_payload else None
     )
     # Only PNCs that gained a pcdb id (and have category_name for upsert)
     pnc_payload = [
@@ -102,7 +105,9 @@ def _apply_live(
     ]
     pnc_stats = _batch_upsert_pnc(client, pnc_payload) if pnc_payload else None
     return {
-        "stock_upserted": stock_stats.updated + stock_stats.inserted,
+        "stock_upserted": (
+            (stock_stats.updated + stock_stats.inserted) if stock_stats else 0
+        ),
         "pnc_upserted": (pnc_stats.updated + pnc_stats.inserted) if pnc_stats else 0,
     }
 
