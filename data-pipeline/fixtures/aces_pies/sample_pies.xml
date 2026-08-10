@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic PIES sample for GTR importer tests — NOT Auto Care reference data.
+     PartTerminologyIDs are placeholders; replace with licensed PCdb IDs in production. -->
+<PIES xmlns="http://www.autocare.org">
+  <Header>
+    <PIESVersion>7.0</PIESVersion>
+    <SubmissionType>FULL</SubmissionType>
+    <BrandAAIAID>GTST</BrandAAIAID>
+  </Header>
+  <Items>
+    <Item MaintenanceType="A">
+      <PartNumber>41060EB70A</PartNumber>
+      <BrandAAIAID>GTST</BrandAAIAID>
+      <PartTerminologyID>1684</PartTerminologyID>
+      <Descriptions>
+        <Description LanguageCode="EN" DescriptionCode="DES" MaintenanceType="A">
+          Disc Brake Pad Set
+        </Description>
+        <Description LanguageCode="EN" DescriptionCode="INV" MaintenanceType="A">
+          Front Ceramic Disc Brake Pad Set — Navara
+        </Description>
+      </Descriptions>
+      <ProductAttributes>
+        <ProductAttribute AttributeID="110" name="Weight">1.2</ProductAttribute>
+        <ProductAttribute AttributeID="HAZMAT" name="Hazmat">N</ProductAttribute>
+      </ProductAttributes>
+    </Item>
+    <Item MaintenanceType="A">
+      <PartNumber>10101EB30A</PartNumber>
+      <BrandAAIAID>GTST</BrandAAIAID>
+      <PartTerminologyID>12000</PartTerminologyID>
+      <Descriptions>
+        <Description LanguageCode="EN" DescriptionCode="DES" MaintenanceType="A">
+          Engine Assembly
+        </Description>
+      </Descriptions>
+    </Item>
+  </Items>
+</PIES>

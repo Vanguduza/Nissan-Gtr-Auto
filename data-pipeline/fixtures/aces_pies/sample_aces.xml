@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic ACES sample for GTR importer tests — NOT Auto Care VCdb reference data.
+     Apps are parsed and written to enrichment output; apply is stubbed until
+     part_fitment supports source=aces|epc (EPC bbox/diagram_path stays authoritative). -->
+<ACES xmlns="http://www.autocare.org">
+  <Header>
+    <Company>GTR Fixture</Company>
+    <SenderName>data-pipeline</SenderName>
+    <Version>4.2</Version>
+  </Header>
+  <App>
+    <BaseVehicle id="90001"/>
+    <Qty>1</Qty>
+    <PartType id="1684"/>
+    <Position id="22"/>
+    <Part>41060EB70A</Part>
+    <Years from="2005" to="2015"/>
+    <MfrLabel>Front</MfrLabel>
+  </App>
+  <App>
+    <BaseVehicle id="90002"/>
+    <Qty>1</Qty>
+    <PartType id="12000"/>
+    <Part>10101EB30A</Part>
+  </App>
+</ACES>
