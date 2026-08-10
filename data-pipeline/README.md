@@ -112,13 +112,22 @@ Thin adapters under `data_pipeline/aces_pies/` consume **Auto Care ACES/PIES XML
 | PIES `PartTerminologyID` | `pnc_categories.pcdb_part_type_id` | Via OEM → PNC join on `part_fitment`; curated `config/epc_to_pcdb.json` runs first and is not overwritten |
 | PIES descriptions / brand | `stock_items.description` + `oem_display_names` | Existing columns only |
 | PIES attributes (weight, hazmat, …) | Sidecar `pies_attrs_by_oem.json` | No `attrs` jsonb on `stock_items` yet — deferred migration |
-| ACES `App` rows | Parsed to `aces_apps.json` only | **Apply stubbed** until fitment has `source=aces\|epc` (EPC bbox / `diagram_path` stay authoritative) |
+| ACES `App` rows | Parsed to `aces_apps.json` only | **Apply stubbed** until additive `fitment_source`/`aces_applications` + VCdb↔`vehicle_master` bridge + licensed XML (EPC bbox / `diagram_path` stay authoritative) |
 
-**Auto Care subscription:** Real VCdb / PCdb / PAdb / Brand Table files require an [Auto Care Association membership](https://www.autocare.org/data-standards/subscriptions). Fixture XML uses **synthetic** PartTerminologyIDs and BaseVehicleIDs for CI.
+**Auto Care subscription:** Real VCdb / PCdb / PAdb / Brand Table files require an [Auto Care Association membership](https://www.autocare.org/data-standards/subscriptions). Fixture XML uses **synthetic** PartTerminologyIDs and BaseVehicleIDs for CI. Curated `config/epc_to_pcdb.json` uses placeholder IDs (incl. 50000–59999 stem namespace) until licensed PCdb or supplier PIES replaces them.
 
 ```bash
 cd data-pipeline
 pip install -e ".[dev]"
+
+# Whole-catalog PCdb enrich without supplier XML (curated stem map)
+python -m data_pipeline.aces_pies_import \
+  --pcdb-only --bundle out/megazip/nissan/bundle \
+  --out out/aces_pies_enrichment/pcdb_full
+
+# Hosted coverage + live additive upsert of pcdb_part_type_id
+python -m data_pipeline.pcdb_coverage --snapshot
+python -m data_pipeline.pcdb_coverage --live-hosted
 
 # Dry-run against sample PIES (+ optional ACES parse stub)
 python -m data_pipeline.aces_pies_import \
