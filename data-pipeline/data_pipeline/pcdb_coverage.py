@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from data_pipeline.aces_pies_import import _apply_live, main as aces_pies_main
-from data_pipeline.import_catalog import load_bundle, load_env_files, resolve_supabase_credentials
+from data_pipeline.import_catalog import (
+    UPSERT_BATCH_SIZE,
+    load_env_files,
+    resolve_supabase_credentials,
+)
 from data_pipeline.megazip.config import DEFAULT_PCDB_FILE
 from data_pipeline.megazip.enrich_pcdb import enrich_pcdb
 
@@ -29,6 +33,31 @@ def _client():
     from supabase import create_client
 
     return create_client(url, key), url
+
+
+def _fetch_pnc_categories(client: Any) -> list[dict[str, Any]]:
+    """Page all pnc_categories (PK is pnc_code — not id)."""
+    rows: list[dict[str, Any]] = []
+    offset = 0
+    page = UPSERT_BATCH_SIZE
+    select = (
+        "pnc_code,category_name,subcategory_name,assembly_group_id,"
+        "catalog_section_path,pcdb_part_type_id"
+    )
+    while True:
+        resp = (
+            client.table("pnc_categories")
+            .select(select)
+            .order("pnc_code")
+            .range(offset, offset + page - 1)
+            .execute()
+        )
+        batch = resp.data or []
+        rows.extend(batch)
+        if len(batch) < page:
+            break
+        offset += page
+    return rows
 
 
 def coverage_snapshot() -> dict[str, Any]:
@@ -62,13 +91,28 @@ def coverage_snapshot() -> dict[str, Any]:
     return out
 
 
+def enrich_hosted_pnc(*, mapping_path: Path | None = None) -> dict[str, Any]:
+    """Pull hosted pnc_categories, apply curated mapping, upsert pcdb ids (additive)."""
+    client, _ = _client()
+    rows = _fetch_pnc_categories(client)
+    bundle = {"pnc_categories": rows}
+    stats = enrich_pcdb(bundle, mapping_path)
+    live = _apply_live(stock_rows=[], pnc_rows=bundle["pnc_categories"])
+    return {"enrichment": stats, "live": live, "hosted_pnc_pulled": len(rows)}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="PCdb coverage / live enrich against hosted SoR")
     parser.add_argument("--snapshot", action="store_true", help="Print hosted coverage JSON")
     parser.add_argument(
+        "--live-hosted",
+        action="store_true",
+        help="Enrich all hosted pnc_categories via curated mapping and upsert",
+    )
+    parser.add_argument(
         "--live-from-bundle",
         type=Path,
-        help="Enrich bundle with curated mapping and upsert pcdb_part_type_id live",
+        help="Enrich local bundle and upsert (may miss hosted-only PNCs)",
     )
     parser.add_argument(
         "--mapping",
@@ -79,21 +123,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--write-bundle",
         action="store_true",
-        help="Also write enriched pnc_categories.json back into the bundle dir",
+        help="With --live-from-bundle, write enriched pnc_categories.json into bundle",
     )
     args = parser.parse_args(argv)
 
-    if not args.snapshot and not args.live_from_bundle:
-        parser.error("Provide --snapshot and/or --live-from-bundle")
+    if not args.snapshot and not args.live_hosted and not args.live_from_bundle:
+        parser.error("Provide --snapshot, --live-hosted, and/or --live-from-bundle")
 
     report: dict[str, Any] = {}
-    if args.snapshot or args.live_from_bundle:
+    if args.snapshot or args.live_hosted or args.live_from_bundle:
         report["before"] = coverage_snapshot()
+
+    mapping = args.mapping or DEFAULT_PCDB_FILE
+
+    if args.live_hosted:
+        report["hosted_apply"] = enrich_hosted_pnc(mapping_path=mapping)
 
     if args.live_from_bundle:
         bundle_dir = args.live_from_bundle
-        mapping = args.mapping or DEFAULT_PCDB_FILE
-        # Prefer aces_pies_import --pcdb-only --live for one code path
         out = Path("out/aces_pies_enrichment/pcdb_live")
         rc = aces_pies_main(
             [
@@ -110,8 +157,8 @@ def main(argv: list[str] | None = None) -> int:
         if rc != 0:
             return rc
         enrich_report = json.loads((out / "enrichment_report.json").read_text(encoding="utf-8"))
-        report["enrichment"] = enrich_report.get("enrichment")
-        report["live"] = enrich_report.get("live")
+        report["bundle_enrichment"] = enrich_report.get("enrichment")
+        report["bundle_live"] = enrich_report.get("live")
         if args.write_bundle:
             enriched = json.loads(
                 (out / "pnc_categories_enriched.json").read_text(encoding="utf-8")
@@ -122,9 +169,12 @@ def main(argv: list[str] | None = None) -> int:
                 encoding="utf-8",
             )
             report["bundle_written"] = str(target)
-        report["after"] = coverage_snapshot()
 
-    print(json.dumps(report if len(report) > 1 else report.get("before", report), indent=2))
+    if args.live_hosted or args.live_from_bundle:
+        report["after"] = coverage_snapshot()
+        print(json.dumps(report, indent=2))
+    else:
+        print(json.dumps(report["before"], indent=2))
     return 0
 
 
