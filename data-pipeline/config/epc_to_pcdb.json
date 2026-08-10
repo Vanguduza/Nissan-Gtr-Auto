@@ -1,16 +1,1182 @@
 {
-  "version": 1,
-  "notes": "Optional EPC assembly group name → Auto Care PCdb PartTerminologyID. Additive only; EPC category_name remains authoritative for shop-by-diagram UX. Expand from licensed PCdb or merge via: python -m data_pipeline.aces_pies_import --pies <file> --write-mapping config/epc_to_pcdb.json. Sample IDs below are placeholders until Auto Care subscription data is loaded.",
+  "version": 2,
+  "notes": "EPC assembly group name (stem before FOR <vehicle>) -> PCdb-like PartTerminologyID. Additive only; EPC category_name remains authoritative for shop-by-diagram UX. IDs in 50000-59999 and sample 12000/13000 are CURATED PLACEHOLDERS until Auto Care PCdb subscription or supplier PIES PartTerminologyID merge via aces_pies_import --write-mapping. Not licensed Auto Care reference data.",
   "mappings": [
     {
       "epc_category_normalized": "ENGINE ASSEMBLY",
       "pcdb_part_type_id": 12000,
-      "pcdb_part_type_name": "Engine Assembly"
+      "pcdb_part_type_name": "Engine Assembly",
+      "source": "curated_placeholder"
     },
     {
       "epc_category_normalized": "BRAKE",
       "pcdb_part_type_id": 13000,
-      "pcdb_part_type_name": "Disc Brake Pad Set"
+      "pcdb_part_type_name": "Disc Brake Pad Set",
+      "source": "curated_placeholder"
+    },
+    {
+      "epc_category_normalized": "3RD SEAT",
+      "pcdb_part_type_id": 50826,
+      "pcdb_part_type_name": "3Rd Seat",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ACCELERATOR LINKAGE",
+      "pcdb_part_type_id": 57810,
+      "pcdb_part_type_name": "Accelerator Linkage",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "AIR CLEANER",
+      "pcdb_part_type_id": 55522,
+      "pcdb_part_type_name": "Air Cleaner",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "AIR CONDITIONER (ENGINE ROOM)",
+      "pcdb_part_type_id": 50390,
+      "pcdb_part_type_name": "Air Conditioner (Engine Room)",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "AIR SPOILER",
+      "pcdb_part_type_id": 50211,
+      "pcdb_part_type_name": "Air Spoiler",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ALARM, BUZZER, HORNE",
+      "pcdb_part_type_id": 55449,
+      "pcdb_part_type_name": "Alarm, Buzzer, Horne",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ALTERNATOR",
+      "pcdb_part_type_id": 51426,
+      "pcdb_part_type_name": "Alternator",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ALTERNATOR FITTING",
+      "pcdb_part_type_id": 59412,
+      "pcdb_part_type_name": "Alternator Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ANTI SKID CONTROL",
+      "pcdb_part_type_id": 51171,
+      "pcdb_part_type_name": "Anti Skid Control",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "AUDIO & VISUAL",
+      "pcdb_part_type_id": 59036,
+      "pcdb_part_type_name": "Audio & Visual",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "AUTO SPEED CONTROL DEVICE",
+      "pcdb_part_type_id": 54119,
+      "pcdb_part_type_name": "Auto Speed Control Device",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "AUTO TRANSMISSION CONTROL DEVICE",
+      "pcdb_part_type_id": 59251,
+      "pcdb_part_type_name": "Auto Transmission Control Device",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "AUTO TRANSMISSION,TRANSAXLE & FITTING",
+      "pcdb_part_type_id": 55603,
+      "pcdb_part_type_name": "Auto Transmission,Transaxle & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BACK DOOR LOCK & HANDLE",
+      "pcdb_part_type_id": 56910,
+      "pcdb_part_type_name": "Back Door Lock & Handle",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BACK DOOR PANEL & FITTING",
+      "pcdb_part_type_id": 54822,
+      "pcdb_part_type_name": "Back Door Panel & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BACK DOOR TRIMMING",
+      "pcdb_part_type_id": 55404,
+      "pcdb_part_type_name": "Back Door Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BARE & SHORT ENGINE",
+      "pcdb_part_type_id": 58551,
+      "pcdb_part_type_name": "Bare & Short Engine",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BATTERY & BATTERY MOUNTING",
+      "pcdb_part_type_id": 56385,
+      "pcdb_part_type_name": "Battery & Battery Mounting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BODY COVER",
+      "pcdb_part_type_id": 59345,
+      "pcdb_part_type_name": "Body Cover",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BODY MOUNTING",
+      "pcdb_part_type_id": 56962,
+      "pcdb_part_type_name": "Body Mounting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BODY SIDE FITTING",
+      "pcdb_part_type_id": 51723,
+      "pcdb_part_type_name": "Body Side Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BODY SIDE MOULDING",
+      "pcdb_part_type_id": 59387,
+      "pcdb_part_type_name": "Body Side Moulding",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BODY SIDE PANEL",
+      "pcdb_part_type_id": 50963,
+      "pcdb_part_type_name": "Body Side Panel",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BODY SIDE TRIMMING",
+      "pcdb_part_type_id": 57541,
+      "pcdb_part_type_name": "Body Side Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BRAKE & CLUTCH PEDAL",
+      "pcdb_part_type_id": 53108,
+      "pcdb_part_type_name": "Brake & Clutch Pedal",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BRAKE MASTER CYLINDER",
+      "pcdb_part_type_id": 58688,
+      "pcdb_part_type_name": "Brake Master Cylinder",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BRAKE PIPING & CONTROL",
+      "pcdb_part_type_id": 56630,
+      "pcdb_part_type_name": "Brake Piping & Control",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BRAKE SERVO & SERVO CONTROL",
+      "pcdb_part_type_id": 52500,
+      "pcdb_part_type_name": "Brake Servo & Servo Control",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BREATHER PIPING (FOR FR UNIT)",
+      "pcdb_part_type_id": 51162,
+      "pcdb_part_type_name": "Breather Piping (For Fr Unit)",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CAMSHAFT & VALVE MECHANISM",
+      "pcdb_part_type_id": 52534,
+      "pcdb_part_type_name": "Camshaft & Valve Mechanism",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CATALYST CONVERTER",
+      "pcdb_part_type_id": 56684,
+      "pcdb_part_type_name": "Catalyst Converter",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CAUTION PLATE & LABEL",
+      "pcdb_part_type_id": 55814,
+      "pcdb_part_type_name": "Caution Plate & Label",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CLUTCH & BAND SERVO",
+      "pcdb_part_type_id": 50609,
+      "pcdb_part_type_name": "Clutch & Band Servo",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CLUTCH COVER, DISC & RELEASE PARTS",
+      "pcdb_part_type_id": 51808,
+      "pcdb_part_type_name": "Clutch Cover, Disc & Release Parts",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CLUTCH MASTER CYLINDER",
+      "pcdb_part_type_id": 56199,
+      "pcdb_part_type_name": "Clutch Master Cylinder",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CLUTCH OPERATING CYLINDER",
+      "pcdb_part_type_id": 56728,
+      "pcdb_part_type_name": "Clutch Operating Cylinder",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CLUTCH PIPING",
+      "pcdb_part_type_id": 57242,
+      "pcdb_part_type_name": "Clutch Piping",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "COMPRESSOR",
+      "pcdb_part_type_id": 59101,
+      "pcdb_part_type_name": "Compressor",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "COMPRESSOR MOUNTING & FITTING",
+      "pcdb_part_type_id": 55233,
+      "pcdb_part_type_name": "Compressor Mounting & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CONDENSOR, LIQUID TANK",
+      "pcdb_part_type_id": 53480,
+      "pcdb_part_type_name": "Condensor, Liquid Tank",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CONSOLE BOX",
+      "pcdb_part_type_id": 51926,
+      "pcdb_part_type_name": "Console Box",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CONTROL SWITCH & SYSTEM",
+      "pcdb_part_type_id": 54764,
+      "pcdb_part_type_name": "Control Switch & System",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CONTROL UNIT",
+      "pcdb_part_type_id": 58505,
+      "pcdb_part_type_name": "Control Unit",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CONTROL VALVE (ATM)",
+      "pcdb_part_type_id": 55444,
+      "pcdb_part_type_name": "Control Valve (Atm)",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "COOLING UNIT",
+      "pcdb_part_type_id": 58288,
+      "pcdb_part_type_name": "Cooling Unit",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "COWL TOP & FITTING",
+      "pcdb_part_type_id": 53709,
+      "pcdb_part_type_name": "Cowl Top & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CRANKCASE VENTILATION",
+      "pcdb_part_type_id": 50739,
+      "pcdb_part_type_name": "Crankcase Ventilation",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CYLINDER BLOCK & OIL PAN",
+      "pcdb_part_type_id": 51368,
+      "pcdb_part_type_name": "Cylinder Block & Oil Pan",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "CYLINDER HEAD & ROCKER COVER",
+      "pcdb_part_type_id": 58486,
+      "pcdb_part_type_name": "Cylinder Head & Rocker Cover",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "DASH PANEL & FITTING",
+      "pcdb_part_type_id": 51885,
+      "pcdb_part_type_name": "Dash Panel & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "DASH TRIMMING & FITTING",
+      "pcdb_part_type_id": 50145,
+      "pcdb_part_type_name": "Dash Trimming & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "DISTRIBUTOR",
+      "pcdb_part_type_id": 59723,
+      "pcdb_part_type_name": "Distributor",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "EGR PARTS",
+      "pcdb_part_type_id": 53151,
+      "pcdb_part_type_name": "Egr Parts",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ELECTRICAL UNIT",
+      "pcdb_part_type_id": 54860,
+      "pcdb_part_type_name": "Electrical Unit",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "EMBLEM & NAME LABEL",
+      "pcdb_part_type_id": 50226,
+      "pcdb_part_type_name": "Emblem & Name Label",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ENGINE & TRANSMISSION MOUNTING",
+      "pcdb_part_type_id": 54780,
+      "pcdb_part_type_name": "Engine & Transmission Mounting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ENGINE CONTROL MODULE",
+      "pcdb_part_type_id": 55034,
+      "pcdb_part_type_name": "Engine Control Module",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ENGINE GASKET KIT",
+      "pcdb_part_type_id": 52137,
+      "pcdb_part_type_name": "Engine Gasket Kit",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "EXHAUST TUBE & MUFFLER",
+      "pcdb_part_type_id": 59416,
+      "pcdb_part_type_name": "Exhaust Tube & Muffler",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FAN,COMPRESSOR & POWER STEERING BELT",
+      "pcdb_part_type_id": 59639,
+      "pcdb_part_type_name": "Fan,Compressor & Power Steering Belt",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FLOOR BOARD",
+      "pcdb_part_type_id": 56001,
+      "pcdb_part_type_name": "Floor Board",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FLOOR FITTING",
+      "pcdb_part_type_id": 53709,
+      "pcdb_part_type_name": "Floor Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FLOOR PANEL",
+      "pcdb_part_type_id": 52392,
+      "pcdb_part_type_name": "Floor Panel",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FLOOR PANEL (REAR)",
+      "pcdb_part_type_id": 51064,
+      "pcdb_part_type_name": "Floor Panel (Rear)",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FLOOR TRIMMING",
+      "pcdb_part_type_id": 52211,
+      "pcdb_part_type_name": "Floor Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRAME",
+      "pcdb_part_type_id": 50771,
+      "pcdb_part_type_name": "Frame",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT APRON & RADIATOR CORE SUPPORT",
+      "pcdb_part_type_id": 57688,
+      "pcdb_part_type_name": "Front Apron & Radiator Core Support",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT AXLE",
+      "pcdb_part_type_id": 51072,
+      "pcdb_part_type_name": "Front Axle",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT BRAKE",
+      "pcdb_part_type_id": 54138,
+      "pcdb_part_type_name": "Front Brake",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT BUMPER",
+      "pcdb_part_type_id": 52526,
+      "pcdb_part_type_name": "Front Bumper",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT COMBINATION LAMP",
+      "pcdb_part_type_id": 59961,
+      "pcdb_part_type_name": "Front Combination Lamp",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT COVER & FITTING",
+      "pcdb_part_type_id": 52262,
+      "pcdb_part_type_name": "Front Cover & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT DOOR LOCK & HANDLE",
+      "pcdb_part_type_id": 51287,
+      "pcdb_part_type_name": "Front Door Lock & Handle",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT DOOR PANEL & FITTING",
+      "pcdb_part_type_id": 59747,
+      "pcdb_part_type_name": "Front Door Panel & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT DOOR TRIMMING",
+      "pcdb_part_type_id": 53037,
+      "pcdb_part_type_name": "Front Door Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT DOOR WINDOW & REGULATOR",
+      "pcdb_part_type_id": 58437,
+      "pcdb_part_type_name": "Front Door Window & Regulator",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT DRIVE SHAFT (FF)",
+      "pcdb_part_type_id": 57874,
+      "pcdb_part_type_name": "Front Drive Shaft (Ff)",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT FENDER & FITTING",
+      "pcdb_part_type_id": 50843,
+      "pcdb_part_type_name": "Front Fender & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT FINAL DRIVE",
+      "pcdb_part_type_id": 54223,
+      "pcdb_part_type_name": "Front Final Drive",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT FINAL DRIVE MOUNTING",
+      "pcdb_part_type_id": 59529,
+      "pcdb_part_type_name": "Front Final Drive Mounting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT GRILLE",
+      "pcdb_part_type_id": 51890,
+      "pcdb_part_type_name": "Front Grille",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT PANEL & GUARD FRAME",
+      "pcdb_part_type_id": 56868,
+      "pcdb_part_type_name": "Front Panel & Guard Frame",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT SEAT",
+      "pcdb_part_type_id": 51766,
+      "pcdb_part_type_name": "Front Seat",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT SEAT BELT",
+      "pcdb_part_type_id": 54497,
+      "pcdb_part_type_name": "Front Seat Belt",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT SUSPENSION",
+      "pcdb_part_type_id": 52188,
+      "pcdb_part_type_name": "Front Suspension",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FRONT WINDSHIELD",
+      "pcdb_part_type_id": 54750,
+      "pcdb_part_type_name": "Front Windshield",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FUEL PIPING",
+      "pcdb_part_type_id": 53677,
+      "pcdb_part_type_name": "Fuel Piping",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FUEL STRAINER & FUEL HOSE",
+      "pcdb_part_type_id": 59044,
+      "pcdb_part_type_name": "Fuel Strainer & Fuel Hose",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FUEL TANK",
+      "pcdb_part_type_id": 51455,
+      "pcdb_part_type_name": "Fuel Tank",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "GASKET & SEAL KIT (AUTOMATIC)",
+      "pcdb_part_type_id": 59367,
+      "pcdb_part_type_name": "Gasket & Seal Kit (Automatic)",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "GOVERNOR,POWER TRAIN & PLANETARY GEAR",
+      "pcdb_part_type_id": 58391,
+      "pcdb_part_type_name": "Governor,Power Train & Planetary Gear",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "HEAD LAMP",
+      "pcdb_part_type_id": 58315,
+      "pcdb_part_type_name": "Head Lamp",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "HEATER & BLOWER UNIT",
+      "pcdb_part_type_id": 59703,
+      "pcdb_part_type_name": "Heater & Blower Unit",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "HEATER PIPING",
+      "pcdb_part_type_id": 53721,
+      "pcdb_part_type_name": "Heater Piping",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "HIGH MOUNTING STOP LAMP",
+      "pcdb_part_type_id": 56516,
+      "pcdb_part_type_name": "High Mounting Stop Lamp",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "HOOD LEDGE & FITTING",
+      "pcdb_part_type_id": 56420,
+      "pcdb_part_type_name": "Hood Ledge & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "HOOD LOCK CONTROL",
+      "pcdb_part_type_id": 50859,
+      "pcdb_part_type_name": "Hood Lock Control",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "HOOD PANEL, HINGE & FITTING",
+      "pcdb_part_type_id": 51653,
+      "pcdb_part_type_name": "Hood Panel, Hinge & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "IGNITION SYSTEM",
+      "pcdb_part_type_id": 57566,
+      "pcdb_part_type_name": "Ignition System",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "INSTRUMENT METER & GAUGE",
+      "pcdb_part_type_id": 54485,
+      "pcdb_part_type_name": "Instrument Meter & Gauge",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "INSTRUMENT PANEL, PAD & CLUSTER LID",
+      "pcdb_part_type_id": 54660,
+      "pcdb_part_type_name": "Instrument Panel, Pad & Cluster Lid",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "KEY SET & BLANK KEY",
+      "pcdb_part_type_id": 58811,
+      "pcdb_part_type_name": "Key Set & Blank Key",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "LAMPS (OTHERS)",
+      "pcdb_part_type_id": 58129,
+      "pcdb_part_type_name": "Lamps (Others)",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "LICENCE PLATE LAMP",
+      "pcdb_part_type_id": 51324,
+      "pcdb_part_type_name": "Licence Plate Lamp",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "LUBRICATING SYSTEM",
+      "pcdb_part_type_id": 55026,
+      "pcdb_part_type_name": "Lubricating System",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "MANIFOLD",
+      "pcdb_part_type_id": 56730,
+      "pcdb_part_type_name": "Manifold",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "MANUAL STEERING GEAR",
+      "pcdb_part_type_id": 55052,
+      "pcdb_part_type_name": "Manual Steering Gear",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "MANUAL TRANSMISSION, TRANSAXLE & FITTING",
+      "pcdb_part_type_id": 52544,
+      "pcdb_part_type_name": "Manual Transmission, Transaxle & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "MEMBER",
+      "pcdb_part_type_id": 54749,
+      "pcdb_part_type_name": "Member",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "NOZZLE & DUCT",
+      "pcdb_part_type_id": 56946,
+      "pcdb_part_type_name": "Nozzle & Duct",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "OIL COOLER",
+      "pcdb_part_type_id": 52801,
+      "pcdb_part_type_name": "Oil Cooler",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "OIL PUMP",
+      "pcdb_part_type_id": 58237,
+      "pcdb_part_type_name": "Oil Pump",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "PARKING BRAKE CONTROL",
+      "pcdb_part_type_id": 52908,
+      "pcdb_part_type_name": "Parking Brake Control",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "PISTON,CRANKSHAFT & FLYWHEEL",
+      "pcdb_part_type_id": 59714,
+      "pcdb_part_type_name": "Piston,Crankshaft & Flywheel",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "POWER STEERING GEAR",
+      "pcdb_part_type_id": 56848,
+      "pcdb_part_type_name": "Power Steering Gear",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "POWER STEERING PIPING",
+      "pcdb_part_type_id": 50454,
+      "pcdb_part_type_name": "Power Steering Piping",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "POWER STEERING PUMP",
+      "pcdb_part_type_id": 58537,
+      "pcdb_part_type_name": "Power Steering Pump",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "POWER STEERING PUMP MOUNTING",
+      "pcdb_part_type_id": 50149,
+      "pcdb_part_type_name": "Power Steering Pump Mounting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "PROPELLER SHAFT",
+      "pcdb_part_type_id": 53132,
+      "pcdb_part_type_name": "Propeller Shaft",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "RADIATOR, SHROUD & FITTING",
+      "pcdb_part_type_id": 58386,
+      "pcdb_part_type_name": "Radiator, Shroud & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR AXLE",
+      "pcdb_part_type_id": 55619,
+      "pcdb_part_type_name": "Rear Axle",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR BRAKE",
+      "pcdb_part_type_id": 50885,
+      "pcdb_part_type_name": "Rear Brake",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR BUMPER",
+      "pcdb_part_type_id": 57033,
+      "pcdb_part_type_name": "Rear Bumper",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR COMBINATION LAMP",
+      "pcdb_part_type_id": 51924,
+      "pcdb_part_type_name": "Rear Combination Lamp",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR DOOR LOCK & HANDLE",
+      "pcdb_part_type_id": 54155,
+      "pcdb_part_type_name": "Rear Door Lock & Handle",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR DOOR PANEL & FITTING",
+      "pcdb_part_type_id": 57036,
+      "pcdb_part_type_name": "Rear Door Panel & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR DOOR TRIMMING",
+      "pcdb_part_type_id": 54897,
+      "pcdb_part_type_name": "Rear Door Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR DOOR WINDOW & REGULATOR",
+      "pcdb_part_type_id": 55389,
+      "pcdb_part_type_name": "Rear Door Window & Regulator",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR DRIVE SHAFT",
+      "pcdb_part_type_id": 54812,
+      "pcdb_part_type_name": "Rear Drive Shaft",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR FENDER & FITTING",
+      "pcdb_part_type_id": 54626,
+      "pcdb_part_type_name": "Rear Fender & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR FINAL DRIVE",
+      "pcdb_part_type_id": 59802,
+      "pcdb_part_type_name": "Rear Final Drive",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR GATE & FITTING",
+      "pcdb_part_type_id": 54811,
+      "pcdb_part_type_name": "Rear Gate & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR PANEL & FITTING",
+      "pcdb_part_type_id": 54570,
+      "pcdb_part_type_name": "Rear Panel & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR SEAT",
+      "pcdb_part_type_id": 51270,
+      "pcdb_part_type_name": "Rear Seat",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR SEAT BELT",
+      "pcdb_part_type_id": 58096,
+      "pcdb_part_type_name": "Rear Seat Belt",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR SUSPENSION",
+      "pcdb_part_type_id": 53497,
+      "pcdb_part_type_name": "Rear Suspension",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR TRIMMING",
+      "pcdb_part_type_id": 59804,
+      "pcdb_part_type_name": "Rear Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR VIEW MIRROR",
+      "pcdb_part_type_id": 58663,
+      "pcdb_part_type_name": "Rear View Mirror",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR WINDOW",
+      "pcdb_part_type_id": 51767,
+      "pcdb_part_type_name": "Rear Window",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "REAR WINDOW WIPER",
+      "pcdb_part_type_id": 59067,
+      "pcdb_part_type_name": "Rear Window Wiper",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "RELAY",
+      "pcdb_part_type_id": 57880,
+      "pcdb_part_type_name": "Relay",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ROAD WHEEL & TIRE",
+      "pcdb_part_type_id": 52690,
+      "pcdb_part_type_name": "Road Wheel & Tire",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ROOF CONSOLE",
+      "pcdb_part_type_id": 56752,
+      "pcdb_part_type_name": "Roof Console",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ROOF PANEL & FITTING",
+      "pcdb_part_type_id": 57344,
+      "pcdb_part_type_name": "Roof Panel & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ROOF TRIMMING",
+      "pcdb_part_type_id": 53951,
+      "pcdb_part_type_name": "Roof Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ROOM LAMP",
+      "pcdb_part_type_id": 50262,
+      "pcdb_part_type_name": "Room Lamp",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SECONDARY AIR SYSTEM",
+      "pcdb_part_type_id": 52139,
+      "pcdb_part_type_name": "Secondary Air System",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SHIFTCONTROL PARTS",
+      "pcdb_part_type_id": 52770,
+      "pcdb_part_type_name": "Shiftcontrol Parts",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SIDE GATE & FITTING",
+      "pcdb_part_type_id": 57605,
+      "pcdb_part_type_name": "Side Gate & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SIDE MARKER LAMP",
+      "pcdb_part_type_id": 56944,
+      "pcdb_part_type_name": "Side Marker Lamp",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SIDE WINDOW",
+      "pcdb_part_type_id": 57869,
+      "pcdb_part_type_name": "Side Window",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SLIDE DOOR WINDOW",
+      "pcdb_part_type_id": 55643,
+      "pcdb_part_type_name": "Slide Door Window",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SPARE TIRE HANGER",
+      "pcdb_part_type_id": 56746,
+      "pcdb_part_type_name": "Spare Tire Hanger",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SPEAKER",
+      "pcdb_part_type_id": 57001,
+      "pcdb_part_type_name": "Speaker",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SPEEDOMETER PINION",
+      "pcdb_part_type_id": 50189,
+      "pcdb_part_type_name": "Speedometer Pinion",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STARTER MOTOR",
+      "pcdb_part_type_id": 54550,
+      "pcdb_part_type_name": "Starter Motor",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEERING COLUMN",
+      "pcdb_part_type_id": 51404,
+      "pcdb_part_type_name": "Steering Column",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEERING COLUMN SHELL COVER",
+      "pcdb_part_type_id": 53915,
+      "pcdb_part_type_name": "Steering Column Shell Cover",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEERING GEAR MOUNTING",
+      "pcdb_part_type_id": 58087,
+      "pcdb_part_type_name": "Steering Gear Mounting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEERING LINKAGE",
+      "pcdb_part_type_id": 57832,
+      "pcdb_part_type_name": "Steering Linkage",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEERING TRANSFER GEAR",
+      "pcdb_part_type_id": 51562,
+      "pcdb_part_type_name": "Steering Transfer Gear",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEERING WHEEL",
+      "pcdb_part_type_id": 59428,
+      "pcdb_part_type_name": "Steering Wheel",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEREO, TV",
+      "pcdb_part_type_id": 54989,
+      "pcdb_part_type_name": "Stereo, Tv",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "STEREO, TV, NAVIGATOR",
+      "pcdb_part_type_id": 54570,
+      "pcdb_part_type_name": "Stereo, Tv, Navigator",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SUN ROOF PARTS",
+      "pcdb_part_type_id": 54453,
+      "pcdb_part_type_name": "Sun Roof Parts",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SUNVISOR",
+      "pcdb_part_type_id": 55765,
+      "pcdb_part_type_name": "Sunvisor",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SWITCH",
+      "pcdb_part_type_id": 52131,
+      "pcdb_part_type_name": "Switch",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TELEPHONE",
+      "pcdb_part_type_id": 55671,
+      "pcdb_part_type_name": "Telephone",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "THROTTLE CHAMBER",
+      "pcdb_part_type_id": 50127,
+      "pcdb_part_type_name": "Throttle Chamber",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TOOL KIT",
+      "pcdb_part_type_id": 51121,
+      "pcdb_part_type_name": "Tool Kit",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TORQUE CONVERTER,HOUSING & CASE",
+      "pcdb_part_type_id": 55279,
+      "pcdb_part_type_name": "Torque Converter,Housing & Case",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TOUCH UP PAINT",
+      "pcdb_part_type_id": 57605,
+      "pcdb_part_type_name": "Touch Up Paint",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSFER ASSEMBLY & FITTING",
+      "pcdb_part_type_id": 56481,
+      "pcdb_part_type_name": "Transfer Assembly & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSFER CASE",
+      "pcdb_part_type_id": 57525,
+      "pcdb_part_type_name": "Transfer Case",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSFER CONTROL PARTS",
+      "pcdb_part_type_id": 55726,
+      "pcdb_part_type_name": "Transfer Control Parts",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSFER GEAR",
+      "pcdb_part_type_id": 53427,
+      "pcdb_part_type_name": "Transfer Gear",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSFER SHIFT LEVER,FORK & CONTROL",
+      "pcdb_part_type_id": 50356,
+      "pcdb_part_type_name": "Transfer Shift Lever,Fork & Control",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSMISSION CASE & CLUTCH RELEASE",
+      "pcdb_part_type_id": 59623,
+      "pcdb_part_type_name": "Transmission Case & Clutch Release",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSMISSION CONTROL & LINKAGE",
+      "pcdb_part_type_id": 56205,
+      "pcdb_part_type_name": "Transmission Control & Linkage",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSMISSION GEAR",
+      "pcdb_part_type_id": 57800,
+      "pcdb_part_type_name": "Transmission Gear",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRANSMISSION SHIFT CONTROL",
+      "pcdb_part_type_id": 54060,
+      "pcdb_part_type_name": "Transmission Shift Control",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRUNK LID & FITTING",
+      "pcdb_part_type_id": 53227,
+      "pcdb_part_type_name": "Trunk Lid & Fitting",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRUNK OPENER",
+      "pcdb_part_type_id": 50605,
+      "pcdb_part_type_name": "Trunk Opener",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TRUNK ROOM TRIMMING",
+      "pcdb_part_type_id": 54009,
+      "pcdb_part_type_name": "Trunk Room Trimming",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TURBO CHARGER",
+      "pcdb_part_type_id": 59737,
+      "pcdb_part_type_name": "Turbo Charger",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "TURNING СИДЕНИЕ",
+      "pcdb_part_type_id": 56784,
+      "pcdb_part_type_name": "Turning Сидение",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "VACUUM PIPING",
+      "pcdb_part_type_id": 52641,
+      "pcdb_part_type_name": "Vacuum Piping",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "VENTILATOR",
+      "pcdb_part_type_id": 56220,
+      "pcdb_part_type_name": "Ventilator",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "WATER HOSE & PIPING",
+      "pcdb_part_type_id": 57031,
+      "pcdb_part_type_name": "Water Hose & Piping",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "WATER PUMP, COOLING FAN & THERMOSTAT",
+      "pcdb_part_type_id": 57907,
+      "pcdb_part_type_name": "Water Pump, Cooling Fan & Thermostat",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "WINDSHIELD WASHER",
+      "pcdb_part_type_id": 56088,
+      "pcdb_part_type_name": "Windshield Washer",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "WINDSHIELD WIPER",
+      "pcdb_part_type_id": 57793,
+      "pcdb_part_type_name": "Windshield Wiper",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "WIRING",
+      "pcdb_part_type_id": 59506,
+      "pcdb_part_type_name": "Wiring",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ЗЕРКАЛА",
+      "pcdb_part_type_id": 58227,
+      "pcdb_part_type_name": "Зеркала",
+      "source": "curated_epc_stem_placeholder"
     }
   ]
 }
