@@ -788,10 +788,10 @@ Bundle schema (`pnc_categories.schema.json`) supports optional fields:
 **Mapping strategies (pick one per deployment):**
 
 1. **Curated lookup table** — `data-pipeline/config/epc_to_pcdb.json`: EPC normalized group name → PCdb ID (start with top 50 assembly groups per make).
-2. **PIES supplier file** — if a supplier sends PIES with PartTerminologyID + OEM, join on normalized OEM.
+2. **PIES supplier file** — if a supplier sends PIES with PartTerminologyID + OEM, join on normalized OEM via `python -m data_pipeline.aces_pies_import` (`data_pipeline/aces_pies/`; sample XML under `fixtures/aces_pies/`). See `data-pipeline/README.md` § ACES/PIES.
 3. **Manual curation** — ops tool for unmapped groups; block `--live-import` only if `uncategorized_pncs > 0`, not if PCdb unmapped (PCdb is optional enhancement).
 
-Parse/transform **preserves** EPC names; PCdb IDs are **additive** — set in transform or a post-process `enrich_pcdb.py` before import.
+Parse/transform **preserves** EPC names; PCdb IDs are **additive** — set in transform or a post-process `enrich_pcdb.py` / `aces_pies_import` before import. ACES **application** upsert is stubbed until `part_fitment` has provenance (`source=aces|epc`); EPC bbox/`diagram_path` stay authoritative.
 
 ### ACES export (follow-on)
 
