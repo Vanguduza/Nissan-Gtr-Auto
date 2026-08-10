@@ -1177,6 +1177,48 @@
       "pcdb_part_type_id": 58227,
       "pcdb_part_type_name": "Зеркала",
       "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BODY",
+      "pcdb_part_type_id": 52843,
+      "pcdb_part_type_name": "Body",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "BRAKES",
+      "pcdb_part_type_id": 57587,
+      "pcdb_part_type_name": "Brakes",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "COOLING",
+      "pcdb_part_type_id": 51860,
+      "pcdb_part_type_name": "Cooling",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ELECTRICAL",
+      "pcdb_part_type_id": 51652,
+      "pcdb_part_type_name": "Electrical",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "ENGINE",
+      "pcdb_part_type_id": 51414,
+      "pcdb_part_type_name": "Engine",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "FILTERS",
+      "pcdb_part_type_id": 52461,
+      "pcdb_part_type_name": "Filters",
+      "source": "curated_epc_stem_placeholder"
+    },
+    {
+      "epc_category_normalized": "SUSPENSION",
+      "pcdb_part_type_id": 58009,
+      "pcdb_part_type_name": "Suspension",
+      "source": "curated_epc_stem_placeholder"
     }
   ]
 }
