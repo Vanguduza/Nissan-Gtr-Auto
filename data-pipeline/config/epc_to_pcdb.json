@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Optional EPC assembly group name → Auto Care PCdb PartTerminologyID. Additive only; EPC category_name remains authoritative for shop-by-diagram UX.",
+  "notes": "Optional EPC assembly group name → Auto Care PCdb PartTerminologyID. Additive only; EPC category_name remains authoritative for shop-by-diagram UX. Expand from licensed PCdb or merge via: python -m data_pipeline.aces_pies_import --pies <file> --write-mapping config/epc_to_pcdb.json. Sample IDs below are placeholders until Auto Care subscription data is loaded.",
   "mappings": [
     {
       "epc_category_normalized": "ENGINE ASSEMBLY",

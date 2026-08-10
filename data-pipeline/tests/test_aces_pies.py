@@ -97,25 +97,25 @@ def test_enrich_preserves_existing_pcdb_id() -> None:
     assert bundle["pnc_categories"][0]["pcdb_part_type_id"] == 99999
 
 
-def test_curated_pcdb_then_pies(tmp_path: Path) -> None:
-    """Curated epc_to_pcdb maps ENGINE ASSEMBLY; PIES fills BRAKE via OEM join."""
+def test_curated_pcdb_then_pies() -> None:
+    """Curated epc_to_pcdb wins on known names; PIES fills unmapped PNCs via OEM join."""
     items = parse_pies_xml(SAMPLE_PIES)
     bundle = {
         "pnc_categories": [
-            {"pnc_code": "44000", "category_name": "BRAKE"},
-            {"pnc_code": "10000", "category_name": "ENGINE ASSEMBLY"},
+            {"pnc_code": "44000", "category_name": "BRAKE"},  # curated → 13000
+            {"pnc_code": "10000", "category_name": "ENGINE ASSEMBLY"},  # curated → 12000
+            {"pnc_code": "55000", "category_name": "UNMAPPED GROUP"},  # PIES OEM only
         ],
         "part_fitment": [
-            {"oem_part_number": "41060EB70A", "pnc_code": "44000", "chassis_code": "D40"},
-            # Engine OEM not in this PIES path for category-only check on 10000
+            {"oem_part_number": "41060EB70A", "pnc_code": "55000", "chassis_code": "D40"},
         ],
     }
     result = enrich_bundle_pcdb_then_pies(bundle, items)
-    # ENGINE ASSEMBLY from curated JSON (12000); BRAKE from PIES OEM (1684)
     by_pnc = {r["pnc_code"]: r for r in bundle["pnc_categories"]}
     assert by_pnc["10000"]["pcdb_part_type_id"] == 12000
-    assert by_pnc["44000"]["pcdb_part_type_id"] == 1684
-    assert result.pcdb_mapped >= 1
+    assert by_pnc["44000"]["pcdb_part_type_id"] == 13000
+    assert by_pnc["55000"]["pcdb_part_type_id"] == 1684
+    assert result.pcdb_mapped == 1
 
 
 def test_merge_pies_into_mapping(tmp_path: Path) -> None:

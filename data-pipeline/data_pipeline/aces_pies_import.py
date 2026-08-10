@@ -48,7 +48,6 @@ from data_pipeline.import_catalog import (
     resolve_supabase_credentials,
     _batch_upsert_pnc,
     _batch_upsert_stock_items,
-    _chunks,
     _project,
 )
 from data_pipeline.megazip.config import DEFAULT_PCDB_FILE
