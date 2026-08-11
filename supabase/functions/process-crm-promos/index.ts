@@ -164,20 +164,33 @@ Deno.serve(async (req) => {
             if (!recipient) {
               status = "skipped";
               error = "no_email";
-            } else if (localStub && !emailCfg) {
+            } else if (localStub && !brevoCfg && !emailCfg) {
               status = "sent";
               providerRef = `stub-email-${crypto.randomUUID()}`;
-            } else if (!emailCfg) {
-              status = "failed";
-              error = "email_unconfigured";
-            } else {
+            } else if (brevoCfg) {
+              const res = await sendBrevoEmail(brevoCfg, {
+                to: recipient,
+                subject: "Parts suggestions from Nissan GTR Auto",
+                text: bodyText,
+              });
+              status = "sent";
+              providerRef = res.messageId
+                ? `brevo:${res.messageId}`
+                : `brevo:${crypto.randomUUID()}`;
+            } else if (emailCfg) {
+              // Temporary fallback while Brevo secrets roll out — prefer Brevo.
               const res = await sendEmail(emailCfg, {
                 to: recipient,
                 subject: "Parts suggestions from Nissan GTR Auto",
                 text: bodyText,
               });
               status = "sent";
-              providerRef = res.messageId;
+              providerRef = res.messageId
+                ? `resend-fallback:${res.messageId}`
+                : `resend-fallback:${crypto.randomUUID()}`;
+            } else {
+              status = "failed";
+              error = "brevo_unconfigured";
             }
           } else {
             recipient = (c.whatsapp_e164 || c.phone_e164 || "").trim();
