@@ -158,8 +158,9 @@ async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
     else:
         base = supabase_url.rstrip("/")
         sem = asyncio.Semaphore(12)
+        names = sorted(seen_names)
 
-        async def _put_one(name: str) -> str:
+        async def _put_one(client: httpx.AsyncClient, name: str) -> str:
             local = paths.diagrams_dir / name
             if not local.is_file():
                 return "missing"
@@ -172,26 +173,29 @@ async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
             data = local.read_bytes()
             async with sem:
                 try:
-                    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
-                        resp = await client.post(upload_url, content=data, headers=headers)
+                    resp = await client.post(upload_url, content=data, headers=headers)
+                    if resp.status_code in (200, 201):
+                        return "ok"
+                    if resp.status_code in (400, 409):
+                        resp = await client.put(upload_url, content=data, headers=headers)
                         if resp.status_code in (200, 201):
                             return "ok"
-                        if resp.status_code in (400, 409):
-                            resp = await client.put(upload_url, content=data, headers=headers)
-                            if resp.status_code in (200, 201):
-                                return "ok"
-                        logger.warning(
-                            "Storage upload %s -> %s %s",
-                            storage_path,
-                            resp.status_code,
-                            resp.text[:120],
-                        )
-                        return "fail"
+                    logger.warning(
+                        "Storage upload %s -> %s %s",
+                        storage_path,
+                        resp.status_code,
+                        resp.text[:120],
+                    )
+                    return "fail"
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("Storage upload fail %s: %s", storage_path, exc)
                     return "fail"
 
-        results = await asyncio.gather(*[_put_one(n) for n in sorted(seen_names)])
+        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+            results: list[str] = []
+            for i in range(0, len(names), 100):
+                chunk = names[i : i + 100]
+                results.extend(await asyncio.gather(*[_put_one(client, n) for n in chunk]))
         storage_uploaded = results.count("ok")
         storage_failed = results.count("fail")
         storage_skipped = results.count("missing")
