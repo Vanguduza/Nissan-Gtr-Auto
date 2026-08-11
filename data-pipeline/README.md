@@ -273,7 +273,7 @@ Offline tests use `data_pipeline.search_index.CatalogIndex` and `data_pipeline.m
 Curated pack: `out/erp_catalog_v1/` (133 vehicles / 4142 PNC / 8079 fitments / 635 diagram paths).  
 Full reload steps: [`docs/guides/erp-catalog-v1-load.md`](../docs/guides/erp-catalog-v1-load.md).
 
-Diagram Storage: `supabase/seed_catalog_diagrams.mjs` (fixtures) or `amayama_catalog_auto --upload-diagrams` (scraped assets). No Postgres `diagram_assets` table.
+Diagram Storage: `supabase/seed_catalog_diagrams.mjs` (fixtures), `amayama_catalog_auto --upload-diagrams` / megazip `upload` phase / `scripts/upload_megazip_diagrams_to_storage.py` (scraped assets). All API uploads set long `Cache-Control` via `data_pipeline.storage_diagrams`. Restamp existing objects: `python scripts/restamp_catalog_diagrams_cache.py`. No Postgres `diagram_assets` table.
 
 ## Fixture OEMs (storefront demo alignment)
 
