@@ -306,6 +306,15 @@ function collectNeedlesFromParts(
   }
 }
 
+const PARENT_SYNONYMS: Record<string, string> = {
+  braking: "brakes",
+  drivetrain: "transmission",
+  "engine parts": "engine",
+  "cooling & heating": "cooling",
+  "steering & suspension": "suspension",
+  "body & exhaust": "body",
+};
+
 /** Resolve a shop filter slug/label to a merchandising parent (and optional leaf). */
 export function resolveMerchandisingNode(
   filter: string,
@@ -316,50 +325,6 @@ export function resolveMerchandisingNode(
   const slug = slugKey(raw);
 
   for (const parent of MERCHANDISING_TAXONOMY) {
-    if (
-      parent.slug === slug ||
-      normKey(parent.label) === key ||
-      slugKey(parent.label) === slug
-    ) {
-      return { parent };
-    }
-    // Alias keys that map onto this parent slug (braking → brakes, etc.)
-    const aliasNeedles = CATEGORY_FILTER_ALIASES[key];
-    if (
-      aliasNeedles &&
-      (parent.slug === key ||
-        aliasNeedles.some(
-          (a) => a === parent.slug || parent.slug.startsWith(a),
-        ))
-    ) {
-      // Only treat as parent when the alias row is a known parent synonym.
-      if (
-        key === "braking" ||
-        key === "drivetrain" ||
-        key === "engine parts" ||
-        key === "cooling & heating" ||
-        key === "steering & suspension" ||
-        key === "body & exhaust"
-      ) {
-        // Map known synonyms onto taxonomy parents
-        const mapped =
-          key === "braking"
-            ? "brakes"
-            : key === "drivetrain"
-              ? "transmission"
-              : key === "engine parts"
-                ? "engine"
-                : key === "cooling & heating"
-                  ? "cooling"
-                  : key === "steering & suspension"
-                    ? "suspension"
-                    : key === "body & exhaust"
-                      ? "body"
-                      : null;
-        if (mapped && parent.slug === mapped) return { parent };
-      }
-    }
-
     for (const sub of parent.subcategories) {
       if (
         sub.slug === slug ||
@@ -371,16 +336,17 @@ export function resolveMerchandisingNode(
     }
   }
 
-  // Synonym map for parent-only aliases not caught above
-  const synonymParent: Record<string, string> = {
-    braking: "brakes",
-    drivetrain: "transmission",
-    "engine parts": "engine",
-    "cooling & heating": "cooling",
-    "steering & suspension": "suspension",
-    "body & exhaust": "body",
-  };
-  const mappedSlug = synonymParent[key] ?? synonymParent[slug];
+  for (const parent of MERCHANDISING_TAXONOMY) {
+    if (
+      parent.slug === slug ||
+      normKey(parent.label) === key ||
+      slugKey(parent.label) === slug
+    ) {
+      return { parent };
+    }
+  }
+
+  const mappedSlug = PARENT_SYNONYMS[key] ?? PARENT_SYNONYMS[slug];
   if (mappedSlug) {
     const parent = MERCHANDISING_TAXONOMY.find((p) => p.slug === mappedSlug);
     if (parent) return { parent };
