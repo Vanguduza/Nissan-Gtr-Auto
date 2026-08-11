@@ -9,11 +9,10 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --import tsx --test src/**/*.test.ts"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test src/**/*.test.ts"
   },
   "devDependencies": {
-    "tsx": "^4.20.3",
-    "typescript": "^5.9.2"
+    "typescript": "^5.7.3"
   }
 }
