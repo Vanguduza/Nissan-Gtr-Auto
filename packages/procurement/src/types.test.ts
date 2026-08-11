@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   completedTrackerCount,
   resolveProcurementProgress,
-} from "./types.js";
+} from "./types.ts";
 
 describe("procurement progress", () => {
   it("maps approved without funds to approved", () => {
