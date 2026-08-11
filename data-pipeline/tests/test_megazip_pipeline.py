@@ -99,6 +99,8 @@ def test_parse_diagram_hotspots_and_oem() -> None:
     parts = page.payload["parts"]
     assert len(parts) == 2
     assert parts[0]["oem_part_number"] == "09113-08061"
+    assert page.payload["engine_code"] == "2AZFE"
+    assert parts[0]["engine_code"] == "2AZFE"
     assert parts[0]["bbox_x"] is not None
     assert page.payload["diagram_kind"] in ("exploded_diagram", "ambiguous", "parts_list_raster")
     assert len(page.payload["parts_table"]) == 2
