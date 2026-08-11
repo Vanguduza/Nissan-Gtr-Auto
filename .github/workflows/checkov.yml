@@ -1,0 +1,45 @@
+# Checkov IaC (D-48)
+# Hard-fail on HIGH/CRITICAL. LOW/MEDIUM soft-fail.
+# Scans repo root; missing frameworks/paths do not fabricate success — Checkov exits 0 when
+# no matching IaC files exist for a framework, which is correct for an unscaffolded monorepo.
+
+name: checkov
+
+on:
+  pull_request:
+    paths:
+      - "**/Dockerfile*"
+      - "**/docker-compose*.yml"
+      - "**/compose*.yml"
+      - "infra/**"
+      - ".github/workflows/**"
+      - "**/*.tf"
+      - "**/Chart.yaml"
+      - "**/*.yaml"
+      - "**/*.yml"
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkov:
+    name: Checkov (hard-fail HIGH+)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          # Frameworks that appear as the monorepo grows; absent files → no fake pass noise
+          framework: dockerfile,docker_compose,github_actions,kubernetes,terraform
+          soft_fail: false
+          soft_fail_on: LOW,MEDIUM
+          hard_fail_on: HIGH,CRITICAL
+          skip_path: node_modules,ThreatDragonModels,docs,.tmp-td-sample
+          download_external_modules: false
+          quiet: false
+          output_format: cli
