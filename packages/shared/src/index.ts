@@ -126,8 +126,17 @@ export {
   type CatalogBrowseContext,
 } from "./catalog-navigation";
 export {
+  MERCHANDISING_TAXONOMY,
   categoryFilterNeedles,
   categoryMatchesFilter,
+  effectiveCategoryFilter,
+  resolveMerchandisingNode,
+  shopCategoryFacetOptions,
+  stripEpcVehicleSuffix,
+  type MerchParent,
+  type MerchResolveResult,
+  type MerchSubcategory,
+  type ShopFacetOption,
 } from "./catalog-category-filter";
 export {
   EPC_CHASSIS_ALIASES,
