@@ -23,7 +23,7 @@ Search remains via `search_catalog`; hierarchy browse via new RPCs (`list_catalo
 | `transform` | No | Yes | Build hierarchy JSON bundle |
 | `pcdb` | No | Yes | Additive `pcdb_part_type_id` from `config/epc_to_pcdb.json` |
 | `filter` | No | Yes | `--complete-only` + `quality_report.json` |
-| `upload` | Yes | Yes | Download **all** diagram PNGs to `diagrams/` |
+| `upload` | Yes | Yes | Download diagram PNGs to `diagrams/` **and** upsert to Storage `catalog-diagrams` with long `Cache-Control` when service role is set |
 | `import` | Yes (Supabase) | Yes | Hierarchy tables + fitment + `stock_items` |
 
 ```bash

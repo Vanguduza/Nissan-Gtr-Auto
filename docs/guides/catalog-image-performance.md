@@ -46,8 +46,11 @@ Single-object TTFB from Johannesburg to Storage was ~200 ms for a 25 KB PNG — 
 
 Existing ~7k diagrams were uploaded via REST **without** `cache-control` → browsers keep revalidating.
 
-- Re-upload (upsert) with header `cache-control: 31536000` (Storage emits `max-age=31536000`).
-- Re-run: `python data-pipeline/scripts/upload_megazip_diagrams_to_storage.py` (now sets the header) against local diagram bytes — **does not delete** objects.
+- Shared default: `data_pipeline.storage_diagrams.DIAGRAM_CACHE_CONTROL_SECONDS` (`31536000` → Storage emits `max-age=31536000`).
+- Re-upsert same paths (no wipe):  
+  `python data-pipeline/scripts/restamp_catalog_diagrams_cache.py`  
+  (uses local `out/megazip/nissan/diagrams/` bytes when present; otherwise downloads then re-uploads).
+- Also covered for *new* uploads: `upload_megazip_diagrams_to_storage.py`, Amayama/PartSouq `upload_diagram_supabase`, megazip orchestrator `upload` phase (when service role is set), `supabase/seed_catalog_diagrams.mjs` (API mode).
 - Spot-check: `curl -sI 'https://…/object/public/catalog-diagrams/epc/nissan/<hash>.png'` → expect `max-age=` not `no-cache`.
 
 ### 2. High impact / web — next/image + kill URL waterfall (done in-lane)
