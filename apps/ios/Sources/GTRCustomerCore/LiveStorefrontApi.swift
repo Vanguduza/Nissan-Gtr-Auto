@@ -804,7 +804,8 @@ public final class LiveStorefrontApi: StorefrontApi {
     public func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult {
         let cap = min(max(limit, 1), 100)
         let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-        let categories = (try? await loadBrowseCategoryLabels()) ?? []
+        // Merchandising taxonomy only — never dump raw pnc_categories names.
+        let categories = CatalogCategoryFilter.facetLabels(activeFilter: cat)
         let oemFilter = cat.map { try await resolveOemFilterForCategory($0) }
         if let oemFilter, oemFilter.isEmpty {
             return CatalogBrowseResult(items: [], categories: categories)
