@@ -1,4 +1,4 @@
-"""Patch megazip orchestrator: remove Nissan two-phase; Toyota-first sequential."""
+"""Fully strip Nissan two-phase from megazip_catalog_orchestrator.py."""
 from __future__ import annotations
 
 import re
@@ -32,8 +32,6 @@ Usage (from ``data-pipeline/``)::
   python -m data_pipeline.megazip_catalog_orchestrator --makers all --live-import --complete-only
 '''
 parts = text.split('"""', 2)
-if len(parts) < 3:
-    raise SystemExit("docstring split failed")
 text = '"""' + new_doc + '"""' + parts[2]
 
 text = re.sub(
@@ -56,48 +54,32 @@ text = text.replace(
     'default="all",\n        help="Comma-separated makers or \'all\' (default: all, order from megazip_makers.json)",',
 )
 
-old_run = '''        prepare_remaining_before: frozenset[str] | None = None,
-        auto_start_remaining: bool = False,
-    ) -> bool:
-        logger.info("=== Megazip pipeline: %s [%s] ===", maker, pass_label)
-        try:
-            res = run_maker_pipeline(
-                maker,
-                config=config,
-                out_root=args.out_root,
-                phases=phases_run,
-                max_pages=args.max_pages,
-                priority_chassis=maker_priority,
-                priority_model_seeds=maker_seeds,
-                skip_crawl=skip_crawl,
-                prepare_remaining_before=prepare_remaining_before,
-                auto_start_remaining=auto_start_remaining,
-                refresh_diagram_dims=args.refresh_diagram_dims,
-'''
-new_run = '''    ) -> bool:
-        logger.info("=== Megazip pipeline: %s [%s] ===", maker, pass_label)
-        try:
-            res = run_maker_pipeline(
-                maker,
-                config=config,
-                out_root=args.out_root,
-                phases=phases_run,
-                max_pages=args.max_pages,
-                priority_chassis=maker_priority,
-                priority_model_seeds=maker_seeds,
-                skip_crawl=skip_crawl,
-                refresh_diagram_dims=args.refresh_diagram_dims,
-'''
-if old_run not in text:
-    raise SystemExit("_run_maker block not found")
-text = text.replace(old_run, new_run)
+# Pipeline signature + crawl call kwargs
+text = text.replace(
+    "    prepare_remaining_before: frozenset[str] | None = None,\n"
+    "    auto_start_remaining: bool = False,\n",
+    "",
+)
+text = text.replace(
+    "                prepare_remaining_before=prepare_remaining_before,\n"
+    "                auto_start_remaining=auto_start_remaining,\n",
+    "",
+)
+text = text.replace(
+    "        prepare_remaining_before: frozenset[str] | None = None,\n"
+    "        auto_start_remaining: bool = False,\n",
+    "",
+)
 
+# Replace is_nissan_two block through end of for-loop body
 start = text.find("        is_nissan_two = (")
 end = text.find("    manifest_path = args.out_root")
 if start < 0 or end < 0:
     raise SystemExit(f"loop markers not found start={start} end={end}")
 
-replacement = '''        maker_priority = priority if maker.lower() == "nissan" and priority else None
+text = (
+    text[:start]
+    + '''        maker_priority = priority if maker.lower() == "nissan" and priority else None
         maker_seeds = model_seeds if maker.lower() == "nissan" and model_seeds else ()
         if not _run_maker(
             maker,
@@ -110,34 +92,26 @@ replacement = '''        maker_priority = priority if maker.lower() == "nissan" 
             return 1
 
 '''
-text = text[:start] + replacement + text[end:]
+    + text[end:]
+)
 
-for old, new in [
-    (
-        """    prepare_remaining_before: frozenset[str] | None = None,
-    auto_start_remaining: bool = False,
-    refresh_diagram_dims: bool = False,
-""",
-        """    refresh_diagram_dims: bool = False,
-""",
-    ),
-    (
-        """            prepare_remaining_before=prepare_remaining_before,
-            auto_start_remaining=auto_start_remaining,
-            refresh_diagram_dims=refresh_diagram_dims,
-""",
-        """            refresh_diagram_dims=refresh_diagram_dims,
-""",
-    ),
-]:
-    if old not in text:
-        raise SystemExit(f"missing pipeline param block:\n{old[:60]}")
-    text = text.replace(old, new)
+# Drop leftover auto_remaining comments if any
+text = re.sub(
+    r"\n        # --all-models: when the current drain finishes.*?\n",
+    "\n",
+    text,
+)
 
-# Drop unused auto_remaining comment paths already gone
-for needle in ("nissan_two_phase", "auto_start_remaining", "prepare_remaining_before", "is_nissan_two"):
+for needle in (
+    "nissan_two_phase",
+    "auto_start_remaining",
+    "prepare_remaining_before",
+    "is_nissan_two",
+    "nissan-two-phase",
+    "auto_remaining",
+):
     if needle in text:
         raise SystemExit(f"still contains {needle}")
 
 p.write_text(text, encoding="utf-8")
-print("patched", p)
+print("wrote", p, "lines", text.count("\n") + 1)
