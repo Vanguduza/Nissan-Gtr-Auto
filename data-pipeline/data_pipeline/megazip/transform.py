@@ -163,9 +163,25 @@ def build_hierarchy_bundle(
                     asset["source_url"] = pub_img
                 diagram_assets[storage_path] = asset
 
-            variant_chassis = variants.get((model_slug, variant_slug), {}).get("chassis_code", "")
+            variant_meta = variants.get((model_slug, variant_slug), {})
+            variant_chassis = variant_meta.get("chassis_code", "")
+            variant_engine = (variant_meta.get("engine_code") or "").strip() or None
+            diagram_engine = (payload.get("engine_code") or "").strip() or variant_engine
             if storage_path and variant_chassis:
                 diagram_assets[storage_path]["chassis_code"] = variant_chassis
+            if storage_path and diagram_engine:
+                diagram_assets[storage_path]["engine_code"] = diagram_engine
+            if variant_chassis and diagram_engine:
+                model_variant = (
+                    f"{maker_name} "
+                    f"{models.get(model_slug, {}).get('display_name', model_slug)}"
+                )
+                vm_key = (None, variant_chassis, diagram_engine, None, model_variant)
+                vehicles[vm_key] = {
+                    "chassis_code": variant_chassis,
+                    "engine_code": diagram_engine,
+                    "model_variant": model_variant,
+                }
             category_name = payload.get("title") or section_slug.replace("-", " ").title()
 
             for row in payload.get("parts_table") or []:
