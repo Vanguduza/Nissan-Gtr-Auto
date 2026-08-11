@@ -111,15 +111,21 @@ export function EpcDiagramHub({
         setStatus({ kind: "error", message: result.error });
         return;
       }
+      // Paint diagram ASAP — price/stock overlay can arrive a tick later.
+      const imageUrl = result.data.diagram
+        ? resolveDiagramImageUrl(client, result.data.diagram)
+        : null;
+      setStatus({
+        kind: "ready",
+        data: result.data,
+        imageUrl,
+        extras: {},
+      });
       const stockIds = result.data.parts
         .map((p) => p.stock_item_id)
         .filter((id): id is string => Boolean(id));
       const extras = await loadPriceExtras(client, stockIds);
       if (cancelled) return;
-      // Resolve Storage URL with the same client — do not wait for a child useEffect.
-      const imageUrl = result.data.diagram
-        ? resolveDiagramImageUrl(client, result.data.diagram)
-        : null;
       setStatus({ kind: "ready", data: result.data, imageUrl, extras });
     }
     void run();
