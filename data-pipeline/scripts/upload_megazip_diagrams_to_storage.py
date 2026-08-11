@@ -61,15 +61,10 @@ async def _upload_one(
 ) -> bool:
     async with sem:
         url = f"{base}/storage/v1/object/{BUCKET}/{storage_path}"
-        headers = {
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "image/png",
-            "x-upsert": "true",
-            # REST uploads default to Cache-Control: no-cache without this.
-            # Numeric seconds → Storage emits max-age=… (immutable diagrams).
-            "cache-control": "31536000",
-        }
+        headers = rest_upload_headers(
+            api_key=key,
+            content_type=content_type_for_path(storage_path),
+        )
         data = local.read_bytes()
         for attempt in range(5):
             try:
@@ -115,7 +110,7 @@ async def main_async() -> int:
         sp = row.get("storage_path") or ""
         if not sp:
             continue
-        epc = _epc_path(sp)
+        epc = epc_storage_path(sp)
         prev = by_path.get(epc)
         if not prev or (row.get("image_url") and not prev.get("image_url")):
             by_path[epc] = row
