@@ -739,3 +739,93 @@ def test_load_visited_deep_chassis(tmp_path) -> None:
     assert "D22" in codes
 
 
+def test_transform_attaches_diagram_engine_even_if_diagram_parsed_first(tmp_path) -> None:
+    """SQLite insert order must not drop engines (diagram before variant_list)."""
+    from data_pipeline.megazip.config import MegazipConfig, build_maker_paths
+    from data_pipeline.megazip import state
+    from data_pipeline.megazip.transform import build_hierarchy_bundle
+
+    paths = build_maker_paths("Toyota", tmp_path, MegazipConfig.load())
+    state.init_db(paths.state_db)
+    paths.root.mkdir(parents=True, exist_ok=True)
+
+    # Intentionally upsert diagram BEFORE variant_list (bad physical order).
+    state.upsert_parsed(
+        paths.state_db,
+        "https://example/toyota/camry/acv40/diagram",
+        "diagram",
+        "toyota",
+        {
+            "model_slug": "camry-vista-aurion-42430",
+            "variant_slug": "acv40-55581",
+            "section_slug": "standard-tool",
+            "engine_code": "2AZFE",
+            "title": "Standard Tool",
+            "parts": [
+                {
+                    "oem_part_number": "09113-08061",
+                    "pnc_code": "MZ1",
+                    "chassis_code": "ACV40",
+                    "engine_code": "2AZFE",
+                }
+            ],
+        },
+    )
+    state.upsert_parsed(
+        paths.state_db,
+        "https://example/toyota/camry/variants",
+        "variant_list",
+        "toyota",
+        {
+            "model_slug": "camry-vista-aurion-42430",
+            "variants": [
+                {
+                    "slug": "acv40-55581",
+                    "chassis_code": "ACV40",
+                    "frame": "ACV40",
+                    "megazip_data_id": "1",
+                    "engine_code": "",
+                }
+            ],
+        },
+    )
+
+    bundle = build_hierarchy_bundle(paths, storage_prefix="epc/toyota")
+    engines = {
+        (r.get("chassis_code"), r.get("engine_code"), r.get("model_variant"))
+        for r in bundle["vehicle_master"]
+        if r.get("engine_code")
+    }
+    assert ("ACV40", "2AZFE", "Toyota CAMRY VISTA AURION 42430") in engines
+    fit_engines = {f.get("engine_code") for f in bundle["part_fitment"]}
+    assert "2AZFE" in fit_engines
+
+
+def test_quality_report_includes_engine_coverage() -> None:
+    from data_pipeline.megazip.quality import bundle_quality_report
+
+    report = bundle_quality_report(
+        {
+            "catalog_variants": [
+                {"model_slug": "m", "slug": "v1", "chassis_code": "T30"},
+                {"model_slug": "m", "slug": "v2", "chassis_code": "T31"},
+            ],
+            "catalog_diagrams": [],
+            "catalog_diagram_parts": [],
+            "part_fitment": [],
+            "pnc_categories": [],
+            "vehicle_master": [
+                {
+                    "chassis_code": "T30",
+                    "engine_code": "QR20DE",
+                    "model_variant": "Nissan X TRAIL 2064",
+                },
+                {"chassis_code": "T31", "model_variant": "Nissan X TRAIL 2064"},
+            ],
+        }
+    )
+    assert report["vehicle_master_with_engine"] == 1
+    assert report["variant_chassis_missing_engine_count"] == 1
+    assert report["variant_chassis_missing_engine"] == ["T31"]
+
+
