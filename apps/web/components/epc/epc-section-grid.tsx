@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CatalogStorageImage } from "@/components/catalog-storage-image";
 import { catalogPath, type CatalogSection } from "@/lib/catalog-hierarchy";
 import styles from "./epc-grid.module.css";
 

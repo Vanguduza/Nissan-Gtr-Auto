@@ -116,7 +116,11 @@ export function EpcDiagramHub({
         .filter((id): id is string => Boolean(id));
       const extras = await loadPriceExtras(client, stockIds);
       if (cancelled) return;
-      setStatus({ kind: "ready", data: result.data, extras });
+      // Resolve Storage URL with the same client — do not wait for a child useEffect.
+      const imageUrl = result.data.diagram
+        ? resolveDiagramImageUrl(client, result.data.diagram)
+        : null;
+      setStatus({ kind: "ready", data: result.data, imageUrl, extras });
     }
     void run();
     return () => {

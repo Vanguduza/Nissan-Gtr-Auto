@@ -242,6 +242,27 @@ def _parse_attrs(block: str) -> dict[str, str]:
     return out
 
 
+_ENGINE_ATTR_KEYS = (
+    "engine",
+    "engine_code",
+    "engine_",
+    "двигатель",
+    "engine_model",
+)
+
+
+def _normalize_engine_code(raw: str) -> str:
+    return re.sub(r"\s+", "", _clean(raw)).upper()
+
+
+def _engine_from_attrs(attrs: dict[str, str]) -> str:
+    for key in _ENGINE_ATTR_KEYS:
+        val = attrs.get(key) or ""
+        if val:
+            return _normalize_engine_code(val)
+    return ""
+
+
 def _variant_href(block: str) -> str | None:
     m = _VARIANT_LINK.search(block) or _VARIANT_LINK_ALT.search(block)
     return m.group(1) if m else None
@@ -273,6 +294,7 @@ def parse_variant_list(html: str, url: str, maker_slug: str, model_slug: str) ->
                 "grade": attrs.get("grade", ""),
                 "sales_region": attrs.get("sales_region", ""),
                 "year_label": attrs.get("year", ""),
+                "engine_code": _engine_from_attrs(attrs),
                 "source_url": href,
             }
         )
@@ -290,6 +312,7 @@ def parse_variant_list(html: str, url: str, maker_slug: str, model_slug: str) ->
                     "grade": "",
                     "sales_region": "",
                     "year_label": "",
+                    "engine_code": "",
                     "source_url": urljoin(url, href),
                 }
             )
