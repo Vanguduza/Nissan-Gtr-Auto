@@ -8,13 +8,11 @@ import {
   EpcPartsTable,
   type EpcPartRow,
 } from "@/components/epc/epc-parts-table";
-import { resolveDiagramImageUrl } from "@/lib/catalog-diagram";
 import {
   saveEpcContext,
   type CatalogBrowseContext,
   type CatalogDiagramResponse,
 } from "@/lib/catalog-hierarchy";
-import { createWebClient } from "@/lib/supabase";
 import styles from "./epc-diagram.module.css";
 
 export function EpcDiagramPage({
@@ -22,6 +20,8 @@ export function EpcDiagramPage({
   data,
   partExtras,
   labels,
+  /** Resolved Storage/public URL — prefer computing in the hub to avoid a second paint delay. */
+  imageUrl: imageUrlProp,
 }: {
   ctx: CatalogBrowseContext;
   data: CatalogDiagramResponse;
@@ -33,22 +33,18 @@ export function EpcDiagramPage({
   labels?: Partial<
     Record<"maker" | "model" | "variant" | "section", string>
   >;
+  imageUrl?: string | null;
 }) {
   const [activeOem, setActiveOem] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     saveEpcContext(ctx);
   }, [ctx]);
 
-  useEffect(() => {
-    const client = createWebClient();
-    if (!client || !data.diagram) {
-      setImageUrl(data.diagram?.image_url ?? null);
-      return;
-    }
-    setImageUrl(resolveDiagramImageUrl(client, data.diagram));
-  }, [data.diagram]);
+  const imageUrl =
+    imageUrlProp !== undefined
+      ? imageUrlProp
+      : (data.diagram?.image_url ?? null);
 
   const parts: EpcPartRow[] = useMemo(
     () =>
@@ -83,6 +79,8 @@ export function EpcDiagramPage({
           hotspots={data.hotspots}
           activeOem={activeOem}
           onHoverOem={setActiveOem}
+          imageWidth={data.diagram?.width}
+          imageHeight={data.diagram?.height}
         />
         <EpcPartsTable
           parts={parts}
