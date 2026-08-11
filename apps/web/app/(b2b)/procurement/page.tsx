@@ -55,7 +55,6 @@ export default function ProcurementPage() {
           </Link>
         </div>
       </div>
-      <PreferredSuppliersPanel />
     </div>
   );
 }
