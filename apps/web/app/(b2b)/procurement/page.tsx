@@ -24,13 +24,21 @@ export default function ProcurementPage() {
             <span className={styles.cardLabel}>Preferred suppliers</span>
             <span className={styles.cardBlurb}>Add / remove roster</span>
           </Link>
+          <Link href="/procurement/orders/new" className={styles.card}>
+            <span className={styles.cardLabel}>New PO</span>
+            <span className={styles.cardBlurb}>Quoted lines · submit</span>
+          </Link>
+          <Link href="/procurement/grn" className={styles.card}>
+            <span className={styles.cardLabel}>Goods received</span>
+            <span className={styles.cardBlurb}>OEM + qty · invoice GRN</span>
+          </Link>
           <Link href="/procurement/approvals" className={styles.card}>
             <span className={styles.cardLabel}>Approvals</span>
             <span className={styles.cardBlurb}>PO &amp; MR queue · fund release</span>
           </Link>
           <Link href="/staff/warehouse/receive" className={styles.card}>
-            <span className={styles.cardLabel}>Goods received</span>
-            <span className={styles.cardBlurb}>OEM + qty · invoice GRN</span>
+            <span className={styles.cardLabel}>Ad-hoc receive</span>
+            <span className={styles.cardBlurb}>Non-PO stock entry</span>
           </Link>
           <Link href="/staff/warehouse/master-stock" className={styles.card}>
             <span className={styles.cardLabel}>Master stock</span>

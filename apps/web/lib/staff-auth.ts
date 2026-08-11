@@ -396,6 +396,18 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         roles: ["admin", "warehouse", "finance"],
       },
       {
+        href: "/procurement/orders/new",
+        label: "New PO",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/grn",
+        label: "GRN",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
         href: "/procurement/approvals",
         label: "Approvals",
         exact: true,
