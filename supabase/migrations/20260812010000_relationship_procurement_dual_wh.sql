@@ -95,22 +95,6 @@ CREATE POLICY supplier_preferred_skus_staff
   USING (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance']::public.staff_role[]))
   WITH CHECK (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance']::public.staff_role[]));
 
--- procurement role may not exist on all installs — fall back without it
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum e
-    JOIN pg_type t ON t.oid = e.enumtypid
-    WHERE t.typname = 'staff_role' AND e.enumlabel = 'procurement'
-  ) THEN
-    DROP POLICY IF EXISTS supplier_preferred_skus_staff ON public.supplier_preferred_skus;
-    CREATE POLICY supplier_preferred_skus_staff
-      ON public.supplier_preferred_skus FOR ALL TO authenticated
-      USING (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance']::public.staff_role[]))
-      WITH CHECK (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance']::public.staff_role[]));
-  END IF;
-END $$;
-
 -- ---------------------------------------------------------------------------
 -- Finance fund release on PO approve
 -- ---------------------------------------------------------------------------
