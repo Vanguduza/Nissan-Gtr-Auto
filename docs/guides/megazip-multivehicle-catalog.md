@@ -126,10 +126,8 @@ python scripts/megazip_post_import_verify.py --maker-slug toyota
 # Optional hard fail on engine gaps:
 python scripts/megazip_post_import_verify.py --maker-slug toyota --fail-on-engine-gaps
 
-# If verify reports megazip URLs/paths (legacy rows):
+# If verify reports megazip URLs/paths (legacy rows on an old DB):
 python scripts/scrub_megazip_catalog_values.py
-# Column rename is automatic on --live-import; optional manual re-run:
-python scripts/apply_megazip_scrub.py
 ```
 
 ### E. Engine backfill while crawl workers hold SQLite
