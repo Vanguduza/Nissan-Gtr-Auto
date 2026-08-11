@@ -111,9 +111,10 @@ async def _head_cache_ok(
     base: str,
     object_path: str,
 ) -> bool:
-    url = f"{base}/storage/v1/object/public/{DIAGRAMS_BUCKET}/{object_path}"
+    # Smart CDN often returns Cache-Control: no-cache on HEAD even when GET is correct.
+    url = f"{base}/storage/v1/object/public/{DIAGRAMS_BUCKET}/{object_path}?cachecheck=1"
     try:
-        resp = await client.head(url)
+        resp = await client.get(url)
         cc = (resp.headers.get("cache-control") or "").lower()
         return "max-age=" in cc and "no-cache" not in cc
     except Exception:  # noqa: BLE001
