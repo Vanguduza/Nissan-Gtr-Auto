@@ -30,7 +30,7 @@ Search: `search_catalog`. Browse: `list_catalog_*`, `get_catalog_diagram`.
 | 3 | Diagram-before-variant SQLite order dropped engines | Transform sorts page types before build |
 | 4 | Vendor URLs/`megazip/` paths in SoR | Transform scrub + **import** `sanitize_hierarchy_vendor_leakage` + REST scrub script |
 | 5 | `catalog_makers.source` flipped to `megazip` | Force `epc` on transform/import/scrub |
-| 6 | Column rename `megazip_*` → `external_*` not applied | Import dual-maps both; apply migration / Dashboard SQL when `DATABASE_URL` available |
+| 6 | Column rename `megazip_*` → `external_*` | Live import auto-runs `ensure_external_catalog_columns` (needs `DATABASE_URL` or `SUPABASE_DB_PASSWORD`); dual-maps until then |
 | 7 | Huge PENDING backlog | Model-scoped workers (`megazip_crawl_worker`) with leases |
 | 8 | Parser upgrade without re-parse | `--skip-crawl --phase parse,transform,…` or `extract_engines_from_cache.py` |
 | 9 | Missing cache HTML ⇒ missing engines | Re-crawl that model; verify coverage before “done” |
