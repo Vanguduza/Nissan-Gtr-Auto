@@ -529,11 +529,19 @@ export async function listCatalogProducts(
   client: SupabaseClient,
   opts: CatalogListOpts = {},
 ): Promise<
-  | { ok: true; data: CatalogListItem[]; categories: string[] }
+  | {
+      ok: true;
+      data: CatalogListItem[];
+      /** @deprecated Prefer `categoryFacets` (slug + label). */
+      categories: string[];
+      categoryFacets: ShopFacetOption[];
+    }
   | { ok: false; error: string }
 > {
   const limit = opts.limit ?? 50;
-  const cat = opts.category?.trim().toLowerCase() || null;
+  const parentCat = opts.category?.trim() || null;
+  const subCat = opts.subcategory?.trim() || null;
+  const cat = effectiveCategoryFilter(parentCat, subCat);
   const sort = opts.sort ?? "oem";
   /** Fetch a wider window when we sort/filter client-side. */
   const fetchLimit =
@@ -545,24 +553,15 @@ export async function listCatalogProducts(
       ? Math.max(limit * 3, 80)
       : limit;
 
-  const { data: categoriesRows } = await client
-    .from("pnc_categories")
-    .select("category_name")
-    .order("category_name")
-    .limit(100);
-
-  const categories = [
-    ...new Set(
-      (categoriesRows ?? [])
-        .map((r) => normalizeDisplayCategory(r.category_name.trim()))
-        .filter(Boolean),
-    ),
-  ].slice(0, 24) as string[];
+  // Merchandising taxonomy only — never dump raw pnc_categories.category_name
+  // (Megazip "FOR <vehicle…>" assembly strings) into the FILTERS pane.
+  const categoryFacets = shopCategoryFacetOptions(parentCat, subCat);
+  const categories = categoryFacets.map((f) => f.label);
 
   let oemFilter: string[] | null = null;
   if (cat) {
-    // Merchandising slugs (`brakes`) must match EPC assembly groups
-    // (`BRAKE PIPING & CONTROL`) — exact equality always misses PartSouq data.
+    // Merchandising slugs (`brakes`, `ball-joints`) must match EPC groups /
+    // PNC subcategory stems — exact equality always misses PartSouq data.
     const { data: pncs } = await client
       .from("pnc_categories")
       .select("pnc_code, category_name, subcategory_name")
@@ -587,10 +586,10 @@ export async function listCatalogProducts(
         ...new Set((fits ?? []).map((f) => f.oem_part_number)),
       ];
       if (!oemFilter.length) {
-        return { ok: true, data: [], categories };
+        return { ok: true, data: [], categories, categoryFacets };
       }
     } else {
-      return { ok: true, data: [], categories };
+      return { ok: true, data: [], categories, categoryFacets };
     }
   }
 
