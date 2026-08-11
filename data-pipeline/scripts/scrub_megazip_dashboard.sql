@@ -1,5 +1,4 @@
--- Paste into Supabase Dashboard → SQL Editor (project gylrgwqyuiwkyykardwc).
--- One-shot: finish megazip scrub + column renames when REST is too slow.
+-- Optional manual SQL (pipeline auto-applies column renames on live import).
 -- Safe to re-run (idempotent guards).
 
 BEGIN;
