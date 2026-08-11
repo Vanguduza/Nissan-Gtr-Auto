@@ -77,6 +77,7 @@ def build_hierarchy_bundle(
             for v in payload.get("variants") or []:
                 vslug = v["slug"]
                 key = (model_slug, vslug)
+                engine = (v.get("engine_code") or "").strip() or None
                 variants[key] = {
                     "maker_slug": maker_slug,
                     "model_slug": model_slug,
@@ -86,6 +87,7 @@ def build_hierarchy_bundle(
                     "grade": v.get("grade") or "",
                     "sales_region": v.get("sales_region") or "",
                     "year_label": v.get("year_label") or "",
+                    "engine_code": engine or "",
                     "external_data_id": v.get("external_data_id")
                     or v.get("megazip_data_id")
                     or "",
@@ -93,13 +95,18 @@ def build_hierarchy_bundle(
                 }
                 chassis = v.get("chassis_code") or ""
                 if chassis:
-                    vm_key = (None, chassis, None, None, f"{maker_name} {model_slug}")
-                    # Schema allows only chassis_code + model_variant (+ optional
-                    # non-null vin/engine/year). Hierarchy links live on catalog_*.
+                    model_variant = (
+                        f"{maker_name} "
+                        f"{models.get(model_slug, {}).get('display_name', model_slug)}"
+                    )
+                    vm_key = (None, chassis, engine, None, model_variant)
+                    # Prefer chassis+engine rows when known; cascade reads engine_code.
                     vehicles[vm_key] = {
                         "chassis_code": chassis,
-                        "model_variant": f"{maker_name} {models.get(model_slug, {}).get('display_name', model_slug)}",
+                        "model_variant": model_variant,
                     }
+                    if engine:
+                        vehicles[vm_key]["engine_code"] = engine
 
         elif ptype == "section_list":
             model_slug = payload.get("model_slug") or ""
