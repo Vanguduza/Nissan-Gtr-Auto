@@ -95,3 +95,39 @@ def test_sanitize_hierarchy_vendor_leakage_strips_megazip() -> None:
     assert out["catalog_diagrams"][0]["image_url"] is None
     assert out["part_fitment"][0]["diagram_path"] == "epc/toyota/a.png"
     assert out["catalog_sections"][0]["thumbnail_url"] is None
+
+
+def test_prepare_hierarchy_for_supabase_import_normalizes_ids() -> None:
+    from data_pipeline.import_hierarchy_catalog import (
+        import_schema_issues,
+        prepare_hierarchy_for_supabase_import,
+    )
+
+    ready = prepare_hierarchy_for_supabase_import(
+        {
+            "catalog_makers": [{"slug": "toyota", "name": "Toyota", "source": "megazip"}],
+            "catalog_variants": [
+                {
+                    "maker_slug": "toyota",
+                    "model_slug": "camry-1",
+                    "slug": "acv40",
+                    "megazip_data_id": "9",
+                    "source_url": "https://www.megazip.net/x",
+                }
+            ],
+            "catalog_diagram_parts": [
+                {
+                    "itemslist_id": "1",
+                    "megazip_item_id": "1",
+                    "diagram_path": "megazip/t/a.png",
+                }
+            ],
+        }
+    )
+    assert ready["catalog_makers"][0]["source"] == "epc"
+    assert "megazip_data_id" not in ready["catalog_variants"][0]
+    assert ready["catalog_variants"][0]["external_data_id"] == "9"
+    assert "megazip_item_id" not in ready["catalog_diagram_parts"][0]
+    assert ready["catalog_diagram_parts"][0]["external_item_id"] == "1"
+    assert ready["catalog_diagram_parts"][0]["diagram_path"] == "epc/t/a.png"
+    assert import_schema_issues(ready) == []

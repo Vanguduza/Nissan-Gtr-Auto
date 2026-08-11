@@ -281,7 +281,10 @@ def run_maker_pipeline(
     if bundle and "filter" in phases:
         if complete_only:
             bundle, filter_meta = filter_complete_bundle(bundle, completed_only=True)
+            bundle = prepare_hierarchy_for_supabase_import(bundle)
             write_bundle(bundle, paths.bundle_dir)
+        else:
+            bundle = prepare_hierarchy_for_supabase_import(bundle)
         quality = bundle_quality_report(bundle)
         variant_quality = variant_quality_breakdown(bundle)
         (paths.bundle_dir / "quality_report.json").write_text(
