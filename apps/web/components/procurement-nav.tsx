@@ -26,6 +26,18 @@ const nav: NavItem[] = [
     Icon: PackageSearch,
   },
   {
+    href: "/procurement/orders/new",
+    label: "New PO",
+    exact: true,
+    Icon: ClipboardList,
+  },
+  {
+    href: "/procurement/grn",
+    label: "GRN",
+    exact: true,
+    Icon: ClipboardList,
+  },
+  {
     href: "/procurement/approvals",
     label: "Approvals",
     exact: true,
