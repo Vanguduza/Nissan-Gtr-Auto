@@ -371,15 +371,19 @@ def claim_next_url(
 
 def mark_url(db_path: Path, url: str, *, ok: bool, error: str | None = None) -> None:
     status = "VISITED" if ok else "ERROR"
-    conn = connect(db_path)
-    try:
-        conn.execute(
-            "UPDATE queue SET status = ?, last_error = ?, updated_at = datetime('now') WHERE url = ?",
-            (status, error, url),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+
+    def _once() -> None:
+        conn = connect(db_path)
+        try:
+            conn.execute(
+                "UPDATE queue SET status = ?, last_error = ?, updated_at = datetime('now') WHERE url = ?",
+                (status, error, url),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    with_retry(_once, label="mark_url")
 
 
 def save_cache(db_path: Path, url: str, cache_path: str, content_hash: str) -> None:
