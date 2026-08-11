@@ -540,7 +540,9 @@ def parse_diagram_page(
     title_m = re.search(r"<title>([^<]+)</title>", html, re.I)
     title = _clean(title_m.group(1)) if title_m else section_slug.replace("-", " ").title()
     page_attrs = _parse_attrs(html)
-    engine_code = _normalize_engine_code(default_engine) if default_engine else _engine_from_attrs(page_attrs)
+    engine_code = _engine_from_attrs(page_attrs) or (
+        _normalize_engine_code(default_engine) if default_engine else ""
+    )
     img_width, img_height = _diagram_image_dimensions(
         html,
         image_bytes=image_bytes,
