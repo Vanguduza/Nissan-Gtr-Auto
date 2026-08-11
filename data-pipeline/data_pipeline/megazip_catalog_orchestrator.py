@@ -3,9 +3,6 @@
 Runs one maker at a time in ``config/megazip_makers.json`` order (homepage
 popularity: Toyota → Lexus → Honda → …). Each maker completes crawl → parse →
 transform → (optional import) before the next starts.
-
-Nissan two-phase / priority-then-remaining handoff is not used — every maker
-gets the same sequential full-catalog path.
 """
 
 from __future__ import annotations
