@@ -1,6 +1,7 @@
 # Dial-a-Spare → Nissan GTR Auto adoption plan
 
-**Status:** Phase A complete · Phase B (this doc) · Phase C E1 started 2026-08-12  
+**Status:** Phase A complete · Phase B · Phase C E1 + **procurement/dual-WH/POS/security spine 2026-08-12**  
+**Companion:** `docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md`
 **DIAL authority:** `DIAL_Consolidated_Plan_v4.md` → Agent Pack → Blueprint / Stitch / WA / D-53–D-60 companions  
 **Nissan repo:** `nissan-gtr-auto-erp` @ `nissangtrauto.co.zw`  
 **Do not treat DIAL v7 as SoR.**
