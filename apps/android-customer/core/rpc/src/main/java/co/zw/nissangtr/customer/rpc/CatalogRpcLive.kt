@@ -648,12 +648,6 @@ private data class PncCategoryMatchRow(
 )
 
 @Serializable
-private data class PncCategoryNameRow(
-    @SerialName("category_name") val categoryName: String? = null,
-)
-
-
-@Serializable
 private data class VehicleMasterDbRow(
     val id: String? = null,
     @SerialName("vin_prefix") val vinPrefix: String? = null,
