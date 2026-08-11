@@ -46,12 +46,15 @@ Single-object TTFB from Johannesburg to Storage was ~200 ms for a 25 KB PNG — 
 
 Existing ~7k diagrams were uploaded via REST **without** `cache-control` → browsers keep revalidating.
 
-- Shared default: `data_pipeline.storage_diagrams.DIAGRAM_CACHE_CONTROL_SECONDS` (`31536000` → Storage emits `max-age=31536000`).
+- Shared default: `data_pipeline.storage_diagrams.DIAGRAM_CACHE_CONTROL` (`public, max-age=31536000, immutable`).
+  Bare numeric seconds can be served as `public, 31536000` (no real TTL) — always use explicit `max-age=`.
 - Re-upsert same paths (no wipe):  
-  `python data-pipeline/scripts/restamp_catalog_diagrams_cache.py`  
+  `python data-pipeline/scripts/restamp_catalog_diagrams_cache.py --force`  
   (uses local `out/megazip/nissan/diagrams/` bytes when present; otherwise downloads then re-uploads).
 - Also covered for *new* uploads: `upload_megazip_diagrams_to_storage.py`, Amayama/PartSouq `upload_diagram_supabase`, megazip orchestrator `upload` phase (when service role is set), `supabase/seed_catalog_diagrams.mjs` (API mode).
-- Spot-check: `curl -sI 'https://…/object/public/catalog-diagrams/epc/nissan/<hash>.png'` → expect `max-age=` not `no-cache`.
+- Spot-check with **GET** (Smart CDN `HEAD` often still shows `no-cache`):  
+  `curl -sI` is unreliable here — use `curl -sD - -o NUL 'https://…/object/public/catalog-diagrams/epc/nissan/<hash>.png?v=1' | findstr /i cache`  
+  Expect `Cache-Control: public, max-age=31536000, immutable`.
 
 ### 2. High impact / web — next/image + kill URL waterfall (done in-lane)
 

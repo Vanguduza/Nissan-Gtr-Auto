@@ -119,9 +119,9 @@ async function seedViaApi() {
           apikey: key,
           "Content-Type": "image/png",
           "x-upsert": "true",
-          // Keep in sync with data_pipeline.storage_diagrams.DIAGRAM_CACHE_CONTROL_SECONDS
+          // Keep in sync with data_pipeline.storage_diagrams.DIAGRAM_CACHE_CONTROL
           // Avoid Cache-Control: no-cache (REST default without this header).
-          "cache-control": "31536000",
+          "cache-control": "public, max-age=31536000, immutable",
         },
         body,
       });
