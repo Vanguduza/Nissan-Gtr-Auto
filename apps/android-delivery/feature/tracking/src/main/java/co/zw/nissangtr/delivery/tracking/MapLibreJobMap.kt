@@ -17,12 +17,12 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.Style
 
 /**
  * Courier job map — MapLibre render SoR (DIAL D-44).
- * Distance/ETA remain OSRM via [co.zw.nissangtr.delivery] OsrmRouteFetcher.
- * Do not use Google Maps / Directions as SoR.
+ * Distance/ETA remain OSRM (OsrmRouteFetcher). Never Google Maps as SoR.
+ *
+ * Default style is public demo tiles; ops should set a self-hosted/style URL via [styleUrl].
  */
 @Composable
 fun MapLibreJobMap(
@@ -30,7 +30,7 @@ fun MapLibreJobMap(
     longitude: Double,
     zoom: Double = 14.0,
     modifier: Modifier = Modifier,
-    styleUrl: String = Style.getPredefinedStyle(Style.PredefinedStyle.STREETS),
+    styleUrl: String = "https://demotiles.maplibre.org/style.json",
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
