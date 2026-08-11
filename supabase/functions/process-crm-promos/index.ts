@@ -13,6 +13,10 @@ import {
   jsonOk,
 } from "../_shared/channel_env.ts";
 import { getEmailSendConfig, sendEmail } from "../_shared/email_send.ts";
+import {
+  getBrevoSendConfig,
+  sendBrevoEmail,
+} from "../_shared/brevo_send.ts";
 import { getSmsGatewayConfig, sendSms } from "../_shared/sms_gateway.ts";
 import {
   getWhatsAppCloudConfig,
