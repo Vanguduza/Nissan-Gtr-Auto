@@ -3,8 +3,10 @@
   "base_url": "https://www.megazip.net",
   "parts_hub_path": "/parts",
   "catalog_path_prefix": "/zapchasti-dlya-avtomobilej",
-  "notes": "Car makers from Megazip homepage Explore Brands order (popularity). One maker at a time. Only /parts/{slug} hubs that return HTTP 200. Powersports/marine homepage brands excluded from this car EPC queue.",
+  "notes": "Car makers from Megazip homepage Explore Brands order (popularity). One maker at a time through full phases. Discovered 2026-08-11: 11 /parts/{slug} hubs return HTTP 200; 7 are cars (listed); 4 powersports/marine excluded (ktm, bombardier, tohatsu, mercury-mercruiser). Hub crawl queues all models per maker.",
   "discovered_at": "2026-08-11",
+  "discovered_car_hubs": 7,
+  "discovered_parts_hubs_http_200": 11,
   "makers": [
     "Toyota",
     "Lexus",
