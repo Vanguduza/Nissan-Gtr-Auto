@@ -399,6 +399,7 @@ def _parse_data_item_json(html: str) -> dict[str, dict[str, str]]:
             "description": str(blob.get("name") or "").strip(),
             "quantity": str(blob.get("quantity") or blob.get("qty") or "").strip(),
             "megazip_item_id": str(blob.get("id") or item_id).strip(),
+            "external_item_id": str(blob.get("id") or item_id).strip(),
         }
     return out
 
