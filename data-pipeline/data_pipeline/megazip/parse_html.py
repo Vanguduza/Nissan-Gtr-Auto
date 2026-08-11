@@ -479,6 +479,7 @@ def _parse_parts_table(html: str) -> list[dict[str, Any]]:
                 "description": meta.get("description") or None,
                 "quantity": meta.get("quantity") or (qty_m.group(1).strip() if qty_m else None),
                 "megazip_item_id": meta.get("megazip_item_id") or item_id,
+                "external_item_id": meta.get("external_item_id") or meta.get("megazip_item_id") or item_id,
             }
         )
     if rows:
@@ -495,6 +496,7 @@ def _parse_parts_table(html: str) -> list[dict[str, Any]]:
                 "description": meta.get("description") or None,
                 "quantity": meta.get("quantity") or None,
                 "megazip_item_id": meta.get("megazip_item_id") or item_id,
+                "external_item_id": meta.get("external_item_id") or meta.get("megazip_item_id") or item_id,
             }
         )
     return rows
@@ -575,6 +577,7 @@ def parse_diagram_page(
         row: dict[str, Any] = {
             "itemslist_id": item_id,
             "megazip_item_id": meta.get("megazip_item_id") or item_id,
+                "external_item_id": meta.get("external_item_id") or meta.get("megazip_item_id") or item_id,
             "oem_part_number": oem,
             "pnc_code": pnc,
             "chassis_code": default_chassis,
@@ -597,6 +600,7 @@ def parse_diagram_page(
         row = {
             "itemslist_id": item_id,
             "megazip_item_id": meta.get("megazip_item_id") or item_id,
+                "external_item_id": meta.get("external_item_id") or meta.get("megazip_item_id") or item_id,
             "oem_part_number": oem,
             "pnc_code": f"MZ{item_id}"[:8],
             "chassis_code": default_chassis,
