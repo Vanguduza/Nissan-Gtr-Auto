@@ -147,11 +147,8 @@ async def scrub_urls_and_makers(client: httpx.AsyncClient, base: str, key: str) 
             json={"source_url": None},
             headers=headers,
         )
-    await client.patch(
-        f"{base}/rest/v1/catalog_sections?thumbnail_url=ilike.*megazip*",
-        json={"thumbnail_url": None},
-        headers=headers,
-    )
+    # Large tables: id-keyset nulling (single filter PATCH can leave leftovers).
+    await _null_ilike_column(client, base, key, "catalog_sections", "thumbnail_url")
     await client.patch(
         f"{base}/rest/v1/catalog_diagrams?source_url=ilike.*megazip*",
         json={"source_url": None},
@@ -164,6 +161,55 @@ async def scrub_urls_and_makers(client: httpx.AsyncClient, base: str, key: str) 
     )
     await rewrite_table(client, base, key, "catalog_diagrams", "storage_path")
     logger.info("urls/makers/diagrams scrubbed")
+
+
+async def _null_ilike_column(
+    client: httpx.AsyncClient,
+    base: str,
+    key: str,
+    table: str,
+    col: str,
+    *,
+    page_size: int = 1000,
+) -> int:
+    """Null ``col`` where it ILIKE megazip, paging by id until clear."""
+    headers = _headers(key)
+    total = 0
+    for _ in range(200):
+        resp = await client.get(
+            f"{base}/rest/v1/{table}?select=id&{col}=ilike.*megazip*&limit={page_size}",
+            headers=headers,
+        )
+        if resp.status_code >= 300:
+            raise RuntimeError(f"{table}.{col} list {resp.status_code}: {resp.text[:200]}")
+        rows = resp.json() or []
+        if not rows:
+            break
+        ids = [r["id"] for r in rows if r.get("id")]
+        sem = asyncio.Semaphore(CONCURRENCY)
+        tasks = []
+        for i in range(0, len(ids), PATCH_CHUNK):
+            chunk = ids[i : i + PATCH_CHUNK]
+            tasks.append(_patch_ids(client, sem, base, key, table, col, chunk, None))  # type: ignore[arg-type]
+        # _patch_ids expects str new_value — use dedicated null patch
+        for i in range(0, len(ids), PATCH_CHUNK):
+            chunk = ids[i : i + PATCH_CHUNK]
+            id_list = ",".join(chunk)
+            url = f"{base}/rest/v1/{table}?id=in.({id_list})"
+            for attempt in range(10):
+                pr = await client.patch(url, json={col: None}, headers=headers)
+                if pr.status_code < 300:
+                    break
+                if pr.status_code in (429, 500, 502, 503, 504):
+                    await asyncio.sleep(0.5 * (attempt + 1))
+                    continue
+                raise RuntimeError(f"{table}.{col} null patch {pr.status_code}: {pr.text[:200]}")
+            else:
+                raise RuntimeError(f"{table}.{col} null patch exhausted retries")
+        total += len(ids)
+        logger.info("%s.%s nulled≈%s", table, col, total)
+    logger.info("%s.%s done nulled≈%s", table, col, total)
+    return total
 
 
 async def sample_remaining(
