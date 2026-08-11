@@ -37,6 +37,7 @@ data class JobsUiState(
     val createReattempt: Boolean = true,
     val supportPhone: String = "",
     val mapsKeyPresent: Boolean = false,
+    val osrmConfigured: Boolean = false,
     val routePoints: List<MapLatLng> = emptyList(),
     val routeLabel: String? = null,
     val routeBusy: Boolean = false,
@@ -51,16 +52,19 @@ class JobsViewModel(
     private val appContext: Context,
     supportPhone: String,
     private val mapsApiKey: String,
+    private val osrmUrl: String = "",
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         JobsUiState(
             supportPhone = supportPhone,
             mapsKeyPresent = mapsApiKey.isNotBlank(),
+            osrmConfigured = osrmUrl.isNotBlank(),
         ),
     )
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
 
-    private val directions by lazy { DirectionsRouteFetcher(mapsApiKey) }
+    private val osrm by lazy { OsrmRouteFetcher(osrmUrl) }
+    private val googleDirections by lazy { DirectionsRouteFetcher(mapsApiKey) }
 
     init {
         refresh()
