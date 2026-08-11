@@ -32,6 +32,7 @@ WHERE source ILIKE '%megazip%';
 UPDATE public.catalog_models SET source_url = NULL WHERE source_url ILIKE '%megazip%';
 UPDATE public.catalog_variants SET source_url = NULL WHERE source_url ILIKE '%megazip%';
 UPDATE public.catalog_sections SET source_url = NULL WHERE source_url ILIKE '%megazip%';
+UPDATE public.catalog_sections SET thumbnail_url = NULL WHERE thumbnail_url ILIKE '%megazip%';
 
 DO $$
 BEGIN
