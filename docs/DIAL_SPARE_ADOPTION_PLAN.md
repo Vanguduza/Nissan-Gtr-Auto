@@ -99,14 +99,17 @@ Cite this section in every PR that touches money, stock visibility, or fiscal.
 
 | | Current | Target |
 | --- | --- | --- |
-| SoR | `warehouses` / `stock_*` / bins / consignment | **Keep** — DIAL marketplace has no owned-WMS donor |
+| SoR | `warehouses` / `stock_*` / bins / consignment | **Keep** — extend dual-WH ops |
+| Dual warehouse | MAIN + others | **WH1 receiving / WH2 storefloor**; transfers approval-tracked |
+| Master stock | per-warehouse levels | `v_master_stock` / `list_master_stock` totals + WH1 + WH2 |
+| Procurement | RFQ-centric hub | **Relationship preferred suppliers** — see `docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md` |
 | Catalog | EPC + PartSouq multimake pipeline | Keep dual-entry vehicle/EPC; Meili as derived index |
 | Oversell | POS + levels | Heartbeat patterns optional for consignment suppliers only |
 
-**Replace:** nothing core.  
-**Adapt:** Meili publish after human review (Catalogue Factory habit).  
-**Integrate:** `tableflowhq/csv-import` for supplier CSV UX if needed.  
-**Defer:** SandPIM runtime; DIAL supplier heartbeat as primary stock SoR.
+**Replace:** RFQ-win as mandatory authorization path.  
+**Adapt:** InvenTree (MIT) PO/GRN vocabulary — not runtime.  
+**Integrate:** existing GRN + QR + `create_stock_transfer` / `approve_stock_transfer`.  
+**Defer:** SandPIM runtime.
 
 ### 3.3 Deliveries (+ delivery app redesign)
 
