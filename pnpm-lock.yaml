@@ -13,6 +13,9 @@ importers:
       '@gtr/documents':
         specifier: workspace:*
         version: link:../../packages/documents
+      '@gtr/procurement':
+        specifier: workspace:*
+        version: link:../../packages/procurement
       '@gtr/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -51,7 +54,25 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/delivery:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   packages/documents:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/notifications:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/procurement:
     devDependencies:
       typescript:
         specifier: ^5.7.3
