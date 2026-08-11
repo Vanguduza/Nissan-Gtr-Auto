@@ -16,7 +16,13 @@ def main() -> int:
     load_env_files(pipe / ".env", repo / ".env", override=True)
     db_url = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL")
     if not db_url:
-        print("DATABASE_URL not set", file=sys.stderr)
+        print(
+            "DATABASE_URL not set.\n"
+            "Paste data-pipeline/scripts/scrub_megazip_dashboard.sql into\n"
+            "Supabase Dashboard → SQL Editor (project gylrgwqyuiwkyykardwc),\n"
+            "or set DATABASE_URL / SUPABASE_DB_URL then re-run this script.",
+            file=sys.stderr,
+        )
         return 2
     host = urlparse(db_url).hostname or ""
     print("db_host", host)
@@ -38,16 +44,20 @@ def main() -> int:
             print("pip install psycopg[binary]", file=sys.stderr)
             return 4
 
-    # psycopg3 vs psycopg2
     if hasattr(psycopg, "connect"):
         with psycopg.connect(db_url) as conn:
-            conn.execute(sql) if hasattr(conn, "execute") else None
+            # psycopg3
             if hasattr(conn, "execute"):
+                conn.execute(sql)  # type: ignore[attr-defined]
                 conn.commit()
             else:
                 with conn.cursor() as cur:
                     cur.execute(sql)
                 conn.commit()
+    else:
+        print("unsupported psycopg API", file=sys.stderr)
+        return 4
+
     print("applied", sql_path.name)
     return 0
 
