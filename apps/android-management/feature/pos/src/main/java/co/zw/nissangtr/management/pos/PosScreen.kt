@@ -734,6 +734,7 @@ private fun RightCartPane(
             )
         }
     }
+    } // GtrTheme
 }
 
 /** Manager reauth overlay for discount / void / refund / price-override — modal by design so

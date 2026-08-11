@@ -121,6 +121,24 @@ export async function searchCatalogFts(
   return { ok: true, data: { ...parsed, backend: "fts" } };
 }
 
+/**
+ * Dual-read catalog search (E6): prefer Meili Edge, fall back to Postgres FTS.
+ * Default for storefront/POS when `preferMeili` is true (production default).
+ */
+export async function searchCatalog(
+  client: SupabaseClient<Database>,
+  args: CatalogSearchArgs & { preferMeili?: boolean },
+): Promise<
+  | { ok: true; data: SearchCatalogResponse }
+  | { ok: false; error: string }
+> {
+  const prefer = args.preferMeili !== false;
+  if (prefer) {
+    return searchCatalogMeili(client, args);
+  }
+  return searchCatalogFts(client, args.mode, args.query);
+}
+
 function parseSearchCatalogResponse(raw: unknown): SearchCatalogResponse | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
