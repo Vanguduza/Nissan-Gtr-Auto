@@ -280,8 +280,10 @@ def bundle_quality_report(bundle: dict[str, Any]) -> dict[str, Any]:
         and all(v.get("publishable") for v in variant_rows if v.get("exploded_count") or v.get("raster_count"))
     )
 
-    # Variant-level import gate: publishable variants with clean PNCs
-    publishable = variants_publishable > 0 and uncat == 0
+    # Variant-level import gate: publishable variants, clean PNCs, SoR-shaped fields
+    schema_problems = import_schema_issues(bundle)
+    import_schema_ok = len(schema_problems) == 0
+    publishable = variants_publishable > 0 and uncat == 0 and import_schema_ok
 
     return {
         "models": len(bundle.get("catalog_models") or []),
@@ -299,7 +301,9 @@ def bundle_quality_report(bundle: dict[str, Any]) -> dict[str, Any]:
         **filter_meta,
         **diagram_stats,
         **engine_coverage,
-        "maker_publishable": maker_publishable,
+        "import_schema_ok": import_schema_ok,
+        "import_schema_issues": schema_problems,
+        "maker_publishable": maker_publishable and import_schema_ok,
         "publishable": publishable,
         "variant_quality": variant_rows,
     }
@@ -310,8 +314,12 @@ def assert_publishable(meta: dict[str, Any], *, strict: bool = True) -> None:
     if not strict:
         return
     if not meta.get("publishable"):
+        issues = meta.get("import_schema_issues") or []
+        extra = f" import_schema_issues={issues}" if issues else ""
         raise RuntimeError(
             "Bundle failed variant import gate: "
             f"variants_publishable={meta.get('variants_publishable')} "
-            f"uncategorized_pncs={meta.get('uncategorized_pncs')}"
+            f"uncategorized_pncs={meta.get('uncategorized_pncs')} "
+            f"import_schema_ok={meta.get('import_schema_ok')}"
+            f"{extra}"
         )
