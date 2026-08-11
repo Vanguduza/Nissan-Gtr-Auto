@@ -247,6 +247,25 @@ def bundle_quality_report(bundle: dict[str, Any]) -> dict[str, Any]:
     variants_publishable = sum(1 for v in variant_rows if v.get("publishable"))
     companion_count = len(bundle.get("catalog_diagram_parts") or [])
 
+    vehicles = bundle.get("vehicle_master") or []
+    vehicles_with_engine = [r for r in vehicles if r.get("engine_code")]
+    chassis_all = {r.get("chassis_code") for r in vehicles if r.get("chassis_code")}
+    chassis_with_engine = {
+        r.get("chassis_code") for r in vehicles_with_engine if r.get("chassis_code")
+    }
+    variant_chassis = {v.get("chassis_code") for v in variants if v.get("chassis_code")}
+    chassis_missing_engine = sorted(
+        ch for ch in variant_chassis if ch and ch not in chassis_with_engine
+    )
+    engine_coverage = {
+        "vehicle_master_rows": len(vehicles),
+        "vehicle_master_with_engine": len(vehicles_with_engine),
+        "distinct_chassis": len(chassis_all),
+        "chassis_with_engine": len(chassis_with_engine),
+        "variant_chassis_missing_engine": chassis_missing_engine,
+        "variant_chassis_missing_engine_count": len(chassis_missing_engine),
+    }
+
     kinds = _diagram_kind_by_path(bundle)
     non_ambiguous_failing = [
         p for p in diagram_stats["diagrams_failing_gate"] if kinds.get(p) != "ambiguous"
@@ -278,6 +297,7 @@ def bundle_quality_report(bundle: dict[str, Any]) -> dict[str, Any]:
         "pcdb_mapped": sum(1 for p in pncs if p.get("pcdb_part_type_id")),
         **filter_meta,
         **diagram_stats,
+        **engine_coverage,
         "maker_publishable": maker_publishable,
         "publishable": publishable,
         "variant_quality": variant_rows,
