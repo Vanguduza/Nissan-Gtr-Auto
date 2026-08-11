@@ -92,8 +92,8 @@ ALTER TABLE public.supplier_preferred_skus ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS supplier_preferred_skus_staff ON public.supplier_preferred_skus;
 CREATE POLICY supplier_preferred_skus_staff
   ON public.supplier_preferred_skus FOR ALL TO authenticated
-  USING (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance', 'procurement']::public.staff_role[]))
-  WITH CHECK (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance', 'procurement']::public.staff_role[]));
+  USING (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance']::public.staff_role[]))
+  WITH CHECK (public.has_staff_role(ARRAY['admin', 'warehouse', 'finance']::public.staff_role[]));
 
 -- procurement role may not exist on all installs — fall back without it
 DO $$
