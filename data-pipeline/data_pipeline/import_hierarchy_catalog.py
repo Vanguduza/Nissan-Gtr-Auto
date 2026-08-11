@@ -482,8 +482,8 @@ def import_hierarchy_supabase(
         )
     elif rename_status.get("reason") == "no_database_url":
         notes.append(
-            "schema ensure skipped (no DATABASE_URL / SUPABASE_DB_PASSWORD); "
-            "import dual-maps legacy column names"
+            "live DB column rename skipped (optional); "
+            "bundle already uses external_* fields"
         )
     elif not rename_status.get("ok", True):
         notes.append(f"schema ensure failed: {rename_status.get('error')}")
