@@ -307,7 +307,8 @@ def parse_variant_list(html: str, url: str, maker_slug: str, model_slug: str) ->
             variants.append(
                 {
                     "slug": slug,
-                    "megazip_data_id": data_id,
+                    "external_data_id": data_id,
+                    "megazip_data_id": data_id,  # legacy alias until SoR rename lands
                     "chassis_code": chassis,
                     "frame": frame,
                     "grade": "",
