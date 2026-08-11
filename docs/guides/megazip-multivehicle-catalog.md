@@ -114,10 +114,10 @@ python -m data_pipeline.megazip_catalog_orchestrator `
   --out-root out/megazip
 ```
 
-Import always runs `sanitize_hierarchy_vendor_leakage` and **auto-ensures**
-`megazip_*` → `external_*` column renames when a Postgres URL is available
-(`DATABASE_URL` / `SUPABASE_DB_URL`, or `SUPABASE_URL` + `SUPABASE_DB_PASSWORD`).
-Until rename succeeds, import dual-maps legacy column names.
+Import always runs `prepare_hierarchy_for_supabase_import` (vendor scrub +
+`external_*` id fields). The filter quality gate requires `import_schema_ok`.
+Optional live DB column rename runs only if a Postgres URL exists — not required
+for a catalog to be import-ready.
 
 ### D. Verify + scrub leftovers
 
