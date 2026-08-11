@@ -1,4 +1,4 @@
-import type { LatLng, RouteRequest, RouteResult } from "./types.ts";
+import type { LatLng, RouteRequest, RouteResult } from "./types";
 
 export type OsrmConfig = {
   /** e.g. http://127.0.0.1:5000 */

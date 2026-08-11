@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseOsrmRouteJson } from "./osrm.ts";
-import { preferRoutingProvider } from "./types.ts";
+import { parseOsrmRouteJson } from "./osrm";
+import { preferRoutingProvider } from "./types";
 
 describe("preferRoutingProvider", () => {
   it("prefers OSRM over Google", () => {
