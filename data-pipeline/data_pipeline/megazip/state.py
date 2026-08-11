@@ -212,23 +212,26 @@ def heartbeat_leases(db_path: Path, worker_id: str) -> int:
 
 
 def release_leases(db_path: Path, worker_id: str, model_slugs: frozenset[str] | None = None) -> int:
-    conn = connect(db_path)
-    try:
-        if model_slugs is None:
-            cur = conn.execute("DELETE FROM worker_leases WHERE worker_id = ?", (worker_id,))
-        else:
-            models = sorted(model_slugs)
-            if not models:
-                return 0
-            placeholders = ",".join("?" for _ in models)
-            cur = conn.execute(
-                f"DELETE FROM worker_leases WHERE worker_id = ? AND model_slug IN ({placeholders})",
-                (worker_id, *models),
-            )
-        conn.commit()
-        return int(cur.rowcount or 0)
-    finally:
-        conn.close()
+    def _once() -> int:
+        conn = connect(db_path)
+        try:
+            if model_slugs is None:
+                cur = conn.execute("DELETE FROM worker_leases WHERE worker_id = ?", (worker_id,))
+            else:
+                models = sorted(model_slugs)
+                if not models:
+                    return 0
+                placeholders = ",".join("?" for _ in models)
+                cur = conn.execute(
+                    f"DELETE FROM worker_leases WHERE worker_id = ? AND model_slug IN ({placeholders})",
+                    (worker_id, *models),
+                )
+            conn.commit()
+            return int(cur.rowcount or 0)
+        finally:
+            conn.close()
+
+    return with_retry(_once, label="release_leases")
 
 
 def reclaim_stale_processing(db_path: Path, *, older_than_seconds: int = 600) -> int:
