@@ -1,16 +1,40 @@
 # Megazip multivehicle EPC catalog pipeline
 
-EPC-first, PCdb additive, **re-runnable without re-crawl**. Implements Megazip-style hierarchy:
+EPC-first, PCdb additive, **re-runnable without re-crawl**. Hierarchy:
 
 ```text
 Maker → Models (A–Z) → Variants → Sections → Diagram + hotspots → Parts (+ stock overlay)
 ```
 
-Search remains via `search_catalog`; hierarchy browse via new RPCs (`list_catalog_*`, `get_catalog_diagram`).
+Search: `search_catalog`. Browse: `list_catalog_*`, `get_catalog_diagram`.
 
-**Module:** `python -m data_pipeline.megazip_catalog_orchestrator`  
-**Wrapper:** `python scripts/megazip_multivehicle_catalog.py`  
-**Maker order:** `config/megazip_makers.json` — **Nissan → Toyota → Honda → Mazda → …**
+| Entry | Path |
+|-------|------|
+| Orchestrator | `python -m data_pipeline.megazip_catalog_orchestrator` |
+| Wrapper | `python scripts/megazip_multivehicle_catalog.py` |
+| Maker order | `config/megazip_makers.json` — **Nissan → Toyota → Honda → Mazda → …** |
+| Decision (engines) | `docs/decisions/2026-08-11-megazip-engine-code-cascade.md` |
+
+**Hard rule:** Supabase catalog must never store the vendor string `megazip` in `source`, URLs, or storage paths. Use `source=epc` and `epc/<maker_slug>/…` prefixes.
+
+---
+
+## Lessons from Nissan → required for every maker
+
+These failures showed up on the Nissan live catalog. Treat them as **blocking** for Toyota/Honda/… imports.
+
+| # | Issue | Prevention (code + ops) |
+|---|--------|-------------------------|
+| 1 | Cascade “No engine codes in catalog” | Parse `Engine`/`двигатель`; transform writes `vehicle_master.engine_code`; check `quality_report` / `megazip_post_import_verify.py` |
+| 2 | `model_variant` mismatch after backfill | Always `{MakerName} {catalog_models.display_name}` |
+| 3 | Diagram-before-variant SQLite order dropped engines | Transform sorts page types before build |
+| 4 | Vendor URLs/`megazip/` paths in SoR | Transform scrub + **import** `sanitize_hierarchy_vendor_leakage` + REST scrub script |
+| 5 | `catalog_makers.source` flipped to `megazip` | Force `epc` on transform/import/scrub |
+| 6 | Column rename `megazip_*` → `external_*` not applied | Import dual-maps both; apply migration when `DATABASE_URL` available |
+| 7 | MAIN idle after priority drain | Nissan two-phase `auto_start_remaining` / `--all-models` ensure |
+| 8 | Huge PENDING backlog | Model-scoped workers (`megazip_crawl_worker`) with leases |
+| 9 | Parser upgrade without re-parse | `--skip-crawl --phase parse,transform,…` or `extract_engines_from_cache.py` |
+| 10 | Missing cache HTML ⇒ missing engines | Re-crawl that model; verify coverage before “done” |
 
 ---
 
@@ -20,33 +44,99 @@ Search remains via `search_catalog`; hierarchy browse via new RPCs (`list_catalo
 |-------|----------|-------------|---------|
 | `crawl` | Yes | Skip with `--skip-crawl` | Cache HTML under `out/megazip/<slug>/cache/` |
 | `parse` | No | Yes | Re-parse cache → SQLite `parsed_pages` |
-| `transform` | No | Yes | Build hierarchy JSON bundle |
-| `pcdb` | No | Yes | Additive `pcdb_part_type_id` from `config/epc_to_pcdb.json` |
-| `filter` | No | Yes | `--complete-only` + `quality_report.json` |
-| `upload` | Yes | Yes | Download diagram PNGs to `diagrams/` **and** upsert to Storage `catalog-diagrams` with long `Cache-Control` when service role is set |
-| `import` | Yes (Supabase) | Yes | Hierarchy tables + fitment + `stock_items` |
+| `transform` | No | Yes | Hierarchy JSON; scrub vendor URLs; engines → `vehicle_master` |
+| `pcdb` | No | Yes | Additive `pcdb_part_type_id` |
+| `filter` | No | Yes | `--complete-only` + `quality_report.json` (includes engine coverage) |
+| `upload` | Yes | Yes | PNGs → local `diagrams/` + Storage `catalog-diagrams` under `epc/` |
+| `import` | Yes | Yes | Hierarchy + fitment; **vendor sanitize on upsert** |
 
 ```bash
 cd data-pipeline
 
-# Production Nissan (two-phase crawl, no page cap — run overnight)
+# Smoke one maker
 python -m data_pipeline.megazip_catalog_orchestrator \
-  --makers Nissan \
-  --phase crawl,parse,transform,pcdb,filter,upload
+  --makers Toyota --max-pages 80 --no-nissan-two-phase
 
-# Smoke: priority chassis only, bounded pages
+# Production maker (after crawl cache is warm)
 python -m data_pipeline.megazip_catalog_orchestrator \
-  --makers Nissan --priority-chassis --no-nissan-two-phase --max-pages 50
-
-# Re-run enrich + import from cache (no Megazip fetch)
-python -m data_pipeline.megazip_catalog_orchestrator \
-  --makers Nissan --skip-crawl \
-  --phase parse,transform,pcdb,filter,import \
+  --makers Toyota --skip-crawl \
+  --phase parse,transform,pcdb,filter,upload,import \
   --live-import --complete-only
 
-# All makers sequentially (production VM)
+# All makers sequentially
 python -m data_pipeline.megazip_catalog_orchestrator \
   --makers all --live-import --complete-only --prune-stale
+```
+
+---
+
+## Standard per-maker checklist
+
+Copy for **Toyota / Honda / Mazda / …**:
+
+### A. Crawl
+
+```powershell
+# MAIN (or first process) — seed hub + drain
+python -m data_pipeline.megazip_catalog_orchestrator `
+  --makers Toyota --no-nissan-two-phase `
+  --phase crawl --out-root out/megazip
+
+# Optional parallel workers (lease-safe; one model_slug each)
+python -m data_pipeline.megazip_crawl_worker `
+  --maker Toyota --models camry-vista-aurion-42430 `
+  --worker-id toyota-camry --out-root out/megazip --rate-limit 0.55
+```
+
+Nissan-only extras: default two-phase priority→remaining; `--all-models` underexplored ensure. Other makers use `--no-nissan-two-phase` (or omit Nissan-specific flags).
+
+### B. Parse → transform → gate
+
+```powershell
+python -m data_pipeline.megazip_catalog_orchestrator `
+  --makers Toyota --skip-crawl `
+  --phase parse,transform,pcdb,filter `
+  --out-root out/megazip
+```
+
+Inspect:
+
+- `out/megazip/toyota/bundle/quality_report.json`
+  - `publishable`, `variants_publishable`
+  - `vehicle_master_with_engine`, `variant_chassis_missing_engine_count`
+- `variant_quality.json`
+
+### C. Upload + import
+
+```powershell
+python -m data_pipeline.megazip_catalog_orchestrator `
+  --makers Toyota --skip-crawl `
+  --phase upload,import --live-import --complete-only `
+  --out-root out/megazip
+```
+
+Import always runs `sanitize_hierarchy_vendor_leakage` (null megazip URLs, `megazip/`→`epc/`, `source=epc`). Dual-writes `external_data_id` / `megazip_data_id` depending on live schema.
+
+### D. Verify + scrub leftovers
+
+```powershell
+python scripts/megazip_post_import_verify.py --maker-slug toyota
+# Optional hard fail on engine gaps:
+python scripts/megazip_post_import_verify.py --maker-slug toyota --fail-on-engine-gaps
+
+# If verify reports megazip URLs/paths (legacy rows):
+python scripts/scrub_megazip_catalog_values.py
+# DDL rename (needs DATABASE_URL):
+python scripts/apply_megazip_scrub.py
+# Or Dashboard SQL:
+#   scripts/scrub_megazip_dashboard.sql
+```
+
+### E. Engine backfill while crawl workers hold SQLite
+
+```powershell
+python scripts/extract_engines_from_cache.py --maker Toyota --live-import
+python scripts/megazip_post_import_verify.py --maker-slug toyota
 ```
 
 ---
@@ -55,108 +145,88 @@ python -m data_pipeline.megazip_catalog_orchestrator \
 
 ### Maker order
 
-Orchestrator processes makers top-to-bottom from `config/megazip_makers.json`:
-
-**Nissan → Toyota → Honda → Mazda → Suzuki → …**
+**Nissan → Toyota → Honda → Mazda → Suzuki → …** (`config/megazip_makers.json`)
 
 ### Nissan two-phase crawl (default)
 
 When crawling Nissan without `--single-chassis`, `--priority-chassis`, or `--all-models`:
 
-1. **Priority pass** — chassis in `config/priority_chassis.json` + model seeds (filter on)
-2. **Auto remaining** — when priority PENDING drains (and worker leases are idle), the same crawl process calls `prepare_remaining_crawl` and continues with **no** chassis filter so the rest of the hub models are crawled
-3. **Post-crawl** — single `parse → transform → pcdb → filter → upload` pass from shared cache
-
-`--all-models` also enables an underexplored-model ensure before crawl exit (so models that only have a visited hub/catalog row still get variant/section work queued).
-
-Flags:
+1. **Priority pass** — `config/priority_chassis.json` + model seeds  
+2. **Auto remaining** — `prepare_remaining_crawl` when priority PENDING drains  
+3. **Post-crawl** — `parse → transform → pcdb → filter → upload`
 
 | Flag | Effect |
 |------|--------|
-| *(default)* | Nissan two-phase on (priority → auto remaining in one crawl) |
-| `--no-nissan-two-phase` | Single pass, no automatic priority-then-all |
-| `--priority-chassis` | Priority codes only (no auto remaining) |
-| `--all-models` | No priority filter; underexplored ensure on empty queue |
-| `--max-pages N` | Cap pages **per crawl pass** (smoke only; omit for production) |
+| *(default)* | Nissan two-phase on |
+| `--no-nissan-two-phase` | Single pass (use for non-Nissan or explicit single-pass Nissan) |
+| `--priority-chassis` | Priority only (no auto remaining) |
+| `--all-models` | No priority filter; underexplored ensure |
+| `--max-pages N` | Cap per pass (smoke only) |
+
+### Parallel workers
+
+```text
+python -m data_pipeline.megazip_crawl_worker --models <slug> --worker-id <id> --out-root out/megazip
+```
+
+Leases live in `megazip_state.db` (`worker_leases`). MAIN uses `exclude_leased=True`. Do not run long `backfill_megazip_engine_codes.py` reparse-writes against the same DB while workers crawl — prefer `extract_engines_from_cache.py` (read-only URI).
 
 ### Two-tier publish model
 
 | Gate | Field | Drives import? |
 |------|-------|----------------|
-| **Variant-level** | `variant_quality.json` → `publishable` | **Yes** — `--live-import --complete-only` imports variant-complete records |
-| **Maker-level** | `quality_report.json` → `maker_publishable` | **Advisory** — strict all-diagrams score; does not block import |
+| **Variant-level** | `variant_quality.json` → `publishable` | **Yes** with `--complete-only` |
+| **Maker-level** | `quality_report.json` → `maker_publishable` | Advisory |
 
-`--strict-gate` checks variant-level `publishable` (≥1 publishable variant, zero uncategorized PNCs).
+`--strict-gate` checks variant-level `publishable`.
+
+---
+
+## Engine codes (vehicle cascade) — all makers
+
+Storefront cascade reads **`vehicle_master.engine_code`**. Empty ⇒ UI “No engine codes in catalog”.
+
+| Page | Attr | Typical |
+|------|------|---------|
+| Variant list | `Engine` / `двигатель` | Toyota-style tech rows |
+| Diagram identity | `Engine` / `двигатель` | Nissan-style primary |
+
+Transform: page order hub→variants→sections→diagrams; engines attach to **variant chassis** (generation), label `{Maker} {display_name}`.
+
+### Pitfalls
+
+- Never invent alternate `model_variant` strings on backfill  
+- Multi-engine chassis → multiple `vehicle_master` rows; leave variant `engine_code` empty if ambiguous  
+- Missing HTML on disk ⇒ no engine until re-fetch  
+
+---
+
+## Vendor scrub (no `megazip` in SoR)
+
+| Layer | Behavior |
+|-------|----------|
+| Transform | `_public_catalog_url` nulls megazip hosts; storage prefix `epc/{slug}` |
+| Import | `sanitize_hierarchy_vendor_leakage` before upsert |
+| Live repair | `scripts/scrub_megazip_catalog_values.py` (URLs + `megazip/`→`epc/` paths) |
+| DDL | Migration `20260809120000_scrub_megazip_from_catalog.sql` / `apply_megazip_scrub.py` / Dashboard SQL |
+
+Columns: prefer `external_data_id` / `external_item_id`; import still maps legacy `megazip_data_id` / `megazip_item_id` until rename ships.
 
 ---
 
 ## Per-source chassis registry
 
-`config/megazip_chassis_map.json` supplements `priority_chassis.json`:
-
-```json
-{
-  "chassis": {
-    "T31": {
-      "megazip_available": true,
-      "model_seed": "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064"
-    },
-    "T32": {
-      "megazip_available": false,
-      "megazip_proxy": "T31",
-      "primary_source": "partsouq"
-    }
-  }
-}
-```
-
-- **`megazip_available: false`** — orchestrator warns/skips crawl (`--single-chassis T32`)
-- **`megazip_proxy`** — documented fallback chassis on Megazip
-- **`model_seed`** — merged with `priority_chassis.json` `model_seed_urls`
-
-Also loaded via `--chassis-map-file`.
-
----
-
-## Nissan priority chassis
-
-Uses `config/priority_chassis.json` (same 33 platforms as PartSouq pipeline).
-
-**Direct model seeds** (bypass hub BFS for slow-to-reach models):
-
-```json
-"model_seed_urls": {
-  "nissan": {
-    "T32": ["https://www.megazip.net/.../nissan/x-trail-2064"],
-    "T31": ["https://www.megazip.net/.../nissan/x-trail-2064"]
-  }
-}
-```
-
-**Single chassis filter:** `--single-chassis T32` must appear in `priority_chassis.json`. **R35/GT-R is not a priority chassis.**
-
-**Megazip catalog note:** X-Trail page lists **T30 and T31 only**; T32 has `megazip_available: false` in chassis map.
+`config/megazip_chassis_map.json` supplements `priority_chassis.json` (Nissan priority platforms). Non-Nissan makers usually crawl from maker hub without priority chassis.
 
 ---
 
 ## Diagram kinds and quality gates
 
-| Kind | Heuristic | Quality gate |
-|------|-----------|--------------|
-| `exploded_diagram` | Hotspot y-span > 150 | ≥5 hotspots + ≥3 OEM parts with bbox |
-| `parts_list_raster` | y-span < 80, x-span > 200 | HTML table rows with OEM (bbox optional) |
-| `ambiguous` | Else | **Table required, hotspots optional**; `publish_diagram: false`, `needs_review: true` |
-
-Ambiguous diagrams with complete companion tables **do not fail** variant or import gates.
-
----
-
-## Upload phase
-
-Downloads **all** diagram PNGs from the filtered bundle:
-
-- Sources: `diagram_assets` + `catalog_diagrams` (`image_url`)
-- Dedupe by filename and content hash under `out/megazip/<maker>/diagrams/`
+| Kind | Quality gate |
+|------|--------------|
+| `exploded_diagram` | ≥5 hotspots + ≥3 OEM parts with bbox |
+| `parts_list_raster` | Table OEM rows |
+| `ambiguous` | Table required; `publish_diagram: false` |
 
 ---
 
@@ -165,110 +235,62 @@ Downloads **all** diagram PNGs from the filtered bundle:
 ```text
 out/megazip/
   manifest.json
-  nissan/
-    megazip_state.db
-    cache/*.html
-    bundle/
-      quality_report.json      # maker_publishable (advisory) + publishable (import)
-      variant_quality.json     # per-variant publishable
-      ...
-    diagrams/
-    meta.json
+  nissan/   megazip_state.db  cache/  bundle/  diagrams/
   toyota/
+  honda/
   ...
 ```
 
----
-
-## Publish gates (§2c)
-
-Live import (`--live-import --complete-only`, default `--strict-gate`):
-
-- **Variant gate:** ≥1 passing `exploded_diagram` per imported variant
-- Fitments: diagram-kind aware (exploded needs bbox; raster/ambiguous need table OEM)
-- `parts_list_raster` / `ambiguous`: `publish_diagram: false` in bundle
-- `uncategorized_pncs = 0`
-- `quality_report.json`: `publishable` (variant-level), `maker_publishable` (advisory)
+Bundle meta includes `vehicles` / `vehicles_with_engine`.
 
 ---
 
-## Engine codes (vehicle cascade) — all makers
-
-Storefront / garage cascade reads **`vehicle_master.engine_code`** (not hierarchy alone).
-UI shows “No engine codes in catalog” when a selected generation has only null engines.
-
-### Where Megazip puts engines
-
-| Page | Attr | Typical |
-|------|------|---------|
-| Variant list (`s-catalog__attrs`) | `Engine` / `двигатель` | Toyota-style tech rows (often present) |
-| Diagram identity block | `Engine` / `двигатель` | Nissan-style (primary source) |
-
-Parser (`parse_html.py`): `_engine_from_attrs` → `variant.engine_code` and `diagram.payload.engine_code` + parts.
-Transform (`transform.py`):
-
-1. Processes pages in order **maker_hub → variant_list → section_list → diagram** (order-independent of SQLite insert order).
-2. Builds `vehicle_master` as `{Maker} {display_name}` + `chassis_code` + optional `engine_code`.
-3. Diagram engines attach to the **variant’s** `chassis_code` (cascade generation), not the longer Frame on the diagram page.
-
-### After parser upgrades (any maker)
-
-Re-parse + transform from cache (no re-crawl), then import:
-
-```bash
-python -m data_pipeline.megazip_catalog_orchestrator \
-  --makers Toyota --skip-crawl \
-  --phase parse,transform,pcdb,filter,import \
-  --live-import --complete-only
-```
-
-Cache-only engine backfill (safe while workers hold the state DB):
-
-```bash
-python scripts/extract_engines_from_cache.py --maker Toyota --live-import
-```
-
-Check `quality_report.json` keys: `vehicle_master_with_engine`, `variant_chassis_missing_engine_count`.
-
-### Pitfalls (do not regress)
-
-- Do **not** omit `engine_code` from transform / `vehicle_master` — cascade depends on it.
-- Do **not** invent alternate `model_variant` strings on backfill; they must match `{Maker} {catalog_models.display_name}` exactly.
-- Multi-engine chassis → multiple `vehicle_master` rows (same chassis, different `engine_code`); leave `catalog_variants.engine_code` empty when ambiguous.
-- Missing diagram HTML on disk ⇒ no engine until crawl re-fetches that URL.
-
----
-
-## Recommended overnight command
+## Recommended overnight (Nissan)
 
 ```powershell
 cd data-pipeline
-
-# Full Nissan priority + remaining, all phases, no page cap
 python -m data_pipeline.megazip_catalog_orchestrator `
   --makers Nissan `
   --phase crawl,parse,transform,pcdb,filter,upload `
   --out-root out/megazip
 
-# Then review variant_quality.json before live import:
 python -m data_pipeline.megazip_catalog_orchestrator `
   --makers Nissan --skip-crawl `
-  --phase filter,import --live-import --complete-only `
-  --out-root out/megazip
+  --phase filter,import --live-import --complete-only
+
+python scripts/megazip_post_import_verify.py --maker-slug nissan
 ```
 
-Multimaker production (after Nissan validates):
+## Recommended next maker (Toyota)
 
 ```powershell
 python -m data_pipeline.megazip_catalog_orchestrator `
-  --makers all `
-  --phase crawl,parse,transform,pcdb,filter,upload `
-  --out-root out/megazip
+  --makers Toyota --no-nissan-two-phase `
+  --phase crawl,parse,transform,pcdb,filter,upload,import `
+  --live-import --complete-only --out-root out/megazip
+
+python scripts/megazip_post_import_verify.py --maker-slug toyota
+python scripts/scrub_megazip_catalog_values.py   # if verify finds leakage
 ```
+
+---
+
+## Helper scripts
+
+| Script | Role |
+|--------|------|
+| `megazip_crawl_worker.py` | Lease-scoped parallel crawl |
+| `extract_engines_from_cache.py` | Engine backfill without SQLite write lock |
+| `backfill_megazip_engine_codes.py` | Reparse+transform (avoid vs busy workers) |
+| `megazip_post_import_verify.py` | Post-import gate (vendor + engines + RPC) |
+| `scrub_megazip_catalog_values.py` | Live REST scrub |
+| `apply_megazip_scrub.py` / `scrub_megazip_dashboard.sql` | Path rewrite + column rename |
+| `megazip_midcrawl_live_import.py` | Mid-crawl hierarchy import |
 
 ---
 
 ## Related
 
-- [partsouq-multimake-catalog-pipeline.md](./partsouq-multimake-catalog-pipeline.md) — crawl practice, ACES/PCdb
-- [erp-catalog-v1-load.md](./erp-catalog-v1-load.md) — Supabase import patterns
+- [vehicle-cascade-and-epc-browse.md](./vehicle-cascade-and-epc-browse.md) — cascade contract  
+- [partsouq-multimake-catalog-pipeline.md](./partsouq-multimake-catalog-pipeline.md) — crawl practice, ACES/PCdb  
+- [erp-catalog-v1-load.md](./erp-catalog-v1-load.md) — Supabase import patterns  
