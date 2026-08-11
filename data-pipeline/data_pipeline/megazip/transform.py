@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from data_pipeline.import_hierarchy_catalog import prepare_hierarchy_for_supabase_import
 from data_pipeline.megazip.config import MakerPaths
 from data_pipeline.megazip.state import load_all_parsed
 
