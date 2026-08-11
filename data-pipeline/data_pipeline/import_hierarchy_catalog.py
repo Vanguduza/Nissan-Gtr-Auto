@@ -155,6 +155,75 @@ def sanitize_hierarchy_vendor_leakage(bundle: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+_LEGACY_ID_KEYS: tuple[tuple[str, str, str], ...] = (
+    ("catalog_variants", "megazip_data_id", "external_data_id"),
+    ("catalog_diagram_parts", "megazip_item_id", "external_item_id"),
+)
+
+
+def normalize_hierarchy_external_ids(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Publish only vendor-neutral ``external_*`` id fields (drop ``megazip_*`` keys)."""
+    out = dict(bundle)
+    for table, legacy, modern in _LEGACY_ID_KEYS:
+        rows: list[dict[str, Any]] = []
+        for row in bundle.get(table) or []:
+            r = dict(row)
+            if not r.get(modern) and r.get(legacy) not in (None, ""):
+                r[modern] = r[legacy]
+            r.pop(legacy, None)
+            rows.append(r)
+        if table in bundle or rows:
+            out[table] = rows
+    return out
+
+
+def prepare_hierarchy_for_supabase_import(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Make a hierarchy bundle match migrations / import SoR shape (no DB required)."""
+    return normalize_hierarchy_external_ids(sanitize_hierarchy_vendor_leakage(bundle))
+
+
+def import_schema_issues(bundle: dict[str, Any]) -> list[str]:
+    """Return human-readable blockers if the bundle is not import-shaped."""
+    issues: list[str] = []
+    for row in bundle.get("catalog_makers") or []:
+        src = str(row.get("source") or "").strip().lower()
+        if src != "epc":
+            issues.append(f"catalog_makers.source must be 'epc' (got {src!r})")
+            break
+    for table, legacy, modern in _LEGACY_ID_KEYS:
+        for i, row in enumerate(bundle.get(table) or []):
+            if legacy in row:
+                issues.append(f"{table}[{i}] still has legacy key {legacy}")
+                break
+            # If an upstream id exists under any name it must be on modern key — already normalized
+            _ = modern
+    for table in (
+        "catalog_models",
+        "catalog_variants",
+        "catalog_sections",
+        "catalog_diagrams",
+        "catalog_diagram_parts",
+        "part_fitment",
+        "diagram_assets",
+    ):
+        for i, row in enumerate(bundle.get(table) or []):
+            for field in _URL_FIELDS:
+                val = row.get(field)
+                if val and "megazip" in str(val).lower():
+                    issues.append(f"{table}[{i}].{field} contains megazip")
+                    return issues
+            for field in _PATH_FIELDS:
+                val = row.get(field)
+                if val and "megazip" in str(val).lower():
+                    issues.append(f"{table}[{i}].{field} contains megazip")
+                    return issues
+            for key in row:
+                if str(key).startswith("megazip_"):
+                    issues.append(f"{table}[{i}] has key {key}")
+                    return issues
+    return issues
+
+
 _HIERARCHY_TABLES = (
     "catalog_makers",
     "catalog_models",
