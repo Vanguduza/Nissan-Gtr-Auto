@@ -2657,7 +2657,12 @@ def upload_diagram_supabase(
         client.storage.from_(bucket).upload(
             path=storage_path,
             file=local_path.read_bytes(),
-            file_options={"content-type": content_type, "upsert": "true"},
+            file_options={
+                "content-type": content_type,
+                "upsert": "true",
+                # Immutable catalog assets — avoid Cache-Control: no-cache on REST defaults.
+                "cache-control": "31536000",
+            },
         )
     except Exception as exc:  # noqa: BLE001
         logger.error("Supabase upload failed for %s: %s", storage_path, exc)
