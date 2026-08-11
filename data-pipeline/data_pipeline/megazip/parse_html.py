@@ -534,6 +534,8 @@ def parse_diagram_page(
     image_url = img_m.group(1) if img_m else ""
     title_m = re.search(r"<title>([^<]+)</title>", html, re.I)
     title = _clean(title_m.group(1)) if title_m else section_slug.replace("-", " ").title()
+    page_attrs = _parse_attrs(html)
+    engine_code = _normalize_engine_code(default_engine) if default_engine else _engine_from_attrs(page_attrs)
     img_width, img_height = _diagram_image_dimensions(
         html,
         image_bytes=image_bytes,
@@ -573,7 +575,7 @@ def parse_diagram_page(
             "oem_part_number": oem,
             "pnc_code": pnc,
             "chassis_code": default_chassis,
-            "engine_code": default_engine or None,
+            "engine_code": engine_code or None,
             "category_name": title,
             "callout_ref": meta.get("callout_ref") or None,
             "description": meta.get("description") or None,
@@ -595,7 +597,7 @@ def parse_diagram_page(
             "oem_part_number": oem,
             "pnc_code": f"MZ{item_id}"[:8],
             "chassis_code": default_chassis,
-            "engine_code": default_engine or None,
+            "engine_code": engine_code or None,
             "category_name": title,
             "callout_ref": meta.get("callout_ref") or None,
             "description": meta.get("description") or None,
@@ -618,6 +620,7 @@ def parse_diagram_page(
             "image_width": img_width,
             "image_height": img_height,
             "diagram_kind": diagram_kind,
+            "engine_code": engine_code or None,
             "hotspot_count": len(hotspots),
             "parts_table": parts_table,
             "parts": parts,
