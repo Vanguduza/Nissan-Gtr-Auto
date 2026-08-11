@@ -87,8 +87,7 @@ export function CatalogStorageImage({
       sizes={resolvedSizes}
       quality={quality}
       priority={priority}
-      loading={priority ? "eager" : "lazy"}
-      decoding="async"
+      {...(priority ? {} : { loading: "lazy" as const })}
     />
   );
 }
