@@ -67,6 +67,9 @@ async def _upload_one(
             "Authorization": f"Bearer {key}",
             "Content-Type": "image/png",
             "x-upsert": "true",
+            # REST uploads default to Cache-Control: no-cache without this.
+            # Numeric seconds → Storage emits max-age=… (immutable diagrams).
+            "cache-control": "31536000",
         }
         data = local.read_bytes()
         for attempt in range(5):
