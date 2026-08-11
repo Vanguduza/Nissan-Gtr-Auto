@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyOfferDecision, selectNextCourierOffer } from "./dispatch.js";
+import { applyOfferDecision, selectNextCourierOffer } from "./dispatch.ts";
 
 describe("delivery auto-assign FIFO", () => {
   it("offers lowest rank available courier", () => {
