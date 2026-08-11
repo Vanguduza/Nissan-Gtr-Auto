@@ -33,6 +33,29 @@ export function catalogDiagramPublicUrl(
   return data.publicUrl || null;
 }
 
+/**
+ * Optional Supabase Image Transformation URL (Pro feature).
+ * Hosted project currently returns FeatureNotEnabled — keep using
+ * {@link catalogDiagramPublicUrl} + next/image until transforms are on.
+ * Prefer high `quality` (80–90) for EPC line art; reserve small `width` for grid thumbs only.
+ */
+export function catalogDiagramTransformUrl(
+  publicUrl: string,
+  opts: { width: number; quality?: number; resize?: "cover" | "contain" | "fill" },
+): string | null {
+  const marker = "/storage/v1/object/public/";
+  const i = publicUrl.indexOf(marker);
+  if (i < 0) return null;
+  const origin = publicUrl.slice(0, i);
+  const objectPath = publicUrl.slice(i + marker.length);
+  const q = new URLSearchParams({
+    width: String(opts.width),
+    quality: String(opts.quality ?? 85),
+    resize: opts.resize ?? "contain",
+  });
+  return `${origin}/storage/v1/render/image/public/${objectPath}?${q}`;
+}
+
 type FitmentDiagramRow = {
   id: string;
   oem_part_number: string;
