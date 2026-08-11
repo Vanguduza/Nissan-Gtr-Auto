@@ -99,6 +99,32 @@ def _discover_from_parsed(parsed: Any, *, maker_slug: str) -> list[dict[str, str
     return discovered
 
 
+
+def _engine_for_variant(
+    db_path: Path,
+    *,
+    maker_slug: str,
+    model_slug: str,
+    variant_slug: str,
+) -> str:
+    """Best-effort engine_code from a prior variant_list parse for this variant."""
+    if not variant_slug:
+        return ""
+    for row in load_all_parsed(db_path, maker_slug=maker_slug):
+        if row.get("page_type") != "variant_list":
+            continue
+        payload = row.get("payload") or {}
+        if model_slug and (payload.get("model_slug") or "") not in ("", model_slug):
+            continue
+        for v in payload.get("variants") or []:
+            if (v.get("slug") or "") != variant_slug:
+                continue
+            eng = (v.get("engine_code") or "").strip()
+            if eng:
+                return eng
+    return ""
+
+
 def _priority_allows(chassis: str, priority: frozenset[str] | None) -> bool:
     if not priority:
         return True
@@ -603,6 +629,14 @@ async def crawl_maker(
                     cache_file.write_text(html, encoding="utf-8")
                     save_cache(paths.state_db, url, str(cache_file), digest)
 
+                    default_engine = ""
+                    if (row.get("page_type") or "") == "diagram" or classify_megazip_url(url) == "diagram":
+                        default_engine = _engine_for_variant(
+                            paths.state_db,
+                            maker_slug=paths.slug,
+                            model_slug=row.get("model_slug") or "",
+                            variant_slug=row.get("variant_slug") or "",
+                        )
                     parsed = parse_html_page(
                         html,
                         url,
@@ -611,6 +645,7 @@ async def crawl_maker(
                         variant_slug=row.get("variant_slug") or "",
                         section_slug=row.get("section_slug") or "",
                         default_chassis=chassis,
+                        default_engine=default_engine,
                     )
                     if parsed.page_type == "diagram":
                         img_url = parsed.payload.get("image_url") or ""
@@ -626,6 +661,7 @@ async def crawl_maker(
                                         variant_slug=row.get("variant_slug") or "",
                                         section_slug=row.get("section_slug") or "",
                                         default_chassis=chassis,
+                                        default_engine=default_engine,
                                         image_bytes=ir.content,
                                     )
                             except Exception as img_exc:  # noqa: BLE001
@@ -775,6 +811,12 @@ def parse_cached_pages(
                     if img_url:
                         image_bytes = _fetch_png_header_bytes(client, img_url)
 
+            default_engine = _engine_for_variant(
+                paths.state_db,
+                maker_slug=paths.slug,
+                model_slug=model_slug or "",
+                variant_slug=variant_slug or "",
+            )
             parsed = parse_html_page(
                 html,
                 url,
@@ -783,6 +825,7 @@ def parse_cached_pages(
                 variant_slug=variant_slug or "",
                 section_slug=section_slug or "",
                 default_chassis=chassis or "",
+                default_engine=default_engine,
                 image_bytes=image_bytes,
                 stored_width=int(stored_w) if stored_w else None,
                 stored_height=int(stored_h) if stored_h else None,
