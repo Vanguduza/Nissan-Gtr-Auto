@@ -55,12 +55,12 @@ function DiagramFrame({
       aria-label="Parts diagram canvas"
     >
       <div className={`${styles.frame} ${styles.frameLive}`}>
-        {/* Storage public URL — next/image needs remotePatterns per project; use img. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <CatalogStorageImage
           className={styles.diagramImg}
           src={diagram.publicUrl}
           alt={`Catalog diagram ${diagram.path}`}
+          priority
+          variant="diagram"
         />
         {boxed.map((h, i) => {
           const style = hotspotStyle(h);

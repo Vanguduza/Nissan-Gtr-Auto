@@ -33,12 +33,14 @@ export function EpcSectionGrid({
               className={styles.sectionCard}
             >
               {s.thumbnail_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <CatalogStorageImage
                   className={styles.sectionThumb}
                   src={s.thumbnail_url}
                   alt=""
-                  loading="lazy"
+                  variant="thumb"
+                  width={160}
+                  height={160}
+                  sizes="5rem"
                 />
               ) : (
                 <span className={styles.sectionPlaceholder}>EPC</span>

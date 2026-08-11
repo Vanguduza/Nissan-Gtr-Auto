@@ -148,6 +148,7 @@ export function EpcDiagramHub({
     <EpcDiagramPage
       ctx={{ maker, model, variant, section }}
       data={status.data}
+      imageUrl={status.imageUrl}
       partExtras={status.extras}
       labels={{ maker, model, variant, section }}
     />
