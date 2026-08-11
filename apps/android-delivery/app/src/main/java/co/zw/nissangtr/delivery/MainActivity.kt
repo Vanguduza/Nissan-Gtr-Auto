@@ -179,6 +179,7 @@ private fun DeliveryApp(
     signedInEmail: String?,
     supportPhone: String,
     mapsApiKey: String,
+    osrmUrl: String,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -186,7 +187,14 @@ private fun DeliveryApp(
         factory = TrackingViewModel.factory(rpc, gps, context),
     )
     val jobsVm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, mapsApiKey),
+        factory = JobsViewModel.factory(
+            rpc,
+            gps,
+            context,
+            supportPhone,
+            mapsApiKey,
+            osrmUrl,
+        ),
     )
     val state by jobsVm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
