@@ -1,8 +1,8 @@
 """Re-parse Engine attrs from Megazip cache into parsed_pages, then refresh vehicle_master.
 
-Does not re-crawl. Reads diagram HTML from page_cache, patches engine_code onto
-parsed diagram payloads, rebuilds the hierarchy bundle, and optionally upserts
-vehicle_master (+ catalog_variants.engine_code) to hosted Supabase.
+Does not re-crawl. Reads diagram/variant HTML from page_cache, patches engine_code onto
+parsed payloads, rebuilds the hierarchy bundle, and optionally upserts vehicle_master
+to hosted Supabase.
 
 Usage (from data-pipeline/)::
 
@@ -18,11 +18,10 @@ import logging
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 
 from data_pipeline.import_catalog import (
-    import_catalog,
+    import_supabase,
     load_env_files,
     resolve_supabase_credentials,
 )
@@ -36,7 +35,6 @@ from data_pipeline.megazip.parse_html import (
     _engine_from_attrs,
     _normalize_engine_code,
     _parse_attrs,
-    parse_diagram_page,
     parse_variant_list,
 )
 from data_pipeline.megazip.state import upsert_parsed
@@ -47,7 +45,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("backfill_engine_codes")
 
 
-def _patch_diagram_payload(payload: dict[str, Any], engine: str) -> bool:
+def _patch_diagram_payload(payload: dict, engine: str) -> bool:
     if not engine:
         return False
     changed = False
@@ -90,6 +88,7 @@ def reparse_engines_from_cache(
         "variant_patched": 0,
         "missing_cache": 0,
         "no_engine": 0,
+        "unchanged": 0,
     }
     for row in rows:
         if limit is not None and stats["scanned"] >= limit:
@@ -112,59 +111,38 @@ def reparse_engines_from_cache(
         if page_type == "diagram":
             engine = _engine_from_attrs(_parse_attrs(html))
             if not engine:
-                # Full parse still picks Engine + preserves existing parts.
-                chassis = ""
-                for part in payload.get("parts") or []:
-                    chassis = part.get("chassis_code") or chassis
-                parsed = parse_diagram_page(
-                    html,
-                    url,
-                    maker_slug,
-                    payload.get("model_slug") or "",
-                    payload.get("variant_slug") or "",
-                    payload.get("section_slug") or "",
-                    default_chassis=chassis,
-                    stored_width=payload.get("image_width"),
-                    stored_height=payload.get("image_height"),
-                )
-                engine = _normalize_engine_code(parsed.payload.get("engine_code") or "")
-                if engine and _patch_diagram_payload(payload, engine):
-                    # Keep existing bbox/parts if present; only overlay engine.
-                    upsert_parsed(state_db, url, "diagram", maker_slug, payload)
-                    stats["diagram_patched"] += 1
-                elif not engine:
-                    stats["no_engine"] += 1
+                stats["no_engine"] += 1
                 continue
             if _patch_diagram_payload(payload, engine):
                 upsert_parsed(state_db, url, "diagram", maker_slug, payload)
                 stats["diagram_patched"] += 1
             else:
-                stats["no_engine"] += 1
+                stats["unchanged"] += 1
             continue
 
-        # variant_list
         model_slug = payload.get("model_slug") or ""
         parsed = parse_variant_list(html, url, maker_slug, model_slug)
         new_variants = parsed.payload.get("variants") or []
+        if not any(v.get("engine_code") for v in new_variants):
+            stats["no_engine"] += 1
+            continue
         old_by_slug = {v.get("slug"): v for v in (payload.get("variants") or [])}
+        merged = []
         changed = False
-        merged: list[dict[str, Any]] = []
         for nv in new_variants:
-            ov = old_by_slug.get(nv.get("slug")) or {}
-            row_v = dict(ov)
-            row_v.update(nv)
+            ov = dict(old_by_slug.get(nv.get("slug")) or {})
             eng = _normalize_engine_code(nv.get("engine_code") or "")
             if eng and (ov.get("engine_code") or "") != eng:
                 changed = True
-            row_v["engine_code"] = eng
-            merged.append(row_v)
-        if changed or any(v.get("engine_code") for v in merged):
-            if (payload.get("variants") or []) != merged:
-                payload["variants"] = merged
-                upsert_parsed(state_db, url, "variant_list", maker_slug, payload)
-                stats["variant_patched"] += 1
+            ov.update(nv)
+            ov["engine_code"] = eng
+            merged.append(ov)
+        if changed:
+            payload["variants"] = merged
+            upsert_parsed(state_db, url, "variant_list", maker_slug, payload)
+            stats["variant_patched"] += 1
         else:
-            stats["no_engine"] += 1
+            stats["unchanged"] += 1
 
     return stats
 
@@ -182,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--live-import",
         action="store_true",
-        help="Upsert vehicle_master (and hierarchy) to hosted Supabase",
+        help="Upsert vehicle_master to hosted Supabase",
     )
     parser.add_argument(
         "--full-hierarchy-import",
@@ -256,53 +234,19 @@ def main(argv: list[str] | None = None) -> int:
             "diagram_assets": [],
         }
     )
-    validate_bundle(
+    result = import_supabase(
         {
             "vehicle_master": sanitized["vehicle_master"],
             "pnc_categories": [],
             "part_fitment": [],
             "diagram_assets": [],
-        }
-    )
-    result = import_catalog(
-        sanitized,
-        dry_run=False,
+        },
         url=url,
         key=key,
+        ensure_stock_items=False,
         prune_stale=False,
     )
     logger.info("vehicle_master import: %s", result)
-
-    # Best-effort: push engine_code onto catalog_variants when present.
-    variants = [
-        {
-            "maker_slug": v.get("maker_slug"),
-            "model_slug": v.get("model_slug"),
-            "slug": v.get("slug"),
-            "engine_code": v.get("engine_code") or None,
-        }
-        for v in (bundle.get("catalog_variants") or [])
-        if v.get("engine_code")
-    ]
-    if variants:
-        from data_pipeline.import_hierarchy_catalog import _upsert_hierarchy_rows
-        from supabase import create_client
-
-        client = create_client(url, key)
-        _upsert_hierarchy_rows(
-            client,
-            "catalog_variants",
-            [
-                {
-                    **v,
-                    # upsert needs natural key cols already on row; merge via conflict
-                }
-                for v in variants
-            ],
-            on_conflict="maker_slug,model_slug,slug",
-        )
-        logger.info("catalog_variants engine_code upserts: %s", len(variants))
-
     return 0
 
 
