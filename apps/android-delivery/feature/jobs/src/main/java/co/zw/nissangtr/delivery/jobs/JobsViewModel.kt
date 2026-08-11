@@ -238,10 +238,10 @@ class JobsViewModel(
             _state.update { it.copy(error = "Dropoff coordinates missing", routePoints = emptyList()) }
             return
         }
-        if (mapsApiKey.isBlank()) {
+        if (osrmUrl.isBlank() && mapsApiKey.isBlank()) {
             _state.update {
                 it.copy(
-                    routeLabel = "Maps key missing — markers only; set GOOGLE_MAPS_API_KEY",
+                    routeLabel = "Routing unconfigured — set OSRM_URL (preferred) or GOOGLE_MAPS_API_KEY",
                     routePoints = emptyList(),
                 )
             }
@@ -287,11 +287,19 @@ class JobsViewModel(
                 .map { MapLatLng(it.dropoffLat!!, it.dropoffLng!!) }
 
             when (
-                val result = directions.fetchDrivingRoute(
-                    origin = MapLatLng(originLat!!, originLng!!),
-                    destination = MapLatLng(destLat, destLng),
-                    waypoints = otherWaypoints,
-                )
+                val result = if (osrmUrl.isNotBlank()) {
+                    osrm.fetchDrivingRoute(
+                        origin = MapLatLng(originLat!!, originLng!!),
+                        destination = MapLatLng(destLat, destLng),
+                        waypoints = otherWaypoints,
+                    )
+                } else {
+                    googleDirections.fetchDrivingRoute(
+                        origin = MapLatLng(originLat!!, originLng!!),
+                        destination = MapLatLng(destLat, destLng),
+                        waypoints = otherWaypoints,
+                    )
+                }
             ) {
                 is RouteFetchResult.Ok -> {
                     val r = result.route
