@@ -1,4 +1,3 @@
-import { PreferredSuppliersPanel } from "@/components/preferred-suppliers-panel";
 import { ProcurementNav } from "@/components/procurement-nav";
 import { ProcurementProgressTracker } from "@/components/procurement-progress-tracker";
 import styles from "@/components/account.module.css";
