@@ -64,6 +64,7 @@ import co.zw.nissangtr.ui.shop.ShopStaffPanel
 import co.zw.nissangtr.ui.shop.ShopStaffScreen
 import co.zw.nissangtr.ui.shop.ShopStatusChip
 import co.zw.nissangtr.ui.theme.GtrColors
+import co.zw.nissangtr.ui.theme.GtrTheme
 
 /**
  * Tablet counter POS: two-pane landscape layout — LEFT: catalog/search + every POS function
