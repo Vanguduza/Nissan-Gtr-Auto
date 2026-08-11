@@ -5,20 +5,22 @@ EPC-first, PCdb additive, re-runnable without re-crawl.
 Phases (``--phase``):
   crawl     — fetch HTML to cache (skip with ``--skip-crawl``)
   parse     — re-parse cached HTML into SQLite (no network)
-  transform — build hierarchy JSON bundle (re-runnable)
+  transform — build hierarchy JSON bundle (re-runnable; scrub vendor URLs; engines)
   pcdb      — additive PartTerminologyID mapping (re-runnable)
-  filter    — complete-only filter + quality report
-  upload    — download diagram PNGs + Storage upsert (long Cache-Control)
-  import    — Supabase hierarchy + fitment + stock_items
+  filter    — complete-only filter + quality report (includes engine coverage)
+  upload    — download diagram PNGs + Storage upsert under ``epc/`` (long Cache-Control)
+  import    — Supabase hierarchy + fitment; sanitizes megazip leakage on upsert
   all       — default pipeline for each maker
 
 Maker order (``config/megazip_makers.json``): Nissan → Toyota → Honda → Mazda → …
-Nissan default: two-phase crawl in one process (priority chassis, then auto-start remaining models).
+Nissan default: two-phase crawl (priority chassis, then auto-start remaining models).
+Other makers: use ``--no-nissan-two-phase``. Post-import: ``scripts/megazip_post_import_verify.py``.
+Guide: ``docs/guides/megazip-multivehicle-catalog.md``.
 
 Usage (from ``data-pipeline/``)::
 
   python -m data_pipeline.megazip_catalog_orchestrator --makers Nissan --max-pages 50
-  python -m data_pipeline.megazip_catalog_orchestrator --makers Nissan --priority-chassis --no-nissan-two-phase
+  python -m data_pipeline.megazip_catalog_orchestrator --makers Toyota --no-nissan-two-phase
   python -m data_pipeline.megazip_catalog_orchestrator --phase transform,pcdb,import --skip-crawl
   python -m data_pipeline.megazip_catalog_orchestrator --makers all --live-import --complete-only
 """
