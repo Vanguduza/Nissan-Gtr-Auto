@@ -458,6 +458,7 @@ class JobsViewModel(
             appContext: Context,
             supportPhone: String,
             mapsApiKey: String,
+            osrmUrl: String = "",
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -468,6 +469,7 @@ class JobsViewModel(
                         appContext.applicationContext,
                         supportPhone,
                         mapsApiKey,
+                        osrmUrl,
                     ) as T
             }
     }
