@@ -8,6 +8,12 @@ Composable ERP for Nissan spare-parts distribution. Polyglot monorepo with one S
 
 - **NO ZIMRA** — no FDMS, fiscalisation, mTLS fiscal devices, tax-authority payloads.
 - **NO payroll tax** — no PAYE, NSSA, statutory remittance forms. Gross pay + manual deductions only.
+- **NO RFQ-win as supplier SoR** — preferred supplier roster authorizes replenishment POs; RFQ is optional spot-buy only (`docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md`).
+- **AI never writes payable amounts / never auto-creates POs** — forecast suggestions only.
+
+## DIAL engineering adoption
+
+Principal distributor (not Dial-a-Spare agency). Adopt integer-money habits, MapLibre+OSRM delivery SoR, Temporal dispatch FIFO (`@gtr/delivery`), Resend/Brevo split, DIAL security checklist in `docs/HARDENING.md` §7. UX donors for POS: CoolMall / Nimara patterns + `@gtr/ui` tokens — native Android/tablet stays (no Expo).
 
 ## Before You Start
 

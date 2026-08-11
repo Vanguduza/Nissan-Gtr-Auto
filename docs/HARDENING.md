@@ -91,3 +91,19 @@ If Docker is unavailable: run `quality` + `exclusions` only; document smoke as b
 - No ZIMRA / FDMS / fiscalisation
 - No payroll tax engines (PAYE, NSSA, statutory forms)
 - No HTML5 / browser QR or WebView hardware APIs (Bridge-First under `bridges/`)
+
+## 7. DIAL-aligned AppSec baseline (2026-08-12)
+
+Adopt habits from DIAL D-47 / D-48 without importing DIAL agency locks:
+
+| Control | Nissan practice |
+| --- | --- |
+| AuthN ≠ AuthZ | After login, `has_staff_role` / organogram module_access on every staff route (`staff-auth.ts`) |
+| No body identity | Never trust `userId` / `role` / `email` from request body — JWT/`auth.uid()` only |
+| Worker fail-closed | `WORKER_SHARED_SECRET` required outside local stub (`worker_auth.ts`) |
+| Webhooks | ContiPay HMAC / Paynow SHA512 **before** mutate; settle RPCs service_role only |
+| Secrets | No `service_role` / PSP keys in `apps/*` or `NEXT_PUBLIC_*` |
+| Money | Prefer `amountMinor` path in `@gtr/shared`; AI never writes payable amounts |
+| SAST/IaC (next) | Port Semgrep + Checkov CI from DIAL when ready; keep RLS smokes green |
+
+Procurement fund releases and preferred-supplier RPCs are SECURITY DEFINER — keep mutation guards and role checks intact; do not open table writes from clients.
