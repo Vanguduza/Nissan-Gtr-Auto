@@ -63,6 +63,8 @@ export type CatalogSort =
 
 export type CatalogListOpts = {
   category?: string | null;
+  /** Leaf under a merchandising parent (`/shop?cat=suspension&sub=ball-joints`). */
+  subcategory?: string | null;
   limit?: number;
   sort?: CatalogSort;
   /** Inclusive USD bounds — applied client-side after price join. */
@@ -70,12 +72,12 @@ export type CatalogListOpts = {
   maxUsd?: number | null;
 };
 
-/** Strip PartSouq vehicle slug from EPC assembly labels for storefront display. */
+/** Strip PartSouq / Megazip vehicle noise from EPC assembly labels for display. */
 export function normalizeDisplayCategory(
   name: string | null | undefined,
 ): string | null {
   if (!name?.trim()) return null;
-  let cleaned = name.trim();
+  let cleaned = stripEpcVehicleSuffix(name.trim());
   for (let pass = 0; pass < 4; pass += 1) {
     const slash = cleaned.match(/^([A-Z0-9/+\-]{2,24})\s+(.+)$/i);
     if (slash && (slash[1].includes("/") || slash[1].includes("+"))) {
