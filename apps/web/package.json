@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@gtr/documents": "workspace:*",
+    "@gtr/procurement": "workspace:*",
     "@gtr/shared": "workspace:*",
     "@gtr/supabase-client": "workspace:*",
     "@gtr/ui": "workspace:*",
