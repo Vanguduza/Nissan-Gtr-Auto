@@ -18,3 +18,7 @@ export {
   type CourierCandidate,
   type OfferCycleResult,
 } from "./dispatch";
+export {
+  runDeliveryDispatchCycle,
+  type DispatchActivities,
+} from "./temporal";
