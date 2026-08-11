@@ -192,6 +192,53 @@ Live import (`--live-import --complete-only`, default `--strict-gate`):
 
 ---
 
+## Engine codes (vehicle cascade) — all makers
+
+Storefront / garage cascade reads **`vehicle_master.engine_code`** (not hierarchy alone).
+UI shows “No engine codes in catalog” when a selected generation has only null engines.
+
+### Where Megazip puts engines
+
+| Page | Attr | Typical |
+|------|------|---------|
+| Variant list (`s-catalog__attrs`) | `Engine` / `двигатель` | Toyota-style tech rows (often present) |
+| Diagram identity block | `Engine` / `двигатель` | Nissan-style (primary source) |
+
+Parser (`parse_html.py`): `_engine_from_attrs` → `variant.engine_code` and `diagram.payload.engine_code` + parts.
+Transform (`transform.py`):
+
+1. Processes pages in order **maker_hub → variant_list → section_list → diagram** (order-independent of SQLite insert order).
+2. Builds `vehicle_master` as `{Maker} {display_name}` + `chassis_code` + optional `engine_code`.
+3. Diagram engines attach to the **variant’s** `chassis_code` (cascade generation), not the longer Frame on the diagram page.
+
+### After parser upgrades (any maker)
+
+Re-parse + transform from cache (no re-crawl), then import:
+
+```bash
+python -m data_pipeline.megazip_catalog_orchestrator \
+  --makers Toyota --skip-crawl \
+  --phase parse,transform,pcdb,filter,import \
+  --live-import --complete-only
+```
+
+Cache-only engine backfill (safe while workers hold the state DB):
+
+```bash
+python scripts/extract_engines_from_cache.py --maker Toyota --live-import
+```
+
+Check `quality_report.json` keys: `vehicle_master_with_engine`, `variant_chassis_missing_engine_count`.
+
+### Pitfalls (do not regress)
+
+- Do **not** omit `engine_code` from transform / `vehicle_master` — cascade depends on it.
+- Do **not** invent alternate `model_variant` strings on backfill; they must match `{Maker} {catalog_models.display_name}` exactly.
+- Multi-engine chassis → multiple `vehicle_master` rows (same chassis, different `engine_code`); leave `catalog_variants.engine_code` empty when ambiguous.
+- Missing diagram HTML on disk ⇒ no engine until crawl re-fetches that URL.
+
+---
+
 ## Recommended overnight command
 
 ```powershell
