@@ -128,10 +128,8 @@ python scripts/megazip_post_import_verify.py --maker-slug toyota --fail-on-engin
 
 # If verify reports megazip URLs/paths (legacy rows):
 python scripts/scrub_megazip_catalog_values.py
-# DDL rename (needs DATABASE_URL):
+# Column rename is automatic on --live-import; optional manual re-run:
 python scripts/apply_megazip_scrub.py
-# Or Dashboard SQL:
-#   scripts/scrub_megazip_dashboard.sql
 ```
 
 ### E. Engine backfill while crawl workers hold SQLite
