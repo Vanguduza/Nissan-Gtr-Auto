@@ -353,6 +353,8 @@ def write_bundle(bundle: dict[str, Any], bundle_dir: Path) -> None:
 
 
 def transform_maker(paths: MakerPaths, *, storage_prefix: str) -> dict[str, Any]:
-    bundle = build_hierarchy_bundle(paths, storage_prefix=storage_prefix)
+    bundle = prepare_hierarchy_for_supabase_import(
+        build_hierarchy_bundle(paths, storage_prefix=storage_prefix)
+    )
     write_bundle(bundle, paths.bundle_dir)
     return bundle
