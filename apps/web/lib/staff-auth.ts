@@ -99,8 +99,13 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         roles: ["admin", "warehouse"],
       },
       {
+        href: "/staff/warehouse/master-stock",
+        label: "Master stock",
+        roles: ["admin", "warehouse", "sales", "finance"],
+      },
+      {
         href: "/staff/warehouse/transfers",
-        label: "Transfers",
+        label: "Transfers (WH1→WH2)",
         roles: ["admin", "warehouse"],
       },
       {
