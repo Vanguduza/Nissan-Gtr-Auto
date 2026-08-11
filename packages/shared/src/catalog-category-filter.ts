@@ -366,7 +366,7 @@ export function shopCategoryFacetOptions(
   activeSubfilter?: string | null,
 ): ShopFacetOption[] {
   const combined = activeSubfilter?.trim() || activeFilter?.trim() || "";
-  if (!combined && !activeFilter?.trim()) {
+  if (!combined) {
     return MERCHANDISING_TAXONOMY.map((p) => ({
       slug: p.slug,
       label: p.label,

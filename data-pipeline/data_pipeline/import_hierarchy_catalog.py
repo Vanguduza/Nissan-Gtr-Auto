@@ -384,6 +384,10 @@ def import_hierarchy_supabase(
         raise RuntimeError("pip install -e '.[supabase]'") from exc
 
     client = create_client(url, key)
+    # Auto-rename megazip_* → external_* when Postgres URL is available (idempotent).
+    from data_pipeline.megazip.schema_ensure import ensure_external_catalog_columns
+
+    rename_status = ensure_external_catalog_columns()
     bundle = sanitize_hierarchy_vendor_leakage(bundle)
     sanitized = sanitize_legacy_bundle_for_import(bundle)
     validate_bundle(
