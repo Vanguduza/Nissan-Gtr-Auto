@@ -4,14 +4,14 @@
 
 ### Added
 
-- `docs/DIAL_SPARE_ADOPTION_PLAN.md` — Dial-a-Spare architecture adoption plan (finance, WMS, delivery, jobs, AI/CRM, Resend/Brevo).
-- `docs/decisions/2026-08-12-principal-vs-dial-agency.md` — commercial model ADR (principal distributor ≠ DIAL agency).
-- `@gtr/notifications` — Resend (transactional) + Brevo (promo) adapter contracts.
-- `@gtr/delivery` — `DeliveryDispatchWorkflow` contracts + OSRM client helpers (D-44/D-45 alignment).
-- Edge `brevo_send.ts`; `process-crm-promos` prefers Brevo for CRM email.
-- Android `OsrmRouteFetcher`; delivery app prefers `OSRM_URL` over Google Directions.
-- `@gtr/shared` `MoneyMinor` / `amountMinor` helpers (dual with legacy `Money`).
+- `docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md` — relationship procurement, dual-WH, POS Dial UX, DIAL security.
+- `@gtr/procurement` — progress tracker domain; preferred-supplier vocabulary (InvenTree pattern, not runtime).
+- Migration `20260812010000_relationship_procurement_dual_wh.sql` — preferred suppliers, WH1/WH2 roles, `v_master_stock`, PO fund release on approve.
+- Web: `/procurement/suppliers`, `/staff/warehouse/master-stock`, procurement progress tracker UI, POS shell Dial UX chrome.
+- `@gtr/delivery` FIFO / offer-cycle helpers (`selectNextCourierOffer`).
+- `docs/HARDENING.md` §7 DIAL AppSec baseline; AGENTS procurement/AI locks.
 
 ### Changed
 
+- Procurement hub no longer RFQ-first; RFQ marked optional spot-buy.
 - Living docs introduced (`CHANGELOG.md`, `ENHANCEMENTS.md`, `BUGS.md`); README surfaces delivery app + adoption plan.
