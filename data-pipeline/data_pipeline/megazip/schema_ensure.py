@@ -1,10 +1,8 @@
-"""Ensure catalog columns use vendor-neutral ``external_*`` names.
+"""Ensure live DB columns match vendor-neutral ``external_*`` names when possible.
 
-Called automatically on live Megazip hierarchy import. Idempotent: no-ops when
-columns are already renamed or when the catalog tables are absent.
-
-Requires a Postgres URL (``DATABASE_URL`` / ``SUPABASE_DB_URL``, or
-``SUPABASE_URL`` + ``SUPABASE_DB_PASSWORD``). REST alone cannot run DDL.
+Bundle readiness does **not** depend on this: transform/filter already emit
+``external_*`` via ``prepare_hierarchy_for_supabase_import``. This module is an
+optional live-DB repair if an old database still has ``megazip_*`` columns.
 """
 
 from __future__ import annotations
