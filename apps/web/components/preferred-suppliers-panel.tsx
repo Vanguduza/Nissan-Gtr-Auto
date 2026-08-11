@@ -111,72 +111,55 @@ export function PreferredSuppliersPanel() {
         against this roster — not from winning RFQ quotations. AI restock
         suggestions never auto-create orders.
       </p>
-      {message ? <p className={styles.lede}>{message}</p> : null}
+      {message ? <p className={styles.formStatus}>{message}</p> : null}
 
-      <form onSubmit={onSubmit} className={styles.cardGrid} style={{ gap: "0.75rem" }}>
-        <label>
-          Code
-          <input
-            required
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className={styles.input}
-          />
-        </label>
-        <label>
-          Name
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={styles.input}
-          />
-        </label>
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={styles.input}
-          />
-        </label>
-        <label>
-          Phone (E.164)
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={styles.input}
-          />
-        </label>
-        <label>
-          Payment terms
-          <input
-            value={terms}
-            onChange={(e) => setTerms(e.target.value)}
-            className={styles.input}
-          />
-        </label>
-        <label>
-          Product categories (comma-separated)
-          <input
-            value={categories}
-            onChange={(e) => setCategories(e.target.value)}
-            className={styles.input}
-          />
-        </label>
-        <label style={{ gridColumn: "1 / -1" }}>
-          Relationship notes
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className={styles.input}
-            rows={2}
-          />
-        </label>
-        <button type="submit" disabled={busy} className={styles.primaryButton}>
-          {busy ? "Saving…" : "Add / update supplier"}
-        </button>
+      <form onSubmit={onSubmit} className={styles.form}>
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            Code
+            <input required value={code} onChange={(e) => setCode(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            Name
+            <input required value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className={styles.field}>
+            Phone (E.164)
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            Payment terms
+            <input value={terms} onChange={(e) => setTerms(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            Product categories (comma-separated)
+            <input
+              value={categories}
+              onChange={(e) => setCategories(e.target.value)}
+            />
+          </label>
+          <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+            Relationship notes
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
+          </label>
+        </div>
+        <div className={styles.formActions}>
+          <button type="submit" disabled={busy} className={styles.btn}>
+            {busy ? "Saving…" : "Add / update supplier"}
+          </button>
+        </div>
       </form>
 
       <div className={styles.cardGrid} style={{ marginTop: "1.5rem" }}>
@@ -193,7 +176,7 @@ export function PreferredSuppliersPanel() {
             </span>
             <button
               type="button"
-              className={styles.secondaryButton}
+              className={styles.btnGhost}
               disabled={busy}
               onClick={() => void remove(s.id)}
             >
