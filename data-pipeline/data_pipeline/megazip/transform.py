@@ -110,7 +110,7 @@ def build_hierarchy_bundle(
                     "slug": slug,
                     "display_name": m["display_name"],
                     "sort_key": m.get("sort_key") or slug.upper(),
-                    "source_url": m.get("source_url") or url,
+                    "source_url": _public_catalog_url(m.get("source_url") or url),
                 }
 
         elif ptype == "variant_list":
