@@ -1,5 +1,15 @@
-export type { CurrencyCode, Money } from "./money";
-export { assertCurrency } from "./money";
+export type { CurrencyCode, Money, MoneyMinor } from "./money";
+export {
+  assertCurrency,
+  assertAmountMinor,
+  MINOR_PER_MAJOR,
+  toAmountMinor,
+  fromAmountMinor,
+  moneyToMinor,
+  minorToMoney,
+  moneyMinorToJson,
+  moneyMinorFromJson,
+} from "./money";
 export { splitCoreCharge } from "./cart";
 export {
   normalizeReceiptEmail,
