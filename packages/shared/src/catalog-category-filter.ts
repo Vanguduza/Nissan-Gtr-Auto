@@ -116,7 +116,7 @@ export const MERCHANDISING_TAXONOMY: readonly MerchParent[] = [
       {
         slug: "bushings",
         label: "Bushings",
-        stems: ["bushing", "bush ", " arm bush"],
+        stems: ["bushing", "arm bush"],
       },
     ],
   },
