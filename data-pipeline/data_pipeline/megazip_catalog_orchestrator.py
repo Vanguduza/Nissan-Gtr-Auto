@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from data_pipeline.bundle_filter import filter_complete_bundle
+from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
 from data_pipeline.import_hierarchy_catalog import import_hierarchy_bundle_dir
 from data_pipeline.megazip.config import (
     DEFAULT_CHASSIS_MAP_FILE,
@@ -56,6 +57,12 @@ from data_pipeline.megazip.crawl import crawl_maker, parse_cached_pages
 from data_pipeline.megazip.enrich_pcdb import enrich_pcdb
 from data_pipeline.megazip.quality import assert_publishable, bundle_quality_report, variant_quality_breakdown
 from data_pipeline.megazip.transform import transform_maker, write_bundle
+from data_pipeline.storage_diagrams import (
+    DIAGRAMS_BUCKET,
+    content_type_for_path,
+    epc_storage_path,
+    rest_upload_headers,
+)
 
 logger = logging.getLogger("data_pipeline.megazip_catalog_orchestrator")
 
