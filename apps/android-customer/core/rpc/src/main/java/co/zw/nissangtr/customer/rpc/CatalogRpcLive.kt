@@ -132,22 +132,6 @@ internal object CatalogRpcLive {
         return CatalogBrowseResult(items = list, categories = categories)
     }
 
-    private suspend fun loadBrowseCategoryLabels(client: SupabaseClient): List<String> {
-        return try {
-            client.from("pnc_categories")
-                .select(Columns.list("category_name")) {
-                    order("category_name", Order.ASCENDING)
-                    limit(100)
-                }
-                .decodeList<PncCategoryNameRow>()
-                .mapNotNull { it.categoryName?.trim()?.takeIf(String::isNotEmpty) }
-                .distinct()
-                .take(24)
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
-
     private suspend fun resolveOemFilterForCategory(
         client: SupabaseClient,
         categoryLabel: String,
