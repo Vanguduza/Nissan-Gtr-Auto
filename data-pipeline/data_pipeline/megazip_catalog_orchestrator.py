@@ -37,8 +37,10 @@ from typing import Any
 
 from data_pipeline.bundle_filter import filter_complete_bundle
 from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
-from data_pipeline.import_hierarchy_catalog import import_hierarchy_bundle_dir
-from data_pipeline.megazip.config import (
+from data_pipeline.import_hierarchy_catalog import (
+    import_hierarchy_bundle_dir,
+    prepare_hierarchy_for_supabase_import,
+)from data_pipeline.megazip.config import (
     DEFAULT_CHASSIS_MAP_FILE,
     DEFAULT_MAKERS_FILE,
     DEFAULT_OUT_ROOT,
