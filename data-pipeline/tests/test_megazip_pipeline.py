@@ -72,6 +72,7 @@ def test_parse_variant_list_chassis() -> None:
     variants = page.payload["variants"]
     assert len(variants) == 1
     assert variants[0]["chassis_code"] == "ACV40"
+    assert variants[0]["engine_code"] == "2AZ-FE"
 
 
 def test_parse_section_list() -> None:
