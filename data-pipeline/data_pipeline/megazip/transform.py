@@ -227,7 +227,7 @@ def build_hierarchy_bundle(
                 }
                 if pnc:
                     fit["pnc_code"] = pnc
-                engine = part.get("engine_code")
+                engine = (part.get("engine_code") or diagram_engine or "").strip() or None
                 if engine:
                     fit["engine_code"] = engine
                 for k in ("bbox_x", "bbox_y", "bbox_width", "bbox_height"):
