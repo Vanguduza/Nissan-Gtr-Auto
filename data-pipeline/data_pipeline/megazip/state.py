@@ -294,79 +294,84 @@ def claim_next_url(
     """
     if exclude_leased:
         expire_stale_leases(db_path)
-    conn = connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        where = ["status = 'PENDING'"]
-        params: list[Any] = []
-        if maker_slug:
-            where.append("maker_slug = ?")
-            params.append(maker_slug)
-        if model_slugs:
-            placeholders = ",".join("?" for _ in model_slugs)
-            where.append(f"model_slug IN ({placeholders})")
-            params.extend(sorted(model_slugs))
-        if exclude_leased:
-            # Skip models leased by anyone else (TTL already applied via expire).
-            if lease_owner:
-                where.append(
-                    """
-                    model_slug NOT IN (
-                      SELECT model_slug FROM worker_leases
-                      WHERE worker_id != ?
-                        AND heartbeat_at >= datetime('now', ?)
+
+    def _once() -> dict[str, Any] | None:
+        conn = connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            where = ["status = 'PENDING'"]
+            params: list[Any] = []
+            if maker_slug:
+                where.append("maker_slug = ?")
+                params.append(maker_slug)
+            if model_slugs:
+                placeholders = ",".join("?" for _ in model_slugs)
+                where.append(f"model_slug IN ({placeholders})")
+                params.extend(sorted(model_slugs))
+            if exclude_leased:
+                # Skip models leased by anyone else (TTL already applied via expire).
+                if lease_owner:
+                    where.append(
+                        """
+                        model_slug NOT IN (
+                          SELECT model_slug FROM worker_leases
+                          WHERE worker_id != ?
+                            AND heartbeat_at >= datetime('now', ?)
+                        )
+                        """
                     )
-                    """
-                )
-                params.extend([lease_owner, f"-{LEASE_TTL_SECONDS} seconds"])
-            else:
-                where.append(
-                    """
-                    model_slug NOT IN (
-                      SELECT model_slug FROM worker_leases
-                      WHERE heartbeat_at >= datetime('now', ?)
+                    params.extend([lease_owner, f"-{LEASE_TTL_SECONDS} seconds"])
+                else:
+                    where.append(
+                        """
+                        model_slug NOT IN (
+                          SELECT model_slug FROM worker_leases
+                          WHERE heartbeat_at >= datetime('now', ?)
+                        )
+                        """
                     )
-                    """
-                )
-                params.append(f"-{LEASE_TTL_SECONDS} seconds")
-        sql = f"""
-            SELECT url, page_type, maker_slug, model_slug, variant_slug, section_slug, chassis_code
-            FROM queue
-            WHERE {' AND '.join(where)}
-            ORDER BY
-              CASE COALESCE(page_type, '')
-                WHEN 'maker_hub' THEN 0
-                WHEN 'model_catalog' THEN 1
-                WHEN 'model_hub' THEN 1
-                WHEN 'variant_list' THEN 2
-                WHEN 'section_list' THEN 3
-                WHEN 'diagram' THEN 4
-                ELSE 5
-              END,
-              url
-            LIMIT 1
-            """
-        row = conn.execute(sql, params).fetchone()
-        if not row:
+                    params.append(f"-{LEASE_TTL_SECONDS} seconds")
+            sql = f"""
+                SELECT url, page_type, maker_slug, model_slug, variant_slug, section_slug, chassis_code
+                FROM queue
+                WHERE {' AND '.join(where)}
+                ORDER BY
+                  CASE COALESCE(page_type, '')
+                    WHEN 'maker_hub' THEN 0
+                    WHEN 'model_catalog' THEN 1
+                    WHEN 'model_hub' THEN 1
+                    WHEN 'variant_list' THEN 2
+                    WHEN 'section_list' THEN 3
+                    WHEN 'diagram' THEN 4
+                    ELSE 5
+                  END,
+                  url
+                LIMIT 1
+                """
+            row = conn.execute(sql, params).fetchone()
+            if not row:
+                conn.commit()
+                return None
+            conn.execute(
+                "UPDATE queue SET status = 'PROCESSING', attempts = attempts + 1, "
+                "updated_at = datetime('now') WHERE url = ?",
+                (row[0],),
+            )
             conn.commit()
-            return None
-        conn.execute(
-            "UPDATE queue SET status = 'PROCESSING', attempts = attempts + 1, updated_at = datetime('now') WHERE url = ?",
-            (row[0],),
-        )
-        conn.commit()
-        keys = (
-            "url",
-            "page_type",
-            "maker_slug",
-            "model_slug",
-            "variant_slug",
-            "section_slug",
-            "chassis_code",
-        )
-        return dict(zip(keys, row, strict=True))
-    finally:
-        conn.close()
+            keys = (
+                "url",
+                "page_type",
+                "maker_slug",
+                "model_slug",
+                "variant_slug",
+                "section_slug",
+                "chassis_code",
+            )
+            return dict(zip(keys, row, strict=True))
+        finally:
+            conn.close()
+
+    return with_retry(_once, label="claim_next_url")
 
 
 def mark_url(db_path: Path, url: str, *, ok: bool, error: str | None = None) -> None:
