@@ -11,6 +11,16 @@ from urllib.parse import urlparse
 from data_pipeline.megazip.config import MakerPaths
 from data_pipeline.megazip.state import load_all_parsed
 
+# Variants must be indexed before diagrams so chassis/engine cascade rows attach
+# to the published generation (catalog_variants.chassis_code), not a later Frame.
+_PAGE_TYPE_ORDER = {
+    "maker_hub": 0,
+    "variant_list": 1,
+    "model_catalog": 1,
+    "section_list": 2,
+    "diagram": 3,
+}
+
 
 def _diagram_storage_path(prefix: str, image_url: str, slug: str) -> str:
     if not image_url:
@@ -28,12 +38,51 @@ def _public_catalog_url(url: str | None) -> str | None:
     return url
 
 
+def _model_variant_label(
+    maker_name: str,
+    model_slug: str,
+    models: dict[str, dict[str, Any]],
+) -> str:
+    """Stable cascade label: ``{Maker} {display_name}`` (must match clients exactly)."""
+    display = (models.get(model_slug) or {}).get("display_name") or ""
+    if not display:
+        display = model_slug.replace("-", " ").upper() if model_slug else "UNKNOWN"
+    return f"{maker_name} {display}"
+
+
+def _upsert_vehicle(
+    vehicles: dict[tuple[Any, ...], dict[str, Any]],
+    *,
+    chassis: str,
+    engine: str | None,
+    model_variant: str,
+) -> None:
+    if not chassis or not model_variant:
+        return
+    eng = (engine or "").strip() or None
+    key = (None, chassis, eng, None, model_variant)
+    row: dict[str, Any] = {
+        "chassis_code": chassis,
+        "model_variant": model_variant,
+    }
+    if eng:
+        row["engine_code"] = eng
+    vehicles[key] = row
+
+
 def build_hierarchy_bundle(
     paths: MakerPaths,
     *,
     storage_prefix: str,
 ) -> dict[str, Any]:
     parsed = load_all_parsed(paths.state_db, maker_slug=paths.slug)
+    parsed = sorted(
+        parsed,
+        key=lambda r: (
+            _PAGE_TYPE_ORDER.get(str(r.get("page_type") or ""), 99),
+            str(r.get("url") or ""),
+        ),
+    )
     maker_slug = paths.slug
     maker_name = paths.maker
 
@@ -95,18 +144,12 @@ def build_hierarchy_bundle(
                 }
                 chassis = v.get("chassis_code") or ""
                 if chassis:
-                    model_variant = (
-                        f"{maker_name} "
-                        f"{models.get(model_slug, {}).get('display_name', model_slug)}"
+                    _upsert_vehicle(
+                        vehicles,
+                        chassis=chassis,
+                        engine=engine,
+                        model_variant=_model_variant_label(maker_name, model_slug, models),
                     )
-                    vm_key = (None, chassis, engine, None, model_variant)
-                    # Prefer chassis+engine rows when known; cascade reads engine_code.
-                    vehicles[vm_key] = {
-                        "chassis_code": chassis,
-                        "model_variant": model_variant,
-                    }
-                    if engine:
-                        vehicles[vm_key]["engine_code"] = engine
 
         elif ptype == "section_list":
             model_slug = payload.get("model_slug") or ""
@@ -146,7 +189,8 @@ def build_hierarchy_bundle(
                 "image_height": payload.get("image_height"),
                 "diagram_kind": payload.get("diagram_kind") or "ambiguous",
                 "hotspot_count": payload.get("hotspot_count") or 0,
-                "publish_diagram": (payload.get("diagram_kind") or "ambiguous") != "parts_list_raster",
+                "publish_diagram": (payload.get("diagram_kind") or "ambiguous")
+                != "parts_list_raster",
                 "storage_path": storage_path,
                 "source_url": _public_catalog_url(url),
             }
@@ -155,7 +199,9 @@ def build_hierarchy_bundle(
                     "storage_path": storage_path,
                     "content_type": "image/png",
                     "provenance": "scraped-reference",
-                    "chassis_code": variants.get((model_slug, variant_slug), {}).get("chassis_code")
+                    "chassis_code": variants.get((model_slug, variant_slug), {}).get(
+                        "chassis_code"
+                    )
                     or "",
                 }
                 pub_img = _public_catalog_url(image_url)
@@ -165,6 +211,11 @@ def build_hierarchy_bundle(
 
             variant_meta = variants.get((model_slug, variant_slug), {})
             variant_chassis = variant_meta.get("chassis_code", "")
+            if not variant_chassis:
+                for part in payload.get("parts") or []:
+                    variant_chassis = (part.get("chassis_code") or "").strip()
+                    if variant_chassis:
+                        break
             variant_engine = (variant_meta.get("engine_code") or "").strip() or None
             diagram_engine = (payload.get("engine_code") or "").strip() or variant_engine
             if storage_path and variant_chassis:
@@ -172,16 +223,12 @@ def build_hierarchy_bundle(
             if storage_path and diagram_engine:
                 diagram_assets[storage_path]["engine_code"] = diagram_engine
             if variant_chassis and diagram_engine:
-                model_variant = (
-                    f"{maker_name} "
-                    f"{models.get(model_slug, {}).get('display_name', model_slug)}"
+                _upsert_vehicle(
+                    vehicles,
+                    chassis=variant_chassis,
+                    engine=diagram_engine,
+                    model_variant=_model_variant_label(maker_name, model_slug, models),
                 )
-                vm_key = (None, variant_chassis, diagram_engine, None, model_variant)
-                vehicles[vm_key] = {
-                    "chassis_code": variant_chassis,
-                    "engine_code": diagram_engine,
-                    "model_variant": model_variant,
-                }
             category_name = payload.get("title") or section_slug.replace("-", " ").title()
 
             for row in payload.get("parts_table") or []:
@@ -212,13 +259,19 @@ def build_hierarchy_bundle(
                     pncs[pnc] = {
                         "pnc_code": pnc,
                         "category_name": category_name,
-                        "subcategory_name": sections.get((model_slug, variant_slug, section_slug), {}).get("name"),
-                        "assembly_group_id": sections.get((model_slug, variant_slug, section_slug), {}).get(
-                            "assembly_group_id"
-                        ),
+                        "subcategory_name": sections.get(
+                            (model_slug, variant_slug, section_slug), {}
+                        ).get("name"),
+                        "assembly_group_id": sections.get(
+                            (model_slug, variant_slug, section_slug), {}
+                        ).get("assembly_group_id"),
                         "catalog_section_path": f"{category_name}",
                     }
-                    if storage_path and pnc and "pnc_code" not in diagram_assets.get(storage_path, {}):
+                    if (
+                        storage_path
+                        and pnc
+                        and "pnc_code" not in diagram_assets.get(storage_path, {})
+                    ):
                         diagram_assets[storage_path]["pnc_code"] = pnc
                 fit: dict[str, Any] = {
                     "oem_part_number": oem,
@@ -288,6 +341,10 @@ def write_bundle(bundle: dict[str, Any], bundle_dir: Path) -> None:
         "diagrams": len(bundle.get("catalog_diagrams") or []),
         "fitments": len(bundle.get("part_fitment") or []),
         "pncs": len(bundle.get("pnc_categories") or []),
+        "vehicles": len(bundle.get("vehicle_master") or []),
+        "vehicles_with_engine": sum(
+            1 for r in (bundle.get("vehicle_master") or []) if r.get("engine_code")
+        ),
     }
     (bundle_dir / "browse_tree_meta.json").write_text(
         json.dumps(meta, indent=2) + "\n",
