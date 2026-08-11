@@ -606,7 +606,7 @@ export async function listCatalogProducts(
 
   const { data: items, error } = await query;
   if (error) return { ok: false, error: error.message };
-  if (!items?.length) return { ok: true, data: [], categories };
+  if (!items?.length) return { ok: true, data: [], categories, categoryFacets };
 
   const ids = items.map((i) => i.id);
   const oems = items.map((i) => i.oem_part_number);
