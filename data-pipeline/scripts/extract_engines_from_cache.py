@@ -53,6 +53,13 @@ def _model_display(model_slug: str) -> str:
     return base.replace("-", " ").title() or model_slug
 
 
+def _hierarchy_model_variant(maker_name: str, model_slug: str, display_name: str | None = None) -> str:
+    """Match hosted import labels: ``Nissan PATHFINDER 2142`` from slug/display."""
+    if display_name:
+        return f"{maker_name} {display_name}"
+    return f"{maker_name} {(model_slug or '').replace('-', ' ').upper()}"
+
+
 def extract_from_cache(
     state_db: Path,
     cache_dir: Path,
