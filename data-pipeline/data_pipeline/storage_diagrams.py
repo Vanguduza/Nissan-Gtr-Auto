@@ -7,7 +7,10 @@ All diagram upload entry points must use ``DIAGRAM_CACHE_CONTROL_SECONDS``.
 from __future__ import annotations
 
 DIAGRAMS_BUCKET = "catalog-diagrams"
-# Numeric seconds → Storage emits ``Cache-Control: max-age=31536000``.
+# Stored on the object and returned on public GET. Prefer explicit max-age= so
+# browsers/CDNs cache; bare seconds can be emitted as ``public, 31536000`` (no TTL).
+DIAGRAM_CACHE_CONTROL = "public, max-age=31536000, immutable"
+# Back-compat alias used by older call sites / docs.
 DIAGRAM_CACHE_CONTROL_SECONDS = "31536000"
 
 
