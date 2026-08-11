@@ -114,7 +114,10 @@ python -m data_pipeline.megazip_catalog_orchestrator `
   --out-root out/megazip
 ```
 
-Import always runs `sanitize_hierarchy_vendor_leakage` (null megazip URLs, `megazip/`→`epc/`, `source=epc`). Dual-writes `external_data_id` / `megazip_data_id` depending on live schema.
+Import always runs `sanitize_hierarchy_vendor_leakage` and **auto-ensures**
+`megazip_*` → `external_*` column renames when a Postgres URL is available
+(`DATABASE_URL` / `SUPABASE_DB_URL`, or `SUPABASE_URL` + `SUPABASE_DB_PASSWORD`).
+Until rename succeeds, import dual-maps legacy column names.
 
 ### D. Verify + scrub leftovers
 
