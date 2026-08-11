@@ -20,8 +20,9 @@ orchestration quirks.
    label `{Maker} {display_name}`.
 3. **Vendor scrub** — Transform + import `sanitize_hierarchy_vendor_leakage`; Storage prefix
    `epc/{slug}`; never persist megazip hosts/paths; repair with `scrub_megazip_catalog_values.py`.
-4. **Schema ensure** — Live import auto-renames `megazip_*` → `external_*` via
-   `megazip.schema_ensure` when a Postgres URL is available; dual-maps until then.
+4. **Import-ready bundle** — Transform/filter prepare SoR shape (`external_*`,
+   scrubbed URLs, `source=epc`) before import; quality gate includes
+   `import_schema_ok`. Optional live DB rename is repair-only, not a readiness gate.
 5. **Ops** — Workers via leases; post-import `megazip_post_import_verify.py`; engine backfill via
    cache-only extract while crawling.
 6. **Guide of record** — `docs/guides/megazip-multivehicle-catalog.md`.
