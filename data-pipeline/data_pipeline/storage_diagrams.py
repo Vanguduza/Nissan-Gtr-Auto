@@ -1,7 +1,7 @@
 """Shared Supabase Storage helpers for catalog diagram assets.
 
 REST uploads without ``cache-control`` default to ``Cache-Control: no-cache``.
-All diagram upload entry points must use ``DIAGRAM_CACHE_CONTROL_SECONDS``.
+All diagram upload entry points must use ``DIAGRAM_CACHE_CONTROL``.
 """
 
 from __future__ import annotations
