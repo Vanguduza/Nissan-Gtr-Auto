@@ -92,7 +92,7 @@ Point `catalog_sections.thumbnail_url` at Storage public URLs for thumbs (not ve
 ## Verify
 
 1. Web: open an EPC diagram → Network shows `/_next/image?url=…supabase…` (or optimised) with AVIF/WebP; diagram is sharp; hotspots still align.
-2. Storage: after restamp, `Cache-Control` includes `max-age=31536000`; repeat visit is cache HIT / no full re-download.
+2. Storage: after restamp, public **GET** `Cache-Control` includes `max-age=31536000` (prefer `immutable`); Smart CDN `HEAD` may still lie with `no-cache` — trust GET. Repeat visit should be cache HIT / no full re-download.
 3. Transform (if enabled): `…/render/image/public/…?width=200` returns 200, not `FeatureNotEnabled`.
 4. Exclusions: no ZIMRA; no catalog wipe; Bridge-First N/A for Storage images.
 
