@@ -53,16 +53,18 @@ sdk.dir=C\:\\Android\\sdk
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPPORT_PHONE=+263771234567
+# Preferred route SoR (DIAL D-44). When set, in-app polyline uses OSRM instead of Google Directions.
+OSRM_URL=http://10.0.2.2:5000
+# Deprecated distance SoR — fallback only when OSRM_URL blank
 GOOGLE_MAPS_API_KEY=your-maps-key
 # rpc.forceFake=true
 ```
 
 Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`.
 
-**Maps:** enable **Maps SDK for Android** and **Directions API** on the key in Google Cloud Console.
-Restrict by package `co.zw.nissangtr.delivery` + SHA-1 for release. Without the key, job detail
-still shows dropoff placeholders and can open external turn-by-turn; in-app tiles/route need the key.
-GPS ingest always uses `:location-tracker` FGS — the map is display-only.
+**Routing:** set **`OSRM_URL`** to a self-hosted OSRM base (see `infra/satellites/README.md`). Google Directions remains a temporary fallback only.
+
+**Maps tiles:** Google Maps Compose is still used for the in-app map surface until MapLibre Native lands (adoption E2b). GPS ingest always uses `:location-tracker` FGS — the map is display-only.
 
 ## Build APK
 
