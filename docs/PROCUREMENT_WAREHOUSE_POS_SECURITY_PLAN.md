@@ -1,0 +1,110 @@
+# Nissan GTR Auto — procurement, dual-warehouse, POS, security (founder 2026-08-12)
+
+**Authority:** This doc extends `DIAL_SPARE_ADOPTION_PLAN.md`. Nissan remains a **principal distributor** (not Dial-a-Spare agency).  
+**Commercial rule (founder):** Shop / replenishment does **not** authorize suppliers from winning RFQ quotations. Long-standing supplier relationships are the SoR; RFQ remains optional legacy for rare spot buys.
+
+---
+
+## 1. OSS / tool picks (pattern donors — Postgres remains SoR)
+
+| Need | Pick | Licence | Tier | Use |
+| --- | --- | --- | --- | --- |
+| Procurement / PO / GRN UX & state vocabulary | [inventree/InvenTree](https://github.com/inventree/InvenTree) | MIT | **Reference** | PO → approve → receive; part-centric stock; barcode/QR habits — **do not** run InvenTree as a second DB |
+| Buying workflow / multi-step approval UX | [frappe/erpnext](https://github.com/frappe/erpnext) Buying | GPL-3 | **Reference only** | Progress stages & approval gates — **never** add as dependency |
+| CSV supplier / catalog import UX | [tableflowhq/csv-import](https://github.com/tableflowhq/csv-import) | MIT | Tier 1 habit | Supplier roster + PO line paste |
+| Restock / demand analytics | Existing `forecast_suggestions` + Edge `demand-forecast` / `stores-insights`; satellite Prophet notes in `infra/satellites/PHASE2_PROPHET_GORSE.md`; optional **Nixtla statsforecast** (Apache-2.0) later | — | Integrate | AI **suggests only**; humans build POs with quoted figures |
+| Product analytics UI | Metabase (already DIAL-aligned) | AGPL self-host | Tier 2 | Dashboards over `master_stock_*` + forecast tables |
+| Delivery auto-assign / FIFO | DIAL D-45 + AWS Last Mile Hyperlocal (MIT-0) → `@gtr/delivery` | — | Locked | Temporal `DeliveryDispatchWorkflow` + SQL auto-assign already started |
+| POS / kiosk UX | DIAL D-38: CoolMallKotlin / Nimara / Medusa DTC **patterns** + `@gtr/ui` tokens | MIT | Pattern | Redesign tablet + web POS — native Android stays (no Expo) |
+| Security | DIAL D-47/D-48 habits | — | Adopt | See §7 |
+
+**Reject as SoR:** ERPNext/InvenTree runtime DB, Fleetbase, Baileys, Google/Mapbox distance SoR, Medusa/Formance money SoR, RFQ-win as mandatory PO path.
+
+---
+
+## 2. Target process (happy path)
+
+```text
+AI forecast / season / min-stock triggers
+        ↓ (suggestion only — never auto-PO / never payable amounts)
+Procurement builds PO from preferred supplier roster + quoted unit costs
+        ↓ submit
+Assigned finance/admin approves
+        ↓ auto
+Finance fund release under requesting official (PO created_by) + ledger event
+        ↓
+Supplier delivers → procurement GRN (invoice = GRN attachment)
+  • Fast path: oem_part_number + qty_received (maps stock_items)
+  • Optional: in-house QR stickers → same OEM → camera / cart / receive
+        ↓ stock into WH1 (receiving)
+WH1 → WH2 (storefloor) stock transfer order → dual approval → trackable like PO
+Master stock view: total + WH1 qty + WH2 qty per OEM
+Delivery jobs: auto offer / FIFO queue per DIAL D-45 (@gtr/delivery)
+```
+
+### Warehouses
+
+| Code | Role |
+| --- | --- |
+| `WH1` / legacy `MAIN` | All goods received (bulk) |
+| `WH2` / storefloor | Sales floor / POS pick |
+
+Migration ensures both exist and aliases MAIN↔WH1 when needed.
+
+---
+
+## 3. Module DoD (tracer)
+
+### E-Proc — Relationship procurement
+- [ ] Preferred supplier roster CRUD (add/remove + full details) in procurement dashboard
+- [ ] Manual PO from roster (quoted figures); **not** gated on winning quotation
+- [ ] Cool progress tracker UI (draft → submitted → approved → funds_released → partially_received → received → closed)
+- [ ] On approve: `procurement_fund_releases` + finance event under `created_by`
+- [ ] RFQ marked secondary / optional in nav copy
+
+### E-WH — Dual warehouse + master stock
+- [ ] WH1 receive SoR; WH2 storefloor
+- [ ] Transfer WH1→WH2 requires approval + progress tracker
+- [ ] `v_master_stock` (or RPC) totals + WH1 + WH2 columns
+- [ ] GRN by part number + qty; QR maps to OEM
+
+### E-POS — Dial UX redesign
+- [ ] Web POS uses `@gtr/ui` tokens / CoolMall-like density
+- [ ] Tablet kiosk POS visual pass (Material 3 + brand tokens)
+- [ ] Responsive desktop + mobile staff POS
+
+### E-Del — Auto dispatch
+- [ ] Offer → accept/reject/timeout → requeue / FIFO when none available
+- [ ] OSRM distance SoR; MapLibre render
+
+### E-Sec — DIAL security baseline
+- [ ] No body `userId`/role trust; JWT/session only
+- [ ] Webhook signature + idempotency
+- [ ] Fail-closed worker secrets
+- [ ] No service_role in client bundles
+- [ ] RLS smokes green; HARDENING.md checklist current
+
+---
+
+## 4. Implementation status (this landing)
+
+| Artifact | Status |
+| --- | --- |
+| This plan | Done |
+| `@gtr/procurement` domain + progress tracker | Done |
+| Migration preferred suppliers / fund release / master stock / WH codes | Done |
+| Procurement dashboard + suppliers + tracker UI | Done (spine) |
+| Delivery FIFO helper in `@gtr/delivery` | Done |
+| POS CSS token pass (web) | Started |
+| Security AGENTS + HARDENING appendix | Done |
+| Full Android POS redesign / Temporal worker | Next tickets |
+
+---
+
+## 5. Next tickets
+
+1. Wire `create_purchase_order` UI for preferred-supplier manual lines (web + Android)  
+2. Attach supplier invoice upload on GRN panel  
+3. MapLibre Native courier map (E2b)  
+4. Promptfoo gate on AI report/CRM edges  
+5. Semgrep/Checkov CI port from DIAL D-48  
