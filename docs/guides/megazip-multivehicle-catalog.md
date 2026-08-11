@@ -202,9 +202,9 @@ Crawl upserts parsed payloads (including `engine_code`) as pages are fetched. Pa
 | Transform | `_public_catalog_url` nulls megazip hosts; storage prefix `epc/{slug}` |
 | Import | `sanitize_hierarchy_vendor_leakage` before upsert |
 | Live repair | `scripts/scrub_megazip_catalog_values.py` (URLs + `megazip/`→`epc/` paths) |
-| DDL | Migration `20260809120000_scrub_megazip_from_catalog.sql` / `apply_megazip_scrub.py` / Dashboard SQL |
+| DDL | Live import calls `megazip.schema_ensure.ensure_external_catalog_columns`; migration `20260809120000_…` for fresh DBs |
 
-Columns: prefer `external_data_id` / `external_item_id`; import still maps legacy `megazip_data_id` / `megazip_item_id` until rename ships.
+Columns: `external_data_id` / `external_item_id` after ensure; import dual-maps legacy names if rename could not run.
 
 ---
 
