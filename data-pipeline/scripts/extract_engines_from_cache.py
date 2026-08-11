@@ -129,7 +129,7 @@ def extract_from_cache(
             parts = urlparse(url).path.strip("/").split("/")
             if len(parts) >= 3:
                 ms = parts[2]
-        model_variant = f"{maker_name} {_model_display(ms)}"
+        model_variant = _hierarchy_model_variant(maker_name, ms)
         key = (chassis, engine, model_variant)
         vehicles[key] = {
             "chassis_code": chassis,
