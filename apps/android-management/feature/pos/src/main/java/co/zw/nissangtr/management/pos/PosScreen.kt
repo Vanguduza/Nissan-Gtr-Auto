@@ -119,15 +119,16 @@ fun PosScreen(
         }
     }
 
+    GtrTheme {
     ShopStaffScreen(
         title = "POS",
-        subtitle = "Companion · Bridge QR/print",
+        subtitle = "Dial UX · Companion · Bridge QR/print",
         modifier = modifier,
         scrollable = false,
         onBack = onBack,
     ) {
         Text(
-            "Counter till · Bridge QR / ESC/POS · No ZIMRA",
+            "Counter till · Bridge QR / ESC/POS · WH2 pick · No ZIMRA",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
