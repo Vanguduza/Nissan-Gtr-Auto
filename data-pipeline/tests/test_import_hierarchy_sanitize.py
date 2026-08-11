@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from data_pipeline.import_hierarchy_catalog import sanitize_legacy_bundle_for_import
+from data_pipeline.import_hierarchy_catalog import (
+    sanitize_hierarchy_vendor_leakage,
+    sanitize_legacy_bundle_for_import,
+)
 from data_pipeline.validate import validate_bundle
 
 
@@ -59,3 +62,36 @@ def test_sanitize_legacy_bundle_for_import_megazip_shapes() -> None:
             for k in ("vehicle_master", "pnc_categories", "part_fitment", "diagram_assets")
         }
     )
+
+
+def test_sanitize_hierarchy_vendor_leakage_strips_megazip() -> None:
+    bundle = {
+        "catalog_makers": [{"slug": "toyota", "name": "Toyota", "source": "megazip"}],
+        "catalog_variants": [
+            {
+                "maker_slug": "toyota",
+                "model_slug": "camry-1",
+                "slug": "acv40",
+                "source_url": "https://www.megazip.net/parts/toyota/camry",
+                "external_data_id": "9",
+            }
+        ],
+        "catalog_diagrams": [
+            {
+                "storage_path": "megazip/toyota/a.png",
+                "image_url": "https://storage.megazip.net/catalog/a.png",
+                "source_url": "https://www.megazip.net/x",
+            }
+        ],
+        "part_fitment": [{"diagram_path": "megazip/toyota/a.png", "oem_part_number": "1"}],
+        "catalog_sections": [
+            {"thumbnail_url": "https://storage.megazip.net/t.png", "source_url": None}
+        ],
+    }
+    out = sanitize_hierarchy_vendor_leakage(bundle)
+    assert out["catalog_makers"][0]["source"] == "epc"
+    assert out["catalog_variants"][0]["source_url"] is None
+    assert out["catalog_diagrams"][0]["storage_path"] == "epc/toyota/a.png"
+    assert out["catalog_diagrams"][0]["image_url"] is None
+    assert out["part_fitment"][0]["diagram_path"] == "epc/toyota/a.png"
+    assert out["catalog_sections"][0]["thumbnail_url"] is None
