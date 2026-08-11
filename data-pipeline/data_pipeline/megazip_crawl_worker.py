@@ -1,4 +1,4 @@
-﻿"""Model-scoped Megazip crawl worker ΓÇö lease-aware, parallel-safe.
+"""Model-scoped Megazip crawl worker — lease-aware, parallel-safe.
 
 Acquires exclusive SQLite leases on ``--models`` so the main orchestrator and
 other workers never claim the same model. Heartbeats every ~30s; releases on exit.
@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     config = MegazipConfig.load(args.makers_file)
     paths = build_maker_paths(args.maker, args.out_root, config)
     if not paths.state_db.is_file():
-        logger.error("State DB missing: %s ΓÇö start the main orchestrator first", paths.state_db)
+        logger.error("State DB missing: %s — start the main orchestrator first", paths.state_db)
         return 1
 
     init_db(paths.state_db)
