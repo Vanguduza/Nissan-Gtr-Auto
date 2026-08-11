@@ -119,45 +119,46 @@ fun PosScreen(
         }
     }
 
-    GtrTheme {
-    ShopStaffScreen(
-        title = "POS",
-        subtitle = "Dial UX · Companion · Bridge QR/print",
-        modifier = modifier,
-        scrollable = false,
-        onBack = onBack,
-    ) {
-        Text(
-            "Counter till · Bridge QR / ESC/POS · WH2 pick · No ZIMRA",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        PosWorkspace(state = state, viewModel = viewModel)
-
-        state.lastBindMessage?.let {
-            Text("Last bind: $it", style = MaterialTheme.typography.bodyMedium)
-        }
-        state.lastInvoiceId?.let {
-            Text("Last invoice: $it", style = MaterialTheme.typography.bodySmall)
-        }
-        state.message?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium)
-        }
-        state.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
-        }
-
-        if (onOpenHub != null) {
-            ShopSecondaryButton(
-                label = if (isSalesHome) "All modules (hub)" else "Hub",
-                onClick = { onOpenHub.invoke() },
+    GtrTheme(density = GtrDensity.Standard) {
+        ShopStaffScreen(
+            title = "POS",
+            subtitle = "Dial UX · Companion · Bridge QR/print",
+            modifier = modifier,
+            scrollable = false,
+            onBack = onBack,
+        ) {
+            Text(
+                "Counter till · Bridge QR / ESC/POS · WH2 pick · No ZIMRA",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
 
-    if (state.managerPrompt != null) {
-        ManagerAuthDialog(state = state, viewModel = viewModel)
+            PosWorkspace(state = state, viewModel = viewModel)
+
+            state.lastBindMessage?.let {
+                Text("Last bind: $it", style = MaterialTheme.typography.bodyMedium)
+            }
+            state.lastInvoiceId?.let {
+                Text("Last invoice: $it", style = MaterialTheme.typography.bodySmall)
+            }
+            state.message?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
+            state.error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
+
+            if (onOpenHub != null) {
+                ShopSecondaryButton(
+                    label = if (isSalesHome) "All modules (hub)" else "Hub",
+                    onClick = { onOpenHub.invoke() },
+                )
+            }
+        }
+
+        if (state.managerPrompt != null) {
+            ManagerAuthDialog(state = state, viewModel = viewModel)
+        }
     }
 }
 
