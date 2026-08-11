@@ -407,6 +407,17 @@ def import_hierarchy_supabase(
     variant_cols, part_cols, bundle = _normalize_hierarchy_rows_for_schema(client, bundle)
 
     notes: list[str] = []
+    if rename_status.get("applied"):
+        notes.append(
+            f"schema ensure: megazip_* → external_* (host={rename_status.get('host')})"
+        )
+    elif rename_status.get("reason") == "no_database_url":
+        notes.append(
+            "schema ensure skipped (no DATABASE_URL / SUPABASE_DB_PASSWORD); "
+            "import dual-maps legacy column names"
+        )
+    elif not rename_status.get("ok", True):
+        notes.append(f"schema ensure failed: {rename_status.get('error')}")
     _batch_upsert_slug_table(
         client,
         "catalog_makers",
