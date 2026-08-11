@@ -40,7 +40,7 @@ def rest_upload_headers(*, api_key: str, content_type: str) -> dict[str, str]:
         "Content-Type": content_type,
         "x-upsert": "true",
         # Avoid Cache-Control: no-cache (REST default without this header).
-        "cache-control": DIAGRAM_CACHE_CONTROL_SECONDS,
+        "cache-control": DIAGRAM_CACHE_CONTROL,
     }
 
 
@@ -49,5 +49,5 @@ def supabase_file_options(content_type: str) -> dict[str, str]:
     return {
         "content-type": content_type,
         "upsert": "true",
-        "cache-control": DIAGRAM_CACHE_CONTROL_SECONDS,
+        "cache-control": DIAGRAM_CACHE_CONTROL,
     }

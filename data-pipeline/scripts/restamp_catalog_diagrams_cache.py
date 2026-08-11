@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT))
 
 from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials  # noqa: E402
 from data_pipeline.storage_diagrams import (  # noqa: E402
-    DIAGRAM_CACHE_CONTROL_SECONDS,
+    DIAGRAM_CACHE_CONTROL,
     DIAGRAMS_BUCKET,
     content_type_for_path,
     rest_upload_headers,
@@ -206,7 +206,7 @@ async def main_async(argv: list[str] | None = None) -> int:
     logger.info(
         "listing %s (cache-control target=%s)",
         DIAGRAMS_BUCKET,
-        DIAGRAM_CACHE_CONTROL_SECONDS,
+        DIAGRAM_CACHE_CONTROL,
     )
     with httpx.Client(timeout=120.0) as sync:
         paths = _walk_objects(sync, base, key)
