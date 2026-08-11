@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
+import { CatalogStorageImage } from "@/components/catalog-storage-image";
 import { hotspotStyle } from "@/lib/catalog-diagram";
 import { partHref } from "@/lib/catalog-search";
 import type { CatalogDiagramHotspot } from "@/lib/catalog-hierarchy";
@@ -14,6 +15,8 @@ export function EpcDiagramCanvas({
   activeOem,
   onHoverOem,
   onSelectOem,
+  imageWidth,
+  imageHeight,
 }: {
   imageUrl: string | null;
   title?: string;
@@ -21,6 +24,8 @@ export function EpcDiagramCanvas({
   activeOem: string | null;
   onHoverOem: (oem: string | null) => void;
   onSelectOem?: (oem: string) => void;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
 }) {
   const router = useRouter();
 
