@@ -65,6 +65,8 @@ UI level     → Column / derivation
 
 Years live on hierarchy variants/models (`year_start` / `year_end` / `year_label`), not as Select Vehicle steps.
 
+**Megazip EPC note:** engines are scraped from Megazip diagram/variant `Engine` attrs into `vehicle_master` during transform. See [megazip-multivehicle-catalog.md](./megazip-multivehicle-catalog.md#engine-codes-vehicle-cascade--all-makers) and `docs/decisions/2026-08-11-megazip-engine-code-cascade.md`. After parser changes, re-run `parse,transform` (or `scripts/extract_engines_from_cache.py`) before import so cascade is not empty.
+
 ### A.3 Maker derivation (`deriveMaker`)
 
 **Canonical / fullest implementation (multi-make):** `apps/web/lib/vehicle-catalog.ts` → `VehicleCascade.deriveMaker`.
