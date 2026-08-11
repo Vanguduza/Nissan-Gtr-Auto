@@ -148,7 +148,7 @@ async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
     storage_uploaded = 0
     storage_failed = 0
     storage_skipped = 0
-    load_env_files(PACKAGE_ROOT.parent / ".env", PACKAGE_ROOT / ".env", override=True)
+    load_env_files(PACKAGE_ROOT / ".env", PACKAGE_ROOT.parent / ".env", override=True)
     supabase_url, supabase_key = resolve_supabase_credentials()
     if not supabase_url or not supabase_key:
         logger.info(
