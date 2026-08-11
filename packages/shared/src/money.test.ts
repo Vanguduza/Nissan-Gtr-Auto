@@ -6,7 +6,7 @@ import {
   moneyMinorToJson,
   moneyToMinor,
   toAmountMinor,
-} from "./money";
+} from "./money.ts";
 
 describe("amountMinor helpers", () => {
   it("converts USD majors to cents", () => {
