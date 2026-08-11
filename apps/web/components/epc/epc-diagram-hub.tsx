@@ -5,6 +5,7 @@ import { EpcAuthGate, EpcEmptyState } from "@/components/epc/epc-auth-gate";
 import { EpcBrowseLayout, EpcSkeleton } from "@/components/epc/epc-browse-layout";
 import { EpcDiagramPage } from "@/components/epc/epc-diagram-page";
 import type { EpcPartRow } from "@/components/epc/epc-parts-table";
+import { resolveDiagramImageUrl } from "@/lib/catalog-diagram";
 import {
   catalogPath,
   getCatalogDiagram,
@@ -19,6 +20,7 @@ type Status =
   | {
       kind: "ready";
       data: CatalogDiagramResponse;
+      imageUrl: string | null;
       extras: Record<
         string,
         { usd?: number | null; stock?: EpcPartRow["stock"] }
