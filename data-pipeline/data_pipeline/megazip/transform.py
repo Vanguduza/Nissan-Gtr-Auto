@@ -163,7 +163,7 @@ def build_hierarchy_bundle(
                     "variant_slug": variant_slug,
                     "slug": sslug,
                     "name": s.get("name") or sslug,
-                    "thumbnail_url": s.get("thumbnail_url"),
+                    "thumbnail_url": _public_catalog_url(s.get("thumbnail_url")),
                     "sort_order": i,
                     "assembly_group_id": s.get("assembly_group_id") or "",
                     "source_url": _public_catalog_url(s.get("source_url") or url),
