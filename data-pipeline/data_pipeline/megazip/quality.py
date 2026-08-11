@@ -6,6 +6,7 @@ from collections import Counter
 from typing import Any
 
 from data_pipeline.bundle_filter import complete_fitments, filter_complete_bundle
+from data_pipeline.import_hierarchy_catalog import import_schema_issues
 
 MIN_EXPLODED_HOTSPOTS = 5
 MIN_EXPLODED_PARTS_OEM = 3
