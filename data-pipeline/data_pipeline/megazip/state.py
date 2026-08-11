@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Long wait + WAL: many model-scoped workers share one state DB.
+SQLITE_TIMEOUT_SECONDS = 300.0
+SQLITE_BUSY_TIMEOUT_MS = 300_000
+SQLITE_LOCK_RETRIES = 8
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS queue (
@@ -52,9 +61,46 @@ CREATE INDEX IF NOT EXISTS worker_leases_heartbeat_idx ON worker_leases(heartbea
 LEASE_TTL_SECONDS = 180
 
 
+def connect(db_path: Path, *, write: bool = True) -> sqlite3.Connection:
+    """Open Megazip state DB with WAL + long busy wait (multi-worker safe)."""
+    conn = sqlite3.connect(str(db_path), timeout=SQLITE_TIMEOUT_SECONDS)
+    conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+    if write:
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+        except sqlite3.OperationalError:
+            pass
+    return conn
+
+
+def with_retry(fn, *, label: str = "sqlite"):
+    """Retry fn() on database is locked."""
+    delay = 0.5
+    last: Exception | None = None
+    for attempt in range(1, SQLITE_LOCK_RETRIES + 1):
+        try:
+            return fn()
+        except sqlite3.OperationalError as exc:
+            last = exc
+            if "locked" not in str(exc).lower():
+                raise
+            logger.warning(
+                "%s locked (attempt %s/%s): %s",
+                label,
+                attempt,
+                SQLITE_LOCK_RETRIES,
+                exc,
+            )
+            time.sleep(delay)
+            delay = min(delay * 1.7, 8.0)
+    assert last is not None
+    raise last
+
+
 def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.executescript(_SCHEMA)
         conn.commit()
@@ -64,7 +110,7 @@ def init_db(db_path: Path) -> None:
 
 def expire_stale_leases(db_path: Path, *, ttl_seconds: int = LEASE_TTL_SECONDS) -> int:
     """Drop leases whose heartbeat is older than ttl. Returns rows deleted."""
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         cur = conn.execute(
@@ -83,7 +129,7 @@ def expire_stale_leases(db_path: Path, *, ttl_seconds: int = LEASE_TTL_SECONDS) 
 def list_active_leases(db_path: Path, *, ttl_seconds: int = LEASE_TTL_SECONDS) -> dict[str, str]:
     """Return {model_slug: worker_id} for non-expired leases."""
     expire_stale_leases(db_path, ttl_seconds=ttl_seconds)
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         rows = conn.execute(
             """
@@ -112,7 +158,7 @@ def acquire_model_leases(
     wanted = sorted({m for m in model_slugs if m})
     acquired: list[str] = []
     blocked: dict[str, str] = {}
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         for model in wanted:
@@ -149,7 +195,7 @@ def acquire_model_leases(
 
 
 def heartbeat_leases(db_path: Path, worker_id: str) -> int:
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         cur = conn.execute(
             """
@@ -166,7 +212,7 @@ def heartbeat_leases(db_path: Path, worker_id: str) -> int:
 
 
 def release_leases(db_path: Path, worker_id: str, model_slugs: frozenset[str] | None = None) -> int:
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         if model_slugs is None:
             cur = conn.execute("DELETE FROM worker_leases WHERE worker_id = ?", (worker_id,))
@@ -187,7 +233,7 @@ def release_leases(db_path: Path, worker_id: str, model_slugs: frozenset[str] | 
 
 def reclaim_stale_processing(db_path: Path, *, older_than_seconds: int = 600) -> int:
     """Re-queue PROCESSING rows stuck longer than ``older_than_seconds``."""
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         cur = conn.execute(
             """
@@ -214,7 +260,7 @@ def enqueue_url(
     section_slug: str = "",
     chassis_code: str = "",
 ) -> None:
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute(
             """
@@ -245,7 +291,7 @@ def claim_next_url(
     """
     if exclude_leased:
         expire_stale_leases(db_path)
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         where = ["status = 'PENDING'"]
@@ -322,7 +368,7 @@ def claim_next_url(
 
 def mark_url(db_path: Path, url: str, *, ok: bool, error: str | None = None) -> None:
     status = "VISITED" if ok else "ERROR"
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute(
             "UPDATE queue SET status = ?, last_error = ?, updated_at = datetime('now') WHERE url = ?",
@@ -334,7 +380,7 @@ def mark_url(db_path: Path, url: str, *, ok: bool, error: str | None = None) -> 
 
 
 def save_cache(db_path: Path, url: str, cache_path: str, content_hash: str) -> None:
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute(
             """
@@ -350,7 +396,7 @@ def save_cache(db_path: Path, url: str, cache_path: str, content_hash: str) -> N
 
 
 def upsert_parsed(db_path: Path, url: str, page_type: str, maker_slug: str, payload: dict[str, Any]) -> None:
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute(
             """
@@ -369,7 +415,7 @@ def upsert_parsed(db_path: Path, url: str, page_type: str, maker_slug: str, payl
 
 
 def load_all_parsed(db_path: Path, *, maker_slug: str | None = None) -> list[dict[str, Any]]:
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         if maker_slug:
             rows = conn.execute(
@@ -396,7 +442,7 @@ def load_all_parsed(db_path: Path, *, maker_slug: str | None = None) -> list[dic
 
 
 def queue_stats(db_path: Path) -> dict[str, int]:
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         rows = conn.execute("SELECT status, COUNT(*) FROM queue GROUP BY status").fetchall()
         return {str(s): int(c) for s, c in rows}
@@ -406,7 +452,7 @@ def queue_stats(db_path: Path) -> dict[str, int]:
 
 def reset_url_pending(db_path: Path, url: str) -> None:
     """Mark a queued URL PENDING again (nissan-remaining pass)."""
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         conn.execute(
             "UPDATE queue SET status = 'PENDING', updated_at = datetime('now') WHERE url = ?",
@@ -427,7 +473,7 @@ def pending_count(
 ) -> int:
     if exclude_leased:
         expire_stale_leases(db_path)
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         where = ["status = 'PENDING'"]
         params: list[Any] = []
@@ -472,7 +518,7 @@ def pending_count(
 def leased_pending_count(db_path: Path) -> int:
     """PENDING rows whose model is currently leased by any worker."""
     expire_stale_leases(db_path)
-    conn = sqlite3.connect(db_path, timeout=60.0)
+    conn = connect(db_path)
     try:
         row = conn.execute(
             """
