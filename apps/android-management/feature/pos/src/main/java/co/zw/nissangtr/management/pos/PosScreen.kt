@@ -64,6 +64,7 @@ import co.zw.nissangtr.ui.shop.ShopStaffPanel
 import co.zw.nissangtr.ui.shop.ShopStaffScreen
 import co.zw.nissangtr.ui.shop.ShopStatusChip
 import co.zw.nissangtr.ui.theme.GtrColors
+import co.zw.nissangtr.ui.theme.GtrDensity
 import co.zw.nissangtr.ui.theme.GtrTheme
 
 /**
@@ -735,7 +736,6 @@ private fun RightCartPane(
             )
         }
     }
-    } // GtrTheme
 }
 
 /** Manager reauth overlay for discount / void / refund / price-override — modal by design so

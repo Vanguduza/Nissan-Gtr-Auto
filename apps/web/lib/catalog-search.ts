@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
 import {
-  searchCatalogMeili,
+  searchCatalog as searchCatalogDual,
   type PartHit,
   type PncHit,
   type SearchCatalogResponse,

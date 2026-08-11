@@ -97,6 +97,7 @@ export {
   POST_CUSTOMER_RETURN_CREDIT_NOTE_RPC,
   KITS_TABLE,
   KIT_COMPONENTS_TABLE,
+  searchCatalog,
   searchCatalogMeili,
   searchCatalogFts,
   searchCatalogRpcArgs,
