@@ -12,3 +12,9 @@ export {
   type RoutingProviderId,
 } from "./types";
 export { fetchOsrmRoute, parseOsrmRouteJson, type OsrmConfig } from "./osrm";
+export {
+  applyOfferDecision,
+  selectNextCourierOffer,
+  type CourierCandidate,
+  type OfferCycleResult,
+} from "./dispatch";
