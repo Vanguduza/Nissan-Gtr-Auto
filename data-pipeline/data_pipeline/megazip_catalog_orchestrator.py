@@ -12,13 +12,13 @@ Phases (``--phase``):
   import    — Supabase hierarchy + fitment + stock_items
   all       — default pipeline for each maker
 
-Maker order (``config/megazip_makers.json``): Nissan → Toyota → Honda → Mazda → …
-Nissan default: two-phase crawl in one process (priority chassis, then auto-start remaining models).
+Maker order (``config/megazip_makers.json``): Toyota → Lexus → Honda → … (homepage popularity).
+One maker at a time through selected phases, then the next.
 
 Usage (from ``data-pipeline/``)::
 
-  python -m data_pipeline.megazip_catalog_orchestrator --makers Nissan --max-pages 50
-  python -m data_pipeline.megazip_catalog_orchestrator --makers Nissan --priority-chassis --no-nissan-two-phase
+  python -m data_pipeline.megazip_catalog_orchestrator --makers Toyota --max-pages 50
+  python -m data_pipeline.megazip_catalog_orchestrator --makers all --phase crawl
   python -m data_pipeline.megazip_catalog_orchestrator --phase transform,pcdb,import --skip-crawl
   python -m data_pipeline.megazip_catalog_orchestrator --makers all --live-import --complete-only
 """
@@ -230,8 +230,6 @@ def run_maker_pipeline(
     priority_chassis: frozenset[str] | None,
     skip_crawl: bool,
     priority_model_seeds: tuple[str, ...] = (),
-    prepare_remaining_before: frozenset[str] | None = None,
-    auto_start_remaining: bool = False,
     refresh_diagram_dims: bool = False,
     pcdb_file: Path | None,
     live_import: bool,
@@ -253,8 +251,6 @@ def run_maker_pipeline(
                 priority_chassis=priority_chassis,
                 skip_crawl=skip_crawl,
                 priority_model_seeds=priority_model_seeds,
-                prepare_remaining_before=prepare_remaining_before,
-                auto_start_remaining=auto_start_remaining,
             )
         )
         result["phases"]["crawl"] = crawl_stats
@@ -334,8 +330,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--makers",
-        default="Nissan",
-        help="Comma-separated makers or 'all' (default order from megazip_makers.json)",
+        default="all",
+        help="Comma-separated makers or 'all' (default: all, order from megazip_makers.json)",
     )
     parser.add_argument("--makers-file", type=Path, default=DEFAULT_MAKERS_FILE)
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
@@ -348,24 +344,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--priority-chassis",
         action="store_true",
-        help="Restrict crawl to priority_chassis.json codes (Nissan phase A)",
+        help="Restrict crawl to priority_chassis.json codes (optional filter)",
     )
     parser.add_argument(
         "--all-models",
         action="store_true",
-        help="Crawl all maker models without priority filter (Nissan phase B)",
-    )
-    parser.add_argument(
-        "--nissan-two-phase",
-        action="store_true",
-        default=True,
-        help="Nissan: priority chassis first, then all remaining models (default: on)",
-    )
-    parser.add_argument(
-        "--no-nissan-two-phase",
-        action="store_false",
-        dest="nissan_two_phase",
-        help="Disable automatic Nissan two-phase crawl",
+        help="Crawl all maker models without priority filter",
     )
     parser.add_argument("--priority-chassis-file", type=Path, default=DEFAULT_PRIORITY_FILE)
     parser.add_argument("--chassis-map-file", type=Path, default=DEFAULT_CHASSIS_MAP_FILE)
@@ -496,8 +480,6 @@ def main(argv: list[str] | None = None) -> int:
         maker_priority: frozenset[str] | None,
         maker_seeds: tuple[str, ...],
         skip_crawl: bool,
-        prepare_remaining_before: frozenset[str] | None = None,
-        auto_start_remaining: bool = False,
     ) -> bool:
         logger.info("=== Megazip pipeline: %s [%s] ===", maker, pass_label)
         try:
@@ -510,8 +492,6 @@ def main(argv: list[str] | None = None) -> int:
                 priority_chassis=maker_priority,
                 priority_model_seeds=maker_seeds,
                 skip_crawl=skip_crawl,
-                prepare_remaining_before=prepare_remaining_before,
-                auto_start_remaining=auto_start_remaining,
                 refresh_diagram_dims=args.refresh_diagram_dims,
                 pcdb_file=args.pcdb_file,
                 live_import=args.live_import,
@@ -536,66 +516,15 @@ def main(argv: list[str] | None = None) -> int:
             )
             continue
 
-        is_nissan_two = (
-            maker.lower() == "nissan"
-            and args.nissan_two_phase
-            and not args.single_chassis
-            and not args.all_models
-            and not args.priority_chassis
-            and not args.skip_crawl
-            and "crawl" in phases
-        )
-
-        if is_nissan_two:
-            seeds_a = load_merged_priority_model_seeds(
-                args.priority_chassis_file,
-                args.chassis_map_file,
-                maker_slug="nissan",
-                priority_codes=all_priority,
-            )
-            for code in sorted(all_priority):
-                if not megazip_chassis_available(code, chassis_map):
-                    entry = megazip_chassis_entry(code, chassis_map)
-                    logger.warning(
-                        "Priority chassis %s not on Megazip (proxy=%s)",
-                        code,
-                        entry.get("megazip_proxy"),
-                    )
-            # Single crawl: priority filter first, then auto-handoff to remaining models.
-            if not _run_maker(
-                maker,
-                phases_run=("crawl",),
-                pass_label="nissan-two-phase",
-                maker_priority=all_priority,
-                maker_seeds=seeds_a,
-                skip_crawl=False,
-                auto_start_remaining=True,
-            ):
-                return 1
-            tail = tuple(p for p in phases if p != "crawl")
-            if tail and not _run_maker(
-                maker,
-                phases_run=tail,
-                pass_label="nissan-post-crawl",
-                maker_priority=None,
-                maker_seeds=(),
-                skip_crawl=True,
-            ):
-                return 1
-            continue
-
         maker_priority = priority if maker.lower() == "nissan" and priority else None
         maker_seeds = model_seeds if maker.lower() == "nissan" and model_seeds else ()
-        # --all-models: when the current drain finishes, queue underexplored hub models.
-        auto_remaining = bool(args.all_models and maker.lower() == "nissan")
         if not _run_maker(
             maker,
             phases_run=phases,
-            pass_label="default",
+            pass_label="sequential",
             maker_priority=maker_priority,
             maker_seeds=maker_seeds,
             skip_crawl=args.skip_crawl,
-            auto_start_remaining=auto_remaining,
         ):
             return 1
 
