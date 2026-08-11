@@ -8,7 +8,7 @@ Phases (``--phase``):
   transform — build hierarchy JSON bundle (re-runnable)
   pcdb      — additive PartTerminologyID mapping (re-runnable)
   filter    — complete-only filter + quality report
-  upload    — download diagram PNGs (optional Storage upload)
+  upload    — download diagram PNGs + Storage upsert (long Cache-Control)
   import    — Supabase hierarchy + fitment + stock_items
   all       — default pipeline for each maker
 
