@@ -175,7 +175,7 @@ async def _null_ilike_column(
     """Null ``col`` where it ILIKE megazip, paging by id until clear."""
     headers = _headers(key)
     total = 0
-    for _ in range(200):
+    for _ in range(500):
         resp = await client.get(
             f"{base}/rest/v1/{table}?select=id&{col}=ilike.*megazip*&limit={page_size}",
             headers=headers,
@@ -186,12 +186,6 @@ async def _null_ilike_column(
         if not rows:
             break
         ids = [r["id"] for r in rows if r.get("id")]
-        sem = asyncio.Semaphore(CONCURRENCY)
-        tasks = []
-        for i in range(0, len(ids), PATCH_CHUNK):
-            chunk = ids[i : i + PATCH_CHUNK]
-            tasks.append(_patch_ids(client, sem, base, key, table, col, chunk, None))  # type: ignore[arg-type]
-        # _patch_ids expects str new_value — use dedicated null patch
         for i in range(0, len(ids), PATCH_CHUNK):
             chunk = ids[i : i + PATCH_CHUNK]
             id_list = ",".join(chunk)
@@ -207,7 +201,8 @@ async def _null_ilike_column(
             else:
                 raise RuntimeError(f"{table}.{col} null patch exhausted retries")
         total += len(ids)
-        logger.info("%s.%s nulled≈%s", table, col, total)
+        if total % 5000 < page_size:
+            logger.info("%s.%s nulled≈%s", table, col, total)
     logger.info("%s.%s done nulled≈%s", table, col, total)
     return total
 
