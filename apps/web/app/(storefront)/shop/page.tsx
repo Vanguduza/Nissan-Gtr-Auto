@@ -11,6 +11,7 @@ export default async function ShopPage({
 }: {
   searchParams: Promise<{
     cat?: string;
+    sub?: string;
     brand?: string;
     sort?: string;
     min?: string;
@@ -21,6 +22,7 @@ export default async function ShopPage({
   return (
     <CatalogBrowse
       category={sp.cat}
+      subcategory={sp.sub}
       sort={sp.sort}
       minUsd={sp.min}
       maxUsd={sp.max}

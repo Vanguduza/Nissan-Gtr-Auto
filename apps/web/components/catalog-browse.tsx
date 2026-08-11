@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { ShopFacetOption } from "@gtr/shared";
 import { CatalogCanvasStub } from "@/components/catalog-canvas-stub";
 import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
@@ -37,16 +38,18 @@ type Status =
   | {
       kind: "ready";
       items: CatalogListItem[];
-      categories: string[];
+      categoryFacets: ShopFacetOption[];
     };
 
 export function CatalogBrowse({
   category,
+  subcategory,
   sort: sortParam,
   minUsd: minParam,
   maxUsd: maxParam,
 }: {
   category?: string;
+  subcategory?: string;
   sort?: string;
   minUsd?: string;
   maxUsd?: string;
@@ -88,6 +91,7 @@ export function CatalogBrowse({
 
       const result = await listCatalogProducts(client, {
         category: category ?? null,
+        subcategory: subcategory ?? null,
         sort,
         minUsd: Number.isFinite(minUsd) ? minUsd : null,
         maxUsd: Number.isFinite(maxUsd) ? maxUsd : null,
@@ -103,7 +107,7 @@ export function CatalogBrowse({
       setStatus({
         kind: "ready",
         items: result.data,
-        categories: result.categories,
+        categoryFacets: result.categoryFacets,
       });
     }
 
@@ -111,14 +115,15 @@ export function CatalogBrowse({
     return () => {
       cancelled = true;
     };
-  }, [category, sort, minUsd, maxUsd]);
+  }, [category, subcategory, sort, minUsd, maxUsd]);
 
   const nextQuery = useMemo(() => {
     const q = new URLSearchParams();
     if (category) q.set("cat", category);
+    if (subcategory) q.set("sub", subcategory);
     if (sort && sort !== "oem") q.set("sort", sort);
     return q;
-  }, [category, sort]);
+  }, [category, subcategory, sort]);
 
   function pushFilters(e: FormEvent) {
     e.preventDefault();
@@ -134,11 +139,36 @@ export function CatalogBrowse({
   function setSort(next: CatalogSort) {
     const q = new URLSearchParams();
     if (category) q.set("cat", category);
+    if (subcategory) q.set("sub", subcategory);
     if (next !== "oem") q.set("sort", next);
     if (minParam) q.set("min", minParam);
     if (maxParam) q.set("max", maxParam);
     const qs = q.toString();
     router.push(qs ? `/shop?${qs}` : "/shop");
+  }
+
+  function facetHref(facet: ShopFacetOption): string {
+    const q = new URLSearchParams();
+    if (category) {
+      // Parent already selected → treat facet as leaf subcategory
+      q.set("cat", category);
+      q.set("sub", facet.slug);
+    } else {
+      q.set("cat", facet.slug);
+    }
+    if (sort !== "oem") q.set("sort", sort);
+    if (minParam) q.set("min", minParam);
+    if (maxParam) q.set("max", maxParam);
+    return `/shop?${q.toString()}`;
+  }
+
+  function facetChecked(facet: ShopFacetOption): boolean {
+    if (subcategory) {
+      return subcategory.toLowerCase() === facet.slug.toLowerCase();
+    }
+    if (!category) return false;
+    // Top-level browse: parent slug matches facet
+    return category.toLowerCase() === facet.slug.toLowerCase();
   }
 
   if (status.kind === "loading") {
@@ -152,7 +182,9 @@ export function CatalogBrowse({
 
   if (status.kind === "auth") {
     const next = category
-      ? `/shop?cat=${encodeURIComponent(category)}`
+      ? `/shop?cat=${encodeURIComponent(category)}${
+          subcategory ? `&sub=${encodeURIComponent(subcategory)}` : ""
+        }`
       : "/shop";
     return (
       <div className={styles.page}>
@@ -176,16 +208,17 @@ export function CatalogBrowse({
     );
   }
 
-  const facetCats =
-    status.categories.length > 0
-      ? status.categories
-      : ["Brakes", "Filters", "Cooling", "Engine"];
+  const facetCats = status.categoryFacets;
+  const catalogEmpty =
+    status.items.length === 0 && facetCats.length === 0 && !category;
 
   const displayItems = applyCatalogFiltersAndSort(status.items, {
     sort,
     minUsd: Number.isFinite(minUsd as number) ? minUsd : null,
     maxUsd: Number.isFinite(maxUsd as number) ? maxUsd : null,
   });
+
+  const filterLabel = subcategory || category;
 
   return (
     <div className={styles.page}>
@@ -195,29 +228,37 @@ export function CatalogBrowse({
         like the KMP PLP (price, newest, movers). For vehicle diagrams use{" "}
         <Link href="/catalog">Parts catalog (EPC)</Link>.
       </p>
+      {catalogEmpty ? (
+        <p className={styles.lede} role="status">
+          Catalog is empty — no stock items or PNC categories in Supabase yet.
+          Reload the SoR per{" "}
+          <code>docs/guides/erp-catalog-v1-load.md</code> or the Megazip import
+          guide, then refresh this page.
+        </p>
+      ) : null}
       <div className={styles.plp}>
         <aside className={styles.facets} aria-label="Filters">
           <h2>Filters</h2>
           <div className={styles.facetGroup}>
             <p>Category</p>
-            {facetCats.map((c) => {
-              const slug = c.toLowerCase();
-              const q = new URLSearchParams();
-              q.set("cat", slug);
-              if (sort !== "oem") q.set("sort", sort);
-              if (minParam) q.set("min", minParam);
-              if (maxParam) q.set("max", maxParam);
-              return (
-                <label key={c}>
+            {facetCats.length === 0 ? (
+              <p className={styles.muted}>
+                {category
+                  ? `No merchandising subcategories for “${category}”. Clear the filter or pick a top category from the nav.`
+                  : "No categories loaded — filters unavailable until catalog data is imported."}
+              </p>
+            ) : (
+              facetCats.map((c) => (
+                <label key={c.slug}>
                   <input
                     type="checkbox"
                     readOnly
-                    checked={category?.toLowerCase() === slug}
+                    checked={facetChecked(c)}
                   />{" "}
-                  <Link href={`/shop?${q.toString()}`}>{c}</Link>
+                  <Link href={facetHref(c)}>{c.label}</Link>
                 </label>
-              );
-            })}
+              ))
+            )}
           </div>
           <form className={styles.facetGroup} onSubmit={pushFilters}>
             <p>Price (USD)</p>
@@ -297,11 +338,19 @@ export function CatalogBrowse({
                 {displayItems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className={styles.muted}>
-                      No parts in inventory
-                      {category ? ` for category “${category}”` : ""}
-                      {(minUsd != null || maxUsd != null) &&
-                        " matching this price range"}
-                      .
+                      {catalogEmpty
+                        ? "No inventory rows yet — catalog SoR is empty."
+                        : filterLabel
+                          ? `No parts match “${filterLabel}”${
+                              minUsd != null || maxUsd != null
+                                ? " in this price range"
+                                : ""
+                            }. Try another subcategory or clear filters.`
+                          : `No parts in inventory${
+                              minUsd != null || maxUsd != null
+                                ? " matching this price range"
+                                : ""
+                            }.`}
                     </td>
                   </tr>
                 ) : (
@@ -330,7 +379,7 @@ export function CatalogBrowse({
                         </Link>
                       </td>
                     </tr>
-                  ))
+                  ))}
                 )}
               </tbody>
             </table>

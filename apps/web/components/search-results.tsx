@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { categoryMatchesFilter } from "@gtr/shared";
 import {
   MEILI_FACETS,
   partHref,
@@ -154,10 +155,12 @@ export function SearchResults({
       (r): r is PartHit => r.type === "part",
     );
     if (categoryFilter) {
-      parts = parts.filter(
-        (p) =>
-          p.category_name?.trim().toLowerCase() ===
-          categoryFilter.toLowerCase(),
+      parts = parts.filter((p) =>
+        categoryMatchesFilter(
+          categoryFilter,
+          p.category_name,
+          p.subcategory_name,
+        ),
       );
     }
     if (sort === "oem") {
@@ -385,7 +388,8 @@ function PartResultsTable({ results }: { results: PartHit[] }) {
           {results.length === 0 ? (
             <tr>
               <td colSpan={5} className={styles.muted}>
-                No parts match this category filter.
+                No parts match this category filter. If every category is empty,
+                the catalog SoR may still be loading — try clearing the filter.
               </td>
             </tr>
           ) : (
