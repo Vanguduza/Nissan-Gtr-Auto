@@ -14,19 +14,18 @@ from pathlib import Path
 import httpx
 
 from data_pipeline.import_catalog import load_env_files, resolve_supabase_credentials
+from data_pipeline.storage_diagrams import (
+    DIAGRAMS_BUCKET as BUCKET,
+    content_type_for_path,
+    epc_storage_path,
+    rest_upload_headers,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("upload_diagrams")
 
-BUCKET = "catalog-diagrams"
 CONCURRENCY = 12
-
-
-def _epc_path(storage_path: str) -> str:
-    if storage_path.lower().startswith("megazip/"):
-        return "epc/" + storage_path[len("megazip/") :]
-    return storage_path
 
 
 async def _ensure_local(

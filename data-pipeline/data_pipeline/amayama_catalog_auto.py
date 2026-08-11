@@ -34,6 +34,7 @@ from urllib.parse import parse_qs, urljoin, urlparse, unquote
 from urllib.robotparser import RobotFileParser
 
 from data_pipeline.import_catalog import import_catalog, import_supabase, load_bundle, load_env_files, resolve_supabase_credentials
+from data_pipeline.storage_diagrams import supabase_file_options
 from data_pipeline.parse_fast import write_bundle
 from data_pipeline.parse_partsouq_html import (
     assembly_hints_from_diagram_title,
