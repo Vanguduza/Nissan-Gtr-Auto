@@ -10,5 +10,5 @@ export {
   type RouteRequest,
   type RouteResult,
   type RoutingProviderId,
-} from "./types.ts";
-export { fetchOsrmRoute, parseOsrmRouteJson, type OsrmConfig } from "./osrm.ts";
+} from "./types";
+export { fetchOsrmRoute, parseOsrmRouteJson, type OsrmConfig } from "./osrm";

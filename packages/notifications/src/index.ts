@@ -4,13 +4,13 @@ export type {
   EmailMessage,
   EmailProviderId,
   EmailSendResult,
-} from "./types.ts";
-export { providerForChannel } from "./types.ts";
+} from "./types";
+export { providerForChannel } from "./types";
 export {
   createResendAdapter,
   type ResendConfig,
-} from "./adapters/resend.ts";
+} from "./adapters/resend";
 export {
   createBrevoAdapter,
   type BrevoConfig,
-} from "./adapters/brevo.ts";
+} from "./adapters/brevo";

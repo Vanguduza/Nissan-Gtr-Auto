@@ -1,4 +1,4 @@
-import type { EmailAdapter, EmailMessage, EmailSendResult } from "../types.ts";
+import type { EmailAdapter, EmailMessage, EmailSendResult } from "../types";
 
 export type BrevoConfig = {
   apiKey: string;
