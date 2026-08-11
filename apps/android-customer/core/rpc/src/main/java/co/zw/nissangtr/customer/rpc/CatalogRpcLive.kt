@@ -92,7 +92,8 @@ internal object CatalogRpcLive {
     ): CatalogBrowseResult {
         val cap = limit.coerceIn(1, 100)
         val cat = category?.trim()?.takeIf { it.isNotEmpty() }
-        val categories = loadBrowseCategoryLabels(client)
+        // Merchandising taxonomy only — never dump raw pnc_categories names.
+        val categories = CatalogCategoryFilter.facetLabels(cat)
         val oemFilter = if (cat != null) resolveOemFilterForCategory(client, cat) else null
         if (cat != null && oemFilter != null && oemFilter.isEmpty()) {
             return CatalogBrowseResult(emptyList(), categories)
