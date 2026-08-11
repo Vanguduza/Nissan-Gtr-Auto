@@ -120,16 +120,11 @@ def extract_from_cache(
             if title_m:
                 tm = _TITLE_CHASSIS_RE.search(title_m.group(1))
                 chassis = (tm.group(1).upper() if tm else "")
+        model_variant = _hierarchy_model_variant(maker_name, ms)
         if not chassis or chassis.upper() in {"XXXXXXXX", "UNKNOWN", "N/A", "-"}:
             continue
         if not re.match(r"^[A-Z0-9]{2,12}$", chassis.upper()):
             continue
-        ms = model_slug or ""
-        if not ms and url:
-            parts = urlparse(url).path.strip("/").split("/")
-            if len(parts) >= 3:
-                ms = parts[2]
-        model_variant = _hierarchy_model_variant(maker_name, ms)
         key = (chassis, engine, model_variant)
         vehicles[key] = {
             "chassis_code": chassis,
