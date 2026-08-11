@@ -696,7 +696,7 @@ export async function listCatalogProducts(
     maxUsd: opts.maxUsd,
   }).slice(0, limit);
 
-  return { ok: true, data: list, categories };
+  return { ok: true, data: list, categories, categoryFacets };
 }
 
 export function applyCatalogFiltersAndSort(
