@@ -71,8 +71,8 @@ def sanitize_legacy_bundle_for_import(bundle: dict[str, Any]) -> dict[str, Any]:
 
     assets: list[dict[str, Any]] = []
     for asset in bundle.get("diagram_assets") or []:
-        path = asset.get("storage_path") or ""
-        fit = fit_by_path.get(path) or {}
+        path = _epc_path(asset.get("storage_path") or "")
+        fit = fit_by_path.get(path) or fit_by_path.get(asset.get("storage_path") or "") or {}
         pnc = fit.get("pnc_code")
         chassis = fit.get("chassis_code")
         if not path or not pnc or not chassis:
@@ -85,12 +85,73 @@ def sanitize_legacy_bundle_for_import(bundle: dict[str, Any]) -> dict[str, Any]:
             "content_type": content_type,
             "provenance": asset.get("provenance") or "scraped-reference",
         }
-        if asset.get("source_url"):
-            row["source_url"] = asset["source_url"]
+        pub = _public_url(asset.get("source_url"))
+        if pub:
+            row["source_url"] = pub
         if fit.get("engine_code"):
             row["engine_code"] = fit["engine_code"]
         assets.append(row)
     out["diagram_assets"] = assets
+    return out
+
+
+def _public_url(url: str | None) -> str | None:
+    """Drop vendor crawl hosts so catalog never stores megazip URLs."""
+    if not url:
+        return None
+    if "megazip" in str(url).lower():
+        return None
+    return str(url)
+
+
+def _epc_path(path: str | None) -> str:
+    """Rewrite legacy ``megazip/`` storage prefixes to ``epc/``."""
+    raw = (path or "").strip()
+    if not raw:
+        return ""
+    lower = raw.lower()
+    if lower.startswith("megazip/"):
+        return "epc/" + raw[len("megazip/") :]
+    return raw
+
+
+_URL_FIELDS = ("source_url", "image_url", "thumbnail_url")
+_PATH_FIELDS = ("storage_path", "diagram_path")
+
+
+def sanitize_hierarchy_vendor_leakage(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Strip Megazip hosts/paths from hierarchy rows before Supabase upsert (all makers)."""
+    out = dict(bundle)
+    makers: list[dict[str, Any]] = []
+    for row in bundle.get("catalog_makers") or []:
+        r = dict(row)
+        src = str(r.get("source") or "").lower()
+        if not src or "megazip" in src:
+            r["source"] = "epc"
+        makers.append(r)
+    out["catalog_makers"] = makers
+
+    for table in (
+        "catalog_models",
+        "catalog_variants",
+        "catalog_sections",
+        "catalog_diagrams",
+        "catalog_diagram_parts",
+        "part_fitment",
+        "diagram_assets",
+    ):
+        rows: list[dict[str, Any]] = []
+        for row in bundle.get(table) or []:
+            r = dict(row)
+            for field in _URL_FIELDS:
+                if field in r:
+                    r[field] = _public_url(r.get(field))
+            for field in _PATH_FIELDS:
+                if field in r and r.get(field):
+                    r[field] = _epc_path(str(r.get(field)))
+            rows.append(r)
+        if table in bundle or rows:
+            out[table] = rows
     return out
 
 
