@@ -154,7 +154,7 @@ LANGUAGE sql
 STABLE
 SET search_path = public
 AS $$
-  SELECT COALESCE(SUM(qty * unit_cost), 0)
+  SELECT COALESCE(SUM(qty_ordered * unit_price), 0)
   FROM public.purchase_order_lines
   WHERE purchase_order_id = p_purchase_order_id;
 $$;
