@@ -3,6 +3,9 @@
 Acquires exclusive SQLite leases on ``--models`` so the main orchestrator and
 other workers never claim the same model. Heartbeats every ~30s; releases on exit.
 
+On successful drain (exit 0), optionally starts the next model from
+``worker_replacement_queue.json`` (see ``megazip_worker_supervisor``).
+
 Usage (from ``data-pipeline/``)::
 
   python -m data_pipeline.megazip_crawl_worker --models pathfinder-2142 \\
@@ -14,14 +17,48 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import subprocess
 import sys
 from pathlib import Path
 
 from data_pipeline.megazip.config import DEFAULT_OUT_ROOT, MegazipConfig, build_maker_paths
 from data_pipeline.megazip.crawl import crawl_maker
+from data_pipeline.megazip.replacement_queue import pop_next
 from data_pipeline.megazip.state import init_db, list_active_leases
 
 logger = logging.getLogger("data_pipeline.megazip_crawl_worker")
+
+
+def _spawn_replacement(*, maker: str, model: str, out_root: Path, rate_limit: float) -> None:
+    wid = model.split("-")[0][:24]
+    cwd = Path(__file__).resolve().parent.parent
+    out_log = open(out_root / f"worker_{wid}.out.log", "a", encoding="utf-8")  # noqa: SIM115
+    err_log = open(out_root / f"worker_{wid}.err.log", "a", encoding="utf-8")  # noqa: SIM115
+    cmd = [
+        sys.executable,
+        "-u",
+        "-m",
+        "data_pipeline.megazip_crawl_worker",
+        "--maker",
+        maker,
+        "--models",
+        model,
+        "--worker-id",
+        wid,
+        "--out-root",
+        str(out_root),
+        "--rate-limit",
+        str(rate_limit),
+        "--spawn-next-on-success",
+    ]
+    logger.info("Spawning replacement worker for %s", model)
+    subprocess.Popen(
+        cmd,
+        cwd=str(cwd),
+        stdout=out_log,
+        stderr=err_log,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -48,6 +85,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Seconds between page fetches (default 0.55)",
     )
     parser.add_argument("--max-pages", type=int, default=None)
+    parser.add_argument(
+        "--spawn-next-on-success",
+        action="store_true",
+        help="After a successful drain, start the next model from the replacement queue",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -69,8 +111,6 @@ def main(argv: list[str] | None = None) -> int:
 
     init_db(paths.state_db)
     existing = list_active_leases(paths.state_db)
-    conflicts = {m: existing[m] for m in models if m in existing and existing[m] != (args.worker_id or "")}
-    # Allow same worker-id to re-acquire (restart). Block other owners.
     wid = args.worker_id or ("worker-" + "-".join(sorted(models))[:80])
     conflicts = {m: w for m, w in existing.items() if m in models and w != wid}
     if conflicts:
@@ -100,9 +140,25 @@ def main(argv: list[str] | None = None) -> int:
     except RuntimeError as exc:
         logger.error("%s", exc)
         return 2
+    except Exception:  # noqa: BLE001
+        logger.exception("Worker failed")
+        return 3
 
     logger.info("Worker done: %s", stats)
     logger.info("Active leases after exit: %s", list_active_leases(paths.state_db) or "{}")
+
+    if args.spawn_next_on_success:
+        nxt = pop_next(args.out_root, skip=set())
+        if nxt:
+            _spawn_replacement(
+                maker=args.maker,
+                model=nxt,
+                out_root=args.out_root,
+                rate_limit=args.rate_limit,
+            )
+        else:
+            logger.info("No replacement model queued")
+
     return 0
 
 
