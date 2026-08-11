@@ -93,7 +93,7 @@ if old_run not in text:
 text = text.replace(old_run, new_run)
 
 start = text.find("        is_nissan_two = (")
-end = text.find("    man_path = args.out_root")
+end = text.find("    manifest_path = args.out_root")
 if start < 0 or end < 0:
     raise SystemExit(f"loop markers not found start={start} end={end}")
 
