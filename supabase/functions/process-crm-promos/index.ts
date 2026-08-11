@@ -120,6 +120,8 @@ Deno.serve(async (req) => {
         : true;
 
     const localStub = allowLocalChannelStub();
+    // Promo/CRM → Brevo (DIAL §4.6). Resend remains transactional fallback only.
+    const brevoCfg = getBrevoSendConfig();
     const emailCfg = getEmailSendConfig();
     const smsCfg = getSmsGatewayConfig();
     const waCfg = getWhatsAppCloudConfig();
