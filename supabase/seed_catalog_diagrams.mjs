@@ -119,6 +119,8 @@ async function seedViaApi() {
           apikey: key,
           "Content-Type": "image/png",
           "x-upsert": "true",
+          // Avoid Cache-Control: no-cache (REST default without this header).
+          "cache-control": "31536000",
         },
         body,
       });
