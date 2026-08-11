@@ -11,6 +11,7 @@ import co.zw.nissangtr.bridges.location.LocationPermissionStatus
 import co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher
 import co.zw.nissangtr.bridges.maps.ExternalNavigation
 import co.zw.nissangtr.bridges.maps.MapLatLng
+import co.zw.nissangtr.bridges.maps.OsrmRouteFetcher
 import co.zw.nissangtr.bridges.maps.RouteFetchResult
 import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
