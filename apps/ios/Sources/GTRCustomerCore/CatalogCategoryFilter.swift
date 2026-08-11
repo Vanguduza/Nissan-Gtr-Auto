@@ -118,28 +118,25 @@ public enum CatalogCategoryFilter {
     public static func stripEpcVehicleSuffix(_ name: String) -> String {
         let s = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !s.isEmpty else { return s }
-        if let match = s.range(of: #"^(.+?)\s+for\s+\d"#, options: [.regularExpression, .caseInsensitive]) {
-            let prefix = String(s[match])
-            if let m = prefix.range(of: #"^(.+?)\s+for\s+\d"#, options: [.regularExpression, .caseInsensitive]),
-               let regex = try? NSRegularExpression(pattern: #"^(.+?)\s+for\s+\d"#, options: .caseInsensitive),
-               let result = regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
-               let r = Range(result.range(at: 1), in: s) {
-                return String(s[r]).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
+        let ns = NSRange(s.startIndex..., in: s)
+        if let regex = try? NSRegularExpression(pattern: #"^(.+?)\s+for\s+\d"#, options: .caseInsensitive),
+           let result = regex.firstMatch(in: s, range: ns),
+           let r = Range(result.range(at: 1), in: s) {
+            return String(s[r]).trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if let regex = try? NSRegularExpression(
             pattern: #"^(.+?)\s+for\s+(?:the\s+)?(?:\d{4}|nissan|toyota|honda|suzuki|subaru|mitsubishi|lexus)\b"#,
             options: .caseInsensitive
         ),
-           let result = regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
+           let result = regex.firstMatch(in: s, range: ns),
            let r = Range(result.range(at: 1), in: s) {
             return String(s[r]).trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if let regex = try? NSRegularExpression(pattern: #"^(.+?)\s+FOR\s+"#),
-           let result = regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
+           let result = regex.firstMatch(in: s, range: ns),
            let r = Range(result.range(at: 1), in: s) {
             let stem = String(s[r])
-            if stem.contains(where: { $0.isUppercase }) {
+            if stem.contains(where: \.isUppercase) {
                 return stem.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
