@@ -12,29 +12,28 @@ Search: `search_catalog`. Browse: `list_catalog_*`, `get_catalog_diagram`.
 |-------|------|
 | Orchestrator | `python -m data_pipeline.megazip_catalog_orchestrator` |
 | Wrapper | `python scripts/megazip_multivehicle_catalog.py` |
-| Maker order | `config/megazip_makers.json` — **Nissan → Toyota → Honda → Mazda → …** |
+| Maker order | `config/megazip_makers.json` — **Toyota → Lexus → Honda → Suzuki → Nissan → Subaru → Mitsubishi** |
 | Decision (engines) | `docs/decisions/2026-08-11-megazip-engine-code-cascade.md` |
 
 **Hard rule:** Supabase catalog must never store the vendor string `megazip` in `source`, URLs, or storage paths. Use `source=epc` and `epc/<maker_slug>/…` prefixes.
+
+**Sequential rule:** one maker fully through selected phases, then the next maker in config order. Do not interleave makers.
 
 ---
 
 ## Lessons from Nissan → required for every maker
 
-These failures showed up on the Nissan live catalog. Treat them as **blocking** for Toyota/Honda/… imports.
-
 | # | Issue | Prevention (code + ops) |
 |---|--------|-------------------------|
-| 1 | Cascade “No engine codes in catalog” | Parse `Engine`/`двигатель`; transform writes `vehicle_master.engine_code`; check `quality_report` / `megazip_post_import_verify.py` |
+| 1 | Cascade “No engine codes in catalog” | Parse `Engine`/`двигатель` on variant + diagram; transform writes `vehicle_master.engine_code`; check `quality_report` / `megazip_post_import_verify.py` |
 | 2 | `model_variant` mismatch after backfill | Always `{MakerName} {catalog_models.display_name}` |
 | 3 | Diagram-before-variant SQLite order dropped engines | Transform sorts page types before build |
 | 4 | Vendor URLs/`megazip/` paths in SoR | Transform scrub + **import** `sanitize_hierarchy_vendor_leakage` + REST scrub script |
 | 5 | `catalog_makers.source` flipped to `megazip` | Force `epc` on transform/import/scrub |
-| 6 | Column rename `megazip_*` → `external_*` not applied | Import dual-maps both; apply migration when `DATABASE_URL` available |
-| 7 | MAIN idle after priority drain | Nissan two-phase `auto_start_remaining` / `--all-models` ensure |
-| 8 | Huge PENDING backlog | Model-scoped workers (`megazip_crawl_worker`) with leases |
-| 9 | Parser upgrade without re-parse | `--skip-crawl --phase parse,transform,…` or `extract_engines_from_cache.py` |
-| 10 | Missing cache HTML ⇒ missing engines | Re-crawl that model; verify coverage before “done” |
+| 6 | Column rename `megazip_*` → `external_*` not applied | Import dual-maps both; apply migration / Dashboard SQL when `DATABASE_URL` available |
+| 7 | Huge PENDING backlog | Model-scoped workers (`megazip_crawl_worker`) with leases |
+| 8 | Parser upgrade without re-parse | `--skip-crawl --phase parse,transform,…` or `extract_engines_from_cache.py` |
+| 9 | Missing cache HTML ⇒ missing engines | Re-crawl that model; verify coverage before “done” |
 
 ---
 
@@ -53,9 +52,9 @@ These failures showed up on the Nissan live catalog. Treat them as **blocking** 
 ```bash
 cd data-pipeline
 
-# Smoke one maker
+# Smoke one maker (Toyota first)
 python -m data_pipeline.megazip_catalog_orchestrator \
-  --makers Toyota --max-pages 80 --no-nissan-two-phase
+  --makers Toyota --max-pages 80
 
 # Production maker (after crawl cache is warm)
 python -m data_pipeline.megazip_catalog_orchestrator \
@@ -63,7 +62,7 @@ python -m data_pipeline.megazip_catalog_orchestrator \
   --phase parse,transform,pcdb,filter,upload,import \
   --live-import --complete-only
 
-# All makers sequentially
+# All makers sequentially (config order)
 python -m data_pipeline.megazip_catalog_orchestrator \
   --makers all --live-import --complete-only --prune-stale
 ```
@@ -72,14 +71,14 @@ python -m data_pipeline.megazip_catalog_orchestrator \
 
 ## Standard per-maker checklist
 
-Copy for **Toyota / Honda / Mazda / …**:
+Copy for **Toyota / Honda / …**:
 
 ### A. Crawl
 
 ```powershell
-# MAIN (or first process) — seed hub + drain
+# MAIN — seed hub + drain all models for this maker
 python -m data_pipeline.megazip_catalog_orchestrator `
-  --makers Toyota --no-nissan-two-phase `
+  --makers Toyota `
   --phase crawl --out-root out/megazip
 
 # Optional parallel workers (lease-safe; one model_slug each)
@@ -88,7 +87,7 @@ python -m data_pipeline.megazip_crawl_worker `
   --worker-id toyota-camry --out-root out/megazip --rate-limit 0.55
 ```
 
-Nissan-only extras: default two-phase priority→remaining; `--all-models` underexplored ensure. Other makers use `--no-nissan-two-phase` (or omit Nissan-specific flags).
+Hub crawl discovers **every** model on the maker hub. Optional `--priority-chassis` / `--single-chassis` narrow deep crawl for smoke tests only.
 
 ### B. Parse → transform → gate
 
@@ -143,25 +142,19 @@ python scripts/megazip_post_import_verify.py --maker-slug toyota
 
 ## Production workflow
 
-### Maker order
+### Maker order (popularity)
 
-**Nissan → Toyota → Honda → Mazda → Suzuki → …** (`config/megazip_makers.json`)
+Homepage Explore Brands order, car EPC hubs only (HTTP 200 `/parts/{slug}`):
 
-### Nissan two-phase crawl (default)
+1. Toyota  
+2. Lexus  
+3. Honda  
+4. Suzuki  
+5. Nissan  
+6. Subaru  
+7. Mitsubishi  
 
-When crawling Nissan without `--single-chassis`, `--priority-chassis`, or `--all-models`:
-
-1. **Priority pass** — `config/priority_chassis.json` + model seeds  
-2. **Auto remaining** — `prepare_remaining_crawl` when priority PENDING drains  
-3. **Post-crawl** — `parse → transform → pcdb → filter → upload`
-
-| Flag | Effect |
-|------|--------|
-| *(default)* | Nissan two-phase on |
-| `--no-nissan-two-phase` | Single pass (use for non-Nissan or explicit single-pass Nissan) |
-| `--priority-chassis` | Priority only (no auto remaining) |
-| `--all-models` | No priority filter; underexplored ensure |
-| `--max-pages N` | Cap per pass (smoke only) |
+Powersports/marine hubs on the same homepage (`ktm`, `bombardier`, `tohatsu`, `mercury-mercruiser`) are **out of scope** for this car queue.
 
 ### Parallel workers
 
@@ -188,10 +181,10 @@ Storefront cascade reads **`vehicle_master.engine_code`**. Empty ⇒ UI “No en
 
 | Page | Attr | Typical |
 |------|------|---------|
-| Variant list | `Engine` / `двигатель` | Toyota-style tech rows |
-| Diagram identity | `Engine` / `двигатель` | Nissan-style primary |
+| Variant list | `Engine` / `двигатель` | Often present on tech rows |
+| Diagram identity | `Engine` / `двигатель` | Primary source on many makers |
 
-Transform: page order hub→variants→sections→diagrams; engines attach to **variant chassis** (generation), label `{Maker} {display_name}`.
+Crawl upserts parsed payloads (including `engine_code`) as pages are fetched. Parse re-run refreshes engines from cache without network. Transform: page order hub→variants→sections→diagrams; engines attach to **variant chassis** (generation), label `{Maker} {display_name}`.
 
 ### Pitfalls
 
@@ -216,7 +209,7 @@ Columns: prefer `external_data_id` / `external_item_id`; import still maps legac
 
 ## Per-source chassis registry
 
-`config/megazip_chassis_map.json` supplements `priority_chassis.json` (Nissan priority platforms). Non-Nissan makers usually crawl from maker hub without priority chassis.
+`config/megazip_chassis_map.json` supplements `priority_chassis.json` for optional Nissan chassis smoke filters. Default multimaker runs crawl the full maker hub (all models).
 
 ---
 
@@ -235,8 +228,8 @@ Columns: prefer `external_data_id` / `external_item_id`; import still maps legac
 ```text
 out/megazip/
   manifest.json
-  nissan/   megazip_state.db  cache/  bundle/  diagrams/
-  toyota/
+  toyota/   megazip_state.db  cache/  bundle/  diagrams/
+  lexus/
   honda/
   ...
 ```
@@ -245,33 +238,20 @@ Bundle meta includes `vehicles` / `vehicles_with_engine`.
 
 ---
 
-## Recommended overnight (Nissan)
+## Recommended first maker (Toyota)
 
 ```powershell
 cd data-pipeline
 python -m data_pipeline.megazip_catalog_orchestrator `
-  --makers Nissan `
-  --phase crawl,parse,transform,pcdb,filter,upload `
-  --out-root out/megazip
-
-python -m data_pipeline.megazip_catalog_orchestrator `
-  --makers Nissan --skip-crawl `
-  --phase filter,import --live-import --complete-only
-
-python scripts/megazip_post_import_verify.py --maker-slug nissan
-```
-
-## Recommended next maker (Toyota)
-
-```powershell
-python -m data_pipeline.megazip_catalog_orchestrator `
-  --makers Toyota --no-nissan-two-phase `
+  --makers Toyota `
   --phase crawl,parse,transform,pcdb,filter,upload,import `
   --live-import --complete-only --out-root out/megazip
 
 python scripts/megazip_post_import_verify.py --maker-slug toyota
 python scripts/scrub_megazip_catalog_values.py   # if verify finds leakage
 ```
+
+Then continue with Lexus, Honda, … in config order (`--makers all` or one maker at a time).
 
 ---
 
