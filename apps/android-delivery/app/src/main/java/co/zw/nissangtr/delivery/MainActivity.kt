@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
                                 signedInEmail = email,
                                 supportPhone = BuildConfig.SUPPORT_PHONE,
                                 mapsApiKey = BuildConfig.GOOGLE_MAPS_API_KEY,
+                                osrmUrl = BuildConfig.OSRM_URL,
                                 onSignOut = onSignOut,
                             )
                         }
