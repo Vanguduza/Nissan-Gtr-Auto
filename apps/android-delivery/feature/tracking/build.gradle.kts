@@ -33,6 +33,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // MapLibre SoR for courier map (DIAL D-44) — replaces Google Maps as render SoR
+    implementation("org.maplibre.gl:android-sdk:11.5.1")
 
     testImplementation("junit:junit:4.13.2")
 }
