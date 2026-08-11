@@ -148,6 +148,11 @@ async def scrub_urls_and_makers(client: httpx.AsyncClient, base: str, key: str) 
             headers=headers,
         )
     await client.patch(
+        f"{base}/rest/v1/catalog_sections?thumbnail_url=ilike.*megazip*",
+        json={"thumbnail_url": None},
+        headers=headers,
+    )
+    await client.patch(
         f"{base}/rest/v1/catalog_diagrams?source_url=ilike.*megazip*",
         json={"source_url": None},
         headers=headers,
