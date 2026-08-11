@@ -90,6 +90,10 @@ def _parse_phases(raw: str | None) -> tuple[str, ...]:
 
 
 async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
+    """Download diagram PNGs locally, then upsert to Storage when credentials exist.
+
+    Storage uploads always set long ``cache-control`` (see ``storage_diagrams``).
+    """
     try:
         import httpx
     except ImportError as exc:
@@ -99,20 +103,24 @@ async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
     downloaded = 0
     skipped_existing = 0
     seen_names: set[str] = set()
+    # name -> epc storage path (last wins)
+    name_to_storage: dict[str, str] = {}
 
-    # Collect URLs from diagram_assets and catalog_diagrams (all filtered bundle PNGs)
     pending: list[tuple[str, str]] = []
     for asset in bundle.get("diagram_assets") or []:
         url = asset.get("source_url") or ""
-        name = Path(asset.get("storage_path") or "diagram.png").name
+        sp = asset.get("storage_path") or "diagram.png"
+        name = Path(sp).name
         if url and name:
             pending.append((url, name))
+            name_to_storage[name] = epc_storage_path(sp)
     for diag in bundle.get("catalog_diagrams") or []:
         url = diag.get("image_url") or diag.get("source_url") or ""
         sp = diag.get("storage_path") or ""
         name = Path(sp).name if sp else ""
         if url and name:
             pending.append((url, name))
+            name_to_storage[name] = epc_storage_path(sp)
 
     async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as client:
         for url, name in pending:
@@ -127,7 +135,6 @@ async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
                 resp = await client.get(url)
                 if resp.status_code == 200 and resp.content:
                     digest = hashlib.sha256(resp.content).hexdigest()[:16]
-                    # Dedupe by content hash: skip if same hash already on disk
                     hash_marker = paths.diagrams_dir / f".{digest}.name"
                     if hash_marker.is_file():
                         skipped_existing += 1
@@ -137,10 +144,65 @@ async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
                     downloaded += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning("diagram download failed %s: %s", url, exc)
+
+    storage_uploaded = 0
+    storage_failed = 0
+    storage_skipped = 0
+    load_env_files(PACKAGE_ROOT.parent / ".env", PACKAGE_ROOT / ".env", override=True)
+    supabase_url, supabase_key = resolve_supabase_credentials()
+    if not supabase_url or not supabase_key:
+        logger.info(
+            "Skipping Storage upsert — set SUPABASE_URL + service role for long Cache-Control uploads"
+        )
+        storage_skipped = len(seen_names)
+    else:
+        base = supabase_url.rstrip("/")
+        sem = asyncio.Semaphore(12)
+
+        async def _put_one(name: str) -> str:
+            local = paths.diagrams_dir / name
+            if not local.is_file():
+                return "missing"
+            storage_path = name_to_storage.get(name) or epc_storage_path(f"megazip/{name}")
+            headers = rest_upload_headers(
+                api_key=supabase_key,
+                content_type=content_type_for_path(storage_path),
+            )
+            upload_url = f"{base}/storage/v1/object/{DIAGRAMS_BUCKET}/{storage_path}"
+            data = local.read_bytes()
+            async with sem:
+                try:
+                    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+                        resp = await client.post(upload_url, content=data, headers=headers)
+                        if resp.status_code in (200, 201):
+                            return "ok"
+                        if resp.status_code in (400, 409):
+                            resp = await client.put(upload_url, content=data, headers=headers)
+                            if resp.status_code in (200, 201):
+                                return "ok"
+                        logger.warning(
+                            "Storage upload %s -> %s %s",
+                            storage_path,
+                            resp.status_code,
+                            resp.text[:120],
+                        )
+                        return "fail"
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Storage upload fail %s: %s", storage_path, exc)
+                    return "fail"
+
+        results = await asyncio.gather(*[_put_one(n) for n in sorted(seen_names)])
+        storage_uploaded = results.count("ok")
+        storage_failed = results.count("fail")
+        storage_skipped = results.count("missing")
+
     return {
         "downloaded": downloaded,
         "skipped_existing": skipped_existing,
         "unique_diagrams": len(seen_names),
+        "storage_uploaded": storage_uploaded,
+        "storage_failed": storage_failed,
+        "storage_skipped": storage_skipped,
     }
 
 
