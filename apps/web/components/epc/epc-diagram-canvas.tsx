@@ -60,11 +60,14 @@ export function EpcDiagramCanvas({
   return (
     <div className={styles.canvasWrap}>
       <div className={styles.frame}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <CatalogStorageImage
           className={styles.diagramImg}
           src={imageUrl}
           alt={title ? `Diagram: ${title}` : "EPC diagram"}
+          priority
+          variant="diagram"
+          width={imageWidth && imageWidth > 0 ? imageWidth : undefined}
+          height={imageHeight && imageHeight > 0 ? imageHeight : undefined}
         />
         {boxed.map(({ h, style, i }) => (
           <button
