@@ -848,33 +848,6 @@ public final class LiveStorefrontApi: StorefrontApi {
         return CatalogBrowseResult(items: list, categories: categories)
     }
 
-    private func loadBrowseCategoryLabels() async throws -> [String] {
-        struct PncCategoryNameRow: Decodable {
-            let categoryName: String?
-            enum CodingKeys: String, CodingKey {
-                case categoryName = "category_name"
-            }
-        }
-        let rows: [PncCategoryNameRow] = try await client.selectDecode(
-            table: "pnc_categories",
-            query: [
-                "select=category_name",
-                "order=category_name.asc",
-                "limit=100",
-            ].joined(separator: "&")
-        )
-        var seen = Set<String>()
-        var out: [String] = []
-        for row in rows {
-            guard let name = row.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !name.isEmpty,
-                  seen.insert(name).inserted else { continue }
-            out.append(name)
-            if out.count >= 24 { break }
-        }
-        return out
-    }
-
     public func listVehicleMaster() async throws -> [VehicleMasterRow] {
         let rows: [VehicleMasterDbRow] = try await client.selectDecode(
             table: "vehicle_master",
