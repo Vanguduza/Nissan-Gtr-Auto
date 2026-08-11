@@ -384,6 +384,7 @@ def import_hierarchy_supabase(
         raise RuntimeError("pip install -e '.[supabase]'") from exc
 
     client = create_client(url, key)
+    bundle = sanitize_hierarchy_vendor_leakage(bundle)
     sanitized = sanitize_legacy_bundle_for_import(bundle)
     validate_bundle(
         {
