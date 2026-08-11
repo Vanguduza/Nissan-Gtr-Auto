@@ -1,18 +1,18 @@
-﻿"""Megazip multivehicle EPC catalog orchestrator.
+"""Megazip multivehicle EPC catalog orchestrator.
 
 EPC-first, PCdb additive, re-runnable without re-crawl.
 
 Phases (``--phase``):
-  crawl     ΓÇö fetch HTML to cache (skip with ``--skip-crawl``)
-  parse     ΓÇö re-parse cached HTML into SQLite (no network)
-  transform ΓÇö build hierarchy JSON bundle (re-runnable)
-  pcdb      ΓÇö additive PartTerminologyID mapping (re-runnable)
-  filter    ΓÇö complete-only filter + quality report
-  upload    ΓÇö download diagram PNGs + Storage upsert (long Cache-Control)
-  import    ΓÇö Supabase hierarchy + fitment + stock_items
-  all       ΓÇö default pipeline for each maker
+  crawl     — fetch HTML to cache (skip with ``--skip-crawl``)
+  parse     — re-parse cached HTML into SQLite (no network)
+  transform — build hierarchy JSON bundle (re-runnable)
+  pcdb      — additive PartTerminologyID mapping (re-runnable)
+  filter    — complete-only filter + quality report
+  upload    — download diagram PNGs + Storage upsert (long Cache-Control)
+  import    — Supabase hierarchy + fitment + stock_items
+  all       — default pipeline for each maker
 
-Maker order (``config/megazip_makers.json``): Nissan ΓåÆ Toyota ΓåÆ Honda ΓåÆ Mazda ΓåÆ ΓÇª
+Maker order (``config/megazip_makers.json``): Nissan → Toyota → Honda → Mazda → …
 Nissan default: two-phase crawl in one process (priority chassis, then auto-start remaining models).
 
 Usage (from ``data-pipeline/``)::
@@ -152,7 +152,7 @@ async def _upload_diagrams(paths, bundle: dict[str, Any]) -> dict[str, int]:
     supabase_url, supabase_key = resolve_supabase_credentials()
     if not supabase_url or not supabase_key:
         logger.info(
-            "Skipping Storage upsert ΓÇö set SUPABASE_URL + service role for long Cache-Control uploads"
+            "Skipping Storage upsert — set SUPABASE_URL + service role for long Cache-Control uploads"
         )
         storage_skipped = len(seen_names)
     else:
@@ -433,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
         code = args.single_chassis.strip().upper()
         if code not in all_priority:
             logger.error(
-                "Chassis %s is not in %s (R35/GT-R is excluded ΓÇö use a priority code like T32, D23, Y61)",
+                "Chassis %s is not in %s (R35/GT-R is excluded — use a priority code like T32, D23, Y61)",
                 code,
                 args.priority_chassis_file,
             )
@@ -443,7 +443,7 @@ def main(argv: list[str] | None = None) -> int:
             proxy = entry.get("megazip_proxy") or "none"
             primary = entry.get("primary_source") or "partsouq"
             logger.warning(
-                "Chassis %s is not available on Megazip (proxy=%s, primary_source=%s) ΓÇö skipping crawl",
+                "Chassis %s is not available on Megazip (proxy=%s, primary_source=%s) — skipping crawl",
                 code,
                 proxy,
                 primary,
@@ -474,7 +474,7 @@ def main(argv: list[str] | None = None) -> int:
             if not megazip_chassis_available(code, chassis_map):
                 entry = megazip_chassis_entry(code, chassis_map)
                 logger.warning(
-                    "Priority chassis %s not on Megazip (proxy=%s) ΓÇö crawl may yield no diagrams",
+                    "Priority chassis %s not on Megazip (proxy=%s) — crawl may yield no diagrams",
                     code,
                     entry.get("megazip_proxy"),
                 )
@@ -530,7 +530,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for maker in makers:
         if skip_maker_crawl and maker.lower() == "nissan" and args.single_chassis:
-            logger.info("=== Megazip pipeline: %s (skipped ΓÇö chassis not on Megazip) ===", maker)
+            logger.info("=== Megazip pipeline: %s (skipped — chassis not on Megazip) ===", maker)
             manifest["results"].append(
                 {"maker": maker, "pass": "single", "skipped": "chassis_not_on_megazip"}
             )
