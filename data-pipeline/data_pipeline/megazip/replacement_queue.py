@@ -134,20 +134,24 @@ def reorder_queue_nearest_first(
     state_db: Path,
     *,
     live_models: set[str] | None = None,
+    min_visited: int = 100,
 ) -> list[str]:
-    """Re-order queue by ascending PENDING (models closest to done first)."""
+    """Re-order queue by ascending PENDING among models with real crawl progress."""
     live_models = live_models or set()
-    pending = pending_by_model(state_db)
-    candidates: list[str] = []
-    for m in load_queue(out_root):
-        if m in pending and m not in live_models and m not in candidates:
-            candidates.append(m)
-    for m in pending:
-        if m not in live_models and m not in candidates:
-            candidates.append(m)
-    candidates.sort(key=lambda m: pending.get(m, 0))
-    save_queue(out_root, candidates)
-    return candidates
+    progress = progress_by_model(state_db)
+    candidates = queue_candidates(state_db, live_models=live_models, min_visited=min_visited)
+    tail = [
+        m
+        for m in load_queue(out_root)
+        if m in progress
+        and progress[m][0] > 0
+        and m not in live_models
+        and m not in candidates
+    ]
+    tail.sort(key=lambda m: progress[m][0])
+    ordered = candidates + tail
+    save_queue(out_root, ordered)
+    return ordered
 
 
 def seed_from_dead_models(
