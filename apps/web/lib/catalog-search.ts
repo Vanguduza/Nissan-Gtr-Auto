@@ -59,23 +59,24 @@ export type SearchFetchResult = {
 };
 
 /**
- * Meili-backed catalog search via Edge proxy with Postgres FTS fallback.
- * Never calls Meili directly from the browser.
+ * Dual-read catalog search (E6): Meili Edge first, Postgres FTS fallback.
+ * Never calls Meili directly from the browser. Set preferMeili=false for FTS-only.
  */
 export async function searchCatalog(
   client: SupabaseClient,
   mode: SearchMode,
   query: string,
-  opts?: { limit?: number; facets?: string[] },
+  opts?: { limit?: number; facets?: string[]; preferMeili?: boolean },
 ): Promise<
   | { ok: true; data: SearchCatalogResponse }
   | { ok: false; error: string }
 > {
-  return searchCatalogMeili(client, {
+  return searchCatalogDual(client, {
     mode,
     query,
     limit: opts?.limit,
     facets: opts?.facets ?? [...MEILI_FACETS],
+    preferMeili: opts?.preferMeili,
   });
 }
 
