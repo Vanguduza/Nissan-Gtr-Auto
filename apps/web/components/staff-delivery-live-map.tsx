@@ -31,6 +31,8 @@ type Props = {
   live: boolean;
   /** Job ETA from delivery_jobs (staff panel). */
   etaLabel?: string | null;
+  /** Honest provider label (eta_source=osrm | google_directions (deprecated) | …). */
+  etaSourceLabel?: string | null;
 };
 
 type TrailGeoJSON = {
