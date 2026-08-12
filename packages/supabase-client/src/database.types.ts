@@ -8333,15 +8333,15 @@ export type Database = {
         Args: { p_purchase_order_id: string }
         Returns: string
       }
-      attach_goods_receipt_invoice: {
-        Args: { p_goods_receipt_id: string; p_storage_path: string }
-        Returns: string
-      }
       approve_stock_reconciliation: {
         Args: { p_reconciliation_id: string }
         Returns: string
       }
       approve_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
+      attach_goods_receipt_invoice: {
+        Args: { p_goods_receipt_id: string; p_storage_path: string }
+        Returns: string
+      }
       approve_warranty_claim: {
         Args: {
           p_claim_id: string

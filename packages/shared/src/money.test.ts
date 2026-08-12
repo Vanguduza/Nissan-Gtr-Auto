@@ -36,4 +36,8 @@ describe("amountMinor helpers", () => {
   it("rejects non-finite majors", () => {
     assert.throws(() => toAmountMinor(Number.NaN, "USD"));
   });
+
+  it("dualWriteMoney pairs amount + amountMinor", () => {
+    const { dualWriteMoney } = require("./money.ts") as typeof import("./money.ts");
+  });
 });
