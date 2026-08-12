@@ -95,7 +95,7 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 
 | Artifact | Status |
 | --- | --- |
-| This plan | Living — E-Proc/E-WH/E-Del/E-Sec verified; E-POS web QA evidenced (Epic G); Android tablet QA open |
+| This plan | Living — E-Proc/E-WH/E-Del/E-Sec verified; **E-POS Done** (web + Android tablet QA evidenced, Epic G) |
 | `@gtr/procurement` domain + progress tracker | **Done** (verified) |
 | Migration preferred suppliers / fund release / master stock / WH codes | **Done** (`20260812010000`–`70000`) |
 | Migration GRN invoice + amount_minor dual-write | **Done** |
