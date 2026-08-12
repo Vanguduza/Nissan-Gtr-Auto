@@ -1,5 +1,5 @@
 import { ProcurementNav } from "@/components/procurement-nav";
-import { ProcurementProgressTracker } from "@/components/procurement-progress-tracker";
+import { RecentPurchaseOrdersPanel } from "@/components/recent-purchase-orders-panel";
 import styles from "@/components/account.module.css";
 import Link from "next/link";
 
@@ -18,7 +18,7 @@ export default function ProcurementPage() {
           rare spot buys — they do <strong>not</strong> authorize the supplier
           list.
         </p>
-        <ProcurementProgressTracker step="draft" documentLabel="Example PO path" />
+        <RecentPurchaseOrdersPanel />
         <div className={styles.cardGrid} style={{ marginTop: "1.25rem" }}>
           <Link href="/procurement/suppliers" className={styles.card}>
             <span className={styles.cardLabel}>Preferred suppliers</span>
