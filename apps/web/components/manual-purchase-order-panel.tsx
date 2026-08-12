@@ -2,12 +2,14 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import type { ProcurementProgressStep } from "@gtr/procurement";
 import styles from "@/components/account.module.css";
 import { ProcurementProgressTracker } from "@/components/procurement-progress-tracker";
 import { createWebClient } from "@/lib/supabase";
 import {
   createPreferredPurchaseOrder,
   loadPreferredSuppliers,
+  loadPurchaseOrderProgress,
   loadWarehouses,
   pickReceivingWarehouse,
   requireSession,
