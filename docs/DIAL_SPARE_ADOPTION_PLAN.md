@@ -294,7 +294,7 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 - [ ] Manual override audited
 
 ### Epic AI/CRM
-- [x] Promptfoo gates; human promote *(offline safe-narrative provider; README promote path; real model CI §H)*
+- [x] Promptfoo gates; human promote *(offline safe-narrative provider; README promote path; H3 CI offline default + optional real provider secrets)*
 - [x] Promo copy cannot include invented prices *(not-contains amount_minor / cash-out asserts)*
 
 ### Epic Email
