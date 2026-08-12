@@ -442,12 +442,32 @@ interface RpcClient {
     /** Search by display_name ilike or exact UUID (≥2 chars). */
     suspend fun searchCustomers(query: String): List<CustomerOption>
 
-    // --- Phase 8b blankets (procurement) ---
+    // --- Phase 8b blankets + preferred manual PO (procurement) ---
 
     suspend fun listSuppliers(): List<SupplierRef>
 
+    /**
+     * Preferred roster only (`is_preferred` + active) — authorizes manual POs without RFQ-win.
+     * Mirrors web `loadPreferredSuppliers`.
+     */
+    suspend fun listPreferredSuppliers(): List<PreferredSupplierRef>
+
     /** Live: SELECT purchase_orders WHERE is_blanket + lines. */
     suspend fun listBlanketPurchaseOrders(): List<BlanketSummary>
+
+    /**
+     * Manual preferred-supplier PO via [RpcNames.CREATE_PURCHASE_ORDER].
+     * Quoted [lines] unit prices are staff-entered — never AI-invented payables.
+     */
+    suspend fun createPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        lines: List<BlanketLineInput>,
+        notes: String? = null,
+        expectedDate: String? = null,
+    ): String
 
     suspend fun createBlanketPurchaseOrder(
         supplierId: String,
