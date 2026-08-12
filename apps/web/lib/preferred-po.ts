@@ -1,3 +1,7 @@
+import {
+  resolveProcurementProgress,
+  type ProcurementProgressStep,
+} from "@gtr/procurement";
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
 import type { StorefrontResult } from "@/lib/customer-storefront";
 import {
@@ -13,6 +17,83 @@ export { requireSession, loadWarehouses, searchStockItems };
 export type { CurrencyCode, StockItemOption, WarehouseOption };
 
 export type ProcurementClient = SupabaseClient<Database>;
+
+/** Columns added in relationship-procurement migration; types regen is backend follow-up. */
+type PoProgressColumns = {
+  funds_released_at: string | null;
+  progress_step: string | null;
+};
+
+export type PurchaseOrderProgress = {
+  id: string;
+  document_number: string | null;
+  status: string;
+  funds_released_at: string | null;
+  progress_step: string | null;
+  supplier: { code: string; name: string } | null;
+  qty_ordered: number;
+  qty_received: number;
+  step: ProcurementProgressStep;
+};
+
+function asSingle<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function sumLineQty(
+  lines:
+    | { qty_ordered: number | string; qty_received: number | string }[]
+    | null
+    | undefined,
+): { qty_ordered: number; qty_received: number } {
+  let qty_ordered = 0;
+  let qty_received = 0;
+  for (const l of lines ?? []) {
+    qty_ordered += Number(l.qty_ordered) || 0;
+    qty_received += Number(l.qty_received) || 0;
+  }
+  return { qty_ordered, qty_received };
+}
+
+function toProgress(row: {
+  id: string;
+  document_number: string | null;
+  status: string;
+  funds_released_at?: string | null;
+  progress_step?: string | null;
+  suppliers?:
+    | { code: string; name: string }
+    | { code: string; name: string }[]
+    | null;
+  purchase_order_lines?:
+    | { qty_ordered: number | string; qty_received: number | string }[]
+    | null;
+}): PurchaseOrderProgress {
+  const qtys = sumLineQty(row.purchase_order_lines);
+  const funds_released_at = row.funds_released_at ?? null;
+  const progress_step = row.progress_step ?? null;
+  return {
+    id: row.id,
+    document_number: row.document_number,
+    status: row.status,
+    funds_released_at,
+    progress_step,
+    supplier: asSingle(row.suppliers),
+    qty_ordered: qtys.qty_ordered,
+    qty_received: qtys.qty_received,
+    step: resolveProcurementProgress({
+      status: row.status,
+      fundsReleasedAt: funds_released_at,
+      qtyOrdered: qtys.qty_ordered,
+      qtyReceived: qtys.qty_received,
+      progressStep: progress_step,
+    }),
+  };
+}
+
+const PO_PROGRESS_SELECT =
+  "id, document_number, status, funds_released_at, progress_step, suppliers ( code, name ), purchase_order_lines ( qty_ordered, qty_received )";
 
 export type PreferredSupplierOption = {
   id: string;

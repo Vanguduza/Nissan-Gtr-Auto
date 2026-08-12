@@ -35,6 +35,32 @@ describe("procurement progress", () => {
     );
   });
 
+  it("maps closed from progress_step", () => {
+    assert.equal(
+      resolveProcurementProgress({
+        status: "approved",
+        fundsReleasedAt: "2026-08-12T00:00:00Z",
+        qtyOrdered: 10,
+        qtyReceived: 10,
+        progressStep: "closed",
+      }),
+      "closed",
+    );
+  });
+
+  it("prefers receive qty over stale funds_released step", () => {
+    assert.equal(
+      resolveProcurementProgress({
+        status: "approved",
+        fundsReleasedAt: "2026-08-12T00:00:00Z",
+        qtyOrdered: 5,
+        qtyReceived: 5,
+        progressStep: "funds_released",
+      }),
+      "received",
+    );
+  });
+
   it("counts tracker steps", () => {
     assert.equal(completedTrackerCount("submitted"), 2);
   });
