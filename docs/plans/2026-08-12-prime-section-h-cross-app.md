@@ -36,7 +36,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | H8 fund-release insert-once | — | — | — | — | — | — | — | **COND** |
 | H-PARITY-WH2 POS | OK | **OK** | — | — | — | — | — | — |
-| H2 preferred-PO | OK | **N** | — | — | — | OK vocab | — | OK RPCs |
+| H2 preferred-PO | OK | **OK** | — | — | — | OK vocab | — | OK RPCs |
 | H4 B-MONEY-1 | **N** | **N** | **N** | **N** | **N** | **N** shared/payments | — | **N** |
 | H5 B-MAP-1 | OK track | — | OK primary | **N** | **N** | — | **N** maps-nav | — |
 | H6 B-OSRM-1 | — | — | prefer OK | prefer if maps | — | OK osrm | OK fetcher | — + **N** infra |
