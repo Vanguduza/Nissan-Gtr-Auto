@@ -542,15 +542,31 @@ fun JobDetailScreen(
                 .clip(MaterialTheme.shapes.medium)
                 .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.medium),
         ) {
-            DeliveryRouteMap(
-                destination = dest,
-                driver = driverPos,
-                routePoints = state.routePoints,
-                otherStops = otherStops,
-                mapsKeyPresent = state.mapsKeyPresent,
-                myLocationEnabled = tracking.tracking,
-            )
+            val mapLat = tracking.lastLat ?: job.dropoffLat
+            val mapLng = tracking.lastLng ?: job.dropoffLng
+            if (mapLat != null && mapLng != null) {
+                MapLibreJobMap(
+                    latitude = mapLat,
+                    longitude = mapLng,
+                    zoom = 14.0,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                DeliveryRouteMap(
+                    destination = dest,
+                    driver = driverPos,
+                    routePoints = state.routePoints,
+                    otherStops = otherStops,
+                    mapsKeyPresent = state.mapsKeyPresent,
+                    myLocationEnabled = tracking.tracking,
+                )
+            }
         }
+        Text(
+            "MapLibre SoR · OSRM distance/ETA",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         state.routeLabel?.let {
             Text(
                 if (state.routeBusy) "Routing…" else it,
