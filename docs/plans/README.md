@@ -3,6 +3,7 @@
 | Plan | Role |
 |------|------|
 | [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) | **Source of truth** for whole-ERP phasing (includes distributor gap register → Phases 3–16) |
+| [`2026-08-12-prime-section-h-cross-app.md`](./2026-08-12-prime-section-h-cross-app.md) | Post A–G §H backlog + ERP app matrix (Temporal, money, maps, Android PO, …) |
 | [`2026-07-23-phase1-monorepo-supabase.md`](./2026-07-23-phase1-monorepo-supabase.md) | Phase 1 child (done) |
 | [`2026-07-23-phase2-auth-roles.md`](./2026-07-23-phase2-auth-roles.md) | Phase 2 child (done) |
 | [`2026-07-23-phase3-finance-core.md`](./2026-07-23-phase3-finance-core.md) | Phase 3 child (done) |
