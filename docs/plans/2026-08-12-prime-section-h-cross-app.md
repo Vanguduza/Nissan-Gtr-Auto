@@ -21,7 +21,7 @@
 | **H5** | B-MAP-1 MapLibre SoR | Courier already MapLibre primary. Customer Android (+ bridges) MapLibre render SoR; Google = deprecated fallback only. **H5-iOS** (MapKit → MapLibre Native) remains open / PARTIAL | — |
 | **H6** | B-OSRM-1 compose/data | OSRM service runnable when map data present; documented in `infra/satellites`; clients already prefer `OSRM_URL` | H5 helpful |
 | **H1** | Temporal worker binary | Host process runs `DeliveryDispatchWorkflow` / `DELIVERY_DISPATCH_WORKFLOW` calling existing activities; Edge bridge remains; no Fleetbase | Package SM Done (A–G) |
-| **H3** | Promptfoo real-provider CI | CI job with real model provider + secrets; offline gate remains default locally; human-promote unchanged | Epic E Done |
+| **H3** | Promptfoo real-provider CI | Offline safe-narrative CI job always; optional real model when secrets present; human-promote unchanged | Epic E Done |
 | **H7** | B-PS-1 PowerSync live SDK | Mobile SDK wired to existing rules; offline queue intents only (no journal upload) | — |
 | **H9** | Chatwoot / Metabase | Tier-2 satellites — **defer** unless explicit ticket | — |
 | **H-ZIMRA** | ZIMRA / FDMS | **Excluded** until counsel ADR — never implement | — |
