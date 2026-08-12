@@ -15,6 +15,7 @@ import {
   createCustomerPaynowIntent,
   ensureOpenCart,
   fetchZigExchangeRate,
+  fetchZigExchangeRateId,
   formatMoney,
   fulfillmentLabel,
   loadCartLines,
@@ -63,6 +64,8 @@ export function CartCheckout() {
   const [fulfillment, setFulfillment] = useState<Fulfillment>("immediate");
   const [settleCurrency, setSettleCurrency] = useState<SettleCurrency>("USD");
   const [zigRate, setZigRate] = useState<number>(1);
+  /** `daily_exchange_rates.id` for the rate used; null when USD-only or env fallback. */
+  const [fxRateId, setFxRateId] = useState<string | null>(null);
   const [tender, setTender] = useState<Tender>("cash");
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
