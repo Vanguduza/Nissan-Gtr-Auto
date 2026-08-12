@@ -119,4 +119,4 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 4. ~~Promptfoo gate on AI report/CRM edges~~ **Done** (Epic E offline + H3 CI offline default; optional real provider secrets)
 5. ~~Semgrep/Checkov CI port from DIAL D-48~~ **Done** (Epic F — HARDENING §7 synced)
 
-**§H / optional follow-ups (not blocking A–G):** full Temporal worker binary; Android native preferred-PO screen; Promptfoo CI with real model provider; fund-release insert-once (no ON CONFLICT money rewrite); B-MONEY-1 / B-MAP-1 / B-OSRM-1 / B-PS-1.
+**§H / optional follow-ups (not blocking A–G):** full Temporal worker binary; fund-release insert-once smoke (H8 conditional); B-MONEY-1; H5-iOS MapKit→MapLibre; B-OSRM-1 / B-PS-1. (H2 preferred-PO, H3 Promptfoo CI, H5 Android MapLibre — Done.)
