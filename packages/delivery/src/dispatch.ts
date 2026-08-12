@@ -41,7 +41,8 @@ export function selectNextCourierOffer(input: {
 }
 
 /**
- * Apply courier decision: accept → in_run; reject/timeout → requeue remaining.
+ * Apply courier decision: accept → assigned; reject **or** timeout → requeue
+ * remaining eligible couriers (same path — B5 SM evidence).
  */
 export function applyOfferDecision(input: {
   decision: DeliveryOfferDecision;
