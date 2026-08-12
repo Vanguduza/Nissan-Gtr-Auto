@@ -305,7 +305,21 @@ data class WarehouseRef(
     val id: String,
     val code: String,
     val name: String,
+    /** WH1 receiving / WH2 storefloor / etc. Null on legacy rows. */
+    val roleCode: String? = null,
+    val isQuarantine: Boolean = false,
+    val isActive: Boolean = true,
 )
+
+/**
+ * POS picks only WH2 storefloor — WH1 receiving and quarantine are excluded.
+ * Matches web `isPosSaleableWarehouse` (role_code WH2 or legacy code=WH2).
+ */
+fun isPosSaleableWarehouse(w: WarehouseRef): Boolean {
+    if (!w.isActive) return false
+    if (w.isQuarantine) return false
+    return w.roleCode == "WH2" || w.code == "WH2"
+}
 
 data class PosCartLineSummary(
     val id: String,
