@@ -25,8 +25,9 @@ function StaffPosShellInner() {
             {tab === "cart" ? "Store POS" : "Online prep"}
           </p>
           <p className={pos.posChromeHint}>
-            Dial UX pass — shared tokens for desktop and tablet. Scan OEM / QR,
-            pick from WH2 storefloor stock, checkout with tender split.
+            Dial UX — {@code `@gtr/ui`} tokens. Typed OEM / catalog search on
+            web; QR via Bridge-First companion only (no browser camera). Pick
+            from WH2 storefloor (WH1 receiving only); checkout with tender split.
           </p>
         </div>
       </header>

@@ -90,14 +90,29 @@ export function checkoutBindMessage(args: {
 export async function listSaleableWarehouses(
   client: SupabaseClient,
 ): Promise<StorefrontResult<WarehouseOption[]>> {
+  // Prefer role_code WH2 (storefloor). Keep quarantine + inactive out of POS.
+  // Client filter also accepts code=WH2 for legacy rows missing role_code.
   const { data, error } = await client
     .from("warehouses")
-    .select("id, code, name")
+    .select("id, code, name, role_code, is_quarantine, is_active")
     .eq("is_active", true)
     .eq("is_quarantine", false)
+    .or("role_code.eq.WH2,code.eq.WH2")
     .order("code");
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: (data as WarehouseOption[]) ?? [] };
+  const rows = ((data as Array<WarehouseOption & {
+    is_quarantine?: boolean;
+    is_active?: boolean;
+  }>) ?? []).filter(isPosSaleableWarehouse);
+  return {
+    ok: true,
+    data: rows.map(({ id, code, name, role_code }) => ({
+      id,
+      code,
+      name,
+      role_code: role_code ?? null,
+    })),
+  };
 }
 
 /** OEM / description search (typed input only — no browser QR). */
