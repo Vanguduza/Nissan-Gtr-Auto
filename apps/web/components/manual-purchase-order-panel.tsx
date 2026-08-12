@@ -54,6 +54,7 @@ export function ManualPurchaseOrderPanel() {
 
   const refreshCreatedProgress = useCallback(async (id: string) => {
     const client = createWebClient();
+    if (!client) return;
     const res = await loadPurchaseOrderProgress(client, id);
     if (!res.ok) return;
     setTrackerStep(res.data.step);
@@ -106,6 +107,7 @@ export function ManualPurchaseOrderPanel() {
     const t = setTimeout(() => {
       void (async () => {
         const client = createWebClient();
+        if (!client) return;
         const res = await searchStockItems(client, q);
         if (res.ok) setHits(res.data);
       })();
