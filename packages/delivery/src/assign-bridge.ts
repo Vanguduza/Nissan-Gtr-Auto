@@ -6,13 +6,13 @@
 import {
   runDeliveryDispatchCycle,
   type DispatchActivities,
-} from "./temporal";
-import type { CourierCandidate } from "./dispatch";
+} from "./temporal.ts";
+import type { CourierCandidate } from "./dispatch.ts";
 import type {
   DeliveryOfferDecision,
   DispatchWorkflowInput,
   DispatchWorkflowResult,
-} from "./types";
+} from "./types.ts";
 
 /** Minimal PostgREST-shaped client used by the bridge (Supabase JS compatible). */
 export type AssignRpcClient = {
