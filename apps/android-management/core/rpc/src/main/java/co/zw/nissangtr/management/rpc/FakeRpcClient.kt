@@ -1352,8 +1352,13 @@ class FakeRpcClient : RpcClient {
     override suspend fun submitPurchaseOrder(purchaseOrderId: String): String {
         require(purchaseOrderId.isNotBlank())
         val idx = blankets.indexOfFirst { it.id == purchaseOrderId }
-        require(idx >= 0) { "blanket PO not found" }
-        blankets[idx] = blankets[idx].copy(status = "submitted")
+        if (idx >= 0) {
+            blankets[idx] = blankets[idx].copy(status = "submitted")
+            return purchaseOrderId
+        }
+        require(manualPos.containsKey(purchaseOrderId)) { "PO not found" }
+        require(manualPos[purchaseOrderId] == "draft") { "PO must be draft to submit" }
+        manualPos[purchaseOrderId] = "submitted"
         return purchaseOrderId
     }
 
