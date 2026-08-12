@@ -1,6 +1,6 @@
 # Edge Functions
 
-## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `process-ai-reports`, `process-crm-promos`, `chat-notify-on-message`)
+## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `delivery-dispatch-cycle`, `process-ai-reports`, `process-crm-promos`, `chat-notify-on-message`)
 
 These use `service_role` internally and **must not** be publicly callable without a shared secret.
 
