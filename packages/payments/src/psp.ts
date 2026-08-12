@@ -192,3 +192,27 @@ export function buildCheckoutDisplay(input: {
     indicativeZigMinor: indicative,
   };
 }
+
+/**
+ * Finance C6 seed (package-side evidence for Epic Finance DoD).
+ *
+ * AI must never invent payable amounts, `amount_minor` / `amountMinor`, or
+ * auto-create purchase orders. Payable money is SoR from cart totals, ledger
+ * posts, and PspAdapter webhook settlement only — never from model output.
+ * Full Edge/repo grep for writers may follow in a later lane; this constant
+ * documents the contract for `@gtr/payments` consumers and tests.
+ */
+export const AI_NEVER_WRITES_MONEY = {
+  rule:
+    "AI must never invent payable amounts, amount_minor / amountMinor, or auto-create POs",
+  payableSourcesOfTruth: [
+    "cart / checkout totals",
+    "ledger journal posts",
+    "PspAdapter webhook settlement (webhook-as-truth on Edge)",
+  ],
+  forbidden: [
+    "model-invented payable amounts",
+    "AI-written amount_minor / amountMinor",
+    "AI auto-created purchase orders",
+  ],
+} as const;
