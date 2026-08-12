@@ -127,6 +127,7 @@ BEGIN
 
   -- Conflict path: bump quoted total, force status back to submitted, re-approve.
   -- Insert-once must keep original amount_minor (not rewrite to new total).
+  -- Clear prior domain events so re-approve emit can be asserted (dedupe would no-op).
   -- Direct UPDATEs require procurement RPC flag (mutation guards).
   PERFORM public._procurement_begin_rpc();
   UPDATE public.purchase_order_lines
@@ -142,6 +143,12 @@ BEGIN
     progress_step = 'submitted',
     updated_at = now()
   WHERE id = v_po;
+
+  DELETE FROM public.domain_events
+  WHERE dedupe_key IN (
+    'purchase_order_approved:' || v_po::text,
+    'procurement_fund_release:' || v_release::text
+  );
   PERFORM public._procurement_end_rpc();
 
   PERFORM public._test_set_auth_uid(v_fin);
@@ -161,21 +168,37 @@ BEGIN
       v_amount_minor_after;
   END IF;
 
-  -- Domain events stay idempotent (dedupe keys)
-  SELECT COUNT(*)::int INTO v_evt_po
+  -- Conflict-path events must carry stored release money, not recalculated quoted total.
+  SELECT COUNT(*)::int,
+         MAX((payload->>'amount')::numeric),
+         MAX((payload->>'amount_minor')::bigint)
+  INTO v_evt_po, v_evt_amount, v_evt_amount_minor
   FROM public.domain_events
   WHERE event_code = 'po_approved'
     AND dedupe_key = 'purchase_order_approved:' || v_po::text;
   IF v_evt_po <> 1 THEN
     RAISE EXCEPTION 'H8 smoke fail: po_approved event count=% (want 1)', v_evt_po;
   END IF;
+  IF v_evt_amount IS DISTINCT FROM 20.00 OR v_evt_amount_minor IS DISTINCT FROM 2000 THEN
+    RAISE EXCEPTION
+      'H8 smoke fail: po_approved payload must use stored release (got amount=% minor=%)',
+      v_evt_amount, v_evt_amount_minor;
+  END IF;
 
-  SELECT COUNT(*)::int INTO v_evt_funds
+  SELECT COUNT(*)::int,
+         MAX((payload->>'amount')::numeric),
+         MAX((payload->>'amount_minor')::bigint)
+  INTO v_evt_funds, v_evt_amount, v_evt_amount_minor
   FROM public.domain_events
   WHERE event_code = 'procurement_funds_released'
     AND dedupe_key = 'procurement_fund_release:' || v_release::text;
   IF v_evt_funds <> 1 THEN
     RAISE EXCEPTION 'H8 smoke fail: procurement_funds_released event count=% (want 1)', v_evt_funds;
+  END IF;
+  IF v_evt_amount IS DISTINCT FROM 20.00 OR v_evt_amount_minor IS DISTINCT FROM 2000 THEN
+    RAISE EXCEPTION
+      'H8 smoke fail: funds_released payload must use stored release (got amount=% minor=%)',
+      v_evt_amount, v_evt_amount_minor;
   END IF;
 
   -- Direct conflict INSERT must also leave money untouched
