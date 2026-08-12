@@ -1,7 +1,9 @@
-"""Watch live Megazip workers; on successful completion, start next replacement model.
+"""Watch Megazip workers and keep a fixed pool running.
 
-Does not restart crashed workers immediately — those models sit on
-``worker_replacement_queue.json`` until a slot frees from a successful finish.
+Maintains ``--target-workers`` concurrent model workers. When a worker exits
+before finishing (PENDING > 0), the same model is restarted immediately. When
+a worker finishes cleanly (PENDING = 0), the next model from the replacement
+queue (nearest to finish first) is started. Free slots are filled on every poll.
 """
 
 from __future__ import annotations
@@ -16,10 +18,10 @@ from pathlib import Path
 
 from data_pipeline.megazip.config import DEFAULT_OUT_ROOT, MegazipConfig, build_maker_paths
 from data_pipeline.megazip.replacement_queue import (
-    enqueue_models,
     load_queue,
     pending_by_model,
     pop_next,
+    reorder_queue_nearest_first,
     seed_from_dead_models,
 )
 from data_pipeline.megazip.state import expire_stale_leases, init_db, list_active_leases
@@ -53,7 +55,6 @@ def _live_worker_map() -> dict[int, str]:
                 continue
         return out
 
-    # Fallback: PowerShell CIM (Windows)
     if sys.platform.startswith("win"):
         ps = (
             "Get-CimInstance Win32_Process -Filter \"name='python.exe'\" | "
@@ -96,9 +97,22 @@ def _pending_for(state_db: Path, model: str) -> int:
 
 
 def _worker_id_for(model: str) -> str:
-    # Stable short id from model slug
     base = model.split("-")[0] if model else "worker"
     return base[:24]
+
+
+def _clear_lease(state_db: Path, model: str) -> None:
+    try:
+        from data_pipeline.megazip.state import connect
+
+        conn = connect(state_db)
+        try:
+            conn.execute("DELETE FROM worker_leases WHERE model_slug = ?", (model,))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not clear lease for %s: %s", model, exc)
 
 
 def _spawn_worker(
@@ -130,7 +144,7 @@ def _spawn_worker(
         "--rate-limit",
         str(rate_limit),
     ]
-    logger.info("Starting replacement worker: %s", " ".join(cmd))
+    logger.info("Starting worker: %s", " ".join(cmd))
     return subprocess.Popen(
         cmd,
         cwd=str(cwd),
@@ -140,17 +154,63 @@ def _spawn_worker(
     )
 
 
+def _fill_worker_pool(
+    *,
+    maker: str,
+    out_root: Path,
+    state_db: Path,
+    rate_limit: float,
+    cwd: Path,
+    target_workers: int,
+    tracked: dict[int, str],
+) -> None:
+    """Spawn workers from the queue until ``target_workers`` are live."""
+    while True:
+        current = _live_worker_map()
+        for pid, model in current.items():
+            if pid not in tracked:
+                tracked[pid] = model
+        if len(current) >= target_workers:
+            return
+        skip = set(current.values())
+        nxt = pop_next(out_root, skip=skip)
+        if not nxt:
+            logger.info(
+                "Worker pool at %s/%s; replacement queue empty",
+                len(current),
+                target_workers,
+            )
+            return
+        _clear_lease(state_db, nxt)
+        proc = _spawn_worker(
+            maker=maker,
+            model=nxt,
+            out_root=out_root,
+            rate_limit=rate_limit,
+            cwd=cwd,
+        )
+        tracked[proc.pid] = nxt
+        logger.info("Pool fill started pid=%s model=%s (%s/%s)", proc.pid, nxt, len(current) + 1, target_workers)
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Megazip worker success→replacement supervisor")
+    parser = argparse.ArgumentParser(
+        description="Megazip worker pool supervisor (fixed concurrency + auto-restart)"
+    )
     parser.add_argument("--maker", default="Nissan")
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument("--rate-limit", type=float, default=0.55)
     parser.add_argument("--poll-seconds", type=float, default=45.0)
     parser.add_argument(
+        "--target-workers",
+        type=int,
+        default=6,
+        help="Keep this many model workers running (default 6)",
+    )
+    parser.add_argument(
         "--prefer",
         default="",
-        help="Comma-separated model_slugs to put at front of replacement queue "
-        "(typically already-dead workers)",
+        help="Comma-separated model_slugs to prioritize at front of queue (still nearest-first)",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -160,24 +220,17 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
+    if args.target_workers < 1:
+        logger.error("--target-workers must be >= 1")
+        return 1
+
     config = MegazipConfig.load()
     paths = build_maker_paths(args.maker, args.out_root, config)
-    cwd = Path(__file__).resolve().parent.parent  # data-pipeline/
+    cwd = Path(__file__).resolve().parent.parent
     init_db(paths.state_db)
 
     live = _live_worker_map()
     prefer = [m.strip() for m in args.prefer.split(",") if m.strip()]
-    if not prefer:
-        # Known crashed from recent logs if still pending
-        prefer = [
-            "caravan-homy-2073",
-            "auster-stanza-2071",
-            "200sx-2128",
-            "altima-2135",
-            "bluebird-2079",
-            "bluebird",
-        ]
-    # Normalize prefer to real slugs that have PENDING
     pending = pending_by_model(paths.state_db)
     prefer = [m for m in prefer if m in pending]
 
@@ -187,18 +240,34 @@ def main(argv: list[str] | None = None) -> int:
         live_models=set(live.values()),
         prefer=prefer,
     )
-    logger.info("Replacement queue seeded: %s", seed["queued"][:20])
-    logger.info("Watching %s live workers: %s", len(live), live)
+    reorder_queue_nearest_first(
+        args.out_root,
+        paths.state_db,
+        live_models=set(live.values()),
+    )
+    logger.info(
+        "Replacement queue (%s models, nearest-first): %s",
+        len(seed["queued"]),
+        load_queue(args.out_root)[:12],
+    )
+    logger.info("Watching %s live workers (target=%s): %s", len(live), args.target_workers, live)
 
-    tracked = dict(live)  # pid -> model
+    tracked = dict(live)
+    _fill_worker_pool(
+        maker=args.maker,
+        out_root=args.out_root,
+        state_db=paths.state_db,
+        rate_limit=args.rate_limit,
+        cwd=cwd,
+        target_workers=args.target_workers,
+        tracked=tracked,
+    )
 
     while True:
         time.sleep(args.poll_seconds)
         expire_stale_leases(paths.state_db)
         current = _live_worker_map()
-        current_models = set(current.values())
 
-        # Detect disappeared PIDs
         for pid, model in list(tracked.items()):
             if pid in current:
                 continue
@@ -206,53 +275,45 @@ def main(argv: list[str] | None = None) -> int:
             del tracked[pid]
             if pending_n == 0:
                 logger.info(
-                    "Worker pid=%s model=%s completed successfully (PENDING=0) — slot free",
+                    "Worker pid=%s model=%s completed successfully (PENDING=0)",
                     pid,
                     model,
                 )
-                nxt = pop_next(args.out_root, skip=current_models)
-                if not nxt:
-                    logger.info("Replacement queue empty")
-                    continue
-                # Drop stale lease so new worker can acquire
-                try:
-                    from data_pipeline.megazip.state import connect
+                continue
+            logger.warning(
+                "Worker pid=%s model=%s exited with PENDING=%s — restarting same model",
+                pid,
+                model,
+                pending_n,
+            )
+            _clear_lease(paths.state_db, model)
+            proc = _spawn_worker(
+                maker=args.maker,
+                model=model,
+                out_root=args.out_root,
+                rate_limit=args.rate_limit,
+                cwd=cwd,
+            )
+            tracked[proc.pid] = model
 
-                    conn = connect(paths.state_db)
-                    try:
-                        conn.execute("DELETE FROM worker_leases WHERE model_slug = ?", (nxt,))
-                        conn.commit()
-                    finally:
-                        conn.close()
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("Could not clear lease for %s: %s", nxt, exc)
-                proc = _spawn_worker(
-                    maker=args.maker,
-                    model=nxt,
-                    out_root=args.out_root,
-                    rate_limit=args.rate_limit,
-                    cwd=cwd,
-                )
-                tracked[proc.pid] = nxt
-                logger.info("Replacement started pid=%s model=%s", proc.pid, nxt)
-            else:
-                logger.warning(
-                    "Worker pid=%s model=%s exited with PENDING=%s — queued for later "
-                    "(not restarted now)",
-                    pid,
-                    model,
-                    pending_n,
-                )
-                enqueue_models(args.out_root, [model], front=True)
-
-        # Track newly appeared workers (e.g. started elsewhere)
         for pid, model in current.items():
             if pid not in tracked:
                 tracked[pid] = model
 
+        _fill_worker_pool(
+            maker=args.maker,
+            out_root=args.out_root,
+            state_db=paths.state_db,
+            rate_limit=args.rate_limit,
+            cwd=cwd,
+            target_workers=args.target_workers,
+            tracked=tracked,
+        )
+
         logger.info(
-            "alive=%s queue=%s leases=%s",
-            len(tracked),
+            "alive=%s target=%s queue=%s leases=%s",
+            len(_live_worker_map()),
+            args.target_workers,
             load_queue(args.out_root)[:8],
             list_active_leases(paths.state_db),
         )
