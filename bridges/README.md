@@ -39,7 +39,7 @@ geolocation APIs directly.
 | `:escpos-printer` | `android/escpos-printer/` | Implemented — RFCOMM ESC/POS |
 | `:pod-camera` | `android/pod-camera/` | **P0** — CameraX still capture → local JPEG path |
 | `:pod-signature` | `android/pod-signature/` | **P0** — Compose Canvas ink pad → local PNG path |
-| `:maps-nav` | `android/maps-nav/` | **Delivery** — Maps Compose + Directions polyline (display only; no ingest) |
+| `:maps-nav` | `android/maps-nav/` | **MapLibre SoR** (address pick + shared helpers); OSRM prefer; Google deprecated fallback |
 | `:biometric-photo` | `android/biometric-photo/` | **P0** — HR onboarding profile photo (CameraX; no matching) |
 
 Include from `apps/android-delivery/settings.gradle.kts` (scaffold lane):
