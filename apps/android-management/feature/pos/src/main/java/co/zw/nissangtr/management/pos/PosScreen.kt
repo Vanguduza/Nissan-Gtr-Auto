@@ -457,24 +457,26 @@ private fun CartSetupSection(
 ) {
     ShopStaffPanel(title = "Till setup") {
             if (state.warehouses.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PosChipFlow {
                     state.warehouses.forEach { wh ->
                         FilterChip(
                             selected = state.warehouseId == wh.id,
                             onClick = { viewModel.selectWarehouse(wh) },
                             label = { Text(wh.code) },
                             enabled = !state.busy,
+                            modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                         )
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PosChipFlow {
                 CurrencyCode.entries.forEach { code ->
                     FilterChip(
                         selected = state.currency == code,
                         onClick = { viewModel.onCurrencyChange(code) },
                         label = { Text(code.rpcValue) },
                         enabled = !state.busy,
+                        modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                     )
                 }
                 FulfillmentMode.entries.forEach { mode ->
@@ -483,6 +485,7 @@ private fun CartSetupSection(
                         onClick = { viewModel.onFulfillmentModeChange(mode) },
                         label = { Text(mode.label) },
                         enabled = !state.busy,
+                        modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                     )
                 }
             }
@@ -498,10 +501,13 @@ private fun CartSetupSection(
                 OutlinedButton(
                     onClick = viewModel::searchCustomers,
                     enabled = !state.busy,
-                    modifier = Modifier.height(48.dp),
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 ) { Text("Find") }
                 if (state.customerName.isNotBlank()) {
-                    TextButton(onClick = viewModel::clearCustomer) {
+                    TextButton(
+                        onClick = viewModel::clearCustomer,
+                        modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
+                    ) {
                         Text(state.customerName)
                     }
                 }
@@ -511,8 +517,9 @@ private fun CartSetupSection(
                     c.displayName,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = POS_TOUCH_MIN)
                         .clickable { viewModel.selectCustomer(c) }
-                        .padding(vertical = 6.dp),
+                        .padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
@@ -522,6 +529,7 @@ private fun CartSetupSection(
                     label = "Open cart",
                     onClick = viewModel::createCart,
                     enabled = !state.busy,
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 )
             } else {
                 Text("Cart ${state.cartId.take(8)}…", style = MaterialTheme.typography.bodySmall)
