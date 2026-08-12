@@ -92,6 +92,27 @@ def pending_by_model(state_db: Path) -> dict[str, int]:
         conn.close()
 
 
+def reorder_queue_nearest_first(
+    out_root: Path,
+    state_db: Path,
+    *,
+    live_models: set[str] | None = None,
+) -> list[str]:
+    """Re-order queue by ascending PENDING (models closest to done first)."""
+    live_models = live_models or set()
+    pending = pending_by_model(state_db)
+    candidates: list[str] = []
+    for m in load_queue(out_root):
+        if m in pending and m not in live_models and m not in candidates:
+            candidates.append(m)
+    for m in pending:
+        if m not in live_models and m not in candidates:
+            candidates.append(m)
+    candidates.sort(key=lambda m: pending.get(m, 0))
+    save_queue(out_root, candidates)
+    return candidates
+
+
 def seed_from_dead_models(
     out_root: Path,
     state_db: Path,
@@ -101,32 +122,31 @@ def seed_from_dead_models(
 ) -> dict[str, Any]:
     """Put unfinished models (not currently live) on the replacement queue.
 
-    ``prefer`` (e.g. known crashed workers) are placed at the front, ordered by
-    PENDING descending within that set.
+    Final order is ascending PENDING — nearest to finish is started first.
     """
     pending = pending_by_model(state_db)
     prefer = prefer or []
     prefer_set = set(prefer)
-    prefer_ordered = sorted(
-        (m for m in prefer if m in pending and m not in live_models),
-        key=lambda m: pending.get(m, 0),
-        reverse=True,
-    )
-    others = [
-        m
-        for m, _n in sorted(pending.items(), key=lambda kv: kv[1], reverse=True)
-        if m not in live_models and m not in prefer_set
-    ]
-    merged = prefer_ordered + others
-    # Keep any existing queue entries that still have PENDING, then append new.
     existing = [m for m in load_queue(out_root) if m in pending and m not in live_models]
-    final: list[str] = []
-    for m in existing + merged:
-        if m not in final:
-            final.append(m)
+    merged: list[str] = []
+    for m in existing + prefer + list(pending.keys()):
+        if m in pending and m not in live_models and m not in merged:
+            merged.append(m)
+    if prefer_set:
+        prefer_first = sorted(
+            (m for m in merged if m in prefer_set),
+            key=lambda m: pending.get(m, 0),
+        )
+        rest = sorted(
+            (m for m in merged if m not in prefer_set),
+            key=lambda m: pending.get(m, 0),
+        )
+        final = prefer_first + rest
+    else:
+        final = sorted(merged, key=lambda m: pending.get(m, 0))
     save_queue(out_root, final)
     return {
         "queued": final,
-        "prefer_front": prefer_ordered,
+        "prefer_front": [m for m in final if m in prefer_set][:10],
         "pending_models": len(pending),
     }
