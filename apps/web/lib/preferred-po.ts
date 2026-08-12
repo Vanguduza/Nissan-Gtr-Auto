@@ -2,7 +2,6 @@ import {
   resolveProcurementProgress,
   type ProcurementProgressStep,
 } from "@gtr/procurement";
-import type { Database } from "@gtr/supabase-client";
 import type { StorefrontResult } from "@/lib/customer-storefront";
 import {
   loadWarehouses,
@@ -19,12 +18,6 @@ export type { CurrencyCode, StockItemOption, WarehouseOption };
 
 /** Exact browser client shape from createWebClient (avoids Supabase generic variance). */
 export type ProcurementClient = NonNullable<ReturnType<typeof createWebClient>>;
-
-/** Columns added in relationship-procurement migration; types regen is backend follow-up. */
-type PoProgressColumns = {
-  funds_released_at: string | null;
-  progress_step: string | null;
-};
 
 export type PurchaseOrderProgress = {
   id: string;
