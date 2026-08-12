@@ -103,7 +103,7 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 | Manual preferred PO + GRN web panels | **Done** (OEM resolve + draft-only invoice bind) |
 | Delivery FIFO + SQL assign bridge + edge | **Done** (Epic B; autoAcceptOffers opt-in) |
 | MapLibre courier map on job detail | **Done** (primary SoR; Google deprecated) |
-| POS Dial UX (web shell + Android GtrTheme) | Web QA evidenced (Epic G); Android tablet QA → management agent |
+| POS Dial UX (web shell + Android GtrTheme) | **Done** — web 1280/390 + Android ≥700dp dual-pane / 48dp / SqlCipher+Bridge evidenced |
 | `@gtr/payments` PspAdapter + D-57 cart display | **Done** (Epic C) |
 | Meili dual-read `searchCatalog` | **Done** (Epic D; qty strip) |
 | Promptfoo outline + Semgrep/Checkov CI | **Done** (Epics E / F) |
