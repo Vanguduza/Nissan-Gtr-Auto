@@ -311,7 +311,7 @@ export async function loadPurchaseOrderProgress(
   purchaseOrderId: string,
 ): Promise<StorefrontResult<PurchaseOrderProgress>> {
   // funds_released_at / progress_step pending database.types.ts regen (@backend_agent).
-  const { data, error } = await client
+  const { data, error } = await asLooseClient(client)
     .from("purchase_orders")
     .select(PO_PROGRESS_SELECT)
     .eq("id", purchaseOrderId)
@@ -320,7 +320,7 @@ export async function loadPurchaseOrderProgress(
   if (!data) return { ok: false, error: "Purchase order not found." };
   return {
     ok: true,
-    data: toProgress(data as Parameters<typeof toProgress>[0] & PoProgressColumns),
+    data: toProgress(data as Parameters<typeof toProgress>[0]),
   };
 }
 
@@ -329,7 +329,7 @@ export async function listRecentPurchaseOrderProgress(
   client: ProcurementClient,
   limit = 12,
 ): Promise<StorefrontResult<PurchaseOrderProgress[]>> {
-  const { data, error } = await client
+  const { data, error } = await asLooseClient(client)
     .from("purchase_orders")
     .select(PO_PROGRESS_SELECT)
     .order("updated_at", { ascending: false })
@@ -337,8 +337,8 @@ export async function listRecentPurchaseOrderProgress(
   if (error) return { ok: false, error: error.message };
   return {
     ok: true,
-    data: (data ?? []).map((r) =>
-      toProgress(r as Parameters<typeof toProgress>[0] & PoProgressColumns),
+    data: ((data ?? []) as Parameters<typeof toProgress>[0][]).map((r) =>
+      toProgress(r),
     ),
   };
 }
@@ -351,9 +351,10 @@ export async function resolveStockItemByOem(
   client: ProcurementClient,
   oem: string,
 ): Promise<StorefrontResult<string | null>> {
-  const { data, error } = await client.rpc("resolve_stock_item_by_oem", {
-    p_oem: oem,
-  });
+  const { data, error } = await asLooseClient(client).rpc(
+    "resolve_stock_item_by_oem",
+    { p_oem: oem },
+  );
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data as string | null) ?? null };
 }
