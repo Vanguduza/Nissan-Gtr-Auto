@@ -123,7 +123,7 @@ function asLooseClient(client: ProcurementClient) {
 export async function loadPreferredSuppliers(
   client: ProcurementClient,
 ): Promise<StorefrontResult<PreferredSupplierOption[]>> {
-  const { data, error } = await client
+  const { data, error } = await asLooseClient(client)
     .from("suppliers")
     .select("id, code, name, default_currency")
     .eq("is_preferred", true)
@@ -132,11 +132,16 @@ export async function loadPreferredSuppliers(
   if (error) return { ok: false, error: error.message };
   return {
     ok: true,
-    data: (data ?? []).map((r) => ({
+    data: ((data ?? []) as {
+      id: string;
+      code: string;
+      name: string;
+      default_currency: CurrencyCode;
+    }[]).map((r) => ({
       id: r.id,
       code: r.code,
       name: r.name,
-      default_currency: r.default_currency as CurrencyCode,
+      default_currency: r.default_currency,
     })),
   };
 }

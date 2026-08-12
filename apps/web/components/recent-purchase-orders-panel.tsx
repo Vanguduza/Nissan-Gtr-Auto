@@ -22,6 +22,13 @@ export function RecentPurchaseOrdersPanel() {
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
+    if (!client) {
+      setBoot({
+        kind: "error",
+        message: "Supabase is not configured on this environment.",
+      });
+      return;
+    }
     const session = await requireSession(client);
     if (!session.ok) {
       setBoot({ kind: "auth" });

@@ -62,6 +62,10 @@ export function ManualPurchaseOrderPanel() {
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
+    if (!client) {
+      setBoot({ kind: "auth" });
+      return;
+    }
     const session = await requireSession(client);
     if (!session.ok) {
       setBoot({ kind: "auth" });
