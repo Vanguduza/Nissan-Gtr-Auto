@@ -513,8 +513,6 @@ class SupabaseRpcClient(
                 filter {
                     eq("is_active", true)
                     eq("is_quarantine", false)
-                    // Prefer role_code WH2; accept legacy code=WH2 (matches web staff-pos).
-                    or("role_code.eq.WH2,code.eq.WH2")
                 }
                 order("code", Order.ASCENDING)
                 limit(50)
