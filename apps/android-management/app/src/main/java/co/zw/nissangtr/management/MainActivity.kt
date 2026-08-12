@@ -657,6 +657,7 @@ private fun featuresFor(
         "Consignment" to ManagementRoute.Consignment,
     )
     HubModule.Procurement -> listOf(
+        "Preferred supplier PO" to ManagementRoute.PreferredPo,
         "Blanket POs" to ManagementRoute.Blankets,
     )
     HubModule.Crm -> listOf(
