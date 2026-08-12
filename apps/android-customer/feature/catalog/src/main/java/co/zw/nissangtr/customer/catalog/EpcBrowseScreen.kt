@@ -259,8 +259,9 @@ private fun EpcDiagramPane(
                     color = GtrColors.SilverDim,
                 )
             } else {
+                val diagramUrl = data.imageUrl.orEmpty()
                 EpcHotspotCanvas(
-                    imageUrl = data.imageUrl,
+                    imageUrl = diagramUrl,
                     hotspots = data.hotspots,
                     activeOem = activeOem,
                     onSelectOem = onOpenOem,
