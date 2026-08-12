@@ -544,10 +544,13 @@ fun JobDetailScreen(
         ) {
             val mapLat = tracking.lastLat ?: job.dropoffLat
             val mapLng = tracking.lastLng ?: job.dropoffLng
-            if (mapLat != null && mapLng != null) {
+            val hasCoords = mapLat != null && mapLng != null
+            // MapLibre = courier map SoR. Google DeliveryRouteMap only when flag OFF or coords missing.
+            val showMapLibre = state.mapLibreEnabled && hasCoords
+            if (showMapLibre) {
                 MapLibreJobMap(
-                    latitude = mapLat,
-                    longitude = mapLng,
+                    latitude = mapLat!!,
+                    longitude = mapLng!!,
                     zoom = 14.0,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -563,7 +566,7 @@ fun JobDetailScreen(
             }
         }
         Text(
-            "MapLibre SoR · OSRM distance/ETA",
+            jobDetailMapCaption(state),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -709,7 +712,6 @@ private fun DriverPresenceStatus.statusColor(): Color = when (this) {
     DriverPresenceStatus.OFFLINE -> GtrColors.SilverDim
 }
 
-/** Legacy single-screen entry kept for tests / older callers. */
 @Composable
 fun JobsScreen(
     rpc: RpcClient,
@@ -723,11 +725,21 @@ fun JobsScreen(
     shellSubtitle: String? = null,
     signedInEmail: String? = null,
     onSignOut: (() -> Unit)? = null,
+    osrmUrl: String = "",
+    useMapLibre: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val vm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, mapsApiKey),
+        factory = JobsViewModel.factory(
+            rpc,
+            gps,
+            context,
+            supportPhone,
+            mapsApiKey,
+            osrmUrl = osrmUrl,
+            useMapLibre = useMapLibre,
+        ),
     )
     val state by vm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
@@ -754,4 +766,19 @@ fun JobsScreen(
             modifier = modifier,
         )
     }
+}
+
+/** Honest map + distance SoR caption for JobDetailScreen (Epic B freeze). */
+internal fun jobDetailMapCaption(state: JobsUiState): String {
+    val mapPart = when {
+        state.mapLibreEnabled -> "MapLibre SoR"
+        else -> "DEPRECATED Google Maps fallback (useMapLibre=false)"
+    }
+    val routePart = when {
+        state.osrmConfigured -> "OSRM distance/ETA preferred"
+        state.mapsKeyPresent -> "Google Directions (deprecated) — set OSRM_URL"
+        else -> "Routing unconfigured — set OSRM_URL"
+    }
+    val live = state.routeEtaSource?.label
+    return listOfNotNull(mapPart, routePart, live).joinToString(" · ")
 }
