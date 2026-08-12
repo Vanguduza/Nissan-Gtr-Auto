@@ -22,3 +22,11 @@ export {
   runDeliveryDispatchCycle,
   type DispatchActivities,
 } from "./temporal";
+export {
+  candidatesFromSuggestRows,
+  createSqlDispatchActivities,
+  runSqlDeliveryDispatchCycle,
+  trySqlAutoAssign,
+  type AssignRpcClient,
+  type SuggestAssigneeRow,
+} from "./assign-bridge";
