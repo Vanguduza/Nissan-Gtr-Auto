@@ -499,6 +499,10 @@ private fun ManagementApp(
             BackHandler { backFromFeature() }
             BlanketsScreen(rpc = rpc, onBack = ::backFromFeature)
         }
+        ManagementRoute.PreferredPo -> {
+            BackHandler { backFromFeature() }
+            PreferredPoScreen(rpc = rpc, qr = qr, onBack = ::backFromFeature)
+        }
         ManagementRoute.Credit -> {
             BackHandler { backFromFeature() }
             CreditScreen(rpc = rpc, onBack = ::backFromFeature)
@@ -564,7 +568,7 @@ private fun ManagementHome(
             HubModuleTile(HubModule.Warehouse, "Receive · bins · consignment", Icons.Filled.Inventory2, onOpenModule)
         }
         if (allowed("procurement")) {
-            HubModuleTile(HubModule.Procurement, "Preferred PO · blankets · web GRN", Icons.Filled.ShoppingCart, onOpenModule)
+            HubModuleTile(HubModule.Procurement, "Preferred PO · blankets · web GRN secondary", Icons.Filled.ShoppingCart, onOpenModule)
         }
         if (showCredit && allowed("crm")) {
             HubModuleTile(HubModule.Crm, "Credit · AR", Icons.Filled.AccountBalance, onOpenModule)
