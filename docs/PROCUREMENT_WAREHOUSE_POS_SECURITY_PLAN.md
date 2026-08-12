@@ -78,11 +78,11 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 - [x] OSRM distance SoR; MapLibre render *(MapLibreJobMap primary on JobDetailScreen; Google deprecated fallback; B-MAP-1 full skin / B-OSRM-1 compose deferred §H)*
 
 ### E-Sec — DIAL security baseline
-- [ ] No body `userId`/role trust; JWT/session only *(Semgrep rules + HARDENING)*
-- [ ] Webhook signature + idempotency *(existing PSP webhooks + Semgrep heuristic)*
-- [ ] Fail-closed worker secrets *(`assertWorkerSecret`)*
-- [ ] No service_role in client bundles *(Semgrep `no-client-secrets`)*
-- [ ] RLS smokes green; HARDENING.md checklist current *(Epic A smokes green; full E-Sec gate pending)*
+- [x] No body `userId`/role trust; JWT/session only *(Semgrep `no-body-identity` + HARDENING §7)*
+- [x] Webhook signature + idempotency *(PSP webhooks + Semgrep `webhook-signature`)*
+- [x] Fail-closed worker secrets *(`assertWorkerSecret`)*
+- [x] No service_role in client bundles *(Semgrep `no-client-secrets`)*
+- [x] RLS smokes green; HARDENING.md checklist current *(Epic A smokes; HARDENING §7 synced to landed CI)*
 
 ---
 
@@ -90,7 +90,7 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 
 | Artifact | Status |
 | --- | --- |
-| This plan | Living — E-Proc/E-WH/E-Del verified; E-POS/E-Sec open |
+| This plan | Living — E-Proc/E-WH/E-Del/E-Sec verified; E-POS open |
 | `@gtr/procurement` domain + progress tracker | **Done** (verified) |
 | Migration preferred suppliers / fund release / master stock / WH codes | **Done** (`20260812010000`–`70000`) |
 | Migration GRN invoice + amount_minor dual-write | **Done** |
@@ -99,9 +99,9 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 | Delivery FIFO + SQL assign bridge + edge | **Done** (Epic B; autoAcceptOffers opt-in) |
 | MapLibre courier map on job detail | **Done** (primary SoR; Google deprecated) |
 | POS Dial UX (web shell + Android GtrTheme) | Candidate — Epic G (QA open) |
-| `@gtr/payments` PspAdapter + D-57 cart display | Candidate — Epic C |
-| Meili dual-read `searchCatalog` | Candidate — Epic D |
-| Promptfoo outline + Semgrep/Checkov CI | Candidate — Epics E / F |
+| `@gtr/payments` PspAdapter + D-57 cart display | **Done** (Epic C) |
+| Meili dual-read `searchCatalog` | **Done** (Epic D; qty strip) |
+| Promptfoo outline + Semgrep/Checkov CI | **Done** (Epics E / F) |
 | Android preferred-supplier PO | **Web-first** — hub copy points to `/procurement/orders/new` |
 
 ---

@@ -104,6 +104,6 @@ Adopt habits from DIAL D-47 / D-48 without importing DIAL agency locks:
 | Webhooks | ContiPay HMAC / Paynow SHA512 **before** mutate; settle RPCs service_role only |
 | Secrets | No `service_role` / PSP keys in `apps/*` or `NEXT_PUBLIC_*` |
 | Money | Prefer `amountMinor` path in `@gtr/shared`; AI never writes payable amounts |
-| SAST/IaC (next) | Port Semgrep + Checkov CI from DIAL when ready; keep RLS smokes green |
+| SAST/IaC | **Landed:** `.github/workflows/semgrep.yml` job `semgrep-gtr` (hard-fail on `semgrep/rules/*`); community packs advisory. `.github/workflows/checkov.yml` job `checkov` hard-fail HIGH/CRITICAL. Local: root `semgrep.yml`. Keep Epic A RLS smokes (`epic_a_procurement_wh_smoke.sql`) green. |
 
 Procurement fund releases and preferred-supplier RPCs are SECURITY DEFINER — keep mutation guards and role checks intact; do not open table writes from clients.
