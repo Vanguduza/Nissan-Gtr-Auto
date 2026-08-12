@@ -112,6 +112,57 @@ export type PoLineDraft = {
   description?: string | null;
 };
 
+/** Call tables/RPCs newer than generated database.types (regen → @backend_agent). */
+function procurementRpc(
+  client: ProcurementClient,
+  fn: string,
+  args?: Record<string, unknown>,
+): PromiseLike<{ data: unknown; error: { message: string } | null }> {
+  return (
+    client as unknown as {
+      rpc: (
+        name: string,
+        params?: Record<string, unknown>,
+      ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc(fn, args);
+}
+
+function procurementFrom(client: ProcurementClient, table: string) {
+  return (
+    client as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            maybeSingle: () => PromiseLike<{
+              data: unknown;
+              error: { message: string } | null;
+            }>;
+            order: (
+              col: string,
+              opts?: { ascending?: boolean },
+            ) => {
+              limit: (n: number) => PromiseLike<{
+                data: unknown;
+                error: { message: string } | null;
+              }>;
+            };
+          };
+          order: (
+            col: string,
+            opts?: { ascending?: boolean },
+          ) => {
+            limit: (n: number) => PromiseLike<{
+              data: unknown;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    }
+  ).from(table);
+}
+
 export async function loadPreferredSuppliers(
   client: ProcurementClient,
 ): Promise<StorefrontResult<PreferredSupplierOption[]>> {
