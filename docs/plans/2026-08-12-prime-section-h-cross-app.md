@@ -65,7 +65,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | --- | --- | --- |
 | H8 | **conditional** | Migration `20260812080000_*` + smoke; security PASS. **Blocked:** Docker Desktop daemon down — cannot `db:reset` / run smoke. |
 | H-PARITY-WH2 | **Done** | Gradle `PosSaleableWarehouseTest` PASS; `PosViewModel` → `listSaleableWarehouses`; living docs updated. |
-| H2 | **Done** | Native `PreferredPoScreen` + `listPreferredSuppliers` / `create_purchase_order` / `submit_purchase_order`; hub entry first under Procurement; Fake stubs + `PreferredPoHelpersTest`. |
+| H2 | **Done** | Native `PreferredPoScreen` + `listPreferredSuppliers` / `create_purchase_order` / `submit_purchase_order`; hub → Preferred supplier PO; Fake stubs. **Gradle:** `:core:rpc:testDebugUnitTest --tests …PreferredPoHelpersTest` + `:feature:procurement:compileDebugKotlin` → SUCCESS. |
 | H4 … H-ZIMRA | open | — |
 
 ---
