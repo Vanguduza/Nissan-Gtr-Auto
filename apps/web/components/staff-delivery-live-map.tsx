@@ -271,6 +271,12 @@ export function StaffDeliveryLiveMap({
           <span>
             <strong>ETA</strong>
             {etaLabel}
+            {etaSourceLabel ? ` · ${etaSourceLabel}` : ""}
+          </span>
+        ) : etaSourceLabel ? (
+          <span>
+            <strong>ETA</strong>
+            {etaSourceLabel}
           </span>
         ) : null}
         {last ? (
