@@ -273,8 +273,8 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 ### Epic Finance
 - [ ] All new APIs use `amountMinor` + currency
 - [ ] Webhooks idempotent; outbox for receipt/notification side effects
-- [ ] AI cannot write payable fields (tests/Semgrep-style grep)
-- [ ] D-57 display rules on Spare-like surfaces
+- [x] AI cannot write payable fields (tests/Semgrep-style grep) — Epic C C6: `psp.test.ts` + process-ai-reports / process-crm-promos
+- [x] D-57 display rules on Spare-like surfaces — web cart `fxRateId` (Epic C C2/C5); WA Flow gap noted C7
 - [ ] Money-path review skill habits applied before merge
 
 ### Epic Stock/WMS
@@ -323,7 +323,7 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 1. ~~**E2a** — Temporal worker + `DeliveryDispatchWorkflow` wrapping assign/offer RPCs~~ **Bridge done** (`packages/delivery` assign-bridge + edge `delivery-dispatch-cycle`); full Temporal binary optional.
 2. ~~**E2b** — MapLibre Native in courier tracking~~ **Done** (`MapLibreJobMap` on JobDetailScreen).
 3. ~~**E3a** — `@gtr/payments` PspAdapter registry~~ **Done**.
-4. ~~**E3b** — Web D-57 USD browse + ZiG-at-checkout~~ **Done** (`buildCheckoutDisplay` in cart-checkout).
+4. ~~**E3b** — Web D-57 USD browse + ZiG-at-checkout~~ **Done** (`buildCheckoutDisplay` in cart-checkout; `fxRateId` from `daily_exchange_rates.id` — see `docs/plans/2026-08-12-epic-c-payments-d57-dod.md`).
 5. ~~**E4** — Promptfoo outline for CRM/report narratives~~ **Done** (`promptfoo/`).
 6. ~~**E5** — `amount_minor` dual-write on PO money paths~~ **Done** (migration `20260812030000_*`); broader ledger later.
 7. ~~**E6** — Meili dual-read default for catalog search~~ **Done**.
