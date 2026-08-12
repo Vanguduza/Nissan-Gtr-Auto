@@ -278,8 +278,9 @@ class JobsViewModel(
         if (osrmUrl.isBlank() && mapsApiKey.isBlank()) {
             _state.update {
                 it.copy(
-                    routeLabel = "Routing unconfigured — set OSRM_URL (preferred) or GOOGLE_MAPS_API_KEY",
+                    routeLabel = "Routing unconfigured — set OSRM_URL (preferred) or GOOGLE_MAPS_API_KEY (deprecated)",
                     routePoints = emptyList(),
+                    routeEtaSource = null,
                 )
             }
             return
@@ -306,6 +307,7 @@ class JobsViewModel(
                         routeBusy = false,
                         routePoints = emptyList(),
                         routeLabel = "Waiting for GPS for route — destination marked",
+                        routeEtaSource = null,
                     )
                 }
                 return@launch
@@ -323,8 +325,14 @@ class JobsViewModel(
                 .take(3)
                 .map { MapLatLng(it.dropoffLat!!, it.dropoffLng!!) }
 
+            val preferOsrm = osrmUrl.isNotBlank()
+            val etaSource = if (preferOsrm) {
+                RouteEtaSource.OSRM
+            } else {
+                RouteEtaSource.GOOGLE_DIRECTIONS_DEPRECATED
+            }
             when (
-                val result = if (osrmUrl.isNotBlank()) {
+                val result = if (preferOsrm) {
                     osrm.fetchDrivingRoute(
                         origin = MapLatLng(originLat!!, originLng!!),
                         destination = MapLatLng(destLat, destLng),
@@ -340,22 +348,17 @@ class JobsViewModel(
             ) {
                 is RouteFetchResult.Ok -> {
                     val r = result.route
-                    val dist = r.distanceMeters?.let { d ->
-                        if (d >= 1000) "%.1f km".format(d / 1000.0) else "${d}m"
-                    }
-                    val dur = r.durationSeconds?.let { s ->
-                        val m = s / 60
-                        if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
-                    }
                     _state.update {
                         it.copy(
                             routeBusy = false,
                             routePoints = r.points,
-                            routeLabel = listOfNotNull(
-                                r.summary,
-                                dist,
-                                dur,
-                            ).joinToString(" · ").ifBlank { "Route ready" },
+                            routeEtaSource = etaSource,
+                            routeLabel = formatRouteGuidanceLabel(
+                                etaSource = etaSource,
+                                summary = r.summary,
+                                distanceMeters = r.distanceMeters,
+                                durationSeconds = r.durationSeconds,
+                            ),
                         )
                     }
                 }
@@ -364,7 +367,8 @@ class JobsViewModel(
                         it.copy(
                             routeBusy = false,
                             routePoints = emptyList(),
-                            routeLabel = result.message,
+                            routeEtaSource = etaSource,
+                            routeLabel = "${etaSource.label} · ${result.message}",
                         )
                     }
                 }
@@ -496,6 +500,7 @@ class JobsViewModel(
             supportPhone: String,
             mapsApiKey: String,
             osrmUrl: String = "",
+            useMapLibre: Boolean = true,
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -507,6 +512,7 @@ class JobsViewModel(
                         supportPhone,
                         mapsApiKey,
                         osrmUrl,
+                        useMapLibre,
                     ) as T
             }
     }
