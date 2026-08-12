@@ -262,13 +262,14 @@ private fun LeftFunctionsPane(
                 OfflineStatusBanner(state = state, viewModel = viewModel)
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PosChipFlow {
                 FilterChip(
                     selected = state.mode == PosWorkspaceMode.Till,
                     onClick = { viewModel.setMode(PosWorkspaceMode.Till) },
                     label = { Text("Till") },
                     enabled = !state.busy,
                     shape = MaterialTheme.shapes.extraSmall,
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 )
                 FilterChip(
                     selected = state.mode == PosWorkspaceMode.Companion,
@@ -276,6 +277,7 @@ private fun LeftFunctionsPane(
                     label = { Text("Scan companion") },
                     enabled = !state.busy && !state.isOffline,
                     shape = MaterialTheme.shapes.extraSmall,
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 )
                 FilterChip(
                     selected = state.showQuotes,
@@ -283,6 +285,7 @@ private fun LeftFunctionsPane(
                     label = { Text("Quotations") },
                     enabled = !state.busy && !state.isOffline,
                     shape = MaterialTheme.shapes.extraSmall,
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 )
             }
 
