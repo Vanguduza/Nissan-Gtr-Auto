@@ -106,6 +106,7 @@ private enum class ManagementRoute {
     Bins,
     Consignment,
     Blankets,
+    PreferredPo,
     Credit,
     Chat,
     DeviceAdmin,
