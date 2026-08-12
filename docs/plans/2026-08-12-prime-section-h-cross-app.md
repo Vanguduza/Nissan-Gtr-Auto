@@ -60,7 +60,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | ID | Status | Evidence |
 | --- | --- | --- |
 | H8 | **conditional** | Migration `20260812080000_fund_release_insert_once.sql` + smoke file; security PASS; payload uses stored money on conflict. **Smoke not run** (Docker daemon down). Full Done blocked on local `db:reset` + smoke. |
-| H-PARITY-WH2 | **in progress** | Started after H8 conditional |
+| H-PARITY-WH2 | **implemented** | Android: `listSaleableWarehouses` + `isPosSaleableWarehouse` (role_code/code WH2); `PosViewModel.loadWarehouses` uses saleable only. **Verifier:** `.\gradlew :core:rpc:testDebugUnitTest --tests co.zw.nissangtr.management.rpc.PosSaleableWarehouseTest`; code path `PosViewModel.loadWarehouses` → `rpc.listSaleableWarehouses()` (not `listWarehouses`). |
 | H2 … H-ZIMRA | open | — |
 
 ---
