@@ -27,7 +27,7 @@ geolocation APIs directly.
 | POD photo | `contracts/pod.ts` → `PodCameraBridge` | `bridges/android/pod-camera/` | — (no iOS driver app) | CameraX ImageCapture |
 | Review photo (customer) | same local-path shape as POD | Android pod-camera reuse | `bridges/ios/ReviewCamera/` | UIImagePickerController |
 | POD signature | `contracts/pod.ts` → `PodSignatureBridge` | `bridges/android/pod-signature/` | — (no iOS driver app) | Compose Canvas pad |
-| Delivery maps (display) | — (helper) | `bridges/android/maps-nav/` | — | Maps Compose + Directions REST |
+| Delivery maps (display) | — (helper) | `bridges/android/maps-nav/` | — | **MapLibre SoR** + OSRM distance; Google Maps/Directions deprecated fallback |
 | Barrel export | `contracts/index.ts` | — | — | — |
 
 ## Android modules

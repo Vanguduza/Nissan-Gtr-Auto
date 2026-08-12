@@ -1,17 +1,30 @@
-# Android delivery maps helper — maps-nav
+# Android maps-nav bridge
 
-In-app **Google Maps Compose** + **Directions API** route polyline for driver
-guidance to delivery job dropoffs. **Display only** — GPS ingest stays Bridge-First
-via `:location-tracker` FGS (`ingest_delivery_location`). No WebView geolocation.
+Bridge-First map **display** helpers for delivery + customer Android.
+**No GPS ingest** here — that stays in `:location-tracker` FGS.
+
+## Render SoR (B-MAP-1)
+
+| Surface | SoR | Deprecated fallback |
+|---------|-----|---------------------|
+| Customer address pick | **MapLibre** (`MapLibreAddressPickMap` via `AddressPickMap`) | Google Maps Compose when `useMapLibre=false` or MapLibre init fails + `GOOGLE_MAPS_API_KEY` |
+| Courier job map | **MapLibre** (`MapLibreJobMap` in android-delivery) | Google `DeliveryRouteMap` |
+
+## Distance / ETA SoR
+
+**OSRM** via `OsrmRouteFetcher` when `OSRM_URL` is set (delivery prefer-path). Google Directions remains deprecated HTTP fallback only — do not reintroduce Google as distance SoR.
 
 ## Adopt-first note
 
 | Option | Decision |
 |--------|----------|
-| Maps SDK + maps-compose (Apache-2.0) + Directions REST | **Integrate** — free-tier Maps/Directions keys |
-| Navigation SDK | **Defer** — requires Google Navigation SDK partnership / enterprise |
+| MapLibre Native (BSD) + optional self-hosted style | **Integrate** — render SoR |
+| OSRM HTTP | **Integrate** — distance SoR when configured |
+| Maps SDK + maps-compose + Directions REST | **Deprecated fallback** only |
+| Navigation SDK | **Defer** — Google partnership |
+| Fleetbase | **Never** |
 
-## Include from android-delivery
+## Include
 
 ```kotlin
 include(":maps-nav")
@@ -23,13 +36,24 @@ project(":maps-nav").projectDir =
 implementation(project(":maps-nav"))
 ```
 
-Host app must put the API key in **`local.properties`** (gitignored):
+### Customer app (`local.properties`)
 
 ```properties
-GOOGLE_MAPS_API_KEY=your-maps-key
+# MapLibre SoR (default). Set false only for deprecated Google tiles.
+# useMapLibre=false
+# Deprecated Google fallback key (optional):
+# GOOGLE_MAPS_API_KEY=your-maps-key
 ```
 
-Wire into the application manifest:
+### Delivery app
+
+```properties
+# useMapLibre=false   # deprecated Google DeliveryRouteMap only
+OSRM_URL=http://127.0.0.1:5000
+# GOOGLE_MAPS_API_KEY=...  # Directions fallback only when OSRM unset
+```
+
+Wire Google key into the application manifest **only if** using the deprecated fallback:
 
 ```xml
 <meta-data
@@ -37,29 +61,28 @@ Wire into the application manifest:
     android:value="${GOOGLE_MAPS_API_KEY}" />
 ```
 
-Enable **Maps SDK for Android** and **Directions API** for that key in Google Cloud Console.
-Restrict by package `co.zw.nissangtr.delivery` + SHA-1 when shipping.
-
 ## API surface
 
 ```kotlin
-// Fetch route (IO)
-val fetcher = DirectionsRouteFetcher(apiKey)
-when (val r = fetcher.fetchDrivingRoute(origin, destination, waypoints)) {
-    is RouteFetchResult.Ok -> r.route.points
-    is RouteFetchResult.Failed -> /* show message */
-}
-
-// Compose map (display)
-DeliveryRouteMap(
-    destination = MapLatLng(lat, lng),
-    driver = MapLatLng(driverLat, driverLng),
-    routePoints = points,
-    otherStops = stops,
-    mapsKeyPresent = apiKey.isNotBlank(),
+// Customer address pick — MapLibre SoR by default
+AddressPickMap(
+    selected = pin,
+    onPick = { /* lat/lng */ },
+    mapsKeyPresent = googleKey.isNotBlank(), // only for deprecated Google path
+    useMapLibre = true,
 )
 
-// External turn-by-turn fallback
+// Courier route (deprecated Google tiles) — prefer MapLibreJobMap in delivery tracking
+DeliveryRouteMap(...)
+
+// Distance SoR when OSRM_URL set
+val osrm = OsrmRouteFetcher(osrmUrl)
+osrm.fetchDrivingRoute(origin, destination)
+
+// Deprecated Directions fallback
+val fetcher = DirectionsRouteFetcher(apiKey)
+
+// External turn-by-turn
 ExternalNavigation.openTurnByTurn(context, destination)
 ```
 
@@ -68,3 +91,4 @@ ExternalNavigation.openTurnByTurn(context, destination)
 - Bridge-First: no WebView GPS; do not call `ingest_delivery_location` from this module.
 - Never commit API keys — `local.properties` / CI secrets only.
 - No ZIMRA / fiscal payloads.
+- No Fleetbase.
