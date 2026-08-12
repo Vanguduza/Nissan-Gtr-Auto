@@ -1264,8 +1264,43 @@ class FakeRpcClient : RpcClient {
 
     override suspend fun listSuppliers(): List<SupplierRef> = suppliers.toList()
 
+    override suspend fun listPreferredSuppliers(): List<PreferredSupplierRef> =
+        suppliers.map {
+            PreferredSupplierRef(
+                id = it.id,
+                code = it.code,
+                name = it.name,
+                defaultCurrency = CurrencyCode.USD,
+            )
+        }
+
     override suspend fun listBlanketPurchaseOrders(): List<BlanketSummary> =
         blankets.sortedByDescending { it.documentNumber }
+
+    override suspend fun createPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        lines: List<BlanketLineInput>,
+        notes: String?,
+        expectedDate: String?,
+    ): String {
+        require(supplierId.isNotBlank())
+        require(warehouseId.isNotBlank())
+        require(lines.isNotEmpty()) { "purchase order lines required" }
+        if (currency == CurrencyCode.ZIG) {
+            require(exchangeRate > 0) { "positive exchange_rate required for ZIG" }
+        }
+        lines.forEach { line ->
+            require(line.stockItemId.isNotBlank() && line.uomId.isNotBlank())
+            require(line.qty > 0)
+            require(line.unitPrice >= 0)
+        }
+        val id = UUID.randomUUID().toString()
+        manualPos[id] = "draft"
+        return id
+    }
 
     override suspend fun createBlanketPurchaseOrder(
         supplierId: String,
