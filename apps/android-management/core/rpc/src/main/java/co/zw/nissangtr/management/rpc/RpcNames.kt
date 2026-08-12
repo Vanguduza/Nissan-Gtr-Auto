@@ -129,7 +129,8 @@ object RpcNames {
     const val POST_CHAT_MESSAGE = "post_chat_message"
     const val CHAT_UNREAD_COUNT = "chat_unread_count"
 
-    // Phase 8b procurement / blankets
+    // Phase 8b procurement / blankets + preferred manual PO
+    const val CREATE_PURCHASE_ORDER = "create_purchase_order"
     const val CREATE_BLANKET_PURCHASE_ORDER = "create_blanket_purchase_order"
     const val CREATE_BLANKET_RELEASE = "create_blanket_release"
     const val SUBMIT_PURCHASE_ORDER = "submit_purchase_order"
