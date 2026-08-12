@@ -92,6 +92,43 @@ def pending_by_model(state_db: Path) -> dict[str, int]:
         conn.close()
 
 
+def progress_by_model(state_db: Path) -> dict[str, tuple[int, int]]:
+    """Return {model_slug: (pending, visited)} for models with any queue rows."""
+    conn = sqlite3.connect(f"file:{Path(state_db).as_posix()}?mode=ro", uri=True, timeout=120.0)
+    try:
+        rows = conn.execute(
+            """
+            SELECT model_slug,
+                   SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN status = 'VISITED' THEN 1 ELSE 0 END)
+            FROM queue
+            WHERE model_slug IS NOT NULL AND trim(model_slug) != ''
+            GROUP BY model_slug
+            """
+        ).fetchall()
+        return {str(m): (int(p or 0), int(v or 0)) for m, p, v in rows}
+    finally:
+        conn.close()
+
+
+def queue_candidates(
+    state_db: Path,
+    *,
+    live_models: set[str] | None = None,
+    min_visited: int = 100,
+) -> list[str]:
+    """Models eligible for workers: pending work and meaningful crawl progress."""
+    live_models = live_models or set()
+    progress = progress_by_model(state_db)
+    eligible = [
+        m
+        for m, (pending, visited) in progress.items()
+        if pending > 0 and visited >= min_visited and m not in live_models
+    ]
+    eligible.sort(key=lambda m: progress[m][0])
+    return eligible
+
+
 def reorder_queue_nearest_first(
     out_root: Path,
     state_db: Path,
