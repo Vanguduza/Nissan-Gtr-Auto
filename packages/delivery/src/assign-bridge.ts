@@ -1,7 +1,16 @@
 /**
- * Bridge: Temporal FIFO dispatch cycle → SQL assign RPCs (DIAL D-45).
- * Edge worker / Temporal activities call these; Postgres remains assign SoR until
- * full Temporal worker cutover. No Fleetbase.
+ * SQL / Edge fire-and-assign stub for FIFO dispatch (DIAL D-45).
+ *
+ * This bridge wires `runDeliveryDispatchCycle` to Postgres assign RPCs so Edge
+ * (`delivery-dispatch-cycle`) and cron can run the same offer SM without a
+ * Temporal worker host. It is **not** the full `DeliveryDispatchWorkflow`
+ * worker — that binary is deferred (§H / DIAL E2+).
+ *
+ * Default: offers are **not** auto-accepted (`autoAcceptOffers` defaults false)
+ * so reject/timeout → requeue can be evidenced via injectable `awaitDecision`.
+ * Pass `autoAcceptOffers: true` only for cron / immediate SQL assign.
+ *
+ * No Fleetbase. AI never writes money / payable amounts.
  */
 import {
   runDeliveryDispatchCycle,
@@ -30,6 +39,21 @@ export type SuggestAssigneeRow = {
   status: string;
 };
 
+export type SqlDispatchActivityOpts = {
+  /**
+   * Opt-in: first offered courier is auto-accepted (cron / immediate assign).
+   * Default `false` — `awaitDecision` returns `"timeout"` unless overridden,
+   * so offer SM reject/timeout → requeue can be unit-tested without a Temporal host.
+   */
+  autoAcceptOffers?: boolean;
+  offerTimeoutSeconds?: number;
+  /**
+   * Test double / Edge hook: override offer wait. When omitted, decision is
+   * `"accept"` iff `autoAcceptOffers === true`, else `"timeout"`.
+   */
+  awaitDecision?: DispatchActivities["awaitDecision"];
+};
+
 /**
  * Map suggest_delivery_assignees rows → CourierCandidate (rank by distance then load).
  */
@@ -54,17 +78,16 @@ export function candidatesFromSuggestRows(
 
 /**
  * Build DispatchActivities backed by assign / suggest RPCs.
- * Offer wait is short-circuit accept for immediate SQL assign path (worker stub).
+ *
+ * SQL bridge = fire-and-assign stub (Edge-portable). Full Temporal
+ * `DeliveryDispatchWorkflow` worker with durable timers = §H — not this module.
  */
 export function createSqlDispatchActivities(
   client: AssignRpcClient,
-  opts?: {
-    /** When true, first offered courier is auto-accepted (cron / immediate assign). */
-    autoAcceptOffers?: boolean;
-    offerTimeoutSeconds?: number;
-  },
+  opts?: SqlDispatchActivityOpts,
 ): DispatchActivities {
-  const autoAccept = opts?.autoAcceptOffers !== false;
+  const autoAccept = opts?.autoAcceptOffers === true;
+  const awaitDecisionOverride = opts?.awaitDecision;
 
   return {
     async listEligibleCouriers(jobId) {
@@ -78,10 +101,13 @@ export function createSqlDispatchActivities(
     },
 
     async sendOffer(_jobId, _driverId, _timeoutSeconds) {
-      // Offer rows live in Temporal worker; SQL path is fire-and-assign.
+      // Offer rows / push live in Temporal worker (§H); SQL path is fire-and-assign.
     },
 
-    async awaitDecision(_jobId, _driverId, _timeoutSeconds) {
+    async awaitDecision(jobId, driverId, timeoutSeconds) {
+      if (awaitDecisionOverride) {
+        return awaitDecisionOverride(jobId, driverId, timeoutSeconds);
+      }
       return (autoAccept ? "accept" : "timeout") satisfies DeliveryOfferDecision;
     },
 
@@ -109,11 +135,14 @@ export function createSqlDispatchActivities(
 
 /**
  * Run one FIFO offer→assign cycle using SQL RPCs (Temporal activity portable).
+ *
+ * Same caveats as {@link createSqlDispatchActivities}: stub bridge, not §H worker.
+ * Default does not auto-accept; pass `autoAcceptOffers: true` for cron assign.
  */
 export async function runSqlDeliveryDispatchCycle(
   client: AssignRpcClient,
   input: DispatchWorkflowInput,
-  opts?: { autoAcceptOffers?: boolean },
+  opts?: SqlDispatchActivityOpts,
 ): Promise<DispatchWorkflowResult> {
   const activities = createSqlDispatchActivities(client, opts);
   return runDeliveryDispatchCycle(input, activities);
