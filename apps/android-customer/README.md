@@ -27,8 +27,10 @@ and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 | `:feature:reviews` | `…customer.reviews` | Submit / list / stats / photo attach |
 | `:feature:pay` | `…customer.pay` | ContiPay + Paynow intent create |
 | `:feature:chat` | `…customer.chat` | Live chat threads / messages / composer |
+| `:feature:address` | `…customer.address` | Shipping addresses + MapLibre pin pick (B-MAP-1) |
 | `:feature:track` | `…customer.track` | Active delivery last-point + ETA (`get_delivery_track_point`) |
 | `:pod-camera` | `bridges/android/pod-camera` | Bridge-First CameraX still capture (review photos) |
+| `:maps-nav` | `bridges/android/maps-nav` | MapLibre SoR address pick; Google deprecated fallback |
 
 ## Screens (scaffolds)
 
