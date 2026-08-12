@@ -125,6 +125,8 @@ BEGIN
 
   -- Conflict path: bump quoted total, force status back to submitted, re-approve.
   -- Insert-once must keep original amount_minor (not rewrite to new total).
+  -- Direct UPDATEs require procurement RPC flag (mutation guards).
+  PERFORM public._procurement_begin_rpc();
   UPDATE public.purchase_order_lines
   SET unit_price = 99.00
   WHERE id = v_po_line;
@@ -138,6 +140,7 @@ BEGIN
     progress_step = 'submitted',
     updated_at = now()
   WHERE id = v_po;
+  PERFORM public._procurement_end_rpc();
 
   PERFORM public._test_set_auth_uid(v_fin);
   PERFORM public.approve_purchase_order(v_po);
