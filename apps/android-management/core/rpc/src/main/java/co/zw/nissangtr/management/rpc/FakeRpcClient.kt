@@ -218,6 +218,9 @@ class FakeRpcClient : RpcClient {
         ),
     )
 
+    /** Manual (non-blanket) PO id → status for preferred-supplier create/submit. */
+    private val manualPos = mutableMapOf<String, String>()
+
     private val customers = mutableListOf(
         CustomerOption(id = FAKE_CUSTOMER_ID, displayName = "Acme Motors (B2B)"),
         CustomerOption(id = FAKE_CUSTOMER_USER_ID, displayName = "Walk-in Sample"),
