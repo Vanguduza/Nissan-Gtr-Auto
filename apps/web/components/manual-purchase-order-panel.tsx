@@ -196,9 +196,16 @@ export function ManualPurchaseOrderPanel() {
         RFQ awards. AI restock suggestions are advisory only.
       </p>
       <ProcurementProgressTracker
-        step={createdId ? "submitted" : "draft"}
-        documentLabel={createdId ?? "New PO"}
+        step={createdId ? trackerStep : "draft"}
+        documentLabel={createdId ? trackerLabel : "New PO"}
       />
+      {createdId ? (
+        <p className={styles.muted}>
+          <Link href={`/procurement/orders/${createdId}`}>
+            Open PO detail (live status through closed)
+          </Link>
+        </p>
+      ) : null}
       {message ? <p className={styles.formStatus}>{message}</p> : null}
 
       <form className={styles.form} onSubmit={(e) => void onSubmit(e, true)}>
