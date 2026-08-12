@@ -51,7 +51,10 @@ BEGIN
 
   PERFORM public._test_set_auth_uid(v_admin);
 
-  SELECT id INTO v_supplier FROM public.suppliers WHERE code = 'P8-SUP' LIMIT 1;
+  SELECT id INTO v_supplier FROM public.suppliers
+  WHERE code IN ('P8-SUP', 'P8-APV')
+  ORDER BY CASE WHEN code = 'P8-SUP' THEN 0 ELSE 1 END
+  LIMIT 1;
   IF v_supplier IS NULL THEN
     v_supplier := public.create_supplier('P8-APV', 'Approve Smoke Supplier');
   END IF;
