@@ -223,12 +223,7 @@ private fun PosWorkspace(
                 )
             }
         } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 LeftFunctionsPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
                 RightCartPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
             }
