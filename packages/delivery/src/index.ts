@@ -28,5 +28,6 @@ export {
   runSqlDeliveryDispatchCycle,
   trySqlAutoAssign,
   type AssignRpcClient,
+  type SqlDispatchActivityOpts,
   type SuggestAssigneeRow,
 } from "./assign-bridge";
