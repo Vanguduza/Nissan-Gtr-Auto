@@ -939,7 +939,7 @@ private fun QuotesPanel(
             enabled = !state.busy,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .heightIn(min = POS_TOUCH_MIN),
         ) { Text("Create quote from current cart") }
 
         if (state.quotations.isEmpty()) {
