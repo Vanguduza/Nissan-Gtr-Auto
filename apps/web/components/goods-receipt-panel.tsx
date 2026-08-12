@@ -132,6 +132,11 @@ export function GoodsReceiptPanel() {
 
     // OEM text not on PO lines — resolve catalog id, then match by stock_item_id.
     const client = createWebClient();
+    if (!client) {
+      setOemBusy(false);
+      setMessage("Supabase is not configured on this environment.");
+      return;
+    }
     const resolved = await resolveStockItemByOem(client, oem);
     setOemBusy(false);
     if (!resolved.ok) {
@@ -168,6 +173,11 @@ export function GoodsReceiptPanel() {
     setBusy(true);
     setMessage(null);
     const client = createWebClient();
+    if (!client) {
+      setBusy(false);
+      setMessage("Supabase is not configured on this environment.");
+      return;
+    }
     const payload = lines
       .filter((l) => Number(l.recvQty) > 0)
       .map((l) => ({
@@ -198,7 +208,7 @@ export function GoodsReceiptPanel() {
     const { data: grnId, error } = await client.rpc("create_goods_receipt", {
       p_purchase_order_id: poId,
       p_lines: payload,
-      p_notes: notes || null,
+      p_notes: notes || undefined,
     });
     if (error) {
       setBusy(false);
