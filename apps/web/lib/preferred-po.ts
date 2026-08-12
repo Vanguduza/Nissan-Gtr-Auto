@@ -110,9 +110,8 @@ export type PoLineDraft = {
 /** Call tables/RPCs newer than generated database.types (regen → @backend_agent). */
 function asLooseClient(client: ProcurementClient) {
   return client as unknown as {
-    from: (table: string) => {
-      select: (cols: string) => any;
-    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    from: (table: string) => any;
     rpc: (
       fn: string,
       args?: Record<string, unknown>,
