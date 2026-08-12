@@ -1,0 +1,188 @@
+# Nissan GTR Semgrep entry config (D-48)
+# Canonical rule files: semgrep/rules/*.yaml (CI job semgrep-gtr uses that directory).
+# This file mirrors the same rules for: semgrep scan --config semgrep.yml --error --metrics=off .
+#
+# Engine: Semgrep CE (LGPL-2.1). Custom rule metadata.license: MIT.
+# Prefer editing semgrep/rules/ then keep this file in sync (or scan the directory only).
+
+rules:
+  - id: dial.no-body-identity
+    message: >-
+      Do not use userId, email, or role from request body/query for authorization.
+      Authenticated identity must come from JWT/session only (D-47).
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-47
+      category: security
+      cwe: "CWE-807"
+      license: MIT
+    patterns:
+      - pattern-either:
+          - pattern: req.body.userId
+          - pattern: req.body.user_id
+          - pattern: req.body.email
+          - pattern: req.body.role
+          - pattern: req.query.userId
+          - pattern: req.query.user_id
+          - pattern: req.query.email
+          - pattern: req.query.role
+          - pattern: body.userId
+          - pattern: body.user_id
+          - pattern: searchParams.get("userId")
+          - pattern: searchParams.get("user_id")
+          - pattern: searchParams.get("role")
+    paths:
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/*.spec.ts"
+        - "**/semgrep/**"
+        - "**/ThreatDragonModels/**"
+        - "**/docs/**"
+
+  - id: dial.no-client-secrets
+    message: >-
+      Client/public env (NEXT_PUBLIC_ / VITE_) must never carry service_role, PSP keys,
+      WhatsApp tokens, or FDMS activation secrets (D-47).
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-47
+      category: security
+      cwe: "CWE-798"
+      license: MIT
+    pattern-either:
+      - pattern-regex: NEXT_PUBLIC_[A-Z0-9_]*(SERVICE_ROLE|SECRET|PRIVATE|SK_LIVE|PAYNOW|CONTIPAY|ECOCASH|PAYPAL|WHATSAPP|WA_|FDMS)[A-Z0-9_]*
+      - pattern-regex: VITE_[A-Z0-9_]*(SERVICE_ROLE|SECRET|PRIVATE|SK_LIVE|PAYNOW|CONTIPAY|ECOCASH|PAYPAL|WHATSAPP|WA_|FDMS)[A-Z0-9_]*
+      - pattern-regex: process\.env\.NEXT_PUBLIC_[A-Z0-9_]*SERVICE_ROLE
+      - pattern-regex: import\.meta\.env\.VITE_[A-Z0-9_]*SERVICE_ROLE
+    paths:
+      exclude:
+        - "**/semgrep/**"
+        - "**/ThreatDragonModels/**"
+        - "**/*.md"
+
+  - id: dial.webhook-missing-signature-verify
+    message: >-
+      Webhook handler reads a request body without an obvious signature verification
+      call in the same function. Verify PSP/Meta/FDMS signatures and idempotency before
+      mutating (Appendix A.1). Heuristic — tune as handlers land.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-48
+      category: security
+      cwe: "CWE-345"
+      confidence: LOW
+      license: MIT
+    patterns:
+      - pattern-either:
+          - pattern: |
+              async function $H($REQ, ...) {
+                ...
+                $REQ.body
+                ...
+              }
+          - pattern: |
+              export async function POST($REQ, ...) {
+                ...
+                await $REQ.json()
+                ...
+              }
+      - pattern-not: |
+          async function $H($REQ, ...) {
+            ...
+            verifySignature(...)
+            ...
+          }
+      - pattern-not: |
+          async function $H($REQ, ...) {
+            ...
+            verifyWebhookSignature(...)
+            ...
+          }
+      - pattern-not: |
+          async function $H($REQ, ...) {
+            ...
+            createHmac(...)
+            ...
+          }
+      - pattern-not: |
+          export async function POST($REQ, ...) {
+            ...
+            verifySignature(...)
+            ...
+          }
+      - pattern-not: |
+          export async function POST($REQ, ...) {
+            ...
+            verifyWebhookSignature(...)
+            ...
+          }
+      - pattern-not: |
+          export async function POST($REQ, ...) {
+            ...
+            createHmac(...)
+            ...
+          }
+    paths:
+      include:
+        - "**/webhooks/**"
+        - "**/*webhook*"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.spec.ts"
+        - "**/semgrep/**"
+        - "**/docs/**"
+        - "**/ThreatDragonModels/**"
+
+  - id: dial.no-unofficial-whatsapp
+    message: >-
+      Unofficial WhatsApp clients are forbidden (D-40). Use Meta WhatsApp Cloud API only.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-40
+      category: security
+      license: MIT
+    pattern-either:
+      - pattern: import $X from "baileys"
+      - pattern: import $X from '@whiskeysockets/baileys'
+      - pattern: import $X from "whatsapp-web.js"
+      - pattern: import $X from 'whatsapp-web.js'
+      - pattern: require("baileys")
+      - pattern: require('baileys')
+      - pattern: require("@whiskeysockets/baileys")
+      - pattern: require("whatsapp-web.js")
+      - pattern-regex: from\s+['"]@whiskeysockets/baileys['"]
+      - pattern-regex: from\s+['"]baileys['"]
+      - pattern-regex: from\s+['"]whatsapp-web\.js['"]
+
+  - id: dial.no-raw-sql-concat
+    message: >-
+      Avoid building SQL via string concatenation or unparameterized interpolation.
+      Prefer parameterized queries.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-48
+      category: security
+      cwe: "CWE-89"
+      license: MIT
+    pattern-either:
+      - pattern: $DB.query("..." + $X, ...)
+      - pattern: $DB.query('...' + $X, ...)
+      - pattern: $DB.execute("..." + $X, ...)
+      - pattern: $DB.raw(`...${$X}...`)
+      - pattern: $CLIENT.query(`SELECT ... ${$X} ...`)
+      - pattern: $CLIENT.query(`INSERT ... ${$X} ...`)
+      - pattern: $CLIENT.query(`UPDATE ... ${$X} ...`)
+      - pattern: $CLIENT.query(`DELETE ... ${$X} ...`)
+    paths:
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.spec.ts"
+        - "**/semgrep/**"
+        - "**/docs/**"
+        - "**/ThreatDragonModels/**"
