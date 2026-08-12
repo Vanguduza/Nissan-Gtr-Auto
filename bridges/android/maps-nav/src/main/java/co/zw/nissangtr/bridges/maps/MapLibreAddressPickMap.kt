@@ -41,37 +41,47 @@ fun MapLibreAddressPickMap(
     selected: MapLatLng?,
     onPick: (MapLatLng) -> Unit,
     modifier: Modifier = Modifier,
-    height: Dp = 200.dp,
     defaultCenter: MapLatLng = MapLatLng(-17.8292, 31.0522),
     styleUrl: String = DEFAULT_MAPLIBRE_STYLE_URL,
+    onInitFailed: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val onPickLatest = rememberUpdatedState(onPick)
     val selectedLatest = rememberUpdatedState(selected)
+    val onInitFailedLatest = rememberUpdatedState(onInitFailed)
 
     val mapView = remember {
-        ensureMapLibre(context)
-        MapView(context).apply {
-            onCreate(null)
-            getMapAsync { map ->
-                map.setStyle(styleUrl) { style ->
-                    ensurePickPinLayer(style)
-                    updatePickPin(style, selectedLatest.value)
-                    val center = selectedLatest.value ?: defaultCenter
-                    map.moveCamera(
-                        CameraUpdateFactory.newLatLngZoom(
-                            LatLng(center.latitude, center.longitude),
-                            14.0,
-                        ),
-                    )
-                    map.addOnMapClickListener { latLng ->
-                        onPickLatest.value(MapLatLng(latLng.latitude, latLng.longitude))
-                        true
+        try {
+            ensureMapLibre(context)
+            MapView(context).apply {
+                onCreate(null)
+                getMapAsync { map ->
+                    map.setStyle(styleUrl) { style ->
+                        ensurePickPinLayer(style)
+                        updatePickPin(style, selectedLatest.value)
+                        val center = selectedLatest.value ?: defaultCenter
+                        map.moveCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                LatLng(center.latitude, center.longitude),
+                                14.0,
+                            ),
+                        )
+                        map.addOnMapClickListener { latLng ->
+                            onPickLatest.value(MapLatLng(latLng.latitude, latLng.longitude))
+                            true
+                        }
                     }
                 }
             }
+        } catch (_: Exception) {
+            onInitFailedLatest.value?.invoke()
+            null
         }
+    }
+
+    if (mapView == null) {
+        return
     }
 
     DisposableEffect(lifecycle, mapView) {
