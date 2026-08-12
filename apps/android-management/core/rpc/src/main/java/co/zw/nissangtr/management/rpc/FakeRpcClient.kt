@@ -502,17 +502,18 @@ class FakeRpcClient : RpcClient {
     }
 
     override suspend fun listWarehouses(): List<WarehouseRef> = listOf(
-        WarehouseRef(
-            id = "00000000-0000-4000-8000-0000000000w0",
-            code = "WH1",
-            name = "Receiving warehouse (Fake)",
-            roleCode = "WH1",
-        ),
+        // WH2 first so Fake defaults (bins / stock on FAKE_WAREHOUSE_ID) stay coherent.
         WarehouseRef(
             id = FAKE_WAREHOUSE_ID,
             code = "WH2",
             name = "Storefloor warehouse (Fake)",
             roleCode = "WH2",
+        ),
+        WarehouseRef(
+            id = "00000000-0000-4000-8000-0000000000w0",
+            code = "WH1",
+            name = "Receiving warehouse (Fake)",
+            roleCode = "WH1",
         ),
     )
 
