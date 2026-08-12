@@ -535,6 +535,11 @@ fun JobDetailScreen(
         }
 
         ShopSectionHeader(title = "Live map", actionLabel = null)
+        val mapLat = tracking.lastLat ?: job.dropoffLat
+        val mapLng = tracking.lastLng ?: job.dropoffLng
+        val hasCoords = mapLat != null && mapLng != null
+        // MapLibre = courier map SoR. Google DeliveryRouteMap only when flag OFF or coords missing.
+        val showMapLibre = state.mapLibreEnabled && hasCoords
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -542,11 +547,6 @@ fun JobDetailScreen(
                 .clip(MaterialTheme.shapes.medium)
                 .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.medium),
         ) {
-            val mapLat = tracking.lastLat ?: job.dropoffLat
-            val mapLng = tracking.lastLng ?: job.dropoffLng
-            val hasCoords = mapLat != null && mapLng != null
-            // MapLibre = courier map SoR. Google DeliveryRouteMap only when flag OFF or coords missing.
-            val showMapLibre = state.mapLibreEnabled && hasCoords
             if (showMapLibre) {
                 MapLibreJobMap(
                     latitude = mapLat!!,
@@ -565,11 +565,8 @@ fun JobDetailScreen(
                 )
             }
         }
-        val showingMapLibre = state.mapLibreEnabled &&
-            (tracking.lastLat ?: job.dropoffLat) != null &&
-            (tracking.lastLng ?: job.dropoffLng) != null
         Text(
-            jobDetailMapCaption(state = state, showingMapLibre = showingMapLibre),
+            jobDetailMapCaption(state = state, showingMapLibre = showMapLibre),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
