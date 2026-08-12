@@ -127,7 +127,8 @@ BEGIN
 
   -- Conflict path: bump quoted total, force status back to submitted, re-approve.
   -- Insert-once must keep original amount_minor (not rewrite to new total).
-  -- Clear prior domain events so re-approve emit can be asserted (dedupe would no-op).
+  -- Clear prior domain events (disable append-only delete guard) so re-approve
+  -- emit can be asserted — dedupe would otherwise no-op the payload check.
   -- Direct UPDATEs require procurement RPC flag (mutation guards).
   PERFORM public._procurement_begin_rpc();
   UPDATE public.purchase_order_lines
@@ -143,13 +144,15 @@ BEGIN
     progress_step = 'submitted',
     updated_at = now()
   WHERE id = v_po;
+  PERFORM public._procurement_end_rpc();
 
+  ALTER TABLE public.domain_events DISABLE TRIGGER domain_events_no_delete;
   DELETE FROM public.domain_events
   WHERE dedupe_key IN (
     'purchase_order_approved:' || v_po::text,
     'procurement_fund_release:' || v_release::text
   );
-  PERFORM public._procurement_end_rpc();
+  ALTER TABLE public.domain_events ENABLE TRIGGER domain_events_no_delete;
 
   PERFORM public._test_set_auth_uid(v_fin);
   PERFORM public.approve_purchase_order(v_po);
