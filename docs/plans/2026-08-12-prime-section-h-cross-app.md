@@ -59,8 +59,9 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 
 | ID | Status | Evidence |
 | --- | --- | --- |
-| H8 | **in progress** | Started 2026-08-12 |
-| H-PARITY-WH2 … H-ZIMRA | open | — |
+| H8 | **conditional** | Migration `20260812080000_fund_release_insert_once.sql` + smoke file; security PASS; payload uses stored money on conflict. **Smoke not run** (Docker daemon down). Full Done blocked on local `db:reset` + smoke. |
+| H-PARITY-WH2 | **in progress** | Started after H8 conditional |
+| H2 … H-ZIMRA | open | — |
 
 ---
 
