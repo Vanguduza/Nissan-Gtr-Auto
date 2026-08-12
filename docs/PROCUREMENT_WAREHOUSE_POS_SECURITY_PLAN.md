@@ -71,9 +71,10 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 ### E-POS — Dial UX redesign
 - [x] Web POS uses `@gtr/ui` tokens / CoolMall-like density
   - **Evidence:** `apps/web/components/staff-pos-shell.module.css` uses `--gtr-chalk` / `--gtr-mist` / `--gtr-steel` / `--gtr-red` / `--gtr-radius-staff` (+ display/body fonts); panel reuses `account.module.css` staff density (`--staff-radius*`, field min-heights).
-- [ ] Tablet kiosk POS visual pass (Material 3 + brand tokens) *(GtrTheme wrap on PosScreen — candidate; QA open — `@management_app_agent`)*
-- [x] Responsive desktop + mobile staff POS *(web stacked + breakpoints; Android two-pane ≥700dp handoff)*
-  - **Evidence:** redesign plan QA `docs/plans/2026-08-12-pos-dial-ux-redesign.md` — 1280/390 checked with CSS path notes; WH2 POS source checked.
+- [x] Tablet kiosk POS visual pass (Material 3 + brand tokens)
+  - **Evidence:** `PosScreen.kt` wraps `GtrTheme(GtrDensity.Standard)` + Shop staff chrome; dual-pane ≥700dp catalog|cart; `POS_TOUCH_MIN` 48dp; FlowRow chip wrap; cart line controls stacked (no H-scroll traps). Offline SqlCipher + Bridge QR/ESC-POS retained — no Expo. See `docs/plans/2026-08-12-pos-dial-ux-redesign.md` tablet QA.
+- [x] Responsive desktop + mobile staff POS *(web stacked + breakpoints; Android two-pane ≥700dp)*
+  - **Evidence:** redesign plan QA `docs/plans/2026-08-12-pos-dial-ux-redesign.md` — 1280/390 web + Android ≥700dp dual-pane evidenced.
 - [x] WH2 storefloor is POS pick source (WH1 receiving only)
   - **Evidence:** `listSaleableWarehouses` / `isPosSaleableWarehouse` in `apps/web/lib/staff-pos.ts` + panel copy.
 
