@@ -166,7 +166,7 @@ fun PreferredPoScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !state.busy,
-            }
+            )
             OutlinedTextField(
                 value = state.lineUnitPrice,
                 onValueChange = viewModel::onLineUnitPriceChange,
