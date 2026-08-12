@@ -283,10 +283,10 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 - [ ] Consignment vs owned valuation documented
 
 ### Epic Delivery
-- [ ] OSRM (or VROOM) is distance SoR when configured
-- [ ] MapLibre is courier map SoR
-- [ ] Temporal dispatch SM with evidence (accept/reject/timeout)
-- [ ] No Fleetbase runtime; no Baileys
+- [x] OSRM (or VROOM) is distance SoR when configured
+- [x] MapLibre is courier map SoR
+- [x] Temporal dispatch SM with evidence (accept/reject/timeout) *(package + Edge bridge; full worker binary §H)*
+- [x] No Fleetbase runtime; no Baileys
 - [x] Responsive staff web tracking DoD
 
 ### Epic Jobs

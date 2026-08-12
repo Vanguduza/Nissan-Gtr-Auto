@@ -74,8 +74,8 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 - [ ] Responsive desktop + mobile staff POS *(two-pane ≥700dp / stacked fallback)* — see `docs/plans/2026-08-12-pos-dial-ux-redesign.md` QA
 
 ### E-Del — Auto dispatch
-- [ ] Offer → accept/reject/timeout → requeue / FIFO when none available *(`@gtr/delivery` + edge `delivery-dispatch-cycle` — candidate)*
-- [ ] OSRM distance SoR; MapLibre render *(MapLibreJobMap on JobDetailScreen — candidate; B-MAP-1 / B-OSRM-1 open)*
+- [x] Offer → accept/reject/timeout → requeue / FIFO when none available *(`@gtr/delivery` + edge `delivery-dispatch-cycle`; autoAcceptOffers opt-in; timeout tests)*
+- [x] OSRM distance SoR; MapLibre render *(MapLibreJobMap primary on JobDetailScreen; Google deprecated fallback; B-MAP-1 full skin / B-OSRM-1 compose deferred §H)*
 
 ### E-Sec — DIAL security baseline
 - [ ] No body `userId`/role trust; JWT/session only *(Semgrep rules + HARDENING)*
@@ -90,14 +90,14 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 
 | Artifact | Status |
 | --- | --- |
-| This plan | Living — E-Proc/E-WH verified; E-POS/E-Del/E-Sec open |
+| This plan | Living — E-Proc/E-WH/E-Del verified; E-POS/E-Sec open |
 | `@gtr/procurement` domain + progress tracker | **Done** (verified) |
 | Migration preferred suppliers / fund release / master stock / WH codes | **Done** (`20260812010000`–`70000`) |
 | Migration GRN invoice + amount_minor dual-write | **Done** |
 | Procurement dashboard + suppliers + tracker UI | **Done** (live `progress_step` bind) |
 | Manual preferred PO + GRN web panels | **Done** (OEM resolve + draft-only invoice bind) |
-| Delivery FIFO + SQL assign bridge + edge | Candidate — Epic B |
-| MapLibre courier map on job detail | Candidate — Epic B |
+| Delivery FIFO + SQL assign bridge + edge | **Done** (Epic B; autoAcceptOffers opt-in) |
+| MapLibre courier map on job detail | **Done** (primary SoR; Google deprecated) |
 | POS Dial UX (web shell + Android GtrTheme) | Candidate — Epic G (QA open) |
 | `@gtr/payments` PspAdapter + D-57 cart display | Candidate — Epic C |
 | Meili dual-read `searchCatalog` | Candidate — Epic D |
