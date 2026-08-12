@@ -1,6 +1,6 @@
 # Dial-a-Spare → Nissan GTR Auto adoption plan
 
-**Status:** Phase A complete · Phase B · Phase C E1 + **Epics A–G verified 2026-08-12** (E-Proc/E-WH/E-Del/E3/E6/E4/E-Sec/E-POS). §H deferred: Temporal worker binary, Android preferred-PO, real Promptfoo provider, B-MONEY-1 / B-MAP-1 / B-OSRM-1 / B-PS-1.  
+**Status:** Phase A complete · Phase B · Phase C E1 + **Epics A–G verified 2026-08-12** (E-Proc/E-WH/E-Del/E3/E6/E4/E-Sec/E-POS). §H progress: H2/H3/H5-Android Done; remaining: Temporal worker binary, B-MONEY-1, H5-iOS MapKit, B-OSRM-1 / B-PS-1.  
 **Companion:** `docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md`
 **DIAL authority:** `DIAL_Consolidated_Plan_v4.md` → Agent Pack → Blueprint / Stitch / WA / D-53–D-60 companions  
 **Nissan repo:** `nissan-gtr-auto-erp` @ `nissangtrauto.co.zw`  
