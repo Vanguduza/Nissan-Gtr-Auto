@@ -32,6 +32,12 @@ const nav: NavItem[] = [
     Icon: ClipboardList,
   },
   {
+    href: "/procurement",
+    label: "PO progress",
+    exact: true,
+    Icon: ClipboardList,
+  },
+  {
     href: "/procurement/grn",
     label: "GRN",
     exact: true,
