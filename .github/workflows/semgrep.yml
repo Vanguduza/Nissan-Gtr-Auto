@@ -1,5 +1,5 @@
-# Semgrep CE (D-48)
-# - semgrep-dial: in-repo custom rules — HARD FAIL on findings/errors
+# Semgrep CE — Nissan GTR AppSec baseline (DIAL D-48 habits)
+# - semgrep-gtr: in-repo custom rules — HARD FAIL on findings/errors
 # - semgrep-community: p/* packs — advisory (continue-on-error); tune → hard-fail later
 # No Semgrep App token required for Community Edition.
 
@@ -15,25 +15,25 @@ permissions:
   contents: read
 
 jobs:
-  semgrep-dial:
-    name: Semgrep DIAL rules (hard-fail)
+  semgrep-gtr:
+    name: Semgrep GTR rules (hard-fail)
     runs-on: ubuntu-latest
     container:
       image: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
-      - name: Scan with DIAL custom rules
+      - name: Scan with GTR custom rules
         run: |
           semgrep scan \
             --config semgrep/rules \
             --error \
             --metrics=off \
-            --exclude=ThreatDragonModels \
             --exclude=docs \
             --exclude=node_modules \
+            --exclude=reference \
+            --exclude=data-pipeline \
             .
         # Root semgrep.yml mirrors these rules for local `semgrep scan --config semgrep.yml`.
-        # Use only one --config here to avoid duplicate findings.
 
   semgrep-community:
     name: Semgrep community packs (advisory)
@@ -53,10 +53,9 @@ jobs:
             --config p/owasp-top-ten \
             --error \
             --metrics=off \
-            --exclude=ThreatDragonModels \
             --exclude=docs \
             --exclude=node_modules \
             --exclude=semgrep \
+            --exclude=reference \
+            --exclude=data-pipeline \
             .
-        # Advisory until monorepo baseline exists; does not soft-fail semgrep-dial.
-        # Flip continue-on-error: false after first clean baseline on main.
