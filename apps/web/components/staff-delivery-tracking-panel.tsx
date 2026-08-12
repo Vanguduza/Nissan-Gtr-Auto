@@ -413,7 +413,8 @@ export function StaffDeliveryTrackingPanel() {
       trackPoint?.eta_at ?? selectedJob?.eta_at ?? null,
       trackPoint?.eta_seconds ?? selectedJob?.eta_seconds ?? null,
     ) ?? null;
-  const etaSource = selectedJob?.eta_source ?? null;
+  // B7: prefer Android-parity honesty (osrm vs deprecated google), not raw wire alone.
+  const etaSourceLabel = formatEtaSourceLabel(selectedJob?.eta_source ?? null);
   const sharePath = shareToken
     ? `/track/${encodeURIComponent(shareToken)}`
     : null;
@@ -454,7 +455,7 @@ export function StaffDeliveryTrackingPanel() {
             role="status"
           >
             <strong>ETA</strong> {etaLabel ?? "—"}
-            {etaSource ? ` (${etaSource})` : ""}
+            {etaSourceLabel ? ` (${etaSourceLabel})` : ""}
             {" · "}
             <strong>Assignee</strong>{" "}
             {selectedJob.assignee_user_id
@@ -474,13 +475,8 @@ export function StaffDeliveryTrackingPanel() {
       {selectedJob ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Pickup / dropoff geo</legend>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0.65rem",
-            }}
-          >
+          {/* B7: .formGrid → 1 col @ max-width 640px (account.module.css) */}
+          <div className={styles.formGrid}>
             <label className={styles.field}>
               Pickup lat
               <input
