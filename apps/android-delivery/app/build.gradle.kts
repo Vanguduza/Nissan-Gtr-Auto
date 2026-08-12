@@ -42,6 +42,12 @@ android {
             "OSRM_URL",
             "\"${localProp("OSRM_URL")}\"",
         )
+        // MapLibre is courier map SoR (Epic B / D-44). Set useMapLibre=false for deprecated Google Maps fallback only.
+        buildConfigField(
+            "boolean",
+            "USE_MAPLIBRE",
+            (!localProp("useMapLibre").equals("false", ignoreCase = true)).toString(),
+        )
         buildConfigField(
             "boolean",
             "RPC_FORCE_FAKE",
