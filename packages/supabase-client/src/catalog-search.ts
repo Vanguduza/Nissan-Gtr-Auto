@@ -4,8 +4,33 @@ import type { Database } from "./database.types";
 /** Edge function path (relative to Supabase project URL). */
 export const CATALOG_SEARCH_MEILI_FN = "catalog-search-meili" as const;
 
+/**
+ * Meili is a **discovery index only** (E6 / Stock/WMS §8).
+ * Qty / availability / saleable stock MUST come from Postgres (`stock_levels` /
+ * saleable RPCs) — never from Meili documents or search hit payloads.
+ * Storefront/POS: join stock SoR after search; do not display hit.qty from Meili.
+ */
+export const MEILI_IS_DISCOVERY_INDEX_ONLY = true as const;
+
+/** Keys that must never ride on catalog search hits (Meili or untrusted JSON). */
+export const FORBIDDEN_SEARCH_INVENTORY_KEYS = [
+  "qty",
+  "quantity",
+  "qty_on_hand",
+  "on_hand",
+  "saleable_qty",
+  "availability",
+  "in_stock",
+  "stock",
+  "stock_qty",
+  "qty_wh1",
+  "qty_wh2",
+  "qty_total",
+] as const;
+
 export type SearchMode = "part" | "vin" | "model" | "pnc";
 
+/** Catalog identity hit — no inventory fields (Postgres stock SoR owns qty). */
 export type PartHit = {
   type: "part";
   oem_part_number: string;
