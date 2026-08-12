@@ -69,9 +69,13 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 - [x] GRN by part number + qty; QR maps to OEM *(web GRN OEM+qty fast path + invoice attach)*
 
 ### E-POS — Dial UX redesign
-- [ ] Web POS uses `@gtr/ui` tokens / CoolMall-like density
-- [ ] Tablet kiosk POS visual pass (Material 3 + brand tokens) *(GtrTheme wrap on PosScreen — candidate; QA open)*
-- [ ] Responsive desktop + mobile staff POS *(two-pane ≥700dp / stacked fallback)* — see `docs/plans/2026-08-12-pos-dial-ux-redesign.md` QA
+- [x] Web POS uses `@gtr/ui` tokens / CoolMall-like density
+  - **Evidence:** `apps/web/components/staff-pos-shell.module.css` uses `--gtr-chalk` / `--gtr-mist` / `--gtr-steel` / `--gtr-red` / `--gtr-radius-staff` (+ display/body fonts); panel reuses `account.module.css` staff density (`--staff-radius*`, field min-heights).
+- [ ] Tablet kiosk POS visual pass (Material 3 + brand tokens) *(GtrTheme wrap on PosScreen — candidate; QA open — `@management_app_agent`)*
+- [x] Responsive desktop + mobile staff POS *(web stacked + breakpoints; Android two-pane ≥700dp handoff)*
+  - **Evidence:** redesign plan QA `docs/plans/2026-08-12-pos-dial-ux-redesign.md` — 1280/390 checked with CSS path notes; WH2 POS source checked.
+- [x] WH2 storefloor is POS pick source (WH1 receiving only)
+  - **Evidence:** `listSaleableWarehouses` / `isPosSaleableWarehouse` in `apps/web/lib/staff-pos.ts` + panel copy.
 
 ### E-Del — Auto dispatch
 - [x] Offer → accept/reject/timeout → requeue / FIFO when none available *(`@gtr/delivery` + edge `delivery-dispatch-cycle`; autoAcceptOffers opt-in; timeout tests)*
