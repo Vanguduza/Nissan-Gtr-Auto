@@ -2,7 +2,7 @@ import {
   resolveProcurementProgress,
   type ProcurementProgressStep,
 } from "@gtr/procurement";
-import type { Database, SupabaseClient } from "@gtr/supabase-client";
+import type { Database } from "@gtr/supabase-client";
 import type { StorefrontResult } from "@/lib/customer-storefront";
 import {
   loadWarehouses,
@@ -12,11 +12,13 @@ import {
   type StockItemOption,
   type WarehouseOption,
 } from "@/lib/rfq-portal";
+import { createWebClient } from "@/lib/supabase";
 
 export { requireSession, loadWarehouses, searchStockItems };
 export type { CurrencyCode, StockItemOption, WarehouseOption };
 
-export type ProcurementClient = SupabaseClient<Database>;
+/** Exact browser client shape from createWebClient (avoids Supabase generic variance). */
+export type ProcurementClient = NonNullable<ReturnType<typeof createWebClient>>;
 
 /** Columns added in relationship-procurement migration; types regen is backend follow-up. */
 type PoProgressColumns = {
