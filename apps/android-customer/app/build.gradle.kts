@@ -42,10 +42,16 @@ android {
             "WHATSAPP_E164",
             "\"${localProp("WHATSAPP_E164").ifBlank { "263770000000" }}\"",
         )
-        // Maps — never commit real keys; empty disables live map tiles.
+        // Maps — MapLibre is customer map SoR (B-MAP-1). Google key only for deprecated fallback.
         val mapsKey = localProp("GOOGLE_MAPS_API_KEY")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsKey
+        // MapLibre SoR (default on). Set useMapLibre=false for deprecated Google Maps fallback only.
+        buildConfigField(
+            "boolean",
+            "USE_MAPLIBRE",
+            (!localProp("useMapLibre").equals("false", ignoreCase = true)).toString(),
+        )
         // Google Sign-In — Web OAuth client ID as Credential Manager serverClientId.
         // Prefer GOOGLE_WEB_CLIENT_ID; GOOGLE_SERVER_CLIENT_ID accepted as alias.
         // Android OAuth client (package + SHA-1) is required in Google Cloud but is NOT
