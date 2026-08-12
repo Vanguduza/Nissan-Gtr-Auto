@@ -51,8 +51,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
  * - listStaffChatThreads / listChatMessages: PostgREST (not RPCs)
  * - listMyStaffRoles: PostgREST staff_roles
- * - searchCustomers / listSuppliers / listBlanketPurchaseOrders / listWarehouseBins /
- *   listConsignmentEntries / loadCustomerCredit: PostgREST
+ * - searchCustomers / listSuppliers / listPreferredSuppliers / listBlanketPurchaseOrders /
+ *   listWarehouseBins / listConsignmentEntries / loadCustomerCredit: PostgREST
+ * - [RpcNames.CREATE_PURCHASE_ORDER]: p_supplier_id, p_warehouse_id, p_currency,
+ *   p_exchange_rate, p_lines, p_notes?, p_expected_date?
  * - [RpcNames.CREATE_BLANKET_PURCHASE_ORDER]: p_supplier_id, p_warehouse_id, p_currency,
  *   p_exchange_rate, p_blanket_max_value, p_lines, p_notes?, p_expected_date?
  * - [RpcNames.SUBMIT_PURCHASE_ORDER]: p_purchase_order_id
