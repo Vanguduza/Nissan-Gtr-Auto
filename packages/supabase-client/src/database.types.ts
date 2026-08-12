@@ -8338,10 +8338,6 @@ export type Database = {
         Returns: string
       }
       approve_stock_transfer: { Args: { p_entry_id: string }; Returns: string }
-      attach_goods_receipt_invoice: {
-        Args: { p_goods_receipt_id: string; p_storage_path: string }
-        Returns: string
-      }
       approve_warranty_claim: {
         Args: {
           p_claim_id: string
@@ -8358,6 +8354,10 @@ export type Database = {
           p_delivery_job_id: string
           p_override?: boolean
         }
+        Returns: string
+      }
+      attach_goods_receipt_invoice: {
+        Args: { p_goods_receipt_id: string; p_storage_path: string }
         Returns: string
       }
       assign_staff_role: {

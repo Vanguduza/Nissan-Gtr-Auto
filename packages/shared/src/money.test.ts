@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  dualWriteMoney,
   fromAmountMinor,
   moneyMinorFromJson,
   moneyMinorToJson,
@@ -38,6 +39,9 @@ describe("amountMinor helpers", () => {
   });
 
   it("dualWriteMoney pairs amount + amountMinor", () => {
-    const { dualWriteMoney } = require("./money.ts") as typeof import("./money.ts");
+    const d = dualWriteMoney(10.5, "USD");
+    assert.equal(d.amount, 10.5);
+    assert.equal(d.amountMinor, 1050n);
+    assert.equal(d.currency, "USD");
   });
 });
