@@ -788,13 +788,14 @@ private fun RightCartPane(
                 enabled = !state.busy,
             )
             state.tenderLines.forEachIndexed { index, row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PosChipFlow {
                     listOf("cash", "ecocash", "paynow").forEach { t ->
                         FilterChip(
                             selected = row.tender == t,
                             onClick = { viewModel.onTenderChange(index, t) },
                             label = { Text(t) },
                             enabled = !state.busy,
+                            modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                         )
                     }
                 }
