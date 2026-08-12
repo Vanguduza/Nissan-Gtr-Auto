@@ -73,6 +73,11 @@ function docKindForMode(mode: SearchMode): string {
   return "vehicle";
 }
 
+/**
+ * Map Meili docs → catalog hits. Deliberately omits qty/availability —
+ * Meili is discovery-only; Postgres stock SoR owns saleable qty (Stock/WMS §8).
+ * Do not spread raw docs; clients also strip forbidden inventory keys.
+ */
 function mapHit(mode: SearchMode, doc: Record<string, unknown>, query: string): SearchResult {
   if (mode === "part") {
     const oeNumbers = Array.isArray(doc.oe_numbers)

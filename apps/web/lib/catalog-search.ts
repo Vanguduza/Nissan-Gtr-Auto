@@ -61,6 +61,7 @@ export type SearchFetchResult = {
 /**
  * Dual-read catalog search (E6): Meili Edge first, Postgres FTS fallback.
  * Never calls Meili directly from the browser. Set preferMeili=false for FTS-only.
+ * Meili is discovery-only — do not show qty/availability from hits; join Postgres stock SoR.
  */
 export async function searchCatalog(
   client: SupabaseClient,
