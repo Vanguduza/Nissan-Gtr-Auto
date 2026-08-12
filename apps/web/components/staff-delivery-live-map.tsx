@@ -93,7 +93,12 @@ function ensureTrailLayers(map: MapLibreMap) {
  * Staff dispatcher map: renders bridge-fed points only.
  * Does NOT call navigator.geolocation or any browser GPS API.
  */
-export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
+export function StaffDeliveryLiveMap({
+  points,
+  live,
+  etaLabel,
+  etaSourceLabel,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
