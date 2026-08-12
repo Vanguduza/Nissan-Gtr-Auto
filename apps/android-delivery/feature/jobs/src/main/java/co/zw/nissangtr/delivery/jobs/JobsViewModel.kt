@@ -118,6 +118,7 @@ class JobsViewModel(
             geofence = null,
             routePoints = emptyList(),
             routeLabel = null,
+            routeEtaSource = null,
             error = null,
             message = null,
         )
