@@ -454,6 +454,87 @@ data class SupplierRef(
     val name: String,
 )
 
+/** Preferred roster row — mirrors web `PreferredSupplierOption` / `@gtr/procurement`. */
+data class PreferredSupplierRef(
+    val id: String,
+    val code: String,
+    val name: String,
+    val defaultCurrency: CurrencyCode = CurrencyCode.USD,
+)
+
+/**
+ * Happy-path + terminal procurement tracker steps — mirrors `@gtr/procurement`
+ * `ProcurementProgressStep` / `PROCUREMENT_STEP_LABELS`.
+ */
+enum class ProcurementProgressStep(val rpcValue: String, val label: String) {
+    DRAFT("draft", "Draft"),
+    SUBMITTED("submitted", "Submitted"),
+    APPROVED("approved", "Approved"),
+    FUNDS_RELEASED("funds_released", "Funds released"),
+    PARTIALLY_RECEIVED("partially_received", "Partially received"),
+    RECEIVED("received", "Received"),
+    CLOSED("closed", "Closed"),
+    REJECTED("rejected", "Rejected"),
+    CANCELLED("cancelled", "Cancelled"),
+    ;
+
+    companion object {
+        fun fromRpc(value: String?): ProcurementProgressStep? {
+            if (value.isNullOrBlank()) return null
+            return entries.find { it.rpcValue.equals(value, ignoreCase = true) }
+        }
+    }
+}
+
+/** Ordered happy-path steps for UI trackers (excludes terminal reject/cancel). */
+val PROCUREMENT_TRACKER_STEPS: List<ProcurementProgressStep> = listOf(
+    ProcurementProgressStep.DRAFT,
+    ProcurementProgressStep.SUBMITTED,
+    ProcurementProgressStep.APPROVED,
+    ProcurementProgressStep.FUNDS_RELEASED,
+    ProcurementProgressStep.PARTIALLY_RECEIVED,
+    ProcurementProgressStep.RECEIVED,
+    ProcurementProgressStep.CLOSED,
+)
+
+/**
+ * Prefer WH1 / MAIN for receiving POs — mirrors web `pickReceivingWarehouse`.
+ */
+fun pickReceivingWarehouse(warehouses: List<WarehouseRef>): WarehouseRef? =
+    warehouses.find { it.code == "WH1" || it.roleCode == "WH1" }
+        ?: warehouses.find { it.code.equals("MAIN", ignoreCase = true) }
+        ?: warehouses.firstOrNull()
+
+/**
+ * Map PO status + fund-release + receive qty (+ optional DB progress_step) → tracker step.
+ * Mirrors `@gtr/procurement` `resolveProcurementProgress`.
+ */
+fun resolveProcurementProgress(
+    status: String,
+    fundsReleasedAt: String? = null,
+    qtyOrdered: Double = 0.0,
+    qtyReceived: Double = 0.0,
+    progressStep: String? = null,
+): ProcurementProgressStep {
+    val st = status.lowercase()
+    val stored = (progressStep ?: "").lowercase()
+
+    if (st == "rejected" || stored == "rejected") return ProcurementProgressStep.REJECTED
+    if (st == "cancelled" || stored == "cancelled") return ProcurementProgressStep.CANCELLED
+    if (stored == "closed") return ProcurementProgressStep.CLOSED
+
+    if (st == "draft") return ProcurementProgressStep.DRAFT
+    if (st == "submitted") return ProcurementProgressStep.SUBMITTED
+
+    if (qtyOrdered > 0 && qtyReceived >= qtyOrdered) return ProcurementProgressStep.RECEIVED
+    if (qtyReceived > 0) return ProcurementProgressStep.PARTIALLY_RECEIVED
+    if (!fundsReleasedAt.isNullOrBlank() || stored == "funds_released") {
+        return ProcurementProgressStep.FUNDS_RELEASED
+    }
+    if (st == "approved" || stored == "approved") return ProcurementProgressStep.APPROVED
+    return ProcurementProgressStep.fromRpc(stored) ?: ProcurementProgressStep.DRAFT
+}
+
 /** Staff roles that may set B2B credit (`set_customer_credit`). */
 object CreditStaffRoles {
     val ALL: Set<String> = setOf("admin", "sales", "finance")
