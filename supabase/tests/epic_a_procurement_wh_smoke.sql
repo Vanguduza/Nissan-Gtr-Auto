@@ -263,15 +263,24 @@ BEGIN
       v_ms.qty_total, v_ms.qty_wh1, v_ms.qty_wh2;
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM public.v_master_stock
-    WHERE stock_item_id = v_item
-      AND qty_total = v_ms.qty_total
-      AND qty_wh1 = v_ms.qty_wh1
-      AND qty_wh2 = v_ms.qty_wh2
-  ) THEN
-    RAISE EXCEPTION 'epic A smoke fail: v_master_stock columns mismatch list_master_stock';
-  END IF;
+  -- authenticated must not SELECT v_master_stock (staff path = list_master_stock)
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM 1 FROM public.v_master_stock WHERE stock_item_id = v_item LIMIT 1;
+    RESET ROLE;
+    RAISE EXCEPTION 'epic A smoke fail: authenticated SELECT on v_master_stock should be denied';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RESET ROLE;
+    WHEN OTHERS THEN
+      RESET ROLE;
+      IF SQLERRM LIKE '%epic A smoke fail:%' THEN
+        RAISE;
+      END IF;
+      RAISE EXCEPTION
+        'epic A smoke fail: expected insufficient_privilege on v_master_stock, got: %',
+        SQLERRM;
+  END;
 
   -- Deactivate preferred supplier (after PO path so supplier still usable above)
   PERFORM public._test_set_auth_uid(v_admin);
