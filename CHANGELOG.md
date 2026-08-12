@@ -26,3 +26,5 @@
 - Android procurement hub copy: preferred manual PO is web-first.
 - Courier map SoR: MapLibre primary; Google Directions/tiles deprecated fallback only.
 - Living docs: Epics A–G Done with verifier evidence; §H items remain deferred.
+- **H8 (conditional):** `20260812080000_fund_release_insert_once.sql` — approve insert-once on `procurement_fund_releases` (no money rewrite on conflict). Full Done blocked pending local smoke (`db:reset` + smoke; Docker was down).
+- **H-PARITY-WH2 Done:** Android management POS warehouse picker uses `listSaleableWarehouses` / `isPosSaleableWarehouse` (WH2-only; WH1/quarantine excluded). Unit: `PosSaleableWarehouseTest` BUILD SUCCESSFUL.
