@@ -356,7 +356,7 @@ private fun CatalogPane(
     var showEpc by remember { mutableStateOf(false) }
     ShopStaffPanel(modifier = modifier, title = "Catalog") {
             // EPC hierarchy is online-only; offline cache stays flat catalog_items.
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PosChipFlow {
                 CatalogSearchMode.entries.forEach { mode ->
                     FilterChip(
                         selected = !showEpc && state.searchMode == mode,
@@ -366,6 +366,7 @@ private fun CatalogPane(
                         },
                         label = { Text(mode.rpcValue) },
                         enabled = !state.busy,
+                        modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                     )
                 }
                 FilterChip(
@@ -373,6 +374,7 @@ private fun CatalogPane(
                     onClick = { showEpc = true },
                     label = { Text("EPC") },
                     enabled = !state.busy && !state.isOffline,
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 )
             }
             if (showEpc) {
