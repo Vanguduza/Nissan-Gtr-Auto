@@ -19,8 +19,9 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 
 /**
- * Courier job map — MapLibre render SoR (DIAL D-44).
- * Distance/ETA remain OSRM (OsrmRouteFetcher). Never Google Maps as SoR.
+ * Courier job map — MapLibre render SoR (DIAL D-44 / Epic B).
+ * Wired as primary on JobDetailScreen. Google DeliveryRouteMap is deprecated fallback only.
+ * Distance/ETA prefer OSRM when OSRM_URL is set (eta_source honesty in JobsViewModel).
  *
  * Default style is public demo tiles; ops should set a self-hosted/style URL via [styleUrl].
  */
