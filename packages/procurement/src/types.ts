@@ -80,18 +80,38 @@ export type MasterStockRow = {
   qtyWh2: number;
 };
 
+const KNOWN_PROGRESS_STEPS = new Set<string>([
+  "draft",
+  "submitted",
+  "approved",
+  "funds_released",
+  "partially_received",
+  "received",
+  "closed",
+  "rejected",
+  "cancelled",
+]);
+
 /**
- * Map legacy PO/status + fund-release flag → tracker step.
+ * Map PO status + fund-release + receive qty (+ optional DB progress_step) → tracker step.
+ * Receive qty wins over a stale funds_released progress_step; `closed` only via progress_step
+ * (status enum has no closed value yet).
  */
 export function resolveProcurementProgress(input: {
   status: string;
   fundsReleasedAt?: string | null;
   qtyOrdered?: number;
   qtyReceived?: number;
+  /** purchase_orders.progress_step when present */
+  progressStep?: string | null;
 }): ProcurementProgressStep {
   const st = input.status.toLowerCase();
-  if (st === "rejected") return "rejected";
-  if (st === "cancelled") return "cancelled";
+  const stored = (input.progressStep ?? "").toLowerCase();
+
+  if (st === "rejected" || stored === "rejected") return "rejected";
+  if (st === "cancelled" || stored === "cancelled") return "cancelled";
+  if (stored === "closed") return "closed";
+
   if (st === "draft") return "draft";
   if (st === "submitted") return "submitted";
 
@@ -99,8 +119,11 @@ export function resolveProcurementProgress(input: {
   const received = input.qtyReceived ?? 0;
   if (ordered > 0 && received >= ordered) return "received";
   if (received > 0) return "partially_received";
-  if (input.fundsReleasedAt) return "funds_released";
-  if (st === "approved") return "approved";
+  if (input.fundsReleasedAt || stored === "funds_released") return "funds_released";
+  if (st === "approved" || stored === "approved") return "approved";
+  if (KNOWN_PROGRESS_STEPS.has(stored)) {
+    return stored as ProcurementProgressStep;
+  }
   return "draft";
 }
 
