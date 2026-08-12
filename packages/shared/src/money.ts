@@ -88,12 +88,27 @@ export function minorToMoney(m: MoneyMinor): Money {
   };
 }
 
-/** Serialize for JSON / PostgREST (bigint → string). */
-export function moneyMinorToJson(m: MoneyMinor): {
-  amountMinor: string;
-  currency: CurrencyCode;
-  fxRateId?: string | null;
-} {
+/** Convert major NUMERIC amount to minor bigint for dual-write / PostgREST. */
+export function majorToMinorNumber(
+  amountMajor: number,
+  currency: CurrencyCode = "USD",
+): number {
+  return Number(toAmountMinor(amountMajor, currency));
+}
+
+/** Dual-write payload: keep legacy amount + amount_minor together. */
+export function dualWriteMoney(
+  amountMajor: number,
+  currency: CurrencyCode,
+): { amount: number; amountMinor: bigint; currency: CurrencyCode } {
+  assertCurrency(currency);
+  return {
+    amount: amountMajor,
+    amountMinor: toAmountMinor(amountMajor, currency),
+    currency,
+  };
+}
+
   return {
     amountMinor: m.amountMinor.toString(),
     currency: m.currency,
