@@ -34,6 +34,9 @@ export function StaffProcurementApprovalsPanel() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [poSteps, setPoSteps] = useState<
+    Record<string, ProcurementProgressStep>
+  >({});
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -188,7 +191,9 @@ export function StaffProcurementApprovalsPanel() {
           <ul className={styles.list}>
             {boot.purchaseOrders.map(({ po, supplier, warehouse }) => (
               <li key={po.id}>
-                <strong>{po.document_number ?? po.id.slice(0, 8)}</strong>
+                <Link href={`/procurement/orders/${po.id}`}>
+                  <strong>{po.document_number ?? po.id.slice(0, 8)}</strong>
+                </Link>
                 {po.is_blanket ? " · blanket" : ""}
                 {" · "}
                 {po.currency}
@@ -205,6 +210,10 @@ export function StaffProcurementApprovalsPanel() {
                     ? ` · submitted ${po.submitted_at.slice(0, 10)}`
                     : ""}
                 </span>
+                <ProcurementProgressTracker
+                  step={poSteps[po.id] ?? "submitted"}
+                  documentLabel={po.document_number ?? po.id.slice(0, 8)}
+                />
                 <div className={styles.formActions}>
                   <button
                     type="button"
