@@ -105,6 +105,8 @@ fun AddressScreen(
                     busy = state.busy,
                     error = state.error,
                     mapsKeyPresent = mapsKeyPresent,
+                    useMapLibre = useMapLibre,
+                    googleMapsKeyPresent = googleMapsKeyPresent,
                     onBack = viewModel::backToList,
                     onFormChange = viewModel::onFormChange,
                     onMapPick = viewModel::onMapPick,
@@ -159,6 +161,8 @@ private fun AddressEditForm(
     busy: Boolean,
     error: String?,
     mapsKeyPresent: Boolean,
+    useMapLibre: Boolean,
+    googleMapsKeyPresent: Boolean,
     onBack: () -> Unit,
     onFormChange: ((AddressFormState) -> AddressFormState) -> Unit,
     onMapPick: (Double, Double) -> Unit,
@@ -187,7 +191,8 @@ private fun AddressEditForm(
             AddressPickMap(
                 selected = selected,
                 onPick = { p -> onMapPick(p.latitude, p.longitude) },
-                mapsKeyPresent = mapsKeyPresent,
+                mapsKeyPresent = googleMapsKeyPresent,
+                useMapLibre = useMapLibre,
             )
         },
     )
