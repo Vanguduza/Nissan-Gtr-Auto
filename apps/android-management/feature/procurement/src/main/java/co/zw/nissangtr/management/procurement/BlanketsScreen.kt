@@ -34,7 +34,7 @@ fun BlanketsScreen(
 
     ShopStaffScreen(
         title = "Blankets",
-        subtitle = "PO blankets · call-off",
+        subtitle = "Call-off · preferred manual PO is web /procurement/orders/new",
         modifier = modifier,
         onBack = onBack,
     ) {

@@ -2917,6 +2917,8 @@ export type Database = {
           stock_entry_id: string | null
           submitted_at: string | null
           supplier_id: string
+          supplier_invoice_path: string | null
+          supplier_invoice_uploaded_at: string | null
           updated_at: string
           warehouse_id: string
         }
@@ -2932,6 +2934,8 @@ export type Database = {
           stock_entry_id?: string | null
           submitted_at?: string | null
           supplier_id: string
+          supplier_invoice_path?: string | null
+          supplier_invoice_uploaded_at?: string | null
           updated_at?: string
           warehouse_id: string
         }
@@ -2947,6 +2951,8 @@ export type Database = {
           stock_entry_id?: string | null
           submitted_at?: string | null
           supplier_id?: string
+          supplier_invoice_path?: string | null
+          supplier_invoice_uploaded_at?: string | null
           updated_at?: string
           warehouse_id?: string
         }
@@ -5773,6 +5779,7 @@ export type Database = {
           qty_released: number
           stock_item_id: string
           unit_price: number
+          unit_price_minor: number | null
           uom_id: string
         }
         Insert: {
@@ -5788,6 +5795,7 @@ export type Database = {
           qty_released?: number
           stock_item_id: string
           unit_price: number
+          unit_price_minor?: number | null
           uom_id: string
         }
         Update: {
@@ -5803,6 +5811,7 @@ export type Database = {
           qty_released?: number
           stock_item_id?: string
           unit_price?: number
+          unit_price_minor?: number | null
           uom_id?: string
         }
         Relationships: [
