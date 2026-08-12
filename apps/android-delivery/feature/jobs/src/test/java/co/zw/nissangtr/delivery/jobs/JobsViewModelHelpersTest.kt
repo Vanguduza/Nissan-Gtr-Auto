@@ -49,12 +49,13 @@ class JobsViewModelHelpersTest {
     @Test
     fun jobDetailMapCaptionMapLibreAndOsrm() {
         val caption = jobDetailMapCaption(
-            JobsUiState(
+            state = JobsUiState(
                 mapLibreEnabled = true,
                 osrmConfigured = true,
                 mapsKeyPresent = true,
                 routeEtaSource = RouteEtaSource.OSRM,
             ),
+            showingMapLibre = true,
         )
         assertTrue(caption.contains("MapLibre SoR"))
         assertTrue(caption.contains("OSRM distance/ETA preferred"))
@@ -65,13 +66,24 @@ class JobsViewModelHelpersTest {
     @Test
     fun jobDetailMapCaptionGoogleFallbackWhenFlagOff() {
         val caption = jobDetailMapCaption(
-            JobsUiState(
+            state = JobsUiState(
                 mapLibreEnabled = false,
                 osrmConfigured = false,
                 mapsKeyPresent = true,
             ),
+            showingMapLibre = false,
         )
         assertTrue(caption.contains("DEPRECATED Google Maps fallback"))
         assertTrue(caption.contains("Google Directions (deprecated)"))
+    }
+
+    @Test
+    fun jobDetailMapCaptionMissingCoordsUsesDeprecatedGoogleLabel() {
+        val caption = jobDetailMapCaption(
+            state = JobsUiState(mapLibreEnabled = true, osrmConfigured = true),
+            showingMapLibre = false,
+        )
+        assertTrue(caption.contains("DEPRECATED Google Maps fallback"))
+        assertTrue(caption.contains("missing coords"))
     }
 }
