@@ -203,7 +203,11 @@ export function StaffRfqDetail({ rfqId }: { rfqId: string }) {
                         disabled={busy}
                         onClick={() => void onAward(q.id)}
                       >
-                        Award → PO
+                        Award → spot-buy PO
+                        <span className={styles.muted}>
+                          {" "}
+                          (optional; roster remains SoR)
+                        </span>
                       </button>
                     </>
                   ) : null}
