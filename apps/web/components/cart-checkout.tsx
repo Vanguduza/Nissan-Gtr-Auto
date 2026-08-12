@@ -90,6 +90,7 @@ export function CartCheckout() {
 
     const rate = await fetchZigExchangeRate(client);
     setZigRate(rate);
+    setFxRateId(await fetchZigExchangeRateId(client));
 
     const cart = await loadOpenCart(client);
     if (!cart.ok) {
@@ -146,12 +147,14 @@ export function CartCheckout() {
           : tender === "paynow"
             ? "paynow"
             : "cash";
+    const zigPay = settleCurrency === "ZIG" || method === "ecocash";
     try {
       return buildCheckoutDisplay({
         usdMinor,
-        payMethod: settleCurrency === "ZIG" || method === "ecocash" ? "ecocash" : method,
+        payMethod: zigPay ? "ecocash" : method,
         zigRatePerUsd: zigRate,
-        fxRateId: null,
+        // D-57: attach daily_exchange_rates.id when settling ZiG / EcoCash
+        fxRateId: zigPay ? fxRateId : null,
       });
     } catch {
       return buildCheckoutDisplay({
@@ -161,7 +164,7 @@ export function CartCheckout() {
         fxRateId: null,
       });
     }
-  }, [totalUsd, zigRate, tender, settleCurrency]);
+  }, [totalUsd, zigRate, fxRateId, tender, settleCurrency]);
 
   const zigTotal = useMemo(() => {
     const minor =
