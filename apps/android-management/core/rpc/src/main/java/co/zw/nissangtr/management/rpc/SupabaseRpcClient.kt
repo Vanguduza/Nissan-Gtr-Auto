@@ -2377,7 +2377,20 @@ private data class WarehouseRow(
     val id: String,
     val code: String,
     val name: String,
-)
+    @SerialName("role_code") val roleCode: String? = null,
+    @SerialName("is_quarantine") val isQuarantine: Boolean = false,
+    @SerialName("is_active") val isActive: Boolean = true,
+) {
+    fun toWarehouseRef(): WarehouseRef =
+        WarehouseRef(
+            id = id,
+            code = code,
+            name = name,
+            roleCode = roleCode,
+            isQuarantine = isQuarantine,
+            isActive = isActive,
+        )
+}
 
 @Serializable
 private data class PosScanSessionRow(
