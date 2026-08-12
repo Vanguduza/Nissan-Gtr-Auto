@@ -190,7 +190,7 @@ private val POS_TOUCH_MIN = 48.dp
  * Breakpoints (static recon):
  * - ≥700dp width → Row catalog|cart (weights 0.6|0.4), each pane verticalScroll only —
  *   no horizontalScroll; chip groups use FlowRow wrap.
- * - &lt;700dp → stacked Column (phone-width fallback).
+ * - below 700dp → stacked Column (phone-width fallback).
  */
 @Composable
 private fun PosWorkspace(
@@ -234,7 +234,7 @@ private fun PosWorkspace(
 /** Wrapping chip row — avoids horizontal overflow / scroll traps in narrow dual-pane panes. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PosChipFlow(content: @Composable androidx.compose.foundation.layout.FlowRowScope.() -> Unit) {
+private fun PosChipFlow(content: @Composable FlowRowScope.() -> Unit) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
