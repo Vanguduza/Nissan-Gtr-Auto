@@ -17,4 +17,4 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | E5 | Ledger/payment `amount_minor` dual-write | Done (PO path) | PO lines + fund releases; broader ledger cutover later |
 | E6 | Meili dual-read default for catalog | Done | preferMeili + FTS; strip invented qty; consignment ADR |
 | — | Chatwoot / Metabase / PowerSync live | Deferred | Tier-2 satellites |
-| — | Android native preferred-supplier PO screen (H2) | Deferred / In progress | Web `/procurement/orders/new` remains SoR until native create/submit lands |
+| — | Android native preferred-supplier PO screen (H2) | Done | `PreferredPoScreen` + `listPreferredSuppliers` / `createPurchaseOrder` / `submitPurchaseOrder`; hub entry; `PreferredPoHelpersTest` PASS; Bridge QR OEM; not RFQ-gated |
