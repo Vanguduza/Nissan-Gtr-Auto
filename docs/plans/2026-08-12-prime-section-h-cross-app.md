@@ -18,7 +18,7 @@
 | **H-PARITY-WH2** | Android POS WH2 pick (A–G gap) | `PosViewModel` / warehouse list only saleable **WH2** (`role_code` storefloor); WH1 not pickable; copy matches web | H8 optional |
 | **H2** | Android preferred-supplier PO | Native create/submit preferred PO on `android-management` (roster + quoted lines); not web-only hub deep-link; Bridge-First; no RFQ-win gate | H-PARITY-WH2 optional |
 | **H4** | B-MONEY-1 dual-read → cutover | Dual-write then cutover plan per money surface; never big-bang; new APIs `amountMinor`+currency; PO path already dual-write | **H8** |
-| **H5** | B-MAP-1 MapLibre SoR | Courier already MapLibre primary. Customer Android (+ iOS if maps) MapLibre render SoR; Google/MapKit = deprecated fallback only — do not reintroduce Google-as-SoR | — |
+| **H5** | B-MAP-1 MapLibre SoR | Courier already MapLibre primary. Customer Android (+ bridges) MapLibre render SoR; Google = deprecated fallback only. **H5-iOS** (MapKit → MapLibre Native) remains open / PARTIAL | — |
 | **H6** | B-OSRM-1 compose/data | OSRM service runnable when map data present; documented in `infra/satellites`; clients already prefer `OSRM_URL` | H5 helpful |
 | **H1** | Temporal worker binary | Host process runs `DeliveryDispatchWorkflow` / `DELIVERY_DISPATCH_WORKFLOW` calling existing activities; Edge bridge remains; no Fleetbase | Package SM Done (A–G) |
 | **H3** | Promptfoo real-provider CI | CI job with real model provider + secrets; offline gate remains default locally; human-promote unchanged | Epic E Done |
