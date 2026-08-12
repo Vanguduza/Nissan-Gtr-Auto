@@ -138,7 +138,6 @@ export function CartCheckout() {
     [totalUsd, zigRate],
   );
 
-  /** D-57: browse stays USD; ZiG only at pay step via ops daily rate. */
   const checkoutDisplay = useMemo(() => {
     const usdMinor = toAmountMinor(totalUsd, "USD");
     const method: PspMethod =
@@ -165,6 +164,14 @@ export function CartCheckout() {
       });
     }
   }, [totalUsd, zigRate, tender, settleCurrency]);
+
+  const zigTotal = useMemo(() => {
+    const minor =
+      checkoutDisplay.payCurrency === "ZIG"
+        ? checkoutDisplay.payable.amountMinor
+        : checkoutDisplay.indicativeZigMinor ?? 0n;
+    return Number(minor) / 100;
+  }, [checkoutDisplay]);
 
   async function onCheckout() {
     setBusy(true);
