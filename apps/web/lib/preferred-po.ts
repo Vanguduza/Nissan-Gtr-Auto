@@ -179,20 +179,20 @@ export async function createPreferredPurchaseOrder(
     currency: l.currency ?? input.currency,
   }));
 
-  const { data, error } = await asLooseClient(client).rpc("create_purchase_order", {
+  const { data, error } = await client.rpc("create_purchase_order", {
     p_supplier_id: input.supplierId,
     p_warehouse_id: input.warehouseId,
     p_currency: input.currency,
     p_exchange_rate: input.exchangeRate,
     p_lines: payload,
-    p_notes: input.notes ?? null,
-    p_expected_date: input.expectedDate ?? null,
+    p_notes: input.notes || undefined,
+    p_expected_date: input.expectedDate || undefined,
   });
   if (error) return { ok: false, error: error.message };
   const purchaseOrderId = data as string;
 
   if (input.submit) {
-    const sub = await asLooseClient(client).rpc("submit_purchase_order", {
+    const sub = await client.rpc("submit_purchase_order", {
       p_purchase_order_id: purchaseOrderId,
     });
     if (sub.error) return { ok: false, error: sub.error.message };
