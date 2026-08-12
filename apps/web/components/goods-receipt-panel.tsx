@@ -49,6 +49,10 @@ export function GoodsReceiptPanel() {
 
   const loadPos = useCallback(async () => {
     const client = createWebClient();
+    if (!client) {
+      setMessage("Supabase is not configured on this environment.");
+      return;
+    }
     const session = await requireSession(client);
     if (!session.ok) {
       setAuth("auth");
@@ -67,6 +71,7 @@ export function GoodsReceiptPanel() {
   const refreshPoProgress = useCallback(async (id: string) => {
     if (!id) return;
     const client = createWebClient();
+    if (!client) return;
     const res = await loadPurchaseOrderProgress(client, id);
     if (!res.ok) {
       setMessage(res.error);
@@ -84,6 +89,7 @@ export function GoodsReceiptPanel() {
     if (!poId || auth !== "ok") return;
     void (async () => {
       const client = createWebClient();
+      if (!client) return;
       const res = await listPoLines(client, poId);
       if (!res.ok) {
         setMessage(res.error);
