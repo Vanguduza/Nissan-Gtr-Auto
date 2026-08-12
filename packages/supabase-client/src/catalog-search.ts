@@ -98,7 +98,7 @@ export async function searchCatalogMeili(
   if (!parsed) {
     return searchCatalogFts(client, args.mode, trimmed);
   }
-  return { ok: true, data: parsed };
+  return { ok: true, data: { ...parsed, backend: parsed.backend ?? "meili" } };
 }
 
 /** Direct Postgres FTS — interim / offline fallback. */
