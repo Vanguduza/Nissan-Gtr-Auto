@@ -28,6 +28,8 @@ import com.google.maps.android.compose.rememberCameraPositionState
 
 /**
  * In-app Google Map showing driver → destination route polyline and stop markers.
+ * **DEPRECATED** as courier map SoR — prefer `MapLibreJobMap` (android-delivery tracking).
+ * Keep for explicit `useMapLibre=false` / missing-coords fallback only (B-MAP-1).
  * Display only — does not perform GPS ingest (use `:location-tracker` FGS for that).
  *
  * When [mapsKeyPresent] is false, shows a placeholder (no Maps SDK tile load).
