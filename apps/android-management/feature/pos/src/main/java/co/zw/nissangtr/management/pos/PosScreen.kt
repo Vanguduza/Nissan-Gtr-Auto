@@ -403,13 +403,17 @@ private fun CatalogPane(
                     label = "Search",
                     onClick = viewModel::searchCatalog,
                     enabled = !state.busy,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = POS_TOUCH_MIN),
                 )
                 ShopSecondaryButton(
                     label = "Scan QR",
                     onClick = viewModel::tillScanAddLine,
                     enabled = !state.busy,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = POS_TOUCH_MIN),
                 )
             }
             LazyVerticalGrid(
