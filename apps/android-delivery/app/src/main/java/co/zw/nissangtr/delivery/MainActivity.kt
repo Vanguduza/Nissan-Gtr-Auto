@@ -181,6 +181,7 @@ private fun DeliveryApp(
     supportPhone: String,
     mapsApiKey: String,
     osrmUrl: String,
+    useMapLibre: Boolean,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -195,6 +196,7 @@ private fun DeliveryApp(
             supportPhone,
             mapsApiKey,
             osrmUrl,
+            useMapLibre,
         ),
     )
     val state by jobsVm.state.collectAsState()
