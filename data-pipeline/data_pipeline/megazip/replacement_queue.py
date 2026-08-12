@@ -1,8 +1,8 @@
 """Replacement queue for Megazip model workers.
 
-Dead / unfinished models wait here. When a worker finishes successfully
-(PENDING drained for its models), the next entry is started — without
-immediately restarting crashed workers.
+Unfinished models wait here ordered by ascending PENDING (nearest finish first).
+The supervisor keeps a fixed worker pool; on crash it restarts the same model,
+on success it pops the next queued model.
 """
 
 from __future__ import annotations
