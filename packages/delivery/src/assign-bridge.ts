@@ -36,18 +36,20 @@ export type SuggestAssigneeRow = {
 export function candidatesFromSuggestRows(
   rows: SuggestAssigneeRow[],
 ): CourierCandidate[] {
-  return rows.map((r) => {
-    const dist = r.distance_m ?? 1_000_000;
-    const load = r.open_jobs ?? 0;
-    return {
-      driverId: r.user_id,
-      rankScore: dist + load * 1000,
-      available:
-        r.status === "available" ||
-        r.status === "on_duty" ||
-        r.status === "busy",
-    };
-  });
+  return rows
+    .map((r) => {
+      const dist = r.distance_m ?? 1_000_000;
+      const load = r.open_jobs ?? 0;
+      return {
+        driverId: r.user_id,
+        rankScore: dist + load * 1000,
+        available:
+          r.status === "available" ||
+          r.status === "on_duty" ||
+          r.status === "busy",
+      };
+    })
+    .sort((a, b) => a.rankScore - b.rankScore);
 }
 
 /**
