@@ -807,6 +807,8 @@ private fun ProfileStack(
     onSignIn: () -> Unit,
     whatsappE164: String,
     mapsKeyPresent: Boolean,
+    useMapLibre: Boolean = true,
+    googleMapsKeyPresent: Boolean = false,
     trackToken: String?,
     trackJobId: String?,
     trackSession: Int,
@@ -851,6 +853,8 @@ private fun ProfileStack(
         ProfileDest.Addresses -> AddressScreen(
             rpc = rpc,
             mapsKeyPresent = mapsKeyPresent,
+            useMapLibre = useMapLibre,
+            googleMapsKeyPresent = googleMapsKeyPresent,
             onBack = { onDest(ProfileDest.Hub) },
         )
         ProfileDest.Compare -> CompareScreen(
