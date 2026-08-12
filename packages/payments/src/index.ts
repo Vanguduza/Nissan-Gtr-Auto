@@ -1,4 +1,5 @@
 export {
+  AI_NEVER_WRITES_MONEY,
   PspRegistry,
   buildCheckoutDisplay,
   createStubPspAdapter,
