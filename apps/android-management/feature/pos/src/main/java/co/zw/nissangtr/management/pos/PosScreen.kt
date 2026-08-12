@@ -657,17 +657,31 @@ private fun ParkedAndPairingSection(
             OutlinedButton(
                 onClick = viewModel::resumeParkedCart,
                 enabled = !state.busy,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = POS_TOUCH_MIN),
             ) { Text("Resume parked") }
 
             if (state.pairingCodeDisplay.isNotBlank()) {
                 Text("Pairing: ${state.pairingCodeDisplay}", style = MaterialTheme.typography.headlineMedium)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = viewModel::createPairingSession, enabled = !state.busy) {
+                OutlinedButton(
+                    onClick = viewModel::createPairingSession,
+                    enabled = !state.busy,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = POS_TOUCH_MIN),
+                ) {
                     Text("Companion code")
                 }
-                TextButton(onClick = viewModel::revokePairingSession, enabled = !state.busy) {
+                OutlinedButton(
+                    onClick = viewModel::revokePairingSession,
+                    enabled = !state.busy,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = POS_TOUCH_MIN),
+                ) {
                     Text("Revoke")
                 }
             }
