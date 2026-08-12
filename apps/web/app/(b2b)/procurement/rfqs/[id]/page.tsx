@@ -14,10 +14,11 @@ export default async function RfqDetailPage({
     <div className={styles.shell}>
       <ProcurementNav current={`/procurement/rfqs/${id}`} />
       <div className={styles.panel}>
-        <h1 className={styles.title}>RFQ</h1>
+        <h1 className={styles.title}>RFQ (optional spot-buy)</h1>
         <p className={styles.lede}>
-          Submit the draft, review quotations, and award a winner to a purchase
-          order.
+          Optional quotation compare for a one-off spot buy. Awarding a quotation
+          may create a PO for that buy, but preferred-roster POs remain the
+          replenishment SoR — RFQ-win does not authorize the supplier list.
         </p>
         <StaffRfqDetail rfqId={id} />
       </div>
