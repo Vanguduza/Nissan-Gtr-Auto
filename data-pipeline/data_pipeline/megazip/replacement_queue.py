@@ -166,25 +166,38 @@ def seed_from_dead_models(
     Final order is ascending PENDING — nearest to finish is started first.
     """
     pending = pending_by_model(state_db)
+    progress = progress_by_model(state_db)
     prefer = prefer or []
     prefer_set = set(prefer)
-    existing = [m for m in load_queue(out_root) if m in pending and m not in live_models]
+    eligible = queue_candidates(state_db, live_models=live_models, min_visited=100)
     merged: list[str] = []
-    for m in existing + prefer + list(pending.keys()):
+    for m in load_queue(out_root) + prefer + eligible:
         if m in pending and m not in live_models and m not in merged:
             merged.append(m)
     if prefer_set:
         prefer_first = sorted(
             (m for m in merged if m in prefer_set),
-            key=lambda m: pending.get(m, 0),
+            key=lambda m: progress.get(m, (pending.get(m, 0), 0))[0],
         )
         rest = sorted(
-            (m for m in merged if m not in prefer_set),
-            key=lambda m: pending.get(m, 0),
+            (m for m in merged if m not in prefer_set and m in eligible),
+            key=lambda m: progress.get(m, (pending.get(m, 0), 0))[0],
         )
-        final = prefer_first + rest
+        tail = sorted(
+            (m for m in merged if m not in prefer_set and m not in eligible),
+            key=lambda m: progress.get(m, (pending.get(m, 0), 0))[0],
+        )
+        final = prefer_first + rest + tail
     else:
-        final = sorted(merged, key=lambda m: pending.get(m, 0))
+        prefer_eligible = [m for m in merged if m in eligible]
+        tail = [m for m in merged if m not in eligible]
+        final = sorted(
+            prefer_eligible,
+            key=lambda m: progress.get(m, (pending.get(m, 0), 0))[0],
+        ) + sorted(
+            tail,
+            key=lambda m: progress.get(m, (pending.get(m, 0), 0))[0],
+        )
     save_queue(out_root, final)
     return {
         "queued": final,
