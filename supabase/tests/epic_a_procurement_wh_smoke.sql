@@ -38,7 +38,8 @@ DECLARE
   v_evt INT;
   v_ms RECORD;
   v_resolved UUID;
-  v_invoice_path TEXT := 'smoke/epic-a/invoice.pdf';
+  v_invoice_path TEXT;
+  v_attach_denied BOOLEAN := false;
 BEGIN
   SELECT id INTO v_wh1 FROM public.warehouses
   WHERE role_code = 'WH1' OR code IN ('WH1', 'MAIN')
