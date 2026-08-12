@@ -35,7 +35,7 @@ Legend: **N** = need apply/adapt Â· **â€”** = N/A Â· **OK** = already m
 | Item | web | android-management | android-delivery | android-customer | ios | packages/* | bridges/ | supabase/ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | H8 fund-release insert-once | â€” | â€” | â€” | â€” | â€” | â€” | â€” | **N** |
-| H-PARITY-WH2 POS | OK | **N** | â€” | â€” | â€” | â€” | â€” | â€” |
+| H-PARITY-WH2 POS | OK | **OK** | â€” | â€” | â€” | â€” | â€” | â€” |
 | H2 preferred-PO | OK | **N** | â€” | â€” | â€” | OK vocab | â€” | OK RPCs |
 | H4 B-MONEY-1 | **N** | **N** | **N** | **N** | **N** | **N** shared/payments | â€” | **N** |
 | H5 B-MAP-1 | OK track | â€” | OK primary | **N** | **N** | â€” | **N** maps-nav | â€” |
