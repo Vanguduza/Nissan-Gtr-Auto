@@ -705,6 +705,7 @@ export function StaffDeliveryTrackingPanel() {
           points={mapPoints}
           live={live}
           etaLabel={etaLabel}
+          etaSourceLabel={etaSourceLabel}
         />
       ) : null}
 
