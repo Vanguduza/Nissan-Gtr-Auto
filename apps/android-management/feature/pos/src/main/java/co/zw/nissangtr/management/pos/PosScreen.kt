@@ -175,25 +175,35 @@ fun PosScreen(
     }
 }
 
+/** Landscape / large-phone dual-pane breakpoint (catalog | cart). */
 private val TWO_PANE_MIN_WIDTH = 700.dp
+
+/** Material a11y minimum; POS till must stay finger-friendly. */
+private val POS_TOUCH_MIN = 48.dp
 
 /**
  * Outer two-pane split. Left ~60% hosts catalog + every non-cart POS function; right ~40%
  * is always the active cart (line items / totals / tender / checkout) regardless of which
  * left-pane function is open, so a cashier can companion-pair or browse quotations without
  * losing sight of the cart in progress.
+ *
+ * Breakpoints (static recon):
+ * - ≥700dp width → Row catalog|cart (weights 0.6|0.4), each pane verticalScroll only —
+ *   no horizontalScroll; chip groups use FlowRow wrap.
+ * - &lt;700dp → stacked Column (phone-width fallback).
  */
 @Composable
 private fun PosWorkspace(
     state: PosUiState,
     viewModel: PosViewModel,
+    modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val twoPane = maxWidth >= TWO_PANE_MIN_WIDTH
         if (twoPane) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .heightIn(min = 480.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -213,12 +223,28 @@ private fun PosWorkspace(
                 )
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 LeftFunctionsPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
                 RightCartPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
             }
         }
     }
+}
+
+/** Wrapping chip row — avoids horizontal overflow / scroll traps in narrow dual-pane panes. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PosChipFlow(content: @Composable androidx.compose.foundation.layout.FlowRowScope.() -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        content = content,
+    )
 }
 
 /**
