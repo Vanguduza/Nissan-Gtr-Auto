@@ -287,7 +287,7 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 - [ ] MapLibre is courier map SoR
 - [ ] Temporal dispatch SM with evidence (accept/reject/timeout)
 - [ ] No Fleetbase runtime; no Baileys
-- [ ] Responsive staff web tracking DoD
+- [x] Responsive staff web tracking DoD
 
 ### Epic Jobs
 - [ ] Single SM documented pick→DN→job→POD→settle
