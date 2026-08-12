@@ -231,25 +231,36 @@ def main(argv: list[str] | None = None) -> int:
 
     live = _live_worker_map()
     prefer = [m.strip() for m in args.prefer.split(",") if m.strip()]
-    pending = pending_by_model(paths.state_db)
-    prefer = [m for m in prefer if m in pending]
+    existing_queue = load_queue(args.out_root)
+    if existing_queue:
+        if prefer:
+            from data_pipeline.megazip.replacement_queue import enqueue_models
 
-    seed = seed_from_dead_models(
-        args.out_root,
-        paths.state_db,
-        live_models=set(live.values()),
-        prefer=prefer,
-    )
-    reorder_queue_nearest_first(
-        args.out_root,
-        paths.state_db,
-        live_models=set(live.values()),
-    )
-    logger.info(
-        "Replacement queue (%s models, nearest-first): %s",
-        len(seed["queued"]),
-        load_queue(args.out_root)[:12],
-    )
+            enqueue_models(args.out_root, prefer, front=True)
+        logger.info(
+            "Using existing replacement queue (%s entries): %s",
+            len(existing_queue),
+            load_queue(args.out_root)[:12],
+        )
+    else:
+        pending = pending_by_model(paths.state_db)
+        prefer = [m for m in prefer if m in pending]
+        seed = seed_from_dead_models(
+            args.out_root,
+            paths.state_db,
+            live_models=set(live.values()),
+            prefer=prefer,
+        )
+        reorder_queue_nearest_first(
+            args.out_root,
+            paths.state_db,
+            live_models=set(live.values()),
+        )
+        logger.info(
+            "Replacement queue seeded (%s models): %s",
+            len(seed["queued"]),
+            load_queue(args.out_root)[:12],
+        )
     logger.info("Watching %s live workers (target=%s): %s", len(live), args.target_workers, live)
 
     tracked = dict(live)
