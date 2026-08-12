@@ -31,7 +31,8 @@ import co.zw.nissangtr.ui.shop.ShopSectionHeader
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 
 /**
- * Shipping addresses — list / upsert / delete + optional Google Maps pick (Bridge-First maps-nav).
+ * Shipping addresses — list / upsert / delete + MapLibre pin pick (Bridge-First maps-nav, B-MAP-1).
+ * Google Maps is deprecated fallback only when MapLibre is off/fails and a key is present.
  * Wired to [RpcNames.UPSERT_CUSTOMER_ADDRESS] / [RpcNames.DELETE_CUSTOMER_ADDRESS].
  */
 @Composable
@@ -40,6 +41,8 @@ fun AddressScreen(
     mapsKeyPresent: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    useMapLibre: Boolean = true,
+    googleMapsKeyPresent: Boolean = false,
     viewModel: AddressViewModel = viewModel(factory = AddressViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
