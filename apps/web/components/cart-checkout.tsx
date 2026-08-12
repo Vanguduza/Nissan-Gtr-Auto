@@ -133,11 +133,6 @@ export function CartCheckout() {
     return status.lines.reduce((sum, line) => sum + Number(line.line_total), 0);
   }, [status]);
 
-  const zigTotal = useMemo(
-    () => Math.round(totalUsd * zigRate * 100) / 100,
-    [totalUsd, zigRate],
-  );
-
   const checkoutDisplay = useMemo(() => {
     const usdMinor = toAmountMinor(totalUsd, "USD");
     const method: PspMethod =
