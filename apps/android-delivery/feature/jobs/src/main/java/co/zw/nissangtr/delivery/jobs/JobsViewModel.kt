@@ -26,6 +26,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Distance/ETA provider for in-app route guidance — shown honestly in UI (D-44 / Epic B). */
+enum class RouteEtaSource(val wire: String, val label: String) {
+    OSRM("osrm", "eta_source=osrm"),
+    GOOGLE_DIRECTIONS_DEPRECATED(
+        "google_directions",
+        "eta_source=google_directions (deprecated)",
+    ),
+}
+
 data class JobsUiState(
     val jobs: List<DeliveryJobSummary> = emptyList(),
     val selectedJobId: String? = null,
@@ -38,13 +47,38 @@ data class JobsUiState(
     val supportPhone: String = "",
     val mapsKeyPresent: Boolean = false,
     val osrmConfigured: Boolean = false,
+    /** MapLibre courier map SoR; false → deprecated Google DeliveryRouteMap fallback only. */
+    val mapLibreEnabled: Boolean = true,
     val routePoints: List<MapLatLng> = emptyList(),
     val routeLabel: String? = null,
+    val routeEtaSource: RouteEtaSource? = null,
     val routeBusy: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
+
+/** Pure label builder for route guidance — unit-tested for eta_source honesty. */
+internal fun formatRouteGuidanceLabel(
+    etaSource: RouteEtaSource,
+    summary: String?,
+    distanceMeters: Int?,
+    durationSeconds: Int?,
+): String {
+    val dist = distanceMeters?.let { d ->
+        if (d >= 1000) "%.1f km".format(d / 1000.0) else "${d}m"
+    }
+    val dur = durationSeconds?.let { s ->
+        val m = s / 60
+        if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
+    }
+    return listOfNotNull(
+        etaSource.label,
+        summary?.takeIf { it.isNotBlank() && it != "OSRM" },
+        dist,
+        dur,
+    ).joinToString(" · ").ifBlank { etaSource.label }
+}
 
 class JobsViewModel(
     private val rpc: RpcClient,
@@ -53,12 +87,14 @@ class JobsViewModel(
     supportPhone: String,
     private val mapsApiKey: String,
     private val osrmUrl: String = "",
+    useMapLibre: Boolean = true,
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         JobsUiState(
             supportPhone = supportPhone,
             mapsKeyPresent = mapsApiKey.isNotBlank(),
             osrmConfigured = osrmUrl.isNotBlank(),
+            mapLibreEnabled = useMapLibre,
         ),
     )
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
