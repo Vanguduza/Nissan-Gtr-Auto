@@ -602,17 +602,20 @@ private fun PrinterSection(
             OutlinedButton(
                 onClick = viewModel::refreshBondedPrinters,
                 enabled = !state.busy,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = POS_TOUCH_MIN),
             ) { Text("List bonded printers") }
             state.bondedPrinters.forEach { device ->
                 Text(
                     "${device.name} · ${device.address}",
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = POS_TOUCH_MIN)
                         .clickable(enabled = !state.busy) {
                             viewModel.selectBondedPrinter(device)
                         }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 12.dp),
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
@@ -629,7 +632,7 @@ private fun PrinterSection(
                 enabled = !state.busy,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .heightIn(min = POS_TOUCH_MIN),
             ) {
                 Text(if (state.printerConnected) "Printer connected" else "Connect printer")
             }
