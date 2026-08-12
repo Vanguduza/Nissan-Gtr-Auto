@@ -513,8 +513,16 @@ export function CartCheckout() {
               <span>
                 <strong>ZiG</strong>
                 <span className={styles.muted}>
-                  ≈ {formatMoney(zigTotal, "ZIG")} @ {zigRate} ZiG per USD
-                  (today&apos;s rate)
+                  ≈{" "}
+                  {formatMoney(
+                    Number(
+                      checkoutDisplay.payCurrency === "ZIG"
+                        ? checkoutDisplay.payable.amountMinor
+                        : checkoutDisplay.indicativeZigMinor ?? 0n,
+                    ) / 100,
+                    "ZIG",
+                  )}{" "}
+                  @ {zigRate} ZiG per USD (ops daily rate)
                 </span>
               </span>
             </label>
