@@ -48,6 +48,17 @@ export function ManualPurchaseOrderPanel() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [trackerStep, setTrackerStep] =
+    useState<ProcurementProgressStep>("draft");
+  const [trackerLabel, setTrackerLabel] = useState("New PO");
+
+  const refreshCreatedProgress = useCallback(async (id: string) => {
+    const client = createWebClient();
+    const res = await loadPurchaseOrderProgress(client, id);
+    if (!res.ok) return;
+    setTrackerStep(res.data.step);
+    setTrackerLabel(res.data.document_number ?? id.slice(0, 8));
+  }, []);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -155,6 +166,7 @@ export function ManualPurchaseOrderPanel() {
     }
     setCreatedId(res.data.purchaseOrderId);
     setLines([]);
+    await refreshCreatedProgress(res.data.purchaseOrderId);
     setMessage(
       submit
         ? `PO submitted for approval (${res.data.purchaseOrderId.slice(0, 8)}…).`

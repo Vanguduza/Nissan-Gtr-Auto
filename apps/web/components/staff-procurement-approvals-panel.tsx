@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import type { ProcurementProgressStep } from "@gtr/procurement";
 import styles from "@/components/account.module.css";
+import { ProcurementProgressTracker } from "@/components/procurement-progress-tracker";
 import {
   approveMaterialRequest,
   approvePurchaseOrder,
@@ -14,6 +16,7 @@ import {
   type PendingMaterialRequest,
   type PendingPurchaseOrder,
 } from "@/lib/procurement-approvals";
+import { loadPurchaseOrderProgress } from "@/lib/preferred-po";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =
