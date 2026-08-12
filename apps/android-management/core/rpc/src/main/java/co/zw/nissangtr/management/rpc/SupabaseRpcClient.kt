@@ -482,12 +482,46 @@ class SupabaseRpcClient(
 
     override suspend fun listWarehouses(): List<WarehouseRef> =
         client.from("warehouses")
-            .select(Columns.list("id", "code", "name")) {
+            .select(
+                Columns.list(
+                    "id",
+                    "code",
+                    "name",
+                    "role_code",
+                    "is_quarantine",
+                    "is_active",
+                ),
+            ) {
                 order("code", Order.ASCENDING)
                 limit(50)
             }
             .decodeList<WarehouseRow>()
-            .map { WarehouseRef(id = it.id, code = it.code, name = it.name) }
+            .map { it.toWarehouseRef() }
+
+    override suspend fun listSaleableWarehouses(): List<WarehouseRef> =
+        client.from("warehouses")
+            .select(
+                Columns.list(
+                    "id",
+                    "code",
+                    "name",
+                    "role_code",
+                    "is_quarantine",
+                    "is_active",
+                ),
+            ) {
+                filter {
+                    eq("is_active", true)
+                    eq("is_quarantine", false)
+                    // Prefer role_code WH2; accept legacy code=WH2 (matches web staff-pos).
+                    or("role_code.eq.WH2,code.eq.WH2")
+                }
+                order("code", Order.ASCENDING)
+                limit(50)
+            }
+            .decodeList<WarehouseRow>()
+            .map { it.toWarehouseRef() }
+            .filter(::isPosSaleableWarehouse)
 
     override suspend fun createPosScanSession(cartId: String): PosScanSessionCreated {
         require(cartId.isNotBlank())
