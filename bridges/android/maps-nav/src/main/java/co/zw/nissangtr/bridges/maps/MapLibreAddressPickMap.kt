@@ -48,7 +48,6 @@ fun MapLibreAddressPickMap(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val onPickLatest = rememberUpdatedState(onPick)
     val selectedLatest = rememberUpdatedState(selected)
-    val onInitFailedLatest = rememberUpdatedState(onInitFailed)
 
     val mapView = remember {
         try {
@@ -74,9 +73,12 @@ fun MapLibreAddressPickMap(
                 }
             }
         } catch (_: Exception) {
-            onInitFailedLatest.value?.invoke()
             null
         }
+    }
+
+    LaunchedEffect(mapView) {
+        if (mapView == null) onInitFailed?.invoke()
     }
 
     if (mapView == null) {
