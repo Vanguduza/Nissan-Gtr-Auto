@@ -8,7 +8,7 @@
     "eval:ci": "promptfoo eval -c promptfoo.config.yaml --no-cache"
   },
   "devDependencies": {
-    "promptfoo": "0.103.0"
+    "promptfoo": "0.114.3"
   },
   "engines": {
     "node": ">=20"
