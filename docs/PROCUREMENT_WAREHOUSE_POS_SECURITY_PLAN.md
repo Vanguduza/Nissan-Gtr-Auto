@@ -69,20 +69,20 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 - [x] GRN by part number + qty; QR maps to OEM *(web GRN OEM+qty fast path + invoice attach)*
 
 ### E-POS — Dial UX redesign
-- [x] Web POS uses `@gtr/ui` tokens / CoolMall-like density
-- [x] Tablet kiosk POS visual pass (Material 3 + brand tokens) *(GtrTheme wrap on PosScreen)*
-- [x] Responsive desktop + mobile staff POS *(two-pane ≥700dp / stacked fallback)*
+- [ ] Web POS uses `@gtr/ui` tokens / CoolMall-like density
+- [ ] Tablet kiosk POS visual pass (Material 3 + brand tokens) *(GtrTheme wrap on PosScreen — candidate; QA open)*
+- [ ] Responsive desktop + mobile staff POS *(two-pane ≥700dp / stacked fallback)* — see `docs/plans/2026-08-12-pos-dial-ux-redesign.md` QA
 
 ### E-Del — Auto dispatch
-- [x] Offer → accept/reject/timeout → requeue / FIFO when none available *(`@gtr/delivery` + edge `delivery-dispatch-cycle`)*
-- [x] OSRM distance SoR; MapLibre render *(MapLibreJobMap on JobDetailScreen)*
+- [ ] Offer → accept/reject/timeout → requeue / FIFO when none available *(`@gtr/delivery` + edge `delivery-dispatch-cycle` — candidate)*
+- [ ] OSRM distance SoR; MapLibre render *(MapLibreJobMap on JobDetailScreen — candidate; B-MAP-1 / B-OSRM-1 open)*
 
 ### E-Sec — DIAL security baseline
-- [x] No body `userId`/role trust; JWT/session only *(Semgrep rules + HARDENING)*
-- [x] Webhook signature + idempotency *(existing PSP webhooks + Semgrep heuristic)*
-- [x] Fail-closed worker secrets *(`assertWorkerSecret`)*
-- [x] No service_role in client bundles *(Semgrep `no-client-secrets`)*
-- [x] RLS smokes green; HARDENING.md checklist current *(checklist documented; run smokes locally)*
+- [ ] No body `userId`/role trust; JWT/session only *(Semgrep rules + HARDENING)*
+- [ ] Webhook signature + idempotency *(existing PSP webhooks + Semgrep heuristic)*
+- [ ] Fail-closed worker secrets *(`assertWorkerSecret`)*
+- [ ] No service_role in client bundles *(Semgrep `no-client-secrets`)*
+- [ ] RLS smokes green; HARDENING.md checklist current *(Epic A smokes green; full E-Sec gate pending)*
 
 ---
 
@@ -90,28 +90,28 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 
 | Artifact | Status |
 | --- | --- |
-| This plan | Done |
-| `@gtr/procurement` domain + progress tracker | Done |
-| Migration preferred suppliers / fund release / master stock / WH codes | Done |
-| Migration GRN invoice + amount_minor dual-write | Done |
-| Procurement dashboard + suppliers + tracker UI | Done |
-| Manual preferred PO + GRN web panels | Done |
-| Delivery FIFO + SQL assign bridge + edge | Done |
-| MapLibre courier map on job detail | Done |
-| POS Dial UX (web shell + Android GtrTheme) | Done |
-| `@gtr/payments` PspAdapter + D-57 cart display | Done |
-| Meili dual-read `searchCatalog` | Done |
-| Promptfoo outline + Semgrep/Checkov CI | Done |
-| Android preferred-supplier PO | **Web-first** — hub copy points to `/procurement/orders/new`; blankets module documents skip of heavy Android PO |
+| This plan | Living — E-Proc/E-WH verified; E-POS/E-Del/E-Sec open |
+| `@gtr/procurement` domain + progress tracker | **Done** (verified) |
+| Migration preferred suppliers / fund release / master stock / WH codes | **Done** (`20260812010000`–`70000`) |
+| Migration GRN invoice + amount_minor dual-write | **Done** |
+| Procurement dashboard + suppliers + tracker UI | **Done** (live `progress_step` bind) |
+| Manual preferred PO + GRN web panels | **Done** (OEM resolve + draft-only invoice bind) |
+| Delivery FIFO + SQL assign bridge + edge | Candidate — Epic B |
+| MapLibre courier map on job detail | Candidate — Epic B |
+| POS Dial UX (web shell + Android GtrTheme) | Candidate — Epic G (QA open) |
+| `@gtr/payments` PspAdapter + D-57 cart display | Candidate — Epic C |
+| Meili dual-read `searchCatalog` | Candidate — Epic D |
+| Promptfoo outline + Semgrep/Checkov CI | Candidate — Epics E / F |
+| Android preferred-supplier PO | **Web-first** — hub copy points to `/procurement/orders/new` |
 
 ---
 
 ## 5. Next tickets
 
 1. ~~Wire `create_purchase_order` UI for preferred-supplier manual lines (web)~~ **Done** — Android remains web-first (DoD)
-2. ~~Attach supplier invoice upload on GRN panel~~ **Done**
-3. ~~MapLibre Native courier map (E2b)~~ **Done** (JobDetailScreen)
-4. ~~Promptfoo gate on AI report/CRM edges~~ **Done** (outline + config)
-5. ~~Semgrep/Checkov CI port from DIAL D-48~~ **Done** (`semgrep-gtr` job + root `semgrep.yml`)
+2. ~~Attach supplier invoice upload on GRN panel~~ **Done** (+ storage bind / draft-only `20260812060000`)
+3. MapLibre Native courier map (E2b) — **Epic B** (candidate wiring exists; DoD/evidence open)
+4. Promptfoo gate on AI report/CRM edges — **Epic E**
+5. Semgrep/Checkov CI port from DIAL D-48 — **Epic F**
 
-**Optional follow-ups (not blocking this landing):** full Temporal worker binary; Android native preferred-PO screen; regenerate `database.types.ts` from live DB after migrate; Promptfoo CI job with real model provider.
+**Optional follow-ups (not blocking E-Proc/E-WH):** full Temporal worker binary; Android native preferred-PO screen; Promptfoo CI job with real model provider; fund-release insert-once (no ON CONFLICT money rewrite).
