@@ -8356,16 +8356,16 @@ export type Database = {
         }
         Returns: string
       }
-      attach_goods_receipt_invoice: {
-        Args: { p_goods_receipt_id: string; p_storage_path: string }
-        Returns: string
-      }
       assign_staff_role: {
         Args: {
           p_role: Database["public"]["Enums"]["staff_role"]
           p_user_id: string
         }
         Returns: undefined
+      }
+      attach_goods_receipt_invoice: {
+        Args: { p_goods_receipt_id: string; p_storage_path: string }
+        Returns: string
       }
       attendance_hours_in_period: {
         Args: {
