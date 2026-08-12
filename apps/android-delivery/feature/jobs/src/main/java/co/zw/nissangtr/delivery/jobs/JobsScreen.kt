@@ -565,13 +565,11 @@ fun JobDetailScreen(
                 )
             }
         }
+        val showingMapLibre = state.mapLibreEnabled &&
+            (tracking.lastLat ?: job.dropoffLat) != null &&
+            (tracking.lastLng ?: job.dropoffLng) != null
         Text(
-            jobDetailMapCaption(
-                state = state,
-                showingMapLibre = state.mapLibreEnabled &&
-                    (tracking.lastLat ?: job.dropoffLat) != null &&
-                    (tracking.lastLng ?: job.dropoffLng) != null,
-            ),
+            jobDetailMapCaption(state = state, showingMapLibre = showingMapLibre),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
