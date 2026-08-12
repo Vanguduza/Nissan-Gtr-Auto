@@ -116,7 +116,10 @@ export async function searchStockItems(
   return { ok: true, data: (data as StockItemOption[]) ?? [] };
 }
 
-/** Catalog browse via `search_catalog` (standalone — no scan session). */
+/**
+ * Catalog browse via dual-read search (standalone — no scan session).
+ * Hits are identity only; saleable qty comes from stock SoR (not Meili).
+ */
 export async function searchPosCatalog(
   client: SupabaseClient,
   mode: SearchMode,
