@@ -139,7 +139,13 @@ fun PosScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            PosWorkspace(state = state, viewModel = viewModel)
+            PosWorkspace(
+                state = state,
+                viewModel = viewModel,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            )
 
             state.lastBindMessage?.let {
                 Text("Last bind: $it", style = MaterialTheme.typography.bodyMedium)
@@ -158,6 +164,7 @@ fun PosScreen(
                 ShopSecondaryButton(
                     label = if (isSalesHome) "All modules (hub)" else "Hub",
                     onClick = { onOpenHub.invoke() },
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 )
             }
         }
