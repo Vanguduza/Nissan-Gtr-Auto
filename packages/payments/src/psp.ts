@@ -194,13 +194,16 @@ export function buildCheckoutDisplay(input: {
 }
 
 /**
- * Finance C6 seed (package-side evidence for Epic Finance DoD).
+ * Finance C6 evidence (Epic Finance / Epic C DoD).
  *
  * AI must never invent payable amounts, `amount_minor` / `amountMinor`, or
  * auto-create purchase orders. Payable money is SoR from cart totals, ledger
  * posts, and PspAdapter webhook settlement only — never from model output.
- * Full Edge/repo grep for writers may follow in a later lane; this constant
- * documents the contract for `@gtr/payments` consumers and tests.
+ *
+ * Spot-checked Edge workers (no payable / amount_minor / PO money writes):
+ * - `supabase/functions/process-ai-reports/index.ts`
+ * - `supabase/functions/process-crm-promos/index.ts`
+ * Enforced by Semgrep-style grep in `psp.test.ts`.
  */
 export const AI_NEVER_WRITES_MONEY = {
   rule:
@@ -214,5 +217,10 @@ export const AI_NEVER_WRITES_MONEY = {
     "model-invented payable amounts",
     "AI-written amount_minor / amountMinor",
     "AI auto-created purchase orders",
+  ],
+  /** Paths grepped for payable / amount_minor / PO money writes (must stay clean). */
+  greppedWorkerPaths: [
+    "supabase/functions/process-ai-reports/index.ts",
+    "supabase/functions/process-crm-promos/index.ts",
   ],
 } as const;
