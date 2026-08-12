@@ -317,10 +317,16 @@ private fun OfflineStatusBanner(
             OutlinedButton(
                 onClick = viewModel::pullOfflineSnapshot,
                 enabled = !state.busy && !state.isOffline,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = POS_TOUCH_MIN),
             ) { Text("Pull snapshot") }
             OutlinedButton(
                 onClick = viewModel::syncOfflineQueue,
                 enabled = !state.busy && !state.isOffline,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = POS_TOUCH_MIN),
             ) { Text("Sync queue") }
         }
     }
