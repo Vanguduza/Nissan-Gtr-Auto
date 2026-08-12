@@ -712,44 +712,51 @@ private fun RightCartPane(
 
             HorizontalDivider()
             state.cartLines.forEach { line ->
-                ShopListCard(
-                    title = line.oemPartNumber ?: line.stockItemId.take(8),
-                    subtitle = "@ ${line.unitPrice} = ${line.lineTotal}" +
-                        if (line.isCoreCharge) " (core)" else "",
-                    onClick = {},
-                    trailing = if (!line.isCoreCharge) {
-                        {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(
-                                    onClick = { viewModel.requestPriceOverride(line) },
-                                    enabled = !state.busy,
-                                ) { Text("Price") }
-                                OutlinedButton(
-                                    onClick = { viewModel.bumpLineQty(line, -1.0) },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.height(40.dp),
-                                ) { Text("−") }
-                                Text(
-                                    "×${line.qty.toInt()}",
-                                    modifier = Modifier.padding(horizontal = 6.dp),
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                OutlinedButton(
-                                    onClick = { viewModel.bumpLineQty(line, 1.0) },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.height(40.dp),
-                                ) { Text("+") }
-                            }
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ShopListCard(
+                        title = line.oemPartNumber ?: line.stockItemId.take(8),
+                        subtitle = "@ ${line.unitPrice} = ${line.lineTotal}" +
+                            if (line.isCoreCharge) " (core)" else "",
+                        onClick = {},
+                        badges = if (line.isCoreCharge) {
+                            { ShopStatusChip(label = "core", background = GtrColors.Mist) }
+                        } else {
+                            null
+                        },
+                    )
+                    // Stacked under card — avoids Price/−/+/qty horizontal overflow in 40% cart pane.
+                    if (!line.isCoreCharge) {
+                        PosChipFlow {
+                            OutlinedButton(
+                                onClick = { viewModel.requestPriceOverride(line) },
+                                enabled = !state.busy,
+                                modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
+                            ) { Text("Price") }
+                            OutlinedButton(
+                                onClick = { viewModel.bumpLineQty(line, -1.0) },
+                                enabled = !state.busy,
+                                modifier = Modifier
+                                    .widthIn(min = POS_TOUCH_MIN)
+                                    .heightIn(min = POS_TOUCH_MIN),
+                            ) { Text("−") }
+                            Text(
+                                "×${line.qty.toInt()}",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            OutlinedButton(
+                                onClick = { viewModel.bumpLineQty(line, 1.0) },
+                                enabled = !state.busy,
+                                modifier = Modifier
+                                    .widthIn(min = POS_TOUCH_MIN)
+                                    .heightIn(min = POS_TOUCH_MIN),
+                            ) { Text("+") }
                         }
-                    } else {
-                        null
-                    },
-                    badges = if (line.isCoreCharge) {
-                        { ShopStatusChip(label = "core", background = GtrColors.Mist) }
-                    } else {
-                        null
-                    },
-                )
+                    }
+                }
             }
             if (state.cartLines.isEmpty()) {
                 ShopHonestEmpty(
