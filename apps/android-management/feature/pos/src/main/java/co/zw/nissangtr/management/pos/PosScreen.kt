@@ -460,12 +460,26 @@ private fun CartSetupSection(
                         FilterChip(
                             selected = state.warehouseId == wh.id,
                             onClick = { viewModel.selectWarehouse(wh) },
-                            label = { Text(wh.code) },
+                            label = {
+                                Text(
+                                    if (wh.roleCode == "WH2" || wh.code == "WH2") {
+                                        "${wh.code} · storefloor"
+                                    } else {
+                                        wh.code
+                                    },
+                                )
+                            },
                             enabled = !state.busy,
                             modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                         )
                     }
                 }
+            } else {
+                Text(
+                    "No WH2 storefloor warehouses — WH1 receiving is not selectable for POS",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
             PosChipFlow {
                 CurrencyCode.entries.forEach { code ->

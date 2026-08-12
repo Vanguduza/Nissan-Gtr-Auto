@@ -422,19 +422,29 @@ class PosViewModel(
 
     private suspend fun loadWarehouses() {
         try {
-            val list = rpc.listWarehouses()
+            // WH2 storefloor only — WH1 receiving must not appear in POS picker.
+            val list = rpc.listSaleableWarehouses()
             _state.update { s ->
+                val selectedStillValid = list.any { it.id == s.warehouseId }
                 s.copy(
                     warehouses = list,
-                    warehouseId = s.warehouseId.ifBlank {
-                        list.firstOrNull()?.id ?: FakeRpcClient.FAKE_WAREHOUSE_ID
+                    warehouseId = when {
+                        selectedStillValid -> s.warehouseId
+                        list.isNotEmpty() -> list.first().id
+                        else -> ""
+                    },
+                    error = if (list.isEmpty()) {
+                        "No WH2 storefloor warehouses available for POS"
+                    } else {
+                        s.error
                     },
                 )
             }
         } catch (e: Exception) {
             _state.update {
                 it.copy(
-                    warehouseId = it.warehouseId.ifBlank { FakeRpcClient.FAKE_WAREHOUSE_ID },
+                    warehouses = emptyList(),
+                    warehouseId = "",
                     error = e.message ?: "warehouse list failed",
                 )
             }
