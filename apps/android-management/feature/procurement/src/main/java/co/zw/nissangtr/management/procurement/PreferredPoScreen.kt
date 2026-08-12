@@ -1,7 +1,5 @@
 package co.zw.nissangtr.management.procurement
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
@@ -29,6 +26,7 @@ import co.zw.nissangtr.ui.shop.ShopStaffScreen
 /**
  * H2 — native preferred-supplier PO create/submit.
  * Not RFQ-gated; quoted unit costs are staff-entered.
+ * Web GRN / orders detail remains a secondary path outside this screen.
  */
 @Composable
 fun PreferredPoScreen(
@@ -41,7 +39,6 @@ fun PreferredPoScreen(
     ),
 ) {
     val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
 
     ShopStaffScreen(
         title = "Preferred PO",
@@ -144,7 +141,6 @@ fun PreferredPoScreen(
                 OutlinedButton(
                     onClick = viewModel::scanQrForLine,
                     enabled = !state.busy,
-                    modifier = Modifier.weight(1f, fill = false),
                 ) { Text("Scan QR") }
             }
             OutlinedTextField(
@@ -170,7 +166,7 @@ fun PreferredPoScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !state.busy,
-            )
+            }
             OutlinedTextField(
                 value = state.lineUnitPrice,
                 onValueChange = viewModel::onLineUnitPriceChange,
@@ -209,16 +205,10 @@ fun PreferredPoScreen(
                 onClick = viewModel::createAndSubmit,
                 enabled = !state.busy && state.lines.isNotEmpty(),
             )
-            ShopSecondaryButton(
-                label = "Open web GRN (secondary)",
-                onClick = {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://localhost/procurement/orders/new"),
-                    )
-                    runCatching { context.startActivity(intent) }
-                },
-                enabled = true,
+            Text(
+                "GRN receive remains on web /procurement (secondary).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             state.message?.let { Text(it) }
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
