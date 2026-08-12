@@ -26,6 +26,8 @@ import {
   type CustomerRow,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
+import { buildCheckoutDisplay, type PspMethod } from "@gtr/payments";
+import { toAmountMinor } from "@gtr/shared";
 import styles from "@/app/(storefront)/page.module.css";
 
 function CartTitle() {
@@ -135,6 +137,34 @@ export function CartCheckout() {
     () => Math.round(totalUsd * zigRate * 100) / 100,
     [totalUsd, zigRate],
   );
+
+  /** D-57: browse stays USD; ZiG only at pay step via ops daily rate. */
+  const checkoutDisplay = useMemo(() => {
+    const usdMinor = toAmountMinor(totalUsd, "USD");
+    const method: PspMethod =
+      tender === "ecocash"
+        ? "ecocash"
+        : tender === "contipay"
+          ? "contipay"
+          : tender === "paynow"
+            ? "paynow"
+            : "cash";
+    try {
+      return buildCheckoutDisplay({
+        usdMinor,
+        payMethod: settleCurrency === "ZIG" || method === "ecocash" ? "ecocash" : method,
+        zigRatePerUsd: zigRate,
+        fxRateId: null,
+      });
+    } catch {
+      return buildCheckoutDisplay({
+        usdMinor,
+        payMethod: "cash",
+        zigRatePerUsd: zigRate,
+        fxRateId: null,
+      });
+    }
+  }, [totalUsd, zigRate, tender, settleCurrency]);
 
   async function onCheckout() {
     setBusy(true);
