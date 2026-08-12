@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 import {
   AI_NEVER_WRITES_MONEY,
@@ -130,5 +132,21 @@ describe("Finance C6 — AI never writes money", () => {
         s.toLowerCase().includes("webhook"),
       ),
     );
+  });
+
+  it("Semgrep-style: AI workers omit payable / amount_minor / PO money writes", () => {
+    const root = path.resolve(import.meta.dirname, "../../..");
+    const forbidden =
+      /\b(amount_minor|amountMinor|payable|purchase_orders?|create_purchase_order)\b/i;
+    for (const rel of AI_NEVER_WRITES_MONEY.greppedWorkerPaths) {
+      const full = path.join(root, rel);
+      assert.ok(fs.existsSync(full), `missing worker: ${rel}`);
+      const src = fs.readFileSync(full, "utf8");
+      assert.equal(
+        forbidden.test(src),
+        false,
+        `${rel} must not write payable / amount_minor / PO money`,
+      );
+    }
   });
 });
