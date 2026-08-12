@@ -291,3 +291,56 @@ export async function listPoLines(
     }),
   };
 }
+
+/** Live tracker binding for a single PO (status → closed via resolveProcurementProgress). */
+export async function loadPurchaseOrderProgress(
+  client: ProcurementClient,
+  purchaseOrderId: string,
+): Promise<StorefrontResult<PurchaseOrderProgress>> {
+  // funds_released_at / progress_step pending database.types.ts regen (@backend_agent).
+  const { data, error } = await client
+    .from("purchase_orders")
+    .select(PO_PROGRESS_SELECT)
+    .eq("id", purchaseOrderId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Purchase order not found." };
+  return {
+    ok: true,
+    data: toProgress(data as Parameters<typeof toProgress>[0] & PoProgressColumns),
+  };
+}
+
+/** Recent POs for hub / approvals surfaces — each row carries a live tracker step. */
+export async function listRecentPurchaseOrderProgress(
+  client: ProcurementClient,
+  limit = 12,
+): Promise<StorefrontResult<PurchaseOrderProgress[]>> {
+  const { data, error } = await client
+    .from("purchase_orders")
+    .select(PO_PROGRESS_SELECT)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((r) =>
+      toProgress(r as Parameters<typeof toProgress>[0] & PoProgressColumns),
+    ),
+  };
+}
+
+/**
+ * Catalog fast-path for GRN OEM entry (Bridge-First QR → OEM lands here as text).
+ * Returns null when OEM is unknown in stock_items.
+ */
+export async function resolveStockItemByOem(
+  client: ProcurementClient,
+  oem: string,
+): Promise<StorefrontResult<string | null>> {
+  const { data, error } = await client.rpc("resolve_stock_item_by_oem", {
+    p_oem: oem,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as string | null) ?? null };
+}
