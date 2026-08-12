@@ -7,6 +7,8 @@ export {
   fromAmountMinor,
   moneyToMinor,
   minorToMoney,
+  majorToMinorNumber,
+  dualWriteMoney,
   moneyMinorToJson,
   moneyMinorFromJson,
 } from "./money";

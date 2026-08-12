@@ -109,6 +109,12 @@ export function dualWriteMoney(
   };
 }
 
+/** Serialize for JSON / PostgREST (bigint → string). */
+export function moneyMinorToJson(m: MoneyMinor): {
+  amountMinor: string;
+  currency: CurrencyCode;
+  fxRateId?: string | null;
+} {
   return {
     amountMinor: m.amountMinor.toString(),
     currency: m.currency,
