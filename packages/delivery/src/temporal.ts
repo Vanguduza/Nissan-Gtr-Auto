@@ -6,14 +6,14 @@ import {
   applyOfferDecision,
   selectNextCourierOffer,
   type CourierCandidate,
-} from "./dispatch";
+} from "./dispatch.ts";
 import {
   DELIVERY_DISPATCH_WORKFLOW,
   type DeliveryOfferDecision,
   type DeliveryOfferState,
   type DispatchWorkflowInput,
   type DispatchWorkflowResult,
-} from "./types";
+} from "./types.ts";
 
 export { DELIVERY_DISPATCH_WORKFLOW };
 
