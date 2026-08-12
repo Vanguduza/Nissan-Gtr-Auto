@@ -774,9 +774,14 @@ fun JobsScreen(
 }
 
 /** Honest map + distance SoR caption for JobDetailScreen (Epic B freeze). */
-internal fun jobDetailMapCaption(state: JobsUiState): String {
+internal fun jobDetailMapCaption(
+    state: JobsUiState,
+    showingMapLibre: Boolean = state.mapLibreEnabled,
+): String {
     val mapPart = when {
-        state.mapLibreEnabled -> "MapLibre SoR"
+        showingMapLibre -> "MapLibre SoR"
+        state.mapLibreEnabled ->
+            "DEPRECATED Google Maps fallback (missing coords — MapLibre SoR when available)"
         else -> "DEPRECATED Google Maps fallback (useMapLibre=false)"
     }
     val routePart = when {
