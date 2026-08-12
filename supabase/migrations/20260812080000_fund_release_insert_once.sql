@@ -12,7 +12,7 @@ DECLARE
   v_po public.purchase_orders%ROWTYPE;
   v_total NUMERIC;
   v_total_minor BIGINT;
-  v_currency TEXT;
+  v_currency public.currency_code;
   v_release UUID;
 BEGIN
   PERFORM public._procurement_begin_rpc();
