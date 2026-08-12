@@ -14,7 +14,8 @@
     "db:reset": "npx supabase db reset",
     "db:types": "npx supabase gen types typescript --local > packages/supabase-client/src/database.types.ts",
     "db:types:linked": "npx supabase gen types typescript --linked > packages/supabase-client/src/database.types.ts",
-    "test:smoke:docs": "echo See docs/HARDENING.md — docker exec … psql for phase2_rls_smoke.sql and phase14_ci_smoke.sql"
+    "test:smoke:docs": "echo See docs/HARDENING.md — docker exec … psql for phase2_rls_smoke.sql and phase14_ci_smoke.sql",
+    "test:promptfoo": "npx --yes promptfoo@0.103.0 eval -c promptfoo/promptfoo.config.yaml --no-cache"
   },
   "engines": {
     "node": ">=20"

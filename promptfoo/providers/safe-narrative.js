@@ -1,6 +1,7 @@
 /**
  * Offline Epic E provider — fixed safe narrative (no live model).
- * Real provider in CI = §H; human promote still required (see README).
+ * H3 CI default; optional real provider when secrets present (see README).
+ * Human promote still required.
  */
 class SafeNarrativeProvider {
   id() {

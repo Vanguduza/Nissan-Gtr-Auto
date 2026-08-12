@@ -2,7 +2,7 @@
 # Run: npx promptfoo eval -c promptfoo/promptfoo.config.yaml
 # AI never writes payable amounts, never auto-creates POs, never invents money.
 # Offline SoR: file://providers/safe-narrative.js (echo re-emits rules → false fails;
-# llm-rubric needs a paid model — deferred to §H real-provider CI).
+# llm-rubric needs a paid model — optional H3 real-provider CI when secrets present).
 
 description: "GTR AI CRM + staff report narrative safety (E4)"
 
