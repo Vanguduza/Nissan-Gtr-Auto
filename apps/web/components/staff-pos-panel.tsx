@@ -493,8 +493,9 @@ export function StaffPosPanel() {
   if (boot.warehouses.length === 0) {
     return (
       <p className={styles.muted}>
-        No saleable warehouses available. Activate a non-quarantine warehouse
-        before opening a POS cart.
+        No WH2 storefloor warehouses available for POS. Activate a WH2
+        (storefloor) warehouse — WH1 is receiving only and is not selectable
+        here.
       </p>
     );
   }
@@ -528,7 +529,7 @@ export function StaffPosPanel() {
         <form onSubmit={(e) => void onCreateCart(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
-              Warehouse
+              Warehouse (WH2 storefloor)
               <select
                 value={warehouseId}
                 onChange={(e) => setWarehouseId(e.target.value)}
@@ -537,6 +538,7 @@ export function StaffPosPanel() {
                 {boot.warehouses.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.code} — {w.name}
+                    {w.role_code === "WH2" ? " · storefloor" : ""}
                   </option>
                 ))}
               </select>
