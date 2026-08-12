@@ -1,0 +1,102 @@
+# H3 — Promptfoo AI narrative gates (Epic E offline SoR + optional real provider)
+# Default job: file://providers/safe-narrative.js — no secrets required.
+# Optional job: runs only when OPENAI_API_KEY, GEMINI_API_KEY, or PROMPTFOO_PROVIDER
+# is present in repo secrets. Never commit API keys.
+# Human-promote path remains mandatory (see promptfoo/README.md).
+
+name: promptfoo
+
+on:
+  pull_request:
+    paths:
+      - "promptfoo/**"
+      - ".github/workflows/promptfoo.yml"
+      - "supabase/functions/analytics-insights/**"
+      - "supabase/functions/process-ai-reports/**"
+      - "supabase/functions/process-crm-promos/**"
+      - "supabase/functions/stores-insights/**"
+      - "supabase/functions/demand-forecast/**"
+  push:
+    branches: [main, master]
+    paths:
+      - "promptfoo/**"
+      - ".github/workflows/promptfoo.yml"
+      - "supabase/functions/analytics-insights/**"
+      - "supabase/functions/process-ai-reports/**"
+      - "supabase/functions/process-crm-promos/**"
+      - "supabase/functions/stores-insights/**"
+      - "supabase/functions/demand-forecast/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promptfoo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Epic E offline gate — default; must pass without secrets.
+  promptfoo-offline:
+    name: Promptfoo offline (safe-narrative)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Eval (offline safe-narrative)
+        working-directory: promptfoo
+        run: npx --yes promptfoo@0.103.0 eval -c promptfoo.config.yaml --no-cache
+
+  # Optional real-model path — skipped when secrets are absent.
+  promptfoo-real:
+    name: Promptfoo real provider (optional)
+    runs-on: ubuntu-latest
+    needs: promptfoo-offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Detect provider secrets
+        id: detect
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PROMPTFOO_PROVIDER: ${{ secrets.PROMPTFOO_PROVIDER }}
+        run: |
+          set -euo pipefail
+          PROVIDER=""
+          if [[ -n "${PROMPTFOO_PROVIDER:-}" ]]; then
+            PROVIDER="$PROMPTFOO_PROVIDER"
+          elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
+            PROVIDER="openai:gpt-4o-mini"
+          elif [[ -n "${GEMINI_API_KEY:-}" || -n "${GOOGLE_API_KEY:-}" ]]; then
+            PROVIDER="google:gemini-2.0-flash"
+          fi
+          if [[ -z "$PROVIDER" ]]; then
+            echo "has_provider=false" >> "$GITHUB_OUTPUT"
+            echo "No OPENAI_API_KEY / GEMINI_API_KEY / GOOGLE_API_KEY / PROMPTFOO_PROVIDER — skipping real-provider eval."
+          else
+            echo "has_provider=true" >> "$GITHUB_OUTPUT"
+            echo "provider=$PROVIDER" >> "$GITHUB_OUTPUT"
+            echo "Using provider: $PROVIDER"
+          fi
+      - name: Eval (real provider)
+        if: steps.detect.outputs.has_provider == 'true'
+        working-directory: promptfoo
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          npx --yes promptfoo@0.103.0 eval \
+            -c promptfoo.config.yaml \
+            --providers "${{ steps.detect.outputs.provider }}" \
+            --no-cache
+      - name: Skip notice
+        if: steps.detect.outputs.has_provider != 'true'
+        run: echo "Real-provider job completed without eval (secrets not configured)."
