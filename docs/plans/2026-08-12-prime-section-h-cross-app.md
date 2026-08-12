@@ -38,10 +38,10 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | H-PARITY-WH2 POS | OK | **OK** | — | — | — | — | — | — |
 | H2 preferred-PO | OK | **OK** | — | — | — | OK vocab | — | OK RPCs |
 | H4 B-MONEY-1 | **N** | **N** | **N** | **N** | **N** | **N** shared/payments | — | **N** |
-| H5 B-MAP-1 | OK track | — | OK primary | **Y** MapLibre address pick | **N** MapKit remain | — | **Y** maps-nav MapLibre | — |
+| H5 B-MAP-1 | OK track | — | OK primary | **OK** MapLibre address pick | **N** H5-iOS MapKit remain | — | **OK** maps-nav MapLibre | — |
 | H6 B-OSRM-1 | — | — | prefer OK | prefer if maps | — | OK osrm | OK fetcher | — + **N** infra |
 | H1 Temporal worker | — | — | — | — | — | **N** host | — | Edge OK |
-| H3 Promptfoo CI | — | — | — | — | — | — | — | — + **N** `.github`/promptfoo |
+| H3 Promptfoo CI | — | — | — | — | — | — | — | — + **OK** `.github`/promptfoo (offline default) |
 | H7 B-PS-1 | — | **N** | maybe | maybe | maybe | — | — | powersync rules OK |
 | H9 Chatwoot/Metabase | DEF | DEF | DEF | DEF | DEF | DEF | DEF | DEF |
 | H-ZIMRA | **never** | **never** | **never** | **never** | **never** | **never** | **never** | **never** |
