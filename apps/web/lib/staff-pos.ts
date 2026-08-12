@@ -20,7 +20,20 @@ export type WarehouseOption = {
   id: string;
   code: string;
   name: string;
+  role_code: string | null;
 };
+
+/** POS picks only from WH2 storefloor — WH1 is receiving-only. */
+export function isPosSaleableWarehouse(w: {
+  role_code?: string | null;
+  code?: string;
+  is_quarantine?: boolean;
+  is_active?: boolean;
+}): boolean {
+  if (w.is_active === false) return false;
+  if (w.is_quarantine) return false;
+  return w.role_code === "WH2" || w.code === "WH2";
+}
 
 export type StockItemOption = {
   id: string;
