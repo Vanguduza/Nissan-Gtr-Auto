@@ -320,13 +320,13 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 
 ## 10. Next tickets (after E1)
 
-1. **E2a** — Temporal worker + `DeliveryDispatchWorkflow` wrapping assign/offer RPCs  
-2. **E2b** — MapLibre Native in `bridges/android/maps-nav` (replace Maps Compose as SoR)  
-3. **E3a** — `@gtr/payments` PspAdapter registry  
-4. **E3b** — Web/WA D-57 USD browse + ZiG-at-checkout audit  
-5. **E4** — Promptfoo outline for CRM/report narratives  
-6. **E5** — Migration plan for `amount_minor` columns on payment/ledger lines  
-7. **E6** — Meili dual-read default for catalog search  
+1. ~~**E2a** — Temporal worker + `DeliveryDispatchWorkflow` wrapping assign/offer RPCs~~ **Bridge done** (`packages/delivery` assign-bridge + edge `delivery-dispatch-cycle`); full Temporal binary optional.
+2. ~~**E2b** — MapLibre Native in courier tracking~~ **Done** (`MapLibreJobMap` on JobDetailScreen).
+3. ~~**E3a** — `@gtr/payments` PspAdapter registry~~ **Done**.
+4. ~~**E3b** — Web D-57 USD browse + ZiG-at-checkout~~ **Done** (`buildCheckoutDisplay` in cart-checkout).
+5. ~~**E4** — Promptfoo outline for CRM/report narratives~~ **Done** (`promptfoo/`).
+6. ~~**E5** — `amount_minor` dual-write on PO money paths~~ **Done** (migration `20260812030000_*`); broader ledger later.
+7. ~~**E6** — Meili dual-read default for catalog search~~ **Done**.
 
 ---
 

@@ -15,9 +15,11 @@ Multi-platform, composable ERP for Nissan spare-parts distribution (**principal 
 
 **Dial-a-Spare adoption:** engineering patterns from DIAL (money minor units, MapLibre+OSRM delivery SoR, Resend/Brevo split, Temporal dispatch contracts) — see [`docs/DIAL_SPARE_ADOPTION_PLAN.md`](docs/DIAL_SPARE_ADOPTION_PLAN.md) and ADR [`docs/decisions/2026-08-12-principal-vs-dial-agency.md`](docs/decisions/2026-08-12-principal-vs-dial-agency.md). Living docs: [`CHANGELOG.md`](CHANGELOG.md), [`ENHANCEMENTS.md`](ENHANCEMENTS.md), [`BUGS.md`](BUGS.md).
 
-Shared packages live under `packages/` (`shared`, `supabase-client`, `ui`, `documents`, `notifications`, `delivery`, `procurement`). Supabase schema, migrations, and edge functions live under `supabase/`. Catalog scraping/parsing infrastructure lives under `data-pipeline/` (independent of client builds).
+Shared packages live under `packages/` (`shared`, `supabase-client`, `ui`, `documents`, `notifications`, `delivery`, `procurement`, `payments`). Supabase schema, migrations, and edge functions live under `supabase/`. Catalog scraping/parsing infrastructure lives under `data-pipeline/` (independent of client builds).
 
 **Procurement / dual-WH:** relationship preferred suppliers (not RFQ-win), WH1 receive / WH2 storefloor, master stock, PO fund release — [`docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md`](docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md).
+
+**AppSec CI:** Semgrep (`semgrep/rules`, root `semgrep.yml`, job `semgrep-gtr`) + Checkov (`.github/workflows/checkov.yml`). Promptfoo outline: `promptfoo/`.
 
 ## Hard Exclusions
 
