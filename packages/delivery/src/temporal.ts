@@ -1,6 +1,9 @@
 /**
- * Temporal DeliveryDispatchWorkflow activity contracts (DIAL D-45).
- * Worker deployment is separate; SQL `_try_auto_assign_delivery_job` remains live SoR until worker cutover.
+ * Temporal `DeliveryDispatchWorkflow` activity contracts + portable cycle (DIAL D-45 / B5).
+ *
+ * FIFO helpers (`selectNextCourierOffer`, `applyOfferDecision`) + this cycle are package SoR.
+ * SQL/Edge bridge (`createSqlDispatchActivities`) is a fire-and-assign stub that reuses this
+ * orchestration. Full Temporal worker binary with durable timers = §H — not required for Epic B DoD.
  */
 import {
   applyOfferDecision,
@@ -30,7 +33,9 @@ export type DispatchActivities = {
 };
 
 /**
- * Pure orchestration of one dispatch cycle — portable to Temporal worker.
+ * Pure orchestration of one offer→decision→assign|requeue|fifo cycle.
+ * Portable to a Temporal worker; unit-testable via injectable `DispatchActivities`
+ * (no fake Temporal host required for B5 SM evidence).
  */
 export async function runDeliveryDispatchCycle(
   input: DispatchWorkflowInput,
