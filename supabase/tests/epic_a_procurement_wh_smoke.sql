@@ -192,7 +192,18 @@ BEGIN
     RAISE EXCEPTION 'epic A smoke fail: po_approved domain event missing';
   END IF;
 
-  -- GRN + invoice attach
+  -- GRN + invoice attach (path = {poId}/file — matches web goods-receipt-panel upload)
+  v_invoice_path := v_po::text || '/epic-a-smoke-invoice.pdf';
+  INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
+  VALUES (
+    'procurement-invoices',
+    v_invoice_path,
+    v_wh,
+    v_wh::text,
+    jsonb_build_object('mimetype', 'application/pdf', 'size', 32)
+  )
+  ON CONFLICT (bucket_id, name) DO NOTHING;
+
   PERFORM public._test_set_auth_uid(v_wh);
   v_grn := public.create_goods_receipt(
     v_po,
@@ -211,6 +222,25 @@ BEGIN
     RAISE EXCEPTION 'epic A smoke fail: attach_goods_receipt_invoice did not set path';
   END IF;
   PERFORM public.submit_goods_receipt(v_grn);
+
+  -- Post-submit attach must refuse (forged evidence stamp)
+  BEGIN
+    PERFORM public.attach_goods_receipt_invoice(
+      v_grn,
+      v_po::text || '/forged-after-submit.pdf'
+    );
+    v_attach_denied := false;
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE '%draft%' OR SQLERRM LIKE '%invoice attach only%' THEN
+        v_attach_denied := true;
+      ELSE
+        RAISE;
+      END IF;
+  END;
+  IF NOT v_attach_denied THEN
+    RAISE EXCEPTION 'epic A smoke fail: attach after submit should be refused';
+  END IF;
 
   -- Master stock columns (Total + WH1 + WH2) + OEM resolve
   v_resolved := public.resolve_stock_item_by_oem('epic-a-smoke');
