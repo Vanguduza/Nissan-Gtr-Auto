@@ -59,7 +59,7 @@ fun AddressScreen(
         when (state.route) {
             AddressScreenRoute.List -> {
                 Text(
-                    "Map pick stores lat/lng with the address (Bridge-First maps-nav).",
+                    "Map pick stores lat/lng with the address (MapLibre SoR via Bridge-First maps-nav).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
