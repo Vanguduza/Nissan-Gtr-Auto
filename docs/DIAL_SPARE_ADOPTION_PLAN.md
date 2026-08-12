@@ -278,9 +278,9 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 - [ ] Money-path review skill habits applied before merge
 
 ### Epic Stock/WMS
-- [ ] Principal stock remains SoR
-- [ ] Meili never invents qty
-- [ ] Consignment vs owned valuation documented
+- [x] Principal stock remains SoR
+- [x] Meili never invents qty — evidence: `@gtr/supabase-client` strip + contract test; Edge `mapHit` omits inventory; ADR `2026-08-05-meilisearch-catalog-search.md`
+- [x] Consignment vs owned valuation documented — `docs/decisions/2026-08-12-consignment-vs-owned-valuation.md`
 
 ### Epic Delivery
 - [x] OSRM (or VROOM) is distance SoR when configured
