@@ -45,9 +45,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: promptfoo/package-lock.json
+      - name: Install promptfoo
+        working-directory: promptfoo
+        run: npm ci
       - name: Eval (offline safe-narrative)
         working-directory: promptfoo
-        run: npx --yes promptfoo@0.103.0 eval -c promptfoo.config.yaml --no-cache
+        run: npm run eval:ci
 
   # Optional real-model path — skipped when secrets are absent.
   promptfoo-real:
