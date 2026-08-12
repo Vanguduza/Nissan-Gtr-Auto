@@ -1,6 +1,6 @@
 -- H8: fund-release insert-once — never rewrite amount / amount_minor on conflict.
 -- Restores ON CONFLICT DO NOTHING (as in 20260812010000) while keeping amount_minor dual-write
--- from 20260812030000. Existing release id is resolved for domain-event payloads only.
+-- from 20260812030000. On conflict, event payloads use stored release amount/currency.
 
 CREATE OR REPLACE FUNCTION public.approve_purchase_order(p_purchase_order_id UUID)
 RETURNS UUID
