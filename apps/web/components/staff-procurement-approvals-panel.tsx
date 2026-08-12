@@ -69,6 +69,17 @@ export function StaffProcurementApprovalsPanel() {
       purchaseOrders: pos.data,
       materialRequests: mrs.data,
     });
+    const client2 = createWebClient();
+    if (client2 && pos.data.length > 0) {
+      const steps: Record<string, ProcurementProgressStep> = {};
+      await Promise.all(
+        pos.data.map(async ({ po }) => {
+          const prog = await loadPurchaseOrderProgress(client2, po.id);
+          if (prog.ok) steps[po.id] = prog.data.step;
+        }),
+      );
+      setPoSteps(steps);
+    }
   }, []);
 
   useEffect(() => {
