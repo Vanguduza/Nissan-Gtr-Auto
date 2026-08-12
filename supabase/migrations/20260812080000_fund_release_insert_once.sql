@@ -12,6 +12,7 @@ DECLARE
   v_po public.purchase_orders%ROWTYPE;
   v_total NUMERIC;
   v_total_minor BIGINT;
+  v_currency TEXT;
   v_release UUID;
 BEGIN
   PERFORM public._procurement_begin_rpc();
@@ -44,6 +45,7 @@ BEGIN
 
   v_total := public._po_quoted_total(p_purchase_order_id);
   v_total_minor := public._major_to_minor(v_total);
+  v_currency := v_po.currency;
 
   INSERT INTO public.procurement_fund_releases (
     purchase_order_id,
@@ -61,16 +63,17 @@ BEGIN
     auth.uid(),
     v_total,
     v_total_minor,
-    v_po.currency,
+    v_currency,
     'released',
     format('Auto fund release on PO approve for official %s', COALESCE(v_po.created_by::text, 'unknown'))
   )
   ON CONFLICT (purchase_order_id) DO NOTHING
   RETURNING id INTO v_release;
 
-  -- Conflict: keep original money columns; only resolve id for event payload / callers.
+  -- Conflict: keep original money columns; load stored amount/currency for event payload.
   IF v_release IS NULL THEN
-    SELECT id INTO v_release
+    SELECT id, amount, amount_minor, currency
+    INTO v_release, v_total, v_total_minor, v_currency
     FROM public.procurement_fund_releases
     WHERE purchase_order_id = p_purchase_order_id;
   END IF;
@@ -88,7 +91,7 @@ BEGIN
     jsonb_build_object(
       'purchase_order_id', p_purchase_order_id,
       'document_number', v_po.document_number,
-      'currency', v_po.currency,
+      'currency', v_currency,
       'supplier_id', v_po.supplier_id,
       'fund_release_id', v_release,
       'amount', v_total,
@@ -111,7 +114,7 @@ BEGIN
       'requesting_official_id', v_po.created_by,
       'amount', v_total,
       'amount_minor', v_total_minor,
-      'currency', v_po.currency
+      'currency', v_currency
     ),
     auth.uid(),
     format('GTR Auto: procurement funds released for PO %s', COALESCE(v_po.document_number, left(p_purchase_order_id::text, 8)))
