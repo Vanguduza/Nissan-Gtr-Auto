@@ -649,6 +649,8 @@ private fun CustomerApp(
                 onSignIn = { overlay = ShellOverlay.SignIn },
                 whatsappE164 = whatsappE164,
                 mapsKeyPresent = mapsKeyPresent,
+                useMapLibre = useMapLibre,
+                googleMapsKeyPresent = googleMapsKeyPresent,
                 trackToken = trackToken,
                 trackJobId = trackJobId,
                 trackSession = trackSession,
