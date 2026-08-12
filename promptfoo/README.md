@@ -21,7 +21,7 @@ Gates narrative outputs for:
 2. Run `npx promptfoo eval -c promptfoo/promptfoo.config.yaml` locally — must pass.
 3. Attach eval summary (or CI artifact when real provider lands — §H) to the PR.
 4. A human reviewer explicitly approves “promote” of the prompt/copy; do **not** merge on green alone if asserts were weakened.
-5. Real model provider in CI = deferred (§H); offline `echo` provider is the Epic E DoD SoR.
+5. Real model provider in CI = deferred (§H); offline SoR is `file://providers/safe-narrative.js` (fixed safe narrative — avoids `echo` false positives from rule text and avoids paid `llm-rubric`).
 
 **C6 evidence (Epic C):** Edge workers `process-ai-reports` and `process-crm-promos`
 are grep-checked in `@gtr/payments` (`AI_NEVER_WRITES_MONEY.greppedWorkerPaths` /
@@ -34,4 +34,4 @@ See `docs/plans/2026-08-12-epic-c-payments-d57-dod.md`.
 npx promptfoo eval -c promptfoo/promptfoo.config.yaml
 ```
 
-Replace the `echo` provider with a real model when API keys are available in CI secrets (never commit keys).
+Replace `providers/safe-narrative.js` with a real model provider when API keys are available in CI secrets (never commit keys).
