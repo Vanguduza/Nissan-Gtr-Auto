@@ -998,7 +998,7 @@ private fun CompanionSection(
             enabled = !state.busy,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .heightIn(min = POS_TOUCH_MIN),
         ) { Text("Claim session") }
 
         if (state.companionSessionId.isNotBlank()) {
@@ -1025,7 +1025,7 @@ private fun CompanionSection(
             enabled = !state.busy,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .heightIn(min = POS_TOUCH_MIN),
         ) { Text("Scan inventory QR → add line") }
         state.lastQrPayload?.let {
             Text("Last QR: $it", style = MaterialTheme.typography.bodySmall)
