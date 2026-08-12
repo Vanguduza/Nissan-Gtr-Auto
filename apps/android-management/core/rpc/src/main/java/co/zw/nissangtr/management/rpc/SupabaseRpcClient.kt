@@ -2518,6 +2518,14 @@ private data class SupplierRow(
 )
 
 @Serializable
+private data class PreferredSupplierRow(
+    val id: String,
+    val code: String,
+    val name: String,
+    @SerialName("default_currency") val defaultCurrency: String = "USD",
+)
+
+@Serializable
 private data class BlanketPoRow(
     val id: String,
     @SerialName("document_number") val documentNumber: String,
