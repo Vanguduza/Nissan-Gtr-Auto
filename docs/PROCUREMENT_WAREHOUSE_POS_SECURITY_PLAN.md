@@ -116,7 +116,7 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 1. ~~Wire `create_purchase_order` UI for preferred-supplier manual lines (web)~~ **Done** — Android remains web-first (DoD)
 2. ~~Attach supplier invoice upload on GRN panel~~ **Done** (+ storage bind / draft-only `20260812060000`)
 3. ~~MapLibre Native courier map (E2b)~~ **Done** (Epic B — JobDetail MapLibre SoR)
-4. ~~Promptfoo gate on AI report/CRM edges~~ **Done** (Epic E — offline safe-narrative; real provider §H)
+4. ~~Promptfoo gate on AI report/CRM edges~~ **Done** (Epic E offline + H3 CI offline default; optional real provider secrets)
 5. ~~Semgrep/Checkov CI port from DIAL D-48~~ **Done** (Epic F — HARDENING §7 synced)
 
 **§H / optional follow-ups (not blocking A–G):** full Temporal worker binary; Android native preferred-PO screen; Promptfoo CI with real model provider; fund-release insert-once (no ON CONFLICT money rewrite); B-MONEY-1 / B-MAP-1 / B-OSRM-1 / B-PS-1.
