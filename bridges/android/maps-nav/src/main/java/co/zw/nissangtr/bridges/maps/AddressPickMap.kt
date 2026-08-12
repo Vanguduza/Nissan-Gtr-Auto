@@ -61,17 +61,14 @@ fun AddressPickMap(
             showMapLibre -> {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(1f)) {
-                        runCatching {
-                            MapLibreAddressPickMap(
-                                selected = selected,
-                                onPick = onPick,
-                                modifier = Modifier.fillMaxSize(),
-                                defaultCenter = defaultCenter,
-                                styleUrl = styleUrl,
-                            )
-                        }.onFailure {
-                            mapLibreFailed = true
-                        }
+                        MapLibreAddressPickMap(
+                            selected = selected,
+                            onPick = onPick,
+                            modifier = Modifier.fillMaxSize(),
+                            defaultCenter = defaultCenter,
+                            styleUrl = styleUrl,
+                            onInitFailed = { mapLibreFailed = true },
+                        )
                     }
                     Text(
                         addressPickMapCaption(showingMapLibre = true, mapsKeyPresent = mapsKeyPresent),

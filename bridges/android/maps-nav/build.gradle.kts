@@ -35,8 +35,12 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.runtime:runtime")
 
-    // Maps SDK (proprietary Google) + Apache-2.0 maps-compose wrapper.
-    // Navigation SDK deferred — requires Google partnership; Directions REST + polyline instead.
+    // MapLibre = render SoR (B-MAP-1 / D-44). Google Maps Compose = deprecated fallback only.
+    implementation("org.maplibre.gl:android-sdk:11.5.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
+
+    // Deprecated Google tiles/Directions fallback when MapLibre cannot render / useMapLibre=false.
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.maps.android:maps-compose:4.4.1")
 
