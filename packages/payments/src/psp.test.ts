@@ -136,7 +136,10 @@ describe("Finance C6 — AI never writes money", () => {
   });
 
   it("Semgrep-style: AI workers omit payable / amount_minor / PO money writes", () => {
-    const root = path.resolve(import.meta.dirname, "../../..");
+    const root = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../..",
+    );
     const forbidden =
       /\b(amount_minor|amountMinor|payable|purchase_orders?|create_purchase_order)\b/i;
     for (const rel of AI_NEVER_WRITES_MONEY.greppedWorkerPaths) {
