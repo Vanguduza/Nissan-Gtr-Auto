@@ -552,14 +552,14 @@ private fun CartActionTriggers(
                     enabled = !state.busy,
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .heightIn(min = POS_TOUCH_MIN),
                 ) { Text("Park") }
                 OutlinedButton(
                     onClick = viewModel::createQuotation,
                     enabled = !state.busy,
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .heightIn(min = POS_TOUCH_MIN),
                 ) { Text("Quote") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -568,7 +568,7 @@ private fun CartActionTriggers(
                     enabled = !state.busy,
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .heightIn(min = POS_TOUCH_MIN),
                 ) { Text("Discount") }
                 OutlinedButton(
                     onClick = viewModel::requestVoidCart,
@@ -578,7 +578,7 @@ private fun CartActionTriggers(
                     ),
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .heightIn(min = POS_TOUCH_MIN),
                 ) { Text("Void") }
             }
             if (!state.lastInvoiceId.isNullOrBlank()) {
@@ -587,7 +587,7 @@ private fun CartActionTriggers(
                     enabled = !state.busy,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .heightIn(min = POS_TOUCH_MIN),
                 ) { Text("Refund via finance pipeline") }
             }
     }
