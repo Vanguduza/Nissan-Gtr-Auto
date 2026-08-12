@@ -801,6 +801,10 @@ export function StaffPosPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>4 · Optional phone companion</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Bridge-First QR only — pairing code for the management companion
+          scanner. No browser / HTML5 camera on this till.
+        </p>
         {pairing ? (
           <div style={{ marginBottom: "0.75rem" }}>
             <p
