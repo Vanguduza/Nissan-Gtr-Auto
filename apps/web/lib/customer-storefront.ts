@@ -102,6 +102,27 @@ export async function fetchZigExchangeRate(
   return zigExchangeRate();
 }
 
+/**
+ * `daily_exchange_rates.id` for the row `get_zig_exchange_rate` would use
+ * (latest ZIG `rate_date` ≤ as-of). Null when no row (env-fallback rate only).
+ */
+export async function fetchZigExchangeRateId(
+  client: SupabaseClient,
+  asOf?: string,
+): Promise<string | null> {
+  const asOfDate = asOf ?? new Date().toISOString().slice(0, 10);
+  const { data, error } = await client
+    .from("daily_exchange_rates")
+    .select("id")
+    .eq("currency", "ZIG")
+    .lte("rate_date", asOfDate)
+    .order("rate_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data?.id) return null;
+  return data.id;
+}
+
 export async function requireSession(
   client: SupabaseClient,
 ): Promise<StorefrontResult<{ userId: string }>> {
