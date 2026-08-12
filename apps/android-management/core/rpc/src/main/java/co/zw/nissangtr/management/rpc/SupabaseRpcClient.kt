@@ -1637,6 +1637,50 @@ class SupabaseRpcClient(
         }
     }
 
+    override suspend fun createPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        lines: List<BlanketLineInput>,
+        notes: String?,
+        expectedDate: String?,
+    ): String {
+        require(supplierId.isNotBlank() && warehouseId.isNotBlank())
+        require(lines.isNotEmpty()) { "purchase order lines required" }
+        return client.postgrest.rpc(
+            RpcNames.CREATE_PURCHASE_ORDER,
+            buildJsonObject {
+                put("p_supplier_id", supplierId)
+                put("p_warehouse_id", warehouseId)
+                put("p_currency", currency.rpcValue)
+                put("p_exchange_rate", exchangeRate)
+                put(
+                    "p_lines",
+                    buildJsonArray {
+                        lines.forEach { line ->
+                            add(
+                                buildJsonObject {
+                                    put("stock_item_id", line.stockItemId)
+                                    put("uom_id", line.uomId)
+                                    put("qty", line.qty)
+                                    put("unit_price", line.unitPrice)
+                                    put(
+                                        "currency",
+                                        (line.currency ?: currency).rpcValue,
+                                    )
+                                },
+                            )
+                        }
+                    },
+                )
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+                if (expectedDate.isNullOrBlank()) put("p_expected_date", JsonNull)
+                else put("p_expected_date", expectedDate)
+            },
+        ).decodeAs<String>()
+    }
+
     override suspend fun createBlanketPurchaseOrder(
         supplierId: String,
         warehouseId: String,
