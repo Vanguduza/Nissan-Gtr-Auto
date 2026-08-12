@@ -34,6 +34,8 @@ DECLARE
   v_release_count INT;
   v_evt_po INT;
   v_evt_funds INT;
+  v_evt_amount NUMERIC;
+  v_evt_amount_minor BIGINT;
 BEGIN
   SELECT id INTO v_main FROM public.warehouses WHERE code = 'MAIN';
   SELECT id INTO v_uom FROM public.uoms WHERE code = 'EA';
