@@ -566,7 +566,12 @@ fun JobDetailScreen(
             }
         }
         Text(
-            jobDetailMapCaption(state),
+            jobDetailMapCaption(
+                state = state,
+                showingMapLibre = state.mapLibreEnabled &&
+                    (tracking.lastLat ?: job.dropoffLat) != null &&
+                    (tracking.lastLng ?: job.dropoffLng) != null,
+            ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
