@@ -130,8 +130,14 @@ interface RpcClient {
     /** Whether cart already has a customer_id (for bind messaging). */
     suspend fun getPosCartCustomerId(cartId: String): String?
 
-    /** Warehouses for POS till picker (PostgREST + RLS). */
+    /** All warehouses (PostgREST + RLS) — receive / bins / transfers. */
     suspend fun listWarehouses(): List<WarehouseRef>
+
+    /**
+     * POS till picker only: saleable WH2 storefloor
+     * (`role_code` or legacy `code` = WH2). WH1 receiving excluded.
+     */
+    suspend fun listSaleableWarehouses(): List<WarehouseRef>
 
     /** Optional companion: owner creates pairing code for phone scanner. */
     suspend fun createPosScanSession(cartId: String): PosScanSessionCreated
