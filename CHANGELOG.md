@@ -16,10 +16,12 @@
   - `20260812070000_v_master_stock_staff_only.sql` — revoke authenticated SELECT on `v_master_stock`; admin-only invoice DELETE.
 - Web: `/procurement/suppliers`, `/procurement/orders/new`, `/procurement/grn`, `/procurement/orders/[id]`, master stock; live progress tracker bind; GRN `resolve_stock_item_by_oem`.
 - SQL smokes: `supabase/tests/epic_a_procurement_wh_smoke.sql` + extended `procurement_approve_smoke.sql`.
-- Candidate (not Epic A Done): `@gtr/delivery` + MapLibre job map; `@gtr/payments` + D-57 cart; Meili `searchCatalog`; Promptfoo outline; Semgrep/Checkov CI; POS Dial chrome.
+- Candidate (not Epic A Done): `@gtr/payments` + D-57 cart; Meili `searchCatalog`; Promptfoo outline; Semgrep/Checkov CI; POS Dial chrome.
+- Epic B delivery: `@gtr/delivery` autoAcceptOffers opt-in + timeout→requeue tests; edge `delivery-dispatch-cycle` parity; MapLibre JobDetail SoR; staff tracking B7 (`docs/plans/2026-08-12-epic-b7-staff-web-tracking-dod.md`).
 
 ### Changed
 
 - Procurement hub live PO list (no theater draft tracker); RFQ copy reframed as optional spot-buy.
 - Android procurement hub copy: preferred manual PO is web-first.
-- Living docs honesty: only E-Proc/E-WH marked Done with verifier evidence; later epics remain In progress.
+- Courier map SoR: MapLibre primary; Google Directions/tiles deprecated fallback only.
+- Living docs honesty: E-Proc/E-WH/E-Del Done with evidence; later epics remain In progress.
