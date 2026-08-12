@@ -70,27 +70,69 @@ export class PspRegistry {
   }
 }
 
-/** Stub adapter for local scaffold / tests — not for production traffic. */
+/**
+ * Stub adapter for local scaffold / tests — not for production traffic.
+ *
+ * Idempotency habits (DIAL / Epic Finance C1):
+ * - `initiate` is deterministic on `idempotencyKey` (same key → same intentId).
+ * - `handleWebhook` treats the same logical intent as a replay: first call
+ *   `duplicate: false`, subsequent calls `duplicate: true`.
+ *
+ * Production: Edge settle RPCs are webhook-as-truth; these stubs only prove
+ * the contract habit inside `@gtr/payments`. Live ContiPay/Paynow adapters
+ * stay on Edge until extracted.
+ */
 export function createStubPspAdapter(method: PspMethod): PspAdapter {
+  /** Logical webhook intents already observed (replay → duplicate: true). */
+  const seenWebhookIntents = new Set<string>();
+
   return {
     method,
     async initiate(req) {
       return {
         ok: true,
-        intentId: `stub_${method}_${req.idempotencyKey}`,
+        intentId: stubIntentId(method, req.idempotencyKey),
         redirectUrl: null,
         pollUrl: null,
       };
     },
-    async handleWebhook() {
+    async handleWebhook(rawBody, _headers) {
+      const intentId = parseStubWebhookIntentId(method, rawBody);
+      const duplicate = seenWebhookIntents.has(intentId);
+      if (!duplicate) seenWebhookIntents.add(intentId);
       return {
         ok: true,
-        intentId: "stub",
+        intentId,
         status: "captured",
-        duplicate: false,
+        duplicate,
       };
     },
   };
+}
+
+function stubIntentId(method: PspMethod, idempotencyKey: string): string {
+  return `stub_${method}_${idempotencyKey}`;
+}
+
+/** Prefer JSON `{ intentId }` or `{ idempotencyKey }`; else hash raw body as logical key. */
+function parseStubWebhookIntentId(method: PspMethod, rawBody: string): string {
+  const trimmed = rawBody.trim();
+  if (!trimmed) return stubIntentId(method, "empty");
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      intentId?: string;
+      idempotencyKey?: string;
+    };
+    if (typeof parsed.intentId === "string" && parsed.intentId.length > 0) {
+      return parsed.intentId;
+    }
+    if (typeof parsed.idempotencyKey === "string" && parsed.idempotencyKey.length > 0) {
+      return stubIntentId(method, parsed.idempotencyKey);
+    }
+  } catch {
+    // non-JSON body — fall through
+  }
+  return stubIntentId(method, trimmed);
 }
 
 export function defaultPspRegistry(): PspRegistry {
