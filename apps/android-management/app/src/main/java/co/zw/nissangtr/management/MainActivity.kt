@@ -65,6 +65,7 @@ import co.zw.nissangtr.management.kiosk.SplashSessionGate
 import co.zw.nissangtr.management.pos.PosModule
 import co.zw.nissangtr.management.pos.PosScreen
 import co.zw.nissangtr.management.procurement.BlanketsScreen
+import co.zw.nissangtr.management.procurement.PreferredPoScreen
 import co.zw.nissangtr.management.procurement.ProcurementModule
 import co.zw.nissangtr.management.rpc.ChatStaffRoles
 import co.zw.nissangtr.management.rpc.CreditStaffRoles
