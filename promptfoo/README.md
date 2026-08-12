@@ -30,18 +30,13 @@ See `docs/plans/2026-08-12-epic-c-payments-d57-dod.md`.
 
 ## Run locally (offline default — Epic E)
 
-From repo root:
-
 ```bash
 cd promptfoo
-npx --yes promptfoo@0.103.0 eval -c promptfoo.config.yaml --no-cache
+npm ci          # first time / after lockfile change
+npm run eval
 ```
 
-Or from root:
-
-```bash
-npx --yes promptfoo@0.103.0 eval -c promptfoo/promptfoo.config.yaml --no-cache
-```
+From repo root: `pnpm test:promptfoo` (or `npm --prefix promptfoo run eval`).
 
 No API keys required. This is the default CI gate.
 

@@ -64,6 +64,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: promptfoo/package-lock.json
+      - name: Install promptfoo
+        working-directory: promptfoo
+        run: npm ci
       - name: Detect provider secrets
         id: detect
         env:
@@ -98,7 +103,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || secrets.GEMINI_API_KEY }}
         run: |
           set -euo pipefail
-          npx --yes promptfoo@0.103.0 eval \
+          npx promptfoo eval \
             -c promptfoo.config.yaml \
             --providers "${{ steps.detect.outputs.provider }}" \
             --no-cache
