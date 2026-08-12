@@ -1514,6 +1514,27 @@ class SupabaseRpcClient(
             .decodeList<SupplierRow>()
             .map { SupplierRef(id = it.id, code = it.code, name = it.name) }
 
+    override suspend fun listPreferredSuppliers(): List<PreferredSupplierRef> =
+        client.from("suppliers")
+            .select(Columns.list("id", "code", "name", "default_currency")) {
+                filter {
+                    eq("is_preferred", true)
+                    eq("is_active", true)
+                }
+                order("name", Order.ASCENDING)
+                limit(100)
+            }
+            .decodeList<PreferredSupplierRow>()
+            .map {
+                PreferredSupplierRef(
+                    id = it.id,
+                    code = it.code,
+                    name = it.name,
+                    defaultCurrency = CurrencyCode.entries.find { c -> c.rpcValue == it.defaultCurrency }
+                        ?: CurrencyCode.USD,
+                )
+            }
+
     override suspend fun listBlanketPurchaseOrders(): List<BlanketSummary> {
         val pos = client.from("purchase_orders")
             .select(
