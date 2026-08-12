@@ -80,7 +80,7 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 
 ### E-Del — Auto dispatch
 - [x] Offer → accept/reject/timeout → requeue / FIFO when none available *(`@gtr/delivery` + edge `delivery-dispatch-cycle`; autoAcceptOffers opt-in; timeout tests)*
-- [x] OSRM distance SoR; MapLibre render *(MapLibreJobMap primary on JobDetailScreen; Google deprecated fallback; B-MAP-1 full skin / B-OSRM-1 compose deferred §H)*
+- [x] OSRM distance SoR; MapLibre render *(MapLibreJobMap primary on JobDetailScreen; customer Android AddressPickMap MapLibre SoR Done H5; Google deprecated; H5-iOS MapKit + B-OSRM-1 compose remain)*
 
 ### E-Sec — DIAL security baseline
 - [x] No body `userId`/role trust; JWT/session only *(Semgrep `no-body-identity` + HARDENING §7)*
