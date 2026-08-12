@@ -155,6 +155,11 @@ export function ManualPurchaseOrderPanel() {
     setBusy(true);
     setMessage(null);
     const client = createWebClient();
+    if (!client) {
+      setBusy(false);
+      setMessage("Supabase is not configured on this environment.");
+      return;
+    }
     const res = await createPreferredPurchaseOrder(client, {
       supplierId,
       warehouseId,
