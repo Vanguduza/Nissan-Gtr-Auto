@@ -67,7 +67,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | H-PARITY-WH2 | **Done** | Gradle `PosSaleableWarehouseTest` PASS; `PosViewModel` → `listSaleableWarehouses`; living docs updated. |
 | H2 | **Done** | Native `PreferredPoScreen` + `listPreferredSuppliers` / `create_purchase_order` / `submit_purchase_order`; hub → Preferred supplier PO; Fake stubs; not RFQ-gated; Bridge QR. **Verifier 2026-08-12:** `:core:rpc:testDebugUnitTest --tests …PreferredPoHelpersTest` + `:feature:procurement:compileDebugKotlin` → BUILD SUCCESSFUL. |
 | H5 | **Done (Android)** | Customer `AddressPickMap` / `MapLibreAddressPickMap` `useMapLibre=true` default; `BuildConfig.USE_MAPLIBRE` on unless `useMapLibre=false`; bridges `:maps-nav` SoR. Android-customer compile BUILD SUCCESSFUL (prior). Exclusions clean. **H5-iOS** open / PARTIAL (MapKit remain). |
-| H3 | **Done** | `.github/workflows/promptfoo.yml` — offline `file://providers/safe-narrative.js` default (Epic E gate); optional real-provider job when `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PROMPTFOO_PROVIDER` secrets present. Human-promote path unchanged. |
+| H3 | **Done** | `.github/workflows/promptfoo.yml` — `npm run gate` (safe-narrative asserts) + `promptfoo eval` offline default (Epic E); optional real-provider job when `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PROMPTFOO_PROVIDER` secrets present. Human-promote unchanged. Local verify: `cd promptfoo && npm run gate` (3/3 PASS). |
 | H4, H6, H1, H7, H9, H-ZIMRA | open / excluded | H5-iOS MapKit→MapLibre remainder tracked under B-MAP-1 |
 
 ---

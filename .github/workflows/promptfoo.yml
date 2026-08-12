@@ -1,8 +1,6 @@
 # H3 — Promptfoo AI narrative gates (Epic E offline SoR + optional real provider)
-# Default job: file://providers/safe-narrative.js — no secrets required.
-# Optional job: runs only when OPENAI_API_KEY, GEMINI_API_KEY, or PROMPTFOO_PROVIDER
-# is present in repo secrets. Never commit API keys.
-# Human-promote path remains mandatory (see promptfoo/README.md).
+# Default: offline safe-narrative (no secrets). Optional real model when secrets present.
+# Never commit API keys. Human-promote path remains mandatory (see promptfoo/README.md).
 
 name: promptfoo
 
@@ -36,10 +34,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Epic E offline gate — default; must pass without secrets.
+  # Epic E offline gate — default; must pass without secrets / native promptfoo DB.
   promptfoo-offline:
     name: Promptfoo offline (safe-narrative)
     runs-on: ubuntu-latest
+    env:
+      PROMPTFOO_CONFIG_DIR: ${{ runner.temp }}/promptfoo-home
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,15 +50,20 @@ jobs:
       - name: Install promptfoo
         working-directory: promptfoo
         run: npm ci
-      - name: Eval (offline safe-narrative)
+      - name: Offline gate (safe-narrative asserts)
+        working-directory: promptfoo
+        run: npm run gate
+      - name: Promptfoo eval (offline provider)
         working-directory: promptfoo
         run: npm run eval:ci
 
-  # Optional real-model path — skipped when secrets are absent.
+  # Optional real-model path — eval only when secrets are present.
   promptfoo-real:
     name: Promptfoo real provider (optional)
     runs-on: ubuntu-latest
     needs: promptfoo-offline
+    env:
+      PROMPTFOO_CONFIG_DIR: ${{ runner.temp }}/promptfoo-home
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
