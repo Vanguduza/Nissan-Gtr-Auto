@@ -503,11 +503,21 @@ class FakeRpcClient : RpcClient {
 
     override suspend fun listWarehouses(): List<WarehouseRef> = listOf(
         WarehouseRef(
+            id = "00000000-0000-4000-8000-0000000000w0",
+            code = "WH1",
+            name = "Receiving warehouse (Fake)",
+            roleCode = "WH1",
+        ),
+        WarehouseRef(
             id = FAKE_WAREHOUSE_ID,
-            code = "MAIN",
-            name = "Main warehouse (Fake)",
+            code = "WH2",
+            name = "Storefloor warehouse (Fake)",
+            roleCode = "WH2",
         ),
     )
+
+    override suspend fun listSaleableWarehouses(): List<WarehouseRef> =
+        listWarehouses().filter(::isPosSaleableWarehouse)
 
     override suspend fun createPosScanSession(cartId: String): PosScanSessionCreated {
         require(cartId.isNotBlank()) { "cartId required for ${RpcNames.CREATE_POS_SCAN_SESSION}" }
