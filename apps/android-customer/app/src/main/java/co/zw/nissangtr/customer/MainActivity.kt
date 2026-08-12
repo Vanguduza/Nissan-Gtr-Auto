@@ -206,7 +206,10 @@ class MainActivity : ComponentActivity() {
         )
         val supabase = rpc as? SupabaseRpcClient
         liveSupabase = supabase
-        val mapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
+        val useMapLibre = BuildConfig.USE_MAPLIBRE
+        val googleMapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
+        // MapLibre SoR needs no Google key; key only gates deprecated Google fallback.
+        val mapPickerAvailable = useMapLibre || googleMapsKeyPresent
         val googleServerClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
         val prefs = CustomerPrefs(this)
         applyTrackIntent(intent)
