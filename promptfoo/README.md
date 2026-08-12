@@ -15,6 +15,14 @@ Gates narrative outputs for:
 - No ZIMRA / FDMS content.
 - Human + Promptfoo promote before shipping prompt changes (no silent auto-publish).
 
+**Human-promote path (no self-certify)**
+
+1. Change prompts / Edge narrative copy under the target functions listed below.
+2. Run `npx promptfoo eval -c promptfoo/promptfoo.config.yaml` locally — must pass.
+3. Attach eval summary (or CI artifact when real provider lands — §H) to the PR.
+4. A human reviewer explicitly approves “promote” of the prompt/copy; do **not** merge on green alone if asserts were weakened.
+5. Real model provider in CI = deferred (§H); offline `echo` provider is the Epic E DoD SoR.
+
 **C6 evidence (Epic C):** Edge workers `process-ai-reports` and `process-crm-promos`
 are grep-checked in `@gtr/payments` (`AI_NEVER_WRITES_MONEY.greppedWorkerPaths` /
 `psp.test.ts`) so narrative/promo workers stay free of payable / PO money writes.
