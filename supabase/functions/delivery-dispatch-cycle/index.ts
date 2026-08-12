@@ -281,26 +281,33 @@ Deno.serve(async (req) => {
     }
 
     // --- fifo_cycle: package offer SM; cron must pass autoAcceptOffers: true ---
-    const result = await runFifoOfferCycle(supabase, jobId, {
-      autoAcceptOffers,
-      offerTimeoutSeconds,
-      offerDecisions,
-      preferredDriverId,
-    });
+    try {
+      const result = await runFifoOfferCycle(supabase, jobId, {
+        autoAcceptOffers,
+        offerTimeoutSeconds,
+        offerDecisions,
+        preferredDriverId,
+      });
 
-    return new Response(
-      JSON.stringify({
-        delivery_job_id: jobId,
-        mode,
-        autoAcceptOffers: result.autoAcceptOffers,
-        assignee_user_id: result.assignee_user_id,
-        final_state: result.final_state,
-        eta_source: result.final_state === "accepted" ? "osrm" : null,
-        workflow: "DeliveryDispatchWorkflow",
-        offer_timeout_seconds: offerTimeoutSeconds,
-      }),
-      { headers: { "Content-Type": "application/json" } },
-    );
+      return new Response(
+        JSON.stringify({
+          delivery_job_id: jobId,
+          mode,
+          autoAcceptOffers: result.autoAcceptOffers,
+          assignee_user_id: result.assignee_user_id,
+          final_state: result.final_state,
+          eta_source: result.final_state === "accepted" ? "osrm" : null,
+          workflow: "DeliveryDispatchWorkflow",
+          offer_timeout_seconds: offerTimeoutSeconds,
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    } catch (rpcErr) {
+      return new Response(JSON.stringify({ error: String(rpcErr) }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
