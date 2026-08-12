@@ -2,13 +2,16 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import type { ProcurementProgressStep } from "@gtr/procurement";
 import styles from "@/components/account.module.css";
 import { ProcurementProgressTracker } from "@/components/procurement-progress-tracker";
 import { createWebClient } from "@/lib/supabase";
 import {
   listApprovedPosForGrn,
   listPoLines,
+  loadPurchaseOrderProgress,
   requireSession,
+  resolveStockItemByOem,
 } from "@/lib/preferred-po";
 
 type PoOpt = {
@@ -19,6 +22,7 @@ type PoOpt = {
 
 type LineRecv = {
   id: string;
+  stock_item_id: string;
   oem_part_number: string;
   description: string | null;
   qty_ordered: number;
@@ -32,11 +36,15 @@ export function GoodsReceiptPanel() {
   const [pos, setPos] = useState<PoOpt[]>([]);
   const [poId, setPoId] = useState("");
   const [lines, setLines] = useState<LineRecv[]>([]);
+  const [trackerStep, setTrackerStep] =
+    useState<ProcurementProgressStep>("funds_released");
+  const [trackerLabel, setTrackerLabel] = useState("GRN");
   const [notes, setNotes] = useState("");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [oemFast, setOemFast] = useState("");
   const [oemQty, setOemQty] = useState("1");
   const [busy, setBusy] = useState(false);
+  const [oemBusy, setOemBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const loadPos = useCallback(async () => {
@@ -54,6 +62,18 @@ export function GoodsReceiptPanel() {
     }
     setPos(res.data);
     setPoId((p) => p || res.data[0]?.id || "");
+  }, []);
+
+  const refreshPoProgress = useCallback(async (id: string) => {
+    if (!id) return;
+    const client = createWebClient();
+    const res = await loadPurchaseOrderProgress(client, id);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setTrackerStep(res.data.step);
+    setTrackerLabel(res.data.document_number ?? id.slice(0, 8));
   }, []);
 
   useEffect(() => {
@@ -75,29 +95,66 @@ export function GoodsReceiptPanel() {
           recvQty: String(Math.max(0, l.qty_ordered - l.qty_received) || ""),
         })),
       );
+      await refreshPoProgress(poId);
     })();
-  }, [poId, auth]);
+  }, [poId, auth, refreshPoProgress]);
 
-  function applyOemFast() {
+  async function applyOemFast() {
     const oem = oemFast.trim().toUpperCase();
     const q = Number(oemQty);
     if (!oem || !(q > 0)) {
       setMessage("Enter OEM part number and qty > 0.");
       return;
     }
-    setLines((prev) => {
-      const idx = prev.findIndex(
-        (l) => l.oem_part_number.toUpperCase() === oem,
-      );
-      if (idx < 0) {
-        setMessage(`OEM ${oem} not on this PO.`);
-        return prev;
-      }
-      const next = [...prev];
-      next[idx] = { ...next[idx]!, recvQty: String(q) };
+
+    setOemBusy(true);
+    setMessage(null);
+
+    const byOem = lines.findIndex(
+      (l) => l.oem_part_number.toUpperCase() === oem,
+    );
+    if (byOem >= 0) {
+      setLines((prev) => {
+        const next = [...prev];
+        next[byOem] = { ...next[byOem]!, recvQty: String(q) };
+        return next;
+      });
+      setOemBusy(false);
       setMessage(`Set ${oem} receive qty to ${q}.`);
+      return;
+    }
+
+    // OEM text not on PO lines — resolve catalog id, then match by stock_item_id.
+    const client = createWebClient();
+    const resolved = await resolveStockItemByOem(client, oem);
+    setOemBusy(false);
+    if (!resolved.ok) {
+      setMessage(`OEM resolve failed: ${resolved.error}`);
+      return;
+    }
+    if (!resolved.data) {
+      setMessage(
+        `OEM ${oem} not found in catalog (resolve_stock_item_by_oem). Check the part number or master stock.`,
+      );
+      return;
+    }
+
+    const byStock = lines.findIndex((l) => l.stock_item_id === resolved.data);
+    if (byStock < 0) {
+      setMessage(
+        `OEM ${oem} is in catalog but not on this PO. Receive only against PO lines — pick the correct PO or amend the order.`,
+      );
+      return;
+    }
+
+    setLines((prev) => {
+      const next = [...prev];
+      next[byStock] = { ...next[byStock]!, recvQty: String(q) };
       return next;
     });
+    setMessage(
+      `Resolved ${oem} → stock item; set receive qty to ${q} on matching PO line.`,
+    );
   }
 
   async function onSubmit(e: FormEvent) {
@@ -168,6 +225,7 @@ export function GoodsReceiptPanel() {
     );
     setInvoiceFile(null);
     await loadPos();
+    await refreshPoProgress(poId);
   }
 
   if (auth === "loading") return <p className={styles.formStatus}>Loading…</p>;
@@ -184,9 +242,18 @@ export function GoodsReceiptPanel() {
       <h2 className={styles.title}>Goods received (GRN)</h2>
       <p className={styles.lede}>
         Receive approved POs into WH1. Supplier invoice attaches as the GRN
-        document. Fast path: OEM part number + qty.
+        document. Fast path: OEM part number + qty (catalog resolve via{" "}
+        <code>resolve_stock_item_by_oem</code> when the OEM string is not already
+        on the PO lines). Bridge-First: camera QR → OEM must go through{" "}
+        <code>bridges/</code> (native scan), not a browser/WebView QR library —
+        paste or type the OEM here after the bridge returns it.
       </p>
-      <ProcurementProgressTracker step="funds_released" documentLabel="GRN" />
+      <ProcurementProgressTracker step={trackerStep} documentLabel={trackerLabel} />
+      {poId ? (
+        <p className={styles.muted}>
+          <Link href={`/procurement/orders/${poId}`}>Open PO detail</Link>
+        </p>
+      ) : null}
       {message ? <p className={styles.formStatus}>{message}</p> : null}
 
       <form className={styles.form} onSubmit={(e) => void onSubmit(e)}>
@@ -216,7 +283,7 @@ export function GoodsReceiptPanel() {
               <input
                 value={oemFast}
                 onChange={(e) => setOemFast(e.target.value)}
-                placeholder="OEM"
+                placeholder="OEM (or bridge QR→OEM)"
               />
             </label>
             <label className={styles.field}>
@@ -225,8 +292,13 @@ export function GoodsReceiptPanel() {
             </label>
           </div>
           <div className={styles.formActions}>
-            <button type="button" className={styles.btn} onClick={applyOemFast}>
-              Apply to matching line
+            <button
+              type="button"
+              className={styles.btn}
+              disabled={oemBusy}
+              onClick={() => void applyOemFast()}
+            >
+              {oemBusy ? "Resolving…" : "Apply OEM (resolve if needed)"}
             </button>
           </div>
         </fieldset>
