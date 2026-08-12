@@ -38,6 +38,7 @@ Thin Compose scaffolds — not App Store polish.
 | `BinsScreen` | `:feature:warehouse` | `create_warehouse_bin` / deactivate / `set_stock_level_bin` / `get_pick_path_hints` + ESC/POS bin labels |
 | `ConsignmentScreen` | `:feature:warehouse` | draft / add line / submit / cancel consignment RPCs |
 | `BlanketsScreen` | `:feature:procurement` | `create_blanket_purchase_order` / submit / release + expiry/remaining alerts |
+| `PreferredPoScreen` | `:feature:procurement` | H2 preferred roster PO — `create_purchase_order` / `submit_purchase_order` + Bridge QR OEM |
 | `CreditScreen` | `:feature:credit` | `set_customer_credit` + PostgREST credit snapshot (explicit currency) |
 | `ClockAttendanceScreen` | `:feature:hr` | `clock_attendance` |
 | `DispatchScreen` | `:feature:dispatch` | pick/DN + assign/route/panic + staff live view |
