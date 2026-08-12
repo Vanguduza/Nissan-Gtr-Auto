@@ -814,6 +814,7 @@ private fun RightCartPane(
                 label = "Checkout",
                 onClick = viewModel::checkout,
                 enabled = !state.busy,
+                modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
             )
         }
     }
@@ -914,13 +915,14 @@ private fun QuotesPanel(
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.busy,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        PosChipFlow {
             listOf("print", "email", "sms", "whatsapp").forEach { ch ->
                 FilterChip(
                     selected = state.quoteSendChannel == ch,
                     onClick = { viewModel.onQuoteSendChannelChange(ch) },
                     label = { Text(ch) },
                     enabled = !state.busy,
+                    modifier = Modifier.heightIn(min = POS_TOUCH_MIN),
                 )
             }
         }
