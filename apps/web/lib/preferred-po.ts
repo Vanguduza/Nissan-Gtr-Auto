@@ -2,6 +2,11 @@ import {
   resolveProcurementProgress,
   type ProcurementProgressStep,
 } from "@gtr/procurement";
+import {
+  displayMajorFromDual,
+  dualWriteUnitPriceRpcFields,
+  type CurrencyCode as SharedCurrency,
+} from "@gtr/shared";
 import type { StorefrontResult } from "@/lib/customer-storefront";
 import {
   loadWarehouses,
@@ -170,13 +175,19 @@ export async function createPreferredPurchaseOrder(
     submit?: boolean;
   },
 ): Promise<StorefrontResult<{ purchaseOrderId: string }>> {
-  const payload = input.lines.map((l) => ({
-    stock_item_id: l.stock_item_id,
-    uom_id: l.uom_id,
-    qty: l.qty,
-    unit_price: l.unit_price,
-    currency: l.currency ?? input.currency,
-  }));
+  // H4 cutover: dual-write unit_price_minor (SQL trigger also fills; clients send both)
+  const payload = input.lines.map((l) => {
+    const currency = (l.currency ?? input.currency) as SharedCurrency;
+    const money = dualWriteUnitPriceRpcFields(l.unit_price, currency);
+    return {
+      stock_item_id: l.stock_item_id,
+      uom_id: l.uom_id,
+      qty: l.qty,
+      unit_price: money.unit_price,
+      unit_price_minor: money.unit_price_minor,
+      currency: money.currency,
+    };
+  });
 
   const { data, error } = await client.rpc("create_purchase_order", {
     p_supplier_id: input.supplierId,
@@ -267,7 +278,7 @@ export async function listPoLines(
   const { data, error } = await client
     .from("purchase_order_lines")
     .select(
-      "id, stock_item_id, uom_id, qty_ordered, qty_received, unit_price, stock_items ( oem_part_number, description )",
+      "id, stock_item_id, uom_id, qty_ordered, qty_received, unit_price, unit_price_minor, stock_items ( oem_part_number, description )",
     )
     .eq("purchase_order_id", purchaseOrderId)
     .order("line_no");
@@ -282,6 +293,7 @@ export async function listPoLines(
         qty_ordered: number;
         qty_received: number;
         unit_price: number;
+        unit_price_minor?: number | null;
         stock_items?:
           | { oem_part_number: string; description: string | null }
           | { oem_part_number: string; description: string | null }[]
@@ -290,13 +302,19 @@ export async function listPoLines(
       const si = Array.isArray(row.stock_items)
         ? row.stock_items[0]
         : row.stock_items;
+      // H4 dual-read: prefer unit_price_minor when dual-written
+      const unit_price = displayMajorFromDual({
+        amountMinor: row.unit_price_minor ?? null,
+        amountMajor: Number(row.unit_price),
+        currency: "USD" as SharedCurrency,
+      });
       return {
         id: row.id,
         stock_item_id: row.stock_item_id,
         uom_id: row.uom_id,
         qty_ordered: Number(row.qty_ordered),
         qty_received: Number(row.qty_received),
-        unit_price: Number(row.unit_price),
+        unit_price,
         oem_part_number: si?.oem_part_number ?? "",
         description: si?.description ?? null,
       };

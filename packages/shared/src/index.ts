@@ -1,4 +1,12 @@
-export type { CurrencyCode, Money, MoneyMinor } from "./money";
+export type {
+  CurrencyCode,
+  Money,
+  MoneyMinor,
+  LegacyMoney,
+  ApiMoney,
+  CartLineMoneyDto,
+  SettlementMoneyInput,
+} from "./money";
 export {
   assertCurrency,
   assertAmountMinor,
@@ -9,10 +17,27 @@ export {
   minorToMoney,
   majorToMinorNumber,
   dualWriteMoney,
+  dualWriteFromMinor,
+  dualWriteMoneyRpcFields,
+  dualWriteUnitPriceRpcFields,
+  requireApiMoney,
+  cartLineMoneyDto,
+  settlementMoneyRpcFields,
+  preferAmountMinor,
+  displayMajorFromDual,
+  sumPreferAmountMinor,
+  displayLineTotalMajor,
+  displayUnitPriceMajor,
   moneyMinorToJson,
   moneyMinorFromJson,
 } from "./money";
-export { splitCoreCharge } from "./cart";
+export type { DualMoneyRow } from "./money";
+export {
+  splitCoreCharge,
+  splitCoreChargeMinor,
+  splitCoreChargeAsMinor,
+  splitCoreChargeAsLegacy,
+} from "./cart";
 export {
   normalizeReceiptEmail,
   normalizeE164,

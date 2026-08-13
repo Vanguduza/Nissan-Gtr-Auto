@@ -88,8 +88,8 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 | Home | Rails + search_catalog + PDP (fitment, core charge, sticky ATC, wishlist heart) |
 | Wishlist | Tab — list / add / remove; back-in-stock toggle; `wishlist_move_to_cart` |
 | Cart | Open lines, fulfillment, **address step** (dispatch), USD/ZiG, checkout |
-| Profile | Hub — orders, **addresses** (MapKit pick), pay, garage, compare, track, chat, reviews |
-| Addresses | `listOwnAddresses` / `upsert_customer_address` / `delete_customer_address` + MapKit pin |
+| Profile | Hub — orders, **addresses** (MapLibre pick), pay, garage, compare, track, chat, reviews |
+| Addresses | `listOwnAddresses` / `upsert_customer_address` / `delete_customer_address` + MapLibre pin (MapKit deprecated fallback) |
 | Orders | List + detail (`get_customer_order`); **Live delivery** last-point track when dispatch / job known |
 | Garage | Upsert / delete vehicles |
 | Compare | Auth list/add/remove RPCs; guest `GuestCompareStore` (UserDefaults); OEM+description matrix |
@@ -97,7 +97,7 @@ Otherwise create a customer via **web signup** or **Supabase Dashboard → Authe
 | Pay | ContiPay / Paynow / EcoCash create-intent → intent id / checkout URL |
 | Chat | Thread list, start support/parts, bubbles + composer; WhatsApp `wa.me` CTA |
 | Chat → Thread | Messages + send via `post_chat_message`; **4s poll** refresh (no Realtime client) |
-| Live delivery | `get_delivery_track_point` — last point + ETA only; MapKit single pin; **15s poll**; deep link `gtr-customer://track?token=` |
+| Live delivery | `get_delivery_track_point` — last point + ETA only; MapLibre single pin; **15s poll**; deep link `gtr-customer://track?token=` |
 
 ## AuthZ / RPC map (match web)
 
@@ -124,7 +124,7 @@ Requires **authenticated** customer session and a `customers` row with `profile_
 | `chatUnreadCount` | `chat_unread_count` | optional `p_thread_id` |
 | `getDeliveryTrackPoint` | `get_delivery_track_point` | `p_delivery_job_id` and/or `p_token` → **one** last point + ETA; never trail / never `delivery_locations` SELECT |
 | `listOwnAddresses` | RLS `customer_addresses` | Own rows; default first |
-| `upsertCustomerAddress` | `upsert_customer_address` | Embeds MapKit lat/lng into `line2` via `AddressGeo` |
+| `upsertCustomerAddress` | `upsert_customer_address` | Embeds map lat/lng into `line2` via `AddressGeo` |
 | `deleteCustomerAddress` | `delete_customer_address` | `p_id` |
 
 Migration: `supabase/migrations/20260724130000_customer_storefront_authz.sql` (+ live chat migration). Decision: [`docs/decisions/2026-07-24-customer-self-pay.md`](../../docs/decisions/2026-07-24-customer-self-pay.md), [`docs/decisions/2026-07-25-in-app-live-chat.md`](../../docs/decisions/2026-07-25-in-app-live-chat.md).
@@ -134,7 +134,7 @@ Delivery track: migration `…110000_dedicated_delivery_app.sql`, ADR [`docs/dec
 ### Active delivery track (privacy)
 
 - RPC only: `get_delivery_track_point` (job ownership JWT **or** share token; anon allowed for token).
-- UI shows **last point + ETA** on a MapKit single annotation — no polyline, no historical trail, no WebView/HTML5 geo.
+- UI shows **last point + ETA** on a MapLibre single annotation (MapKit deprecated fallback) — no polyline, no historical trail, no WebView/HTML5 geo.
 - **15s poll** while active; when RPC returns empty after a live point (job terminal / token expired), map clears and polling stops (no stalking).
 - Reachable from **Order detail** when `get_customer_order` returns `active_delivery_job_id` (NavigationLink → job-id track), plus share-token paste and deep link `gtr-customer://track?token=…` / `?job=<uuid>`.
 - Fake seeds a job id + `demo-track-token` for Simulator demos (coords nudge each poll).
@@ -181,8 +181,32 @@ Sign in with Apple needs a **real device** or Simulator signed into an Apple ID;
 | `SUPABASE_ACCESS_TOKEN` | Optional bootstrap customer JWT (**scheme env only** — not Info.plist) |
 | `STOREFRONT_FORCE_FAKE` | `1` / `true` → Fake even when URL+anon set |
 | `WHATSAPP_E164` | Optional digits for Chat WhatsApp CTA |
+| `USE_MAPLIBRE` | MapLibre SoR (default on). Set `false` only for deprecated MapKit |
+| `MAPLIBRE_STYLE_URL` | Optional self-hosted MapLibre style URL |
 
 No PSP keys in the client. ContiPay / Paynow secrets stay in Edge Function env only.
+
+## Maps (B-MAP-1 / H5-iOS)
+
+- Bridge: `bridges/ios/MapsNav` (SPM) — MapLibre Native via `maplibre-gl-native-distribution`.
+- Address pick + live delivery track use MapLibre as render SoR; MapKit only when `USE_MAPLIBRE=false` or MapLibre style load fails.
+- Device GPS (if ever needed to center) stays Bridge-First via `LocationTracker` — never WKWebView / HTML5 geolocation.
+- No Google tiles on iOS; no Fleetbase.
+
+### Verify on macOS (Windows has no Xcode)
+
+```bash
+# MapsNav unit tests (caption / USE_MAPLIBRE resolve)
+cd bridges/ios/MapsNav
+xcodebuild -scheme MapsNav -destination 'platform=iOS Simulator,name=iPhone 16' test
+
+# Customer app (resolves MapLibre SPM + local MapsNav)
+cd apps/ios
+xcodebuild -scheme GTRCustomer \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -project GTRCustomer.xcodeproj \
+  build
+```
 
 ## Run (when toolchain exists)
 

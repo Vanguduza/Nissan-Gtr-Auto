@@ -18,17 +18,19 @@ import {
   fetchZigExchangeRateId,
   formatMoney,
   fulfillmentLabel,
+  cartLineTotalMajor,
   loadCartLines,
   loadOpenCart,
   loadOwnCustomer,
   requireSession,
+  sumCartLinesMajor,
   type CartLineRow,
   type CartRow,
   type CustomerRow,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import { buildCheckoutDisplay, type PspMethod } from "@gtr/payments";
-import { toAmountMinor } from "@gtr/shared";
+import { fromAmountMinor, toAmountMinor } from "@gtr/shared";
 import styles from "@/app/(storefront)/page.module.css";
 
 function CartTitle() {
@@ -134,7 +136,8 @@ export function CartCheckout() {
 
   const totalUsd = useMemo(() => {
     if (status.kind !== "ready") return 0;
-    return status.lines.reduce((sum, line) => sum + Number(line.line_total), 0);
+    // H4 dual-read: sum via minor units when line_total_minor present
+    return sumCartLinesMajor(status.lines, "USD");
   }, [status]);
 
   const checkoutDisplay = useMemo(() => {
@@ -171,7 +174,7 @@ export function CartCheckout() {
       checkoutDisplay.payCurrency === "ZIG"
         ? checkoutDisplay.payable.amountMinor
         : checkoutDisplay.indicativeZigMinor ?? 0n;
-    return Number(minor) / 100;
+    return fromAmountMinor(minor, "ZIG");
   }, [checkoutDisplay]);
 
   async function onCheckout() {
@@ -234,14 +237,43 @@ export function CartCheckout() {
 
     const invTotal = Number(invRow?.total ?? totalUsd);
     const rate = await fetchZigExchangeRate(client);
-    const settlement =
-      settleCurrency === "ZIG"
-        ? {
-            currency: "ZIG" as const,
-            amount: Math.round(invTotal * rate * 100) / 100,
-            exchangeRate: rate,
-          }
-        : undefined;
+    const invUsdMinor = toAmountMinor(invTotal, "USD");
+    // D-57 / H4: ZiG settlement from MoneyMinor payable (not float × rate)
+    let settlement:
+      | {
+          currency: "ZIG";
+          amountMinor: bigint;
+          amount: number;
+          exchangeRate: number;
+          fxRateId?: string | null;
+        }
+      | undefined;
+    if (settleCurrency === "ZIG") {
+      try {
+        const settleDisplay = buildCheckoutDisplay({
+          usdMinor: invUsdMinor,
+          payMethod: "ecocash",
+          zigRatePerUsd: rate,
+          fxRateId,
+        });
+        settlement = {
+          currency: "ZIG",
+          amountMinor: settleDisplay.payable.amountMinor,
+          amount: fromAmountMinor(settleDisplay.payable.amountMinor, "ZIG"),
+          exchangeRate: rate,
+          fxRateId,
+        };
+      } catch {
+        const zigMinor = BigInt(Math.round(Number(invUsdMinor) * rate));
+        settlement = {
+          currency: "ZIG",
+          amountMinor: zigMinor,
+          amount: fromAmountMinor(zigMinor, "ZIG"),
+          exchangeRate: rate,
+          fxRateId,
+        };
+      }
+    }
 
     if (tender === "contipay") {
       const intent = await createCustomerContipayIntent(
@@ -436,7 +468,7 @@ export function CartCheckout() {
                   <td>{line.qty}</td>
                   <td>
                     <span className={styles.moneyUsd}>
-                      {formatMoney(Number(line.line_total), "USD")}
+                      {formatMoney(cartLineTotalMajor(line, "USD"), "USD")}
                     </span>
                   </td>
                 </tr>

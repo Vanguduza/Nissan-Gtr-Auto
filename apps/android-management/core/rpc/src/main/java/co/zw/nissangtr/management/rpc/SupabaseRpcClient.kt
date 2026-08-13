@@ -430,7 +430,9 @@ class SupabaseRpcClient(
                     "stock_item_id",
                     "qty",
                     "unit_price",
+                    "unit_price_minor",
                     "line_total",
+                    "line_total_minor",
                     "is_core_charge",
                 ),
             ) {
@@ -464,6 +466,8 @@ class SupabaseRpcClient(
                 unitPrice = row.unitPrice,
                 lineTotal = row.lineTotal,
                 isCoreCharge = row.isCoreCharge,
+                unitPriceMinor = row.unitPriceMinor,
+                lineTotalMinor = row.lineTotalMinor,
             )
         }
     }
@@ -2490,6 +2494,8 @@ private data class PosCartLineRow(
     @SerialName("unit_price") val unitPrice: Double,
     @SerialName("line_total") val lineTotal: Double,
     @SerialName("is_core_charge") val isCoreCharge: Boolean = false,
+    @SerialName("unit_price_minor") val unitPriceMinor: Long? = null,
+    @SerialName("line_total_minor") val lineTotalMinor: Long? = null,
 )
 
 @Serializable

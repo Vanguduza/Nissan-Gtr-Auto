@@ -27,7 +27,7 @@ geolocation APIs directly.
 | POD photo | `contracts/pod.ts` → `PodCameraBridge` | `bridges/android/pod-camera/` | — (no iOS driver app) | CameraX ImageCapture |
 | Review photo (customer) | same local-path shape as POD | Android pod-camera reuse | `bridges/ios/ReviewCamera/` | UIImagePickerController |
 | POD signature | `contracts/pod.ts` → `PodSignatureBridge` | `bridges/android/pod-signature/` | — (no iOS driver app) | Compose Canvas pad |
-| Delivery maps (display) | — (helper) | `bridges/android/maps-nav/` | — | **MapLibre SoR** + OSRM distance; Google Maps/Directions deprecated fallback |
+| Delivery maps (display) | — (helper) | `bridges/android/maps-nav/` | `bridges/ios/MapsNav/` | **MapLibre SoR** + OSRM distance (Android); MapKit deprecated fallback (iOS) |
 | Barrel export | `contracts/index.ts` | — | — | — |
 
 ## Android modules
@@ -40,6 +40,7 @@ geolocation APIs directly.
 | `:pod-camera` | `android/pod-camera/` | **P0** — CameraX still capture → local JPEG path |
 | `:pod-signature` | `android/pod-signature/` | **P0** — Compose Canvas ink pad → local PNG path |
 | `:maps-nav` | `android/maps-nav/` | **MapLibre SoR** (address pick + shared helpers); OSRM prefer; Google deprecated fallback |
+| `MapsNav` (SPM) | `ios/MapsNav/` | **MapLibre SoR** (address pick + track last-point); MapKit deprecated fallback |
 | `:biometric-photo` | `android/biometric-photo/` | **P0** — HR onboarding profile photo (CameraX; no matching) |
 
 Include from `apps/android-delivery/settings.gradle.kts` (scaffold lane):

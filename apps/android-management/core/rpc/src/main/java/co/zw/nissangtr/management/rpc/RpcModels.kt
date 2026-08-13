@@ -329,6 +329,10 @@ data class PosCartLineSummary(
     val unitPrice: Double,
     val lineTotal: Double,
     val isCoreCharge: Boolean = false,
+    /** H4 dual-write: cents when present; display prefers this over [unitPrice]. */
+    val unitPriceMinor: Long? = null,
+    /** H4 dual-write: cents when present; display prefers this over [lineTotal]. */
+    val lineTotalMinor: Long? = null,
 )
 
 /** Row from [RpcNames.LIST_POS_QUOTATIONS]. */

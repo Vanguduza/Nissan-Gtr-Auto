@@ -80,7 +80,7 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 
 ### E-Del — Auto dispatch
 - [x] Offer → accept/reject/timeout → requeue / FIFO when none available *(`@gtr/delivery` + edge `delivery-dispatch-cycle`; autoAcceptOffers opt-in; timeout tests)*
-- [x] OSRM distance SoR; MapLibre render *(MapLibreJobMap primary on JobDetailScreen; customer Android AddressPickMap MapLibre SoR Done H5; Google deprecated; H5-iOS MapKit + B-OSRM-1 compose remain)*
+- [x] OSRM distance SoR; MapLibre render *(MapLibreJobMap primary on JobDetailScreen; customer Android + iOS MapLibre SoR Done H5; Google/MapKit deprecated fallback; B-OSRM-1 compose Done)*
 
 ### E-Sec — DIAL security baseline
 - [x] No body `userId`/role trust; JWT/session only *(Semgrep `no-body-identity` + HARDENING §7)*
@@ -119,4 +119,4 @@ Migration ensures both exist and aliases MAIN↔WH1 when needed.
 4. ~~Promptfoo gate on AI report/CRM edges~~ **Done** (Epic E offline + H3 CI offline default; optional real provider secrets)
 5. ~~Semgrep/Checkov CI port from DIAL D-48~~ **Done** (Epic F — HARDENING §7 synced)
 
-**§H / optional follow-ups (not blocking A–G):** full Temporal worker binary; fund-release insert-once smoke (H8 conditional); B-MONEY-1; H5-iOS MapKit→MapLibre; B-OSRM-1 / B-PS-1. (H2 preferred-PO, H3 Promptfoo CI, H5 Android MapLibre — Done.)
+**§H / optional follow-ups (not blocking A–G):** H9 Chatwoot/Metabase deferred; H-ZIMRA excluded. Remaining evidence/deferred: Mac `xcodebuild` H5-iOS compile; PowerSync cloud E2E secrets; NUMERIC column drop (H4). (H1 Temporal worker, H2 preferred-PO, H3 Promptfoo CI, H5 Android+iOS MapLibre, H6 OSRM, H7 PowerSync Fake/Live, H8 fund-release — Done.)

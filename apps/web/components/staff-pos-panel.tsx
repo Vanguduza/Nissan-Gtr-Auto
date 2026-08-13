@@ -18,6 +18,9 @@ import {
   revokePosScanSession,
   searchPosCatalog,
   searchStockItems,
+  sumPosCartLinesMajor,
+  posLineTotalMajor,
+  posLineUnitPriceMajor,
   type CurrencyCode,
   type FulfillmentMode,
   type PartHit,
@@ -500,7 +503,8 @@ export function StaffPosPanel() {
     );
   }
 
-  const lineTotal = lines.reduce((sum, l) => sum + Number(l.line_total), 0);
+  const currency = (cart?.currency ?? "USD") as CurrencyCode;
+  const lineTotal = sumPosCartLinesMajor(lines, currency);
 
   return (
     <div className={styles.form}>
@@ -875,8 +879,8 @@ export function StaffPosPanel() {
                   ? ` — ${line.stock_items.description}`
                   : ""}
                 {line.is_core_charge ? " · core" : ""} · qty {line.qty} ·{" "}
-                {Number(line.unit_price).toFixed(2)} ×{" "}
-                {Number(line.line_total).toFixed(2)} {cart?.currency ?? ""}
+                {posLineUnitPriceMajor(line, currency).toFixed(2)} ×{" "}
+                {posLineTotalMajor(line, currency).toFixed(2)} {currency}
               </li>
             ))}
           </ul>

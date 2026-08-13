@@ -279,3 +279,36 @@ struct FlexibleDecimal: Decodable, Sendable {
         )
     }
 }
+
+/// Decodes Postgres `bigint` / JSON number or string as `Int64` (H4 `*_minor`).
+struct FlexibleInt64: Decodable, Sendable {
+    let value: Int64
+
+    init(_ value: Int64) {
+        self.value = value
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let i = try? container.decode(Int64.self) {
+            value = i
+            return
+        }
+        if let i = try? container.decode(Int.self) {
+            value = Int64(i)
+            return
+        }
+        if let d = try? container.decode(Double.self), d.isFinite, d.rounded() == d {
+            value = Int64(d)
+            return
+        }
+        if let s = try? container.decode(String.self), let i = Int64(s) {
+            value = i
+            return
+        }
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Expected bigint"
+        )
+    }
+}

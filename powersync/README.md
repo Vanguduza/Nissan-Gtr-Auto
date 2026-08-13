@@ -1,6 +1,6 @@
-# PowerSync stubs (Phase 14 must-now)
+# PowerSync stubs + management client contract (Phase 14 / H7)
 
-Checked-in **sync rules** and **schema manifest** for management offline surfaces. No live mobile SDK wiring yet (deferred to Phases 11–12 / management Android).
+Checked-in **sync rules** and **schema manifest** for management offline surfaces. Android management SDK is wired (H7): Fake when `POWERSYNC_URL` unset; live openDatabase when set.
 
 | File | Purpose |
 |------|---------|
@@ -15,9 +15,11 @@ Checked-in **sync rules** and **schema manifest** for management offline surface
 - Money fields always carry explicit `currency` (`USD` \| `ZIG`) and `exchange_rate_applied` where converted.
 - Hardware (QR scan / print / GPS) stays Bridge-First under `bridges/` — not in sync rules.
 
-## Wiring later
+## Wiring
 
-Management / customer apps will point the PowerSync SDK at these rules after cloud project setup. Until then, treat this directory as the contract for which tables are sync-eligible.
+Management Android (`apps/android-management`) points the PowerSync SDK at these rules when `POWERSYNC_URL` is set (`LivePowerSyncClient`). Treat this directory as the sync-eligible table contract. Cloud E2E still needs a PowerSync project + secrets (not in repo).
+
+**H7 progress:** Android management PowerSync SDK wired (`com.powersync:core:1.8.1`) — Fake when `POWERSYNC_URL` unset; `LivePowerSyncClient.openDatabase` + `GtrPowerSyncSchema` / `GtrPowerSyncConnector` (RPC-intent upload policy, no journal) when set. Offline POS sale queue remains `OfflinePosSyncEngine`. Secrets: `powersync/.env.example` / app `local.properties` only — never commit. Plan: `docs/plans/2026-08-14-h7-powersync-live-sdk.md`.
 
 ## Secrets
 

@@ -14,6 +14,7 @@ export type PspMethod =
 
 export type PspInitiateRequest = {
   method: PspMethod;
+  /** H4 cutover: required MoneyMinor — major NUMERIC is never accepted here. */
   amount: MoneyMinor;
   /** Business idempotency key */
   idempotencyKey: string;
