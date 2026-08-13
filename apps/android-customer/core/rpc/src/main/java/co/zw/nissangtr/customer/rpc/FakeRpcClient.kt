@@ -548,6 +548,10 @@ class FakeRpcClient : RpcClient {
             "open cart $cartId required for ${RpcNames.ADD_CUSTOMER_CART_LINE}"
         }
         val lineId = UUID.randomUUID().toString()
+        // H4: Fake dual-writes majors + minors (parity with DB triggers).
+        val unitMinor = unitPriceUsd?.let { MoneyDualRead.toAmountMinor(it, cart.currency) }
+        val lineMajor = unitPriceUsd?.times(qty)
+        val lineMinor = lineMajor?.let { MoneyDualRead.toAmountMinor(it, cart.currency) }
         openCart = cart.copy(
             lines = cart.lines + CartLineSummary(
                 id = lineId,
@@ -557,6 +561,10 @@ class FakeRpcClient : RpcClient {
                 oemPartNumber = oem,
                 isCoreDeposit = isCoreDeposit,
                 unitPriceUsd = unitPriceUsd,
+                unitPrice = unitPriceUsd,
+                unitPriceMinor = unitMinor,
+                lineTotal = lineMajor,
+                lineTotalMinor = lineMinor,
             ),
         )
         // TODO(live): supabase.rpc(RpcNames.ADD_CUSTOMER_CART_LINE, …)

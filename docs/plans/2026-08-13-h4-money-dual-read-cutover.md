@@ -80,4 +80,6 @@ Evidence (2026-08-14): `@gtr/shared` 37/37 PASS; `@gtr/payments` 11/11 PASS.
 - Migrating SQL RPCs to *require* `amount_minor` args (clients send both; SQL still authoritative on major until then)
 - Invoice header `subtotal`/`total`/`amount_paid` minors
 - Android-customer / delivery dual-read
+  - **Android customer cart dual-read:** Done (follow-on) — `MoneyDualRead` + `getOpenCart` minors + Fake seeds + cart UI
+  - **Android delivery dual-read:** still open (optional)
 - ZIMRA / tax amounts

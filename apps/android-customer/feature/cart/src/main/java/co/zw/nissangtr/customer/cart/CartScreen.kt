@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.CartLineSummary
+import co.zw.nissangtr.customer.rpc.displayUnitPrice
+import co.zw.nissangtr.customer.rpc.displaySubtotal
 import co.zw.nissangtr.customer.rpc.CurrencyCode
 import co.zw.nissangtr.customer.rpc.FulfillmentMode
 import co.zw.nissangtr.customer.rpc.RpcClient
@@ -89,8 +91,13 @@ fun CartScreen(
             if (hasLines) {
                 ShopProceedButtonBox(
                     totalLabel = buildString {
-                        append(cart?.currency?.rpcValue ?: "USD")
+                        val currency = cart?.currency ?: CurrencyCode.USD
+                        append(currency.rpcValue)
                         append(" · ")
+                        if (cart != null && hasLines) {
+                            append("%.2f".format(cart.displaySubtotal()))
+                            append(" · ")
+                        }
                         append(lines.size)
                         append(" line(s)")
                     },
@@ -140,7 +147,10 @@ fun CartScreen(
             ) {
                 if (hasLines) {
                     items(lines, key = { it.id }) { line ->
-                        KmpCartLineBox(line = line)
+                        KmpCartLineBox(
+                            line = line,
+                            currency = cart?.currency ?: CurrencyCode.USD,
+                        )
                     }
                 }
 
@@ -252,7 +262,7 @@ fun CartScreen(
 }
 
 @Composable
-private fun KmpCartLineBox(line: CartLineSummary) {
+private fun KmpCartLineBox(line: CartLineSummary, currency: CurrencyCode) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -293,7 +303,10 @@ private fun KmpCartLineBox(line: CartLineSummary) {
                     buildString {
                         append("Qty ${line.qty}")
                         if (line.isCoreDeposit) append(" · Core deposit")
-                        line.unitPriceUsd?.let { append(" · USD %.2f".format(it)) }
+                        // H4 dual-read: prefer unit_price_minor when dual-written
+                        line.displayUnitPrice(currency)?.let {
+                            append(" · ${currency.rpcValue} %.2f".format(it))
+                        }
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
