@@ -1,5 +1,11 @@
 package co.zw.nissangtr.delivery.rpc
 
+/** Mirrors `public.currency_code` — never assume USD silently. */
+enum class CurrencyCode(val rpcValue: String) {
+    USD("USD"),
+    ZIG("ZIG"),
+}
+
 /** Mirrors `public.driver_presence_status`. */
 enum class DriverPresenceStatus(val rpcValue: String) {
     AVAILABLE("available"),
@@ -33,6 +39,25 @@ object DriverStaffRoles {
         roles.any { it in ALLOWED }
 }
 
+/**
+ * Optional COD / invoice settlement on a delivery job (H4 dual-read).
+ *
+ * Prefer `*_minor` when present; majors are legacy NUMERIC bridges.
+ * Never invent payable amounts — callers supply DB/API values only.
+ * Live PostgREST may leave this null until a driver-scoped money RPC exists
+ * (drivers cannot SELECT `sales_invoices` under current RLS).
+ */
+data class DeliveryJobSettlement(
+    val currency: CurrencyCode,
+    val invoiceTotal: Double? = null,
+    val invoiceTotalMinor: Long? = null,
+    val amountPaid: Double? = null,
+    val amountPaidMinor: Long? = null,
+    /** Explicit open balance / COD collect when API provides it. */
+    val amountDue: Double? = null,
+    val amountDueMinor: Long? = null,
+)
+
 data class DeliveryJobSummary(
     val id: String,
     val deliveryNoteId: String,
@@ -49,6 +74,8 @@ data class DeliveryJobSummary(
     val podPhotoPath: String?,
     val podSignaturePath: String?,
     val assigneeUserId: String?,
+    /** H4 dual-read COD/settlement snapshot when API provides money fields. */
+    val settlement: DeliveryJobSettlement? = null,
 )
 
 data class GeofenceSuggestion(

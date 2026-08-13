@@ -25,6 +25,16 @@ class FakeRpcClient : RpcClient {
             podPhotoPath = null,
             podSignaturePath = null,
             assigneeUserId = FAKE_DRIVER_USER_ID,
+            // H4 dual-read seed: divergent majors — display prefers *_minor (COD $45.50).
+            settlement = DeliveryJobSettlement(
+                currency = CurrencyCode.USD,
+                invoiceTotal = 1.0,
+                invoiceTotalMinor = 4550L,
+                amountPaid = 99.0,
+                amountPaidMinor = 0L,
+                amountDue = 1.0,
+                amountDueMinor = 4550L,
+            ),
         ),
         DeliveryJobSummary(
             id = JOB_2,
@@ -42,6 +52,7 @@ class FakeRpcClient : RpcClient {
             podPhotoPath = null,
             podSignaturePath = null,
             assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = null,
         ),
     )
 

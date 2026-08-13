@@ -20,7 +20,7 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | H3 | Promptfoo real-provider CI | Done | Offline default CI job; optional real model when secrets present; no keys in repo |
 | E5 | Ledger/payment `amount_minor` dual-write | Done (PO + cart/invoice + JE/payment) | PO/fund + cart/invoice + JE `debit_minor`/`credit_minor` + payment `amount_minor`; cutover later |
 | H8 | Fund-release insert-once | Done | Smoke PASS 2026-08-13 (`fund_release_insert_once_smoke`) |
-| H4 | B-MONEY-1 dual-read | Done (cutover habit) | API prefer `amountMinor`; physical NUMERIC drop deferred; Android customer cart dual-read follow-on Done; delivery still open; see `docs/plans/2026-08-13-h4-money-dual-read-cutover.md` |
+| H4 | B-MONEY-1 dual-read | Done (cutover habit) | API prefer `amountMinor`; physical NUMERIC drop deferred; Android customer cart + delivery COD dual-read follow-ons Done; see `docs/plans/2026-08-13-h4-money-dual-read-cutover.md` |
 | H7 | B-PS-1 PowerSync live SDK | Done (Android mgmt) | `com.powersync:core` + Fake/Live openDatabase; JE upload forbidden; OfflinePos RPC intents; cloud E2E needs secrets |
 | E6 | Meili dual-read default for catalog | Done | preferMeili + FTS; strip invented qty; consignment ADR |
 | — | Chatwoot / Metabase | Deferred | Tier-2 satellites |

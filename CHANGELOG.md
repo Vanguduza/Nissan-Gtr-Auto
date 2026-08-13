@@ -26,6 +26,7 @@
 - Android procurement hub copy: preferred manual PO is web-first.
 - Courier map SoR: MapLibre primary; Google Directions/tiles deprecated fallback only.
 - Living docs: Epics A–G Done with verifier evidence; §H items remain deferred.
+- **H4 follow-on (Android delivery COD dual-read):** `MoneyDualRead` + `DeliveryJobSettlement` prefer `*_minor`; Fake COD seed; Jobs UI `formatAmountDueLabel`. Unit: `MoneyDualReadTest` (android-delivery `:core:rpc`). Live settlement null until driver-scoped money RPC.
 - **H4 follow-on (Android customer cart dual-read):** `MoneyDualRead` + `getOpenCart` selects `unit_price_minor`/`line_total_minor`; Fake seeds minors; cart UI `displayUnitPrice` / `displaySubtotal`. Unit: `MoneyDualReadTest` (android-customer `:core:rpc`).
 - **H8 Done:** `20260812080000_fund_release_insert_once.sql` — approve insert-once on `procurement_fund_releases` (no money rewrite on conflict). Smoke: `fund_release_insert_once_smoke.sql` PASS (`H8 fund-release insert-once smoke OK`, 2026-08-13).
 - **H7 Done (Android management):** `com.powersync:core:1.8.1` (Kotlin 2.2.10 metadata pin) + `GtrPowerSyncSchema` / `GtrPowerSyncConnector` (no journal upload; CRUD discarded → OfflinePos RPC intents); Fake when `POWERSYNC_URL` unset; `LivePowerSyncClient.openDatabase` when set via BuildConfig/`local.properties`. Unit: `PowerSyncOfflineContractTest` PASS. Plan: `docs/plans/2026-08-14-h7-powersync-live-sdk.md`. Cloud sync E2E needs secrets (not in repo).
