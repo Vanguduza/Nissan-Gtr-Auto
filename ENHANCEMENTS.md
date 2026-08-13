@@ -15,7 +15,7 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | H6 | OSRM compose + prepare (B-OSRM-1) | Done | Zimbabwe graph + `gtr-osrm` route smoke `Ok` (2026-08-13); clients prefer `OSRM_URL` |
 | E2b | MapLibre Native courier map | Done | JobDetailScreen MapLibre SoR; Google deprecated fallback |
 | B-MAP-1 | Customer Android + iOS MapLibre SoR (H5) | Done | Android AddressPickMap MapLibre primary; Google deprecated. **H5-iOS Done:** `bridges/ios/MapsNav` MapLibre SoR; MapKit deprecated fallback |
-| E3 | PspAdapter registry + D-57 checkout FX UX | Done | Registry + stub idempotency; cart `fxRateId`; AI money ban grep |
+| E3 | PspAdapter registry + D-57 checkout FX UX | Done | Registry + stub idempotency; cart `fxRateId`; AI money ban grep; **Android customer + iOS Pay/Cart D-57 parity** (CheckoutDisplayBuilder / fail-closed ZiG) |
 | E4 | Promptfoo + human promote for CRM/report AI | Done | Offline safe-narrative gates; human-promote README |
 | H3 | Promptfoo real-provider CI | Done | Offline default CI job; optional real model when secrets present; no keys in repo |
 | E5 | Ledger/payment `amount_minor` dual-write | Done (PO + cart/invoice + JE/payment) | PO/fund + cart/invoice + JE `debit_minor`/`credit_minor` + payment `amount_minor`; cutover later |

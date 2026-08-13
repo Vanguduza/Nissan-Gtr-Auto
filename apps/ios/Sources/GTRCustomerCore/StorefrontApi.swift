@@ -44,6 +44,9 @@ public protocol StorefrontApi: AnyObject {
     /// Official daily ZiG rate (ZiG per 1 USD) — mirrors web `fetchZigExchangeRate`.
     func fetchZigExchangeRate(asOf: String?) async throws -> Decimal
 
+    /// D-57: `daily_exchange_rates.id` for the ops row (null when fallback-only).
+    func fetchZigExchangeRateId(asOf: String?) async throws -> String?
+
     /// Active MAIN warehouse (or first non-quarantine) — mirrors web `resolveMainWarehouseId`.
     func resolveMainWarehouseId() async throws -> UUID
 
@@ -503,6 +506,10 @@ public final class FakeStorefrontApi: StorefrontApi {
 
     public func fetchZigExchangeRate(asOf _: String?) async throws -> Decimal {
         26.5
+    }
+
+    public func fetchZigExchangeRateId(asOf _: String?) async throws -> String? {
+        "00000000-0000-4000-8000-0000000000fx"
     }
 
     public func resolveMainWarehouseId() async throws -> UUID {

@@ -55,6 +55,7 @@
 		A100000000000000000000A6 /* VehicleCatalogModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A7 /* VehicleCatalogModels.swift */; };
 		A100000000000000000000A8 /* VehicleSelectorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A9 /* VehicleSelectorSection.swift */; };
 		A100000000000000000000C0 /* MoneyDualRead.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C1 /* MoneyDualRead.swift */; };
+		A100000000000000000000C2 /* CheckoutDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C3 /* CheckoutDisplay.swift */; };
 		A100000000000000000000D2 /* MapsNav in Frameworks */ = {isa = PBXBuildFile; productRef = A100000000000000000000D1 /* MapsNav */; };
 /* End PBXBuildFile section */
 
@@ -110,6 +111,7 @@
 		A100000000000000000000A7 /* VehicleCatalogModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VehicleCatalogModels.swift; path = ../Sources/GTRCustomerCore/VehicleCatalogModels.swift; sourceTree = "<group>"; };
 		A100000000000000000000A9 /* VehicleSelectorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleSelectorSection.swift; sourceTree = "<group>"; };
 		A100000000000000000000C1 /* MoneyDualRead.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MoneyDualRead.swift; path = ../Sources/GTRCustomerCore/MoneyDualRead.swift; sourceTree = "<group>"; };
+		A100000000000000000000C3 /* CheckoutDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CheckoutDisplay.swift; path = ../Sources/GTRCustomerCore/CheckoutDisplay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -223,6 +225,7 @@
 				A100000000000000000000B3 /* GoogleOAuthBrowser.swift */,
 				A10000000000000000000017 /* StorefrontFormat.swift */,
 				A100000000000000000000C1 /* MoneyDualRead.swift */,
+				A100000000000000000000C3 /* CheckoutDisplay.swift */,
 				A10000000000000000000051 /* GuestCompareStore.swift */,
 			);
 			name = Core;
@@ -352,6 +355,7 @@
 				A10000000000000000000050 /* GuestCompareStore.swift in Sources */,
 				A10000000000000000000007 /* StorefrontFormat.swift in Sources */,
 				A100000000000000000000C0 /* MoneyDualRead.swift in Sources */,
+				A100000000000000000000C2 /* CheckoutDisplay.swift in Sources */,
 				A10000000000000000000054 /* GTRTheme.swift in Sources */,
 				A10000000000000000000090 /* ShopKit.swift in Sources */,
 				A10000000000000000000080 /* AccountHubScreen.swift in Sources */,

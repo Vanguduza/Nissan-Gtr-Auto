@@ -91,9 +91,8 @@ fun CartScreen(
             if (hasLines) {
                 ShopProceedButtonBox(
                     totalLabel = buildString {
-                        val currency = cart?.currency ?: CurrencyCode.USD
-                        append(currency.rpcValue)
-                        append(" · ")
+                        // D-57: browse total always USD
+                        append("USD · ")
                         if (cart != null && hasLines) {
                             append("%.2f".format(cart.displaySubtotal()))
                             append(" · ")
@@ -114,7 +113,10 @@ fun CartScreen(
                             viewModel.checkout { id -> onPay(id) }
                         }
                     },
-                    enabled = !state.busy,
+                    enabled = !state.busy && !(
+                        state.settleCurrency == CurrencyCode.ZIG &&
+                            (state.zigRate == null || state.zigRate!! <= 0.0)
+                        ),
                 )
             }
         },
@@ -149,7 +151,7 @@ fun CartScreen(
                     items(lines, key = { it.id }) { line ->
                         KmpCartLineBox(
                             line = line,
-                            currency = cart?.currency ?: CurrencyCode.USD,
+                            currency = CurrencyCode.USD,
                         )
                     }
                 }
@@ -205,17 +207,40 @@ fun CartScreen(
                     ShopSectionHeader(title = "Settle currency", actionLabel = null)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
-                            selected = state.currency == CurrencyCode.USD,
-                            onClick = { viewModel.onCurrencyChange(CurrencyCode.USD) },
+                            selected = state.settleCurrency == CurrencyCode.USD,
+                            onClick = { viewModel.onSettleCurrencyChange(CurrencyCode.USD) },
                             enabled = !state.busy,
                             label = { Text("USD") },
                         )
                         FilterChip(
-                            selected = state.currency == CurrencyCode.ZIG,
-                            onClick = { viewModel.onCurrencyChange(CurrencyCode.ZIG) },
+                            selected = state.settleCurrency == CurrencyCode.ZIG,
+                            onClick = { viewModel.onSettleCurrencyChange(CurrencyCode.ZIG) },
                             enabled = !state.busy,
                             label = { Text("ZiG") },
                         )
+                    }
+                    val display = viewModel.checkoutDisplayOrNull()
+                    if (state.settleCurrency == CurrencyCode.ZIG) {
+                        val rate = state.zigRate
+                        if (display != null && rate != null) {
+                            val zigMajor = co.zw.nissangtr.customer.rpc.MoneyDualRead.fromAmountMinor(
+                                display.payable.amountMinor,
+                                CurrencyCode.ZIG,
+                            )
+                            Text(
+                                "≈ ZIG %.2f @ %.4f ZiG per USD (ops daily rate)".format(zigMajor, rate),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        } else {
+                            Text(
+                                "Daily ZiG rate unavailable — settle in USD or try again later.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
                 }
 

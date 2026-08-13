@@ -92,6 +92,12 @@ interface RpcClient {
      */
     suspend fun fetchZigExchangeRate(asOf: String? = null): Double
 
+    /**
+     * D-57: `daily_exchange_rates.id` for the row [fetchZigExchangeRate] would use
+     * (latest ZIG `rate_date` ≤ as-of). Null when no ops row (fallback rate only).
+     */
+    suspend fun fetchZigExchangeRateId(asOf: String? = null): String?
+
     /** Resolve active MAIN (or first non-quarantine) warehouse — mirrors web `resolveMainWarehouseId`. */
     suspend fun resolveMainWarehouseId(): String
 
