@@ -22,10 +22,7 @@
 
 ### Changed
 
-- Procurement hub live PO list (no theater draft tracker); RFQ copy reframed as optional spot-buy.
-- Android procurement hub copy: preferred manual PO is web-first.
-- Courier map SoR: MapLibre primary; Google Directions/tiles deprecated fallback only.
-- Living docs: Epics A–G Done with verifier evidence; §H items remain deferred.
+- **D-57 checkout parity (Android customer + iOS):** browse/cart USD; ZiG only at settle/pay via `CheckoutDisplayBuilder` (MoneyMinor + ops `fxRateId`); fail-closed when daily rate missing. Android `fetchZigExchangeRateId` + cart/pay UI; iOS CartScreen/PayScreen + SwiftPM `CheckoutDisplayTests`. Unit: android-customer `:core:rpc` `CheckoutDisplayTest`.
 - **H4 follow-on (Android delivery COD dual-read):** `MoneyDualRead` + `DeliveryJobSettlement` prefer `*_minor`; Fake COD seed; Jobs UI `formatAmountDueLabel`. Unit: `MoneyDualReadTest` (android-delivery `:core:rpc`). Live settlement null until driver-scoped money RPC.
 - **H4 follow-on (Android customer cart dual-read):** `MoneyDualRead` + `getOpenCart` selects `unit_price_minor`/`line_total_minor`; Fake seeds minors; cart UI `displayUnitPrice` / `displaySubtotal`. Unit: `MoneyDualReadTest` (android-customer `:core:rpc`).
 - **H8 Done:** `20260812080000_fund_release_insert_once.sql` — approve insert-once on `procurement_fund_releases` (no money rewrite on conflict). Smoke: `fund_release_insert_once_smoke.sql` PASS (`H8 fund-release insert-once smoke OK`, 2026-08-13).

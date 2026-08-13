@@ -201,6 +201,8 @@ class FakeRpcClient : RpcClient {
         const val SEED_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
         /** Fake ZiG per 1 USD — mirrors a typical staff-posted daily rate. */
         const val SEED_ZIG_RATE = 26.5
+        /** D-57 fake `daily_exchange_rates.id` for ZiG settle. */
+        const val SEED_FX_RATE_ID = "00000000-0000-4000-8000-0000000000fx"
         const val SEED_UOM_ID = "00000000-0000-4000-8000-0000000000u1"
 
         private fun seedCatalogProducts(): List<CatalogProduct> = listOf(
@@ -478,6 +480,8 @@ class FakeRpcClient : RpcClient {
     }
 
     override suspend fun fetchZigExchangeRate(asOf: String?): Double = SEED_ZIG_RATE
+
+    override suspend fun fetchZigExchangeRateId(asOf: String?): String? = SEED_FX_RATE_ID
 
     override suspend fun resolveMainWarehouseId(): String = SEED_WAREHOUSE_ID
 

@@ -231,6 +231,27 @@ class SupabaseRpcClient(
         }
     }
 
+    override suspend fun fetchZigExchangeRateId(asOf: String?): String? {
+        val asOfDate = asOf?.takeIf { it.isNotBlank() }
+            ?: java.time.LocalDate.now().toString()
+        return try {
+            client.from("daily_exchange_rates")
+                .select(Columns.list("id")) {
+                    filter {
+                        eq("currency", "ZIG")
+                        lte("rate_date", asOfDate)
+                    }
+                    order("rate_date", Order.DESCENDING)
+                    limit(1)
+                }
+                .decodeList<ExchangeRateIdRow>()
+                .firstOrNull()
+                ?.id
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     override suspend fun resolveMainWarehouseId(): String {
         val main = client.from("warehouses")
             .select(Columns.list("id")) {
@@ -1272,6 +1293,9 @@ private data class AddressRow(
 
 @Serializable
 private data class WarehouseIdRow(val id: String)
+
+@Serializable
+private data class ExchangeRateIdRow(val id: String)
 
 @Serializable
 private data class ProfileNameUpdate(

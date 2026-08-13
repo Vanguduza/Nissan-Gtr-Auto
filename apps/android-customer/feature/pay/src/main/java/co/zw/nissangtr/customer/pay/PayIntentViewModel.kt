@@ -3,8 +3,13 @@ package co.zw.nissangtr.customer.pay
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import co.zw.nissangtr.customer.rpc.CheckoutDisplay
+import co.zw.nissangtr.customer.rpc.CheckoutDisplayBuilder
+import co.zw.nissangtr.customer.rpc.CheckoutPayMethod
 import co.zw.nissangtr.customer.rpc.ContipayMethod
+import co.zw.nissangtr.customer.rpc.CurrencyCode
 import co.zw.nissangtr.customer.rpc.InvoiceSummary
+import co.zw.nissangtr.customer.rpc.MoneyDualRead
 import co.zw.nissangtr.customer.rpc.PaynowMethod
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
@@ -18,6 +23,10 @@ data class PayUiState(
     val invoices: List<InvoiceSummary> = emptyList(),
     val invoiceId: String = "",
     val ecocashMsisdn: String = "",
+    /** Ops daily ZiG per USD; null when unavailable. */
+    val zigRate: Double? = null,
+    /** `daily_exchange_rates.id` when ops row present. */
+    val fxRateId: String? = null,
     val lastIntentId: String? = null,
     val lastProvider: String? = null,
     val busy: Boolean = false,
@@ -46,17 +55,53 @@ class PayIntentViewModel(
             _state.update { it.copy(busy = true, error = null) }
             try {
                 val list = rpc.listOwnInvoices()
+                val rate = rpc.fetchZigExchangeRate()
+                val fxId = rpc.fetchZigExchangeRateId()
                 val firstOpen = list.firstOrNull { it.total > it.amountPaid }
                 _state.update {
                     it.copy(
                         busy = false,
                         invoices = list,
                         invoiceId = it.invoiceId.ifBlank { firstOpen?.id.orEmpty() },
+                        zigRate = rate.takeIf { r -> r.isFinite() && r > 0.0 },
+                        fxRateId = fxId,
                     )
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "list failed") }
             }
+        }
+    }
+
+    /** Selected invoice open balance in USD minor (browse currency). */
+    fun selectedOpenUsdMinor(): Long? {
+        val inv = selectedInvoice() ?: return null
+        val openMajor = (inv.total - inv.amountPaid).coerceAtLeast(0.0)
+        return MoneyDualRead.toAmountMinor(openMajor, CurrencyCode.USD)
+    }
+
+    fun selectedInvoice(): InvoiceSummary? {
+        val id = _state.value.invoiceId.trim()
+        if (id.isEmpty()) return null
+        return _state.value.invoices.firstOrNull { it.id == id }
+    }
+
+    /**
+     * D-57 checkout display for pay step.
+     * EcoCash → ZiG payable from MoneyMinor + fxRateId; fail-closed → null when rate missing.
+     */
+    fun checkoutDisplay(payMethod: CheckoutPayMethod): CheckoutDisplay? {
+        val usdMinor = selectedOpenUsdMinor() ?: return null
+        val s = _state.value
+        return try {
+            CheckoutDisplayBuilder.build(
+                usdMinor = usdMinor,
+                payMethod = payMethod,
+                zigRatePerUsd = s.zigRate,
+                fxRateId = if (payMethod == CheckoutPayMethod.ECOCASH) s.fxRateId else null,
+            )
+        } catch (_: IllegalArgumentException) {
+            null
         }
     }
 
@@ -127,14 +172,26 @@ class PayIntentViewModel(
             _state.update { it.copy(error = "EcoCash number required (saved or other)") }
             return
         }
+        // D-57 fail-closed: EcoCash ZiG wallet needs ops daily rate
+        val display = checkoutDisplay(CheckoutPayMethod.ECOCASH)
+        if (display == null) {
+            _state.update {
+                it.copy(
+                    error = "Daily ZiG rate required for EcoCash. Try again later or use ContiPay/Paynow in USD.",
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
+                val fxMeta = display.fxRateId?.let { """"fx_rate_id":"$it",""" }.orEmpty()
                 val result = rpc.createCustomerEcocashIntent(
                     salesInvoiceId = invoiceId,
                     payerMsisdn = msisdn,
                     payerMode = "other",
-                    metadataJson = """{"channel":"android_customer","sales_invoice_id":"$invoiceId"}""",
+                    metadataJson =
+                        """{"channel":"android_customer","sales_invoice_id":"$invoiceId",$fxMeta"settlement_amount_minor":${display.payable.amountMinor},"settlement_currency":"ZIG"}""",
                 )
                 _state.update {
                     it.copy(

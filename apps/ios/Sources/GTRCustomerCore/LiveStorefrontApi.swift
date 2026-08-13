@@ -162,6 +162,36 @@ public final class LiveStorefrontApi: StorefrontApi {
         return 1
     }
 
+    public func fetchZigExchangeRateId(asOf: String?) async throws -> String? {
+        let asOfDate: String
+        if let asOf, !asOf.isEmpty {
+            asOfDate = asOf
+        } else {
+            let df = DateFormatter()
+            df.calendar = Calendar(identifier: .gregorian)
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.timeZone = TimeZone(secondsFromGMT: 0)
+            df.dateFormat = "yyyy-MM-dd"
+            asOfDate = df.string(from: Date())
+        }
+        struct RateIdRow: Decodable { let id: UUID }
+        do {
+            let rows: [RateIdRow] = try await client.selectDecode(
+                table: "daily_exchange_rates",
+                query: [
+                    "select=id",
+                    "currency=eq.ZIG",
+                    "rate_date=lte.\(asOfDate)",
+                    "order=rate_date.desc",
+                    "limit=1",
+                ].joined(separator: "&")
+            )
+            return rows.first?.id.uuidString.lowercased()
+        } catch {
+            return nil
+        }
+    }
+
     public func resolveMainWarehouseId() async throws -> UUID {
         let main: [WarehouseIdRow] = try await client.selectDecode(
             table: "warehouses",
