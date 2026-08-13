@@ -76,6 +76,9 @@ import co.zw.nissangtr.management.rpc.ManagementHomeRoles
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
+import co.zw.nissangtr.management.rpc.LivePowerSyncClient
+import co.zw.nissangtr.management.rpc.PowerSyncEndpointConfig
+import co.zw.nissangtr.management.rpc.powerSyncClientFor
 import co.zw.nissangtr.management.warehouse.BinsScreen
 import co.zw.nissangtr.management.warehouse.ConsignmentScreen
 import co.zw.nissangtr.management.warehouse.WarehouseModule
@@ -166,6 +169,18 @@ class MainActivity : ComponentActivity() {
             forceFake = BuildConfig.RPC_FORCE_FAKE,
         )
         val supabase = rpc as? SupabaseRpcClient
+        // H7: PowerSync read-sync when POWERSYNC_URL set; Fake otherwise. Mutations = OfflinePos RPC intents.
+        val powerSync =
+            powerSyncClientFor(
+                PowerSyncEndpointConfig.fromProperties(
+                    url = BuildConfig.POWERSYNC_URL,
+                    publicKey = BuildConfig.POWERSYNC_PUBLIC_KEY,
+                    projectId = BuildConfig.POWERSYNC_PROJECT_ID,
+                ),
+            )
+        if (powerSync is LivePowerSyncClient) {
+            powerSync.openDatabase(this)
+        }
         if (tabletKiosk) {
             lockTask.enterLockTaskIfAllowed()
         }

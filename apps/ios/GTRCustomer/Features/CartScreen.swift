@@ -24,7 +24,7 @@ struct CartScreen: View {
                         ShopCartLineRow(
                             oem: line.oemPartNumber,
                             title: line.description ?? "Part",
-                            priceLabel: StorefrontFormat.money(line.unitPrice, currency: line.currency),
+                            priceLabel: StorefrontFormat.money(line.displayUnitPrice(), currency: line.currency),
                             qty: "\(line.qty)",
                             onAddQty: { Task { await bumpQty(line) } }
                         )
@@ -82,8 +82,7 @@ struct CartScreen: View {
 
     private var cartTotalLabel: String {
         guard let cart else { return "—" }
-        let subtotal = cart.lines.reduce(Decimal.zero) { $0 + ($1.unitPrice * $1.qty) }
-        return StorefrontFormat.money(subtotal, currency: cart.currency)
+        return StorefrontFormat.money(cart.displaySubtotal(), currency: cart.currency)
     }
 
     @ViewBuilder

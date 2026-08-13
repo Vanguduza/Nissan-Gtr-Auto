@@ -17,5 +17,10 @@ let package = Package(
             name: "GTRCustomerCore",
             path: "Sources/GTRCustomerCore"
         ),
+        .testTarget(
+            name: "GTRCustomerCoreTests",
+            dependencies: ["GTRCustomerCore"],
+            path: "Tests/GTRCustomerCoreTests"
+        ),
     ]
 )

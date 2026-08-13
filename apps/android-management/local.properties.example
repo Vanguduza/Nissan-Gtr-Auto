@@ -8,3 +8,9 @@ SUPABASE_ANON_KEY=your-anon-key
 
 # Optional: force FakeRpcClient even when URL+key are set
 # rpc.forceFake=true
+
+# PowerSync (H7 / B-PS-1) — optional. When unset, FakePowerSyncClient (fail closed).
+# Never commit real URL/keys. See powersync/.env.example + docs/HARDENING.md.
+# POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
+# POWERSYNC_PUBLIC_KEY=
+# POWERSYNC_PROJECT_ID=

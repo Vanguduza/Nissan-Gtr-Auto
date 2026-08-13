@@ -24,6 +24,7 @@ import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
 import co.zw.nissangtr.management.rpc.WarehouseRef
+import co.zw.nissangtr.management.rpc.displayUnitPrice
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -1029,7 +1030,8 @@ class PosViewModel(
             it.copy(
                 managerPrompt = ManagerPrompt.PriceOverride,
                 overrideLineId = line.id,
-                overrideUnitPrice = line.unitPrice.toString(),
+                // H4 dual-read: seed override from minor when dual-written
+                overrideUnitPrice = line.displayUnitPrice(_state.value.currency).toString(),
                 error = null,
             )
         }
@@ -1329,7 +1331,11 @@ class PosViewModel(
                 if (next <= 0) {
                     rpc.deletePosCartLine(line.id)
                 } else {
-                    rpc.setPosCartLineQty(line.id, next, line.unitPrice)
+                    rpc.setPosCartLineQty(
+                        line.id,
+                        next,
+                        line.displayUnitPrice(_state.value.currency),
+                    )
                 }
                 refreshCartLines(_state.value.cartId)
             } catch (e: Exception) {

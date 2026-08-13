@@ -1,4 +1,4 @@
-import MapKit
+import MapsNav
 import SwiftUI
 
 /// Customer active-delivery track — **last point + ETA only**.
@@ -7,6 +7,8 @@ import SwiftUI
 /// Never selects `delivery_locations`, never draws a historical trail,
 /// never uses WebView / HTML5 geolocation. Polling stops when the RPC
 /// returns empty after an active point (job terminal / token expired).
+///
+/// Map render SoR: MapLibre (`TrackPointMap`); MapKit = deprecated fallback only.
 struct DeliveryTrackScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     let ref: DeliveryTrackRef
@@ -16,9 +18,16 @@ struct DeliveryTrackScreen: View {
     @State private var busy = false
     @State private var polling = true
     @State private var sawActivePoint = false
-    @State private var cameraPosition: MapCameraPosition = .automatic
 
     private let pollNanos: UInt64 = 15_000_000_000
+
+    private var styleURL: URL {
+        let raw = AppEnv.mapLibreStyleURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: raw), !raw.isEmpty {
+            return url
+        }
+        return defaultMapLibreStyleURL
+    }
 
     var body: some View {
         ShopDefaultScreen(title: "Live delivery", subtitle: nil, scrollable: false) {
@@ -49,20 +58,13 @@ struct DeliveryTrackScreen: View {
 
                 Section("Map") {
                     // Single annotation only — no polyline / trail overlays.
-                    Map(position: $cameraPosition) {
-                        Annotation("Driver", coordinate: CLLocationCoordinate2D(
-                            latitude: point.lat,
-                            longitude: point.lng
-                        )) {
-                            Image(systemName: "truck.box.fill")
-                                .padding(8)
-                                .background(GTRColors.primary, in: Circle())
-                                .foregroundStyle(.white)
-                        }
-                    }
+                    TrackPointMap(
+                        point: MapLatLng(latitude: point.lat, longitude: point.lng),
+                        useMapLibre: AppEnv.useMapLibre,
+                        styleURL: styleURL
+                    )
                     .frame(height: 220)
                     .listRowInsets(EdgeInsets())
-                    .onAppear { centerCamera(on: point) }
                     .accessibilityLabel(
                         "Driver last location \(String(format: "%.5f", point.lat)), \(String(format: "%.5f", point.lng))"
                     )
@@ -117,27 +119,11 @@ struct DeliveryTrackScreen: View {
                 await pollLoop()
             }
             .refreshable { await refresh(fromPoll: false) }
-            .onChange(of: point?.lat) { _, _ in
-                if let point { centerCamera(on: point) }
-            }
-            .onChange(of: point?.lng) { _, _ in
-                if let point { centerCamera(on: point) }
-            }
         }
     }
 
     private func statusLabel(_ raw: String) -> String {
         raw == "dispatched" ? "Out for delivery" : raw
-    }
-
-    private func centerCamera(on point: DeliveryTrackPoint) {
-        let coord = CLLocationCoordinate2D(latitude: point.lat, longitude: point.lng)
-        cameraPosition = .region(
-            MKCoordinateRegion(
-                center: coord,
-                span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
-            )
-        )
     }
 
     private func refresh(fromPoll: Bool) async {

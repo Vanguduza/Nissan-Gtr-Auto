@@ -18,11 +18,11 @@
 | **H-PARITY-WH2** | Android POS WH2 pick (A–G gap) | `PosViewModel` / warehouse list only saleable **WH2** (`role_code` storefloor); WH1 not pickable; copy matches web | H8 optional |
 | **H2** | Android preferred-supplier PO | Native create/submit preferred PO on `android-management` (roster + quoted lines); not web-only hub deep-link; Bridge-First; no RFQ-win gate | H-PARITY-WH2 optional |
 | **H4** | B-MONEY-1 dual-read → cutover | Dual-write then cutover plan per money surface; never big-bang; new APIs `amountMinor`+currency; PO path already dual-write | **H8** |
-| **H5** | B-MAP-1 MapLibre SoR | Courier already MapLibre primary. Customer Android (+ bridges) MapLibre render SoR; Google = deprecated fallback only. **H5-iOS** (MapKit → MapLibre Native) remains open / PARTIAL | — |
+| **H5** | B-MAP-1 MapLibre SoR | Courier already MapLibre primary. Customer Android (+ bridges) MapLibre render SoR; Google = deprecated fallback only. **H5-iOS** MapLibre Native SoR; MapKit deprecated fallback | — |
 | **H6** | B-OSRM-1 compose/data | `routing` profile + `infra/satellites/osrm/prepare.sh`; runnable when graph present; documented; clients prefer `OSRM_URL` | H5 helpful |
 | **H1** | Temporal worker binary | Host process runs `DeliveryDispatchWorkflow` / `DELIVERY_DISPATCH_WORKFLOW` calling existing activities; Edge bridge remains; no Fleetbase | Package SM Done (A–G) |
 | **H3** | Promptfoo real-provider CI | Offline safe-narrative CI job always; optional real model when secrets present; human-promote unchanged | Epic E Done |
-| **H7** | B-PS-1 PowerSync live SDK | Mobile SDK wired to existing rules; offline queue intents only (no journal upload) | — |
+| **H7** | B-PS-1 PowerSync live SDK | Mobile SDK wired to existing rules; offline queue intents only (no journal upload) | **Done (Android mgmt)** |
 | **H9** | Chatwoot / Metabase | Tier-2 satellites — **defer** unless explicit ticket | — |
 | **H-ZIMRA** | ZIMRA / FDMS | **Excluded** until counsel ADR — never implement | — |
 
@@ -34,15 +34,15 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 
 | Item | web | android-management | android-delivery | android-customer | ios | packages/* | bridges/ | supabase/ |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| H8 fund-release insert-once | — | — | — | — | — | — | — | **COND** |
+| H8 fund-release insert-once | — | — | — | — | — | — | — | **OK** |
 | H-PARITY-WH2 POS | OK | **OK** | — | — | — | — | — | — |
 | H2 preferred-PO | OK | **OK** | — | — | — | OK vocab | — | OK RPCs |
-| H4 B-MONEY-1 | **N** | **N** | **N** | **N** | **N** | **N** shared/payments | — | **N** |
-| H5 B-MAP-1 | OK track | — | OK primary | **OK** MapLibre address pick | **N** H5-iOS MapKit remain | — | **OK** maps-nav MapLibre | — |
+| H4 B-MONEY-1 | **OK** dual-read + API cutover habit | **OK** POS dual-read | **N** | **N** | **OK** dual-read | **OK** ApiMoney + dual-write helpers | — | **OK** cart/invoice + JE/payment + PO/fund dual-write |
+| H5 B-MAP-1 | OK track | — | OK primary | **OK** MapLibre address pick | **OK** MapLibre SoR (MapKit fallback) | — | **OK** maps-nav + iOS MapsNav | — |
 | H6 B-OSRM-1 | **OK** docs/compose | — | prefer OK | prefer if maps | — | OK osrm | OK fetcher | — + **OK** infra prepare |
 | H1 Temporal worker | — | — | — | — | — | **OK** host | — | Edge OK |
 | H3 Promptfoo CI | — | — | — | — | — | — | — | — + **OK** `.github`/promptfoo (offline default) |
-| H7 B-PS-1 | — | **N** | maybe | maybe | maybe | — | — | powersync rules OK |
+| H7 B-PS-1 | — | **OK** Fake/Live SDK | maybe | maybe | maybe | — | — | powersync rules OK |
 | H9 Chatwoot/Metabase | DEF | DEF | DEF | DEF | DEF | DEF | DEF | DEF |
 | H-ZIMRA | **never** | **never** | **never** | **never** | **never** | **never** | **never** | **never** |
 | D-57 checkout parity | OK | — | — | **N** | **N** | OK payments | — | — |
@@ -63,14 +63,16 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 
 | ID | Status | Evidence |
 | --- | --- | --- |
-| H8 | **conditional** | Migration `20260812080000_*` + smoke; security PASS. **Blocked:** Docker Desktop daemon down — cannot `db:reset` / run smoke. |
+| H8 | **Done** | Migration `20260812080000_*` + `supabase/tests/fund_release_insert_once_smoke.sql` — NOTICE `H8 fund-release insert-once smoke OK` after `supabase start` (2026-08-13). Second approve / conflict does not mutate `amount_minor`. Epic A smoke also OK. |
 | H-PARITY-WH2 | **Done** | Gradle `PosSaleableWarehouseTest` PASS; `PosViewModel` → `listSaleableWarehouses`; living docs updated. |
 | H2 | **Done** | Native `PreferredPoScreen` + `listPreferredSuppliers` / `create_purchase_order` / `submit_purchase_order`; hub → Preferred supplier PO; Fake stubs; not RFQ-gated; Bridge QR. **Verifier 2026-08-12:** `:core:rpc:testDebugUnitTest --tests …PreferredPoHelpersTest` + `:feature:procurement:compileDebugKotlin` → BUILD SUCCESSFUL. |
-| H5 | **Done (Android)** | Customer `AddressPickMap` / `MapLibreAddressPickMap` `useMapLibre=true` default; `BuildConfig.USE_MAPLIBRE` on unless `useMapLibre=false`; bridges `:maps-nav` SoR. Android-customer compile BUILD SUCCESSFUL (prior). Exclusions clean. **H5-iOS** open / PARTIAL (MapKit remain). |
+| H5 | **Done (Android + iOS)** | Android: Customer `AddressPickMap` / `MapLibreAddressPickMap` `useMapLibre=true` default; Google deprecated. **H5-iOS:** `bridges/ios/MapsNav` MapLibre SoR; Address + DeliveryTrack; MapKit deprecated (`USE_MAPLIBRE=false` / load fail). Tests: `AddressPickMapCaptionTests`. Mac: `xcodebuild` MapsNav test + GTRCustomer build (Windows: code + docs only). Exclusions clean. |
 | H3 | **Done** | `.github/workflows/promptfoo.yml` — `npm run gate` (safe-narrative asserts) + `promptfoo eval` offline default (Epic E); optional real-provider job when `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PROMPTFOO_PROVIDER` secrets present. Human-promote unchanged. Local verify: `cd promptfoo && npm run gate` (3/3 PASS). |
-| H6 | **Done (scaffold)** | Compose `osrm` under `--profile routing`; `infra/satellites/osrm/{README.md,prepare.sh,data/}`; satellites README + living docs. Clients already prefer `OSRM_URL` (`preferRoutingProvider`, `OsrmRouteFetcher`). **Runtime smoke:** blocked on this host (Docker not installed) — run `prepare.sh` then `compose … --profile routing` when Docker available. |
+| H6 | **Done** | Compose `osrm` under `--profile routing`; prepare script (Git Bash `MSYS_NO_PATHCONV`); Zimbabwe graph built; `gtr-osrm` Up; route smoke `code=Ok` Harare sample (2026-08-13). Clients already prefer `OSRM_URL`. |
 | H1 | **Done** | `@gtr/delivery-dispatch-worker` — Temporal host for `DeliveryDispatchWorkflow`; SQL activities via assign-bridge; Edge `delivery-dispatch-cycle` unchanged; no Fleetbase. Verifier: `pnpm --filter @gtr/delivery-dispatch-worker test` (2/2) + workflow `tsc` PASS. Live run needs `TEMPORAL_ADDRESS` + Supabase service role. |
-| H4, H7, H9, H-ZIMRA | open / excluded | H5-iOS MapKit→MapLibre remainder tracked under B-MAP-1; H4 waits H8 smoke |
+| H4 | **Done (cutover habit)** | Slices 1–7: dual-write (PO/fund + cart/invoice + JE/payment) + dual-read (web, Android POS, iOS) + shared API contracts prefer/require `amountMinor` (`ApiMoney`/`LegacyMoney`, settlement/allocation/PO dual-write RPC fields). Verifier: `packages/shared` 37/37 + `packages/payments` 11/11 PASS (2026-08-14). **Deferred:** drop NUMERIC columns; SQL RPCs still read major (clients dual-write minors). See `docs/plans/2026-08-13-h4-money-dual-read-cutover.md`. |
+| H7 | **Done (Android management)** | `com.powersync:core` + `GtrPowerSyncSchema` / `GtrPowerSyncConnector` (no JE upload; RPC intents via OfflinePos); Fake when `POWERSYNC_URL` unset; openDatabase when set. Unit: `PowerSyncOfflineContractTest` PASS (2026-08-14). Cloud E2E needs secrets. Plan: `docs/plans/2026-08-14-h7-powersync-live-sdk.md`. |
+| H9, H-ZIMRA | deferred / excluded | H9 Chatwoot/Metabase deferred. H-ZIMRA never. Remaining follow-ups outside actionable §H: Mac `xcodebuild` H5-iOS compile evidence; PowerSync cloud E2E secrets; NUMERIC column drop (H4 deferred). |
 
 ---
 

@@ -248,7 +248,7 @@ public final class LiveStorefrontApi: StorefrontApi {
         let lines: [PosCartLineRow] = try await client.selectDecode(
             table: "pos_cart_lines",
             query: [
-                "select=id,stock_item_id,qty,unit_price,stock_items(oem_part_number,description)",
+                "select=id,stock_item_id,qty,unit_price,unit_price_minor,line_total,line_total_minor,stock_items(oem_part_number,description)",
                 "cart_id=eq.\(cart.id.uuidString.lowercased())",
                 "order=created_at.asc",
             ].joined(separator: "&")
@@ -265,6 +265,9 @@ public final class LiveStorefrontApi: StorefrontApi {
                     stockItemId: line.stockItemId,
                     oemPartNumber: line.stockItems?.oemPartNumber ?? "—",
                     description: line.stockItems?.description,
+                    unitPriceMinor: line.unitPriceMinor?.value,
+                    lineTotal: line.lineTotal?.value,
+                    lineTotalMinor: line.lineTotalMinor?.value,
                     qty: line.qty.value,
                     unitPrice: line.unitPrice.value,
                     currency: cart.currency
@@ -1557,12 +1560,18 @@ private struct PosCartLineRow: Decodable {
     let stockItemId: UUID
     let qty: FlexibleDecimal
     let unitPrice: FlexibleDecimal
+    let unitPriceMinor: FlexibleInt64?
+    let lineTotal: FlexibleDecimal?
+    let lineTotalMinor: FlexibleInt64?
     let stockItems: StockItemEmbed?
 
     enum CodingKeys: String, CodingKey {
         case id, qty
         case stockItemId = "stock_item_id"
         case unitPrice = "unit_price"
+        case unitPriceMinor = "unit_price_minor"
+        case lineTotal = "line_total"
+        case lineTotalMinor = "line_total_minor"
         case stockItems = "stock_items"
     }
 }

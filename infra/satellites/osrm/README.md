@@ -20,13 +20,17 @@ Default extract: **Zimbabwe** ([Geofabrik](https://download.geofabrik.de/africa/
 From **repo root**:
 
 ```bash
-# Linux / macOS / Git Bash
+# Linux / macOS / Git Bash (MSYS_NO_PATHCONV set in script for Windows Git Bash)
 bash infra/satellites/osrm/prepare.sh
+
+# Windows PowerShell helper
+powershell -File infra/satellites/osrm/prepare.ps1
 
 # Or override region
 OSRM_REGION=zimbabwe OSM_PBF_URL=https://download.geofabrik.de/africa/zimbabwe-latest.osm.pbf \
   bash infra/satellites/osrm/prepare.sh
 ```
+
 
 Produces `infra/satellites/osrm/data/${OSRM_REGION}-latest.osrm*` (MLD graph).
 

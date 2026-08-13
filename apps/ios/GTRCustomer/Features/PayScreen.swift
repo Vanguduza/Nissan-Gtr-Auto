@@ -110,7 +110,7 @@ struct PayScreen: View {
 
     private func orderLabel(_ order: CustomerOrder) -> String {
         let doc = order.documentNumber ?? String(order.invoiceId.uuidString.prefix(8))
-        return "\(doc) · \(StorefrontFormat.money(order.amountOpen, currency: order.currency)) open"
+        return "\(doc) · \(StorefrontFormat.money(order.displayAmountOpen(), currency: order.currency)) open"
     }
 
     private func refresh() async {
@@ -119,7 +119,7 @@ struct PayScreen: View {
         do {
             orders = try await session.api.listOrders()
             if selectedInvoiceId == nil {
-                selectedInvoiceId = orders.first(where: { $0.amountOpen > 0 })?.invoiceId
+                selectedInvoiceId = orders.first(where: { $0.displayAmountOpen() > 0 })?.invoiceId
                     ?? orders.first?.invoiceId
             }
             status = nil

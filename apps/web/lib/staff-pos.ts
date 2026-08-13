@@ -1,5 +1,12 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
-import { receiptContactsForCheckout } from "@gtr/shared";
+import {
+  displayLineTotalMajor,
+  displayUnitPriceMajor,
+  fromAmountMinor,
+  receiptContactsForCheckout,
+  sumPreferAmountMinor,
+  type CurrencyCode as SharedCurrency,
+} from "@gtr/shared";
 import {
   requireSession,
   type StorefrontResult,
@@ -44,9 +51,12 @@ export type StockItemOption = {
 
 export type PosCartRow = Database["public"]["Tables"]["pos_carts"]["Row"];
 
+/** Optional *_minor for H4 dual-read when cart dual-write columns land. */
 export type PosCartLineRow =
   Database["public"]["Tables"]["pos_cart_lines"]["Row"] & {
     stock_items?: { oem_part_number: string; description: string | null } | null;
+    unit_price_minor?: number | null;
+    line_total_minor?: number | null;
   };
 
 export type PosScanSession = {
@@ -264,6 +274,37 @@ export async function loadPosCartLines(
     stock_items: asSingle(row.stock_items),
   }));
   return { ok: true, data: rows as PosCartLineRow[] };
+}
+
+/** H4 dual-read: unit price display (minor wins when present). */
+export function posLineUnitPriceMajor(
+  line: PosCartLineRow,
+  currency: CurrencyCode,
+): number {
+  return displayUnitPriceMajor(line, currency as SharedCurrency);
+}
+
+/** H4 dual-read: line total display (minor wins when present). */
+export function posLineTotalMajor(
+  line: PosCartLineRow,
+  currency: CurrencyCode,
+): number {
+  return displayLineTotalMajor(line, currency as SharedCurrency);
+}
+
+/** H4 dual-read: sum POS cart lines via minor units. */
+export function sumPosCartLinesMajor(
+  lines: PosCartLineRow[],
+  currency: CurrencyCode,
+): number {
+  const sum = sumPreferAmountMinor(
+    lines.map((line) => ({
+      amountMinor: line.line_total_minor ?? null,
+      amountMajor: Number(line.line_total),
+    })),
+    currency as SharedCurrency,
+  );
+  return fromAmountMinor(sum.amountMinor, currency as SharedCurrency);
 }
 
 export async function addCartLine(

@@ -23,7 +23,7 @@ struct OrdersScreen: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(order.documentNumber ?? String(order.invoiceId.uuidString.prefix(8)) + "…")
                             .font(GTRType.displaySemi(.headline))
-                        Text("\(order.status) · \(StorefrontFormat.money(order.total, currency: order.currency))")
+                        Text("\(order.status) · \(StorefrontFormat.money(order.displayTotal(), currency: order.currency))")
                             .font(GTRType.body(.subheadline))
                             .foregroundStyle(GTRColors.silverDim)
                         HStack(spacing: 6) {
@@ -85,10 +85,10 @@ struct OrderDetailScreen: View {
                 LabeledContent("Fulfillment", value: StorefrontFormat.fulfillment(order.fulfillmentMode))
                 LabeledContent("Currency", value: order.currency.rawValue)
                 LabeledContent("FX rate", value: "\(order.exchangeRateApplied)")
-                LabeledContent("Subtotal", value: StorefrontFormat.money(order.subtotal, currency: order.currency))
-                LabeledContent("Total", value: StorefrontFormat.money(order.total, currency: order.currency))
-                LabeledContent("Paid", value: StorefrontFormat.money(order.amountPaid, currency: order.currency))
-                LabeledContent("Open", value: StorefrontFormat.money(order.amountOpen, currency: order.currency))
+                LabeledContent("Subtotal", value: StorefrontFormat.money(order.displaySubtotal(), currency: order.currency))
+                LabeledContent("Total", value: StorefrontFormat.money(order.displayTotal(), currency: order.currency))
+                LabeledContent("Paid", value: StorefrontFormat.money(order.displayAmountPaid(), currency: order.currency))
+                LabeledContent("Open", value: StorefrontFormat.money(order.displayAmountOpen(), currency: order.currency))
                 if let pick = order.pickListStatus {
                     LabeledContent("Pick list", value: pick)
                 }

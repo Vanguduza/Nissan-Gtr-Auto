@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package co.zw.nissangtr.management.pos
 
 import androidx.compose.foundation.clickable
@@ -56,6 +58,8 @@ import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.FulfillmentMode
 import co.zw.nissangtr.management.rpc.RpcClient
+import co.zw.nissangtr.management.rpc.displayLineTotal
+import co.zw.nissangtr.management.rpc.displayUnitPrice
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
 import co.zw.nissangtr.ui.shop.ShopOrderBox
@@ -707,7 +711,7 @@ private fun RightCartPane(
     viewModel: PosViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val cartTotal = PosCartLineOps.cartTotal(state.cartLines)
+    val cartTotal = PosCartLineOps.cartTotal(state.cartLines, state.currency)
     ShopStaffPanel(modifier = modifier, title = "Cart") {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -730,7 +734,7 @@ private fun RightCartPane(
                 ) {
                     ShopListCard(
                         title = line.oemPartNumber ?: line.stockItemId.take(8),
-                        subtitle = "@ ${line.unitPrice} = ${line.lineTotal}" +
+                        subtitle = "@ ${"%.2f".format(line.displayUnitPrice(state.currency))} = ${"%.2f".format(line.displayLineTotal(state.currency))}" +
                             if (line.isCoreCharge) " (core)" else "",
                         onClick = {},
                         badges = if (line.isCoreCharge) {
