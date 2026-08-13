@@ -17,6 +17,8 @@
 | `payment_entries.amount_minor` / `settlement_amount_minor` | Yes (`20260813400000`) | Triggers + backfill; posted null-fill only |
 | `@gtr/shared` MoneyMinor helpers | Yes | `toAmountMinor`, `dualWriteMoney`, prefer/sum display helpers |
 | Android management `MoneyDualRead` | Yes (dual-read) | Prefer `*_minor` on POS cart lines; JVM unit tests |
+| Android customer `MoneyDualRead` | Yes (dual-read, follow-on) | Cart lines prefer `*_minor`; JVM unit tests |
+| Android delivery `MoneyDualRead` | Yes (dual-read, follow-on) | COD/`DeliveryJobSettlement` prefer `*_minor`; JVM unit tests |
 | iOS `MoneyDualRead` + storefront display | Yes (dual-read, slice 6) | Cart/order/pay prefer `*_minor`; SwiftPM `MoneyDualReadTests` |
 | `@gtr/payments` PspInitiateRequest | MoneyMinor | Stub + Edge remain |
 | Shared API cutover contracts (slice 7) | Yes | `ApiMoney` / `LegacyMoney`; RPC dual-write helpers; settlement + allocation prefer minor |
@@ -63,7 +65,7 @@ PO lines + fund releases (done dual-write)
 | `allocate_payment` SQL | reads `amount` major | Client may send `amount_minor` (ignored by SQL until later migration) |
 | Loyalty / store credit / credit-limit RPCs | major NUMERIC | Out of H4 freeze; leave for later money surfaces |
 | Invoice header `subtotal`/`total` minors | not dual-written | Deferred (line-level first) |
-| Android-customer / delivery dual-read | not required for freeze | Optional follow-on |
+| Android-customer / delivery dual-read | not required for freeze | Optional follow-on — **both Done** |
 
 ## Slice 7 verify
 
@@ -81,5 +83,5 @@ Evidence (2026-08-14): `@gtr/shared` 37/37 PASS; `@gtr/payments` 11/11 PASS.
 - Invoice header `subtotal`/`total`/`amount_paid` minors
 - Android-customer / delivery dual-read
   - **Android customer cart dual-read:** Done (follow-on) — `MoneyDualRead` + `getOpenCart` minors + Fake seeds + cart UI
-  - **Android delivery dual-read:** still open (optional)
+  - **Android delivery dual-read:** Done (follow-on) — `MoneyDualRead` + `DeliveryJobSettlement` prefer `*_minor`; Fake COD seed; Jobs COD label. Live amounts need driver-scoped RPC (RLS)
 - ZIMRA / tax amounts

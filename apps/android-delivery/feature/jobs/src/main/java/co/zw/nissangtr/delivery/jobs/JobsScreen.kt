@@ -56,6 +56,7 @@ import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.RpcClient
+import co.zw.nissangtr.delivery.rpc.formatAmountDueLabel
 import co.zw.nissangtr.delivery.tracking.MapLibreJobMap
 import co.zw.nissangtr.delivery.tracking.TrackingUiState
 import co.zw.nissangtr.delivery.tracking.TrackingViewModel
@@ -269,10 +270,16 @@ private fun JobOrderCard(
             if (job.reattemptOf != null) {
                 ShopStatusChip(label = "REATTEMPT", background = GtrColors.Warning)
             }
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                ShopStatusChip(label = cod, background = GtrColors.Warning)
+            }
         },
         expanded = expanded,
         onToggleExpand = { expanded = !expanded },
         expandedContent = {
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                Text(cod, style = MaterialTheme.typography.bodyMedium)
+            }
             job.notes?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
@@ -524,6 +531,12 @@ fun JobDetailScreen(
             if (job.reattemptOf != null) {
                 ShopStatusChip(label = "REATTEMPT", background = GtrColors.Warning)
             }
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                ShopStatusChip(label = cod, background = GtrColors.Warning)
+            }
+        }
+        job.settlement?.formatAmountDueLabel()?.let { cod ->
+            Text(cod, style = MaterialTheme.typography.bodyMedium)
         }
         job.notes?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         job.etaAt?.let {
