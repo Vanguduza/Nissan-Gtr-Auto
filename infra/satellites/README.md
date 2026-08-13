@@ -30,7 +30,7 @@ docker compose -f docker-compose.satellites.yml --profile search down
 | `search` (default) | Meilisearch CE | Parts / SKU typo-tolerant search |
 | `gps` | Traccar | Fleet live GPS (optional; heavy Java image) |
 | `scrape` | FlareSolverr | Cloudflare solve for Amayama catalog crawl |
-| `routing` | OSRM stub note only | See OSRM section — map data required |
+| `routing` | OSRM (`osrm-routed`) | After `bash infra/satellites/osrm/prepare.sh` — see OSRM section |
 | `recommend` | Gorse (commented) | Phase C — see `PHASE2_PROPHET_GORSE.md` |
 
 Enable multiple:
@@ -38,9 +38,13 @@ Enable multiple:
 ```bash
 docker compose -f docker-compose.satellites.yml --profile search --profile gps up -d
 docker compose -f docker-compose.satellites.yml --profile scrape up -d
+docker compose -f docker-compose.satellites.yml --profile routing up -d
 ```
 
-FlareSolverr API: http://127.0.0.1:8191 — used by `python -m data_pipeline.amayama_catalog_auto`.
+FlareSolverr API: http://127.0.0.1:8191 — used by `python -m data_pipeline.amayama_catalog_auto`.  
+OSRM API: http://127.0.0.1:5000 (after prepare) — set `OSRM_URL` for delivery clients.
+
+**Do not** run `gps` + `routing` together without remapping `OSRM_HOST_PORT` (Traccar binds host 5000–5150).
 
 ## Environment
 
@@ -140,9 +144,25 @@ Typed client: `searchCatalogMeili()` in `@gtr/supabase-client`. ADR: `docs/decis
 - Bridge-First still applies for on-device GPS in GTR apps (`bridges/`) — Traccar is the **server** that receives device positions.
 - Default compose uses the official image with embedded H2 for local smoke tests only — use Postgres for anything shared.
 
-## OSRM notes
+## OSRM notes (H6 / B-OSRM-1)
 
-OSRM needs a downloaded OSM extract and `osrm-extract` / `osrm-partition` / `osrm-customize` before `osrm-routed` is useful. This repo ships a **commented stub** in compose — enable after you place map data under `infra/satellites/osrm/data/`. Until then, keep ETA logic as-is (or call a public routing API only if licensed for your use).
+OSRM is the **distance/route SoR** when `OSRM_URL` is configured. Clients already prefer it (`@gtr/delivery` `preferRoutingProvider`, Android `OsrmRouteFetcher`).
+
+1. Prepare graph (Docker required; downloads Geofabrik Zimbabwe by default):
+
+```bash
+bash infra/satellites/osrm/prepare.sh
+```
+
+2. Start routed:
+
+```bash
+docker compose -f docker-compose.satellites.yml --profile routing up -d
+```
+
+3. Point apps: `OSRM_URL=http://127.0.0.1:5000` (emulator: `http://10.0.2.2:5000`).
+
+Full detail: [`osrm/README.md`](./osrm/README.md). Until the graph exists, leave `OSRM_URL` unset — clients fall back to haversine / deprecated Google Directions. Do not use unlicensed public routing APIs in production.
 
 ## Phase-2 / Phase C libraries (not in default compose)
 

@@ -7,6 +7,6 @@
 | B-EMAIL-1 | CRM promos fall back to Resend if Brevo unset | Low | Intentional during rollout; configure `BREVO_*` |
 | B-DOCS-1 | Root README historically lagged delivery app | Low | Updated 2026-08-12 |
 | B-PS-1 | PowerSync rules present without mobile SDK wiring | Medium | See `powersync/README.md` |
-| B-OSRM-1 | OSRM compose service commented until map data present | Medium | `infra/satellites/README.md` |
+| B-OSRM-1 | OSRM graph not prepared on this machine / Docker missing | Low (ops) | Compose `routing` profile + `infra/satellites/osrm/prepare.sh` landed (H6). Runtime smoke when Docker + PBF ready. |
 
 Do not close adoption epics as Done while only stubs exist (D-52).

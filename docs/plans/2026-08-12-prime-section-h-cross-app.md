@@ -19,7 +19,7 @@
 | **H2** | Android preferred-supplier PO | Native create/submit preferred PO on `android-management` (roster + quoted lines); not web-only hub deep-link; Bridge-First; no RFQ-win gate | H-PARITY-WH2 optional |
 | **H4** | B-MONEY-1 dual-read → cutover | Dual-write then cutover plan per money surface; never big-bang; new APIs `amountMinor`+currency; PO path already dual-write | **H8** |
 | **H5** | B-MAP-1 MapLibre SoR | Courier already MapLibre primary. Customer Android (+ bridges) MapLibre render SoR; Google = deprecated fallback only. **H5-iOS** (MapKit → MapLibre Native) remains open / PARTIAL | — |
-| **H6** | B-OSRM-1 compose/data | OSRM service runnable when map data present; documented in `infra/satellites`; clients already prefer `OSRM_URL` | H5 helpful |
+| **H6** | B-OSRM-1 compose/data | `routing` profile + `infra/satellites/osrm/prepare.sh`; runnable when graph present; documented; clients prefer `OSRM_URL` | H5 helpful |
 | **H1** | Temporal worker binary | Host process runs `DeliveryDispatchWorkflow` / `DELIVERY_DISPATCH_WORKFLOW` calling existing activities; Edge bridge remains; no Fleetbase | Package SM Done (A–G) |
 | **H3** | Promptfoo real-provider CI | Offline safe-narrative CI job always; optional real model when secrets present; human-promote unchanged | Epic E Done |
 | **H7** | B-PS-1 PowerSync live SDK | Mobile SDK wired to existing rules; offline queue intents only (no journal upload) | — |
@@ -39,8 +39,8 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | H2 preferred-PO | OK | **OK** | — | — | — | OK vocab | — | OK RPCs |
 | H4 B-MONEY-1 | **N** | **N** | **N** | **N** | **N** | **N** shared/payments | — | **N** |
 | H5 B-MAP-1 | OK track | — | OK primary | **OK** MapLibre address pick | **N** H5-iOS MapKit remain | — | **OK** maps-nav MapLibre | — |
-| H6 B-OSRM-1 | — | — | prefer OK | prefer if maps | — | OK osrm | OK fetcher | — + **N** infra |
-| H1 Temporal worker | — | — | — | — | — | **N** host | — | Edge OK |
+| H6 B-OSRM-1 | **OK** docs/compose | — | prefer OK | prefer if maps | — | OK osrm | OK fetcher | — + **OK** infra prepare |
+| H1 Temporal worker | — | — | — | — | — | **OK** host | — | Edge OK |
 | H3 Promptfoo CI | — | — | — | — | — | — | — | — + **OK** `.github`/promptfoo (offline default) |
 | H7 B-PS-1 | — | **N** | maybe | maybe | maybe | — | — | powersync rules OK |
 | H9 Chatwoot/Metabase | DEF | DEF | DEF | DEF | DEF | DEF | DEF | DEF |
@@ -68,7 +68,9 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | H2 | **Done** | Native `PreferredPoScreen` + `listPreferredSuppliers` / `create_purchase_order` / `submit_purchase_order`; hub → Preferred supplier PO; Fake stubs; not RFQ-gated; Bridge QR. **Verifier 2026-08-12:** `:core:rpc:testDebugUnitTest --tests …PreferredPoHelpersTest` + `:feature:procurement:compileDebugKotlin` → BUILD SUCCESSFUL. |
 | H5 | **Done (Android)** | Customer `AddressPickMap` / `MapLibreAddressPickMap` `useMapLibre=true` default; `BuildConfig.USE_MAPLIBRE` on unless `useMapLibre=false`; bridges `:maps-nav` SoR. Android-customer compile BUILD SUCCESSFUL (prior). Exclusions clean. **H5-iOS** open / PARTIAL (MapKit remain). |
 | H3 | **Done** | `.github/workflows/promptfoo.yml` — `npm run gate` (safe-narrative asserts) + `promptfoo eval` offline default (Epic E); optional real-provider job when `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PROMPTFOO_PROVIDER` secrets present. Human-promote unchanged. Local verify: `cd promptfoo && npm run gate` (3/3 PASS). |
-| H4, H6, H1, H7, H9, H-ZIMRA | open / excluded | H5-iOS MapKit→MapLibre remainder tracked under B-MAP-1 |
+| H6 | **Done (scaffold)** | Compose `osrm` under `--profile routing`; `infra/satellites/osrm/{README.md,prepare.sh,data/}`; satellites README + living docs. Clients already prefer `OSRM_URL` (`preferRoutingProvider`, `OsrmRouteFetcher`). **Runtime smoke:** blocked on this host (Docker not installed) — run `prepare.sh` then `compose … --profile routing` when Docker available. |
+| H1 | **Done** | `@gtr/delivery-dispatch-worker` — Temporal host for `DeliveryDispatchWorkflow`; SQL activities via assign-bridge; Edge `delivery-dispatch-cycle` unchanged; no Fleetbase. Verifier: `pnpm --filter @gtr/delivery-dispatch-worker test` (2/2) + workflow `tsc` PASS. Live run needs `TEMPORAL_ADDRESS` + Supabase service role. |
+| H4, H7, H9, H-ZIMRA | open / excluded | H5-iOS MapKit→MapLibre remainder tracked under B-MAP-1; H4 waits H8 smoke |
 
 ---
 
