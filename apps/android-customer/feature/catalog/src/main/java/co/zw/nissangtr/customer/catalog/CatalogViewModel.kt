@@ -4,11 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.customer.catalog.data.CatalogRepositoryImpl
-import co.zw.nissangtr.customer.catalog.domain.DealTile
 import co.zw.nissangtr.customer.catalog.domain.usecase.CatalogUseCases
 import co.zw.nissangtr.customer.rpc.CatalogListItem
 import co.zw.nissangtr.customer.rpc.CatalogProduct
 import co.zw.nissangtr.customer.rpc.GarageVehicle
+import co.zw.nissangtr.customer.rpc.HomeMerchRails
 import co.zw.nissangtr.customer.rpc.ProductReviewStats
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.SelectedFitmentVehicle
@@ -34,6 +34,8 @@ enum class CatalogScreenRoute {
 data class CatalogUiState(
     val route: CatalogScreenRoute = CatalogScreenRoute.Home,
     val browseItems: List<CatalogListItem> = emptyList(),
+    /** Home merch rails from `list_storefront_home_rails` (or Fake / browse fallback). */
+    val homeRails: HomeMerchRails = HomeMerchRails(),
     /** Category filter applied on Home rails (chip / categories grid). */
     val activeCategory: String? = null,
     /** Title shown on category PLP. */
@@ -48,8 +50,6 @@ data class CatalogUiState(
     val vehicleRows: List<VehicleMasterRow> = emptyList(),
     val vehicleBusy: Boolean = false,
     val vehicleError: String? = null,
-    /** Always empty until a real backend RPC ships — see [DealTile] TODO. Never fabricated. */
-    val deals: List<DealTile> = emptyList(),
     val reviewStats: ProductReviewStats? = null,
     val busy: Boolean = false,
     val message: String? = null,
@@ -75,11 +75,11 @@ class CatalogViewModel(
     private val _state = MutableStateFlow(CatalogUiState())
     val state: StateFlow<CatalogUiState> = _state.asStateFlow()
 
-    /** Filtered + sorted browse rows for PLP screens. */
+    /** Filtered + sorted browse rows for PLP screens (shop in-stock+priced gate). */
     val displayBrowseItems: List<CatalogListItem>
         get() {
             val s = _state.value
-            return applyCatalogFilterSort(s.browseItems, s.filterState, s.sortOption)
+            return applyCatalogFilterSort(s.browseItems, s.filterState, s.sortOption, shopStockOnly = true)
         }
 
     /** Route before opening PDP — restore on back. */
@@ -113,10 +113,10 @@ class CatalogViewModel(
                 }
             }
             try {
-                val deals = useCases.getActiveDeals()
-                _state.update { it.copy(deals = deals) }
+                val rails = useCases.listHomeRails(12)
+                _state.update { it.copy(homeRails = rails) }
             } catch (_: Exception) {
-                // Stub use case never throws today.
+                // Soft-fail — home shows honest empties.
             }
         }
     }
@@ -257,7 +257,34 @@ class CatalogViewModel(
         _state.update {
             it.copy(
                 route = CatalogScreenRoute.Newest,
-                categoryBrowseTitle = "Newest products",
+                categoryBrowseTitle = "Newest arrivals",
+                browseItems = it.homeRails.newest.ifEmpty { it.browseItems },
+                error = null,
+                message = null,
+            )
+        }
+        if (_state.value.browseItems.isEmpty()) refreshBrowse(category = null)
+    }
+
+    fun openMovers() {
+        _state.update {
+            it.copy(
+                route = CatalogScreenRoute.Newest,
+                categoryBrowseTitle = "Top movers",
+                browseItems = it.homeRails.movers.ifEmpty { it.browseItems },
+                error = null,
+                message = null,
+            )
+        }
+        if (_state.value.browseItems.isEmpty()) refreshBrowse(category = null)
+    }
+
+    fun openFeatured() {
+        _state.update {
+            it.copy(
+                route = CatalogScreenRoute.Newest,
+                categoryBrowseTitle = "Featured products",
+                browseItems = it.homeRails.featured.ifEmpty { it.browseItems },
                 error = null,
                 message = null,
             )

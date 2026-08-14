@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { FlashSalePanel } from "@/components/flash-sale-panel";
 import { HomeBannerCarousel } from "@/components/home-banner-carousel";
 import {
   ArrowRight,
   ArrowUpDown,
-  Car,
   CircleDot,
   Cog,
   Droplets,
@@ -74,10 +72,10 @@ const categoryTiles: {
 
 type RailStatus =
   | { kind: "loading" }
-  | { kind: "auth" }
   | { kind: "error"; message: string }
   | {
       kind: "ready";
+      featured: CatalogListItem[];
       movers: CatalogListItem[];
       newest: CatalogListItem[];
     };
@@ -101,12 +99,7 @@ export function HomeMerch() {
         return;
       }
 
-      const { data: sessionData } = await client.auth.getSession();
-      if (!sessionData.session) {
-        if (!cancelled) setRails({ kind: "auth" });
-        return;
-      }
-
+      // Anon-safe via list_storefront_home_rails (no session gate).
       const result = await listHomeMerchRails(client, 12);
       if (cancelled) return;
       if (!result.ok) {
@@ -115,6 +108,7 @@ export function HomeMerch() {
       }
       setRails({
         kind: "ready",
+        featured: result.featured,
         movers: result.movers,
         newest: result.newest,
       });
@@ -167,10 +161,6 @@ export function HomeMerch() {
               ))}
             </ul>
           </div>
-
-          <div className={chipStyles.flashWrap}>
-            <FlashSalePanel />
-          </div>
         </div>
       </section>
 
@@ -178,13 +168,6 @@ export function HomeMerch() {
         <div className={styles.band}>
           {rails.kind === "loading" ? (
             <p className={styles.muted}>Loading stock rails…</p>
-          ) : null}
-          {rails.kind === "auth" ? (
-            <p className={styles.lede}>
-              <Car size={14} strokeWidth={iconStroke} aria-hidden />{" "}
-              <Link href="/login?next=/">Sign in</Link> to see top movers and
-              newest arrivals from live inventory.
-            </p>
           ) : null}
           {rails.kind === "error" ? (
             <p className={styles.muted} role="alert">
@@ -194,11 +177,11 @@ export function HomeMerch() {
           {rails.kind === "ready" ? (
             <div className={chipStyles.rails}>
               <ProductRail
-                title="Top movers"
-                lede="Highest on-hand qty in saleable warehouses — demand proxy until sales analytics feed the storefront."
-                seeAllHref="/shop?sort=movers"
-                items={rails.movers}
-                emptyHint="No stock rows yet for movers."
+                title="Featured products"
+                lede="Highlighted stock — discounted items when set, otherwise top movers."
+                seeAllHref="/shop"
+                items={rails.featured}
+                emptyHint="No featured stock yet."
               />
               <ProductRail
                 title="Newest arrivals"
@@ -206,6 +189,13 @@ export function HomeMerch() {
                 seeAllHref="/shop?sort=newest"
                 items={rails.newest}
                 emptyHint="No recent stock items."
+              />
+              <ProductRail
+                title="Top movers"
+                lede="Highest on-hand qty in saleable warehouses — demand proxy until sales analytics feed the storefront."
+                seeAllHref="/shop?sort=movers"
+                items={rails.movers}
+                emptyHint="No stock rows yet for movers."
               />
             </div>
           ) : null}

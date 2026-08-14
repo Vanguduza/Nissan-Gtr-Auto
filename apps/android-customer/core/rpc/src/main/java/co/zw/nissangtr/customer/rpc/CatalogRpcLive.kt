@@ -118,16 +118,85 @@ internal object CatalogRpcLive {
         val list = items.map { row ->
             val price = priceByItem[row.id]
             val usd = if (price?.currency == "USD") price.unitPrice else price?.unitPrice
+            val qty = qtyByItem[row.id] ?: 0.0
             CatalogListItem(
                 stockItemId = row.id,
                 oem = row.oemPartNumber,
                 name = row.description?.trim().orEmpty().ifEmpty { row.oemPartNumber },
-                stock = stockStateFromQty(qtyByItem[row.id] ?: 0.0, row.reorderPoint),
+                stock = stockStateFromQty(qty, row.reorderPoint),
                 usd = usd,
                 category = catByOem[row.oemPartNumber],
+                qty = qty,
+                createdAt = null,
             )
         }
-        return CatalogBrowseResult(items = list, categories = emptyList())
+        // Shop gate: in-stock + priced > 0 (web `applyCatalogFiltersAndSort` shopStockOnly).
+        val shop = list.filter { (it.qty ?: 0.0) > 0 && it.usd != null && it.usd > 0 }
+        return CatalogBrowseResult(items = shop, categories = emptyList())
+    }
+
+    /**
+     * Anon-safe home rails. Soft-fails to browse-derived slices when RPC is missing.
+     */
+    suspend fun listStorefrontHomeRails(client: SupabaseClient, limit: Int): HomeMerchRails {
+        val cap = limit.coerceIn(1, 48)
+        try {
+            val raw = client.postgrest.rpc(
+                RpcNames.LIST_STOREFRONT_HOME_RAILS,
+                buildJsonObject { put("p_limit", cap) },
+            ).decodeAs<JsonElement>()
+            val rows = when (raw) {
+                is JsonArray -> raw
+                else -> JsonArray(emptyList())
+            }
+            if (rows.isNotEmpty()) {
+                val featured = mutableListOf<CatalogListItem>()
+                val movers = mutableListOf<CatalogListItem>()
+                val newest = mutableListOf<CatalogListItem>()
+                for (el in rows) {
+                    val o = el.jsonObject
+                    val item = mapHomeRailRow(o) ?: continue
+                    when (o["rail"]?.jsonPrimitive?.contentOrNull?.lowercase()) {
+                        "featured" -> featured.add(item)
+                        "movers" -> movers.add(item)
+                        "newest" -> newest.add(item)
+                    }
+                }
+                return HomeMerchRails(featured = featured, movers = movers, newest = newest)
+            }
+        } catch (_: Exception) {
+            // Soft-fail — fall through to browse slices.
+        }
+        val browse = listCatalogBrowse(client, category = null, limit = cap * 2)
+        val movers = browse.items.sortedByDescending { it.qty ?: 0.0 }.take(cap)
+        val newest = browse.items.take(cap)
+        return HomeMerchRails(
+            featured = movers,
+            movers = movers,
+            newest = newest,
+        )
+    }
+
+    private fun mapHomeRailRow(o: JsonObject): CatalogListItem? {
+        val oem = o["oem_part_number"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+        if (oem.isEmpty()) return null
+        val qty = o["qty_saleable"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull() ?: 0.0
+        val currency = o["currency"]?.jsonPrimitive?.contentOrNull ?: "USD"
+        val unitPrice = o["unit_price"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+        val usd = if (currency.equals("USD", ignoreCase = true)) unitPrice else unitPrice
+        val reorder = o["reorder_point"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+        val title = o["catalog_title"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+        return CatalogListItem(
+            // RPC omits stock_item_id — OEM key is enough to open PDP; wishlist prefers real UUID from PDP.
+            stockItemId = "oem:$oem",
+            oem = oem,
+            name = title.ifEmpty { oem },
+            stock = stockStateFromQty(qty, reorder),
+            usd = usd,
+            category = null,
+            qty = qty,
+            createdAt = o["created_at"]?.jsonPrimitive?.contentOrNull,
+        )
     }
 
     private suspend fun resolveOemFilterForCategory(
@@ -245,16 +314,20 @@ internal object CatalogRpcLive {
         val list = items.map { row ->
             val price = priceByItem[row.id]
             val usd = if (price?.currency == "USD") price.unitPrice else price?.unitPrice
+            val qty = qtyByItem[row.id] ?: 0.0
             CatalogListItem(
                 stockItemId = row.id,
                 oem = row.oemPartNumber,
                 name = row.description?.trim().orEmpty().ifEmpty { row.oemPartNumber },
-                stock = stockStateFromQty(qtyByItem[row.id] ?: 0.0, row.reorderPoint),
+                stock = stockStateFromQty(qty, row.reorderPoint),
                 usd = usd,
                 category = catByOem[row.oemPartNumber],
+                qty = qty,
+                createdAt = null,
             )
         }
-        return CatalogBrowseResult(items = list, categories = emptyList())
+        val shop = list.filter { (it.qty ?: 0.0) > 0 && it.usd != null && it.usd > 0 }
+        return CatalogBrowseResult(items = shop, categories = emptyList())
     }
     suspend fun loadCatalogProduct(client: SupabaseClient, supabaseUrl: String, oemParam: String): CatalogProduct {
         val oem = oemParam.trim()

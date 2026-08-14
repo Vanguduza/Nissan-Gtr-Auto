@@ -25,9 +25,22 @@ enum ShopSortOption: String, CaseIterable, Identifiable {
 func applyCatalogFilterSort(
     items: [CatalogListItem],
     filter: ShopFilterState,
-    sort: ShopSortOption
+    sort: ShopSortOption,
+    shopStockOnly: Bool = true
 ) -> [CatalogListItem] {
     var out = items
+    if shopStockOnly {
+        out = out.filter { item in
+            let inStock: Bool
+            if let qty = item.qty {
+                inStock = NSDecimalNumber(decimal: qty).doubleValue > 0
+            } else {
+                inStock = item.stock != .backorder
+            }
+            guard inStock, let usd = item.usd else { return false }
+            return NSDecimalNumber(decimal: usd).doubleValue > 0
+        }
+    }
     if filter.minPrice > 0 || filter.maxPrice < 500 {
         out = out.filter { item in
             guard let usd = item.usd else { return false }

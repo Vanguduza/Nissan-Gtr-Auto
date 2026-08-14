@@ -48,3 +48,4 @@ What agents must not re-litigate.
 | `2026-07-25-auth-otp-fail-closed.md` | Email/phone OTP signup/login; fail-closed + local stub flag |
 | `2026-07-25-pos-receipt-contact-customer-bind.md` | Checkout receipt contacts + customer_id bind |
 | `2026-08-04-gsf-ux-behaviour-specification.md` | GSF Car Parts APK reverse-eng UX/IA spec (reference only; no code/assets reused) |
+| `2026-08-13-customer-epc-shop-stock-context.md` | Shared OEM context: customer EPC/search/shop ↔ staff add-stock / item edit |

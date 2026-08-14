@@ -376,6 +376,16 @@ class FakeRpcClient : RpcClient {
         )
     }
 
+    override suspend fun listStorefrontHomeRails(limit: Int): HomeMerchRails {
+        val browse = listCatalogBrowse(category = null, limit = limit.coerceIn(1, 48))
+        val slice = browse.items
+        return HomeMerchRails(
+            featured = slice.take(4),
+            movers = slice.drop(1).take(4),
+            newest = slice.takeLast(4).reversed(),
+        )
+    }
+
     override suspend fun listCatalogMakers(): List<EpcMaker> =
         listOf(EpcMaker(slug = "nissan", name = "Nissan", modelCount = 2))
 

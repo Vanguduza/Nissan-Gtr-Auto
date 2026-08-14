@@ -31,11 +31,6 @@
   color: var(--gtr-steel);
 }
 
-.trustInner span {
-  font-size: 0.88rem;
-  color: rgba(18, 21, 28, 0.65);
-}
-
 .bottom {
   background: var(--gtr-steel);
   color: rgba(255, 255, 255, 0.7);

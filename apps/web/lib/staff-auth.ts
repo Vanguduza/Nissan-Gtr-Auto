@@ -262,6 +262,11 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         label: "Review moderation",
         roles: ["admin", "sales"],
       },
+      {
+        href: "/staff/crm/product-pages",
+        label: "Product pages",
+        roles: ["admin", "sales", "warehouse"],
+      },
     ],
   },
   {
@@ -509,6 +514,11 @@ export const STAFF_MODULE_ROLES = {
     "finance",
   ] as const satisfies readonly StaffRole[],
   crmReviews: ["admin", "sales"] as const satisfies readonly StaffRole[],
+  crmProductPages: [
+    "admin",
+    "sales",
+    "warehouse",
+  ] as const satisfies readonly StaffRole[],
 } as const;
 
 export type PathAccess =
@@ -549,6 +559,12 @@ export function pathAccessFor(pathname: string): PathAccess {
     path.startsWith("/staff/crm/reviews/")
   ) {
     return { kind: "roles", roles: ["admin", "sales"] };
+  }
+  if (
+    path === "/staff/crm/product-pages" ||
+    path.startsWith("/staff/crm/product-pages/")
+  ) {
+    return { kind: "roles", roles: ["admin", "sales", "warehouse"] };
   }
   if (
     path === "/staff/logistics/tracking" ||

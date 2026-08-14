@@ -41,6 +41,12 @@ interface RpcClient {
     /** Browse PLP — PostgREST stock_items + default price list (web `listCatalogProducts` subset). */
     suspend fun listCatalogBrowse(category: String? = null, limit: Int = 50): CatalogBrowseResult
 
+    /**
+     * Home merch rails via anon-safe [RpcNames.LIST_STOREFRONT_HOME_RAILS].
+     * Soft-fails to empty / browse-derived slices when RPC missing (Fake always filled).
+     */
+    suspend fun listStorefrontHomeRails(limit: Int = 12): HomeMerchRails
+
     /** Megazip hierarchy — maker hub. */
     suspend fun listCatalogMakers(): List<EpcMaker>
 
