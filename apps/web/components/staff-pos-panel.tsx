@@ -503,8 +503,10 @@ export function StaffPosPanel() {
     );
   }
 
-  const currency = (cart?.currency ?? "USD") as CurrencyCode;
-  const lineTotal = sumPosCartLinesMajor(lines, currency);
+  const lineTotal = sumPosCartLinesMajor(
+    lines,
+    (cart?.currency ?? currency) as CurrencyCode,
+  );
 
   return (
     <div className={styles.form}>
