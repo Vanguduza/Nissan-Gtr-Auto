@@ -72,7 +72,12 @@ fun PodSection(
         if (state.completed) onCompleted()
     }
 
-    val podReady = state.photoLocalPath != null && state.signatureLocalPath != null && state.otpVerified
+    val podReady = PodEvidenceGate.canSubmit(
+        state.photoLocalPath,
+        state.signatureLocalPath,
+        state.otpCode,
+        state.otpVerified,
+    )
     val completedSteps = listOf(
         state.photoLocalPath != null,
         state.signatureLocalPath != null,
@@ -86,7 +91,7 @@ fun PodSection(
     ) {
         ShopSectionHeader(title = "Proof of delivery", actionLabel = null)
         Text(
-            "Photo + customer touch signature. OTP required. No ZIMRA.",
+            "Evidence photo (device camera) + customer touch signature. OTP required. No ZIMRA.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -95,13 +100,27 @@ fun PodSection(
             completedCount = completedSteps,
         )
 
+        ShopSectionHeader(title = "1 · Evidence photo", actionLabel = null)
+        Text(
+            "Capture package/doorstep evidence via CameraX bridge. Uploads to Storage on submit.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         ShopPrimaryButton(
-            label = if (state.photoLocalPath != null) "Retake photo" else "1 · Capture photo",
+            label = if (state.photoLocalPath != null) {
+                "Retake evidence photo"
+            } else {
+                "Capture evidence photo"
+            },
             onClick = vm::capturePhoto,
             enabled = !state.busy,
         )
         state.photoLocalPath?.let { path ->
-            LocalImagePreview(path = path, heightDp = 140, contentDescription = "POD photo")
+            LocalImagePreview(
+                path = path,
+                heightDp = 140,
+                contentDescription = "POD evidence photo",
+            )
         }
 
         ShopSectionHeader(title = "2 · Customer signature", actionLabel = null)

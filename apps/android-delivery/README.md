@@ -24,7 +24,7 @@ ADR: [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decision
 | `:feature:auth` | `…delivery.auth` | GoTrue sign-in; gate role `driver` \| `admin` |
 | `:feature:jobs` | `…delivery.jobs` | Job list/detail, presence, MapLibre live map, fail, stops, panic, geofence UI |
 | `:feature:tracking` | `…delivery.tracking` | FGS GPS via location-tracker; throttle; offline location queue; `MapLibreJobMap` |
-| `:feature:pod` | `…delivery.pod` | Camera + Compose Canvas signature; OTP; offline POD queue |
+| `:feature:pod` | `…delivery.pod` | Camera evidence photo + Compose Canvas signature; OTP; offline POD queue; Storage `delivery-pods` + `submit_delivery_pod` |
 | `:location-tracker` | `…bridges.location` | From `bridges/android/location-tracker` |
 | `:pod-camera` | `…bridges.podcamera` | From `bridges/android/pod-camera` |
 | `:pod-signature` | `…bridges.podsignature` | From `bridges/android/pod-signature` |
@@ -98,7 +98,7 @@ cd apps/android-delivery
 3. Set presence (`available` / `on_duty` / `break` / `offline`).
 4. Open a job → **Start always-on GPS** (FGS + battery cadence) → MapLibre live map + **Turn-by-turn**.
 5. **Check geofence suggestion** → confirm arrive / complete manually (never auto).
-6. POD: photo → **touch signature pad** → generate/verify OTP → submit.
+6. POD: **Capture evidence photo** (CameraX bridge; gallery picker intentionally skipped) → preview/retake → **touch signature pad** → generate/verify OTP → submit (uploads photo+signature to `delivery-pods`, then `submit_delivery_pod`). Confirm blocked until photo + signature + verified OTP.
 7. Fail with reason + optional reattempt; **Optimize stops**; **PANIC**.
 
 ## Exclusions
