@@ -17,7 +17,12 @@ import { DELIVERY_DISPATCH_WORKFLOW } from "./workflow-types.ts";
 const TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE?.trim() || "gtr-delivery-dispatch";
 
 async function main(): Promise<void> {
-  const address = process.env.TEMPORAL_ADDRESS?.trim() || "localhost:7233";
+  const address = process.env.TEMPORAL_ADDRESS?.trim();
+  if (!address) {
+    throw new Error(
+      "TEMPORAL_ADDRESS required — refuse silent localhost (set env or use package .env.example)",
+    );
+  }
   const namespace = process.env.TEMPORAL_NAMESPACE?.trim() || "default";
   const autoAccept = process.env.DISPATCH_AUTO_ACCEPT_OFFERS === "1";
 
