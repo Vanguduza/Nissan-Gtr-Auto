@@ -45,7 +45,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | H7 B-PS-1 | — | **OK** Fake/Live SDK | maybe | maybe | maybe | — | — | powersync rules OK |
 | H9 Chatwoot/Metabase | DEF | DEF | DEF | DEF | DEF | DEF | DEF | DEF |
 | H-ZIMRA | **never** | **never** | **never** | **never** | **never** | **never** | **never** | **never** |
-| D-57 checkout parity | OK | — | — | **OK** | **OK** | OK payments | — | — |
+| D-57 checkout parity | OK | — | — | **OK** | **OK** | OK payments + WA Flow | — | OK settle cols |
 | Meili call-sites | OK | optional | — | OK | OK | OK client | — | Edge OK |
 
 ---
@@ -73,7 +73,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | H4 | **Done (cutover habit)** | Slices 1–7: dual-write (PO/fund + cart/invoice + JE/payment) + dual-read (web, Android POS, iOS) + shared API contracts prefer/require `amountMinor` (`ApiMoney`/`LegacyMoney`, settlement/allocation/PO dual-write RPC fields). Verifier: `packages/shared` 37/37 + `packages/payments` 11/11 PASS (2026-08-14). **Follow-on:** Android customer cart dual-read (`MoneyDualRead` + `getOpenCart` minors) — see progress below. **Deferred:** drop NUMERIC columns; SQL RPCs still read major (clients dual-write minors). See `docs/plans/2026-08-13-h4-money-dual-read-cutover.md`. |
 | H4-cust | **Done (Android customer cart)** | Customer `MoneyDualRead` + `CartLineSummary` minors; `getOpenCart` selects `unit_price_minor`/`line_total_minor`; Fake dual-seeds; cart UI display helpers. Unit: `:core:rpc:testDebugUnitTest --tests …MoneyDualReadTest`. |
 | H4-del | **Done (Android delivery COD dual-read)** | Delivery `MoneyDualRead` + `DeliveryJobSettlement` prefer `*_minor`; Fake COD seed; Jobs UI COD chip/label via `formatAmountDueLabel`. Live settlement stays null until driver-scoped money RPC (RLS). Unit: `:core:rpc:testDebugUnitTest --tests …MoneyDualReadTest`. |
-| D-57 | **Done (Android customer + iOS)** | Cart browse USD; ZiG only at settle/pay via `CheckoutDisplayBuilder` (MoneyMinor + ops `fxRateId`); fail-closed when rate missing. Android: cart/pay + `fetchZigExchangeRateId`. iOS: CartScreen/PayScreen + SwiftPM `CheckoutDisplayTests`. Verifier: android-customer `:core:rpc` CheckoutDisplayTest; iOS SwiftPM on Mac (Windows: helpers + docs). |
+| D-57 | **Done (Android + iOS + WA Flow C7)** | Cart browse USD; ZiG only at settle/pay via CheckoutDisplay / Python `build_checkout_display` (MoneyMinor + ops `fxRateId`); fail-closed when rate missing. Android/iOS customer apps; WhatsApp Flow EcoCash path + `settle_*` migration. Verifier: android-customer CheckoutDisplayTest; iOS SwiftPM; `cd services/whatsapp-flows && pytest` checkout display/flow tests. |
 | H7 | **Done (Android management)** | `com.powersync:core` + `GtrPowerSyncSchema` / `GtrPowerSyncConnector` (no JE upload; RPC intents via OfflinePos); Fake when `POWERSYNC_URL` unset; openDatabase when set. Unit: `PowerSyncOfflineContractTest` PASS (2026-08-14). Cloud E2E needs secrets. Plan: `docs/plans/2026-08-14-h7-powersync-live-sdk.md`. |
 | H9, H-ZIMRA | deferred / excluded | H9 Chatwoot/Metabase deferred. H-ZIMRA never. Remaining follow-ups outside actionable §H: Mac `xcodebuild` H5-iOS compile evidence; PowerSync cloud E2E secrets; NUMERIC column drop (H4 deferred). |
 

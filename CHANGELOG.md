@@ -23,6 +23,7 @@
 
 ### Changed
 
+- **D-57 WA Flow C7:** FastAPI `build_checkout_display` parity (USD browse; ZiG + `fx_rate_id` at EcoCash settle; MoneyMinor; fail closed). Migration `20260814100000_whatsapp_flow_d57_settle.sql`. Tests: `services/whatsapp-flows` `test_checkout_display` + `test_checkout_flow_d57`.
 - **D-57 checkout parity (Android customer + iOS):** browse/cart USD; ZiG only at settle/pay via `CheckoutDisplayBuilder` (MoneyMinor + ops `fxRateId`); fail-closed when daily rate missing. Android `fetchZigExchangeRateId` + cart/pay UI; iOS CartScreen/PayScreen + SwiftPM `CheckoutDisplayTests`. Unit: android-customer `:core:rpc` `CheckoutDisplayTest`.
 - **H4 follow-on (Android delivery COD dual-read):** `MoneyDualRead` + `DeliveryJobSettlement` prefer `*_minor`; Fake COD seed; Jobs UI `formatAmountDueLabel`. Unit: `MoneyDualReadTest` (android-delivery `:core:rpc`). Live settlement null until driver-scoped money RPC.
 - **H4 follow-on (Android customer cart dual-read):** `MoneyDualRead` + `getOpenCart` selects `unit_price_minor`/`line_total_minor`; Fake seeds minors; cart UI `displayUnitPrice` / `displaySubtotal`. Unit: `MoneyDualReadTest` (android-customer `:core:rpc`).

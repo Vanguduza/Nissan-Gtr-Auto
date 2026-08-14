@@ -274,7 +274,7 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 - [ ] All new APIs use `amountMinor` + currency
 - [ ] Webhooks idempotent; outbox for receipt/notification side effects
 - [x] AI cannot write payable fields (tests/Semgrep-style grep) — Epic C C6: `psp.test.ts` + process-ai-reports / process-crm-promos
-- [x] D-57 display rules on Spare-like surfaces — web cart `fxRateId` (Epic C C2/C5); WA Flow gap noted C7
+- [x] D-57 display rules on Spare-like surfaces — web cart `fxRateId` (Epic C C2/C5); WA Flow C7 Python `build_checkout_display` + EcoCash ZiG settle (`docs/plans/2026-08-12-epic-c-payments-d57-dod.md`)
 - [ ] Money-path review skill habits applied before merge
 
 ### Epic Stock/WMS

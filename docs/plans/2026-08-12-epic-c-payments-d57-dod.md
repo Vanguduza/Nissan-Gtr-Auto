@@ -13,7 +13,7 @@
 | **C2** | Cart wires `fxRateId` for EcoCash / ZiG | `cart-checkout.tsx` → `buildCheckoutDisplay({ fxRateId })`; rate via `get_zig_exchange_rate`; id via `fetchZigExchangeRateId` → `daily_exchange_rates.id` (same ordering as RPC). Non-EcoCash / USD-only → `fxRateId: null` |
 | **C5** | D-57 USD browse + ZiG at pay | `buildCheckoutDisplay` keeps browse USD; EcoCash/ZiG pay path carries rate + `fxRateId` |
 | **C6** | AI cannot write payable / `amount_minor` / PO money | Grep-clean: `supabase/functions/process-ai-reports/index.ts`, `process-crm-promos/index.ts` (delivery/KPI RPCs only). Semgrep-style unit: `packages/payments/src/psp.test.ts` + `AI_NEVER_WRITES_MONEY.greppedWorkerPaths` |
-| **C7** | WA / satellite D-57 surface | **Gap (documented, non-blocking):** `services/whatsapp-flows` has **no** `buildCheckoutDisplay` import/usage. Primary D-57 surface is web `/cart`. WA Flow parity = follow-up, not Epic C blocker. |
+| **C7** | WA / satellite D-57 surface | **Done** — `services/whatsapp-flows` Python `build_checkout_display` parity (`app/services/checkout_display.py`); EcoCash checkout/push uses ops ZiG rate + `fx_rate_id` / `settle_*` (migration `20260814100000_whatsapp_flow_d57_settle.sql`); fail closed when rate missing. Tests: `tests/test_checkout_display.py`, `tests/test_checkout_flow_d57.py`. Primary web `/cart` unchanged. |
 
 ## Files
 
@@ -25,4 +25,12 @@
 
 ## Out of scope
 
-Epic D (Meili), WhatsApp Flow checkout display parity, live Edge PSP extraction from stubs.
+Epic D (Meili), live Edge PSP extraction from stubs.
+
+## Files (C7 follow-up)
+
+- `services/whatsapp-flows/app/services/checkout_display.py` — `build_checkout_display` / MoneyMinor
+- `services/whatsapp-flows/app/services/fx_rates.py` — ops `daily_exchange_rates` lookup
+- `services/whatsapp-flows/app/api/v1/flow_endpoint.py` — checkout wire + fail closed
+- `services/whatsapp-flows/app/api/v1/ecocash_webhook.py` — C2B charges ZiG settle
+- `supabase/migrations/20260814100000_whatsapp_flow_d57_settle.sql` — `fx_rate_id` / `settle_*`
