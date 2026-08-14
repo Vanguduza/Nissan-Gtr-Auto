@@ -1,6 +1,9 @@
 /**
  * Activity implementations for `DeliveryDispatchWorkflow`.
  * Wraps `@gtr/delivery` SQL assign-bridge (same RPCs as Edge `delivery-dispatch-cycle`).
+ * Imports use relative `../delivery/src/*.ts` so Node `--experimental-strip-types`
+ * resolves (package exports are extensionless / bundler-oriented). Workspace dep
+ * `@gtr/delivery` remains declared for pnpm lockfile hygiene.
  */
 import {
   createSqlDispatchActivities,

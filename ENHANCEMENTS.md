@@ -11,7 +11,7 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | E-POS-WH2 | Android POS WH2 storefloor pick (H-PARITY-WH2) | Done | `listSaleableWarehouses` + `isPosSaleableWarehouse`; `PosSaleableWarehouseTest` PASS |
 | E-Sec | DIAL AppSec (Semgrep/Checkov CI) | Done | semgrep-gtr hard-fail + Checkov HIGH+; HARDENING §7 synced |
 | E2a | Temporal `DeliveryDispatchWorkflow` | Done (bridge) | Package + edge cycle; autoAcceptOffers opt-in; full worker §H |
-| H1 | Temporal worker host | Done | `@gtr/delivery-dispatch-worker` — named workflow + SQL activities; Edge bridge remains |
+| H1 | Temporal worker host | Done | `@gtr/delivery-dispatch-worker` — named workflow + SQL activities; Edge bridge remains; `@gtr/delivery` workspace dep for frozen-lockfile hygiene (2026-08-14) |
 | H6 | OSRM compose + prepare (B-OSRM-1) | Done | Zimbabwe graph + `gtr-osrm` route smoke `Ok` (2026-08-13); clients prefer `OSRM_URL` |
 | E2b | MapLibre Native courier map | Done | JobDetailScreen MapLibre SoR; Google deprecated fallback |
 | B-MAP-1 | Customer Android + iOS MapLibre SoR (H5) | Done | Android AddressPickMap MapLibre primary; Google deprecated. **H5-iOS Done:** `bridges/ios/MapsNav` MapLibre SoR; MapKit deprecated fallback |
