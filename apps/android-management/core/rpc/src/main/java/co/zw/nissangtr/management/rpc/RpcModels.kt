@@ -818,3 +818,64 @@ data class HrOnboardingAuthResult(
     val mustChangePassword: Boolean,
     val channels: List<HrOnboardingAuthChannel> = emptyList(),
 )
+
+/** Staff roles for CRM merch: product pages + kits (admin|sales|warehouse). */
+object CrmMerchStaffRoles {
+    val ALL: Set<String> = setOf("admin", "sales", "warehouse")
+
+    fun allows(roles: Collection<String>): Boolean =
+        roles.any { it in ALL }
+}
+
+/** Row from [RpcNames.LIST_STAFF_PRODUCT_PAGES]. */
+data class StaffProductPageRow(
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val catalogTitle: String,
+    val unitPrice: Double?,
+    val currency: String,
+    val qtySaleable: Double,
+    val discountKind: String,
+    val discountValue: Double,
+    val discountDescription: String?,
+    val primaryImagePath: String?,
+    val imageCount: Int,
+)
+
+data class StaffProductImage(
+    val id: String,
+    val storagePath: String,
+    val isPrimary: Boolean,
+    val sortOrder: Int,
+)
+
+data class StaffKitComponent(
+    val componentItemId: String,
+    val oem: String,
+    val name: String,
+    val qty: Double,
+    val uomId: String,
+)
+
+data class StaffKitRow(
+    val kitId: String,
+    val stockItemId: String,
+    val oem: String,
+    val title: String,
+    val sellMode: String,
+    val isActive: Boolean,
+    val chassisCodes: List<String> = emptyList(),
+    val components: List<StaffKitComponent> = emptyList(),
+)
+
+data class ChassisOption(
+    val chassisCode: String,
+    val label: String,
+)
+
+data class StockItemOption(
+    val id: String,
+    val oemPartNumber: String,
+    val description: String?,
+    val baseUomId: String?,
+)

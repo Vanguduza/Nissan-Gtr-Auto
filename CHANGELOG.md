@@ -4,6 +4,7 @@
 
 ### Added
 
+- **CRM kits (staff):** migration `20260813120000_crm_kits_staff_create.sql` — `_require_kit_staff` (admin|sales|warehouse), RLS write widen, `create_kit_with_components` (≥2 components, optional chassis → `part_fitment`), edit/add/remove gates. Web `/staff/crm/kits` list+create+edit; Android management CRM module (Kits + Product pages) + Fake/Live RPC. Plan: `docs/plans/2026-08-13-crm-kits-create.md`.
 - **Shop / home rails (storefront):** anon-safe `list_storefront_home_rails` + `stock_item_shop_merch` / product images; Featured · Newest · Top movers without sign-in; `/shop` stock gate (qty>0 + priced); staff **Product pages** for price/discount/photos. Migrations `20260813100000_stock_item_shop_merch`, `20260813200000_storefront_home_rails_anon`. Mobile customer browse gate + home-rail RPC wiring (Android/iOS). Decision: `docs/decisions/2026-08-13-customer-epc-shop-stock-context.md`.
 - `docs/PROCUREMENT_WAREHOUSE_POS_SECURITY_PLAN.md` — relationship procurement + dual-WH DoD verified; E-POS/E-Del/E-Sec remain open gates.
 - `@gtr/procurement` — progress tracker domain; preferred-supplier vocabulary (InvenTree pattern, not runtime).

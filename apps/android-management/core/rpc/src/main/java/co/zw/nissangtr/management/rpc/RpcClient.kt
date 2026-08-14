@@ -610,4 +610,59 @@ interface RpcClient {
      * Never returns the temp password.
      */
     suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult
+
+    // --- CRM product pages / kits (admin|sales|warehouse) ---
+
+    suspend fun listStaffProductPages(query: String? = null, limit: Int = 100): List<StaffProductPageRow>
+
+    suspend fun upsertStaffProductPage(
+        stockItemId: String,
+        unitPrice: Double,
+        discountKind: String = "none",
+        discountValue: Double = 0.0,
+        discountDescription: String? = null,
+    ): String
+
+    suspend fun listStaffProductImages(stockItemId: String): List<StaffProductImage>
+
+    /**
+     * Register an already-uploaded Storage path as primary (or gallery) image.
+     * Prefer [uploadStaffProductImage] when Storage is available.
+     */
+    suspend fun registerStaffProductImage(
+        stockItemId: String,
+        storagePath: String,
+        asPrimary: Boolean = true,
+    ): String
+
+    /** Upload local file → `product-images` bucket → [RpcNames.REGISTER_STOCK_ITEM_IMAGE]. */
+    suspend fun uploadStaffProductImage(
+        stockItemId: String,
+        localFilePath: String,
+        mimeType: String = "image/jpeg",
+        asPrimary: Boolean = true,
+    ): String
+
+    suspend fun setStaffProductPrimaryImage(imageId: String): String
+
+    suspend fun listStaffKits(): List<StaffKitRow>
+
+    suspend fun listChassisOptions(): List<ChassisOption>
+
+    suspend fun searchStockItems(query: String, limit: Int = 20): List<StockItemOption>
+
+    suspend fun createKitWithComponents(
+        oem: String,
+        title: String,
+        componentItemIds: List<String>,
+        chassisCode: String? = null,
+        qtys: List<Double>? = null,
+    ): String
+
+    suspend fun updateItemKit(
+        kitId: String,
+        title: String? = null,
+        isActive: Boolean? = null,
+        sellMode: String? = null,
+    ): String
 }

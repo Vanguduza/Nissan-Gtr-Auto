@@ -2190,6 +2190,275 @@ class SupabaseRpcClient(
         )
     }
 
+    // --- CRM product pages / kits ---
+
+    override suspend fun listStaffProductPages(query: String?, limit: Int): List<StaffProductPageRow> {
+        val rows = client.postgrest.rpc(
+            RpcNames.LIST_STAFF_PRODUCT_PAGES,
+            buildJsonObject {
+                if (query.isNullOrBlank()) put("p_query", JsonNull)
+                else put("p_query", query.trim())
+                put("p_limit", limit.coerceIn(1, 200))
+            },
+        ).decodeList<StaffProductPageRpcRow>()
+        return rows.map { it.toDomain() }
+    }
+
+    override suspend fun upsertStaffProductPage(
+        stockItemId: String,
+        unitPrice: Double,
+        discountKind: String,
+        discountValue: Double,
+        discountDescription: String?,
+    ): String {
+        require(stockItemId.isNotBlank())
+        require(unitPrice >= 0)
+        return client.postgrest.rpc(
+            RpcNames.UPSERT_STAFF_PRODUCT_PAGE,
+            buildJsonObject {
+                put("p_stock_item_id", stockItemId)
+                put("p_unit_price", unitPrice)
+                put("p_discount_kind", discountKind.ifBlank { "none" })
+                put("p_discount_value", discountValue)
+                if (discountDescription.isNullOrBlank()) put("p_discount_description", JsonNull)
+                else put("p_discount_description", discountDescription.trim())
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listStaffProductImages(stockItemId: String): List<StaffProductImage> {
+        require(stockItemId.isNotBlank())
+        return client.from("stock_item_images")
+            .select(Columns.list("id", "storage_path", "is_primary", "sort_order")) {
+                filter { eq("stock_item_id", stockItemId) }
+                order("is_primary", Order.DESCENDING)
+                order("sort_order", Order.ASCENDING)
+            }
+            .decodeList<StaffProductImageRow>()
+            .map { it.toDomain() }
+    }
+
+    override suspend fun registerStaffProductImage(
+        stockItemId: String,
+        storagePath: String,
+        asPrimary: Boolean,
+    ): String {
+        require(stockItemId.isNotBlank() && storagePath.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.REGISTER_STOCK_ITEM_IMAGE,
+            buildJsonObject {
+                put("p_stock_item_id", stockItemId)
+                put("p_storage_path", storagePath.trim())
+                put("p_as_primary", asPrimary)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun uploadStaffProductImage(
+        stockItemId: String,
+        localFilePath: String,
+        mimeType: String,
+        asPrimary: Boolean,
+    ): String {
+        // Storage module not installed on this client — use register path from web/staff upload.
+        error("Live gallery upload not wired — register a product-images Storage path instead")
+    }
+
+    override suspend fun setStaffProductPrimaryImage(imageId: String): String {
+        require(imageId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SET_STOCK_ITEM_PRIMARY_IMAGE,
+            buildJsonObject { put("p_image_id", imageId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listStaffKits(): List<StaffKitRow> {
+        val kits = client.from("item_kits")
+            .select(Columns.list("id", "sell_mode", "is_active", "stock_item_id", "created_at")) {
+                order("created_at", Order.DESCENDING)
+                limit(100)
+            }
+            .decodeList<ItemKitListRow>()
+        if (kits.isEmpty()) return emptyList()
+
+        val stockIds = kits.map { it.stockItemId }.distinct()
+        val stockById = client.from("stock_items")
+            .select(Columns.list("id", "oem_part_number", "description")) {
+                filter { isIn("id", stockIds) }
+            }
+            .decodeList<StockItemBriefRow>()
+            .associateBy { it.id }
+
+        val kitIds = kits.map { it.id }
+        val comps = client.from("item_kit_components")
+            .select(Columns.list("kit_id", "qty", "uom_id", "component_item_id")) {
+                filter { isIn("kit_id", kitIds) }
+            }
+            .decodeList<KitComponentListRow>()
+
+        val compItemIds = comps.map { it.componentItemId }.distinct()
+        val compStockById = if (compItemIds.isEmpty()) {
+            emptyMap()
+        } else {
+            client.from("stock_items")
+                .select(Columns.list("id", "oem_part_number", "description")) {
+                    filter { isIn("id", compItemIds) }
+                }
+                .decodeList<StockItemBriefRow>()
+                .associateBy { it.id }
+        }
+
+        val oems = kits.mapNotNull { stockById[it.stockItemId]?.oemPartNumber }.distinct()
+        val chassisByOem = mutableMapOf<String, MutableList<String>>()
+        if (oems.isNotEmpty()) {
+            client.from("part_fitment")
+                .select(Columns.list("oem_part_number", "chassis_code")) {
+                    filter { isIn("oem_part_number", oems) }
+                }
+                .decodeList<PartFitmentChassisRow>()
+                .forEach { row ->
+                    val chassis = row.chassisCode?.trim().orEmpty()
+                    if (chassis.isNotEmpty()) {
+                        chassisByOem.getOrPut(row.oemPartNumber) { mutableListOf() }
+                            .let { list -> if (chassis !in list) list.add(chassis) }
+                    }
+                }
+        }
+
+        val compsByKit = comps.groupBy { it.kitId }
+        return kits.map { k ->
+            val stock = stockById[k.stockItemId]
+            val oem = stock?.oemPartNumber ?: k.stockItemId
+            StaffKitRow(
+                kitId = k.id,
+                stockItemId = k.stockItemId,
+                oem = oem,
+                title = stock?.description?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: stock?.oemPartNumber
+                    ?: "Kit",
+                sellMode = k.sellMode,
+                isActive = k.isActive,
+                chassisCodes = chassisByOem[oem].orEmpty(),
+                components = compsByKit[k.id].orEmpty().map { c ->
+                    val cs = compStockById[c.componentItemId]
+                    StaffKitComponent(
+                        componentItemId = c.componentItemId,
+                        oem = cs?.oemPartNumber ?: "—",
+                        name = cs?.description?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: cs?.oemPartNumber
+                            ?: "Component",
+                        qty = c.qty,
+                        uomId = c.uomId,
+                    )
+                },
+            )
+        }
+    }
+
+    override suspend fun listChassisOptions(): List<ChassisOption> {
+        val rows = client.from("vehicle_master")
+            .select(Columns.list("chassis_code", "model_variant")) {
+                order("chassis_code", Order.ASCENDING)
+                limit(800)
+            }
+            .decodeList<VehicleMasterChassisRow>()
+        val byCode = linkedMapOf<String, String>()
+        for (row in rows) {
+            val code = row.chassisCode.trim()
+            if (code.isEmpty() || byCode.containsKey(code)) continue
+            val variant = row.modelVariant?.trim().orEmpty()
+            byCode[code] = if (variant.isNotEmpty()) "$code — $variant" else code
+        }
+        return byCode.map { (code, label) -> ChassisOption(chassisCode = code, label = label) }
+    }
+
+    override suspend fun searchStockItems(query: String, limit: Int): List<StockItemOption> {
+        val q = query.trim()
+        require(q.isNotEmpty()) { "query required" }
+        val capped = limit.coerceIn(1, 50)
+        if (UUID_REGEX.matches(q)) {
+            return client.from("stock_items")
+                .select(Columns.list("id", "oem_part_number", "description", "base_uom_id")) {
+                    filter { eq("id", q) }
+                    limit(1)
+                }
+                .decodeList<StockItemSearchRow>()
+                .map { it.toOption() }
+        }
+        val byOem = client.from("stock_items")
+            .select(Columns.list("id", "oem_part_number", "description", "base_uom_id")) {
+                filter { ilike("oem_part_number", "%$q%") }
+                limit(capped.toLong())
+            }
+            .decodeList<StockItemSearchRow>()
+        if (byOem.size >= capped) return byOem.map { it.toOption() }
+        val seen = byOem.map { it.id }.toMutableSet()
+        val byDesc = client.from("stock_items")
+            .select(Columns.list("id", "oem_part_number", "description", "base_uom_id")) {
+                filter { ilike("description", "%$q%") }
+                limit(capped.toLong())
+            }
+            .decodeList<StockItemSearchRow>()
+            .filter { it.id !in seen }
+        return (byOem + byDesc).take(capped).map { it.toOption() }
+    }
+
+    override suspend fun createKitWithComponents(
+        oem: String,
+        title: String,
+        componentItemIds: List<String>,
+        chassisCode: String?,
+        qtys: List<Double>?,
+    ): String {
+        val kitOem = oem.trim()
+        val kitTitle = title.trim()
+        require(kitOem.isNotEmpty() && kitTitle.isNotEmpty())
+        val ids = componentItemIds.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        require(ids.size >= 2) { "kit requires at least 2 unique components" }
+        val components = buildJsonArray {
+            ids.forEachIndexed { i, id ->
+                add(
+                    buildJsonObject {
+                        put("stock_item_id", id)
+                        put("qty", qtys?.getOrNull(i) ?: 1.0)
+                    },
+                )
+            }
+        }
+        return client.postgrest.rpc(
+            RpcNames.CREATE_KIT_WITH_COMPONENTS,
+            buildJsonObject {
+                put("p_oem", kitOem)
+                put("p_title", kitTitle)
+                put("p_components", components)
+                if (chassisCode.isNullOrBlank()) put("p_chassis_code", JsonNull)
+                else put("p_chassis_code", chassisCode.trim())
+                put("p_sell_mode", "explode")
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun updateItemKit(
+        kitId: String,
+        title: String?,
+        isActive: Boolean?,
+        sellMode: String?,
+    ): String {
+        require(kitId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.UPDATE_ITEM_KIT,
+            buildJsonObject {
+                put("p_kit_id", kitId)
+                if (sellMode.isNullOrBlank()) put("p_sell_mode", JsonNull)
+                else put("p_sell_mode", sellMode.trim())
+                if (isActive == null) put("p_is_active", JsonNull)
+                else put("p_is_active", isActive)
+                if (title.isNullOrBlank()) put("p_title", JsonNull)
+                else put("p_title", title.trim())
+            },
+        ).decodeAs<String>()
+    }
+
     companion object {
         private val UUID_REGEX =
             Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)
@@ -2727,6 +2996,101 @@ private data class HrRoleRow(
     @SerialName("grade_id") val gradeId: String? = null,
 ) {
     fun toOption() = HrRoleOption(id = id, title = title, department = department, gradeId = gradeId)
+}
+
+@Serializable
+private data class StaffProductPageRpcRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    @SerialName("catalog_title") val catalogTitle: String,
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    val currency: String = "USD",
+    @SerialName("qty_saleable") val qtySaleable: Double = 0.0,
+    @SerialName("discount_kind") val discountKind: String = "none",
+    @SerialName("discount_value") val discountValue: Double = 0.0,
+    @SerialName("discount_description") val discountDescription: String? = null,
+    @SerialName("primary_image_path") val primaryImagePath: String? = null,
+    @SerialName("image_count") val imageCount: Int = 0,
+) {
+    fun toDomain() = StaffProductPageRow(
+        stockItemId = stockItemId,
+        oemPartNumber = oemPartNumber,
+        catalogTitle = catalogTitle,
+        unitPrice = unitPrice,
+        currency = currency,
+        qtySaleable = qtySaleable,
+        discountKind = discountKind,
+        discountValue = discountValue,
+        discountDescription = discountDescription,
+        primaryImagePath = primaryImagePath,
+        imageCount = imageCount,
+    )
+}
+
+@Serializable
+private data class StaffProductImageRow(
+    val id: String,
+    @SerialName("storage_path") val storagePath: String,
+    @SerialName("is_primary") val isPrimary: Boolean = false,
+    @SerialName("sort_order") val sortOrder: Int = 0,
+) {
+    fun toDomain() = StaffProductImage(
+        id = id,
+        storagePath = storagePath,
+        isPrimary = isPrimary,
+        sortOrder = sortOrder,
+    )
+}
+
+@Serializable
+private data class ItemKitListRow(
+    val id: String,
+    @SerialName("sell_mode") val sellMode: String,
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
+private data class KitComponentListRow(
+    @SerialName("kit_id") val kitId: String,
+    val qty: Double,
+    @SerialName("uom_id") val uomId: String,
+    @SerialName("component_item_id") val componentItemId: String,
+)
+
+@Serializable
+private data class StockItemBriefRow(
+    val id: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
+)
+
+@Serializable
+private data class PartFitmentChassisRow(
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    @SerialName("chassis_code") val chassisCode: String? = null,
+)
+
+@Serializable
+private data class VehicleMasterChassisRow(
+    @SerialName("chassis_code") val chassisCode: String,
+    @SerialName("model_variant") val modelVariant: String? = null,
+)
+
+@Serializable
+private data class StockItemSearchRow(
+    val id: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
+    @SerialName("base_uom_id") val baseUomId: String? = null,
+) {
+    fun toOption() = StockItemOption(
+        id = id,
+        oemPartNumber = oemPartNumber,
+        description = description,
+        baseUomId = baseUomId,
+    )
 }
 
 private fun JsonObject.stringOrNull(key: String): String? =

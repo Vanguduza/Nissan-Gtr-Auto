@@ -1884,6 +1884,232 @@ class FakeRpcClient : RpcClient {
         }
     }
 
+    // --- CRM product pages / kits ---
+
+    private val fakeProductPages = mutableListOf(
+        StaffProductPageRow(
+            stockItemId = FAKE_STOCK_ITEM_ID,
+            oemPartNumber = "21410-JF00A",
+            catalogTitle = "Radiator (demo)",
+            unitPrice = 185.0,
+            currency = "USD",
+            qtySaleable = 4.0,
+            discountKind = "none",
+            discountValue = 0.0,
+            discountDescription = null,
+            primaryImagePath = null,
+            imageCount = 0,
+        ),
+        StaffProductPageRow(
+            stockItemId = "00000000-0000-4000-8000-0000000000i2",
+            oemPartNumber = "15208-65F0C",
+            catalogTitle = "Oil filter (demo)",
+            unitPrice = 12.5,
+            currency = "USD",
+            qtySaleable = 40.0,
+            discountKind = "percent",
+            discountValue = 10.0,
+            discountDescription = "Spring filter promo",
+            primaryImagePath = "00000000-0000-4000-8000-0000000000i2/demo.jpg",
+            imageCount = 1,
+        ),
+    )
+
+    private val fakeProductImages = mutableMapOf<String, MutableList<StaffProductImage>>()
+    private val fakeKits = mutableListOf<StaffKitRow>()
+
+    override suspend fun listStaffProductPages(query: String?, limit: Int): List<StaffProductPageRow> {
+        val q = query?.trim()?.lowercase().orEmpty()
+        return fakeProductPages
+            .filter {
+                q.isEmpty() ||
+                    it.oemPartNumber.lowercase().contains(q) ||
+                    it.catalogTitle.lowercase().contains(q)
+            }
+            .take(limit.coerceIn(1, 200))
+    }
+
+    override suspend fun upsertStaffProductPage(
+        stockItemId: String,
+        unitPrice: Double,
+        discountKind: String,
+        discountValue: Double,
+        discountDescription: String?,
+    ): String {
+        require(stockItemId.isNotBlank())
+        require(unitPrice >= 0) { "unit price required" }
+        val idx = fakeProductPages.indexOfFirst { it.stockItemId == stockItemId }
+        val base = if (idx >= 0) fakeProductPages[idx] else StaffProductPageRow(
+            stockItemId = stockItemId,
+            oemPartNumber = "OEM-$stockItemId".take(20),
+            catalogTitle = "Item",
+            unitPrice = unitPrice,
+            currency = "USD",
+            qtySaleable = 0.0,
+            discountKind = "none",
+            discountValue = 0.0,
+            discountDescription = null,
+            primaryImagePath = null,
+            imageCount = 0,
+        )
+        val updated = base.copy(
+            unitPrice = unitPrice,
+            discountKind = discountKind.ifBlank { "none" },
+            discountValue = discountValue,
+            discountDescription = discountDescription,
+        )
+        if (idx >= 0) fakeProductPages[idx] = updated else fakeProductPages.add(updated)
+        return stockItemId
+    }
+
+    override suspend fun listStaffProductImages(stockItemId: String): List<StaffProductImage> =
+        fakeProductImages[stockItemId].orEmpty().sortedWith(
+            compareByDescending<StaffProductImage> { it.isPrimary }.thenBy { it.sortOrder },
+        )
+
+    override suspend fun registerStaffProductImage(
+        stockItemId: String,
+        storagePath: String,
+        asPrimary: Boolean,
+    ): String {
+        require(stockItemId.isNotBlank() && storagePath.isNotBlank())
+        val id = UUID.randomUUID().toString()
+        val list = fakeProductImages.getOrPut(stockItemId) { mutableListOf() }
+        if (asPrimary) {
+            list.replaceAll { it.copy(isPrimary = false) }
+        }
+        list.add(
+            StaffProductImage(
+                id = id,
+                storagePath = storagePath.trim(),
+                isPrimary = asPrimary || list.isEmpty(),
+                sortOrder = list.size,
+            ),
+        )
+        val pageIdx = fakeProductPages.indexOfFirst { it.stockItemId == stockItemId }
+        if (pageIdx >= 0) {
+            val primary = list.firstOrNull { it.isPrimary }?.storagePath
+            fakeProductPages[pageIdx] = fakeProductPages[pageIdx].copy(
+                primaryImagePath = primary,
+                imageCount = list.size,
+            )
+        }
+        return id
+    }
+
+    override suspend fun uploadStaffProductImage(
+        stockItemId: String,
+        localFilePath: String,
+        mimeType: String,
+        asPrimary: Boolean,
+    ): String {
+        val path = "$stockItemId/fake-${UUID.randomUUID()}.jpg"
+        return registerStaffProductImage(stockItemId, path, asPrimary)
+    }
+
+    override suspend fun setStaffProductPrimaryImage(imageId: String): String {
+        require(imageId.isNotBlank())
+        for ((itemId, list) in fakeProductImages) {
+            val hit = list.find { it.id == imageId } ?: continue
+            list.replaceAll { it.copy(isPrimary = it.id == imageId) }
+            val pageIdx = fakeProductPages.indexOfFirst { it.stockItemId == itemId }
+            if (pageIdx >= 0) {
+                fakeProductPages[pageIdx] = fakeProductPages[pageIdx].copy(
+                    primaryImagePath = hit.storagePath,
+                )
+            }
+            return imageId
+        }
+        error("image not found")
+    }
+
+    override suspend fun listStaffKits(): List<StaffKitRow> = fakeKits.toList()
+
+    override suspend fun listChassisOptions(): List<ChassisOption> = listOf(
+        ChassisOption("D40", "D40 — Navara"),
+        ChassisOption("R35", "R35 — GT-R"),
+        ChassisOption("T31", "T31 — X-Trail"),
+    )
+
+    override suspend fun searchStockItems(query: String, limit: Int): List<StockItemOption> {
+        val q = query.trim().lowercase()
+        require(q.isNotEmpty()) { "query required" }
+        return listOf(
+            StockItemOption(FAKE_STOCK_ITEM_ID, "21410-JF00A", "Radiator (demo)", FAKE_UOM_ID),
+            StockItemOption(
+                "00000000-0000-4000-8000-0000000000i2",
+                "15208-65F0C",
+                "Oil filter (demo)",
+                FAKE_UOM_ID,
+            ),
+            StockItemOption(
+                "00000000-0000-4000-8000-0000000000i3",
+                "16546-EB70A",
+                "Air cleaner (demo)",
+                FAKE_UOM_ID,
+            ),
+        ).filter {
+            it.oemPartNumber.lowercase().contains(q) ||
+                (it.description?.lowercase()?.contains(q) == true)
+        }.take(limit.coerceIn(1, 50))
+    }
+
+    override suspend fun createKitWithComponents(
+        oem: String,
+        title: String,
+        componentItemIds: List<String>,
+        chassisCode: String?,
+        qtys: List<Double>?,
+    ): String {
+        val kitOem = oem.trim()
+        val kitTitle = title.trim()
+        require(kitOem.isNotEmpty() && kitTitle.isNotEmpty())
+        val ids = componentItemIds.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        require(ids.size >= 2) { "kit requires at least 2 unique components" }
+        val kitId = UUID.randomUUID().toString()
+        val stockId = UUID.randomUUID().toString()
+        val comps = ids.mapIndexed { i, id ->
+            StaffKitComponent(
+                componentItemId = id,
+                oem = "OEM-${id.takeLast(4)}",
+                name = "Component ${i + 1}",
+                qty = qtys?.getOrNull(i) ?: 1.0,
+                uomId = FAKE_UOM_ID,
+            )
+        }
+        fakeKits.add(
+            0,
+            StaffKitRow(
+                kitId = kitId,
+                stockItemId = stockId,
+                oem = kitOem,
+                title = kitTitle,
+                sellMode = "explode",
+                isActive = true,
+                chassisCodes = listOfNotNull(chassisCode?.trim()?.takeIf { it.isNotEmpty() }),
+                components = comps,
+            ),
+        )
+        return kitId
+    }
+
+    override suspend fun updateItemKit(
+        kitId: String,
+        title: String?,
+        isActive: Boolean?,
+        sellMode: String?,
+    ): String {
+        val idx = fakeKits.indexOfFirst { it.kitId == kitId }
+        require(idx >= 0) { "kit not found" }
+        val cur = fakeKits[idx]
+        fakeKits[idx] = cur.copy(
+            title = title?.trim()?.takeIf { it.isNotEmpty() } ?: cur.title,
+            isActive = isActive ?: cur.isActive,
+            sellMode = sellMode?.trim()?.takeIf { it.isNotEmpty() } ?: cur.sellMode,
+        )
+        return kitId
+    }
+
     companion object {
         const val FAKE_STAFF_USER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
@@ -1893,6 +2119,7 @@ class FakeRpcClient : RpcClient {
         const val FAKE_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
         const val FAKE_SUPPLIER_ID = "00000000-0000-4000-8000-0000000000s1"
         const val FAKE_STOCK_ITEM_ID = "00000000-0000-4000-8000-0000000000i1"
+        const val FAKE_UOM_ID = "00000000-0000-4000-8000-0000000000u1"
         const val FAKE_BLANKET_ID = "00000000-0000-4000-8000-0000000000b1"
         const val FAKE_BLANKET_LINE_ID = "00000000-0000-4000-8000-0000000000bl"
         const val FAKE_BIN_A_ID = "00000000-0000-4000-8000-0000000000ba"

@@ -107,6 +107,7 @@ dependencies {
     implementation(project(":feature:chat"))
     implementation(project(":feature:procurement"))
     implementation(project(":feature:credit"))
+    implementation(project(":feature:crm"))
     implementation(project(":feature:fleet"))
     implementation(project(":qr-scanner"))
     implementation(project(":escpos-printer"))
