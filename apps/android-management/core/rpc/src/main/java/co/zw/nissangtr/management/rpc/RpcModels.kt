@@ -10,7 +10,33 @@ enum class AttendanceEventType(val rpcValue: String) {
 enum class CurrencyCode(val rpcValue: String) {
     USD("USD"),
     ZIG("ZIG"),
+    ;
+
+    companion object {
+        fun fromRpc(raw: String?): CurrencyCode =
+            entries.firstOrNull { it.rpcValue.equals(raw, ignoreCase = true) } ?: USD
+    }
 }
+
+/** Open payroll line for gross payroll UI (net = gross − manual deductions). */
+data class PayrollLineSummary(
+    val id: String,
+    val employeeId: String,
+    val grossAmount: Double,
+    val deductionsAmount: Double,
+    val netAmount: Double,
+    val currency: CurrencyCode,
+    val payrollRunId: String,
+    val hoursWorked: Double = 0.0,
+)
+
+/** Manual payroll deduction line — never tax/statutory. */
+data class PayrollDeductionSummary(
+    val id: String,
+    val payrollLineId: String,
+    val label: String,
+    val amount: Double,
+)
 
 /** Mirrors `public.fulfillment_mode` — UX: pickup = immediate, delivery = dispatch. */
 enum class FulfillmentMode(val rpcValue: String, val label: String) {

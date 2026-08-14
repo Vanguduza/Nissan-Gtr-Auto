@@ -9,6 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Documented live RPC → param map:
  * - [RpcNames.CLOCK_ATTENDANCE]: p_employee_id, p_event_type, p_occurred_at?, p_notes?
+ * - [RpcNames.ATTENDANCE_HOURS_IN_PERIOD]: p_employee_id, p_period_start, p_period_end
+ * - listOpenPayrollLines / listPayrollDeductions: PostgREST
+ * - [RpcNames.ADD_PAYROLL_DEDUCTION]: p_payroll_line_id, p_label, p_amount
  * - [RpcNames.SAVE_HR_ONBOARDING_STAGE] / [RpcNames.COMPLETE_HR_ONBOARDING]
  * - createHrOnboardingAuthUser → Edge [RpcNames.HR_ONBOARDING_CREATE_AUTH_FN]
  * - listHrOnboardingDrafts / listHrGrades / listHrRoles: PostgREST
@@ -316,6 +319,81 @@ class FakeRpcClient : RpcClient {
     ): String {
         require(employeeId.isNotBlank()) { "employeeId required for ${RpcNames.CLOCK_ATTENDANCE}" }
         return UUID.randomUUID().toString()
+    }
+
+    private val payrollLines = mutableListOf(
+        PayrollLineSummary(
+            id = FAKE_PAYROLL_LINE_ID,
+            employeeId = FAKE_EMPLOYEE_ID,
+            grossAmount = 500.0,
+            deductionsAmount = 25.0,
+            netAmount = 475.0,
+            currency = CurrencyCode.USD,
+            payrollRunId = FAKE_PAYROLL_RUN_ID,
+            hoursWorked = 40.0,
+        ),
+    )
+    private val payrollDeductions = mutableListOf(
+        PayrollDeductionSummary(
+            id = FAKE_PAYROLL_DED_ID,
+            payrollLineId = FAKE_PAYROLL_LINE_ID,
+            label = "Staff advance",
+            amount = 25.0,
+        ),
+    )
+    private val payrollDedSeq = AtomicInteger(2)
+
+    override suspend fun attendanceHoursInPeriod(
+        employeeId: String,
+        periodStart: String,
+        periodEnd: String,
+    ): Double {
+        require(employeeId.isNotBlank()) {
+            "employeeId required for ${RpcNames.ATTENDANCE_HOURS_IN_PERIOD}"
+        }
+        require(periodStart.isNotBlank() && periodEnd.isNotBlank()) {
+            "period start/end required for ${RpcNames.ATTENDANCE_HOURS_IN_PERIOD}"
+        }
+        return if (employeeId == FAKE_EMPLOYEE_ID) 40.0 else 8.0
+    }
+
+    override suspend fun listOpenPayrollLines(limit: Int): List<PayrollLineSummary> =
+        payrollLines.take(limit.coerceAtLeast(1))
+
+    override suspend fun listPayrollDeductions(payrollLineId: String): List<PayrollDeductionSummary> {
+        require(payrollLineId.isNotBlank())
+        return payrollDeductions.filter { it.payrollLineId == payrollLineId }
+    }
+
+    override suspend fun addPayrollDeduction(
+        payrollLineId: String,
+        label: String,
+        amount: Double,
+    ): String {
+        require(payrollLineId.isNotBlank()) {
+            "payrollLineId required for ${RpcNames.ADD_PAYROLL_DEDUCTION}"
+        }
+        require(label.isNotBlank()) { "label required for ${RpcNames.ADD_PAYROLL_DEDUCTION}" }
+        require(amount > 0) { "amount must be > 0" }
+        val idx = payrollLines.indexOfFirst { it.id == payrollLineId }
+        require(idx >= 0) { "payroll line not found" }
+        val prev = payrollLines[idx]
+        val newDed = prev.deductionsAmount + amount
+        require(newDed <= prev.grossAmount) { "deductions cannot exceed gross" }
+        val id = "00000000-0000-4000-8000-0000000000d${payrollDedSeq.getAndIncrement()}"
+        payrollDeductions.add(
+            PayrollDeductionSummary(
+                id = id,
+                payrollLineId = payrollLineId,
+                label = label.trim(),
+                amount = amount,
+            ),
+        )
+        payrollLines[idx] = prev.copy(
+            deductionsAmount = newDed,
+            netAmount = prev.grossAmount - newDed,
+        )
+        return id
     }
 
     override suspend fun createPosCart(
@@ -2138,6 +2216,10 @@ class FakeRpcClient : RpcClient {
         const val FAKE_HR_GRADE_ID_2 = "00000000-0000-4000-8000-0000000000hh"
         const val FAKE_HR_ROLE_ID = "00000000-0000-4000-8000-0000000000hr"
         const val FAKE_HR_ROLE_ID_2 = "00000000-0000-4000-8000-0000000000hs"
+        const val FAKE_EMPLOYEE_ID = "00000000-0000-4000-8000-0000000000e1"
+        const val FAKE_PAYROLL_RUN_ID = "00000000-0000-4000-8000-0000000000pr"
+        const val FAKE_PAYROLL_LINE_ID = "00000000-0000-4000-8000-0000000000pl"
+        const val FAKE_PAYROLL_DED_ID = "00000000-0000-4000-8000-0000000000pd"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"

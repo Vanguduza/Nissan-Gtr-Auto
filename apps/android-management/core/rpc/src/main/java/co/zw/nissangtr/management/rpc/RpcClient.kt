@@ -20,6 +20,25 @@ interface RpcClient {
         notes: String? = null,
     ): String
 
+    /** Hours worked in [periodStart]…[periodEnd] (ISO timestamptz). Gross payroll input. */
+    suspend fun attendanceHoursInPeriod(
+        employeeId: String,
+        periodStart: String,
+        periodEnd: String,
+    ): Double
+
+    /** Open payroll_lines (RLS) — gross − manual deductions only. */
+    suspend fun listOpenPayrollLines(limit: Int = 40): List<PayrollLineSummary>
+
+    suspend fun listPayrollDeductions(payrollLineId: String): List<PayrollDeductionSummary>
+
+    /** Manual/custom deduction — no PAYE/NSSA/tax brackets. */
+    suspend fun addPayrollDeduction(
+        payrollLineId: String,
+        label: String,
+        amount: Double,
+    ): String
+
     // --- POS (typed stock_item / UOM + Bridge-First QR — no HTML5 QR) ---
 
     suspend fun createPosCart(

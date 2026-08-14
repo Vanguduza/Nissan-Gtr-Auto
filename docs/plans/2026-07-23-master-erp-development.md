@@ -108,7 +108,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 7 | Data pipeline + search index | `@data_pipeline_agent` | 1, 6 (canvas can stub) | **Done** (PG FTS interim; Meili later) |
 | 8 | Procurement + suppliers + landed cost | `@backend_agent`, `@web_agent` (portal) | 4, 5 | **Done** (smokes PASS; mutation guards `…61000`/`…63000`) |
 | 8b | RFQ, quotations, blanket POs | `@backend_agent`, `@web_agent` | 8 | **Done** — backend + `/procurement` + `/supplier` + `/procurement/blankets` |
-| 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **Done (backend)** — `…70000`/`…71000`; security+verifier PASS; management UI follow-on |
+| 9 | HR / attendance / gross payroll | `@management_app_agent`, `@backend_agent` | 2 | **Done (backend)** + Android gross-payroll desk (hours/lines/manual ded) — web staff HR already deeper; payslip PDF remains web |
 | 10 | Logistics / pick-pack / DN / GPS | `@management_app_agent`, `@hardware_mobile_agent` | 5 | **Done (backend)** — `…80000`/`…81000`; security+verifier PASS; bridge/UI follow-on |
 | 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | **Thin screens Done** — Fake RPC; live SDK follow-on |
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | **Thin HR/dispatch Done** — Fake RPC; bridge impl deferred |
