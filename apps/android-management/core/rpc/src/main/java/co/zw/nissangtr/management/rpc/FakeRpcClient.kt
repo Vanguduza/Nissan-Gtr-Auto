@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger
  *   (management must not call from UI — delivery app sole producer)
  * - [RpcNames.SUGGEST_DELIVERY_ASSIGNEES]: p_delivery_job_id, p_limit?
  * - [RpcNames.ASSIGN_DELIVERY_JOB]: p_delivery_job_id, p_assignee_user_id, p_override?
+ *   (desk UI gates to unassigned/stuck only — auto-assign remains SoR)
  * - [RpcNames.OPTIMIZE_DRIVER_STOPS]: p_driver_user_id
  * - [RpcNames.GET_DELIVERY_TRACK_POINT]: p_delivery_job_id (staff view)
  * - [RpcNames.MINT_DELIVERY_TRACK_TOKEN]: p_delivery_job_id, p_ttl? → remint/rotate only
@@ -93,7 +94,7 @@ class FakeRpcClient : RpcClient {
     private val pendingTransfers = mutableSetOf<String>()
     private val reconDrafts = mutableSetOf<String>()
     private val deliveryJobs = mutableMapOf(
-        // Stuck unassigned seed — desk visibility (not assign picker).
+        // Stuck unassigned seed — desk visibility + exception override assign.
         FAKE_UNASSIGNED_JOB_ID to ("00000000-0000-4000-8000-0000000000d1" to "pending"),
     ) // id → (dnId, status)
     private val jobAssignees = mutableMapOf<String, String>() // jobId → driverUserId

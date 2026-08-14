@@ -24,6 +24,7 @@
 
 ### Changed
 
+- **Phase 10 exception override assign:** Desk/tracking manual assign is **unassigned/stuck only** (not happy-path pick-driver). Android Dispatch + web `/staff/logistics` (+ tracking) call `assign_delivery_job(p_override=true)` after confirm; auto-assign SQL/FIFO remains SoR. Gate: `DeliveryOverrideAssignGate` / `canOverrideAssignDeliveryJob`. Tests: `DeliveryOverrideAssignGateTest` + `delivery-override-assign.test.ts`.
 - **Secrets / Mac infra readiness:** Root `.env.example` + HARDENING + LOCAL_DEVELOPMENT name ContiPay→Temporal/PowerSync/map tiles/Promptfoo; Temporal worker refuse-without-`TEMPORAL_ADDRESS` + service_role-only; package/promptfoo `.env.example`. Blocked items labeled **infra ready — awaiting secrets** (or Mac `xcodebuild`). Catalog diagram scrape closed as ops runbook (`data-pipeline/docs/catalog-diagram-scrape-runbook.md`). iOS Photos→camera prefer deferred (`docs/decisions/2026-08-14-ios-review-photos-camera-defer.md`).
 - **Phase 10 delivery-job visibility:** Android Dispatch + web `/staff/logistics` read-only job list (status · DN link · unassigned). Auto-assign remains SoR — not an assignment picker. Fake parity: `deliveryJobDeskListsUnassigned`.
 - **Driver COD settlement RPC:** `20260814300000_delivery_job_settlement_driver_rpc.sql` — `get_delivery_job_settlement` DEFINER for assignee/admin; Android delivery Live enrich; smoke `delivery_job_settlement_smoke.sql`.

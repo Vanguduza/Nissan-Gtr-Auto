@@ -291,7 +291,7 @@ Nissan “jobs” = logistics `delivery_jobs` (not Tech diagnostic jobs). Target
 
 ### Epic Jobs
 - [ ] Single SM documented pick→DN→job→POD→settle
-- [ ] Manual override audited
+- [x] Manual override (exception, unassigned/stuck only — desk gated; auto-assign SoR)
 
 ### Epic AI/CRM
 - [x] Promptfoo gates; human promote *(offline safe-narrative provider; README promote path; H3 CI offline default + optional real provider secrets)*

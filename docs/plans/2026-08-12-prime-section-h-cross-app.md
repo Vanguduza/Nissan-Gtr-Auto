@@ -76,6 +76,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | D-57 | **Done (Android + iOS + WA Flow C7)** | Cart browse USD; ZiG only at settle/pay via CheckoutDisplay / Python `build_checkout_display` (MoneyMinor + ops `fxRateId`); fail-closed when rate missing. Android/iOS customer apps; WhatsApp Flow EcoCash path + `settle_*` migration. Verifier: android-customer CheckoutDisplayTest; iOS SwiftPM; `cd services/whatsapp-flows && pytest` checkout display/flow tests. |
 | H7 | **Done (Android management)** | SDK wired — Fake when unset; **infra ready — awaiting `POWERSYNC_URL` for cloud E2E**. Unit: `PowerSyncOfflineContractTest` PASS. Plan: `docs/plans/2026-08-14-h7-powersync-live-sdk.md`. |
 | H9, H-ZIMRA | deferred / excluded | H9 Chatwoot/Metabase deferred. H-ZIMRA never. Remaining: Mac `xcodebuild` H5-iOS evidence; PowerSync cloud E2E keys; NUMERIC column drop (H4 deferred). |
+| Phase-10 override | **Done (exception only)** | Manual override ≠ happy-path assign. Unassigned/stuck desk + tracking → `assign_delivery_job(p_override=true)`; auto-assign SoR. Gate tests JVM + supabase-client. |
 
 ---
 

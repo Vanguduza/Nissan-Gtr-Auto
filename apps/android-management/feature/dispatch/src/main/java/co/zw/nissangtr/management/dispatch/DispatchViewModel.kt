@@ -58,6 +58,8 @@ data class DispatchUiState(
     val pickupLng: String = "31.0330",
     val dropoffLat: String = "-17.8400",
     val dropoffLng: String = "31.0500",
+    /** Confirm sheet for exception override assign (not happy-path). */
+    val pendingOverrideAssigneeUserId: String? = null,
     val panicEvents: List<PanicEventSummary> = emptyList(),
     val supportPhone: String = "",
     val busy: Boolean = false,
@@ -65,7 +67,10 @@ data class DispatchUiState(
     val error: String? = null,
     /** Realtime not wired — panic inbox polls. */
     val pollNote: String = "Panic inbox polling ~5s (Realtime not enabled in this client)",
-)
+) {
+    val canOverrideAssign: Boolean
+        get() = DeliveryOverrideAssignGate.canOverrideAssign(deliveryJobId, deliveryJobs)
+}
 
 /**
  * Pick/DN logistics + dispatcher assignment / route / panic inbox.
@@ -162,24 +167,90 @@ class DispatchViewModel(
     fun selectDn(id: String) =
         _state.update { it.copy(selectedDnId = id) }
 
-    /** Link desk job → DN + job UUID fields (visibility only — no assign). */
+    /** Link desk job → DN + job UUID fields (visibility; override only if unassigned). */
     fun selectDeliveryJob(id: String) {
         val job = _state.value.deliveryJobs.find { it.id == id } ?: return
+        val overrideOk = DeliveryOverrideAssignGate.canOverrideAssign(
+            job.assigneeUserId,
+            job.status,
+        )
         _state.update {
             it.copy(
                 deliveryJobId = job.id,
                 selectedDnId = job.deliveryNoteId,
                 error = null,
-                message = "Job ${job.documentNumber ?: job.id.take(8)}… selected",
+                message = if (overrideOk) {
+                    "Unassigned job selected — Override assign below (auto-assign remains SoR)"
+                } else {
+                    "Job ${job.documentNumber ?: job.id.take(8)}… · " +
+                        "assigned (status only — no pick-driver)"
+                },
                 liveTrack = null,
                 trackShareToken = null,
                 podOtp = null,
+                assigneeSuggestions = if (overrideOk) it.assigneeSuggestions else emptyList(),
+                pendingOverrideAssigneeUserId = null,
             )
         }
     }
 
+    /**
+     * Exception path from visibility list: select stuck/unassigned job and load suggests.
+     * Happy-path assigned jobs are refused.
+     */
+    fun beginOverrideAssign(jobId: String) {
+        val job = _state.value.deliveryJobs.find { it.id == jobId }
+        if (job == null) {
+            _state.update { it.copy(error = "Select a delivery job from the desk list") }
+            return
+        }
+        if (!DeliveryOverrideAssignGate.canOverrideAssign(job.assigneeUserId, job.status)) {
+            _state.update {
+                it.copy(
+                    error = "Override assign only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                    message = null,
+                )
+            }
+            return
+        }
+        selectDeliveryJob(jobId)
+        suggestAssignees()
+    }
+
     fun selectSuggestedAssignee(userId: String) =
         _state.update { it.copy(assigneeUserId = userId, error = null) }
+
+    fun requestOverrideAssignConfirm(assigneeUserId: String? = null) {
+        val s = _state.value
+        val jobId = s.deliveryJobId.trim()
+        val assignee = (assigneeUserId ?: s.assigneeUserId).trim()
+        if (jobId.isEmpty() || assignee.isEmpty()) {
+            _state.update {
+                it.copy(error = "Delivery job UUID + assignee driver UUID required")
+            }
+            return
+        }
+        if (!s.canOverrideAssign) {
+            _state.update {
+                it.copy(
+                    error = "Override assign only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                )
+            }
+            return
+        }
+        _state.update {
+            it.copy(
+                assigneeUserId = assignee,
+                pendingOverrideAssigneeUserId = assignee,
+                error = null,
+            )
+        }
+    }
+
+    fun dismissOverrideAssignConfirm() =
+        _state.update { it.copy(pendingOverrideAssigneeUserId = null) }
 
     fun refresh() {
         viewModelScope.launch {
@@ -557,6 +628,15 @@ class DispatchViewModel(
             _state.update { it.copy(error = "Delivery job UUID required for suggestions") }
             return
         }
+        if (!_state.value.canOverrideAssign) {
+            _state.update {
+                it.copy(
+                    error = "Suggest/override only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
@@ -577,28 +657,55 @@ class DispatchViewModel(
         }
     }
 
-    /** Assign selected / typed driver. [override] bypasses capacity/shift eligibility. */
-    fun assignJob(override: Boolean) {
-        val jobId = _state.value.deliveryJobId.trim()
-        val assignee = _state.value.assigneeUserId.trim()
+    /**
+     * Exception override assign after confirm. Always passes `p_override=true`
+     * (eligibility bypass for stuck/auto-assign-failed). Refuses happily assigned jobs.
+     */
+    fun confirmOverrideAssign() {
+        val s = _state.value
+        val jobId = s.deliveryJobId.trim()
+        val assignee = (s.pendingOverrideAssigneeUserId ?: s.assigneeUserId).trim()
         if (jobId.isEmpty() || assignee.isEmpty()) {
-            _state.update { it.copy(error = "Delivery job UUID + assignee driver UUID required") }
+            _state.update {
+                it.copy(
+                    pendingOverrideAssigneeUserId = null,
+                    error = "Delivery job UUID + assignee driver UUID required",
+                )
+            }
+            return
+        }
+        if (!s.canOverrideAssign) {
+            _state.update {
+                it.copy(
+                    pendingOverrideAssigneeUserId = null,
+                    error = "Override assign only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                )
+            }
             return
         }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
+            _state.update {
+                it.copy(
+                    busy = true,
+                    error = null,
+                    message = null,
+                    pendingOverrideAssigneeUserId = null,
+                )
+            }
             try {
-                val id = rpc.assignDeliveryJob(jobId, assignee, override = override)
+                val id = rpc.assignDeliveryJob(jobId, assignee, override = true)
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.ASSIGN_DELIVERY_JOB} → $id" +
-                            if (override) " (manual override)" else "",
+                        assigneeSuggestions = emptyList(),
+                        message = "${RpcNames.ASSIGN_DELIVERY_JOB} → $id (exception override)",
                     )
                 }
+                refresh()
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(busy = false, error = e.message ?: "assign failed")
+                    it.copy(busy = false, error = e.message ?: "override assign failed")
                 }
             }
         }

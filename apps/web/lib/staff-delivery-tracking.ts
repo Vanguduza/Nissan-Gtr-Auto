@@ -1,6 +1,7 @@
 import {
   DELIVERY_RPC,
   assignDeliveryJobArgs,
+  canOverrideAssignDeliveryJob,
   optimizeDriverStopsArgs,
   setDeliveryJobGeoArgs,
   suggestDeliveryAssigneesArgs,
@@ -24,6 +25,7 @@ import {
 
 export { requireSession, configuredMapStyleUrl, mapStyleUrl };
 export { MAP_STYLE_DEFAULT_URL as MAP_STYLE_DEMO_URL };
+export { canOverrideAssignDeliveryJob };
 export type { UpdateDeliveryJobStatusResult };
 
 type RealtimeChannel = ReturnType<SupabaseClient["channel"]>;
