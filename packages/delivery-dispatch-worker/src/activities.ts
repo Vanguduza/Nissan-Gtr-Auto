@@ -34,11 +34,10 @@ export function createSupabaseRpcClientFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): AssignRpcClient {
   const url = env.SUPABASE_URL?.trim();
-  const key =
-    env.SUPABASE_SERVICE_ROLE_KEY?.trim() || env.SUPABASE_ANON_KEY?.trim();
+  const key = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) {
     throw new Error(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or ANON) required for dispatch worker activities",
+      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required for dispatch worker activities (anon not accepted)",
     );
   }
   const sb = createClient(url, key, {

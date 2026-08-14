@@ -141,6 +141,29 @@ Commit `packages/supabase-client/src/database.types.ts` whenever migrations chan
 RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`  
 CI RLS gate + Bugbot/secrets checklist: `docs/HARDENING.md` (`phase14_ci_smoke.sql` via `docker exec … psql`).
 
+### Secrets / Mac infra (ready — awaiting keys or Mac host)
+
+Code paths and fail-closed stubs are in place. Do **not** invent production secrets. Checklist (names in root `.env.example`, app `.env.example` / `local.properties.example` / `Secrets.xcconfig.example`, Edge README, `powersync/.env.example`, `packages/delivery-dispatch-worker/.env.example`, `promptfoo/.env.example`):
+
+| Area | Status |
+|------|--------|
+| ContiPay / Paynow / WhatsApp Cloud / SMS / Resend | Edge wired; fail-closed without secrets unless local stub flag |
+| Brevo (CRM promos) | Prefer Brevo; Resend fallback until `BREVO_*` set |
+| `WORKER_SHARED_SECRET` | Fail-closed outside local stub |
+| Map tiles (`NEXT_PUBLIC_MAP_STYLE_URL` / MapLibre) | Infra ready — awaiting keyed style URL |
+| PowerSync (`POWERSYNC_URL`) | SDK wired; Fake when unset — awaiting cloud E2E keys |
+| Temporal (`TEMPORAL_ADDRESS` + service role) | Worker refuse-without-config — awaiting live Temporal |
+| Promptfoo real-provider | Optional — offline gate always; waiting on keys for real CI |
+| H5-iOS Mac verify | Code Done — awaiting Mac: |
+
+```bash
+cd bridges/ios/MapsNav
+xcodebuild -scheme MapsNav -destination 'platform=iOS Simulator,name=iPhone 16' test
+
+cd apps/ios
+xcodebuild -scheme GTRCustomer -destination 'platform=iOS Simulator,name=iPhone 16' -project GTRCustomer.xcodeproj build
+```
+
 **Catalog diagram bytes** (after reset; Navara + X-Trail fixture packs):
 
 ```bash

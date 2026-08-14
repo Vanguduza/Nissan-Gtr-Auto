@@ -1,6 +1,8 @@
-# PowerSync stubs + management client contract (Phase 14 / H7)
+# PowerSync sync contract + management client (Phase 14 / H7)
 
 Checked-in **sync rules** and **schema manifest** for management offline surfaces. Android management SDK is wired (H7): Fake when `POWERSYNC_URL` unset; live openDatabase when set.
+
+**Status:** SDK wired — **infra ready — awaiting `POWERSYNC_URL` (+ public key) for cloud E2E**. Not “stubs only.”
 
 | File | Purpose |
 |------|---------|

@@ -113,7 +113,7 @@ Source of truth: `docs/decisions/2026-07-23-autodoc-shop-features.md` (do not re
 | 11 | Customer mobile (iOS + Android) | `@ios_agent`, `@android_agent` | 6 APIs | **Thin screens Done** — Fake RPC; live SDK follow-on |
 | 12 | Management Android app + bridges | `@management_app_agent`, `@hardware_mobile_agent` | 4, 4b, 5, 10 | **Thin HR/dispatch Done** — Fake RPC; bridge impl deferred |
 | 13 | Payments, ContiPay **+ Paynow**, manager SMS, **customer receipts**, forecast | `@backend_agent`, `@web_agent` | 5, 6 | **Done (backend)** — `…90000`–`…100000`; security+verifier PASS; UI/real PSP keys follow-on |
-| 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | **Done (must-now)** — CI + PowerSync stubs + hardening docs; mobile SDK deferred to 11–12 |
+| 14 | Offline sync (PowerSync), hardening, CI | cross-cutting | 11–12 | **Done (must-now)** — CI + hardening; PowerSync SDK wired (H7) — **infra ready — awaiting `POWERSYNC_URL` for cloud E2E** |
 | 15 | ERPNext parity audit + polish | `/manager`, `/verifier` | 1–14 | **Done** (audit) — `docs/parity/`, `docs/runbooks/`; plan `…phase15-parity-audit.md` |
 | 16 | Distributor extras (bins, kits, consignment, loyalty) | `@backend_agent` + UI lanes | 15 or after 8/13 | **Done (backend + bins/consignment web UI)** — plan `…phase16-distributor-extras.md`; kits/loyalty UI prior |
 
@@ -439,18 +439,19 @@ Phases **6 ∥ 7**, **9 ∥ 8**, and **5b ∥ 6** may overlap only when file pat
 **Done — shop/ops epic** (web + iOS + Android customer + Android management)
 Wishlist/compare/reviews (mobile + Fake); move-to-cart + back-in-stock outbox; server compare + web matrix; staff review moderation + aggregates/`review-photos`; supplier blankets + expiry alerts; management bins/consignment/blankets + ESC/POS text bin labels + pick-path; X-Trail diagram seed; `set_customer_credit` + staff/management credit UI; POS named-customer + CRM nav. Smoke: `wishlist_reviews_navara_diagrams_smoke` OK.
 
-**Epic residuals** (optional polish — not secrets)
-- Native assemble on JDK 17+ / Xcode hosts
-- Optional bin-label inventory-QR glyph (ESC/POS text labels Live)
-- iOS review photos: PhotosPicker today; camera bridge later if needed
+**Epic residuals** (closed / deferred)
+- Optional bin-label inventory-QR glyph — **Done** (ESC/POS `binLabel` + `gtr://bin/{code}` QR)
+- iOS review photos: PhotosPicker + existing camera bridge — **deferred** (prefer-camera UX later; see `docs/decisions/2026-08-14-ios-review-photos-camera-defer.md`)
 
 **Prior wave** (still Live): GPS/MapLibre; ContiPay/Paynow Edge (fail-closed); receipts/SMS/WhatsApp bot; staff POS/warehouse; Android bridges; finance deepen; warranty/returns; AI analytics.
 
-**Still follow-on** (ops / secrets only)
-1. **User: set Edge/local secrets** — ContiPay, Paynow, WhatsApp Cloud, SMS gateway, email/Resend, `WORKER_SHARED_SECRET`, map tiles (`NEXT_PUBLIC_MAP_STYLE_URL`)
+**Still follow-on** (blocked = keys / Mac only)
+1. **Infra ready — awaiting secrets:** ContiPay, Paynow, WhatsApp Cloud, SMS gateway, Resend (+ Brevo for CRM), `WORKER_SHARED_SECRET`, `NEXT_PUBLIC_MAP_STYLE_URL`, `POWERSYNC_URL` (+ public key), Temporal `TEMPORAL_ADDRESS` + service role
 2. Confirm ContiPay webhook header name with merchant; deploy Edge functions
-3. Full catalog diagram scrape/upload (seed fixtures only — Navara + X-Trail)
-4. iOS Realtime if supabase-swift adopted later
+3. **Full catalog diagram scrape** — product ready; ops runbook only (`data-pipeline/docs/catalog-diagram-scrape-runbook.md`) — seed fixtures (Navara + X-Trail) suffice for PDP
+4. **Optional — waiting on keys:** Promptfoo real-provider CI
+5. **H5-iOS code Done — awaiting Mac verify:** MapsNav `xcodebuild test` + GTRCustomer `xcodebuild build`
+6. iOS Realtime if supabase-swift adopted later
 
 **In progress:** None for shop/ops — pick next phase from master roadmap or secrets/ops above.
 
