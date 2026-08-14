@@ -1,0 +1,29 @@
+# Optional D-48 — dangerous raw SQL string concatenation / interpolation
+rules:
+  - id: dial.no-raw-sql-concat
+    message: >-
+      Avoid building SQL via string concatenation or unparameterized interpolation.
+      Prefer parameterized queries.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-48
+      category: security
+      cwe: "CWE-89"
+      license: MIT
+    pattern-either:
+      - pattern: $DB.query("..." + $X, ...)
+      - pattern: $DB.query('...' + $X, ...)
+      - pattern: $DB.execute("..." + $X, ...)
+      - pattern: $DB.raw(`...${$X}...`)
+      - pattern: $CLIENT.query(`SELECT ... ${$X} ...`)
+      - pattern: $CLIENT.query(`INSERT ... ${$X} ...`)
+      - pattern: $CLIENT.query(`UPDATE ... ${$X} ...`)
+      - pattern: $CLIENT.query(`DELETE ... ${$X} ...`)
+    paths:
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.spec.ts"
+        - "**/semgrep/**"
+        - "**/docs/**"
+        - "**/ThreatDragonModels/**"

@@ -164,6 +164,9 @@ class SupabaseRpcClient(
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult =
         CatalogRpcLive.listCatalogBrowse(client, category, limit)
 
+    override suspend fun listStorefrontHomeRails(limit: Int): HomeMerchRails =
+        CatalogRpcLive.listStorefrontHomeRails(client, limit)
+
     override suspend fun listCatalogMakers(): List<EpcMaker> =
         CatalogRpcLive.listCatalogMakers(client)
 
@@ -228,6 +231,27 @@ class SupabaseRpcClient(
             if (n != null && n.isFinite() && n > 0) n else 1.0
         } catch (_: Exception) {
             1.0
+        }
+    }
+
+    override suspend fun fetchZigExchangeRateId(asOf: String?): String? {
+        val asOfDate = asOf?.takeIf { it.isNotBlank() }
+            ?: java.time.LocalDate.now().toString()
+        return try {
+            client.from("daily_exchange_rates")
+                .select(Columns.list("id")) {
+                    filter {
+                        eq("currency", "ZIG")
+                        lte("rate_date", asOfDate)
+                    }
+                    order("rate_date", Order.DESCENDING)
+                    limit(1)
+                }
+                .decodeList<ExchangeRateIdRow>()
+                .firstOrNull()
+                ?.id
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -333,7 +357,10 @@ class SupabaseRpcClient(
 
         val lines = client.from("pos_cart_lines")
             .select(
-                Columns.raw("id, stock_item_id, uom_id, qty, stock_items ( oem_part_number )"),
+                Columns.raw(
+                    "id, stock_item_id, uom_id, qty, unit_price, unit_price_minor, " +
+                        "line_total, line_total_minor, stock_items ( oem_part_number )",
+                ),
             ) {
                 filter { eq("cart_id", cart.id) }
                 order("created_at", Order.ASCENDING)
@@ -353,6 +380,12 @@ class SupabaseRpcClient(
                     uomId = it.uomId,
                     qty = it.qty,
                     oemPartNumber = it.stockItems?.oemPartNumber,
+                    // H4 dual-read: prefer *_minor via display helpers; majors kept for fallback.
+                    unitPrice = it.unitPrice,
+                    unitPriceMinor = it.unitPriceMinor,
+                    lineTotal = it.lineTotal,
+                    lineTotalMinor = it.lineTotalMinor,
+                    unitPriceUsd = it.unitPrice,
                 )
             },
         )
@@ -1015,6 +1048,10 @@ private data class PosCartLineRow(
     @SerialName("stock_item_id") val stockItemId: String,
     @SerialName("uom_id") val uomId: String,
     val qty: Double,
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    @SerialName("unit_price_minor") val unitPriceMinor: Long? = null,
+    @SerialName("line_total") val lineTotal: Double? = null,
+    @SerialName("line_total_minor") val lineTotalMinor: Long? = null,
     @SerialName("stock_items") val stockItems: PosCartLineStockItem? = null,
 )
 
@@ -1259,6 +1296,9 @@ private data class AddressRow(
 
 @Serializable
 private data class WarehouseIdRow(val id: String)
+
+@Serializable
+private data class ExchangeRateIdRow(val id: String)
 
 @Serializable
 private data class ProfileNameUpdate(

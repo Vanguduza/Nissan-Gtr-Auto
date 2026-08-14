@@ -142,6 +142,7 @@ private data class LoyaltyBalanceRow(
     val currency: String = "USD",
     @SerialName("liability_per_point") val liabilityPerPoint: Double = 0.0,
     @SerialName("estimated_liability") val estimatedLiability: Double = 0.0,
+    @SerialName("estimated_liability_minor") val estimatedLiabilityMinor: Long? = null,
 ) {
     fun toModel(fallbackCustomerId: String) = LoyaltyBalance(
         customerId = customerId ?: fallbackCustomerId,
@@ -149,6 +150,7 @@ private data class LoyaltyBalanceRow(
         currency = currency,
         liabilityPerPoint = liabilityPerPoint,
         estimatedLiability = estimatedLiability,
+        estimatedLiabilityMinor = estimatedLiabilityMinor,
     )
 }
 

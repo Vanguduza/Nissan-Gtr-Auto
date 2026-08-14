@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
 import {
-  searchCatalogMeili,
+  searchCatalog as searchCatalogDual,
   type PartHit,
   type PncHit,
   type SearchCatalogResponse,
@@ -59,23 +59,25 @@ export type SearchFetchResult = {
 };
 
 /**
- * Meili-backed catalog search via Edge proxy with Postgres FTS fallback.
- * Never calls Meili directly from the browser.
+ * Dual-read catalog search (E6): Meili Edge first, Postgres FTS fallback.
+ * Never calls Meili directly from the browser. Set preferMeili=false for FTS-only.
+ * Meili is discovery-only — do not show qty/availability from hits; join Postgres stock SoR.
  */
 export async function searchCatalog(
   client: SupabaseClient,
   mode: SearchMode,
   query: string,
-  opts?: { limit?: number; facets?: string[] },
+  opts?: { limit?: number; facets?: string[]; preferMeili?: boolean },
 ): Promise<
   | { ok: true; data: SearchCatalogResponse }
   | { ok: false; error: string }
 > {
-  return searchCatalogMeili(client, {
+  return searchCatalogDual(client, {
     mode,
     query,
     limit: opts?.limit,
     facets: opts?.facets ?? [...MEILI_FACETS],
+    preferMeili: opts?.preferMeili,
   });
 }
 

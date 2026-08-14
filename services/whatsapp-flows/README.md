@@ -30,11 +30,20 @@ WhatsApp EcoCash checkout requires an explicit payer choice: **WhatsApp number**
 | `ping` | `{ "data": { "status": "active" } }` |
 | `INIT` | Next screen `VIN_SEARCH` |
 | `calculate_cart` | Price OEMs from `stock_items` + RETAIL `price_list_items`; return `cart_summary_text` |
-| `checkout` | Insert `whatsapp_flow_orders` PENDING, return `SUCCESS`, background `send_payment_cta` |
+| `checkout` | D-57: browse USD; EcoCash → ZiG settle via `build_checkout_display` + ops `fx_rate_id` (fail closed); insert PENDING; SUCCESS + EcoCash push or payment CTA |
 
 Meta usually posts top-level `action: "data_exchange"`. Put the intent in `data.action`
 (`calculate_cart` / `checkout`), or rely on screen fallback (`PARTS_SELECT` → cart,
 `CHECKOUT` → checkout). Sample Flow JSON: `flow/sample_cart_flow.json`.
+
+### D-57 checkout display (parity with `@gtr/payments`)
+
+Python reimplementation in `app/services/checkout_display.py` (no TS import):
+
+- Cart/browse totals stay **USD** (`currency` / `total` on `whatsapp_flow_orders`).
+- **EcoCash** pay converts to **ZiG** MoneyMinor using ops `daily_exchange_rates` + stores `fx_rate_id` / `settle_*`.
+- Missing/invalid daily rate → **fail closed** (CHECKOUT error; no invented payable).
+- C2B push charges `settle_total` in ZiG, not browse USD.
 
 Pass the customer WhatsApp MSISDN as `flow_token` (digits only) or `data.wa_id` so the
 payment CTA and PDF receipt can be delivered.

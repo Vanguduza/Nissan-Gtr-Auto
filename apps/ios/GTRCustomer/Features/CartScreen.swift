@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Cart / checkout — KMP pattern: back · lines · delivery · payment · secure pay · orders.
+/// D-57: browse/cart USD; ZiG only at settle with ops daily rate + fxRateId.
 struct CartScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     var onPay: ((UUID) -> Void)? = nil
@@ -13,7 +14,8 @@ struct CartScreen: View {
     @State private var lastInvoiceId: UUID?
     @State private var fulfillmentMode: FulfillmentMode = .immediate
     @State private var settleCurrency: StorefrontCurrency = .USD
-    @State private var zigRate: Decimal = 1
+    @State private var zigRate: Decimal?
+    @State private var fxRateId: String?
     @State private var payRail: PaymentRail = .contipay
 
     var body: some View {
@@ -24,7 +26,7 @@ struct CartScreen: View {
                         ShopCartLineRow(
                             oem: line.oemPartNumber,
                             title: line.description ?? "Part",
-                            priceLabel: StorefrontFormat.money(line.unitPrice, currency: line.currency),
+                            priceLabel: StorefrontFormat.money(line.displayUnitPrice(), currency: .USD),
                             qty: "\(line.qty)",
                             onAddQty: { Task { await bumpQty(line) } }
                         )
@@ -57,7 +59,7 @@ struct CartScreen: View {
                 ShopProceedButtonBox(
                     totalLabel: cartTotalLabel,
                     ctaTitle: lastInvoiceId != nil ? "Continue to secure payment" : "Place order & pay",
-                    enabled: !busy && !dispatchNeedsAddress,
+                    enabled: !busy && !dispatchNeedsAddress && !zigSettleBlocked,
                     onCta: {
                         if let lastInvoiceId {
                             onPay?(lastInvoiceId)
@@ -80,10 +82,14 @@ struct CartScreen: View {
         return !cart.lines.isEmpty
     }
 
+    /// D-57: browse total always USD.
     private var cartTotalLabel: String {
         guard let cart else { return "—" }
-        let subtotal = cart.lines.reduce(Decimal.zero) { $0 + ($1.unitPrice * $1.qty) }
-        return StorefrontFormat.money(subtotal, currency: cart.currency)
+        return StorefrontFormat.money(cart.displaySubtotal(), currency: .USD)
+    }
+
+    private var zigSettleBlocked: Bool {
+        settleCurrency == .ZIG && (zigRate == nil || zigRate! <= 0)
     }
 
     @ViewBuilder
@@ -118,6 +124,24 @@ struct CartScreen: View {
         }
         .pickerStyle(.segmented)
 
+        if settleCurrency == .ZIG {
+            if let display = checkoutDisplay(), let rate = zigRate, display.payCurrency == .ZIG {
+                let zigMajor = MoneyDualRead.fromAmountMinor(
+                    display.payable.amountMinor,
+                    currency: .ZIG
+                )
+                Text(
+                    "≈ \(StorefrontFormat.money(zigMajor, currency: .ZIG)) @ \(rate) ZiG per USD (ops daily rate)"
+                )
+                .font(GTRType.body(.caption))
+                .foregroundStyle(GTRColors.silverDim)
+            } else {
+                Text("Daily ZiG rate unavailable — settle in USD or try again later.")
+                    .font(GTRType.body(.caption))
+                    .foregroundStyle(.red)
+            }
+        }
+
         ShopMerchTitleRow(title: "Payment method", actionLabel: nil)
         Picker("PSP", selection: $payRail) {
             ForEach(PaymentRail.allCases) { r in
@@ -134,11 +158,25 @@ struct CartScreen: View {
         fulfillmentMode == .dispatch && selectedAddressId == nil
     }
 
+    private func checkoutDisplay() -> CheckoutDisplay? {
+        guard let cart else { return nil }
+        let usdMinor = (try? MoneyDualRead.toAmountMinor(cart.displaySubtotal(), currency: .USD)) ?? 0
+        let zigPay = settleCurrency == .ZIG || payRail == .ecocash
+        return try? CheckoutDisplayBuilder.build(
+            usdMinor: usdMinor,
+            payMethod: zigPay ? .ecocash : .cash,
+            zigRatePerUsd: zigRate,
+            fxRateId: zigPay ? fxRateId : nil
+        )
+    }
+
     private func refresh() async {
         busy = true
         defer { busy = false }
         do {
-            zigRate = try await session.api.fetchZigExchangeRate(asOf: nil)
+            let rate = try await session.api.fetchZigExchangeRate(asOf: nil)
+            zigRate = rate > 0 ? rate : nil
+            fxRateId = try await session.api.fetchZigExchangeRateId(asOf: nil)
             cart = try await session.api.loadOpenCart()
             addresses = (try? await session.api.listOwnAddresses()) ?? []
             if selectedAddressId == nil {
@@ -146,7 +184,6 @@ struct CartScreen: View {
             }
             if let open = cart {
                 fulfillmentMode = open.fulfillmentMode
-                settleCurrency = open.currency
             }
             status = nil
         } catch {
@@ -174,13 +211,18 @@ struct CartScreen: View {
                 status = "Select a delivery address for Nationwide dispatch"
                 return
             }
-            let rate: Decimal = settleCurrency == .ZIG
-                ? (try await session.api.fetchZigExchangeRate(asOf: nil))
-                : 1
+            // D-57 fail-closed: ZiG settle needs ops daily rate
+            if settleCurrency == .ZIG {
+                guard let rate = zigRate, rate > 0 else {
+                    status = "Daily ZiG rate required to settle in ZiG. Try again later or pay in USD."
+                    return
+                }
+            }
+            // D-57: cart SoR stays USD; settle currency is pay-step display only
             let open = try await session.api.ensureOpenCart(
-                currency: settleCurrency,
+                currency: .USD,
                 fulfillmentMode: fulfillmentMode,
-                exchangeRate: rate
+                exchangeRate: 1
             )
             let invoiceId = try await session.api.checkoutCart(cartId: open.id)
             lastInvoiceId = invoiceId

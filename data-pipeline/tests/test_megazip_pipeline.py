@@ -72,6 +72,8 @@ def test_parse_variant_list_chassis() -> None:
     variants = page.payload["variants"]
     assert len(variants) == 1
     assert variants[0]["chassis_code"] == "ACV40"
+    assert variants[0]["engine_code"] == "2AZ-FE"
+    assert variants[0]["year_label"] == "2007 - 2011"
 
 
 def test_parse_section_list() -> None:
@@ -467,3 +469,199 @@ def test_merged_priority_model_seeds_dedupe_chassis_map() -> None:
     )
     assert len(merged) == 1
     assert "x-trail-2064" in merged[0]
+
+
+def test_claim_next_url_chassis_deep_first(tmp_path: Path) -> None:
+    from data_pipeline.megazip.state import claim_next_url, enqueue_url, init_db, mark_url
+
+    db = tmp_path / "state.db"
+    init_db(db)
+    enqueue_url(db, "https://ex/hub", page_type="maker_hub", maker_slug="nissan")
+    enqueue_url(
+        db,
+        "https://ex/t31/sec",
+        page_type="section_list",
+        maker_slug="nissan",
+        model_slug="x-trail",
+        chassis_code="T31",
+    )
+    enqueue_url(
+        db,
+        "https://ex/d40/sec",
+        page_type="section_list",
+        maker_slug="nissan",
+        model_slug="navara",
+        chassis_code="D40",
+    )
+    enqueue_url(
+        db,
+        "https://ex/t31/diag",
+        page_type="diagram",
+        maker_slug="nissan",
+        model_slug="x-trail",
+        chassis_code="T31",
+    )
+
+    first = claim_next_url(db, maker_slug="nissan", chassis_deep_first=True)
+    assert first is not None
+    assert first["page_type"] == "maker_hub"
+    mark_url(db, first["url"], ok=True)
+
+    second = claim_next_url(db, maker_slug="nissan", chassis_deep_first=True)
+    assert second is not None
+    assert second["chassis_code"] == "D40"  # lexicographic first among deep-only
+    mark_url(db, second["url"], ok=True)
+
+    # After D40 has VISITED deep progress and still has no pending, T31 drains fully.
+    third = claim_next_url(db, maker_slug="nissan", chassis_deep_first=True)
+    assert third is not None
+    assert third["chassis_code"] == "T31"
+    mark_url(db, third["url"], ok=True)
+
+    fourth = claim_next_url(db, maker_slug="nissan", chassis_deep_first=True)
+    assert fourth is not None
+    assert fourth["url"].endswith("/t31/diag")
+    assert fourth["chassis_code"] == "T31"
+
+
+def test_claim_prefers_in_progress_chassis(tmp_path: Path) -> None:
+    from data_pipeline.megazip.state import claim_next_url, enqueue_url, init_db, mark_url
+
+    db = tmp_path / "state.db"
+    init_db(db)
+    enqueue_url(
+        db,
+        "https://ex/t31/sec1",
+        page_type="section_list",
+        maker_slug="nissan",
+        chassis_code="T31",
+    )
+    enqueue_url(
+        db,
+        "https://ex/d40/sec1",
+        page_type="section_list",
+        maker_slug="nissan",
+        chassis_code="D40",
+    )
+    enqueue_url(
+        db,
+        "https://ex/t31/diag1",
+        page_type="diagram",
+        maker_slug="nissan",
+        chassis_code="T31",
+    )
+
+    # Seed VISITED deep progress on T31 so focus prefers T31 over D40.
+    mark_url(db, "https://ex/t31/sec1", ok=True)
+    # Re-enqueue as visited already — claim should pick T31 diagram before D40 section.
+    claimed = claim_next_url(db, maker_slug="nissan", chassis_deep_first=True)
+    assert claimed is not None
+    assert claimed["chassis_code"] == "T31"
+    assert claimed["page_type"] == "diagram"
+
+
+def test_prune_chassis_html_requires_parsed(tmp_path: Path) -> None:
+    from data_pipeline.megazip.config import MakerPaths
+    from data_pipeline.megazip.crawl import prune_chassis_html_cache
+    from data_pipeline.megazip.parse_html import cache_key
+    from data_pipeline.megazip.state import enqueue_url, init_db, mark_url, upsert_parsed
+
+    root = tmp_path / "nissan"
+    cache = root / "cache"
+    cache.mkdir(parents=True)
+    db = root / "megazip_state.db"
+    init_db(db)
+    url = "https://ex/t31/diag"
+    enqueue_url(db, url, page_type="diagram", maker_slug="nissan", chassis_code="T31")
+    mark_url(db, url, ok=True)
+    html_path = cache / f"{cache_key(url)}.html"
+    html_path.write_text("<html/>", encoding="utf-8")
+    paths = MakerPaths(
+        maker="Nissan",
+        slug="nissan",
+        root=root,
+        state_db=db,
+        cache_dir=cache,
+        bundle_dir=root / "bundle",
+        diagrams_dir=root / "diagrams",
+        meta_json=root / "meta.json",
+    )
+
+    skipped = prune_chassis_html_cache(paths, ["T31"], require_parsed=True)
+    assert skipped["deleted"] == 0
+    assert html_path.is_file()
+
+    upsert_parsed(db, url, "diagram", "nissan", {"parts": []})
+    deleted = prune_chassis_html_cache(paths, ["T31"], require_parsed=True)
+    assert deleted["deleted"] == 1
+    assert not html_path.is_file()
+
+
+def test_should_retain_html_weak_diagram() -> None:
+    from data_pipeline.megazip.crawl import should_retain_html
+
+    assert should_retain_html("diagram", {"title": "", "parts": [], "parts_table": []}) is True
+    assert (
+        should_retain_html(
+            "diagram",
+            {
+                "title": "Engine",
+                "diagram_kind": "exploded_diagram",
+                "parts": [{"oem_part_number": "1"} for _ in range(5)],
+                "parts_table": [{}],
+                "image_width": 800,
+                "image_height": 600,
+            },
+        )
+        is False
+    )
+    assert should_retain_html("variant_list", {"variants": [{"chassis_code": "T31"}]}) is False
+    assert should_retain_html("variant_list", {"variants": [{"chassis_code": ""}]}) is True
+
+
+def test_attrs_audit_auto_in_quality_report() -> None:
+    bundle = {
+        "catalog_variants": [
+            {
+                "slug": "v1",
+                "model_slug": "m1",
+                "chassis_code": "T31",
+                "engine_code": "MR20DE",
+                "year_label": "2007",
+            },
+            {
+                "slug": "v2",
+                "model_slug": "m1",
+                "chassis_code": "T31",
+                "engine_code": "",
+                "year_label": "",
+            },
+        ],
+        "catalog_diagrams": [
+            {
+                "storage_path": "megazip/nissan/x.png",
+                "diagram_kind": "exploded_diagram",
+                "hotspot_count": 8,
+                "model_slug": "m1",
+                "variant_slug": "v1",
+            }
+        ],
+        "catalog_diagram_parts": [],
+        "pnc_categories": [{"pnc_code": "MZ1", "category_name": "Engine"}],
+        "part_fitment": [
+            {
+                "oem_part_number": "09113-08061",
+                "pnc_code": "MZ1",
+                "chassis_code": "T31",
+                "engine_code": "MR20DE",
+                "bbox_x": 0.1,
+                "diagram_path": "megazip/nissan/x.png",
+            }
+            for _ in range(3)
+        ],
+    }
+    meta = bundle_quality_report(bundle)
+    assert meta["attrs_audit"]["variants_missing_engine"] == 1
+    assert meta["attrs_audit"]["attrs_ok"] is True
+    assert meta["attrs_ok"] is True
+    assert_publishable(meta, strict=True)

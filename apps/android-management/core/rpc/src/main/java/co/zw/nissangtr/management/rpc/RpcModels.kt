@@ -10,7 +10,33 @@ enum class AttendanceEventType(val rpcValue: String) {
 enum class CurrencyCode(val rpcValue: String) {
     USD("USD"),
     ZIG("ZIG"),
+    ;
+
+    companion object {
+        fun fromRpc(raw: String?): CurrencyCode =
+            entries.firstOrNull { it.rpcValue.equals(raw, ignoreCase = true) } ?: USD
+    }
 }
+
+/** Open payroll line for gross payroll UI (net = gross − manual deductions). */
+data class PayrollLineSummary(
+    val id: String,
+    val employeeId: String,
+    val grossAmount: Double,
+    val deductionsAmount: Double,
+    val netAmount: Double,
+    val currency: CurrencyCode,
+    val payrollRunId: String,
+    val hoursWorked: Double = 0.0,
+)
+
+/** Manual payroll deduction line — never tax/statutory. */
+data class PayrollDeductionSummary(
+    val id: String,
+    val payrollLineId: String,
+    val label: String,
+    val amount: Double,
+)
 
 /** Mirrors `public.fulfillment_mode` — UX: pickup = immediate, delivery = dispatch. */
 enum class FulfillmentMode(val rpcValue: String, val label: String) {
@@ -45,11 +71,44 @@ data class DeliveryNoteSummary(
     val status: String,
 )
 
+/** Staff desk visibility for delivery_jobs (PostgREST + RLS — not an assign picker). */
+data class DeliveryJobDeskSummary(
+    val id: String,
+    val documentNumber: String?,
+    val deliveryNoteId: String,
+    val status: String,
+    val assigneeUserId: String?,
+    val createdAt: String? = null,
+) {
+    val isUnassigned: Boolean get() = assigneeUserId.isNullOrBlank()
+}
+
 data class PickListSummary(
     val id: String,
     val documentNumber: String,
     val salesInvoiceId: String,
     val status: String,
+)
+
+/** Posted dispatch sales invoice (PostgREST list for pick desk). */
+data class DispatchInvoiceSummary(
+    val id: String,
+    val documentNumber: String,
+    val status: String,
+    val fulfillmentMode: String,
+    val createdAt: String,
+)
+
+/** Row from `pick_list_lines` for confirm-pick / DN line drafts. */
+data class PickListLineSummary(
+    val id: String,
+    val pickListId: String,
+    val salesInvoiceLineId: String,
+    val stockItemId: String,
+    val qtyRequested: Double,
+    val qtyPicked: Double?,
+    val oemPartNumber: String? = null,
+    val description: String? = null,
 )
 
 data class DnLineInput(
@@ -305,7 +364,21 @@ data class WarehouseRef(
     val id: String,
     val code: String,
     val name: String,
+    /** WH1 receiving / WH2 storefloor / etc. Null on legacy rows. */
+    val roleCode: String? = null,
+    val isQuarantine: Boolean = false,
+    val isActive: Boolean = true,
 )
+
+/**
+ * POS picks only WH2 storefloor — WH1 receiving and quarantine are excluded.
+ * Matches web `isPosSaleableWarehouse` (role_code WH2 or legacy code=WH2).
+ */
+fun isPosSaleableWarehouse(w: WarehouseRef): Boolean {
+    if (!w.isActive) return false
+    if (w.isQuarantine) return false
+    return w.roleCode == "WH2" || w.code == "WH2"
+}
 
 data class PosCartLineSummary(
     val id: String,
@@ -315,6 +388,10 @@ data class PosCartLineSummary(
     val unitPrice: Double,
     val lineTotal: Double,
     val isCoreCharge: Boolean = false,
+    /** H4 dual-write: cents when present; display prefers this over [unitPrice]. */
+    val unitPriceMinor: Long? = null,
+    /** H4 dual-write: cents when present; display prefers this over [lineTotal]. */
+    val lineTotalMinor: Long? = null,
 )
 
 /** Row from [RpcNames.LIST_POS_QUOTATIONS]. */
@@ -439,6 +516,87 @@ data class SupplierRef(
     val code: String,
     val name: String,
 )
+
+/** Preferred roster row — mirrors web `PreferredSupplierOption` / `@gtr/procurement`. */
+data class PreferredSupplierRef(
+    val id: String,
+    val code: String,
+    val name: String,
+    val defaultCurrency: CurrencyCode = CurrencyCode.USD,
+)
+
+/**
+ * Happy-path + terminal procurement tracker steps — mirrors `@gtr/procurement`
+ * `ProcurementProgressStep` / `PROCUREMENT_STEP_LABELS`.
+ */
+enum class ProcurementProgressStep(val rpcValue: String, val label: String) {
+    DRAFT("draft", "Draft"),
+    SUBMITTED("submitted", "Submitted"),
+    APPROVED("approved", "Approved"),
+    FUNDS_RELEASED("funds_released", "Funds released"),
+    PARTIALLY_RECEIVED("partially_received", "Partially received"),
+    RECEIVED("received", "Received"),
+    CLOSED("closed", "Closed"),
+    REJECTED("rejected", "Rejected"),
+    CANCELLED("cancelled", "Cancelled"),
+    ;
+
+    companion object {
+        fun fromRpc(value: String?): ProcurementProgressStep? {
+            if (value.isNullOrBlank()) return null
+            return entries.find { it.rpcValue.equals(value, ignoreCase = true) }
+        }
+    }
+}
+
+/** Ordered happy-path steps for UI trackers (excludes terminal reject/cancel). */
+val PROCUREMENT_TRACKER_STEPS: List<ProcurementProgressStep> = listOf(
+    ProcurementProgressStep.DRAFT,
+    ProcurementProgressStep.SUBMITTED,
+    ProcurementProgressStep.APPROVED,
+    ProcurementProgressStep.FUNDS_RELEASED,
+    ProcurementProgressStep.PARTIALLY_RECEIVED,
+    ProcurementProgressStep.RECEIVED,
+    ProcurementProgressStep.CLOSED,
+)
+
+/**
+ * Prefer WH1 / MAIN for receiving POs — mirrors web `pickReceivingWarehouse`.
+ */
+fun pickReceivingWarehouse(warehouses: List<WarehouseRef>): WarehouseRef? =
+    warehouses.find { it.code == "WH1" || it.roleCode == "WH1" }
+        ?: warehouses.find { it.code.equals("MAIN", ignoreCase = true) }
+        ?: warehouses.firstOrNull()
+
+/**
+ * Map PO status + fund-release + receive qty (+ optional DB progress_step) → tracker step.
+ * Mirrors `@gtr/procurement` `resolveProcurementProgress`.
+ */
+fun resolveProcurementProgress(
+    status: String,
+    fundsReleasedAt: String? = null,
+    qtyOrdered: Double = 0.0,
+    qtyReceived: Double = 0.0,
+    progressStep: String? = null,
+): ProcurementProgressStep {
+    val st = status.lowercase()
+    val stored = (progressStep ?: "").lowercase()
+
+    if (st == "rejected" || stored == "rejected") return ProcurementProgressStep.REJECTED
+    if (st == "cancelled" || stored == "cancelled") return ProcurementProgressStep.CANCELLED
+    if (stored == "closed") return ProcurementProgressStep.CLOSED
+
+    if (st == "draft") return ProcurementProgressStep.DRAFT
+    if (st == "submitted") return ProcurementProgressStep.SUBMITTED
+
+    if (qtyOrdered > 0 && qtyReceived >= qtyOrdered) return ProcurementProgressStep.RECEIVED
+    if (qtyReceived > 0) return ProcurementProgressStep.PARTIALLY_RECEIVED
+    if (!fundsReleasedAt.isNullOrBlank() || stored == "funds_released") {
+        return ProcurementProgressStep.FUNDS_RELEASED
+    }
+    if (st == "approved" || stored == "approved") return ProcurementProgressStep.APPROVED
+    return ProcurementProgressStep.fromRpc(stored) ?: ProcurementProgressStep.DRAFT
+}
 
 /** Staff roles that may set B2B credit (`set_customer_credit`). */
 object CreditStaffRoles {
@@ -643,7 +801,16 @@ data class CustomerCreditSnapshot(
     val creditHold: Boolean,
     val openBalance: Double,
     val currency: CurrencyCode,
-)
+    val creditLimitMinor: Long? = null,
+    val openBalanceMinor: Long? = null,
+) {
+    /** B-MONEY-1 dual-read display majors. */
+    fun displayCreditLimit(): Double =
+        MoneyDualRead.displayMajorFromDual(creditLimitMinor, creditLimit, currency)
+
+    fun displayOpenBalance(): Double =
+        MoneyDualRead.displayMajorFromDual(openBalanceMinor, openBalance, currency)
+}
 
 /** HR onboarding + sensitive banking/health — admin|hr only (mirrors web RLS). */
 object HrOnboardingStaffRoles {
@@ -718,4 +885,65 @@ data class HrOnboardingAuthResult(
     val created: Boolean,
     val mustChangePassword: Boolean,
     val channels: List<HrOnboardingAuthChannel> = emptyList(),
+)
+
+/** Staff roles for CRM merch: product pages + kits (admin|sales|warehouse). */
+object CrmMerchStaffRoles {
+    val ALL: Set<String> = setOf("admin", "sales", "warehouse")
+
+    fun allows(roles: Collection<String>): Boolean =
+        roles.any { it in ALL }
+}
+
+/** Row from [RpcNames.LIST_STAFF_PRODUCT_PAGES]. */
+data class StaffProductPageRow(
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val catalogTitle: String,
+    val unitPrice: Double?,
+    val currency: String,
+    val qtySaleable: Double,
+    val discountKind: String,
+    val discountValue: Double,
+    val discountDescription: String?,
+    val primaryImagePath: String?,
+    val imageCount: Int,
+)
+
+data class StaffProductImage(
+    val id: String,
+    val storagePath: String,
+    val isPrimary: Boolean,
+    val sortOrder: Int,
+)
+
+data class StaffKitComponent(
+    val componentItemId: String,
+    val oem: String,
+    val name: String,
+    val qty: Double,
+    val uomId: String,
+)
+
+data class StaffKitRow(
+    val kitId: String,
+    val stockItemId: String,
+    val oem: String,
+    val title: String,
+    val sellMode: String,
+    val isActive: Boolean,
+    val chassisCodes: List<String> = emptyList(),
+    val components: List<StaffKitComponent> = emptyList(),
+)
+
+data class ChassisOption(
+    val chassisCode: String,
+    val label: String,
+)
+
+data class StockItemOption(
+    val id: String,
+    val oemPartNumber: String,
+    val description: String?,
+    val baseUomId: String?,
 )

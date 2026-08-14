@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.escpos.BluetoothPermissionStatus
+import co.zw.nissangtr.bridges.escpos.EscPosCommands
 import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
-import co.zw.nissangtr.bridges.escpos.EscPosReceiptLine
 import co.zw.nissangtr.management.rpc.FakeRpcClient
 import co.zw.nissangtr.management.rpc.PickPathHint
 import co.zw.nissangtr.management.rpc.RpcClient
@@ -229,19 +229,14 @@ class BinsViewModel(
                     }
                     return@launch
                 }
-                printer.printReceiptLines(
-                    listOf(
-                        EscPosReceiptLine("GTR BIN LABEL", emphasis = true),
-                        EscPosReceiptLine(bin.code, emphasis = true),
-                        EscPosReceiptLine(bin.name),
-                        EscPosReceiptLine(
-                            listOfNotNull(
-                                bin.aisle?.let { "Aisle $it" },
-                                bin.rack?.let { "Rack $it" },
-                                bin.shelf?.let { "Shelf $it" },
-                            ).joinToString(" · ").ifBlank { "seq ${bin.pickPathSeq}" },
-                        ),
-                        EscPosReceiptLine("Pick seq: ${bin.pickPathSeq}"),
+                printer.printRaw(
+                    EscPosCommands.binLabel(
+                        code = bin.code,
+                        name = bin.name,
+                        aisle = bin.aisle,
+                        rack = bin.rack,
+                        shelf = bin.shelf,
+                        pickPathSeq = bin.pickPathSeq,
                     ),
                 )
                 _state.update { it.copy(busy = false, message = "Bin label printed · ${bin.code}") }

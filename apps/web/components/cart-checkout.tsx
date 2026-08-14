@@ -15,17 +15,22 @@ import {
   createCustomerPaynowIntent,
   ensureOpenCart,
   fetchZigExchangeRate,
+  fetchZigExchangeRateId,
   formatMoney,
   fulfillmentLabel,
+  cartLineTotalMajor,
   loadCartLines,
   loadOpenCart,
   loadOwnCustomer,
   requireSession,
+  sumCartLinesMajor,
   type CartLineRow,
   type CartRow,
   type CustomerRow,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
+import { buildCheckoutDisplay, type PspMethod } from "@gtr/payments";
+import { fromAmountMinor, toAmountMinor, displayCreditLimitMajor, displayOpenBalanceMajor } from "@gtr/shared";
 import styles from "@/app/(storefront)/page.module.css";
 
 function CartTitle() {
@@ -61,6 +66,8 @@ export function CartCheckout() {
   const [fulfillment, setFulfillment] = useState<Fulfillment>("immediate");
   const [settleCurrency, setSettleCurrency] = useState<SettleCurrency>("USD");
   const [zigRate, setZigRate] = useState<number>(1);
+  /** `daily_exchange_rates.id` for the rate used; null when USD-only or env fallback. */
+  const [fxRateId, setFxRateId] = useState<string | null>(null);
   const [tender, setTender] = useState<Tender>("cash");
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
@@ -85,6 +92,7 @@ export function CartCheckout() {
 
     const rate = await fetchZigExchangeRate(client);
     setZigRate(rate);
+    setFxRateId(await fetchZigExchangeRateId(client));
 
     const cart = await loadOpenCart(client);
     if (!cart.ok) {
@@ -128,13 +136,46 @@ export function CartCheckout() {
 
   const totalUsd = useMemo(() => {
     if (status.kind !== "ready") return 0;
-    return status.lines.reduce((sum, line) => sum + Number(line.line_total), 0);
+    // H4 dual-read: sum via minor units when line_total_minor present
+    return sumCartLinesMajor(status.lines, "USD");
   }, [status]);
 
-  const zigTotal = useMemo(
-    () => Math.round(totalUsd * zigRate * 100) / 100,
-    [totalUsd, zigRate],
-  );
+  const checkoutDisplay = useMemo(() => {
+    const usdMinor = toAmountMinor(totalUsd, "USD");
+    const method: PspMethod =
+      tender === "ecocash"
+        ? "ecocash"
+        : tender === "contipay"
+          ? "contipay"
+          : tender === "paynow"
+            ? "paynow"
+            : "cash";
+    const zigPay = settleCurrency === "ZIG" || method === "ecocash";
+    try {
+      return buildCheckoutDisplay({
+        usdMinor,
+        payMethod: zigPay ? "ecocash" : method,
+        zigRatePerUsd: zigRate,
+        // D-57: attach daily_exchange_rates.id when settling ZiG / EcoCash
+        fxRateId: zigPay ? fxRateId : null,
+      });
+    } catch {
+      return buildCheckoutDisplay({
+        usdMinor,
+        payMethod: "cash",
+        zigRatePerUsd: zigRate,
+        fxRateId: null,
+      });
+    }
+  }, [totalUsd, zigRate, fxRateId, tender, settleCurrency]);
+
+  const zigTotal = useMemo(() => {
+    const minor =
+      checkoutDisplay.payCurrency === "ZIG"
+        ? checkoutDisplay.payable.amountMinor
+        : checkoutDisplay.indicativeZigMinor ?? 0n;
+    return fromAmountMinor(minor, "ZIG");
+  }, [checkoutDisplay]);
 
   async function onCheckout() {
     setBusy(true);
@@ -196,14 +237,43 @@ export function CartCheckout() {
 
     const invTotal = Number(invRow?.total ?? totalUsd);
     const rate = await fetchZigExchangeRate(client);
-    const settlement =
-      settleCurrency === "ZIG"
-        ? {
-            currency: "ZIG" as const,
-            amount: Math.round(invTotal * rate * 100) / 100,
-            exchangeRate: rate,
-          }
-        : undefined;
+    const invUsdMinor = toAmountMinor(invTotal, "USD");
+    // D-57 / H4: ZiG settlement from MoneyMinor payable (not float × rate)
+    let settlement:
+      | {
+          currency: "ZIG";
+          amountMinor: bigint;
+          amount: number;
+          exchangeRate: number;
+          fxRateId?: string | null;
+        }
+      | undefined;
+    if (settleCurrency === "ZIG") {
+      try {
+        const settleDisplay = buildCheckoutDisplay({
+          usdMinor: invUsdMinor,
+          payMethod: "ecocash",
+          zigRatePerUsd: rate,
+          fxRateId,
+        });
+        settlement = {
+          currency: "ZIG",
+          amountMinor: settleDisplay.payable.amountMinor,
+          amount: fromAmountMinor(settleDisplay.payable.amountMinor, "ZIG"),
+          exchangeRate: rate,
+          fxRateId,
+        };
+      } catch {
+        const zigMinor = BigInt(Math.round(Number(invUsdMinor) * rate));
+        settlement = {
+          currency: "ZIG",
+          amountMinor: zigMinor,
+          amount: fromAmountMinor(zigMinor, "ZIG"),
+          exchangeRate: rate,
+          fxRateId,
+        };
+      }
+    }
 
     if (tender === "contipay") {
       const intent = await createCustomerContipayIntent(
@@ -331,8 +401,26 @@ export function CartCheckout() {
 
   const { cart, lines, customer } = status;
   const creditHold = !!customer?.credit_hold;
-  const creditLimit = Number(customer?.credit_limit ?? 0);
-  const openBalance = Number(customer?.open_balance ?? 0);
+  const accountCurrency =
+    customer?.currency === "ZIG" ? "ZIG" : "USD";
+  const creditLimit = customer
+    ? displayCreditLimitMajor(
+        {
+          credit_limit: Number(customer.credit_limit ?? 0),
+          credit_limit_minor: customer.credit_limit_minor ?? null,
+        },
+        accountCurrency,
+      )
+    : 0;
+  const openBalance = customer
+    ? displayOpenBalanceMajor(
+        {
+          open_balance: Number(customer.open_balance ?? 0),
+          open_balance_minor: customer.open_balance_minor ?? null,
+        },
+        accountCurrency,
+      )
+    : 0;
   const projectedOpen = openBalance + totalUsd;
   const overLimit = creditLimit > 0 && projectedOpen > creditLimit;
 
@@ -398,7 +486,7 @@ export function CartCheckout() {
                   <td>{line.qty}</td>
                   <td>
                     <span className={styles.moneyUsd}>
-                      {formatMoney(Number(line.line_total), "USD")}
+                      {formatMoney(cartLineTotalMajor(line, "USD"), "USD")}
                     </span>
                   </td>
                 </tr>
@@ -484,7 +572,7 @@ export function CartCheckout() {
                 <strong>ZiG</strong>
                 <span className={styles.muted}>
                   ≈ {formatMoney(zigTotal, "ZIG")} @ {zigRate} ZiG per USD
-                  (today&apos;s rate)
+                  (ops daily rate)
                 </span>
               </span>
             </label>

@@ -34,6 +34,7 @@ export const DELIVERY_RPC = {
   failJob: "fail_delivery_job",
   raisePanic: "raise_delivery_panic",
   optimizeStops: "optimize_driver_stops",
+  getJobSettlement: "get_delivery_job_settlement",
 } as const;
 
 /** Result of `update_delivery_job_status` — track_token only on dispatch. */
@@ -94,6 +95,21 @@ export function assignDeliveryJobArgs(
     p_assignee_user_id: assigneeUserId,
     p_override: override,
   } as const;
+}
+
+/**
+ * Desk **exception** gate for manual `assign_delivery_job`.
+ * Auto-assign (`_try_auto_assign_delivery_job` + FIFO/offer) remains SoR.
+ * Staff override only when unassigned / stuck — not the happy-path picker.
+ * RPC `p_override` bypasses eligibility; this gate is when the desk may call assign.
+ */
+export function canOverrideAssignDeliveryJob(
+  assigneeUserId: string | null | undefined,
+  status?: string | null,
+): boolean {
+  const normalized = (status ?? "").trim().toLowerCase();
+  if (normalized === "completed" || normalized === "failed") return false;
+  return assigneeUserId == null || assigneeUserId.trim() === "";
 }
 
 export function setDeliveryJobGeoArgs(

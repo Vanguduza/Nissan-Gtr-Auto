@@ -41,6 +41,18 @@ android {
             "DELIVERY_SUPPORT_PHONE",
             "\"${localProp("DELIVERY_SUPPORT_PHONE")}\"",
         )
+        // PowerSync (H7) — names from powersync/.env.example; never commit real values.
+        buildConfigField("String", "POWERSYNC_URL", "\"${localProp("POWERSYNC_URL")}\"")
+        buildConfigField(
+            "String",
+            "POWERSYNC_PUBLIC_KEY",
+            "\"${localProp("POWERSYNC_PUBLIC_KEY")}\"",
+        )
+        buildConfigField(
+            "String",
+            "POWERSYNC_PROJECT_ID",
+            "\"${localProp("POWERSYNC_PROJECT_ID")}\"",
+        )
     }
 
     flavorDimensions += "formFactor"
@@ -95,6 +107,7 @@ dependencies {
     implementation(project(":feature:chat"))
     implementation(project(":feature:procurement"))
     implementation(project(":feature:credit"))
+    implementation(project(":feature:crm"))
     implementation(project(":feature:fleet"))
     implementation(project(":qr-scanner"))
     implementation(project(":escpos-printer"))

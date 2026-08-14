@@ -8,7 +8,7 @@ import PackageDescription
 
 let package = Package(
     name: "GTRCustomer",
-    platforms: [.iOS(.v17)],
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "GTRCustomerCore", targets: ["GTRCustomerCore"]),
     ],
@@ -16,6 +16,11 @@ let package = Package(
         .target(
             name: "GTRCustomerCore",
             path: "Sources/GTRCustomerCore"
+        ),
+        .testTarget(
+            name: "GTRCustomerCoreTests",
+            dependencies: ["GTRCustomerCore"],
+            path: "Tests/GTRCustomerCoreTests"
         ),
     ]
 )

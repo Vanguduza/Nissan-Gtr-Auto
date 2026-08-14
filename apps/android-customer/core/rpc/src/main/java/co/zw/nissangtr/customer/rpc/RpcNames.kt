@@ -9,6 +9,9 @@ object RpcNames {
     /** Four-way catalog lookup — mirrors apps/web/lib/catalog-search.ts */
     const val SEARCH_CATALOG = "search_catalog"
 
+    /** Anon-safe home rails (featured / movers / newest) — migration 20260813200000. */
+    const val LIST_STOREFRONT_HOME_RAILS = "list_storefront_home_rails"
+
     /** Megazip hierarchy browse — mirrors apps/web/lib/catalog-hierarchy.ts */
     const val LIST_CATALOG_MAKERS = "list_catalog_makers"
     const val LIST_CATALOG_MODELS = "list_catalog_models"

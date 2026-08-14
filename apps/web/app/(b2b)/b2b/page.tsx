@@ -16,7 +16,9 @@ export default function B2bPage() {
       </p>
       <B2bPricePanel />
       <p className={styles.lede} style={{ marginTop: "1.25rem" }}>
-        Procurement: <Link href="/procurement/rfqs">staff RFQs</Link>
+        Procurement: <Link href="/procurement">preferred-supplier hub</Link>
+        {" · "}
+        <Link href="/procurement/rfqs">optional RFQs (spot-buy)</Link>
         {" · "}
         <Link href="/supplier/rfqs">supplier quotations</Link>
       </p>

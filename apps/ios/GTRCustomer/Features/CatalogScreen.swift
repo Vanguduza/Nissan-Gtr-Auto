@@ -20,6 +20,7 @@ struct CatalogScreen: View {
     @State private var route: Route = .home
     @State private var query = ""
     @State private var browseItems: [CatalogListItem] = []
+    @State private var homeRails = HomeMerchRails()
     @State private var activeCategory: String?
     @State private var product: CatalogProduct?
     @State private var selectedGalleryKey = ""
@@ -112,6 +113,7 @@ struct CatalogScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await refreshBrowse()
+            await refreshHomeRails()
             await session.refreshWishlist()
             await loadVehicleCatalog()
         }
@@ -202,15 +204,30 @@ struct CatalogScreen: View {
             }
 
             productRail(
-                title: "Newest products",
-                items: newestItems,
-                action: { route = .newest }
+                title: "Featured products",
+                items: Array(homeRails.featured.prefix(8)),
+                action: {
+                    browseItems = homeRails.featured.isEmpty ? browseItems : homeRails.featured
+                    route = .newest
+                }
             )
 
             productRail(
-                title: "Most sale",
-                items: popularItems,
-                action: { route = .newest }
+                title: "Newest arrivals",
+                items: Array(homeRails.newest.prefix(8)),
+                action: {
+                    browseItems = homeRails.newest.isEmpty ? browseItems : homeRails.newest
+                    route = .newest
+                }
+            )
+
+            productRail(
+                title: "Top movers",
+                items: Array(homeRails.movers.prefix(8)),
+                action: {
+                    browseItems = homeRails.movers.isEmpty ? browseItems : homeRails.movers
+                    route = .newest
+                }
             )
 
             if let error {
@@ -344,19 +361,19 @@ struct CatalogScreen: View {
 
     private var newestBody: some View {
         ShopDefaultScreen(
-            title: "Newest products",
+            title: "Newest arrivals",
             subtitle: nil,
             onBack: { route = .home },
             scrollable: true
         ) {
-            if browseItems.isEmpty {
+            if shopBrowseItems.isEmpty {
                 ShopHonestEmpty(
                     title: "No recent parts yet",
                     bodyText: "No items."
                 )
             } else {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(browseItems) { item in
+                    ForEach(shopBrowseItems) { item in
                         ShopProductCard(
                             title: item.oem,
                             subtitle: item.name,
@@ -416,19 +433,15 @@ struct CatalogScreen: View {
         }
     }
 
-    private var newestItems: [CatalogListItem] {
-        Array(browseItems.prefix(8))
-    }
 
-    private var popularItems: [CatalogListItem] {
-        let tail = Array(browseItems.dropFirst(8).prefix(8))
-        return tail.isEmpty ? newestItems : tail
+    private var shopBrowseItems: [CatalogListItem] {
+        applyCatalogFilterSort(items: browseItems, filter: filterState, sort: sortOption, shopStockOnly: true)
     }
 
     private var categoryPlpBody: some View {
         CategoryPlpScreen(
             title: (selectedFitment?.compactLabel).flatMap { $0.isEmpty ? nil : $0 } ?? activeCategory ?? "Browse",
-            products: browseItems,
+            products: shopBrowseItems,
             categoryLabels: browseCategoryLabels,
             busy: busy,
             filterState: $filterState,
@@ -650,6 +663,14 @@ struct CatalogScreen: View {
         if n.contains("cool") { return "thermometer" }
         if n.contains("body") { return "car.fill" }
         return "wrench.and.screwdriver"
+    }
+
+    private func refreshHomeRails() async {
+        do {
+            homeRails = try await session.api.listStorefrontHomeRails(limit: 12)
+        } catch {
+            // Soft-fail — rails stay empty / previous.
+        }
     }
 
     private func refreshBrowse(category: String? = nil) async {

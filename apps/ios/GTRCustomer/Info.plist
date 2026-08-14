@@ -19,7 +19,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Capture product review photos with the native camera bridge.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Optional — center the delivery address MapKit picker on your current location.</string>
+	<string>Optional — center the delivery address map picker on your current location (via native LocationTracker bridge when used).</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Attach product review photos from your library.</string>
 	<key>UIAppFonts</key>

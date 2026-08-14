@@ -11,3 +11,7 @@ SUPABASE_ANON_KEY=your-anon-key
 
 # Optional: force FakeRpcClient even when URL+key are set
 # rpc.forceFake=true
+
+# Maps — MapLibre SoR (default). Google key only for deprecated fallback (B-MAP-1).
+# useMapLibre=false
+# GOOGLE_MAPS_API_KEY=

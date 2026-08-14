@@ -41,6 +41,12 @@ interface RpcClient {
     /** Browse PLP — PostgREST stock_items + default price list (web `listCatalogProducts` subset). */
     suspend fun listCatalogBrowse(category: String? = null, limit: Int = 50): CatalogBrowseResult
 
+    /**
+     * Home merch rails via anon-safe [RpcNames.LIST_STOREFRONT_HOME_RAILS].
+     * Soft-fails to empty / browse-derived slices when RPC missing (Fake always filled).
+     */
+    suspend fun listStorefrontHomeRails(limit: Int = 12): HomeMerchRails
+
     /** Megazip hierarchy — maker hub. */
     suspend fun listCatalogMakers(): List<EpcMaker>
 
@@ -91,6 +97,12 @@ interface RpcClient {
      * Falls back to 1.0 when unset (matches web env default).
      */
     suspend fun fetchZigExchangeRate(asOf: String? = null): Double
+
+    /**
+     * D-57: `daily_exchange_rates.id` for the row [fetchZigExchangeRate] would use
+     * (latest ZIG `rate_date` ≤ as-of). Null when no ops row (fallback rate only).
+     */
+    suspend fun fetchZigExchangeRateId(asOf: String? = null): String?
 
     /** Resolve active MAIN (or first non-quarantine) warehouse — mirrors web `resolveMainWarehouseId`. */
     suspend fun resolveMainWarehouseId(): String

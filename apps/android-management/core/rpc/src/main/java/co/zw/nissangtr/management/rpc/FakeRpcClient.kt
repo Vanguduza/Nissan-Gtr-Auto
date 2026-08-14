@@ -9,6 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Documented live RPC → param map:
  * - [RpcNames.CLOCK_ATTENDANCE]: p_employee_id, p_event_type, p_occurred_at?, p_notes?
+ * - [RpcNames.ATTENDANCE_HOURS_IN_PERIOD]: p_employee_id, p_period_start, p_period_end
+ * - listOpenPayrollLines / listPayrollDeductions: PostgREST
+ * - [RpcNames.ADD_PAYROLL_DEDUCTION]: p_payroll_line_id, p_label, p_amount
  * - [RpcNames.SAVE_HR_ONBOARDING_STAGE] / [RpcNames.COMPLETE_HR_ONBOARDING]
  * - createHrOnboardingAuthUser → Edge [RpcNames.HR_ONBOARDING_CREATE_AUTH_FN]
  * - listHrOnboardingDrafts / listHrGrades / listHrRoles: PostgREST
@@ -34,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_DELIVERY_NOTE]: p_sales_invoice_id, p_lines, p_pick_list_id?
  * - [RpcNames.SUBMIT_DELIVERY_NOTE]: p_delivery_note_id
  * - [RpcNames.CANCEL_DELIVERY_NOTE]: p_delivery_note_id
+ * - listDispatchInvoices / listPickListLines: PostgREST (not RPCs)
  * - [RpcNames.CREATE_DELIVERY_JOB]: p_delivery_note_id, p_assignee_user_id?, p_eta_at?, p_notes?
  * - [RpcNames.SET_DELIVERY_JOB_GEO]: p_delivery_job_id, p_pickup_lat?, p_pickup_lng?, p_dropoff_lat?, p_dropoff_lng?
  * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status → jsonb {delivery_job_id, track_token?}
@@ -41,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger
  *   (management must not call from UI — delivery app sole producer)
  * - [RpcNames.SUGGEST_DELIVERY_ASSIGNEES]: p_delivery_job_id, p_limit?
  * - [RpcNames.ASSIGN_DELIVERY_JOB]: p_delivery_job_id, p_assignee_user_id, p_override?
+ *   (desk UI gates to unassigned/stuck only — auto-assign remains SoR)
  * - [RpcNames.OPTIMIZE_DRIVER_STOPS]: p_driver_user_id
  * - [RpcNames.GET_DELIVERY_TRACK_POINT]: p_delivery_job_id (staff view)
  * - [RpcNames.MINT_DELIVERY_TRACK_TOKEN]: p_delivery_job_id, p_ttl? → remint/rotate only
@@ -51,8 +56,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CHAT_UNREAD_COUNT]: p_thread_id?
  * - listStaffChatThreads / listChatMessages: PostgREST (not RPCs)
  * - listMyStaffRoles: PostgREST staff_roles
- * - searchCustomers / listSuppliers / listBlanketPurchaseOrders / listWarehouseBins /
- *   listConsignmentEntries / loadCustomerCredit: PostgREST
+ * - searchCustomers / listSuppliers / listPreferredSuppliers / listBlanketPurchaseOrders /
+ *   listWarehouseBins / listConsignmentEntries / loadCustomerCredit: PostgREST
+ * - [RpcNames.CREATE_PURCHASE_ORDER]: p_supplier_id, p_warehouse_id, p_currency,
+ *   p_exchange_rate, p_lines, p_notes?, p_expected_date?
  * - [RpcNames.CREATE_BLANKET_PURCHASE_ORDER]: p_supplier_id, p_warehouse_id, p_currency,
  *   p_exchange_rate, p_blanket_max_value, p_lines, p_notes?, p_expected_date?
  * - [RpcNames.SUBMIT_PURCHASE_ORDER]: p_purchase_order_id
@@ -86,10 +93,19 @@ class FakeRpcClient : RpcClient {
     private val offlineSaleReceipts = mutableMapOf<String, String>()
     private val pendingTransfers = mutableSetOf<String>()
     private val reconDrafts = mutableSetOf<String>()
-    private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
+    private val deliveryJobs = mutableMapOf(
+        // Stuck unassigned seed — desk visibility + exception override assign.
+        FAKE_UNASSIGNED_JOB_ID to ("00000000-0000-4000-8000-0000000000d1" to "pending"),
+    ) // id → (dnId, status)
     private val jobAssignees = mutableMapOf<String, String>() // jobId → driverUserId
     /** jobId → (pickupLat, pickupLng, dropoffLat, dropoffLng) */
     private val jobCoords = mutableMapOf<String, JobCoords>()
+    private val jobCreatedAt = mutableMapOf(
+        FAKE_UNASSIGNED_JOB_ID to "2026-07-24T11:00:00Z",
+    )
+    private val jobDocumentNumbers = mutableMapOf(
+        FAKE_UNASSIGNED_JOB_ID to "DJ-UNASSIGNED-001",
+    )
     private val panicEvents = mutableListOf(
         PanicEventSummary(
             id = OPEN_PANIC_ID,
@@ -119,16 +135,37 @@ class FakeRpcClient : RpcClient {
         DeliveryNoteSummary(
             id = "00000000-0000-4000-8000-0000000000d1",
             documentNumber = "DN-SEED-001",
-            salesInvoiceId = "00000000-0000-4000-8000-0000000000i1",
+            salesInvoiceId = FAKE_DISPATCH_INVOICE_ID,
             status = "draft",
         ),
     )
     private val pickLists = mutableListOf(
         PickListSummary(
-            id = "00000000-0000-4000-8000-0000000000p1",
+            id = FAKE_PICK_LIST_ID,
             documentNumber = "PL-SEED-001",
-            salesInvoiceId = "00000000-0000-4000-8000-0000000000i1",
+            salesInvoiceId = FAKE_DISPATCH_INVOICE_ID,
             status = "draft",
+        ),
+    )
+    private val dispatchInvoices = mutableListOf(
+        DispatchInvoiceSummary(
+            id = FAKE_DISPATCH_INVOICE_ID,
+            documentNumber = "INV-DISPATCH-001",
+            status = "posted",
+            fulfillmentMode = "dispatch",
+            createdAt = "2026-07-24T10:00:00Z",
+        ),
+    )
+    private val pickListLines = mutableListOf(
+        PickListLineSummary(
+            id = FAKE_PICK_LIST_LINE_ID,
+            pickListId = FAKE_PICK_LIST_ID,
+            salesInvoiceLineId = FAKE_INVOICE_LINE_ID,
+            stockItemId = FAKE_STOCK_ITEM_ID,
+            qtyRequested = 2.0,
+            qtyPicked = null,
+            oemPartNumber = "21410-JF00A",
+            description = "Radiator (demo)",
         ),
     )
 
@@ -216,6 +253,9 @@ class FakeRpcClient : RpcClient {
         ),
     )
 
+    /** Manual (non-blanket) PO id → status for preferred-supplier create/submit. */
+    private val manualPos = mutableMapOf<String, String>()
+
     private val customers = mutableListOf(
         CustomerOption(id = FAKE_CUSTOMER_ID, displayName = "Acme Motors (B2B)"),
         CustomerOption(id = FAKE_CUSTOMER_USER_ID, displayName = "Walk-in Sample"),
@@ -228,6 +268,8 @@ class FakeRpcClient : RpcClient {
             creditHold = false,
             openBalance = 1_250.0,
             currency = CurrencyCode.USD,
+            creditLimitMinor = 500_000L,
+            openBalanceMinor = 125_000L,
         ),
     )
 
@@ -309,6 +351,81 @@ class FakeRpcClient : RpcClient {
     ): String {
         require(employeeId.isNotBlank()) { "employeeId required for ${RpcNames.CLOCK_ATTENDANCE}" }
         return UUID.randomUUID().toString()
+    }
+
+    private val payrollLines = mutableListOf(
+        PayrollLineSummary(
+            id = FAKE_PAYROLL_LINE_ID,
+            employeeId = FAKE_EMPLOYEE_ID,
+            grossAmount = 500.0,
+            deductionsAmount = 25.0,
+            netAmount = 475.0,
+            currency = CurrencyCode.USD,
+            payrollRunId = FAKE_PAYROLL_RUN_ID,
+            hoursWorked = 40.0,
+        ),
+    )
+    private val payrollDeductions = mutableListOf(
+        PayrollDeductionSummary(
+            id = FAKE_PAYROLL_DED_ID,
+            payrollLineId = FAKE_PAYROLL_LINE_ID,
+            label = "Staff advance",
+            amount = 25.0,
+        ),
+    )
+    private val payrollDedSeq = AtomicInteger(2)
+
+    override suspend fun attendanceHoursInPeriod(
+        employeeId: String,
+        periodStart: String,
+        periodEnd: String,
+    ): Double {
+        require(employeeId.isNotBlank()) {
+            "employeeId required for ${RpcNames.ATTENDANCE_HOURS_IN_PERIOD}"
+        }
+        require(periodStart.isNotBlank() && periodEnd.isNotBlank()) {
+            "period start/end required for ${RpcNames.ATTENDANCE_HOURS_IN_PERIOD}"
+        }
+        return if (employeeId == FAKE_EMPLOYEE_ID) 40.0 else 8.0
+    }
+
+    override suspend fun listOpenPayrollLines(limit: Int): List<PayrollLineSummary> =
+        payrollLines.take(limit.coerceAtLeast(1))
+
+    override suspend fun listPayrollDeductions(payrollLineId: String): List<PayrollDeductionSummary> {
+        require(payrollLineId.isNotBlank())
+        return payrollDeductions.filter { it.payrollLineId == payrollLineId }
+    }
+
+    override suspend fun addPayrollDeduction(
+        payrollLineId: String,
+        label: String,
+        amount: Double,
+    ): String {
+        require(payrollLineId.isNotBlank()) {
+            "payrollLineId required for ${RpcNames.ADD_PAYROLL_DEDUCTION}"
+        }
+        require(label.isNotBlank()) { "label required for ${RpcNames.ADD_PAYROLL_DEDUCTION}" }
+        require(amount > 0) { "amount must be > 0" }
+        val idx = payrollLines.indexOfFirst { it.id == payrollLineId }
+        require(idx >= 0) { "payroll line not found" }
+        val prev = payrollLines[idx]
+        val newDed = prev.deductionsAmount + amount
+        require(newDed <= prev.grossAmount) { "deductions cannot exceed gross" }
+        val id = "00000000-0000-4000-8000-0000000000d${payrollDedSeq.getAndIncrement()}"
+        payrollDeductions.add(
+            PayrollDeductionSummary(
+                id = id,
+                payrollLineId = payrollLineId,
+                label = label.trim(),
+                amount = amount,
+            ),
+        )
+        payrollLines[idx] = prev.copy(
+            deductionsAmount = newDed,
+            netAmount = prev.grossAmount - newDed,
+        )
+        return id
     }
 
     override suspend fun createPosCart(
@@ -502,12 +619,23 @@ class FakeRpcClient : RpcClient {
     }
 
     override suspend fun listWarehouses(): List<WarehouseRef> = listOf(
+        // WH2 first so Fake defaults (bins / stock on FAKE_WAREHOUSE_ID) stay coherent.
         WarehouseRef(
             id = FAKE_WAREHOUSE_ID,
-            code = "MAIN",
-            name = "Main warehouse (Fake)",
+            code = "WH2",
+            name = "Storefloor warehouse (Fake)",
+            roleCode = "WH2",
+        ),
+        WarehouseRef(
+            id = "00000000-0000-4000-8000-0000000000w0",
+            code = "WH1",
+            name = "Receiving warehouse (Fake)",
+            roleCode = "WH1",
         ),
     )
+
+    override suspend fun listSaleableWarehouses(): List<WarehouseRef> =
+        listWarehouses().filter(::isPosSaleableWarehouse)
 
     override suspend fun createPosScanSession(cartId: String): PosScanSessionCreated {
         require(cartId.isNotBlank()) { "cartId required for ${RpcNames.CREATE_POS_SCAN_SESSION}" }
@@ -907,8 +1035,31 @@ class FakeRpcClient : RpcClient {
     override suspend fun listDeliveryNotes(): List<DeliveryNoteSummary> =
         deliveryNotes.toList()
 
+    override suspend fun listDeliveryJobs(limit: Int): List<DeliveryJobDeskSummary> =
+        deliveryJobs.entries
+            .map { (id, pair) ->
+                DeliveryJobDeskSummary(
+                    id = id,
+                    documentNumber = jobDocumentNumbers[id],
+                    deliveryNoteId = pair.first,
+                    status = pair.second,
+                    assigneeUserId = jobAssignees[id],
+                    createdAt = jobCreatedAt[id],
+                )
+            }
+            .sortedByDescending { it.createdAt ?: it.id }
+            .take(limit.coerceIn(1, 100))
+
     override suspend fun listPickLists(): List<PickListSummary> =
         pickLists.toList()
+
+    override suspend fun listDispatchInvoices(limit: Int): List<DispatchInvoiceSummary> =
+        dispatchInvoices.take(limit.coerceIn(1, 100))
+
+    override suspend fun listPickListLines(pickListId: String): List<PickListLineSummary> {
+        require(pickListId.isNotBlank())
+        return pickListLines.filter { it.pickListId == pickListId }
+    }
 
     override suspend fun createPickList(salesInvoiceId: String, linesJson: String?): String {
         require(salesInvoiceId.isNotBlank())
@@ -923,6 +1074,21 @@ class FakeRpcClient : RpcClient {
                 status = "draft",
             ),
         )
+        // Seed one open line so confirm-pick / DN desk demos without UUID paste.
+        val lineId = UUID.randomUUID().toString()
+        pickListLines.add(
+            0,
+            PickListLineSummary(
+                id = lineId,
+                pickListId = id,
+                salesInvoiceLineId = FAKE_INVOICE_LINE_ID,
+                stockItemId = FAKE_STOCK_ITEM_ID,
+                qtyRequested = 1.0,
+                qtyPicked = null,
+                oemPartNumber = "21410-JF00A",
+                description = "Radiator (demo)",
+            ),
+        )
         return id
     }
 
@@ -935,6 +1101,23 @@ class FakeRpcClient : RpcClient {
         if (idx >= 0) {
             val pl = pickLists[idx]
             pickLists[idx] = pl.copy(status = "done")
+        }
+        for (input in lines) {
+            val lineIdx = when {
+                !input.pickListLineId.isNullOrBlank() ->
+                    pickListLines.indexOfFirst {
+                        it.id == input.pickListLineId && it.pickListId == pickListId
+                    }
+                !input.salesInvoiceLineId.isNullOrBlank() ->
+                    pickListLines.indexOfFirst {
+                        it.salesInvoiceLineId == input.salesInvoiceLineId &&
+                            it.pickListId == pickListId
+                    }
+                else -> -1
+            }
+            if (lineIdx >= 0) {
+                pickListLines[lineIdx] = pickListLines[lineIdx].copy(qtyPicked = input.qtyPicked)
+            }
         }
         return pickListId
     }
@@ -995,6 +1178,11 @@ class FakeRpcClient : RpcClient {
         val id = UUID.randomUUID().toString()
         jobSeq.getAndIncrement()
         deliveryJobs[id] = deliveryNoteId to "pending"
+        jobDocumentNumbers[id] = "DJ-FAKE-%03d".format(jobSeq.get())
+        jobCreatedAt[id] = "2026-07-25T12:00:00Z"
+        if (!assigneeUserId.isNullOrBlank()) {
+            jobAssignees[id] = assigneeUserId
+        }
         // Demo default coords (Harare) so suggest + ETA demos work without extra steps
         jobCoords[id] = JobCoords(
             pickupLat = -17.8250,
@@ -1248,8 +1436,43 @@ class FakeRpcClient : RpcClient {
 
     override suspend fun listSuppliers(): List<SupplierRef> = suppliers.toList()
 
+    override suspend fun listPreferredSuppliers(): List<PreferredSupplierRef> =
+        suppliers.map {
+            PreferredSupplierRef(
+                id = it.id,
+                code = it.code,
+                name = it.name,
+                defaultCurrency = CurrencyCode.USD,
+            )
+        }
+
     override suspend fun listBlanketPurchaseOrders(): List<BlanketSummary> =
         blankets.sortedByDescending { it.documentNumber }
+
+    override suspend fun createPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        lines: List<BlanketLineInput>,
+        notes: String?,
+        expectedDate: String?,
+    ): String {
+        require(supplierId.isNotBlank())
+        require(warehouseId.isNotBlank())
+        require(lines.isNotEmpty()) { "purchase order lines required" }
+        if (currency == CurrencyCode.ZIG) {
+            require(exchangeRate > 0) { "positive exchange_rate required for ZIG" }
+        }
+        lines.forEach { line ->
+            require(line.stockItemId.isNotBlank() && line.uomId.isNotBlank())
+            require(line.qty > 0)
+            require(line.unitPrice >= 0)
+        }
+        val id = UUID.randomUUID().toString()
+        manualPos[id] = "draft"
+        return id
+    }
 
     override suspend fun createBlanketPurchaseOrder(
         supplierId: String,
@@ -1301,8 +1524,13 @@ class FakeRpcClient : RpcClient {
     override suspend fun submitPurchaseOrder(purchaseOrderId: String): String {
         require(purchaseOrderId.isNotBlank())
         val idx = blankets.indexOfFirst { it.id == purchaseOrderId }
-        require(idx >= 0) { "blanket PO not found" }
-        blankets[idx] = blankets[idx].copy(status = "submitted")
+        if (idx >= 0) {
+            blankets[idx] = blankets[idx].copy(status = "submitted")
+            return purchaseOrderId
+        }
+        require(manualPos.containsKey(purchaseOrderId)) { "PO not found" }
+        require(manualPos[purchaseOrderId] == "draft") { "PO must be draft to submit" }
+        manualPos[purchaseOrderId] = "submitted"
         return purchaseOrderId
     }
 
@@ -1556,6 +1784,11 @@ class FakeRpcClient : RpcClient {
         val updated = cur.copy(
             creditLimit = creditLimit ?: cur.creditLimit,
             creditHold = creditHold ?: cur.creditHold,
+            creditLimitMinor = if (creditLimit != null) {
+                MoneyDualRead.toAmountMinor(creditLimit, cur.currency)
+            } else {
+                cur.creditLimitMinor
+            },
         )
         customerCredit[customerId] = updated
         return updated
@@ -1828,6 +2061,232 @@ class FakeRpcClient : RpcClient {
         }
     }
 
+    // --- CRM product pages / kits ---
+
+    private val fakeProductPages = mutableListOf(
+        StaffProductPageRow(
+            stockItemId = FAKE_STOCK_ITEM_ID,
+            oemPartNumber = "21410-JF00A",
+            catalogTitle = "Radiator (demo)",
+            unitPrice = 185.0,
+            currency = "USD",
+            qtySaleable = 4.0,
+            discountKind = "none",
+            discountValue = 0.0,
+            discountDescription = null,
+            primaryImagePath = null,
+            imageCount = 0,
+        ),
+        StaffProductPageRow(
+            stockItemId = "00000000-0000-4000-8000-0000000000i2",
+            oemPartNumber = "15208-65F0C",
+            catalogTitle = "Oil filter (demo)",
+            unitPrice = 12.5,
+            currency = "USD",
+            qtySaleable = 40.0,
+            discountKind = "percent",
+            discountValue = 10.0,
+            discountDescription = "Spring filter promo",
+            primaryImagePath = "00000000-0000-4000-8000-0000000000i2/demo.jpg",
+            imageCount = 1,
+        ),
+    )
+
+    private val fakeProductImages = mutableMapOf<String, MutableList<StaffProductImage>>()
+    private val fakeKits = mutableListOf<StaffKitRow>()
+
+    override suspend fun listStaffProductPages(query: String?, limit: Int): List<StaffProductPageRow> {
+        val q = query?.trim()?.lowercase().orEmpty()
+        return fakeProductPages
+            .filter {
+                q.isEmpty() ||
+                    it.oemPartNumber.lowercase().contains(q) ||
+                    it.catalogTitle.lowercase().contains(q)
+            }
+            .take(limit.coerceIn(1, 200))
+    }
+
+    override suspend fun upsertStaffProductPage(
+        stockItemId: String,
+        unitPrice: Double,
+        discountKind: String,
+        discountValue: Double,
+        discountDescription: String?,
+    ): String {
+        require(stockItemId.isNotBlank())
+        require(unitPrice >= 0) { "unit price required" }
+        val idx = fakeProductPages.indexOfFirst { it.stockItemId == stockItemId }
+        val base = if (idx >= 0) fakeProductPages[idx] else StaffProductPageRow(
+            stockItemId = stockItemId,
+            oemPartNumber = "OEM-$stockItemId".take(20),
+            catalogTitle = "Item",
+            unitPrice = unitPrice,
+            currency = "USD",
+            qtySaleable = 0.0,
+            discountKind = "none",
+            discountValue = 0.0,
+            discountDescription = null,
+            primaryImagePath = null,
+            imageCount = 0,
+        )
+        val updated = base.copy(
+            unitPrice = unitPrice,
+            discountKind = discountKind.ifBlank { "none" },
+            discountValue = discountValue,
+            discountDescription = discountDescription,
+        )
+        if (idx >= 0) fakeProductPages[idx] = updated else fakeProductPages.add(updated)
+        return stockItemId
+    }
+
+    override suspend fun listStaffProductImages(stockItemId: String): List<StaffProductImage> =
+        fakeProductImages[stockItemId].orEmpty().sortedWith(
+            compareByDescending<StaffProductImage> { it.isPrimary }.thenBy { it.sortOrder },
+        )
+
+    override suspend fun registerStaffProductImage(
+        stockItemId: String,
+        storagePath: String,
+        asPrimary: Boolean,
+    ): String {
+        require(stockItemId.isNotBlank() && storagePath.isNotBlank())
+        val id = UUID.randomUUID().toString()
+        val list = fakeProductImages.getOrPut(stockItemId) { mutableListOf() }
+        if (asPrimary) {
+            list.replaceAll { it.copy(isPrimary = false) }
+        }
+        list.add(
+            StaffProductImage(
+                id = id,
+                storagePath = storagePath.trim(),
+                isPrimary = asPrimary || list.isEmpty(),
+                sortOrder = list.size,
+            ),
+        )
+        val pageIdx = fakeProductPages.indexOfFirst { it.stockItemId == stockItemId }
+        if (pageIdx >= 0) {
+            val primary = list.firstOrNull { it.isPrimary }?.storagePath
+            fakeProductPages[pageIdx] = fakeProductPages[pageIdx].copy(
+                primaryImagePath = primary,
+                imageCount = list.size,
+            )
+        }
+        return id
+    }
+
+    override suspend fun uploadStaffProductImage(
+        stockItemId: String,
+        localFilePath: String,
+        mimeType: String,
+        asPrimary: Boolean,
+    ): String {
+        val path = "$stockItemId/fake-${UUID.randomUUID()}.jpg"
+        return registerStaffProductImage(stockItemId, path, asPrimary)
+    }
+
+    override suspend fun setStaffProductPrimaryImage(imageId: String): String {
+        require(imageId.isNotBlank())
+        for ((itemId, list) in fakeProductImages) {
+            val hit = list.find { it.id == imageId } ?: continue
+            list.replaceAll { it.copy(isPrimary = it.id == imageId) }
+            val pageIdx = fakeProductPages.indexOfFirst { it.stockItemId == itemId }
+            if (pageIdx >= 0) {
+                fakeProductPages[pageIdx] = fakeProductPages[pageIdx].copy(
+                    primaryImagePath = hit.storagePath,
+                )
+            }
+            return imageId
+        }
+        error("image not found")
+    }
+
+    override suspend fun listStaffKits(): List<StaffKitRow> = fakeKits.toList()
+
+    override suspend fun listChassisOptions(): List<ChassisOption> = listOf(
+        ChassisOption("D40", "D40 — Navara"),
+        ChassisOption("R35", "R35 — GT-R"),
+        ChassisOption("T31", "T31 — X-Trail"),
+    )
+
+    override suspend fun searchStockItems(query: String, limit: Int): List<StockItemOption> {
+        val q = query.trim().lowercase()
+        require(q.isNotEmpty()) { "query required" }
+        return listOf(
+            StockItemOption(FAKE_STOCK_ITEM_ID, "21410-JF00A", "Radiator (demo)", FAKE_UOM_ID),
+            StockItemOption(
+                "00000000-0000-4000-8000-0000000000i2",
+                "15208-65F0C",
+                "Oil filter (demo)",
+                FAKE_UOM_ID,
+            ),
+            StockItemOption(
+                "00000000-0000-4000-8000-0000000000i3",
+                "16546-EB70A",
+                "Air cleaner (demo)",
+                FAKE_UOM_ID,
+            ),
+        ).filter {
+            it.oemPartNumber.lowercase().contains(q) ||
+                (it.description?.lowercase()?.contains(q) == true)
+        }.take(limit.coerceIn(1, 50))
+    }
+
+    override suspend fun createKitWithComponents(
+        oem: String,
+        title: String,
+        componentItemIds: List<String>,
+        chassisCode: String?,
+        qtys: List<Double>?,
+    ): String {
+        val kitOem = oem.trim()
+        val kitTitle = title.trim()
+        require(kitOem.isNotEmpty() && kitTitle.isNotEmpty())
+        val ids = componentItemIds.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        require(ids.size >= 2) { "kit requires at least 2 unique components" }
+        val kitId = UUID.randomUUID().toString()
+        val stockId = UUID.randomUUID().toString()
+        val comps = ids.mapIndexed { i, id ->
+            StaffKitComponent(
+                componentItemId = id,
+                oem = "OEM-${id.takeLast(4)}",
+                name = "Component ${i + 1}",
+                qty = qtys?.getOrNull(i) ?: 1.0,
+                uomId = FAKE_UOM_ID,
+            )
+        }
+        fakeKits.add(
+            0,
+            StaffKitRow(
+                kitId = kitId,
+                stockItemId = stockId,
+                oem = kitOem,
+                title = kitTitle,
+                sellMode = "explode",
+                isActive = true,
+                chassisCodes = listOfNotNull(chassisCode?.trim()?.takeIf { it.isNotEmpty() }),
+                components = comps,
+            ),
+        )
+        return kitId
+    }
+
+    override suspend fun updateItemKit(
+        kitId: String,
+        title: String?,
+        isActive: Boolean?,
+        sellMode: String?,
+    ): String {
+        val idx = fakeKits.indexOfFirst { it.kitId == kitId }
+        require(idx >= 0) { "kit not found" }
+        val cur = fakeKits[idx]
+        fakeKits[idx] = cur.copy(
+            title = title?.trim()?.takeIf { it.isNotEmpty() } ?: cur.title,
+            isActive = isActive ?: cur.isActive,
+            sellMode = sellMode?.trim()?.takeIf { it.isNotEmpty() } ?: cur.sellMode,
+        )
+        return kitId
+    }
+
     companion object {
         const val FAKE_STAFF_USER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
@@ -1837,6 +2296,7 @@ class FakeRpcClient : RpcClient {
         const val FAKE_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
         const val FAKE_SUPPLIER_ID = "00000000-0000-4000-8000-0000000000s1"
         const val FAKE_STOCK_ITEM_ID = "00000000-0000-4000-8000-0000000000i1"
+        const val FAKE_UOM_ID = "00000000-0000-4000-8000-0000000000u1"
         const val FAKE_BLANKET_ID = "00000000-0000-4000-8000-0000000000b1"
         const val FAKE_BLANKET_LINE_ID = "00000000-0000-4000-8000-0000000000bl"
         const val FAKE_BIN_A_ID = "00000000-0000-4000-8000-0000000000ba"
@@ -1848,6 +2308,15 @@ class FakeRpcClient : RpcClient {
         const val FAKE_HR_GRADE_ID_2 = "00000000-0000-4000-8000-0000000000hh"
         const val FAKE_HR_ROLE_ID = "00000000-0000-4000-8000-0000000000hr"
         const val FAKE_HR_ROLE_ID_2 = "00000000-0000-4000-8000-0000000000hs"
+        const val FAKE_EMPLOYEE_ID = "00000000-0000-4000-8000-0000000000e1"
+        const val FAKE_PAYROLL_RUN_ID = "00000000-0000-4000-8000-0000000000pr"
+        const val FAKE_PAYROLL_LINE_ID = "00000000-0000-4000-8000-0000000000pl"
+        const val FAKE_PAYROLL_DED_ID = "00000000-0000-4000-8000-0000000000pd"
+        const val FAKE_DISPATCH_INVOICE_ID = "00000000-0000-4000-8000-0000000000i1"
+        const val FAKE_INVOICE_LINE_ID = "00000000-0000-4000-8000-0000000000sil"
+        const val FAKE_PICK_LIST_ID = "00000000-0000-4000-8000-0000000000p1"
+        const val FAKE_PICK_LIST_LINE_ID = "00000000-0000-4000-8000-0000000000pll"
+        const val FAKE_UNASSIGNED_JOB_ID = "00000000-0000-4000-8000-0000000000uj"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"

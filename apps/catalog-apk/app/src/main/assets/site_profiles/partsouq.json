@@ -1,0 +1,25 @@
+{
+  "id": "partsouq",
+  "display_name": "PartSouq",
+  "engine": "partsouq",
+  "base_url": "https://partsouq.com",
+  "cloudflare": {
+    "mode": "auto",
+    "flaresolverr_url": "http://127.0.0.1:8191/v1"
+  },
+  "paths": {
+    "parts_hub": "/en/catalog",
+    "maker_hub": "/en/catalog/{maker_slug}",
+    "catalog_prefix": "/en/catalog",
+    "model": "/en/catalog/{maker_slug}/{model_slug}",
+    "variant": "/en/catalog/{maker_slug}/{model_slug}/{variant_slug}",
+    "section": "/en/catalog/{maker_slug}/{model_slug}/{variant_slug}/{section_slug}",
+    "maker_slug_map": {
+      "Nissan": "nissan"
+    }
+  },
+  "selectors": {
+    "preset": "partsouq_v1"
+  },
+  "rate_limit_seconds": 0.5
+}

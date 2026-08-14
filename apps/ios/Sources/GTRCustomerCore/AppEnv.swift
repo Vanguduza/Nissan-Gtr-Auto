@@ -40,6 +40,19 @@ public enum AppEnv {
         return raw.isEmpty ? "263770000000" : raw
     }
 
+    /// MapLibre render SoR (B-MAP-1 / H5-iOS). Default **true**.
+    /// Set `USE_MAPLIBRE=false` (or `0` / `no` / `off`) only for deprecated MapKit fallback.
+    public static var useMapLibre: Bool {
+        let raw = env("USE_MAPLIBRE").lowercased()
+        if raw.isEmpty { return true }
+        return !["0", "false", "no", "off"].contains(raw)
+    }
+
+    /// Optional self-hosted MapLibre style; empty → public demotiles (ops should replace).
+    public static var mapLibreStyleURL: String {
+        env("MAPLIBRE_STYLE_URL")
+    }
+
     /// Scheme `ProcessInfo` first, then generated Info.plist keys from `Config/Shared.xcconfig`.
     private static func env(_ key: String) -> String {
         if let fromProcess = ProcessInfo.processInfo.environment[key]?

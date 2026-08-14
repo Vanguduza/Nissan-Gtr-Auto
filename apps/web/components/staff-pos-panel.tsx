@@ -18,6 +18,9 @@ import {
   revokePosScanSession,
   searchPosCatalog,
   searchStockItems,
+  sumPosCartLinesMajor,
+  posLineTotalMajor,
+  posLineUnitPriceMajor,
   type CurrencyCode,
   type FulfillmentMode,
   type PartHit,
@@ -493,13 +496,15 @@ export function StaffPosPanel() {
   if (boot.warehouses.length === 0) {
     return (
       <p className={styles.muted}>
-        No saleable warehouses available. Activate a non-quarantine warehouse
-        before opening a POS cart.
+        No WH2 storefloor warehouses available for POS. Activate a WH2
+        (storefloor) warehouse — WH1 is receiving only and is not selectable
+        here.
       </p>
     );
   }
 
-  const lineTotal = lines.reduce((sum, l) => sum + Number(l.line_total), 0);
+  const currency = (cart?.currency ?? "USD") as CurrencyCode;
+  const lineTotal = sumPosCartLinesMajor(lines, currency);
 
   return (
     <div className={styles.form}>
@@ -528,7 +533,7 @@ export function StaffPosPanel() {
         <form onSubmit={(e) => void onCreateCart(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
-              Warehouse
+              Warehouse (WH2 storefloor)
               <select
                 value={warehouseId}
                 onChange={(e) => setWarehouseId(e.target.value)}
@@ -537,6 +542,7 @@ export function StaffPosPanel() {
                 {boot.warehouses.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.code} — {w.name}
+                    {w.role_code === "WH2" ? " · storefloor" : ""}
                   </option>
                 ))}
               </select>
@@ -799,6 +805,10 @@ export function StaffPosPanel() {
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>4 · Optional phone companion</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Bridge-First QR only — pairing code for the management companion
+          scanner. No browser / HTML5 camera on this till.
+        </p>
         {pairing ? (
           <div style={{ marginBottom: "0.75rem" }}>
             <p
@@ -869,8 +879,8 @@ export function StaffPosPanel() {
                   ? ` — ${line.stock_items.description}`
                   : ""}
                 {line.is_core_charge ? " · core" : ""} · qty {line.qty} ·{" "}
-                {Number(line.unit_price).toFixed(2)} ×{" "}
-                {Number(line.line_total).toFixed(2)} {cart?.currency ?? ""}
+                {posLineUnitPriceMajor(line, currency).toFixed(2)} ×{" "}
+                {posLineTotalMajor(line, currency).toFixed(2)} {currency}
               </li>
             ))}
           </ul>

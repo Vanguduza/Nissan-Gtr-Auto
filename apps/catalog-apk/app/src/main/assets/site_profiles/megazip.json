@@ -1,0 +1,25 @@
+{
+  "id": "megazip",
+  "display_name": "Megazip",
+  "engine": "megazip",
+  "base_url": "https://www.megazip.net",
+  "cloudflare": {
+    "mode": "auto",
+    "flaresolverr_url": "http://127.0.0.1:8191/v1"
+  },
+  "paths": {
+    "parts_hub": "/parts",
+    "maker_hub": "/parts/{maker_slug}",
+    "catalog_prefix": "/zapchasti-dlya-avtomobilej",
+    "model": "/zapchasti-dlya-avtomobilej/{maker_slug}/{model_slug}",
+    "variant": "/zapchasti-dlya-avtomobilej/{maker_slug}/{model_slug}/{variant_slug}",
+    "section": "/zapchasti-dlya-avtomobilej/{maker_slug}/{model_slug}/{variant_slug}/{section_slug}",
+    "maker_slug_map": {
+      "Nissan": "nissan"
+    }
+  },
+  "selectors": {
+    "preset": "megazip_v1"
+  },
+  "rate_limit_seconds": 0.35
+}

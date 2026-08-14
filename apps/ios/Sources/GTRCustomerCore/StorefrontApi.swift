@@ -44,6 +44,9 @@ public protocol StorefrontApi: AnyObject {
     /// Official daily ZiG rate (ZiG per 1 USD) — mirrors web `fetchZigExchangeRate`.
     func fetchZigExchangeRate(asOf: String?) async throws -> Decimal
 
+    /// D-57: `daily_exchange_rates.id` for the ops row (null when fallback-only).
+    func fetchZigExchangeRateId(asOf: String?) async throws -> String?
+
     /// Active MAIN warehouse (or first non-quarantine) — mirrors web `resolveMainWarehouseId`.
     func resolveMainWarehouseId() async throws -> UUID
 
@@ -172,6 +175,8 @@ public protocol StorefrontApi: AnyObject {
     /// Browse PLP — stock_items + default USD price + saleable qty.
     func listCatalogBrowse(category: String?, limit: Int) async throws -> CatalogBrowseResult
 
+    /// Anon-safe home rails (`list_storefront_home_rails`); Fake always filled.
+
     /// Megazip hierarchy browse RPCs.
     func listCatalogMakers() async throws -> [EpcMaker]
     func listCatalogModels(makerSlug: String) async throws -> [EpcModel]
@@ -294,6 +299,10 @@ public final class FakeStorefrontApi: StorefrontApi {
                     total: 120,
                     amountPaid: 0,
                     amountOpen: 120,
+                    subtotalMinor: 12000,
+                    totalMinor: 12000,
+                    amountPaidMinor: 0,
+                    amountOpenMinor: 12000,
                     deliveryNoteStatus: "submitted",
                     activeDeliveryJobId: jobId
                 ),
@@ -441,6 +450,9 @@ public final class FakeStorefrontApi: StorefrontApi {
                 description: "Demo line",
                 qty: qty,
                 unitPrice: 42.5,
+                unitPriceMinor: 4250,
+                lineTotal: 42.5 * qty,
+                lineTotalMinor: try? MoneyDualRead.toAmountMinor(42.5 * qty, currency: open.currency),
                 currency: open.currency
             )
         )
@@ -453,7 +465,16 @@ public final class FakeStorefrontApi: StorefrontApi {
             throw StorefrontError.message("Open cart not found.")
         }
         let invoiceId = UUID()
-        let subtotal = open.lines.reduce(Decimal(0)) { $0 + ($1.unitPrice * $1.qty) }
+        let subtotal = open.displaySubtotal()
+        let subtotalMinor = try? MoneyDualRead.sumPreferAmountMinor(
+            rows: open.lines.map {
+                (
+                    amountMinor: $0.lineTotalMinor,
+                    amountMajor: $0.lineTotal ?? ($0.unitPrice * $0.qty)
+                )
+            },
+            currency: open.currency
+        )
         orders.insert(
             CustomerOrder(
                 invoiceId: invoiceId,
@@ -466,6 +487,10 @@ public final class FakeStorefrontApi: StorefrontApi {
                 total: subtotal,
                 amountPaid: 0,
                 amountOpen: subtotal,
+                subtotalMinor: subtotalMinor,
+                totalMinor: subtotalMinor,
+                amountPaidMinor: 0,
+                amountOpenMinor: subtotalMinor,
                 cartId: cartId,
                 postedAt: Date()
             ),
@@ -481,6 +506,10 @@ public final class FakeStorefrontApi: StorefrontApi {
 
     public func fetchZigExchangeRate(asOf _: String?) async throws -> Decimal {
         26.5
+    }
+
+    public func fetchZigExchangeRateId(asOf _: String?) async throws -> String? {
+        "00000000-0000-4000-8000-0000000000fx"
     }
 
     public func resolveMainWarehouseId() async throws -> UUID {
@@ -669,7 +698,7 @@ public final class FakeStorefrontApi: StorefrontApi {
         }
     }
 
-    /// Single last-point only — nudges coords so MapKit preview looks live (never a trail).
+    /// Single last-point only — nudges coords so map preview looks live (never a trail).
     private func nudgeDemoTrackPoint() -> DeliveryTrackPoint? {
         guard var point = demoTrackPoint else { return nil }
         let delta = 0.00018
@@ -1059,17 +1088,32 @@ public final class FakeStorefrontApi: StorefrontApi {
             }
             .prefix(cap)
             .map {
-                CatalogListItem(
+                let qty: Decimal = {
+                    switch $0.stock {
+                    case .inStock: return 12
+                    case .low: return 2
+                    case .backorder: return 0
+                    }
+                }()
+                return CatalogListItem(
                     stockItemId: $0.stockItemId,
                     oem: $0.oem,
                     name: $0.name,
                     stock: $0.stock,
                     usd: $0.usd,
-                    category: $0.category
+                    category: $0.category,
+                    qty: qty
                 )
+            }
+            .filter {
+                guard let q = $0.qty, let usd = $0.usd else { return false }
+                return NSDecimalNumber(decimal: q).doubleValue > 0
+                    && NSDecimalNumber(decimal: usd).doubleValue > 0
             }
         return CatalogBrowseResult(items: Array(items), categories: ["Filters", "Brakes", "Engine"])
     }
+
+
 
     public func listCatalogMakers() async throws -> [EpcMaker] {
         [EpcMaker(slug: "nissan", name: "Nissan", modelCount: 2)]

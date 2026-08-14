@@ -17,6 +17,13 @@ from app.services.cart_service import (
     calculate_cart,
     create_pending_order,
 )
+from app.services.checkout_display import (
+    CheckoutDisplayError,
+    build_checkout_display,
+    payable_amount_label,
+    usd_major_to_minor,
+)
+from app.services.fx_rates import fetch_daily_zig_rate
 from app.services.meta_client import MetaClient
 from app.api.v1.ecocash_webhook import push_ecocash_for_order
 from app.core.supabase_client import get_supabase
@@ -213,6 +220,53 @@ def handle_flow_action(decrypted: dict[str, Any]) -> dict[str, Any]:
                     },
                 )
 
+        # D-57: browse USD; ZiG only at EcoCash settle with ops rate + fx_rate_id.
+        usd_minor = usd_major_to_minor(float(quote.total))
+        zig_rate: float | None = None
+        fx_rate_id: str | None = None
+        if payment_provider == "ecocash":
+            daily = fetch_daily_zig_rate()
+            if daily is None:
+                return _screen(
+                    "CHECKOUT",
+                    {
+                        "part_ids": [str(p) for p in part_ids],
+                        "delivery_method": delivery,
+                        "delivery_notes": str(data.get("delivery_notes") or ""),
+                        "payment_method": "ecocash",
+                        "error_message": (
+                            "Daily ZiG rate required for EcoCash checkout. "
+                            "Try again after finance sets today's rate."
+                        ),
+                    },
+                )
+            zig_rate = daily.rate
+            fx_rate_id = daily.fx_rate_id
+        else:
+            # Optional indicative ZiG for USD rails (Paynow/ContiPay) — never invents pay.
+            daily = fetch_daily_zig_rate()
+            if daily is not None:
+                zig_rate = daily.rate
+
+        try:
+            display = build_checkout_display(
+                usd_minor=usd_minor,
+                pay_method=payment_provider if payment_provider != "stub" else "paynow",
+                zig_rate_per_usd=zig_rate,
+                fx_rate_id=fx_rate_id if payment_provider == "ecocash" else None,
+            )
+        except CheckoutDisplayError as exc:
+            return _screen(
+                "CHECKOUT",
+                {
+                    "part_ids": [str(p) for p in part_ids],
+                    "delivery_method": delivery,
+                    "delivery_notes": str(data.get("delivery_notes") or ""),
+                    "payment_method": payment_provider,
+                    "error_message": str(exc),
+                },
+            )
+
         order = create_pending_order(
             quote=quote,
             wa_id=str(wa_id) if wa_id else None,
@@ -221,8 +275,9 @@ def handle_flow_action(decrypted: dict[str, Any]) -> dict[str, Any]:
             payment_provider=payment_provider,
             ecocash_payer_mode=payer_mode,
             ecocash_payer_msisdn=payer_msisdn,
+            checkout_display=display,
         )
-        amount_label = f"{order['currency']} {float(order['total']):.2f}"
+        amount_label = payable_amount_label(display)
         side: dict[str, Any]
         if payment_provider == "ecocash":
             side = {

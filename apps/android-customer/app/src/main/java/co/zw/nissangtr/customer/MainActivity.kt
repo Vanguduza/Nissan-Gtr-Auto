@@ -206,7 +206,10 @@ class MainActivity : ComponentActivity() {
         )
         val supabase = rpc as? SupabaseRpcClient
         liveSupabase = supabase
-        val mapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
+        val useMapLibre = BuildConfig.USE_MAPLIBRE
+        val googleMapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
+        // MapLibre SoR needs no Google key; key only gates deprecated Google fallback.
+        val mapPickerAvailable = useMapLibre || googleMapsKeyPresent
         val googleServerClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
         val prefs = CustomerPrefs(this)
         applyTrackIntent(intent)
@@ -256,7 +259,9 @@ class MainActivity : ComponentActivity() {
                                     prefs.themeMode = it
                                 },
                                 whatsappE164 = BuildConfig.WHATSAPP_E164,
-                                mapsKeyPresent = mapsKeyPresent,
+                                mapsKeyPresent = mapPickerAvailable,
+                                useMapLibre = useMapLibre,
+                                googleMapsKeyPresent = googleMapsKeyPresent,
                                 trackLaunch = launch,
                                 partsLaunch = parts,
                                 camera = cameraBridge,
@@ -401,6 +406,8 @@ private fun CustomerApp(
     onThemeModeChange: (ThemeMode) -> Unit,
     whatsappE164: String,
     mapsKeyPresent: Boolean,
+    useMapLibre: Boolean = true,
+    googleMapsKeyPresent: Boolean = false,
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
     partsLaunch: PartsLaunchArgs = PartsLaunchArgs(),
     camera: PodCameraBridge?,
@@ -642,6 +649,8 @@ private fun CustomerApp(
                 onSignIn = { overlay = ShellOverlay.SignIn },
                 whatsappE164 = whatsappE164,
                 mapsKeyPresent = mapsKeyPresent,
+                useMapLibre = useMapLibre,
+                googleMapsKeyPresent = googleMapsKeyPresent,
                 trackToken = trackToken,
                 trackJobId = trackJobId,
                 trackSession = trackSession,
@@ -798,6 +807,8 @@ private fun ProfileStack(
     onSignIn: () -> Unit,
     whatsappE164: String,
     mapsKeyPresent: Boolean,
+    useMapLibre: Boolean = true,
+    googleMapsKeyPresent: Boolean = false,
     trackToken: String?,
     trackJobId: String?,
     trackSession: Int,
@@ -842,6 +853,8 @@ private fun ProfileStack(
         ProfileDest.Addresses -> AddressScreen(
             rpc = rpc,
             mapsKeyPresent = mapsKeyPresent,
+            useMapLibre = useMapLibre,
+            googleMapsKeyPresent = googleMapsKeyPresent,
             onBack = { onDest(ProfileDest.Hub) },
         )
         ProfileDest.Compare -> CompareScreen(

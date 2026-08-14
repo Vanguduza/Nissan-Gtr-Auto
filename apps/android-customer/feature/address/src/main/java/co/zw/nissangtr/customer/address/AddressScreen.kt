@@ -31,7 +31,8 @@ import co.zw.nissangtr.ui.shop.ShopSectionHeader
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 
 /**
- * Shipping addresses — list / upsert / delete + optional Google Maps pick (Bridge-First maps-nav).
+ * Shipping addresses — list / upsert / delete + MapLibre pin pick (Bridge-First maps-nav, B-MAP-1).
+ * Google Maps is deprecated fallback only when MapLibre is off/fails and a key is present.
  * Wired to [RpcNames.UPSERT_CUSTOMER_ADDRESS] / [RpcNames.DELETE_CUSTOMER_ADDRESS].
  */
 @Composable
@@ -40,6 +41,8 @@ fun AddressScreen(
     mapsKeyPresent: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    useMapLibre: Boolean = true,
+    googleMapsKeyPresent: Boolean = false,
     viewModel: AddressViewModel = viewModel(factory = AddressViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
@@ -56,7 +59,7 @@ fun AddressScreen(
         when (state.route) {
             AddressScreenRoute.List -> {
                 Text(
-                    "Map pick stores lat/lng with the address (Bridge-First maps-nav).",
+                    "Map pick stores lat/lng with the address (MapLibre SoR via Bridge-First maps-nav).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -102,6 +105,8 @@ fun AddressScreen(
                     busy = state.busy,
                     error = state.error,
                     mapsKeyPresent = mapsKeyPresent,
+                    useMapLibre = useMapLibre,
+                    googleMapsKeyPresent = googleMapsKeyPresent,
                     onBack = viewModel::backToList,
                     onFormChange = viewModel::onFormChange,
                     onMapPick = viewModel::onMapPick,
@@ -156,6 +161,8 @@ private fun AddressEditForm(
     busy: Boolean,
     error: String?,
     mapsKeyPresent: Boolean,
+    useMapLibre: Boolean,
+    googleMapsKeyPresent: Boolean,
     onBack: () -> Unit,
     onFormChange: ((AddressFormState) -> AddressFormState) -> Unit,
     onMapPick: (Double, Double) -> Unit,
@@ -184,7 +191,8 @@ private fun AddressEditForm(
             AddressPickMap(
                 selected = selected,
                 onPick = { p -> onMapPick(p.latitude, p.longitude) },
-                mapsKeyPresent = mapsKeyPresent,
+                mapsKeyPresent = googleMapsKeyPresent,
+                useMapLibre = useMapLibre,
             )
         },
     )

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { CatalogCanvasStub } from "@/components/catalog-canvas-stub";
 import { HomeMerch } from "@/components/home-merch";
 import { StorefrontHero } from "@/components/hero";
 import {
@@ -7,12 +6,9 @@ import {
   Car,
   iconSizeMd,
   iconStroke,
-  Images,
   Package,
-  Search,
   type LucideIcon,
 } from "@/components/icons";
-import { SearchFourWay } from "@/components/search-four-way";
 import styles from "./page.module.css";
 
 function SectionHeading({
@@ -44,30 +40,6 @@ export default function HomePage() {
     <>
       <StorefrontHero />
       <HomeMerch />
-
-      <section className={styles.section} aria-labelledby="search-heading">
-        <div className={styles.band}>
-          <SectionHeading
-            id="search-heading"
-            Icon={Search}
-            title="Four-way parts search"
-            lede="Part number, VIN, model, or PNC — same contract as the header search."
-          />
-          <SearchFourWay />
-        </div>
-      </section>
-
-      <section className={styles.sectionAlt} aria-labelledby="catalog-heading">
-        <div className={styles.band}>
-          <SectionHeading
-            id="catalog-heading"
-            Icon={Images}
-            title="Visual catalog"
-            lede="FAST diagrams from catalog-diagrams when uploaded; otherwise the pipeline gap is shown until part_fitment.diagram_path is seeded."
-          />
-          <CatalogCanvasStub sample />
-        </div>
-      </section>
 
       <section className={styles.section} aria-labelledby="kits-heading">
         <div className={styles.band}>

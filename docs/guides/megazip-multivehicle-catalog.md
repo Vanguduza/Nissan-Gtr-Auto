@@ -18,13 +18,25 @@ Search remains via `search_catalog`; hierarchy browse via new RPCs (`list_catalo
 
 | Phase | Network? | Re-runnable | Purpose |
 |-------|----------|-------------|---------|
-| `crawl` | Yes | Skip with `--skip-crawl` | Cache HTML under `out/megazip/<slug>/cache/` |
-| `parse` | No | Yes | Re-parse cache → SQLite `parsed_pages` |
-| `transform` | No | Yes | Build hierarchy JSON bundle |
+| `crawl` | Yes | Skip with `--skip-crawl` | Fetch + **inline parse** → `parsed_pages`; HTML dropped by default |
+| `parse` | No | Yes | Re-parse any leftover cache → SQLite; prunes finished models |
+| `transform` | No | Yes | Build hierarchy JSON bundle from `parsed_pages` |
 | `pcdb` | No | Yes | Additive `pcdb_part_type_id` from `config/epc_to_pcdb.json` |
 | `filter` | No | Yes | `--complete-only` + `quality_report.json` |
 | `upload` | Yes | Yes | Download **all** diagram PNGs to `diagrams/` |
 | `import` | Yes (Supabase) | Yes | Hierarchy tables + fitment + `stock_items` |
+
+### Streamlined crawl (default)
+
+Avoids huge HTML dumps before a usable chassis slice exists:
+
+1. **Shallow first** — hub → models → variant lists (discovery only).
+2. **Chassis-deep** — drain `section_list` + `diagram` for **one chassis at a time**, then the next (`--chassis-deep-first`, default on).
+3. **Parse-and-drop** — each page is parsed into SQLite during crawl; HTML is deleted when the parse looks complete. **Weak parses auto-retain HTML** (empty sections, thin exploded diagrams, missing chassis on variants) — no manual keep toggle.
+4. **Chassis prune** — when a focus chassis deep queue empties, leftover deep HTML for that chassis is pruned (parsed rows only).
+5. **Attrs audit (automatic)** — filter phase writes `attrs_audit.json` (engine/year/chassis/category coverage). Missing chassis blocks strict live import; missing engine is reported but not blocking (Megazip often omits it).
+
+Opt out: `--no-chassis-deep-first`, `--keep-html-cache` (force retain all HTML), `--no-prune-html-cache`.
 
 ```bash
 cd data-pipeline

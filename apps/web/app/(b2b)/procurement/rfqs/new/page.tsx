@@ -9,10 +9,11 @@ export default function NewRfqPage() {
     <div className={styles.shell}>
       <ProcurementNav current="/procurement/rfqs/new" />
       <div className={styles.panel}>
-        <h1 className={styles.title}>New RFQ</h1>
+        <h1 className={styles.title}>New RFQ (optional)</h1>
         <p className={styles.lede}>
-          Creates a draft via <code>create_rfq</code>. Submit from the detail
-          page when ready to invite pricing.
+          Spot-buy only — creates a draft via <code>create_rfq</code>. This does
+          not replace the preferred supplier roster. Submit from the detail page
+          when ready to invite pricing.
         </p>
         <StaffRfqCreate />
       </div>

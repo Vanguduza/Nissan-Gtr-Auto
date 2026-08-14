@@ -4,8 +4,33 @@ import type { Database } from "./database.types";
 /** Edge function path (relative to Supabase project URL). */
 export const CATALOG_SEARCH_MEILI_FN = "catalog-search-meili" as const;
 
+/**
+ * Meili is a **discovery index only** (E6 / Stock/WMS §8).
+ * Qty / availability / saleable stock MUST come from Postgres (`stock_levels` /
+ * saleable RPCs) — never from Meili documents or search hit payloads.
+ * Storefront/POS: join stock SoR after search; do not display hit.qty from Meili.
+ */
+export const MEILI_IS_DISCOVERY_INDEX_ONLY = true as const;
+
+/** Keys that must never ride on catalog search hits (Meili or untrusted JSON). */
+export const FORBIDDEN_SEARCH_INVENTORY_KEYS = [
+  "qty",
+  "quantity",
+  "qty_on_hand",
+  "on_hand",
+  "saleable_qty",
+  "availability",
+  "in_stock",
+  "stock",
+  "stock_qty",
+  "qty_wh1",
+  "qty_wh2",
+  "qty_total",
+] as const;
+
 export type SearchMode = "part" | "vin" | "model" | "pnc";
 
+/** Catalog identity hit — no inventory fields (Postgres stock SoR owns qty). */
 export type PartHit = {
   type: "part";
   oem_part_number: string;
@@ -98,7 +123,7 @@ export async function searchCatalogMeili(
   if (!parsed) {
     return searchCatalogFts(client, args.mode, trimmed);
   }
-  return { ok: true, data: parsed };
+  return { ok: true, data: { ...parsed, backend: parsed.backend ?? "meili" } };
 }
 
 /** Direct Postgres FTS — interim / offline fallback. */
@@ -121,12 +146,93 @@ export async function searchCatalogFts(
   return { ok: true, data: { ...parsed, backend: "fts" } };
 }
 
+/**
+ * Dual-read catalog search (E6): prefer Meili Edge, fall back to Postgres FTS.
+ * Default for storefront/POS when `preferMeili` is true (production default).
+ *
+ * Call-site (storefront / POS): treat results as identity + facets only.
+ * Fetch saleable qty from Postgres stock SoR before showing availability.
+ */
+export async function searchCatalog(
+  client: SupabaseClient<Database>,
+  args: CatalogSearchArgs & { preferMeili?: boolean },
+): Promise<
+  | { ok: true; data: SearchCatalogResponse }
+  | { ok: false; error: string }
+> {
+  const prefer = args.preferMeili !== false;
+  if (prefer) {
+    return searchCatalogMeili(client, args);
+  }
+  return searchCatalogFts(client, args.mode, args.query);
+}
+
+/**
+ * Strip inventory/availability keys from search hits (thinnest SoR guard).
+ * Meili must never invent qty; re-hydrate from Postgres elsewhere if UI needs stock.
+ */
+export function stripInventedAvailabilityFromResults(
+  results: unknown[],
+): SearchResult[] {
+  const out: SearchResult[] = [];
+  for (const raw of results) {
+    const cleaned = stripInventedAvailabilityFromHit(raw);
+    if (cleaned) out.push(cleaned);
+  }
+  return out;
+}
+
+export function stripInventedAvailabilityFromHit(
+  raw: unknown,
+): SearchResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = omitForbiddenInventoryKeys(raw as Record<string, unknown>);
+  const type = obj.type;
+  if (type === "part") {
+    return obj as PartHit;
+  }
+  if (type === "vehicle" || type === "pnc") {
+    if (Array.isArray(obj.fitments)) {
+      obj.fitments = obj.fitments
+        .map((f) => stripInventedAvailabilityFromHit(f))
+        .filter((f): f is PartHit => f != null && f.type === "part");
+    }
+    return obj as SearchResult;
+  }
+  return null;
+}
+
+/** True when any forbidden inventory key is still present (incl. nested fitments). */
+export function searchHitHasInventedAvailability(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const obj = raw as Record<string, unknown>;
+  for (const key of FORBIDDEN_SEARCH_INVENTORY_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) return true;
+  }
+  if (Array.isArray(obj.fitments)) {
+    return obj.fitments.some((f) => searchHitHasInventedAvailability(f));
+  }
+  return false;
+}
+
+function omitForbiddenInventoryKeys(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...obj };
+  for (const key of FORBIDDEN_SEARCH_INVENTORY_KEYS) {
+    delete out[key];
+  }
+  return out;
+}
+
 function parseSearchCatalogResponse(raw: unknown): SearchCatalogResponse | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
   const mode = typeof obj.mode === "string" ? obj.mode : "";
   const query = typeof obj.query === "string" ? obj.query : "";
-  const results = Array.isArray(obj.results) ? (obj.results as SearchResult[]) : [];
+  const results = Array.isArray(obj.results)
+    ? stripInventedAvailabilityFromResults(obj.results)
+    : [];
   if (!isSearchMode(mode)) return null;
   return {
     mode,
@@ -138,6 +244,13 @@ function parseSearchCatalogResponse(raw: unknown): SearchCatalogResponse | null 
         ? (obj.facetDistribution as Record<string, Record<string, number>>)
         : undefined,
   };
+}
+
+/** Exported for unit/contract tests — same sanitize path as live parse. */
+export function parseSearchCatalogResponseForTest(
+  raw: unknown,
+): SearchCatalogResponse | null {
+  return parseSearchCatalogResponse(raw);
 }
 
 const MODES: SearchMode[] = ["part", "vin", "model", "pnc"];
@@ -163,6 +276,8 @@ export type LoyaltyBalance = {
   currency: Database["public"]["Enums"]["currency_code"];
   liability_per_point: number;
   estimated_liability: number;
+  /** B-MONEY-1 dual-read; prefer when present. */
+  estimated_liability_minor?: number | null;
 };
 
 /** Returns — mirrors web requestReturnCreditNote. */

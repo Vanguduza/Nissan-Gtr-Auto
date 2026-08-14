@@ -53,6 +53,12 @@ public struct CartLineSummary: Identifiable, Sendable, Equatable {
     public var description: String?
     public var qty: Decimal
     public var unitPrice: Decimal
+    /// H4 dual-write minor when API/DB returns `unit_price_minor`.
+    public var unitPriceMinor: Int64?
+    /// Major line total when selected (`line_total`); else UI may use `unitPrice * qty`.
+    public var lineTotal: Decimal?
+    /// H4 dual-write minor when API/DB returns `line_total_minor`.
+    public var lineTotalMinor: Int64?
     public var currency: StorefrontCurrency
 
     public init(
@@ -62,6 +68,9 @@ public struct CartLineSummary: Identifiable, Sendable, Equatable {
         description: String? = nil,
         qty: Decimal,
         unitPrice: Decimal,
+        unitPriceMinor: Int64? = nil,
+        lineTotal: Decimal? = nil,
+        lineTotalMinor: Int64? = nil,
         currency: StorefrontCurrency
     ) {
         self.id = id
@@ -70,6 +79,9 @@ public struct CartLineSummary: Identifiable, Sendable, Equatable {
         self.description = description
         self.qty = qty
         self.unitPrice = unitPrice
+        self.unitPriceMinor = unitPriceMinor
+        self.lineTotal = lineTotal
+        self.lineTotalMinor = lineTotalMinor
         self.currency = currency
     }
 }
@@ -88,6 +100,11 @@ public struct CustomerOrder: Identifiable, Sendable, Equatable {
     public var total: Decimal
     public var amountPaid: Decimal
     public var amountOpen: Decimal
+    /// Forward-compat H4 header minors (invoice header dual-write not required yet).
+    public var subtotalMinor: Int64?
+    public var totalMinor: Int64?
+    public var amountPaidMinor: Int64?
+    public var amountOpenMinor: Int64?
     public var cartId: UUID?
     public var postedAt: Date?
     public var pickListStatus: String?
@@ -107,6 +124,10 @@ public struct CustomerOrder: Identifiable, Sendable, Equatable {
         total: Decimal = 0,
         amountPaid: Decimal = 0,
         amountOpen: Decimal = 0,
+        subtotalMinor: Int64? = nil,
+        totalMinor: Int64? = nil,
+        amountPaidMinor: Int64? = nil,
+        amountOpenMinor: Int64? = nil,
         cartId: UUID? = nil,
         postedAt: Date? = nil,
         pickListStatus: String? = nil,
@@ -124,6 +145,10 @@ public struct CustomerOrder: Identifiable, Sendable, Equatable {
         self.total = total
         self.amountPaid = amountPaid
         self.amountOpen = amountOpen
+        self.subtotalMinor = subtotalMinor
+        self.totalMinor = totalMinor
+        self.amountPaidMinor = amountPaidMinor
+        self.amountOpenMinor = amountOpenMinor
         self.cartId = cartId
         self.postedAt = postedAt
         self.pickListStatus = pickListStatus

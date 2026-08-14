@@ -117,6 +117,72 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun attendanceHoursInPeriod(
+        employeeId: String,
+        periodStart: String,
+        periodEnd: String,
+    ): Double {
+        require(employeeId.isNotBlank())
+        require(periodStart.isNotBlank() && periodEnd.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.ATTENDANCE_HOURS_IN_PERIOD,
+            buildJsonObject {
+                put("p_employee_id", employeeId)
+                put("p_period_start", periodStart)
+                put("p_period_end", periodEnd)
+            },
+        ).decodeAs<Double>()
+    }
+
+    override suspend fun listOpenPayrollLines(limit: Int): List<PayrollLineSummary> =
+        client.from("payroll_lines")
+            .select(
+                Columns.list(
+                    "id",
+                    "employee_id",
+                    "gross_amount",
+                    "deductions_amount",
+                    "net_amount",
+                    "currency",
+                    "payroll_run_id",
+                    "hours_worked",
+                ),
+            ) {
+                order("created_at", Order.DESCENDING)
+                limit(limit.coerceIn(1, 100).toLong())
+            }
+            .decodeList<PayrollLineRow>()
+            .map { it.toSummary() }
+
+    override suspend fun listPayrollDeductions(payrollLineId: String): List<PayrollDeductionSummary> {
+        require(payrollLineId.isNotBlank())
+        return client.from("payroll_deduction_lines")
+            .select(Columns.list("id", "payroll_line_id", "label", "amount")) {
+                filter { eq("payroll_line_id", payrollLineId) }
+                order("created_at", Order.ASCENDING)
+            }
+            .decodeList<PayrollDeductionRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun addPayrollDeduction(
+        payrollLineId: String,
+        label: String,
+        amount: Double,
+    ): String {
+        require(payrollLineId.isNotBlank())
+        require(label.isNotBlank())
+        require(amount > 0)
+        return client.postgrest.rpc(
+            RpcNames.ADD_PAYROLL_DEDUCTION,
+            buildJsonObject {
+                put("p_payroll_line_id", payrollLineId)
+                put("p_label", label.trim())
+                put("p_amount", amount)
+            },
+        ).decodeAs<String>()
+    }
+
     override suspend fun createPosCart(
         warehouseId: String,
         currency: CurrencyCode,
@@ -430,7 +496,9 @@ class SupabaseRpcClient(
                     "stock_item_id",
                     "qty",
                     "unit_price",
+                    "unit_price_minor",
                     "line_total",
+                    "line_total_minor",
                     "is_core_charge",
                 ),
             ) {
@@ -464,6 +532,8 @@ class SupabaseRpcClient(
                 unitPrice = row.unitPrice,
                 lineTotal = row.lineTotal,
                 isCoreCharge = row.isCoreCharge,
+                unitPriceMinor = row.unitPriceMinor,
+                lineTotalMinor = row.lineTotalMinor,
             )
         }
     }
@@ -482,12 +552,44 @@ class SupabaseRpcClient(
 
     override suspend fun listWarehouses(): List<WarehouseRef> =
         client.from("warehouses")
-            .select(Columns.list("id", "code", "name")) {
+            .select(
+                Columns.list(
+                    "id",
+                    "code",
+                    "name",
+                    "role_code",
+                    "is_quarantine",
+                    "is_active",
+                ),
+            ) {
                 order("code", Order.ASCENDING)
                 limit(50)
             }
             .decodeList<WarehouseRow>()
-            .map { WarehouseRef(id = it.id, code = it.code, name = it.name) }
+            .map { it.toWarehouseRef() }
+
+    override suspend fun listSaleableWarehouses(): List<WarehouseRef> =
+        client.from("warehouses")
+            .select(
+                Columns.list(
+                    "id",
+                    "code",
+                    "name",
+                    "role_code",
+                    "is_quarantine",
+                    "is_active",
+                ),
+            ) {
+                filter {
+                    eq("is_active", true)
+                    eq("is_quarantine", false)
+                }
+                order("code", Order.ASCENDING)
+                limit(50)
+            }
+            .decodeList<WarehouseRow>()
+            .map { it.toWarehouseRef() }
+            .filter(::isPosSaleableWarehouse)
 
     override suspend fun createPosScanSession(cartId: String): PosScanSessionCreated {
         require(cartId.isNotBlank())
@@ -1038,6 +1140,33 @@ class SupabaseRpcClient(
                 )
             }
 
+    override suspend fun listDeliveryJobs(limit: Int): List<DeliveryJobDeskSummary> =
+        client.from("delivery_jobs")
+            .select(
+                Columns.list(
+                    "id",
+                    "document_number",
+                    "delivery_note_id",
+                    "status",
+                    "assignee_user_id",
+                    "created_at",
+                ),
+            ) {
+                order("created_at", Order.DESCENDING)
+                limit(limit.coerceIn(1, 100).toLong())
+            }
+            .decodeList<DeliveryJobDeskRow>()
+            .map {
+                DeliveryJobDeskSummary(
+                    id = it.id,
+                    documentNumber = it.documentNumber,
+                    deliveryNoteId = it.deliveryNoteId,
+                    status = it.status,
+                    assigneeUserId = it.assigneeUserId,
+                    createdAt = it.createdAt,
+                )
+            }
+
     override suspend fun listPickLists(): List<PickListSummary> =
         client.from("pick_lists")
             .select(
@@ -1060,6 +1189,80 @@ class SupabaseRpcClient(
                     status = it.status,
                 )
             }
+
+    override suspend fun listDispatchInvoices(limit: Int): List<DispatchInvoiceSummary> =
+        client.from("sales_invoices")
+            .select(
+                Columns.list(
+                    "id",
+                    "document_number",
+                    "status",
+                    "fulfillment_mode",
+                    "created_at",
+                ),
+            ) {
+                filter {
+                    eq("doc_type", "invoice")
+                    eq("status", "posted")
+                    eq("fulfillment_mode", "dispatch")
+                }
+                order("created_at", Order.DESCENDING)
+                limit(limit.coerceIn(1, 100).toLong())
+            }
+            .decodeList<DispatchInvoiceRow>()
+            .map {
+                DispatchInvoiceSummary(
+                    id = it.id,
+                    documentNumber = it.documentNumber ?: it.id.take(8),
+                    status = it.status,
+                    fulfillmentMode = it.fulfillmentMode ?: "dispatch",
+                    createdAt = it.createdAt ?: "",
+                )
+            }
+
+    override suspend fun listPickListLines(pickListId: String): List<PickListLineSummary> {
+        require(pickListId.isNotBlank())
+        val lines = client.from("pick_list_lines")
+            .select(
+                Columns.list(
+                    "id",
+                    "pick_list_id",
+                    "sales_invoice_line_id",
+                    "stock_item_id",
+                    "qty_requested",
+                    "qty_picked",
+                ),
+            ) {
+                filter { eq("pick_list_id", pickListId) }
+                order("created_at", Order.ASCENDING)
+            }
+            .decodeList<PickListLineRow>()
+        if (lines.isEmpty()) return emptyList()
+        val itemIds = lines.map { it.stockItemId }.distinct()
+        val oemById = if (itemIds.isEmpty()) {
+            emptyMap()
+        } else {
+            client.from("stock_items")
+                .select(Columns.list("id", "oem_part_number", "description")) {
+                    filter { isIn("id", itemIds) }
+                }
+                .decodeList<StockItemOemRow>()
+                .associateBy { it.id }
+        }
+        return lines.map { row ->
+            val item = oemById[row.stockItemId]
+            PickListLineSummary(
+                id = row.id,
+                pickListId = row.pickListId,
+                salesInvoiceLineId = row.salesInvoiceLineId,
+                stockItemId = row.stockItemId,
+                qtyRequested = row.qtyRequested,
+                qtyPicked = row.qtyPicked,
+                oemPartNumber = item?.oemPartNumber,
+                description = item?.description,
+            )
+        }
+    }
 
     override suspend fun createPickList(salesInvoiceId: String, linesJson: String?): String {
         require(salesInvoiceId.isNotBlank())
@@ -1482,6 +1685,27 @@ class SupabaseRpcClient(
             .decodeList<SupplierRow>()
             .map { SupplierRef(id = it.id, code = it.code, name = it.name) }
 
+    override suspend fun listPreferredSuppliers(): List<PreferredSupplierRef> =
+        client.from("suppliers")
+            .select(Columns.list("id", "code", "name", "default_currency")) {
+                filter {
+                    eq("is_preferred", true)
+                    eq("is_active", true)
+                }
+                order("name", Order.ASCENDING)
+                limit(100)
+            }
+            .decodeList<PreferredSupplierRow>()
+            .map {
+                PreferredSupplierRef(
+                    id = it.id,
+                    code = it.code,
+                    name = it.name,
+                    defaultCurrency = CurrencyCode.entries.find { c -> c.rpcValue == it.defaultCurrency }
+                        ?: CurrencyCode.USD,
+                )
+            }
+
     override suspend fun listBlanketPurchaseOrders(): List<BlanketSummary> {
         val pos = client.from("purchase_orders")
             .select(
@@ -1582,6 +1806,50 @@ class SupabaseRpcClient(
                 },
             )
         }
+    }
+
+    override suspend fun createPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        lines: List<BlanketLineInput>,
+        notes: String?,
+        expectedDate: String?,
+    ): String {
+        require(supplierId.isNotBlank() && warehouseId.isNotBlank())
+        require(lines.isNotEmpty()) { "purchase order lines required" }
+        return client.postgrest.rpc(
+            RpcNames.CREATE_PURCHASE_ORDER,
+            buildJsonObject {
+                put("p_supplier_id", supplierId)
+                put("p_warehouse_id", warehouseId)
+                put("p_currency", currency.rpcValue)
+                put("p_exchange_rate", exchangeRate)
+                put(
+                    "p_lines",
+                    buildJsonArray {
+                        lines.forEach { line ->
+                            add(
+                                buildJsonObject {
+                                    put("stock_item_id", line.stockItemId)
+                                    put("uom_id", line.uomId)
+                                    put("qty", line.qty)
+                                    put("unit_price", line.unitPrice)
+                                    put(
+                                        "currency",
+                                        (line.currency ?: currency).rpcValue,
+                                    )
+                                },
+                            )
+                        }
+                    },
+                )
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+                if (expectedDate.isNullOrBlank()) put("p_expected_date", JsonNull)
+                else put("p_expected_date", expectedDate)
+            },
+        ).decodeAs<String>()
     }
 
     override suspend fun createBlanketPurchaseOrder(
@@ -1884,8 +2152,10 @@ class SupabaseRpcClient(
                 Columns.list(
                     "id",
                     "credit_limit",
+                    "credit_limit_minor",
                     "credit_hold",
                     "open_balance",
+                    "open_balance_minor",
                     "currency",
                 ),
             ) {
@@ -2089,6 +2359,275 @@ class SupabaseRpcClient(
         )
     }
 
+    // --- CRM product pages / kits ---
+
+    override suspend fun listStaffProductPages(query: String?, limit: Int): List<StaffProductPageRow> {
+        val rows = client.postgrest.rpc(
+            RpcNames.LIST_STAFF_PRODUCT_PAGES,
+            buildJsonObject {
+                if (query.isNullOrBlank()) put("p_query", JsonNull)
+                else put("p_query", query.trim())
+                put("p_limit", limit.coerceIn(1, 200))
+            },
+        ).decodeList<StaffProductPageRpcRow>()
+        return rows.map { it.toDomain() }
+    }
+
+    override suspend fun upsertStaffProductPage(
+        stockItemId: String,
+        unitPrice: Double,
+        discountKind: String,
+        discountValue: Double,
+        discountDescription: String?,
+    ): String {
+        require(stockItemId.isNotBlank())
+        require(unitPrice >= 0)
+        return client.postgrest.rpc(
+            RpcNames.UPSERT_STAFF_PRODUCT_PAGE,
+            buildJsonObject {
+                put("p_stock_item_id", stockItemId)
+                put("p_unit_price", unitPrice)
+                put("p_discount_kind", discountKind.ifBlank { "none" })
+                put("p_discount_value", discountValue)
+                if (discountDescription.isNullOrBlank()) put("p_discount_description", JsonNull)
+                else put("p_discount_description", discountDescription.trim())
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listStaffProductImages(stockItemId: String): List<StaffProductImage> {
+        require(stockItemId.isNotBlank())
+        return client.from("stock_item_images")
+            .select(Columns.list("id", "storage_path", "is_primary", "sort_order")) {
+                filter { eq("stock_item_id", stockItemId) }
+                order("is_primary", Order.DESCENDING)
+                order("sort_order", Order.ASCENDING)
+            }
+            .decodeList<StaffProductImageRow>()
+            .map { it.toDomain() }
+    }
+
+    override suspend fun registerStaffProductImage(
+        stockItemId: String,
+        storagePath: String,
+        asPrimary: Boolean,
+    ): String {
+        require(stockItemId.isNotBlank() && storagePath.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.REGISTER_STOCK_ITEM_IMAGE,
+            buildJsonObject {
+                put("p_stock_item_id", stockItemId)
+                put("p_storage_path", storagePath.trim())
+                put("p_as_primary", asPrimary)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun uploadStaffProductImage(
+        stockItemId: String,
+        localFilePath: String,
+        mimeType: String,
+        asPrimary: Boolean,
+    ): String {
+        // Storage module not installed on this client — use register path from web/staff upload.
+        error("Live gallery upload not wired — register a product-images Storage path instead")
+    }
+
+    override suspend fun setStaffProductPrimaryImage(imageId: String): String {
+        require(imageId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.SET_STOCK_ITEM_PRIMARY_IMAGE,
+            buildJsonObject { put("p_image_id", imageId) },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listStaffKits(): List<StaffKitRow> {
+        val kits = client.from("item_kits")
+            .select(Columns.list("id", "sell_mode", "is_active", "stock_item_id", "created_at")) {
+                order("created_at", Order.DESCENDING)
+                limit(100)
+            }
+            .decodeList<ItemKitListRow>()
+        if (kits.isEmpty()) return emptyList()
+
+        val stockIds = kits.map { it.stockItemId }.distinct()
+        val stockById = client.from("stock_items")
+            .select(Columns.list("id", "oem_part_number", "description")) {
+                filter { isIn("id", stockIds) }
+            }
+            .decodeList<StockItemBriefRow>()
+            .associateBy { it.id }
+
+        val kitIds = kits.map { it.id }
+        val comps = client.from("item_kit_components")
+            .select(Columns.list("kit_id", "qty", "uom_id", "component_item_id")) {
+                filter { isIn("kit_id", kitIds) }
+            }
+            .decodeList<KitComponentListRow>()
+
+        val compItemIds = comps.map { it.componentItemId }.distinct()
+        val compStockById = if (compItemIds.isEmpty()) {
+            emptyMap()
+        } else {
+            client.from("stock_items")
+                .select(Columns.list("id", "oem_part_number", "description")) {
+                    filter { isIn("id", compItemIds) }
+                }
+                .decodeList<StockItemBriefRow>()
+                .associateBy { it.id }
+        }
+
+        val oems = kits.mapNotNull { stockById[it.stockItemId]?.oemPartNumber }.distinct()
+        val chassisByOem = mutableMapOf<String, MutableList<String>>()
+        if (oems.isNotEmpty()) {
+            client.from("part_fitment")
+                .select(Columns.list("oem_part_number", "chassis_code")) {
+                    filter { isIn("oem_part_number", oems) }
+                }
+                .decodeList<PartFitmentChassisRow>()
+                .forEach { row ->
+                    val chassis = row.chassisCode?.trim().orEmpty()
+                    if (chassis.isNotEmpty()) {
+                        chassisByOem.getOrPut(row.oemPartNumber) { mutableListOf() }
+                            .let { list -> if (chassis !in list) list.add(chassis) }
+                    }
+                }
+        }
+
+        val compsByKit = comps.groupBy { it.kitId }
+        return kits.map { k ->
+            val stock = stockById[k.stockItemId]
+            val oem = stock?.oemPartNumber ?: k.stockItemId
+            StaffKitRow(
+                kitId = k.id,
+                stockItemId = k.stockItemId,
+                oem = oem,
+                title = stock?.description?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: stock?.oemPartNumber
+                    ?: "Kit",
+                sellMode = k.sellMode,
+                isActive = k.isActive,
+                chassisCodes = chassisByOem[oem].orEmpty(),
+                components = compsByKit[k.id].orEmpty().map { c ->
+                    val cs = compStockById[c.componentItemId]
+                    StaffKitComponent(
+                        componentItemId = c.componentItemId,
+                        oem = cs?.oemPartNumber ?: "—",
+                        name = cs?.description?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: cs?.oemPartNumber
+                            ?: "Component",
+                        qty = c.qty,
+                        uomId = c.uomId,
+                    )
+                },
+            )
+        }
+    }
+
+    override suspend fun listChassisOptions(): List<ChassisOption> {
+        val rows = client.from("vehicle_master")
+            .select(Columns.list("chassis_code", "model_variant")) {
+                order("chassis_code", Order.ASCENDING)
+                limit(800)
+            }
+            .decodeList<VehicleMasterChassisRow>()
+        val byCode = linkedMapOf<String, String>()
+        for (row in rows) {
+            val code = row.chassisCode.trim()
+            if (code.isEmpty() || byCode.containsKey(code)) continue
+            val variant = row.modelVariant?.trim().orEmpty()
+            byCode[code] = if (variant.isNotEmpty()) "$code — $variant" else code
+        }
+        return byCode.map { (code, label) -> ChassisOption(chassisCode = code, label = label) }
+    }
+
+    override suspend fun searchStockItems(query: String, limit: Int): List<StockItemOption> {
+        val q = query.trim()
+        require(q.isNotEmpty()) { "query required" }
+        val capped = limit.coerceIn(1, 50)
+        if (UUID_REGEX.matches(q)) {
+            return client.from("stock_items")
+                .select(Columns.list("id", "oem_part_number", "description", "base_uom_id")) {
+                    filter { eq("id", q) }
+                    limit(1)
+                }
+                .decodeList<StockItemSearchRow>()
+                .map { it.toOption() }
+        }
+        val byOem = client.from("stock_items")
+            .select(Columns.list("id", "oem_part_number", "description", "base_uom_id")) {
+                filter { ilike("oem_part_number", "%$q%") }
+                limit(capped.toLong())
+            }
+            .decodeList<StockItemSearchRow>()
+        if (byOem.size >= capped) return byOem.map { it.toOption() }
+        val seen = byOem.map { it.id }.toMutableSet()
+        val byDesc = client.from("stock_items")
+            .select(Columns.list("id", "oem_part_number", "description", "base_uom_id")) {
+                filter { ilike("description", "%$q%") }
+                limit(capped.toLong())
+            }
+            .decodeList<StockItemSearchRow>()
+            .filter { it.id !in seen }
+        return (byOem + byDesc).take(capped).map { it.toOption() }
+    }
+
+    override suspend fun createKitWithComponents(
+        oem: String,
+        title: String,
+        componentItemIds: List<String>,
+        chassisCode: String?,
+        qtys: List<Double>?,
+    ): String {
+        val kitOem = oem.trim()
+        val kitTitle = title.trim()
+        require(kitOem.isNotEmpty() && kitTitle.isNotEmpty())
+        val ids = componentItemIds.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        require(ids.size >= 2) { "kit requires at least 2 unique components" }
+        val components = buildJsonArray {
+            ids.forEachIndexed { i, id ->
+                add(
+                    buildJsonObject {
+                        put("stock_item_id", id)
+                        put("qty", qtys?.getOrNull(i) ?: 1.0)
+                    },
+                )
+            }
+        }
+        return client.postgrest.rpc(
+            RpcNames.CREATE_KIT_WITH_COMPONENTS,
+            buildJsonObject {
+                put("p_oem", kitOem)
+                put("p_title", kitTitle)
+                put("p_components", components)
+                if (chassisCode.isNullOrBlank()) put("p_chassis_code", JsonNull)
+                else put("p_chassis_code", chassisCode.trim())
+                put("p_sell_mode", "explode")
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun updateItemKit(
+        kitId: String,
+        title: String?,
+        isActive: Boolean?,
+        sellMode: String?,
+    ): String {
+        require(kitId.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.UPDATE_ITEM_KIT,
+            buildJsonObject {
+                put("p_kit_id", kitId)
+                if (sellMode.isNullOrBlank()) put("p_sell_mode", JsonNull)
+                else put("p_sell_mode", sellMode.trim())
+                if (isActive == null) put("p_is_active", JsonNull)
+                else put("p_is_active", isActive)
+                if (title.isNullOrBlank()) put("p_title", JsonNull)
+                else put("p_title", title.trim())
+            },
+        ).decodeAs<String>()
+    }
+
     companion object {
         private val UUID_REGEX =
             Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOption.IGNORE_CASE)
@@ -2164,11 +2703,40 @@ private data class DeliveryNoteRow(
 )
 
 @Serializable
+private data class DeliveryJobDeskRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String? = null,
+    @SerialName("delivery_note_id") val deliveryNoteId: String,
+    val status: String,
+    @SerialName("assignee_user_id") val assigneeUserId: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
 private data class PickListRow(
     val id: String,
     @SerialName("document_number") val documentNumber: String,
     @SerialName("sales_invoice_id") val salesInvoiceId: String,
     val status: String,
+)
+
+@Serializable
+private data class DispatchInvoiceRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String? = null,
+    val status: String,
+    @SerialName("fulfillment_mode") val fulfillmentMode: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
+private data class PickListLineRow(
+    val id: String,
+    @SerialName("pick_list_id") val pickListId: String,
+    @SerialName("sales_invoice_line_id") val salesInvoiceLineId: String,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("qty_requested") val qtyRequested: Double,
+    @SerialName("qty_picked") val qtyPicked: Double? = null,
 )
 
 @Serializable
@@ -2343,7 +2911,20 @@ private data class WarehouseRow(
     val id: String,
     val code: String,
     val name: String,
-)
+    @SerialName("role_code") val roleCode: String? = null,
+    @SerialName("is_quarantine") val isQuarantine: Boolean = false,
+    @SerialName("is_active") val isActive: Boolean = true,
+) {
+    fun toWarehouseRef(): WarehouseRef =
+        WarehouseRef(
+            id = id,
+            code = code,
+            name = name,
+            roleCode = roleCode,
+            isQuarantine = isQuarantine,
+            isActive = isActive,
+        )
+}
 
 @Serializable
 private data class PosScanSessionRow(
@@ -2380,6 +2961,8 @@ private data class PosCartLineRow(
     @SerialName("unit_price") val unitPrice: Double,
     @SerialName("line_total") val lineTotal: Double,
     @SerialName("is_core_charge") val isCoreCharge: Boolean = false,
+    @SerialName("unit_price_minor") val unitPriceMinor: Long? = null,
+    @SerialName("line_total_minor") val lineTotalMinor: Long? = null,
 )
 
 @Serializable
@@ -2392,6 +2975,7 @@ private data class PosCartLineQtyUpdate(
 private data class StockItemOemRow(
     val id: String,
     @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
 )
 
 @Serializable
@@ -2405,6 +2989,14 @@ private data class SupplierRow(
     val id: String,
     val code: String,
     val name: String,
+)
+
+@Serializable
+private data class PreferredSupplierRow(
+    val id: String,
+    val code: String,
+    val name: String,
+    @SerialName("default_currency") val defaultCurrency: String = "USD",
 )
 
 @Serializable
@@ -2513,8 +3105,10 @@ private data class ConsignmentEntryRow(
 private data class CustomerCreditRow(
     val id: String,
     @SerialName("credit_limit") val creditLimit: Double = 0.0,
+    @SerialName("credit_limit_minor") val creditLimitMinor: Long? = null,
     @SerialName("credit_hold") val creditHold: Boolean = false,
     @SerialName("open_balance") val openBalance: Double = 0.0,
+    @SerialName("open_balance_minor") val openBalanceMinor: Long? = null,
     val currency: String? = null,
 ) {
     fun toSnapshot() = CustomerCreditSnapshot(
@@ -2523,6 +3117,8 @@ private data class CustomerCreditRow(
         creditHold = creditHold,
         openBalance = openBalance,
         currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
+        creditLimitMinor = creditLimitMinor,
+        openBalanceMinor = openBalanceMinor,
     )
 }
 
@@ -2530,8 +3126,10 @@ private data class CustomerCreditRow(
 private data class CustomerCreditRpcRow(
     @SerialName("customer_id") val customerId: String,
     @SerialName("credit_limit") val creditLimit: Double = 0.0,
+    @SerialName("credit_limit_minor") val creditLimitMinor: Long? = null,
     @SerialName("credit_hold") val creditHold: Boolean = false,
     @SerialName("open_balance") val openBalance: Double = 0.0,
+    @SerialName("open_balance_minor") val openBalanceMinor: Long? = null,
     val currency: String = "USD",
 ) {
     fun toSnapshot() = CustomerCreditSnapshot(
@@ -2540,6 +3138,8 @@ private data class CustomerCreditRpcRow(
         creditHold = creditHold,
         openBalance = openBalance,
         currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
+        creditLimitMinor = creditLimitMinor,
+        openBalanceMinor = openBalanceMinor,
     )
 }
 
@@ -2586,6 +3186,44 @@ private data class HrOnboardingDraftRow(
 }
 
 @Serializable
+private data class PayrollLineRow(
+    val id: String,
+    @SerialName("employee_id") val employeeId: String,
+    @SerialName("gross_amount") val grossAmount: Double,
+    @SerialName("deductions_amount") val deductionsAmount: Double,
+    @SerialName("net_amount") val netAmount: Double,
+    val currency: String,
+    @SerialName("payroll_run_id") val payrollRunId: String,
+    @SerialName("hours_worked") val hoursWorked: Double = 0.0,
+) {
+    fun toSummary() = PayrollLineSummary(
+        id = id,
+        employeeId = employeeId,
+        grossAmount = grossAmount,
+        deductionsAmount = deductionsAmount,
+        netAmount = netAmount,
+        currency = CurrencyCode.fromRpc(currency),
+        payrollRunId = payrollRunId,
+        hoursWorked = hoursWorked,
+    )
+}
+
+@Serializable
+private data class PayrollDeductionRow(
+    val id: String,
+    @SerialName("payroll_line_id") val payrollLineId: String,
+    val label: String,
+    val amount: Double,
+) {
+    fun toSummary() = PayrollDeductionSummary(
+        id = id,
+        payrollLineId = payrollLineId,
+        label = label,
+        amount = amount,
+    )
+}
+
+@Serializable
 private data class HrGradeRow(
     val id: String,
     val code: String,
@@ -2603,6 +3241,101 @@ private data class HrRoleRow(
     @SerialName("grade_id") val gradeId: String? = null,
 ) {
     fun toOption() = HrRoleOption(id = id, title = title, department = department, gradeId = gradeId)
+}
+
+@Serializable
+private data class StaffProductPageRpcRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    @SerialName("catalog_title") val catalogTitle: String,
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    val currency: String = "USD",
+    @SerialName("qty_saleable") val qtySaleable: Double = 0.0,
+    @SerialName("discount_kind") val discountKind: String = "none",
+    @SerialName("discount_value") val discountValue: Double = 0.0,
+    @SerialName("discount_description") val discountDescription: String? = null,
+    @SerialName("primary_image_path") val primaryImagePath: String? = null,
+    @SerialName("image_count") val imageCount: Int = 0,
+) {
+    fun toDomain() = StaffProductPageRow(
+        stockItemId = stockItemId,
+        oemPartNumber = oemPartNumber,
+        catalogTitle = catalogTitle,
+        unitPrice = unitPrice,
+        currency = currency,
+        qtySaleable = qtySaleable,
+        discountKind = discountKind,
+        discountValue = discountValue,
+        discountDescription = discountDescription,
+        primaryImagePath = primaryImagePath,
+        imageCount = imageCount,
+    )
+}
+
+@Serializable
+private data class StaffProductImageRow(
+    val id: String,
+    @SerialName("storage_path") val storagePath: String,
+    @SerialName("is_primary") val isPrimary: Boolean = false,
+    @SerialName("sort_order") val sortOrder: Int = 0,
+) {
+    fun toDomain() = StaffProductImage(
+        id = id,
+        storagePath = storagePath,
+        isPrimary = isPrimary,
+        sortOrder = sortOrder,
+    )
+}
+
+@Serializable
+private data class ItemKitListRow(
+    val id: String,
+    @SerialName("sell_mode") val sellMode: String,
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
+private data class KitComponentListRow(
+    @SerialName("kit_id") val kitId: String,
+    val qty: Double,
+    @SerialName("uom_id") val uomId: String,
+    @SerialName("component_item_id") val componentItemId: String,
+)
+
+@Serializable
+private data class StockItemBriefRow(
+    val id: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
+)
+
+@Serializable
+private data class PartFitmentChassisRow(
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    @SerialName("chassis_code") val chassisCode: String? = null,
+)
+
+@Serializable
+private data class VehicleMasterChassisRow(
+    @SerialName("chassis_code") val chassisCode: String,
+    @SerialName("model_variant") val modelVariant: String? = null,
+)
+
+@Serializable
+private data class StockItemSearchRow(
+    val id: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
+    @SerialName("base_uom_id") val baseUomId: String? = null,
+) {
+    fun toOption() = StockItemOption(
+        id = id,
+        oemPartNumber = oemPartNumber,
+        description = description,
+        baseUomId = baseUomId,
+    )
 }
 
 private fun JsonObject.stringOrNull(key: String): String? =

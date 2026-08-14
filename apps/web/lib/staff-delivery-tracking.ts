@@ -1,6 +1,7 @@
 import {
   DELIVERY_RPC,
   assignDeliveryJobArgs,
+  canOverrideAssignDeliveryJob,
   optimizeDriverStopsArgs,
   setDeliveryJobGeoArgs,
   suggestDeliveryAssigneesArgs,
@@ -24,6 +25,7 @@ import {
 
 export { requireSession, configuredMapStyleUrl, mapStyleUrl };
 export { MAP_STYLE_DEFAULT_URL as MAP_STYLE_DEMO_URL };
+export { canOverrideAssignDeliveryJob };
 export type { UpdateDeliveryJobStatusResult };
 
 type RealtimeChannel = ReturnType<SupabaseClient["channel"]>;
@@ -79,6 +81,26 @@ export type PanicEventRow = {
 };
 
 const RECENT_POINTS_LIMIT = 500;
+
+/**
+ * Honest ETA provider label — mirrors Android `RouteEtaSource` / `formatRouteGuidanceLabel`
+ * (osrm preferred when configured; google_directions flagged deprecated).
+ */
+export function formatEtaSourceLabel(
+  source: string | null | undefined,
+): string | null {
+  if (source == null) return null;
+  const raw = source.trim();
+  if (!raw) return null;
+  if (raw.toLowerCase().startsWith("eta_source=")) return raw;
+
+  const wire = raw.toLowerCase();
+  if (wire === "osrm") return "eta_source=osrm";
+  if (wire === "google_directions" || wire === "google") {
+    return "eta_source=google_directions (deprecated)";
+  }
+  return `eta_source=${raw}`;
+}
 
 export async function listDeliveryJobs(
   client: SupabaseClient,

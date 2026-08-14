@@ -105,6 +105,8 @@ class MainActivity : ComponentActivity() {
                                 signedInEmail = email,
                                 supportPhone = BuildConfig.SUPPORT_PHONE,
                                 mapsApiKey = BuildConfig.GOOGLE_MAPS_API_KEY,
+                                osrmUrl = BuildConfig.OSRM_URL,
+                                useMapLibre = BuildConfig.USE_MAPLIBRE,
                                 onSignOut = onSignOut,
                             )
                         }
@@ -178,6 +180,8 @@ private fun DeliveryApp(
     signedInEmail: String?,
     supportPhone: String,
     mapsApiKey: String,
+    osrmUrl: String,
+    useMapLibre: Boolean,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -185,7 +189,15 @@ private fun DeliveryApp(
         factory = TrackingViewModel.factory(rpc, gps, context),
     )
     val jobsVm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, mapsApiKey),
+        factory = JobsViewModel.factory(
+            rpc,
+            gps,
+            context,
+            supportPhone,
+            mapsApiKey,
+            osrmUrl,
+            useMapLibre,
+        ),
     )
     val state by jobsVm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()

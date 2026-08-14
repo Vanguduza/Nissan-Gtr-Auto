@@ -17,6 +17,8 @@ object RpcNames {
     const val OPTIMIZE_DRIVER_STOPS = "optimize_driver_stops"
     const val MINT_DELIVERY_TRACK_TOKEN = "mint_delivery_track_token"
     const val GET_DELIVERY_TRACK_POINT = "get_delivery_track_point"
+    /** Driver/admin COD snapshot — SECURITY DEFINER (no sales_invoices SELECT for drivers). */
+    const val GET_DELIVERY_JOB_SETTLEMENT = "get_delivery_job_settlement"
 
     /** Storage bucket for POD photo / signature object keys. */
     const val DELIVERY_PODS_BUCKET = "delivery-pods"

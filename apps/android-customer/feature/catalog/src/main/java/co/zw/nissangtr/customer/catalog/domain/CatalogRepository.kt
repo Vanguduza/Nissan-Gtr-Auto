@@ -3,6 +3,7 @@ package co.zw.nissangtr.customer.catalog.domain
 import co.zw.nissangtr.customer.rpc.CatalogBrowseResult
 import co.zw.nissangtr.customer.rpc.CatalogProduct
 import co.zw.nissangtr.customer.rpc.GarageVehicle
+import co.zw.nissangtr.customer.rpc.HomeMerchRails
 import co.zw.nissangtr.customer.rpc.SearchCatalogResponse
 import co.zw.nissangtr.customer.rpc.SearchMode
 import co.zw.nissangtr.customer.rpc.VehicleMasterRow
@@ -17,6 +18,9 @@ interface CatalogRepository {
     suspend fun searchCatalog(mode: SearchMode, query: String): SearchCatalogResponse
 
     suspend fun browse(category: String? = null, limit: Int = 50): CatalogBrowseResult
+
+    /** Anon-safe home rails (featured / movers / newest). */
+    suspend fun listHomeRails(limit: Int = 12): HomeMerchRails
 
     suspend fun loadProduct(oem: String): CatalogProduct
 
@@ -41,14 +45,3 @@ interface CatalogRepository {
 
     suspend fun getReviewStats(stockItemId: String?, oem: String?): co.zw.nissangtr.customer.rpc.ProductReviewStats?
 }
-
-/**
- * Home "Deals & Promotions" tile — UI model only, never fabricated data.
- *
- * TODO(@backend_agent): no public customer-facing browse-active-deals RPC yet.
- */
-data class DealTile(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-)

@@ -224,16 +224,17 @@ export function CatalogBrowse({
     <div className={styles.page}>
       <h1 className={styles.title}>Shop stock</h1>
       <p className={styles.lede}>
-        Live stock list from inventory. Filter by category and USD price; sort
-        like the KMP PLP (price, newest, movers). For vehicle diagrams use{" "}
-        <Link href="/catalog">Parts catalog (EPC)</Link>.
+        Only parts that are in stock and priced appear here. Filter by category
+        and USD price; sort like the KMP PLP (price, newest, movers). For vehicle
+        diagrams use <Link href="/catalog">Parts catalog (EPC)</Link>. Staff set
+        price and photos under{" "}
+        <Link href="/staff/crm/product-pages">Product pages</Link>.
       </p>
       {catalogEmpty ? (
         <p className={styles.lede} role="status">
-          Catalog is empty — no stock items or PNC categories in Supabase yet.
-          Reload the SoR per{" "}
-          <code>docs/guides/erp-catalog-v1-load.md</code> or the Megazip import
-          guide, then refresh this page.
+          No in-stock priced items yet. Receive stock, set a retail price on
+          Product pages, then refresh. EPC search still finds unpriced catalog
+          parts.
         </p>
       ) : null}
       <div className={styles.plp}>
@@ -339,14 +340,14 @@ export function CatalogBrowse({
                   <tr>
                     <td colSpan={5} className={styles.muted}>
                       {catalogEmpty
-                        ? "No inventory rows yet — catalog SoR is empty."
+                        ? "No in-stock priced items yet — set price on Product pages after receiving stock."
                         : filterLabel
-                          ? `No parts match “${filterLabel}”${
+                          ? `No in-stock priced parts match “${filterLabel}”${
                               minUsd != null || maxUsd != null
                                 ? " in this price range"
                                 : ""
                             }. Try another subcategory or clear filters.`
-                          : `No parts in inventory${
+                          : `No in-stock priced parts${
                               minUsd != null || maxUsd != null
                                 ? " matching this price range"
                                 : ""
