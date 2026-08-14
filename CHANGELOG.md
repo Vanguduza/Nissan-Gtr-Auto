@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Android management OSS shell (Phase 1):** archived prior UI to `apps/android-management-legacy/`; new `apps/android-management/` CoolMall-inspired dual-pane POS skeleton + inventree-like warehouse receive IA; **GTR brand tokens only** (`packages/android-ui`); structures via existing `RpcClient` Fake/Live (Supabase SoR — not CoolMall/InvenTree backends). Plan: `docs/plans/2026-08-14-management-oss-shell-rebuild.md`.
+- **Android management (corrected):** **Web staff = behavioral SoT** (`apps/web` `STAFF_NAV_TREE` + `lib/staff-*.ts`); **CoolMall fork = UX shell** (`vendor/coolmall-gtr/`, GTR colours applied); Supabase adapters inject domain. Legacy Android = RPC discovery only — **no UI port**. Inventree Flutter not required (web warehouse pages define WH). Plan: `docs/plans/2026-08-14-management-oss-shell-rebuild.md`.
 
 ## Unreleased — 2026-08-12
 

@@ -50,7 +50,7 @@ Use **on-demand** specialists — do not load all roles every turn. Full playboo
 | `@web_agent` | `apps/web/`, `packages/ui/` | Storefront, catalog, B2B |
 | `@ios_agent` | `apps/ios/` | iOS customer app |
 | `@android_agent` | `apps/android-customer/` | Android customer app |
-| `@management_app_agent` | `apps/android-management/` (active OSS shell); archive `apps/android-management-legacy/` | POS, warehouse, HR, finance |
+| `@management_app_agent` | `vendor/coolmall-gtr/` (CoolMall UX) + `apps/android-management/` (RPC kit); behavior from `apps/web` staff; legacy = RPC discovery only | POS, warehouse, HR, finance |
 | `@android_delivery_agent` | `apps/android-delivery/` | Driver-only delivery (GPS FGS, POD, presence) |
 | `@hardware_mobile_agent` | `bridges/` | QR, printer, biometric, GPS |
 | `@backend_agent` | `supabase/`, `packages/supabase-client/` | Schema, migrations, edge functions |

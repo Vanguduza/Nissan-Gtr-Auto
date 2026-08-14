@@ -13,6 +13,8 @@
 | [`2026-07-24-phase7-data-pipeline-search.md`](./2026-07-24-phase7-data-pipeline-search.md) | Phase 7 child (planned — pipeline + PG FTS interim) |
 | [`2026-07-23-phase4-inventory-ops.md`](./2026-07-23-phase4-inventory-ops.md) | Phase 4 child (inventory ops + QR + UOM) |
 
+| [`2026-08-14-management-oss-shell-rebuild.md`](./2026-08-14-management-oss-shell-rebuild.md) | Management Android: CoolMall UX ← **web staff behavior** + Supabase inject (not legacy UI) |
+
 ## Process
 
 1. Follow the **master** plan phase order.

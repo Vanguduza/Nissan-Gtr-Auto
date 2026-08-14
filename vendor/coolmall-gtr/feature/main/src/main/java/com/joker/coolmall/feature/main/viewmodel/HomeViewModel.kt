@@ -1,0 +1,230 @@
+package com.joker.coolmall.feature.main.viewmodel
+
+import androidx.lifecycle.viewModelScope
+import com.joker.coolmall.core.common.base.state.BaseNetWorkListUiState
+import com.joker.coolmall.core.common.base.state.LoadMoreState
+import com.joker.coolmall.core.common.base.viewmodel.BaseNetWorkListViewModel
+import com.joker.coolmall.core.data.repository.CouponRepository
+import com.joker.coolmall.core.data.repository.GoodsRepository
+import com.joker.coolmall.core.data.repository.PageRepository
+import com.joker.coolmall.core.data.state.AppState
+import com.joker.coolmall.core.model.entity.Category
+import com.joker.coolmall.core.model.entity.Coupon
+import com.joker.coolmall.core.model.entity.Goods
+import com.joker.coolmall.core.model.entity.Home
+import com.joker.coolmall.core.model.request.GoodsSearchRequest
+import com.joker.coolmall.core.model.request.ReceiveCouponRequest
+import com.joker.coolmall.core.model.response.NetworkPageData
+import com.joker.coolmall.core.model.response.NetworkResponse
+import com.joker.coolmall.navigation.auth.AuthRoutes
+import com.joker.coolmall.navigation.goods.GoodsRoutes
+import com.joker.coolmall.navigation.navigate
+import com.joker.coolmall.core.util.toast.ToastUtils
+import com.joker.coolmall.result.ResultHandler
+import com.joker.coolmall.result.asResult
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+/**
+ * 首页ViewModel
+ *
+ * @param pageRepository 页面仓库
+ * @param goodsRepository 商品仓库
+ * @param couponRepository 优惠券仓库
+ * @author Joker.X
+ */
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val appState: AppState,
+    private val pageRepository: PageRepository,
+    private val goodsRepository: GoodsRepository,
+    private val couponRepository: CouponRepository
+) : BaseNetWorkListViewModel<Goods>() {
+    /**
+     * 首页首次加载最小时长
+     */
+    private val minHomeLoadingTime = 320L
+
+    /**
+     * 首页首次加载开始时间
+     */
+    private var homeRequestStartTime = 0L
+
+    /**
+     * 页面数据
+     */
+    private val _pageData = MutableStateFlow<Home>(Home())
+    val pageData: StateFlow<Home> = _pageData.asStateFlow()
+
+    /**
+     * 优惠券领取弹出层的显示状态
+     */
+    private val _couponModalVisible = MutableStateFlow(false)
+    val couponModalVisible: StateFlow<Boolean> = _couponModalVisible.asStateFlow()
+
+    init {
+        loadHomeData()
+    }
+
+    /**
+     * 重写请求列表数据方法
+     *
+     * @return 商品分页数据流
+     * @author Joker.X
+     */
+    override fun requestListData(): Flow<NetworkResponse<NetworkPageData<Goods>>> {
+        return goodsRepository.getGoodsPage(
+            GoodsSearchRequest(
+                page = super.currentPage,
+                size = super.pageSize
+            )
+        )
+    }
+
+    /**
+     * 加载首页数据
+     *
+     * @author Joker.X
+     */
+    fun loadHomeData() {
+        val isFirstLoading = currentPage == 1 && _listData.value.isEmpty() && !_isRefreshing.value
+
+        if (isFirstLoading) {
+            homeRequestStartTime = System.currentTimeMillis()
+            super._uiState.value = BaseNetWorkListUiState.Loading
+            _loadMoreState.value = LoadMoreState.Loading
+        }
+
+        ResultHandler.handleResult(
+            showToast = false,
+            scope = viewModelScope,
+            flow = pageRepository.getHomeData().asResult(),
+            onSuccess = { response ->
+                _pageData.value = response.data ?: Home()
+                _isRefreshing.value = false
+
+                // 使用首页数据中的商品初始化列表
+                _listData.value = response.data?.goods ?: emptyList()
+
+                // 更新上拉加载状态
+                _loadMoreState.value =
+                    if (response.data?.goods?.isNotEmpty() == true) LoadMoreState.PullToLoad
+                    else LoadMoreState.NoMore
+
+                if (isFirstLoading) {
+                    val elapsedTime = System.currentTimeMillis() - homeRequestStartTime
+
+                    if (elapsedTime < minHomeLoadingTime) {
+                        viewModelScope.launch {
+                            delay(minHomeLoadingTime - elapsedTime)
+                            super._uiState.value = BaseNetWorkListUiState.Success
+                        }
+                    } else {
+                        super._uiState.value = BaseNetWorkListUiState.Success
+                    }
+                } else {
+                    super._uiState.value = BaseNetWorkListUiState.Success
+                }
+
+            },
+            onError = { _, _ ->
+                super._uiState.value = BaseNetWorkListUiState.Error
+            }
+        )
+    }
+
+    /**
+     * 重写触发下拉刷新方法
+     *
+     * @author Joker.X
+     */
+    override fun onRefresh() {
+        // 如果正在加载中，则不重复请求
+        if (_loadMoreState.value == LoadMoreState.Loading) {
+            return
+        }
+
+        _isRefreshing.value = true
+        currentPage = 1
+        loadHomeData()
+    }
+
+    /**
+     * 跳转到商品分类页面
+     *
+     * @param categoryId 点击的分类ID
+     * @author Joker.X
+     */
+    fun toGoodsCategoryPage(categoryId: Long) {
+        val data = pageData.value
+        val childCategoryIds =
+            findChildCategoryIds(categoryId, data.categoryAll ?: emptyList())
+        // 如果有子分类，传递子分类ID
+        val typeIdParam = childCategoryIds.joinToString(",")
+        navigate(
+            GoodsRoutes.Category(
+                typeId = typeIdParam
+            )
+        )
+    }
+
+    /**
+     * 显示优惠券弹出层
+     *
+     * @author Joker.X
+     */
+    fun showCouponModal() {
+        _couponModalVisible.value = true
+    }
+
+    /**
+     * 隐藏优惠券领取弹出层
+     *
+     * @author Joker.X
+     */
+    fun hideCouponModal() {
+        _couponModalVisible.value = false
+    }
+
+    /**
+     * 领取优惠券
+     *
+     * @param coupon 要领取的优惠券
+     * @author Joker.X
+     */
+    fun receiveCoupon(coupon: Coupon) {
+        // 检查登录状态
+        if (!appState.isLoggedIn.value) {
+            hideCouponModal()
+            // 未登录，跳转到登录页面
+            navigate(AuthRoutes.Login)
+            return
+        }
+
+        val request = ReceiveCouponRequest(couponId = coupon.id)
+        ResultHandler.handleResultWithData(
+            scope = viewModelScope,
+            flow = couponRepository.receiveCoupon(request).asResult(),
+            showToast = true,
+            onData = { data -> ToastUtils.showSuccess(data) },
+        )
+    }
+
+    /**
+     * 查找指定分类的所有子分类ID
+     *
+     * @param parentId 父分类ID
+     * @param allCategories 所有分类列表
+     * @return 子分类ID列表
+     * @author Joker.X
+     */
+    private fun findChildCategoryIds(parentId: Long, allCategories: List<Category>): List<Long> {
+        return allCategories.filter { it.parentId == parentId.toInt() }.map { it.id }
+    }
+}

@@ -1,10 +1,12 @@
 ﻿# ARCHIVED — 2026-08-14
 
-This tree is the **pre-OSS-shell** management app (full feature modules).
-Active development: [`../android-management/`](../android-management/).
-Plan: [`docs/plans/2026-08-14-management-oss-shell-rebuild.md`](../../docs/plans/2026-08-14-management-oss-shell-rebuild.md).
+Pre-CoolMall management app. **Do not port UI/IA from here.**
 
-Do not treat this as the SoR UI. Keep for reference / Phase 2+ port source.
+Behavioral SoT for the new app: **`apps/web` staff** (`lib/staff-auth.ts`, staff desks).  
+UX shell: [`vendor/coolmall-gtr/`](../../vendor/coolmall-gtr/).  
+This tree may only help discover RPCs if web libs are unclear.
+
+Plan: [`docs/plans/2026-08-14-management-oss-shell-rebuild.md`](../../docs/plans/2026-08-14-management-oss-shell-rebuild.md).
 
 ---
 # GTR Management â€” Android

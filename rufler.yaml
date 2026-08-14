@@ -40,13 +40,19 @@ agents:
       - AGENTS.md
 
   management_app_agent:
-    description: Android management/sales app (POS, receiving, warehouse, HR, finance, dispatch)
+    description: Android management/sales app — CoolMall UX shell customized from web staff behavior + Supabase adapters
     paths:
       - apps/android-management/**
+      - vendor/coolmall-gtr/**
     shared_read:
       - apps/android-management-legacy/**
+      - apps/web/lib/staff-auth.ts
+      - apps/web/lib/staff-*.ts
+      - apps/web/app/(staff)/**
+      - apps/web/app/(b2b)/procurement/**
       - packages/shared/**
       - packages/supabase-client/**
+      - packages/ui/brand-tokens.json
       - bridges/android/**
       - .cursorrules
       - AGENTS.md
