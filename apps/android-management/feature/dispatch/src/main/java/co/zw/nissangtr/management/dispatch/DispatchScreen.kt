@@ -26,7 +26,7 @@ import co.zw.nissangtr.ui.shop.ShopStatusChip
 import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
- * Scaffold: pick/DN + create job + **assignment** (suggest/override) +
+ * Pick/DN desk + create job + **assignment** (suggest/override) +
  * **route order** + staff **live view** (ETA) + track share token + POD OTP +
  * **panic inbox**.
  *
@@ -49,31 +49,39 @@ fun DispatchScreen(
 
     ShopStaffScreen(
         title = "Dispatch",
-        subtitle = "Pick · assign · track",
+        subtitle = "Pick · DN · assign · track",
         modifier = modifier,
         onBack = onBack,
     ) {
+        ShopStaffPanel(title = "Dispatch invoices") {
+            Text(
+                "Posted dispatch invoices — tap to select for Create pick.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (state.dispatchInvoices.isEmpty()) {
+                Text("No posted dispatch invoices", style = MaterialTheme.typography.bodyMedium)
+            }
+            state.dispatchInvoices.forEach { inv ->
+                val selected = inv.id == state.salesInvoiceId
+                ShopListCard(
+                    title = inv.documentNumber,
+                    subtitle = "${inv.status} · ${inv.fulfillmentMode} · ${inv.id.take(8)}…",
+                    onClick = { viewModel.selectDispatchInvoice(inv.id) },
+                    badges = {
+                        if (selected) {
+                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                )
+            }
+        }
+
         ShopStaffPanel(title = "Pick / delivery note") {
             OutlinedTextField(
                 value = state.salesInvoiceId,
                 onValueChange = viewModel::onSalesInvoiceIdChange,
                 label = { Text("Sales invoice UUID") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            OutlinedTextField(
-                value = state.invoiceLineId,
-                onValueChange = viewModel::onInvoiceLineIdChange,
-                label = { Text("Invoice line UUID") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            OutlinedTextField(
-                value = state.qty,
-                onValueChange = viewModel::onQtyChange,
-                label = { Text("Qty (pick / DN line)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !state.busy,
@@ -84,12 +92,12 @@ fun DispatchScreen(
                 enabled = !state.busy,
             )
             ShopSecondaryButton(
-                label = "Confirm pick",
+                label = "Confirm pick lines",
                 onClick = viewModel::confirmSelectedPick,
                 enabled = !state.busy,
             )
             ShopPrimaryButton(
-                label = "Create DN",
+                label = "Create DN from pick lines",
                 onClick = viewModel::createDeliveryNote,
                 enabled = !state.busy,
             )
@@ -99,10 +107,95 @@ fun DispatchScreen(
                 enabled = !state.busy,
             )
             ShopSecondaryButton(
+                label = "Cancel DN",
+                onClick = viewModel::cancelSelectedDn,
+                enabled = !state.busy,
+            )
+            ShopSecondaryButton(
                 label = "Refresh",
                 onClick = viewModel::refresh,
                 enabled = !state.busy,
             )
+            Text(
+                "Advanced: paste a single invoice line UUID when pick lines are empty.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = state.invoiceLineId,
+                onValueChange = viewModel::onInvoiceLineIdChange,
+                label = { Text("Invoice line UUID (fallback)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+            OutlinedTextField(
+                value = state.qty,
+                onValueChange = viewModel::onQtyChange,
+                label = { Text("Qty fallback") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+            )
+        }
+
+        ShopStaffPanel(title = "Pick lists") {
+            state.pickLists.forEach { pl ->
+                val selected = pl.id == state.selectedPickListId
+                ShopListCard(
+                    title = pl.documentNumber,
+                    subtitle = "${pl.status} · inv=${pl.salesInvoiceId.take(8)}…",
+                    onClick = { viewModel.selectPickList(pl.id) },
+                    badges = {
+                        if (selected) {
+                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                )
+            }
+        }
+
+        ShopStaffPanel(title = "Pick lines") {
+            if (state.pickLines.isEmpty()) {
+                Text(
+                    "Select a pick list to load lines (OEM + qty).",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            state.pickLines.forEach { line ->
+                val oem = line.oemPartNumber ?: line.stockItemId.take(8)
+                val label = line.description?.let { "$oem · $it" } ?: oem
+                val picked = line.qtyPicked?.let { "picked=$it" } ?: "open"
+                ShopListCard(
+                    title = label,
+                    subtitle = "$picked · req=${line.qtyRequested} · ${line.salesInvoiceLineId.take(8)}…",
+                    onClick = { viewModel.selectPickLine(line) },
+                )
+                OutlinedTextField(
+                    value = state.pickQtyDraft[line.id] ?: "",
+                    onValueChange = { viewModel.onPickQtyChange(line.id, it) },
+                    label = { Text("Qty for $oem") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+            }
+        }
+
+        ShopStaffPanel(title = "Delivery notes") {
+            state.deliveryNotes.forEach { dn ->
+                val selected = dn.id == state.selectedDnId
+                ShopListCard(
+                    title = dn.documentNumber,
+                    subtitle = "${dn.status} · inv=${dn.salesInvoiceId.take(8)}…",
+                    onClick = { viewModel.selectDn(dn.id) },
+                    badges = {
+                        if (selected) {
+                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                )
+            }
         }
 
         ShopStaffPanel(title = "Delivery job") {
@@ -302,38 +395,6 @@ fun DispatchScreen(
                             onClick = { viewModel.acknowledgePanic(p.id) },
                             enabled = !state.busy,
                         ) { Text("Handled") }
-                    },
-                )
-            }
-        }
-
-        ShopStaffPanel(title = "Pick lists") {
-            state.pickLists.forEach { pl ->
-                val selected = pl.id == state.selectedPickListId
-                ShopListCard(
-                    title = pl.documentNumber,
-                    subtitle = pl.status,
-                    onClick = { viewModel.selectPickList(pl.id) },
-                    badges = {
-                        if (selected) {
-                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
-                        }
-                    },
-                )
-            }
-        }
-
-        ShopStaffPanel(title = "Delivery notes") {
-            state.deliveryNotes.forEach { dn ->
-                val selected = dn.id == state.selectedDnId
-                ShopListCard(
-                    title = dn.documentNumber,
-                    subtitle = dn.status,
-                    onClick = { viewModel.selectDn(dn.id) },
-                    badges = {
-                        if (selected) {
-                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
-                        }
                     },
                 )
             }

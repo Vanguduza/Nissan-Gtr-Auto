@@ -78,6 +78,27 @@ data class PickListSummary(
     val status: String,
 )
 
+/** Posted dispatch sales invoice (PostgREST list for pick desk). */
+data class DispatchInvoiceSummary(
+    val id: String,
+    val documentNumber: String,
+    val status: String,
+    val fulfillmentMode: String,
+    val createdAt: String,
+)
+
+/** Row from `pick_list_lines` for confirm-pick / DN line drafts. */
+data class PickListLineSummary(
+    val id: String,
+    val pickListId: String,
+    val salesInvoiceLineId: String,
+    val stockItemId: String,
+    val qtyRequested: Double,
+    val qtyPicked: Double?,
+    val oemPartNumber: String? = null,
+    val description: String? = null,
+)
+
 data class DnLineInput(
     val salesInvoiceLineId: String,
     val qty: Double,

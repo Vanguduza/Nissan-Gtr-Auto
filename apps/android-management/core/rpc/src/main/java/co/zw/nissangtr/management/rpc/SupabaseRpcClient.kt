@@ -1163,6 +1163,80 @@ class SupabaseRpcClient(
                 )
             }
 
+    override suspend fun listDispatchInvoices(limit: Int): List<DispatchInvoiceSummary> =
+        client.from("sales_invoices")
+            .select(
+                Columns.list(
+                    "id",
+                    "document_number",
+                    "status",
+                    "fulfillment_mode",
+                    "created_at",
+                ),
+            ) {
+                filter {
+                    eq("doc_type", "invoice")
+                    eq("status", "posted")
+                    eq("fulfillment_mode", "dispatch")
+                }
+                order("created_at", Order.DESCENDING)
+                limit(limit.coerceIn(1, 100).toLong())
+            }
+            .decodeList<DispatchInvoiceRow>()
+            .map {
+                DispatchInvoiceSummary(
+                    id = it.id,
+                    documentNumber = it.documentNumber ?: it.id.take(8),
+                    status = it.status,
+                    fulfillmentMode = it.fulfillmentMode ?: "dispatch",
+                    createdAt = it.createdAt ?: "",
+                )
+            }
+
+    override suspend fun listPickListLines(pickListId: String): List<PickListLineSummary> {
+        require(pickListId.isNotBlank())
+        val lines = client.from("pick_list_lines")
+            .select(
+                Columns.list(
+                    "id",
+                    "pick_list_id",
+                    "sales_invoice_line_id",
+                    "stock_item_id",
+                    "qty_requested",
+                    "qty_picked",
+                ),
+            ) {
+                filter { eq("pick_list_id", pickListId) }
+                order("created_at", Order.ASCENDING)
+            }
+            .decodeList<PickListLineRow>()
+        if (lines.isEmpty()) return emptyList()
+        val itemIds = lines.map { it.stockItemId }.distinct()
+        val oemById = if (itemIds.isEmpty()) {
+            emptyMap()
+        } else {
+            client.from("stock_items")
+                .select(Columns.list("id", "oem_part_number", "description")) {
+                    filter { isIn("id", itemIds) }
+                }
+                .decodeList<StockItemOemRow>()
+                .associateBy { it.id }
+        }
+        return lines.map { row ->
+            val item = oemById[row.stockItemId]
+            PickListLineSummary(
+                id = row.id,
+                pickListId = row.pickListId,
+                salesInvoiceLineId = row.salesInvoiceLineId,
+                stockItemId = row.stockItemId,
+                qtyRequested = row.qtyRequested,
+                qtyPicked = row.qtyPicked,
+                oemPartNumber = item?.oemPartNumber,
+                description = item?.description,
+            )
+        }
+    }
+
     override suspend fun createPickList(salesInvoiceId: String, linesJson: String?): String {
         require(salesInvoiceId.isNotBlank())
         val linesElement = when {
@@ -2610,6 +2684,25 @@ private data class PickListRow(
 )
 
 @Serializable
+private data class DispatchInvoiceRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String? = null,
+    val status: String,
+    @SerialName("fulfillment_mode") val fulfillmentMode: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
+private data class PickListLineRow(
+    val id: String,
+    @SerialName("pick_list_id") val pickListId: String,
+    @SerialName("sales_invoice_line_id") val salesInvoiceLineId: String,
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("qty_requested") val qtyRequested: Double,
+    @SerialName("qty_picked") val qtyPicked: Double? = null,
+)
+
+@Serializable
 private data class StockItemRow(
     val id: String,
     @SerialName("base_uom_id") val baseUomId: String,
@@ -2845,6 +2938,7 @@ private data class PosCartLineQtyUpdate(
 private data class StockItemOemRow(
     val id: String,
     @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
 )
 
 @Serializable
