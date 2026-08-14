@@ -201,6 +201,8 @@ class FakeRpcClient : RpcClient {
         const val SEED_WAREHOUSE_ID = "00000000-0000-4000-8000-0000000000w1"
         /** Fake ZiG per 1 USD — mirrors a typical staff-posted daily rate. */
         const val SEED_ZIG_RATE = 26.5
+        /** D-57 fake `daily_exchange_rates.id` for ZiG settle. */
+        const val SEED_FX_RATE_ID = "00000000-0000-4000-8000-0000000000fx"
         const val SEED_UOM_ID = "00000000-0000-4000-8000-0000000000u1"
 
         private fun seedCatalogProducts(): List<CatalogProduct> = listOf(
@@ -374,6 +376,16 @@ class FakeRpcClient : RpcClient {
         )
     }
 
+    override suspend fun listStorefrontHomeRails(limit: Int): HomeMerchRails {
+        val browse = listCatalogBrowse(category = null, limit = limit.coerceIn(1, 48))
+        val slice = browse.items
+        return HomeMerchRails(
+            featured = slice.take(4),
+            movers = slice.drop(1).take(4),
+            newest = slice.takeLast(4).reversed(),
+        )
+    }
+
     override suspend fun listCatalogMakers(): List<EpcMaker> =
         listOf(EpcMaker(slug = "nissan", name = "Nissan", modelCount = 2))
 
@@ -479,6 +491,8 @@ class FakeRpcClient : RpcClient {
 
     override suspend fun fetchZigExchangeRate(asOf: String?): Double = SEED_ZIG_RATE
 
+    override suspend fun fetchZigExchangeRateId(asOf: String?): String? = SEED_FX_RATE_ID
+
     override suspend fun resolveMainWarehouseId(): String = SEED_WAREHOUSE_ID
 
     override suspend fun ensureOpenCart(
@@ -548,6 +562,10 @@ class FakeRpcClient : RpcClient {
             "open cart $cartId required for ${RpcNames.ADD_CUSTOMER_CART_LINE}"
         }
         val lineId = UUID.randomUUID().toString()
+        // H4: Fake dual-writes majors + minors (parity with DB triggers).
+        val unitMinor = unitPriceUsd?.let { MoneyDualRead.toAmountMinor(it, cart.currency) }
+        val lineMajor = unitPriceUsd?.times(qty)
+        val lineMinor = lineMajor?.let { MoneyDualRead.toAmountMinor(it, cart.currency) }
         openCart = cart.copy(
             lines = cart.lines + CartLineSummary(
                 id = lineId,
@@ -557,6 +575,10 @@ class FakeRpcClient : RpcClient {
                 oemPartNumber = oem,
                 isCoreDeposit = isCoreDeposit,
                 unitPriceUsd = unitPriceUsd,
+                unitPrice = unitPriceUsd,
+                unitPriceMinor = unitMinor,
+                lineTotal = lineMajor,
+                lineTotalMinor = lineMinor,
             ),
         )
         // TODO(live): supabase.rpc(RpcNames.ADD_CUSTOMER_CART_LINE, …)
@@ -1199,6 +1221,7 @@ class FakeRpcClient : RpcClient {
             currency = "USD",
             liabilityPerPoint = 0.01,
             estimatedLiability = 1.2,
+            estimatedLiabilityMinor = 120L,
         )
 
     override suspend fun postCustomerReturnCreditNote(

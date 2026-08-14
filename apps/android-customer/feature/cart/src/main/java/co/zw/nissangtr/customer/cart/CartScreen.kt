@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.CartLineSummary
+import co.zw.nissangtr.customer.rpc.displayUnitPrice
+import co.zw.nissangtr.customer.rpc.displaySubtotal
 import co.zw.nissangtr.customer.rpc.CurrencyCode
 import co.zw.nissangtr.customer.rpc.FulfillmentMode
 import co.zw.nissangtr.customer.rpc.RpcClient
@@ -89,8 +91,12 @@ fun CartScreen(
             if (hasLines) {
                 ShopProceedButtonBox(
                     totalLabel = buildString {
-                        append(cart?.currency?.rpcValue ?: "USD")
-                        append(" · ")
+                        // D-57: browse total always USD
+                        append("USD · ")
+                        if (cart != null && hasLines) {
+                            append("%.2f".format(cart.displaySubtotal()))
+                            append(" · ")
+                        }
                         append(lines.size)
                         append(" line(s)")
                     },
@@ -107,7 +113,10 @@ fun CartScreen(
                             viewModel.checkout { id -> onPay(id) }
                         }
                     },
-                    enabled = !state.busy,
+                    enabled = !state.busy && !(
+                        state.settleCurrency == CurrencyCode.ZIG &&
+                            (state.zigRate == null || state.zigRate!! <= 0.0)
+                        ),
                 )
             }
         },
@@ -140,7 +149,10 @@ fun CartScreen(
             ) {
                 if (hasLines) {
                     items(lines, key = { it.id }) { line ->
-                        KmpCartLineBox(line = line)
+                        KmpCartLineBox(
+                            line = line,
+                            currency = CurrencyCode.USD,
+                        )
                     }
                 }
 
@@ -195,17 +207,40 @@ fun CartScreen(
                     ShopSectionHeader(title = "Settle currency", actionLabel = null)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
-                            selected = state.currency == CurrencyCode.USD,
-                            onClick = { viewModel.onCurrencyChange(CurrencyCode.USD) },
+                            selected = state.settleCurrency == CurrencyCode.USD,
+                            onClick = { viewModel.onSettleCurrencyChange(CurrencyCode.USD) },
                             enabled = !state.busy,
                             label = { Text("USD") },
                         )
                         FilterChip(
-                            selected = state.currency == CurrencyCode.ZIG,
-                            onClick = { viewModel.onCurrencyChange(CurrencyCode.ZIG) },
+                            selected = state.settleCurrency == CurrencyCode.ZIG,
+                            onClick = { viewModel.onSettleCurrencyChange(CurrencyCode.ZIG) },
                             enabled = !state.busy,
                             label = { Text("ZiG") },
                         )
+                    }
+                    val display = viewModel.checkoutDisplayOrNull()
+                    if (state.settleCurrency == CurrencyCode.ZIG) {
+                        val rate = state.zigRate
+                        if (display != null && rate != null) {
+                            val zigMajor = co.zw.nissangtr.customer.rpc.MoneyDualRead.fromAmountMinor(
+                                display.payable.amountMinor,
+                                CurrencyCode.ZIG,
+                            )
+                            Text(
+                                "≈ ZIG %.2f @ %.4f ZiG per USD (ops daily rate)".format(zigMajor, rate),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        } else {
+                            Text(
+                                "Daily ZiG rate unavailable — settle in USD or try again later.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
                 }
 
@@ -252,7 +287,7 @@ fun CartScreen(
 }
 
 @Composable
-private fun KmpCartLineBox(line: CartLineSummary) {
+private fun KmpCartLineBox(line: CartLineSummary, currency: CurrencyCode) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -293,7 +328,10 @@ private fun KmpCartLineBox(line: CartLineSummary) {
                     buildString {
                         append("Qty ${line.qty}")
                         if (line.isCoreDeposit) append(" · Core deposit")
-                        line.unitPriceUsd?.let { append(" · USD %.2f".format(it)) }
+                        // H4 dual-read: prefer unit_price_minor when dual-written
+                        line.displayUnitPrice(currency)?.let {
+                            append(" · ${currency.rpcValue} %.2f".format(it))
+                        }
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

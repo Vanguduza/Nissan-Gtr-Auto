@@ -1,0 +1,23 @@
+# D-40 — ban Baileys and whatsapp-web.js (official Cloud API only)
+rules:
+  - id: dial.no-unofficial-whatsapp
+    message: >-
+      Unofficial WhatsApp clients are forbidden (D-40). Use Meta WhatsApp Cloud API only.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      dial: D-40
+      category: security
+      license: MIT
+    pattern-either:
+      - pattern: import $X from "baileys"
+      - pattern: import $X from '@whiskeysockets/baileys'
+      - pattern: import $X from "whatsapp-web.js"
+      - pattern: import $X from 'whatsapp-web.js'
+      - pattern: require("baileys")
+      - pattern: require('baileys')
+      - pattern: require("@whiskeysockets/baileys")
+      - pattern: require("whatsapp-web.js")
+      - pattern-regex: from\s+['"]@whiskeysockets/baileys['"]
+      - pattern-regex: from\s+['"]baileys['"]
+      - pattern-regex: from\s+['"]whatsapp-web\.js['"]

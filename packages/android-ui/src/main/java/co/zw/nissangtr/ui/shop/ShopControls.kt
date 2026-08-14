@@ -304,8 +304,8 @@ fun ShopAddressPicker(
             if (mapsKeyPresent) {
                 "Pick a point on the map, then confirm the street address."
             } else {
-                "Set GOOGLE_MAPS_API_KEY in local.properties to enable the map picker " +
-                    "(Shopping-By-KMP pattern). Lat/lng + line work offline until then."
+                "Map picker unavailable — enter lat/lng manually " +
+                    "(MapLibre is SoR; deprecated Google fallback needs GOOGLE_MAPS_API_KEY)."
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -10,11 +10,18 @@ from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.core.supabase_client import get_supabase
+from app.services.checkout_display import (
+    CheckoutDisplayError,
+    build_zig_settlement,
+    minor_to_major,
+    usd_major_to_minor,
+)
 from app.services.ecocash_client import (
     EcoCashClient,
     EcoCashError,
     ecocash_status_is_paid,
 )
+from app.services.fx_rates import fetch_daily_zig_rate
 from app.services.meta_client import MetaClient
 from app.services.receipt_pdf import build_receipt_pdf
 
@@ -61,6 +68,43 @@ def _get_order(order_id: str) -> dict[str, Any]:
     return existing.data[0]
 
 
+def _ecocash_charge_from_order(order: dict[str, Any]) -> tuple[float, str]:
+    """D-57: EcoCash C2B amount is ZiG settle MoneyMinor — never invent from browse USD alone.
+
+    Prefer persisted settle_* columns; otherwise rebuild from USD browse total + ops rate
+    (fail closed when rate missing).
+    """
+    settle_currency = str(order.get("settle_currency") or "").upper()
+    settle_total = order.get("settle_total")
+    settle_minor = order.get("settle_amount_minor")
+    if settle_currency == "ZIG" and settle_total is not None:
+        return float(settle_total), "ZIG"
+    if settle_currency == "ZIG" and settle_minor is not None:
+        return minor_to_major(int(settle_minor)), "ZIG"
+
+    usd_minor = usd_major_to_minor(float(order.get("total") or 0))
+    daily = fetch_daily_zig_rate()
+    if daily is None:
+        raise CheckoutDisplayError(
+            "Daily ZiG rate required for EcoCash checkout",
+        )
+    display = build_zig_settlement(
+        usd_minor=usd_minor,
+        zig_rate_per_usd=daily.rate,
+        fx_rate_id=daily.fx_rate_id,
+    )
+    # Persist settle fields on retry so webhook/receipt see the same payable.
+    get_supabase().table("whatsapp_flow_orders").update(
+        {
+            "fx_rate_id": display.fx_rate_id,
+            "settle_currency": display.pay_currency,
+            "settle_total": minor_to_major(display.payable.amount_minor),
+            "settle_amount_minor": display.payable.amount_minor,
+        },
+    ).eq("id", order["id"]).execute()
+    return minor_to_major(display.payable.amount_minor), "ZIG"
+
+
 def _mark_paid(order_id: str, reference: str | None) -> dict[str, Any]:
     order = _get_order(order_id)
     if order.get("status") == "PAID":
@@ -93,12 +137,17 @@ async def push_ecocash_for_order(
             detail="EcoCash needs payer MSISDN (ecocash_payer_msisdn or override)",
         )
     source_ref = order.get("payment_source_reference") or str(order["id"])
+    try:
+        charge_amount, charge_currency = _ecocash_charge_from_order(order)
+    except CheckoutDisplayError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     client = EcoCashClient()
     try:
         result = await client.initiate_c2b(
             customer_phone=str(payer),
-            amount=float(order["total"]),
-            currency=str(order.get("currency") or "USD"),
+            amount=charge_amount,
+            currency=charge_currency,
             reason=f"GTR order {str(order['id'])[:8]}",
             source_reference=str(source_ref),
         )
@@ -122,7 +171,7 @@ async def push_ecocash_for_order(
         },
     ).eq("id", order["id"]).execute()
 
-    amount_label = f"{order.get('currency', 'USD')} {float(order['total']):.2f}"
+    amount_label = f"{charge_currency} {charge_amount:.2f}"
     stub_note = " (sandbox/stub — set ECOCASH_API_KEY for live)" if result.stub else ""
     same = (
         wa_notify

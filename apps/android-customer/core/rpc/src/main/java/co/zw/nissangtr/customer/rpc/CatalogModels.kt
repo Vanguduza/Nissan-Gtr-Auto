@@ -62,11 +62,22 @@ data class CatalogListItem(
     val stock: StockState,
     val usd: Double?,
     val category: String? = null,
+    /** Saleable qty across active non-quarantine warehouses (shop / movers). */
+    val qty: Double? = null,
+    /** ISO timestamp when known (newest rail / sort). */
+    val createdAt: String? = null,
 )
 
 data class CatalogBrowseResult(
     val items: List<CatalogListItem>,
     val categories: List<String> = emptyList(),
+)
+
+/** Home merchandising rails — mirrors web `listHomeMerchRails` / `list_storefront_home_rails`. */
+data class HomeMerchRails(
+    val featured: List<CatalogListItem> = emptyList(),
+    val movers: List<CatalogListItem> = emptyList(),
+    val newest: List<CatalogListItem> = emptyList(),
 )
 
 /** PDP subset aligned with web `CatalogProduct`. */

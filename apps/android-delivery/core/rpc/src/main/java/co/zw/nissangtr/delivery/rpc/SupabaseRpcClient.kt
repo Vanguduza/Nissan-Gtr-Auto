@@ -94,19 +94,43 @@ class SupabaseRpcClient(
                 limit(100)
             }
             .decodeList<DeliveryJobRow>()
-            .map { it.toSummary() }
+            .map { row ->
+                val settlement = runCatching { fetchSettlement(row.id) }.getOrNull()
+                row.toSummary(settlement)
+            }
     }
 
     override suspend fun getDeliveryJob(jobId: String): DeliveryJobSummary? {
         require(jobId.isNotBlank())
-        return client.from("delivery_jobs")
+        val row = client.from("delivery_jobs")
             .select(JOB_COLUMNS) {
                 filter { eq("id", jobId) }
                 limit(1)
             }
             .decodeList<DeliveryJobRow>()
             .firstOrNull()
-            ?.toSummary()
+            ?: return null
+        val settlement = runCatching { fetchSettlement(row.id) }.getOrNull()
+        return row.toSummary(settlement)
+    }
+
+    private suspend fun fetchSettlement(jobId: String): DeliveryJobSettlement? {
+        val rows = client.postgrest.rpc(
+            RpcNames.GET_DELIVERY_JOB_SETTLEMENT,
+            buildJsonObject { put("p_delivery_job_id", jobId) },
+        ).decodeList<SettlementRow>()
+        val row = rows.firstOrNull() ?: return null
+        val currency = CurrencyCode.entries.find { it.rpcValue.equals(row.currency, ignoreCase = true) }
+            ?: CurrencyCode.USD
+        return DeliveryJobSettlement(
+            currency = currency,
+            invoiceTotal = row.invoiceTotal,
+            invoiceTotalMinor = row.invoiceTotalMinor,
+            amountPaid = row.amountPaid,
+            amountPaidMinor = row.amountPaidMinor,
+            amountDue = row.amountDue,
+            amountDueMinor = row.amountDueMinor,
+        )
     }
 
     override suspend fun setDriverPresence(
@@ -418,7 +442,7 @@ private data class DeliveryJobRow(
     @SerialName("pod_signature_path") val podSignaturePath: String? = null,
     @SerialName("assignee_user_id") val assigneeUserId: String? = null,
 ) {
-    fun toSummary() = DeliveryJobSummary(
+    fun toSummary(settlement: DeliveryJobSettlement? = null) = DeliveryJobSummary(
         id = id,
         deliveryNoteId = deliveryNoteId,
         documentNumber = documentNumber,
@@ -434,8 +458,21 @@ private data class DeliveryJobRow(
         podPhotoPath = podPhotoPath,
         podSignaturePath = podSignaturePath,
         assigneeUserId = assigneeUserId,
+        settlement = settlement,
     )
 }
+
+@Serializable
+private data class SettlementRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String? = null,
+    val currency: String = "USD",
+    @SerialName("invoice_total") val invoiceTotal: Double? = null,
+    @SerialName("amount_paid") val amountPaid: Double? = null,
+    @SerialName("amount_due") val amountDue: Double? = null,
+    @SerialName("invoice_total_minor") val invoiceTotalMinor: Long? = null,
+    @SerialName("amount_paid_minor") val amountPaidMinor: Long? = null,
+    @SerialName("amount_due_minor") val amountDueMinor: Long? = null,
+)
 
 @Serializable
 private data class GeofenceRow(

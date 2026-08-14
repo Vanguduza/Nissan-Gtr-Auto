@@ -1,8 +1,6 @@
 package co.zw.nissangtr.customer.pay
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -21,14 +19,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import co.zw.nissangtr.customer.rpc.CheckoutPayMethod
+import co.zw.nissangtr.customer.rpc.CurrencyCode
+import co.zw.nissangtr.customer.rpc.MoneyDualRead
 import co.zw.nissangtr.customer.rpc.RpcClient
+import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopGtrPayMethod
 import co.zw.nissangtr.ui.shop.ShopPaymentMethodList
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopSectionHeader
 
 /**
- * Thin ContiPay / Paynow intent-create scaffold.
+ * Thin ContiPay / Paynow / EcoCash intent-create scaffold with D-57 display:
+ * browse open amount in USD; EcoCash shows ZiG from MoneyMinor + ops fxRateId.
  * No PSP crypto, secrets, or settle — webhook remains service_role.
  */
 @Composable
@@ -48,21 +50,76 @@ fun PayIntentScreen(
         if (id.isNotEmpty()) viewModel.onInvoiceIdChange(id)
     }
 
+    val checkoutMethod = when (payMethod) {
+        ShopGtrPayMethod.ContiPay -> CheckoutPayMethod.CONTIPAY
+        ShopGtrPayMethod.Paynow -> CheckoutPayMethod.PAYNOW
+        ShopGtrPayMethod.EcoCash -> CheckoutPayMethod.ECOCASH
+    }
+    val display = viewModel.checkoutDisplay(checkoutMethod)
+    val ecoCashBlocked = payMethod == ShopGtrPayMethod.EcoCash && display == null
+
     ShopDefaultScreen(
         title = "Secure payment",
         subtitle = null,
         onBack = onBack,
-        modifier = modifier) {
+        modifier = modifier,
+    ) {
         Text(
-            "EcoCash direct is separate from ContiPay/Paynow. Enter the EcoCash MSISDN for the PIN prompt.",
+            "EcoCash settles in ZiG at the ops daily rate. ContiPay / Paynow browse as USD.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-                ShopPaymentMethodList(
+        ShopPaymentMethodList(
             selected = payMethod,
             onSelect = { payMethod = it },
         )
+
+        ShopSectionHeader(title = "Amount due", actionLabel = null)
+        when {
+            display == null && payMethod == ShopGtrPayMethod.EcoCash -> {
+                Text(
+                    "Daily ZiG rate required for EcoCash. Try again later or pay via ContiPay/Paynow (USD).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            display != null && display.payCurrency == CurrencyCode.ZIG -> {
+                val zig = MoneyDualRead.fromAmountMinor(display.payable.amountMinor, CurrencyCode.ZIG)
+                val usd = viewModel.selectedOpenUsdMinor()?.let {
+                    MoneyDualRead.fromAmountMinor(it, CurrencyCode.USD)
+                }
+                Text(
+                    buildString {
+                        append("ZIG %.2f".format(zig))
+                        if (usd != null) append(" (USD %.2f browse)".format(usd))
+                        state.zigRate?.let { append(" @ %.4f ZiG/USD".format(it)) }
+                        display.fxRateId?.let { append(" · fx $it") }
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            display != null -> {
+                val usd = MoneyDualRead.fromAmountMinor(display.payable.amountMinor, CurrencyCode.USD)
+                Text(
+                    buildString {
+                        append("USD %.2f".format(usd))
+                        display.indicativeZigMinor?.let { zm ->
+                            val zig = MoneyDualRead.fromAmountMinor(zm, CurrencyCode.ZIG)
+                            append(" · ≈ ZIG %.2f indicative".format(zig))
+                        }
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            else -> {
+                Text(
+                    "Select an invoice to see the amount due.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
 
         ShopSectionHeader(title = "Invoice", actionLabel = null)
         OutlinedTextField(
@@ -87,9 +144,10 @@ fun PayIntentScreen(
 
         ShopSectionHeader(title = "Own invoices", actionLabel = null)
         state.invoices.forEach { inv ->
-            val open = inv.total - inv.amountPaid
+            val open = (inv.total - inv.amountPaid).coerceAtLeast(0.0)
             Text(
-                "${inv.documentNumber ?: inv.id} · open ${"%.2f".format(open)} ${inv.currency.rpcValue}",
+                // D-57 browse: open balance as USD dual-read major
+                "${inv.documentNumber ?: inv.id} · open USD %.2f".format(open),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -108,7 +166,7 @@ fun PayIntentScreen(
                     ShopGtrPayMethod.EcoCash -> viewModel.createEcocash()
                 }
             },
-            enabled = !state.busy,
+            enabled = !state.busy && !ecoCashBlocked,
             modifier = Modifier.fillMaxWidth(),
             shape = sharp,
         ) {

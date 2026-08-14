@@ -14,6 +14,7 @@ import {
   dispatchDeliveryJob,
   fetchRecentDeliveryLocations,
   fetchStaffTrackPoint,
+  formatEtaSourceLabel,
   listDeliveryJobs,
   optimizeDriverStops,
   requireSession,
@@ -23,6 +24,7 @@ import {
   type DeliveryJobOption,
   type DeliveryLocationPoint,
 } from "@/lib/staff-delivery-tracking";
+import { canOverrideAssignDeliveryJob } from "@gtr/supabase-client";
 import { createWebClient } from "@/lib/supabase";
 
 const TRACK_POINT_POLL_MS = 20_000;
@@ -76,7 +78,6 @@ export function StaffDeliveryTrackingPanel() {
   const [suggestions, setSuggestions] = useState<AssigneeSuggestion[]>([]);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const [manualAssignee, setManualAssignee] = useState("");
-  const [override, setOverride] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
@@ -110,9 +111,9 @@ export function StaffDeliveryTrackingPanel() {
     setJobId((prev) => prev || jobs.data[0]?.id || "");
   }, []);
 
-  const loadSuggestions = useCallback(async (id: string) => {
+  const loadSuggestions = useCallback(async (id: string, unassigned: boolean) => {
     const client = createWebClient();
-    if (!client || !id) {
+    if (!client || !id || !unassigned) {
       setSuggestions([]);
       return;
     }
@@ -135,8 +136,13 @@ export function StaffDeliveryTrackingPanel() {
       setSuggestions([]);
       return;
     }
-    void loadSuggestions(jobId);
-  }, [boot.kind, jobId, loadSuggestions]);
+    const job = boot.jobs.find((j) => j.id === jobId);
+    const unassigned = canOverrideAssignDeliveryJob(
+      job?.assignee_user_id,
+      job?.status,
+    );
+    void loadSuggestions(jobId, unassigned);
+  }, [boot, jobId, loadSuggestions]);
 
   useEffect(() => {
     if (boot.kind !== "ready" || !jobId) {
@@ -230,29 +236,36 @@ export function StaffDeliveryTrackingPanel() {
     boot.kind === "ready"
       ? boot.jobs.find((j) => j.id === jobId) ?? null
       : null;
+  const canOverrideAssign = canOverrideAssignDeliveryJob(
+    selectedJob?.assignee_user_id,
+    selectedJob?.status,
+  );
 
-  async function onAssign(userId: string, asOverride: boolean) {
+  async function onOverrideAssign(userId: string) {
     const client = createWebClient();
     if (!client || !jobId || !userId.trim()) return;
+    if (!canOverrideAssign) {
+      setActionMessage(
+        "Override assign only for unassigned/stuck jobs (auto-assign remains SoR).",
+      );
+      return;
+    }
+    const ok = window.confirm(
+      `Override-assign driver ${shortId(userId.trim())}… to this unassigned job? ` +
+        "Auto-assign remains SoR — exception uses assign_delivery_job(p_override=true).",
+    );
+    if (!ok) return;
     setBusy(true);
     setActionMessage(null);
-    const res = await assignDeliveryJob(
-      client,
-      jobId,
-      userId.trim(),
-      asOverride,
-    );
+    const res = await assignDeliveryJob(client, jobId, userId.trim(), true);
     setBusy(false);
     if (!res.ok) {
       setActionMessage(res.error);
       return;
     }
-    setActionMessage(
-      `Assigned ${shortId(userId)}${asOverride ? " (override)" : ""}.`,
-    );
+    setActionMessage(`Exception override assigned ${shortId(userId)}.`);
     setManualAssignee("");
     await refreshJobs();
-    await loadSuggestions(jobId);
   }
 
   async function onSaveGeo() {
@@ -298,7 +311,6 @@ export function StaffDeliveryTrackingPanel() {
       "Pickup/dropoff geo saved (suggest + ETA use these coords).",
     );
     await refreshJobs();
-    await loadSuggestions(jobId);
   }
 
   async function onDispatch() {
@@ -412,7 +424,8 @@ export function StaffDeliveryTrackingPanel() {
       trackPoint?.eta_at ?? selectedJob?.eta_at ?? null,
       trackPoint?.eta_seconds ?? selectedJob?.eta_seconds ?? null,
     ) ?? null;
-  const etaSource = selectedJob?.eta_source ?? null;
+  // B7: prefer Android-parity honesty (osrm vs deprecated google), not raw wire alone.
+  const etaSourceLabel = formatEtaSourceLabel(selectedJob?.eta_source ?? null);
   const sharePath = shareToken
     ? `/track/${encodeURIComponent(shareToken)}`
     : null;
@@ -453,7 +466,7 @@ export function StaffDeliveryTrackingPanel() {
             role="status"
           >
             <strong>ETA</strong> {etaLabel ?? "—"}
-            {etaSource ? ` (${etaSource})` : ""}
+            {etaSourceLabel ? ` (${etaSourceLabel})` : ""}
             {" · "}
             <strong>Assignee</strong>{" "}
             {selectedJob.assignee_user_id
@@ -473,13 +486,8 @@ export function StaffDeliveryTrackingPanel() {
       {selectedJob ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Pickup / dropoff geo</legend>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0.65rem",
-            }}
-          >
+          {/* B7: .formGrid → 1 col @ max-width 640px (account.module.css) */}
+          <div className={styles.formGrid}>
             <label className={styles.field}>
               Pickup lat
               <input
@@ -544,90 +552,84 @@ export function StaffDeliveryTrackingPanel() {
 
       {selectedJob ? (
         <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>Assign driver</legend>
-          {suggestError ? (
-            <p className={styles.lede} role="alert">
-              Suggest failed: {suggestError}
+          <legend className={styles.legend}>
+            Override assign (exception)
+          </legend>
+          <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+            Auto-assign remains SoR. Manual override only when unassigned /
+            stuck — happily assigned jobs show status only (no pick-driver).
+          </p>
+          {!canOverrideAssign ? (
+            <p className={styles.muted} role="status">
+              Assignee{" "}
+              {selectedJob.assignee_user_id
+                ? shortId(selectedJob.assignee_user_id)
+                : "—"}{" "}
+              · status {selectedJob.status}. No override UI for this job.
             </p>
-          ) : null}
-          {suggestions.length === 0 && !suggestError ? (
-            <p className={styles.muted}>No eligible drivers suggested.</p>
           ) : (
-            <ul className={styles.list}>
-              {suggestions.map((s) => (
-                <li key={s.user_id}>
-                  <strong>{shortId(s.user_id)}</strong>
-                  <span className={styles.muted}>
-                    {" "}
-                    · {s.status} · open {s.open_jobs}/{s.capacity}
-                    {s.distance_m != null
-                      ? ` · ${Math.round(s.distance_m)} m`
-                      : ""}
-                  </span>
-                  <div
-                    className={styles.formActions}
-                    style={{ marginTop: "0.45rem" }}
-                  >
-                    <button
-                      type="button"
-                      className={styles.btn}
-                      disabled={busy}
-                      onClick={() => void onAssign(s.user_id, false)}
-                    >
-                      Assign
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.btnGhost}
-                      disabled={busy}
-                      onClick={() => void onAssign(s.user_id, true)}
-                    >
-                      Override
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+            <>
+              {suggestError ? (
+                <p className={styles.lede} role="alert">
+                  Suggest failed: {suggestError}
+                </p>
+              ) : null}
+              {suggestions.length === 0 && !suggestError ? (
+                <p className={styles.muted}>No eligible drivers suggested.</p>
+              ) : (
+                <ul className={styles.list}>
+                  {suggestions.map((s) => (
+                    <li key={s.user_id}>
+                      <strong>{shortId(s.user_id)}</strong>
+                      <span className={styles.muted}>
+                        {" "}
+                        · {s.status} · open {s.open_jobs}/{s.capacity}
+                        {s.distance_m != null
+                          ? ` · ${Math.round(s.distance_m)} m`
+                          : ""}
+                      </span>
+                      <div
+                        className={styles.formActions}
+                        style={{ marginTop: "0.45rem" }}
+                      >
+                        <button
+                          type="button"
+                          className={styles.btn}
+                          disabled={busy}
+                          onClick={() => void onOverrideAssign(s.user_id)}
+                        >
+                          Override assign
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-          <label className={styles.field} style={{ marginTop: "0.85rem" }}>
-            Manual assignee (user id)
-            <input
-              type="text"
-              value={manualAssignee}
-              onChange={(e) => setManualAssignee(e.target.value)}
-              disabled={busy}
-              placeholder="uuid"
-              aria-label="Manual assignee user id"
-            />
-          </label>
-          <label
-            className={styles.field}
-            style={{
-              marginTop: "0.5rem",
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={override}
-              onChange={(e) => setOverride(e.target.checked)}
-              disabled={busy}
-            />
-            Manual override (bypass eligibility)
-          </label>
+              <label className={styles.field} style={{ marginTop: "0.85rem" }}>
+                Manual assignee (user id)
+                <input
+                  type="text"
+                  value={manualAssignee}
+                  onChange={(e) => setManualAssignee(e.target.value)}
+                  disabled={busy}
+                  placeholder="uuid"
+                  aria-label="Manual assignee user id"
+                />
+              </label>
+              <div className={styles.formActions} style={{ marginTop: "0.75rem" }}>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={busy || !manualAssignee.trim()}
+                  onClick={() => void onOverrideAssign(manualAssignee)}
+                >
+                  Confirm override assign
+                </button>
+              </div>
+            </>
+          )}
           <div className={styles.formActions} style={{ marginTop: "0.75rem" }}>
-            <button
-              type="button"
-              className={styles.btn}
-              disabled={busy || !manualAssignee.trim()}
-              onClick={() => void onAssign(manualAssignee, override)}
-            >
-              Assign manual
-            </button>
             {selectedJob.assignee_user_id ? (
               <button
                 type="button"
@@ -708,6 +710,7 @@ export function StaffDeliveryTrackingPanel() {
           points={mapPoints}
           live={live}
           etaLabel={etaLabel}
+          etaSourceLabel={etaSourceLabel}
         />
       ) : null}
 

@@ -1,0 +1,30 @@
+{
+  "name": "@gtr/delivery-dispatch-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Temporal host for DeliveryDispatchWorkflow (§H H1). Edge delivery-dispatch-cycle remains.",
+  "main": "./dist/worker.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test src/**/*.test.ts",
+    "start": "node --experimental-strip-types src/worker.ts",
+    "lint": "echo \"lint: delivery-dispatch-worker — eslint pending\""
+  },
+  "dependencies": {
+    "@gtr/delivery": "workspace:*",
+    "@supabase/supabase-js": "^2.49.1",
+    "@temporalio/activity": "1.22.0",
+    "@temporalio/client": "1.22.0",
+    "@temporalio/worker": "1.22.0",
+    "@temporalio/workflow": "1.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

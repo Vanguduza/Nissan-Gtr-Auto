@@ -8,6 +8,10 @@ package co.zw.nissangtr.management.rpc
 object RpcNames {
     // Phase 9 HR (gross payroll only — no PAYE/NSSA UI)
     const val CLOCK_ATTENDANCE = "clock_attendance"
+    /** Period hours for gross payroll (HR/admin or self). */
+    const val ATTENDANCE_HOURS_IN_PERIOD = "attendance_hours_in_period"
+    /** Manual/custom deduction only — never PAYE/NSSA/statutory. */
+    const val ADD_PAYROLL_DEDUCTION = "add_payroll_deduction"
     /** Batch 1 HR onboarding — resumable draft save. */
     const val SAVE_HR_ONBOARDING_STAGE = "save_hr_onboarding_stage"
     /** Batch 1 HR onboarding — create employee + emp#. */
@@ -129,7 +133,8 @@ object RpcNames {
     const val POST_CHAT_MESSAGE = "post_chat_message"
     const val CHAT_UNREAD_COUNT = "chat_unread_count"
 
-    // Phase 8b procurement / blankets
+    // Phase 8b procurement / blankets + preferred manual PO
+    const val CREATE_PURCHASE_ORDER = "create_purchase_order"
     const val CREATE_BLANKET_PURCHASE_ORDER = "create_blanket_purchase_order"
     const val CREATE_BLANKET_RELEASE = "create_blanket_release"
     const val SUBMIT_PURCHASE_ORDER = "submit_purchase_order"
@@ -149,6 +154,15 @@ object RpcNames {
 
     // B2B credit (staff DEFINER — admin|sales|finance)
     const val SET_CUSTOMER_CREDIT = "set_customer_credit"
+
+    // CRM product pages / kits (admin|sales|warehouse)
+    const val LIST_STAFF_PRODUCT_PAGES = "list_staff_product_pages"
+    const val UPSERT_STAFF_PRODUCT_PAGE = "upsert_staff_product_page"
+    const val REGISTER_STOCK_ITEM_IMAGE = "register_stock_item_image"
+    const val SET_STOCK_ITEM_PRIMARY_IMAGE = "set_stock_item_primary_image"
+    const val CREATE_KIT_WITH_COMPONENTS = "create_kit_with_components"
+    const val UPDATE_ITEM_KIT = "update_item_kit"
+    const val PRODUCT_IMAGES_BUCKET = "product-images"
 
     // Company fleet (ops vehicles — not B2B FLEET price list / garage)
     const val LIST_FLEET_VEHICLES = "list_fleet_vehicles"

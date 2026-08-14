@@ -42,7 +42,7 @@ fun LoyaltyWalletScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                "Estimated liability: ${bal.currency} %.2f".format(bal.estimatedLiability),
+                "Estimated liability: ${bal.currency} %.2f".format(bal.displayEstimatedLiability()),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

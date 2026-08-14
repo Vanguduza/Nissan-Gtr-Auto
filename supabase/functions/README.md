@@ -1,6 +1,6 @@
 # Edge Functions
 
-## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `process-ai-reports`, `process-crm-promos`, `chat-notify-on-message`)
+## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `delivery-dispatch-cycle`, `process-ai-reports`, `process-crm-promos`, `chat-notify-on-message`)
 
 These use `service_role` internally and **must not** be publicly callable without a shared secret.
 
@@ -245,7 +245,9 @@ Opt-in only (`customers.marketing_opt_in`). Plan/ADR: `docs/plans/2026-08-03-ai-
 | Method | `POST /functions/v1/process-crm-promos` |
 | Auth | `x-worker-secret` |
 | Body | `{ "limit": 25, "force": false }` |
-| Flow | `list_crm_promo_candidates` → Gemini or template copy → email / WhatsApp (SMS fallback) → `ai_promo_*` rows + cooldown stamp |
+| Flow | `list_crm_promo_candidates` → Gemini or template copy → **Brevo email** (Resend fallback) / WhatsApp (SMS fallback) → `ai_promo_*` rows + cooldown stamp |
+
+Promo email prefers Brevo (`BREVO_API_KEY` + `BREVO_FROM_EMAIL`). Resend remains transactional (OTP/receipts). See `docs/DIAL_SPARE_ADOPTION_PLAN.md`.
 
 ```bash
 curl -sS -X POST "$SUPABASE_URL/functions/v1/process-crm-promos" \

@@ -7,6 +7,21 @@ public enum StorefrontFormat {
         return "\(currency.rawValue) \(n.stringValue)"
     }
 
+    /// H4 dual-read display helper — prefer minor when present.
+    public static func moneyDual(
+        amountMinor: Int64?,
+        amountMajor: Decimal,
+        currency: StorefrontCurrency
+    ) -> String {
+        let major =
+            (try? MoneyDualRead.displayMajorFromDual(
+                amountMinor: amountMinor,
+                amountMajor: amountMajor,
+                currency: currency
+            )) ?? amountMajor
+        return money(major, currency: currency)
+    }
+
     public static func fulfillment(_ mode: FulfillmentMode) -> String {
         switch mode {
         case .immediate: return "Click & collect"

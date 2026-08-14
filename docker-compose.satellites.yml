@@ -3,6 +3,7 @@
 # Usage:
 #   docker compose -f docker-compose.satellites.yml --profile search up -d
 #   docker compose -f docker-compose.satellites.yml --profile search --profile gps up -d
+#   bash infra/satellites/osrm/prepare.sh && docker compose -f docker-compose.satellites.yml --profile routing up -d
 
 services:
   meilisearch:
@@ -32,17 +33,27 @@ services:
       - traccar_data:/opt/traccar/data
     # Prefer mapping devices into GTR fleet entities; do not replace Bridge-First GPS on device.
 
-  # OSRM — stub only. Uncomment after placing preprocessed map data under
-  # infra/satellites/osrm/data/ (see infra/satellites/README.md).
-  # osrm:
-  #   profiles: ["routing"]
-  #   image: ghcr.io/project-osrm/osrm-backend:latest
-  #   container_name: gtr-osrm
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./infra/satellites/osrm/data:/data
-  #   command: osrm-routed --algorithm mld /data/region.osrm
+  # OSRM — distance/route SoR (H6 / B-OSRM-1). Prepare graph first:
+  #   bash infra/satellites/osrm/prepare.sh
+  # Docs: infra/satellites/osrm/README.md
+  # Port clash: do not combine --profile routing with --profile gps unless
+  # OSRM_HOST_PORT is remapped (Traccar publishes host 5000–5150).
+  osrm:
+    profiles: ["routing"]
+    image: ${OSRM_IMAGE:-ghcr.io/project-osrm/osrm-backend:v5.27.1}
+    container_name: gtr-osrm
+    ports:
+      - "${OSRM_HOST_PORT:-5000}:5000"
+    volumes:
+      - ./infra/satellites/osrm/data:/data
+    environment:
+      OSRM_REGION: ${OSRM_REGION:-zimbabwe}
+    command:
+      - osrm-routed
+      - --algorithm
+      - mld
+      - /data/${OSRM_REGION:-zimbabwe}-latest.osrm
+    # Fails fast if prepare.sh has not produced the .osrm graph yet.
 
   # FlareSolverr — Cloudflare challenge solver for catalog scrape (Amayama).
   # Usage: docker compose -f docker-compose.satellites.yml --profile scrape up -d

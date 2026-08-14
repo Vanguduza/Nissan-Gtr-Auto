@@ -144,8 +144,9 @@ fun CatalogScreen(
                 showShellChrome = showShellChrome,
                 onBack = onBack,
                 onSeeAllCategories = viewModel::openCategories,
+                onSeeAllFeatured = viewModel::openFeatured,
+                onSeeAllMovers = viewModel::openMovers,
                 onSeeAllNewest = viewModel::openNewest,
-                onSeeAllMostSale = viewModel::openNewest,
                 onOpenProduct = viewModel::openProduct,
                 onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
                 onCategoryBrowse = viewModel::openCategoryBrowse,
@@ -252,7 +253,8 @@ private fun KmpHome(
     showShellChrome: Boolean,
     onBack: () -> Unit,
     onSeeAllCategories: () -> Unit,
-    onSeeAllMostSale: () -> Unit,
+    onSeeAllFeatured: () -> Unit,
+    onSeeAllMovers: () -> Unit,
     onSeeAllNewest: () -> Unit,
     onOpenProduct: (String) -> Unit,
     onToggleWish: (CatalogListItem) -> Unit,
@@ -262,8 +264,9 @@ private fun KmpHome(
     onClearVehicle: () -> Unit,
     onOpenEpcBrowse: () -> Unit = {},
 ) {
-    val newest = state.browseItems.take(8)
-    val mostSale = state.browseItems.drop(8).take(8).ifEmpty { state.browseItems.take(8) }
+    val featured = state.homeRails.featured.take(8)
+    val movers = state.homeRails.movers.take(8)
+    val newest = state.homeRails.newest.take(8)
 
     Column(
         modifier = Modifier
@@ -275,7 +278,7 @@ private fun KmpHome(
                 .fillMaxWidth()
                 .padding(16.dp),
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             if (showShellChrome) {
                 InlineCatalogSearch(
                     rpc = rpc,
@@ -283,7 +286,7 @@ private fun KmpHome(
                     onApplyFilter = onCategoryBrowse,
                 )
                 CompactFitmentBar(label = state.fitmentBarLabel())
-                Spacer(Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 VehicleSelectorSection(
                     vehicleRows = state.vehicleRows,
                     confirmedVehicle = state.selectedFitment,
@@ -309,7 +312,7 @@ private fun KmpHome(
                     onApplyFilter = onCategoryBrowse,
                 )
                 CompactFitmentBar(label = state.fitmentBarLabel())
-                Spacer(Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 VehicleSelectorSection(
                     vehicleRows = state.vehicleRows,
                     confirmedVehicle = state.selectedFitment,
@@ -333,7 +336,7 @@ private fun KmpHome(
                 modifier = Modifier.padding(16.dp),
             )
             ShopBannerCarousel(banners = homeBanners)
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             ShopMerchTitleRow(
                 title = "Category",
@@ -346,76 +349,75 @@ private fun KmpHome(
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
 
-            Spacer(Modifier.height(16.dp))
-            if (state.deals.isEmpty()) {
-                ShopHonestEmpty(
-                    title = "No flash deals",
-                    body = "No deals.",
-                    modifier = Modifier.padding(horizontal = 8.dp),
+            Spacer(modifier = Modifier.height(16.dp))
+            HomeProductRail(
+                title = "Featured products",
+                items = featured,
+                wishOems = wishOems,
+                onSeeAll = onSeeAllFeatured,
+                onOpenProduct = onOpenProduct,
+                onToggleWish = onToggleWish,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HomeProductRail(
+                title = "Newest arrivals",
+                items = newest,
+                wishOems = wishOems,
+                onSeeAll = onSeeAllNewest,
+                onOpenProduct = onOpenProduct,
+                onToggleWish = onToggleWish,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HomeProductRail(
+                title = "Top movers",
+                items = movers,
+                wishOems = wishOems,
+                onSeeAll = onSeeAllMovers,
+                onOpenProduct = onOpenProduct,
+                onToggleWish = onToggleWish,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun HomeProductRail(
+    title: String,
+    items: List<CatalogListItem>,
+    wishOems: Set<String>,
+    onSeeAll: () -> Unit,
+    onOpenProduct: (String) -> Unit,
+    onToggleWish: (CatalogListItem) -> Unit,
+) {
+    ShopMerchTitleRow(
+        title = title,
+        actionLabel = "See all",
+        onAction = onSeeAll,
+    )
+    if (items.isEmpty()) {
+        ShopHonestEmpty(
+            title = "No parts yet",
+            body = "No items.",
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+    } else {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(8.dp),
+        ) {
+            rowItems(items, key = { "${title}-${it.stockItemId}" }) { item ->
+                ShopProductCard(
+                    title = item.oem,
+                    subtitle = item.name,
+                    priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
+                    liked = wishOems.contains(item.oem.trim().uppercase()),
+                    onLikeClick = { onToggleWish(item) },
+                    onClick = { onOpenProduct(item.oem) },
                 )
-            } else {
-                ShopMerchTitleRow(title = "Flash deals", actionLabel = null)
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(8.dp),
-                ) {
-                    rowItems(state.deals, key = { it.id }) { deal ->
-                        ShopProductCard(
-                            title = deal.title,
-                            subtitle = deal.subtitle,
-                            priceLabel = "Deal",
-                            liked = false,
-                            onLikeClick = {},
-                            onClick = {},
-                        )
-                    }
-                }
             }
-
-            Spacer(Modifier.height(16.dp))
-            ShopMerchTitleRow(
-                title = "Most sale",
-                actionLabel = "See all",
-                onAction = onSeeAllMostSale,
-            )
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(8.dp),
-            ) {
-                rowItems(mostSale, key = { it.stockItemId }) { item ->
-                    ShopProductCard(
-                        title = item.oem,
-                        subtitle = item.name,
-                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
-                        liked = wishOems.contains(item.oem.trim().uppercase()),
-                        onLikeClick = { onToggleWish(item) },
-                        onClick = { onOpenProduct(item.oem) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            ShopMerchTitleRow(
-                title = "Newest products",
-                actionLabel = "See all",
-                onAction = onSeeAllNewest,
-            )
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(8.dp),
-            ) {
-                rowItems(newest, key = { "n-${it.stockItemId}" }) { item ->
-                    ShopProductCard(
-                        title = item.oem,
-                        subtitle = item.name,
-                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
-                        liked = wishOems.contains(item.oem.trim().uppercase()),
-                        onLikeClick = { onToggleWish(item) },
-                        onClick = { onOpenProduct(item.oem) },
-                    )
-                }
-            }
-            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -437,7 +439,7 @@ fun NewestProductsScreen(
     modifier: Modifier = Modifier,
 ) {
     CategoryPlpScreen(
-        title = "Newest products",
+        title = "Newest arrivals",
         products = products,
         wishOems = wishOems,
         busy = busy,

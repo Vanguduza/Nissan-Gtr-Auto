@@ -38,6 +38,7 @@ What agents must not re-litigate.
 | `2026-07-24-paynow-payment-rail.md` | Paynow + ContiPay payment rails (Phase 13) |
 | `2026-08-03-ecocash-direct-c2b.md` | EcoCash direct C2B (WhatsApp accepted; cross-platform planned) |
 | `2026-08-03-offline-sqlcipher-pos-cache.md` | Offline SQLCipher POS cache — **accepted** (#57/#59; #58 login still Later) |
+| `2026-08-12-principal-vs-dial-agency.md` | Principal distributor vs DIAL Dial-a-Spare agency — adopt patterns, not marketplace locks |
 | `2026-07-24-customer-self-pay.md` | Customer ContiPay/Paynow self-pay (not counter-only) |
 | `2026-07-25-web-management-parity-rbac.md` | Web `/staff` management fallback + nav RBAC; Bridge-First |
 | `2026-07-25-in-app-live-chat.md` | In-app live chat (Realtime); WA optional |
@@ -47,3 +48,4 @@ What agents must not re-litigate.
 | `2026-07-25-auth-otp-fail-closed.md` | Email/phone OTP signup/login; fail-closed + local stub flag |
 | `2026-07-25-pos-receipt-contact-customer-bind.md` | Checkout receipt contacts + customer_id bind |
 | `2026-08-04-gsf-ux-behaviour-specification.md` | GSF Car Parts APK reverse-eng UX/IA spec (reference only; no code/assets reused) |
+| `2026-08-13-customer-epc-shop-stock-context.md` | Shared OEM context: customer EPC/search/shop ↔ staff add-stock / item edit |

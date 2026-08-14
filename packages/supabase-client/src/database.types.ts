@@ -697,6 +697,328 @@ export type Database = {
           },
         ]
       }
+      catalog_diagram_parts: {
+        Row: {
+          bbox_height: number | null
+          bbox_width: number | null
+          bbox_x: number | null
+          bbox_y: number | null
+          callout_ref: string | null
+          created_at: string
+          description: string | null
+          diagram_path: string | null
+          diagram_slug: string
+          id: string
+          itemslist_id: string
+          maker_slug: string
+          megazip_item_id: string | null
+          model_slug: string
+          oem_part_number: string
+          quantity: string | null
+          section_slug: string
+          variant_slug: string
+        }
+        Insert: {
+          bbox_height?: number | null
+          bbox_width?: number | null
+          bbox_x?: number | null
+          bbox_y?: number | null
+          callout_ref?: string | null
+          created_at?: string
+          description?: string | null
+          diagram_path?: string | null
+          diagram_slug: string
+          id?: string
+          itemslist_id: string
+          maker_slug: string
+          megazip_item_id?: string | null
+          model_slug: string
+          oem_part_number: string
+          quantity?: string | null
+          section_slug: string
+          variant_slug: string
+        }
+        Update: {
+          bbox_height?: number | null
+          bbox_width?: number | null
+          bbox_x?: number | null
+          bbox_y?: number | null
+          callout_ref?: string | null
+          created_at?: string
+          description?: string | null
+          diagram_path?: string | null
+          diagram_slug?: string
+          id?: string
+          itemslist_id?: string
+          maker_slug?: string
+          megazip_item_id?: string | null
+          model_slug?: string
+          oem_part_number?: string
+          quantity?: string | null
+          section_slug?: string
+          variant_slug?: string
+        }
+        Relationships: []
+      }
+      catalog_diagrams: {
+        Row: {
+          created_at: string
+          diagram_kind: string | null
+          hotspot_count: number | null
+          id: string
+          image_height: number | null
+          image_url: string | null
+          image_width: number | null
+          maker_slug: string
+          model_slug: string
+          section_slug: string
+          slug: string
+          source_url: string | null
+          storage_path: string | null
+          title: string
+          variant_slug: string
+        }
+        Insert: {
+          created_at?: string
+          diagram_kind?: string | null
+          hotspot_count?: number | null
+          id?: string
+          image_height?: number | null
+          image_url?: string | null
+          image_width?: number | null
+          maker_slug: string
+          model_slug: string
+          section_slug: string
+          slug: string
+          source_url?: string | null
+          storage_path?: string | null
+          title: string
+          variant_slug: string
+        }
+        Update: {
+          created_at?: string
+          diagram_kind?: string | null
+          hotspot_count?: number | null
+          id?: string
+          image_height?: number | null
+          image_url?: string | null
+          image_width?: number | null
+          maker_slug?: string
+          model_slug?: string
+          section_slug?: string
+          slug?: string
+          source_url?: string | null
+          storage_path?: string | null
+          title?: string
+          variant_slug?: string
+        }
+        Relationships: []
+      }
+      catalog_makers: {
+        Row: {
+          created_at: string
+          name: string
+          slug: string
+          sort_order: number
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          name: string
+          slug: string
+          sort_order?: number
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          source?: string | null
+        }
+        Relationships: []
+      }
+      catalog_meili_sync_state: {
+        Row: {
+          document_count: number
+          id: number
+          index_uid: string
+          last_full_sync_at: string | null
+          meili_task_uid: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          document_count?: number
+          id?: number
+          index_uid?: string
+          last_full_sync_at?: string | null
+          meili_task_uid?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          document_count?: number
+          id?: number
+          index_uid?: string
+          last_full_sync_at?: string | null
+          meili_task_uid?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      catalog_models: {
+        Row: {
+          body_type: string | null
+          created_at: string
+          display_name: string
+          id: string
+          maker_slug: string
+          slug: string
+          sort_key: string
+          source_url: string | null
+          year_end: number | null
+          year_start: number | null
+        }
+        Insert: {
+          body_type?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          maker_slug: string
+          slug: string
+          sort_key: string
+          source_url?: string | null
+          year_end?: number | null
+          year_start?: number | null
+        }
+        Update: {
+          body_type?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          maker_slug?: string
+          slug?: string
+          sort_key?: string
+          source_url?: string | null
+          year_end?: number | null
+          year_start?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_models_maker_slug_fkey"
+            columns: ["maker_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_makers"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      catalog_sections: {
+        Row: {
+          assembly_group_id: string | null
+          created_at: string
+          id: string
+          maker_slug: string
+          model_slug: string
+          name: string
+          slug: string
+          sort_order: number
+          source_url: string | null
+          thumbnail_url: string | null
+          variant_slug: string
+        }
+        Insert: {
+          assembly_group_id?: string | null
+          created_at?: string
+          id?: string
+          maker_slug: string
+          model_slug: string
+          name: string
+          slug: string
+          sort_order?: number
+          source_url?: string | null
+          thumbnail_url?: string | null
+          variant_slug: string
+        }
+        Update: {
+          assembly_group_id?: string | null
+          created_at?: string
+          id?: string
+          maker_slug?: string
+          model_slug?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          source_url?: string | null
+          thumbnail_url?: string | null
+          variant_slug?: string
+        }
+        Relationships: []
+      }
+      catalog_variants: {
+        Row: {
+          chassis_code: string
+          created_at: string
+          engine_code: string | null
+          frame: string | null
+          grade: string | null
+          id: string
+          maker_slug: string
+          megazip_data_id: string | null
+          model_slug: string
+          sales_region: string | null
+          slug: string
+          source_url: string | null
+          year_end: number | null
+          year_label: string | null
+          year_start: number | null
+        }
+        Insert: {
+          chassis_code: string
+          created_at?: string
+          engine_code?: string | null
+          frame?: string | null
+          grade?: string | null
+          id?: string
+          maker_slug: string
+          megazip_data_id?: string | null
+          model_slug: string
+          sales_region?: string | null
+          slug: string
+          source_url?: string | null
+          year_end?: number | null
+          year_label?: string | null
+          year_start?: number | null
+        }
+        Update: {
+          chassis_code?: string
+          created_at?: string
+          engine_code?: string | null
+          frame?: string | null
+          grade?: string | null
+          id?: string
+          maker_slug?: string
+          megazip_data_id?: string | null
+          model_slug?: string
+          sales_region?: string | null
+          slug?: string
+          source_url?: string | null
+          year_end?: number | null
+          year_label?: string | null
+          year_start?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_variants_maker_slug_fkey"
+            columns: ["maker_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_makers"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["account_type"]
@@ -1034,6 +1356,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "consignment_entry_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "consignment_entry_lines_uom_id_fkey"
             columns: ["uom_id"]
             isOneToOne: false
@@ -1093,6 +1422,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consignment_stock_levels_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "consignment_stock_levels_supplier_id_fkey"
@@ -1325,6 +1661,13 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customer_compare_items_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
       }
       customer_garage_vehicles: {
@@ -1411,6 +1754,13 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customer_price_overrides_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
       }
       customer_product_review_photos: {
@@ -1490,6 +1840,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_reviews_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
         ]
       }
@@ -1599,6 +1956,13 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customer_wishlist_items_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
       }
       customers: {
@@ -1606,6 +1970,7 @@ export type Database = {
           created_at: string
           credit_hold: boolean
           credit_limit: number
+          credit_limit_minor: number | null
           currency: Database["public"]["Enums"]["currency_code"]
           display_name: string
           email: string | null
@@ -1614,6 +1979,7 @@ export type Database = {
           last_promotional_message_at: string | null
           marketing_opt_in: boolean
           open_balance: number
+          open_balance_minor: number | null
           phone_e164: string | null
           price_list_id: string | null
           profile_id: string | null
@@ -1626,6 +1992,7 @@ export type Database = {
           created_at?: string
           credit_hold?: boolean
           credit_limit?: number
+          credit_limit_minor?: number | null
           currency?: Database["public"]["Enums"]["currency_code"]
           display_name: string
           email?: string | null
@@ -1634,6 +2001,7 @@ export type Database = {
           last_promotional_message_at?: string | null
           marketing_opt_in?: boolean
           open_balance?: number
+          open_balance_minor?: number | null
           phone_e164?: string | null
           price_list_id?: string | null
           profile_id?: string | null
@@ -1646,6 +2014,7 @@ export type Database = {
           created_at?: string
           credit_hold?: boolean
           credit_limit?: number
+          credit_limit_minor?: number | null
           currency?: Database["public"]["Enums"]["currency_code"]
           display_name?: string
           email?: string | null
@@ -1654,6 +2023,7 @@ export type Database = {
           last_promotional_message_at?: string | null
           marketing_opt_in?: boolean
           open_balance?: number
+          open_balance_minor?: number | null
           phone_e164?: string | null
           price_list_id?: string | null
           profile_id?: string | null
@@ -1673,7 +2043,7 @@ export type Database = {
           {
             foreignKeyName: "customers_profile_id_fkey"
             columns: ["profile_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1925,6 +2295,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_note_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "delivery_note_lines_uom_id_fkey"
@@ -2818,6 +3195,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "forecast_suggestions_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "forecast_suggestions_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -2896,6 +3280,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "goods_receipt_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "goods_receipt_lines_uom_id_fkey"
             columns: ["uom_id"]
             isOneToOne: false
@@ -2917,6 +3308,8 @@ export type Database = {
           stock_entry_id: string | null
           submitted_at: string | null
           supplier_id: string
+          supplier_invoice_path: string | null
+          supplier_invoice_uploaded_at: string | null
           updated_at: string
           warehouse_id: string
         }
@@ -2932,6 +3325,8 @@ export type Database = {
           stock_entry_id?: string | null
           submitted_at?: string | null
           supplier_id: string
+          supplier_invoice_path?: string | null
+          supplier_invoice_uploaded_at?: string | null
           updated_at?: string
           warehouse_id: string
         }
@@ -2947,6 +3342,8 @@ export type Database = {
           stock_entry_id?: string | null
           submitted_at?: string | null
           supplier_id?: string
+          supplier_invoice_path?: string | null
+          supplier_invoice_uploaded_at?: string | null
           updated_at?: string
           warehouse_id?: string
         }
@@ -3486,6 +3883,13 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inventory_abc_snapshots_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
       }
       inventory_ai_directives: {
@@ -3597,6 +4001,13 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inventory_qr_codes_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
       }
       item_kit_components: {
@@ -3631,6 +4042,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_kit_components_component_item_id_fkey"
+            columns: ["component_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "item_kit_components_kit_id_fkey"
@@ -3684,6 +4102,13 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "item_kits_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: true
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
       }
       item_uom_conversions: {
@@ -3722,6 +4147,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_uom_conversions_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "item_uom_conversions_to_uom_id_fkey"
@@ -4024,6 +4456,7 @@ export type Database = {
           id: string
           journal_entry_id: string | null
           money_value: number
+          money_value_minor: number | null
           movement: Database["public"]["Enums"]["loyalty_movement"]
           points: number
           points_balance_after: number
@@ -4042,6 +4475,7 @@ export type Database = {
           id?: string
           journal_entry_id?: string | null
           money_value: number
+          money_value_minor?: number | null
           movement: Database["public"]["Enums"]["loyalty_movement"]
           points: number
           points_balance_after: number
@@ -4060,6 +4494,7 @@ export type Database = {
           id?: string
           journal_entry_id?: string | null
           money_value?: number
+          money_value_minor?: number | null
           movement?: Database["public"]["Enums"]["loyalty_movement"]
           points?: number
           points_balance_after?: number
@@ -4235,6 +4670,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_request_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "material_request_lines_uom_id_fkey"
@@ -5093,6 +5535,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pick_list_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "pick_list_lines_suggested_bin_id_fkey"
             columns: ["suggested_bin_id"]
             isOneToOne: false
@@ -5164,22 +5613,31 @@ export type Database = {
       }
       pnc_categories: {
         Row: {
+          assembly_group_id: string | null
+          catalog_section_path: string | null
           category_name: string
           created_at: string
+          pcdb_part_type_id: number | null
           pnc_code: string
           search_vector: unknown
           subcategory_name: string | null
         }
         Insert: {
+          assembly_group_id?: string | null
+          catalog_section_path?: string | null
           category_name: string
           created_at?: string
+          pcdb_part_type_id?: number | null
           pnc_code: string
           search_vector?: unknown
           subcategory_name?: string | null
         }
         Update: {
+          assembly_group_id?: string | null
+          catalog_section_path?: string | null
           category_name?: string
           created_at?: string
+          pcdb_part_type_id?: number | null
           pnc_code?: string
           search_vector?: unknown
           subcategory_name?: string | null
@@ -5302,6 +5760,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_cart_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "pos_cart_lines_uom_id_fkey"
@@ -5487,6 +5952,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_quotation_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "pos_quotation_lines_uom_id_fkey"
@@ -5697,6 +6169,13 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "price_list_items_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
       }
       price_lists: {
@@ -5728,6 +6207,59 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      procurement_fund_releases: {
+        Row: {
+          amount: number
+          amount_minor: number | null
+          approved_by: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          id: string
+          notes: string | null
+          payment_entry_id: string | null
+          purchase_order_id: string
+          released_at: string
+          requesting_official_id: string | null
+          status: string
+        }
+        Insert: {
+          amount: number
+          amount_minor?: number | null
+          approved_by?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          notes?: string | null
+          payment_entry_id?: string | null
+          purchase_order_id: string
+          released_at?: string
+          requesting_official_id?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          amount_minor?: number | null
+          approved_by?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          notes?: string | null
+          payment_entry_id?: string | null
+          purchase_order_id?: string
+          released_at?: string
+          requesting_official_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_fund_releases_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: true
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -5773,6 +6305,7 @@ export type Database = {
           qty_released: number
           stock_item_id: string
           unit_price: number
+          unit_price_minor: number | null
           uom_id: string
         }
         Insert: {
@@ -5788,6 +6321,7 @@ export type Database = {
           qty_released?: number
           stock_item_id: string
           unit_price: number
+          unit_price_minor?: number | null
           uom_id: string
         }
         Update: {
@@ -5803,6 +6337,7 @@ export type Database = {
           qty_released?: number
           stock_item_id?: string
           unit_price?: number
+          unit_price_minor?: number | null
           uom_id?: string
         }
         Relationships: [
@@ -5835,6 +6370,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchase_order_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "purchase_order_lines_uom_id_fkey"
             columns: ["uom_id"]
             isOneToOne: false
@@ -5858,11 +6400,13 @@ export type Database = {
           document_number: string | null
           exchange_rate_applied: number
           expected_date: string | null
+          funds_released_at: string | null
           id: string
           is_blanket: boolean
           material_request_id: string | null
           notes: string | null
           order_date: string
+          progress_step: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
@@ -5887,11 +6431,13 @@ export type Database = {
           document_number?: string | null
           exchange_rate_applied?: number
           expected_date?: string | null
+          funds_released_at?: string | null
           id?: string
           is_blanket?: boolean
           material_request_id?: string | null
           notes?: string | null
           order_date?: string
+          progress_step?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -5916,11 +6462,13 @@ export type Database = {
           document_number?: string | null
           exchange_rate_applied?: number
           expected_date?: string | null
+          funds_released_at?: string | null
           id?: string
           is_blanket?: boolean
           material_request_id?: string | null
           notes?: string | null
           order_date?: string
+          progress_step?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -6071,6 +6619,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfq_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "rfq_lines_uom_id_fkey"
@@ -6311,6 +6866,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "sales_invoice_lines_uom_id_fkey"
@@ -6698,6 +7260,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_batches_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "stock_batches_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -6845,6 +7414,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_entry_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "stock_entry_lines_uom_id_fkey"
             columns: ["uom_id"]
             isOneToOne: false
@@ -6944,6 +7520,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_levels_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "stock_levels_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -7006,6 +7589,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_reconciliation_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "stock_reconciliation_lines_stock_reconciliation_id_fkey"
@@ -7155,6 +7745,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_serials_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "stock_serials_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -7166,6 +7763,7 @@ export type Database = {
       store_credit_accounts: {
         Row: {
           balance: number
+          balance_minor: number | null
           created_at: string
           currency: Database["public"]["Enums"]["currency_code"]
           customer_id: string
@@ -7174,6 +7772,7 @@ export type Database = {
         }
         Insert: {
           balance?: number
+          balance_minor?: number | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency_code"]
           customer_id: string
@@ -7182,6 +7781,7 @@ export type Database = {
         }
         Update: {
           balance?: number
+          balance_minor?: number | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency_code"]
           customer_id?: string
@@ -7202,7 +7802,9 @@ export type Database = {
         Row: {
           account_id: string
           amount: number
+          amount_minor: number | null
           balance_after: number
+          balance_after_minor: number | null
           created_at: string
           created_by: string | null
           currency: Database["public"]["Enums"]["currency_code"]
@@ -7219,7 +7821,9 @@ export type Database = {
         Insert: {
           account_id: string
           amount: number
+          amount_minor?: number | null
           balance_after: number
+          balance_after_minor?: number | null
           created_at?: string
           created_by?: string | null
           currency: Database["public"]["Enums"]["currency_code"]
@@ -7236,7 +7840,9 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number
+          amount_minor?: number | null
           balance_after?: number
+          balance_after_minor?: number | null
           created_at?: string
           created_by?: string | null
           currency?: Database["public"]["Enums"]["currency_code"]
@@ -7284,6 +7890,70 @@ export type Database = {
             columns: ["reverses_ledger_id"]
             isOneToOne: false
             referencedRelation: "store_credit_ledger"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_preferred_skus: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          id: string
+          is_active: boolean
+          last_quoted_unit_cost: number | null
+          notes: string | null
+          oem_part_number: string | null
+          stock_item_id: string | null
+          supplier_id: string
+          typical_lead_days: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          is_active?: boolean
+          last_quoted_unit_cost?: number | null
+          notes?: string | null
+          oem_part_number?: string | null
+          stock_item_id?: string | null
+          supplier_id: string
+          typical_lead_days?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          id?: string
+          is_active?: boolean
+          last_quoted_unit_cost?: number | null
+          notes?: string | null
+          oem_part_number?: string | null
+          stock_item_id?: string | null
+          supplier_id?: string
+          typical_lead_days?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_preferred_skus_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_preferred_skus_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
+            foreignKeyName: "supplier_preferred_skus_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -7339,6 +8009,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotation_lines_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
           },
           {
             foreignKeyName: "supplier_quotation_lines_supplier_quotation_id_fkey"
@@ -7421,39 +8098,57 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          address_text: string | null
           code: string
           created_at: string
           default_currency: Database["public"]["Enums"]["currency_code"]
           email: string | null
           id: string
           is_active: boolean
+          is_preferred: boolean
           name: string
+          payment_terms: string | null
           phone_e164: string | null
+          product_categories: string[]
           profile_id: string | null
+          relationship_notes: string | null
+          tax_id: string | null
           updated_at: string
         }
         Insert: {
+          address_text?: string | null
           code: string
           created_at?: string
           default_currency?: Database["public"]["Enums"]["currency_code"]
           email?: string | null
           id?: string
           is_active?: boolean
+          is_preferred?: boolean
           name: string
+          payment_terms?: string | null
           phone_e164?: string | null
+          product_categories?: string[]
           profile_id?: string | null
+          relationship_notes?: string | null
+          tax_id?: string | null
           updated_at?: string
         }
         Update: {
+          address_text?: string | null
           code?: string
           created_at?: string
           default_currency?: Database["public"]["Enums"]["currency_code"]
           email?: string | null
           id?: string
           is_active?: boolean
+          is_preferred?: boolean
           name?: string
+          payment_terms?: string | null
           phone_e164?: string | null
+          product_categories?: string[]
           profile_id?: string | null
+          relationship_notes?: string | null
+          tax_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7581,6 +8276,7 @@ export type Database = {
           is_active: boolean
           is_quarantine: boolean
           name: string
+          role_code: string | null
         }
         Insert: {
           code: string
@@ -7589,6 +8285,7 @@ export type Database = {
           is_active?: boolean
           is_quarantine?: boolean
           name: string
+          role_code?: string | null
         }
         Update: {
           code?: string
@@ -7597,6 +8294,7 @@ export type Database = {
           is_active?: boolean
           is_quarantine?: boolean
           name?: string
+          role_code?: string | null
         }
         Relationships: []
       }
@@ -7727,6 +8425,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warranty_claims_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
+          {
             foreignKeyName: "warranty_claims_stock_serial_id_fkey"
             columns: ["stock_serial_id"]
             isOneToOne: false
@@ -7838,7 +8543,25 @@ export type Database = {
             referencedRelation: "stock_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customer_product_reviews_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_master_stock"
+            referencedColumns: ["stock_item_id"]
+          },
         ]
+      }
+      v_master_stock: {
+        Row: {
+          description: string | null
+          oem_part_number: string | null
+          qty_total: number | null
+          qty_wh1: number | null
+          qty_wh2: number | null
+          stock_item_id: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -8135,6 +8858,7 @@ export type Database = {
       _loyalty_money_value: { Args: { p_points: number }; Returns: number }
       _loyalty_rpc_active: { Args: never; Returns: boolean }
       _loyalty_rpc_enter: { Args: never; Returns: undefined }
+      _major_to_minor: { Args: { p_amount: number }; Returns: number }
       _normalize_delivery_pod_object_path: {
         Args: { p_path: string }
         Returns: string
@@ -8158,6 +8882,10 @@ export type Database = {
       _payments_rpc_enter: { Args: never; Returns: undefined }
       _payroll_begin_rpc: { Args: never; Returns: undefined }
       _payroll_rpc_active: { Args: never; Returns: boolean }
+      _po_quoted_total: {
+        Args: { p_purchase_order_id: string }
+        Returns: number
+      }
       _post_journal_entry_inventory: {
         Args: {
           p_currency: Database["public"]["Enums"]["currency_code"]
@@ -8224,9 +8952,14 @@ export type Database = {
         Returns: string
       }
       _staff_ops_notify_begin: { Args: never; Returns: undefined }
+      _storefront_customer_provision_denied: {
+        Args: { p_uid: string }
+        Returns: boolean
+      }
       _storefront_rpc_active: { Args: never; Returns: boolean }
       _storefront_rpc_enter: { Args: never; Returns: undefined }
       _storefront_rpc_exit: { Args: never; Returns: undefined }
+      _test_set_auth_uid: { Args: { p_uid: string }; Returns: undefined }
       _try_auto_assign_delivery_job: {
         Args: { p_delivery_job_id: string }
         Returns: string
@@ -8353,6 +9086,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      attach_goods_receipt_invoice: {
+        Args: { p_goods_receipt_id: string; p_storage_path: string }
+        Returns: string
       }
       attendance_hours_in_period: {
         Args: {
@@ -8962,6 +9699,10 @@ export type Database = {
       }
       current_employee_id: { Args: never; Returns: string }
       current_supplier_id: { Args: never; Returns: string }
+      deactivate_preferred_supplier: {
+        Args: { p_supplier_id: string }
+        Returns: string
+      }
       deactivate_warehouse_bin: { Args: { p_bin_id: string }; Returns: string }
       decide_leave_request: {
         Args: { p_approve: boolean; p_note?: string; p_request_id: string }
@@ -9101,6 +9842,15 @@ export type Database = {
         }
         Returns: number
       }
+      get_catalog_diagram: {
+        Args: {
+          p_maker_slug: string
+          p_model_slug: string
+          p_section_slug: string
+          p_variant_slug: string
+        }
+        Returns: Json
+      }
       get_customer_order: { Args: { p_invoice_id: string }; Returns: Json }
       get_delivery_track_point: {
         Args: { p_delivery_job_id?: string; p_token?: string }
@@ -9120,6 +9870,7 @@ export type Database = {
           currency: Database["public"]["Enums"]["currency_code"]
           customer_id: string
           estimated_liability: number
+          estimated_liability_minor: number
           liability_per_point: number
           points_balance: number
         }[]
@@ -9156,6 +9907,7 @@ export type Database = {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
       }
+      hook_before_user_created: { Args: { event: Json }; Returns: Json }
       ingest_delivery_location: {
         Args: {
           p_accuracy_m?: number
@@ -9276,6 +10028,20 @@ export type Database = {
         Args: { p_profile_id: string; p_supplier_id: string }
         Returns: undefined
       }
+      list_catalog_makers: { Args: never; Returns: Json }
+      list_catalog_models: { Args: { p_maker_slug: string }; Returns: Json }
+      list_catalog_sections: {
+        Args: {
+          p_maker_slug: string
+          p_model_slug: string
+          p_variant_slug: string
+        }
+        Returns: Json
+      }
+      list_catalog_variants: {
+        Args: { p_maker_slug: string; p_model_slug: string }
+        Returns: Json
+      }
       list_crm_promo_candidates: {
         Args: { p_force?: boolean; p_limit?: number }
         Returns: Json
@@ -9338,6 +10104,17 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      list_master_stock: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string
+          oem_part_number: string
+          qty_total: number
+          qty_wh1: number
+          qty_wh2: number
+          stock_item_id: string
+        }[]
       }
       list_online_prep_queue: {
         Args: { p_limit?: number }
@@ -9772,6 +10549,7 @@ export type Database = {
         Args: { p_identifier: string }
         Returns: string
       }
+      resolve_stock_item_by_oem: { Args: { p_oem: string }; Returns: string }
       resume_pos_cart: { Args: { p_cart_id: string }; Returns: string }
       reverse_journal: {
         Args: { p_description?: string; p_entry_id: string }
@@ -9838,9 +10616,11 @@ export type Database = {
         Returns: {
           credit_hold: boolean
           credit_limit: number
+          credit_limit_minor: number | null
           currency: Database["public"]["Enums"]["currency_code"]
           customer_id: string
           open_balance: number
+          open_balance_minor: number | null
         }[]
       }
       set_customer_marketing_opt_in: {
@@ -10081,6 +10861,21 @@ export type Database = {
           p_notes?: string
           p_plate: string
           p_status?: Database["public"]["Enums"]["fleet_vehicle_status"]
+        }
+        Returns: string
+      }
+      upsert_preferred_supplier: {
+        Args: {
+          p_address?: string
+          p_categories?: string[]
+          p_code: string
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_email?: string
+          p_name: string
+          p_notes?: string
+          p_payment_terms?: string
+          p_phone_e164?: string
+          p_tax_id?: string
         }
         Returns: string
       }

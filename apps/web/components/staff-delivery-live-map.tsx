@@ -31,6 +31,8 @@ type Props = {
   live: boolean;
   /** Job ETA from delivery_jobs (staff panel). */
   etaLabel?: string | null;
+  /** Honest provider label (eta_source=osrm | google_directions (deprecated) | …). */
+  etaSourceLabel?: string | null;
 };
 
 type TrailGeoJSON = {
@@ -91,7 +93,12 @@ function ensureTrailLayers(map: MapLibreMap) {
  * Staff dispatcher map: renders bridge-fed points only.
  * Does NOT call navigator.geolocation or any browser GPS API.
  */
-export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
+export function StaffDeliveryLiveMap({
+  points,
+  live,
+  etaLabel,
+  etaSourceLabel,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
@@ -264,6 +271,12 @@ export function StaffDeliveryLiveMap({ points, live, etaLabel }: Props) {
           <span>
             <strong>ETA</strong>
             {etaLabel}
+            {etaSourceLabel ? ` · ${etaSourceLabel}` : ""}
+          </span>
+        ) : etaSourceLabel ? (
+          <span>
+            <strong>ETA</strong>
+            {etaSourceLabel}
           </span>
         ) : null}
         {last ? (

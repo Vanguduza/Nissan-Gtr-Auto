@@ -56,6 +56,8 @@ import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.RpcClient
+import co.zw.nissangtr.delivery.rpc.formatAmountDueLabel
+import co.zw.nissangtr.delivery.tracking.MapLibreJobMap
 import co.zw.nissangtr.delivery.tracking.TrackingUiState
 import co.zw.nissangtr.delivery.tracking.TrackingViewModel
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
@@ -268,10 +270,16 @@ private fun JobOrderCard(
             if (job.reattemptOf != null) {
                 ShopStatusChip(label = "REATTEMPT", background = GtrColors.Warning)
             }
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                ShopStatusChip(label = cod, background = GtrColors.Warning)
+            }
         },
         expanded = expanded,
         onToggleExpand = { expanded = !expanded },
         expandedContent = {
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                Text(cod, style = MaterialTheme.typography.bodyMedium)
+            }
             job.notes?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
@@ -523,6 +531,12 @@ fun JobDetailScreen(
             if (job.reattemptOf != null) {
                 ShopStatusChip(label = "REATTEMPT", background = GtrColors.Warning)
             }
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                ShopStatusChip(label = cod, background = GtrColors.Warning)
+            }
+        }
+        job.settlement?.formatAmountDueLabel()?.let { cod ->
+            Text(cod, style = MaterialTheme.typography.bodyMedium)
         }
         job.notes?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         job.etaAt?.let {
@@ -534,6 +548,11 @@ fun JobDetailScreen(
         }
 
         ShopSectionHeader(title = "Live map", actionLabel = null)
+        val mapLat = tracking.lastLat ?: job.dropoffLat
+        val mapLng = tracking.lastLng ?: job.dropoffLng
+        val hasCoords = mapLat != null && mapLng != null
+        // MapLibre = courier map SoR. Google DeliveryRouteMap only when flag OFF or coords missing.
+        val showMapLibre = state.mapLibreEnabled && hasCoords
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -541,15 +560,29 @@ fun JobDetailScreen(
                 .clip(MaterialTheme.shapes.medium)
                 .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.medium),
         ) {
-            DeliveryRouteMap(
-                destination = dest,
-                driver = driverPos,
-                routePoints = state.routePoints,
-                otherStops = otherStops,
-                mapsKeyPresent = state.mapsKeyPresent,
-                myLocationEnabled = tracking.tracking,
-            )
+            if (showMapLibre) {
+                MapLibreJobMap(
+                    latitude = mapLat!!,
+                    longitude = mapLng!!,
+                    zoom = 14.0,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                DeliveryRouteMap(
+                    destination = dest,
+                    driver = driverPos,
+                    routePoints = state.routePoints,
+                    otherStops = otherStops,
+                    mapsKeyPresent = state.mapsKeyPresent,
+                    myLocationEnabled = tracking.tracking,
+                )
+            }
         }
+        Text(
+            jobDetailMapCaption(state = state, showingMapLibre = showMapLibre),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         state.routeLabel?.let {
             Text(
                 if (state.routeBusy) "Routing…" else it,
@@ -692,7 +725,6 @@ private fun DriverPresenceStatus.statusColor(): Color = when (this) {
     DriverPresenceStatus.OFFLINE -> GtrColors.SilverDim
 }
 
-/** Legacy single-screen entry kept for tests / older callers. */
 @Composable
 fun JobsScreen(
     rpc: RpcClient,
@@ -706,11 +738,21 @@ fun JobsScreen(
     shellSubtitle: String? = null,
     signedInEmail: String? = null,
     onSignOut: (() -> Unit)? = null,
+    osrmUrl: String = "",
+    useMapLibre: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val vm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, mapsApiKey),
+        factory = JobsViewModel.factory(
+            rpc,
+            gps,
+            context,
+            supportPhone,
+            mapsApiKey,
+            osrmUrl = osrmUrl,
+            useMapLibre = useMapLibre,
+        ),
     )
     val state by vm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
@@ -737,4 +779,24 @@ fun JobsScreen(
             modifier = modifier,
         )
     }
+}
+
+/** Honest map + distance SoR caption for JobDetailScreen (Epic B freeze). */
+internal fun jobDetailMapCaption(
+    state: JobsUiState,
+    showingMapLibre: Boolean = state.mapLibreEnabled,
+): String {
+    val mapPart = when {
+        showingMapLibre -> "MapLibre SoR"
+        state.mapLibreEnabled ->
+            "DEPRECATED Google Maps fallback (missing coords — MapLibre SoR when available)"
+        else -> "DEPRECATED Google Maps fallback (useMapLibre=false)"
+    }
+    val routePart = when {
+        state.osrmConfigured -> "OSRM distance/ETA preferred"
+        state.mapsKeyPresent -> "Google Directions (deprecated) — set OSRM_URL"
+        else -> "Routing unconfigured — set OSRM_URL"
+    }
+    val live = state.routeEtaSource?.label
+    return listOfNotNull(mapPart, routePart, live).joinToString(" · ")
 }

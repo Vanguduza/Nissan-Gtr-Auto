@@ -1,6 +1,8 @@
 package co.zw.nissangtr.management.pos
 
 import co.zw.nissangtr.management.pos.offline.LocalCartLine
+import co.zw.nissangtr.management.rpc.CurrencyCode
+import co.zw.nissangtr.management.rpc.MoneyDualRead
 import co.zw.nissangtr.management.rpc.PosCartLineSummary
 
 /**
@@ -17,9 +19,21 @@ import co.zw.nissangtr.management.rpc.PosCartLineSummary
  */
 object PosCartLineOps {
 
-    /** Sum of non-core-charge line totals — the customer-facing cart total shown in the UI. */
-    fun cartTotal(lines: List<PosCartLineSummary>): Double =
-        lines.filter { !it.isCoreCharge }.sumOf { it.lineTotal }
+    /**
+     * Sum of non-core-charge line totals — the customer-facing cart total shown in the UI.
+     * H4 dual-read: prefers `lineTotalMinor` when present (parity with web `sumPosCartLinesMajor`).
+     */
+    fun cartTotal(
+        lines: List<PosCartLineSummary>,
+        currency: CurrencyCode = CurrencyCode.USD,
+    ): Double {
+        val saleable = lines.filter { !it.isCoreCharge }
+        val sumMinor = MoneyDualRead.sumPreferAmountMinor(
+            saleable.map { it.lineTotalMinor to it.lineTotal },
+            currency,
+        )
+        return MoneyDualRead.fromAmountMinor(sumMinor, currency)
+    }
 
     /** Maps local offline cart lines to the same summary shape the online RPC path returns. */
     fun toSummaries(lines: List<LocalCartLine>): List<PosCartLineSummary> =

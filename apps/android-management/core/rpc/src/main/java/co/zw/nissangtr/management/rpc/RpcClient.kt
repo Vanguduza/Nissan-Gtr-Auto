@@ -20,6 +20,25 @@ interface RpcClient {
         notes: String? = null,
     ): String
 
+    /** Hours worked in [periodStart]…[periodEnd] (ISO timestamptz). Gross payroll input. */
+    suspend fun attendanceHoursInPeriod(
+        employeeId: String,
+        periodStart: String,
+        periodEnd: String,
+    ): Double
+
+    /** Open payroll_lines (RLS) — gross − manual deductions only. */
+    suspend fun listOpenPayrollLines(limit: Int = 40): List<PayrollLineSummary>
+
+    suspend fun listPayrollDeductions(payrollLineId: String): List<PayrollDeductionSummary>
+
+    /** Manual/custom deduction — no PAYE/NSSA/tax brackets. */
+    suspend fun addPayrollDeduction(
+        payrollLineId: String,
+        label: String,
+        amount: Double,
+    ): String
+
     // --- POS (typed stock_item / UOM + Bridge-First QR — no HTML5 QR) ---
 
     suspend fun createPosCart(
@@ -130,8 +149,14 @@ interface RpcClient {
     /** Whether cart already has a customer_id (for bind messaging). */
     suspend fun getPosCartCustomerId(cartId: String): String?
 
-    /** Warehouses for POS till picker (PostgREST + RLS). */
+    /** All warehouses (PostgREST + RLS) — receive / bins / transfers. */
     suspend fun listWarehouses(): List<WarehouseRef>
+
+    /**
+     * POS till picker only: saleable WH2 storefloor
+     * (`role_code` or legacy `code` = WH2). WH1 receiving excluded.
+     */
+    suspend fun listSaleableWarehouses(): List<WarehouseRef>
 
     /** Optional companion: owner creates pairing code for phone scanner. */
     suspend fun createPosScanSession(cartId: String): PosScanSessionCreated
@@ -290,8 +315,23 @@ interface RpcClient {
     /** Live: SELECT delivery_notes via PostgREST + RLS. */
     suspend fun listDeliveryNotes(): List<DeliveryNoteSummary>
 
+    /**
+     * Live: SELECT delivery_jobs via PostgREST + RLS (staff visibility).
+     * Read-only desk list — auto-assign remains SoR; no assignment UI here.
+     */
+    suspend fun listDeliveryJobs(limit: Int = 40): List<DeliveryJobDeskSummary>
+
     /** Live: SELECT pick_lists via PostgREST + RLS. */
     suspend fun listPickLists(): List<PickListSummary>
+
+    /**
+     * Posted `fulfillment_mode=dispatch` invoices for pick desk
+     * (PostgREST + RLS — mirrors web `listDispatchInvoices`).
+     */
+    suspend fun listDispatchInvoices(limit: Int = 40): List<DispatchInvoiceSummary>
+
+    /** Live: SELECT pick_list_lines for a pick list (PostgREST + RLS). */
+    suspend fun listPickListLines(pickListId: String): List<PickListLineSummary>
 
     suspend fun createPickList(salesInvoiceId: String, linesJson: String? = null): String
 
@@ -436,12 +476,32 @@ interface RpcClient {
     /** Search by display_name ilike or exact UUID (≥2 chars). */
     suspend fun searchCustomers(query: String): List<CustomerOption>
 
-    // --- Phase 8b blankets (procurement) ---
+    // --- Phase 8b blankets + preferred manual PO (procurement) ---
 
     suspend fun listSuppliers(): List<SupplierRef>
 
+    /**
+     * Preferred roster only (`is_preferred` + active) — authorizes manual POs without RFQ-win.
+     * Mirrors web `loadPreferredSuppliers`.
+     */
+    suspend fun listPreferredSuppliers(): List<PreferredSupplierRef>
+
     /** Live: SELECT purchase_orders WHERE is_blanket + lines. */
     suspend fun listBlanketPurchaseOrders(): List<BlanketSummary>
+
+    /**
+     * Manual preferred-supplier PO via [RpcNames.CREATE_PURCHASE_ORDER].
+     * Quoted [lines] unit prices are staff-entered — never AI-invented payables.
+     */
+    suspend fun createPurchaseOrder(
+        supplierId: String,
+        warehouseId: String,
+        currency: CurrencyCode,
+        exchangeRate: Double,
+        lines: List<BlanketLineInput>,
+        notes: String? = null,
+        expectedDate: String? = null,
+    ): String
 
     suspend fun createBlanketPurchaseOrder(
         supplierId: String,
@@ -584,4 +644,59 @@ interface RpcClient {
      * Never returns the temp password.
      */
     suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult
+
+    // --- CRM product pages / kits (admin|sales|warehouse) ---
+
+    suspend fun listStaffProductPages(query: String? = null, limit: Int = 100): List<StaffProductPageRow>
+
+    suspend fun upsertStaffProductPage(
+        stockItemId: String,
+        unitPrice: Double,
+        discountKind: String = "none",
+        discountValue: Double = 0.0,
+        discountDescription: String? = null,
+    ): String
+
+    suspend fun listStaffProductImages(stockItemId: String): List<StaffProductImage>
+
+    /**
+     * Register an already-uploaded Storage path as primary (or gallery) image.
+     * Prefer [uploadStaffProductImage] when Storage is available.
+     */
+    suspend fun registerStaffProductImage(
+        stockItemId: String,
+        storagePath: String,
+        asPrimary: Boolean = true,
+    ): String
+
+    /** Upload local file → `product-images` bucket → [RpcNames.REGISTER_STOCK_ITEM_IMAGE]. */
+    suspend fun uploadStaffProductImage(
+        stockItemId: String,
+        localFilePath: String,
+        mimeType: String = "image/jpeg",
+        asPrimary: Boolean = true,
+    ): String
+
+    suspend fun setStaffProductPrimaryImage(imageId: String): String
+
+    suspend fun listStaffKits(): List<StaffKitRow>
+
+    suspend fun listChassisOptions(): List<ChassisOption>
+
+    suspend fun searchStockItems(query: String, limit: Int = 20): List<StockItemOption>
+
+    suspend fun createKitWithComponents(
+        oem: String,
+        title: String,
+        componentItemIds: List<String>,
+        chassisCode: String? = null,
+        qtys: List<Double>? = null,
+    ): String
+
+    suspend fun updateItemKit(
+        kitId: String,
+        title: String? = null,
+        isActive: Boolean? = null,
+        sellMode: String? = null,
+    ): String
 }

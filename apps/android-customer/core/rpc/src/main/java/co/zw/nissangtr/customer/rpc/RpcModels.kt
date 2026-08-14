@@ -40,8 +40,18 @@ data class CartLineSummary(
     val oemPartNumber: String? = null,
     /** True when this line is the core-charge / deposit sibling (parent–child cart split). */
     val isCoreDeposit: Boolean = false,
-    /** Unit price USD when known (fake / browse); null live until list cart exposes amounts. */
+    /**
+     * Legacy display major (fake / browse). Prefer [unitPrice] + [unitPriceMinor] dual-read.
+     */
     val unitPriceUsd: Double? = null,
+    /** H4 dual-write major from `pos_cart_lines.unit_price` when selected. */
+    val unitPrice: Double? = null,
+    /** H4 dual-write minor (`unit_price_minor`); display prefers this over [unitPrice]. */
+    val unitPriceMinor: Long? = null,
+    /** H4 dual-write major from `pos_cart_lines.line_total` when selected. */
+    val lineTotal: Double? = null,
+    /** H4 dual-write minor (`line_total_minor`); display prefers this over [lineTotal]. */
+    val lineTotalMinor: Long? = null,
 )
 
 /** Shape from [RpcNames.GET_CUSTOMER_ORDER] JSONB. */
@@ -324,7 +334,18 @@ data class LoyaltyBalance(
     val currency: String = "USD",
     val liabilityPerPoint: Double = 0.0,
     val estimatedLiability: Double = 0.0,
-)
+    /** B-MONEY-1 dual-read; prefer when present. */
+    val estimatedLiabilityMinor: Long? = null,
+) {
+    fun displayEstimatedLiability(): Double {
+        val code = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD
+        return MoneyDualRead.displayMajorFromDual(
+            estimatedLiabilityMinor,
+            estimatedLiability,
+            code,
+        )
+    }
+}
 
 /** Line payload for [RpcNames.POST_CUSTOMER_RETURN_CREDIT_NOTE] — prices forced server-side. */
 data class ReturnCreditNoteLine(

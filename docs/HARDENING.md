@@ -36,9 +36,16 @@ Never invent or commit credential values. Store only in Supabase Edge secrets, G
 | `PAYNOW_INTEGRATION_ID` | Edge | Initiate |
 | `PAYNOW_INTEGRATION_KEY` | Edge | Initiate + webhook SHA512 field hash |
 | `PAYNOW_ALLOW_UNVERIFIED_LOCAL` | Local only | Stub without secrets |
-| `POWERSYNC_URL` | Mobile / connector | See `powersync/.env.example` |
+| `POWERSYNC_URL` | Mobile / connector | See `powersync/.env.example` — **infra ready — awaiting keys** for cloud E2E |
 | `POWERSYNC_PUBLIC_KEY` | Mobile / connector | Public client key only |
-| `SUPABASE_SERVICE_ROLE_KEY` | Edge / PowerSync connector | **Never** in `apps/*` or client packages |
+| `BREVO_API_KEY` / `BREVO_FROM_EMAIL` / `BREVO_FROM_NAME` | Edge (CRM promos) | Promo channel; Resend fallback still active until Brevo set (`B-EMAIL-1`) |
+| `NEXT_PUBLIC_MAP_STYLE_URL` | Web | MapLibre style JSON; CARTO/demo until keyed URL set — **infra ready — awaiting tiles** |
+| `MAPLIBRE_STYLE_URL` | iOS / Android | Native MapLibre; see app `Secrets.xcconfig.example` / `local.properties.example` |
+| `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` / `TEMPORAL_TASK_QUEUE` | Worker host | `@gtr/delivery-dispatch-worker` — fail-closed without address + service role |
+| `SUPABASE_SERVICE_ROLE_KEY` | Edge / PowerSync / Temporal worker | **Never** in `apps/*` or client packages |
+| `PROMPTFOO_PROVIDER` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | CI optional | Offline gate always; real-provider job **waiting on keys** (`promptfoo/.env.example`) |
+
+**Label:** ContiPay, Paynow, WhatsApp Cloud, SMS, Resend, `WORKER_SHARED_SECRET`, map tiles, PowerSync, Temporal — **infra ready — awaiting secrets** (or Mac host for H5-iOS `xcodebuild`). Do not invent production values.
 
 Client packages use anon key + user JWT only (`packages/supabase-client`).
 
@@ -91,3 +98,19 @@ If Docker is unavailable: run `quality` + `exclusions` only; document smoke as b
 - No ZIMRA / FDMS / fiscalisation
 - No payroll tax engines (PAYE, NSSA, statutory forms)
 - No HTML5 / browser QR or WebView hardware APIs (Bridge-First under `bridges/`)
+
+## 7. DIAL-aligned AppSec baseline (2026-08-12)
+
+Adopt habits from DIAL D-47 / D-48 without importing DIAL agency locks:
+
+| Control | Nissan practice |
+| --- | --- |
+| AuthN ≠ AuthZ | After login, `has_staff_role` / organogram module_access on every staff route (`staff-auth.ts`) |
+| No body identity | Never trust `userId` / `role` / `email` from request body — JWT/`auth.uid()` only |
+| Worker fail-closed | `WORKER_SHARED_SECRET` required outside local stub (`worker_auth.ts`) |
+| Webhooks | ContiPay HMAC / Paynow SHA512 **before** mutate; settle RPCs service_role only |
+| Secrets | No `service_role` / PSP keys in `apps/*` or `NEXT_PUBLIC_*` |
+| Money | Prefer `amountMinor` path in `@gtr/shared`; AI never writes payable amounts |
+| SAST/IaC | **Landed:** `.github/workflows/semgrep.yml` job `semgrep-gtr` (hard-fail on `semgrep/rules/*`); community packs advisory. `.github/workflows/checkov.yml` job `checkov` hard-fail HIGH/CRITICAL. Local: root `semgrep.yml`. Keep Epic A RLS smokes (`epic_a_procurement_wh_smoke.sql`) green. |
+
+Procurement fund releases and preferred-supplier RPCs are SECURITY DEFINER — keep mutation guards and role checks intact; do not open table writes from clients.

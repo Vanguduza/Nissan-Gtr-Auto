@@ -1,7 +1,8 @@
-import MapKit
+import MapsNav
 import SwiftUI
 
-/// Shipping addresses — list / upsert / delete + MapKit pick (lat/lng in line2 via AddressGeo).
+/// Shipping addresses — list / upsert / delete + MapLibre pin pick (lat/lng in line2 via AddressGeo).
+/// MapKit is deprecated fallback only (`USE_MAPLIBRE=false` or MapLibre style load failure).
 struct AddressScreen: View {
     @EnvironmentObject private var session: StorefrontSession
 
@@ -71,7 +72,7 @@ struct AddressScreen: View {
     private var listBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Map pick stores lat/lng with the address (MapKit — Bridge-First, no WebView).")
+                Text("Map pick stores lat/lng with the address (MapLibre SoR — Bridge-First, no WebView).")
                     .font(GTRType.body(.caption))
                     .foregroundStyle(GTRColors.silverDim)
 
@@ -177,7 +178,7 @@ struct AddressScreen: View {
                 Button {
                     showMapPick = true
                 } label: {
-                    Label("Open MapKit picker", systemImage: "map")
+                    Label("Open map picker", systemImage: "map")
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                 }
@@ -271,7 +272,7 @@ struct AddressScreen: View {
         busy = true
         defer { busy = false }
         do {
-            let id = try await session.api.upsertCustomerAddress(
+            _ = try await session.api.upsertCustomerAddress(
                 CustomerAddressInput(
                     id: form.id,
                     label: form.label,
@@ -328,62 +329,40 @@ private struct AddressFormState {
     var hasCoords: Bool { latitude != nil && longitude != nil }
 }
 
-/// Full-screen MapKit pin pick — Harare default; tap map to move pin.
+/// Full-screen MapLibre pin pick (MapKit only if `USE_MAPLIBRE=false` / MapLibre unavailable).
 struct AddressMapPickSheet: View {
     @Binding var latitude: Double?
     @Binding var longitude: Double?
 
-    @State private var position: MapCameraPosition
-    @State private var pin: CLLocationCoordinate2D
-
-    init(latitude: Binding<Double?>, longitude: Binding<Double?>) {
-        _latitude = latitude
-        _longitude = longitude
-        let lat = latitude.wrappedValue ?? -17.8292
-        let lng = longitude.wrappedValue ?? 31.0522
-        let coord = CLLocationCoordinate2D(latitude: lat, longitude: lng)
-        _pin = State(initialValue: coord)
-        _position = State(
-            initialValue: .region(
-                MKCoordinateRegion(
-                    center: coord,
-                    span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
-                )
-            )
-        )
+    private var styleURL: URL {
+        let raw = AppEnv.mapLibreStyleURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: raw), !raw.isEmpty {
+            return url
+        }
+        return defaultMapLibreStyleURL
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            MapReader { proxy in
-                Map(position: $position) {
-                    Marker("Delivery", coordinate: pin)
-                        .tint(GTRColors.primary)
-                }
-                .mapStyle(.standard)
-                .onTapGesture { screenPoint in
-                    if let coord = proxy.convert(screenPoint, from: .local) {
-                        pin = coord
-                        latitude = coord.latitude
-                        longitude = coord.longitude
-                    }
-                }
-            }
+            AddressPickMap(
+                latitude: $latitude,
+                longitude: $longitude,
+                useMapLibre: AppEnv.useMapLibre,
+                styleURL: styleURL
+            )
             .ignoresSafeArea(edges: .bottom)
 
-            Text(String(format: "%.5f, %.5f — tap map to move pin", pin.latitude, pin.longitude))
-                .font(GTRType.label(.caption))
-                .foregroundStyle(GTRColors.steel)
-                .frame(maxWidth: .infinity)
-                .padding(12)
-                .background(GTRColors.mist)
+            if let lat = latitude, let lng = longitude {
+                Text(String(format: "%.5f, %.5f — tap map to move pin", lat, lng))
+                    .font(GTRType.label(.caption))
+                    .foregroundStyle(GTRColors.steel)
+                    .frame(maxWidth: .infinity)
+                    .padding(12)
+                    .background(GTRColors.mist)
+            }
         }
         .navigationTitle("Pick on map")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            latitude = pin.latitude
-            longitude = pin.longitude
-        }
     }
 }
 

@@ -1,6 +1,8 @@
 package co.zw.nissangtr.management.pos
 
 import co.zw.nissangtr.management.pos.offline.LocalCartLine
+import co.zw.nissangtr.management.rpc.CurrencyCode
+import co.zw.nissangtr.management.rpc.PosCartLineSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,6 +21,41 @@ class PosCartLineOpsTest {
     @Test
     fun cartTotal_empty_is_zero() {
         assertEquals(0.0, PosCartLineOps.cartTotal(emptyList()), 0.0001)
+    }
+
+    @Test
+    fun cartTotal_prefers_line_total_minor_when_present() {
+        val lines = listOf(
+            summary(
+                id = "l1",
+                unitPrice = 9.99,
+                qty = 1.0,
+                lineTotal = 9.99,
+                lineTotalMinor = 1000L,
+            ),
+            summary(
+                id = "l2",
+                unitPrice = 2.5,
+                qty = 1.0,
+                lineTotal = 2.5,
+                // major-only fallback
+            ),
+        )
+        // 1000 + 250 = 1250 minor → 12.50 (not 9.99+2.5)
+        assertEquals(
+            12.5,
+            PosCartLineOps.cartTotal(lines, CurrencyCode.USD),
+            0.0001,
+        )
+    }
+
+    @Test
+    fun cartTotal_falls_back_to_major_when_minors_absent() {
+        val lines = listOf(
+            summary(id = "l1", unitPrice = 10.0, qty = 2.0, lineTotal = 20.0),
+            summary(id = "l2", unitPrice = 3.0, qty = 1.0, lineTotal = 3.0),
+        )
+        assertEquals(23.0, PosCartLineOps.cartTotal(lines, CurrencyCode.USD), 0.0001)
     }
 
     @Test
@@ -82,7 +119,9 @@ class PosCartLineOpsTest {
         qty: Double,
         lineTotal: Double,
         isCoreCharge: Boolean = false,
-    ) = co.zw.nissangtr.management.rpc.PosCartLineSummary(
+        unitPriceMinor: Long? = null,
+        lineTotalMinor: Long? = null,
+    ) = PosCartLineSummary(
         id = id,
         stockItemId = "stock-$id",
         oemPartNumber = "OEM-$id",
@@ -90,6 +129,8 @@ class PosCartLineOpsTest {
         unitPrice = unitPrice,
         lineTotal = lineTotal,
         isCoreCharge = isCoreCharge,
+        unitPriceMinor = unitPriceMinor,
+        lineTotalMinor = lineTotalMinor,
     )
 
     private fun local(

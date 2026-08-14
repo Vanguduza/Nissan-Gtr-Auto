@@ -32,5 +32,12 @@ dependencies {
     implementation("io.ktor:ktor-client-okhttp:3.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
+    // H7 / B-PS-1 — PowerSync Kotlin SDK (openDatabase when POWERSYNC_URL set; Fake otherwise).
+    // Pin 1.8.1: matches Kotlin 2.2.10 on this app (1.13.x needs Kotlin 2.3 metadata).
+    // Secrets: local.properties / BuildConfig only — never commit. See powersync/.env.example.
+    api("com.powersync:core:1.8.1")
+    // Satisfies DatabaseDriverFactory → BundledSQLiteDriver classpath (PowerSync Android).
+    implementation("androidx.sqlite:sqlite-bundled:2.5.0")
+
     testImplementation("junit:junit:4.13.2")
 }

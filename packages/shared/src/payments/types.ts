@@ -1,3 +1,9 @@
+import {
+  fromAmountMinor,
+  toAmountMinor,
+  type CurrencyCode,
+} from "../money.ts";
+
 /** Payment tender and ContiPay / Paynow / EcoCash direct status enums (no secrets). */
 export const PAYMENT_TENDERS = [
   "cash",
@@ -56,10 +62,51 @@ export const ECOCASH_INTENT_STATUSES = [
 ] as const;
 export type EcoCashIntentStatus = (typeof ECOCASH_INTENT_STATUSES)[number];
 
+/**
+ * Allocate payment line (H4 cutover): prefer `amountMinor`; major is derived for
+ * legacy `allocate_payment` JSONB which still reads NUMERIC `amount`.
+ */
 export interface PaymentAllocationInput {
   salesInvoiceId: string;
-  amount: number;
+  /**
+   * Preferred minor units (H4). When set, major `amount` is derived for the RPC.
+   */
+  amountMinor?: bigint | number;
+  /**
+   * @deprecated Legacy major NUMERIC. Prefer amountMinor; kept for callers that
+   * have not yet cut over. Required when amountMinor is omitted.
+   */
+  amount?: number;
+  /** Currency for minor↔major conversion (defaults USD). */
+  currency?: CurrencyCode;
   exchangeRateApplied?: number;
+}
+
+function allocationMajorAmount(a: PaymentAllocationInput): number {
+  const currency = a.currency ?? "USD";
+  if (a.amountMinor !== undefined && a.amountMinor !== null) {
+    const minor =
+      typeof a.amountMinor === "bigint"
+        ? a.amountMinor
+        : BigInt(a.amountMinor);
+    return fromAmountMinor(minor, currency);
+  }
+  if (a.amount === undefined || a.amount === null) {
+    throw new Error(
+      "PaymentAllocationInput: need amountMinor or legacy amount",
+    );
+  }
+  return a.amount;
+}
+
+function allocationMinorNumber(a: PaymentAllocationInput): number {
+  const currency = a.currency ?? "USD";
+  if (a.amountMinor !== undefined && a.amountMinor !== null) {
+    return typeof a.amountMinor === "bigint"
+      ? Number(a.amountMinor)
+      : Number(a.amountMinor);
+  }
+  return Number(toAmountMinor(allocationMajorAmount(a), currency));
 }
 
 export function toAllocatePaymentArgs(
@@ -68,12 +115,17 @@ export function toAllocatePaymentArgs(
 ) {
   return {
     p_payment_entry_id: paymentEntryId,
-    p_allocations: allocations.map((a) => ({
-      sales_invoice_id: a.salesInvoiceId,
-      amount: a.amount,
-      ...(a.exchangeRateApplied != null
-        ? { exchange_rate_applied: a.exchangeRateApplied }
-        : {}),
-    })),
+    p_allocations: allocations.map((a) => {
+      const amount = allocationMajorAmount(a);
+      const amount_minor = allocationMinorNumber(a);
+      return {
+        sales_invoice_id: a.salesInvoiceId,
+        amount,
+        amount_minor,
+        ...(a.exchangeRateApplied != null
+          ? { exchange_rate_applied: a.exchangeRateApplied }
+          : {}),
+      };
+    }),
   } as const;
 }

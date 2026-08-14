@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Pay initiate — ContiPay / Paynow create intent; shows intent id + stub redirect (no PSP crypto).
+/// Pay initiate — ContiPay / Paynow / EcoCash; D-57 USD browse + ZiG at EcoCash with fxRateId.
 struct PayScreen: View {
     @EnvironmentObject private var session: StorefrontSession
     var initialInvoiceId: UUID? = nil
@@ -9,6 +9,8 @@ struct PayScreen: View {
     @State private var rail: PaymentRail = .contipay
     @State private var ecocashMsisdn: String = ""
     @State private var useSavedEcocash = true
+    @State private var zigRate: Decimal?
+    @State private var fxRateId: String?
     @State private var result: PaymentIntentResult?
     @State private var status: String?
     @State private var busy = false
@@ -44,6 +46,10 @@ struct PayScreen: View {
                 .pickerStyle(.segmented)
             }
 
+            Section("Amount due") {
+                amountDueRows
+            }
+
             if rail == .ecocash {
                 Section("EcoCash number") {
                     Toggle("This is my saved / profile EcoCash number", isOn: $useSavedEcocash)
@@ -58,7 +64,7 @@ struct PayScreen: View {
 
             Section {
                 Button("Create payment intent") { Task { await pay() } }
-                    .disabled(busy || selectedInvoiceId == nil)
+                    .disabled(busy || selectedInvoiceId == nil || ecoCashBlocked)
             }
 
             if let result {
@@ -108,18 +114,92 @@ struct PayScreen: View {
         }
     }
 
+    private var ecoCashBlocked: Bool {
+        rail == .ecocash && checkoutDisplay() == nil
+    }
+
+    @ViewBuilder
+    private var amountDueRows: some View {
+        if let display = checkoutDisplay() {
+            if display.payCurrency == .ZIG {
+                let zig = MoneyDualRead.fromAmountMinor(display.payable.amountMinor, currency: .ZIG)
+                Text(StorefrontFormat.money(zig, currency: .ZIG))
+                    .font(GTRType.label(.body))
+                if let usdMinor = selectedOpenUsdMinor() {
+                    let usd = MoneyDualRead.fromAmountMinor(usdMinor, currency: .USD)
+                    Text("Browse \(StorefrontFormat.money(usd, currency: .USD))")
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
+                }
+                if let rate = zigRate {
+                    Text("@ \(rate) ZiG per USD · fx \(display.fxRateId ?? "—")")
+                        .font(GTRType.body(.caption2))
+                        .foregroundStyle(GTRColors.silverDim)
+                }
+            } else {
+                let usd = MoneyDualRead.fromAmountMinor(display.payable.amountMinor, currency: .USD)
+                Text(StorefrontFormat.money(usd, currency: .USD))
+                    .font(GTRType.label(.body))
+                if let zm = display.indicativeZigMinor {
+                    let zig = MoneyDualRead.fromAmountMinor(zm, currency: .ZIG)
+                    Text("≈ \(StorefrontFormat.money(zig, currency: .ZIG)) indicative")
+                        .font(GTRType.body(.footnote))
+                        .foregroundStyle(GTRColors.silverDim)
+                }
+            }
+        } else if rail == .ecocash {
+            Text("Daily ZiG rate required for EcoCash. Try ContiPay/Paynow (USD) or refresh.")
+                .font(GTRType.body(.footnote))
+                .foregroundStyle(.red)
+        } else {
+            Text("Select an invoice to see the amount due.")
+                .font(GTRType.body(.footnote))
+                .foregroundStyle(GTRColors.silverDim)
+        }
+    }
+
     private func orderLabel(_ order: CustomerOrder) -> String {
         let doc = order.documentNumber ?? String(order.invoiceId.uuidString.prefix(8))
-        return "\(doc) · \(StorefrontFormat.money(order.amountOpen, currency: order.currency)) open"
+        // D-57 browse: open amount as USD dual-read
+        return "\(doc) · \(StorefrontFormat.money(order.displayAmountOpen(), currency: .USD)) open"
+    }
+
+    private func selectedOrder() -> CustomerOrder? {
+        guard let selectedInvoiceId else { return nil }
+        return orders.first(where: { $0.invoiceId == selectedInvoiceId })
+    }
+
+    private func selectedOpenUsdMinor() -> Int64? {
+        guard let order = selectedOrder() else { return nil }
+        return try? MoneyDualRead.toAmountMinor(order.displayAmountOpen(), currency: .USD)
+    }
+
+    private func checkoutDisplay() -> CheckoutDisplay? {
+        guard let usdMinor = selectedOpenUsdMinor() else { return nil }
+        let method: CheckoutPayMethod
+        switch rail {
+        case .contipay: method = .contipay
+        case .paynow: method = .paynow
+        case .ecocash: method = .ecocash
+        }
+        return try? CheckoutDisplayBuilder.build(
+            usdMinor: usdMinor,
+            payMethod: method,
+            zigRatePerUsd: zigRate,
+            fxRateId: method == .ecocash ? fxRateId : nil
+        )
     }
 
     private func refresh() async {
         busy = true
         defer { busy = false }
         do {
+            let rate = try await session.api.fetchZigExchangeRate(asOf: nil)
+            zigRate = rate > 0 ? rate : nil
+            fxRateId = try await session.api.fetchZigExchangeRateId(asOf: nil)
             orders = try await session.api.listOrders()
             if selectedInvoiceId == nil {
-                selectedInvoiceId = orders.first(where: { $0.amountOpen > 0 })?.invoiceId
+                selectedInvoiceId = orders.first(where: { $0.displayAmountOpen() > 0 })?.invoiceId
                     ?? orders.first?.invoiceId
             }
             status = nil
@@ -147,6 +227,10 @@ struct PayScreen: View {
                 )
                 status = "create_customer_paynow_intent / paynow-initiate"
             case .ecocash:
+                guard checkoutDisplay() != nil else {
+                    status = "Daily ZiG rate required for EcoCash"
+                    return
+                }
                 let msisdn = ecocashMsisdn.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !msisdn.isEmpty else {
                     status = "Enter EcoCash number (saved/profile or different wallet)"

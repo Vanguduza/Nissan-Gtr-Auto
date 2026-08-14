@@ -24,6 +24,7 @@ import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
 import co.zw.nissangtr.management.rpc.WarehouseRef
+import co.zw.nissangtr.management.rpc.displayUnitPrice
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -422,19 +423,29 @@ class PosViewModel(
 
     private suspend fun loadWarehouses() {
         try {
-            val list = rpc.listWarehouses()
+            // WH2 storefloor only — WH1 receiving must not appear in POS picker.
+            val list = rpc.listSaleableWarehouses()
             _state.update { s ->
+                val selectedStillValid = list.any { it.id == s.warehouseId }
                 s.copy(
                     warehouses = list,
-                    warehouseId = s.warehouseId.ifBlank {
-                        list.firstOrNull()?.id ?: FakeRpcClient.FAKE_WAREHOUSE_ID
+                    warehouseId = when {
+                        selectedStillValid -> s.warehouseId
+                        list.isNotEmpty() -> list.first().id
+                        else -> ""
+                    },
+                    error = if (list.isEmpty()) {
+                        "No WH2 storefloor warehouses available for POS"
+                    } else {
+                        s.error
                     },
                 )
             }
         } catch (e: Exception) {
             _state.update {
                 it.copy(
-                    warehouseId = it.warehouseId.ifBlank { FakeRpcClient.FAKE_WAREHOUSE_ID },
+                    warehouses = emptyList(),
+                    warehouseId = "",
                     error = e.message ?: "warehouse list failed",
                 )
             }
@@ -1019,7 +1030,8 @@ class PosViewModel(
             it.copy(
                 managerPrompt = ManagerPrompt.PriceOverride,
                 overrideLineId = line.id,
-                overrideUnitPrice = line.unitPrice.toString(),
+                // H4 dual-read: seed override from minor when dual-written
+                overrideUnitPrice = line.displayUnitPrice(_state.value.currency).toString(),
                 error = null,
             )
         }
@@ -1319,7 +1331,11 @@ class PosViewModel(
                 if (next <= 0) {
                     rpc.deletePosCartLine(line.id)
                 } else {
-                    rpc.setPosCartLineQty(line.id, next, line.unitPrice)
+                    rpc.setPosCartLineQty(
+                        line.id,
+                        next,
+                        line.displayUnitPrice(_state.value.currency),
+                    )
                 }
                 refreshCartLines(_state.value.cartId)
             } catch (e: Exception) {

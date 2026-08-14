@@ -1,5 +1,12 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
-import { receiptContactsForCheckout } from "@gtr/shared";
+import {
+  displayLineTotalMajor,
+  displayUnitPriceMajor,
+  fromAmountMinor,
+  receiptContactsForCheckout,
+  sumPreferAmountMinor,
+  type CurrencyCode as SharedCurrency,
+} from "@gtr/shared";
 import {
   requireSession,
   type StorefrontResult,
@@ -20,7 +27,20 @@ export type WarehouseOption = {
   id: string;
   code: string;
   name: string;
+  role_code: string | null;
 };
+
+/** POS picks only from WH2 storefloor — WH1 is receiving-only. */
+export function isPosSaleableWarehouse(w: {
+  role_code?: string | null;
+  code?: string;
+  is_quarantine?: boolean;
+  is_active?: boolean;
+}): boolean {
+  if (w.is_active === false) return false;
+  if (w.is_quarantine) return false;
+  return w.role_code === "WH2" || w.code === "WH2";
+}
 
 export type StockItemOption = {
   id: string;
@@ -31,9 +51,12 @@ export type StockItemOption = {
 
 export type PosCartRow = Database["public"]["Tables"]["pos_carts"]["Row"];
 
+/** Optional *_minor for H4 dual-read when cart dual-write columns land. */
 export type PosCartLineRow =
   Database["public"]["Tables"]["pos_cart_lines"]["Row"] & {
     stock_items?: { oem_part_number: string; description: string | null } | null;
+    unit_price_minor?: number | null;
+    line_total_minor?: number | null;
   };
 
 export type PosScanSession = {
@@ -77,14 +100,29 @@ export function checkoutBindMessage(args: {
 export async function listSaleableWarehouses(
   client: SupabaseClient,
 ): Promise<StorefrontResult<WarehouseOption[]>> {
+  // Prefer role_code WH2 (storefloor). Keep quarantine + inactive out of POS.
+  // Client filter also accepts code=WH2 for legacy rows missing role_code.
   const { data, error } = await client
     .from("warehouses")
-    .select("id, code, name")
+    .select("id, code, name, role_code, is_quarantine, is_active")
     .eq("is_active", true)
     .eq("is_quarantine", false)
+    .or("role_code.eq.WH2,code.eq.WH2")
     .order("code");
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: (data as WarehouseOption[]) ?? [] };
+  const rows = ((data as Array<WarehouseOption & {
+    is_quarantine?: boolean;
+    is_active?: boolean;
+  }>) ?? []).filter(isPosSaleableWarehouse);
+  return {
+    ok: true,
+    data: rows.map(({ id, code, name, role_code }) => ({
+      id,
+      code,
+      name,
+      role_code: role_code ?? null,
+    })),
+  };
 }
 
 /** OEM / description search (typed input only — no browser QR). */
@@ -116,7 +154,10 @@ export async function searchStockItems(
   return { ok: true, data: (data as StockItemOption[]) ?? [] };
 }
 
-/** Catalog browse via `search_catalog` (standalone — no scan session). */
+/**
+ * Catalog browse via dual-read search (standalone — no scan session).
+ * Hits are identity only; saleable qty comes from stock SoR (not Meili).
+ */
 export async function searchPosCatalog(
   client: SupabaseClient,
   mode: SearchMode,
@@ -233,6 +274,37 @@ export async function loadPosCartLines(
     stock_items: asSingle(row.stock_items),
   }));
   return { ok: true, data: rows as PosCartLineRow[] };
+}
+
+/** H4 dual-read: unit price display (minor wins when present). */
+export function posLineUnitPriceMajor(
+  line: PosCartLineRow,
+  currency: CurrencyCode,
+): number {
+  return displayUnitPriceMajor(line, currency as SharedCurrency);
+}
+
+/** H4 dual-read: line total display (minor wins when present). */
+export function posLineTotalMajor(
+  line: PosCartLineRow,
+  currency: CurrencyCode,
+): number {
+  return displayLineTotalMajor(line, currency as SharedCurrency);
+}
+
+/** H4 dual-read: sum POS cart lines via minor units. */
+export function sumPosCartLinesMajor(
+  lines: PosCartLineRow[],
+  currency: CurrencyCode,
+): number {
+  const sum = sumPreferAmountMinor(
+    lines.map((line) => ({
+      amountMinor: line.line_total_minor ?? null,
+      amountMajor: Number(line.line_total),
+    })),
+    currency as SharedCurrency,
+  );
+  return fromAmountMinor(sum.amountMinor, currency as SharedCurrency);
 }
 
 export async function addCartLine(

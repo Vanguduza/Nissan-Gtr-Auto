@@ -1,0 +1,18 @@
+{
+  "name": "@gtr/promptfoo-gates",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Offline Epic E Promptfoo narrative gates (H3 CI)",
+  "scripts": {
+    "gate": "node scripts/offline-gate.js",
+    "eval": "promptfoo eval -c promptfoo.config.yaml --no-cache",
+    "eval:ci": "promptfoo eval -c promptfoo.config.yaml --no-cache",
+    "test": "npm run gate && npm run eval:ci"
+  },
+  "devDependencies": {
+    "promptfoo": "0.114.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

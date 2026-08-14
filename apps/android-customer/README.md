@@ -27,8 +27,10 @@ and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 | `:feature:reviews` | `…customer.reviews` | Submit / list / stats / photo attach |
 | `:feature:pay` | `…customer.pay` | ContiPay + Paynow intent create |
 | `:feature:chat` | `…customer.chat` | Live chat threads / messages / composer |
+| `:feature:address` | `…customer.address` | Shipping addresses + MapLibre pin pick (B-MAP-1) |
 | `:feature:track` | `…customer.track` | Active delivery last-point + ETA (`get_delivery_track_point`) |
 | `:pod-camera` | `bridges/android/pod-camera` | Bridge-First CameraX still capture (review photos) |
+| `:maps-nav` | `bridges/android/maps-nav` | MapLibre SoR address pick; Google deprecated fallback |
 
 ## Screens (scaffolds)
 
@@ -111,12 +113,25 @@ Never commit client secrets. The Android client ID is not embedded — only the 
 
 Put secrets in **`local.properties`** (gitignored). Fake treats session as signed-in for compare gating (iOS parity).
 
+## Maps (B-MAP-1)
+
+**MapLibre** is the customer address-pick render SoR (`AddressPickMap` → `MapLibreAddressPickMap` in `:maps-nav`). Google Maps tiles are a **deprecated fallback** only (`useMapLibre=false` or MapLibre init failure + `GOOGLE_MAPS_API_KEY`).
+
+```properties
+# local.properties — MapLibre on by default (no Google key required for pin pick)
+# useMapLibre=false
+# GOOGLE_MAPS_API_KEY=...   # deprecated Google fallback only
+```
+
+Distance/ETA prefer **OSRM** when configured (delivery lane / `OsrmRouteFetcher`) — not broken by this change. No Fleetbase. Bridge-First only.
+
 ## Exclusions
 
 - No ZIMRA / fiscal QR
 - No HTML5 / WebView QR or camera — Bridge-First (`bridges/`) for review photos
 - No payroll tax / ContiPay HMAC secrets
 - No customer GPS trail UI
+- No Google Maps as default map SoR (B-MAP-1)
 
 ## Run / test
 

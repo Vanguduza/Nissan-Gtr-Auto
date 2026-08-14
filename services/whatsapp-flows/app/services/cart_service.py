@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from app.core.config import Settings, get_settings
 from app.core.supabase_client import get_supabase
+from app.services.checkout_display import CheckoutDisplay, minor_to_major
 
 DeliveryMethod = Literal["counter_collect", "harare", "nationwide"]
 PaymentProvider = Literal["paynow", "contipay", "ecocash", "stub"]
@@ -168,8 +169,13 @@ def create_pending_order(
     payment_provider: PaymentProvider | None = None,
     ecocash_payer_mode: str | None = None,
     ecocash_payer_msisdn: str | None = None,
+    checkout_display: CheckoutDisplay | None = None,
 ) -> dict[str, Any]:
-    """Persist WhatsApp Flow order as PENDING in Supabase."""
+    """Persist WhatsApp Flow order as PENDING in Supabase.
+
+    Browse totals stay USD on `currency`/`total`. EcoCash/ZiG settle fields come
+    from D-57 ``checkout_display`` (MoneyMinor + fx_rate_id) — never invented.
+    """
     settings = get_settings()
     order_id = str(uuid.uuid4())
     sb = get_supabase()
@@ -182,21 +188,38 @@ def create_pending_order(
     else:
         provider = "paynow"
 
+    # Browse currency is always the catalog currency (USD); payment link uses USD.
+    browse_currency = quote.currency or settings.default_currency or "USD"
     link = (
         None
         if provider == "ecocash"
         else generate_payment_link(
             order_id,
             quote.total,
-            quote.currency,
+            browse_currency,
             provider=provider,
         )
     )
     source_ref = str(uuid.uuid4()) if provider == "ecocash" else None
+
+    settle_currency: str | None = None
+    settle_total: float | None = None
+    settle_amount_minor: int | None = None
+    fx_rate_id: str | None = None
+    if checkout_display is not None and checkout_display.pay_currency == "ZIG":
+        settle_currency = checkout_display.pay_currency
+        settle_amount_minor = checkout_display.payable.amount_minor
+        settle_total = minor_to_major(checkout_display.payable.amount_minor)
+        fx_rate_id = checkout_display.fx_rate_id
+    elif provider == "ecocash":
+        raise ValueError(
+            "EcoCash checkout requires D-57 checkout_display (ZiG rate + MoneyMinor)",
+        )
+
     payload = {
         "id": order_id,
         "status": "PENDING",
-        "currency": quote.currency,
+        "currency": browse_currency,
         "subtotal": quote.subtotal,
         "delivery_fee": quote.delivery_fee,
         "total": quote.total,
@@ -218,6 +241,10 @@ def create_pending_order(
         "payment_source_reference": source_ref,
         "ecocash_payer_mode": ecocash_payer_mode,
         "ecocash_payer_msisdn": ecocash_payer_msisdn,
+        "fx_rate_id": fx_rate_id,
+        "settle_currency": settle_currency,
+        "settle_total": settle_total,
+        "settle_amount_minor": settle_amount_minor,
         "channel": "whatsapp_flow",
     }
 

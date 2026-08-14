@@ -48,11 +48,15 @@ import co.zw.nissangtr.management.chat.ChatModule
 import co.zw.nissangtr.management.chat.ChatScreen
 import co.zw.nissangtr.management.credit.CreditModule
 import co.zw.nissangtr.management.credit.CreditScreen
+import co.zw.nissangtr.management.crm.CrmModule
+import co.zw.nissangtr.management.crm.KitsScreen
+import co.zw.nissangtr.management.crm.ProductPagesScreen
 import co.zw.nissangtr.management.dispatch.DispatchModule
 import co.zw.nissangtr.management.dispatch.DispatchScreen
 import co.zw.nissangtr.management.fleet.FleetModule
 import co.zw.nissangtr.management.fleet.FleetScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
+import co.zw.nissangtr.management.hr.GrossPayrollScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.hr.HrOnboardingScreen
 import co.zw.nissangtr.management.kiosk.BrandedSplashHost
@@ -65,9 +69,11 @@ import co.zw.nissangtr.management.kiosk.SplashSessionGate
 import co.zw.nissangtr.management.pos.PosModule
 import co.zw.nissangtr.management.pos.PosScreen
 import co.zw.nissangtr.management.procurement.BlanketsScreen
+import co.zw.nissangtr.management.procurement.PreferredPoScreen
 import co.zw.nissangtr.management.procurement.ProcurementModule
 import co.zw.nissangtr.management.rpc.ChatStaffRoles
 import co.zw.nissangtr.management.rpc.CreditStaffRoles
+import co.zw.nissangtr.management.rpc.CrmMerchStaffRoles
 import co.zw.nissangtr.management.rpc.FleetStaffRoles
 import co.zw.nissangtr.management.rpc.HrOnboardingStaffRoles
 import co.zw.nissangtr.management.rpc.ManagementHomeLanding
@@ -75,6 +81,9 @@ import co.zw.nissangtr.management.rpc.ManagementHomeRoles
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcClientFactory
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
+import co.zw.nissangtr.management.rpc.LivePowerSyncClient
+import co.zw.nissangtr.management.rpc.PowerSyncEndpointConfig
+import co.zw.nissangtr.management.rpc.powerSyncClientFor
 import co.zw.nissangtr.management.warehouse.BinsScreen
 import co.zw.nissangtr.management.warehouse.ConsignmentScreen
 import co.zw.nissangtr.management.warehouse.WarehouseModule
@@ -98,6 +107,7 @@ private enum class ManagementRoute {
     RoleDenied,
     ModuleMenu,
     HrClock,
+    HrGrossPayroll,
     HrOnboarding,
     Dispatch,
     Fleet,
@@ -106,7 +116,10 @@ private enum class ManagementRoute {
     Bins,
     Consignment,
     Blankets,
+    PreferredPo,
     Credit,
+    Kits,
+    ProductPages,
     Chat,
     DeviceAdmin,
 }
@@ -151,6 +164,7 @@ class MainActivity : ComponentActivity() {
             ChatModule.id,
             ProcurementModule.id,
             CreditModule.id,
+            CrmModule.id,
             FleetModule.id,
         )
         val live = RpcClientFactory.isLive(
@@ -164,6 +178,18 @@ class MainActivity : ComponentActivity() {
             forceFake = BuildConfig.RPC_FORCE_FAKE,
         )
         val supabase = rpc as? SupabaseRpcClient
+        // H7: PowerSync read-sync when POWERSYNC_URL set; Fake otherwise. Mutations = OfflinePos RPC intents.
+        val powerSync =
+            powerSyncClientFor(
+                PowerSyncEndpointConfig.fromProperties(
+                    url = BuildConfig.POWERSYNC_URL,
+                    publicKey = BuildConfig.POWERSYNC_PUBLIC_KEY,
+                    projectId = BuildConfig.POWERSYNC_PROJECT_ID,
+                ),
+            )
+        if (powerSync is LivePowerSyncClient) {
+            powerSync.openDatabase(this)
+        }
         if (tabletKiosk) {
             lockTask.enterLockTaskIfAllowed()
         }
@@ -290,6 +316,7 @@ private fun ManagementApp(
     var openModule by remember { mutableStateOf<HubModule?>(null) }
     var showChat by remember { mutableStateOf(!liveRpc) }
     var showCredit by remember { mutableStateOf(!liveRpc) }
+    var showCrmMerch by remember { mutableStateOf(!liveRpc) }
     var showFleet by remember { mutableStateOf(!liveRpc) }
     var salesHome by remember { mutableStateOf(false) }
     var moduleAccess by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -317,12 +344,14 @@ private fun ManagementApp(
         val roles = if (!liveRpc) {
             showChat = true
             showCredit = true
+            showCrmMerch = true
             showFleet = true
             rpc.listMyStaffRoles()
         } else {
             val r = runCatching { rpc.listMyStaffRoles() }.getOrDefault(emptyList())
             showChat = ChatStaffRoles.allows(r)
             showCredit = CreditStaffRoles.allows(r)
+            showCrmMerch = CrmMerchStaffRoles.allows(r)
             showFleet = FleetStaffRoles.allows(r)
             r
         }
@@ -364,6 +393,7 @@ private fun ManagementApp(
             onSignOut = onSignOut,
             showChat = showChat,
             showCredit = showCredit,
+            showCrmMerch = showCrmMerch,
             showFleet = showFleet,
             showDeviceAdmin = showDeviceAdmin,
             staffRoles = staffRoles,
@@ -440,6 +470,10 @@ private fun ManagementApp(
             BackHandler { backFromFeature() }
             ClockAttendanceScreen(rpc = rpc, onBack = ::backFromFeature)
         }
+        ManagementRoute.HrGrossPayroll -> {
+            BackHandler { backFromFeature() }
+            GrossPayrollScreen(rpc = rpc, onBack = ::backFromFeature)
+        }
         ManagementRoute.HrOnboarding -> {
             BackHandler { backFromFeature() }
             HrOnboardingScreen(
@@ -497,9 +531,21 @@ private fun ManagementApp(
             BackHandler { backFromFeature() }
             BlanketsScreen(rpc = rpc, onBack = ::backFromFeature)
         }
+        ManagementRoute.PreferredPo -> {
+            BackHandler { backFromFeature() }
+            PreferredPoScreen(rpc = rpc, qr = qr, onBack = ::backFromFeature)
+        }
         ManagementRoute.Credit -> {
             BackHandler { backFromFeature() }
             CreditScreen(rpc = rpc, onBack = ::backFromFeature)
+        }
+        ManagementRoute.Kits -> {
+            BackHandler { backFromFeature() }
+            KitsScreen(rpc = rpc, onBack = ::backFromFeature)
+        }
+        ManagementRoute.ProductPages -> {
+            BackHandler { backFromFeature() }
+            ProductPagesScreen(rpc = rpc, onBack = ::backFromFeature)
         }
         ManagementRoute.Chat -> {
             BackHandler { backFromFeature() }
@@ -529,6 +575,7 @@ private fun ManagementHome(
     onSignOut: () -> Unit,
     showChat: Boolean,
     showCredit: Boolean,
+    showCrmMerch: Boolean,
     showFleet: Boolean,
     showDeviceAdmin: Boolean,
     staffRoles: List<String>,
@@ -562,13 +609,18 @@ private fun ManagementHome(
             HubModuleTile(HubModule.Warehouse, "Receive · bins · consignment", Icons.Filled.Inventory2, onOpenModule)
         }
         if (allowed("procurement")) {
-            HubModuleTile(HubModule.Procurement, "Blankets · RFQ", Icons.Filled.ShoppingCart, onOpenModule)
+            HubModuleTile(HubModule.Procurement, "Preferred PO · blankets · web GRN secondary", Icons.Filled.ShoppingCart, onOpenModule)
         }
-        if (showCredit && allowed("crm")) {
-            HubModuleTile(HubModule.Crm, "Credit · AR", Icons.Filled.AccountBalance, onOpenModule)
+        if ((showCredit || showCrmMerch) && allowed("crm")) {
+            HubModuleTile(
+                HubModule.Crm,
+                "Credit · kits · product pages",
+                Icons.Filled.AccountBalance,
+                onOpenModule,
+            )
         }
         if (allowed("hr")) {
-            HubModuleTile(HubModule.Hr, "Clock · onboarding", Icons.Filled.People, onOpenModule)
+            HubModuleTile(HubModule.Hr, "Clock · gross payroll · onboarding", Icons.Filled.People, onOpenModule)
         }
         if (allowed("logistics")) {
             HubModuleTile(HubModule.Logistics, "Dispatch · track", Icons.Filled.LocalShipping, onOpenModule)
@@ -651,13 +703,21 @@ private fun featuresFor(
         "Consignment" to ManagementRoute.Consignment,
     )
     HubModule.Procurement -> listOf(
+        "Preferred supplier PO" to ManagementRoute.PreferredPo,
         "Blanket POs" to ManagementRoute.Blankets,
     )
-    HubModule.Crm -> listOf(
-        "B2B credit" to ManagementRoute.Credit,
-    )
+    HubModule.Crm -> buildList {
+        if (CreditStaffRoles.allows(staffRoles)) {
+            add("B2B credit" to ManagementRoute.Credit)
+        }
+        if (CrmMerchStaffRoles.allows(staffRoles)) {
+            add("Kits" to ManagementRoute.Kits)
+            add("Product pages" to ManagementRoute.ProductPages)
+        }
+    }
     HubModule.Hr -> buildList {
         add("Clock in / out" to ManagementRoute.HrClock)
+        add("Gross payroll" to ManagementRoute.HrGrossPayroll)
         if (HrOnboardingStaffRoles.allows(staffRoles)) {
             add("Onboarding" to ManagementRoute.HrOnboarding)
         }

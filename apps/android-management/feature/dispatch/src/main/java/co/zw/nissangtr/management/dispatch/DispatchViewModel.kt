@@ -5,12 +5,15 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.management.rpc.ConfirmPickLineInput
 import co.zw.nissangtr.management.rpc.DeliveryAssigneeSuggestion
+import co.zw.nissangtr.management.rpc.DeliveryJobDeskSummary
 import co.zw.nissangtr.management.rpc.DeliveryJobStatus
 import co.zw.nissangtr.management.rpc.DeliveryNoteSummary
 import co.zw.nissangtr.management.rpc.DeliveryTrackPoint
+import co.zw.nissangtr.management.rpc.DispatchInvoiceSummary
 import co.zw.nissangtr.management.rpc.DnLineInput
 import co.zw.nissangtr.management.rpc.OptimizedDriverStop
 import co.zw.nissangtr.management.rpc.PanicEventSummary
+import co.zw.nissangtr.management.rpc.PickListLineSummary
 import co.zw.nissangtr.management.rpc.PickListSummary
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.RpcNames
@@ -26,6 +29,14 @@ import kotlinx.coroutines.launch
 data class DispatchUiState(
     val deliveryNotes: List<DeliveryNoteSummary> = emptyList(),
     val pickLists: List<PickListSummary> = emptyList(),
+    /** Posted dispatch invoices — tap to fill sales invoice id. */
+    val dispatchInvoices: List<DispatchInvoiceSummary> = emptyList(),
+    /** Staff visibility — status + DN link / unassigned (not assign picker). */
+    val deliveryJobs: List<DeliveryJobDeskSummary> = emptyList(),
+    /** Lines for [selectedPickListId] — confirm / DN without UUID paste. */
+    val pickLines: List<PickListLineSummary> = emptyList(),
+    /** pick_list_line_id → qty draft string. */
+    val pickQtyDraft: Map<String, String> = emptyMap(),
     val salesInvoiceId: String = "",
     val invoiceLineId: String = "",
     val qty: String = "1",
@@ -47,6 +58,8 @@ data class DispatchUiState(
     val pickupLng: String = "31.0330",
     val dropoffLat: String = "-17.8400",
     val dropoffLng: String = "31.0500",
+    /** Confirm sheet for exception override assign (not happy-path). */
+    val pendingOverrideAssigneeUserId: String? = null,
     val panicEvents: List<PanicEventSummary> = emptyList(),
     val supportPhone: String = "",
     val busy: Boolean = false,
@@ -54,7 +67,10 @@ data class DispatchUiState(
     val error: String? = null,
     /** Realtime not wired — panic inbox polls. */
     val pollNote: String = "Panic inbox polling ~5s (Realtime not enabled in this client)",
-)
+) {
+    val canOverrideAssign: Boolean
+        get() = DeliveryOverrideAssignGate.canOverrideAssign(deliveryJobId, deliveryJobs)
+}
 
 /**
  * Pick/DN logistics + dispatcher assignment / route / panic inbox.
@@ -86,6 +102,11 @@ class DispatchViewModel(
     fun onQtyChange(v: String) =
         _state.update { it.copy(qty = v) }
 
+    fun onPickQtyChange(pickListLineId: String, qty: String) =
+        _state.update {
+            it.copy(pickQtyDraft = it.pickQtyDraft + (pickListLineId to qty), error = null)
+        }
+
     fun onDeliveryJobIdChange(v: String) =
         _state.update {
             it.copy(
@@ -112,14 +133,124 @@ class DispatchViewModel(
     fun onDropoffLngChange(v: String) =
         _state.update { it.copy(dropoffLng = v, error = null) }
 
-    fun selectPickList(id: String) =
-        _state.update { it.copy(selectedPickListId = id) }
+    fun selectDispatchInvoice(id: String) =
+        _state.update {
+            it.copy(salesInvoiceId = id, error = null, message = "Invoice selected")
+        }
+
+    fun selectPickList(id: String) {
+        val pl = _state.value.pickLists.find { it.id == id }
+        _state.update {
+            it.copy(
+                selectedPickListId = id,
+                salesInvoiceId = pl?.salesInvoiceId ?: it.salesInvoiceId,
+                error = null,
+            )
+        }
+        loadPickLines(id)
+    }
+
+    fun selectPickLine(line: PickListLineSummary) {
+        val draft = _state.value.pickQtyDraft[line.id]
+        val qty = draft?.toDoubleOrNull()
+            ?: line.qtyPicked
+            ?: line.qtyRequested
+        _state.update {
+            it.copy(
+                invoiceLineId = line.salesInvoiceLineId,
+                qty = qty.toString(),
+                error = null,
+            )
+        }
+    }
 
     fun selectDn(id: String) =
         _state.update { it.copy(selectedDnId = id) }
 
+    /** Link desk job → DN + job UUID fields (visibility; override only if unassigned). */
+    fun selectDeliveryJob(id: String) {
+        val job = _state.value.deliveryJobs.find { it.id == id } ?: return
+        val overrideOk = DeliveryOverrideAssignGate.canOverrideAssign(
+            job.assigneeUserId,
+            job.status,
+        )
+        _state.update {
+            it.copy(
+                deliveryJobId = job.id,
+                selectedDnId = job.deliveryNoteId,
+                error = null,
+                message = if (overrideOk) {
+                    "Unassigned job selected — Override assign below (auto-assign remains SoR)"
+                } else {
+                    "Job ${job.documentNumber ?: job.id.take(8)}… · " +
+                        "assigned (status only — no pick-driver)"
+                },
+                liveTrack = null,
+                trackShareToken = null,
+                podOtp = null,
+                assigneeSuggestions = if (overrideOk) it.assigneeSuggestions else emptyList(),
+                pendingOverrideAssigneeUserId = null,
+            )
+        }
+    }
+
+    /**
+     * Exception path from visibility list: select stuck/unassigned job and load suggests.
+     * Happy-path assigned jobs are refused.
+     */
+    fun beginOverrideAssign(jobId: String) {
+        val job = _state.value.deliveryJobs.find { it.id == jobId }
+        if (job == null) {
+            _state.update { it.copy(error = "Select a delivery job from the desk list") }
+            return
+        }
+        if (!DeliveryOverrideAssignGate.canOverrideAssign(job.assigneeUserId, job.status)) {
+            _state.update {
+                it.copy(
+                    error = "Override assign only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                    message = null,
+                )
+            }
+            return
+        }
+        selectDeliveryJob(jobId)
+        suggestAssignees()
+    }
+
     fun selectSuggestedAssignee(userId: String) =
         _state.update { it.copy(assigneeUserId = userId, error = null) }
+
+    fun requestOverrideAssignConfirm(assigneeUserId: String? = null) {
+        val s = _state.value
+        val jobId = s.deliveryJobId.trim()
+        val assignee = (assigneeUserId ?: s.assigneeUserId).trim()
+        if (jobId.isEmpty() || assignee.isEmpty()) {
+            _state.update {
+                it.copy(error = "Delivery job UUID + assignee driver UUID required")
+            }
+            return
+        }
+        if (!s.canOverrideAssign) {
+            _state.update {
+                it.copy(
+                    error = "Override assign only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                )
+            }
+            return
+        }
+        _state.update {
+            it.copy(
+                assigneeUserId = assignee,
+                pendingOverrideAssigneeUserId = assignee,
+                error = null,
+            )
+        }
+    }
+
+    fun dismissOverrideAssignConfirm() =
+        _state.update { it.copy(pendingOverrideAssigneeUserId = null) }
 
     fun refresh() {
         viewModelScope.launch {
@@ -127,13 +258,35 @@ class DispatchViewModel(
             try {
                 val dns = rpc.listDeliveryNotes()
                 val pls = rpc.listPickLists()
+                val jobs = runCatching { rpc.listDeliveryJobs() }.getOrDefault(emptyList())
+                val invoices = runCatching { rpc.listDispatchInvoices() }
+                    .getOrDefault(emptyList())
                 val panics = runCatching { rpc.listOpenPanicEvents() }.getOrDefault(emptyList())
+                val selectedPick = _state.value.selectedPickListId
+                    ?: pls.firstOrNull()?.id
+                val pickLines = if (selectedPick != null) {
+                    runCatching { rpc.listPickListLines(selectedPick) }.getOrDefault(emptyList())
+                } else {
+                    emptyList()
+                }
                 _state.update {
                     it.copy(
                         busy = false,
                         deliveryNotes = dns,
                         pickLists = pls,
+                        deliveryJobs = jobs,
+                        dispatchInvoices = invoices,
                         panicEvents = panics,
+                        selectedPickListId = selectedPick,
+                        pickLines = pickLines,
+                        pickQtyDraft = draftsFromLines(pickLines, it.pickQtyDraft),
+                        salesInvoiceId = when {
+                            it.salesInvoiceId.isNotBlank() -> it.salesInvoiceId
+                            else -> invoices.firstOrNull()?.id
+                                ?: pls.firstOrNull()?.salesInvoiceId
+                                ?: ""
+                        },
+                        selectedDnId = it.selectedDnId ?: dns.firstOrNull()?.id,
                     )
                 }
             } catch (e: Exception) {
@@ -172,34 +325,50 @@ class DispatchViewModel(
 
     fun confirmSelectedPick() {
         val pickId = _state.value.selectedPickListId
-        val lineId = _state.value.invoiceLineId.trim()
-        val qty = _state.value.qty.toDoubleOrNull()
         if (pickId.isNullOrBlank()) {
             _state.update { it.copy(error = "Select a pick list") }
             return
         }
-        if (lineId.isEmpty() || qty == null || qty < 0) {
-            _state.update { it.copy(error = "Invoice line UUID + qty_picked required") }
+        val s = _state.value
+        val lines = if (s.pickLines.isNotEmpty()) {
+            s.pickLines.map { line ->
+                val qty = s.pickQtyDraft[line.id]?.toDoubleOrNull()
+                    ?: line.qtyPicked
+                    ?: line.qtyRequested
+                ConfirmPickLineInput(
+                    pickListLineId = line.id,
+                    qtyPicked = qty,
+                )
+            }
+        } else {
+            val lineId = s.invoiceLineId.trim()
+            val qty = s.qty.toDoubleOrNull()
+            if (lineId.isEmpty() || qty == null || qty < 0) {
+                _state.update { it.copy(error = "Load pick lines or enter invoice line UUID + qty") }
+                return
+            }
+            listOf(
+                ConfirmPickLineInput(
+                    salesInvoiceLineId = lineId,
+                    qtyPicked = qty,
+                ),
+            )
+        }
+        if (lines.any { it.qtyPicked < 0 }) {
+            _state.update { it.copy(error = "qty_picked must be ≥ 0") }
             return
         }
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
-                val id = rpc.confirmPickLines(
-                    pickId,
-                    listOf(
-                        ConfirmPickLineInput(
-                            salesInvoiceLineId = lineId,
-                            qtyPicked = qty,
-                        ),
-                    ),
-                )
+                val id = rpc.confirmPickLines(pickId, lines)
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.CONFIRM_PICK_LINES} → $id",
+                        message = "${RpcNames.CONFIRM_PICK_LINES} → $id (${lines.size} line(s))",
                     )
                 }
+                loadPickLines(pickId)
                 refresh()
             } catch (e: Exception) {
                 _state.update {
@@ -210,12 +379,29 @@ class DispatchViewModel(
     }
 
     fun createDeliveryNote() {
-        val invoiceId = _state.value.salesInvoiceId.trim()
-        val lineId = _state.value.invoiceLineId.trim()
-        val qty = _state.value.qty.toDoubleOrNull()
-        if (invoiceId.isEmpty() || lineId.isEmpty() || qty == null || qty <= 0) {
+        val s = _state.value
+        val invoiceId = s.salesInvoiceId.trim().ifBlank {
+            s.pickLists.find { it.id == s.selectedPickListId }?.salesInvoiceId.orEmpty()
+        }
+        val lines = if (s.pickLines.isNotEmpty()) {
+            s.pickLines.mapNotNull { line ->
+                val qty = s.pickQtyDraft[line.id]?.toDoubleOrNull()
+                    ?: line.qtyPicked
+                    ?: line.qtyRequested
+                if (qty > 0) DnLineInput(line.salesInvoiceLineId, qty) else null
+            }
+        } else {
+            val lineId = s.invoiceLineId.trim()
+            val qty = s.qty.toDoubleOrNull()
+            if (lineId.isEmpty() || qty == null || qty <= 0) {
+                emptyList()
+            } else {
+                listOf(DnLineInput(lineId, qty))
+            }
+        }
+        if (invoiceId.isEmpty() || lines.isEmpty()) {
             _state.update {
-                it.copy(error = "Invoice UUID, line UUID, and qty > 0 required for DN")
+                it.copy(error = "Invoice + at least one DN line (qty > 0) required")
             }
             return
         }
@@ -224,14 +410,14 @@ class DispatchViewModel(
             try {
                 val id = rpc.createDeliveryNote(
                     salesInvoiceId = invoiceId,
-                    lines = listOf(DnLineInput(lineId, qty)),
-                    pickListId = _state.value.selectedPickListId,
+                    lines = lines,
+                    pickListId = s.selectedPickListId,
                 )
                 _state.update {
                     it.copy(
                         busy = false,
                         selectedDnId = id,
-                        message = "${RpcNames.CREATE_DELIVERY_NOTE} → $id",
+                        message = "${RpcNames.CREATE_DELIVERY_NOTE} → $id (${lines.size} line(s))",
                     )
                 }
                 refresh()
@@ -263,6 +449,31 @@ class DispatchViewModel(
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "submit DN failed")
+                }
+            }
+        }
+    }
+
+    fun cancelSelectedDn() {
+        val dnId = _state.value.selectedDnId
+        if (dnId.isNullOrBlank()) {
+            _state.update { it.copy(error = "Select a delivery note") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                val id = rpc.cancelDeliveryNote(dnId)
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        message = "${RpcNames.CANCEL_DELIVERY_NOTE} → $id",
+                    )
+                }
+                refresh()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "cancel DN failed")
                 }
             }
         }
@@ -417,6 +628,15 @@ class DispatchViewModel(
             _state.update { it.copy(error = "Delivery job UUID required for suggestions") }
             return
         }
+        if (!_state.value.canOverrideAssign) {
+            _state.update {
+                it.copy(
+                    error = "Suggest/override only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
@@ -437,28 +657,55 @@ class DispatchViewModel(
         }
     }
 
-    /** Assign selected / typed driver. [override] bypasses capacity/shift eligibility. */
-    fun assignJob(override: Boolean) {
-        val jobId = _state.value.deliveryJobId.trim()
-        val assignee = _state.value.assigneeUserId.trim()
+    /**
+     * Exception override assign after confirm. Always passes `p_override=true`
+     * (eligibility bypass for stuck/auto-assign-failed). Refuses happily assigned jobs.
+     */
+    fun confirmOverrideAssign() {
+        val s = _state.value
+        val jobId = s.deliveryJobId.trim()
+        val assignee = (s.pendingOverrideAssigneeUserId ?: s.assigneeUserId).trim()
         if (jobId.isEmpty() || assignee.isEmpty()) {
-            _state.update { it.copy(error = "Delivery job UUID + assignee driver UUID required") }
+            _state.update {
+                it.copy(
+                    pendingOverrideAssigneeUserId = null,
+                    error = "Delivery job UUID + assignee driver UUID required",
+                )
+            }
+            return
+        }
+        if (!s.canOverrideAssign) {
+            _state.update {
+                it.copy(
+                    pendingOverrideAssigneeUserId = null,
+                    error = "Override assign only for unassigned/stuck jobs " +
+                        "(auto-assign remains SoR)",
+                )
+            }
             return
         }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
+            _state.update {
+                it.copy(
+                    busy = true,
+                    error = null,
+                    message = null,
+                    pendingOverrideAssigneeUserId = null,
+                )
+            }
             try {
-                val id = rpc.assignDeliveryJob(jobId, assignee, override = override)
+                val id = rpc.assignDeliveryJob(jobId, assignee, override = true)
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.ASSIGN_DELIVERY_JOB} → $id" +
-                            if (override) " (manual override)" else "",
+                        assigneeSuggestions = emptyList(),
+                        message = "${RpcNames.ASSIGN_DELIVERY_JOB} → $id (exception override)",
                     )
                 }
+                refresh()
             } catch (e: Exception) {
                 _state.update {
-                    it.copy(busy = false, error = e.message ?: "assign failed")
+                    it.copy(busy = false, error = e.message ?: "override assign failed")
                 }
             }
         }
@@ -570,6 +817,27 @@ class DispatchViewModel(
         }
     }
 
+    private fun loadPickLines(pickListId: String) {
+        viewModelScope.launch {
+            try {
+                val lines = rpc.listPickListLines(pickListId)
+                _state.update {
+                    it.copy(
+                        pickLines = lines,
+                        pickQtyDraft = draftsFromLines(lines, it.pickQtyDraft),
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        pickLines = emptyList(),
+                        error = e.message ?: "pick lines failed",
+                    )
+                }
+            }
+        }
+    }
+
     private fun startPanicPolling() {
         panicPollJob?.cancel()
         panicPollJob = viewModelScope.launch {
@@ -628,6 +896,20 @@ class DispatchViewModel(
         const val DRIVER_GPS_PRODUCER_BLOCKED_MSG: String =
             "Driver GPS producer gated: use apps/android-delivery " +
                 "(FGS → ingest_delivery_location). Management is view-only."
+
+        fun draftsFromLines(
+            lines: List<PickListLineSummary>,
+            existing: Map<String, String>,
+        ): Map<String, String> {
+            val next = existing.toMutableMap()
+            for (line in lines) {
+                if (!next.containsKey(line.id)) {
+                    val seed = line.qtyPicked?.takeIf { it > 0 } ?: line.qtyRequested
+                    next[line.id] = seed.toString()
+                }
+            }
+            return next
+        }
 
         fun factory(
             rpc: RpcClient,

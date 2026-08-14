@@ -99,8 +99,13 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         roles: ["admin", "warehouse"],
       },
       {
+        href: "/staff/warehouse/master-stock",
+        label: "Master stock",
+        roles: ["admin", "warehouse", "sales", "finance"],
+      },
+      {
         href: "/staff/warehouse/transfers",
-        label: "Transfers",
+        label: "Transfers (WH1→WH2)",
         roles: ["admin", "warehouse"],
       },
       {
@@ -257,6 +262,16 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         label: "Review moderation",
         roles: ["admin", "sales"],
       },
+      {
+        href: "/staff/crm/product-pages",
+        label: "Product pages",
+        roles: ["admin", "sales", "warehouse"],
+      },
+      {
+        href: "/staff/crm/kits",
+        label: "Kits",
+        roles: ["admin", "sales", "warehouse"],
+      },
     ],
   },
   {
@@ -385,20 +400,20 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         roles: ["admin", "warehouse", "finance"],
       },
       {
-        href: "/procurement/rfqs",
-        label: "RFQs",
-        excludePathPrefix: "/procurement/rfqs/new",
-        roles: ["admin", "warehouse", "finance"],
-      },
-      {
-        href: "/procurement/rfqs/new",
-        label: "New RFQ",
+        href: "/procurement/suppliers",
+        label: "Preferred suppliers",
         exact: true,
         roles: ["admin", "warehouse", "finance"],
       },
       {
-        href: "/procurement/blankets",
-        label: "Blankets",
+        href: "/procurement/orders/new",
+        label: "New PO",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/grn",
+        label: "GRN",
         exact: true,
         roles: ["admin", "warehouse", "finance"],
       },
@@ -407,6 +422,24 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         label: "Approvals",
         exact: true,
         roles: ["admin", "finance"],
+      },
+      {
+        href: "/procurement/blankets",
+        label: "Blankets",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/rfqs",
+        label: "RFQs (optional)",
+        excludePathPrefix: "/procurement/rfqs/new",
+        roles: ["admin", "warehouse", "finance"],
+      },
+      {
+        href: "/procurement/rfqs/new",
+        label: "New RFQ",
+        exact: true,
+        roles: ["admin", "warehouse", "finance"],
       },
     ],
   },
@@ -486,6 +519,16 @@ export const STAFF_MODULE_ROLES = {
     "finance",
   ] as const satisfies readonly StaffRole[],
   crmReviews: ["admin", "sales"] as const satisfies readonly StaffRole[],
+  crmProductPages: [
+    "admin",
+    "sales",
+    "warehouse",
+  ] as const satisfies readonly StaffRole[],
+  crmKits: [
+    "admin",
+    "sales",
+    "warehouse",
+  ] as const satisfies readonly StaffRole[],
 } as const;
 
 export type PathAccess =
@@ -526,6 +569,15 @@ export function pathAccessFor(pathname: string): PathAccess {
     path.startsWith("/staff/crm/reviews/")
   ) {
     return { kind: "roles", roles: ["admin", "sales"] };
+  }
+  if (
+    path === "/staff/crm/product-pages" ||
+    path.startsWith("/staff/crm/product-pages/")
+  ) {
+    return { kind: "roles", roles: ["admin", "sales", "warehouse"] };
+  }
+  if (path === "/staff/crm/kits" || path.startsWith("/staff/crm/kits/")) {
+    return { kind: "roles", roles: ["admin", "sales", "warehouse"] };
   }
   if (
     path === "/staff/logistics/tracking" ||

@@ -248,7 +248,8 @@ private fun EpcDiagramPane(
     var activeOem by remember { mutableStateOf<String?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
-            if (data.imageUrl.isNullOrBlank()) {
+            val imageUrl = data.imageUrl
+            if (imageUrl.isNullOrBlank()) {
                 Text(
                     "Diagram image unavailable — parts list below.",
                     modifier = Modifier.padding(16.dp),
@@ -256,7 +257,7 @@ private fun EpcDiagramPane(
                 )
             } else {
                 EpcHotspotCanvas(
-                    imageUrl = data.imageUrl,
+                    imageUrl = imageUrl,
                     hotspots = data.hotspots,
                     activeOem = activeOem,
                     onSelectOem = onSelectOem,

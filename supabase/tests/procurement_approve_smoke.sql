@@ -51,7 +51,10 @@ BEGIN
 
   PERFORM public._test_set_auth_uid(v_admin);
 
-  SELECT id INTO v_supplier FROM public.suppliers WHERE code = 'P8-SUP' LIMIT 1;
+  SELECT id INTO v_supplier FROM public.suppliers
+  WHERE code IN ('P8-SUP', 'P8-APV')
+  ORDER BY CASE WHEN code = 'P8-SUP' THEN 0 ELSE 1 END
+  LIMIT 1;
   IF v_supplier IS NULL THEN
     v_supplier := public.create_supplier('P8-APV', 'Approve Smoke Supplier');
   END IF;
@@ -127,12 +130,33 @@ BEGIN
     RAISE EXCEPTION 'approve smoke fail: PO status=%', v_st;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM public.procurement_fund_releases WHERE purchase_order_id = v_po
+  ) THEN
+    RAISE EXCEPTION 'approve smoke fail: procurement_fund_releases row missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.purchase_orders
+    WHERE id = v_po AND progress_step = 'funds_released' AND funds_released_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'approve smoke fail: progress_step/funds_released_at not set';
+  END IF;
+
   SELECT COUNT(*)::int INTO v_evt
   FROM public.domain_events
   WHERE event_code = 'po_approved'
     AND dedupe_key = 'purchase_order_approved:' || v_po::text;
   IF v_evt < 1 THEN
     RAISE EXCEPTION 'approve smoke fail: po_approved domain event missing';
+  END IF;
+
+  SELECT COUNT(*)::int INTO v_evt
+  FROM public.domain_events
+  WHERE event_code = 'procurement_funds_released'
+    AND payload->>'purchase_order_id' = v_po::text;
+  IF v_evt < 1 THEN
+    RAISE EXCEPTION 'approve smoke fail: procurement_funds_released domain event missing';
   END IF;
 
   PERFORM public._test_set_auth_uid(v_wh);
