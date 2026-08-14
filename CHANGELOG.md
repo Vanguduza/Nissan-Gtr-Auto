@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — 2026-08-14
+
+### Added
+
+- **Android management OSS shell (Phase 1):** archived prior UI to `apps/android-management-legacy/`; new `apps/android-management/` CoolMall-inspired dual-pane POS skeleton + inventree-like warehouse receive IA; **GTR brand tokens only** (`packages/android-ui`); structures via existing `RpcClient` Fake/Live (Supabase SoR — not CoolMall/InvenTree backends). Plan: `docs/plans/2026-08-14-management-oss-shell-rebuild.md`.
+
 ## Unreleased — 2026-08-12
 
 ### Added

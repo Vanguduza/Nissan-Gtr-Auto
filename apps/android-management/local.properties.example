@@ -1,0 +1,16 @@
+## This file is an example — copy to local.properties (gitignored). Never commit real keys.
+## sdk.dir is required by the Android Gradle Plugin when the SDK is not auto-detected.
+# sdk.dir=C\:\\Users\\YOU\\AppData\\Local\\Android\\Sdk
+
+# Same names as root .env.example / web NEXT_PUBLIC_SUPABASE_* (without NEXT_PUBLIC_ prefix)
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+
+# Optional: force FakeRpcClient even when URL+key are set
+# rpc.forceFake=true
+
+# PowerSync (H7 / B-PS-1) — optional. When unset, FakePowerSyncClient (fail closed).
+# Never commit real URL/keys. See powersync/.env.example + docs/HARDENING.md.
+# POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
+# POWERSYNC_PUBLIC_KEY=
+# POWERSYNC_PROJECT_ID=

@@ -44,6 +44,7 @@ agents:
     paths:
       - apps/android-management/**
     shared_read:
+      - apps/android-management-legacy/**
       - packages/shared/**
       - packages/supabase-client/**
       - bridges/android/**

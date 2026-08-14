@@ -8,7 +8,8 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | POD-evidence | Driver POD photo evidence + signature pad | Done (verified) | CameraX Bridge-First capture→`delivery-pods`→`submit_delivery_pod`; Compose signature WORKING; gallery picker skipped; `PodEvidenceGate` + Fake bridges |
 | E-Proc | Relationship procurement + fund release + tracker | Done | Verified: live tracker, fund release smoke, RFQ secondary |
 | E-WH | Dual WH1/WH2 + master stock | Done | Verified: `list_master_stock` staff-only; GRN OEM + invoice bind |
-| E-POS | Dial UX web + tablet POS | Done | Web WH2 + tokens + 1280/390; Android ≥700dp dual-pane / 48dp / Bridge QR |
+| E-POS | Dial UX web + tablet POS | Done (web); Android Phase 1 shell | Web WH2 + tokens + 1280/390; Android OSS shell dual-pane skeleton (≥700dp) — full CoolMall port = Phase 2 (`docs/plans/2026-08-14-management-oss-shell-rebuild.md`) |
+| Mgmt-OSS-1 | Management CoolMall/InvenTree shell rebuild | Phase 1 Done | Legacy archived; hub + POS dual-pane + warehouse receive + Fake/Live RPC; Phase 2+ ports remaining modules |
 | E-POS-WH2 | Android POS WH2 storefloor pick (H-PARITY-WH2) | Done | `listSaleableWarehouses` + `isPosSaleableWarehouse`; `PosSaleableWarehouseTest` PASS |
 | E-Sec | DIAL AppSec (Semgrep/Checkov CI) | Done | semgrep-gtr hard-fail + Checkov HIGH+; HARDENING §7 synced |
 | E2a | Temporal `DeliveryDispatchWorkflow` | Done (bridge) | Package + edge cycle; autoAcceptOffers opt-in; full worker §H |
