@@ -1221,6 +1221,7 @@ class FakeRpcClient : RpcClient {
             currency = "USD",
             liabilityPerPoint = 0.01,
             estimatedLiability = 1.2,
+            estimatedLiabilityMinor = 120L,
         )
 
     override suspend fun postCustomerReturnCreditNote(

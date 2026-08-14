@@ -1970,6 +1970,7 @@ export type Database = {
           created_at: string
           credit_hold: boolean
           credit_limit: number
+          credit_limit_minor: number | null
           currency: Database["public"]["Enums"]["currency_code"]
           display_name: string
           email: string | null
@@ -1978,6 +1979,7 @@ export type Database = {
           last_promotional_message_at: string | null
           marketing_opt_in: boolean
           open_balance: number
+          open_balance_minor: number | null
           phone_e164: string | null
           price_list_id: string | null
           profile_id: string | null
@@ -1990,6 +1992,7 @@ export type Database = {
           created_at?: string
           credit_hold?: boolean
           credit_limit?: number
+          credit_limit_minor?: number | null
           currency?: Database["public"]["Enums"]["currency_code"]
           display_name: string
           email?: string | null
@@ -1998,6 +2001,7 @@ export type Database = {
           last_promotional_message_at?: string | null
           marketing_opt_in?: boolean
           open_balance?: number
+          open_balance_minor?: number | null
           phone_e164?: string | null
           price_list_id?: string | null
           profile_id?: string | null
@@ -2010,6 +2014,7 @@ export type Database = {
           created_at?: string
           credit_hold?: boolean
           credit_limit?: number
+          credit_limit_minor?: number | null
           currency?: Database["public"]["Enums"]["currency_code"]
           display_name?: string
           email?: string | null
@@ -2018,6 +2023,7 @@ export type Database = {
           last_promotional_message_at?: string | null
           marketing_opt_in?: boolean
           open_balance?: number
+          open_balance_minor?: number | null
           phone_e164?: string | null
           price_list_id?: string | null
           profile_id?: string | null
@@ -4450,6 +4456,7 @@ export type Database = {
           id: string
           journal_entry_id: string | null
           money_value: number
+          money_value_minor: number | null
           movement: Database["public"]["Enums"]["loyalty_movement"]
           points: number
           points_balance_after: number
@@ -4468,6 +4475,7 @@ export type Database = {
           id?: string
           journal_entry_id?: string | null
           money_value: number
+          money_value_minor?: number | null
           movement: Database["public"]["Enums"]["loyalty_movement"]
           points: number
           points_balance_after: number
@@ -4486,6 +4494,7 @@ export type Database = {
           id?: string
           journal_entry_id?: string | null
           money_value?: number
+          money_value_minor?: number | null
           movement?: Database["public"]["Enums"]["loyalty_movement"]
           points?: number
           points_balance_after?: number
@@ -7754,6 +7763,7 @@ export type Database = {
       store_credit_accounts: {
         Row: {
           balance: number
+          balance_minor: number | null
           created_at: string
           currency: Database["public"]["Enums"]["currency_code"]
           customer_id: string
@@ -7762,6 +7772,7 @@ export type Database = {
         }
         Insert: {
           balance?: number
+          balance_minor?: number | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency_code"]
           customer_id: string
@@ -7770,6 +7781,7 @@ export type Database = {
         }
         Update: {
           balance?: number
+          balance_minor?: number | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency_code"]
           customer_id?: string
@@ -7790,7 +7802,9 @@ export type Database = {
         Row: {
           account_id: string
           amount: number
+          amount_minor: number | null
           balance_after: number
+          balance_after_minor: number | null
           created_at: string
           created_by: string | null
           currency: Database["public"]["Enums"]["currency_code"]
@@ -7807,7 +7821,9 @@ export type Database = {
         Insert: {
           account_id: string
           amount: number
+          amount_minor?: number | null
           balance_after: number
+          balance_after_minor?: number | null
           created_at?: string
           created_by?: string | null
           currency: Database["public"]["Enums"]["currency_code"]
@@ -7824,7 +7840,9 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number
+          amount_minor?: number | null
           balance_after?: number
+          balance_after_minor?: number | null
           created_at?: string
           created_by?: string | null
           currency?: Database["public"]["Enums"]["currency_code"]
@@ -9852,6 +9870,7 @@ export type Database = {
           currency: Database["public"]["Enums"]["currency_code"]
           customer_id: string
           estimated_liability: number
+          estimated_liability_minor: number
           liability_per_point: number
           points_balance: number
         }[]
@@ -10597,9 +10616,11 @@ export type Database = {
         Returns: {
           credit_hold: boolean
           credit_limit: number
+          credit_limit_minor: number | null
           currency: Database["public"]["Enums"]["currency_code"]
           customer_id: string
           open_balance: number
+          open_balance_minor: number | null
         }[]
       }
       set_customer_marketing_opt_in: {

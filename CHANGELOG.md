@@ -24,6 +24,7 @@
 
 ### Changed
 
+- **B-MONEY-1 loyalty / credit-limit:** migration `20260814200000_loyalty_credit_amount_minor_dual_write.sql` — `customers.credit_limit_minor` / `open_balance_minor`, `store_credit_*` minors, `loyalty_ledger.money_value_minor` + triggers + null-only append-only backfill; `get_loyalty_balance` / `set_customer_credit` return `*_minor`. Dual-read web (cart/B2B/staff credit/loyalty), `@gtr/shared` display helpers, Android management credit + customer loyalty. Smoke: `loyalty_credit_amount_minor_dual_write_smoke.sql`. Physical NUMERIC drop deferred.
 - **H1 lockfile hygiene:** `@gtr/delivery-dispatch-worker` declares `@gtr/delivery` `workspace:*` so `pnpm install --frozen-lockfile` matches `package.json` (CI-safe). Activities still import `../delivery/src/*.ts` for Node strip-types. Verifier: `pnpm --filter @gtr/delivery-dispatch-worker test` 2/2 PASS.
 - **D-57 WA Flow C7:** FastAPI `build_checkout_display` parity (USD browse; ZiG + `fx_rate_id` at EcoCash settle; MoneyMinor; fail closed). Migration `20260814100000_whatsapp_flow_d57_settle.sql`. Tests: `services/whatsapp-flows` `test_checkout_display` + `test_checkout_flow_d57`.
 - **D-57 checkout parity (Android customer + iOS):** browse/cart USD; ZiG only at settle/pay via `CheckoutDisplayBuilder` (MoneyMinor + ops `fxRateId`); fail-closed when daily rate missing. Android `fetchZigExchangeRateId` + cart/pay UI; iOS CartScreen/PayScreen + SwiftPM `CheckoutDisplayTests`. Unit: android-customer `:core:rpc` `CheckoutDisplayTest`.

@@ -334,7 +334,18 @@ data class LoyaltyBalance(
     val currency: String = "USD",
     val liabilityPerPoint: Double = 0.0,
     val estimatedLiability: Double = 0.0,
-)
+    /** B-MONEY-1 dual-read; prefer when present. */
+    val estimatedLiabilityMinor: Long? = null,
+) {
+    fun displayEstimatedLiability(): Double {
+        val code = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD
+        return MoneyDualRead.displayMajorFromDual(
+            estimatedLiabilityMinor,
+            estimatedLiability,
+            code,
+        )
+    }
+}
 
 /** Line payload for [RpcNames.POST_CUSTOMER_RETURN_CREDIT_NOTE] — prices forced server-side. */
 data class ReturnCreditNoteLine(

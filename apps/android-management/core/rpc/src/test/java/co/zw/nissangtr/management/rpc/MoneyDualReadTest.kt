@@ -104,4 +104,19 @@ class MoneyDualReadTest {
         assertEquals(25.50, line.displayUnitPrice(CurrencyCode.USD), 0.0001)
         assertEquals(51.00, line.displayLineTotal(CurrencyCode.USD), 0.0001)
     }
+
+    @Test
+    fun customerCreditSnapshot_dual_read_prefers_minor() {
+        val snap = CustomerCreditSnapshot(
+            customerId = "c1",
+            creditLimit = 1.0,
+            creditHold = false,
+            openBalance = 1.0,
+            currency = CurrencyCode.USD,
+            creditLimitMinor = 50_000L,
+            openBalanceMinor = 12_500L,
+        )
+        assertEquals(500.0, snap.displayCreditLimit(), 0.0001)
+        assertEquals(125.0, snap.displayOpenBalance(), 0.0001)
+    }
 }

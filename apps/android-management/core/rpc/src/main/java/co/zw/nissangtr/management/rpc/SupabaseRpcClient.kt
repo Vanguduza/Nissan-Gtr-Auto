@@ -1985,8 +1985,10 @@ class SupabaseRpcClient(
                 Columns.list(
                     "id",
                     "credit_limit",
+                    "credit_limit_minor",
                     "credit_hold",
                     "open_balance",
+                    "open_balance_minor",
                     "currency",
                 ),
             ) {
@@ -2906,8 +2908,10 @@ private data class ConsignmentEntryRow(
 private data class CustomerCreditRow(
     val id: String,
     @SerialName("credit_limit") val creditLimit: Double = 0.0,
+    @SerialName("credit_limit_minor") val creditLimitMinor: Long? = null,
     @SerialName("credit_hold") val creditHold: Boolean = false,
     @SerialName("open_balance") val openBalance: Double = 0.0,
+    @SerialName("open_balance_minor") val openBalanceMinor: Long? = null,
     val currency: String? = null,
 ) {
     fun toSnapshot() = CustomerCreditSnapshot(
@@ -2916,6 +2920,8 @@ private data class CustomerCreditRow(
         creditHold = creditHold,
         openBalance = openBalance,
         currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
+        creditLimitMinor = creditLimitMinor,
+        openBalanceMinor = openBalanceMinor,
     )
 }
 
@@ -2923,8 +2929,10 @@ private data class CustomerCreditRow(
 private data class CustomerCreditRpcRow(
     @SerialName("customer_id") val customerId: String,
     @SerialName("credit_limit") val creditLimit: Double = 0.0,
+    @SerialName("credit_limit_minor") val creditLimitMinor: Long? = null,
     @SerialName("credit_hold") val creditHold: Boolean = false,
     @SerialName("open_balance") val openBalance: Double = 0.0,
+    @SerialName("open_balance_minor") val openBalanceMinor: Long? = null,
     val currency: String = "USD",
 ) {
     fun toSnapshot() = CustomerCreditSnapshot(
@@ -2933,6 +2941,8 @@ private data class CustomerCreditRpcRow(
         creditHold = creditHold,
         openBalance = openBalance,
         currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
+        creditLimitMinor = creditLimitMinor,
+        openBalanceMinor = openBalanceMinor,
     )
 }
 

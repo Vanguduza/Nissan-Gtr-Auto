@@ -905,6 +905,8 @@ export type LoyaltyBalance = {
   currency: Currency;
   liability_per_point: number;
   estimated_liability: number;
+  /** B-MONEY-1 dual-read; prefer when present. */
+  estimated_liability_minor?: number | null;
 };
 export type LoyaltyLedgerRow =
   Database["public"]["Tables"]["loyalty_ledger"]["Row"];
@@ -1165,7 +1167,16 @@ export async function getLoyaltyBalance(
       points_balance: Number(r.points_balance ?? 0),
       currency: (r.currency as Currency) ?? "USD",
       liability_per_point: Number(r.liability_per_point ?? 0),
-      estimated_liability: Number(r.estimated_liability ?? 0),
+      estimated_liability: displayMajorFromDualSafe(
+        r.estimated_liability_minor,
+        r.estimated_liability,
+        (r.currency as Currency) ?? "USD",
+      ),
+      estimated_liability_minor:
+        r.estimated_liability_minor === null ||
+        r.estimated_liability_minor === undefined
+          ? null
+          : Number(r.estimated_liability_minor),
     },
   };
 }

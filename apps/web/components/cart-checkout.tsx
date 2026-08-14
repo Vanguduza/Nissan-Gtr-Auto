@@ -30,7 +30,7 @@ import {
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import { buildCheckoutDisplay, type PspMethod } from "@gtr/payments";
-import { fromAmountMinor, toAmountMinor } from "@gtr/shared";
+import { fromAmountMinor, toAmountMinor, displayCreditLimitMajor, displayOpenBalanceMajor } from "@gtr/shared";
 import styles from "@/app/(storefront)/page.module.css";
 
 function CartTitle() {
@@ -401,8 +401,26 @@ export function CartCheckout() {
 
   const { cart, lines, customer } = status;
   const creditHold = !!customer?.credit_hold;
-  const creditLimit = Number(customer?.credit_limit ?? 0);
-  const openBalance = Number(customer?.open_balance ?? 0);
+  const accountCurrency =
+    customer?.currency === "ZIG" ? "ZIG" : "USD";
+  const creditLimit = customer
+    ? displayCreditLimitMajor(
+        {
+          credit_limit: Number(customer.credit_limit ?? 0),
+          credit_limit_minor: customer.credit_limit_minor ?? null,
+        },
+        accountCurrency,
+      )
+    : 0;
+  const openBalance = customer
+    ? displayOpenBalanceMajor(
+        {
+          open_balance: Number(customer.open_balance ?? 0),
+          open_balance_minor: customer.open_balance_minor ?? null,
+        },
+        accountCurrency,
+      )
+    : 0;
   const projectedOpen = openBalance + totalUsd;
   const overLimit = creditLimit > 0 && projectedOpen > creditLimit;
 

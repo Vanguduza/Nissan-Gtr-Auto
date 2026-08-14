@@ -276,6 +276,8 @@ export type LoyaltyBalance = {
   currency: Database["public"]["Enums"]["currency_code"];
   liability_per_point: number;
   estimated_liability: number;
+  /** B-MONEY-1 dual-read; prefer when present. */
+  estimated_liability_minor?: number | null;
 };
 
 /** Returns — mirrors web requestReturnCreditNote. */

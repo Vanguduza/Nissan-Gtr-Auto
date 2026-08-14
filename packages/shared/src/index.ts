@@ -28,6 +28,10 @@ export {
   sumPreferAmountMinor,
   displayLineTotalMajor,
   displayUnitPriceMajor,
+  displayCreditLimitMajor,
+  displayOpenBalanceMajor,
+  displayLoyaltyLiabilityMajor,
+  displayMoneyValueMajor,
   moneyMinorToJson,
   moneyMinorFromJson,
 } from "./money";

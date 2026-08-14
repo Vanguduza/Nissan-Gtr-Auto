@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   cartLineMoneyDto,
+  displayCreditLimitMajor,
   displayLineTotalMajor,
+  displayLoyaltyLiabilityMajor,
   displayMajorFromDual,
+  displayMoneyValueMajor,
+  displayOpenBalanceMajor,
   displayUnitPriceMajor,
   dualWriteFromMinor,
   dualWriteMoney,
@@ -108,6 +112,37 @@ describe("amountMinor helpers", () => {
         "USD",
       ),
       12.34,
+    );
+  });
+
+  it("B-MONEY-1 credit / loyalty dual-read prefers *_minor", () => {
+    assert.equal(
+      displayCreditLimitMajor(
+        { credit_limit: 1, credit_limit_minor: 50000 },
+        "USD",
+      ),
+      500,
+    );
+    assert.equal(
+      displayOpenBalanceMajor(
+        { open_balance: 25.5, open_balance_minor: null },
+        "USD",
+      ),
+      25.5,
+    );
+    assert.equal(
+      displayLoyaltyLiabilityMajor(
+        { estimated_liability: 1, estimated_liability_minor: 1000 },
+        "USD",
+      ),
+      10,
+    );
+    assert.equal(
+      displayMoneyValueMajor(
+        { money_value: 10, money_value_minor: 1000 },
+        "USD",
+      ),
+      10,
     );
   });
 

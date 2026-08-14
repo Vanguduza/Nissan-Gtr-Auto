@@ -86,7 +86,7 @@ fun CreditScreen(
 
             state.snapshot?.let { snap ->
                 ShopListCard(
-                    title = "Limit ${snap.creditLimit} · Open ${snap.openBalance}",
+                    title = "Limit ${snap.displayCreditLimit()} · Open ${snap.displayOpenBalance()}",
                     subtitle = "${snap.currency.rpcValue}",
                     onClick = {},
                     badges = {
