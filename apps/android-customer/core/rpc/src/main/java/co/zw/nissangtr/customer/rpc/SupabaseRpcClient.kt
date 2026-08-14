@@ -164,6 +164,9 @@ class SupabaseRpcClient(
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult =
         CatalogRpcLive.listCatalogBrowse(client, category, limit)
 
+    override suspend fun listStorefrontHomeRails(limit: Int): HomeMerchRails =
+        CatalogRpcLive.listStorefrontHomeRails(client, limit)
+
     override suspend fun listCatalogMakers(): List<EpcMaker> =
         CatalogRpcLive.listCatalogMakers(client)
 

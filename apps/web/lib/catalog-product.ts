@@ -31,6 +31,15 @@ export type CatalogProduct = {
   category: string | null;
   usd: number | null;
   zig: number | null;
+  /** List price before discount (USD) when a shop discount applies. */
+  listUsd?: number | null;
+  discount?: {
+    kind: "none" | "percent" | "amount";
+    value: number;
+    description: string | null;
+  } | null;
+  /** Staff product photos (public product-images URLs), primary first. */
+  productImages?: string[];
   stock: StockState;
   coreCharge: number;
   replaces: string[];
@@ -51,6 +60,7 @@ export type CatalogListItem = {
   /** Saleable qty across active non-quarantine warehouses (for movers rail). */
   qty?: number;
   createdAt?: string | null;
+  discountDescription?: string | null;
 };
 
 export type CatalogSort =
@@ -180,7 +190,7 @@ export async function loadCatalogProduct(
     return { ok: false, error: "Part not found.", missing: true };
   }
 
-  const [levels, fitments, xrefs, price, diagram] = await Promise.all([
+  const [levels, fitments, xrefs, price, diagram, merch] = await Promise.all([
     client
       .from("stock_levels")
       .select("quantity, warehouse_id, warehouses!inner(is_quarantine, is_active)")
@@ -192,6 +202,7 @@ export async function loadCatalogProduct(
       .eq("oem_part_number", item.oem_part_number),
     loadDefaultPrice(client, item.id),
     loadOemCatalogDiagram(client, item.oem_part_number),
+    loadShopMerchForItem(client, item.id),
   ]);
 
   if (levels.error) return { ok: false, error: levels.error.message };
@@ -199,6 +210,10 @@ export async function loadCatalogProduct(
   if (xrefs.error) return { ok: false, error: xrefs.error.message };
   if (!price.ok) return price;
   if (!diagram.ok) return { ok: false, error: diagram.error };
+  // Merch tables may be missing until migration applied — soft-fail.
+  const merchData = merch.ok
+    ? merch.data
+    : { discount: null as ShopDiscount | null, imageUrls: [] as string[] };
 
   const saleableQty = (levels.data ?? []).reduce((sum, row) => {
     const wh = row.warehouses as
@@ -242,13 +257,14 @@ export async function loadCatalogProduct(
     primaryFit?.pnc_code ?? null,
   );
 
-  const usd = price.data.unitPrice;
+  const listUsd = price.data.unitPrice;
+  const priced = applyShopDiscount(listUsd, merchData.discount);
   const rate = zigExchangeRate();
   const zig =
-    usd != null && price.data.currency === "USD"
-      ? usd * rate
+    priced.usd != null && price.data.currency === "USD"
+      ? priced.usd * rate
       : price.data.currency === "ZIG"
-        ? price.data.unitPrice
+        ? priced.usd
         : null;
 
   return {
@@ -259,7 +275,10 @@ export async function loadCatalogProduct(
       name: item.description?.trim() || item.oem_part_number,
       brand: "Nissan OE",
       category,
-      usd,
+      usd: priced.usd,
+      listUsd: priced.listUsd,
+      discount: merchData.discount,
+      productImages: merchData.imageUrls,
       zig,
       stock: stockStateFromQty(saleableQty, item.reorder_point),
       coreCharge: price.data.coreCharge,
@@ -414,12 +433,12 @@ async function resolveActivePriceList(
   | { ok: true; data: { id: string; currency: "USD" | "ZIG" } | null }
   | { ok: false; error: string }
 > {
-  const { data: customer, error: custErr } = await client
+  // Soft-fail customers read (anon / no customer row) → default RETAIL.
+  const { data: customer } = await client
     .from("customers")
     .select("price_list_id")
     .limit(1)
     .maybeSingle();
-  if (custErr) return { ok: false, error: custErr.message };
 
   if (customer?.price_list_id) {
     const { data: assigned, error } = await client
@@ -522,7 +541,7 @@ async function loadAlternatives(
 }
 
 /**
- * Browse list for /catalog — stock_items with optional category facet via PNC name.
+ * Browse list for /shop — only saleable in-stock + priced items.
  * Sort / price filters are applied after price + qty join (KMP FilterDialog parity).
  */
 export async function listCatalogProducts(
@@ -543,15 +562,8 @@ export async function listCatalogProducts(
   const subCat = opts.subcategory?.trim() || null;
   const cat = effectiveCategoryFilter(parentCat, subCat);
   const sort = opts.sort ?? "oem";
-  /** Fetch a wider window when we sort/filter client-side. */
-  const fetchLimit =
-    sort === "movers" ||
-    sort === "price_asc" ||
-    sort === "price_desc" ||
-    opts.minUsd != null ||
-    opts.maxUsd != null
-      ? Math.max(limit * 3, 80)
-      : limit;
+  /** Fetch a wider window when we sort/filter client-side (shop gate + price sorts). */
+  const fetchLimit = Math.max(limit * 4, 120);
 
   // Merchandising taxonomy only — never dump raw pnc_categories.category_name
   // (Megazip "FOR <vehicle…>" assembly strings) into the FILTERS pane.
@@ -611,7 +623,7 @@ export async function listCatalogProducts(
   const ids = items.map((i) => i.id);
   const oems = items.map((i) => i.oem_part_number);
 
-  const [levels, prices, fitCats] = await Promise.all([
+  const [levels, prices, fitCats, merchRows] = await Promise.all([
     client
       .from("stock_levels")
       .select(
@@ -624,10 +636,21 @@ export async function listCatalogProducts(
       .select("oem_part_number, pnc_categories ( category_name )")
       .in("oem_part_number", oems)
       .limit(200),
+    // New in 20260813100000 — cast until `supabase gen types` refreshed.
+    (
+      client as unknown as {
+        from: (t: "stock_item_shop_merch") => ReturnType<SupabaseClient["from"]>;
+      }
+    )
+      .from("stock_item_shop_merch")
+      .select("stock_item_id, discount_kind, discount_value, discount_description")
+      .in("stock_item_id", ids),
   ]);
 
   if (levels.error) return { ok: false, error: levels.error.message };
   if (!prices.ok) return prices;
+  // Soft-fail merch if migration not applied yet.
+  const merchOk = !("error" in merchRows && merchRows.error);
 
   const qtyByItem = new Map<string, number>();
   for (const row of levels.data ?? []) {
@@ -642,6 +665,19 @@ export async function listCatalogProducts(
       (qtyByItem.get(row.stock_item_id) ?? 0) + Number(row.quantity ?? 0),
     );
   }
+
+  const merchByItem = new Map(
+    merchOk
+      ? (
+          ((merchRows as { data?: unknown }).data ?? []) as Array<{
+            stock_item_id: string;
+            discount_kind: string;
+            discount_value: number;
+            discount_description: string | null;
+          }>
+        ).map((m) => [m.stock_item_id, m])
+      : [],
+  );
 
   const catByOem = new Map<string, string>();
   const catsByOem = new Map<string, string[]>();
@@ -664,17 +700,27 @@ export async function listCatalogProducts(
   const rate = zigExchangeRate();
   let list: CatalogListItem[] = items.map((item) => {
     const price = prices.data.get(item.id);
-    const usd =
+    const listUsd =
       price?.currency === "USD"
         ? price.unitPrice
         : price?.currency === "ZIG"
           ? null
           : (price?.unitPrice ?? null);
+    const merch = merchByItem.get(item.id);
+    const discount =
+      merch && merch.discount_kind !== "none"
+        ? {
+            kind: merch.discount_kind as "percent" | "amount",
+            value: Number(merch.discount_value),
+            description: merch.discount_description,
+          }
+        : null;
+    const priced = applyShopDiscount(listUsd, discount);
     const zig =
-      price?.currency === "ZIG"
-        ? price.unitPrice
-        : usd != null
-          ? usd * rate
+      priced.usd != null
+        ? priced.usd * rate
+        : price?.currency === "ZIG"
+          ? price.unitPrice
           : null;
     const qty = qtyByItem.get(item.id) ?? 0;
 
@@ -682,11 +728,12 @@ export async function listCatalogProducts(
       oem: item.oem_part_number,
       name: item.description?.trim() || item.oem_part_number,
       stock: stockStateFromQty(qty, item.reorder_point),
-      usd,
+      usd: priced.usd,
       zig,
       category: catByOem.get(item.oem_part_number) ?? null,
       qty,
       createdAt: item.created_at ?? null,
+      discountDescription: discount?.description ?? null,
     };
   });
 
@@ -694,6 +741,7 @@ export async function listCatalogProducts(
     sort,
     minUsd: opts.minUsd,
     maxUsd: opts.maxUsd,
+    shopStockOnly: true,
   }).slice(0, limit);
 
   return { ok: true, data: list, categories, categoryFacets };
@@ -705,9 +753,16 @@ export function applyCatalogFiltersAndSort(
     sort?: CatalogSort;
     minUsd?: number | null;
     maxUsd?: number | null;
+    /** When true (default for /shop), keep only qty > 0 and priced > 0. */
+    shopStockOnly?: boolean;
   },
 ): CatalogListItem[] {
   let list = [...items];
+  if (opts.shopStockOnly !== false) {
+    list = list.filter(
+      (i) => (i.qty ?? 0) > 0 && i.usd != null && i.usd > 0,
+    );
+  }
   const min = opts.minUsd;
   const max = opts.maxUsd;
   if (min != null && Number.isFinite(min)) {
@@ -738,9 +793,148 @@ export function applyCatalogFiltersAndSort(
   return list;
 }
 
+export const PRODUCT_IMAGES_BUCKET = "product-images";
+
+export type ShopDiscount = {
+  kind: "none" | "percent" | "amount";
+  value: number;
+  description: string | null;
+};
+
+export function applyShopDiscount(
+  listUsd: number | null,
+  discount: ShopDiscount | null | undefined,
+): { usd: number | null; listUsd: number | null } {
+  if (listUsd == null) return { usd: null, listUsd: null };
+  if (!discount || discount.kind === "none" || discount.value <= 0) {
+    return { usd: listUsd, listUsd: null };
+  }
+  let usd = listUsd;
+  if (discount.kind === "percent") {
+    usd = listUsd * (1 - Math.min(discount.value, 100) / 100);
+  } else {
+    usd = Math.max(0, listUsd - discount.value);
+  }
+  return { usd, listUsd };
+}
+
+export function productImagePublicUrl(
+  client: SupabaseClient,
+  storagePath: string,
+): string {
+  const path = storagePath.replace(/^product-images\//, "");
+  const { data } = client.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function loadShopMerchForItem(
+  client: SupabaseClient,
+  stockItemId: string,
+): Promise<
+  | {
+      ok: true;
+      data: { discount: ShopDiscount | null; imageUrls: string[] };
+    }
+  | { ok: false; error: string }
+> {
+  const db = client as unknown as {
+    from: (t: string) => ReturnType<SupabaseClient["from"]>;
+  };
+  const [merchRes, imgRes] = await Promise.all([
+    db
+      .from("stock_item_shop_merch")
+      .select("discount_kind, discount_value, discount_description")
+      .eq("stock_item_id", stockItemId)
+      .maybeSingle(),
+    db
+      .from("stock_item_images")
+      .select("storage_path, is_primary, sort_order")
+      .eq("stock_item_id", stockItemId)
+      .order("is_primary", { ascending: false })
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  if (merchRes.error) return { ok: false, error: merchRes.error.message };
+  if (imgRes.error) return { ok: false, error: imgRes.error.message };
+
+  const m = merchRes.data as {
+    discount_kind: string;
+    discount_value: number;
+    discount_description: string | null;
+  } | null;
+  const discount: ShopDiscount | null =
+    m && m.discount_kind !== "none"
+      ? {
+          kind: m.discount_kind as "percent" | "amount",
+          value: Number(m.discount_value),
+          description: m.discount_description,
+        }
+      : null;
+
+  const imageRows = (imgRes.data ?? []) as Array<{ storage_path: string }>;
+  const imageUrls = imageRows.map((row) =>
+    productImagePublicUrl(client, row.storage_path),
+  );
+
+  return { ok: true, data: { discount, imageUrls } };
+}
+
+type HomeRailRpcRow = {
+  rail: string;
+  oem_part_number: string;
+  catalog_title: string;
+  qty_saleable: number;
+  unit_price: number;
+  currency: "USD" | "ZIG";
+  created_at: string | null;
+  reorder_point: number | null;
+  discount_kind: string;
+  discount_value: number;
+  discount_description: string | null;
+};
+
+function mapHomeRailRow(row: HomeRailRpcRow): CatalogListItem {
+  const qty = Number(row.qty_saleable ?? 0);
+  const listUsd =
+    row.currency === "USD"
+      ? Number(row.unit_price)
+      : row.currency === "ZIG"
+        ? null
+        : Number(row.unit_price);
+  const discount =
+    row.discount_kind && row.discount_kind !== "none"
+      ? {
+          kind: row.discount_kind as "percent" | "amount",
+          value: Number(row.discount_value),
+          description: row.discount_description,
+        }
+      : null;
+  const priced = applyShopDiscount(listUsd, discount);
+  const rate = zigExchangeRate();
+  const zig =
+    priced.usd != null
+      ? priced.usd * rate
+      : row.currency === "ZIG"
+        ? Number(row.unit_price)
+        : null;
+
+  return {
+    oem: row.oem_part_number,
+    name: row.catalog_title?.trim() || row.oem_part_number,
+    stock: stockStateFromQty(qty, row.reorder_point),
+    usd: priced.usd,
+    zig,
+    category: null,
+    qty,
+    createdAt: row.created_at,
+    discountDescription: discount?.description ?? null,
+  };
+}
+
 /**
- * Home merchandising rails (KMP most-sale / newest) — stock qty proxy for movers;
- * no fake flash-sale SKUs.
+ * Home merchandising rails — prefers anon-safe RPC
+ * (`list_storefront_home_rails`); falls back to table reads when migration
+ * is not applied yet (authenticated RLS path).
  */
 export async function listHomeMerchRails(
   client: SupabaseClient,
@@ -748,20 +942,58 @@ export async function listHomeMerchRails(
 ): Promise<
   | {
       ok: true;
+      featured: CatalogListItem[];
       movers: CatalogListItem[];
       newest: CatalogListItem[];
       categories: string[];
     }
   | { ok: false; error: string }
 > {
+  // Cast until `supabase gen types` includes this RPC.
+  const rpc = await (
+    client as unknown as {
+      rpc: (
+        fn: string,
+        args?: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc("list_storefront_home_rails", {
+    p_limit: railLimit,
+  });
+
+  if (!rpc.error && Array.isArray(rpc.data)) {
+    const featured: CatalogListItem[] = [];
+    const movers: CatalogListItem[] = [];
+    const newest: CatalogListItem[] = [];
+    for (const raw of rpc.data as HomeRailRpcRow[]) {
+      const item = mapHomeRailRow(raw);
+      if (raw.rail === "featured") featured.push(item);
+      else if (raw.rail === "movers") movers.push(item);
+      else if (raw.rail === "newest") newest.push(item);
+    }
+    return { ok: true, featured, movers, newest, categories: [] };
+  }
+
+  // Soft-fail missing RPC / schema cache — authenticated table path.
   const [movers, newest] = await Promise.all([
     listCatalogProducts(client, { sort: "movers", limit: railLimit }),
     listCatalogProducts(client, { sort: "newest", limit: railLimit }),
   ]);
-  if (!movers.ok) return movers;
+  if (!movers.ok) {
+    return {
+      ok: false,
+      error: rpc.error?.message
+        ? `${rpc.error.message} (fallback: ${movers.error})`
+        : movers.error,
+    };
+  }
   if (!newest.ok) return newest;
+
+  // No curated featured flag — reuse movers slice as Featured.
+  const featured = movers.data.slice(0, railLimit);
   return {
     ok: true,
+    featured,
     movers: movers.data,
     newest: newest.data,
     categories: movers.categories,

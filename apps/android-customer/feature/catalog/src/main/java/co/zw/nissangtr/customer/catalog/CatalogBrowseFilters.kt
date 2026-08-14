@@ -4,13 +4,25 @@ import co.zw.nissangtr.customer.rpc.CatalogListItem
 import co.zw.nissangtr.ui.shop.ShopFilterState
 import co.zw.nissangtr.ui.shop.ShopSortOption
 
-/** Client-side filter + sort on browse rows (web PLP parity). */
+/** Client-side filter + sort on browse rows (web PLP / `applyCatalogFiltersAndSort` parity). */
 internal fun applyCatalogFilterSort(
     items: List<CatalogListItem>,
     filter: ShopFilterState,
     sort: ShopSortOption,
+    /** When true (default for /shop), keep only qty > 0 and priced > 0. */
+    shopStockOnly: Boolean = true,
 ): List<CatalogListItem> {
     var out = items.asSequence()
+    if (shopStockOnly) {
+        out = out.filter { item ->
+            val qty = item.qty
+            val inStock = when {
+                qty != null -> qty > 0
+                else -> item.stock != co.zw.nissangtr.customer.rpc.StockState.BACKORDER
+            }
+            inStock && item.usd != null && item.usd > 0
+        }
+    }
     if (filter.minPrice > 0f || filter.maxPrice < 500f) {
         out = out.filter { item ->
             val usd = item.usd ?: return@filter false
