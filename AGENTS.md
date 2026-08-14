@@ -55,6 +55,7 @@ Use **on-demand** specialists — do not load all roles every turn. Full playboo
 | `@hardware_mobile_agent` | `bridges/` | QR, printer, biometric, GPS |
 | `@backend_agent` | `supabase/`, `packages/supabase-client/` | Schema, migrations, edge functions |
 | `@data_pipeline_agent` | `data-pipeline/` | Scraping, FAST parsing |
+| `@catalog_apk_agent` | `apps/catalog-apk/` | Standalone catalog crawl APK (Megazip/PartSouq satellite) |
 | `@finance_agent` | Ledger, accounts, finance | Journal entries, reports |
 
 ## Global Laws (from `.cursorrules`)

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "base_url": "https://www.megazip.net",
+  "parts_hub_path": "/parts",
+  "catalog_path_prefix": "/zapchasti-dlya-avtomobilej",
+  "notes": "EPC-first multivehicle queue for megazip_catalog_orchestrator. Processed top-to-bottom, one maker at a time. Nissan uses priority_chassis.json until complete.",
+  "makers": [
+    "Nissan",
+    "Toyota",
+    "Honda",
+    "Mazda",
+    "Suzuki",
+    "Subaru",
+    "Mitsubishi",
+    "Ford",
+    "Hyundai",
+    "BMW",
+    "Mercedes-Benz"
+  ],
+  "maker_slugs": {
+    "Nissan": "nissan",
+    "Toyota": "toyota",
+    "Honda": "honda",
+    "Mazda": "mazda"
+  },
+  "rate_limit_seconds": 0.35,
+  "max_concurrent_workers": 4,
+  "diagram_storage_prefix_template": "megazip/{maker_slug}"
+}
