@@ -57,7 +57,7 @@ Any authenticated staff (`is_staff`) may open Hub; module links hidden unless ro
 | Cycle count | `create_stock_reconciliation_draft`, `upsert_stock_reconciliation_lines`, `submit_stock_reconciliation`, `approve_stock_reconciliation`, `cancel_stock_reconciliation` |
 | Finance | `create_journal_draft`, `post_journal`, `post_journal_entry`, `report_profit_and_loss`, `report_balance_sheet`, `report_cash_flow`, `create_payment_entry`, `allocate_payment`, `post_payment_entry`, `cancel_payment_entry`, `issue_store_credit`, `redeem_store_credit` |
 | Warranty | `open_warranty_claim`, `approve_warranty_claim`, `reject_warranty_claim`, `close_warranty_claim` |
-| Logistics | `create_pick_list`, `confirm_pick_lines`, `create_delivery_note`, `submit_delivery_note`, `cancel_delivery_note`, `create_delivery_job`, `update_delivery_job_status` |
+| Logistics | `create_pick_list`, `confirm_pick_lines`, `create_delivery_note`, `submit_delivery_note`, **`cancel_delivery_note` (wired 2026-08-14)**, `create_delivery_job`, `update_delivery_job_status` |
 | HR | `clock_attendance`, `attendance_hours_in_period`, `add_payroll_deduction` (manual only) |
 | Procurement | existing RFQ/PO RPCs already used under `/procurement` |
 

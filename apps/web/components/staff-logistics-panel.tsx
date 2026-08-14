@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
+  cancelDeliveryNote,
   confirmPickLines,
   createDeliveryJob,
   createDeliveryNote,
@@ -225,6 +226,24 @@ export function StaffLogisticsPanel() {
     await refresh();
   }
 
+  async function onCancelDn() {
+    const client = createWebClient();
+    if (!client || !deliveryNoteId) {
+      setMessage("Select a delivery note.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await cancelDeliveryNote(client, deliveryNoteId);
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setMessage(`Delivery note cancelled · ${res.data.slice(0, 8)}…`);
+    await refresh();
+  }
+
   async function onCreateJob(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
@@ -271,6 +290,11 @@ export function StaffLogisticsPanel() {
       </p>
     );
   }
+
+  const selectedDn = boot.deliveryNotes.find((dn) => dn.id === deliveryNoteId);
+  const canMutateDn =
+    !!deliveryNoteId &&
+    (selectedDn?.status === "draft" || selectedDn?.status === "submitted");
 
   return (
     <div className={styles.form}>
@@ -415,10 +439,20 @@ export function StaffLogisticsPanel() {
               <button
                 type="button"
                 className={styles.btnGhost}
-                disabled={busy || !deliveryNoteId}
+                disabled={
+                  busy || !canMutateDn || selectedDn?.status !== "draft"
+                }
                 onClick={() => void onSubmitDn()}
               >
                 Submit DN
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={busy || !canMutateDn}
+                onClick={() => void onCancelDn()}
+              >
+                Cancel DN
               </button>
             </div>
           </div>
