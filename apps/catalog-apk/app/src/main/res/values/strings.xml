@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Catalog Crawler</string>
+    <string name="notification_channel_crawl">Catalog crawl</string>
+    <string name="notification_crawl_title">Catalog crawl running</string>
+    <string name="notification_crawl_text">Processing job %1$s</string>
+    <string name="nav_targets">Targets</string>
+    <string name="nav_new_session">New Session</string>
+    <string name="nav_jobs">Jobs</string>
+    <string name="nav_projects">Projects</string>
+</resources>
