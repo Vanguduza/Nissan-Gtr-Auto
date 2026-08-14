@@ -315,6 +315,12 @@ interface RpcClient {
     /** Live: SELECT delivery_notes via PostgREST + RLS. */
     suspend fun listDeliveryNotes(): List<DeliveryNoteSummary>
 
+    /**
+     * Live: SELECT delivery_jobs via PostgREST + RLS (staff visibility).
+     * Read-only desk list — auto-assign remains SoR; no assignment UI here.
+     */
+    suspend fun listDeliveryJobs(limit: Int = 40): List<DeliveryJobDeskSummary>
+
     /** Live: SELECT pick_lists via PostgREST + RLS. */
     suspend fun listPickLists(): List<PickListSummary>
 

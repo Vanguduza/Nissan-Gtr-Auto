@@ -45,4 +45,21 @@ class EscPosCommandsTest {
         val haystack = bytes.toString(Charsets.ISO_8859_1)
         assertTrue(haystack.contains(payload))
     }
+
+    @Test
+    fun binLabel_embedsCodeAndBinQr() {
+        val bytes = EscPosCommands.binLabel(
+            code = "A-01",
+            name = "Fast movers",
+            aisle = "A",
+            rack = "1",
+            shelf = "2",
+            pickPathSeq = 10,
+        )
+        val asText = bytes.toString(Charsets.ISO_8859_1)
+        assertTrue(asText.contains("A-01"))
+        assertTrue(asText.contains("Fast movers"))
+        assertTrue(asText.contains("gtr://bin/A-01") || bytes.toString(Charsets.UTF_8).contains("gtr://bin/A-01"))
+        assertTrue(bytes[0] == 0x1B.toByte() && bytes[1] == 0x40.toByte())
+    }
 }

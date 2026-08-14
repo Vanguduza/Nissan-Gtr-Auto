@@ -81,4 +81,15 @@ class PickPackDeskFakeRpcParityTest {
         val kept = DispatchViewModel.draftsFromLines(listOf(line), mapOf("line-1" to "1.5"))
         assertEquals("1.5", kept["line-1"])
     }
+
+    @Test
+    fun deliveryJobDeskListsUnassigned() = runBlocking {
+        val rpc = FakeRpcClient()
+        val jobs = rpc.listDeliveryJobs()
+        assertTrue(jobs.any { it.id == FakeRpcClient.FAKE_UNASSIGNED_JOB_ID })
+        val stuck = jobs.first { it.id == FakeRpcClient.FAKE_UNASSIGNED_JOB_ID }
+        assertTrue(stuck.isUnassigned)
+        assertEquals("pending", stuck.status)
+        assertEquals("00000000-0000-4000-8000-0000000000d1", stuck.deliveryNoteId)
+    }
 }

@@ -1140,6 +1140,33 @@ class SupabaseRpcClient(
                 )
             }
 
+    override suspend fun listDeliveryJobs(limit: Int): List<DeliveryJobDeskSummary> =
+        client.from("delivery_jobs")
+            .select(
+                Columns.list(
+                    "id",
+                    "document_number",
+                    "delivery_note_id",
+                    "status",
+                    "assignee_user_id",
+                    "created_at",
+                ),
+            ) {
+                order("created_at", Order.DESCENDING)
+                limit(limit.coerceIn(1, 100).toLong())
+            }
+            .decodeList<DeliveryJobDeskRow>()
+            .map {
+                DeliveryJobDeskSummary(
+                    id = it.id,
+                    documentNumber = it.documentNumber,
+                    deliveryNoteId = it.deliveryNoteId,
+                    status = it.status,
+                    assigneeUserId = it.assigneeUserId,
+                    createdAt = it.createdAt,
+                )
+            }
+
     override suspend fun listPickLists(): List<PickListSummary> =
         client.from("pick_lists")
             .select(
@@ -2673,6 +2700,16 @@ private data class DeliveryNoteRow(
     @SerialName("document_number") val documentNumber: String,
     @SerialName("sales_invoice_id") val salesInvoiceId: String,
     val status: String,
+)
+
+@Serializable
+private data class DeliveryJobDeskRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String? = null,
+    @SerialName("delivery_note_id") val deliveryNoteId: String,
+    val status: String,
+    @SerialName("assignee_user_id") val assigneeUserId: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
 )
 
 @Serializable

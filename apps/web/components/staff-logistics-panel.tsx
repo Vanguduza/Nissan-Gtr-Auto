@@ -20,6 +20,10 @@ import {
   type PickListLineRow,
   type PickListOption,
 } from "@/lib/staff-logistics";
+import {
+  listDeliveryJobs,
+  type DeliveryJobOption,
+} from "@/lib/staff-delivery-tracking";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =
@@ -31,6 +35,7 @@ type Boot =
       invoices: DispatchInvoiceOption[];
       pickLists: PickListOption[];
       deliveryNotes: DeliveryNoteOption[];
+      deliveryJobs: DeliveryJobOption[];
     };
 
 export function StaffLogisticsPanel() {
@@ -59,10 +64,11 @@ export function StaffLogisticsPanel() {
       return;
     }
 
-    const [inv, picks, dns] = await Promise.all([
+    const [inv, picks, dns, jobs] = await Promise.all([
       listDispatchInvoices(client),
       listPickLists(client),
       listDeliveryNotes(client),
+      listDeliveryJobs(client),
     ]);
     if (!inv.ok) {
       setBoot({ kind: "error", message: inv.error });
@@ -76,12 +82,17 @@ export function StaffLogisticsPanel() {
       setBoot({ kind: "error", message: dns.error });
       return;
     }
+    if (!jobs.ok) {
+      setBoot({ kind: "error", message: jobs.error });
+      return;
+    }
 
     setBoot({
       kind: "ready",
       invoices: inv.data,
       pickLists: picks.data,
       deliveryNotes: dns.data,
+      deliveryJobs: jobs.data,
     });
     setInvoiceId((prev) => prev || inv.data[0]?.id || "");
     setPickListId((prev) => prev || picks.data[0]?.id || "");
@@ -460,7 +471,42 @@ export function StaffLogisticsPanel() {
       </fieldset>
 
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>4 · Delivery job</legend>
+        <legend className={styles.legend}>4 · Delivery jobs (visibility)</legend>
+        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
+          Status + DN link · unassigned highlighted. Auto-assign remains SoR —{" "}
+          <Link href="/staff/logistics/tracking">Live tracking</Link> for assign /
+          dispatch.
+        </p>
+        {boot.deliveryJobs.length === 0 ? (
+          <p className={styles.emptyState}>No delivery jobs yet.</p>
+        ) : (
+          <ul className={styles.list}>
+            {boot.deliveryJobs.map((job) => {
+              const unassigned = !job.assignee_user_id;
+              return (
+                <li key={job.id}>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy}
+                    onClick={() => setDeliveryNoteId(job.delivery_note_id)}
+                  >
+                    <strong>
+                      {job.document_number ?? job.id.slice(0, 8)}
+                    </strong>{" "}
+                    · {job.status}
+                    {unassigned ? " · unassigned" : ""} · dn=
+                    {job.delivery_note_id.slice(0, 8)}…
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </fieldset>
+
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>5 · Create delivery job</legend>
         <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
           Requires a submitted DN. Assign and dispatch on{" "}
           <Link href="/staff/logistics/tracking">Live tracking</Link>.
