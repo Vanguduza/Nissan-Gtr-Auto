@@ -361,6 +361,69 @@ export function displayUnitPriceMajor(
   });
 }
 
+/** Display major for dual-read credit_limit (B-MONEY-1). */
+export function displayCreditLimitMajor(
+  row: {
+    credit_limit: number;
+    credit_limit_minor?: bigint | number | string | null;
+  },
+  currency: CurrencyCode,
+): number {
+  return displayMajorFromDual({
+    amountMinor: row.credit_limit_minor ?? null,
+    amountMajor: Number(row.credit_limit),
+    currency,
+  });
+}
+
+/** Display major for dual-read open_balance (B-MONEY-1). */
+export function displayOpenBalanceMajor(
+  row: {
+    open_balance: number;
+    open_balance_minor?: bigint | number | string | null;
+  },
+  currency: CurrencyCode,
+): number {
+  return displayMajorFromDual({
+    amountMinor: row.open_balance_minor ?? null,
+    amountMajor: Number(row.open_balance),
+    currency,
+  });
+}
+
+/** Display major for dual-read loyalty estimated liability (B-MONEY-1). */
+export function displayLoyaltyLiabilityMajor(
+  row: {
+    estimated_liability: number;
+    estimated_liability_minor?: bigint | number | string | null;
+  },
+  currency: CurrencyCode,
+): number {
+  return displayMajorFromDual({
+    amountMinor: row.estimated_liability_minor ?? null,
+    amountMajor: Number(row.estimated_liability),
+    currency,
+  });
+}
+
+/** Display major for dual-read store credit / loyalty money_value. */
+export function displayMoneyValueMajor(
+  row: {
+    money_value?: number | null;
+    amount?: number | null;
+    money_value_minor?: bigint | number | string | null;
+    amount_minor?: bigint | number | string | null;
+  },
+  currency: CurrencyCode,
+): number {
+  const major = row.money_value ?? row.amount;
+  return displayMajorFromDual({
+    amountMinor: row.money_value_minor ?? row.amount_minor ?? null,
+    amountMajor: major == null ? 0 : Number(major),
+    currency,
+  });
+}
+
 /** Serialize for JSON / PostgREST (bigint → string). */
 export function moneyMinorToJson(m: MoneyMinor): {
   amountMinor: string;

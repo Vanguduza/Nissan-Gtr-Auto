@@ -233,6 +233,8 @@ class FakeRpcClient : RpcClient {
             creditHold = false,
             openBalance = 1_250.0,
             currency = CurrencyCode.USD,
+            creditLimitMinor = 500_000L,
+            openBalanceMinor = 125_000L,
         ),
     )
 
@@ -1612,6 +1614,11 @@ class FakeRpcClient : RpcClient {
         val updated = cur.copy(
             creditLimit = creditLimit ?: cur.creditLimit,
             creditHold = creditHold ?: cur.creditHold,
+            creditLimitMinor = if (creditLimit != null) {
+                MoneyDualRead.toAmountMinor(creditLimit, cur.currency)
+            } else {
+                cur.creditLimitMinor
+            },
         )
         customerCredit[customerId] = updated
         return updated

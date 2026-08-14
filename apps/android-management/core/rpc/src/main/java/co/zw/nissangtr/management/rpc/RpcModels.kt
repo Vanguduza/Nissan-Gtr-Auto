@@ -742,7 +742,16 @@ data class CustomerCreditSnapshot(
     val creditHold: Boolean,
     val openBalance: Double,
     val currency: CurrencyCode,
-)
+    val creditLimitMinor: Long? = null,
+    val openBalanceMinor: Long? = null,
+) {
+    /** B-MONEY-1 dual-read display majors. */
+    fun displayCreditLimit(): Double =
+        MoneyDualRead.displayMajorFromDual(creditLimitMinor, creditLimit, currency)
+
+    fun displayOpenBalance(): Double =
+        MoneyDualRead.displayMajorFromDual(openBalanceMinor, openBalance, currency)
+}
 
 /** HR onboarding + sensitive banking/health — admin|hr only (mirrors web RLS). */
 object HrOnboardingStaffRoles {

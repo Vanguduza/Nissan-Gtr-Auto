@@ -53,6 +53,7 @@ object GtrPowerSyncSchema {
                         Column.text("email"),
                         Column.text("price_list_id"),
                         Column.real("credit_limit"),
+                        Column.integer("credit_limit_minor"),
                         Column.integer("credit_hold"),
                         Column.text("currency"),
                     ),

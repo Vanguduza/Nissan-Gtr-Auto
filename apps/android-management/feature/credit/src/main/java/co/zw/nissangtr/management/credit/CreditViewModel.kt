@@ -90,10 +90,10 @@ class CreditViewModel(
                     it.copy(
                         busy = false,
                         snapshot = snap,
-                        creditLimitInput = snap?.creditLimit?.toString().orEmpty(),
+                        creditLimitInput = snap?.displayCreditLimit()?.toString().orEmpty(),
                         creditHold = snap?.creditHold ?: false,
                         message = snap?.let {
-                            "Open balance ${it.openBalance} ${it.currency.rpcValue}"
+                            "Open balance ${it.displayOpenBalance()} ${it.currency.rpcValue}"
                         },
                     )
                 }
@@ -118,11 +118,11 @@ class CreditViewModel(
                     it.copy(
                         busy = false,
                         snapshot = snap,
-                        creditLimitInput = snap.creditLimit.toString(),
+                        creditLimitInput = snap.displayCreditLimit().toString(),
                         creditHold = snap.creditHold,
                         message = "${RpcNames.SET_CUSTOMER_CREDIT} → " +
-                            "limit ${snap.creditLimit} ${snap.currency.rpcValue} · " +
-                            "hold=${snap.creditHold} · open ${snap.openBalance}",
+                            "limit ${snap.displayCreditLimit()} ${snap.currency.rpcValue} · " +
+                            "hold=${snap.creditHold} · open ${snap.displayOpenBalance()}",
                     )
                 }
             } catch (e: Exception) {

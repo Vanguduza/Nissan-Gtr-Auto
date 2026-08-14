@@ -15,6 +15,9 @@
 | Cart / invoice lines `unit_price_minor` / `line_total_minor` | Yes (`20260813300000`) | Triggers + backfill; smoke PASS |
 | JE lines `debit_minor` / `credit_minor` | Yes (`20260813400000`) | Triggers + backfill; posted null-fill only |
 | `payment_entries.amount_minor` / `settlement_amount_minor` | Yes (`20260813400000`) | Triggers + backfill; posted null-fill only |
+| Customers `credit_limit_minor` / `open_balance_minor` | Yes (`20260814200000`) | Credit-limit dual-write + dual-read |
+| Store credit `balance_minor` / ledger `amount_minor` | Yes (`20260814200000`) | Append-only null→minor fill |
+| Loyalty `money_value_minor` + RPC `estimated_liability_minor` | Yes (`20260814200000`) | Points remain major; liability money dual-read |
 | `@gtr/shared` MoneyMinor helpers | Yes | `toAmountMinor`, `dualWriteMoney`, prefer/sum display helpers |
 | Android management `MoneyDualRead` | Yes (dual-read) | Prefer `*_minor` on POS cart lines; JVM unit tests |
 | Android customer `MoneyDualRead` | Yes (dual-read, follow-on) | Cart lines prefer `*_minor`; JVM unit tests |
@@ -63,7 +66,7 @@ PO lines + fund releases (done dual-write)
 | Checkout RPCs | no client money args | Lines already dual-written |
 | `create_purchase_order` SQL | reads `unit_price` major from JSONB | Client may send `unit_price_minor` (ignored by SQL; trigger fills) |
 | `allocate_payment` SQL | reads `amount` major | Client may send `amount_minor` (ignored by SQL until later migration) |
-| Loyalty / store credit / credit-limit RPCs | major NUMERIC | Out of H4 freeze; leave for later money surfaces |
+| Loyalty / store credit / credit-limit RPCs | dual-write + dual-read | `20260814200000_*` — customers `credit_limit_minor`/`open_balance_minor`; store credit balance/amount minors; loyalty `money_value_minor`; RPCs return `estimated_liability_minor` / credit minors; clients prefer `*_minor` |
 | Invoice header `subtotal`/`total` minors | not dual-written | Deferred (line-level first) |
 | Android-customer / delivery dual-read | not required for freeze | Optional follow-on — **both Done** |
 

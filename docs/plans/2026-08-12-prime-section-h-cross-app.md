@@ -37,7 +37,7 @@ Legend: **N** = need apply/adapt · **—** = N/A · **OK** = already meets DoD 
 | H8 fund-release insert-once | — | — | — | — | — | — | — | **OK** |
 | H-PARITY-WH2 POS | OK | **OK** | — | — | — | — | — | — |
 | H2 preferred-PO | OK | **OK** | — | — | — | OK vocab | — | OK RPCs |
-| H4 B-MONEY-1 | **OK** dual-read + API cutover habit | **OK** POS dual-read | **OK** COD dual-read | **OK** cart dual-read | **OK** dual-read | **OK** ApiMoney + dual-write helpers | — | **OK** cart/invoice + JE/payment + PO/fund dual-write |
+| H4 B-MONEY-1 | **OK** dual-read + loyalty/credit | **OK** POS + credit dual-read | **OK** COD dual-read | **OK** cart + loyalty dual-read | **OK** dual-read | **OK** ApiMoney + credit/loyalty helpers | — | **OK** cart/invoice + JE/payment + PO/fund + loyalty/credit dual-write |
 | H5 B-MAP-1 | OK track | — | OK primary | **OK** MapLibre address pick | **OK** MapLibre SoR (MapKit fallback) | — | **OK** maps-nav + iOS MapsNav | — |
 | H6 B-OSRM-1 | **OK** docs/compose | — | prefer OK | prefer if maps | — | OK osrm | OK fetcher | — + **OK** infra prepare |
 | H1 Temporal worker | — | — | — | — | — | **OK** host | — | Edge OK |

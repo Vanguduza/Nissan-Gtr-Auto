@@ -114,4 +114,17 @@ class MoneyDualReadTest {
         )
         assertEquals(15.0, cart.displaySubtotal(), 0.0001)
     }
+
+    @Test
+    fun loyaltyBalance_dual_read_prefers_estimated_liability_minor() {
+        val bal = LoyaltyBalance(
+            customerId = "c1",
+            pointsBalance = 100.0,
+            currency = "USD",
+            liabilityPerPoint = 0.01,
+            estimatedLiability = 1.0,
+            estimatedLiabilityMinor = 1000L,
+        )
+        assertEquals(10.0, bal.displayEstimatedLiability(), 0.0001)
+    }
 }
