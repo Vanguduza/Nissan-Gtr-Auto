@@ -36,6 +36,43 @@ object EscPosCommands {
         return out.toByteArray()
     }
 
+    /**
+     * Warehouse bin location label with QR glyph (same Epson QR path as inventory).
+     * Payload: `gtr://bin/{code}` — location scan, not inventory `gtr://part/…`.
+     */
+    fun binLabel(
+        code: String,
+        name: String,
+        aisle: String? = null,
+        rack: String? = null,
+        shelf: String? = null,
+        pickPathSeq: Int = 0,
+    ): ByteArray {
+        val payload = "gtr://bin/${code.trim()}"
+        val loc = listOfNotNull(
+            aisle?.let { "Aisle $it" },
+            rack?.let { "Rack $it" },
+            shelf?.let { "Shelf $it" },
+        ).joinToString(" · ").ifBlank { "seq $pickPathSeq" }
+        val out = ArrayList<Byte>(512)
+        out += INIT
+        out += ALIGN_CENTER
+        out += EMPHASIS_ON
+        out += "GTR BIN LABEL\n".toEscPos()
+        out += EMPHASIS_OFF
+        out += qrCode(payload)
+        out += "\n".toEscPos()
+        out += EMPHASIS_ON
+        out += "${code.trim()}\n".toEscPos()
+        out += EMPHASIS_OFF
+        out += ALIGN_LEFT
+        out += "${name.trim()}\n".toEscPos()
+        out += "$loc\n".toEscPos()
+        out += "Pick seq: $pickPathSeq\n".toEscPos()
+        out += FEED_CUT
+        return out.toByteArray()
+    }
+
     fun receiptLines(lines: List<EscPosReceiptLine>): ByteArray {
         val out = ArrayList<Byte>(256)
         out += INIT

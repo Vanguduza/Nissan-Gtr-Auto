@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.management.rpc.ConfirmPickLineInput
 import co.zw.nissangtr.management.rpc.DeliveryAssigneeSuggestion
+import co.zw.nissangtr.management.rpc.DeliveryJobDeskSummary
 import co.zw.nissangtr.management.rpc.DeliveryJobStatus
 import co.zw.nissangtr.management.rpc.DeliveryNoteSummary
 import co.zw.nissangtr.management.rpc.DeliveryTrackPoint
@@ -30,6 +31,8 @@ data class DispatchUiState(
     val pickLists: List<PickListSummary> = emptyList(),
     /** Posted dispatch invoices — tap to fill sales invoice id. */
     val dispatchInvoices: List<DispatchInvoiceSummary> = emptyList(),
+    /** Staff visibility — status + DN link / unassigned (not assign picker). */
+    val deliveryJobs: List<DeliveryJobDeskSummary> = emptyList(),
     /** Lines for [selectedPickListId] — confirm / DN without UUID paste. */
     val pickLines: List<PickListLineSummary> = emptyList(),
     /** pick_list_line_id → qty draft string. */
@@ -159,6 +162,22 @@ class DispatchViewModel(
     fun selectDn(id: String) =
         _state.update { it.copy(selectedDnId = id) }
 
+    /** Link desk job → DN + job UUID fields (visibility only — no assign). */
+    fun selectDeliveryJob(id: String) {
+        val job = _state.value.deliveryJobs.find { it.id == id } ?: return
+        _state.update {
+            it.copy(
+                deliveryJobId = job.id,
+                selectedDnId = job.deliveryNoteId,
+                error = null,
+                message = "Job ${job.documentNumber ?: job.id.take(8)}… selected",
+                liveTrack = null,
+                trackShareToken = null,
+                podOtp = null,
+            )
+        }
+    }
+
     fun selectSuggestedAssignee(userId: String) =
         _state.update { it.copy(assigneeUserId = userId, error = null) }
 
@@ -168,6 +187,7 @@ class DispatchViewModel(
             try {
                 val dns = rpc.listDeliveryNotes()
                 val pls = rpc.listPickLists()
+                val jobs = runCatching { rpc.listDeliveryJobs() }.getOrDefault(emptyList())
                 val invoices = runCatching { rpc.listDispatchInvoices() }
                     .getOrDefault(emptyList())
                 val panics = runCatching { rpc.listOpenPanicEvents() }.getOrDefault(emptyList())
@@ -183,6 +203,7 @@ class DispatchViewModel(
                         busy = false,
                         deliveryNotes = dns,
                         pickLists = pls,
+                        deliveryJobs = jobs,
                         dispatchInvoices = invoices,
                         panicEvents = panics,
                         selectedPickListId = selectedPick,

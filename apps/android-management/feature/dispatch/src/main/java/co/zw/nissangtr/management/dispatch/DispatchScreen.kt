@@ -198,6 +198,34 @@ fun DispatchScreen(
             }
         }
 
+        ShopStaffPanel(title = "Delivery jobs") {
+            Text(
+                "Status + DN link · stuck unassigned highlighted. Auto-assign remains SoR — use Assignment below only for override.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (state.deliveryJobs.isEmpty()) {
+                Text("No delivery jobs", style = MaterialTheme.typography.bodyMedium)
+            }
+            state.deliveryJobs.forEach { job ->
+                val selected = job.id == state.deliveryJobId
+                val title = job.documentNumber ?: "${job.id.take(8)}…"
+                ShopListCard(
+                    title = title,
+                    subtitle = "${job.status} · dn=${job.deliveryNoteId.take(8)}…",
+                    onClick = { viewModel.selectDeliveryJob(job.id) },
+                    badges = {
+                        if (job.isUnassigned) {
+                            ShopStatusChip(label = "unassigned", background = GtrColors.Warning)
+                        }
+                        if (selected) {
+                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                )
+            }
+        }
+
         ShopStaffPanel(title = "Delivery job") {
             OutlinedTextField(
                 value = state.deliveryJobId,

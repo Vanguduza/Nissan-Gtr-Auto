@@ -44,8 +44,7 @@ object DriverStaffRoles {
  *
  * Prefer `*_minor` when present; majors are legacy NUMERIC bridges.
  * Never invent payable amounts — callers supply DB/API values only.
- * Live PostgREST may leave this null until a driver-scoped money RPC exists
- * (drivers cannot SELECT `sales_invoices` under current RLS).
+ * Live path: [RpcNames.GET_DELIVERY_JOB_SETTLEMENT] (driver-scoped DEFINER).
  */
 data class DeliveryJobSettlement(
     val currency: CurrencyCode,

@@ -71,6 +71,18 @@ data class DeliveryNoteSummary(
     val status: String,
 )
 
+/** Staff desk visibility for delivery_jobs (PostgREST + RLS — not an assign picker). */
+data class DeliveryJobDeskSummary(
+    val id: String,
+    val documentNumber: String?,
+    val deliveryNoteId: String,
+    val status: String,
+    val assigneeUserId: String?,
+    val createdAt: String? = null,
+) {
+    val isUnassigned: Boolean get() = assigneeUserId.isNullOrBlank()
+}
+
 data class PickListSummary(
     val id: String,
     val documentNumber: String,

@@ -92,10 +92,19 @@ class FakeRpcClient : RpcClient {
     private val offlineSaleReceipts = mutableMapOf<String, String>()
     private val pendingTransfers = mutableSetOf<String>()
     private val reconDrafts = mutableSetOf<String>()
-    private val deliveryJobs = mutableMapOf<String, Pair<String, String>>() // id → (dnId, status)
+    private val deliveryJobs = mutableMapOf(
+        // Stuck unassigned seed — desk visibility (not assign picker).
+        FAKE_UNASSIGNED_JOB_ID to ("00000000-0000-4000-8000-0000000000d1" to "pending"),
+    ) // id → (dnId, status)
     private val jobAssignees = mutableMapOf<String, String>() // jobId → driverUserId
     /** jobId → (pickupLat, pickupLng, dropoffLat, dropoffLng) */
     private val jobCoords = mutableMapOf<String, JobCoords>()
+    private val jobCreatedAt = mutableMapOf(
+        FAKE_UNASSIGNED_JOB_ID to "2026-07-24T11:00:00Z",
+    )
+    private val jobDocumentNumbers = mutableMapOf(
+        FAKE_UNASSIGNED_JOB_ID to "DJ-UNASSIGNED-001",
+    )
     private val panicEvents = mutableListOf(
         PanicEventSummary(
             id = OPEN_PANIC_ID,
@@ -1025,6 +1034,21 @@ class FakeRpcClient : RpcClient {
     override suspend fun listDeliveryNotes(): List<DeliveryNoteSummary> =
         deliveryNotes.toList()
 
+    override suspend fun listDeliveryJobs(limit: Int): List<DeliveryJobDeskSummary> =
+        deliveryJobs.entries
+            .map { (id, pair) ->
+                DeliveryJobDeskSummary(
+                    id = id,
+                    documentNumber = jobDocumentNumbers[id],
+                    deliveryNoteId = pair.first,
+                    status = pair.second,
+                    assigneeUserId = jobAssignees[id],
+                    createdAt = jobCreatedAt[id],
+                )
+            }
+            .sortedByDescending { it.createdAt ?: it.id }
+            .take(limit.coerceIn(1, 100))
+
     override suspend fun listPickLists(): List<PickListSummary> =
         pickLists.toList()
 
@@ -1153,6 +1177,11 @@ class FakeRpcClient : RpcClient {
         val id = UUID.randomUUID().toString()
         jobSeq.getAndIncrement()
         deliveryJobs[id] = deliveryNoteId to "pending"
+        jobDocumentNumbers[id] = "DJ-FAKE-%03d".format(jobSeq.get())
+        jobCreatedAt[id] = "2026-07-25T12:00:00Z"
+        if (!assigneeUserId.isNullOrBlank()) {
+            jobAssignees[id] = assigneeUserId
+        }
         // Demo default coords (Harare) so suggest + ETA demos work without extra steps
         jobCoords[id] = JobCoords(
             pickupLat = -17.8250,
@@ -2286,6 +2315,7 @@ class FakeRpcClient : RpcClient {
         const val FAKE_INVOICE_LINE_ID = "00000000-0000-4000-8000-0000000000sil"
         const val FAKE_PICK_LIST_ID = "00000000-0000-4000-8000-0000000000p1"
         const val FAKE_PICK_LIST_LINE_ID = "00000000-0000-4000-8000-0000000000pll"
+        const val FAKE_UNASSIGNED_JOB_ID = "00000000-0000-4000-8000-0000000000uj"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"
