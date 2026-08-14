@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * - [RpcNames.CREATE_DELIVERY_NOTE]: p_sales_invoice_id, p_lines, p_pick_list_id?
  * - [RpcNames.SUBMIT_DELIVERY_NOTE]: p_delivery_note_id
  * - [RpcNames.CANCEL_DELIVERY_NOTE]: p_delivery_note_id
+ * - listDispatchInvoices / listPickListLines: PostgREST (not RPCs)
  * - [RpcNames.CREATE_DELIVERY_JOB]: p_delivery_note_id, p_assignee_user_id?, p_eta_at?, p_notes?
  * - [RpcNames.SET_DELIVERY_JOB_GEO]: p_delivery_job_id, p_pickup_lat?, p_pickup_lng?, p_dropoff_lat?, p_dropoff_lng?
  * - [RpcNames.UPDATE_DELIVERY_JOB_STATUS]: p_delivery_job_id, p_status → jsonb {delivery_job_id, track_token?}
@@ -124,16 +125,37 @@ class FakeRpcClient : RpcClient {
         DeliveryNoteSummary(
             id = "00000000-0000-4000-8000-0000000000d1",
             documentNumber = "DN-SEED-001",
-            salesInvoiceId = "00000000-0000-4000-8000-0000000000i1",
+            salesInvoiceId = FAKE_DISPATCH_INVOICE_ID,
             status = "draft",
         ),
     )
     private val pickLists = mutableListOf(
         PickListSummary(
-            id = "00000000-0000-4000-8000-0000000000p1",
+            id = FAKE_PICK_LIST_ID,
             documentNumber = "PL-SEED-001",
-            salesInvoiceId = "00000000-0000-4000-8000-0000000000i1",
+            salesInvoiceId = FAKE_DISPATCH_INVOICE_ID,
             status = "draft",
+        ),
+    )
+    private val dispatchInvoices = mutableListOf(
+        DispatchInvoiceSummary(
+            id = FAKE_DISPATCH_INVOICE_ID,
+            documentNumber = "INV-DISPATCH-001",
+            status = "posted",
+            fulfillmentMode = "dispatch",
+            createdAt = "2026-07-24T10:00:00Z",
+        ),
+    )
+    private val pickListLines = mutableListOf(
+        PickListLineSummary(
+            id = FAKE_PICK_LIST_LINE_ID,
+            pickListId = FAKE_PICK_LIST_ID,
+            salesInvoiceLineId = FAKE_INVOICE_LINE_ID,
+            stockItemId = FAKE_STOCK_ITEM_ID,
+            qtyRequested = 2.0,
+            qtyPicked = null,
+            oemPartNumber = "21410-JF00A",
+            description = "Radiator (demo)",
         ),
     )
 
@@ -1006,6 +1028,14 @@ class FakeRpcClient : RpcClient {
     override suspend fun listPickLists(): List<PickListSummary> =
         pickLists.toList()
 
+    override suspend fun listDispatchInvoices(limit: Int): List<DispatchInvoiceSummary> =
+        dispatchInvoices.take(limit.coerceIn(1, 100))
+
+    override suspend fun listPickListLines(pickListId: String): List<PickListLineSummary> {
+        require(pickListId.isNotBlank())
+        return pickListLines.filter { it.pickListId == pickListId }
+    }
+
     override suspend fun createPickList(salesInvoiceId: String, linesJson: String?): String {
         require(salesInvoiceId.isNotBlank())
         val id = UUID.randomUUID().toString()
@@ -1017,6 +1047,21 @@ class FakeRpcClient : RpcClient {
                 documentNumber = "PL-FAKE-%03d".format(n),
                 salesInvoiceId = salesInvoiceId,
                 status = "draft",
+            ),
+        )
+        // Seed one open line so confirm-pick / DN desk demos without UUID paste.
+        val lineId = UUID.randomUUID().toString()
+        pickListLines.add(
+            0,
+            PickListLineSummary(
+                id = lineId,
+                pickListId = id,
+                salesInvoiceLineId = FAKE_INVOICE_LINE_ID,
+                stockItemId = FAKE_STOCK_ITEM_ID,
+                qtyRequested = 1.0,
+                qtyPicked = null,
+                oemPartNumber = "21410-JF00A",
+                description = "Radiator (demo)",
             ),
         )
         return id
@@ -1031,6 +1076,23 @@ class FakeRpcClient : RpcClient {
         if (idx >= 0) {
             val pl = pickLists[idx]
             pickLists[idx] = pl.copy(status = "done")
+        }
+        for (input in lines) {
+            val lineIdx = when {
+                !input.pickListLineId.isNullOrBlank() ->
+                    pickListLines.indexOfFirst {
+                        it.id == input.pickListLineId && it.pickListId == pickListId
+                    }
+                !input.salesInvoiceLineId.isNullOrBlank() ->
+                    pickListLines.indexOfFirst {
+                        it.salesInvoiceLineId == input.salesInvoiceLineId &&
+                            it.pickListId == pickListId
+                    }
+                else -> -1
+            }
+            if (lineIdx >= 0) {
+                pickListLines[lineIdx] = pickListLines[lineIdx].copy(qtyPicked = input.qtyPicked)
+            }
         }
         return pickListId
     }
@@ -2220,6 +2282,10 @@ class FakeRpcClient : RpcClient {
         const val FAKE_PAYROLL_RUN_ID = "00000000-0000-4000-8000-0000000000pr"
         const val FAKE_PAYROLL_LINE_ID = "00000000-0000-4000-8000-0000000000pl"
         const val FAKE_PAYROLL_DED_ID = "00000000-0000-4000-8000-0000000000pd"
+        const val FAKE_DISPATCH_INVOICE_ID = "00000000-0000-4000-8000-0000000000i1"
+        const val FAKE_INVOICE_LINE_ID = "00000000-0000-4000-8000-0000000000sil"
+        const val FAKE_PICK_LIST_ID = "00000000-0000-4000-8000-0000000000p1"
+        const val FAKE_PICK_LIST_LINE_ID = "00000000-0000-4000-8000-0000000000pll"
         const val OPEN_PANIC_ID = "00000000-0000-4000-8000-0000000000p0"
         private const val OPEN_THREAD_ID = "00000000-0000-4000-8000-0000000000t1"
         private const val MINE_THREAD_ID = "00000000-0000-4000-8000-0000000000t2"

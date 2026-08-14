@@ -318,6 +318,15 @@ interface RpcClient {
     /** Live: SELECT pick_lists via PostgREST + RLS. */
     suspend fun listPickLists(): List<PickListSummary>
 
+    /**
+     * Posted `fulfillment_mode=dispatch` invoices for pick desk
+     * (PostgREST + RLS — mirrors web `listDispatchInvoices`).
+     */
+    suspend fun listDispatchInvoices(limit: Int = 40): List<DispatchInvoiceSummary>
+
+    /** Live: SELECT pick_list_lines for a pick list (PostgREST + RLS). */
+    suspend fun listPickListLines(pickListId: String): List<PickListLineSummary>
+
     suspend fun createPickList(salesInvoiceId: String, linesJson: String? = null): String
 
     suspend fun confirmPickLines(pickListId: String, lines: List<ConfirmPickLineInput>): String
