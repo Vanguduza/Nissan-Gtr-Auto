@@ -8,5 +8,6 @@
 | B-DOCS-1 | Root README historically lagged delivery app | Low | Updated 2026-08-12 |
 | B-PS-1 | (closed) PowerSync mobile SDK wired on management | Low | H7 Done: Fake when URL unset; **infra ready — awaiting `POWERSYNC_URL` keys** for cloud E2E |
 | B-OSRM-1 | (closed) OSRM routing satellite online | Low | Graph prepared; `docker compose … --profile routing`; set `OSRM_URL=http://127.0.0.1:5000` |
+| B-POD-1 | (closed) Driver POD signature/photo evidence | Low | Signature pad WORKING (Compose stroke→PNG); photo via CameraX; upload on submit; no gallery picker |
 
 Do not close adoption epics as Done while only stubs exist (D-52).

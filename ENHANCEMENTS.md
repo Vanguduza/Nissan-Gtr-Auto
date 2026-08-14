@@ -5,6 +5,7 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | ID | Idea | Status | Notes |
 | --- | --- | --- | --- |
 | E1 | amountMinor + Brevo + OSRM routing spine | Done (spine) | Packages + helpers; dual-write migration landed |
+| POD-evidence | Driver POD photo evidence + signature pad | Done (verified) | CameraX Bridge-First capture→`delivery-pods`→`submit_delivery_pod`; Compose signature WORKING; gallery picker skipped; `PodEvidenceGate` + Fake bridges |
 | E-Proc | Relationship procurement + fund release + tracker | Done | Verified: live tracker, fund release smoke, RFQ secondary |
 | E-WH | Dual WH1/WH2 + master stock | Done | Verified: `list_master_stock` staff-only; GRN OEM + invoice bind |
 | E-POS | Dial UX web + tablet POS | Done | Web WH2 + tokens + 1280/390; Android ≥700dp dual-pane / 48dp / Bridge QR |

@@ -7,6 +7,10 @@ Emits **local PNG paths only** — **no Supabase / network / WebView** inside th
 Prefer embedding `ComposeSignaturePad` on POD UI; `captureSignature()` opens the
 full-screen Compose Activity when a larger pad is needed.
 
+`ComposeSignaturePadState` records drag strokes and rasterizes to PNG via
+`toPngFile` (working ink pad — not a stub). JVM tests cover stroke bookkeeping;
+`FakePodSignatureBridge` stubs the Activity path for Fake/RPC wiring.
+
 ## Include from android-delivery
 
 ```kotlin
