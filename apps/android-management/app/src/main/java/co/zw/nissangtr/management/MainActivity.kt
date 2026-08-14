@@ -56,6 +56,7 @@ import co.zw.nissangtr.management.dispatch.DispatchScreen
 import co.zw.nissangtr.management.fleet.FleetModule
 import co.zw.nissangtr.management.fleet.FleetScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
+import co.zw.nissangtr.management.hr.GrossPayrollScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.hr.HrOnboardingScreen
 import co.zw.nissangtr.management.kiosk.BrandedSplashHost
@@ -106,6 +107,7 @@ private enum class ManagementRoute {
     RoleDenied,
     ModuleMenu,
     HrClock,
+    HrGrossPayroll,
     HrOnboarding,
     Dispatch,
     Fleet,
@@ -468,6 +470,10 @@ private fun ManagementApp(
             BackHandler { backFromFeature() }
             ClockAttendanceScreen(rpc = rpc, onBack = ::backFromFeature)
         }
+        ManagementRoute.HrGrossPayroll -> {
+            BackHandler { backFromFeature() }
+            GrossPayrollScreen(rpc = rpc, onBack = ::backFromFeature)
+        }
         ManagementRoute.HrOnboarding -> {
             BackHandler { backFromFeature() }
             HrOnboardingScreen(
@@ -614,7 +620,7 @@ private fun ManagementHome(
             )
         }
         if (allowed("hr")) {
-            HubModuleTile(HubModule.Hr, "Clock · onboarding", Icons.Filled.People, onOpenModule)
+            HubModuleTile(HubModule.Hr, "Clock · gross payroll · onboarding", Icons.Filled.People, onOpenModule)
         }
         if (allowed("logistics")) {
             HubModuleTile(HubModule.Logistics, "Dispatch · track", Icons.Filled.LocalShipping, onOpenModule)
@@ -711,6 +717,7 @@ private fun featuresFor(
     }
     HubModule.Hr -> buildList {
         add("Clock in / out" to ManagementRoute.HrClock)
+        add("Gross payroll" to ManagementRoute.HrGrossPayroll)
         if (HrOnboardingStaffRoles.allows(staffRoles)) {
             add("Onboarding" to ManagementRoute.HrOnboarding)
         }

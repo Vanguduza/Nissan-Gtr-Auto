@@ -8,6 +8,10 @@ package co.zw.nissangtr.management.rpc
 object RpcNames {
     // Phase 9 HR (gross payroll only — no PAYE/NSSA UI)
     const val CLOCK_ATTENDANCE = "clock_attendance"
+    /** Period hours for gross payroll (HR/admin or self). */
+    const val ATTENDANCE_HOURS_IN_PERIOD = "attendance_hours_in_period"
+    /** Manual/custom deduction only — never PAYE/NSSA/statutory. */
+    const val ADD_PAYROLL_DEDUCTION = "add_payroll_deduction"
     /** Batch 1 HR onboarding — resumable draft save. */
     const val SAVE_HR_ONBOARDING_STAGE = "save_hr_onboarding_stage"
     /** Batch 1 HR onboarding — create employee + emp#. */

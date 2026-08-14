@@ -117,6 +117,72 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    override suspend fun attendanceHoursInPeriod(
+        employeeId: String,
+        periodStart: String,
+        periodEnd: String,
+    ): Double {
+        require(employeeId.isNotBlank())
+        require(periodStart.isNotBlank() && periodEnd.isNotBlank())
+        return client.postgrest.rpc(
+            RpcNames.ATTENDANCE_HOURS_IN_PERIOD,
+            buildJsonObject {
+                put("p_employee_id", employeeId)
+                put("p_period_start", periodStart)
+                put("p_period_end", periodEnd)
+            },
+        ).decodeAs<Double>()
+    }
+
+    override suspend fun listOpenPayrollLines(limit: Int): List<PayrollLineSummary> =
+        client.from("payroll_lines")
+            .select(
+                Columns.list(
+                    "id",
+                    "employee_id",
+                    "gross_amount",
+                    "deductions_amount",
+                    "net_amount",
+                    "currency",
+                    "payroll_run_id",
+                    "hours_worked",
+                ),
+            ) {
+                order("created_at", Order.DESCENDING)
+                limit(limit.coerceIn(1, 100).toLong())
+            }
+            .decodeList<PayrollLineRow>()
+            .map { it.toSummary() }
+
+    override suspend fun listPayrollDeductions(payrollLineId: String): List<PayrollDeductionSummary> {
+        require(payrollLineId.isNotBlank())
+        return client.from("payroll_deduction_lines")
+            .select(Columns.list("id", "payroll_line_id", "label", "amount")) {
+                filter { eq("payroll_line_id", payrollLineId) }
+                order("created_at", Order.ASCENDING)
+            }
+            .decodeList<PayrollDeductionRow>()
+            .map { it.toSummary() }
+    }
+
+    override suspend fun addPayrollDeduction(
+        payrollLineId: String,
+        label: String,
+        amount: Double,
+    ): String {
+        require(payrollLineId.isNotBlank())
+        require(label.isNotBlank())
+        require(amount > 0)
+        return client.postgrest.rpc(
+            RpcNames.ADD_PAYROLL_DEDUCTION,
+            buildJsonObject {
+                put("p_payroll_line_id", payrollLineId)
+                put("p_label", label.trim())
+                put("p_amount", amount)
+            },
+        ).decodeAs<String>()
+    }
+
     override suspend fun createPosCart(
         warehouseId: String,
         currency: CurrencyCode,
@@ -2985,6 +3051,44 @@ private data class HrOnboardingDraftRow(
         healthJson = healthJson?.toStringMap(),
         completedAt = completedAt,
         updatedAt = updatedAt,
+    )
+}
+
+@Serializable
+private data class PayrollLineRow(
+    val id: String,
+    @SerialName("employee_id") val employeeId: String,
+    @SerialName("gross_amount") val grossAmount: Double,
+    @SerialName("deductions_amount") val deductionsAmount: Double,
+    @SerialName("net_amount") val netAmount: Double,
+    val currency: String,
+    @SerialName("payroll_run_id") val payrollRunId: String,
+    @SerialName("hours_worked") val hoursWorked: Double = 0.0,
+) {
+    fun toSummary() = PayrollLineSummary(
+        id = id,
+        employeeId = employeeId,
+        grossAmount = grossAmount,
+        deductionsAmount = deductionsAmount,
+        netAmount = netAmount,
+        currency = CurrencyCode.fromRpc(currency),
+        payrollRunId = payrollRunId,
+        hoursWorked = hoursWorked,
+    )
+}
+
+@Serializable
+private data class PayrollDeductionRow(
+    val id: String,
+    @SerialName("payroll_line_id") val payrollLineId: String,
+    val label: String,
+    val amount: Double,
+) {
+    fun toSummary() = PayrollDeductionSummary(
+        id = id,
+        payrollLineId = payrollLineId,
+        label = label,
+        amount = amount,
     )
 }
 
