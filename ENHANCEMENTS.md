@@ -24,7 +24,7 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | H7 | B-PS-1 PowerSync live SDK | Done (Android mgmt) | `com.powersync:core` + Fake/Live; **infra ready — awaiting `POWERSYNC_URL` for cloud E2E** |
 | Shop-rails | Curated shop + anon home rails | Done (web + mobile wire) | Shop stock gate; Featured/Newest/Movers via RPC; staff Product pages; **CRM kits** staff create/list (web + Android); megazip APK still WIP |
 | Phase-9-HR-UI | Android mgmt gross payroll desk | Done (slice) | Hours + open lines + manual deductions; no tax; web `/staff/hr` already had deeper desk |
-| Phase-10-desk | Pick/DN desk + delivery-job visibility | Done | Android + web read-only job list (status / DN / unassigned); auto-assign SoR; no assignment picker |
+| Phase-10-desk | Pick/DN desk + delivery-job visibility + exception override | Done | Visibility list + **Override assign** only when unassigned/stuck (`assign_delivery_job` p_override); auto-assign SoR; not happy-path pick-driver |
 | H4-del-COD | Driver-scoped settlement RPC | Done | `get_delivery_job_settlement` DEFINER + Android delivery enrich; smoke `delivery_job_settlement_smoke.sql` |
 | Bin-QR | Bin-label inventory-QR glyph | Done | ESC/POS `binLabel` + `gtr://bin/{code}` |
 | E6 | Meili dual-read default for catalog | Done | preferMeili + FTS; strip invented qty; consignment ADR |

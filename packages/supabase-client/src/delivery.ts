@@ -97,6 +97,21 @@ export function assignDeliveryJobArgs(
   } as const;
 }
 
+/**
+ * Desk **exception** gate for manual `assign_delivery_job`.
+ * Auto-assign (`_try_auto_assign_delivery_job` + FIFO/offer) remains SoR.
+ * Staff override only when unassigned / stuck — not the happy-path picker.
+ * RPC `p_override` bypasses eligibility; this gate is when the desk may call assign.
+ */
+export function canOverrideAssignDeliveryJob(
+  assigneeUserId: string | null | undefined,
+  status?: string | null,
+): boolean {
+  const normalized = (status ?? "").trim().toLowerCase();
+  if (normalized === "completed" || normalized === "failed") return false;
+  return assigneeUserId == null || assigneeUserId.trim() === "";
+}
+
 export function setDeliveryJobGeoArgs(
   jobId: string,
   opts: {

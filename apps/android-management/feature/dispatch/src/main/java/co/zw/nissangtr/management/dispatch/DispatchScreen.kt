@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -26,9 +27,12 @@ import co.zw.nissangtr.ui.shop.ShopStatusChip
 import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
- * Pick/DN desk + create job + **assignment** (suggest/override) +
+ * Pick/DN desk + create job + **exception override assign** (unassigned/stuck only) +
  * **route order** + staff **live view** (ETA) + track share token + POD OTP +
  * **panic inbox**.
+ *
+ * Auto-assign (`_try_auto_assign_delivery_job` + FIFO/offer) remains SoR —
+ * staff do not pick drivers as the happy path.
  *
  * Driver GPS FGS / [RpcNames.INGEST_DELIVERY_LOCATION] is **not** started here —
  * sole producer is `apps/android-delivery`. Drivers: use the delivery app
@@ -46,6 +50,32 @@ fun DispatchScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+
+    state.pendingOverrideAssigneeUserId?.let { pending ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissOverrideAssignConfirm,
+            title = { Text("Confirm override assign") },
+            text = {
+                Text(
+                    "Assign driver ${pending.take(8)}… to this unassigned/stuck job? " +
+                        "Auto-assign remains SoR — this is an exception override " +
+                        "(p_override=true).",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::confirmOverrideAssign,
+                    enabled = !state.busy,
+                ) { Text("Confirm override") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = viewModel::dismissOverrideAssignConfirm,
+                    enabled = !state.busy,
+                ) { Text("Cancel") }
+            },
+        )
+    }
 
     ShopStaffScreen(
         title = "Dispatch",
@@ -200,7 +230,8 @@ fun DispatchScreen(
 
         ShopStaffPanel(title = "Delivery jobs") {
             Text(
-                "Status + DN link · stuck unassigned highlighted. Auto-assign remains SoR — use Assignment below only for override.",
+                "Status + DN link · stuck unassigned highlighted. Auto-assign remains SoR — " +
+                    "Override assign only on unassigned/stuck jobs (not a pick-driver desk).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -210,9 +241,23 @@ fun DispatchScreen(
             state.deliveryJobs.forEach { job ->
                 val selected = job.id == state.deliveryJobId
                 val title = job.documentNumber ?: "${job.id.take(8)}…"
+                val canOverride = DeliveryOverrideAssignGate.canOverrideAssign(
+                    job.assigneeUserId,
+                    job.status,
+                )
                 ShopListCard(
                     title = title,
-                    subtitle = "${job.status} · dn=${job.deliveryNoteId.take(8)}…",
+                    subtitle = buildString {
+                        append(job.status)
+                        append(" · dn=")
+                        append(job.deliveryNoteId.take(8))
+                        append("…")
+                        if (!job.isUnassigned) {
+                            append(" · driver=")
+                            append(job.assigneeUserId!!.take(8))
+                            append("…")
+                        }
+                    },
                     onClick = { viewModel.selectDeliveryJob(job.id) },
                     badges = {
                         if (job.isUnassigned) {
@@ -220,6 +265,14 @@ fun DispatchScreen(
                         }
                         if (selected) {
                             ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                        }
+                    },
+                    trailing = {
+                        if (canOverride) {
+                            TextButton(
+                                onClick = { viewModel.beginOverrideAssign(job.id) },
+                                enabled = !state.busy,
+                            ) { Text("Override assign") }
                         }
                     },
                 )
@@ -310,43 +363,61 @@ fun DispatchScreen(
             }
         }
 
-        ShopStaffPanel(title = "Assignment") {
-            OutlinedTextField(
-                value = state.assigneeUserId,
-                onValueChange = viewModel::onAssigneeUserIdChange,
-                label = { Text("Assignee driver UUID") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
+        ShopStaffPanel(title = "Override assign (exception)") {
+            Text(
+                "Only for unassigned/stuck jobs after auto-assign failed. " +
+                    "Calls assign_delivery_job with p_override=true. Happily assigned jobs: status only.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            ShopSecondaryButton(
-                label = "Suggest",
-                onClick = viewModel::suggestAssignees,
-                enabled = !state.busy,
-            )
-            ShopPrimaryButton(
-                label = "Assign",
-                onClick = { viewModel.assignJob(override = false) },
-                enabled = !state.busy,
-            )
-            ShopSecondaryButton(
-                label = "Override assign",
-                onClick = { viewModel.assignJob(override = true) },
-                enabled = !state.busy,
-            )
-            state.assigneeSuggestions.forEachIndexed { index, s ->
-                val selected = s.userId == state.assigneeUserId
-                val dist = s.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
-                ShopListCard(
-                    title = "#${index + 1}  ${s.userId.take(8)}…  ${s.status}",
-                    subtitle = "dist=$dist  open=${s.openJobs}/${s.capacity}",
-                    onClick = { viewModel.selectSuggestedAssignee(s.userId) },
-                    badges = {
-                        if (selected) {
-                            ShopStatusChip(label = "✓", background = GtrColors.Accent)
-                        }
+            if (!state.canOverrideAssign) {
+                Text(
+                    if (state.deliveryJobId.isBlank()) {
+                        "Select an unassigned job above to enable override."
+                    } else {
+                        "Selected job is assigned or terminal — no pick-driver (auto-assign SoR)."
                     },
+                    style = MaterialTheme.typography.bodyMedium,
                 )
+            } else {
+                OutlinedTextField(
+                    value = state.assigneeUserId,
+                    onValueChange = viewModel::onAssigneeUserIdChange,
+                    label = { Text("Assignee driver UUID") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                ShopSecondaryButton(
+                    label = "Suggest drivers",
+                    onClick = viewModel::suggestAssignees,
+                    enabled = !state.busy,
+                )
+                ShopPrimaryButton(
+                    label = "Confirm override assign",
+                    onClick = { viewModel.requestOverrideAssignConfirm() },
+                    enabled = !state.busy && state.assigneeUserId.isNotBlank(),
+                )
+                state.assigneeSuggestions.forEachIndexed { index, s ->
+                    val selected = s.userId == state.assigneeUserId
+                    val dist = s.distanceM?.let { "%.0fm".format(it) } ?: "n/a"
+                    ShopListCard(
+                        title = "#${index + 1}  ${s.userId.take(8)}…  ${s.status}",
+                        subtitle = "dist=$dist  open=${s.openJobs}/${s.capacity}",
+                        onClick = { viewModel.selectSuggestedAssignee(s.userId) },
+                        badges = {
+                            if (selected) {
+                                ShopStatusChip(label = "✓", background = GtrColors.Accent)
+                            }
+                        },
+                        trailing = {
+                            TextButton(
+                                onClick = { viewModel.requestOverrideAssignConfirm(s.userId) },
+                                enabled = !state.busy,
+                            ) { Text("Override") }
+                        },
+                    )
+                }
             }
         }
 

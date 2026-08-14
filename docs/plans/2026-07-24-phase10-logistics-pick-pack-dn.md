@@ -1,6 +1,6 @@
 # Phase 10 — Logistics / pick-pack / DN / GPS
 
-- Status: backend done; Android pick/DN desk + web Cancel DN parity done (delivery-job list / GPS bridge follow-on)
+- Status: backend done; Android pick/DN desk + web Cancel DN + delivery-job visibility + **exception override assign** (unassigned/stuck only; auto-assign SoR)
 - Lane(s): `@backend_agent` (primary); `@hardware_mobile_agent` (GPS bridge contract follow-on); `@management_app_agent` / `@web_agent` (UI follow-on)
 - Skills needed: (none for schema slice; `/qr-inventory-workflow` only if pick confirms via QR — defer to Phase 12 UI)
 - Parent: [`2026-07-23-master-erp-development.md`](./2026-07-23-master-erp-development.md) Phase 10
@@ -84,3 +84,4 @@ Ship pick/pack and Delivery Notes against **posted sales invoices**, with partia
 3. `/verifier` (exclusions + no geolocation API in web)
 4. `/manager` done gate → `@hardware_mobile_agent` GPS contract → `@management_app_agent` UI
 5. **Web Cancel DN (2026-08-14):** `/staff/logistics` → `cancel_delivery_note` via `cancelDeliveryNote` in `apps/web/lib/staff-logistics.ts`; button on `StaffLogisticsPanel` (draft/submitted). Authz: staff route matrix + RPC `_require_logistics_staff` (UI hide ≠ security). Next: delivery-job list on desk, GPS bridge, or secrets/Mac stop.
+6. **Exception override assign (2026-08-14):** Manual assign ≠ primary path. Auto-assign (`_try_auto_assign_delivery_job` + FIFO/offer Edge/Temporal) remains SoR. Desk/tracking offer **Override assign** only for unassigned/stuck jobs → `suggest_delivery_assignees` → confirm → `assign_delivery_job(..., p_override=true)`. Happily assigned jobs: status only.

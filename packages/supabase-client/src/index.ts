@@ -131,6 +131,7 @@ export {
   setDriverPresenceArgs,
   suggestDeliveryAssigneesArgs,
   assignDeliveryJobArgs,
+  canOverrideAssignDeliveryJob,
   setDeliveryJobGeoArgs,
   updateDeliveryJobStatusArgs,
   getDeliveryTrackPointArgs,

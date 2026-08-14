@@ -136,7 +136,7 @@ native “show pairing code as QR” helper is needed beyond CameraX scan, route
 
 | RPC / API | Fake | Live |
 |-----------|------|------|
-| `suggest_delivery_assignees` / `assign_delivery_job` | Seeded drivers; override assign | Live RPC |
+| `suggest_delivery_assignees` / `assign_delivery_job` | Exception override (unassigned/stuck); `p_override` | Live RPC |
 | `optimize_driver_stops` | Demo stop list | Live RPC (persists `route_sequence`) |
 | `get_delivery_track_point` | Fake point when dispatched | Live RPC (staff view) |
 | `update_delivery_job_status` | jsonb + `track_token` on dispatch | Live jsonb (single mint) |
