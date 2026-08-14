@@ -2,7 +2,7 @@ import {
   fromAmountMinor,
   toAmountMinor,
   type CurrencyCode,
-} from "../money.ts";
+} from "../money";
 
 /** Payment tender and ContiPay / Paynow / EcoCash direct status enums (no secrets). */
 export const PAYMENT_TENDERS = [
