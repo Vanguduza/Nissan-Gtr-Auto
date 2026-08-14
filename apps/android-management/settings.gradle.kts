@@ -26,6 +26,7 @@ include(":feature:hr")
 include(":feature:chat")
 include(":feature:procurement")
 include(":feature:credit")
+include(":feature:crm")
 include(":feature:fleet")
 
 // Shared GTR Material3 theme (packages/ui brand-tokens.json)

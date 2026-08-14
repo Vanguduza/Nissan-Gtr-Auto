@@ -151,6 +151,15 @@ object RpcNames {
     // B2B credit (staff DEFINER — admin|sales|finance)
     const val SET_CUSTOMER_CREDIT = "set_customer_credit"
 
+    // CRM product pages / kits (admin|sales|warehouse)
+    const val LIST_STAFF_PRODUCT_PAGES = "list_staff_product_pages"
+    const val UPSERT_STAFF_PRODUCT_PAGE = "upsert_staff_product_page"
+    const val REGISTER_STOCK_ITEM_IMAGE = "register_stock_item_image"
+    const val SET_STOCK_ITEM_PRIMARY_IMAGE = "set_stock_item_primary_image"
+    const val CREATE_KIT_WITH_COMPONENTS = "create_kit_with_components"
+    const val UPDATE_ITEM_KIT = "update_item_kit"
+    const val PRODUCT_IMAGES_BUCKET = "product-images"
+
     // Company fleet (ops vehicles — not B2B FLEET price list / garage)
     const val LIST_FLEET_VEHICLES = "list_fleet_vehicles"
     const val UPSERT_FLEET_VEHICLE = "upsert_fleet_vehicle"
