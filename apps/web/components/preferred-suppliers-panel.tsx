@@ -32,6 +32,10 @@ export function PreferredSuppliersPanel() {
 
   const load = useCallback(async () => {
     const client = createWebClient();
+    if (!client) {
+      setMessage("Supabase is not configured.");
+      return;
+    }
     const { data, error } = await client
       .from("suppliers")
       .select(
@@ -55,6 +59,11 @@ export function PreferredSuppliersPanel() {
     setBusy(true);
     setMessage(null);
     const client = createWebClient();
+    if (!client) {
+      setBusy(false);
+      setMessage("Supabase is not configured.");
+      return;
+    }
     const cats = categories
       .split(",")
       .map((s) => s.trim())
@@ -62,13 +71,13 @@ export function PreferredSuppliersPanel() {
     const { error } = await client.rpc("upsert_preferred_supplier", {
       p_code: code,
       p_name: name,
-      p_email: email || null,
-      p_phone_e164: phone || null,
+      p_email: email || undefined,
+      p_phone_e164: phone || undefined,
       p_currency: "USD",
-      p_notes: notes || null,
-      p_address: null,
-      p_tax_id: null,
-      p_payment_terms: terms || null,
+      p_notes: notes || undefined,
+      p_address: undefined,
+      p_tax_id: undefined,
+      p_payment_terms: terms || undefined,
       p_categories: cats,
     });
     setBusy(false);
@@ -91,6 +100,11 @@ export function PreferredSuppliersPanel() {
     setBusy(true);
     setMessage(null);
     const client = createWebClient();
+    if (!client) {
+      setBusy(false);
+      setMessage("Supabase is not configured.");
+      return;
+    }
     const { error } = await client.rpc("deactivate_preferred_supplier", {
       p_supplier_id: id,
     });

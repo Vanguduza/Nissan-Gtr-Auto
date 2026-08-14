@@ -20,9 +20,13 @@ export function MasterStockPanel() {
 
   const load = useCallback(async (q: string) => {
     const client = createWebClient();
+    if (!client) {
+      setMessage("Supabase is not configured.");
+      return;
+    }
     const { data, error } = await client.rpc("list_master_stock", {
       p_limit: 200,
-      p_query: q.trim() || null,
+      p_query: q.trim() || undefined,
     });
     if (error) {
       setMessage(error.message);
