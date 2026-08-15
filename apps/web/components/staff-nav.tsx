@@ -18,7 +18,6 @@ import {
   Siren,
   Car,
   MessageCircle,
-  Monitor,
   Package,
   PackageSearch,
   ShieldCheck,
@@ -42,7 +41,6 @@ import {
 
 const staffNavIcons: Record<string, LucideIcon> = {
   "/staff": LayoutGrid,
-  pos: Monitor,
   warehouse: Warehouse,
   finance: Banknote,
   crm: Users,
@@ -53,7 +51,6 @@ const staffNavIcons: Record<string, LucideIcon> = {
   chat: MessageCircle,
   analytics: BarChart3,
   procurement: PackageSearch,
-  "/staff/pos": Monitor,
   "/staff/warehouse": Warehouse,
   "/staff/warehouse/insights": BarChart3,
   "/staff/finance": Banknote,

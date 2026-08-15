@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
     "@gtr/supabase-client",
     "@gtr/documents",
   ],
+  // Legacy web till removed — counter POS is apps/android-pos.
+  async redirects() {
+    return [
+      { source: "/staff/pos", destination: "/staff", permanent: true },
+      { source: "/staff/pos/:path*", destination: "/staff", permanent: true },
+    ];
+  },
   // Next 16 blocks cross-origin /_next/webpack-hmr by default. Visiting
   // http://127.0.0.1:3000 while the server advertises localhost prevents
   // client hydration — Menu and other "use client" controls stay dead SSR.

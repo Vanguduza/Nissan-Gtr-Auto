@@ -11008,6 +11008,7 @@ export type Database = {
         | "refund"
         | "asset_capex"
         | "vendor"
+        | "petty_float"
       fleet_vehicle_status: "active" | "in_service" | "retired"
       forecast_suggestion_status: "open" | "converted" | "dismissed"
       fulfillment_mode: "immediate" | "dispatch"
@@ -11316,6 +11317,7 @@ export const Constants = {
         "refund",
         "asset_capex",
         "vendor",
+        "petty_float",
       ],
       fleet_vehicle_status: ["active", "in_service", "retired"],
       forecast_suggestion_status: ["open", "converted", "dismissed"],

@@ -84,7 +84,10 @@ import {
   type ZigExchangeRateRow,
   buildStatementExportHook,
   downloadBrandedStatementPdf,
+  isSalesReferenceAccountTab,
 } from "@/lib/staff-finance";
+import { StaffFinanceSalesRegister } from "@/components/staff-finance-sales-register";
+import { StaffPettyCashStatement } from "@/components/staff-petty-cash-statement";
 import { createWebClient } from "@/lib/supabase";
 
 const FINANCE_TAB_IDS = [
@@ -105,13 +108,9 @@ const FINANCE_TAB_IDS = [
   "periods",
 ] as const;
 
+/** Operational till tabs only — sales clearing + petty cash have dedicated UIs. */
 const ACCOUNT_TAB_CODES: Record<string, { code: string; title: string }> = {
-  "petty-cash": { code: "1110", title: "Petty cash float" },
-  "cash-sales": { code: "1120", title: "Cash till" },
   "online-sales": { code: "1130", title: "Online payments (legacy)" },
-  contipay: { code: "1140", title: "ContiPay" },
-  paynow: { code: "1150", title: "Paynow" },
-  ecocash: { code: "1160", title: "EcoCash (direct)" },
 };
 
 type Boot =
@@ -545,7 +544,7 @@ function StaffFinancePanelInner() {
 
   useEffect(() => {
     const meta = ACCOUNT_TAB_CODES[tab];
-    if (!meta || boot.kind !== "ready") {
+    if (!meta || boot.kind !== "ready" || isSalesReferenceAccountTab(tab)) {
       setRegisterRows([]);
       setOpenPeriod(null);
       setReplenishHint(null);
@@ -1615,6 +1614,12 @@ function StaffFinancePanelInner() {
         </p>
       ) : null}
 
+      {tab === "petty-cash" ? <StaffPettyCashStatement /> : null}
+
+      {isSalesReferenceAccountTab(tab) ? (
+        <StaffFinanceSalesRegister tab={tab} />
+      ) : null}
+
       {ACCOUNT_TAB_CODES[tab] ? (
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>
@@ -1885,8 +1890,8 @@ function StaffFinancePanelInner() {
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Accounts (CoA register)</legend>
           <p className={styles.muted}>
-            Pick any GL account for a period register. Per-method tills remain
-            under Petty cash / Cash sales / ContiPay / Paynow / EcoCash.
+            Pick any GL account for a period register. Cash / ContiPay / Paynow /
+            EcoCash are reference viewers; Petty cash uses the statement desk.
           </p>
           <div className={styles.formGrid}>
             <label className={styles.field}>

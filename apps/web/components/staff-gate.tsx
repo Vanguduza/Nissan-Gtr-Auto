@@ -9,7 +9,6 @@ import layoutStyles from "@/components/staff-layout.module.css";
 import {
   canAccessPath,
   loadStaffContext,
-  prefersPosHome,
   staffLoginHref,
   type StaffContext,
 } from "@/lib/staff-auth";
@@ -157,18 +156,6 @@ export function StaffGate({ children }: { children: ReactNode }) {
       ) {
         setState({ kind: "redirecting", message: "Password change required…" });
         router.replace("/staff/change-password");
-        return;
-      }
-
-      // Sales-only default home is POS (not full hub).
-      if (
-        ctx.isStaff &&
-        prefersPosHome(ctx.roles) &&
-        pathname === "/staff" &&
-        !ctx.mustChangePassword
-      ) {
-        setState({ kind: "redirecting", message: "Opening POS…" });
-        router.replace("/staff/pos");
         return;
       }
 

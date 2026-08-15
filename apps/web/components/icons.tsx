@@ -33,7 +33,6 @@ export {
   Building2,
   ArrowRight,
   Warehouse,
-  Monitor,
   Banknote,
   Truck,
   MapPinned,

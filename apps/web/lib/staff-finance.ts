@@ -808,6 +808,281 @@ export type AccountRegisterRow = {
   journal_entry_id: string;
 };
 
+/** Sales clearing tabs (cash / ContiPay / Paynow / EcoCash) — reference only. */
+export const SALES_REFERENCE_ACCOUNT_TABS = [
+  "cash-sales",
+  "contipay",
+  "paynow",
+  "ecocash",
+] as const;
+
+export type SalesReferenceAccountTab =
+  (typeof SALES_REFERENCE_ACCOUNT_TABS)[number];
+
+export const SALES_REFERENCE_ACCOUNT_META: Record<
+  SalesReferenceAccountTab,
+  { code: string; title: string }
+> = {
+  "cash-sales": { code: "1120", title: "Cash" },
+  contipay: { code: "1140", title: "ContiPay" },
+  paynow: { code: "1150", title: "Paynow" },
+  ecocash: { code: "1160", title: "EcoCash" },
+};
+
+export function isSalesReferenceAccountTab(
+  tab: string,
+): tab is SalesReferenceAccountTab {
+  return (SALES_REFERENCE_ACCOUNT_TABS as readonly string[]).includes(tab);
+}
+
+export type FinanceTransactionLine = {
+  id: string;
+  account_code: string;
+  account_label: string;
+  debit: number;
+  credit: number;
+  currency: CurrencyCode;
+};
+
+export type FinanceTransactionReceiptLine = {
+  id: string;
+  qty: number;
+  unit_price: number;
+  line_total: number;
+  is_core_charge: boolean;
+  oem_part_number: string | null;
+  description: string | null;
+};
+
+export type FinanceTransactionInvoice = {
+  id: string;
+  document_number: string | null;
+  status: string;
+  total: number;
+  amount_paid: number;
+  currency: CurrencyCode;
+  allocated_amount: number;
+  customer_email: string | null;
+  customer_phone_e164: string | null;
+  lines: FinanceTransactionReceiptLine[];
+};
+
+export type FinanceTransactionPayment = {
+  id: string;
+  document_number: string | null;
+  status: string;
+  tender: PaymentTender;
+  amount: number;
+  currency: CurrencyCode;
+  posted_at: string | null;
+  notes: string | null;
+  customer_id: string;
+  customer_name: string | null;
+};
+
+export type FinanceTransactionDetail = {
+  journal: JournalEntryOption;
+  lines: FinanceTransactionLine[];
+  payment: FinanceTransactionPayment | null;
+  invoices: FinanceTransactionInvoice[];
+};
+
+function asSingleRel<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+/** Journal + optional payment receipt context for sales clearing drill-down. */
+export async function loadFinanceTransactionDetail(
+  client: FinanceClient,
+  journalEntryId: string,
+): Promise<StorefrontResult<FinanceTransactionDetail>> {
+  const id = journalEntryId.trim();
+  if (!id) return { ok: false, error: "Missing transaction id." };
+
+  const [jeRes, linesRes, peRes] = await Promise.all([
+    client
+      .from("journal_entries")
+      .select(
+        "id, document_number, status, entry_date, description, currency, exchange_rate_applied, posted_at, is_reversal, reverses_entry_id",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    client
+      .from("journal_entry_lines")
+      .select(
+        "id, account_code, debit, credit, currency, chart_of_accounts ( code, name, display_name )",
+      )
+      .eq("journal_entry_id", id)
+      .order("account_code"),
+    client
+      .from("payment_entries")
+      .select(
+        "id, document_number, status, tender, amount, currency, posted_at, notes, customer_id, customers ( display_name )",
+      )
+      .or(`journal_entry_id.eq.${id},reversal_journal_entry_id.eq.${id}`)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (jeRes.error) return { ok: false, error: jeRes.error.message };
+  if (!jeRes.data) return { ok: false, error: "Transaction not found." };
+  if (linesRes.error) return { ok: false, error: linesRes.error.message };
+  if (peRes.error) return { ok: false, error: peRes.error.message };
+
+  const journal = jeRes.data as JournalEntryOption;
+  const lines: FinanceTransactionLine[] = (linesRes.data ?? []).map((row) => {
+    const r = row as {
+      id: string;
+      account_code: string;
+      debit: number;
+      credit: number;
+      currency: CurrencyCode;
+      chart_of_accounts?:
+        | { code: string; name: string; display_name: string }
+        | { code: string; name: string; display_name: string }[]
+        | null;
+    };
+    const coa = asSingleRel(r.chart_of_accounts);
+    return {
+      id: r.id,
+      account_code: r.account_code,
+      account_label: coa?.display_name || coa?.name || r.account_code,
+      debit: Number(r.debit ?? 0),
+      credit: Number(r.credit ?? 0),
+      currency: r.currency,
+    };
+  });
+
+  let payment: FinanceTransactionPayment | null = null;
+  let invoices: FinanceTransactionInvoice[] = [];
+
+  if (peRes.data) {
+    const pe = peRes.data as {
+      id: string;
+      document_number: string | null;
+      status: string;
+      tender: PaymentTender;
+      amount: number;
+      currency: CurrencyCode;
+      posted_at: string | null;
+      notes: string | null;
+      customer_id: string;
+      customers?: { display_name: string } | { display_name: string }[] | null;
+    };
+    const customer = asSingleRel(pe.customers);
+    payment = {
+      id: pe.id,
+      document_number: pe.document_number,
+      status: pe.status,
+      tender: pe.tender,
+      amount: Number(pe.amount),
+      currency: pe.currency,
+      posted_at: pe.posted_at,
+      notes: pe.notes,
+      customer_id: pe.customer_id,
+      customer_name: customer?.display_name ?? null,
+    };
+
+    const allocRes = await client
+      .from("payment_allocations")
+      .select(
+        "amount, sales_invoice_id, sales_invoices ( id, document_number, status, total, amount_paid, currency, customer_email, customer_phone_e164 )",
+      )
+      .eq("payment_entry_id", pe.id);
+    if (allocRes.error) return { ok: false, error: allocRes.error.message };
+
+    const invoiceIds: string[] = [];
+    const allocByInvoice = new Map<
+      string,
+      { allocated: number; inv: Record<string, unknown> }
+    >();
+    for (const row of allocRes.data ?? []) {
+      const a = row as {
+        amount: number;
+        sales_invoice_id: string;
+        sales_invoices?:
+          | Record<string, unknown>
+          | Record<string, unknown>[]
+          | null;
+      };
+      const inv = asSingleRel(a.sales_invoices);
+      if (!inv) continue;
+      const invId = String(inv.id ?? a.sales_invoice_id);
+      invoiceIds.push(invId);
+      allocByInvoice.set(invId, {
+        allocated: Number(a.amount),
+        inv,
+      });
+    }
+
+    if (invoiceIds.length > 0) {
+      const lineRes = await client
+        .from("sales_invoice_lines")
+        .select(
+          "id, invoice_id, qty, unit_price, line_total, is_core_charge, stock_items ( oem_part_number, description )",
+        )
+        .in("invoice_id", invoiceIds)
+        .order("created_at");
+      if (lineRes.error) return { ok: false, error: lineRes.error.message };
+
+      const linesByInvoice = new Map<string, FinanceTransactionReceiptLine[]>();
+      for (const row of lineRes.data ?? []) {
+        const lr = row as {
+          id: string;
+          invoice_id: string;
+          qty: number;
+          unit_price: number;
+          line_total: number;
+          is_core_charge: boolean;
+          stock_items?:
+            | { oem_part_number: string; description: string | null }
+            | { oem_part_number: string; description: string | null }[]
+            | null;
+        };
+        const stock = asSingleRel(lr.stock_items);
+        const list = linesByInvoice.get(lr.invoice_id) ?? [];
+        list.push({
+          id: lr.id,
+          qty: Number(lr.qty),
+          unit_price: Number(lr.unit_price),
+          line_total: Number(lr.line_total),
+          is_core_charge: Boolean(lr.is_core_charge),
+          oem_part_number: stock?.oem_part_number ?? null,
+          description: stock?.description ?? null,
+        });
+        linesByInvoice.set(lr.invoice_id, list);
+      }
+
+      invoices = invoiceIds.map((invId) => {
+        const packed = allocByInvoice.get(invId)!;
+        const inv = packed.inv;
+        return {
+          id: invId,
+          document_number:
+            typeof inv.document_number === "string"
+              ? inv.document_number
+              : null,
+          status: String(inv.status ?? ""),
+          total: Number(inv.total ?? 0),
+          amount_paid: Number(inv.amount_paid ?? 0),
+          currency: inv.currency as CurrencyCode,
+          allocated_amount: packed.allocated,
+          customer_email:
+            typeof inv.customer_email === "string" ? inv.customer_email : null,
+          customer_phone_e164:
+            typeof inv.customer_phone_e164 === "string"
+              ? inv.customer_phone_e164
+              : null,
+          lines: linesByInvoice.get(invId) ?? [],
+        };
+      });
+    }
+  }
+
+  return { ok: true, data: { journal, lines, payment, invoices } };
+}
+
 export type AccountPeriodBalanceOption = {
   id: string;
   account_code: string;
@@ -1309,4 +1584,135 @@ export async function downloadBrandedStatementPdf(
   a.click();
   URL.revokeObjectURL(url);
   return { ok: true, data: true };
+}
+
+const PETTY_CASH_RECEIPTS_BUCKET = "petty-cash-receipts";
+
+/** Untyped RPC bridge until database.types regen includes new finance RPCs. */
+async function financeRpc(
+  client: FinanceClient,
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  return (
+    client as unknown as {
+      rpc: (
+        name: string,
+        params?: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc(fn, args);
+}
+
+/** Create draft expense requisition (Cr 1110 on disburse). */
+export async function createPettyCashExpenseRequest(
+  client: FinanceClient,
+  args: {
+    amount: number;
+    currency: CurrencyCode;
+    description: string;
+    entryDate: string;
+    expenseAccountCode?: string;
+    exchangeRate?: number;
+  },
+): Promise<StorefrontResult<string>> {
+  const exchangeRate =
+    args.currency === "ZIG"
+      ? (args.exchangeRate ?? zigExchangeRate())
+      : (args.exchangeRate ?? 1);
+  const { data, error } = await financeRpc(
+    client,
+    "create_petty_cash_expense_request",
+    {
+      p_amount: args.amount,
+      p_currency: args.currency,
+      p_description: args.description.trim(),
+      p_entry_date: args.entryDate,
+      p_expense_account_code: args.expenseAccountCode ?? "5300",
+      p_exchange_rate: exchangeRate,
+    },
+  );
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return {
+      ok: false,
+      error: "create_petty_cash_expense_request returned no id.",
+    };
+  }
+  return { ok: true, data: String(data) };
+}
+
+/** Create draft float top-up requisition (Dr 1110 / Cr funding on disburse). */
+export async function createPettyCashFloatRequest(
+  client: FinanceClient,
+  args: {
+    amount: number;
+    currency: CurrencyCode;
+    description: string;
+    entryDate: string;
+    exchangeRate?: number;
+  },
+): Promise<StorefrontResult<string>> {
+  const exchangeRate =
+    args.currency === "ZIG"
+      ? (args.exchangeRate ?? zigExchangeRate())
+      : (args.exchangeRate ?? 1);
+  const { data, error } = await financeRpc(
+    client,
+    "create_petty_cash_float_request",
+    {
+      p_amount: args.amount,
+      p_currency: args.currency,
+      p_description: args.description.trim(),
+      p_entry_date: args.entryDate,
+      p_exchange_rate: exchangeRate,
+    },
+  );
+  if (error) return { ok: false, error: error.message };
+  if (!data) {
+    return {
+      ok: false,
+      error: "create_petty_cash_float_request returned no id.",
+    };
+  }
+  return { ok: true, data: String(data) };
+}
+
+export async function uploadPettyCashReceipt(
+  client: FinanceClient,
+  args: { requisitionId: string; file: File },
+): Promise<StorefrontResult<string>> {
+  const ext = (args.file.name.split(".").pop() || "jpg").toLowerCase();
+  const safeExt = ["jpg", "jpeg", "png", "webp", "pdf"].includes(ext)
+    ? ext
+    : "jpg";
+  const path = `${args.requisitionId}/${crypto.randomUUID()}.${safeExt}`;
+  const { error: upErr } = await client.storage
+    .from(PETTY_CASH_RECEIPTS_BUCKET)
+    .upload(path, args.file, {
+      contentType: args.file.type || `image/${safeExt}`,
+      upsert: false,
+    });
+  if (upErr) return { ok: false, error: upErr.message };
+
+  const { data, error } = await financeRpc(
+    client,
+    "attach_finance_requisition_receipt",
+    {
+      p_requisition_id: args.requisitionId,
+      p_storage_path: path,
+      p_content_type: args.file.type || null,
+    },
+  );
+  if (error) {
+    await client.storage.from(PETTY_CASH_RECEIPTS_BUCKET).remove([path]);
+    return { ok: false, error: error.message };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: "attach_finance_requisition_receipt returned no id.",
+    };
+  }
+  return { ok: true, data: String(data) };
 }

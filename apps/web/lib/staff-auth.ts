@@ -8,7 +8,7 @@ export type StaffContext = {
   isStaff: boolean;
   roles: StaffRole[];
   /**
-   * Organogram `hr_roles.module_access` module ids (e.g. `pos`, `finance`).
+   * Organogram `hr_roles.module_access` module ids (e.g. `finance`, `warehouse`).
    * `null` = not loaded / empty → fall back to staff_roles-only nav filter.
    * Admins bypass module gating.
    */
@@ -41,7 +41,7 @@ export type StaffNavModule = {
   href: string;
   /** `"any"` = any authenticated staff (`is_staff`). */
   roles: StaffRole[] | "any";
-  /** Default `?tab=` when path matches and URL has no tab (finance/POS). */
+  /** Default `?tab=` when path matches and URL has no tab (e.g. finance). */
   defaultTab?: string;
   children: StaffNavLeaf[];
 };
@@ -56,30 +56,6 @@ export type StaffNavEntry =
  */
 export const STAFF_NAV_TREE: StaffNavEntry[] = [
   { kind: "link", href: "/staff", label: "Hub", exact: true, roles: "any" },
-  {
-    kind: "module",
-    id: "pos",
-    label: "POS",
-    href: "/staff/pos",
-    defaultTab: "cart",
-    roles: ["admin", "warehouse", "sales"],
-    children: [
-      {
-        href: "/staff/pos?tab=cart",
-        label: "Cart",
-        tab: "cart",
-        exact: true,
-        roles: ["admin", "warehouse", "sales"],
-      },
-      {
-        href: "/staff/pos?tab=prep",
-        label: "Online prep",
-        tab: "prep",
-        exact: true,
-        roles: ["admin", "warehouse", "sales"],
-      },
-    ],
-  },
   {
     kind: "module",
     id: "warehouse",
@@ -161,7 +137,7 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       },
       {
         href: "/staff/finance?tab=cash-sales",
-        label: "Cash sales",
+        label: "Cash",
         tab: "cash-sales",
         exact: true,
         roles: ["admin", "finance"],
@@ -477,7 +453,6 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = (() => {
  */
 export const STAFF_MODULE_ROLES = {
   hub: [] as const satisfies readonly StaffRole[],
-  pos: ["admin", "warehouse", "sales"] as const satisfies readonly StaffRole[],
   warehouse: ["admin", "warehouse"] as const satisfies readonly StaffRole[],
   finance: ["admin", "finance"] as const satisfies readonly StaffRole[],
   logistics: [
@@ -546,9 +521,6 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path === "/staff") return { kind: "any" };
   if (path === "/staff/change-password") return { kind: "any" };
 
-  if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
-    return { kind: "roles", roles: ["admin", "warehouse", "sales"] };
-  }
   if (path.startsWith("/staff/warehouse/insights")) {
     return { kind: "roles", roles: ["admin", "warehouse", "finance"] };
   }
@@ -757,23 +729,21 @@ export function isStaffNavModuleActive(
   pathname: string,
   searchTab: string | null,
 ): boolean {
+  // Nested module routes (e.g. /staff/finance/transactions/:id).
+  if (
+    mod.href !== "/staff" &&
+    (pathname === mod.href || pathname.startsWith(`${mod.href}/`))
+  ) {
+    if (pathname.startsWith(`${mod.href}/`)) return true;
+  }
   return mod.children.some((c) =>
     isStaffNavLeafActive(c, pathname, searchTab, mod.defaultTab),
   );
 }
 
-/**
- * Sales-only → POS workspace as home; admin/warehouse keep hub.
- * Mirrors Android `ManagementHomeRoles.prefersPosHome`.
- */
-export function prefersPosHome(roles: readonly StaffRole[]): boolean {
-  if (roles.some((r) => r === "admin" || r === "warehouse")) return false;
-  return roles.includes("sales");
-}
-
-/** Default staff landing after sign-in (no `next` override). */
-export function staffHomePath(roles: readonly StaffRole[]): string {
-  return prefersPosHome(roles) ? "/staff/pos" : "/staff";
+/** Default staff landing after sign-in (no `next` override). Till lives in android-pos. */
+export function staffHomePath(_roles: readonly StaffRole[] = []): string {
+  return "/staff";
 }
 
 export async function loadStaffContext(
@@ -898,7 +868,6 @@ export async function signInWithStaffIdentifier(
 
 /**
  * After password sign-in: staff land on management, not the storefront.
- * Sales-only default = `/staff/pos`; admin/warehouse = hub.
  * Honor `next` only for staff surfaces (`/staff`, `/procurement`).
  * When `mustChangePassword`, always `/staff/change-password` first.
  */
@@ -920,8 +889,10 @@ export function postLoginPath(
         path === "/procurement" ||
         path.startsWith("/procurement/"))
     ) {
-      // Bare hub → POS for sales-only (same as default home).
-      if (path === "/staff" && prefersPosHome(roles)) return "/staff/pos";
+      // Legacy bookmarks to removed web till → hub.
+      if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
+        return staffHomePath(roles);
+      }
       return path;
     }
     return staffHomePath(roles);
