@@ -35,6 +35,7 @@ class FakeRpcClient : RpcClient {
                 amountDue = 1.0,
                 amountDueMinor = 4550L,
             ),
+            dropoffAddressText = "12 Samora Machel Ave, Harare",
         ),
         DeliveryJobSummary(
             id = JOB_2,
@@ -53,6 +54,50 @@ class FakeRpcClient : RpcClient {
             podSignaturePath = null,
             assigneeUserId = FAKE_DRIVER_USER_ID,
             settlement = null,
+            dropoffAddressText = "45 Borrowdale Rd, Harare",
+        ),
+        DeliveryJobSummary(
+            id = JOB_DONE,
+            deliveryNoteId = "00000000-0000-4000-8000-0000000000d3",
+            documentNumber = "DJ-SEED-DONE",
+            status = "completed",
+            dropoffLat = -17.8200,
+            dropoffLng = 31.0400,
+            etaAt = null,
+            etaSeconds = null,
+            notes = "Left with reception",
+            routeSequence = 3,
+            reattemptOf = null,
+            failureReasonCode = null,
+            podPhotoPath = "$JOB_DONE/photo.jpg",
+            podSignaturePath = "$JOB_DONE/signature.png",
+            assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = DeliveryJobSettlement(
+                currency = CurrencyCode.USD,
+                invoiceTotalMinor = 1200L,
+                amountPaidMinor = 1200L,
+                amountDueMinor = 0L,
+            ),
+            dropoffAddressText = "8 Leopold Takawira St, Harare",
+        ),
+        DeliveryJobSummary(
+            id = JOB_FAILED,
+            deliveryNoteId = "00000000-0000-4000-8000-0000000000d4",
+            documentNumber = "DJ-SEED-FAIL",
+            status = "failed",
+            dropoffLat = -17.8400,
+            dropoffLng = 31.0700,
+            etaAt = null,
+            etaSeconds = null,
+            notes = "Customer absent",
+            routeSequence = 4,
+            reattemptOf = null,
+            failureReasonCode = DeliveryFailureReason.CUSTOMER_ABSENT.rpcValue,
+            podPhotoPath = null,
+            podSignaturePath = null,
+            assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = null,
+            dropoffAddressText = "22 Enterprise Rd, Harare",
         ),
     )
 
@@ -129,6 +174,17 @@ class FakeRpcClient : RpcClient {
         val current = jobs[idx]
         require(current.status !in listOf("completed", "failed")) {
             "terminal delivery job cannot change status"
+        }
+        if (status == DeliveryJobStatus.COMPLETED) {
+            require(!current.podSignaturePath.isNullOrBlank()) {
+                "POD photo and signature required; use submit_delivery_pod"
+            }
+            require(!current.podPhotoPath.isNullOrBlank()) {
+                "POD photo and signature required; use submit_delivery_pod"
+            }
+        }
+        if (status == DeliveryJobStatus.FAILED) {
+            error("use fail_delivery_job for failed status (reason + optional reattempt)")
         }
         jobs[idx] = current.copy(status = status.rpcValue)
         return deliveryJobId
@@ -297,6 +353,8 @@ class FakeRpcClient : RpcClient {
         const val FAKE_DRIVER_USER_ID = "00000000-0000-4000-8000-0000000000d0"
         const val JOB_1 = "00000000-0000-4000-8000-0000000000j1"
         const val JOB_2 = "00000000-0000-4000-8000-0000000000j2"
+        const val JOB_DONE = "00000000-0000-4000-8000-0000000000j3"
+        const val JOB_FAILED = "00000000-0000-4000-8000-0000000000j4"
 
         /** Last generated OTP in Fake (always 123456). */
         const val FAKE_OTP = "123456"

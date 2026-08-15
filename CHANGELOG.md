@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-15
 
+### Added
+
+- **Android delivery job detail + route map:** Job list (Active/Done/Failed) opens detail with receipt copy + delivery address; **Complete job** reveals existing Bridge-First POD signature pad → `submit_delivery_pod` (Active→Done); **Mark job Failed** → `fail_delivery_job`. Jobs stay Active until signature (`JobStatusGate`). Route tab MapLibre multi-pin (dropoffs + live driver via FGS). Fake GoTrue skip + sign-out toggle. Tests: `JobStatusGateTest`, `FakeJobStatusTransitionTest`.
+
 ### Changed
 
 - **Staff master stock report:** `/staff/warehouse/master-stock` is a full-width desk report (StaffNav + wide shell) with model (chassis), merchandising category/subcategory, and OEM search filters; sticky dense WH1/WH2 table; CSV export for current filters or whole stock (up to 5k). RPC `list_master_stock` accepts chassis + category needles (`20260815120000_list_master_stock_filters.sql`). Assert: `node apps/web/scripts/assert-master-stock-report.mjs`.

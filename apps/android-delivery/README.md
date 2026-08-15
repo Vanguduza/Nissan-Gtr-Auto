@@ -93,13 +93,14 @@ cd apps/android-delivery
 
 ## Driver flow (scaffold)
 
-1. Sign in as staff with role **`driver`** (Fake mode bypasses auth).
-2. Home → **My jobs**.
-3. Set presence (`available` / `on_duty` / `break` / `offline`).
-4. Open a job → **Start always-on GPS** (FGS + battery cadence) → MapLibre live map + **Turn-by-turn**.
-5. **Check geofence suggestion** → confirm arrive / complete manually (never auto).
-6. POD: **Capture evidence photo** (CameraX bridge; gallery picker intentionally skipped) → preview/retake → **touch signature pad** → generate/verify OTP → submit (uploads photo+signature to `delivery-pods`, then `submit_delivery_pod`). Confirm blocked until photo + signature + verified OTP.
-7. Fail with reason + optional reattempt; **Optimize stops**; **PANIC**.
+1. Sign in as staff with role **`driver`** (Fake mode: Continue without signing in; Sign out returns to gate).
+2. Home → **My jobs** (Active / Done / Failed tabs). Tap any row → job detail.
+3. Job detail shows **Receipt copy** + **Delivery address**; Done/Failed are read-only for complete.
+4. Set presence (`available` / `on_duty` / `break` / `offline`) on Me tab.
+5. **Route** tab → MapLibre live map with delivery pins + driver GPS (Start live GPS / On duty).
+6. Active job → **Complete job** → existing POD (CameraX photo + touch signature + OTP) → Storage `delivery-pods` + `submit_delivery_pod` (Active→Done). Stays Active until signature.
+7. **Mark job Failed** → `fail_delivery_job` (+ optional reattempt).
+8. Geofence suggestions confirm-only; **Optimize stops**; **PANIC**.
 
 ## Exclusions
 

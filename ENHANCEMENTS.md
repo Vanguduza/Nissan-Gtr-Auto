@@ -28,6 +28,7 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | Phase-9-HR-UI | Android mgmt gross payroll desk | Done (slice) | Hours + open lines + manual deductions; no tax; web `/staff/hr` already had deeper desk |
 | Phase-10-desk | Pick/DN desk + delivery-job visibility + exception override | Done | Visibility list + **Override assign** only when unassigned/stuck (`assign_delivery_job` p_override); auto-assign SoR; not happy-path pick-driver |
 | H4-del-COD | Driver-scoped settlement RPC | Done | `get_delivery_job_settlement` DEFINER + Android delivery enrich; smoke `delivery_job_settlement_smoke.sql` |
+| Del-job-detail | Driver job detail + Complete→signature + Route pins | Done | Receipt/address on detail; Active until POD signature; Failed RPC; Route MapLibre pins + FGS driver; `JobStatusGate` |
 | Bin-QR | Bin-label inventory-QR glyph | Done | ESC/POS `binLabel` + `gtr://bin/{code}` |
 | E6 | Meili dual-read default for catalog | Done | preferMeili + FTS; strip invented qty; consignment ADR |
 | — | Chatwoot / Metabase | Deferred | Tier-2 satellites |

@@ -75,6 +75,11 @@ data class DeliveryJobSummary(
     val assigneeUserId: String?,
     /** H4 dual-read COD/settlement snapshot when API provides money fields. */
     val settlement: DeliveryJobSettlement? = null,
+    /**
+     * Human-readable dropoff when the API provides it (Fake seeds; Live may be null
+     * until a driver-scoped address RPC exists — UI falls back to lat/lng + notes).
+     */
+    val dropoffAddressText: String? = null,
 )
 
 data class GeofenceSuggestion(

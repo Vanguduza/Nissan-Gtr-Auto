@@ -128,7 +128,7 @@ fun AuthGate(
     if (!liveRpc || supabase == null) {
         var skipped by remember { mutableStateOf(allowFakeSkip) }
         if (skipped) {
-            content(null) { /* no session in Fake */ }
+            content("fake@driver.local") { skipped = false }
         } else {
             SignInScreen(
                 supabase = null,

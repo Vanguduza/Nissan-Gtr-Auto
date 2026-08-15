@@ -315,8 +315,7 @@ class JobsViewModel(
             val otherWaypoints = _state.value.jobs
                 .filter {
                     it.id != job.id &&
-                        it.status != "completed" &&
-                        it.status != "failed" &&
+                        JobStatusGate.isActive(it.status) &&
                         it.dropoffLat != null &&
                         it.dropoffLng != null &&
                         (it.routeSequence ?: Int.MAX_VALUE) > (job.routeSequence ?: -1)
@@ -482,11 +481,11 @@ class JobsViewModel(
             }
     }
 
-    /** Confirm geofence complete suggestion — does not auto-complete; opens POD path. */
+    /** Confirm geofence complete suggestion — does not auto-complete; opens Complete → POD. */
     fun acknowledgeCompleteSuggestion() {
         _state.update {
             it.copy(
-                message = "Complete suggested — use POD section to finish (OTP required)",
+                message = "Complete suggested — use Complete job → signature pad (stays Active until signed)",
                 geofence = it.geofence?.copy(suggestComplete = false),
             )
         }

@@ -105,9 +105,7 @@ fun JobsListScreen(
     }
     val filtered = remember(state.jobs, filterTab) {
         when (JobsFilterTab.entries[filterTab]) {
-            JobsFilterTab.Active -> state.jobs.filter {
-                it.status == "dispatched" || it.status == "pending"
-            }
+            JobsFilterTab.Active -> state.jobs.filter { JobStatusGate.isActive(it.status) }
             JobsFilterTab.Done -> state.jobs.filter { it.status == "completed" }
             JobsFilterTab.Failed -> state.jobs.filter { it.status == "failed" }
         }
@@ -284,7 +282,7 @@ private fun JobOrderCard(
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
             Text(
-                "Open stop for maps, GPS tracking, and POD",
+                "Open for receipt, address, Complete (signature), or Failed",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -298,9 +296,31 @@ fun DeliveryRouteTab(
     state: JobsUiState,
     tracking: TrackingUiState,
     vm: JobsViewModel,
-    @Suppress("UNUSED_PARAMETER") trackingVm: TrackingViewModel,
+    trackingVm: TrackingViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val routeStops = remember(state.jobs) {
+        state.jobs
+            .filter { it.dropoffLat != null && it.dropoffLng != null }
+            .sortedBy { it.routeSequence ?: Int.MAX_VALUE }
+            .map {
+                MapStop(
+                    id = it.id,
+                    label = it.documentNumber ?: it.id.take(8),
+                    position = MapLatLng(it.dropoffLat!!, it.dropoffLng!!),
+                    sequence = it.routeSequence,
+                )
+            }
+    }
+    val driverPos = if (tracking.lastLat != null && tracking.lastLng != null) {
+        MapLatLng(tracking.lastLat!!, tracking.lastLng!!)
+    } else {
+        null
+    }
+    val mapCenter = driverPos
+        ?: routeStops.firstOrNull()?.position
+        ?: MapLatLng(-17.8292, 31.0522)
+
     ShopTabBody(modifier = modifier, scrollable = true) {
         Text("Today's route", style = MaterialTheme.typography.titleLarge)
         ShopLocationRow(
@@ -317,6 +337,60 @@ fun DeliveryRouteTab(
             },
             accent = state.presence.statusColor(),
         )
+
+        ShopSectionHeader(title = "Live map", actionLabel = null)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.medium),
+        ) {
+            if (state.mapLibreEnabled) {
+                MapLibreJobMap(
+                    latitude = mapCenter.latitude,
+                    longitude = mapCenter.longitude,
+                    zoom = 12.0,
+                    stops = routeStops,
+                    driver = driverPos,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                DeliveryRouteMap(
+                    destination = routeStops.firstOrNull()?.position,
+                    driver = driverPos,
+                    routePoints = emptyList(),
+                    otherStops = routeStops.drop(1),
+                    mapsKeyPresent = state.mapsKeyPresent,
+                    myLocationEnabled = tracking.tracking,
+                )
+            }
+        }
+        Text(
+            when {
+                state.mapLibreEnabled ->
+                    "MapLibre SoR · red = delivery pins · blue = driver (Bridge-First FGS)"
+                else -> "DEPRECATED Google Maps fallback (useMapLibre=false)"
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!tracking.tracking) {
+            ShopPrimaryButton(
+                label = "Start live GPS (FGS)",
+                onClick = {
+                    val active = state.jobs.firstOrNull { JobStatusGate.isActive(it.status) }
+                    if (active != null) {
+                        trackingVm.startTracking(active.id)
+                        if (state.presence != DriverPresenceStatus.ON_DUTY) {
+                            vm.setPresence(DriverPresenceStatus.ON_DUTY)
+                        }
+                    }
+                },
+                enabled = state.jobs.any { JobStatusGate.isActive(it.status) },
+            )
+        }
+
         ShopOutlinedActionRow {
             ShopSecondaryButton(
                 label = "Refresh jobs",
@@ -405,7 +479,7 @@ fun DeliveryMeTab(
                         when (status) {
                             DriverPresenceStatus.ON_DUTY -> {
                                 val active = state.jobs.firstOrNull {
-                                    it.status == "dispatched" || it.status == "pending"
+                                    JobStatusGate.isActive(it.status)
                                 }
                                 if (active != null) trackingVm.startTracking(active.id)
                             }
@@ -460,8 +534,8 @@ fun DeliveryMeTab(
 }
 
 /**
- * Stop detail — Shopping-By-KMP DefaultScreenUI + sticky navigate CTA.
- * Maps (Directions polyline / multi-stop / turn-by-turn) and POD signature preserved.
+ * Stop detail — receipt copy + delivery address; Complete → signature POD; Failed → ERP.
+ * Done/failed stay readable (receipt + address) without complete actions.
  */
 @Composable
 fun JobDetailScreen(
@@ -476,6 +550,8 @@ fun JobDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val active = JobStatusGate.isActive(job.status)
+    var completeOpen by remember(job.id) { mutableStateOf(false) }
     val dest = if (job.dropoffLat != null && job.dropoffLng != null) {
         MapLatLng(job.dropoffLat!!, job.dropoffLng!!)
     } else {
@@ -490,8 +566,7 @@ fun JobDetailScreen(
         state.jobs
             .filter {
                 it.id != job.id &&
-                    it.status != "completed" &&
-                    it.status != "failed" &&
+                    JobStatusGate.isActive(it.status) &&
                     it.dropoffLat != null &&
                     it.dropoffLng != null
             }
@@ -504,6 +579,23 @@ fun JobDetailScreen(
                 )
             }
     }
+    val detailStops = remember(job, otherStops) {
+        buildList {
+            if (dest != null) {
+                add(
+                    MapStop(
+                        id = job.id,
+                        label = job.documentNumber ?: job.id.take(8),
+                        position = dest,
+                        sequence = job.routeSequence,
+                    ),
+                )
+            }
+            addAll(otherStops)
+        }
+    }
+    val receiptLines = remember(job) { JobStatusGate.receiptCopyLines(job) }
+    val addressLines = remember(job) { JobStatusGate.deliveryAddressLines(job) }
 
     LaunchedEffect(job.id, tracking.lastLat, tracking.lastLng, state.mapsKeyPresent) {
         vm.refreshRouteGuidance(tracking.lastLat, tracking.lastLng)
@@ -516,11 +608,13 @@ fun JobDetailScreen(
         scrollable = true,
         modifier = modifier,
         bottomBar = {
-            ShopProceedButtonBox(
-                totalLabel = state.routeLabel ?: "Navigate",
-                ctaLabel = "Turn-by-turn",
-                onClick = vm::openNavigation,
-            )
+            if (dest != null) {
+                ShopProceedButtonBox(
+                    totalLabel = state.routeLabel ?: "Navigate",
+                    ctaLabel = "Turn-by-turn",
+                    onClick = vm::openNavigation,
+                )
+            }
         },
     ) {
         Row(
@@ -535,10 +629,16 @@ fun JobDetailScreen(
                 ShopStatusChip(label = cod, background = GtrColors.Warning)
             }
         }
-        job.settlement?.formatAmountDueLabel()?.let { cod ->
-            Text(cod, style = MaterialTheme.typography.bodyMedium)
+
+        ShopSectionHeader(title = "Receipt copy", actionLabel = null)
+        receiptLines.forEach { line ->
+            Text(line, style = MaterialTheme.typography.bodyMedium)
         }
-        job.notes?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+
+        ShopSectionHeader(title = "Delivery address", actionLabel = null)
+        addressLines.forEach { line ->
+            Text(line, style = MaterialTheme.typography.bodyMedium)
+        }
         job.etaAt?.let {
             Text(
                 "ETA $it (${job.etaSeconds ?: "?"}s)",
@@ -551,7 +651,6 @@ fun JobDetailScreen(
         val mapLat = tracking.lastLat ?: job.dropoffLat
         val mapLng = tracking.lastLng ?: job.dropoffLng
         val hasCoords = mapLat != null && mapLng != null
-        // MapLibre = courier map SoR. Google DeliveryRouteMap only when flag OFF or coords missing.
         val showMapLibre = state.mapLibreEnabled && hasCoords
         Box(
             modifier = Modifier
@@ -565,6 +664,8 @@ fun JobDetailScreen(
                     latitude = mapLat!!,
                     longitude = mapLng!!,
                     zoom = 14.0,
+                    stops = detailStops,
+                    driver = driverPos,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -596,101 +697,134 @@ fun JobDetailScreen(
             enabled = !state.routeBusy,
         )
 
-        ShopSectionHeader(title = "GPS tracking", actionLabel = null)
-        if (tracking.tracking && tracking.trackingJobId == job.id) {
-            Text(
-                "GPS on · ingested ${tracking.ingestCount} · queued ${tracking.queuedCount}",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            tracking.lastLatLng?.let {
-                Text("Last: $it", style = MaterialTheme.typography.bodySmall)
+        if (active) {
+            ShopSectionHeader(title = "GPS tracking", actionLabel = null)
+            if (tracking.tracking && tracking.trackingJobId == job.id) {
+                Text(
+                    "GPS on · ingested ${tracking.ingestCount} · queued ${tracking.queuedCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                tracking.lastLatLng?.let {
+                    Text("Last: $it", style = MaterialTheme.typography.bodySmall)
+                }
+                ShopSecondaryButton(label = "Stop GPS tracking", onClick = trackingVm::stopTracking)
+            } else {
+                ShopPrimaryButton(
+                    label = "Start always-on GPS (FGS)",
+                    onClick = {
+                        trackingVm.startTracking(job.id)
+                        if (state.presence != DriverPresenceStatus.ON_DUTY) {
+                            vm.setPresence(DriverPresenceStatus.ON_DUTY)
+                        }
+                    },
+                )
             }
-            ShopSecondaryButton(label = "Stop GPS tracking", onClick = trackingVm::stopTracking)
-        } else {
-            ShopPrimaryButton(
-                label = "Start always-on GPS (FGS)",
-                onClick = {
-                    trackingVm.startTracking(job.id)
-                    if (state.presence != DriverPresenceStatus.ON_DUTY) {
-                        vm.setPresence(DriverPresenceStatus.ON_DUTY)
-                    }
-                },
-                enabled = job.status == "dispatched" || job.status == "pending",
-            )
-        }
 
-        ShopSecondaryButton(
-            label = "Check geofence suggestion",
-            onClick = vm::checkGeofence,
-            enabled = !state.busy,
-        )
-        state.geofence?.let { g ->
-            ShopSectionHeader(title = "Geofence", actionLabel = null)
-            Text(
-                "Distance ${g.distanceM?.let { "%.0fm".format(it) } ?: "?"} — " +
-                    "suggest arrive=${g.suggestArrive}, complete=${g.suggestComplete}",
-                style = MaterialTheme.typography.bodySmall,
+            ShopSecondaryButton(
+                label = "Check geofence suggestion",
+                onClick = vm::checkGeofence,
+                enabled = !state.busy,
             )
-            if (g.suggestArrive) {
-                ShopSecondaryButton(label = "Confirm arrive", onClick = vm::markArrived)
+            state.geofence?.let { g ->
+                ShopSectionHeader(title = "Geofence", actionLabel = null)
+                Text(
+                    "Distance ${g.distanceM?.let { "%.0fm".format(it) } ?: "?"} — " +
+                        "suggest arrive=${g.suggestArrive}, complete=${g.suggestComplete}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (g.suggestArrive) {
+                    ShopSecondaryButton(label = "Confirm arrive", onClick = vm::markArrived)
+                }
+                if (g.suggestComplete) {
+                    ShopSecondaryButton(
+                        label = "Acknowledge → Complete job",
+                        onClick = {
+                            vm.acknowledgeCompleteSuggestion()
+                            completeOpen = true
+                        },
+                    )
+                }
             }
-            if (g.suggestComplete) {
+
+            ShopSectionHeader(title = "Complete delivery", actionLabel = null)
+            Text(
+                "Job stays Active until the customer signs. Complete opens the signature pad " +
+                    "(photo + OTP still required for ERP POD).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!completeOpen) {
+                ShopPrimaryButton(
+                    label = "Complete job",
+                    onClick = { completeOpen = true },
+                    enabled = JobStatusGate.canOpenCompleteFlow(job),
+                )
+            } else {
+                PodSection(
+                    rpc = rpc,
+                    camera = camera,
+                    signature = signature,
+                    jobId = job.id,
+                    onCompleted = {
+                        vm.refresh()
+                        trackingVm.stopTracking()
+                        vm.selectJob(null)
+                    },
+                )
                 ShopSecondaryButton(
-                    label = "Acknowledge → POD",
-                    onClick = vm::acknowledgeCompleteSuggestion,
+                    label = "Hide POD",
+                    onClick = { completeOpen = false },
                 )
             }
-        }
 
-        if (job.status != "completed" && job.status != "failed") {
-            PodSection(
-                rpc = rpc,
-                camera = camera,
-                signature = signature,
-                jobId = job.id,
-                onCompleted = {
-                    vm.refresh()
-                    trackingVm.stopTracking()
-                    vm.selectJob(null)
-                },
+            ShopSectionHeader(title = "Mark failed", actionLabel = null)
+            DeliveryFailureReason.entries.forEach { reason ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { vm.onFailReason(reason) },
+                ) {
+                    Checkbox(
+                        checked = state.failReason == reason,
+                        onCheckedChange = { vm.onFailReason(reason) },
+                    )
+                    Text(reason.rpcValue)
+                }
+            }
+            OutlinedTextField(
+                value = state.failNotes,
+                onValueChange = vm::onFailNotes,
+                label = { Text("Fail notes") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.small,
             )
-        }
-
-        ShopSectionHeader(title = "Delivery outcome", actionLabel = null)
-        DeliveryFailureReason.entries.forEach { reason ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { vm.onFailReason(reason) },
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
-                    checked = state.failReason == reason,
-                    onCheckedChange = { vm.onFailReason(reason) },
+                    checked = state.createReattempt,
+                    onCheckedChange = vm::onCreateReattempt,
                 )
-                Text(reason.rpcValue)
+                Text("Create reattempt job")
+            }
+            ShopPrimaryButton(
+                label = "Mark job Failed",
+                onClick = vm::failSelectedJob,
+                enabled = !state.busy && JobStatusGate.canMarkFailed(job),
+            )
+            ShopDangerButton(label = "PANIC", onClick = vm::raisePanic)
+        } else {
+            Text(
+                JobStatusGate.TERMINAL_READONLY,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (job.failureReasonCode != null) {
+                Text(
+                    "Failure: ${job.failureReasonCode}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
         }
-        OutlinedTextField(
-            value = state.failNotes,
-            onValueChange = vm::onFailNotes,
-            label = { Text("Fail notes") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.small,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = state.createReattempt,
-                onCheckedChange = vm::onCreateReattempt,
-            )
-            Text("Create reattempt job")
-        }
-        ShopPrimaryButton(
-            label = "Fail delivery",
-            onClick = vm::failSelectedJob,
-            enabled = !state.busy && job.status != "completed" && job.status != "failed",
-        )
-        ShopDangerButton(label = "PANIC", onClick = vm::raisePanic)
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
