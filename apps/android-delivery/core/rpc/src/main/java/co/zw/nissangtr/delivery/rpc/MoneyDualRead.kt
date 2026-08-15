@@ -107,3 +107,33 @@ fun DeliveryJobSettlement.formatAmountDueLabel(): String? {
     if (due <= 0.0) return null
     return "COD ${currency.rpcValue} %.2f".format(due)
 }
+
+/** H4 dual-read: line total for a DN/invoice receipt row. */
+fun DeliveryJobLineItem.displayLineTotal(): Double? {
+    if (lineTotalMinor == null && lineTotal == null) return null
+    return MoneyDualRead.displayMajorFromDual(lineTotalMinor, lineTotal, currency)
+}
+
+/** One receipt row: `2 × OEM — description · USD 12.50` (amount omitted when unknown). */
+fun DeliveryJobLineItem.formatReceiptRow(): String {
+    val qtyLabel = if (qty == qty.toLong().toDouble()) {
+        qty.toLong().toString()
+    } else {
+        "%.3f".format(qty).trimEnd('0').trimEnd('.')
+    }
+    val title = buildString {
+        oemPartNumber?.takeIf { it.isNotBlank() }?.let { append(it) }
+        description?.takeIf { it.isNotBlank() }?.let {
+            if (isNotEmpty()) append(" — ")
+            append(it)
+        }
+        if (isEmpty()) append("Line item")
+        if (isCoreCharge) append(" (core)")
+    }
+    val amount = displayLineTotal()?.let { "${currency.rpcValue} %.2f".format(it) }
+    return if (amount != null) {
+        "$qtyLabel × $title · $amount"
+    } else {
+        "$qtyLabel × $title"
+    }
+}

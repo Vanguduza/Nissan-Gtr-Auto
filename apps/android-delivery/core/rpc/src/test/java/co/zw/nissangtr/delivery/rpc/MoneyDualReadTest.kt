@@ -3,6 +3,7 @@ package co.zw.nissangtr.delivery.rpc
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** H4 / B-MONEY-1 — delivery COD/settlement dual-read helpers. */
@@ -135,5 +136,22 @@ class MoneyDualReadTest {
         assertNull(settlement.displayAmountPaid())
         assertNull(settlement.displayAmountDue())
         assertNull(settlement.formatAmountDueLabel())
+    }
+
+    @Test
+    fun lineItem_formatReceiptRow_includes_qty_oem_amount() {
+        val line = DeliveryJobLineItem(
+            lineId = "l1",
+            qty = 2.0,
+            oemPartNumber = "40206-EG000",
+            description = "Brake pads",
+            currency = CurrencyCode.USD,
+            lineTotalMinor = 3000L,
+        )
+        val row = line.formatReceiptRow()
+        assertTrue(row.startsWith("2 ×"))
+        assertTrue(row.contains("40206-EG000"))
+        assertTrue(row.contains("Brake pads"))
+        assertTrue(row.contains("USD 30.00"))
     }
 }

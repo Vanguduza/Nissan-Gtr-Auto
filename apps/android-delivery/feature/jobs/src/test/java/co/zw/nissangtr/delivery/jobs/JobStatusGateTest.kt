@@ -1,6 +1,7 @@
 package co.zw.nissangtr.delivery.jobs
 
 import co.zw.nissangtr.delivery.rpc.CurrencyCode
+import co.zw.nissangtr.delivery.rpc.DeliveryJobLineItem
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSettlement
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.FakeRpcClient
@@ -74,13 +75,39 @@ class JobStatusGateTest {
 
     @Test
     fun receiptAndAddressLinesPresent() {
-        val j = job("pending")
-        val receipt = JobStatusGate.receiptCopyLines(j)
-        assertTrue(receipt.any { it.contains("DJ-1") })
-        assertTrue(receipt.any { it.contains("Amount due") })
+        val j = job("pending").copy(
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "l1",
+                    qty = 2.0,
+                    oemPartNumber = "40206-EG000",
+                    description = "Brake pads",
+                    currency = CurrencyCode.USD,
+                    lineTotalMinor = 3000L,
+                ),
+            ),
+        )
+        val header = JobStatusGate.receiptHeaderLines(j)
+        assertTrue(header.any { it.contains("DJ-1") })
+        assertTrue(header.any { it.contains("Amount due") })
+        assertFalse(header.any { it.startsWith("Notes:") })
+        val items = JobStatusGate.receiptItemLines(j)
+        assertTrue(items.any { it.contains("40206-EG000") })
+        assertTrue(items.any { it.contains("2 ×") })
+        assertTrue(items.any { it.contains("USD 30.00") })
+        assertEquals("Gate 1", JobStatusGate.receiptNotes(j))
         val address = JobStatusGate.deliveryAddressLines(j)
         assertTrue(address.any { it.contains("12 Test St") })
         assertTrue(address.any { it.contains("-17.82") })
+    }
+
+    @Test
+    fun receiptItemsEmptyWhenNoLines() {
+        val j = job("pending", notes = null)
+        val items = JobStatusGate.receiptItemLines(j)
+        assertEquals(1, items.size)
+        assertTrue(items[0].contains("No line items"))
+        assertNull(JobStatusGate.receiptNotes(j))
     }
 
     @Test

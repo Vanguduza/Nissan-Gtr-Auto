@@ -34,6 +34,7 @@ ADR: [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decision
 
 | Feature | RPC / path |
 |---------|------------|
+| Auth | GoTrue **email + password** only (role gate: `driver` \| `admin`). No Google/Apple on this app. Password reset: web `/forgot-password` (same Edge as storefront). |
 | Presence | `set_driver_presence` |
 | Job list | PostgREST `delivery_jobs` (assignee = me) |
 | GPS ingest | `ingest_delivery_location` (≥5s client throttle) |
@@ -95,7 +96,7 @@ cd apps/android-delivery
 
 1. Sign in as staff with role **`driver`** (Fake mode: Continue without signing in; Sign out returns to gate).
 2. Home → **My jobs** (Active / Done / Failed tabs). Tap any row → job detail.
-3. Job detail shows **Receipt copy** + **Delivery address**; Done/Failed are read-only for complete.
+3. Job detail shows **Receipt copy** banners (document + **items bought** + white **notes**) and **Delivery address**; Done/Failed are read-only for complete.
 4. Set presence (`available` / `on_duty` / `break` / `offline`) on Me tab.
 5. **Route** tab → MapLibre live map with delivery pins + driver GPS (Start live GPS / On duty).
 6. Active job → **Complete job** → existing POD (CameraX photo + touch signature + OTP) → Storage `delivery-pods` + `submit_delivery_pod` (Active→Done). Stays Active until signature.

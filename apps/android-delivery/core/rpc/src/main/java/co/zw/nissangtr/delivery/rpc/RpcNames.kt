@@ -20,6 +20,9 @@ object RpcNames {
     /** Driver/admin COD snapshot — SECURITY DEFINER (no sales_invoices SELECT for drivers). */
     const val GET_DELIVERY_JOB_SETTLEMENT = "get_delivery_job_settlement"
 
+    /** Driver/admin DN/invoice line items for receipt copy — SECURITY DEFINER. */
+    const val GET_DELIVERY_JOB_LINES = "get_delivery_job_lines"
+
     /** Storage bucket for POD photo / signature object keys. */
     const val DELIVERY_PODS_BUCKET = "delivery-pods"
 }

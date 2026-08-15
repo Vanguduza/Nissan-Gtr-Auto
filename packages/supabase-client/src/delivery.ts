@@ -35,6 +35,7 @@ export const DELIVERY_RPC = {
   raisePanic: "raise_delivery_panic",
   optimizeStops: "optimize_driver_stops",
   getJobSettlement: "get_delivery_job_settlement",
+  getJobLines: "get_delivery_job_lines",
 } as const;
 
 /** Result of `update_delivery_job_status` — track_token only on dispatch. */

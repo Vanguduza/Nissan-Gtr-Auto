@@ -96,7 +96,8 @@ class SupabaseRpcClient(
             .decodeList<DeliveryJobRow>()
             .map { row ->
                 val settlement = runCatching { fetchSettlement(row.id) }.getOrNull()
-                row.toSummary(settlement)
+                val lines = runCatching { fetchLines(row.id) }.getOrElse { emptyList() }
+                row.toSummary(settlement, lines)
             }
     }
 
@@ -111,7 +112,8 @@ class SupabaseRpcClient(
             .firstOrNull()
             ?: return null
         val settlement = runCatching { fetchSettlement(row.id) }.getOrNull()
-        return row.toSummary(settlement)
+        val lines = runCatching { fetchLines(row.id) }.getOrElse { emptyList() }
+        return row.toSummary(settlement, lines)
     }
 
     private suspend fun fetchSettlement(jobId: String): DeliveryJobSettlement? {
@@ -131,6 +133,30 @@ class SupabaseRpcClient(
             amountDue = row.amountDue,
             amountDueMinor = row.amountDueMinor,
         )
+    }
+
+    private suspend fun fetchLines(jobId: String): List<DeliveryJobLineItem> {
+        val rows = client.postgrest.rpc(
+            RpcNames.GET_DELIVERY_JOB_LINES,
+            buildJsonObject { put("p_delivery_job_id", jobId) },
+        ).decodeList<JobLineRow>()
+        return rows.map { row ->
+            val currency = CurrencyCode.entries.find {
+                it.rpcValue.equals(row.currency, ignoreCase = true)
+            } ?: CurrencyCode.USD
+            DeliveryJobLineItem(
+                lineId = row.lineId ?: "",
+                qty = row.qty ?: 0.0,
+                oemPartNumber = row.oemPartNumber,
+                description = row.description,
+                currency = currency,
+                unitPrice = row.unitPrice,
+                lineTotal = row.lineTotal,
+                unitPriceMinor = row.unitPriceMinor,
+                lineTotalMinor = row.lineTotalMinor,
+                isCoreCharge = row.isCoreCharge ?: false,
+            )
+        }
     }
 
     override suspend fun setDriverPresence(
@@ -442,7 +468,10 @@ private data class DeliveryJobRow(
     @SerialName("pod_signature_path") val podSignaturePath: String? = null,
     @SerialName("assignee_user_id") val assigneeUserId: String? = null,
 ) {
-    fun toSummary(settlement: DeliveryJobSettlement? = null) = DeliveryJobSummary(
+    fun toSummary(
+        settlement: DeliveryJobSettlement? = null,
+        lineItems: List<DeliveryJobLineItem> = emptyList(),
+    ) = DeliveryJobSummary(
         id = id,
         deliveryNoteId = deliveryNoteId,
         documentNumber = documentNumber,
@@ -459,6 +488,7 @@ private data class DeliveryJobRow(
         podSignaturePath = podSignaturePath,
         assigneeUserId = assigneeUserId,
         settlement = settlement,
+        lineItems = lineItems,
     )
 }
 
@@ -472,6 +502,21 @@ private data class SettlementRow(
     @SerialName("invoice_total_minor") val invoiceTotalMinor: Long? = null,
     @SerialName("amount_paid_minor") val amountPaidMinor: Long? = null,
     @SerialName("amount_due_minor") val amountDueMinor: Long? = null,
+)
+
+@Serializable
+private data class JobLineRow(
+    @SerialName("delivery_job_id") val deliveryJobId: String? = null,
+    @SerialName("line_id") val lineId: String? = null,
+    val qty: Double? = null,
+    @SerialName("oem_part_number") val oemPartNumber: String? = null,
+    val description: String? = null,
+    val currency: String = "USD",
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    @SerialName("line_total") val lineTotal: Double? = null,
+    @SerialName("unit_price_minor") val unitPriceMinor: Long? = null,
+    @SerialName("line_total_minor") val lineTotalMinor: Long? = null,
+    @SerialName("is_core_charge") val isCoreCharge: Boolean? = null,
 )
 
 @Serializable

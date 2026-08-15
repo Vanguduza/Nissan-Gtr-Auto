@@ -57,6 +57,23 @@ data class DeliveryJobSettlement(
     val amountDueMinor: Long? = null,
 )
 
+/**
+ * One DN / invoice sell line for receipt copy (driver-scoped DEFINER).
+ * Prefer `*_minor` when present; never invent amounts.
+ */
+data class DeliveryJobLineItem(
+    val lineId: String,
+    val qty: Double,
+    val oemPartNumber: String?,
+    val description: String?,
+    val currency: CurrencyCode = CurrencyCode.USD,
+    val unitPrice: Double? = null,
+    val lineTotal: Double? = null,
+    val unitPriceMinor: Long? = null,
+    val lineTotalMinor: Long? = null,
+    val isCoreCharge: Boolean = false,
+)
+
 data class DeliveryJobSummary(
     val id: String,
     val deliveryNoteId: String,
@@ -80,6 +97,8 @@ data class DeliveryJobSummary(
      * until a driver-scoped address RPC exists — UI falls back to lat/lng + notes).
      */
     val dropoffAddressText: String? = null,
+    /** DN/invoice lines for receipt banner (Fake seeds; Live via get_delivery_job_lines). */
+    val lineItems: List<DeliveryJobLineItem> = emptyList(),
 )
 
 data class GeofenceSuggestion(

@@ -25,6 +25,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -581,7 +582,9 @@ fun JobDetailScreen(
             addAll(otherStops)
         }
     }
-    val receiptLines = remember(job) { JobStatusGate.receiptCopyLines(job) }
+    val receiptHeader = remember(job) { JobStatusGate.receiptHeaderLines(job) }
+    val receiptItems = remember(job) { JobStatusGate.receiptItemLines(job) }
+    val receiptNotes = remember(job) { JobStatusGate.receiptNotes(job) }
     val addressLines = remember(job) { JobStatusGate.deliveryAddressLines(job) }
 
     LaunchedEffect(job.id, tracking.lastLat, tracking.lastLng, state.mapsKeyPresent) {
@@ -618,8 +621,24 @@ fun JobDetailScreen(
         }
 
         ShopSectionHeader(title = "Receipt copy", actionLabel = null)
-        receiptLines.forEach { line ->
-            Text(line, style = MaterialTheme.typography.bodyMedium)
+        ReceiptBanner(
+            title = "Document",
+            lines = receiptHeader,
+            background = GtrColors.Mist,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        ReceiptBanner(
+            title = "Items bought",
+            lines = receiptItems,
+            background = GtrColors.Mist,
+        )
+        receiptNotes?.let { notes ->
+            Spacer(modifier = Modifier.height(8.dp))
+            ReceiptBanner(
+                title = "Notes",
+                lines = listOf(notes),
+                background = GtrColors.White,
+            )
         }
 
         ShopSectionHeader(title = "Delivery address", actionLabel = null)
@@ -817,6 +836,38 @@ fun JobDetailScreen(
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         tracking.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         tracking.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
+@Composable
+private fun ReceiptBanner(
+    title: String,
+    lines: List<String>,
+    background: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.small),
+        color = background,
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                color = GtrColors.Steel,
+            )
+            lines.forEach { line ->
+                Text(line, style = MaterialTheme.typography.bodyMedium, color = GtrColors.Steel)
+            }
+        }
     }
 }
 

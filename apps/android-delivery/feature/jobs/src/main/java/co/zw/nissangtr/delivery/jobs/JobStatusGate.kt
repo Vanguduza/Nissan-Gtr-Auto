@@ -2,6 +2,7 @@ package co.zw.nissangtr.delivery.jobs
 
 import co.zw.nissangtr.delivery.rpc.DeliveryJobStatus
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
+import co.zw.nissangtr.delivery.rpc.formatReceiptRow
 
 /**
  * Product rules: jobs stay Active until customer signature is captured via POD.
@@ -43,8 +44,11 @@ object JobStatusGate {
         podSignaturePath: String?,
     ): Boolean = blockingReasonForComplete(status, podSignaturePath) == null
 
-    /** Receipt copy lines for job detail (tax-agnostic — no ZIMRA). */
-    fun receiptCopyLines(job: DeliveryJobSummary): List<String> {
+    /**
+     * Receipt header lines (doc / DN / settlement totals / POD).
+     * Notes and bought items are separate banners — not folded into this list.
+     */
+    fun receiptHeaderLines(job: DeliveryJobSummary): List<String> {
         val lines = mutableListOf<String>()
         lines += "Doc ${job.documentNumber ?: job.id.take(8)}"
         lines += "Delivery note ${job.deliveryNoteId.take(8)}…"
@@ -68,8 +72,31 @@ object JobStatusGate {
             }
             if (paid != null) lines += "Paid $paid"
         }
-        job.notes?.takeIf { it.isNotBlank() }?.let { lines += "Notes: $it" }
         if (job.podSignaturePath != null) lines += "Signed (POD on file)"
+        return lines
+    }
+
+    /** Bought items for the items banner (qty × OEM/description · amount). */
+    fun receiptItemLines(job: DeliveryJobSummary): List<String> {
+        if (job.lineItems.isEmpty()) {
+            return listOf("No line items on delivery note")
+        }
+        return job.lineItems.map { it.formatReceiptRow() }
+    }
+
+    /** Driver / dispatch notes for the white notes banner (null when blank). */
+    fun receiptNotes(job: DeliveryJobSummary): String? =
+        job.notes?.takeIf { it.isNotBlank() }
+
+    /**
+     * Legacy flat receipt copy (header + items + notes) — prefer banner helpers
+     * for UI. Kept for callers that still expect a single list.
+     */
+    fun receiptCopyLines(job: DeliveryJobSummary): List<String> {
+        val lines = mutableListOf<String>()
+        lines += receiptHeaderLines(job)
+        lines += receiptItemLines(job)
+        receiptNotes(job)?.let { lines += "Notes: $it" }
         return lines
     }
 
@@ -80,6 +107,7 @@ object JobStatusGate {
         if (job.dropoffLat != null && job.dropoffLng != null) {
             lines += "%.5f, %.5f".format(job.dropoffLat, job.dropoffLng)
         }
+        // Prefer dedicated notes banner on detail; only fall back here when no address text.
         job.notes?.takeIf { it.isNotBlank() && job.dropoffAddressText.isNullOrBlank() }?.let {
             lines += it
         }

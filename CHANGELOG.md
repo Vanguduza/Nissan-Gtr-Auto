@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-15
 
+### Changed
+
+- **Android delivery receipt copy:** Job detail no longer shows invoice/doc number alone — **Items bought** banner lists DN/invoice lines (qty × OEM/description · amount via `get_delivery_job_lines`); **Notes** sit in a separate **white** banner. Fake seeds + Live RPC wired. Migration `20260815210000_delivery_job_lines_driver_rpc.sql`.
+
 ### Added
 
 - **Android delivery job detail + route map:** Job list (Active/Done/Failed) opens detail with receipt copy + delivery address; **Complete job** reveals existing Bridge-First POD signature pad → `submit_delivery_pod` (Active→Done); **Mark job Failed** → `fail_delivery_job`. Jobs stay Active until signature (`JobStatusGate`). Route tab MapLibre multi-pin (dropoffs + live driver via FGS). Fake GoTrue skip + sign-out toggle. Tests: `JobStatusGateTest`, `FakeJobStatusTransitionTest`.

@@ -36,6 +36,26 @@ class FakeRpcClient : RpcClient {
                 amountDueMinor = 4550L,
             ),
             dropoffAddressText = "12 Samora Machel Ave, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-1a",
+                    qty = 2.0,
+                    oemPartNumber = "40206-EG000",
+                    description = "Front brake pad set",
+                    currency = CurrencyCode.USD,
+                    unitPriceMinor = 1500L,
+                    lineTotalMinor = 3000L,
+                ),
+                DeliveryJobLineItem(
+                    lineId = "line-seed-1b",
+                    qty = 1.0,
+                    oemPartNumber = "15208-65F0A",
+                    description = "Oil filter",
+                    currency = CurrencyCode.USD,
+                    unitPriceMinor = 1550L,
+                    lineTotalMinor = 1550L,
+                ),
+            ),
         ),
         DeliveryJobSummary(
             id = JOB_2,
@@ -55,6 +75,15 @@ class FakeRpcClient : RpcClient {
             assigneeUserId = FAKE_DRIVER_USER_ID,
             settlement = null,
             dropoffAddressText = "45 Borrowdale Rd, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-2a",
+                    qty = 1.0,
+                    oemPartNumber = "16546-EA000",
+                    description = "Air filter element",
+                    currency = CurrencyCode.USD,
+                ),
+            ),
         ),
         DeliveryJobSummary(
             id = JOB_DONE,
@@ -79,6 +108,16 @@ class FakeRpcClient : RpcClient {
                 amountDueMinor = 0L,
             ),
             dropoffAddressText = "8 Leopold Takawira St, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-done",
+                    qty = 4.0,
+                    oemPartNumber = "B4551-JD00A",
+                    description = "Wiper blade",
+                    currency = CurrencyCode.USD,
+                    lineTotalMinor = 1200L,
+                ),
+            ),
         ),
         DeliveryJobSummary(
             id = JOB_FAILED,
@@ -98,6 +137,7 @@ class FakeRpcClient : RpcClient {
             assigneeUserId = FAKE_DRIVER_USER_ID,
             settlement = null,
             dropoffAddressText = "22 Enterprise Rd, Harare",
+            lineItems = emptyList(),
         ),
     )
 
