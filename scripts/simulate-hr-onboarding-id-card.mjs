@@ -1,14 +1,17 @@
 /**
  * Simulate HR onboarding completion for a sample driver and render the
  * real CR80 ID card HTML from @gtr/documents (same layout tokens as Edge PDF).
+ * Front + back faces; embeds repo brand logo + employee QR SVG data URL.
  *
  * Usage (repo root):
+ *   pnpm preview:hr-id-card
  *   node --experimental-strip-types scripts/simulate-hr-onboarding-id-card.mjs
  *
  * Output:
  *   docs/previews/hr-onboarding-id-card-driver.html
+ *   docs/previews/hr-onboarding-id-card-driver.json
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -17,6 +20,7 @@ const root = join(__dirname, "..");
 const docsPkg = join(root, "packages", "documents", "src", "index.ts");
 
 const {
+  buildEmployeeQrPayload,
   buildIdCardPayload,
   formatStaffRoleLabel,
   renderIdCardHtml,
@@ -34,13 +38,30 @@ const simulated = {
     "Simulated: payload.staff_role=driver → apply_hr_onboarding_staff_role on auth link",
 };
 
+const verifyUrl =
+  `https://nissangtrauto.co.zw/staff/verify/${simulated.employee_id}`;
+const qrPayload = buildEmployeeQrPayload({
+  employeeCode: simulated.employee_code,
+  verifyUrl,
+});
+
+let logoDataUrl = null;
+const logoPath = join(root, "apps", "web", "public", "brand", "logo.png");
+try {
+  const bytes = readFileSync(logoPath);
+  logoDataUrl = `data:image/png;base64,${bytes.toString("base64")}`;
+} catch {
+  console.warn("Logo not found at", logoPath, "— using GTR wordmark fallback");
+}
+
 const payload = buildIdCardPayload({
   storeName: "Nissan GTR Auto",
   fullName: simulated.full_name,
   roleTitle: simulated.role_title,
   staffRole: simulated.staff_role,
   employeeCode: simulated.employee_code,
-  verifyUrl: `https://nissangtrauto.co.zw/staff/verify/${simulated.employee_id}`,
+  verifyUrl,
+  logoDataUrl,
 });
 
 const html = renderIdCardHtml(payload);
@@ -56,6 +77,10 @@ writeFileSync(
     {
       ...simulated,
       staff_role_label: formatStaffRoleLabel(simulated.staff_role),
+      verify_url: verifyUrl,
+      qr_payload: qrPayload,
+      faces: ["front", "back"],
+      logo: logoDataUrl ? "apps/web/public/brand/logo.png" : null,
       preview: "docs/previews/hr-onboarding-id-card-driver.html",
       card_mm: { width: 85.6, height: 54 },
       fiscal_qr: false,
@@ -68,4 +93,5 @@ writeFileSync(
 
 console.log("Wrote", outPath);
 console.log("Staff role on card:", formatStaffRoleLabel(simulated.staff_role));
+console.log("QR payload:", qrPayload);
 console.log("Open file:///" + outPath.replace(/\\/g, "/"));

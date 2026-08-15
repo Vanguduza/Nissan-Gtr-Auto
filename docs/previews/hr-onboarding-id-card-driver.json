@@ -7,6 +7,13 @@
   "email": "tariro.driver@gtr.local",
   "message": "Simulated: payload.staff_role=driver → apply_hr_onboarding_staff_role on auth link",
   "staff_role_label": "Driver",
+  "verify_url": "https://nissangtrauto.co.zw/staff/verify/00000000-0000-4000-8000-sim000000001",
+  "qr_payload": "https://nissangtrauto.co.zw/staff/verify/00000000-0000-4000-8000-sim000000001",
+  "faces": [
+    "front",
+    "back"
+  ],
+  "logo": "apps/web/public/brand/logo.png",
   "preview": "docs/previews/hr-onboarding-id-card-driver.html",
   "card_mm": {
     "width": 85.6,

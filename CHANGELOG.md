@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — 2026-08-16
+
+### Changed
+
+- **HR ID card redesign (front + back):** CR80 card uses GTR steel/chalk/primary accents. **Front** — photo left, logo right, name / position·staff role / employee # centered. **Back** — employee QR (`…/staff/verify/{token}` preferred, else `gtr://employee/{code}`; Bridge-scanned, no fiscal). Sources: `@gtr/documents` (`renderIdCardHtml`, `buildEmployeeQrPayload`), Edge `branded_docs_pdf` (2-page PDF), preview `pnpm preview:hr-id-card` → `docs/previews/hr-onboarding-id-card-driver.html`.
+
 ## Unreleased — 2026-08-15
 
 ### Added

@@ -4,7 +4,7 @@
  *
  * Page sizes (pdf-lib pt via mmToPt in branded_docs_pdf):
  * - statement / payslip: A4
- * - id_card: CR80 85.6×54 mm
+ * - id_card: CR80 85.6×54 mm (front + back / employee QR)
  * - business_card: 90×50 mm
  *
  * POST { kind, ...payload } → application/pdf

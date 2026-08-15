@@ -9,6 +9,7 @@
  * ID CR80 85.6×54 mm · business 90×50 mm · A4 statements/payslips.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from "npm:pdf-lib@1.17.1";
+import { encode as encodeQr } from "npm:uqr@0.1.3";
 
 export type DocCurrency = "USD" | "ZIG" | string;
 
@@ -353,7 +354,7 @@ export async function buildPayslipPdf(
   return doc.save();
 }
 
-/** CR80 ID card — 85.6 × 54 mm. */
+/** CR80 ID card — 85.6 × 54 mm · page 1 front, page 2 back (employee QR). */
 export async function buildIdCardPdf(
   input: BrandedIdCardPdfInput,
 ): Promise<Uint8Array> {
@@ -362,50 +363,68 @@ export async function buildIdCardPdf(
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const page = doc.addPage([w, h]);
 
-  page.drawRectangle({
+  // —— Front ——
+  const front = doc.addPage([w, h]);
+  front.drawRectangle({
     x: 0,
     y: 0,
     width: w,
     height: h,
     color: Brand.chalk,
   });
-  page.drawRectangle({
-    x: 0,
-    y: h - 22,
-    width: w,
-    height: 22,
-    color: Brand.steel,
+  // Mist wash (right) for brand accent without purple/cream defaults.
+  front.drawRectangle({
+    x: w * 0.45,
+    y: 22,
+    width: w * 0.55,
+    height: h - 44,
+    color: Brand.mist,
   });
-  page.drawRectangle({
+  // Primary accent rail (left).
+  front.drawRectangle({
     x: 0,
-    y: h - 3,
-    width: w,
-    height: 3,
+    y: 0,
+    width: 5,
+    height: h,
     color: Brand.primary,
   });
-  page.drawText((input.storeName || "Nissan GTR Auto").slice(0, 28), {
-    x: 8,
-    y: h - 15,
+  // Steel header + red underline.
+  front.drawRectangle({
+    x: 0,
+    y: h - 20,
+    width: w,
+    height: 20,
+    color: Brand.steel,
+  });
+  front.drawRectangle({
+    x: 0,
+    y: h - 21.5,
+    width: w,
+    height: 1.5,
+    color: Brand.primary,
+  });
+  front.drawText((input.storeName || "Nissan GTR Auto").slice(0, 28), {
+    x: 10,
+    y: h - 14,
     size: 8,
     font: fontBold,
     color: Brand.white,
   });
 
-  // Photo placeholder (left) — Bridge upload path; no browser camera here.
-  const photoW = 48;
-  const photoH = 58;
-  const photoX = 8;
-  const photoY = 28;
-  page.drawRectangle({
+  // Photo LEFT — Bridge upload path; no browser camera here.
+  const photoW = 42;
+  const photoH = 52;
+  const photoX = 12;
+  const photoY = 30;
+  front.drawRectangle({
     x: photoX,
     y: photoY,
     width: photoW,
     height: photoH,
-    color: Brand.mist,
+    color: Brand.white,
   });
-  page.drawRectangle({
+  front.drawRectangle({
     x: photoX,
     y: photoY,
     width: photoW,
@@ -413,104 +432,187 @@ export async function buildIdCardPdf(
     borderColor: Brand.silver,
     borderWidth: 0.75,
   });
-  page.drawText("PHOTO", {
-    x: photoX + 10,
+  front.drawText("PHOTO", {
+    x: photoX + 8,
     y: photoY + photoH / 2 - 3,
     size: 6,
-    font,
+    font: fontBold,
     color: Brand.muted,
   });
 
-  const textX = photoX + photoW + 10;
-  page.drawText(input.fullName.slice(0, 26), {
-    x: textX,
+  // Logo mark RIGHT (opposite photo).
+  const logoSize = 40;
+  const logoX = w - logoSize - 10;
+  const logoY = photoY + (photoH - logoSize) / 2;
+  front.drawRectangle({
+    x: logoX,
+    y: logoY,
+    width: logoSize,
+    height: logoSize,
+    color: Brand.steel,
+  });
+  front.drawRectangle({
+    x: logoX,
+    y: logoY,
+    width: logoSize,
+    height: 2,
+    color: Brand.primary,
+  });
+  front.drawText("GTR", {
+    x: logoX + 9,
+    y: logoY + logoSize / 2 - 4,
+    size: 11,
+    font: fontBold,
+    color: Brand.white,
+  });
+
+  // Centered identity between photo and logo: name · position/staff role · employee #.
+  const midLeft = photoX + photoW;
+  const midRight = logoX;
+  const midCenter = (midLeft + midRight) / 2;
+  const staffRoleRaw = String(input.staffRole ?? "").trim();
+  const staffLabel = staffRoleRaw
+    ? staffRoleRaw
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+    : "";
+  const positionLine = [input.roleTitle, staffLabel].filter(Boolean).join(" · ");
+  const name = input.fullName.slice(0, 28);
+  const nameW = fontBold.widthOfTextAtSize(name, 11);
+  front.drawText(name, {
+    x: midCenter - nameW / 2,
     y: h - 40,
     size: 11,
     font: fontBold,
     color: Brand.steel,
   });
-  page.drawText(input.roleTitle.slice(0, 30), {
-    x: textX,
+  const pos = (positionLine || "Staff").slice(0, 36);
+  const posW = font.widthOfTextAtSize(pos, 7.5);
+  front.drawText(pos, {
+    x: midCenter - posW / 2,
     y: h - 54,
-    size: 8,
+    size: 7.5,
     font,
     color: Brand.muted,
   });
+  const emp = input.employeeCode.slice(0, 16);
+  const empW = fontBold.widthOfTextAtSize(emp, 10);
+  front.drawText(emp, {
+    x: midCenter - empW / 2,
+    y: h - 70,
+    size: 10,
+    font: fontBold,
+    color: Brand.primary,
+  });
 
-  const staffRoleRaw = String(input.staffRole ?? "").trim();
-  if (staffRoleRaw) {
-    const staffLabel = staffRoleRaw
-      .toLowerCase()
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-    const badgeText = staffLabel.slice(0, 14).toUpperCase();
-    const badgeW = Math.min(72, 10 + badgeText.length * 4.2);
-    page.drawRectangle({
-      x: textX,
-      y: h - 72,
-      width: badgeW,
-      height: 11,
-      color: Brand.primary,
-    });
-    page.drawText(badgeText, {
-      x: textX + 3,
-      y: h - 69,
-      size: 6,
-      font: fontBold,
-      color: Brand.white,
-    });
-  }
-
-  // Opaque staff verify mark (not fiscal). Draw a simple square frame when URL present.
-  if (input.verifyUrl) {
-    const qrSize = 36;
-    const qx = w - qrSize - 8;
-    const qy = 30;
-    page.drawRectangle({
-      x: qx,
-      y: qy,
-      width: qrSize,
-      height: qrSize,
-      color: Brand.white,
-      borderColor: Brand.steel,
-      borderWidth: 1,
-    });
-    page.drawText("VERIFY", {
-      x: qx + 5,
-      y: qy + qrSize / 2 - 2,
-      size: 5,
-      font: fontBold,
-      color: Brand.steel,
-    });
-    page.drawText("staff token", {
-      x: qx + 2,
-      y: qy + 4,
-      size: 4,
-      font,
-      color: Brand.muted,
-    });
-  }
-
-  page.drawRectangle({
+  front.drawRectangle({
     x: 0,
     y: 0,
     width: w,
-    height: 22,
-    color: Brand.steelLift,
+    height: 18,
+    color: Brand.steel,
   });
-  page.drawText(input.employeeCode.slice(0, 16), {
-    x: 8,
-    y: 8,
-    size: 9,
-    font: fontBold,
-    color: Brand.white,
-  });
-  page.drawText("85.6×54 mm · no fiscal QR", {
-    x: w - 95,
-    y: 8,
-    size: 5,
+  front.drawText("STAFF ID · no fiscal QR", {
+    x: 10,
+    y: 6,
+    size: 5.5,
     font,
     color: Brand.silver,
+  });
+  front.drawText("85.6×54 mm", {
+    x: w - 52,
+    y: 6,
+    size: 5.5,
+    font,
+    color: Brand.silver,
+  });
+
+  // —— Back (employee QR) ——
+  const back = doc.addPage([w, h]);
+  back.drawRectangle({
+    x: 0,
+    y: 0,
+    width: w,
+    height: h,
+    color: Brand.steel,
+  });
+  back.drawRectangle({
+    x: 0,
+    y: h - 2,
+    width: w,
+    height: 2,
+    color: Brand.primary,
+  });
+  back.drawText("EMPLOYEE QR", {
+    x: w / 2 - 34,
+    y: h - 16,
+    size: 8,
+    font: fontBold,
+    color: Brand.silver,
+  });
+
+  const qrPayload =
+    String(input.verifyUrl ?? "").trim() ||
+    (input.employeeCode
+      ? `gtr://employee/${encodeURIComponent(input.employeeCode.trim())}`
+      : "");
+
+  if (qrPayload) {
+    const qr = encodeQr(qrPayload, { ecc: "M", border: 1 });
+    const qrBox = 92;
+    const module = qrBox / qr.size;
+    const qrX = (w - qrBox) / 2;
+    const qrY = (h - qrBox) / 2 - 4;
+    back.drawRectangle({
+      x: qrX - 4,
+      y: qrY - 4,
+      width: qrBox + 8,
+      height: qrBox + 8,
+      color: Brand.chalk,
+    });
+    for (let r = 0; r < qr.size; r++) {
+      for (let c = 0; c < qr.size; c++) {
+        if (!qr.data[r][c]) continue;
+        back.drawRectangle({
+          x: qrX + c * module,
+          y: qrY + (qr.size - 1 - r) * module,
+          width: module,
+          height: module,
+          color: Brand.steel,
+        });
+      }
+    }
+  } else {
+    back.drawText("NO QR PAYLOAD", {
+      x: w / 2 - 36,
+      y: h / 2,
+      size: 8,
+      font: fontBold,
+      color: Brand.silver,
+    });
+  }
+
+  back.drawRectangle({
+    x: 0,
+    y: 0,
+    width: w,
+    height: 18,
+    color: Brand.steelLift,
+  });
+  back.drawText("Bridge scan", {
+    x: 10,
+    y: 6,
+    size: 5.5,
+    font,
+    color: Brand.silver,
+  });
+  back.drawText(input.employeeCode.slice(0, 16), {
+    x: w / 2 - 20,
+    y: 6,
+    size: 7,
+    font: fontBold,
+    color: Brand.white,
   });
 
   return doc.save();
