@@ -21,7 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.management.auth.AuthGate
-import co.zw.nissangtr.management.pos.PosDualPaneScreen
+import co.zw.nissangtr.management.pos.OpenStandalonePosScreen
 import co.zw.nissangtr.management.rpc.ManagementHomeLanding
 import co.zw.nissangtr.management.rpc.ManagementHomeRoles
 import co.zw.nissangtr.management.rpc.RpcClient
@@ -35,9 +35,8 @@ import co.zw.nissangtr.ui.shop.StaffModuleTile
 import co.zw.nissangtr.ui.theme.GtrTheme
 
 /**
- * Phase 1 OSS shell — CoolMall-inspired modular chrome + inventree-like warehouse entry,
- * painted with GTR brand tokens only. Structures injected via [RpcClient] (Fake/Live Supabase).
- * Prior feature modules live in `apps/android-management-legacy/`.
+ * Phase 1 OSS shell — CoolMall-inspired modular chrome + inventree-like warehouse entry.
+ * Till chrome lives in apps/android-pos; this app deep-links via [OpenStandalonePosScreen].
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,9 +138,10 @@ private fun ManagementShell(
             )
         }
         ShellRoute.Pos -> {
-            PosDualPaneScreen(
-                rpc = rpc,
+            OpenStandalonePosScreen(
                 onBack = { route = ShellRoute.Hub },
+                supabase = rpc as? SupabaseRpcClient,
+                staffDisplayName = email,
             )
         }
         ShellRoute.WarehouseReceive -> {
@@ -186,8 +186,8 @@ private fun RoleHubScreen(
         ShopSectionHeader(title = "Phase 1 modules", actionLabel = null)
         if (posOk) {
             StaffModuleTile(
-                title = "POS",
-                subtitle = "CoolMall-density dual-pane · catalog | cart",
+                title = "Open POS",
+                subtitle = "Standalone till · co.zw.nissangtr.pos",
                 icon = Icons.Filled.PointOfSale,
                 onClick = onOpenPos,
                 modifier = Modifier.fillMaxWidth(),
