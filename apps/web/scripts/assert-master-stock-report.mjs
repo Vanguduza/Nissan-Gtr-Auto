@@ -3,6 +3,12 @@
  * Run: node apps/web/scripts/assert-master-stock-report.mjs
  */
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+
 function masterStockRpcArgs(filters, limit) {
   const q = filters.query?.trim() || undefined;
   const chassis = filters.chassisCode?.trim() || undefined;
@@ -100,6 +106,21 @@ function assert(cond, msg) {
   assert(csv[1][0] === "=CMD", "csv preserves oem for esc layer");
   const sums = sumMasterStockQty(rows);
   assert(sums.total === 11 && sums.wh1 === 5 && sums.wh2 === 6, "qty sums");
+}
+
+// pathAccessFor must match list_master_stock roles (not warehouse-only parent gate)
+{
+  const auth = readFileSync(join(root, "apps/web/lib/staff-auth.ts"), "utf8");
+  assert(
+    auth.includes('path === "/staff/warehouse/master-stock"') ||
+      auth.includes('path.startsWith("/staff/warehouse/master-stock")'),
+    "pathAccessFor must special-case master-stock",
+  );
+  const gateIdx = auth.indexOf('path === "/staff/warehouse/master-stock"');
+  const fallbackIdx = auth.indexOf('path.startsWith("/staff/warehouse")');
+  assert(gateIdx > 0 && gateIdx < fallbackIdx, "master-stock gate before warehouse fallback");
+  const slice = auth.slice(gateIdx, gateIdx + 280);
+  assert(slice.includes('"sales"') && slice.includes('"finance"'), "master-stock roles include sales|finance");
 }
 
 console.log("assert-master-stock-report: OK");

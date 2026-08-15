@@ -14,12 +14,15 @@ import {
   iconStroke,
   LayoutGrid,
 } from "@/components/icons";
-import { filterNavTreeForRoles } from "@/lib/staff-auth";
+import { filterNavTreeForModuleAccess } from "@/lib/staff-auth";
 import styles from "@/components/account.module.css";
 
 export default function StaffHubPage() {
   const ctx = useStaffAuth();
-  const modules = filterNavTreeForRoles(ctx?.roles ?? []).filter(
+  const modules = filterNavTreeForModuleAccess(
+    ctx?.roles ?? [],
+    ctx?.moduleAccess,
+  ).filter(
     (e): e is Extract<typeof e, { kind: "module" }> => e.kind === "module",
   );
 

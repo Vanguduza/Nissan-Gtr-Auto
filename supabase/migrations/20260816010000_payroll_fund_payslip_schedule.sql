@@ -6,28 +6,13 @@
 -- ---------------------------------------------------------------------------
 -- CoA: Salaries Payable
 -- ---------------------------------------------------------------------------
-INSERT INTO public.chart_of_accounts (code, name, account_type) VALUES
-  ('2150', 'Salaries Payable', 'liability')
+INSERT INTO public.chart_of_accounts (code, name, display_name, account_type) VALUES
+  ('2150', 'Salaries Payable', 'Salaries payable (gross payroll)', 'liability')
 ON CONFLICT (code) DO UPDATE
 SET
   name = EXCLUDED.name,
+  display_name = EXCLUDED.display_name,
   account_type = EXCLUDED.account_type;
-
--- Display name if column exists (batch1 CoA)
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'chart_of_accounts'
-      AND column_name = 'display_name'
-  ) THEN
-    UPDATE public.chart_of_accounts
-    SET display_name = COALESCE(display_name, 'Salaries payable (gross payroll)')
-    WHERE code = '2150';
-  END IF;
-END;
-$$;
 
 -- ---------------------------------------------------------------------------
 -- payroll_lines funding columns (immutable money; funding via RPC only)

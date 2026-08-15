@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-16
 
+### Fixed
+
+- **Staff web P0 RBAC consistency:** `/staff/warehouse/master-stock` `pathAccessFor` now allows admin|warehouse|sales|finance (same as `list_master_stock` / nav) so sales/finance are not false-forbidden. Staff hub `/staff` tiles use `filterNavTreeForModuleAccess` like the sidebar. Asserts: `assert-master-stock-report.mjs`, `assert-staff-hub-module-access.mjs`. CoA **2150** upsert forces `display_name` on conflict in payroll fund migration.
+
 ### Added
 
 - **Staff My Account (web):** `/staff/account` for any staff — editable address / email / phone (`update_my_staff_profile` + GoTrue `updateUser` for email); read-only emp#, role/grade, photo path; module-access chips; change-password + sign-out; ID card PDF; own payslip history (`list_my_payslip_history`, all submitted/cancelled lines — not funded-only) with Storage or branded gross PDF download (USD|ZIG). No tax / no role-wage edits. Plan: `docs/plans/2026-08-16-staff-my-account.md`. Migration `20260816020000_staff_my_account.sql`; smoke `staff_my_account_smoke.sql`; assert `node apps/web/scripts/assert-staff-my-account.mjs`.

@@ -524,6 +524,13 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path.startsWith("/staff/warehouse/insights")) {
     return { kind: "roles", roles: ["admin", "warehouse", "finance"] };
   }
+  // Match list_master_stock + STAFF_NAV_TREE (sales/finance may read the report).
+  if (
+    path === "/staff/warehouse/master-stock" ||
+    path.startsWith("/staff/warehouse/master-stock/")
+  ) {
+    return { kind: "roles", roles: ["admin", "warehouse", "sales", "finance"] };
+  }
   if (path.startsWith("/staff/warehouse")) {
     return { kind: "roles", roles: ["admin", "warehouse"] };
   }
