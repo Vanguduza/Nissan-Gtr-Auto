@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- **Staff idle lock survives reload (B-STAFF-1):** Web `/staff` idle lock (3 min) previously reset on full page reload while Supabase `autoRefreshToken` rehydrated the session — UI unlocked without password. Persist `lastActiveAt` + `locked` in `sessionStorage`; boot gate before rendering staff chrome; clear on sign-out / fresh login. Assert: `node apps/web/scripts/assert-staff-idle-lock.mjs`.
 - **Customer vehicle cascade / catalog browse (B-CAT-1):** Android + iOS `VehicleCascade.deriveMaker` now matches web multi-make brand prefixes, regional Nissan WMIs (`MNT`/`SJN`/…), and bare model tokens (`NAVARA`, `X-TRAIL`, …) — Fake seed NAVARA was previously dropped. Raised `vehicle_master` fetch cap 500→2000; Android shop browse oversamples before stock/price gate; chassis `part_fitment` OEM window 200→2000.
 
 ### Added

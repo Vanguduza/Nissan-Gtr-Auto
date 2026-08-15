@@ -23,6 +23,7 @@ import {
   postLoginPath,
   signInWithStaffIdentifier,
 } from "@/lib/staff-auth";
+import { clearStaffIdleLockStorage } from "@/lib/staff-idle-lock-state";
 import styles from "./auth.module.css";
 
 const DEFAULT_COUNTRY_OPTION =
@@ -84,6 +85,8 @@ function LoginForm() {
       setMessage(ctx.error);
       return;
     }
+    // Fresh password sign-in resets idle lock so reload after login is not locked.
+    clearStaffIdleLockStorage();
     const dest = postLoginPath(
       Boolean(ctx.data?.isStaff),
       next,
