@@ -58,6 +58,7 @@ export function StaffHrOnboardingWizard() {
   const [nextOfKin, setNextOfKin] = useState("");
   const [gradeId, setGradeId] = useState("");
   const [hrRoleId, setHrRoleId] = useState("");
+  const [staffRole, setStaffRole] = useState("");
 
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -135,6 +136,7 @@ export function StaffHrOnboardingWizard() {
     setNextOfKin(String(p.next_of_kin ?? ""));
     setGradeId(String(p.grade_id ?? ""));
     setHrRoleId(String(p.hr_role_id ?? ""));
+    setStaffRole(String(p.staff_role ?? ""));
     setPhotoNote(String(p.photo_note ?? ""));
     setPhotoFileName(String(p.photo_file_name ?? "") || null);
     setContractSigned(Boolean(p.contract_signed));
@@ -162,6 +164,7 @@ export function StaffHrOnboardingWizard() {
       next_of_kin: nextOfKin.trim() || null,
       grade_id: gradeId || null,
       hr_role_id: hrRoleId || null,
+      staff_role: staffRole || null,
       photo_note: photoNote.trim() || null,
       photo_file_name: photoFileName,
       contract_signed: contractSigned,
@@ -290,6 +293,7 @@ export function StaffHrOnboardingWizard() {
           user_id: authRes.data.user_id,
           created: authRes.data.created,
           must_change_password: authRes.data.must_change_password,
+          staff_role: authRes.data.staff_role ?? null,
           channels: authRes.data.channels,
         };
       }
@@ -299,10 +303,19 @@ export function StaffHrOnboardingWizard() {
         boot.kind === "ready"
           ? boot.roles.find((r) => r.id === hrRoleId)
           : null;
+      const resolvedStaffRole = String(
+        authSummary?.staff_role ||
+          res.data.staff_role ||
+          staffRole ||
+          role?.default_staff_role ||
+          "",
+      );
+      if (resolvedStaffRole) setStaffRole(resolvedStaffRole);
       const safeCompletion = {
         ...res.data,
         full_name: fullName,
         role_title: role?.title ?? null,
+        staff_role: resolvedStaffRole || null,
         temp_password_hint: undefined,
         auth: authSummary ?? {
           user_id: existingUserId,
@@ -314,8 +327,8 @@ export function StaffHrOnboardingWizard() {
       setCompletion(safeCompletion);
       setMessage(
         existingUserId
-          ? `Completed · emp# ${String(res.data.employee_code ?? "")} · existing user linked.`
-          : `Completed · emp# ${String(res.data.employee_code ?? "")} · auth user created; credentials via outbox (email/SMS/WA).`,
+          ? `Completed · emp# ${String(res.data.employee_code ?? "")} · staff_role ${resolvedStaffRole || "—"} · existing user linked.`
+          : `Completed · emp# ${String(res.data.employee_code ?? "")} · staff_role ${resolvedStaffRole || "—"} · auth user created; credentials via outbox (email/SMS/WA).`,
       );
       await refresh();
     }
@@ -343,6 +356,9 @@ export function StaffHrOnboardingWizard() {
       storeName: "Nissan GTR Auto",
       fullName: String(completion.full_name ?? fullName),
       roleTitle: role?.title ?? String(completion.role_title ?? "Staff"),
+      staffRole: String(
+        completion.staff_role || staffRole || role?.default_staff_role || "",
+      ) || null,
       employeeCode: String(completion.employee_code ?? ""),
       verifyUrl: completion.employee_id
         ? `https://nissangtrauto.co.zw/staff/verify/${String(completion.employee_id)}`
@@ -545,15 +561,43 @@ export function StaffHrOnboardingWizard() {
                 Organogram role
                 <select
                   value={hrRoleId}
-                  onChange={(e) => setHrRoleId(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setHrRoleId(next);
+                    const role = boot.roles.find((r) => r.id === next);
+                    if (role?.default_staff_role && !staffRole) {
+                      setStaffRole(String(role.default_staff_role));
+                    }
+                  }}
                   disabled={busy}
                 >
                   <option value="">Optional</option>
                   {boot.roles.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.title}
+                      {r.default_staff_role
+                        ? ` (${r.default_staff_role})`
+                        : ""}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label className={styles.field}>
+                Staff role (AuthZ)
+                <select
+                  value={staffRole}
+                  onChange={(e) => setStaffRole(e.target.value)}
+                  required
+                  disabled={busy}
+                >
+                  <option value="">Select staff role</option>
+                  <option value="driver">driver</option>
+                  <option value="sales">sales</option>
+                  <option value="warehouse">warehouse</option>
+                  <option value="finance">finance</option>
+                  <option value="dispatcher">dispatcher</option>
+                  <option value="hr">hr</option>
+                  <option value="admin">admin (admin caller only)</option>
                 </select>
               </label>
             </div>

@@ -1,0 +1,16 @@
+{
+  "full_name": "Tariro Moyo",
+  "role_title": "Delivery Driver",
+  "staff_role": "driver",
+  "employee_code": "GTRD1001",
+  "employee_id": "00000000-0000-4000-8000-sim000000001",
+  "email": "tariro.driver@gtr.local",
+  "message": "Simulated: payload.staff_role=driver → apply_hr_onboarding_staff_role on auth link",
+  "staff_role_label": "Driver",
+  "preview": "docs/previews/hr-onboarding-id-card-driver.html",
+  "card_mm": {
+    "width": 85.6,
+    "height": 54
+  },
+  "fiscal_qr": false
+}

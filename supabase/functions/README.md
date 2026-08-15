@@ -148,6 +148,10 @@ Never set `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` on production Edge.
 ## HR onboarding auth create (`hr-onboarding-create-auth`)
 
 After `complete_hr_onboarding` leaves `user_id` null, staff HR/admin invokes this Edge to
+create/link the Auth user, deliver temp credentials via outbox, and (via
+`link_employee_auth_user`) assign the resolved coarse `staff_roles` row
+(`payload.staff_role` → organogram `default_staff_role` → safe heuristic; never auto-admin).
+Response includes `staff_role` for ID card export.
 Admin-create (or link) a GoTrue user, set `must_change_password`, and deliver the temp
 password via `hr_credential_outbox` + existing email / SMS / WhatsApp gateways.
 
@@ -156,7 +160,7 @@ password via `hr_credential_outbox` + existing email / SMS / WhatsApp gateways.
 | Method | `POST /functions/v1/hr-onboarding-create-auth` |
 | JWT | `verify_jwt = true` + `has_staff_role(['admin','hr'])` |
 | Body | `{ "employee_id": "<uuid>" }` |
-| Success | `{ ok, employee_id, user_id, created, must_change_password, channels }` — **no password** |
+| Success | `{ ok, employee_id, user_id, created, must_change_password, staff_role, channels }` — **no password** |
 | Gateways | Same as auth-otp / receipts (`EMAIL_*`, `SMS_GATEWAY_*`, `WHATSAPP_*`); local stub via `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` |
 | Table | `hr_credential_outbox` (RLS: HR/admin SELECT metadata only — **no `body`**; writes via SECURITY DEFINER RPCs) |
 | Locks | `hr_auth_provision_locks` + `claim_hr_auth_provision` / `release_hr_auth_provision` (service_role) |

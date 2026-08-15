@@ -867,6 +867,8 @@ data class HrOnboardingCompleteResult(
     val phoneE164: String?,
     val userId: String?,
     val mustChangePassword: Boolean,
+    /** Coarse staff_roles enum assigned on complete/link (e.g. driver). */
+    val staffRole: String? = null,
     /** Channel delivery status from Edge when auth was created; empty if skipped. */
     val auth: HrOnboardingAuthResult? = null,
     val authError: String? = null,
@@ -884,6 +886,7 @@ data class HrOnboardingAuthResult(
     val userId: String,
     val created: Boolean,
     val mustChangePassword: Boolean,
+    val staffRole: String? = null,
     val channels: List<HrOnboardingAuthChannel> = emptyList(),
 )
 

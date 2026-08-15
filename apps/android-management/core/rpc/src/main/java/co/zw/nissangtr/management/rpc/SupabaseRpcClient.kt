@@ -2320,6 +2320,7 @@ class SupabaseRpcClient(
             phoneE164 = raw.stringOrNull("phone_e164"),
             userId = raw.stringOrNull("user_id"),
             mustChangePassword = raw["must_change_password"]?.jsonPrimitive?.booleanOrNull == true,
+            staffRole = raw.stringOrNull("staff_role"),
             message = raw.stringOrNull("message"),
         )
     }
@@ -2355,6 +2356,7 @@ class SupabaseRpcClient(
             userId = userId,
             created = root["created"]?.jsonPrimitive?.booleanOrNull == true,
             mustChangePassword = root["must_change_password"]?.jsonPrimitive?.booleanOrNull != false,
+            staffRole = root.stringOrNull("staff_role"),
             channels = channels,
         )
     }

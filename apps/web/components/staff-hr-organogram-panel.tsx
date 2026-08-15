@@ -32,6 +32,7 @@ export function StaffHrOrganogramPanel() {
   const [roleParentId, setRoleParentId] = useState("");
   const [roleDept, setRoleDept] = useState("");
   const [moduleAccess, setModuleAccess] = useState("pos,finance,hr");
+  const [defaultStaffRole, setDefaultStaffRole] = useState("");
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -104,6 +105,7 @@ export function StaffHrOrganogramPanel() {
       parentRoleId: roleParentId || null,
       department: roleDept || null,
       moduleAccess: modules,
+      defaultStaffRole: defaultStaffRole || null,
     });
     setBusy(false);
     if (!res.ok) {
@@ -112,6 +114,7 @@ export function StaffHrOrganogramPanel() {
     }
     setRoleTitle("");
     setRoleDept("");
+    setDefaultStaffRole("");
     setMessage(`Role created · ${res.data.slice(0, 8)}…`);
     await refresh();
   }
@@ -210,6 +213,9 @@ export function StaffHrOrganogramPanel() {
               <li key={r.id}>
                 <strong>{r.title}</strong> · {grade}
                 {r.department ? ` · ${r.department}` : ""}
+                {r.default_staff_role
+                  ? ` · staff_role ${r.default_staff_role}`
+                  : ""}
                 {parent ? ` · reports to ${parent.title}` : " · top"}
                 {" · "}
                 <button
@@ -281,6 +287,23 @@ export function StaffHrOrganogramPanel() {
                 placeholder="pos,finance,hr"
                 disabled={busy}
               />
+            </label>
+            <label className={styles.field}>
+              Default staff role
+              <select
+                value={defaultStaffRole}
+                onChange={(e) => setDefaultStaffRole(e.target.value)}
+                disabled={busy}
+              >
+                <option value="">(none — onboarding picks)</option>
+                <option value="driver">driver</option>
+                <option value="sales">sales</option>
+                <option value="warehouse">warehouse</option>
+                <option value="finance">finance</option>
+                <option value="dispatcher">dispatcher</option>
+                <option value="hr">hr</option>
+                <option value="admin">admin</option>
+              </select>
             </label>
           </div>
           <div className={styles.formActions}>

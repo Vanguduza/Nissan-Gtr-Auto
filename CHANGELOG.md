@@ -4,6 +4,8 @@
 
 ### Added
 
+- **HR onboarding → staff_roles:** Completing onboarding resolves a coarse `staff_role` (explicit form field → organogram `hr_roles.default_staff_role` → safe title/module heuristic; never invents `admin`) and assigns it when Auth is linked (`apply_hr_onboarding_staff_role` from `complete_hr_onboarding` / `link_employee_auth_user`). ID card PDF/HTML shows a **Driver**/role badge. Preview: `docs/previews/hr-onboarding-id-card-driver.html` (`pnpm preview:hr-id-card`). Migration `20260815250000_hr_onboarding_staff_role.sql`; smoke `supabase/tests/hr_onboarding_staff_role_smoke.sql`.
+
 - **MapLibre basemap satellite:** `infra/satellites/maptiles/` — Planetiler (Apache-2.0) Zimbabwe MBTiles + tileserver-gl (BSD) profile `maptiles` on port **8081**. Style `http://127.0.0.1:8081/styles/basic-preview/style.json` (emulator `10.0.2.2`; wireless phone → PC LAN IP). Env: `NEXT_PUBLIC_MAP_STYLE_URL` / `MAPLIBRE_STYLE_URL`. Discovery: `docs/plans/2026-08-15-maptiles-satellite.md`. Full ZW prepare (2026-08-15): Geofabrik `zimbabwe-260814.osm.pbf` (~171MB) + simplified water (~23MB) → gitignored `basemap.mbtiles` **~129MB** SHA256 `5FDB57DCE54E31EA7C45D3CDEDE62C6E08D99278AB7B95FBF82B9EFF15F34F0A` — **not** APK-bundled. Defaults: `MAPTILES_WATER=simplified`, `MAPTILES_FORCE=1` → Planetiler `--force`; Windows junction `C:\gtr-maptiles-data` when repo path has spaces. Delivery **debug** defaults style URL to emulator tileserver + cleartext; APK ~63MB unchanged. Smoke: `MAPTILES_SMOKE=1`. Unset release → CARTO / demotiles last resort.
 
 

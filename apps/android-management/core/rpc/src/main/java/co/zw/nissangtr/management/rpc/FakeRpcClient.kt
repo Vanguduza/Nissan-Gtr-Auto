@@ -1952,6 +1952,15 @@ class FakeRpcClient : RpcClient {
         val empId = draft.employeeId ?: UUID.randomUUID().toString()
         val empCode = "GTR${gradeCode}001"
         val userId = draft.payload["user_id"]
+        val staffRole = draft.payload["staff_role"]?.takeIf { it.isNotBlank() }
+            ?: run {
+                val title = draft.payload["role_title"].orEmpty().lowercase()
+                when {
+                    title.contains("driver") || title.contains("delivery") -> "driver"
+                    title.contains("warehouse") -> "warehouse"
+                    else -> "sales"
+                }
+            }
         val now = java.time.Instant.now().toString()
         hrOnboardingDrafts[idx] = draft.copy(
             employeeId = empId,
@@ -1961,6 +1970,7 @@ class FakeRpcClient : RpcClient {
             payload = draft.payload + mapOf(
                 "employee_code" to empCode,
                 "completed" to "true",
+                "staff_role" to staffRole,
             ),
         )
         return HrOnboardingCompleteResult(
@@ -1971,18 +1981,25 @@ class FakeRpcClient : RpcClient {
             phoneE164 = draft.payload["phone_e164"],
             userId = userId,
             mustChangePassword = !userId.isNullOrBlank(),
-            message = "Fake complete — create auth via Edge when user_id absent",
+            staffRole = staffRole,
+            message = "Fake complete — create auth via Edge when user_id absent; staff_role=$staffRole",
         )
     }
 
     override suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult {
         require(employeeId.isNotBlank())
         val userId = UUID.randomUUID().toString()
+        val staffRole = hrOnboardingDrafts
+            .firstOrNull { it.employeeId == employeeId }
+            ?.payload
+            ?.get("staff_role")
+            ?: "sales"
         return HrOnboardingAuthResult(
             employeeId = employeeId,
             userId = userId,
             created = true,
             mustChangePassword = true,
+            staffRole = staffRole,
             channels = listOf(
                 HrOnboardingAuthChannel("email", "stub"),
                 HrOnboardingAuthChannel("sms", "stub"),

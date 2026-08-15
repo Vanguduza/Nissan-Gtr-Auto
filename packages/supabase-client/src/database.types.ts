@@ -3766,6 +3766,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_landing: string | null
+          default_staff_role: Database["public"]["Enums"]["staff_role"] | null
           department: string | null
           duties_md: string | null
           grade_id: string
@@ -3786,6 +3787,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_landing?: string | null
+          default_staff_role?: Database["public"]["Enums"]["staff_role"] | null
           department?: string | null
           duties_md?: string | null
           grade_id: string
@@ -3806,6 +3808,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_landing?: string | null
+          default_staff_role?: Database["public"]["Enums"]["staff_role"] | null
           department?: string | null
           duties_md?: string | null
           grade_id?: string
@@ -9087,6 +9090,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_hr_onboarding_staff_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["staff_role"]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       attach_goods_receipt_invoice: {
         Args: { p_goods_receipt_id: string; p_storage_path: string }
         Returns: string
@@ -9503,6 +9513,7 @@ export type Database = {
         Args: {
           p_clause_template_ids?: string[]
           p_comms_preferences?: Json
+          p_default_staff_role?: Database["public"]["Enums"]["staff_role"]
           p_department?: string
           p_duties_md?: string
           p_grade_id: string
@@ -10578,6 +10589,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      resolve_hr_onboarding_staff_role: {
+        Args: { p_hr_role_id?: string; p_payload: Json }
+        Returns: Database["public"]["Enums"]["staff_role"]
       }
       run_inventory_abc_classification: {
         Args: { p_from: string; p_to: string }

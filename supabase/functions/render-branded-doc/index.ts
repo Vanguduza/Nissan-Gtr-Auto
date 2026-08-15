@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
         storeName: String(body.storeName ?? "Nissan GTR Auto"),
         fullName: String(body.fullName ?? ""),
         roleTitle: String(body.roleTitle ?? ""),
+        staffRole: (body.staffRole as string) ?? null,
         employeeCode: String(body.employeeCode ?? ""),
         verifyUrl: (body.verifyUrl as string) ?? null,
       });
