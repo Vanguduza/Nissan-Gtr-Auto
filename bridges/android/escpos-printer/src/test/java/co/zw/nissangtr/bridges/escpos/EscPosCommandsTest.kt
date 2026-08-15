@@ -1,6 +1,8 @@
 package co.zw.nissangtr.bridges.escpos
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertArrayEquals
 import org.junit.Test
 
 /**
@@ -61,5 +63,42 @@ class EscPosCommandsTest {
         assertTrue(asText.contains("Fast movers"))
         assertTrue(asText.contains("gtr://bin/A-01") || bytes.toString(Charsets.UTF_8).contains("gtr://bin/A-01"))
         assertTrue(bytes[0] == 0x1B.toByte() && bytes[1] == 0x40.toByte())
+    }
+
+    @Test
+    fun cashDrawerPulse_escP_pin2_defaultTiming() {
+        // ESC p m t1 t2 — 50ms → t1=25 (0x19), 200ms → t2=100 (0x64)
+        val bytes = EscPosCommands.cashDrawerPulse()
+        assertEquals(5, bytes.size)
+        assertEquals(0x1B.toByte(), bytes[0])
+        assertEquals(0x70.toByte(), bytes[1])
+        assertEquals(0x00.toByte(), bytes[2]) // PIN_2
+        assertEquals(0x19.toByte(), bytes[3])
+        assertEquals(0x64.toByte(), bytes[4])
+    }
+
+    @Test
+    fun cashDrawerPulse_pin5_customTiming() {
+        val bytes = EscPosCommands.cashDrawerPulse(
+            pin = CashDrawerPin.PIN_5,
+            onTimeMs = 100,
+            offTimeMs = 500,
+        )
+        assertEquals(0x01.toByte(), bytes[2]) // PIN_5
+        assertEquals(0x32.toByte(), bytes[3]) // 100ms / 2
+        assertEquals(0xFA.toByte(), bytes[4]) // 500ms / 2
+    }
+
+    @Test
+    fun cashDrawerPulseDleDc4_realTimeForm() {
+        // DLE DC4 n=1 m t — 10 14 01 m t
+        val bytes = EscPosCommands.cashDrawerPulseDleDc4(
+            pin = CashDrawerPin.PIN_2,
+            onTimeHundredMs = 2,
+        )
+        assertArrayEquals(
+            byteArrayOf(0x10, 0x14, 0x01, 0x00, 0x02),
+            bytes,
+        )
     }
 }

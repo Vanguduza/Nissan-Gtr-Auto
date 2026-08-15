@@ -49,8 +49,26 @@ bridge.printReceiptLines(
     ),
 )
 bridge.printRaw(customEscPosBytes)
+
+// Cash drawer (RJ11 on printer) — ESC p pulse; requires connect()
+bridge.openCashDrawer() // pin 2 default
+// or narrow surface:
+val drawer: CashDrawerBridge = BluetoothCashDrawerBridge(bridge)
+drawer.openDrawer(CashDrawerPin.PIN_2)
+// tests/debug only:
+// FakeCashDrawerBridge().openDrawer()
+
 bridge.disconnect()
 ```
+
+## Cash drawer
+
+| API | Bytes | Notes |
+|-----|-------|-------|
+| `EscPosCommands.cashDrawerPulse` / `openCashDrawer` | `ESC p m t1 t2` (`1B 70 …`) | Default for Bluetooth thermal + drawer |
+| `EscPosCommands.cashDrawerPulseDleDc4` | `DLE DC4 1 m t` (`10 14 01 …`) | Alternate real-time form; send via `printRaw` if needed |
+
+Fake: `FakeCashDrawerBridge` — unit tests / debug only. No Web Bluetooth.
 
 ## Permissions
 

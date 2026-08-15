@@ -1,0 +1,36 @@
+---
+description: Standalone POS till — golden 3-pane chrome, GTR tokens, vehicle-latched lookup. Apply when editing the POS app.
+globs: apps/android-pos/**/*.{kt,kts}
+alwaysApply: false
+---
+
+# Android POS till (visual + function lock)
+
+Visual SoT: `docs/plans/assets/2026-08-15-gtr-pos-till-golden.png`  
+Plan: `docs/plans/2026-08-15-standalone-adaptive-pos.md`  
+ADR: `docs/decisions/2026-08-15-standalone-adaptive-pos.md`
+
+## Shell (must match golden on expanded width)
+
+- **Only** `TillScaffold` may compose the till. No `ShopStaffScreen`, CoolMall scaffold, or management POS Compose.
+- Expanded: header + finder (~0.58) + ticket (~0.37) + icon rail (~0.05). Compact: finder + sticky ticket bar. Same ViewModel.
+- Header slots, in order: brand/staff/till · **vehicle latch (center)** · Select customer · Orders · clock.
+- `GtrTheme` **dark** (`GtrColors.Steel` ground, `Primary` `#C8102E` Pay). No Material purple, cafe teal/orange tiles, tax row, table numbers, kitchen KP, £.
+- Tiles: `GtrShapes.small`–`medium` (8–16dp), ≥48dp targets. Pay is full-width ticket CTA.
+
+## Function lives in the chrome (do not hide in extra screens)
+
+- Finder modes: SCAN/OEM · SHOP STOCK · EPC · VIN/PNC.
+- `search_catalog` hit routing: `part` → tiles (hydrate `list_pos_till_items` oems); `vehicle` → latch, never add; `pnc` → EPC section.
+- Every tile: OEM, name, price+currency, fitment chip (Fits / Verify / No fit), WH2 qty+bin. Qty from Postgres/snapshot only.
+- Fitment: no latch or empty chassis_codes → Verify; chassis mismatch → No fit; chassis match (+ engine if both present) → Fits.
+- Priced + WH2 covers + Fits (or confirmed Verify) → sellable `add_cart_line`. Priced OOS → quote-only line; CTA **QUOTE**. Unpriced → Needs price (no line). No fit → block.
+- Ticket: core-charge child lines, expand NOTE/DISCOUNT/INFO, Park/Void, no tax.
+- Red slot: PAY (allocator) if all sellable; QUOTE if any quote-only.
+- Rail: sync, scan, print, drawer, settings — `bridges/` only.
+
+## Forbidden
+
+- Porting `apps/android-management/feature/pos` or web `staff-pos-shell`
+- Meili qty, WH1/quarantine sell, ZIMRA/tax, HTML5 camera, Flutter/Expo
+- Inventing colors outside `GtrColors` / `brand-tokens.json`

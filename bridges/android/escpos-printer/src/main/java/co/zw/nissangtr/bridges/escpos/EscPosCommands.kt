@@ -87,6 +87,37 @@ object EscPosCommands {
     }
 
     /**
+     * Standard cash-drawer kick: ESC p m t1 t2.
+     *
+     * Pulse ON/OFF times are in 2 ms units (Epson-compatible). Defaults ≈ 50 ms on /
+     * 200 ms off on pin 2 (drawer kick connector).
+     *
+     * @see https://reference.epson-biz.com/modules/ref_escpos/ (ESC p)
+     */
+    fun cashDrawerPulse(
+        pin: CashDrawerPin = CashDrawerPin.PIN_2,
+        onTimeMs: Int = 50,
+        offTimeMs: Int = 200,
+    ): ByteArray {
+        val t1 = ((onTimeMs.coerceAtLeast(0) + 1) / 2).coerceIn(0, 255)
+        val t2 = ((offTimeMs.coerceAtLeast(0) + 1) / 2).coerceIn(0, 255)
+        return byteArrayOf(0x1B, 0x70, pin.escPosM.toByte(), t1.toByte(), t2.toByte())
+    }
+
+    /**
+     * Real-time drawer pulse: DLE DC4 fn=1 (n=1, m=pin, t=ON×100 ms, 1..8).
+     * Prefer [cashDrawerPulse] (ESC p) for most Bluetooth thermal + RJ11 drawers;
+     * use this when the printer documents DLE DC4 as the kick path.
+     */
+    fun cashDrawerPulseDleDc4(
+        pin: CashDrawerPin = CashDrawerPin.PIN_2,
+        onTimeHundredMs: Int = 1,
+    ): ByteArray {
+        val t = onTimeHundredMs.coerceIn(1, 8)
+        return byteArrayOf(0x10, 0x14, 0x01, pin.escPosM.toByte(), t.toByte())
+    }
+
+    /**
      * Epson QR model 2: GS ( k store + print.
      * @see https://reference.epson-biz.com/modules/ref_escpos/
      */

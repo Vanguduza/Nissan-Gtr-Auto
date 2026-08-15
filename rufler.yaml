@@ -40,13 +40,31 @@ agents:
       - AGENTS.md
 
   management_app_agent:
-    description: Android management/sales app (POS, receiving, warehouse, HR, finance, dispatch)
+    description: Android management/sales app (receiving, warehouse, HR, finance, dispatch; Open POS deep-links to android-pos)
     paths:
       - apps/android-management/**
     shared_read:
+      - apps/android-pos/**
       - packages/shared/**
       - packages/supabase-client/**
       - bridges/android/**
+      - .cursorrules
+      - AGENTS.md
+
+  pos_app_agent:
+    description: Standalone adaptive counter POS till (Compose, Fake/Live RPC, offline SQLCipher sync)
+    paths:
+      - apps/android-pos/**
+    shared_read:
+      - packages/android-ui/**
+      - packages/ui/brand-tokens.json
+      - packages/shared/**
+      - packages/supabase-client/**
+      - bridges/android/**
+      - supabase/migrations/*pos*
+      - docs/plans/2026-08-15-standalone-adaptive-pos.md
+      - docs/decisions/2026-08-15-standalone-adaptive-pos.md
+      - .cursor/rules/android-pos-till.mdc
       - .cursorrules
       - AGENTS.md
 
@@ -132,6 +150,7 @@ routing:
   nissan_fast_parse: data_pipeline_agent
   catalog_scrape: data_pipeline_agent
   catalog_apk: catalog_apk_agent
+  pos_till: pos_app_agent
 
 context_discipline:
   - Load skills only when trigger conditions match (see .claude/skills/ headers)
