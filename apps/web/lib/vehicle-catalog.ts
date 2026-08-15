@@ -304,6 +304,7 @@ export const VehicleCascade = {
 
 /**
  * Load live vehicle_master rows (authenticated — RLS). Cap matches mobile clients.
+ * 2000 headroom for multi-make imports (old 500 truncated cascades).
  */
 export async function listVehicleMaster(
   client: SupabaseClient,
@@ -317,7 +318,7 @@ export async function listVehicleMaster(
       "id, vin_prefix, chassis_code, engine_code, production_year, model_variant",
     )
     .order("model_variant", { ascending: true })
-    .limit(500);
+    .limit(2000);
 
   if (error) return { ok: false, error: error.message };
 

@@ -20,7 +20,8 @@ internal fun applyCatalogFilterSort(
                 qty != null -> qty > 0
                 else -> item.stock != co.zw.nissangtr.customer.rpc.StockState.BACKORDER
             }
-            inStock && item.usd != null && item.usd > 0
+            val usd = item.usd
+            inStock && usd != null && usd > 0
         }
     }
     if (filter.minPrice > 0f || filter.maxPrice < 500f) {

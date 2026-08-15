@@ -2,6 +2,7 @@
 
 | ID | Symptom | Severity | Notes |
 | --- | --- | --- | --- |
+| B-CAT-1 | (closed) Customer app missing models / thin catalog vs DB | Medium | Mobile `deriveMaker` lagged web (bare Nissan + multi-make WMIs); also `vehicle_master` limit 500 + browse undersample before shop gate. Fixed 2026-08-15. Note: shop still shows only qty>0 + priced (intentional). `vehicle_master` SELECT remains authenticated-only RLS. |
 | B-MONEY-1 | Payable paths still use `NUMERIC` / JS `number` for some SQL bridges | Medium (architecture) | H4 **Done (cutover habit)** + loyalty/credit-limit dual-read/dual-write follow-on (`20260814200000_*`); physical NUMERIC column drop + SQL arg require-minor still deferred. |
 | B-MAP-1 | (closed) Customer iOS MapLibre SoR; Android delivery+customer MapLibre SoR **Done** | Low | H5-iOS code Done — **awaiting Mac verify** (`xcodebuild` MapsNav tests + GTRCustomer build). Android: `AddressPickMap` / `MapLibreAddressPickMap`. OSRM = distance SoR when configured. |
 | B-EMAIL-1 | CRM promos fall back to Resend if Brevo unset | Low | **Infra ready — awaiting `BREVO_*`**; Resend fallback intentional during rollout |

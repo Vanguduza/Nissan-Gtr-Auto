@@ -64,15 +64,65 @@ public struct SelectedFitmentVehicle: Sendable, Equatable {
     }
 }
 
+/// Parity with `apps/web/lib/vehicle-catalog.ts` VehicleCascade.
 public enum VehicleCascade {
+    /// Brand labels matched at the start of `model_variant` (longest first).
+    private static let variantBrandPrefixes: [String] = [
+        "Mercedes-Benz", "Land Rover", "Alfa Romeo", "Volkswagen", "Infiniti", "Datsun",
+        "Nissan", "Toyota", "Lexus", "Honda", "Acura", "Mazda", "Mitsubishi", "Subaru",
+        "Suzuki", "Daihatsu", "Isuzu", "Hino", "Hyundai", "Kia", "Genesis", "BMW", "Mini",
+        "Smart", "Audi", "Skoda", "Seat", "Porsche", "Ford", "Lincoln", "Chevrolet",
+        "Cadillac", "Buick", "GMC", "Jeep", "Dodge", "Chrysler", "Ram", "Volvo", "Jaguar",
+        "Peugeot", "Citroen", "Renault", "Opel", "Fiat",
+    ].sorted { $0.count > $1.count }
+
+    /// VIN WMI → maker (longest prefix first). Includes regional Nissan WMIs (SJN/MNT/…).
+    private static let vinWmiMakers: [(String, String)] = [
+        ("JNK", "Infiniti"), ("5N3", "Infiniti"),
+        ("SJN", "Nissan"), ("MNT", "Nissan"), ("MDH", "Nissan"), ("VSK", "Nissan"),
+        ("ADN", "Nissan"), ("3N1", "Nissan"), ("5N1", "Nissan"), ("1N4", "Nissan"),
+        ("1N6", "Nissan"), ("JN1", "Nissan"), ("JN", "Nissan"),
+        ("JTD", "Toyota"), ("JT2", "Toyota"), ("JTE", "Toyota"), ("JTM", "Toyota"),
+        ("4T1", "Toyota"), ("5TD", "Toyota"), ("2T1", "Toyota"), ("MR0", "Toyota"),
+        ("JTJ", "Lexus"), ("JTH", "Lexus"), ("2T2", "Lexus"), ("58A", "Lexus"),
+        ("JHM", "Honda"), ("1HG", "Honda"), ("2HG", "Honda"), ("3CZ", "Honda"), ("SHH", "Honda"),
+        ("JH4", "Acura"), ("19U", "Acura"), ("2HN", "Acura"),
+        ("JM1", "Mazda"), ("JM3", "Mazda"), ("1YV", "Mazda"), ("3MZ", "Mazda"),
+        ("JA3", "Mitsubishi"), ("JA4", "Mitsubishi"), ("4A3", "Mitsubishi"), ("6MM", "Mitsubishi"),
+        ("JF1", "Subaru"), ("JF2", "Subaru"), ("4S3", "Subaru"), ("4S4", "Subaru"),
+        ("JS2", "Suzuki"), ("JS3", "Suzuki"), ("JSA", "Suzuki"), ("TSM", "Suzuki"),
+        ("KMH", "Hyundai"), ("KM8", "Hyundai"), ("5NP", "Hyundai"), ("5NM", "Hyundai"),
+        ("KNA", "Kia"), ("KND", "Kia"), ("5XY", "Kia"), ("3KP", "Kia"),
+        ("WBA", "BMW"), ("WBS", "BMW"), ("WBY", "BMW"), ("4US", "BMW"), ("5UX", "BMW"),
+        ("WDD", "Mercedes-Benz"), ("WDB", "Mercedes-Benz"), ("4JG", "Mercedes-Benz"),
+        ("WAU", "Audi"), ("WA1", "Audi"),
+        ("WVW", "Volkswagen"), ("WV1", "Volkswagen"), ("WV2", "Volkswagen"),
+        ("3VW", "Volkswagen"), ("1VW", "Volkswagen"),
+        ("1FA", "Ford"), ("1FT", "Ford"), ("1FM", "Ford"), ("WF0", "Ford"),
+        ("SAL", "Land Rover"), ("SAJ", "Jaguar"),
+    ].sorted { $0.0.count > $1.0.count }
+
+    private static let nissanModelToken = try! NSRegularExpression(
+        pattern: #"^(MICRA|QASHQAI\+?\d*|JUKE|NAVARA|X-?TRAIL|PULSAR|PATROL|ALTIMA|SENTRA|MAXIMA|LEAF|370Z|350Z|GT-?R|SKYLINE|ALMERA|TIIDA|TEANA|PATHFINDER|MURANO|NP300|HARDBODY|CARAVAN|SYLPHY|PRIMERA|NOTE|CUBE)\b"#,
+        options: [.caseInsensitive]
+    )
+
     public static func deriveMaker(_ row: VehicleMasterRow) -> String? {
         let variant = row.modelVariant.trimmingCharacters(in: .whitespaces)
-        if variant.uppercased().hasPrefix("DATSUN") { return "Datsun" }
-        if variant.lowercased().hasPrefix("nissan") { return "Nissan" }
-        if variant.lowercased().hasPrefix("infiniti") { return "Infiniti" }
+        let upper = variant.uppercased()
+        for brand in variantBrandPrefixes {
+            if upper.hasPrefix(brand.uppercased()) { return brand }
+        }
         let vp = (row.vinPrefix ?? "").trimmingCharacters(in: .whitespaces).uppercased()
-        if vp.hasPrefix("JNK") { return "Infiniti" }
-        if vp.hasPrefix("JN") { return "Nissan" }
+        if !vp.isEmpty {
+            for (prefix, maker) in vinWmiMakers {
+                if vp.hasPrefix(prefix) { return maker }
+            }
+        }
+        let range = NSRange(variant.startIndex..<variant.endIndex, in: variant)
+        if nissanModelToken.firstMatch(in: variant, options: [], range: range) != nil {
+            return "Nissan"
+        }
         return nil
     }
 

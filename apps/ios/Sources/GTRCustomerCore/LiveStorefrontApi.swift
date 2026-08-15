@@ -885,7 +885,8 @@ public final class LiveStorefrontApi: StorefrontApi {
             query: [
                 "select=id,vin_prefix,chassis_code,engine_code,production_year,model_variant",
                 "order=model_variant.asc",
-                "limit=500",
+                // Multi-make imports exceed the old 500 cap; match Android/web.
+                "limit=2000",
             ].joined(separator: "&")
         )
         return rows.map {
@@ -980,12 +981,13 @@ public final class LiveStorefrontApi: StorefrontApi {
     ) async throws -> CatalogBrowseResult {
         let chassis = chassisCode.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !chassis.isEmpty else { throw StorefrontError.message("chassis required") }
-        let cap = min(max(limit, 1), 100)
+        let requested = min(max(limit, 1), 100)
+        let fetchCap = min(max(requested * 4, 120), 400)
         let engine = engineCode?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         var fitQuery = [
             "select=oem_part_number",
             "chassis_code=eq.\(Self.percentEncodeQueryValue(chassis))",
-            "limit=200",
+            "limit=2000",
         ]
         if let engine {
             fitQuery.insert("engine_code=eq.\(Self.percentEncodeQueryValue(engine))", at: 2)
@@ -1005,7 +1007,7 @@ public final class LiveStorefrontApi: StorefrontApi {
                 "select=id,oem_part_number,description,reorder_point",
                 "oem_part_number=in.(\(encoded))",
                 "order=oem_part_number.asc",
-                "limit=\(cap)",
+                "limit=\(fetchCap)",
             ].joined(separator: "&")
         )
         if items.isEmpty {

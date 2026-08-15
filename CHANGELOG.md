@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-15
 
+### Fixed
+
+- **Customer vehicle cascade / catalog browse (B-CAT-1):** Android + iOS `VehicleCascade.deriveMaker` now matches web multi-make brand prefixes, regional Nissan WMIs (`MNT`/`SJN`/…), and bare model tokens (`NAVARA`, `X-TRAIL`, …) — Fake seed NAVARA was previously dropped. Raised `vehicle_master` fetch cap 500→2000; Android shop browse oversamples before stock/price gate; chassis `part_fitment` OEM window 200→2000.
+
 ### Added
 
 - **CoolMall staff shell (non-POS):** Wired `vendor/coolmall-gtr/gtradapter` into Hilt DI — Fake GoTrue/staff login (`signInWithStaffIdentifier`), hub from web `STAFF_NAV_TREE` with POS excluded, change-password account tab, warehouse master-stock desk (`list_master_stock` Fake). Bottom nav Hub · Warehouse · Account. Plan: `docs/plans/2026-08-14-management-oss-shell-rebuild.md`.

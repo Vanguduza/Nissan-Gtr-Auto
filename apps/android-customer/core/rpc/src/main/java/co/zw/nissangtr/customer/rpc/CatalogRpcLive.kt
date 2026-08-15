@@ -90,7 +90,9 @@ internal object CatalogRpcLive {
         category: String?,
         limit: Int,
     ): CatalogBrowseResult {
-        val cap = limit.coerceIn(1, 100)
+        val requested = limit.coerceIn(1, 100)
+        // Oversample like web `listCatalogProducts` — shop gate drops unpriced / OOS rows.
+        val fetchCap = maxOf(requested * 4, 120).coerceAtMost(400)
         val cat = category?.trim()?.takeIf { it.isNotEmpty() }
         val oemFilter = if (cat != null) resolveOemFilterForCategory(client, cat) else null
         if (cat != null && oemFilter != null && oemFilter.isEmpty()) {
@@ -103,7 +105,7 @@ internal object CatalogRpcLive {
                     filter { isIn("oem_part_number", oemFilter) }
                 }
                 order("oem_part_number", Order.ASCENDING)
-                limit(cap.toLong())
+                limit(fetchCap.toLong())
             }
             .decodeList<StockItemBrowseRow>()
 
@@ -131,7 +133,9 @@ internal object CatalogRpcLive {
             )
         }
         // Shop gate: in-stock + priced > 0 (web `applyCatalogFiltersAndSort` shopStockOnly).
-        val shop = list.filter { (it.qty ?: 0.0) > 0 && it.usd != null && it.usd > 0 }
+        val shop = list
+            .filter { (it.qty ?: 0.0) > 0 && it.usd != null && it.usd > 0 }
+            .take(requested)
         return CatalogBrowseResult(items = shop, categories = emptyList())
     }
 
@@ -256,7 +260,8 @@ internal object CatalogRpcLive {
                 ),
             ) {
                 order("model_variant", Order.ASCENDING)
-                limit(500)
+                // Multi-make imports exceed the old 500 cap; match staff kits headroom.
+                limit(2000)
             }
             .decodeList<VehicleMasterDbRow>()
         return rows.map { row ->
@@ -279,7 +284,8 @@ internal object CatalogRpcLive {
     ): CatalogBrowseResult {
         val chassis = chassisCode.trim()
         require(chassis.isNotEmpty()) { "chassis required" }
-        val cap = limit.coerceIn(1, 100)
+        val requested = limit.coerceIn(1, 100)
+        val fetchCap = maxOf(requested * 4, 120).coerceAtMost(400)
         val engine = engineCode?.trim()?.takeIf { it.isNotEmpty() }
         val oemRows = client.from("part_fitment")
             .select(Columns.list("oem_part_number")) {
@@ -289,7 +295,7 @@ internal object CatalogRpcLive {
                         eq("engine_code", engine)
                     }
                 }
-                limit(200)
+                limit(2000)
             }
             .decodeList<OemOnlyRow>()
         val oemFilter = oemRows.map { it.oemPartNumber }.distinct()
@@ -299,7 +305,7 @@ internal object CatalogRpcLive {
             .select(Columns.list("id", "oem_part_number", "description", "reorder_point")) {
                 filter { isIn("oem_part_number", oemFilter) }
                 order("oem_part_number", Order.ASCENDING)
-                limit(cap.toLong())
+                limit(fetchCap.toLong())
             }
             .decodeList<StockItemBrowseRow>()
 
@@ -326,7 +332,9 @@ internal object CatalogRpcLive {
                 createdAt = null,
             )
         }
-        val shop = list.filter { (it.qty ?: 0.0) > 0 && it.usd != null && it.usd > 0 }
+        val shop = list
+            .filter { (it.qty ?: 0.0) > 0 && it.usd != null && it.usd > 0 }
+            .take(requested)
         return CatalogBrowseResult(items = shop, categories = emptyList())
     }
     suspend fun loadCatalogProduct(client: SupabaseClient, supabaseUrl: String, oemParam: String): CatalogProduct {
