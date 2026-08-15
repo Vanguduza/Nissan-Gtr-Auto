@@ -14,18 +14,21 @@ import {
 import {
   filterNavTreeForRoles,
   STAFF_NAV_TREE,
+  type StaffNavEntry,
   type StaffNavModule,
   type StaffRole,
 } from "@/lib/staff-auth";
 import { useStaffAuth } from "@/components/staff-auth-context";
 import styles from "@/components/account.module.css";
 
+function isFinanceModule(
+  e: StaffNavEntry,
+): e is Extract<StaffNavEntry, { kind: "module" }> {
+  return e.kind === "module" && e.id === "finance";
+}
+
 function financeModule(roles: readonly StaffRole[]): StaffNavModule | null {
-  const tree = filterNavTreeForRoles([...roles]);
-  const mod = tree.find(
-    (e): e is StaffNavModule => e.kind === "module" && e.id === "finance",
-  );
-  return mod ?? null;
+  return filterNavTreeForRoles([...roles]).find(isFinanceModule) ?? null;
 }
 
 /** Tile dashboard for `/staff/finance` (no `?tab=`). */
@@ -33,10 +36,7 @@ export function StaffFinanceDashboard() {
   const ctx = useStaffAuth();
   const roles = ctx?.roles ?? [];
   const mod =
-    financeModule(roles) ??
-    (STAFF_NAV_TREE.find(
-      (e): e is StaffNavModule => e.kind === "module" && e.id === "finance",
-    ) ?? null);
+    financeModule(roles) ?? STAFF_NAV_TREE.find(isFinanceModule) ?? null;
 
   if (!mod) return null;
 
