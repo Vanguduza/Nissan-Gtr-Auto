@@ -5,6 +5,34 @@
     <string name="category">分类</string>
     <string name="cart">购物车</string>
     <string name="me">我的</string>
+    <string name="staff_hub_tab">Hub</string>
+    <string name="staff_warehouse_tab">Warehouse</string>
+    <string name="staff_account_tab">Account</string>
+
+    <!-- Staff hub (web STAFF_NAV_TREE, non-POS) -->
+    <string name="staff_hub_title">Staff hub</string>
+    <string name="staff_hub_subtitle">Modules match web staff roles / module_access. POS deferred.</string>
+    <string name="staff_roles_fmt">Roles: %1$s</string>
+    <string name="staff_fake_mode">Fake Supabase adapters (local smoke)</string>
+    <string name="staff_hub_open_module">Open →</string>
+    <string name="staff_hub_coming_soon">Listed · desk UI later</string>
+
+    <!-- Warehouse master stock (web /staff/warehouse/master-stock) -->
+    <string name="warehouse_master_stock_title">Master stock</string>
+    <string name="warehouse_master_stock_hint">OEM qty WH1/WH2 — RPC list_master_stock</string>
+    <string name="warehouse_search_oem">OEM / description</string>
+    <string name="warehouse_search">Search</string>
+    <string name="warehouse_loading">Loading…</string>
+    <string name="warehouse_qty_fmt">Total %1$.0f · WH1 %2$.0f · WH2 %3$.0f</string>
+
+    <!-- Account / change-password -->
+    <string name="staff_account_title">Staff account</string>
+    <string name="staff_change_password_title">Change password</string>
+    <string name="staff_new_password">New password</string>
+    <string name="staff_confirm_password">Confirm password</string>
+    <string name="staff_change_password_action">Update password</string>
+    <string name="staff_must_change_password">You must change your password before continuing.</string>
+    <string name="staff_sign_out">Sign out</string>
 
     <!-- 购物车 -->
     <string name="edit">编辑</string>

@@ -1,0 +1,208 @@
+package co.zw.nissangtr.management.gtradapter
+
+/**
+ * Contracts for CoolMall → Supabase injection.
+ * Behavioral SoT: apps/web/lib/staff-auth.ts (not android-management-legacy UI).
+ *
+ * Live path (Phase B+): supabase-kt GoTrue + RPC resolve_staff_login_email /
+ * my_module_access. Fake path is the default for local smoke.
+ */
+interface GtrStaffAuthAdapter {
+    /** Emp# | email | phone → login email (RPC resolve_staff_login_email). */
+    suspend fun resolveLoginEmail(identifier: String): String?
+
+    suspend fun signInWithPassword(email: String, password: String): Result<Unit>
+
+    /**
+     * Web [signInWithStaffIdentifier]: resolve → GoTrue password.
+     * Non-enumerating errors on failure.
+     */
+    suspend fun signInWithStaffIdentifier(identifier: String, password: String): Result<Unit>
+
+    suspend fun loadStaffContext(): Result<GtrStaffContext>
+
+    suspend fun signOut()
+
+    fun isFakeMode(): Boolean
+}
+
+data class GtrStaffContext(
+    val userId: String,
+    val isStaff: Boolean,
+    val roles: List<String>,
+    /** Organogram module ids; null/empty → roles-only nav (web parity). */
+    val moduleAccess: List<String>?,
+    val mustChangePassword: Boolean,
+)
+
+/**
+ * Hub destinations from web STAFF_NAV_TREE (non-POS this phase).
+ */
+interface GtrStaffHubAdapter {
+    fun filterModules(ctx: GtrStaffContext): List<StaffNavModule>
+
+    fun filterModuleIds(ctx: GtrStaffContext): List<String> =
+        filterModules(ctx).map { it.id }
+
+    /**
+     * Web staffHomePath — POS deferred this phase, so always hub even for sales-only.
+     * When POS ships, restore prefersPosHome → "pos".
+     */
+    fun homeRoute(ctx: GtrStaffContext): String
+}
+
+interface GtrPasswordAdapter {
+    /** GoTrue updateUser — web /staff/change-password. */
+    suspend fun changePassword(newPassword: String): Result<Unit>
+}
+
+data class MasterStockRow(
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String,
+    val qtyTotal: Double,
+    val qtyWh1: Double,
+    val qtyWh2: Double,
+)
+
+/** Web master-stock panel → RPC list_master_stock. */
+interface GtrWarehouseAdapter {
+    suspend fun listMasterStock(limit: Int = 200, query: String? = null): Result<List<MasterStockRow>>
+}
+
+/** Holds signed-in staff context for hub / gates (in-memory; Fake or post-login Live). */
+class GtrStaffSession {
+    @Volatile
+    var context: GtrStaffContext? = null
+        private set
+
+    fun update(ctx: GtrStaffContext?) {
+        context = ctx
+    }
+
+    fun clear() {
+        context = null
+    }
+}
+
+/** Reference Fake for offline UI smoke — replace with Live when Supabase inject lands. */
+class FakeGtrStaffAuthAdapter(
+    private val session: GtrStaffSession,
+) : GtrStaffAuthAdapter {
+    override suspend fun resolveLoginEmail(identifier: String): String? =
+        identifier.trim().ifEmpty { null }?.let { "fake@local.test" }
+
+    override suspend fun signInWithPassword(email: String, password: String): Result<Unit> {
+        if (email.isBlank() || password.isBlank()) {
+            return Result.failure(IllegalArgumentException("Sign-in failed"))
+        }
+        return Result.success(Unit)
+    }
+
+    override suspend fun signInWithStaffIdentifier(
+        identifier: String,
+        password: String,
+    ): Result<Unit> {
+        val email = resolveLoginEmail(identifier)
+            ?: return Result.failure(IllegalArgumentException("Sign-in failed"))
+        val signed = signInWithPassword(email, password)
+        if (signed.isFailure) return signed
+        val ctx = loadStaffContext().getOrElse { return Result.failure(it) }
+        session.update(ctx)
+        return Result.success(Unit)
+    }
+
+    override suspend fun loadStaffContext(): Result<GtrStaffContext> {
+        val existing = session.context
+        if (existing != null) return Result.success(existing)
+        val ctx = GtrStaffContext(
+            userId = "fake-staff",
+            isStaff = true,
+            roles = listOf("admin"),
+            moduleAccess = null,
+            mustChangePassword = false,
+        )
+        session.update(ctx)
+        return Result.success(ctx)
+    }
+
+    override suspend fun signOut() {
+        session.clear()
+    }
+
+    override fun isFakeMode(): Boolean = true
+}
+
+class FakeGtrStaffHubAdapter : GtrStaffHubAdapter {
+    override fun filterModules(ctx: GtrStaffContext): List<StaffNavModule> =
+        StaffNavTree.filterModules(ctx.roles, ctx.moduleAccess, excludePos = true)
+
+    override fun homeRoute(ctx: GtrStaffContext): String = "hub"
+}
+
+class FakeGtrPasswordAdapter(
+    private val session: GtrStaffSession,
+) : GtrPasswordAdapter {
+    override suspend fun changePassword(newPassword: String): Result<Unit> {
+        if (newPassword.length < 8) {
+            return Result.failure(IllegalArgumentException("Password too short"))
+        }
+        val ctx = session.context
+            ?: return Result.failure(IllegalStateException("Not signed in"))
+        session.update(ctx.copy(mustChangePassword = false))
+        return Result.success(Unit)
+    }
+}
+
+class FakeGtrWarehouseAdapter : GtrWarehouseAdapter {
+    private val seed = listOf(
+        MasterStockRow(
+            stockItemId = "si-1001",
+            oemPartNumber = "16546-6N200",
+            description = "Oil filter — VR38",
+            qtyTotal = 42.0,
+            qtyWh1 = 30.0,
+            qtyWh2 = 12.0,
+        ),
+        MasterStockRow(
+            stockItemId = "si-1002",
+            oemPartNumber = "15208-65F0A",
+            description = "Oil filter element",
+            qtyTotal = 18.0,
+            qtyWh1 = 10.0,
+            qtyWh2 = 8.0,
+        ),
+        MasterStockRow(
+            stockItemId = "si-1003",
+            oemPartNumber = "11910-AA350",
+            description = "Alternator belt",
+            qtyTotal = 7.0,
+            qtyWh1 = 5.0,
+            qtyWh2 = 2.0,
+        ),
+        MasterStockRow(
+            stockItemId = "si-1004",
+            oemPartNumber = "B010A-1EA0A",
+            description = "Brake pad set front",
+            qtyTotal = 0.0,
+            qtyWh1 = 0.0,
+            qtyWh2 = 0.0,
+        ),
+    )
+
+    override suspend fun listMasterStock(
+        limit: Int,
+        query: String?,
+    ): Result<List<MasterStockRow>> {
+        val q = query?.trim()?.lowercase().orEmpty()
+        val filtered = if (q.isEmpty()) {
+            seed
+        } else {
+            seed.filter {
+                it.oemPartNumber.lowercase().contains(q) ||
+                    it.description.lowercase().contains(q)
+            }
+        }
+        return Result.success(filtered.take(limit.coerceAtLeast(1)))
+    }
+}

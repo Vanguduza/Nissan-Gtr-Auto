@@ -6,36 +6,27 @@ import com.joker.coolmall.navigation.main.MainRoutes
 import com.joker.coolmall.feature.main.R
 
 /**
- * 顶级导航目的地
- *
- * @param titleTextId 标题文本资源ID
- * @param animationResId 动画资源ID
- * @param route 路由对象，用于类型安全导航
- * @author Joker.X
+ * Staff bottom tabs — Hub / Warehouse / Account.
+ * POS cart tab deferred (no staff-pos this phase).
  */
 enum class TopLevelDestination(
     @param:StringRes val titleTextId: Int,
     @param:RawRes val animationResId: Int,
-    val route: Any
+    val route: Any,
 ) {
-    HOME(
-        titleTextId = R.string.home,
+    HUB(
+        titleTextId = R.string.staff_hub_tab,
         animationResId = R.raw.home,
-        route = MainRoutes.Home
+        route = MainRoutes.Home,
     ),
-    CATEGORY(
-        titleTextId = R.string.category,
+    WAREHOUSE(
+        titleTextId = R.string.staff_warehouse_tab,
         animationResId = R.raw.category,
-        route = MainRoutes.Category
+        route = MainRoutes.Category,
     ),
-    CART(
-        titleTextId = R.string.cart,
-        animationResId = R.raw.cart,
-        route = MainRoutes.Cart()
-    ),
-    ME(
-        titleTextId = R.string.me,
+    ACCOUNT(
+        titleTextId = R.string.staff_account_tab,
         animationResId = R.raw.me,
-        route = MainRoutes.Mine
-    )
+        route = MainRoutes.Mine,
+    ),
 }

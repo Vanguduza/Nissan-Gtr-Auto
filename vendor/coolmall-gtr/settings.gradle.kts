@@ -43,6 +43,9 @@ rootProject.name = "CoolMallKotlin"
 // 包含主应用模块
 include(":app")
 
+// GTR Supabase adapters (web staff contracts → CoolMall DI)
+include(":gtradapter")
+
 // 核心模块
 include(":core:common")
 include(":core:data")

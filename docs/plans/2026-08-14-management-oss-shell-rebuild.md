@@ -2,7 +2,7 @@
 
 - **Date:** 2026-08-14 (second correction, same day)
 - **Lane:** `@management_app_agent`
-- **Status:** Spec authoritative; Phase A vendor started (`vendor/coolmall-gtr/`)
+- **Status:** Phase A+ DI wired (auth/hub/WH master-stock Fake; POS deferred)
 - **Supersedes:** earlier same-day drafts that (1) “inspired shell → port legacy UI” and (2) treated inventree-app as a co-equal product shell without web as behavioral SoT
 
 ## Sources of truth (locked)
@@ -168,22 +168,25 @@ Revisit inventree-app **only** if a later UX review finds web warehouse IA insuf
 - [x] Correct plan: web = behavior, CoolMall = UX
 - [x] Shallow-vendor CoolMallKotlin → `vendor/coolmall-gtr/` (MIT; upstream [Joker-x-dev/CoolMallKotlin](https://github.com/Joker-x-dev/CoolMallKotlin); demo `docs/images` stripped)
 - [x] Apply GTR brand tokens to CoolMall `designsystem` / `ThemeColorOption`
-- [x] Stub Supabase auth + module hub adapters (`vendor/coolmall-gtr/gtr-adapter/`)
-- [ ] Wire stubs into CoolMall DI / nav; discard thin inspired scaffold as product UX
-- [ ] Smoke `assembleDebug` on vendor tree when toolchain ready
+- [x] Stub Supabase auth + module hub adapters (`vendor/coolmall-gtr/gtradapter/`)
+- [x] Wire stubs into CoolMall DI / nav; discard thin inspired scaffold as product UX
+- [x] Staff login (web `signInWithStaffIdentifier`) + hub from `STAFF_NAV_TREE` **excluding POS**
+- [x] Change-password account tab + warehouse **master stock** Fake desk (`list_master_stock`)
+- [x] Smoke `assembleDevDebug` on vendor tree (tests `:gtradapter:testDevDebugUnitTest`)
 
-### Phase B — Network swap
+### Phase B — Network swap (non-POS first)
 
 - Replace CoolMall HTTP with `RpcClient` / supabase-kt (transplant from `apps/android-management/core/rpc` or shared module)
 - Fake smoke: sign-in bypass → hub filtered like web
+- Live: GoTrue + `resolve_staff_login_email` / `my_module_access` / `list_master_stock`
 
-### Phase C — POS parity with web cart/prep
+### Phase C — POS parity with web cart/prep (deferred until requested)
 
 - Map CoolMall goods/cart to `staff-pos` behaviors; Bridge companion scan
 
 ### Phase D+ — Remaining web modules
 
-- Warehouse (web-driven) → Finance → CRM → Logistics/Fleet → HR/Warranty/Chat/Analytics → Procurement  
+- Warehouse deepen (receive / transfers / cycle / bins) → Finance → CRM → Logistics/Fleet → HR/Warranty/Chat/Analytics → Procurement  
 - Priority follows web hub usage; each module must cite the web route it mirrors
 
 ### Cancelled
@@ -204,9 +207,10 @@ Revisit inventree-app **only** if a later UX review finds web warehouse IA insuf
 
 ## Immediate next build step
 
-1. Finish GTR colour override + stub auth/hub in `vendor/coolmall-gtr/`.
-2. Wire Fake session + `my_module_access` / roles like web hub.
-3. Next PR: Phase B network swap for POS cart RPCs only.
+1. ~~Finish GTR colour override + stub auth/hub in `vendor/coolmall-gtr/`.~~
+2. ~~Wire Fake session + `my_module_access` / roles like web hub (non-POS).~~
+3. Phase B: Live supabase-kt for auth + `list_master_stock` (still no POS unless asked).
+4. Then deepen warehouse or finance; POS = Phase C on request.
 
 ## Out of scope
 
@@ -215,3 +219,4 @@ Revisit inventree-app **only** if a later UX review finds web warehouse IA insuf
 - CoolMall / InvenTree backends as SoR  
 - Any `apps/catalog-apk/**` change  
 - ZIMRA / payroll tax
+- **This phase:** POS cart / prep / `lib/staff-pos.ts` bindings / dual-pane till

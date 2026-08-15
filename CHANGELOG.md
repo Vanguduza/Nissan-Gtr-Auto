@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — 2026-08-15
+
+### Added
+
+- **CoolMall staff shell (non-POS):** Wired `vendor/coolmall-gtr/gtradapter` into Hilt DI — Fake GoTrue/staff login (`signInWithStaffIdentifier`), hub from web `STAFF_NAV_TREE` with POS excluded, change-password account tab, warehouse master-stock desk (`list_master_stock` Fake). Bottom nav Hub · Warehouse · Account. Plan: `docs/plans/2026-08-14-management-oss-shell-rebuild.md`.
+
 ## Unreleased — 2026-08-14
 
 ### Added

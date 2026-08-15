@@ -5,8 +5,10 @@
 
     <!-- Login/Register shared -->
     <string name="welcome_login">Hello,\nWelcome to Cool Mall</string>
+    <string name="welcome_staff_login">Staff sign-in\nNissan GTR Auto</string>
     <string name="welcome_register">Hello,\nWelcome to register Cool Mall</string>
     <string name="phone_hint">Please enter phone number</string>
+    <string name="staff_identifier_hint">Emp# / email / phone</string>
     <string name="phone_code">+86</string>
     <string name="verification_code">Verification code</string>
     <string name="get_verification_code">Get code</string>
@@ -63,6 +65,8 @@
     <string name="invalid_verification_code">Please enter a 4-digit verification code</string>
     <string name="invalid_password">Please enter the correct password</string>
     <string name="login_success">Login successful</string>
+    <string name="staff_sign_in_failed">Sign-in failed</string>
+    <string name="invalid_staff_identifier">Enter emp#, email, or phone</string>
     <string name="register_success">Registration successful</string>
     <string name="login_failed">Login failed: %s</string>
     <string name="login_cancelled">Login cancelled</string>

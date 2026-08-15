@@ -17,16 +17,12 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.joker.coolmall.core.designsystem.theme.AppTheme
 import com.joker.coolmall.core.designsystem.theme.SpaceVerticalMedium
 import com.joker.coolmall.core.designsystem.theme.SpaceVerticalXLarge
-import com.joker.coolmall.navigation.auth.AuthNavigator
-import com.joker.coolmall.navigation.common.CommonNavigator
 import com.joker.coolmall.navigation.navigateBack
 import com.joker.coolmall.core.ui.component.button.AppButton
 import com.joker.coolmall.feature.auth.R
 import com.joker.coolmall.feature.auth.component.AnimatedAuthPage
-import com.joker.coolmall.feature.auth.component.BottomNavigationRow
 import com.joker.coolmall.feature.auth.component.PasswordInputField
-import com.joker.coolmall.feature.auth.component.PhoneInputField
-import com.joker.coolmall.feature.auth.component.UserAgreement
+import com.joker.coolmall.feature.auth.component.StaffIdentifierInputField
 import com.joker.coolmall.feature.auth.viewmodel.AccountLoginViewModel
 
 /**
@@ -78,7 +74,7 @@ internal fun AccountLoginScreen(
     onLoginClick: () -> Unit = {},
 ) {
     AnimatedAuthPage(
-        title = stringResource(id = R.string.welcome_login),
+        title = stringResource(id = R.string.welcome_staff_login),
         onBackClick = { navigateBack() }
     ) {
         AccountLoginContentView(
@@ -116,12 +112,12 @@ private fun AccountLoginContentView(
     val accountFieldFocused = remember { mutableStateOf(false) }
     val passwordFieldFocused = remember { mutableStateOf(false) }
 
-    // 使用封装的手机号输入组件
-    PhoneInputField(
-        phone = account,
-        onPhoneChange = onAccountChange,
-        phoneFieldFocused = accountFieldFocused,
-        placeholder = stringResource(id = R.string.phone_hint),
+    // Staff identifier (emp# | email | phone) — web signInWithStaffIdentifier
+    StaffIdentifierInputField(
+        value = account,
+        onValueChange = onAccountChange,
+        fieldFocused = accountFieldFocused,
+        placeholder = stringResource(id = R.string.staff_identifier_hint),
         nextAction = ImeAction.Next
     )
 
@@ -138,28 +134,12 @@ private fun AccountLoginContentView(
 
     SpaceVerticalMedium()
 
-    // 使用封装的用户协议组件
-    UserAgreement(
-        prefix = stringResource(id = R.string.login_agreement_prefix),
-        onUserAgreementClick = CommonNavigator::toUserAgreement,
-        onPrivacyPolicyClick = CommonNavigator::toPrivacyPolicy
-    )
-
     SpaceVerticalXLarge()
 
     AppButton(
         text = stringResource(id = R.string.login),
         onClick = onLoginClick,
         enabled = isLoginEnabled
-    )
-
-    // 使用封装的底部导航组件 - 分隔符样式
-    BottomNavigationRow(
-        messageText = stringResource(id = R.string.go_register),
-        actionText = stringResource(id = R.string.forgot_password),
-        onCancelClick = { AuthNavigator.toRegister() },
-        onActionClick = { AuthNavigator.toResetPassword() },
-        divider = true
     )
 }
 

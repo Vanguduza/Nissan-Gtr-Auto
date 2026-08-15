@@ -5,4 +5,6 @@ plugins {
 android {
     namespace = "com.joker.coolmall.feature.auth"
 }
-dependencies {}
+dependencies {
+    implementation(projects.gtradapter)
+}
