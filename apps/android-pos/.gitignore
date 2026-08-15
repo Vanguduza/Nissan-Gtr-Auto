@@ -1,0 +1,10 @@
+.env
+local.properties
+.gradle/
+.gradle-home/
+build/
+**/build/
+*.iml
+.idea/
+captures/
+.cxx/

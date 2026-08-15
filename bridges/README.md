@@ -21,6 +21,7 @@ geolocation APIs directly.
 |---------|---------------------------|--------------|----------|--------------|
 | QR scan | `contracts/qr-inventory.ts` → `QrScannerBridge` | `bridges/android/qr-scanner/` | `bridges/ios/QRScanner/` (stub) | CameraX+ML Kit / AVFoundation |
 | ESC/POS print | `contracts/qr-inventory.ts` → `EscPosPrinterBridge` | `bridges/android/escpos-printer/` | `bridges/ios/escpos-printer/` (stub) | BluetoothAdapter / CoreBluetooth |
+| Cash drawer kick | `contracts/qr-inventory.ts` → `CashDrawerBridge` | same module (`BluetoothCashDrawerBridge` / ESC p) | via printer RFCOMM | ESC p / DLE DC4 pulse |
 | Biometric auth | `contracts/biometric.ts` → `BiometricBridge` | `bridges/android/biometric-auth/` (stub) | `bridges/ios/BiometricAuth/` | BiometricPrompt / LocalAuthentication |
 | Biometric photo (HR) | `contracts/biometric.ts` → `BiometricPhotoCaptureBridge` | `bridges/android/biometric-photo/` | — | CameraX ImageCapture (profile photo only) |
 | GPS / delivery ingest | `contracts/gps.ts` → `GpsBridge` | `bridges/android/location-tracker/` | `bridges/ios/LocationTracker/` | FusedLocationProvider / CoreLocation |

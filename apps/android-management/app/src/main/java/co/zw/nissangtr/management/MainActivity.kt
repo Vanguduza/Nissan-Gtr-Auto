@@ -66,8 +66,8 @@ import co.zw.nissangtr.management.kiosk.KioskDevicePrefs
 import co.zw.nissangtr.management.kiosk.KioskModule
 import co.zw.nissangtr.management.kiosk.LockTaskController
 import co.zw.nissangtr.management.kiosk.SplashSessionGate
+import co.zw.nissangtr.management.pos.OpenStandalonePosScreen
 import co.zw.nissangtr.management.pos.PosModule
-import co.zw.nissangtr.management.pos.PosScreen
 import co.zw.nissangtr.management.procurement.BlanketsScreen
 import co.zw.nissangtr.management.procurement.PreferredPoScreen
 import co.zw.nissangtr.management.procurement.ProcurementModule
@@ -133,6 +133,7 @@ private enum class ManagementRoute {
  * Empty / unknown roles → fail closed (deny). Tablet flavor: Lock Task + idle + Device Admin.
  *
  * Money/pricing: @gtr/shared. Hardware: bridges/ only (QR / ESC/POS).
+ * Counter till SoR is apps/android-pos via [OpenStandalonePosScreen] (session handoff).
  * No ZIMRA. No HTML5 QR.
  */
 class MainActivity : ComponentActivity() {
@@ -504,15 +505,12 @@ private fun ManagementApp(
             BackHandler {
                 if (openModule != null) backFromFeature() else escapeToHub()
             }
-            PosScreen(
-                rpc = rpc,
-                qr = qr,
-                printer = printer,
-                isSalesHome = salesHome,
-                onOpenHub = ::escapeToHub,
+            OpenStandalonePosScreen(
                 onBack = {
                     if (openModule != null) backFromFeature() else escapeToHub()
                 },
+                supabase = rpc as? SupabaseRpcClient,
+                staffDisplayName = signedInEmail,
             )
         }
         ManagementRoute.Warehouse -> {
