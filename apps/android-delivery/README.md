@@ -55,20 +55,21 @@ SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPPORT_PHONE=+263771234567
 # Preferred route SoR (DIAL D-44). When set, in-app polyline + ETA label use OSRM (eta_source=osrm).
-OSRM_URL=http://10.0.2.2:5000
+# OSRM_URL=http://10.0.2.2:5000
 # MapLibre courier map SoR (default on). Set false only for deprecated Google Maps fallback.
 # useMapLibre=false
+# Self-host basemap (infra/satellites/maptiles/) — emulator → host
+# MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json
 # Deprecated — Google Maps tiles + Directions only when useMapLibre=false or coords missing / OSRM unset
-GOOGLE_MAPS_API_KEY=your-maps-key
+# GOOGLE_MAPS_API_KEY=your-maps-key
 # rpc.forceFake=true
 ```
 
 Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`.
 
-**Maps (Epic B / D-44):** **`MapLibreJobMap`** is the courier map SoR on `JobDetailScreen`. Google `DeliveryRouteMap` is an **explicit deprecated fallback** only (`useMapLibre=false` or missing coords) — never silent SoR.
+**Maps (Epic B / D-44):** **`MapLibreJobMap`** is the courier map SoR on `JobDetailScreen`. Google `DeliveryRouteMap` is an **explicit deprecated fallback** only (`useMapLibre=false` or missing coords) — never silent SoR. Set **`MAPLIBRE_STYLE_URL`** to the self-hosted tileserver-gl style (`infra/satellites/maptiles/`); blank keeps demotiles as last resort.
 
-**Routing:** set **`OSRM_URL`** to a self-hosted OSRM base (see `infra/satellites/README.md`). When configured, distance/ETA prefer OSRM and the UI shows `eta_source=osrm`. Google Directions is deprecated fallback only when `OSRM_URL` is blank. Full OSRM compose infra / Temporal worker = deferred (B-OSRM-1).
-
+**Routing:** set **`OSRM_URL`** to a self-hosted OSRM base (see `infra/satellites/README.md`). When configured, distance/ETA prefer OSRM and the UI shows `eta_source=osrm`. Google Directions is deprecated fallback only when `OSRM_URL` is blank.
 GPS ingest always uses `:location-tracker` FGS — the map is display-only.
 
 ## Build APK

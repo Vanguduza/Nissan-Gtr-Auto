@@ -37,7 +37,7 @@ Route groups: `(storefront)`, `(my-garage)`, `(b2b)`, `(supplier)`, `(auth)`, `(
 
 - Route: `/staff/logistics/tracking` (admin / warehouse / dispatcher via existing RLS)
 - Library: **MapLibre GL JS** (`maplibre-gl`)
-- Env: `NEXT_PUBLIC_MAP_STYLE_URL` — MapLibre style JSON URL. If unset, staff live map uses keyless CARTO Positron (`https://basemaps.cartocdn.com/gl/positron-gl-style/style.json`) centered on Harare, with inline CARTO raster fallback if the GL style fails.
+- Env: `NEXT_PUBLIC_MAP_STYLE_URL` — MapLibre style JSON URL. Prefer self-host `http://127.0.0.1:8081/styles/basic-preview/style.json` (`infra/satellites/maptiles/`). If unset, staff live map uses keyless CARTO Positron (`https://basemaps.cartocdn.com/gl/positron-gl-style/style.json`) centered on Harare, with inline CARTO raster fallback if the GL style fails.
 - Behavior: **subscribe-only** to Supabase Realtime `delivery_locations` filtered by selected `delivery_job_id`. No `navigator.geolocation` / HTML5 GPS / browser QR.
 - B7: responsive at **800px** (shell) / **640px** (geo grid + map height); ETA shows honest `eta_source=osrm` vs `eta_source=google_directions (deprecated)` — see `docs/plans/2026-08-12-epic-b7-staff-web-tracking-dod.md`.
 

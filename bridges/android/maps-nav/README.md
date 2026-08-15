@@ -36,21 +36,24 @@ project(":maps-nav").projectDir =
 implementation(project(":maps-nav"))
 ```
 
-### Customer app (`local.properties`)
-
-```properties
-# MapLibre SoR (default). Set false only for deprecated Google tiles.
-# useMapLibre=false
-# Deprecated Google fallback key (optional):
-# GOOGLE_MAPS_API_KEY=your-maps-key
-```
-
 ### Delivery app
 
 ```properties
 # useMapLibre=false   # deprecated Google DeliveryRouteMap only
 OSRM_URL=http://127.0.0.1:5000
+# Self-host basemap (infra/satellites/maptiles/)
+# MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json
 # GOOGLE_MAPS_API_KEY=...  # Directions fallback only when OSRM unset
+```
+
+### Customer app (`local.properties`)
+
+```properties
+# MapLibre SoR (default). Set false only for deprecated Google tiles.
+# useMapLibre=false
+# MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json
+# Deprecated Google fallback key (optional):
+# GOOGLE_MAPS_API_KEY=your-maps-key
 ```
 
 Wire Google key into the application manifest **only if** using the deprecated fallback:

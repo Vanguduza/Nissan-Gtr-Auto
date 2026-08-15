@@ -48,6 +48,13 @@ android {
             "USE_MAPLIBRE",
             (!localProp("useMapLibre").equals("false", ignoreCase = true)).toString(),
         )
+        // Self-host style: infra/satellites/maptiles/ — emulator http://10.0.2.2:8081/styles/basic-preview/style.json
+        // Blank → demotiles last resort inside MapLibreJobMap.
+        buildConfigField(
+            "String",
+            "MAPLIBRE_STYLE_URL",
+            "\"${localProp("MAPLIBRE_STYLE_URL")}\"",
+        )
         buildConfigField(
             "boolean",
             "RPC_FORCE_FAKE",

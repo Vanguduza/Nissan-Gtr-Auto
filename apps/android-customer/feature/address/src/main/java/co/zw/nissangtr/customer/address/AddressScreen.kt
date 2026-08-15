@@ -43,6 +43,7 @@ fun AddressScreen(
     modifier: Modifier = Modifier,
     useMapLibre: Boolean = true,
     googleMapsKeyPresent: Boolean = false,
+    mapLibreStyleUrl: String = "",
     viewModel: AddressViewModel = viewModel(factory = AddressViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
@@ -107,6 +108,7 @@ fun AddressScreen(
                     mapsKeyPresent = mapsKeyPresent,
                     useMapLibre = useMapLibre,
                     googleMapsKeyPresent = googleMapsKeyPresent,
+                    mapLibreStyleUrl = mapLibreStyleUrl,
                     onBack = viewModel::backToList,
                     onFormChange = viewModel::onFormChange,
                     onMapPick = viewModel::onMapPick,
@@ -163,6 +165,7 @@ private fun AddressEditForm(
     mapsKeyPresent: Boolean,
     useMapLibre: Boolean,
     googleMapsKeyPresent: Boolean,
+    mapLibreStyleUrl: String,
     onBack: () -> Unit,
     onFormChange: ((AddressFormState) -> AddressFormState) -> Unit,
     onMapPick: (Double, Double) -> Unit,
@@ -193,6 +196,9 @@ private fun AddressEditForm(
                 onPick = { p -> onMapPick(p.latitude, p.longitude) },
                 mapsKeyPresent = googleMapsKeyPresent,
                 useMapLibre = useMapLibre,
+                styleUrl = mapLibreStyleUrl.ifBlank {
+                    "https://demotiles.maplibre.org/style.json"
+                },
             )
         },
     )

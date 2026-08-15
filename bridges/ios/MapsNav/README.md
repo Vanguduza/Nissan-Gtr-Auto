@@ -53,7 +53,7 @@ TrackPointMap(
 | Variable | Purpose |
 |----------|---------|
 | `USE_MAPLIBRE` | Default on. Set `false` / `0` / `no` / `off` only for deprecated MapKit |
-| `MAPLIBRE_STYLE_URL` | Optional self-hosted style (app reads via `AppEnv`; falls back to demotiles) |
+| `MAPLIBRE_STYLE_URL` | Optional self-hosted style (app reads via `AppEnv`; falls back to demotiles). Prefer `infra/satellites/maptiles/` → `http://127.0.0.1:8081/styles/basic-preview/style.json` |
 
 ## Hard rules
 

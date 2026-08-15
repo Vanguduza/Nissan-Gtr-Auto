@@ -207,6 +207,7 @@ class MainActivity : ComponentActivity() {
         val supabase = rpc as? SupabaseRpcClient
         liveSupabase = supabase
         val useMapLibre = BuildConfig.USE_MAPLIBRE
+        val mapLibreStyleUrl = BuildConfig.MAPLIBRE_STYLE_URL
         val googleMapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
         // MapLibre SoR needs no Google key; key only gates deprecated Google fallback.
         val mapPickerAvailable = useMapLibre || googleMapsKeyPresent
@@ -261,6 +262,7 @@ class MainActivity : ComponentActivity() {
                                 whatsappE164 = BuildConfig.WHATSAPP_E164,
                                 mapsKeyPresent = mapPickerAvailable,
                                 useMapLibre = useMapLibre,
+                                mapLibreStyleUrl = mapLibreStyleUrl,
                                 googleMapsKeyPresent = googleMapsKeyPresent,
                                 trackLaunch = launch,
                                 partsLaunch = parts,
@@ -407,6 +409,7 @@ private fun CustomerApp(
     whatsappE164: String,
     mapsKeyPresent: Boolean,
     useMapLibre: Boolean = true,
+    mapLibreStyleUrl: String = "",
     googleMapsKeyPresent: Boolean = false,
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
     partsLaunch: PartsLaunchArgs = PartsLaunchArgs(),
@@ -650,6 +653,7 @@ private fun CustomerApp(
                 whatsappE164 = whatsappE164,
                 mapsKeyPresent = mapsKeyPresent,
                 useMapLibre = useMapLibre,
+                mapLibreStyleUrl = mapLibreStyleUrl,
                 googleMapsKeyPresent = googleMapsKeyPresent,
                 trackToken = trackToken,
                 trackJobId = trackJobId,
@@ -808,6 +812,7 @@ private fun ProfileStack(
     whatsappE164: String,
     mapsKeyPresent: Boolean,
     useMapLibre: Boolean = true,
+    mapLibreStyleUrl: String = "",
     googleMapsKeyPresent: Boolean = false,
     trackToken: String?,
     trackJobId: String?,
@@ -854,6 +859,7 @@ private fun ProfileStack(
             rpc = rpc,
             mapsKeyPresent = mapsKeyPresent,
             useMapLibre = useMapLibre,
+            mapLibreStyleUrl = mapLibreStyleUrl,
             googleMapsKeyPresent = googleMapsKeyPresent,
             onBack = { onDest(ProfileDest.Hub) },
         )

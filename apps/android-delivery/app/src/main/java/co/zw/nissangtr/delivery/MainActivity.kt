@@ -109,6 +109,7 @@ class MainActivity : ComponentActivity() {
                                 mapsApiKey = BuildConfig.GOOGLE_MAPS_API_KEY,
                                 osrmUrl = BuildConfig.OSRM_URL,
                                 useMapLibre = BuildConfig.USE_MAPLIBRE,
+                                mapLibreStyleUrl = BuildConfig.MAPLIBRE_STYLE_URL,
                                 onSignOut = onSignOut,
                             )
                         }
@@ -184,6 +185,7 @@ private fun DeliveryApp(
     mapsApiKey: String,
     osrmUrl: String,
     useMapLibre: Boolean,
+    mapLibreStyleUrl: String,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -199,6 +201,7 @@ private fun DeliveryApp(
             mapsApiKey,
             osrmUrl,
             useMapLibre,
+            mapLibreStyleUrl,
         ),
     )
     val state by jobsVm.state.collectAsState()

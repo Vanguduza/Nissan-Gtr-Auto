@@ -52,6 +52,12 @@ android {
             "USE_MAPLIBRE",
             (!localProp("useMapLibre").equals("false", ignoreCase = true)).toString(),
         )
+        // Self-host: infra/satellites/maptiles/ — emulator http://10.0.2.2:8081/styles/basic-preview/style.json
+        buildConfigField(
+            "String",
+            "MAPLIBRE_STYLE_URL",
+            "\"${localProp("MAPLIBRE_STYLE_URL")}\"",
+        )
         // Google Sign-In — Web OAuth client ID as Credential Manager serverClientId.
         // Prefer GOOGLE_WEB_CLIENT_ID; GOOGLE_SERVER_CLIENT_ID accepted as alias.
         // Android OAuth client (package + SHA-1) is required in Google Cloud but is NOT

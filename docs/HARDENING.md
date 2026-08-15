@@ -39,13 +39,13 @@ Never invent or commit credential values. Store only in Supabase Edge secrets, G
 | `POWERSYNC_URL` | Mobile / connector | See `powersync/.env.example` — **infra ready — awaiting keys** for cloud E2E |
 | `POWERSYNC_PUBLIC_KEY` | Mobile / connector | Public client key only |
 | `BREVO_API_KEY` / `BREVO_FROM_EMAIL` / `BREVO_FROM_NAME` | Edge (CRM promos) | Promo channel; Resend fallback still active until Brevo set (`B-EMAIL-1`) |
-| `NEXT_PUBLIC_MAP_STYLE_URL` | Web | MapLibre style JSON; CARTO/demo until keyed URL set — **infra ready — awaiting tiles** |
-| `MAPLIBRE_STYLE_URL` | iOS / Android | Native MapLibre; see app `Secrets.xcconfig.example` / `local.properties.example` |
+| `NEXT_PUBLIC_MAP_STYLE_URL` | Web | MapLibre style JSON; prefer self-host `infra/satellites/maptiles/` (`http://127.0.0.1:8081/styles/basic-preview/style.json`); unset → keyless CARTO |
+| `MAPLIBRE_STYLE_URL` | iOS / Android | Native MapLibre; same satellite (emulator `10.0.2.2:8081`); unset → demotiles last resort |
 | `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` / `TEMPORAL_TASK_QUEUE` | Worker host | `@gtr/delivery-dispatch-worker` — fail-closed without address + service role |
 | `SUPABASE_SERVICE_ROLE_KEY` | Edge / PowerSync / Temporal worker | **Never** in `apps/*` or client packages |
 | `PROMPTFOO_PROVIDER` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | CI optional | Offline gate always; real-provider job **waiting on keys** (`promptfoo/.env.example`) |
 
-**Label:** ContiPay, Paynow, WhatsApp Cloud, SMS, Resend, `WORKER_SHARED_SECRET`, map tiles, PowerSync, Temporal — **infra ready — awaiting secrets** (or Mac host for H5-iOS `xcodebuild`). Do not invent production values.
+**Label:** ContiPay, Paynow, WhatsApp Cloud, SMS, Resend, `WORKER_SHARED_SECRET`, PowerSync, Temporal — **infra ready — awaiting secrets** (or Mac host for H5-iOS `xcodebuild`). Map tiles have a **self-host path** (`infra/satellites/maptiles/`); keyed cloud style URL is optional. Do not invent production values.
 
 Client packages use anon key + user JWT only (`packages/supabase-client`).
 

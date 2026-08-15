@@ -15,3 +15,5 @@ SUPABASE_ANON_KEY=your-anon-key
 # Maps — MapLibre SoR (default). Google key only for deprecated fallback (B-MAP-1).
 # useMapLibre=false
 # GOOGLE_MAPS_API_KEY=
+# Self-host tiles: infra/satellites/maptiles/ (emulator → host)
+# MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json

@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-15
 
+### Added
+
+- **MapLibre basemap satellite:** `infra/satellites/maptiles/` — Planetiler (Apache-2.0) Zimbabwe MBTiles + tileserver-gl (BSD) profile `maptiles` on port **8081**. Style `http://127.0.0.1:8081/styles/basic-preview/style.json` (emulator `10.0.2.2`). Env: `NEXT_PUBLIC_MAP_STYLE_URL` / `MAPLIBRE_STYLE_URL`. Discovery: `docs/plans/2026-08-15-maptiles-satellite.md`. Smoke: `MAPTILES_SMOKE=1` + `gtr-maptiles` style.json **200** (2026-08-15). Unset → CARTO / demotiles last resort (no longer “awaiting keyed URL only”).
+
 ### Changed
 
 - **Android delivery receipt copy:** Job detail no longer shows invoice/doc number alone — **Items bought** banner lists DN/invoice lines (qty × OEM/description · amount via `get_delivery_job_lines`); **Notes** sit in a separate **white** banner. Fake seeds + Live RPC wired. Migration `20260815210000_delivery_job_lines_driver_rpc.sql`.

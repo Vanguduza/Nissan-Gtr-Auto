@@ -49,6 +49,11 @@ data class JobsUiState(
     val osrmConfigured: Boolean = false,
     /** MapLibre courier map SoR; false → deprecated Google DeliveryRouteMap fallback only. */
     val mapLibreEnabled: Boolean = true,
+    /**
+     * Optional self-hosted style (tileserver-gl). Blank → demotiles last resort.
+     * See infra/satellites/maptiles/.
+     */
+    val mapLibreStyleUrl: String = "",
     val routePoints: List<MapLatLng> = emptyList(),
     val routeLabel: String? = null,
     val routeEtaSource: RouteEtaSource? = null,
@@ -94,6 +99,7 @@ class JobsViewModel(
     private val mapsApiKey: String,
     private val osrmUrl: String = "",
     useMapLibre: Boolean = true,
+    mapLibreStyleUrl: String = "",
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         JobsUiState(
@@ -101,6 +107,7 @@ class JobsViewModel(
             mapsKeyPresent = mapsApiKey.isNotBlank(),
             osrmConfigured = osrmUrl.isNotBlank(),
             mapLibreEnabled = useMapLibre,
+            mapLibreStyleUrl = mapLibreStyleUrl.trim(),
         ),
     )
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
@@ -503,6 +510,7 @@ class JobsViewModel(
             mapsApiKey: String,
             osrmUrl: String = "",
             useMapLibre: Boolean = true,
+            mapLibreStyleUrl: String = "",
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -515,6 +523,7 @@ class JobsViewModel(
                         mapsApiKey,
                         osrmUrl,
                         useMapLibre,
+                        mapLibreStyleUrl,
                     ) as T
             }
     }

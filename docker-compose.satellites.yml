@@ -4,6 +4,7 @@
 #   docker compose -f docker-compose.satellites.yml --profile search up -d
 #   docker compose -f docker-compose.satellites.yml --profile search --profile gps up -d
 #   bash infra/satellites/osrm/prepare.sh && docker compose -f docker-compose.satellites.yml --profile routing up -d
+#   bash infra/satellites/maptiles/prepare.sh && docker compose -f docker-compose.satellites.yml --profile maptiles up -d
 
 services:
   meilisearch:
@@ -54,6 +55,24 @@ services:
       - mld
       - /data/${OSRM_REGION:-zimbabwe}-latest.osrm
     # Fails fast if prepare.sh has not produced the .osrm graph yet.
+
+  # MapLibre basemap tiles (Planetiler MBTiles → tileserver-gl). Prepare first:
+  #   bash infra/satellites/maptiles/prepare.sh
+  #   # or smoke: MAPTILES_SMOKE=1 bash infra/satellites/maptiles/prepare.sh
+  # Docs: infra/satellites/maptiles/README.md
+  # Style: http://127.0.0.1:${MAPTILES_HOST_PORT:-8081}/styles/basic-preview/style.json
+  maptiles:
+    profiles: ["maptiles"]
+    image: ${TILESERVER_GL_IMAGE:-maptiler/tileserver-gl:v5.3.0}
+    container_name: gtr-maptiles
+    ports:
+      - "${MAPTILES_HOST_PORT:-8081}:8080"
+    volumes:
+      - ./infra/satellites/maptiles/data:/data
+    command:
+      - --file
+      - /data/${MAPTILES_MBTILES:-basemap.mbtiles}
+    # Fails if prepare.sh has not produced basemap.mbtiles yet.
 
   # FlareSolverr — Cloudflare challenge solver for catalog scrape (Amayama).
   # Usage: docker compose -f docker-compose.satellites.yml --profile scrape up -d

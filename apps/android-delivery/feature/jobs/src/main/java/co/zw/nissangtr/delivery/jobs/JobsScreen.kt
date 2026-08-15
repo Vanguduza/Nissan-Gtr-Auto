@@ -339,6 +339,7 @@ fun DeliveryRouteTab(
                     latitude = mapCenter.latitude,
                     longitude = mapCenter.longitude,
                     zoom = 12.0,
+                    styleUrl = state.mapLibreStyleUrl,
                     stops = routeStops,
                     driver = driverPos,
                     modifier = Modifier.fillMaxSize(),
@@ -670,6 +671,7 @@ fun JobDetailScreen(
                     latitude = mapLat!!,
                     longitude = mapLng!!,
                     zoom = 14.0,
+                    styleUrl = state.mapLibreStyleUrl,
                     stops = detailStops,
                     driver = driverPos,
                     modifier = Modifier.fillMaxSize(),
@@ -912,6 +914,7 @@ fun JobsScreen(
     onSignOut: (() -> Unit)? = null,
     osrmUrl: String = "",
     useMapLibre: Boolean = true,
+    mapLibreStyleUrl: String = "",
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -924,6 +927,7 @@ fun JobsScreen(
             mapsApiKey,
             osrmUrl = osrmUrl,
             useMapLibre = useMapLibre,
+            mapLibreStyleUrl = mapLibreStyleUrl,
         ),
     )
     val state by vm.state.collectAsState()

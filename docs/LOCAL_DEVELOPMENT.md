@@ -150,7 +150,7 @@ Code paths and fail-closed stubs are in place. Do **not** invent production secr
 | ContiPay / Paynow / WhatsApp Cloud / SMS / Resend | Edge wired; fail-closed without secrets unless local stub flag |
 | Brevo (CRM promos) | Prefer Brevo; Resend fallback until `BREVO_*` set |
 | `WORKER_SHARED_SECRET` | Fail-closed outside local stub |
-| Map tiles (`NEXT_PUBLIC_MAP_STYLE_URL` / MapLibre) | Infra ready — awaiting keyed style URL |
+| Map tiles (`NEXT_PUBLIC_MAP_STYLE_URL` / `MAPLIBRE_STYLE_URL`) | Self-host: `infra/satellites/maptiles/` — smoke `$env:MAPTILES_SMOKE=1; powershell -File infra/satellites/maptiles/prepare.ps1` then `--profile maptiles` → `http://127.0.0.1:8081/styles/basic-preview/style.json`. Full ZW: `prepare.sh` (Planetiler; first run ~1GB+ sources). Unset → CARTO / demotiles |
 | PowerSync (`POWERSYNC_URL`) | SDK wired; Fake when unset — awaiting cloud E2E keys |
 | Temporal (`TEMPORAL_ADDRESS` + service role) | Worker refuse-without-config — awaiting live Temporal |
 | Promptfoo real-provider | Optional — offline gate always; waiting on keys for real CI |

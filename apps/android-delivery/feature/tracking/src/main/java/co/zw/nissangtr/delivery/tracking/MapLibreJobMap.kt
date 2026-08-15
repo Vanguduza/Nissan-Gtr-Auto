@@ -35,7 +35,8 @@ import org.maplibre.geojson.Point
  * Courier job map — MapLibre render SoR (DIAL D-44 / Epic B).
  * Pins delivery stops + optional live driver location. Display only — GPS ingest is FGS.
  *
- * Default style is public demo tiles; ops should set a self-hosted/style URL via [styleUrl].
+ * Default style is public demo tiles; prefer self-host via [styleUrl]
+ * (`MAPLIBRE_STYLE_URL` → infra/satellites/maptiles/).
  */
 @Composable
 fun MapLibreJobMap(
@@ -43,7 +44,7 @@ fun MapLibreJobMap(
     longitude: Double,
     zoom: Double = 14.0,
     modifier: Modifier = Modifier,
-    styleUrl: String = "https://demotiles.maplibre.org/style.json",
+    styleUrl: String = DEFAULT_MAPLIBRE_STYLE_URL,
     stops: List<MapStop> = emptyList(),
     driver: MapLatLng? = null,
 ) {
@@ -78,8 +79,9 @@ fun MapLibreJobMap(
             .fillMaxSize()
             .heightIn(min = 220.dp),
         update = { view ->
+            val resolvedStyle = resolveMapLibreStyleUrl(styleUrl)
             view.getMapAsync { map ->
-                map.setStyle(styleUrl) { style ->
+                map.setStyle(resolvedStyle) { style ->
                     ensureStopLayers(style)
                     updateStopPins(style, stops)
                     updateDriverPin(style, driver)
@@ -96,6 +98,12 @@ fun MapLibreJobMap(
         },
     )
 }
+
+/** Public demotiles — last resort when MAPLIBRE_STYLE_URL unset. */
+const val DEFAULT_MAPLIBRE_STYLE_URL = "https://demotiles.maplibre.org/style.json"
+
+fun resolveMapLibreStyleUrl(configured: String): String =
+    configured.trim().ifBlank { DEFAULT_MAPLIBRE_STYLE_URL }
 
 private const val STOPS_SOURCE = "gtr-delivery-stops"
 private const val STOPS_LAYER = "gtr-delivery-stops-layer"
