@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-15
 
+### Changed
+
+- **Staff master stock report:** `/staff/warehouse/master-stock` is a full-width desk report (StaffNav + wide shell) with model (chassis), merchandising category/subcategory, and OEM search filters; sticky dense WH1/WH2 table; CSV export for current filters or whole stock (up to 5k). RPC `list_master_stock` accepts chassis + category needles (`20260815120000_list_master_stock_filters.sql`). Assert: `node apps/web/scripts/assert-master-stock-report.mjs`.
+
 ### Fixed
 
 - **Staff idle lock survives reload (B-STAFF-1):** Web `/staff` idle lock (3 min) previously reset on full page reload while Supabase `autoRefreshToken` rehydrated the session — UI unlocked without password. Persist `lastActiveAt` + `locked` in `sessionStorage`; boot gate before rendering staff chrome; clear on sign-out / fresh login. Assert: `node apps/web/scripts/assert-staff-idle-lock.mjs`.

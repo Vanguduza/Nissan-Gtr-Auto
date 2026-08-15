@@ -1,0 +1,213 @@
+/* Master stock report — full-width filter + sticky dense table */
+
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.08);
+  margin-bottom: 0.85rem;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem 0.75rem;
+  flex: 1 1 36rem;
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(18, 21, 28, 0.55);
+  font-family: var(--font-display);
+}
+
+.field input,
+.field select {
+  min-height: 2.45rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--gtr-steel) 16%, transparent);
+  border-radius: 6px;
+  background: var(--gtr-white);
+  color: var(--gtr-steel);
+  font-family: var(--font-body, inherit);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  width: 100%;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid color-mix(in srgb, var(--gtr-red) 45%, white);
+  outline-offset: 1px;
+  border-color: color-mix(in srgb, var(--gtr-red) 35%, transparent);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.statusBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.25rem;
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  color: rgba(18, 21, 28, 0.62);
+}
+
+.statusBar strong {
+  color: var(--gtr-steel);
+  font-weight: 650;
+}
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.1rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.84rem;
+}
+
+.totals span {
+  white-space: nowrap;
+}
+
+.tableShell {
+  border: 1px solid color-mix(in srgb, var(--gtr-steel) 12%, transparent);
+  border-radius: 8px;
+  background: var(--gtr-white);
+  overflow: auto;
+  max-height: min(68vh, 52rem);
+  box-shadow: 0 1px 2px rgba(18, 21, 28, 0.04);
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.07);
+  vertical-align: top;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(18, 21, 28, 0.58);
+  background: color-mix(in srgb, var(--gtr-steel) 6%, white);
+  border-bottom: 1px solid rgba(18, 21, 28, 0.12);
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(18, 21, 28, 0.06);
+}
+
+.table th.num,
+.table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th.stickyOem,
+.table td.stickyOem {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--gtr-white);
+  box-shadow: 1px 0 0 rgba(18, 21, 28, 0.08);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table th.stickyOem {
+  z-index: 3;
+  background: color-mix(in srgb, var(--gtr-steel) 6%, white);
+}
+
+.table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--gtr-chalk) 55%, white);
+}
+
+.table tbody tr:nth-child(even) td.stickyOem {
+  background: color-mix(in srgb, var(--gtr-chalk) 55%, white);
+}
+
+.table tbody tr:hover td {
+  background: color-mix(in srgb, var(--gtr-red) 4%, white);
+}
+
+.table tbody tr:hover td.stickyOem {
+  background: color-mix(in srgb, var(--gtr-red) 4%, white);
+}
+
+.muted {
+  color: rgba(18, 21, 28, 0.42);
+}
+
+.empty,
+.loading,
+.error {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.92rem;
+  color: rgba(18, 21, 28, 0.58);
+}
+
+.error {
+  color: color-mix(in srgb, var(--gtr-red) 85%, var(--gtr-steel));
+}
+
+.hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(18, 21, 28, 0.48);
+}

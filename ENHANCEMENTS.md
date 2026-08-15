@@ -7,7 +7,7 @@ Tracked improvements aligned with Dial-a-Spare adoption (`docs/DIAL_SPARE_ADOPTI
 | E1 | amountMinor + Brevo + OSRM routing spine | Done (spine) | Packages + helpers; dual-write migration landed |
 | POD-evidence | Driver POD photo evidence + signature pad | Done (verified) | CameraX Bridge-First capture→`delivery-pods`→`submit_delivery_pod`; Compose signature WORKING; gallery picker skipped; `PodEvidenceGate` + Fake bridges |
 | E-Proc | Relationship procurement + fund release + tracker | Done | Verified: live tracker, fund release smoke, RFQ secondary |
-| E-WH | Dual WH1/WH2 + master stock | Done | Verified: `list_master_stock` staff-only; GRN OEM + invoice bind |
+| E-WH | Dual WH1/WH2 + master stock | Done | Verified: `list_master_stock` staff-only; GRN OEM + invoice bind; **web report desk** filters (model/cat/sub) + CSV export (2026-08-15) |
 | E-POS | Dial UX web + tablet POS | Done (web); Android → CoolMall←web | Web staff POS is behavior SoT; CoolMall vendor gets cart/prep via Supabase. Plan: `docs/plans/2026-08-14-management-oss-shell-rebuild.md` |
 | Mgmt-OSS-1 | CoolMall management from web staff spec | Phase A+ DI (non-POS) | Auth→hub→WH master-stock + change-password via `gtradapter` Fake; POS deferred; Live supabase next |
 | E-POS-WH2 | Android POS WH2 storefloor pick (H-PARITY-WH2) | Done | `listSaleableWarehouses` + `isPosSaleableWarehouse`; `PosSaleableWarehouseTest` PASS |

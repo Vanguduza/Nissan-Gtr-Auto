@@ -10106,14 +10106,23 @@ export type Database = {
         }
       }
       list_master_stock: {
-        Args: { p_limit?: number; p_query?: string }
+        Args: {
+          p_limit?: number
+          p_query?: string
+          p_chassis_code?: string
+          p_category_needles?: string[]
+          p_subcategory_needles?: string[]
+        }
         Returns: {
+          category_name: string | null
+          chassis_codes: string | null
           description: string
           oem_part_number: string
           qty_total: number
           qty_wh1: number
           qty_wh2: number
           stock_item_id: string
+          subcategory_name: string | null
         }[]
       }
       list_online_prep_queue: {

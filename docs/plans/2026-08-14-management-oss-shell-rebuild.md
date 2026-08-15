@@ -53,7 +53,7 @@ Primary libs: `staff-pos`, `staff-warehouse`, `staff-bins`, `staff-consignment`,
 |-----------|-------|----------|----------|
 | `/staff/warehouse` | admin, warehouse | Thin hub (links only) | — |
 | `/staff/warehouse/receive` | admin, warehouse | Ad-hoc receipt lines → post | `post_stock_receipt` |
-| `/staff/warehouse/master-stock` | path: admin, warehouse | OEM qty WH1/WH2 read | `list_master_stock` |
+| `/staff/warehouse/master-stock` | path: admin, warehouse | Full-width stock report: model/cat/sub + OEM filters; WH1/WH2 table; CSV export filtered\|all | `list_master_stock` (+ chassis/category needles) |
 | `/staff/warehouse/transfers` | admin, warehouse | WH1→WH2 create / approve / reject | `create_stock_transfer`, `approve_stock_transfer`, `reject_stock_transfer` |
 | `/staff/warehouse/cycle-count` | admin, warehouse | Reconciliation draft → lines → submit/approve/cancel | `create_stock_reconciliation_draft`, `upsert_stock_reconciliation_lines`, `submit_stock_reconciliation`, `approve_stock_reconciliation`, `cancel_stock_reconciliation` |
 | `/staff/warehouse/bins` | admin, warehouse | Bin CRUD, assign stock level, pick-path hints | `create_warehouse_bin`, `update_warehouse_bin`, `deactivate_warehouse_bin`, `set_stock_level_bin`, `get_pick_path_hints` |
