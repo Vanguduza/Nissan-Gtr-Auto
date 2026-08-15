@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-15  
 **Lane:** infra / `@backend_agent` + delivery/web docs  
-**Status:** Scaffold + smoke path
+**Status:** Scaffold + smoke path + full Zimbabwe prepare (gitignored MBTiles; delivery debug → tileserver URL)
 
 ## Discovery (Adopt-first)
 
@@ -32,4 +32,6 @@ http://127.0.0.1:8081/styles/basic-preview/style.json
 http://10.0.2.2:8081/styles/basic-preview/style.json
 ```
 
-Env: `NEXT_PUBLIC_MAP_STYLE_URL`, `MAPLIBRE_STYLE_URL` / delivery `local.properties`. Unset → web CARTO Positron / native demotiles last resort.
+Env: `NEXT_PUBLIC_MAP_STYLE_URL`, `MAPLIBRE_STYLE_URL` / delivery `local.properties`. Unset → web CARTO Positron; delivery **debug** defaults to emulator `10.0.2.2:8081`; release / blank resolve → demotiles last resort.
+
+**APK shipping:** Zimbabwe MBTiles stay under `infra/satellites/maptiles/data/` (gitignored). Do not bundle full z0–14 packs into the Play APK — use self-hosted style URL (or optional first-run download later).

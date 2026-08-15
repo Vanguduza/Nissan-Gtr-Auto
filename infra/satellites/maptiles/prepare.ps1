@@ -39,4 +39,13 @@ $bash = @(
 if (-not $bash) { throw "Git Bash not found. Install Git for Windows or run prepare.sh from WSL." }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 Set-Location $repoRoot
+# Docker Desktop + SQLite: prefer space-free junction when repo path has spaces.
+$junction = "C:\gtr-maptiles-data"
+if (($PSScriptRoot -match " ") -and (Test-Path $junction)) {
+  $env:MAPTILES_DATA_MOUNT = $junction
+  Write-Host "MAPTILES_DATA_MOUNT=$junction (repo path has spaces)"
+}
 & $bash (Join-Path $PSScriptRoot "prepare.sh")
+if ($LASTEXITCODE -ne 0) {
+  throw "prepare.sh failed with exit code $LASTEXITCODE"
+}

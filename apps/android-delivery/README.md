@@ -58,8 +58,11 @@ SUPPORT_PHONE=+263771234567
 # OSRM_URL=http://10.0.2.2:5000
 # MapLibre courier map SoR (default on). Set false only for deprecated Google Maps fallback.
 # useMapLibre=false
-# Self-host basemap (infra/satellites/maptiles/) — emulator → host
+# Self-host Zimbabwe basemap (infra/satellites/maptiles/) — prepare + tileserver-gl on :8081
+# Emulator (debug default when unset):
 # MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json
+# Wireless phone → PC LAN IP (same Wi-Fi; Windows: ipconfig):
+# MAPLIBRE_STYLE_URL=http://192.168.x.x:8081/styles/basic-preview/style.json
 # Deprecated — Google Maps tiles + Directions only when useMapLibre=false or coords missing / OSRM unset
 # GOOGLE_MAPS_API_KEY=your-maps-key
 # rpc.forceFake=true
@@ -67,7 +70,18 @@ SUPPORT_PHONE=+263771234567
 
 Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`.
 
-**Maps (Epic B / D-44):** **`MapLibreJobMap`** is the courier map SoR on `JobDetailScreen`. Google `DeliveryRouteMap` is an **explicit deprecated fallback** only (`useMapLibre=false` or missing coords) — never silent SoR. Set **`MAPLIBRE_STYLE_URL`** to the self-hosted tileserver-gl style (`infra/satellites/maptiles/`); blank keeps demotiles as last resort.
+**Maps (Epic B / D-44):** **`MapLibreJobMap`** is the courier map SoR on `JobDetailScreen`. Google `DeliveryRouteMap` is an **explicit deprecated fallback** only (`useMapLibre=false` or missing coords) — never silent SoR.
+
+**Zimbabwe basemap (practical shipping):** Full OpenMapTiles MBTiles for Zimbabwe is typically **hundreds of MB** after Planetiler — **not** bundled into the APK (Play/APK size). Workflow:
+
+1. `powershell -File infra/satellites/maptiles/prepare.ps1` → gitignored `infra/satellites/maptiles/data/basemap.mbtiles`
+2. `docker compose -f docker-compose.satellites.yml --profile maptiles up -d`
+3. Point the app at tileserver-gl:
+   - **Emulator:** debug builds default `MAPLIBRE_STYLE_URL` to `http://10.0.2.2:8081/styles/basic-preview/style.json`
+   - **Wireless device:** set `MAPLIBRE_STYLE_URL=http://<PC_LAN_IP>:8081/styles/basic-preview/style.json` in `local.properties`
+4. Release / unset → public demotiles last resort only
+
+Optional later: first-run download of a trimmed MBTiles pack into app storage (still not a 1GB APK asset). Do not commit multi-GB blobs; keep under `data/` + prepare script (git-lfs only if already adopted).
 
 **Routing:** set **`OSRM_URL`** to a self-hosted OSRM base (see `infra/satellites/README.md`). When configured, distance/ETA prefer OSRM and the UI shows `eta_source=osrm`. Google Directions is deprecated fallback only when `OSRM_URL` is blank.
 GPS ingest always uses `:location-tracker` FGS — the map is display-only.

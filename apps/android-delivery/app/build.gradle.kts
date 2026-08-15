@@ -48,8 +48,10 @@ android {
             "USE_MAPLIBRE",
             (!localProp("useMapLibre").equals("false", ignoreCase = true)).toString(),
         )
-        // Self-host style: infra/satellites/maptiles/ — emulator http://10.0.2.2:8081/styles/basic-preview/style.json
-        // Blank → demotiles last resort inside MapLibreJobMap.
+        // Self-host style: infra/satellites/maptiles/. Override via local.properties.
+        // Debug blank → emulator loopback to tileserver-gl (not demotiles). Release blank → demotiles last resort.
+        // Wireless device: MAPLIBRE_STYLE_URL=http://<PC_LAN_IP>:8081/styles/basic-preview/style.json
+        // Do NOT bundle full Zimbabwe MBTiles in the APK (often 100MB–1GB+) — serve from satellite or optional first-run download.
         buildConfigField(
             "String",
             "MAPLIBRE_STYLE_URL",
@@ -64,6 +66,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Prefer self-hosted Zimbabwe basemap (tileserver-gl) over public demotiles when unset.
+            val debugStyle = localProp("MAPLIBRE_STYLE_URL").ifBlank {
+                "http://10.0.2.2:8081/styles/basic-preview/style.json"
+            }
+            buildConfigField("String", "MAPLIBRE_STYLE_URL", "\"$debugStyle\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

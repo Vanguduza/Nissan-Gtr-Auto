@@ -35,8 +35,10 @@ import org.maplibre.geojson.Point
  * Courier job map — MapLibre render SoR (DIAL D-44 / Epic B).
  * Pins delivery stops + optional live driver location. Display only — GPS ingest is FGS.
  *
- * Default style is public demo tiles; prefer self-host via [styleUrl]
- * (`MAPLIBRE_STYLE_URL` → infra/satellites/maptiles/).
+ * Prefer self-hosted Zimbabwe basemap via [styleUrl] (`MAPLIBRE_STYLE_URL` →
+ * `infra/satellites/maptiles/` tileserver-gl). Debug builds default to emulator
+ * `http://10.0.2.2:8081/styles/basic-preview/style.json`. Full MBTiles stay gitignored
+ * under the satellite (not APK assets — typically 100MB–1GB+).
  */
 @Composable
 fun MapLibreJobMap(
@@ -99,8 +101,12 @@ fun MapLibreJobMap(
     )
 }
 
-/** Public demotiles — last resort when MAPLIBRE_STYLE_URL unset. */
+/** Public demotiles — last resort when MAPLIBRE_STYLE_URL unset (release / no satellite). */
 const val DEFAULT_MAPLIBRE_STYLE_URL = "https://demotiles.maplibre.org/style.json"
+
+/** Emulator → host tileserver-gl (matches debug BuildConfig default). */
+const val EMULATOR_MAPLIBRE_STYLE_URL =
+    "http://10.0.2.2:8081/styles/basic-preview/style.json"
 
 fun resolveMapLibreStyleUrl(configured: String): String =
     configured.trim().ifBlank { DEFAULT_MAPLIBRE_STYLE_URL }
