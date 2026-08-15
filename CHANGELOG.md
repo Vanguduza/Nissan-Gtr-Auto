@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-16
 
+### Added
+
+- **HR payroll fund + PDF payslips (schedule & on-demand):** Admin/HR fund submitted gross payroll from cash GL (default **1100**): append-only JEs Dr **5200** / Cr **2150** then Dr **2150** / Cr cash; `export_payslip` + branded PDF. CoA **2150 Salaries Payable**. Schedule via `hr_payslip_schedules` + Edge `process-payroll-schedules` (worker secret). Web `/staff/hr?tab=payroll`. No PAYE/NSSA/ContiPay API. Plan: `docs/plans/2026-08-16-payroll-fund-payslip-schedule.md`. Migration `20260816010000_payroll_fund_payslip_schedule.sql`; smoke `payroll_fund_payslip_schedule_smoke.sql`.
+
 ### Changed
 
 - **HR ID card redesign (front + back):** CR80 card uses GTR steel/chalk/primary accents. **Front** — photo left, logo right, name / position·staff role / employee # centered. **Back** — employee QR (`…/staff/verify/{token}` preferred, else `gtr://employee/{code}`; Bridge-scanned, no fiscal). Sources: `@gtr/documents` (`renderIdCardHtml`, `buildEmployeeQrPayload`), Edge `branded_docs_pdf` (2-page PDF), preview `pnpm preview:hr-id-card` → `docs/previews/hr-onboarding-id-card-driver.html`.

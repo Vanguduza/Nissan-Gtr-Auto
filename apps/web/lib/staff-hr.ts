@@ -97,6 +97,8 @@ export type PayrollLineOption = {
   net_amount: number;
   currency: Database["public"]["Enums"]["currency_code"];
   payroll_run_id: string;
+  funded_at?: string | null;
+  payment_journal_id?: string | null;
 };
 
 export type PayrollDeductionOption = {
@@ -112,10 +114,10 @@ export async function listOpenPayrollLines(
   const { data, error } = await client
     .from("payroll_lines")
     .select(
-      "id, employee_id, gross_amount, deductions_amount, net_amount, currency, payroll_run_id",
+      "id, employee_id, gross_amount, deductions_amount, net_amount, currency, payroll_run_id, funded_at, payment_journal_id",
     )
     .order("created_at", { ascending: false })
-    .limit(40);
+    .limit(80);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data as PayrollLineOption[]) ?? [] };
 }
@@ -393,6 +395,195 @@ export async function exportPayslip(
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "export_payslip returned no id." };
   return { ok: true, data };
+}
+
+export type HrPayslipScheduleRow = {
+  id: string;
+  pay_frequency: Database["public"]["Enums"]["hr_pay_frequency"];
+  cron_expr: string;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  is_active: boolean;
+  cash_account_code: string | null;
+  currency: Database["public"]["Enums"]["currency_code"];
+  default_exchange_rate: number;
+  auto_fund: boolean;
+};
+
+export type FundPayrollResult = {
+  payroll_run_id: string;
+  funded_count: number;
+  skipped_count: number;
+  accrual_journal_id: string | null;
+  payment_journal_id: string | null;
+  total_net: number;
+  currency: string;
+  cash_account_code: string;
+  payslip_ids: string[];
+};
+
+export async function listHrPayslipSchedules(
+  client: SupabaseClient,
+): Promise<StorefrontResult<HrPayslipScheduleRow[]>> {
+  const { data, error } = await client
+    .from("hr_payslip_schedules")
+    .select(
+      "id, pay_frequency, cron_expr, last_run_at, next_run_at, is_active, cash_account_code, currency, default_exchange_rate, auto_fund",
+    )
+    .order("pay_frequency");
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data as HrPayslipScheduleRow[]) ?? [] };
+}
+
+export async function upsertHrPayslipSchedule(
+  client: SupabaseClient,
+  args: {
+    payFrequency: Database["public"]["Enums"]["hr_pay_frequency"];
+    cronExpr?: string;
+    nextRunAt?: string | null;
+    isActive?: boolean;
+    cashAccountCode?: string;
+    currency?: Database["public"]["Enums"]["currency_code"];
+    defaultExchangeRate?: number;
+    autoFund?: boolean;
+  },
+): Promise<StorefrontResult<string>> {
+  const { data, error } = await client.rpc("upsert_hr_payslip_schedule", {
+    p_pay_frequency: args.payFrequency,
+    p_cron_expr: args.cronExpr,
+    p_next_run_at: args.nextRunAt ?? undefined,
+    p_is_active: args.isActive,
+    p_cash_account_code: args.cashAccountCode,
+    p_currency: args.currency,
+    p_default_exchange_rate: args.defaultExchangeRate,
+    p_auto_fund: args.autoFund,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "upsert_hr_payslip_schedule returned no id." };
+  return { ok: true, data: String(data) };
+}
+
+/** Fund from cash GL (Dr 5200/Cr 2150 then Dr 2150/Cr cash) + export_payslip. No ContiPay. */
+export async function fundPayrollLines(
+  client: SupabaseClient,
+  args: {
+    payrollLineIds: string[];
+    cashAccountCode?: string;
+    entryDate?: string;
+  },
+): Promise<StorefrontResult<FundPayrollResult>> {
+  const { data, error } = await client.rpc("fund_payroll_lines", {
+    p_payroll_line_ids: args.payrollLineIds,
+    p_cash_account_code: args.cashAccountCode ?? "1100",
+    p_entry_date: args.entryDate,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data || typeof data !== "object") {
+    return { ok: false, error: "fund_payroll_lines returned no payload." };
+  }
+  const row = data as Record<string, unknown>;
+  const payslipIds = Array.isArray(row.payslip_ids)
+    ? row.payslip_ids.map((x) => String(x))
+    : [];
+  return {
+    ok: true,
+    data: {
+      payroll_run_id: String(row.payroll_run_id ?? ""),
+      funded_count: Number(row.funded_count ?? 0),
+      skipped_count: Number(row.skipped_count ?? 0),
+      accrual_journal_id: row.accrual_journal_id
+        ? String(row.accrual_journal_id)
+        : null,
+      payment_journal_id: row.payment_journal_id
+        ? String(row.payment_journal_id)
+        : null,
+      total_net: Number(row.total_net ?? 0),
+      currency: String(row.currency ?? "USD"),
+      cash_account_code: String(row.cash_account_code ?? "1100"),
+      payslip_ids: payslipIds,
+    },
+  };
+}
+
+export async function fundPayrollRun(
+  client: SupabaseClient,
+  args: {
+    payrollRunId: string;
+    cashAccountCode?: string;
+    entryDate?: string;
+    employeeIds?: string[];
+  },
+): Promise<StorefrontResult<FundPayrollResult>> {
+  const { data, error } = await client.rpc("fund_payroll_run", {
+    p_payroll_run_id: args.payrollRunId,
+    p_cash_account_code: args.cashAccountCode ?? "1100",
+    p_entry_date: args.entryDate,
+    p_employee_ids: args.employeeIds,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data || typeof data !== "object") {
+    return { ok: false, error: "fund_payroll_run returned no payload." };
+  }
+  const row = data as Record<string, unknown>;
+  const payslipIds = Array.isArray(row.payslip_ids)
+    ? row.payslip_ids.map((x) => String(x))
+    : [];
+  return {
+    ok: true,
+    data: {
+      payroll_run_id: String(row.payroll_run_id ?? ""),
+      funded_count: Number(row.funded_count ?? 0),
+      skipped_count: Number(row.skipped_count ?? 0),
+      accrual_journal_id: row.accrual_journal_id
+        ? String(row.accrual_journal_id)
+        : null,
+      payment_journal_id: row.payment_journal_id
+        ? String(row.payment_journal_id)
+        : null,
+      total_net: Number(row.total_net ?? 0),
+      currency: String(row.currency ?? "USD"),
+      cash_account_code: String(row.cash_account_code ?? "1100"),
+      payslip_ids: payslipIds,
+    },
+  };
+}
+
+export async function listSubmittedPayrollRuns(
+  client: SupabaseClient,
+): Promise<
+  StorefrontResult<
+    Array<{
+      id: string;
+      document_number: string | null;
+      period_start: string;
+      period_end: string;
+      currency: Database["public"]["Enums"]["currency_code"];
+      total_net: number;
+      status: string;
+    }>
+  >
+> {
+  const { data, error } = await client
+    .from("payroll_runs")
+    .select(
+      "id, document_number, period_start, period_end, currency, total_net, status",
+    )
+    .eq("status", "submitted")
+    .order("period_end", { ascending: false })
+    .limit(40);
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data as Array<{
+      id: string;
+      document_number: string | null;
+      period_start: string;
+      period_end: string;
+      currency: Database["public"]["Enums"]["currency_code"];
+      total_net: number;
+      status: string;
+    }>) ?? [],
+  };
 }
 
 async function downloadBrandedDocPdf(

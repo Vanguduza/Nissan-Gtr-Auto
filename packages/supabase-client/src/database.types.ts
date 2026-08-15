@@ -3729,31 +3729,49 @@ export type Database = {
       }
       hr_payslip_schedules: {
         Row: {
+          auto_fund: boolean
+          cash_account_code: string | null
           created_at: string
           cron_expr: string
+          currency: Database["public"]["Enums"]["currency_code"]
+          default_exchange_rate: number
           id: string
           is_active: boolean
           last_run_at: string | null
           next_run_at: string | null
           pay_frequency: Database["public"]["Enums"]["hr_pay_frequency"]
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
+          auto_fund?: boolean
+          cash_account_code?: string | null
           created_at?: string
           cron_expr: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          default_exchange_rate?: number
           id?: string
           is_active?: boolean
           last_run_at?: string | null
           next_run_at?: string | null
           pay_frequency: Database["public"]["Enums"]["hr_pay_frequency"]
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
+          auto_fund?: boolean
+          cash_account_code?: string | null
           created_at?: string
           cron_expr?: string
+          currency?: Database["public"]["Enums"]["currency_code"]
+          default_exchange_rate?: number
           id?: string
           is_active?: boolean
           last_run_at?: string | null
           next_run_at?: string | null
           pay_frequency?: Database["public"]["Enums"]["hr_pay_frequency"]
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -5283,49 +5301,64 @@ export type Database = {
       }
       payroll_lines: {
         Row: {
+          accrual_journal_id: string | null
+          cash_account_code: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency_code"]
           deductions_amount: number
           employee_id: string
           exchange_rate: number
+          funded_at: string | null
+          funded_by: string | null
           gross_amount: number
           hours_worked: number
           id: string
           line_no: number
           net_amount: number
           pay_type: Database["public"]["Enums"]["salary_pay_type"]
+          payment_journal_id: string | null
           payroll_run_id: string
           rate_applied: number
           salary_structure_id: string | null
         }
         Insert: {
+          accrual_journal_id?: string | null
+          cash_account_code?: string | null
           created_at?: string
           currency: Database["public"]["Enums"]["currency_code"]
           deductions_amount?: number
           employee_id: string
           exchange_rate?: number
+          funded_at?: string | null
+          funded_by?: string | null
           gross_amount: number
           hours_worked?: number
           id?: string
           line_no: number
           net_amount: number
           pay_type: Database["public"]["Enums"]["salary_pay_type"]
+          payment_journal_id?: string | null
           payroll_run_id: string
           rate_applied: number
           salary_structure_id?: string | null
         }
         Update: {
+          accrual_journal_id?: string | null
+          cash_account_code?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency_code"]
           deductions_amount?: number
           employee_id?: string
           exchange_rate?: number
+          funded_at?: string | null
+          funded_by?: string | null
           gross_amount?: number
           hours_worked?: number
           id?: string
           line_no?: number
           net_amount?: number
           pay_type?: Database["public"]["Enums"]["salary_pay_type"]
+          payment_journal_id?: string | null
           payroll_run_id?: string
           rate_applied?: number
           salary_structure_id?: string | null
@@ -9810,6 +9843,44 @@ export type Database = {
         Returns: string
       }
       export_payslip: { Args: { p_payroll_line_id: string }; Returns: string }
+      fund_payroll_lines: {
+        Args: {
+          p_cash_account_code?: string
+          p_entry_date?: string
+          p_payroll_line_ids: string[]
+        }
+        Returns: Json
+      }
+      fund_payroll_run: {
+        Args: {
+          p_cash_account_code?: string
+          p_employee_ids?: string[]
+          p_entry_date?: string
+          p_payroll_run_id: string
+        }
+        Returns: Json
+      }
+      payslip_render_payload: {
+        Args: { p_payroll_line_id: string }
+        Returns: Json
+      }
+      run_due_payroll_schedules: {
+        Args: { p_as_of?: string }
+        Returns: Json
+      }
+      upsert_hr_payslip_schedule: {
+        Args: {
+          p_auto_fund?: boolean
+          p_cash_account_code?: string
+          p_cron_expr?: string
+          p_currency?: Database["public"]["Enums"]["currency_code"]
+          p_default_exchange_rate?: number
+          p_is_active?: boolean
+          p_next_run_at?: string
+          p_pay_frequency: Database["public"]["Enums"]["hr_pay_frequency"]
+        }
+        Returns: string
+      }
       fail_delivery_job: {
         Args: {
           p_create_reattempt?: boolean

@@ -288,6 +288,11 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
     children: [
       { href: "/staff/hr", label: "HR desk", roles: ["admin", "hr"] },
       {
+        href: "/staff/hr?tab=payroll",
+        label: "Payroll & payslips",
+        roles: ["admin", "hr"],
+      },
+      {
         href: "/staff/hr?tab=organogram",
         label: "Organogram",
         roles: ["admin", "hr"],

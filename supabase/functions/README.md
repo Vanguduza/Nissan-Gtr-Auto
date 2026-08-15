@@ -1,6 +1,6 @@
 # Edge Functions
 
-## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `delivery-dispatch-cycle`, `process-ai-reports`, `process-crm-promos`, `chat-notify-on-message`)
+## Worker AuthZ (`process-sms-outbox`, `process-customer-receipts`, `demand-forecast`, `delivery-dispatch-cycle`, `process-ai-reports`, `process-crm-promos`, `process-payroll-schedules`, `chat-notify-on-message`)
 
 These use `service_role` internally and **must not** be publicly callable without a shared secret.
 
@@ -280,6 +280,14 @@ curl -sS -X POST "$SUPABASE_URL/functions/v1/process-ai-reports" \
   -H "Content-Type: application/json" \
   -d '{"cadence":"daily"}'
 # weekly / monthly: change cadence in body (see ai_worker_schedules.cron_expr)
+
+# Due HR payslip schedules → create/compute/submit/fund (GL cash) + PDF upload
+# Gross only — no PAYE/NSSA/ContiPay bank API
+curl -sS -X POST "$SUPABASE_URL/functions/v1/process-payroll-schedules" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  -H "x-worker-secret: $WORKER_SHARED_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
 
 Optional: after a successful cron run, `touch_ai_worker_schedule('process-crm-promos-daily')` (service_role / admin).

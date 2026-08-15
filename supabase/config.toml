@@ -132,6 +132,10 @@ verify_jwt = true
 [functions.process-crm-promos]
 verify_jwt = true
 
+# Cron worker: due hr_payslip_schedules → fund gross payroll + PDF (x-worker-secret)
+[functions.process-payroll-schedules]
+verify_jwt = true
+
 # Staff JWT → ABC + forecast KPIs + optional Gemini directives
 [functions.stores-insights]
 verify_jwt = true
