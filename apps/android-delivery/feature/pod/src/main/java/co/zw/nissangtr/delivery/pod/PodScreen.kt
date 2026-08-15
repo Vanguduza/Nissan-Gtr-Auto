@@ -90,22 +90,12 @@ fun PodSection(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ShopSectionHeader(title = "Proof of delivery", actionLabel = null)
-        Text(
-            "Evidence photo (device camera) + customer touch signature. OTP required. No ZIMRA.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         ShopStepProgress(
             steps = listOf("Photo", "Sign", "OTP", "Submit"),
             completedCount = completedSteps,
         )
 
         ShopSectionHeader(title = "1 · Evidence photo", actionLabel = null)
-        Text(
-            "Capture package/doorstep evidence via CameraX bridge. Uploads to Storage on submit.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         ShopPrimaryButton(
             label = if (state.photoLocalPath != null) {
                 "Retake evidence photo"
@@ -124,11 +114,6 @@ fun PodSection(
         }
 
         ShopSectionHeader(title = "2 · Customer signature", actionLabel = null)
-        Text(
-            "Ask the customer to sign below confirming receipt.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         if (state.signatureLocalPath == null) {
             Column(
                 modifier = Modifier

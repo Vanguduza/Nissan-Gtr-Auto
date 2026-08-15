@@ -83,6 +83,8 @@ class AuthSessionViewModel(
 
     fun signOut() {
         viewModelScope.launch {
+            _gate.value = AuthGateState.NeedsSignIn
+            _signIn.update { SignInUiState() }
             try {
                 supabase.signOut()
             } catch (e: Exception) {

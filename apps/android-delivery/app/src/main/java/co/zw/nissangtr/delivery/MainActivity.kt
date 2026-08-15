@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
                     if (!splashDone) {
                         ShopSplash(
                             brand = "Nissan GTR Auto",
-                            tagline = "Driver · jobs · live maps · POD",
+                            tagline = "Driver",
                             onFinished = { splashDone = true },
                         )
                     } else {
@@ -103,7 +103,6 @@ class MainActivity : ComponentActivity() {
                                 gps = gpsBridge,
                                 camera = cameraBridge,
                                 signature = signatureBridge,
-                                liveRpc = live,
                                 signedInEmail = email,
                                 supportPhone = BuildConfig.SUPPORT_PHONE,
                                 mapsApiKey = BuildConfig.GOOGLE_MAPS_API_KEY,
@@ -179,7 +178,6 @@ private fun DeliveryApp(
     gps: GpsBridge,
     camera: PodCameraBridge,
     signature: PodSignatureBridge,
-    liveRpc: Boolean,
     signedInEmail: String?,
     supportPhone: String,
     mapsApiKey: String,
@@ -209,7 +207,6 @@ private fun DeliveryApp(
     // Derive from collected state so selectedJobId invalidates composition (not a raw VM peek).
     val selected = resolveSelectedJob(state)
     var tab by remember { mutableStateOf(DriverTab.Jobs) }
-    val modeLabel = if (liveRpc) "Live · GPS/POD" else "Fake · GPS/POD"
 
     if (selected != null) {
         BackHandler { jobsVm.selectJob(null) }
@@ -251,7 +248,7 @@ private fun DeliveryApp(
                     state = state,
                     vm = jobsVm,
                     trackingVm = trackingVm,
-                    shellSubtitle = modeLabel,
+                    shellSubtitle = null,
                 )
                 DriverTab.Route -> DeliveryRouteTab(
                     state = state,
@@ -264,7 +261,6 @@ private fun DeliveryApp(
                     vm = jobsVm,
                     trackingVm = trackingVm,
                     signedInEmail = signedInEmail,
-                    modeLabel = modeLabel,
                     onSignOut = onSignOut,
                 )
             }

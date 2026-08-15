@@ -54,7 +54,8 @@ sdk.dir=C\:\\Android\\sdk
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPPORT_PHONE=+263771234567
-# Preferred route SoR (DIAL D-44). When set, in-app polyline + ETA label use OSRM (eta_source=osrm).
+# Preferred route SoR (DIAL D-44). When set, in-app polyline + ETA use OSRM.
+# When unset/unreachable, UI falls back to approximate straight-line (no “unconfigured” nag).
 # OSRM_URL=http://10.0.2.2:5000
 # MapLibre courier map SoR (default on). Set false only for deprecated Google Maps fallback.
 # useMapLibre=false
@@ -68,7 +69,10 @@ SUPPORT_PHONE=+263771234567
 # rpc.forceFake=true
 ```
 
-Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`.
+Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`
+(Fake sign-in/out still works locally). For **Live** GoTrue, copy
+`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` from `apps/web/.env.local`
+into `SUPABASE_URL` / `SUPABASE_ANON_KEY` here (same hosted project).
 
 **Maps (Epic B / D-44):** **`MapLibreJobMap`** is the courier map SoR on `JobDetailScreen`. Google `DeliveryRouteMap` is an **explicit deprecated fallback** only (`useMapLibre=false` or missing coords) — never silent SoR.
 

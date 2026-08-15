@@ -25,8 +25,8 @@ android {
         applicationId = "co.zw.nissangtr.delivery"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0-scaffold"
+        versionCode = 2
+        versionName = "0.1.1"
         // Placeholders — set via local.properties / CI; never commit real keys.
         buildConfigField("String", "SUPABASE_URL", "\"${localProp("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")

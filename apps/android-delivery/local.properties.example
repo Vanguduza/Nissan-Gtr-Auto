@@ -13,7 +13,10 @@ SUPPORT_PHONE=+263771234567
 # rpc.forceFake=true
 
 # Maps — MapLibre SoR (default). Self-host: infra/satellites/maptiles/
+# OSRM preferred; blank/unreachable → straight-line approx (no UI nag).
 # OSRM_URL=http://10.0.2.2:5000
+# Wireless phone on same LAN as PC (replace with host IPv4 — not 127.0.0.1):
+# OSRM_URL=http://192.168.1.10:5000
 # Emulator (debug BuildConfig default when unset):
 # MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json
 # Wireless phone on same LAN as PC (replace with host IPv4):

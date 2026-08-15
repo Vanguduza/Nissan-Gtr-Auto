@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.location.LocationPermissionStatus
 import co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher
+import co.zw.nissangtr.bridges.maps.DrivingRoute
 import co.zw.nissangtr.bridges.maps.ExternalNavigation
 import co.zw.nissangtr.bridges.maps.MapLatLng
 import co.zw.nissangtr.bridges.maps.OsrmRouteFetcher
@@ -26,13 +27,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Distance/ETA provider for in-app route guidance — shown honestly in UI (D-44 / Epic B). */
+/** Distance/ETA provider for in-app route guidance (D-44 / Epic B). */
 enum class RouteEtaSource(val wire: String, val label: String) {
-    OSRM("osrm", "eta_source=osrm"),
-    GOOGLE_DIRECTIONS_DEPRECATED(
-        "google_directions",
-        "eta_source=google_directions (deprecated)",
-    ),
+    OSRM("osrm", "Driving"),
+    GOOGLE_DIRECTIONS_DEPRECATED("google_directions", "Driving"),
+    /** Haversine when OSRM/Google unavailable — no scary “unconfigured” UX. */
+    STRAIGHT_LINE("straight_line", "Approx."),
 }
 
 data class JobsUiState(
@@ -69,7 +69,7 @@ fun resolveSelectedJob(state: JobsUiState): DeliveryJobSummary? {
     return state.jobs.find { it.id == id }
 }
 
-/** Pure label builder for route guidance — unit-tested for eta_source honesty. */
+/** Pure label builder for route guidance — distance/ETA only (no scaffold nags). */
 internal fun formatRouteGuidanceLabel(
     etaSource: RouteEtaSource,
     summary: String?,
@@ -84,11 +84,35 @@ internal fun formatRouteGuidanceLabel(
         if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
     }
     return listOfNotNull(
-        etaSource.label,
+        etaSource.label.takeIf { it.isNotBlank() },
         summary?.takeIf { it.isNotBlank() && it != "OSRM" },
         dist,
         dur,
     ).joinToString(" · ").ifBlank { etaSource.label }
+}
+
+/** Straight-line fallback when OSRM/Google is unset or unreachable. */
+internal fun straightLineRoute(origin: MapLatLng, destination: MapLatLng): DrivingRoute {
+    val meters = haversineMeters(origin, destination)
+    // ~30 km/h urban crawl estimate for a usable ETA chip.
+    val seconds = ((meters / 8.33).toInt()).coerceAtLeast(60)
+    return DrivingRoute(
+        points = listOf(origin, destination),
+        distanceMeters = meters.toInt(),
+        durationSeconds = seconds,
+        summary = null,
+    )
+}
+
+internal fun haversineMeters(a: MapLatLng, b: MapLatLng): Double {
+    val r = 6_371_000.0
+    val dLat = Math.toRadians(b.latitude - a.latitude)
+    val dLon = Math.toRadians(b.longitude - a.longitude)
+    val lat1 = Math.toRadians(a.latitude)
+    val lat2 = Math.toRadians(b.latitude)
+    val h = Math.sin(dLat / 2).let { it * it } +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2).let { it * it }
+    return 2 * r * Math.asin(Math.sqrt(h))
 }
 
 class JobsViewModel(
@@ -285,16 +309,6 @@ class JobsViewModel(
             _state.update { it.copy(error = "Dropoff coordinates missing", routePoints = emptyList()) }
             return
         }
-        if (osrmUrl.isBlank() && mapsApiKey.isBlank()) {
-            _state.update {
-                it.copy(
-                    routeLabel = "Routing unconfigured — set OSRM_URL (preferred) or GOOGLE_MAPS_API_KEY (deprecated)",
-                    routePoints = emptyList(),
-                    routeEtaSource = null,
-                )
-            }
-            return
-        }
         viewModelScope.launch {
             _state.update { it.copy(routeBusy = true, error = null) }
             var originLat = driverLat
@@ -316,12 +330,14 @@ class JobsViewModel(
                     it.copy(
                         routeBusy = false,
                         routePoints = emptyList(),
-                        routeLabel = "Waiting for GPS for route — destination marked",
+                        routeLabel = "Waiting for GPS",
                         routeEtaSource = null,
                     )
                 }
                 return@launch
             }
+            val origin = MapLatLng(originLat!!, originLng!!)
+            val destination = MapLatLng(destLat, destLng)
             val otherWaypoints = _state.value.jobs
                 .filter {
                     it.id != job.id &&
@@ -334,53 +350,53 @@ class JobsViewModel(
                 .take(3)
                 .map { MapLatLng(it.dropoffLat!!, it.dropoffLng!!) }
 
-            val preferOsrm = osrmUrl.isNotBlank()
-            val etaSource = if (preferOsrm) {
-                RouteEtaSource.OSRM
-            } else {
-                RouteEtaSource.GOOGLE_DIRECTIONS_DEPRECATED
+            fun applyRoute(etaSource: RouteEtaSource, route: DrivingRoute) {
+                _state.update {
+                    it.copy(
+                        routeBusy = false,
+                        routePoints = route.points,
+                        routeEtaSource = etaSource,
+                        routeLabel = formatRouteGuidanceLabel(
+                            etaSource = etaSource,
+                            summary = route.summary,
+                            distanceMeters = route.distanceMeters,
+                            durationSeconds = route.durationSeconds,
+                        ),
+                    )
+                }
             }
-            when (
-                val result = if (preferOsrm) {
-                    osrm.fetchDrivingRoute(
-                        origin = MapLatLng(originLat!!, originLng!!),
-                        destination = MapLatLng(destLat, destLng),
-                        waypoints = otherWaypoints,
-                    )
-                } else {
-                    googleDirections.fetchDrivingRoute(
-                        origin = MapLatLng(originLat!!, originLng!!),
-                        destination = MapLatLng(destLat, destLng),
-                        waypoints = otherWaypoints,
-                    )
-                }
-            ) {
-                is RouteFetchResult.Ok -> {
-                    val r = result.route
-                    _state.update {
-                        it.copy(
-                            routeBusy = false,
-                            routePoints = r.points,
-                            routeEtaSource = etaSource,
-                            routeLabel = formatRouteGuidanceLabel(
-                                etaSource = etaSource,
-                                summary = r.summary,
-                                distanceMeters = r.distanceMeters,
-                                durationSeconds = r.durationSeconds,
-                            ),
+
+            fun applyStraightLine() {
+                applyRoute(RouteEtaSource.STRAIGHT_LINE, straightLineRoute(origin, destination))
+            }
+
+            when {
+                osrmUrl.isNotBlank() -> {
+                    when (
+                        val result = osrm.fetchDrivingRoute(
+                            origin = origin,
+                            destination = destination,
+                            waypoints = otherWaypoints,
                         )
+                    ) {
+                        is RouteFetchResult.Ok -> applyRoute(RouteEtaSource.OSRM, result.route)
+                        is RouteFetchResult.Failed -> applyStraightLine()
                     }
                 }
-                is RouteFetchResult.Failed -> {
-                    _state.update {
-                        it.copy(
-                            routeBusy = false,
-                            routePoints = emptyList(),
-                            routeEtaSource = etaSource,
-                            routeLabel = "${etaSource.label} · ${result.message}",
+                mapsApiKey.isNotBlank() -> {
+                    when (
+                        val result = googleDirections.fetchDrivingRoute(
+                            origin = origin,
+                            destination = destination,
+                            waypoints = otherWaypoints,
                         )
+                    ) {
+                        is RouteFetchResult.Ok ->
+                            applyRoute(RouteEtaSource.GOOGLE_DIRECTIONS_DEPRECATED, result.route)
+                        is RouteFetchResult.Failed -> applyStraightLine()
                     }
                 }
+                else -> applyStraightLine()
             }
         }
     }

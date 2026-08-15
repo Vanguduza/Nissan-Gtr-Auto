@@ -22,8 +22,6 @@ import co.zw.nissangtr.delivery.rpc.SupabaseRpcClient
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import co.zw.nissangtr.ui.shop.ShopPrimaryButton
 import co.zw.nissangtr.ui.shop.ShopProfileAvatar
-import co.zw.nissangtr.ui.shop.ShopSecondaryButton
-import co.zw.nissangtr.ui.theme.GtrColors
 
 @Composable
 fun SignInScreen(
@@ -36,7 +34,7 @@ fun SignInScreen(
     sessionViewModel: AuthSessionViewModel? = null,
 ) {
     if (supabase == null) {
-        // Shopping-By-KMP DefaultScreenUI — full ShopKit density (no ShopStaff*).
+        // Fake / no Live keys — local demo session only (no GoTrue).
         ShopDefaultScreen(
             title = title,
             subtitle = subtitle,
@@ -44,15 +42,16 @@ fun SignInScreen(
         ) {
             ShopProfileAvatar(initials = "DR")
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                "RPC Fake mode — GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             if (allowSkip) {
                 ShopPrimaryButton(
-                    label = "Continue without signing in",
+                    label = "Sign in",
                     onClick = onSkip,
+                )
+            } else {
+                Text(
+                    "Sign-in unavailable",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
         }
@@ -70,11 +69,6 @@ fun SignInScreen(
     ) {
         ShopProfileAvatar(initials = state.email.take(2).ifBlank { "DR" })
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "Session via supabase-kt Auth — no JWTs in BuildConfig.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         OutlinedTextField(
             value = state.email,
             onValueChange = vm::onEmailChange,
@@ -101,13 +95,6 @@ fun SignInScreen(
             onClick = vm::signIn,
             enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
         )
-        if (allowSkip) {
-            ShopSecondaryButton(
-                label = "Continue without signing in",
-                onClick = onSkip,
-                enabled = !state.busy,
-            )
-        }
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
         }
@@ -116,7 +103,7 @@ fun SignInScreen(
 
 /**
  * Live: block until Authenticated + driver|admin role.
- * Fake: bypass by default ([allowFakeSkip]).
+ * Fake: local skip session; Sign out returns to this gate.
  */
 @Composable
 fun AuthGate(
@@ -126,7 +113,7 @@ fun AuthGate(
     content: @Composable (email: String?, onSignOut: () -> Unit) -> Unit,
 ) {
     if (!liveRpc || supabase == null) {
-        var skipped by remember { mutableStateOf(allowFakeSkip) }
+        var skipped by remember { mutableStateOf(false) }
         if (skipped) {
             content("fake@driver.local") { skipped = false }
         } else {
@@ -149,11 +136,6 @@ fun AuthGate(
                 subtitle = "Driver",
             ) {
                 Text("Restoring session…", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    "Shopping-By-KMP splash → auth gate",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GtrColors.SilverDim,
-                )
             }
         }
         is AuthGateState.NeedsSignIn -> {
@@ -172,8 +154,7 @@ fun AuthGate(
                 ShopProfileAvatar(initials = "!")
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "Signed in but staff roles ${g.roles} do not include driver. " +
-                        "Use a driver account or ask admin to grant role.",
+                    "This account is not a driver.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 ShopPrimaryButton(label = "Sign out", onClick = vm::signOut)

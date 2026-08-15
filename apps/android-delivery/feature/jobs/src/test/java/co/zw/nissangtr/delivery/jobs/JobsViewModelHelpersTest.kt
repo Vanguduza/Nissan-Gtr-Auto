@@ -1,5 +1,6 @@
 package co.zw.nissangtr.delivery.jobs
 
+import co.zw.nissangtr.bridges.maps.MapLatLng
 import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import org.junit.Assert.assertEquals
@@ -59,10 +60,11 @@ class JobsViewModelHelpersTest {
             distanceMeters = 1500,
             durationSeconds = 300,
         )
-        assertTrue(label.startsWith("eta_source=osrm"))
+        assertTrue(label.startsWith("Driving"))
         assertTrue(label.contains("1.5 km"))
         assertTrue(label.contains("5 min"))
-        assertFalse(label.contains("google_directions"))
+        assertFalse(label.contains("unconfigured"))
+        assertFalse(label.contains("OSRM_URL"))
     }
 
     @Test
@@ -73,50 +75,66 @@ class JobsViewModelHelpersTest {
             distanceMeters = 800,
             durationSeconds = 120,
         )
-        assertTrue(label.contains("eta_source=google_directions (deprecated)"))
+        assertTrue(label.contains("Driving"))
         assertTrue(label.contains("I-80"))
         assertTrue(label.contains("800m"))
+        assertFalse(label.contains("deprecated"))
     }
 
     @Test
-    fun jobDetailMapCaptionMapLibreAndOsrm() {
+    fun formatRouteGuidanceLabelStraightLineFallback() {
+        val label = formatRouteGuidanceLabel(
+            etaSource = RouteEtaSource.STRAIGHT_LINE,
+            summary = null,
+            distanceMeters = 2000,
+            durationSeconds = 240,
+        )
+        assertTrue(label.startsWith("Approx."))
+        assertTrue(label.contains("2.0 km"))
+        assertFalse(label.contains("OSRM_URL"))
+    }
+
+    @Test
+    fun straightLineRouteBuildsPolyline() {
+        val route = straightLineRoute(
+            MapLatLng(-17.83, 31.05),
+            MapLatLng(-17.84, 31.06),
+        )
+        assertEquals(2, route.points.size)
+        assertNotNull(route.distanceMeters)
+        assertTrue(route.distanceMeters!! > 0)
+        assertTrue(route.durationSeconds!! >= 60)
+    }
+
+    @Test
+    fun jobDetailMapCaptionIsQuietWithoutRouteLabel() {
+        val caption = jobDetailMapCaption(
+            state = JobsUiState(
+                mapLibreEnabled = true,
+                osrmConfigured = false,
+                mapsKeyPresent = false,
+            ),
+            showingMapLibre = true,
+        )
+        assertEquals("", caption)
+        assertFalse(caption.contains("unconfigured"))
+        assertFalse(caption.contains("OSRM_URL"))
+        assertFalse(caption.contains("DEPRECATED"))
+    }
+
+    @Test
+    fun jobDetailMapCaptionEchoesRouteLabelOnly() {
         val caption = jobDetailMapCaption(
             state = JobsUiState(
                 mapLibreEnabled = true,
                 osrmConfigured = true,
-                mapsKeyPresent = true,
+                routeLabel = "Driving · 1.2 km · 4 min",
                 routeEtaSource = RouteEtaSource.OSRM,
             ),
             showingMapLibre = true,
         )
-        assertTrue(caption.contains("MapLibre SoR"))
-        assertTrue(caption.contains("OSRM distance/ETA preferred"))
-        assertTrue(caption.contains("eta_source=osrm"))
-        assertFalse(caption.contains("DEPRECATED Google"))
-    }
-
-    @Test
-    fun jobDetailMapCaptionGoogleFallbackWhenFlagOff() {
-        val caption = jobDetailMapCaption(
-            state = JobsUiState(
-                mapLibreEnabled = false,
-                osrmConfigured = false,
-                mapsKeyPresent = true,
-            ),
-            showingMapLibre = false,
-        )
-        assertTrue(caption.contains("DEPRECATED Google Maps fallback"))
-        assertTrue(caption.contains("Google Directions (deprecated)"))
-    }
-
-    @Test
-    fun jobDetailMapCaptionMissingCoordsUsesDeprecatedGoogleLabel() {
-        val caption = jobDetailMapCaption(
-            state = JobsUiState(mapLibreEnabled = true, osrmConfigured = true),
-            showingMapLibre = false,
-        )
-        assertTrue(caption.contains("DEPRECATED Google Maps fallback"))
-        assertTrue(caption.contains("missing coords"))
+        assertEquals("Driving · 1.2 km · 4 min", caption)
+        assertFalse(caption.contains("MapLibre SoR"))
     }
 
     private fun sampleJob(id: String, status: String) = DeliveryJobSummary(

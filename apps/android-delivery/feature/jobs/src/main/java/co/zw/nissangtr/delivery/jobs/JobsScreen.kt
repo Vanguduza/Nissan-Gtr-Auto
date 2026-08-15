@@ -142,7 +142,7 @@ fun JobsListScreen(
 
         ShopPresenceBanner(
             label = state.presence.displayLabel(),
-            detail = "Tap Me tab to change presence · GPS follows On duty",
+            detail = "",
             accent = state.presence.statusColor(),
             modifier = Modifier.padding(horizontal = extras.screenPadding),
         )
@@ -313,7 +313,7 @@ fun DeliveryRouteTab(
         Text("Today's route", style = MaterialTheme.typography.titleLarge)
         ShopLocationRow(
             label = "Driver position",
-            locationText = tracking.lastLatLng ?: "GPS not started — go On duty from Me",
+            locationText = tracking.lastLatLng ?: "GPS off",
             onClick = {},
         )
         ShopPresenceBanner(
@@ -355,18 +355,9 @@ fun DeliveryRouteTab(
                 )
             }
         }
-        Text(
-            when {
-                state.mapLibreEnabled ->
-                    "MapLibre SoR · red = delivery pins · blue = driver (Bridge-First FGS)"
-                else -> "DEPRECATED Google Maps fallback (useMapLibre=false)"
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         if (!tracking.tracking) {
             ShopPrimaryButton(
-                label = "Start live GPS (FGS)",
+                label = "Start live GPS",
                 onClick = {
                     val active = state.jobs.firstOrNull { JobStatusGate.isActive(it.status) }
                     if (active != null) {
@@ -431,7 +422,6 @@ fun DeliveryMeTab(
     vm: JobsViewModel,
     trackingVm: TrackingViewModel,
     signedInEmail: String?,
-    modeLabel: String,
     onSignOut: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -447,11 +437,6 @@ fun DeliveryMeTab(
             Text(
                 signedInEmail ?: "Guest driver",
                 style = MaterialTheme.typography.headlineSmall,
-            )
-            Text(
-                modeLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -687,11 +672,6 @@ fun JobDetailScreen(
                 )
             }
         }
-        Text(
-            jobDetailMapCaption(state = state, showingMapLibre = showMapLibre),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         state.routeLabel?.let {
             Text(
                 if (state.routeBusy) "Routing…" else it,
@@ -700,7 +680,7 @@ fun JobDetailScreen(
             )
         }
         ShopSecondaryButton(
-            label = "Refresh route polyline",
+            label = "Refresh route",
             onClick = { vm.refreshRouteGuidance(tracking.lastLat, tracking.lastLng) },
             enabled = !state.routeBusy,
         )
@@ -709,16 +689,16 @@ fun JobDetailScreen(
             ShopSectionHeader(title = "GPS tracking", actionLabel = null)
             if (tracking.tracking && tracking.trackingJobId == job.id) {
                 Text(
-                    "GPS on · ingested ${tracking.ingestCount} · queued ${tracking.queuedCount}",
+                    "GPS on · ${tracking.ingestCount} pings",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 tracking.lastLatLng?.let {
-                    Text("Last: $it", style = MaterialTheme.typography.bodySmall)
+                    Text(it, style = MaterialTheme.typography.bodySmall)
                 }
-                ShopSecondaryButton(label = "Stop GPS tracking", onClick = trackingVm::stopTracking)
+                ShopSecondaryButton(label = "Stop GPS", onClick = trackingVm::stopTracking)
             } else {
                 ShopPrimaryButton(
-                    label = "Start always-on GPS (FGS)",
+                    label = "Start GPS",
                     onClick = {
                         trackingVm.startTracking(job.id)
                         if (state.presence != DriverPresenceStatus.ON_DUTY) {
@@ -729,7 +709,7 @@ fun JobDetailScreen(
             }
 
             ShopSecondaryButton(
-                label = "Check geofence suggestion",
+                label = "Check geofence",
                 onClick = vm::checkGeofence,
                 enabled = !state.busy,
             )
@@ -737,7 +717,7 @@ fun JobDetailScreen(
                 ShopSectionHeader(title = "Geofence", actionLabel = null)
                 Text(
                     "Distance ${g.distanceM?.let { "%.0fm".format(it) } ?: "?"} — " +
-                        "suggest arrive=${g.suggestArrive}, complete=${g.suggestComplete}",
+                        "arrive=${g.suggestArrive}, complete=${g.suggestComplete}",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (g.suggestArrive) {
@@ -755,12 +735,6 @@ fun JobDetailScreen(
             }
 
             ShopSectionHeader(title = "Complete delivery", actionLabel = null)
-            Text(
-                "Job stays Active until the customer signs. Complete opens the signature pad " +
-                    "(photo + OTP still required for ERP POD).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             if (!completeOpen) {
                 ShopPrimaryButton(
                     label = "Complete job",
@@ -957,22 +931,11 @@ fun JobsScreen(
     }
 }
 
-/** Honest map + distance SoR caption for JobDetailScreen (Epic B freeze). */
+/** Optional map caption — kept blank (no scaffold / OSRM nags in UI). */
 internal fun jobDetailMapCaption(
     state: JobsUiState,
     showingMapLibre: Boolean = state.mapLibreEnabled,
 ): String {
-    val mapPart = when {
-        showingMapLibre -> "MapLibre SoR"
-        state.mapLibreEnabled ->
-            "DEPRECATED Google Maps fallback (missing coords — MapLibre SoR when available)"
-        else -> "DEPRECATED Google Maps fallback (useMapLibre=false)"
-    }
-    val routePart = when {
-        state.osrmConfigured -> "OSRM distance/ETA preferred"
-        state.mapsKeyPresent -> "Google Directions (deprecated) — set OSRM_URL"
-        else -> "Routing unconfigured — set OSRM_URL"
-    }
-    val live = state.routeEtaSource?.label
-    return listOfNotNull(mapPart, routePart, live).joinToString(" · ")
+    // Prefer live route chip when present; never nag about missing OSRM_URL.
+    return state.routeLabel.orEmpty()
 }
