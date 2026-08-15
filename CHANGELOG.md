@@ -5,6 +5,7 @@
 ### Added
 
 - **Android delivery job detail + route map:** Job list (Active/Done/Failed) opens detail with receipt copy + delivery address; **Complete job** reveals existing Bridge-First POD signature pad → `submit_delivery_pod` (Active→Done); **Mark job Failed** → `fail_delivery_job`. Jobs stay Active until signature (`JobStatusGate`). Route tab MapLibre multi-pin (dropoffs + live driver via FGS). Fake GoTrue skip + sign-out toggle. Tests: `JobStatusGateTest`, `FakeJobStatusTransitionTest`.
+- **Android delivery job-entry navigation:** Card tap (Jobs Active/Done/Failed + Route stop list) opens job detail; removed expand-only “Show details” that looked like navigation; `ShopOrderBox` uses `Surface(onClick)`; shell derives selection via `resolveSelectedJob(state)`.
 
 ### Changed
 

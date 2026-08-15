@@ -3,6 +3,7 @@ package co.zw.nissangtr.delivery
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,6 +40,7 @@ import co.zw.nissangtr.delivery.jobs.JobDetailScreen
 import co.zw.nissangtr.delivery.jobs.JobsListScreen
 import co.zw.nissangtr.delivery.jobs.JobsModule
 import co.zw.nissangtr.delivery.jobs.JobsViewModel
+import co.zw.nissangtr.delivery.jobs.resolveSelectedJob
 import co.zw.nissangtr.delivery.pod.PodModule
 import co.zw.nissangtr.delivery.rpc.RpcClient
 import co.zw.nissangtr.delivery.rpc.RpcClientFactory
@@ -201,11 +203,13 @@ private fun DeliveryApp(
     )
     val state by jobsVm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
-    val selected = jobsVm.selectedJob()
+    // Derive from collected state so selectedJobId invalidates composition (not a raw VM peek).
+    val selected = resolveSelectedJob(state)
     var tab by remember { mutableStateOf(DriverTab.Jobs) }
     val modeLabel = if (liveRpc) "Live · GPS/POD" else "Fake · GPS/POD"
 
     if (selected != null) {
+        BackHandler { jobsVm.selectJob(null) }
         JobDetailScreen(
             job = selected,
             state = state,

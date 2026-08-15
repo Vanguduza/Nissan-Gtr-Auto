@@ -58,6 +58,12 @@ data class JobsUiState(
     val error: String? = null,
 )
 
+/** Resolve job detail from list state — used by shell so Compose tracks [JobsUiState.selectedJobId]. */
+fun resolveSelectedJob(state: JobsUiState): DeliveryJobSummary? {
+    val id = state.selectedJobId ?: return null
+    return state.jobs.find { it.id == id }
+}
+
 /** Pure label builder for route guidance — unit-tested for eta_source honesty. */
 internal fun formatRouteGuidanceLabel(
     etaSource: RouteEtaSource,
@@ -107,10 +113,7 @@ class JobsViewModel(
         loadPresence()
     }
 
-    fun selectedJob(): DeliveryJobSummary? {
-        val id = _state.value.selectedJobId ?: return null
-        return _state.value.jobs.find { it.id == id }
-    }
+    fun selectedJob(): DeliveryJobSummary? = resolveSelectedJob(_state.value)
 
     fun selectJob(id: String?) = _state.update {
         it.copy(

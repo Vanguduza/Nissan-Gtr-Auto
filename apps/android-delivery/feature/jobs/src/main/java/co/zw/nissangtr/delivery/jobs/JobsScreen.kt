@@ -1,6 +1,5 @@
 package co.zw.nissangtr.delivery.jobs
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -240,10 +239,13 @@ private fun JobOrderCard(
     distanceM: Double?,
     onOpen: () -> Unit,
 ) {
-    var expanded by remember(job.id) { mutableStateOf(false) }
     val title = job.documentNumber ?: "Job ${job.id.take(8)}"
     val subtitle = buildString {
-        job.etaAt?.let { append("ETA $it") }
+        job.dropoffAddressText?.takeIf { it.isNotBlank() }?.let { append(it) }
+        job.etaAt?.let {
+            if (isNotEmpty()) append(" · ")
+            append("ETA $it")
+        }
         if (distanceM != null) {
             if (isNotEmpty()) append(" · ")
             append("%.1f km".format(distanceM / 1000))
@@ -252,10 +254,11 @@ private fun JobOrderCard(
             if (job.dropoffLat != null && job.dropoffLng != null) {
                 append("%.4f, %.4f".format(job.dropoffLat, job.dropoffLng))
             } else {
-                append("No dropoff coords")
+                append("Tap for receipt + address")
             }
         }
     }
+    // Whole card opens job detail — no local expand that swallowed the expected navigation.
     ShopOrderBox(
         title = title,
         subtitle = subtitle,
@@ -272,22 +275,6 @@ private fun JobOrderCard(
                 ShopStatusChip(label = cod, background = GtrColors.Warning)
             }
         },
-        expanded = expanded,
-        onToggleExpand = { expanded = !expanded },
-        expandedContent = {
-            job.settlement?.formatAmountDueLabel()?.let { cod ->
-                Text(cod, style = MaterialTheme.typography.bodyMedium)
-            }
-            job.notes?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium)
-            }
-            Text(
-                "Open for receipt, address, Complete (signature), or Failed",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        modifier = Modifier.animateContentSize(),
     )
 }
 
@@ -890,7 +877,7 @@ fun JobsScreen(
     )
     val state by vm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
-    val selected = vm.selectedJob()
+    val selected = resolveSelectedJob(state)
     if (selected != null) {
         JobDetailScreen(
             job = selected,
