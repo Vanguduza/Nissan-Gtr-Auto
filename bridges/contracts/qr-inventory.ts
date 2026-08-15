@@ -104,4 +104,18 @@ export interface EscPosPrinterBridge {
   printReceiptLines(lines: EscPosReceiptLine[]): Promise<void>;
   /** Escape hatch: send pre-built ESC/POS bytes. */
   printRaw(bytes: Uint8Array): Promise<void>;
+  /**
+   * Pulse cash-drawer kick (ESC p) on the connected printer.
+   * pin: 0 = connector pin 2, 1 = pin 5 (Epson-compatible).
+   */
+  openCashDrawer(pin?: 0 | 1): Promise<void>;
+}
+
+/**
+ * Narrow drawer surface for POS till rails. Live impl wraps EscPosPrinterBridge;
+ * Fake only for tests/debug — never Web Bluetooth / HTML5.
+ */
+export interface CashDrawerBridge {
+  /** Pulse drawer; pin 0 = pin 2, 1 = pin 5. */
+  openDrawer(pin?: 0 | 1): Promise<void>;
 }

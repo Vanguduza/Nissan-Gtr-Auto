@@ -150,6 +150,10 @@ class BluetoothEscPosPrinterBridge(
         printRaw(EscPosCommands.receiptLines(lines))
     }
 
+    override suspend fun openCashDrawer(pin: CashDrawerPin) {
+        printRaw(EscPosCommands.cashDrawerPulse(pin))
+    }
+
     override suspend fun printRaw(bytes: ByteArray) = withContext(Dispatchers.IO) {
         ensureBluetoothAllowed()
         val sock = socket
