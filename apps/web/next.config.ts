@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 /** Workspace packages use ESM `.js` specifiers that map to `.ts` sources. */
+/** Vercel rebuild trigger — keep Root Directory (apps/web) in the commit diff. */
 const extensionAlias = {
   ".js": [".ts", ".tsx", ".js", ".jsx"],
   ".mjs": [".mts", ".mjs"],
