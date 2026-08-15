@@ -4,6 +4,8 @@
 
 ### Added
 
+- **Staff My Account (web):** `/staff/account` for any staff — editable address / email / phone (`update_my_staff_profile` + GoTrue `updateUser` for email); read-only emp#, role/grade, photo path; module-access chips; change-password + sign-out; ID card PDF; own payslip history (`list_my_payslip_history`, all submitted/cancelled lines — not funded-only) with Storage or branded gross PDF download (USD|ZIG). No tax / no role-wage edits. Plan: `docs/plans/2026-08-16-staff-my-account.md`. Migration `20260816020000_staff_my_account.sql`; smoke `staff_my_account_smoke.sql`; assert `node apps/web/scripts/assert-staff-my-account.mjs`.
+
 - **HR payroll fund + PDF payslips (schedule & on-demand):** Admin/HR fund submitted gross payroll from cash GL (default **1100**): append-only JEs Dr **5200** / Cr **2150** then Dr **2150** / Cr cash; `export_payslip` + branded PDF. CoA **2150 Salaries Payable**. Schedule via `hr_payslip_schedules` + Edge `process-payroll-schedules` (worker secret). Web `/staff/hr?tab=payroll`. No PAYE/NSSA/ContiPay API. Plan: `docs/plans/2026-08-16-payroll-fund-payslip-schedule.md`. Migration `20260816010000_payroll_fund_payslip_schedule.sql`; smoke `payroll_fund_payslip_schedule_smoke.sql`.
 
 ### Changed

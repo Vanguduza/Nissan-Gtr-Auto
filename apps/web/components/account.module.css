@@ -615,6 +615,112 @@
   cursor: not-allowed;
 }
 
+.btnSecondary {
+  display: inline-flex;
+  margin-top: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--staff-border-strong);
+  background: color-mix(in srgb, var(--gtr-white) 88%, var(--gtr-mist));
+  color: var(--gtr-steel);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: var(--staff-radius-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--gtr-hover), border-color var(--gtr-hover);
+}
+
+.btnSecondary:hover,
+.btnSecondary:focus-visible {
+  background: var(--gtr-white);
+  border-color: color-mix(in srgb, var(--gtr-red) 35%, var(--staff-border-strong));
+  outline: 2px solid color-mix(in srgb, var(--gtr-red) 35%, white);
+  outline-offset: 2px;
+}
+
+.btnSecondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.section {
+  margin: 0 0 1.75rem;
+  padding-bottom: 1.35rem;
+  border-bottom: 1px solid rgba(18, 21, 28, 0.06);
+}
+
+.section:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.sectionTitle {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gtr-steel);
+}
+
+.metaList {
+  display: grid;
+  gap: 0.55rem 1.25rem;
+  margin: 0 0 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+}
+
+.metaList dt {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(18, 21, 28, 0.5);
+}
+
+.metaList dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+  color: var(--gtr-steel);
+  word-break: break-word;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.65rem 0 0.35rem;
+}
+
+.chip,
+.chipMuted {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--staff-radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.chip {
+  border: 1px solid color-mix(in srgb, var(--gtr-red) 22%, transparent);
+  background: color-mix(in srgb, var(--gtr-red) 8%, white);
+  color: var(--gtr-steel);
+}
+
+.chipMuted {
+  border: 1px dashed var(--staff-border);
+  background: color-mix(in srgb, var(--gtr-chalk) 70%, white);
+  color: rgba(18, 21, 28, 0.55);
+}
+
 .storeLinkWrap {
   margin: 0 0 1rem;
   padding: 0.75rem 0.9rem;

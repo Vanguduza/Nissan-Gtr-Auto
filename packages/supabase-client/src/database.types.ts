@@ -2719,6 +2719,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          address: string | null
           created_at: string
           email: string | null
           employee_code: string
@@ -2728,11 +2729,13 @@ export type Database = {
           hr_role_id: string | null
           id: string
           phone_e164: string | null
+          photo_storage_path: string | null
           status: Database["public"]["Enums"]["employee_status"]
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          address?: string | null
           created_at?: string
           email?: string | null
           employee_code: string
@@ -2742,11 +2745,13 @@ export type Database = {
           hr_role_id?: string | null
           id?: string
           phone_e164?: string | null
+          photo_storage_path?: string | null
           status?: Database["public"]["Enums"]["employee_status"]
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          address?: string | null
           created_at?: string
           email?: string | null
           employee_code?: string
@@ -2756,6 +2761,7 @@ export type Database = {
           hr_role_id?: string | null
           id?: string
           phone_e164?: string | null
+          photo_storage_path?: string | null
           status?: Database["public"]["Enums"]["employee_status"]
           updated_at?: string
           user_id?: string | null
@@ -10366,6 +10372,16 @@ export type Database = {
       }
       my_default_landing: { Args: never; Returns: string }
       my_module_access: { Args: never; Returns: Json }
+      get_my_staff_profile: { Args: never; Returns: Json }
+      update_my_staff_profile: {
+        Args: {
+          p_phone_e164?: string
+          p_address?: string
+          p_email?: string
+        }
+        Returns: Json
+      }
+      list_my_payslip_history: { Args: never; Returns: Json }
       next_employee_code_for_grade: {
         Args: { p_grade_code: string }
         Returns: string

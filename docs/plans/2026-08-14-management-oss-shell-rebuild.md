@@ -38,6 +38,7 @@ Primary libs: `staff-pos`, `staff-warehouse`, `staff-bins`, `staff-consignment`,
 | Login → staff | any staff | Emp#/email/phone → `resolve_staff_login_email` → GoTrue password; `must_change_password` gate; idle lock 3 min | `resolve_staff_login_email`, `profiles`, `staff_roles`, `my_module_access`, `has_staff_role` |
 | `/staff` | any staff | Role + `module_access` filtered hub; sales-only prefers POS home | (context only) |
 | `/staff/change-password` | any staff | Force password change | GoTrue `updateUser` |
+| `/staff/account` | any staff | My Account: edit phone/address/email; payslip history; ID card; module chips; sign out | `get_my_staff_profile`, `update_my_staff_profile`, `list_my_payslip_history`, `payslip_render_payload` / Storage |
 | `/staff/forbidden` | — | RBAC deny | — |
 
 ### POS
