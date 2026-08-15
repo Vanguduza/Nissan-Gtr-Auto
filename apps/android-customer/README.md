@@ -18,7 +18,7 @@ and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 |--------|---------|------|
 | `:app` | `co.zw.nissangtr.customer` | Launcher + route shell + auth gate |
 | `:core:rpc` | `…customer.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
-| `:feature:auth` | `…customer.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password + Google ID token) |
+| `:feature:auth` | `…customer.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password + Google ID token; Edge `auth-otp` signup; Edge password-reset) |
 | `:feature:cart` | `…customer.cart` | Create / add line / checkout |
 | `:feature:orders` | `…customer.orders` | Invoice list + `get_customer_order` |
 | `:feature:garage` | `…customer.garage` | Upsert / delete / list vehicles |
@@ -36,7 +36,7 @@ and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 
 | Screen | Module | RPCs / role |
 |--------|--------|-------------|
-| `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` + Google Credential Manager → `signInWith(IDToken)`; then `ensure_own_customer` if needed |
+| `SignInScreen` / `AuthGate` | `:feature:auth` | GoTrue `signInWith(Email)` + Google Credential Manager → `signInWith(IDToken)`; signup via Edge `auth-otp` (request/verify/complete_signup); password reset via Edge `request-password-reset` / `verify-password-reset`; then `ensure_own_customer` if needed |
 | `CartScreen` | `:feature:cart` | `create_customer_cart`, `add_customer_cart_line`, `checkout_customer_cart` |
 | `OrdersScreen` | `:feature:orders` | `get_customer_order` (+ own-invoice SELECT) |
 | `GarageScreen` | `:feature:garage` | `upsert_customer_garage_vehicle`, `delete_customer_garage_vehicle` |

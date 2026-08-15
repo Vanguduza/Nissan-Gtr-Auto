@@ -25,6 +25,33 @@ internal object CommerceRpcLive {
         return row.toModel(customerId)
     }
 
+    suspend fun listLoyaltyLedger(
+        client: SupabaseClient,
+        customerId: String,
+        limit: Int = 20,
+    ): List<LoyaltyLedgerEntry> {
+        require(customerId.isNotBlank()) { "customerId required" }
+        val cap = limit.coerceIn(1, 50)
+        return client.from("loyalty_ledger")
+            .select(
+                Columns.list(
+                    "id",
+                    "movement",
+                    "points",
+                    "points_balance_after",
+                    "reason",
+                    "created_at",
+                    "currency",
+                ),
+            ) {
+                filter { eq("customer_id", customerId) }
+                order("created_at", Order.DESCENDING)
+                limit(cap.toLong())
+            }
+            .decodeList<LoyaltyLedgerRow>()
+            .map { it.toModel() }
+    }
+
     suspend fun postCustomerReturnCreditNote(
         client: SupabaseClient,
         invoiceId: String,
@@ -151,6 +178,27 @@ private data class LoyaltyBalanceRow(
         liabilityPerPoint = liabilityPerPoint,
         estimatedLiability = estimatedLiability,
         estimatedLiabilityMinor = estimatedLiabilityMinor,
+    )
+}
+
+@Serializable
+private data class LoyaltyLedgerRow(
+    val id: String,
+    val movement: String,
+    val points: Double = 0.0,
+    @SerialName("points_balance_after") val pointsBalanceAfter: Double = 0.0,
+    val reason: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    val currency: String = "USD",
+) {
+    fun toModel() = LoyaltyLedgerEntry(
+        id = id,
+        movement = movement,
+        points = points,
+        pointsBalanceAfter = pointsBalanceAfter,
+        reason = reason,
+        createdAt = createdAt,
+        currency = currency,
     )
 }
 

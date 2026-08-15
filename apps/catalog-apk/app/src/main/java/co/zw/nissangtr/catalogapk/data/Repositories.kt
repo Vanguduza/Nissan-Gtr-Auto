@@ -29,7 +29,11 @@ class JobRepository(
         val now = System.currentTimeMillis()
         return chassisCodes.map { chassis ->
             val id = UUID.randomUUID().toString()
-            val outRoot = filesRootProvider().resolve("catalog-jobs/$id/out").absolutePath
+            val jobDir = filesRootProvider().resolve("catalog-jobs/$id")
+            val outDir = jobDir.resolve("out")
+            jobDir.mkdirs()
+            outDir.mkdirs()
+            val outRoot = outDir.absolutePath
             JobEntity(
                 id = id,
                 profileId = profileId,
@@ -56,6 +60,34 @@ class JobRepository(
 
     suspend fun updateJob(job: JobEntity) {
         jobDao.update(job.copy(updatedAt = System.currentTimeMillis()))
+    }
+
+    /**
+     * Request cooperative pause if the worker is mid-crawl (pause.flag + desired PAUSE).
+     * Caller should cancel WorkManager unique work before [deleteJobRecordAndFiles].
+     */
+    suspend fun requestCancelBeforeDelete(id: String): JobEntity? {
+        val job = jobDao.getById(id) ?: return null
+        if (job.status == JobStatus.PROCESSING.name) {
+            runCatching {
+                val jobRoot = java.io.File(job.outRoot).parentFile ?: java.io.File(job.outRoot)
+                jobRoot.mkdirs()
+                java.io.File(jobRoot, "pause.flag").writeText("pause\n")
+            }
+            setDesiredState(id, JobDesiredState.PAUSE)
+        }
+        return jobDao.getById(id) ?: job
+    }
+
+    /** Remove Room row and on-disk `catalog-jobs/{id}/` tree (parent of outRoot). */
+    suspend fun deleteJobRecordAndFiles(job: JobEntity) {
+        val jobRoot = java.io.File(job.outRoot).parentFile ?: java.io.File(job.outRoot)
+        runCatching {
+            if (jobRoot.exists()) {
+                jobRoot.deleteRecursively()
+            }
+        }
+        jobDao.deleteById(job.id)
     }
 }
 

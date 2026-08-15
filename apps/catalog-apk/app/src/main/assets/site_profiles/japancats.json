@@ -1,0 +1,35 @@
+{
+  "id": "japancats",
+  "display_name": "JapanCats",
+  "engine": "japancats",
+  "base_url": "https://www.japancats.ru",
+  "cloudflare": {
+    "mode": "auto",
+    "flaresolverr_url": "http://127.0.0.1:8191/v1"
+  },
+  "paths": {
+    "parts_hub": "/",
+    "maker_hub": "/{maker_slug}/",
+    "catalog_prefix": "/",
+    "model": "/{maker_slug}/?Region={model_slug}",
+    "variant": "/{maker_slug}/Parts.aspx?Model={variant_slug}",
+    "section": "/{maker_slug}/Parts.aspx?Model={variant_slug}&Unit={section_slug}",
+    "maker_slug_map": {
+      "Nissan": "Nissan",
+      "Toyota": "Toyota",
+      "Honda": "Honda",
+      "Mazda": "Mazda",
+      "Subaru": "Subaru",
+      "Mitsubishi": "Mitsubishi",
+      "Suzuki": "Suzuki",
+      "Lexus": "Lexus",
+      "Infiniti": "Infiniti",
+      "Daihatsu": "Daihatsu",
+      "Scion": "scion"
+    }
+  },
+  "selectors": {
+    "preset": "japancats_v1"
+  },
+  "rate_limit_seconds": 0.5
+}

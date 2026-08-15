@@ -10,6 +10,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
+        android:name=".PosApplication"
         android:allowBackup="false"
         android:label="@string/app_name"
         android:supportsRtl="true"

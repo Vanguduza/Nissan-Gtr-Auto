@@ -40,7 +40,6 @@ from pathlib import Path
 from typing import Any
 
 from data_pipeline.bundle_filter import filter_complete_bundle
-from data_pipeline.import_hierarchy_catalog import import_hierarchy_bundle_dir
 from data_pipeline.megazip.config import (
     DEFAULT_CHASSIS_MAP_FILE,
     DEFAULT_MAKERS_FILE,
@@ -198,6 +197,7 @@ def run_maker_pipeline(
     flaresolverr_url: str | None = None,
     force_flaresolverr: bool = False,
     pause_flag: Path | None = None,
+    seed_only: bool = False,
 ) -> dict[str, Any]:
     paths = build_maker_paths(maker, out_root, config)
     storage_prefix = config.storage_prefix(maker)
@@ -219,6 +219,7 @@ def run_maker_pipeline(
                 flaresolverr_url=flaresolverr_url,
                 force_flaresolverr=force_flaresolverr,
                 pause_flag=pause_flag,
+                seed_only=seed_only,
             )
         )
         result["phases"]["crawl"] = crawl_stats
@@ -290,7 +291,9 @@ def run_maker_pipeline(
                 maker,
                 quality.get("variants_publishable"),
             )
-        if strict_gate and live_import:
+        # APK / laptop: COMPLETE must not mean hierarchy-only stubs.
+        # strict_gate applies even without --live-import (use --no-strict-gate for smoke).
+        if strict_gate:
             assert_publishable(quality, strict=True)
 
     if bundle and "upload" in phases:
@@ -298,6 +301,8 @@ def run_maker_pipeline(
         result["phases"]["upload"] = up
 
     if bundle and "import" in phases:
+        from data_pipeline.import_hierarchy_catalog import import_hierarchy_bundle_dir
+
         imp = import_hierarchy_bundle_dir(
             paths.bundle_dir,
             live=live_import,
@@ -475,14 +480,15 @@ def main(argv: list[str] | None = None) -> int:
     skip_maker_crawl = False
 
     if args.single_chassis:
+        # APK / ad-hoc jobs pass any chassis from the site catalog — do not require
+        # membership in the curated Nissan priority_chassis.json list.
         code = args.single_chassis.strip().upper()
         if code not in all_priority:
-            logger.error(
-                "Chassis %s is not in %s (R35/GT-R is excluded — use a priority code like T32, D23, Y61)",
+            logger.warning(
+                "Chassis %s is not in curated priority list %s — continuing in single-chassis mode",
                 code,
                 args.priority_chassis_file,
             )
-            return 1
         if not megazip_chassis_available(code, chassis_map):
             entry = megazip_chassis_entry(code, chassis_map)
             proxy = entry.get("megazip_proxy") or "none"
@@ -494,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
                 primary,
             )
             skip_maker_crawl = True
+            priority = frozenset({code})
         else:
             priority = frozenset({code})
             model_seeds = megazip_model_seeds_for_chassis(
@@ -568,6 +575,8 @@ def main(argv: list[str] | None = None) -> int:
                 flaresolverr_url=args.flaresolverr_url,
                 force_flaresolverr=args.force_flaresolverr,
                 pause_flag=args.pause_flag,
+                # Single-chassis with known model seeds: do not burn pages on full maker hub.
+                seed_only=bool(args.single_chassis and maker_seeds),
             )
             res["pass"] = pass_label
             manifest["results"].append(res)
@@ -578,14 +587,28 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             logger.error("[%s/%s] pipeline failed: %s", maker, pass_label, exc)
             manifest["results"].append({"maker": maker, "pass": pass_label, "error": str(exc)})
+            reason = f"[{maker}/{pass_label}] {exc}"
+            try:
+                (args.out_root / "fail_reason.txt").write_text(reason + "\n", encoding="utf-8")
+            except OSError:
+                pass
             return not args.strict_gate
 
     paused = False
     for maker in makers:
-        if skip_maker_crawl and maker.lower() == "nissan" and args.single_chassis:
-            logger.info("=== Megazip pipeline: %s (skipped — chassis not on Megazip) ===", maker)
+        if skip_maker_crawl and args.single_chassis:
+            logger.info(
+                "=== Megazip pipeline: %s (skipped — chassis %s not on Megazip) ===",
+                maker,
+                args.single_chassis,
+            )
             manifest["results"].append(
-                {"maker": maker, "pass": "single", "skipped": "chassis_not_on_megazip"}
+                {
+                    "maker": maker,
+                    "pass": "single",
+                    "skipped": "chassis_not_on_megazip",
+                    "chassis": args.single_chassis.strip().upper(),
+                }
             )
             continue
 
@@ -606,6 +629,18 @@ def main(argv: list[str] | None = None) -> int:
             if manifest.get("paused"):
                 paused = True
                 return 2
+            try:
+                reason = "pipeline stopped (maker pass failed)"
+                errs = [
+                    str(r.get("error"))
+                    for r in manifest.get("results") or []
+                    if isinstance(r, dict) and r.get("error")
+                ]
+                if errs:
+                    reason = "; ".join(errs)
+                (args.out_root / "fail_reason.txt").write_text(reason + "\n", encoding="utf-8")
+            except OSError:
+                pass
             return 1
 
         if is_nissan_two:

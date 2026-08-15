@@ -32,6 +32,9 @@ import co.zw.nissangtr.catalogapk.ui.jobdetail.JobDetailScreen
 import co.zw.nissangtr.catalogapk.ui.jobs.JobsScreen
 import co.zw.nissangtr.catalogapk.ui.navigation.CatalogRoutes
 import co.zw.nissangtr.catalogapk.ui.projects.ProjectsScreen
+import co.zw.nissangtr.catalogapk.ui.review.BundleReviewScreen
+import co.zw.nissangtr.catalogapk.ui.review.DiagramDetailScreen
+import co.zw.nissangtr.catalogapk.ui.review.SectionDiagramsScreen
 import co.zw.nissangtr.catalogapk.ui.session.NewSessionScreen
 import co.zw.nissangtr.catalogapk.ui.targets.TargetsScreen
 import co.zw.nissangtr.catalogapk.ui.theme.CatalogApkTheme
@@ -112,6 +115,9 @@ class MainActivity : ComponentActivity() {
                                 onOpenJob = { id ->
                                     navController.navigate(CatalogRoutes.jobDetail(id))
                                 },
+                                onReviewBundle = { id ->
+                                    navController.navigate(CatalogRoutes.bundleReview(id))
+                                },
                             )
                         }
                         composable(
@@ -122,6 +128,12 @@ class MainActivity : ComponentActivity() {
                                 onOpenBundles = { id ->
                                     navController.navigate(CatalogRoutes.bundlePicker(id))
                                 },
+                                onReviewBundle = { id ->
+                                    navController.navigate(CatalogRoutes.bundleReview(id))
+                                },
+                                onDeleted = {
+                                    navController.popBackStack(CatalogRoutes.JOBS, inclusive = false)
+                                },
                             )
                         }
                         composable(
@@ -129,6 +141,53 @@ class MainActivity : ComponentActivity() {
                             arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
                         ) {
                             BundlePickerScreen()
+                        }
+                        composable(
+                            route = CatalogRoutes.BUNDLE_REVIEW,
+                            arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
+                        ) { entry ->
+                            val jobId = checkNotNull(entry.arguments?.getString("jobId"))
+                            BundleReviewScreen(
+                                onOpenSection = { sectionKey ->
+                                    navController.navigate(
+                                        CatalogRoutes.bundleSection(jobId, sectionKey),
+                                    )
+                                },
+                                onOpenDiagram = { diagramKey ->
+                                    navController.navigate(
+                                        CatalogRoutes.bundleDiagram(jobId, diagramKey),
+                                    )
+                                },
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+                        composable(
+                            route = CatalogRoutes.BUNDLE_SECTION,
+                            arguments = listOf(
+                                navArgument("jobId") { type = NavType.StringType },
+                                navArgument("sectionKey") { type = NavType.StringType },
+                            ),
+                        ) { entry ->
+                            val jobId = checkNotNull(entry.arguments?.getString("jobId"))
+                            SectionDiagramsScreen(
+                                onOpenDiagram = { diagramKey ->
+                                    navController.navigate(
+                                        CatalogRoutes.bundleDiagram(jobId, diagramKey),
+                                    )
+                                },
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+                        composable(
+                            route = CatalogRoutes.BUNDLE_DIAGRAM,
+                            arguments = listOf(
+                                navArgument("jobId") { type = NavType.StringType },
+                                navArgument("diagramKey") { type = NavType.StringType },
+                            ),
+                        ) {
+                            DiagramDetailScreen(
+                                onBack = { navController.popBackStack() },
+                            )
                         }
                         composable(CatalogRoutes.PROJECTS) { ProjectsScreen() }
                     }

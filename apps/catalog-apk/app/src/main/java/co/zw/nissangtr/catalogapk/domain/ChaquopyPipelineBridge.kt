@@ -31,15 +31,18 @@ class ChaquopyPipelineBridge(
     ): PipelineResult = withContext(Dispatchers.IO) {
         ensurePythonStarted()
 
-        val jobRoot = File(job.outRoot).parentFile ?: File(job.outRoot)
+        val outDir = File(job.outRoot)
+        val jobRoot = outDir.parentFile ?: outDir
+        outDir.mkdirs()
+        jobRoot.mkdirs()
         val pauseFlag = File(jobRoot, "pause.flag")
         val heartbeatFile = File(jobRoot, "heartbeat.json")
         if (pauseFlag.exists()) pauseFlag.delete()
 
-        File(job.outRoot, "profile_snapshot.json").writeText(
+        File(outDir, "profile_snapshot.json").writeText(
             OrchestratorArgBuilder.profileSnapshotJson(profile),
         )
-        File(job.outRoot, "argv.txt").writeText(argv.joinToString("\n"))
+        File(outDir, "argv.txt").writeText(argv.joinToString("\n"))
 
         val done = AtomicBoolean(false)
         val resultCode = AtomicInteger(-1)
@@ -47,12 +50,17 @@ class ChaquopyPipelineBridge(
 
         val py = Python.getInstance()
         val worker = py.getModule("catalog_worker")
+        // Prefer a real Python list. catalog_worker also accepts Java ArrayList via size()/get().
+        val pyArgv = py.getBuiltins().callAttr("list")
+        for (arg in argv) {
+            pyArgv.callAttr("append", arg)
+        }
 
         val runner = Thread {
             try {
                 val code = worker.callAttr(
                     "run_job",
-                    ArrayList(argv),
+                    pyArgv,
                     pauseFlag.absolutePath,
                     heartbeatFile.absolutePath,
                 ).toInt()
@@ -84,9 +92,23 @@ class ChaquopyPipelineBridge(
             0 -> PipelineResult.COMPLETE
             2 -> PipelineResult.PAUSED
             else -> {
-                File(job.outRoot, "pipeline_error.txt").writeText(
-                    errorMessage.get() ?: "exit ${resultCode.get()}",
-                )
+                val fromHeartbeat = runCatching {
+                    if (!heartbeatFile.exists()) return@runCatching null
+                    val text = heartbeatFile.readText()
+                    // Prefer {"phase":"error","error":"..."} from catalog_worker.
+                    val marker = "\"error\":"
+                    val idx = text.indexOf(marker)
+                    if (idx < 0) return@runCatching null
+                    val start = text.indexOf('"', idx + marker.length)
+                    val end = text.indexOf('"', start + 1)
+                    if (start >= 0 && end > start) text.substring(start + 1, end) else null
+                }.getOrNull()
+                val fromFailReason = runCatching {
+                    val f = File(job.outRoot, "fail_reason.txt")
+                    if (f.exists()) f.readText().trim().takeIf { it.isNotEmpty() } else null
+                }.getOrNull()
+                val msg = errorMessage.get() ?: fromHeartbeat ?: fromFailReason ?: "exit ${resultCode.get()}"
+                File(job.outRoot, "pipeline_error.txt").writeText(msg.take(4000))
                 PipelineResult.FAILED
             }
         }

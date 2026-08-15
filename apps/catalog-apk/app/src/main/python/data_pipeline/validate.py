@@ -6,8 +6,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-from jsonschema import Draft202012Validator
+try:
+    import jsonschema
+    from jsonschema import Draft202012Validator
+except ImportError:  # pragma: no cover - optional on slim APK embeds
+    jsonschema = None  # type: ignore[assignment]
+    Draft202012Validator = None  # type: ignore[misc, assignment]
 
 SCHEMA_NAMES = (
     "vehicle_master",
@@ -28,6 +32,13 @@ class ValidationError(Exception):
         super().__init__(f"{len(errors)} validation error(s): " + "; ".join(errors))
 
 
+def _require_jsonschema() -> None:
+    if jsonschema is None or Draft202012Validator is None:
+        raise ValidationError(
+            ["jsonschema is not installed (add to requirements-apk.txt / pip install jsonschema)"],
+        )
+
+
 def schema_path(name: str) -> Path:
     if name not in SCHEMA_NAMES:
         raise KeyError(f"Unknown schema: {name}")
@@ -39,7 +50,8 @@ def load_schema(name: str) -> dict[str, Any]:
         return json.load(fh)
 
 
-def load_validator(name: str) -> Draft202012Validator:
+def load_validator(name: str) -> Any:
+    _require_jsonschema()
     schema = load_schema(name)
     jsonschema.Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
@@ -65,7 +77,13 @@ def validate_records(name: str, records: list[dict[str, Any]]) -> None:
 
 
 def validate_bundle(bundle: dict[str, list[dict[str, Any]]]) -> None:
-    """Validate a catalog bundle keyed by schema/table name."""
+    """Validate a catalog bundle keyed by schema/table name.
+
+    On slim APK embeds without ``jsonschema``, validation is skipped so
+    crawl→transform can still produce artifacts.
+    """
+    if jsonschema is None or Draft202012Validator is None:
+        return
     for name in SCHEMA_NAMES:
         if name not in bundle:
             continue

@@ -253,3 +253,167 @@ public enum AuthCallbackPayload: Sendable {
     case session(GoTrueAuthClient.Session)
     case error(String)
 }
+
+// MARK: - Edge auth-otp + password-reset (mirrors web)
+
+/// Hosted signup / password recovery via Edge — public GoTrue `/signup` is blocked.
+public enum AuthEdgeClient {
+    public struct OtpRequestResult: Sendable {
+        public let stub: Bool
+        public let stubCode: String?
+    }
+
+    public struct OtpVerifyResult: Sendable {
+        public let proofToken: String
+        public let email: String?
+    }
+
+    public static func requestSignupOtp(
+        client: PostgrestClient,
+        email: String
+    ) async throws -> OtpRequestResult {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { throw StorefrontError.message("Enter your email.") }
+        let data = try await client.invokeFunction(
+            "auth-otp",
+            body: ["action": "request", "email": trimmed]
+        )
+        let obj = try jsonObject(data)
+        if let err = stringField(obj, "error") { throw StorefrontError.message(err) }
+        return OtpRequestResult(
+            stub: (obj["stub"] as? Bool) == true,
+            stubCode: stringField(obj, "stub_code")
+        )
+    }
+
+    public static func verifySignupOtp(
+        client: PostgrestClient,
+        email: String,
+        code: String
+    ) async throws -> OtpVerifyResult {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let digits = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard digits.count == 6, digits.allSatisfy({ $0.isNumber }) else {
+            throw StorefrontError.message("Enter the 6-digit code.")
+        }
+        let data = try await client.invokeFunction(
+            "auth-otp",
+            body: ["action": "verify", "email": trimmed, "code": digits]
+        )
+        let obj = try jsonObject(data)
+        if let err = stringField(obj, "error") { throw StorefrontError.message(err) }
+        guard (obj["verified"] as? Bool) == true else {
+            throw StorefrontError.message(stringField(obj, "error") ?? "OTP verification failed")
+        }
+        guard let proof = stringField(obj, "proof_token"), !proof.isEmpty else {
+            throw StorefrontError.message("OTP verify did not return proof_token")
+        }
+        return OtpVerifyResult(proofToken: proof, email: stringField(obj, "email") ?? trimmed)
+    }
+
+    public static func completeSignup(
+        client: PostgrestClient,
+        email: String,
+        password: String,
+        proofToken: String,
+        fullName: String? = nil
+    ) async throws -> GoTrueAuthClient.Session {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard password.count >= 8 else {
+            throw StorefrontError.message("Password must be at least 8 characters.")
+        }
+        guard !proofToken.isEmpty else {
+            throw StorefrontError.message("OTP proof missing — verify OTP again.")
+        }
+        var body: [String: Any] = [
+            "action": "complete_signup",
+            "email": trimmed,
+            "password": password,
+            "proof_token": proofToken,
+        ]
+        if let fullName, !fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body["full_name"] = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let data = try await client.invokeFunction("auth-otp", body: body)
+        return try sessionFromEdge(data, fallbackEmail: trimmed)
+    }
+
+    public static func requestPasswordReset(
+        client: PostgrestClient,
+        email: String
+    ) async throws -> OtpRequestResult {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { throw StorefrontError.message("Enter your email.") }
+        let data = try await client.invokeFunction(
+            "request-password-reset",
+            body: ["email": trimmed]
+        )
+        let obj = try jsonObject(data)
+        if let err = stringField(obj, "error") { throw StorefrontError.message(err) }
+        return OtpRequestResult(
+            stub: (obj["stub"] as? Bool) == true,
+            stubCode: stringField(obj, "stub_code")
+        )
+    }
+
+    public static func verifyPasswordReset(
+        client: PostgrestClient,
+        email: String,
+        code: String,
+        newPassword: String
+    ) async throws {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let digits = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard digits.count == 6, digits.allSatisfy({ $0.isNumber }) else {
+            throw StorefrontError.message("Enter the 6-digit code.")
+        }
+        guard newPassword.count >= 8 else {
+            throw StorefrontError.message("Password must be at least 8 characters.")
+        }
+        let data = try await client.invokeFunction(
+            "verify-password-reset",
+            body: [
+                "email": trimmed,
+                "code": digits,
+                "new_password": newPassword,
+            ]
+        )
+        let obj = try jsonObject(data)
+        if let err = stringField(obj, "error") { throw StorefrontError.message(err) }
+        if (obj["ok"] as? Bool) == false {
+            throw StorefrontError.message(stringField(obj, "error") ?? "Could not reset password")
+        }
+    }
+
+    private static func sessionFromEdge(
+        _ data: Data,
+        fallbackEmail: String?
+    ) throws -> GoTrueAuthClient.Session {
+        let obj = try jsonObject(data)
+        if let err = stringField(obj, "error") { throw StorefrontError.message(err) }
+        guard let access = stringField(obj, "access_token"), !access.isEmpty,
+              let refresh = stringField(obj, "refresh_token"), !refresh.isEmpty
+        else {
+            throw StorefrontError.message("Signup did not return a session")
+        }
+        return GoTrueAuthClient.Session(
+            accessToken: access,
+            refreshToken: refresh,
+            email: stringField(obj, "email") ?? fallbackEmail,
+            expiresIn: obj["expires_in"] as? Int
+        )
+    }
+
+    private static func jsonObject(_ data: Data) throws -> [String: Any] {
+        guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw StorefrontError.message("Edge returned non-JSON")
+        }
+        return obj
+    }
+
+    private static func stringField(_ obj: [String: Any], _ key: String) -> String? {
+        guard let s = obj[key] as? String else { return nil }
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+}

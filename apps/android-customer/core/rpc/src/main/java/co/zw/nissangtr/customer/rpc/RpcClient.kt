@@ -295,6 +295,9 @@ interface RpcClient {
     /** [RpcNames.GET_LOYALTY_BALANCE] — requires own customer id. */
     suspend fun getLoyaltyBalance(customerId: String): LoyaltyBalance
 
+    /** Own `loyalty_ledger` rows (newest first). */
+    suspend fun listLoyaltyLedger(customerId: String, limit: Int = 20): List<LoyaltyLedgerEntry>
+
     /**
      * Quarantine CN path — [RpcNames.POST_CUSTOMER_RETURN_CREDIT_NOTE].
      * Unit prices forced server-side from source invoice.

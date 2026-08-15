@@ -347,6 +347,17 @@ data class LoyaltyBalance(
     }
 }
 
+/** Mirrors web `loyalty_ledger` row (customer-visible fields). */
+data class LoyaltyLedgerEntry(
+    val id: String,
+    val movement: String,
+    val points: Double,
+    val pointsBalanceAfter: Double,
+    val reason: String? = null,
+    val createdAt: String? = null,
+    val currency: String = "USD",
+)
+
 /** Line payload for [RpcNames.POST_CUSTOMER_RETURN_CREDIT_NOTE] — prices forced server-side. */
 data class ReturnCreditNoteLine(
     val stockItemId: String,

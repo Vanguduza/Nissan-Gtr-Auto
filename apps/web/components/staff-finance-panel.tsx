@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   FormEvent,
   Fragment,
@@ -88,14 +88,22 @@ import {
 } from "@/lib/staff-finance";
 import { StaffFinanceSalesRegister } from "@/components/staff-finance-sales-register";
 import { StaffPettyCashStatement } from "@/components/staff-petty-cash-statement";
+import { StaffFinanceDashboard } from "@/components/staff-finance-dashboard";
 import { createWebClient } from "@/lib/supabase";
 
+const ONLINE_SALES_ACCOUNTS = [
+  { code: "all", label: "All online rails" },
+  { code: "1140", label: "ContiPay" },
+  { code: "1150", label: "Paynow" },
+  { code: "1160", label: "EcoCash" },
+  { code: "1130", label: "Legacy online (1130)" },
+] as const;
+
 const FINANCE_TAB_IDS = [
+  "hub",
   "accounts",
-  "statements",
   "petty-cash",
   "cash-sales",
-  "online-sales",
   "contipay",
   "paynow",
   "ecocash",
@@ -108,10 +116,8 @@ const FINANCE_TAB_IDS = [
   "periods",
 ] as const;
 
-/** Operational till tabs only — sales clearing + petty cash have dedicated UIs. */
-const ACCOUNT_TAB_CODES: Record<string, { code: string; title: string }> = {
-  "online-sales": { code: "1130", title: "Online payments (legacy)" },
-};
+/** Operational till tabs only — cash till + legacy online ops removed from nav. */
+const ACCOUNT_TAB_CODES: Record<string, { code: string; title: string }> = {};
 
 type Boot =
   | { kind: "loading" }
@@ -228,18 +234,31 @@ export function StaffFinancePanel() {
 }
 
 function StaffFinancePanelInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
+
+  useEffect(() => {
+    if (tabParam === "online-sales") {
+      router.replace("/staff/finance?tab=accounts");
+      return;
+    }
+    if (tabParam === "statements") {
+      router.replace("/staff/finance?tab=reports");
+    }
+  }, [tabParam, router]);
+
   const tab =
     tabParam &&
     FINANCE_TAB_IDS.includes(tabParam as (typeof FINANCE_TAB_IDS)[number])
       ? tabParam
-      : "journals";
+      : "hub";
   const [registerRows, setRegisterRows] = useState<AccountRegisterRow[]>([]);
   const [registerFrom, setRegisterFrom] = useState(monthStartInput);
   const [registerTo, setRegisterTo] = useState(todayInput);
   const [registerCurrency, setRegisterCurrency] =
     useState<CurrencyCode>("USD");
+  const [onlineAccountCode, setOnlineAccountCode] = useState<string>("all");
   const [openPeriod, setOpenPeriod] =
     useState<AccountPeriodBalanceOption | null>(null);
   const [periodOpening, setPeriodOpening] = useState("0");
@@ -526,6 +545,58 @@ function StaffFinancePanelInner() {
     [registerFrom, registerTo],
   );
 
+  const loadOnlineSalesMaster = useCallback(
+    async (accountCode: string, currency: CurrencyCode) => {
+      const client = createWebClient();
+      if (!client) return;
+      setBusy(true);
+      setMessage(null);
+      const codes =
+        accountCode === "all"
+          ? (["1140", "1150", "1160", "1130"] as const)
+          : ([accountCode] as const);
+      const results = await Promise.all(
+        codes.map((code) =>
+          reportAccountRegister(client, {
+            accountCode: code,
+            from: registerFrom,
+            to: registerTo,
+            currency,
+          }),
+        ),
+      );
+      setBusy(false);
+      const merged: AccountRegisterRow[] = [];
+      for (let i = 0; i < results.length; i++) {
+        const res = results[i]!;
+        const code = codes[i]!;
+        if (!res.ok) {
+          setMessage(res.error);
+          setRegisterRows([]);
+          return;
+        }
+        for (const row of res.data) {
+          merged.push({
+            ...row,
+            description: `[${code}] ${row.description?.trim() || row.document_number || row.journal_entry_id.slice(0, 8)}`,
+          });
+        }
+      }
+      merged.sort((a, b) => {
+        const d = a.entry_date.localeCompare(b.entry_date);
+        if (d !== 0) return d;
+        return a.journal_entry_id.localeCompare(b.journal_entry_id);
+      });
+      setRegisterRows(merged);
+      setMessage(
+        merged.length
+          ? `Online sales · ${merged.length} row(s) · ${currency}`
+          : "No online sales activity in this period.",
+      );
+    },
+    [registerFrom, registerTo],
+  );
+
   const loadRequisitions = useCallback(async () => {
     const client = createWebClient();
     if (!client) return;
@@ -543,11 +614,25 @@ function StaffFinancePanelInner() {
   }, [refresh]);
 
   useEffect(() => {
+    if (boot.kind !== "ready" || tab !== "accounts") return;
+    void loadOnlineSalesMaster(onlineAccountCode, registerCurrency);
+  }, [
+    boot.kind,
+    tab,
+    onlineAccountCode,
+    registerCurrency,
+    registerFrom,
+    registerTo,
+    loadOnlineSalesMaster,
+  ]);
+
+  useEffect(() => {
     const meta = ACCOUNT_TAB_CODES[tab];
     if (!meta || boot.kind !== "ready" || isSalesReferenceAccountTab(tab)) {
-      setRegisterRows([]);
-      setOpenPeriod(null);
-      setReplenishHint(null);
+      if (tab !== "accounts") {
+        setOpenPeriod(null);
+        setReplenishHint(null);
+      }
       return;
     }
     void loadAccountRegister(meta.code, registerCurrency);
@@ -1215,6 +1300,72 @@ function StaffFinancePanelInner() {
     setMessage("Run a report before exporting CSV.");
   }
 
+  async function onExportReportPdf() {
+    const client = createWebClient();
+    if (!client) {
+      setMessage("Supabase is not configured.");
+      return;
+    }
+    const session = await client.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (!token) {
+      setMessage("Sign in required for PDF export.");
+      return;
+    }
+
+    const labels: Record<ReportKind, string> = {
+      pnl: "Profit & loss",
+      bs: "Balance sheet",
+      cf: "Cash flow",
+      tb: "Trial balance",
+    };
+    let lines: { description: string; lineTotal: number }[] = [];
+    if (reportKind === "pnl" && pnlRows.length) {
+      lines = pnlRows.map((r) => ({
+        description: `${r.account_code} ${r.account_name}`,
+        lineTotal: Number(r.amount),
+      }));
+    } else if (reportKind === "bs" && bsRows.length) {
+      lines = bsRows.map((r) => ({
+        description: `${r.account_code} ${r.account_name}`,
+        lineTotal: Number(r.balance),
+      }));
+    } else if (reportKind === "cf" && cfRows.length) {
+      lines = cfRows.map((r) => ({
+        description: `${r.section} · ${r.label}`,
+        lineTotal: Number(r.amount_usd),
+      }));
+    } else if (reportKind === "tb" && tbRows.length) {
+      lines = tbRows.map((r) => ({
+        description: `${r.account_code} ${r.account_name} · Dr ${Number(r.debit).toFixed(2)} / Cr ${Number(r.credit).toFixed(2)}`,
+        lineTotal: Number(r.debit) - Number(r.credit),
+      }));
+    } else {
+      setMessage("Run a report before exporting PDF.");
+      return;
+    }
+
+    const payload = buildStatementExportHook({
+      storeName: "Nissan GTR Auto",
+      documentLabel: `${labels[reportKind]} · ${
+        reportKind === "bs" || reportKind === "tb"
+          ? `as of ${to}`
+          : `${from} → ${to}`
+      }`,
+      currency: reportCurrency,
+      asOf: to,
+      lines,
+    });
+    setBusy(true);
+    const pdf = await downloadBrandedStatementPdf(token, payload);
+    setBusy(false);
+    setMessage(
+      pdf.ok
+        ? `${labels[reportKind]} PDF downloaded · ${lines.length} line(s)`
+        : pdf.error,
+    );
+  }
+
   async function onCreatePayment(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
@@ -1608,11 +1759,13 @@ function StaffFinancePanelInner() {
 
   return (
     <div className={styles.form}>
-      {message ? (
+      {message && tab !== "hub" ? (
         <p className={styles.formStatus} role="status">
           {message}
         </p>
       ) : null}
+
+      {tab === "hub" ? <StaffFinanceDashboard /> : null}
 
       {tab === "petty-cash" ? <StaffPettyCashStatement /> : null}
 
@@ -1888,22 +2041,23 @@ function StaffFinancePanelInner() {
 
       {tab === "accounts" ? (
         <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>Accounts (CoA register)</legend>
+          <legend className={styles.legend}>Online sales (master)</legend>
           <p className={styles.muted}>
-            Pick any GL account for a period register. Cash / ContiPay / Paynow /
-            EcoCash are reference viewers; Petty cash uses the statement desk.
+            Master register for ContiPay, Paynow, EcoCash, and legacy online
+            clearing (1130). Method tabs remain for single-rail reference views.
           </p>
           <div className={styles.formGrid}>
             <label className={styles.field}>
-              Account
+              Rail
               <select
-                value={journalRegisterAccount}
-                onChange={(e) => setJournalRegisterAccount(e.target.value)}
+                value={onlineAccountCode}
+                onChange={(e) => setOnlineAccountCode(e.target.value)}
                 disabled={busy}
               >
-                {boot.accounts.map((a) => (
+                {ONLINE_SALES_ACCOUNTS.map((a) => (
                   <option key={a.code} value={a.code}>
-                    {a.code} · {a.display_name || a.name}
+                    {a.label}
+                    {a.code !== "all" ? ` · ${a.code}` : ""}
                   </option>
                 ))}
               </select>
@@ -1944,16 +2098,17 @@ function StaffFinancePanelInner() {
             <button
               type="button"
               className={styles.btnGhost}
-              disabled={busy || !journalRegisterAccount}
+              disabled={busy}
               onClick={() =>
-                void loadAccountRegister(journalRegisterAccount, registerCurrency)
+                void loadOnlineSalesMaster(onlineAccountCode, registerCurrency)
               }
             >
-              Load register
+              Refresh
             </button>
             <button
               type="button"
-              className={styles.btnGhost}
+              className={styles.btn}
+              style={{ marginTop: 0 }}
               disabled={busy || registerRows.length === 0}
               onClick={() => {
                 void (async () => {
@@ -1962,9 +2117,12 @@ function StaffFinancePanelInner() {
                     setMessage("Supabase is not configured.");
                     return;
                   }
+                  const railLabel =
+                    ONLINE_SALES_ACCOUNTS.find((a) => a.code === onlineAccountCode)
+                      ?.label ?? "Online sales";
                   const payload = buildStatementExportHook({
                     storeName: "Nissan GTR Auto",
-                    documentLabel: `Account ${journalRegisterAccount}`,
+                    documentLabel: `${railLabel} · ${registerFrom} → ${registerTo}`,
                     currency: registerCurrency,
                     asOf: registerTo,
                     lines: registerRows.map((r) => ({
@@ -1975,7 +2133,7 @@ function StaffFinancePanelInner() {
                       lineTotal: Number(r.debit) - Number(r.credit),
                     })),
                     closingBalance:
-                      registerRows.length > 0
+                      onlineAccountCode !== "all" && registerRows.length > 0
                         ? Number(
                             registerRows[registerRows.length - 1]
                               ?.running_balance ?? 0,
@@ -1993,146 +2151,62 @@ function StaffFinancePanelInner() {
                   setBusy(false);
                   setMessage(
                     pdf.ok
-                      ? `Statement PDF downloaded · ${payload.lines.length} lines (no fiscal QR)`
+                      ? `Online sales PDF downloaded · ${payload.lines.length} lines`
                       : pdf.error,
                   );
                 })();
               }}
             >
-              Export statement PDF
+              Download PDF
             </button>
           </div>
           {registerRows.length === 0 ? (
-            <p className={styles.muted}>No register rows loaded.</p>
-          ) : (
-            <ul className={styles.list}>
-              {registerRows.map((r) => (
-                <li key={`${r.journal_entry_id}-${r.entry_date}-${r.debit}`}>
-                  {r.entry_date} · {r.document_number ?? "—"} · Dr{" "}
-                  {Number(r.debit).toFixed(2)} / Cr {Number(r.credit).toFixed(2)}{" "}
-                  · bal {Number(r.running_balance).toFixed(2)} {r.currency}
-                </li>
-              ))}
-            </ul>
-          )}
-        </fieldset>
-      ) : null}
-
-      {tab === "statements" ? (
-        <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>Statements</legend>
-          <p className={styles.muted}>
-            Export a branded bank statement PDF (tax-agnostic — no ZIMRA fiscal
-            QR). Line matching stays under Bank recon. Account register PDFs also
-            live under Accounts → Export statement PDF.
-          </p>
-          <div className={styles.formGrid}>
-            <label className={styles.field}>
-              Bank statement
-              <select
-                value={selectedStmtId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setSelectedStmtId(id);
-                  if (id) void loadStatementDetail(id);
-                }}
-                disabled={busy || boot.statements.length === 0}
-              >
-                {boot.statements.length === 0 ? (
-                  <option value="">No statements</option>
-                ) : (
-                  boot.statements.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.statement_date} · {s.account_code} · {s.currency}
-                      {s.document_number ? ` · ${s.document_number}` : ""}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-          </div>
-          <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
-            <button
-              type="button"
-              className={styles.btnGhost}
-              disabled={busy || !selectedStmtId}
-              onClick={() => {
-                void (async () => {
-                  const client = createWebClient();
-                  if (!client || !selectedStmtId) return;
-                  const stmt = boot.statements.find(
-                    (s) => s.id === selectedStmtId,
-                  );
-                  if (!stmt) {
-                    setMessage("Select a bank statement first.");
-                    return;
-                  }
-                  setBusy(true);
-                  const linesRes = await listBankStatementLines(
-                    client,
-                    selectedStmtId,
-                  );
-                  if (!linesRes.ok) {
-                    setBusy(false);
-                    setMessage(linesRes.error);
-                    return;
-                  }
-                  setStmtLines(linesRes.data);
-                  const payload = buildStatementExportHook({
-                    storeName: "Nissan GTR Auto",
-                    documentLabel: `Bank statement · ${stmt.account_code}${
-                      stmt.document_number ? ` · ${stmt.document_number}` : ""
-                    }`,
-                    currency: stmt.currency,
-                    asOf: stmt.statement_date,
-                    partyName: stmt.account_code,
-                    openingBalance: Number(stmt.opening_balance),
-                    closingBalance: Number(stmt.closing_balance),
-                    lines: linesRes.data.map((l) => ({
-                      description:
-                        `${l.line_date} · ${l.description ?? "—"} · ${l.status}`,
-                      lineTotal: Number(l.amount),
-                    })),
-                  });
-                  const session = await client.auth.getSession();
-                  const token = session.data.session?.access_token;
-                  if (!token) {
-                    setBusy(false);
-                    setMessage("Sign in required for PDF export.");
-                    return;
-                  }
-                  const pdf = await downloadBrandedStatementPdf(token, payload);
-                  setBusy(false);
-                  setMessage(
-                    pdf.ok
-                      ? `Bank statement PDF downloaded · ${payload.lines.length} lines (no fiscal QR)`
-                      : pdf.error,
-                  );
-                })();
-              }}
-            >
-              Export statement PDF
-            </button>
-          </div>
-          {stmtLines.length > 0 ? (
-            <ul className={styles.list}>
-              {stmtLines.slice(0, 12).map((l) => (
-                <li key={l.id}>
-                  {l.line_date} · {l.description ?? "—"} ·{" "}
-                  {Number(l.amount).toFixed(2)} · {l.status}
-                </li>
-              ))}
-              {stmtLines.length > 12 ? (
-                <li className={styles.muted}>
-                  …and {stmtLines.length - 12} more
-                </li>
-              ) : null}
-            </ul>
-          ) : (
-            <p className={styles.muted}>
-              {boot.statements.length} bank statement(s) on file — select one and
-              export, or open Bank recon to match lines.
+            <p className={styles.emptyState}>
+              No online sales activity in this period.
             </p>
+          ) : (
+            <div className={styles.tableWrap} style={{ marginTop: "0.75rem" }}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Transaction</th>
+                    <th>Debit</th>
+                    <th>Credit</th>
+                    <th>Balance</th>
+                    <th>Currency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registerRows.map((r) => (
+                    <tr
+                      key={`${r.journal_entry_id}-${r.entry_date}-${r.debit}-${r.credit}-${r.description}`}
+                    >
+                      <td>{r.entry_date}</td>
+                      <td>
+                        <Link
+                          href={`/staff/finance/transactions/${r.journal_entry_id}?tab=accounts`}
+                          className={styles.navLink}
+                          style={{
+                            display: "inline",
+                            padding: 0,
+                            minHeight: 0,
+                          }}
+                        >
+                          {r.description?.trim() ||
+                            r.document_number ||
+                            r.journal_entry_id}
+                        </Link>
+                      </td>
+                      <td>{Number(r.debit).toFixed(2)}</td>
+                      <td>{Number(r.credit).toFixed(2)}</td>
+                      <td>{Number(r.running_balance).toFixed(2)}</td>
+                      <td>{r.currency}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </fieldset>
       ) : null}
@@ -2223,7 +2297,7 @@ function StaffFinancePanelInner() {
 
       {tab === "journals" ? (
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>Journal draft</legend>
+        <legend className={styles.legend}>Manual journals</legend>
         <form onSubmit={(e) => void onCreateDraft(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -2885,8 +2959,104 @@ function StaffFinancePanelInner() {
       ) : null}
 
       {tab === "reports" ? (
+      <>
       <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>Reports</legend>
+        <legend className={styles.legend}>Bank statements</legend>
+        <p className={styles.muted}>
+          Export a branded bank statement PDF. Line matching stays under Bank
+          recon.
+        </p>
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            Bank statement
+            <select
+              value={selectedStmtId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSelectedStmtId(id);
+                if (id) void loadStatementDetail(id);
+              }}
+              disabled={busy || boot.statements.length === 0}
+            >
+              {boot.statements.length === 0 ? (
+                <option value="">No statements</option>
+              ) : (
+                boot.statements.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.statement_date} · {s.account_code} · {s.currency}
+                    {s.document_number ? ` · ${s.document_number}` : ""}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+        </div>
+        <div className={styles.formActions} style={{ marginTop: "0.85rem" }}>
+          <button
+            type="button"
+            className={styles.btn}
+            style={{ marginTop: 0 }}
+            disabled={busy || !selectedStmtId}
+            onClick={() => {
+              void (async () => {
+                const client = createWebClient();
+                if (!client || !selectedStmtId) return;
+                const stmt = boot.statements.find(
+                  (s) => s.id === selectedStmtId,
+                );
+                if (!stmt) {
+                  setMessage("Select a bank statement first.");
+                  return;
+                }
+                setBusy(true);
+                const linesRes = await listBankStatementLines(
+                  client,
+                  selectedStmtId,
+                );
+                if (!linesRes.ok) {
+                  setBusy(false);
+                  setMessage(linesRes.error);
+                  return;
+                }
+                setStmtLines(linesRes.data);
+                const payload = buildStatementExportHook({
+                  storeName: "Nissan GTR Auto",
+                  documentLabel: `Bank statement · ${stmt.account_code}${
+                    stmt.document_number ? ` · ${stmt.document_number}` : ""
+                  }`,
+                  currency: stmt.currency,
+                  asOf: stmt.statement_date,
+                  partyName: stmt.account_code,
+                  openingBalance: Number(stmt.opening_balance),
+                  closingBalance: Number(stmt.closing_balance),
+                  lines: linesRes.data.map((l) => ({
+                    description: `${l.line_date} · ${l.description ?? "—"} · ${l.status}`,
+                    lineTotal: Number(l.amount),
+                  })),
+                });
+                const session = await client.auth.getSession();
+                const token = session.data.session?.access_token;
+                if (!token) {
+                  setBusy(false);
+                  setMessage("Sign in required for PDF export.");
+                  return;
+                }
+                const pdf = await downloadBrandedStatementPdf(token, payload);
+                setBusy(false);
+                setMessage(
+                  pdf.ok
+                    ? `Bank statement PDF downloaded · ${payload.lines.length} lines`
+                    : pdf.error,
+                );
+              })();
+            }}
+          >
+            Download statement PDF
+          </button>
+        </div>
+      </fieldset>
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>Financial reports</legend>
         <form onSubmit={(e) => void onRunReport(e)}>
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -2952,6 +3122,15 @@ function StaffFinancePanelInner() {
               onClick={onExportCsv}
             >
               Download CSV
+            </button>
+            <button
+              type="button"
+              className={styles.btn}
+              style={{ marginTop: 0 }}
+              disabled={busy}
+              onClick={() => void onExportReportPdf()}
+            >
+              Download PDF
             </button>
           </div>
         </form>
@@ -3058,6 +3237,7 @@ function StaffFinancePanelInner() {
           </div>
         ) : null}
       </fieldset>
+      </>
       ) : null}
 
       {tab === "payments" ? (

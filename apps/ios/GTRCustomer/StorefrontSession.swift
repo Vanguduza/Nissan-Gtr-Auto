@@ -131,25 +131,6 @@ final class StorefrontSession: ObservableObject {
         try await applyGoTrueSession(session, liveApi: liveApi)
     }
 
-    /// Sign in with Apple → GoTrue `grant_type=id_token` (raw nonce must match hashed request nonce).
-    func signInWithApple(idToken: String, rawNonce: String, email: String?) async throws {
-        guard let liveApi else {
-            isSignedIn = true
-            userEmail = email
-            await refreshWishlist()
-            return
-        }
-        guard let goTrue else {
-            throw StorefrontError.notConfigured
-        }
-        let session = try await goTrue.signInWithIdToken(
-            provider: .apple,
-            idToken: idToken,
-            nonce: rawNonce
-        )
-        try await applyGoTrueSession(session, liveApi: liveApi, emailOverride: email)
-    }
-
     /// Google via ASWebAuthenticationSession → Supabase OAuth PKCE (no GoogleSignIn SDK).
     func signInWithGoogle() async throws {
         guard let liveApi else {
@@ -163,6 +144,58 @@ final class StorefrontSession: ObservableObject {
         }
         let session = try await GoogleOAuthBrowser.signIn(using: goTrue)
         try await applyGoTrueSession(session, liveApi: liveApi)
+    }
+
+    /// Edge `auth-otp` request — email ownership before create account.
+    func requestSignupOtp(email: String) async throws -> AuthEdgeClient.OtpRequestResult {
+        guard let liveApi else {
+            return AuthEdgeClient.OtpRequestResult(stub: true, stubCode: "000000")
+        }
+        return try await AuthEdgeClient.requestSignupOtp(client: liveApi.httpClient, email: email)
+    }
+
+    func verifySignupOtp(email: String, code: String) async throws -> AuthEdgeClient.OtpVerifyResult {
+        guard let liveApi else {
+            return AuthEdgeClient.OtpVerifyResult(proofToken: "fake-proof", email: email)
+        }
+        return try await AuthEdgeClient.verifySignupOtp(
+            client: liveApi.httpClient,
+            email: email,
+            code: code
+        )
+    }
+
+    func completeSignup(email: String, password: String, proofToken: String) async throws {
+        guard let liveApi else {
+            isSignedIn = true
+            userEmail = email
+            await refreshWishlist()
+            return
+        }
+        let session = try await AuthEdgeClient.completeSignup(
+            client: liveApi.httpClient,
+            email: email,
+            password: password,
+            proofToken: proofToken
+        )
+        try await applyGoTrueSession(session, liveApi: liveApi)
+    }
+
+    func requestPasswordReset(email: String) async throws -> AuthEdgeClient.OtpRequestResult {
+        guard let liveApi else {
+            return AuthEdgeClient.OtpRequestResult(stub: true, stubCode: "000000")
+        }
+        return try await AuthEdgeClient.requestPasswordReset(client: liveApi.httpClient, email: email)
+    }
+
+    func completePasswordReset(email: String, code: String, newPassword: String) async throws {
+        guard let liveApi else { return }
+        try await AuthEdgeClient.verifyPasswordReset(
+            client: liveApi.httpClient,
+            email: email,
+            code: code,
+            newPassword: newPassword
+        )
     }
 
     /// Deep-link `gtrcustomer://auth/callback` (OAuth / email confirm). Returns true if handled.

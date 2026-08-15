@@ -27,6 +27,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.2.0-post-epic"
+        // Placeholders — set via local.properties / CI; never commit real keys.
+        // Live when both non-blank and rpc.forceFake ≠ true (see PosClientFactory).
         buildConfigField("String", "SUPABASE_URL", "\"${localProp("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")
         buildConfigField(

@@ -37,7 +37,14 @@ const cards = [
 
 export const metadata = { title: "My Account" };
 
-export default function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
+  const params = await searchParams;
+  const staffOnly = params.notice === "staff-only";
+
   return (
     <div className={styles.shell}>
       <AccountNav current="/account" />
@@ -48,10 +55,17 @@ export default function AccountPage() {
           </span>
           My Account
         </h1>
-        <p className={styles.lede}>
-          Personal details, addresses, vehicles, orders, and loyalty — My Garage
-          lives here.
-        </p>
+        {staffOnly ? (
+          <p className={styles.lede} role="status">
+            Staff portal access requires a staff account. Use Employee # sign-in
+            on the login page if you have credentials.
+          </p>
+        ) : (
+          <p className={styles.lede}>
+            Personal details, addresses, vehicles, orders, and loyalty — My Garage
+            lives here.
+          </p>
+        )}
         <AccountSessionActions />
         <div className={styles.cardGrid}>
           {cards.map((c) => {

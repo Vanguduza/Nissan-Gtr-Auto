@@ -32,16 +32,20 @@ export function StaffFinanceTransactionDetail({
   const backHref =
     returnTab === "petty-cash"
       ? "/staff/finance?tab=petty-cash"
-      : returnTab && isSalesReferenceAccountTab(returnTab)
-        ? `/staff/finance?tab=${returnTab}`
-        : "/staff/finance?tab=cash-sales";
+      : returnTab === "accounts"
+        ? "/staff/finance?tab=accounts"
+        : returnTab && isSalesReferenceAccountTab(returnTab)
+          ? `/staff/finance?tab=${returnTab}`
+          : "/staff/finance?tab=cash-sales";
   const backLabel =
     returnTab === "petty-cash"
       ? "Petty cash"
-      : returnTab && isSalesReferenceAccountTab(returnTab)
-        ? SALES_REFERENCE_ACCOUNT_META[returnTab as SalesReferenceAccountTab]
-            .title
-        : "Cash";
+      : returnTab === "accounts"
+        ? "Online sales"
+        : returnTab && isSalesReferenceAccountTab(returnTab)
+          ? SALES_REFERENCE_ACCOUNT_META[returnTab as SalesReferenceAccountTab]
+              .title
+          : "Cash";
 
   const refresh = useCallback(async () => {
     const client = createWebClient();

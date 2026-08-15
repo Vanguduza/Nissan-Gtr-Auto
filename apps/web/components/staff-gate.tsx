@@ -131,12 +131,9 @@ export function StaffGate({ children }: { children: ReactNode }) {
       const onForbidden = pathname === "/staff/forbidden";
 
       if (!ctx.isStaff) {
-        if (!onForbidden) {
-          setState({ kind: "redirecting", message: "Redirecting…" });
-          router.replace("/staff/forbidden?reason=not-staff");
-          return;
-        }
-        setState({ kind: "ready", ctx });
+        // Middleware should already bounce non-staff; keep client fallback.
+        setState({ kind: "redirecting", message: "Staff access required…" });
+        router.replace("/account?notice=staff-only");
         return;
       }
 

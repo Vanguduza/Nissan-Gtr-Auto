@@ -48,6 +48,9 @@ interface JobDao {
     @Query("UPDATE jobs SET desiredState = :desiredState, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateDesiredState(id: String, desiredState: String, updatedAt: Long)
 
+    @Query("DELETE FROM jobs WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Query(
         "SELECT * FROM jobs WHERE desiredState = :desiredState AND status IN (:statuses)",
     )

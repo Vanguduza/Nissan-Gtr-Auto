@@ -406,13 +406,35 @@ private fun FinderPane(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.weight(1f),
         ) {
-            items(tiles, key = { it.oemPartNumber }) { item ->
-                SpareTile(
-                    item = item,
-                    badge = FitmentRules.badge(item, latch),
-                    selected = item.oemPartNumber == selectedOem,
-                    onClick = { onTileClick(item) },
-                )
+            if (tiles.isEmpty()) {
+                item(key = "empty-hint") {
+                    Text(
+                        text = when {
+                            latch == null && finderMode == FinderMode.SHOP_STOCK ->
+                                "Latch a chassis (chips above) or search VIN/OEM"
+                            else -> "No spare tiles"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = GtrColors.SilverDim,
+                        modifier = Modifier.padding(8.dp),
+                    )
+                }
+            } else {
+                items(
+                    tiles,
+                    key = { item ->
+                        listOfNotNull(item.stockItemId, item.oemPartNumber)
+                            .joinToString("|")
+                            .ifBlank { item.hashCode().toString() }
+                    },
+                ) { item ->
+                    SpareTile(
+                        item = item,
+                        badge = FitmentRules.badge(item, latch),
+                        selected = item.oemPartNumber == selectedOem,
+                        onClick = { onTileClick(item) },
+                    )
+                }
             }
         }
     }
@@ -507,7 +529,9 @@ fun TillScreen(
         searchQuery = state.searchQuery,
         selectedCategory = state.selectedCategory,
         inStockOnly = state.inStockOnly,
-        categories = listOf("Brakes", "Engine", "Body"),
+        categories = state.categoryFacets.ifEmpty {
+            listOf("Brakes", "Engine", "Body")
+        },
         tiles = state.visibleTiles,
         selectedOem = state.selectedOem,
         ticket = state.fake.ticket,

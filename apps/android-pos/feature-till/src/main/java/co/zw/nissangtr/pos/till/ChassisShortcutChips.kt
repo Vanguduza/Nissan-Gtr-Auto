@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -18,6 +19,9 @@ import co.zw.nissangtr.pos.api.ChassisShortcut
 import co.zw.nissangtr.ui.theme.GtrColors
 import co.zw.nissangtr.ui.theme.GtrShapes
 
+/**
+ * Vehicle chassis latch shortcuts (R35 / Y62 / …) — not part OEMs or category facets.
+ */
 @Composable
 fun ChassisShortcutChips(
     chips: List<ChassisShortcut>,
@@ -26,27 +30,37 @@ fun ChassisShortcutChips(
     modifier: Modifier = Modifier,
 ) {
     if (chips.isEmpty()) return
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        chips.forEach { chip ->
-            val selected = selectedChassis.equals(chip.chassisCode, ignoreCase = true)
-            Text(
-                text = chip.label,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (selected) GtrColors.PrimaryInk else GtrColors.Chalk,
-                modifier = Modifier
-                    .heightIn(min = 40.dp)
-                    .background(
-                        if (selected) GtrColors.Primary else GtrColors.SteelLift,
-                        GtrShapes.small,
-                    )
-                    .clickable { onSelect(chip) }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            )
+        Text(
+            text = "Latch chassis",
+            style = MaterialTheme.typography.labelSmall,
+            color = GtrColors.SilverDim,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            chips.forEach { chip ->
+                val selected = selectedChassis.equals(chip.chassisCode, ignoreCase = true)
+                Text(
+                    text = chip.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) GtrColors.PrimaryInk else GtrColors.Chalk,
+                    modifier = Modifier
+                        .heightIn(min = 40.dp)
+                        .background(
+                            if (selected) GtrColors.Primary else GtrColors.SteelLift,
+                            GtrShapes.small,
+                        )
+                        .clickable { onSelect(chip) }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                )
+            }
         }
     }
 }

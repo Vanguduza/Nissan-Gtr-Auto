@@ -37,9 +37,11 @@ import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,8 +52,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.net.Uri
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
+import co.zw.nissangtr.ui.shop.ShopSectionHeader
 import co.zw.nissangtr.ui.theme.GtrColors
 import co.zw.nissangtr.ui.theme.GtrLogo
 
@@ -200,6 +206,7 @@ sealed class HamburgerMenuAction {
     data object OpenDeals : HamburgerMenuAction()
     data object OpenAbout : HamburgerMenuAction()
     data object OpenContact : HamburgerMenuAction()
+    data object OpenLiveChat : HamburgerMenuAction()
     data object OpenStoreLocator : HamburgerMenuAction()
     data object Close : HamburgerMenuAction()
 }
@@ -352,13 +359,47 @@ fun HamburgerMenuOverlay(
                         )
                     }
                     MenuPane.Contact -> {
+                        val context = LocalContext.current
                         TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("â† Menu")
+                            Text("← Menu")
                         }
-                        ShopHonestEmpty(
-                            title = "Contact",
-                            body = "Harare counter · nissangtrauto.co.zw/contact",
+                        ShopSectionHeader(title = "Contact us", actionLabel = null)
+                        Text(
+                            "Harare counter · nationwide dispatch. Live chat (sign-in), WhatsApp, or the web contact page.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Button(
+                            onClick = { onAction(HamburgerMenuAction.OpenLiveChat) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Open live chat")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val digits = "263770000000"
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://wa.me/$digits"),
+                                )
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("WhatsApp counter")
+                        }
+                        TextButton(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("https://nissangtrauto.co.zw/contact"),
+                                    ),
+                                )
+                            },
+                        ) {
+                            Text("Open contact page")
+                        }
                     }
                     MenuPane.StoreLocator -> {
                         TextButton(onClick = { pane = MenuPane.Root }) {

@@ -96,26 +96,100 @@ class SupabaseRpcClient(
     }
 
     /**
-     * Email/password register via GoTrue (mirrors web signup).
-     * May require email confirmation depending on project Auth settings.
-     * Confirm links must open the app — pass [AUTH_EMAIL_REDIRECT] (must be on Dashboard redirect allow-list).
-     * Hosted **Site URL** must not stay on localhost or confirm emails default there.
+     * Email and/or phone signup via Edge `auth-otp` (request → verify → complete_signup).
+     * Public GoTrue `/signup` is blocked by `hook_before_user_created` on hosted.
+     * Phone-only OTP still requires an email at [completeSignupWithOtp] (Auth email).
      */
-    suspend fun signUpWithEmail(email: String, password: String) {
-        require(email.isNotBlank()) { "email required" }
-        require(password.length >= 6) { "password must be at least 6 characters" }
-        auth.signUpWith(Email, redirectUrl = AUTH_EMAIL_REDIRECT) {
-            this.email = email.trim()
-            this.password = password
-        }
-        // When Confirm email is off, session exists immediately — mint customers now.
-        if (isSignedIn()) ensureOwnCustomerIfNeeded()
+    suspend fun requestSignupOtp(email: String? = null, phoneE164: String? = null) =
+        AuthEdge.requestAuthOtp(this, email = email, phoneE164 = phoneE164)
+
+    suspend fun verifySignupOtp(
+        email: String? = null,
+        phoneE164: String? = null,
+        code: String,
+    ) = AuthEdge.verifyAuthOtp(this, email = email, phoneE164 = phoneE164, code = code)
+
+    suspend fun completeSignupWithOtp(
+        email: String,
+        password: String,
+        proofToken: String,
+        fullName: String? = null,
+        phoneE164: String? = null,
+    ) {
+        val session = AuthEdge.completeSignup(
+            this,
+            email = email,
+            password = password,
+            proofToken = proofToken,
+            fullName = fullName,
+            phoneE164 = phoneE164,
+        )
+        importAccessToken(
+            accessToken = session.accessToken,
+            refreshToken = session.refreshToken,
+            expiresIn = session.expiresIn,
+        )
+        ensureOwnCustomerIfNeeded()
     }
 
-    /** Sends a password-recovery email via GoTrue (no fake stub in production). */
+    /**
+     * Returning login: email → GoTrue; phone (or mixed) → Edge `complete_login`
+     * (resolves `profiles.phone_e164` without exposing the mapping).
+     */
+    suspend fun signInWithEmailOrPhone(
+        email: String? = null,
+        phoneE164: String? = null,
+        password: String,
+    ) {
+        val em = email?.trim()?.takeIf { it.isNotBlank() }
+        val ph = AuthEdge.normalizeE164(phoneE164)
+        require(em != null || ph != null) { "Enter email and/or phone" }
+        require(password.isNotBlank()) { "password required" }
+        if (em != null && ph == null) {
+            signInWithEmail(em, password)
+            return
+        }
+        val session = AuthEdge.completeLogin(
+            this,
+            email = em,
+            phoneE164 = ph,
+            password = password,
+        )
+        importAccessToken(
+            accessToken = session.accessToken,
+            refreshToken = session.refreshToken,
+            expiresIn = session.expiresIn,
+        )
+        ensureOwnCustomerIfNeeded()
+    }
+
+    /** Password recovery via Edge `request-password-reset` / `verify-password-reset`. */
+    suspend fun requestPasswordResetOtp(email: String? = null, phoneE164: String? = null) =
+        AuthEdge.requestPasswordReset(this, email = email, phoneE164 = phoneE164)
+
+    suspend fun completePasswordReset(
+        email: String? = null,
+        phoneE164: String? = null,
+        code: String,
+        newPassword: String,
+    ) {
+        AuthEdge.verifyPasswordReset(
+            this,
+            email = email,
+            phoneE164 = phoneE164,
+            code = code,
+            newPassword = newPassword,
+        )
+    }
+
+    @Deprecated("Use Edge auth-otp completeSignupWithOtp — GoTrue signup is blocked on hosted")
+    suspend fun signUpWithEmail(email: String, password: String) {
+        error("Use OTP signup (requestSignupOtp → verifySignupOtp → completeSignupWithOtp)")
+    }
+
+    @Deprecated("Use Edge requestPasswordResetOtp / completePasswordReset")
     suspend fun resetPasswordForEmail(email: String) {
-        require(email.isNotBlank()) { "email required" }
-        auth.resetPasswordForEmail(email.trim(), redirectUrl = AUTH_EMAIL_REDIRECT)
+        error("Use requestPasswordResetOtp then completePasswordReset")
     }
 
     /** Clears the persisted GoTrue session. */
@@ -942,6 +1016,9 @@ class SupabaseRpcClient(
 
     override suspend fun getLoyaltyBalance(customerId: String): LoyaltyBalance =
         CommerceRpcLive.getLoyaltyBalance(client, customerId)
+
+    override suspend fun listLoyaltyLedger(customerId: String, limit: Int): List<LoyaltyLedgerEntry> =
+        CommerceRpcLive.listLoyaltyLedger(client, customerId, limit)
 
     override suspend fun postCustomerReturnCreditNote(
         invoiceId: String,

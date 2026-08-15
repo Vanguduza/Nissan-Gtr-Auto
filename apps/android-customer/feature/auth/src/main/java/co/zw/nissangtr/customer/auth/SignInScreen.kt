@@ -31,12 +31,7 @@ import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import kotlinx.coroutines.launch
 
 /**
- * Email/password sign-in + optional Google (Credential Manager → GoTrue ID token).
- * Live: [SupabaseRpcClient.signInWithEmail] / [SupabaseRpcClient.signInWithGoogleIdToken].
- * Fake: [allowSkip] shows Continue without signing in.
- *
- * Google button shows only when [googleServerClientId] is non-blank (Web client ID from
- * `local.properties` → BuildConfig).
+ * Email/phone password sign-in, Edge OTP signup, Edge password reset, optional Google.
  */
 @Composable
 fun SignInScreen(
@@ -68,101 +63,201 @@ fun SignInScreen(
     val googleEnabled = googleServerClientId.isNotBlank()
     var googleError by remember { mutableStateOf<String?>(null) }
 
+    val screenTitle = when (state.mode) {
+        AuthFormMode.SignIn -> title
+        AuthFormMode.SignUp -> "Create account"
+        AuthFormMode.Forgot -> "Reset password"
+    }
+
+    val identifiersEditable = when (state.mode) {
+        AuthFormMode.SignUp -> state.signUpStep == SignUpStep.Identifiers
+        AuthFormMode.Forgot -> state.forgotStep == ForgotStep.Identifiers
+        AuthFormMode.SignIn -> true
+    }
+
     ShopDefaultScreen(
-        title = title,
+        title = screenTitle,
         subtitle = subtitle,
         modifier = modifier,
     ) {
         OutlinedTextField(
             value = state.email,
             onValueChange = vm::onEmailChange,
-            label = { Text("Email") },
+            label = {
+                Text(
+                    when (state.mode) {
+                        AuthFormMode.SignIn -> "Email or phone"
+                        AuthFormMode.SignUp -> "Email (required to finish signup)"
+                        AuthFormMode.Forgot -> "Email"
+                    },
+                )
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy,
+            enabled = !state.busy && identifiersEditable,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             shape = MaterialTheme.shapes.extraSmall,
         )
+
         OutlinedTextField(
-            value = state.password,
-            onValueChange = vm::onPasswordChange,
-            label = { Text("Password") },
+            value = state.phone,
+            onValueChange = vm::onPhoneChange,
+            label = { Text("Phone (+263… or 07…)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            enabled = !state.busy && identifiersEditable,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             shape = MaterialTheme.shapes.extraSmall,
         )
+
+        val showPassword = when (state.mode) {
+            AuthFormMode.SignIn -> true
+            AuthFormMode.SignUp -> state.signUpStep == SignUpStep.Password
+            AuthFormMode.Forgot -> state.forgotStep == ForgotStep.Code
+        }
+        if (showPassword) {
+            OutlinedTextField(
+                value = state.password,
+                onValueChange = vm::onPasswordChange,
+                label = {
+                    Text(
+                        when (state.mode) {
+                            AuthFormMode.Forgot -> "New password"
+                            else -> "Password"
+                        },
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                shape = MaterialTheme.shapes.extraSmall,
+            )
+        }
+
+        val showOtp = when (state.mode) {
+            AuthFormMode.SignUp -> state.signUpStep == SignUpStep.Otp
+            AuthFormMode.Forgot -> state.forgotStep == ForgotStep.Code
+            AuthFormMode.SignIn -> false
+        }
+        if (showOtp) {
+            OutlinedTextField(
+                value = state.otpCode,
+                onValueChange = vm::onOtpCodeChange,
+                label = { Text("6-digit code") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                shape = MaterialTheme.shapes.extraSmall,
+            )
+            state.stubHint?.let { hint ->
+                Text(
+                    "Stub code (local only): $hint",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        val primaryEnabled = !state.busy && when (state.mode) {
+            AuthFormMode.SignIn ->
+                (state.email.isNotBlank() || state.phone.isNotBlank()) &&
+                    state.password.isNotBlank()
+            AuthFormMode.SignUp -> when (state.signUpStep) {
+                SignUpStep.Identifiers ->
+                    state.email.isNotBlank() || state.phone.isNotBlank()
+                SignUpStep.Otp -> state.otpCode.length == 6
+                SignUpStep.Password ->
+                    state.email.isNotBlank() && state.password.length >= 8
+            }
+            AuthFormMode.Forgot -> when (state.forgotStep) {
+                ForgotStep.Identifiers ->
+                    state.email.isNotBlank() || state.phone.isNotBlank()
+                ForgotStep.Code ->
+                    state.otpCode.length == 6 && state.password.length >= 8
+            }
+        }
+
         Button(
-            onClick = {
-                if (state.mode == AuthFormMode.SignIn) vm.signIn() else vm.signUp()
-            },
+            onClick = vm::primaryAction,
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
+            enabled = primaryEnabled,
             shape = MaterialTheme.shapes.medium,
         ) {
             Text(
                 when {
-                    state.busy && state.mode == AuthFormMode.SignIn -> "Signing in…"
-                    state.busy -> "Creating account…"
+                    state.busy -> "Please wait…"
+                    state.mode == AuthFormMode.SignIn -> "Sign in"
+                    state.mode == AuthFormMode.SignUp &&
+                        state.signUpStep == SignUpStep.Identifiers ->
+                        "Send verification code"
+                    state.mode == AuthFormMode.SignUp && state.signUpStep == SignUpStep.Otp ->
+                        "Verify code"
                     state.mode == AuthFormMode.SignUp -> "Create account"
-                    else -> "Sign in"
+                    state.mode == AuthFormMode.Forgot &&
+                        state.forgotStep == ForgotStep.Identifiers ->
+                        "Send reset code"
+                    else -> "Set new password"
                 },
             )
         }
-        OutlinedButton(
-            onClick = {
-                vm.setMode(
-                    if (state.mode == AuthFormMode.SignIn) AuthFormMode.SignUp
-                    else AuthFormMode.SignIn,
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy,
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            Text(
-                if (state.mode == AuthFormMode.SignIn) "Need an account? Sign up"
-                else "Have an account? Sign in",
-            )
-        }
-        TextButton(
-            onClick = vm::forgotPassword,
-            enabled = !state.busy,
-        ) {
-            Text("Forgot password?")
-        }
-        if (googleEnabled) {
+
+        if (state.mode == AuthFormMode.SignIn) {
             OutlinedButton(
-                onClick = {
-                    googleError = null
-                    scope.launch {
-                        try {
-                            val result = GoogleIdTokenSignIn.requestIdToken(
-                                context = context,
-                                serverClientId = googleServerClientId,
-                            )
-                            vm.signInWithGoogleIdToken(result.idToken, result.rawNonce)
-                        } catch (e: Exception) {
-                            googleError = GoogleIdTokenSignIn.userMessage(e)
-                        }
-                    }
-                },
+                onClick = { vm.setMode(AuthFormMode.SignUp) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.busy,
                 shape = MaterialTheme.shapes.medium,
             ) {
-                Text(if (state.busy) "Signing in with Google…" else "Continue with Google")
+                Text("Need an account? Sign up")
+            }
+            TextButton(
+                onClick = { vm.setMode(AuthFormMode.Forgot) },
+                enabled = !state.busy,
+            ) {
+                Text("Forgot password?")
+            }
+            if (googleEnabled) {
+                OutlinedButton(
+                    onClick = {
+                        googleError = null
+                        scope.launch {
+                            try {
+                                val result = GoogleIdTokenSignIn.requestIdToken(
+                                    context = context,
+                                    serverClientId = googleServerClientId,
+                                )
+                                vm.signInWithGoogleIdToken(result.idToken, result.rawNonce)
+                            } catch (e: Exception) {
+                                googleError = GoogleIdTokenSignIn.userMessage(e)
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.busy,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Text(if (state.busy) "Signing in with Google…" else "Continue with Google")
+                }
+            } else {
+                Text(
+                    "Google Sign-In appears when GOOGLE_WEB_CLIENT_ID is set in local.properties.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         } else {
-            Text(
-                "Google Sign-In appears when GOOGLE_WEB_CLIENT_ID (or GOOGLE_SERVER_CLIENT_ID) is set in local.properties.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            TextButton(
+                onClick = { vm.setMode(AuthFormMode.SignIn) },
+                enabled = !state.busy,
+            ) {
+                Text("Back to sign in")
+            }
         }
-        if (allowSkip) {
+
+        if (allowSkip && state.mode == AuthFormMode.SignIn) {
             OutlinedButton(
                 onClick = onSkip,
                 modifier = Modifier.fillMaxWidth(),
@@ -213,7 +308,6 @@ private fun FakeSignInPlaceholder(
 
 /**
  * Live: block until Authenticated. Fake: bypass by default ([allowFakeSkip]).
- * Exposes the single [AuthSessionViewModel] to content so shell SignIn overlay never creates an orphan VM.
  */
 @Composable
 fun AuthGate(

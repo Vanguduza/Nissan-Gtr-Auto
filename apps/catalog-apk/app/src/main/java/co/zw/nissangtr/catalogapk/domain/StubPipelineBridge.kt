@@ -21,6 +21,8 @@ class StubPipelineBridge : PipelineBridge {
         onHeartbeat: suspend () -> Unit,
     ): PipelineResult {
         val makerSlug = job.maker.lowercase()
+        File(job.outRoot).mkdirs()
+        File(job.outRoot).parentFile?.mkdirs()
         val bundleDir = File(job.outRoot, "$makerSlug/bundle")
         bundleDir.mkdirs()
 

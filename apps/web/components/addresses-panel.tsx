@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { AddressPinMap } from "@/components/address-pin-map";
 import {
   deleteOwnAddress,
   listOwnAddresses,
@@ -9,6 +10,11 @@ import {
   upsertOwnAddress,
   type CustomerAddressRow,
 } from "@/lib/customer-storefront";
+import {
+  embedAddressGeo,
+  parseAddressGeo,
+  stripAddressGeo,
+} from "@/lib/address-geo";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/components/account.module.css";
 
@@ -22,19 +28,24 @@ type Draft = {
   postal: string;
   country: string;
   isDefault: boolean;
+  lat: number | null;
+  lng: number | null;
 };
 
 function toDraft(row: CustomerAddressRow): Draft {
+  const geo = parseAddressGeo(row.line2);
   return {
     id: row.id,
     label: row.label,
     line1: row.line1,
-    line2: row.line2 ?? "",
+    line2: stripAddressGeo(row.line2),
     city: row.city ?? "",
     province: row.province ?? "",
     postal: row.postal_code ?? "",
     country: row.country || "Zimbabwe",
     isDefault: row.is_default,
+    lat: geo?.lat ?? null,
+    lng: geo?.lng ?? null,
   };
 }
 
@@ -49,6 +60,8 @@ function emptyDraft(makeDefault: boolean): Draft {
     postal: "",
     country: "Zimbabwe",
     isDefault: makeDefault,
+    lat: null,
+    lng: null,
   };
 }
 
@@ -112,7 +125,7 @@ export function AddressesPanel() {
       id: editing.id,
       label: editing.label.trim(),
       line1: editing.line1.trim(),
-      line2: editing.line2.trim() || null,
+      line2: embedAddressGeo(editing.line2.trim() || null, editing.lat, editing.lng),
       city: editing.city.trim() || null,
       province: editing.province.trim() || null,
       postal_code: editing.postal.trim() || null,
@@ -229,9 +242,18 @@ export function AddressesPanel() {
                 {a.is_default ? " · Default" : ""}
               </strong>
               <p className={styles.muted}>
-                {[a.line1, a.line2, a.city, a.province, a.country]
+                {[
+                  a.line1,
+                  stripAddressGeo(a.line2),
+                  a.city,
+                  a.province,
+                  a.country,
+                ]
                   .filter(Boolean)
                   .join(", ")}
+                {parseAddressGeo(a.line2)
+                  ? " · map pin set"
+                  : ""}
               </p>
               <div className={styles.addrActions}>
                 <button
@@ -317,9 +339,32 @@ export function AddressesPanel() {
                     setEditing({ ...editing, line2: e.target.value })
                   }
                   autoComplete="address-line2"
+                  placeholder="Apartment, suite…"
                   disabled={busy}
                 />
               </label>
+              <div className={styles.field} style={{ gridColumn: "1 / -1" }}>
+                <AddressPinMap
+                  lat={editing.lat}
+                  lng={editing.lng}
+                  disabled={busy}
+                  onPick={(pickLat, pickLng) =>
+                    setEditing({ ...editing, lat: pickLat, lng: pickLng })
+                  }
+                />
+                {editing.lat != null ? (
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    disabled={busy}
+                    onClick={() =>
+                      setEditing({ ...editing, lat: null, lng: null })
+                    }
+                  >
+                    Clear pin
+                  </button>
+                ) : null}
+              </div>
               <label className={styles.field}>
                 City
                 <input

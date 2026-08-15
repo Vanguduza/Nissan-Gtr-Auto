@@ -1,6 +1,7 @@
 package co.zw.nissangtr.customer.pay
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -132,15 +133,61 @@ fun PayIntentScreen(
             shape = sharp,
         )
 
-        OutlinedTextField(
-            value = state.ecocashMsisdn,
-            onValueChange = viewModel::onEcocashMsisdnChange,
-            label = { Text("EcoCash number (07… / +263…)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-            shape = sharp,
-        )
+        if (payMethod == ShopGtrPayMethod.EcoCash) {
+            ShopSectionHeader(title = "EcoCash payer", actionLabel = null)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { viewModel.onEcocashModeChange(EcoCashPayerMode.Saved) },
+                    enabled = !state.busy,
+                    shape = sharp,
+                    modifier = Modifier.weight(1f).padding(end = 4.dp),
+                ) {
+                    Text(
+                        if (state.ecocashMode == EcoCashPayerMode.Saved) {
+                            "● Saved / profile"
+                        } else {
+                            "Saved / profile"
+                        },
+                    )
+                }
+                OutlinedButton(
+                    onClick = { viewModel.onEcocashModeChange(EcoCashPayerMode.Other) },
+                    enabled = !state.busy,
+                    shape = sharp,
+                    modifier = Modifier.weight(1f).padding(start = 4.dp),
+                ) {
+                    Text(
+                        if (state.ecocashMode == EcoCashPayerMode.Other) {
+                            "● Other number"
+                        } else {
+                            "Other number"
+                        },
+                    )
+                }
+            }
+            state.profilePhone?.takeIf { it.isNotBlank() }?.let { phone ->
+                Text(
+                    "Profile phone: $phone",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } ?: Text(
+                "No profile phone yet — set one under Edit profile, or use Other number.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (state.ecocashMode == EcoCashPayerMode.Other) {
+                OutlinedTextField(
+                    value = state.ecocashMsisdn,
+                    onValueChange = viewModel::onEcocashMsisdnChange,
+                    label = { Text("EcoCash number (07… / +263…)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                    shape = sharp,
+                )
+            }
+        }
 
         ShopSectionHeader(title = "Own invoices", actionLabel = null)
         state.invoices.forEach { inv ->

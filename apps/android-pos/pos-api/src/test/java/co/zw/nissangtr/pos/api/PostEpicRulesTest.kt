@@ -68,6 +68,26 @@ class ChassisChipLatchTest {
         val list = ChassisChipLatch.normalizeChipList(listOf("r35", "R35", " y62 ", "", "D22"))
         assertEquals(listOf("R35", "Y62", "D22"), list)
     }
+
+    @Test
+    fun forTillShortcutsDropsNumericJunkAndPrefersVolume() {
+        val raw = listOf(
+            "910", "A31", "AE50", "AEGE24", "AF22", "AGF22", "R35", "Y62", "D40",
+        )
+        val chips = ChassisChipLatch.forTillShortcuts(raw, limit = 8)
+        assertFalse(chips.contains("910"))
+        assertFalse(chips.contains("AEGE24"))
+        assertEquals(listOf("R35", "Y62", "D40"), chips.take(3))
+        assertTrue(chips.all { ChassisChipLatch.isPlausibleChassis(it) })
+    }
+
+    @Test
+    fun isPlausibleRejectsPureDigitsAndOverlong() {
+        assertFalse(ChassisChipLatch.isPlausibleChassis("910"))
+        assertFalse(ChassisChipLatch.isPlausibleChassis("AEGE24"))
+        assertTrue(ChassisChipLatch.isPlausibleChassis("R35"))
+        assertTrue(ChassisChipLatch.isPlausibleChassis("A31"))
+    }
 }
 
 class HandoffIntentParseTest {

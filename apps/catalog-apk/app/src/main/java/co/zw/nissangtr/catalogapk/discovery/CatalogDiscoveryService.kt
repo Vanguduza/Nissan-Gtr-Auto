@@ -1,39 +1,77 @@
 package co.zw.nissangtr.catalogapk.discovery
 
+import android.content.Context
 import co.zw.nissangtr.catalogapk.data.model.SiteProfileEntity
+import co.zw.nissangtr.catalogapk.data.profile.ProfilePathsJson
 import co.zw.nissangtr.catalogapk.data.profile.ProfileRepository
 
 class CatalogDiscoveryService(
     private val profileRepository: ProfileRepository,
+    private val flareLifecycle: FlareSolverrLifecycle? = null,
+    context: Context? = null,
 ) {
+    private val presets = context?.let { PresetCatalogStore(it) }
+
+    private fun presetMakers(profile: SiteProfileEntity): List<DiscoveredMaker> =
+        presets?.makers(profile.id, profile.engine).orEmpty()
+
+    private fun presetModels(profile: SiteProfileEntity, maker: DiscoveredMaker): List<DiscoveredModel> =
+        presets?.models(profile.id, profile.engine, maker.slug).orEmpty()
+
+    private fun presetChassis(
+        profile: SiteProfileEntity,
+        maker: DiscoveredMaker,
+        model: DiscoveredModel,
+    ): List<DiscoveredChassis> =
+        presets?.chassis(profile.id, profile.engine, maker.slug, model.slug).orEmpty()
+
+    private fun httpClient(profile: SiteProfileEntity): SiteHttpClient =
+        SiteHttpClient(
+            cloudflareMode = profile.cloudflareMode.ifBlank { "auto" },
+            flaresolverrUrl = profile.flaresolverrUrl.ifBlank { FlareSolverrLifecycle.DEFAULT_FLARE_API },
+            lifecycle = flareLifecycle,
+        )
+
     suspend fun discoverMakers(profile: SiteProfileEntity): Result<List<DiscoveredMaker>> {
-        val client = SiteHttpClient(profile.cloudflareMode, profile.flaresolverrUrl)
+        val shipped = presetMakers(profile)
+        if (shipped.isNotEmpty()) return Result.success(shipped)
+        val client = httpClient(profile)
         val paths = profileRepository.decodePaths(profile)
-        val hub = profile.baseUrl.trimEnd('/') + paths.partsHub.ifBlank { "/parts" }
-        val fetch = client.fetch(hub)
-        if (!fetch.ok) return Result.failure(IllegalStateException(fetch.error ?: "Failed to fetch makers hub"))
-        val makers = when (profile.engine.lowercase()) {
-            "megazip", "custom" -> MegazipHtmlDiscovery.parseMakers(fetch.html, profile.baseUrl)
-            "partsouq" -> PartSouqHtmlDiscovery.parseMakers(fetch.html, profile.baseUrl)
-            else -> MegazipHtmlDiscovery.parseMakers(fetch.html, profile.baseUrl)
+        val candidates = makerHubCandidates(profile.baseUrl, paths, profile.engine)
+        var lastError: String? = null
+        for (hub in candidates) {
+            val fetch = client.fetch(hub)
+            if (!fetch.ok) {
+                lastError = "${fetch.error ?: "HTTP ${fetch.statusCode}"} @ $hub"
+                continue
+            }
+            val makers = parseMakers(profile.engine, fetch.html, profile.baseUrl)
+            if (makers.isNotEmpty()) {
+                return Result.success(makers)
+            }
+            lastError = "No makers parsed from $hub (CF=${fetch.viaFlareSolverr})"
         }
-        if (makers.isEmpty()) {
-            return Result.failure(IllegalStateException("No makers parsed from $hub (CF=${fetch.viaFlareSolverr})"))
-        }
-        return Result.success(makers)
+        return Result.failure(IllegalStateException(lastError ?: "Maker discovery failed"))
     }
 
     suspend fun discoverModels(profile: SiteProfileEntity, maker: DiscoveredMaker): Result<List<DiscoveredModel>> {
-        val client = SiteHttpClient(profile.cloudflareMode, profile.flaresolverrUrl)
+        val shipped = presetModels(profile, maker)
+        if (shipped.isNotEmpty()) return Result.success(shipped)
+        val client = httpClient(profile)
         val paths = profileRepository.decodePaths(profile)
-        val url = profile.baseUrl.trimEnd('/') +
-            paths.makerHub.replace("{maker_slug}", maker.slug).ifBlank { "/parts/${maker.slug}" }
-        val fetch = client.fetch(url)
-        if (!fetch.ok) return Result.failure(IllegalStateException(fetch.error ?: "Failed to fetch maker hub"))
-        val models = when (profile.engine.lowercase()) {
-            "partsouq" -> PartSouqHtmlDiscovery.parseModels(fetch.html, profile.baseUrl, maker.slug)
-            else -> MegazipHtmlDiscovery.parseModels(fetch.html, profile.baseUrl, maker.slug)
+        val url = if (maker.sourceUrl.startsWith("http")) {
+            maker.sourceUrl
+        } else {
+            profile.baseUrl.trimEnd('/') +
+                paths.makerHub.replace("{maker_slug}", maker.slug).ifBlank { "/parts/${maker.slug}" }
         }
+        val fetch = client.fetch(url)
+        if (!fetch.ok) {
+            return Result.failure(
+                IllegalStateException(fetch.error ?: "Failed to fetch maker hub ($url)"),
+            )
+        }
+        val models = parseModels(profile.engine, fetch.html, profile.baseUrl, maker.slug)
         if (models.isEmpty()) {
             return Result.failure(IllegalStateException("No models parsed for ${maker.name}"))
         }
@@ -45,7 +83,9 @@ class CatalogDiscoveryService(
         maker: DiscoveredMaker,
         model: DiscoveredModel,
     ): Result<List<DiscoveredChassis>> {
-        val client = SiteHttpClient(profile.cloudflareMode, profile.flaresolverrUrl)
+        val shipped = presetChassis(profile, maker, model)
+        if (shipped.isNotEmpty()) return Result.success(shipped)
+        val client = httpClient(profile)
         val paths = profileRepository.decodePaths(profile)
         val url = if (model.sourceUrl.startsWith("http")) {
             model.sourceUrl
@@ -58,12 +98,86 @@ class CatalogDiscoveryService(
                 .replace("{model_slug}", model.slug)
         }
         val fetch = client.fetch(url)
-        if (!fetch.ok) return Result.failure(IllegalStateException(fetch.error ?: "Failed to fetch model page"))
-        val chassis = MegazipHtmlDiscovery.parseChassis(fetch.html, profile.baseUrl)
+        if (!fetch.ok) {
+            return Result.failure(
+                IllegalStateException(fetch.error ?: "Failed to fetch model page ($url)"),
+            )
+        }
+        val chassis = parseChassis(profile.engine, fetch.html, profile.baseUrl)
         if (chassis.isEmpty()) {
             return Result.failure(IllegalStateException("No chassis/variants parsed for ${model.displayName}"))
         }
         return Result.success(chassis)
+    }
+
+    companion object {
+        fun parseMakers(engine: String, html: String, baseUrl: String): List<DiscoveredMaker> =
+            when (engine.lowercase()) {
+                "partsouq" -> PartSouqHtmlDiscovery.parseMakers(html, baseUrl)
+                "7zap" -> SevenZapHtmlDiscovery.parseMakers(html, baseUrl)
+                "catcar" -> CatcarHtmlDiscovery.parseMakers(html, baseUrl)
+                "japancats" -> JapancatsHtmlDiscovery.parseMakers(html, baseUrl)
+                "japan_parts", "japan-parts" -> JapanPartsHtmlDiscovery.parseMakers(html, baseUrl)
+                else -> MegazipHtmlDiscovery.parseMakers(html, baseUrl)
+            }
+
+        fun parseModels(engine: String, html: String, baseUrl: String, makerSlug: String): List<DiscoveredModel> =
+            when (engine.lowercase()) {
+                "partsouq" -> PartSouqHtmlDiscovery.parseModels(html, baseUrl, makerSlug)
+                "7zap" -> SevenZapHtmlDiscovery.parseModels(html, baseUrl, makerSlug)
+                "catcar" -> CatcarHtmlDiscovery.parseModels(html, baseUrl, makerSlug)
+                "japancats" -> JapancatsHtmlDiscovery.parseModels(html, baseUrl, makerSlug)
+                "japan_parts", "japan-parts" -> JapanPartsHtmlDiscovery.parseModels(html, baseUrl, makerSlug)
+                else -> MegazipHtmlDiscovery.parseModels(html, baseUrl, makerSlug)
+            }
+
+        fun parseChassis(engine: String, html: String, baseUrl: String): List<DiscoveredChassis> =
+            when (engine.lowercase()) {
+                "7zap" -> SevenZapHtmlDiscovery.parseChassis(html, baseUrl)
+                "catcar" -> CatcarHtmlDiscovery.parseChassis(html, baseUrl)
+                "japancats" -> JapancatsHtmlDiscovery.parseChassis(html, baseUrl)
+                "japan_parts", "japan-parts" -> JapanPartsHtmlDiscovery.parseChassis(html, baseUrl)
+                else -> MegazipHtmlDiscovery.parseChassis(html, baseUrl)
+            }
+
+        /**
+         * Hub candidates per engine. Megazip retired bare `/parts` (404); maker indexes live on
+         * homepage and `/zapchasti-dlya-avtomobilej`; per-maker hubs remain `/parts/{slug}`.
+         */
+        fun makerHubCandidates(
+            baseUrl: String,
+            paths: ProfilePathsJson,
+            engine: String = "megazip",
+        ): List<String> {
+            val root = baseUrl.trimEnd('/')
+            val primary = paths.partsHub.trim().ifBlank {
+                when (engine.lowercase()) {
+                    "7zap" -> "/en/catalog/cars/"
+                    "catcar", "japancats", "japan_parts", "japan-parts" -> "/"
+                    "partsouq" -> "/en/catalog"
+                    else -> "/zapchasti-dlya-avtomobilej"
+                }
+            }
+            val catalog = paths.catalogPrefix.trim()
+            val extras = when (engine.lowercase()) {
+                "7zap" -> listOf("/en/catalog/cars/", "/")
+                "catcar" -> listOf("/", "/en/")
+                "japancats" -> listOf("/")
+                "japan_parts", "japan-parts" -> listOf("/", "/toyota/")
+                "partsouq" -> listOf("/en/catalog", "/")
+                else -> listOf("/", "/zapchasti-dlya-avtomobilej", "/parts")
+            }
+            return (listOf(primary, catalog) + extras)
+                .filter { it.isNotBlank() }
+                .map { path ->
+                    if (path == "/" || path.isBlank()) {
+                        "$root/"
+                    } else {
+                        root + (if (path.startsWith("/")) path else "/$path")
+                    }
+                }
+                .distinct()
+        }
     }
 }
 
@@ -90,7 +204,6 @@ object PartSouqHtmlDiscovery {
     }
 
     fun parseModels(html: String, baseUrl: String, makerSlug: String): List<DiscoveredModel> {
-        // Reuse megazip-ish link harvest filtered by maker slug token.
         return MegazipHtmlDiscovery.parseModels(html, baseUrl, makerSlug)
     }
 }

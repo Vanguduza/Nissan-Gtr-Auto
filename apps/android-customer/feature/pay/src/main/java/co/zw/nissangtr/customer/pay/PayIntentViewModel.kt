@@ -19,10 +19,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class EcoCashPayerMode(val rpcValue: String) {
+    Saved("saved"),
+    Other("other"),
+}
+
 data class PayUiState(
     val invoices: List<InvoiceSummary> = emptyList(),
     val invoiceId: String = "",
+    val ecocashMode: EcoCashPayerMode = EcoCashPayerMode.Saved,
     val ecocashMsisdn: String = "",
+    val profilePhone: String? = null,
     /** Ops daily ZiG per USD; null when unavailable. */
     val zigRate: Double? = null,
     /** `daily_exchange_rates.id` when ops row present. */
@@ -48,6 +55,9 @@ class PayIntentViewModel(
 
     fun onEcocashMsisdnChange(v: String) = _state.update { it.copy(ecocashMsisdn = v, error = null) }
 
+    fun onEcocashModeChange(mode: EcoCashPayerMode) =
+        _state.update { it.copy(ecocashMode = mode, error = null) }
+
     fun selectInvoice(id: String) = _state.update { it.copy(invoiceId = id, error = null) }
 
     fun refresh() {
@@ -57,6 +67,7 @@ class PayIntentViewModel(
                 val list = rpc.listOwnInvoices()
                 val rate = rpc.fetchZigExchangeRate()
                 val fxId = rpc.fetchZigExchangeRateId()
+                val profilePhone = rpc.loadOwnCustomer()?.phoneE164
                 val firstOpen = list.firstOrNull { it.total > it.amountPaid }
                 _state.update {
                     it.copy(
@@ -65,6 +76,7 @@ class PayIntentViewModel(
                         invoiceId = it.invoiceId.ifBlank { firstOpen?.id.orEmpty() },
                         zigRate = rate.takeIf { r -> r.isFinite() && r > 0.0 },
                         fxRateId = fxId,
+                        profilePhone = profilePhone,
                     )
                 }
             } catch (e: Exception) {
@@ -163,13 +175,23 @@ class PayIntentViewModel(
 
     fun createEcocash() {
         val invoiceId = _state.value.invoiceId.trim()
-        val msisdn = _state.value.ecocashMsisdn.trim()
+        val mode = _state.value.ecocashMode
+        val msisdn = when (mode) {
+            EcoCashPayerMode.Saved -> ""
+            EcoCashPayerMode.Other -> _state.value.ecocashMsisdn.trim()
+        }
         if (invoiceId.isEmpty()) {
             _state.update { it.copy(error = "Invoice UUID required") }
             return
         }
-        if (msisdn.isEmpty()) {
-            _state.update { it.copy(error = "EcoCash number required (saved or other)") }
+        if (mode == EcoCashPayerMode.Saved && _state.value.profilePhone.isNullOrBlank()) {
+            _state.update {
+                it.copy(error = "No profile phone on file — add one in Edit profile, or choose Other number.")
+            }
+            return
+        }
+        if (mode == EcoCashPayerMode.Other && msisdn.isEmpty()) {
+            _state.update { it.copy(error = "Enter EcoCash number for Other mode") }
             return
         }
         // D-57 fail-closed: EcoCash ZiG wallet needs ops daily rate
@@ -189,7 +211,7 @@ class PayIntentViewModel(
                 val result = rpc.createCustomerEcocashIntent(
                     salesInvoiceId = invoiceId,
                     payerMsisdn = msisdn,
-                    payerMode = "other",
+                    payerMode = mode.rpcValue,
                     metadataJson =
                         """{"channel":"android_customer","sales_invoice_id":"$invoiceId",$fxMeta"settlement_amount_minor":${display.payable.amountMinor},"settlement_currency":"ZIG"}""",
                 )

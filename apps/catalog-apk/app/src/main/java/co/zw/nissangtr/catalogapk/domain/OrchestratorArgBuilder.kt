@@ -10,6 +10,7 @@ import co.zw.nissangtr.catalogapk.data.profile.toJson
  * Maps a crawl job to argv for the embedded Python orchestrator (Chaquopy).
  */
 object OrchestratorArgBuilder {
+    // Include upload so diagram PNGs are fetched into out/*/diagrams when present.
     private const val DEFAULT_PHASES = "crawl,parse,transform,pcdb,filter,upload"
 
     fun buildArgv(
@@ -23,8 +24,9 @@ object OrchestratorArgBuilder {
         val engine = profile.engine.lowercase()
         return when (engine) {
             "partsouq" -> buildPartsouqArgv(job, profile, flaresolverrUrlOverride, forceFlareSolverr, maxPages)
-            "custom" -> buildCustomArgv(job, profile, flaresolverrUrlOverride, forceFlareSolverr, maxPages)
-            else -> buildMegazipArgv(job, profile, flaresolverrUrlOverride, forceFlareSolverr, maxPages, chassis)
+            "megazip" -> buildMegazipArgv(job, profile, flaresolverrUrlOverride, forceFlareSolverr, maxPages, chassis)
+            // 7zap / catcar / japancats / japan_parts / custom → path-template adapter
+            else -> buildCustomArgv(job, profile, flaresolverrUrlOverride, forceFlareSolverr, maxPages)
         }
     }
 
@@ -51,6 +53,8 @@ object OrchestratorArgBuilder {
         if (chassis.isNotEmpty()) {
             argv += listOf("--single-chassis", chassis, "--no-nissan-two-phase")
         }
+        // Fail job when filter yields hierarchy-only / 0 publishable variants.
+        argv += "--strict-gate"
         if (maxPages != null && maxPages > 0) {
             argv += listOf("--max-pages", maxPages.toString())
         }
@@ -75,13 +79,14 @@ object OrchestratorArgBuilder {
             "--makers",
             job.maker,
             "--download-diagrams",
-            "--no-until-complete",
         )
-        if (job.chassisCodesCsv.isNotBlank()) {
-            argv += listOf("--single-chassis", job.chassisCodesCsv.trim(), "--priority-chassis")
-        }
+        // Cap => smoke; omit max-pages => until-complete unlimited depth
         if (maxPages != null && maxPages > 0) {
-            argv += listOf("--max-pages", maxPages.toString())
+            argv += listOf("--no-until-complete", "--max-pages", maxPages.toString())
+        }
+        if (job.chassisCodesCsv.isNotBlank()) {
+            // Chassis-scoped priority only (not the full priority_chassis.json roster)
+            argv += listOf("--single-chassis", job.chassisCodesCsv.trim())
         }
         if (flare.isNotBlank()) {
             argv += listOf("--flaresolverr-url", flare)

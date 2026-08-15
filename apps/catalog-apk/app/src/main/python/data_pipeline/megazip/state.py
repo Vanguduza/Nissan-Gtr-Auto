@@ -400,8 +400,10 @@ def claim_next_url(
                 WHEN 'model_catalog' THEN 1
                 WHEN 'model_hub' THEN 1
                 WHEN 'variant_list' THEN 2
-                WHEN 'section_list' THEN 3
-                WHEN 'diagram' THEN 4
+                -- Prefer diagrams over more section_list once deep phase starts so
+                -- APK/smoke runs reach hotspot depth before max-pages / disk fill.
+                WHEN 'diagram' THEN 3
+                WHEN 'section_list' THEN 4
                 ELSE 5
               END,
               url

@@ -77,6 +77,9 @@ public final class LiveStorefrontApi: StorefrontApi {
     private let client: PostgrestClient
     private let returnURLScheme: String
 
+    /// Anon/session HTTP client for Edge auth (OTP / password-reset) and RPCs.
+    public var httpClient: PostgrestClient { client }
+
     public init(
         client: PostgrestClient,
         returnURLScheme: String = "gtr-customer"

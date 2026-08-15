@@ -111,20 +111,12 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
     id: "finance",
     label: "Finance",
     href: "/staff/finance",
-    defaultTab: "journals",
     roles: ["admin", "finance"],
     children: [
       {
         href: "/staff/finance?tab=accounts",
-        label: "Accounts",
+        label: "Online sales",
         tab: "accounts",
-        exact: true,
-        roles: ["admin", "finance"],
-      },
-      {
-        href: "/staff/finance?tab=statements",
-        label: "Statements",
-        tab: "statements",
         exact: true,
         roles: ["admin", "finance"],
       },
@@ -139,13 +131,6 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         href: "/staff/finance?tab=cash-sales",
         label: "Cash",
         tab: "cash-sales",
-        exact: true,
-        roles: ["admin", "finance"],
-      },
-      {
-        href: "/staff/finance?tab=online-sales",
-        label: "Online (legacy)",
-        tab: "online-sales",
         exact: true,
         roles: ["admin", "finance"],
       },
@@ -179,7 +164,7 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       },
       {
         href: "/staff/finance?tab=journals",
-        label: "Journals",
+        label: "Manual journals",
         tab: "journals",
         exact: true,
         roles: ["admin", "finance"],
@@ -200,7 +185,7 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
       },
       {
         href: "/staff/finance?tab=reports",
-        label: "Reports",
+        label: "Reports & statements",
         tab: "reports",
         exact: true,
         roles: ["admin", "finance"],

@@ -85,4 +85,5 @@ data class FetchResult(
     val viaFlareSolverr: Boolean,
     val error: String? = null,
     val headers: Map<String, String> = emptyMap(),
+    val flaresolverrUrlUsed: String? = null,
 )

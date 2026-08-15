@@ -2,6 +2,7 @@ package co.zw.nissangtr.customer.loyalty
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +60,35 @@ fun LoyaltyWalletScreen(
                 )
             }
         }
+
+        ShopSectionHeader(title = "Recent activity", actionLabel = null)
+        when {
+            state.ledger.isEmpty() && !state.busy && state.error == null -> {
+                Text(
+                    "No loyalty movements yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            else -> {
+                state.ledger.forEach { row ->
+                    val pts = if (row.points > 0) "+%.0f".format(row.points) else "%.0f".format(row.points)
+                    Text(
+                        "${row.movement} · $pts pts · bal %.0f".format(row.pointsBalanceAfter),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    row.reason?.takeIf { it.isNotBlank() }?.let { reason ->
+                        Text(
+                            reason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HorizontalDivider()
+                }
+            }
+        }
+
         Button(
             onClick = viewModel::refresh,
             enabled = !state.busy,

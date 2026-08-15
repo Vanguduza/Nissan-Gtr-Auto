@@ -79,6 +79,62 @@ npx supabase functions deploy auth-otp
 
 Do **not** set `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` on hosted — stub OTP is refused for `*.supabase.co`.
 
+#### ContiPay (storefront / customer pay)
+
+Map ContiPay merchant credentials → Edge secrets only — never `NEXT_PUBLIC_*`, mobile `local.properties`, or git. Do **not** set `CONTIPAY_ALLOW_UNVERIFIED_LOCAL` on hosted.
+
+| ContiPay credential | Edge secret |
+|---------------------|-------------|
+| API token / client id (Basic Auth username) | `CONTIPAY_API_KEY` |
+| API secret (Basic Auth password) | `CONTIPAY_API_SECRET` |
+| Merchant code | `CONTIPAY_MERCHANT_ID` |
+| Webhook HMAC signing secret | `CONTIPAY_WEBHOOK_HMAC_SECRET` |
+| Environment (`live` default; `uat`/`dev`/`test` → test API) | `CONTIPAY_MODE` (optional) |
+| Custom API host override | `CONTIPAY_API_BASE_URL` (optional) |
+
+If `CONTIPAY_API_SECRET` is unset, initiate falls back to `CONTIPAY_WEBHOOK_HMAC_SECRET` for Basic Auth — still set the webhook secret for settle. Confirm ContiPay’s webhook signature header with the merchant (Edge expects `x-contipay-signature`, with `x-signature` / `signature` fallbacks).
+
+```bash
+# Link once if needed, then set secrets (paste values in your shell — do not commit or paste into chat)
+npx supabase link --project-ref gylrgwqyuiwkyykardwc
+npx supabase secrets set CONTIPAY_API_KEY="<your-api-token>"
+npx supabase secrets set CONTIPAY_API_SECRET="<your-api-secret>"
+npx supabase secrets set CONTIPAY_MERCHANT_ID="<your-merchant-code>"
+npx supabase secrets set CONTIPAY_WEBHOOK_HMAC_SECRET="<your-webhook-hmac-secret>"
+npx supabase secrets set CONTIPAY_MODE="live"
+
+# Redeploy so initiate + webhook pick up secrets
+npx supabase functions deploy contipay-initiate
+npx supabase functions deploy contipay-webhook
+```
+
+Or Dashboard → **Edge Functions → Secrets**, same names. Webhook URL ContiPay must call (Edge registers this automatically; do not send `result_url` from the client):
+
+`https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/contipay-webhook`
+
+Browser return/cancel: `/checkout/return?invoice=…` and `/checkout/cancel?invoice=…` — see [`docs/storefront-psp-return-urls.md`](../storefront-psp-return-urls.md). Initiate needs a customer **phone** (EcoCash cell) on the profile / request body.
+
+#### Paynow (optional second rail)
+
+Merchant **Integration ID** → `PAYNOW_INTEGRATION_ID`; merchant **Integration Key** → `PAYNOW_INTEGRATION_KEY`. Edge only — never `NEXT_PUBLIC_*`, mobile `local.properties`, or git. Do **not** set `PAYNOW_ALLOW_UNVERIFIED_LOCAL` on hosted.
+
+```bash
+# Link once if needed, then set secrets (paste values in your shell — do not commit)
+npx supabase link --project-ref gylrgwqyuiwkyykardwc
+npx supabase secrets set PAYNOW_INTEGRATION_ID="<your-integration-id>"
+npx supabase secrets set PAYNOW_INTEGRATION_KEY="<your-integration-key>"
+
+# Redeploy so initiate + webhook pick up secrets
+npx supabase functions deploy paynow-initiate
+npx supabase functions deploy paynow-webhook
+```
+
+Or Dashboard → **Edge Functions → Secrets**, same two names. Webhook / Paynow `resulturl` is always:
+
+`https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/paynow-webhook`
+
+(Browser return/cancel stay on the storefront — see [`docs/storefront-psp-return-urls.md`](../storefront-psp-return-urls.md).)
+
 ---
 
 ## 3. Migrations (push OAuth + pending)
@@ -122,7 +178,7 @@ After schema is current: `pnpm db:types:linked` if you need regenerated types fr
 ### Providers
 
 1. **Authentication → Providers → Google** — enable; Web Client ID + secret (+ native client IDs as needed).
-2. **Authentication → Providers → Apple** — enable if using Sign in with Apple.
+2. **Authentication → Providers → Apple** — leave **disabled** (product: Google-only).
 
 Details: [`docs/CUSTOMER_OAUTH_SETUP.md`](../CUSTOMER_OAUTH_SETUP.md).
 
@@ -161,6 +217,9 @@ After env switch + migrations + Auth config:
 - [ ] iOS Live: `Secrets.xcconfig` filled; scheme callbacks work.
 - [ ] Public `/signup` returns 403 on hosted.
 - [ ] `auth-otp` redeployed if you use phone/email OTP on hosted.
+- [ ] ContiPay: `CONTIPAY_API_KEY` + `CONTIPAY_API_SECRET` + `CONTIPAY_MERCHANT_ID` + `CONTIPAY_WEBHOOK_HMAC_SECRET` set on Edge; `contipay-initiate` / `contipay-webhook` redeployed; **no** `CONTIPAY_ALLOW_UNVERIFIED_LOCAL` on hosted.
+- [ ] Web cart/order: **Pay with ContiPay** (profile phone set) → hosted `checkout_url` (`stub: false`); after pay, land on `/checkout/return?invoice=…`; invoice settles only after `contipay-webhook` (not on return page alone).
+- [ ] Paynow (if used): `PAYNOW_INTEGRATION_ID` + `PAYNOW_INTEGRATION_KEY` set on Edge; `paynow-initiate` / `paynow-webhook` redeployed; **no** `PAYNOW_ALLOW_UNVERIFIED_LOCAL` on hosted.
 - [ ] No `service_role` in mobile or `NEXT_PUBLIC_*`.
 
 ---

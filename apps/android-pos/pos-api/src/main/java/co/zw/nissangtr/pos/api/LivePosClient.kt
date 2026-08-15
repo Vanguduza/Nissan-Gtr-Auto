@@ -571,21 +571,22 @@ class LivePosClient(
             c.from("vehicle_master")
                 .select(Columns.list("chassis_code")) {
                     order("chassis_code", Order.ASCENDING)
-                    limit(80)
+                    limit(500)
                 }
                 .decodeList<ChassisCodeRow>()
         }.getOrElse { emptyList() }
-        val codes = ChassisChipLatch.normalizeChipList(rows.mapNotNull { it.chassisCode })
+        val codes = ChassisChipLatch.forTillShortcuts(rows.mapNotNull { it.chassisCode })
         if (codes.isNotEmpty()) {
             return codes.map { ChassisShortcut(chassisCode = it, label = it) }
         }
         // Fallback: catalog variants (still data-driven, not hard-coded R35-only).
         return runCatching {
-            listCatalogVariants("gtr").mapNotNull { v ->
-                val code = v.chassisCode?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
-                    ?: return@mapNotNull null
-                ChassisShortcut(chassisCode = code, label = v.name.ifBlank { code })
-            }.distinctBy { it.chassisCode }
+            val fromVariants = listCatalogVariants("gtr").mapNotNull { v ->
+                v.chassisCode?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
+            }
+            ChassisChipLatch.forTillShortcuts(fromVariants).map { code ->
+                ChassisShortcut(chassisCode = code, label = code)
+            }
         }.getOrDefault(emptyList())
     }
 

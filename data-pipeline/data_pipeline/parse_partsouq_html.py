@@ -131,6 +131,155 @@ def _hints_from_url(url: str) -> dict[str, Any]:
     return hints
 
 
+_GENERIC_PART_NAMES = frozenset(
+    {
+        "BOLT",
+        "NUT",
+        "SCREW",
+        "WASHER",
+        "PIN",
+        "CLIP",
+        "CLAMP",
+        "RIVET",
+        "GROMMET",
+        "O-RING",
+        "ORING",
+        "SEAL",
+        "PLUG",
+        "CAP",
+    }
+)
+
+# Leading tokens that are assembly names, not vehicle models.
+_ASSEMBLY_START_WORDS = frozenset(
+    {
+        "BRAKE",
+        "ENGINE",
+        "POWER",
+        "TRAIN",
+        "AIR",
+        "FUEL",
+        "STEERING",
+        "SUSPENSION",
+        "TRANSMISSION",
+        "CLUTCH",
+        "EXHAUST",
+        "COOLING",
+        "HEATER",
+        "WIPER",
+        "DOOR",
+        "HOOD",
+        "ROOF",
+        "FLOOR",
+        "SEAT",
+        "INSTRUMENT",
+        "LIGHTING",
+        "WIRING",
+        "PISTON",
+        "ELECTRICAL",
+        "BODY",
+        "CHASSIS",
+        "INTERIOR",
+        "EXTERIOR",
+    }
+)
+
+_MODEL_HEAD_RE = re.compile(
+    r"^("
+    r"[A-Z][A-Z0-9+]{1,20}"
+    r"(?:\s*/\s*[A-Z0-9+][A-Z0-9+]{0,20})?"
+    r"(?:\s+(?:COUPE|SEDAN|WAGON|HATCH|CAB|TRUCK|VAN))?"
+    r")\s+(.+)$",
+    re.I,
+)
+
+
+def is_generic_part_name(name: str | None) -> bool:
+    if not name:
+        return False
+    token = re.sub(r"\s+", " ", str(name)).strip().upper()
+    return token in _GENERIC_PART_NAMES
+
+
+def strip_vehicle_model_prefix(title: str | None) -> str:
+    """Strip leading maker/model tokens from diagram titles."""
+    text = re.sub(r"\s+", " ", (title or "")).strip()
+    if not text:
+        return ""
+    text = re.sub(r"^NISSAN\s+", "", text, flags=re.I)
+    text = re.sub(r"\b0?[1-9]\.(?:19|20)\d{2}\b", " ", text)
+    text = re.sub(r"\b(?:19|20)\d{2}\b", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    match = _MODEL_HEAD_RE.match(text)
+    if not match:
+        return text
+    head, rest = match.group(1), match.group(2)
+    head_u = head.upper()
+    first = head_u.split()[0]
+    looks_like_model = bool(re.search(r"[\d+/]", head_u)) or first not in _ASSEMBLY_START_WORDS
+    if looks_like_model and rest.strip():
+        return rest.strip(" -;,:")
+    return text
+
+
+def normalize_epc_category_name(name: str | None) -> str | None:
+    if name is None:
+        return None
+    cleaned = strip_vehicle_model_prefix(str(name))
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -;,:")
+    return cleaned.upper() if cleaned else None
+
+
+def category_hints_from_url(url: str) -> dict[str, str]:
+    """Extract EPC category hints from PartSouq query params (``cname`` / ``cid``)."""
+    hints: dict[str, str] = {}
+    if not url:
+        return hints
+    qs = parse_qs(urlparse(url).query)
+    for key in ("cname", "CNAME", "category", "cat"):
+        values = qs.get(key)
+        if values and values[0]:
+            name = re.sub(r"\+", " ", values[0]).strip()
+            name = re.sub(r"\s+", " ", name)
+            if name:
+                hints["category_name"] = name.upper()
+                break
+    return hints
+
+
+def subcategory_from_diagram_title(title: str | None) -> str | None:
+    """Legacy helper: only return an explicit ``; SUB`` tail when present."""
+    hints = assembly_hints_from_diagram_title(title or "")
+    return hints.get("subcategory_name")
+
+
+def assembly_hints_from_diagram_title(title: str | None) -> dict[str, str]:
+    """Parse diagram titles into assembly category / unit subcategory.
+
+    Examples:
+      ``QASHQAI+2 PISTON,CRANKSHAFT & FLYWHEEL; ILLUSTRATION``
+      → category=PISTON,CRANKSHAFT & FLYWHEEL, subcategory=ILLUSTRATION
+    """
+    hints: dict[str, str] = {}
+    raw = re.sub(r"\s+", " ", (title or "")).strip()
+    if not raw:
+        return hints
+    body = strip_vehicle_model_prefix(raw)
+    if ";" in body:
+        left, right = body.split(";", 1)
+        cat = normalize_epc_category_name(left)
+        sub = normalize_epc_category_name(right)
+        if cat:
+            hints["category_name"] = cat
+        if sub:
+            hints["subcategory_name"] = sub
+        return hints
+    cat = normalize_epc_category_name(body)
+    if cat and not is_generic_part_name(cat):
+        hints["category_name"] = cat
+    return hints
+
+
 def parse_diagram_section(
     section_html: str,
     *,

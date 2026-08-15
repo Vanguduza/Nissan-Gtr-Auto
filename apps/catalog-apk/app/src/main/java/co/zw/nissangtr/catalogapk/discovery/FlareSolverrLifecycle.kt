@@ -1,92 +1,151 @@
 package co.zw.nissangtr.catalogapk.discovery
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.util.Log
+import co.zw.nissangtr.catalogapk.data.prefs.AppPreferences
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 /**
- * Live FlareSolverr lifecycle: health probe, alternate localhost/emulator hosts,
- * optional companion Intent, and clear failure when CF needs a sidecar.
+ * Zero-config FlareSolverr lifecycle. Tries loopback / emulator agent + API
+ * candidates automatically; optional prefs only override defaults (no UI required).
  */
 class FlareSolverrLifecycle(
     private val context: Context,
+    private val preferences: AppPreferences? = null,
 ) {
     data class EnsureResult(
         val ok: Boolean,
         val resolvedUrl: String,
         val message: String,
         val startedCompanion: Boolean = false,
+        val agentUsed: Boolean = false,
     )
 
-    suspend fun ensure(preferredUrl: String, attempts: Int = 8): EnsureResult {
-        val candidates = candidateUrls(preferredUrl)
+    suspend fun ensure(
+        preferredUrl: String = DEFAULT_FLARE_API,
+        attempts: Int = 8,
+    ): EnsureResult {
+        val agentToken = preferences?.sidecarAgentToken?.first()?.trim()
+            ?.ifBlank { null }
+            ?: DEFAULT_AGENT_TOKEN
+        val prefAgent = preferences?.sidecarAgentUrl?.first()?.trim().orEmpty()
+        val extraHosts = preferences?.sidecarExtraHosts?.first().orEmpty()
+        val agentCandidates = agentCandidateUrls(prefAgent)
+
+        var startedViaAgent = false
+        var agentMessage: String? = null
+        var resolvedFromAgent: String? = null
+
+        for (agentUrl in agentCandidates) {
+            val agent = FlareSolverrSidecarAgent(agentUrl, agentToken)
+            val ensure = agent.ensure()
+            agentMessage = ensure.message
+            if (ensure.ok) {
+                startedViaAgent = startedViaAgent || ensure.started
+                val fromAgent = ensure.flaresolverrUrl?.trim().orEmpty()
+                if (fromAgent.isNotBlank()) {
+                    val api = normalizeApi(fromAgent)
+                    if (FlareSolverrClient(api).healthOk()) {
+                        return EnsureResult(
+                            ok = true,
+                            resolvedUrl = api,
+                            message = ensure.message ?: "FlareSolverr healthy via sidecar agent",
+                            startedCompanion = startedViaAgent,
+                            agentUsed = true,
+                        )
+                    }
+                    resolvedFromAgent = api
+                }
+            } else {
+                Log.i(TAG, "Agent $agentUrl ensure: ${ensure.message}")
+            }
+        }
+
+        val candidates = candidateUrls(preferredUrl, extraHosts, resolvedFromAgent)
         repeat(attempts) { attempt ->
             for (url in candidates) {
-                val client = FlareSolverrClient(url)
-                if (client.healthOk()) {
+                if (FlareSolverrClient(url).healthOk()) {
                     return EnsureResult(
                         ok = true,
                         resolvedUrl = url,
-                        message = "FlareSolverr healthy at $url",
+                        message = buildString {
+                            append("FlareSolverr healthy at $url")
+                            if (agentMessage != null) append(" (agent: $agentMessage)")
+                        },
+                        startedCompanion = startedViaAgent,
+                        agentUsed = startedViaAgent || agentMessage != null,
                     )
                 }
             }
-            if (attempt == 0) {
-                tryStartCompanion()
+            if (attempt == 2) {
+                for (agentUrl in agentCandidates) {
+                    val retry = FlareSolverrSidecarAgent(agentUrl, agentToken).ensure()
+                    agentMessage = retry.message
+                    startedViaAgent = startedViaAgent || retry.started
+                    retry.flaresolverrUrl?.trim()?.takeIf { it.isNotBlank() }?.let {
+                        resolvedFromAgent = normalizeApi(it)
+                    }
+                }
             }
             delay(1_500)
         }
+
         return EnsureResult(
             ok = false,
-            resolvedUrl = preferredUrl,
-            message = "FlareSolverr unreachable. Start LAN sidecar " +
-                "(docker compose --profile scrape) or Termux/companion on " +
-                "${candidateUrls(preferredUrl).joinToString()}",
+            resolvedUrl = normalizeApi(preferredUrl),
+            message = buildString {
+                append("FlareSolverr unreachable (auto). ")
+                if (agentMessage != null) append("Last agent: $agentMessage. ")
+                append("On the host leave sidecar running: apps/catalog-apk/sidecar/start.ps1 -Agent ")
+                append("(+ adb-reverse.ps1 for USB). Tried: ")
+                append(candidates.joinToString())
+            },
+            startedCompanion = startedViaAgent,
+            agentUsed = agentMessage != null,
         )
-    }
-
-    fun tryStartCompanion(): Boolean {
-        // Prefer an explicit companion package if installed; otherwise open docs URI.
-        val companion = Intent().apply {
-            setClassName(
-                "co.zw.nissangtr.flaresolverr",
-                "co.zw.nissangtr.flaresolverr.StartService",
-            )
-            action = Intent.ACTION_VIEW
-        }
-        return try {
-            context.startService(companion)
-            true
-        } catch (e: Exception) {
-            Log.i(TAG, "No FlareSolverr companion service: ${e.message}")
-            runCatching {
-                val view = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://github.com/FlareSolverr/FlareSolverr"),
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(view)
-            }
-            false
-        }
     }
 
     companion object {
         private const val TAG = "FlareSolverrLifecycle"
+        const val DEFAULT_FLARE_API = "http://127.0.0.1:8191/v1"
+        const val DEFAULT_AGENT_TOKEN = "catalog-apk-dev"
 
-        fun candidateUrls(preferred: String): List<String> {
-            val normalized = preferred.trim().ifBlank { "http://127.0.0.1:8191/v1" }
-            val base = normalized.trimEnd('/').let {
-                if (it.endsWith("/v1")) it else "$it/v1"
-            }
-            val alts = listOf(
-                base,
-                "http://127.0.0.1:8191/v1",
-                "http://10.0.2.2:8191/v1", // emulator → host
-                "http://localhost:8191/v1",
-            )
-            return alts.distinct()
+        fun normalizeApi(url: String): String {
+            val trimmed = url.trim().ifBlank { DEFAULT_FLARE_API }
+            val base = trimmed.trimEnd('/')
+            return if (base.endsWith("/v1")) base else "$base/v1"
+        }
+
+        fun agentCandidateUrls(preferred: String = ""): List<String> {
+            val pref = preferred.trim().trimEnd('/')
+            return listOfNotNull(
+                pref.takeIf { it.isNotBlank() },
+                "http://127.0.0.1:8192",
+                "http://10.0.2.2:8192",
+                "http://localhost:8192",
+            ).distinct()
+        }
+
+        fun candidateUrls(
+            preferred: String,
+            extraHostsCsv: String = "",
+            resolvedFromAgent: String? = null,
+        ): List<String> {
+            val base = normalizeApi(preferred)
+            val extras = extraHostsCsv.split(',', ' ', '\n', '\t')
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .map { normalizeApi(it) }
+            return (
+                listOfNotNull(resolvedFromAgent?.let { normalizeApi(it) }) +
+                    listOf(
+                        base,
+                        DEFAULT_FLARE_API,
+                        "http://10.0.2.2:8191/v1",
+                        "http://localhost:8191/v1",
+                    ) + extras
+                ).distinct()
         }
     }
 }

@@ -49,3 +49,5 @@ What agents must not re-litigate.
 | `2026-07-25-pos-receipt-contact-customer-bind.md` | Checkout receipt contacts + customer_id bind |
 | `2026-08-04-gsf-ux-behaviour-specification.md` | GSF Car Parts APK reverse-eng UX/IA spec (reference only; no code/assets reused) |
 | `2026-08-13-customer-epc-shop-stock-context.md` | Shared OEM context: customer EPC/search/shop ↔ staff add-stock / item edit |
+| `2026-08-15-standalone-adaptive-pos.md` | Greenfield `apps/android-pos` till; keep sales SoR; vehicle-latched lookup |
+| `2026-08-15-staff-edge-auth-google-only.md` | Staff middleware cookie gate; Google-only OAuth; password-reset UI |

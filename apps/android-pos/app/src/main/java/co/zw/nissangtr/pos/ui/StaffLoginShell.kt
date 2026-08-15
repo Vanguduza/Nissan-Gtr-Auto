@@ -4,12 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +38,8 @@ import kotlinx.coroutines.launch
 /**
  * Staff login — Fake: any non-empty credentials.
  * Live: [resolve_staff_login_email] → GoTrue password (mirror management).
+ *
+ * Landscape / short height: fields scroll; Sign in stays pinned at the card bottom.
  */
 @Composable
 fun StaffLoginShell(
@@ -43,12 +48,13 @@ fun StaffLoginShell(
     onSignIn: (staffName: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var identifier by remember { mutableStateOf("t.moyo@nissangtr.co.zw") }
-    var password by remember { mutableStateOf("pos") }
+    var identifier by remember { mutableStateOf("admin@gtr.local") }
+    var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val useLive = !forceFake && liveClient?.usesLive == true
+    val scroll = rememberScrollState()
 
     Column(
         modifier = modifier
@@ -62,42 +68,50 @@ fun StaffLoginShell(
             modifier = Modifier
                 .widthIn(max = 420.dp)
                 .fillMaxWidth()
+                .fillMaxHeight(0.92f)
                 .background(GtrColors.SteelLift, GtrShapes.medium)
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "NISSAN GTR AUTO",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = GtrColors.Chalk,
-            )
-            Text(
-                text = if (useLive) "POS till · Live staff auth" else "POS till · Fake auth",
-                style = MaterialTheme.typography.bodyMedium,
-                color = GtrColors.SilverDim,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = identifier,
-                onValueChange = { identifier = it; error = null },
-                label = { Text(if (useLive) "Emp# / email / phone" else "Staff email") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = fieldColors(),
-            )
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it; error = null },
-                label = { Text("Password") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                colors = fieldColors(),
-            )
-            error?.let {
-                Text(it, color = GtrColors.Danger, style = MaterialTheme.typography.bodySmall)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(scroll),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "NISSAN GTR AUTO",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = GtrColors.Chalk,
+                )
+                Text(
+                    text = if (useLive) "POS till · Live staff auth" else "POS till · Fake auth",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GtrColors.SilverDim,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = identifier,
+                    onValueChange = { identifier = it; error = null },
+                    label = { Text(if (useLive) "Emp# / email / phone" else "Staff email") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors(),
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it; error = null },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors(),
+                )
+                error?.let {
+                    Text(it, color = GtrColors.Danger, style = MaterialTheme.typography.bodySmall)
+                }
             }
+            Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = {
                     if (useLive && liveClient != null) {

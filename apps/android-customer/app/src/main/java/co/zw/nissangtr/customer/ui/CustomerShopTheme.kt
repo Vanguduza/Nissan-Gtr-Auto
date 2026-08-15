@@ -13,16 +13,10 @@ import co.zw.nissangtr.ui.shop.ShopTheme
 import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
- * Customer-app presentation override on top of frozen [ShopTheme]:
- * warmer dark surfaces + rounder field/button corners (GSF-like softness).
+ * Customer-app presentation on top of frozen [ShopTheme]:
+ * cool steel / mist / chalk neutrals + GTR red CTAs, with softer field/button corners.
  * Does not edit `packages/android-ui`.
  */
-private val WarmDarkBackground = Color(0xFF1C1714)
-private val WarmDarkSurface = Color(0xFF2A221C)
-private val WarmDarkVariant = Color(0xFF352C24)
-private val WarmOnDark = Color(0xFFF3EDE6)
-private val WarmMuted = Color(0xFFC4B5A5)
-
 private val SoftShapes = Shapes(
     extraSmall = RoundedCornerShape(10.dp),
     small = RoundedCornerShape(14.dp),
@@ -31,42 +25,62 @@ private val SoftShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp),
 )
 
-private val WarmLight = lightColorScheme(
+/** Light: chalk ground, white cards, mist chips — no cream/brown. */
+private val CoolLight = lightColorScheme(
     primary = GtrColors.Primary,
     onPrimary = GtrColors.PrimaryInk,
-    primaryContainer = Color(0xFFF5E6E8),
+    primaryContainer = Color(0xFFF3D6DB),
     onPrimaryContainer = GtrColors.Steel,
-    secondary = Color(0xFF5C4A3A),
-    onSecondary = Color(0xFFFFF8F2),
-    background = Color(0xFFF7F1EA),
-    onBackground = Color(0xFF1C1714),
-    surface = Color(0xFFFFFBF7),
-    onSurface = Color(0xFF1C1714),
-    surfaceVariant = Color(0xFFEDE4DA),
-    onSurfaceVariant = Color(0xFF6B5B4D),
-    outline = Color(0xFFD4C4B4),
-    outlineVariant = Color(0xFFE8DDD2),
+    secondary = GtrColors.SteelLift,
+    onSecondary = GtrColors.White,
+    secondaryContainer = GtrColors.Mist,
+    onSecondaryContainer = GtrColors.Steel,
+    tertiary = GtrColors.Accent,
+    onTertiary = GtrColors.PrimaryInk,
+    tertiaryContainer = Color(0xFFD4EDE4),
+    onTertiaryContainer = GtrColors.Accent,
     error = GtrColors.Danger,
     onError = GtrColors.PrimaryInk,
+    errorContainer = Color(0xFFF3D6DB),
+    onErrorContainer = GtrColors.Danger,
+    background = GtrColors.Chalk,
+    onBackground = GtrColors.Steel,
+    surface = GtrColors.White,
+    onSurface = GtrColors.Steel,
+    surfaceVariant = GtrColors.Mist,
+    onSurfaceVariant = GtrColors.SilverDim,
+    outline = GtrColors.Silver,
+    outlineVariant = GtrColors.Mist,
+    inverseSurface = GtrColors.Steel,
+    inverseOnSurface = GtrColors.Silver,
+    inversePrimary = GtrColors.PrimaryHover,
 )
 
-private val WarmDark = darkColorScheme(
+/** Dark: steel ground, steel-lift surfaces, silver type — no warm brown. */
+private val CoolDark = darkColorScheme(
     primary = GtrColors.PrimaryHover,
     onPrimary = GtrColors.PrimaryInk,
-    primaryContainer = WarmDarkVariant,
-    onPrimaryContainer = WarmOnDark,
-    secondary = WarmMuted,
-    onSecondary = WarmDarkBackground,
-    background = WarmDarkBackground,
-    onBackground = WarmOnDark,
-    surface = WarmDarkSurface,
-    onSurface = WarmOnDark,
-    surfaceVariant = WarmDarkVariant,
-    onSurfaceVariant = WarmMuted,
-    outline = Color(0xFF6B5A4A),
-    outlineVariant = WarmDarkVariant,
+    primaryContainer = Color(0xFF5A1522),
+    onPrimaryContainer = Color(0xFFFFDAD9),
+    secondary = GtrColors.Silver,
+    onSecondary = GtrColors.Steel,
+    secondaryContainer = GtrColors.SteelLift,
+    onSecondaryContainer = GtrColors.Silver,
+    tertiary = GtrColors.Accent,
+    onTertiary = GtrColors.PrimaryInk,
     error = GtrColors.PrimaryHover,
     onError = GtrColors.PrimaryInk,
+    background = GtrColors.Steel,
+    onBackground = GtrColors.Silver,
+    surface = GtrColors.SteelLift,
+    onSurface = GtrColors.Silver,
+    surfaceVariant = Color(0xFF2A3140),
+    onSurfaceVariant = GtrColors.SilverDim,
+    outline = GtrColors.SilverDim,
+    outlineVariant = Color(0xFF2A3140),
+    inverseSurface = GtrColors.Chalk,
+    inverseOnSurface = GtrColors.Steel,
+    inversePrimary = GtrColors.Primary,
 )
 
 @Composable
@@ -76,7 +90,7 @@ fun CustomerShopTheme(
 ) {
     ShopTheme(darkTheme = darkTheme) {
         MaterialTheme(
-            colorScheme = if (darkTheme) WarmDark else WarmLight,
+            colorScheme = if (darkTheme) CoolDark else CoolLight,
             typography = MaterialTheme.typography,
             shapes = SoftShapes,
             content = content,

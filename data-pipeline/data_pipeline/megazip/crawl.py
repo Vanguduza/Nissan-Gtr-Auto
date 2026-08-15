@@ -606,6 +606,7 @@ async def crawl_maker(
     flaresolverr_url: str | None = None,
     force_flaresolverr: bool = False,
     pause_flag: Path | None = None,
+    seed_only: bool = False,
 ) -> dict[str, Any]:
     """Crawl Megazip pages into cache.
 
@@ -621,6 +622,10 @@ async def crawl_maker(
 
     ``prune_on_chassis_complete`` — when a focus chassis deep queue empties,
     prune any leftover HTML for that chassis.
+
+    ``seed_only`` — when True with ``priority_model_seeds``, skip maker-hub
+    discovery (APK ``--single-chassis`` with known model seeds). Prevents
+    burning pages on 90+ unrelated models before diagram depth.
     """
     init_db(paths.state_db)
     paths.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -675,8 +680,15 @@ async def crawl_maker(
             )
 
         start_url = config.hub_url(paths.maker)
-        # Priority phase must discover all models from hub; seeds alone only cover listed URLs.
-        if priority_chassis or not priority_model_seeds:
+        # Priority phase normally discovers models from hub; seeds alone only cover
+        # listed URLs. Single-chassis APK runs pass seed_only=True to skip the hub.
+        if seed_only and priority_model_seeds:
+            logger.info(
+                "[%s] seed_only=True — skipping maker hub; seeds=%s",
+                paths.maker,
+                len(priority_model_seeds),
+            )
+        elif priority_chassis or not priority_model_seeds:
             enqueue_url(
                 paths.state_db,
                 start_url,

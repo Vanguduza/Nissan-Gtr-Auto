@@ -32,10 +32,12 @@ class CatalogCrawlWorker(
 
     override suspend fun doRemoteWork(): Result {
         val jobId = inputData.getString(KEY_JOB_ID) ?: return Result.failure()
-        setForegroundAsync(createForegroundInfo(jobId))
+        runCatching { setForegroundAsync(createForegroundInfo(jobId)) }
 
         val app = applicationContext as? CatalogApkApplication
-            ?: return Result.failure()
+        if (app == null) {
+            return Result.failure()
+        }
         val jobDao = app.database.jobDao()
         var job = jobDao.getById(jobId) ?: return Result.failure()
         val profile = app.database.siteProfileDao().getById(job.profileId)
@@ -50,7 +52,9 @@ class CatalogCrawlWorker(
                     updatedAt = System.currentTimeMillis(),
                 ),
             )
-            return Result.retry()
+            // Success (not retry): unique work completes so supervisor can re-enqueue
+            // without being stuck behind exponential backoff.
+            return Result.success()
         }
 
         val active = jobDao.findByDesiredStateAndStatuses(
@@ -58,13 +62,17 @@ class CatalogCrawlWorker(
             listOf(JobStatus.PROCESSING.name),
         ).filter { it.id != jobId }
         if (active.size >= gate.effectiveMaxSlots) {
-            return Result.retry()
+            // Defer without WorkManager backoff — supervisor reclaim fills free slots.
+            return Result.success()
         }
 
-        val jobRoot = File(job.outRoot).parentFile
-        val pauseFlag = jobRoot?.resolve("pause.flag")
+        val outDir = File(job.outRoot)
+        val jobRoot = outDir.parentFile ?: outDir
+        outDir.mkdirs()
+        jobRoot.mkdirs()
+        val pauseFlag = File(jobRoot, "pause.flag")
         if (job.desiredState == JobDesiredState.RUN.name) {
-            pauseFlag?.delete()
+            pauseFlag.delete()
         }
         if (job.desiredState == JobDesiredState.PAUSE.name) {
             jobDao.update(
@@ -85,15 +93,31 @@ class CatalogCrawlWorker(
         )
         jobDao.update(job)
 
-        val flareLife = FlareSolverrLifecycle(applicationContext)
-        var flareUrl = profile.flaresolverrUrl
+        val flareLife = FlareSolverrLifecycle(applicationContext, app.appPreferences)
+        var flareUrl = FlareSolverrLifecycle.normalizeApi(
+            profile.flaresolverrUrl.ifBlank { FlareSolverrLifecycle.DEFAULT_FLARE_API },
+        )
         var forceFlare = profile.cloudflareMode.equals("always", ignoreCase = true)
+        val cfMode = profile.cloudflareMode.lowercase().ifBlank { "auto" }
 
-        if (!profile.cloudflareMode.equals("off", ignoreCase = true)) {
+        // Re-read desired state before slow CF work (user may have paused).
+        job = jobDao.getById(jobId) ?: return Result.failure()
+        if (job.desiredState == JobDesiredState.PAUSE.name) {
+            jobDao.update(
+                job.copy(
+                    status = JobStatus.PAUSED.name,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            return Result.success()
+        }
+
+        if (cfMode == "always") {
             val ensure = flareLife.ensure(flareUrl)
-            if (ensure.ok) {
-                flareUrl = ensure.resolvedUrl
-            } else if (forceFlare) {
+            jobDao.update(
+                job.copy(lastHeartbeat = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()),
+            )
+            if (!ensure.ok) {
                 jobDao.update(
                     job.copy(
                         status = JobStatus.FAILED.name,
@@ -103,29 +127,43 @@ class CatalogCrawlWorker(
                 )
                 return Result.failure()
             }
-
+            flareUrl = ensure.resolvedUrl
+        } else if (cfMode != "off") {
+            // Probe direct first; SiteHttpClient auto-ensures sidecar only on CF challenge.
             val probeClient = SiteHttpClient(
-                cloudflareMode = profile.cloudflareMode,
+                cloudflareMode = "auto",
                 flaresolverrUrl = flareUrl,
+                lifecycle = flareLife,
             )
             val hub = profile.baseUrl.trimEnd('/') + "/"
             val probe = probeClient.fetch(hub)
-            if (probe.viaFlareSolverr) forceFlare = true
-            if (!probe.ok && !ensure.ok && profile.cloudflareMode.equals("auto", ignoreCase = true)) {
-                val retry = flareLife.ensure(flareUrl)
-                if (!retry.ok) {
-                    jobDao.update(
-                        job.copy(
-                            status = JobStatus.FAILED.name,
-                            errorMessage = "CF/probe failed; ${retry.message}",
-                            updatedAt = System.currentTimeMillis(),
-                        ),
-                    )
-                    return Result.failure()
-                }
-                flareUrl = retry.resolvedUrl
+            jobDao.update(
+                job.copy(lastHeartbeat = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()),
+            )
+            probe.flaresolverrUrlUsed?.let { flareUrl = it }
+            if (probe.ok && probe.viaFlareSolverr) {
                 forceFlare = true
+            } else if (!probe.ok && probe.viaFlareSolverr) {
+                // Sidecar down: still crawl direct. Python can use FlareSolverr if it comes up.
+                forceFlare = false
+                jobDao.update(
+                    job.copy(
+                        errorMessage = "FlareSolverr offline — crawling direct. ${probe.error ?: ""}".take(400),
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
             }
+        }
+
+        job = jobDao.getById(jobId) ?: return Result.failure()
+        if (job.desiredState == JobDesiredState.PAUSE.name) {
+            jobDao.update(
+                job.copy(
+                    status = JobStatus.PAUSED.name,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            return Result.success()
         }
 
         val maxPages = app.appPreferences.maxPagesDebug.first().takeIf { it > 0 }
@@ -138,47 +176,81 @@ class CatalogCrawlWorker(
         )
 
         val pipeline = ChaquopyPipelineBridge(applicationContext)
-        val result = pipeline.run(
-            job = job,
-            profile = profile,
-            argv = argv,
-            shouldPause = {
-                jobDao.getById(jobId)?.desiredState == JobDesiredState.PAUSE.name
-            },
-            onHeartbeat = {
-                val current = jobDao.getById(jobId) ?: return@run
-                jobDao.update(
-                    current.copy(
-                        lastHeartbeat = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis(),
-                    ),
-                )
-            },
-        )
+        val result = try {
+            pipeline.run(
+                job = job,
+                profile = profile,
+                argv = argv,
+                shouldPause = {
+                    jobDao.getById(jobId)?.desiredState == JobDesiredState.PAUSE.name
+                },
+                onHeartbeat = {
+                    val current = jobDao.getById(jobId) ?: return@run
+                    jobDao.update(
+                        current.copy(
+                            lastHeartbeat = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                },
+            )
+        } catch (t: Throwable) {
+            val err = File(job.outRoot, "pipeline_error.txt")
+            err.parentFile?.mkdirs()
+            err.writeText(t.stackTraceToString().take(4000))
+            jobDao.update(
+                job.copy(
+                    status = JobStatus.FAILED.name,
+                    errorMessage = (t.message ?: t.javaClass.simpleName).take(500),
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            return Result.failure()
+        }
 
         val finalJob = jobDao.getById(jobId) ?: return Result.failure()
         val errFile = File(finalJob.outRoot, "pipeline_error.txt")
         val errText = errFile.takeIf { it.exists() }?.readText()?.take(500)
-        val updated = when (result) {
-            PipelineResult.COMPLETE -> finalJob.copy(
+        val qualityFile = File(finalJob.outRoot, "bundle_quality.txt")
+        val qualityText = qualityFile.takeIf { it.exists() }?.readText()?.trim().orEmpty()
+        val qualityPass = qualityText.lineSequence().any { it.trim() == "ok=true" }
+        val qualityFailReason = qualityText.lineSequence()
+            .filter { it.startsWith("FAIL:") }
+            .joinToString("; ")
+            .ifBlank { qualityText.take(400) }
+
+        val updated = when {
+            result == PipelineResult.COMPLETE && !qualityPass -> finalJob.copy(
+                status = JobStatus.FAILED.name,
+                errorMessage = (
+                    "Quality gate FAIL: " + (
+                        qualityFailReason.ifBlank {
+                            errText ?: "hierarchy-only or empty diagrams (see bundle_quality.txt)"
+                        }
+                        )
+                    ).take(500),
+            )
+            result == PipelineResult.COMPLETE -> finalJob.copy(
                 status = JobStatus.COMPLETE.name,
                 desiredState = JobDesiredState.RUN.name,
                 errorMessage = null,
             )
-            PipelineResult.PAUSED -> finalJob.copy(
+            result == PipelineResult.PAUSED -> finalJob.copy(
                 status = JobStatus.PAUSED.name,
                 desiredState = JobDesiredState.PAUSE.name,
             )
-            PipelineResult.FAILED -> finalJob.copy(
+            else -> finalJob.copy(
                 status = JobStatus.FAILED.name,
-                errorMessage = errText ?: "Pipeline failed",
+                errorMessage = errText
+                    ?: qualityFailReason.takeIf { it.isNotBlank() }
+                    ?: "Pipeline failed",
             )
         }
         jobDao.update(updated.copy(updatedAt = System.currentTimeMillis()))
 
-        return when (result) {
-            PipelineResult.FAILED -> Result.failure()
-            PipelineResult.PAUSED, PipelineResult.COMPLETE -> Result.success()
+        return when {
+            updated.status == JobStatus.FAILED.name -> Result.failure()
+            else -> Result.success()
         }
     }
 

@@ -248,17 +248,9 @@ export default function SignupPage() {
               >
                 Google
               </button>
-              <button
-                type="button"
-                className={styles.oauthApple}
-                disabled={busy}
-                onClick={() => void onOAuth("apple")}
-              >
-                Apple
-              </button>
               <p className={styles.oauthHint}>
-                Google/Apple skip OTP — first login creates your account when
-                providers are enabled in Supabase.
+                Google skips OTP — first login creates your account when the
+                provider is enabled in Supabase.
               </p>
             </div>
           </>

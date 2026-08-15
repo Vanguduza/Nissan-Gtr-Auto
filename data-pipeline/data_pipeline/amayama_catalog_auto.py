@@ -2178,6 +2178,20 @@ __all__ = [
 # ======================================================================
 
 def init_db(db_path: Path) -> None:
+    db_path = Path(db_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    if db_path.exists() and db_path.stat().st_size == 0:
+        try:
+            db_path.unlink()
+        except OSError:
+            pass
+        for suffix in ("-wal", "-shm", "-journal"):
+            side = Path(str(db_path) + suffix)
+            if side.exists():
+                try:
+                    side.unlink()
+                except OSError:
+                    pass
     conn = sqlite3.connect(db_path, timeout=30.0)
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -2377,6 +2391,7 @@ def claim_next_url(
 
 
 def queue_status_counts(db_path: Path) -> dict[str, int]:
+    init_db(db_path)
     conn = sqlite3.connect(db_path, timeout=30.0)
     try:
         rows = conn.execute(
@@ -2541,6 +2556,7 @@ def load_scraped_records(
 
 
 def pending_count(db_path: Path) -> int:
+    init_db(db_path)
     conn = sqlite3.connect(db_path, timeout=30.0)
     try:
         row = conn.execute(
@@ -2712,6 +2728,7 @@ def is_in_scope_url(url: str, config: ScrapeConfig) -> bool:
 
 def prune_out_of_scope_queue(db_path: Path, config: ScrapeConfig) -> int:
     """Delete queued/visited URLs outside English+brand scope."""
+    init_db(db_path)
     conn = sqlite3.connect(db_path, timeout=30.0)
     try:
         rows = conn.execute("SELECT url FROM queue").fetchall()
@@ -3398,6 +3415,7 @@ async def run_until_catalogue_complete(
     priority: Any | None = None,
 ) -> dict[str, int]:
     """Drain the English-Nissan queue: crawl → retry failures → repeat until done."""
+    init_db(db_path)
     max_rounds = max(1, int(config.completion_max_rounds))
     final_stats: dict[str, int] = {}
 

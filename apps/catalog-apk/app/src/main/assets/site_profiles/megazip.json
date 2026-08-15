@@ -8,14 +8,17 @@
     "flaresolverr_url": "http://127.0.0.1:8191/v1"
   },
   "paths": {
-    "parts_hub": "/parts",
+    "parts_hub": "/zapchasti-dlya-avtomobilej",
     "maker_hub": "/parts/{maker_slug}",
     "catalog_prefix": "/zapchasti-dlya-avtomobilej",
     "model": "/zapchasti-dlya-avtomobilej/{maker_slug}/{model_slug}",
     "variant": "/zapchasti-dlya-avtomobilej/{maker_slug}/{model_slug}/{variant_slug}",
     "section": "/zapchasti-dlya-avtomobilej/{maker_slug}/{model_slug}/{variant_slug}/{section_slug}",
     "maker_slug_map": {
-      "Nissan": "nissan"
+      "Nissan": "nissan",
+      "Toyota": "toyota",
+      "Mitsubishi": "mitsubishi",
+      "Honda": "honda"
     }
   },
   "selectors": {

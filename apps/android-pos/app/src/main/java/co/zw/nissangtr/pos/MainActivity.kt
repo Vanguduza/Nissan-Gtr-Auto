@@ -15,7 +15,6 @@ import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -24,11 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.pos.api.CatalogSearchMode
 import co.zw.nissangtr.pos.api.CheckoutReceiptContacts
 import co.zw.nissangtr.pos.api.CloseTillFloatRequest
 import co.zw.nissangtr.pos.api.CustomerRef
-import co.zw.nissangtr.pos.api.FakePosClient
 import co.zw.nissangtr.pos.api.FitmentRules
 import co.zw.nissangtr.pos.api.HandoffExtras
 import co.zw.nissangtr.pos.api.HandoffIntentParse
@@ -65,11 +64,13 @@ import co.zw.nissangtr.pos.sync.PosClientOfflineRemote
 import co.zw.nissangtr.pos.sync.PosSyncManager
 import co.zw.nissangtr.pos.sync.SqlCipherOfflineStore
 import co.zw.nissangtr.pos.till.IdleLockController
+import co.zw.nissangtr.pos.till.PrinterConnectSheet
+import co.zw.nissangtr.pos.till.PrinterConnectUiState
+import co.zw.nissangtr.pos.till.PrinterDeviceRow
 import co.zw.nissangtr.pos.till.ReturnsSheet
 import co.zw.nissangtr.pos.till.TillFloatSheet
 import co.zw.nissangtr.pos.till.TillLayoutMode
 import co.zw.nissangtr.pos.till.TillScreen
-import co.zw.nissangtr.pos.till.TillSession
 import co.zw.nissangtr.pos.ui.StaffLoginShell
 import co.zw.nissangtr.ui.theme.GtrColors
 import co.zw.nissangtr.ui.theme.GtrTheme
@@ -81,30 +82,24 @@ import java.time.LocalDate
 class MainActivity : ComponentActivity() {
 
     private var liveScan: co.zw.nissangtr.pos.pay.bridge.LivePosScanBridge? = null
+    private var livePrint: co.zw.nissangtr.pos.pay.bridge.LivePosPrintBridge? = null
     private var lockTask: LockTaskController? = null
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val forceFake = BuildConfig.RPC_FORCE_FAKE
-        val url = BuildConfig.SUPABASE_URL
-        val anon = BuildConfig.SUPABASE_ANON_KEY
-        val live = !forceFake && url.isNotBlank() && anon.isNotBlank()
-        val client: PosClient = if (live) {
-            LivePosClient(supabaseUrl = url, supabaseAnonKey = anon)
-        } else if (forceFake) {
-            FakePosClient()
-        } else {
-            LivePosClient() // no creds → Fake fallback
-        }
-        val liveClient = client as? LivePosClient
+        val app = application as PosApplication
+        val forceFake = app.forceFake
+        val client = app.posClient
+        val liveClient = app.liveClient
         val handoff = parseHandoff(intent)
-        val bridges = PosBridgeFactory.create(this, forceFake = forceFake || !live)
+        val bridges = PosBridgeFactory.create(this, forceFake = forceFake)
         liveScan = bridges.liveScan
+        livePrint = bridges.livePrint
         bridges.liveScan?.attachActivity(this)
         bridges.livePrint?.attachActivity(this)
 
-        val offlineStore: OfflineStore = if (forceFake || !live) {
+        val offlineStore: OfflineStore = if (forceFake) {
             InMemoryOfflineStore()
         } else {
             SqlCipherOfflineStore(this)
@@ -130,7 +125,7 @@ class MainActivity : ComponentActivity() {
                     PosApp(
                         client = client,
                         liveClient = liveClient,
-                        forceFake = forceFake || !live,
+                        forceFake = forceFake,
                         layoutMode = layoutMode,
                         offlineStore = offlineStore,
                         bridges = bridges,
@@ -145,6 +140,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         liveScan?.detachActivity()
+        livePrint?.detachActivity()
         super.onDestroy()
     }
 
@@ -157,6 +153,7 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         liveScan?.onPermissionResult()
+        livePrint?.onPermissionResult()
     }
 
     @Deprecated("Deprecated in Java")
@@ -198,64 +195,53 @@ fun PosApp(
     idleMs: Long = IdleLockController.IDLE_MS,
     onExitKiosk: () -> Unit = {},
 ) {
-    var signedIn by remember { mutableStateOf(false) }
-    var staffName by remember { mutableStateOf("T. Moyo") }
-    var lastInteractionMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var handoffTried by remember { mutableStateOf(false) }
-    var openFloatPeriodId by remember { mutableStateOf<String?>(null) }
+    val shell: PosShellViewModel = viewModel(
+        factory = PosShellViewModel.Factory(client, liveClient, forceFake, layoutMode),
+    )
+    val session = shell.session
+    val ui = shell.ui
+    var openFloatPeriodId by remember { mutableStateOf(shell.openFloatPeriodId) }
 
     LaunchedEffect(handoff, liveClient) {
-        if (handoffTried) return@LaunchedEffect
-        handoffTried = true
+        if (shell.handoffTried) return@LaunchedEffect
+        shell.markHandoffTried()
         if (liveClient?.usesLive == true && handoff.canEstablishLiveSession) {
             runCatching {
                 liveClient.importAccessToken(
                     accessToken = handoff.accessToken!!,
                     refreshToken = handoff.refreshToken.orEmpty(),
                 )
-                val name = handoff.staffDisplayName ?: liveClient.currentUserEmail()
-                    ?.substringBefore("@") ?: "Staff"
+                val name = handoff.staffDisplayName
+                    ?: PosShellViewModel.displayNameFromEmail(liveClient.currentUserEmail())
+                    ?: "Staff"
                 liveClient.setStaffDisplayName(name)
                 handoff.terminalId?.let { liveClient.setTerminalId(it) }
                 handoff.warehouseId?.let { liveClient.setWarehouse(it) }
-                staffName = name
-                signedIn = true
-                lastInteractionMs = System.currentTimeMillis()
+                shell.signIn(name)
             }
             // Tokens never logged — failures fall through to login.
         }
     }
 
-    if (!signedIn) {
+    if (!shell.signedIn) {
         StaffLoginShell(
             liveClient = liveClient,
             forceFake = forceFake,
-            onSignIn = { name ->
-                staffName = name.ifBlank { "T. Moyo" }
-                signedIn = true
-                lastInteractionMs = System.currentTimeMillis()
-            },
+            onSignIn = { name -> shell.signIn(name) },
         )
         return
     }
 
-    LaunchedEffect(signedIn, idleMs) {
-        while (isActive && signedIn) {
+    LaunchedEffect(shell.signedIn, idleMs) {
+        while (isActive && shell.signedIn) {
             delay(15_000L)
-            if (IdleLockController.shouldLock(
-                    lastInteractionMs,
-                    System.currentTimeMillis(),
-                    idleMs,
-                )
-            ) {
-                signedIn = false
+            if (shell.shouldIdleLock(System.currentTimeMillis(), idleMs)) {
+                shell.signOut()
             }
         }
     }
 
     val scope = rememberCoroutineScope()
-    val session = remember(client) { TillSession(client, layoutMode) }
-    var ui by remember { mutableStateOf(session.state) }
     val syncManager = remember(client, offlineStore) {
         PosSyncManager(offlineStore, PosClientOfflineRemote(client))
     }
@@ -271,6 +257,12 @@ fun PosApp(
     var priceCheckItem by remember { mutableStateOf<TillItem?>(null) }
     var showFitment by remember { mutableStateOf(false) }
     var fitmentItem by remember { mutableStateOf<TillItem?>(null) }
+    var showUtilities by remember { mutableStateOf(false) }
+    var printerUi by remember {
+        mutableStateOf(
+            PrinterConnectUiState(mac = bridges.print.getConfiguredPrinterAddress()),
+        )
+    }
     var showFloat by remember { mutableStateOf(false) }
     var floatBusy by remember { mutableStateOf(false) }
     var floatError by remember { mutableStateOf<String?>(null) }
@@ -279,34 +271,29 @@ fun PosApp(
     var returnsError by remember { mutableStateOf<String?>(null) }
 
     fun touch() {
-        lastInteractionMs = System.currentTimeMillis()
+        shell.touch()
     }
 
     fun refresh() {
         val banner = syncManager.banner(ui.fake.online)
-        ui = session.state.copy(
-            fake = session.state.fake.copy(
-                session = session.state.fake.session.copy(staffName = staffName),
-                statusLabel = banner.label,
-            ),
-        )
+        session.applySyncBanner(banner.label, online = ui.fake.online)
+        shell.refresh()
     }
 
     LaunchedEffect(layoutMode) {
-        session.setLayout(layoutMode)
-        refresh()
+        shell.setLayout(layoutMode)
     }
 
     LaunchedEffect(client) {
         runCatching {
             val chips = client.listChassisShortcuts()
             session.setChassisShortcuts(chips)
-            refresh()
+            shell.refresh()
         }
         runCatching {
             val snap = syncManager.syncNow(session.state.fake.session.warehouseId)
             session.applySyncBanner(snap.label, online = true)
-            refresh()
+            shell.refresh()
         }
     }
 
@@ -320,7 +307,7 @@ fun PosApp(
                     FinderMode.SHOP_STOCK, FinderMode.EPC -> CatalogSearchMode.PART
                 }
                 session.applySearchHits(mode, normalized)
-                refresh()
+                shell.refresh()
             }
         }
     }
@@ -349,41 +336,41 @@ fun PosApp(
             onClearLatch = {
                 touch()
                 session.clearLatch()
-                refresh()
+                shell.refresh()
             },
             onFinderMode = { mode ->
                 touch()
                 session.setFinderMode(mode)
-                refresh()
+                shell.refresh()
                 if (mode == FinderMode.SHOP_STOCK) {
                     scope.launch {
                         session.loadShopStock()
-                        refresh()
+                        shell.refresh()
                     }
                 }
             },
             onSearchChange = { q ->
                 touch()
                 session.setSearchQuery(q)
-                refresh()
+                shell.refresh()
                 debouncer.onInput(q)
             },
             onCategory = { cat ->
                 touch()
                 session.setCategory(cat)
-                refresh()
+                shell.refresh()
                 scope.launch {
                     session.loadShopStock()
-                    refresh()
+                    shell.refresh()
                 }
             },
             onInStockToggle = {
                 touch()
                 session.toggleInStock()
-                refresh()
+                shell.refresh()
                 scope.launch {
                     session.loadShopStock()
-                    refresh()
+                    shell.refresh()
                 }
             },
             onTileClick = { item ->
@@ -393,8 +380,9 @@ fun PosApp(
                     showFitment = true
                 } else {
                     scope.launch {
-                        session.tryAddTile(item)
-                        refresh()
+                        runCatching { session.tryAddTile(item) }
+                            .onFailure { session.setBanner(it.message ?: "Add failed") }
+                        shell.refresh()
                     }
                 }
             },
@@ -402,14 +390,15 @@ fun PosApp(
                 touch()
                 scope.launch {
                     session.latchChassisChip(chip)
-                    refresh()
+                    shell.refresh()
                 }
             },
             onCustomer = {
                 touch()
                 showCustomer = true
                 scope.launch {
-                    customers = client.listCustomers(customerQuery)
+                    customers = runCatching { client.listCustomers(customerQuery) }
+                        .getOrDefault(emptyList())
                 }
             },
             onOrders = {
@@ -419,15 +408,17 @@ fun PosApp(
             onPark = {
                 touch()
                 scope.launch {
-                    session.park()
-                    refresh()
+                    runCatching { session.park() }
+                        .onFailure { session.setBanner(it.message ?: "Park failed") }
+                    shell.refresh()
                 }
             },
             onVoid = {
                 touch()
                 scope.launch {
-                    session.voidTicket()
-                    refresh()
+                    runCatching { session.voidTicket() }
+                        .onFailure { session.setBanner(it.message ?: "Void failed") }
+                    shell.refresh()
                 }
             },
             onPay = {
@@ -435,8 +426,9 @@ fun PosApp(
                 scope.launch {
                     when (session.cta) {
                         TicketCta.QUOTE -> {
-                            session.runQuoteCta()
-                            refresh()
+                            runCatching { session.runQuoteCta() }
+                                .onFailure { session.setBanner(it.message ?: "Quote failed") }
+                            shell.refresh()
                         }
                         TicketCta.PAY -> openPaySheet()
                     }
@@ -445,12 +437,14 @@ fun PosApp(
             onScan = {
                 touch()
                 scope.launch {
-                    val raw = bridges.scan.scanOnce()
-                    val normalized = BridgeScanStub.onScanPayload(raw)
-                    session.setFinderMode(FinderMode.SCAN_OEM)
-                    session.setSearchQuery(normalized)
-                    session.applySearchHits(CatalogSearchMode.PART, normalized)
-                    refresh()
+                    runCatching {
+                        val raw = bridges.scan.scanOnce()
+                        val normalized = BridgeScanStub.onScanPayload(raw)
+                        session.setFinderMode(FinderMode.SCAN_OEM)
+                        session.setSearchQuery(normalized)
+                        session.applySearchHits(CatalogSearchMode.PART, normalized)
+                    }.onFailure { session.setBanner(it.message ?: "Scan failed") }
+                    shell.refresh()
                 }
             },
             onPrint = {
@@ -466,33 +460,44 @@ fun PosApp(
                         )
                         t.lines.forEach { add("${it.oemPartNumber} x${it.qty}") }
                     }
-                    bridges.print.printReceiptLines(lines)
+                    runCatching { bridges.print.printReceiptLines(lines) }
                 }
             },
             onDrawer = {
                 touch()
-                scope.launch { bridges.drawer.openDrawer() }
+                scope.launch { runCatching { bridges.drawer.openDrawer() } }
             },
             onSettings = {
                 touch()
-                showFloat = true
+                showUtilities = true
                 floatError = null
+                scope.launch {
+                    printerUi = printerUi.copy(busy = true, lastError = null, message = null)
+                    val status = bridges.print.printerStatus()
+                    printerUi = printerUi.copy(
+                        connected = status.connected,
+                        mac = status.mac,
+                        lastError = status.lastError,
+                        busy = false,
+                    )
+                }
             },
             onSync = {
                 touch()
                 scope.launch {
-                    val banner = syncManager.syncNow(session.state.fake.session.warehouseId)
-                    session.applySyncBanner(
-                        label = banner.label,
-                        online = true,
-                        tiles = offlineStore.listCatalog().ifEmpty { null },
-                    )
-                    refresh()
+                    runCatching {
+                        val banner = syncManager.syncNow(session.state.fake.session.warehouseId)
+                        session.applySyncBanner(
+                            label = banner.label,
+                            online = true,
+                            tiles = offlineStore.listCatalog().ifEmpty { null },
+                        )
+                    }.onFailure { session.setBanner(it.message ?: "Sync failed") }
+                    shell.refresh()
                 }
             },
             onPriceCheck = {
                 touch()
-                // Long-press Info also opens returns via settings rail; price check stays.
                 showPriceCheck = true
                 priceCheckQuery = ""
                 priceCheckItem = null
@@ -716,6 +721,93 @@ fun PosApp(
             }
         }
 
+        if (showUtilities) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                PrinterConnectSheet(
+                    state = printerUi,
+                    onRefreshBonded = {
+                        touch()
+                        scope.launch {
+                            printerUi = printerUi.copy(busy = true, lastError = null)
+                            bridges.print.ensureBluetoothPermission()
+                            val devices = bridges.print.listBondedPrinters().map {
+                                PrinterDeviceRow(name = it.name, address = it.address)
+                            }
+                            val status = bridges.print.printerStatus()
+                            printerUi = printerUi.copy(
+                                connected = status.connected,
+                                mac = status.mac,
+                                lastError = status.lastError,
+                                bonded = devices,
+                                busy = false,
+                                message = if (devices.isEmpty()) {
+                                    "No bonded BT printers — pair in Android Bluetooth settings"
+                                } else {
+                                    "${devices.size} bonded printer(s)"
+                                },
+                            )
+                        }
+                    },
+                    onSelectDevice = { device ->
+                        touch()
+                        scope.launch {
+                            printerUi = printerUi.copy(
+                                busy = true,
+                                mac = device.address,
+                                lastError = null,
+                                message = null,
+                            )
+                            val status = bridges.print.connectPrinter(device.address)
+                            printerUi = printerUi.copy(
+                                connected = status.connected,
+                                mac = status.mac,
+                                lastError = status.lastError,
+                                busy = false,
+                                message = if (status.connected) {
+                                    "ESC/POS connected (${status.mac})"
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    },
+                    onConnect = {
+                        touch()
+                        scope.launch {
+                            printerUi = printerUi.copy(busy = true, lastError = null, message = null)
+                            val status = bridges.print.connectPrinter(printerUi.mac)
+                            printerUi = printerUi.copy(
+                                connected = status.connected,
+                                mac = status.mac,
+                                lastError = status.lastError,
+                                busy = false,
+                                message = if (status.connected) {
+                                    "ESC/POS connected (${status.mac})"
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    },
+                    onOpenFloat = {
+                        touch()
+                        showUtilities = false
+                        showFloat = true
+                        floatError = null
+                    },
+                    onDismiss = {
+                        showUtilities = false
+                        onExitKiosk()
+                    },
+                )
+            }
+        }
+
         if (showFloat) {
             Box(
                 modifier = Modifier
@@ -770,8 +862,6 @@ fun PosApp(
                     },
                     onDismiss = {
                         showFloat = false
-                        // Settings also exits Lock Task for maintenance.
-                        onExitKiosk()
                     },
                 )
             }

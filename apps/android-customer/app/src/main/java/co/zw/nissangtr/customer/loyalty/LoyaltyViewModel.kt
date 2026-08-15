@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.customer.rpc.LoyaltyBalance
+import co.zw.nissangtr.customer.rpc.LoyaltyLedgerEntry
 import co.zw.nissangtr.customer.rpc.RpcClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 
 data class LoyaltyUiState(
     val balance: LoyaltyBalance? = null,
+    val ledger: List<LoyaltyLedgerEntry> = emptyList(),
     val busy: Boolean = false,
     val error: String? = null,
 )
@@ -34,7 +36,10 @@ class LoyaltyViewModel(
                 val customer = rpc.loadOwnCustomer()
                     ?: error("Sign in and link a customer profile to view loyalty.")
                 val balance = rpc.getLoyaltyBalance(customer.id)
-                _state.update { it.copy(busy = false, balance = balance) }
+                val ledger = rpc.listLoyaltyLedger(customer.id)
+                _state.update {
+                    it.copy(busy = false, balance = balance, ledger = ledger)
+                }
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "load failed") }
             }

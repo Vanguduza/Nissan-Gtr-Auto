@@ -9,6 +9,7 @@ import co.zw.nissangtr.catalogapk.discovery.CatalogDiscoveryService
 import co.zw.nissangtr.catalogapk.discovery.DiscoveredChassis
 import co.zw.nissangtr.catalogapk.discovery.DiscoveredMaker
 import co.zw.nissangtr.catalogapk.discovery.DiscoveredModel
+import co.zw.nissangtr.catalogapk.discovery.FlareSolverrLifecycle
 import co.zw.nissangtr.catalogapk.worker.SupervisorScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,7 +35,11 @@ data class SessionUiState(
 
 class NewSessionViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as CatalogApkApplication
-    private val discovery = CatalogDiscoveryService(app.profileRepository)
+    private val discovery = CatalogDiscoveryService(
+        app.profileRepository,
+        FlareSolverrLifecycle(app, app.appPreferences),
+        app,
+    )
 
     val profiles: StateFlow<List<SiteProfileEntity>> = app.profileRepository.observeProfiles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -169,7 +174,7 @@ class NewSessionViewModel(application: Application) : AndroidViewModel(applicati
             var free = (gate.effectiveMaxSlots - active.size).coerceAtLeast(0)
             jobs.forEach { job ->
                 if (free > 0) {
-                    SupervisorScheduler.enqueue(getApplication(), job.id)
+                    SupervisorScheduler.enqueue(getApplication(), job.id, replace = true)
                     free--
                 }
             }

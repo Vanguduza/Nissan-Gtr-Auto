@@ -12,6 +12,7 @@ import co.zw.nissangtr.catalogapk.data.prefs.SecurePrefs
 import co.zw.nissangtr.catalogapk.data.profile.ProfileRepository
 import co.zw.nissangtr.catalogapk.data.profile.ProfileSeeder
 import co.zw.nissangtr.catalogapk.worker.SupervisorReclaimWorker
+import co.zw.nissangtr.catalogapk.worker.SupervisorScheduler
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import kotlinx.coroutines.CoroutineScope
@@ -67,6 +68,8 @@ class CatalogApkApplication : Application(), Configuration.Provider {
                     .seedIfNeeded()
             }
             SupervisorReclaimWorker.ensureScheduled(this)
+            // Pick up QUEUED/PAUSED RUN jobs immediately on cold start (periodic is 15m).
+            SupervisorScheduler.kickSupervisor(this)
         }
     }
 

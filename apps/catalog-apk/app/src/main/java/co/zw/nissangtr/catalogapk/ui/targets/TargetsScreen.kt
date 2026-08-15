@@ -50,7 +50,9 @@ fun TargetsScreen(
     var partsHub by remember { mutableStateOf("/parts") }
     var previewUrl by remember { mutableStateOf("") }
     var cloudflareMode by remember { mutableStateOf("auto") }
-    var flaresolverrUrl by remember { mutableStateOf("http://127.0.0.1:8191/v1") }
+    var flaresolverrUrl by remember {
+        mutableStateOf(co.zw.nissangtr.catalogapk.discovery.FlareSolverrLifecycle.DEFAULT_FLARE_API)
+    }
     var displayName by remember { mutableStateOf("") }
     var engine by remember { mutableStateOf("custom") }
     var engineExpanded by remember { mutableStateOf(false) }
@@ -63,8 +65,8 @@ fun TargetsScreen(
         makerHub = state.makerHub
         partsHub = state.partsHub
         previewUrl = state.previewUrl
-        cloudflareMode = state.cloudflareMode
-        flaresolverrUrl = state.flaresolverrUrl
+        cloudflareMode = "auto"
+        flaresolverrUrl = co.zw.nissangtr.catalogapk.discovery.FlareSolverrLifecycle.DEFAULT_FLARE_API
         displayName = profile.displayName
         engine = profile.engine
     }
@@ -78,7 +80,7 @@ fun TargetsScreen(
         makerHub = "/parts/{maker_slug}"
         partsHub = "/parts"
         cloudflareMode = "auto"
-        flaresolverrUrl = "http://127.0.0.1:8191/v1"
+        flaresolverrUrl = co.zw.nissangtr.catalogapk.discovery.FlareSolverrLifecycle.DEFAULT_FLARE_API
         previewUrl = ""
     }
 
@@ -114,7 +116,7 @@ fun TargetsScreen(
                                 Text(profile.displayName, style = MaterialTheme.typography.titleMedium)
                                 Text("${profile.engine} · ${if (profile.isPreset) "preset" else "custom"}")
                                 Text(profile.baseUrl, style = MaterialTheme.typography.bodySmall)
-                                Text("CF: ${profile.cloudflareMode}", color = MaterialTheme.colorScheme.primary)
+                                Text("CF: auto", color = MaterialTheme.colorScheme.primary)
                             }
                             if (!profile.isPreset) {
                                 IconButton(onClick = { viewModel.deleteCustom(profile.id) }) {
@@ -152,7 +154,15 @@ fun TargetsScreen(
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
                             )
                             ExposedDropdownMenu(expanded = engineExpanded, onDismissRequest = { engineExpanded = false }) {
-                                listOf("megazip", "partsouq", "custom").forEach { e ->
+                                listOf(
+                                    "megazip",
+                                    "partsouq",
+                                    "7zap",
+                                    "catcar",
+                                    "japancats",
+                                    "japan_parts",
+                                    "custom",
+                                ).forEach { e ->
                                     DropdownMenuItem(text = { Text(e) }, onClick = { engine = e; engineExpanded = false })
                                 }
                             }
@@ -182,17 +192,10 @@ fun TargetsScreen(
                         label = { Text("Maker hub template") },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
-                        value = cloudflareMode,
-                        onValueChange = { cloudflareMode = it },
-                        label = { Text("Cloudflare mode (auto|always|off)") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = flaresolverrUrl,
-                        onValueChange = { flaresolverrUrl = it },
-                        label = { Text("FlareSolverr URL") },
-                        modifier = Modifier.fillMaxWidth(),
+                    Text(
+                        "Cloudflare: auto (FlareSolverr sidecar only when challenged — no setup in-app).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text("Preview: $previewUrl", style = MaterialTheme.typography.bodySmall)
                 }
@@ -202,13 +205,24 @@ fun TargetsScreen(
                     onClick = {
                         if (adding) {
                             viewModel.addTarget(
-                                displayName, engine, baseUrl, makerHub, partsHub, cloudflareMode, flaresolverrUrl,
+                                displayName,
+                                engine,
+                                baseUrl,
+                                makerHub,
+                                partsHub,
+                                "auto",
+                                co.zw.nissangtr.catalogapk.discovery.FlareSolverrLifecycle.DEFAULT_FLARE_API,
                             ) {
                                 adding = false
                             }
                         } else {
                             viewModel.saveEdit(
-                                editing!!.id, baseUrl, makerHub, partsHub, cloudflareMode, flaresolverrUrl,
+                                editing!!.id,
+                                baseUrl,
+                                makerHub,
+                                partsHub,
+                                "auto",
+                                co.zw.nissangtr.catalogapk.discovery.FlareSolverrLifecycle.DEFAULT_FLARE_API,
                             )
                             editing = null
                         }

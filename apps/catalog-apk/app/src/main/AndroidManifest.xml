@@ -55,6 +55,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- ADB smoke: am broadcast -a co.zw.nissangtr.catalogapk.DEBUG_ENQUEUE ... -->
+        <receiver
+            android:name=".worker.DebugEnqueueReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="co.zw.nissangtr.catalogapk.DEBUG_ENQUEUE" />
+            </intent-filter>
+        </receiver>
+
         <!-- Chaquopy crawl runs in isolated :worker process -->
         <service
             android:name="androidx.work.multiprocess.RemoteWorkerService"

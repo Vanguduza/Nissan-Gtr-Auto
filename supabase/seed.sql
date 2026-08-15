@@ -134,6 +134,44 @@ INSERT INTO public.staff_roles (user_id, role) VALUES
   ('a0000000-0000-4000-8000-000000000003', 'warehouse')
 ON CONFLICT DO NOTHING;
 
+-- Active employees required by resolve_staff_login_email (emp#|email|phone → GoTrue).
+-- Fixed codes match migration 20260815240000_seed_staff_employees_backfill.
+INSERT INTO public.employees (
+  user_id, employee_code, full_name, email, hire_date, status
+)
+VALUES
+  (
+    'a0000000-0000-4000-8000-000000000001',
+    'SEED-ADMIN',
+    'Local Admin',
+    'admin@gtr.local',
+    CURRENT_DATE,
+    'active'
+  ),
+  (
+    'a0000000-0000-4000-8000-000000000002',
+    'SEED-FINANCE',
+    'Local Finance',
+    'finance@gtr.local',
+    CURRENT_DATE,
+    'active'
+  ),
+  (
+    'a0000000-0000-4000-8000-000000000003',
+    'SEED-WAREHOUSE',
+    'Local Warehouse',
+    'warehouse@gtr.local',
+    CURRENT_DATE,
+    'active'
+  )
+ON CONFLICT (user_id) DO UPDATE
+SET
+  employee_code = EXCLUDED.employee_code,
+  full_name = EXCLUDED.full_name,
+  email = EXCLUDED.email,
+  status = 'active',
+  updated_at = now();
+
 -- Storefront customers linked to auth profiles (same UUIDs as customer_storefront_authz_smoke)
 INSERT INTO public.customers (id, display_name, email, currency, profile_id)
 VALUES

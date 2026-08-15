@@ -15,6 +15,14 @@
     "T30": {
       "megazip_available": true,
       "model_seed": "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/x-trail-2064"
+    },
+    "D40": {
+      "megazip_available": true,
+      "model_seed": "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/frontier-2140"
+    },
+    "C11": {
+      "megazip_available": true,
+      "model_seed": "https://www.megazip.net/zapchasti-dlya-avtomobilej/nissan/tiida-tiida-latio-2092"
     }
   }
 }

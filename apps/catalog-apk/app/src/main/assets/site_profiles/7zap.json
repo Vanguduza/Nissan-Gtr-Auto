@@ -1,0 +1,32 @@
+{
+  "id": "7zap",
+  "display_name": "7zap",
+  "engine": "7zap",
+  "base_url": "https://7zap.com",
+  "cloudflare": {
+    "mode": "always",
+    "flaresolverr_url": "http://127.0.0.1:8191/v1"
+  },
+  "paths": {
+    "parts_hub": "/en/catalog/cars/",
+    "maker_hub": "/en/catalog/cars/{maker_slug}/europe/",
+    "catalog_prefix": "/en/catalog/cars",
+    "model": "/en/catalog/cars/{maker_slug}/europe/{model_slug}-parts-catalog/",
+    "variant": "/en/catalog/cars/{maker_slug}/europe/{model_slug}-parts-catalog/",
+    "section": "/en/catalog/cars/{maker_slug}/europe/{model_slug}-parts-catalog/{section_slug}/",
+    "maker_slug_map": {
+      "Nissan": "nissan",
+      "Toyota": "toyota",
+      "Honda": "honda",
+      "Mazda": "mazda",
+      "Subaru": "subaru",
+      "Mitsubishi": "mitsubishi",
+      "Lexus": "lexus",
+      "Infiniti": "infiniti"
+    }
+  },
+  "selectors": {
+    "preset": "7zap_v1"
+  },
+  "rate_limit_seconds": 0.6
+}

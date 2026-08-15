@@ -1224,6 +1224,26 @@ class FakeRpcClient : RpcClient {
             estimatedLiabilityMinor = 120L,
         )
 
+    override suspend fun listLoyaltyLedger(customerId: String, limit: Int): List<LoyaltyLedgerEntry> =
+        listOf(
+            LoyaltyLedgerEntry(
+                id = "00000000-0000-4000-8000-0000000000le",
+                movement = "earn",
+                points = 100.0,
+                pointsBalanceAfter = 120.0,
+                reason = "Demo order earn",
+                createdAt = "2026-08-01T10:00:00Z",
+            ),
+            LoyaltyLedgerEntry(
+                id = "00000000-0000-4000-8000-0000000000lr",
+                movement = "redeem",
+                points = -20.0,
+                pointsBalanceAfter = 100.0,
+                reason = "Demo redeem",
+                createdAt = "2026-08-10T12:00:00Z",
+            ),
+        ).take(limit.coerceAtLeast(1))
+
     override suspend fun postCustomerReturnCreditNote(
         invoiceId: String,
         lines: List<ReturnCreditNoteLine>,

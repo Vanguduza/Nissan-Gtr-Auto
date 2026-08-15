@@ -84,6 +84,7 @@ import co.zw.nissangtr.customer.pay.PayIntentScreen
 import co.zw.nissangtr.customer.pay.PayModule
 import co.zw.nissangtr.customer.profile.EditProfileScreen
 import co.zw.nissangtr.customer.returns.ReturnsScreen
+import co.zw.nissangtr.customer.reviews.OwnReviewsScreen
 import co.zw.nissangtr.customer.prefs.CustomerPrefs
 import co.zw.nissangtr.customer.prefs.ThemeMode
 import co.zw.nissangtr.customer.rpc.FakeRpcClient
@@ -124,7 +125,7 @@ private enum class ShellTab(val label: String, val icon: ImageVector) {
     Settings("Settings", Icons.Filled.Settings),
 }
 
-/** Nested account destinations — Reviews / Wallet / Settings / Help removed from hub. */
+/** Nested account destinations. */
 private enum class ProfileDest(val title: String, val subtitle: String) {
     Hub("My Account", "Orders · pay · extras"),
     EditProfile("Edit profile", "Personal · contact"),
@@ -133,6 +134,7 @@ private enum class ProfileDest(val title: String, val subtitle: String) {
     Loyalty("Loyalty wallet", "Points"),
     Kits("Service kits", "Bundles"),
     Addresses("Addresses", "Delivery · map pick"),
+    Reviews("My reviews", "Submitted · status"),
     Compare("Compare", "Attribute matrix"),
     Pay("Pay", "ContiPay · Paynow · EcoCash"),
     Chat("Live chat", "Counter support"),
@@ -575,6 +577,10 @@ private fun CustomerApp(
                         HamburgerMenuAction.OpenAbout,
                         HamburgerMenuAction.OpenContact,
                         HamburgerMenuAction.OpenStoreLocator -> Unit
+                        HamburgerMenuAction.OpenLiveChat -> {
+                            openAccount(ProfileDest.Chat)
+                            overlay = ShellOverlay.None
+                        }
                     }
                 },
             )
@@ -863,6 +869,10 @@ private fun ProfileStack(
             googleMapsKeyPresent = googleMapsKeyPresent,
             onBack = { onDest(ProfileDest.Hub) },
         )
+        ProfileDest.Reviews -> OwnReviewsScreen(
+            rpc = rpc,
+            onBack = { onDest(ProfileDest.Hub) },
+        )
         ProfileDest.Compare -> CompareScreen(
             rpc = rpc,
             isSignedIn = signedIn,
@@ -952,6 +962,7 @@ private fun ProfileHub(
             ShopProfileItemBox("Loyalty wallet", Icons.Filled.Star) { onOpen(ProfileDest.Loyalty) }
             ShopProfileItemBox("Service kits", Icons.Filled.Build) { onOpen(ProfileDest.Kits) }
             ShopProfileItemBox("Manage address", Icons.Filled.LocationOn) { onOpen(ProfileDest.Addresses) }
+            ShopProfileItemBox("My reviews", Icons.Filled.Star) { onOpen(ProfileDest.Reviews) }
             ShopProfileItemBox("Payment methods", Icons.Filled.CreditCard) { onOpen(ProfileDest.Pay) }
             ShopProfileItemBox("My garage", Icons.Filled.DirectionsCar, onClick = onOpenGarage)
             ShopProfileItemBox("Compare", Icons.Filled.CompareArrows) { onOpen(ProfileDest.Compare) }

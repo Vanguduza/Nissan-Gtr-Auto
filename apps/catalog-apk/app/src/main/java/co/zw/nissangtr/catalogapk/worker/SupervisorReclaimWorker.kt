@@ -69,7 +69,8 @@ class SupervisorReclaimWorker(
 
         for (job in candidates) {
             if (free <= 0) break
-            SupervisorScheduler.enqueue(applicationContext, job.id)
+            // REPLACE clears stuck ENQUEUED/backoff unique work from prior slot deferrals.
+            SupervisorScheduler.enqueue(applicationContext, job.id, replace = true)
             free--
         }
         return Result.success()

@@ -31,7 +31,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
-from data_pipeline.catalogue_watchdog import process_alive
+try:
+    from data_pipeline.catalogue_watchdog import process_alive
+except ImportError:  # pragma: no cover - slim / partial vendor
+    def process_alive(pid: int) -> bool:  # type: ignore[misc]
+        return False
 
 logger = logging.getLogger("data_pipeline.partsouq_catalog_orchestrator")
 
@@ -627,8 +631,95 @@ def prepare_maker(paths: MakerPaths, opts: OrchestratorOptions) -> None:
     write_maker_meta(paths, status="prepared")
 
 
+def _is_chaquopy_embed() -> bool:
+    """True when running inside Chaquopy (no real multi-process Python)."""
+    return "chaquopy" in sys.modules or hasattr(sys, "getandroidapilevel")
+
+
+def _module_argv(full_argv: list[str]) -> list[str]:
+    """Strip ``python -m module`` prefix → args for ``module.main(argv)``."""
+    if len(full_argv) >= 3 and full_argv[1] == "-m":
+        return full_argv[3:]
+    if len(full_argv) >= 2 and full_argv[0] == "-m":
+        return full_argv[2:]
+    return full_argv
+
+
+def _run_module_main(module_name: str, full_argv: list[str]) -> int:
+    mod = __import__(module_name, fromlist=["main"])
+    main_fn = getattr(mod, "main", None)
+    if not callable(main_fn):
+        raise RuntimeError(f"{module_name} has no callable main()")
+    argv = _module_argv(full_argv)
+    prev = sys.argv[:]
+    try:
+        sys.argv = [module_name, *argv]
+        return int(main_fn(argv) or 0)
+    except SystemExit as exc:
+        code = exc.code
+        if code is None:
+            return 0
+        return int(code) if isinstance(code, int) else 1
+    finally:
+        sys.argv = prev
+
+
+def run_maker_job_inprocess(paths: MakerPaths, opts: OrchestratorOptions) -> MakerJobResult:
+    """Chaquopy / single-interpreter path: crawl → parse-once → transform."""
+    result = MakerJobResult(
+        maker=paths.maker,
+        slug=paths.slug,
+        ok=False,
+        paths=paths.as_manifest_entry(),
+    )
+    prepare_maker(paths, opts)
+    write_maker_meta(paths, status="running", started_at=datetime.now(timezone.utc).isoformat())
+    logger.info("[%s] in-process crawl+parse (Chaquopy embed)", paths.maker)
+    try:
+        crawl_argv = build_crawl_argv(paths, opts)
+        result.crawl_exit = _run_module_main(CRAWL_MODULE, crawl_argv)
+        logger.info("[%s] crawl exited code=%s", paths.maker, result.crawl_exit)
+
+        once_argv = build_parse_once_argv(paths, opts)
+        result.parse_final_exit = _run_module_main(PARSE_MODULE, once_argv)
+        logger.info("[%s] parse-once exited code=%s", paths.maker, result.parse_final_exit)
+
+        if opts.transform_after:
+            tr_argv = build_transform_argv(paths, opts)
+            result.transform_exit = _run_module_main(CRAWL_MODULE, tr_argv)
+            logger.info("[%s] transform exited code=%s", paths.maker, result.transform_exit)
+
+        result.ok = (
+            result.crawl_exit == 0
+            and (result.parse_final_exit in (0, None))
+            and (result.transform_exit in (0, None))
+        )
+        write_maker_meta(
+            paths,
+            status="completed" if result.ok else "failed",
+            crawl_exit=result.crawl_exit,
+            parse_final_exit=result.parse_final_exit,
+            transform_exit=result.transform_exit,
+            finished_at=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        result.error = str(exc)
+        result.ok = False
+        write_maker_meta(paths, status="error", error=str(exc))
+        logger.exception("[%s] in-process job failed: %s", paths.maker, exc)
+        try:
+            (paths.root / "fail_reason.txt").write_text(str(exc) + "\n", encoding="utf-8")
+            (opts.out_root / "fail_reason.txt").write_text(str(exc) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+    return result
+
+
 def run_maker_job(paths: MakerPaths, opts: OrchestratorOptions) -> MakerJobResult:
     """Crawl without interruption; one parse watcher handles identity + catch-up."""
+    if _is_chaquopy_embed():
+        return run_maker_job_inprocess(paths, opts)
+
     result = MakerJobResult(
         maker=paths.maker,
         slug=paths.slug,
@@ -720,6 +811,10 @@ def run_maker_job(paths: MakerPaths, opts: OrchestratorOptions) -> MakerJobResul
         # On abort only: stop owned crawl if still running (do not touch unrelated PIDs).
         if crawl_proc is not None and crawl_proc.poll() is None:
             terminate_owned(crawl_proc, paths.crawl_pid)
+        try:
+            (opts.out_root / "fail_reason.txt").write_text(str(exc) + "\n", encoding="utf-8")
+        except OSError:
+            pass
     finally:
         terminate_owned(parse_proc, paths.parse_pid)
 
@@ -812,6 +907,11 @@ def run_orchestrator(opts: OrchestratorOptions) -> int:
             "Completed with failures: %s",
             ", ".join(f"{r.maker}({r.error or r.crawl_exit})" for r in failed),
         )
+        reason = ", ".join(f"{r.maker}({r.error or r.crawl_exit})" for r in failed)
+        try:
+            (opts.out_root / "fail_reason.txt").write_text(reason + "\n", encoding="utf-8")
+        except OSError:
+            pass
         return 1
 
     logger.info("All %s maker job(s) completed OK → %s", len(ordered), opts.out_root)
@@ -911,9 +1011,72 @@ resource notes:
     p.add_argument(
         "--single-chassis",
         default=None,
-        help="Hint chassis code for APK sessions (maps to priority-chassis filter when set)",
+        help=(
+            "APK / chassis-scoped sessions: write a one-code priority-chassis JSON "
+            "and pass it to the crawl claim filter (required for on-device depth)"
+        ),
     )
     return p
+
+
+def write_single_chassis_priority_file(
+    out_root: Path,
+    chassis: str,
+    *,
+    base: Path | None = DEFAULT_PRIORITY_CHASSIS_FILE,
+) -> Path:
+    """Materialize a one-chassis priority file so claim_next_url scopes the queue.
+
+    ``--single-chassis`` used to be accepted but ignored — phone jobs walked the
+    whole maker tree and never reached diagram depth in reasonable time.
+    """
+    code = chassis.strip().upper()
+    if not code:
+        raise ValueError("--single-chassis requires a non-empty chassis code")
+
+    meta: dict[str, Any] = {"aliases": [code], "curated": True}
+    if base is not None and base.is_file():
+        try:
+            data = json.loads(base.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+        block = (data.get("chassis") or {}).get(code)
+        if isinstance(block, dict):
+            aliases = [str(a).strip().upper() for a in (block.get("aliases") or []) if str(a).strip()]
+            if code not in aliases:
+                aliases.append(code)
+            meta = {**block, "aliases": aliases or [code]}
+        else:
+            # Match aliases / chassis_codes entries (e.g. AD0NN → AD0)
+            for raw, entry in (data.get("chassis") or {}).items():
+                if not isinstance(entry, dict):
+                    continue
+                tokens = {str(raw).strip().upper()}
+                tokens.update(
+                    str(a).strip().upper() for a in (entry.get("aliases") or []) if str(a).strip()
+                )
+                if code in tokens:
+                    aliases = sorted(tokens)
+                    meta = {**entry, "aliases": aliases}
+                    code = str(entry.get("canonical") or raw).strip().upper() or code
+                    break
+
+    out_root = Path(out_root)
+    out_root.mkdir(parents=True, exist_ok=True)
+    path = out_root / f"_apk_priority_{code}.json"
+    payload = {
+        "version": 1,
+        "maker": "nissan",
+        "notes": (
+            f"APK --single-chassis {code} priority filter "
+            "(scopes claim_next_url; not full maker tree)"
+        ),
+        "chassis_codes": [code],
+        "chassis": {code: meta},
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    logger.info("Single-chassis priority filter → %s (%s)", path, code)
+    return path
 
 
 def options_from_args(args: argparse.Namespace, makers: list[str]) -> OrchestratorOptions:
@@ -928,6 +1091,12 @@ def options_from_args(args: argparse.Namespace, makers: list[str]) -> Orchestrat
     priority_file: Path | None = None
     if args.priority_chassis_file is not None:
         priority_file = args.priority_chassis_file
+    elif getattr(args, "single_chassis", None):
+        # Narrower than --priority-chassis (full curated list): one chassis only.
+        priority_file = write_single_chassis_priority_file(
+            Path(args.out_root),
+            str(args.single_chassis),
+        )
     elif args.priority_chassis:
         priority_file = DEFAULT_PRIORITY_CHASSIS_FILE
     return OrchestratorOptions(

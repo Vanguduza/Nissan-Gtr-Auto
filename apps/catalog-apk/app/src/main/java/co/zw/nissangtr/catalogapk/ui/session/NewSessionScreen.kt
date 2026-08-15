@@ -65,7 +65,7 @@ fun NewSessionScreen(
     ) {
         Text("New Session", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Makers, models, and chassis are loaded live from the selected scrape target (FlareSolverr auto if Cloudflare blocks).",
+            "Makers, models, and chassis come from shipped site catalogs (live fetch only if a custom target has no preset).",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

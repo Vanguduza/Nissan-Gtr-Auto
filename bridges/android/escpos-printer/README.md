@@ -78,7 +78,9 @@ Fake: `FakeCashDrawerBridge` — unit tests / debug only. No Web Bluetooth.
 | `BLUETOOTH_CONNECT` / `BLUETOOTH_SCAN` (neverForLocation) | Android 12+ |
 
 Printer must already be **bonded** in system Bluetooth settings; this bridge
-opens an RFCOMM socket to the configured MAC (does not run a discovery UX).
+opens an RFCOMM socket to the configured MAC. Host apps (POS utilities /
+management POS) list bonded devices and call [configurePrinterAddress] —
+MAC is persisted; no Web Bluetooth discovery UX.
 
 ## Hard rules
 

@@ -15,11 +15,10 @@ export default function StaffFinancePage() {
             <span className={styles.titleIcon} aria-hidden>
               <Banknote size={iconSizeMd} strokeWidth={iconStroke} />
             </span>
-            Finance ledger
+            Finance
           </h1>
           <p className={styles.pageSubtitle}>
-            Journals, payments, periods, and reports — pick a view from the
-            sidebar.
+            Online sales, float, payments, reports, and ledger tools.
           </p>
         </header>
         <div className={styles.pageBody}>

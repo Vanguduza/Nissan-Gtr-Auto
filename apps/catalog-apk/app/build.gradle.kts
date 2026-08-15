@@ -152,6 +152,8 @@ val vendorPython = tasks.register<Copy>("vendorPipelinePython") {
 
         include("bundle_filter.py")
 
+        include("bundle_quality_gate.py")
+
         include("import_hierarchy_catalog.py")
 
         include("import_catalog.py")
@@ -169,6 +171,12 @@ val vendorPython = tasks.register<Copy>("vendorPipelinePython") {
         include("amayama_catalog_auto.py")
 
         include("scrape_etiquette.py")
+
+        include("catalogue_watchdog.py")
+
+        include("cache_parse_worker.py")
+
+        include("parse_fast.py")
 
         include("megazip/**")
 
@@ -240,6 +248,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     implementation("androidx.compose.material:material-icons-extended")
+
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     implementation("androidx.navigation:navigation-compose:2.8.4")
 

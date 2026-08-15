@@ -61,7 +61,10 @@ async def _fetch(url: str, *, flaresolverr_url: str | None, force: bool) -> tupl
         )
         status, html = resp.status_code, resp.text
         headers = {k: v for k, v in resp.headers.items()}
-    if flaresolverr_url and looks_like_cloudflare(status, html, headers):
+    # 403/429 on catalog hosts often need Flare even when body is not a classic CF interstitial
+    if flaresolverr_url and (
+        looks_like_cloudflare(status, html, headers) or status in (403, 429, 503)
+    ):
         return await flaresolverr_fetch_html(url, api_url=flaresolverr_url)
     return status, html
 
@@ -87,7 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-slug", default="")
     parser.add_argument("--phase", default="crawl,transform,filter")
     parser.add_argument("--single-chassis", default=None)
-    parser.add_argument("--max-pages", type=int, default=25)
+    # None / omit / 0 => unlimited (matches megazip/partsouq + app max_pages_debug=0)
+    parser.add_argument("--max-pages", type=int, default=None)
     parser.add_argument("--drop-html-after-parse", action="store_true", default=True)
     parser.add_argument("--prune-html-cache", action="store_true", default=True)
     parser.add_argument("--flaresolverr-url", default=None)
@@ -117,12 +121,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if not base_url:
         logger.error("profile snapshot missing base_url")
+        try:
+            (out / "fail_reason.txt").write_text("profile snapshot missing base_url\n", encoding="utf-8")
+        except OSError:
+            pass
         return 1
 
     import asyncio
 
     pages: list[dict[str, Any]] = []
-    max_pages = max(1, int(args.max_pages or 25))
+    # 0 / None => unlimited; positive int => hard page cap
+    max_pages: int | None = None
+    if args.max_pages is not None and int(args.max_pages) > 0:
+        max_pages = int(args.max_pages)
 
     async def run_crawl() -> int:
         seed_paths = []
@@ -135,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
 
         visited: set[str] = set()
         queue = [urljoin(base_url + "/", p.lstrip("/")) for p in seed_paths]
-        while queue and len(pages) < max_pages:
+        while queue and (max_pages is None or len(pages) < max_pages):
             if args.pause_flag and args.pause_flag.is_file():
                 logger.info("pause flag set — cooperative stop")
                 return 2
@@ -170,7 +181,8 @@ def main(argv: list[str] | None = None) -> int:
                     continue
                 if model_slug and model_slug not in href and maker_slug not in href:
                     continue
-                if href not in visited and len(queue) + len(pages) < max_pages * 2:
+                queue_cap = None if max_pages is None else max_pages * 2
+                if href not in visited and (queue_cap is None or len(queue) + len(pages) < queue_cap):
                     queue.append(href)
             time.sleep(0.2)
         return 0
@@ -180,32 +192,39 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     chassis = args.single_chassis or ""
+    # Custom / 7zap / catcar adapters are hierarchy HTML only — not diagram SoR.
+    # Never mark publishable=true from page counts (APK quality gate must FAIL).
     variants = [
         {
             "model_slug": model_slug,
             "variant_slug": _slugify(chassis or "variant"),
             "chassis_code": chassis,
             "exploded_count": 0,
-            "exploded_passing_count": 1 if pages else 0,
+            "exploded_passing_count": 0,
             "raster_count": 0,
             "raster_passing_count": 0,
             "ambiguous_count": 0,
             "ambiguous_passing_count": 0,
             "companion_parts_rows": 0,
-            "complete": bool(pages),
-            "publishable": bool(pages),
+            "complete": False,
+            "publishable": False,
         }
     ]
     quality = {
         "sections": max(0, len(pages) - 1),
         "diagrams": 0,
-        "publishable_variants": 1 if pages else 0,
+        "publishable_variants": 0,
         "uncategorized": 0,
         "engine_fill_pct": 0,
-        "publishable": bool(pages),
+        "publishable": False,
+        "hierarchy_only": True,
+        "diagram_sor": False,
         "custom_adapter": True,
         "pages_fetched": len(pages),
         "profile_id": snapshot.get("id"),
+        "gate_reasons": [
+            "custom/7zap/catcar engines are not megazip/partsouq diagram SoR"
+        ],
     }
     (bundle / "quality_report.json").write_text(json.dumps(quality, indent=2) + "\n", encoding="utf-8")
     (bundle / "variant_quality.json").write_text(

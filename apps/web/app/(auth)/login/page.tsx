@@ -62,7 +62,16 @@ function LoginForm() {
   );
   const [phoneNational, setPhoneNational] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(() => {
+    const notice = searchParams.get("notice");
+    if (notice === "password-reset") {
+      return "Password updated. Sign in with your new password.";
+    }
+    if (notice === "staff-only") {
+      return "That area is for staff accounts only.";
+    }
+    return null;
+  });
   const [busy, setBusy] = useState(false);
 
   const selectedDial =
@@ -332,16 +341,8 @@ function LoginForm() {
           >
             Google
           </button>
-          <button
-            type="button"
-            className={styles.oauthApple}
-            disabled={busy}
-            onClick={() => void onOAuth("apple")}
-          >
-            Apple
-          </button>
           <p className={styles.oauthHint}>
-            First Google or Apple sign-in creates your storefront account.
+            First Google sign-in creates your storefront account.
           </p>
         </div>
       ) : null}
@@ -350,8 +351,14 @@ function LoginForm() {
       {method !== "employee" ? (
         <p className={styles.alt}>
           No account? <Link href="/signup">Create one</Link>
+          {" · "}
+          <Link href="/forgot-password">Forgot password?</Link>
         </p>
-      ) : null}
+      ) : (
+        <p className={styles.alt}>
+          <Link href="/forgot-password">Forgot password?</Link>
+        </p>
+      )}
     </div>
   );
 }

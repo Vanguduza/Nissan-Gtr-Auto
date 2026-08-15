@@ -66,76 +66,87 @@ class TillSession(
      */
     suspend fun applySearchHits(mode: CatalogSearchMode, query: String) {
         if (query.isBlank()) return
-        val response = client.searchCatalog(mode, query)
-        val actions = HitRouter.routeDtos(response.results)
-        for (action in actions) {
-            when (action) {
-                is HitRouteAction.HydrateOems -> {
-                    val tiles = client.listTillItems(
-                        ListTillItemsRequest(
-                            warehouseId = state.fake.session.warehouseId,
-                            source = TillItemsSource.OEMS,
-                            inStockOnly = false,
-                            oems = action.oems,
-                        ),
-                    )
-                    state = state.copy(
-                        fake = state.fake.copy(tiles = tiles),
-                        finderMode = FinderMode.SCAN_OEM,
-                        selectedOem = tiles.firstOrNull()?.oemPartNumber,
-                        banner = null,
-                    )
-                }
-                is HitRouteAction.LatchVehicle -> {
-                    state = state.copy(
-                        fake = state.fake.copy(latch = action.latch),
-                        finderMode = if (action.switchToShopStock) {
-                            FinderMode.SHOP_STOCK
-                        } else {
-                            state.finderMode
-                        },
-                        banner = null,
-                    )
-                    // Shop stock refresh optional; re-badge uses existing tile arrays.
-                    if (action.switchToShopStock) {
-                        loadShopStock()
+        try {
+            val response = client.searchCatalog(mode, query)
+            val actions = HitRouter.routeDtos(response.results)
+            for (action in actions) {
+                when (action) {
+                    is HitRouteAction.HydrateOems -> {
+                        val tiles = client.listTillItems(
+                            ListTillItemsRequest(
+                                warehouseId = state.fake.session.warehouseId,
+                                source = TillItemsSource.OEMS,
+                                inStockOnly = false,
+                                oems = action.oems,
+                            ),
+                        )
+                        state = state.copy(
+                            fake = state.fake.copy(tiles = tiles),
+                            finderMode = FinderMode.SCAN_OEM,
+                            selectedOem = tiles.firstOrNull()?.oemPartNumber,
+                            banner = null,
+                        )
                     }
+                    is HitRouteAction.LatchVehicle -> {
+                        state = state.copy(
+                            fake = state.fake.copy(latch = action.latch),
+                            finderMode = if (action.switchToShopStock) {
+                                FinderMode.SHOP_STOCK
+                            } else {
+                                state.finderMode
+                            },
+                            selectedCategory = null,
+                            banner = null,
+                        )
+                        if (action.switchToShopStock) {
+                            loadShopStock()
+                        }
+                    }
+                    is HitRouteAction.OpenEpcSection -> {
+                        val tiles = client.listTillItems(
+                            ListTillItemsRequest(
+                                warehouseId = state.fake.session.warehouseId,
+                                source = TillItemsSource.SECTION,
+                                inStockOnly = state.inStockOnly,
+                                pncCode = action.pncCode,
+                            ),
+                        )
+                        state = state.copy(
+                            fake = state.fake.copy(tiles = tiles),
+                            finderMode = if (action.switchToEpc) FinderMode.EPC else state.finderMode,
+                            epcSectionPnc = action.pncCode,
+                            selectedOem = tiles.firstOrNull()?.oemPartNumber,
+                            banner = null,
+                        )
+                    }
+                    HitRouteAction.Ignore -> Unit
                 }
-                is HitRouteAction.OpenEpcSection -> {
-                    val tiles = client.listTillItems(
-                        ListTillItemsRequest(
-                            warehouseId = state.fake.session.warehouseId,
-                            source = TillItemsSource.SECTION,
-                            inStockOnly = state.inStockOnly,
-                            pncCode = action.pncCode,
-                        ),
-                    )
-                    state = state.copy(
-                        fake = state.fake.copy(tiles = tiles),
-                        finderMode = if (action.switchToEpc) FinderMode.EPC else state.finderMode,
-                        epcSectionPnc = action.pncCode,
-                        selectedOem = tiles.firstOrNull()?.oemPartNumber,
-                        banner = null,
-                    )
-                }
-                HitRouteAction.Ignore -> Unit
             }
+        } catch (e: Exception) {
+            state = state.copy(banner = e.message ?: "Search failed")
         }
     }
 
     suspend fun loadShopStock() {
-        val latch = state.latch
-        val tiles = client.listTillItems(
-            ListTillItemsRequest(
-                warehouseId = state.fake.session.warehouseId,
-                source = TillItemsSource.SHOP_STOCK,
-                inStockOnly = state.inStockOnly,
-                category = state.selectedCategory,
-                chassisCode = latch?.chassisCode,
-                engineCode = latch?.engineCode,
-            ),
-        )
-        state = state.copy(fake = state.fake.copy(tiles = tiles))
+        try {
+            val latch = state.latch
+            val tiles = client.listTillItems(
+                ListTillItemsRequest(
+                    warehouseId = state.fake.session.warehouseId,
+                    source = TillItemsSource.SHOP_STOCK,
+                    inStockOnly = state.inStockOnly,
+                    category = state.selectedCategory,
+                    chassisCode = latch?.chassisCode,
+                    engineCode = latch?.engineCode,
+                ),
+            )
+            state = state.copy(
+                fake = state.fake.copy(tiles = tiles),
+                banner = null,
+            )
+        } catch (e: Exception) {
+            state = state.copy(banner = e.message ?: "Shop stock failed")
+        }
     }
 
     /**
@@ -309,6 +320,39 @@ class TillSession(
         state = state.copy(chassisShortcuts = chips)
     }
 
+    fun setBanner(message: String?) {
+        state = state.copy(banner = message)
+    }
+
+    /** After Live createCart — pull staff/cart snapshot without wiping latch. */
+    fun importStaffCart(fresh: co.zw.nissangtr.pos.api.TillFakeState) {
+        state = state.copy(
+            fake = state.fake.copy(
+                session = fresh.session.copy(
+                    staffName = state.fake.session.staffName.ifBlank { fresh.session.staffName },
+                ),
+                ticket = fresh.ticket,
+                online = fresh.online,
+                statusLabel = fresh.statusLabel,
+            ),
+        )
+    }
+
+    /** Open a cart when Live session has none (safe to call after sign-in). */
+    suspend fun ensureOpenCart(): String? {
+        if (state.fake.session.cartId != null) return null
+        return try {
+            val wh = state.fake.session.warehouseId.ifBlank { "wh2" }
+            client.createCart(wh, null)
+            importStaffCart(client.fakeTillState())
+            null
+        } catch (e: Exception) {
+            val msg = e.message ?: "Could not open cart"
+            setBanner(msg)
+            msg
+        }
+    }
+
     /**
      * Chassis shortcut chip → latch + shop-stock filter.
      * Pure latch via [ChassisChipLatch]; caller refreshes tiles.
@@ -322,6 +366,7 @@ class TillSession(
         state = state.copy(
             fake = state.fake.copy(latch = latch),
             finderMode = FinderMode.SHOP_STOCK,
+            selectedCategory = null,
             banner = null,
         )
         loadShopStock()

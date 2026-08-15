@@ -3,12 +3,14 @@ package co.zw.nissangtr.pos.lookup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -119,24 +121,36 @@ fun FacetChipsRow(
     onInStockToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        categories.forEach { cat ->
-            val selected = cat == selectedCategory
+        Text(
+            text = "Category",
+            style = MaterialTheme.typography.labelSmall,
+            color = GtrColors.SilverDim,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            categories.forEach { cat ->
+                val selected = cat == selectedCategory
+                FacetChip(
+                    label = cat,
+                    selected = selected,
+                    onClick = { onCategory(if (selected) null else cat) },
+                )
+            }
             FacetChip(
-                label = cat,
-                selected = selected,
-                onClick = { onCategory(if (selected) null else cat) },
+                label = if (inStockOnly) "In stock" else "All stock",
+                selected = inStockOnly,
+                onClick = onInStockToggle,
+                selectedColor = GtrColors.Accent,
             )
         }
-        FacetChip(
-            label = if (inStockOnly) "In stock" else "All stock",
-            selected = inStockOnly,
-            onClick = onInStockToggle,
-            selectedColor = GtrColors.Accent,
-        )
     }
 }
 

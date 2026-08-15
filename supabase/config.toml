@@ -46,7 +46,7 @@ additional_redirect_urls = [
   "gtrcustomer://auth/callback",
   "gtr-customer://auth/callback",
 ]
-# Must be true so first-time Google/Apple can create Auth users.
+# Must be true so first-time Google can create Auth users.
 # Public email/password GoTrue signup is blocked by hook_before_user_created
 # (OTP complete_signup + HR onboarding set app_metadata.gtr_provisioned_via).
 enable_signup = true
@@ -56,9 +56,11 @@ enable_signup = true
 # (including password login). Keep true so seeded/staff users can sign in;
 # public email signup is blocked by [auth.hook.before_user_created], not this flag.
 enable_signup = true
+# Customer email ownership is proven via Edge auth-otp (signup) and
+# request/verify-password-reset — not GoTrue confirm-email links.
 enable_confirmations = false
 
-# Reject public /signup while allowing Google/Apple + Edge Admin provisioning.
+# Reject public /signup while allowing Google + Edge Admin provisioning.
 # Hosted: Dashboard → Authentication → Hooks → Before user created → same pg function.
 [auth.hook.before_user_created]
 enabled = true
@@ -68,8 +70,7 @@ uri = "pg-functions://postgres/public/hook_before_user_created"
 # Local: keep enabled=false until Client ID + Secret exist in supabase/.env
 #   (or shell). Then set enabled=true and restart (`supabase stop` / `start`).
 #   Env names: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID / _SECRET
-#              SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID / _SECRET
-# Hosted: Dashboard → Authentication → Providers (enable + paste credentials).
+# Hosted: Dashboard → Authentication → Providers → Google only (Apple disabled).
 # config.toml does not control hosted. See docs/CUSTOMER_OAUTH_SETUP.md
 [auth.external.google]
 enabled = false
@@ -79,13 +80,8 @@ redirect_uri = ""
 url = ""
 skip_nonce_check = false
 
-[auth.external.apple]
-enabled = false
-client_id = "env(SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID)"
-secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
-redirect_uri = ""
-url = ""
-skip_nonce_check = false
+# Apple Sign In removed from product (web/iOS). Do not enable.
+# [auth.external.apple] intentionally omitted.
 
 [analytics]
 enabled = false
@@ -167,4 +163,12 @@ verify_jwt = true
 # verify mints proof_token; complete_signup/login require it.
 # Public GoTrue email signup blocked by before_user_created hook (not enable_signup=false).
 [functions.auth-otp]
+verify_jwt = false
+
+# Password recovery OTP (email | phone). Same fail-closed gates as auth-otp.
+# Anonymous callers (no session) — JWT off; rate-limit via challenge table.
+[functions.request-password-reset]
+verify_jwt = false
+
+[functions.verify-password-reset]
 verify_jwt = false

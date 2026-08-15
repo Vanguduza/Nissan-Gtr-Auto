@@ -9,15 +9,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 data class CrawlSettingsUi(
     val maxSlots: Int = 1,
-    val requireCharging: Boolean = true,
-    val requireWifi: Boolean = true,
-    val debugBypass: Boolean = false,
+    val requireCharging: Boolean = false,
+    val requireWifi: Boolean = false,
+    val debugBypass: Boolean = true,
     val maxPagesDebug: Int = 0,
 )
 
@@ -32,17 +33,20 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    val settings: StateFlow<CrawlSettingsUi> = kotlinx.coroutines.flow.combine(
+    val settings: StateFlow<CrawlSettingsUi> = combine(
         app.appPreferences.maxConcurrentJobs,
         app.appPreferences.requireCharging,
         app.appPreferences.requireUnmeteredWifi,
         app.appPreferences.debugBypassGates,
-    ) { slots, charge, wifi, bypass ->
-        CrawlSettingsUi(slots, charge, wifi, bypass, 0)
-    }.let { base ->
-        kotlinx.coroutines.flow.combine(base, app.appPreferences.maxPagesDebug) { s, pages ->
-            s.copy(maxPagesDebug = pages)
-        }
+        app.appPreferences.maxPagesDebug,
+    ) { slots, charge, wifi, bypass, pages ->
+        CrawlSettingsUi(
+            maxSlots = slots,
+            requireCharging = charge,
+            requireWifi = wifi,
+            debugBypass = bypass,
+            maxPagesDebug = pages,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CrawlSettingsUi())
 
     fun addProject(name: String, url: String, anonKey: String) {
