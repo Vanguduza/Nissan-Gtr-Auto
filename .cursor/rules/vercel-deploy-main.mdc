@@ -1,0 +1,13 @@
+---
+description: Vercel production deploys from main; commit author must match GitHub
+alwaysApply: true
+---
+
+# Vercel deploy path
+
+When the user asks to commit, upload, or deploy to Vercel:
+
+1. Author commits as `tapiwaguduza <tapiwaguduza@gmail.com>` (Hobby blocks `j@local`).
+2. Push the branch, then **merge into `main` and push `main`**. Production (`nissangtrauto.co.zw`) auto-deploys from `main` only.
+3. Do not stop at a feature-branch preview unless they ask for preview-only.
+4. Vercel hosts `apps/web` only. Still merge the branch to `main` so Git + production stay in sync.
