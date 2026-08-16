@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-16
 
+### Added
+
+- **CoolMall ← web staff injection plan (audit + design):** Fresh inventory of all web management surfaces (`STAFF_NAV_TREE` + cross-cutting; My Account, payroll fund, master-stock RBAC, advisor harden) mapped to CoolMall `feature:*` / `gtradapter` RPCs with Phase B (Auth Live → My Account → master-stock Live) and Phase D desk order. POS stays `android-pos` / deferred. Plan: `docs/plans/2026-08-16-coolmall-web-feature-injection.md`.
+
 ### Fixed
 
 - **Supabase Database Advisors (hosted `gylrgwqyuiwkyykardwc`):** Migration `20260816040000_advisor_security_performance_harden.sql` — `v_master_stock` `security_invoker` (clears ERROR); `search_path` on 110 functions; revoke PUBLIC/anon EXECUTE on SD funcs (7 intentional anon RPCs re-granted); revoke authenticated EXECUTE on internal SD helpers; wrap RLS `auth.*` / `current_setting` in `(select …)` (clears `auth_rls_initplan`). Pushed via `db push`. Remaining WARN rationale in `docs/HARDENING.md` §8.
