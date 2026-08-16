@@ -17,7 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -59,6 +62,7 @@ internal fun MainScreen(
     onNavigationItemSelected: (Int) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    var openModuleId by remember { mutableStateOf<String?>(null) }
 
     val pageState = rememberPagerState(
         initialPage = currentPageIndex,
@@ -78,6 +82,7 @@ internal fun MainScreen(
             BottomNavigationBar(
                 destinations = TopLevelDestination.entries,
                 onNavigateToDestination = { index ->
+                    openModuleId = null
                     onNavigationItemSelected(index)
                     scope.launch {
                         pageState.scrollToPage(index)
@@ -91,12 +96,23 @@ internal fun MainScreen(
         MainScreenContentView(
             pageState = pageState,
             paddingValues = paddingValues,
-            onOpenWarehouse = {
-                onNavigationItemSelected(TopLevelDestination.WAREHOUSE.ordinal)
-                scope.launch {
-                    pageState.scrollToPage(TopLevelDestination.WAREHOUSE.ordinal)
+            openModuleId = openModuleId,
+            onOpenModule = { id ->
+                if (id == "warehouse") {
+                    openModuleId = null
+                    onNavigationItemSelected(TopLevelDestination.WAREHOUSE.ordinal)
+                    scope.launch {
+                        pageState.scrollToPage(TopLevelDestination.WAREHOUSE.ordinal)
+                    }
+                } else {
+                    openModuleId = id
+                    onNavigationItemSelected(TopLevelDestination.HUB.ordinal)
+                    scope.launch {
+                        pageState.scrollToPage(TopLevelDestination.HUB.ordinal)
+                    }
                 }
             },
+            onCloseModule = { openModuleId = null },
         )
     }
 }
@@ -105,14 +121,23 @@ internal fun MainScreen(
 private fun MainScreenContentView(
     pageState: PagerState,
     paddingValues: PaddingValues,
-    onOpenWarehouse: () -> Unit,
+    openModuleId: String?,
+    onOpenModule: (String) -> Unit,
+    onCloseModule: () -> Unit,
 ) {
     HorizontalPager(
         state = pageState,
         modifier = Modifier.padding(paddingValues),
     ) { page: Int ->
         when (page) {
-            TopLevelDestination.HUB.ordinal -> StaffHubRoute(onOpenWarehouse = onOpenWarehouse)
+            TopLevelDestination.HUB.ordinal -> {
+                val moduleId = openModuleId
+                if (moduleId != null) {
+                    StaffModuleDeskRoute(moduleId = moduleId, onBack = onCloseModule)
+                } else {
+                    StaffHubRoute(onOpenModule = onOpenModule)
+                }
+            }
             TopLevelDestination.WAREHOUSE.ordinal -> WarehouseDeskRoute()
             TopLevelDestination.ACCOUNT.ordinal -> StaffAccountRoute()
         }

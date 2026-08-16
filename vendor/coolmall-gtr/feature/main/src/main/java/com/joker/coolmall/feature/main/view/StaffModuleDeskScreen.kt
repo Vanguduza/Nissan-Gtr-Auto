@@ -18,41 +18,57 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.zw.nissangtr.management.gtradapter.StaffNavTree
 import com.joker.coolmall.core.designsystem.theme.SpacePaddingMedium
 import com.joker.coolmall.core.ui.component.appbar.CenterTopAppBar
-import com.joker.coolmall.feature.main.R
 import com.joker.coolmall.feature.main.component.CommonScaffold
-
-private val warehouseDeskTabs = listOf(
-    R.string.warehouse_tab_stock,
-    R.string.warehouse_tab_receive,
-    R.string.warehouse_tab_transfers,
-    R.string.warehouse_tab_cycle,
-    R.string.warehouse_tab_bins,
-    R.string.warehouse_tab_consignment,
-    R.string.warehouse_tab_insights,
-)
+import com.joker.coolmall.feature.main.viewmodel.StaffHubViewModel
 
 @Composable
-internal fun WarehouseDeskRoute() {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    WarehouseDeskScreen(
-        selectedTab = tab,
+internal fun StaffModuleDeskRoute(
+    moduleId: String,
+    onBack: () -> Unit,
+    hubViewModel: StaffHubViewModel = hiltViewModel(),
+) {
+    val roles by hubViewModel.rolesLabel.collectAsStateWithLifecycle()
+    val module = StaffNavTree.MODULES.find { it.id == moduleId } ?: return
+    val leaves = StaffNavTree.filterLeaves(
+        module,
+        roles.split(",").map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { listOf("admin") },
+    )
+    var tab by rememberSaveable(moduleId) { mutableIntStateOf(0) }
+    val safeTab = tab.coerceIn(0, (leaves.size - 1).coerceAtLeast(0))
+
+    StaffModuleDeskScreen(
+        title = module.label,
+        leafLabels = leaves.map { it.label },
+        selectedTab = safeTab,
         onTabChange = { tab = it },
+        onBack = onBack,
+        href = leaves.getOrNull(safeTab)?.href,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun WarehouseDeskScreen(
+internal fun StaffModuleDeskScreen(
+    title: String,
+    leafLabels: List<String>,
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
+    onBack: () -> Unit,
+    href: String?,
 ) {
     CommonScaffold(
         topBar = {
-            CenterTopAppBar(R.string.staff_warehouse_tab, showBackIcon = false)
+            CenterTopAppBar(
+                titleText = title,
+                showBackIcon = true,
+                onBackClick = onBack,
+            )
         },
     ) { paddingValues ->
         Column(
@@ -65,30 +81,24 @@ internal fun WarehouseDeskScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 8.dp),
+                    .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                warehouseDeskTabs.forEachIndexed { index, labelRes ->
+                leafLabels.forEachIndexed { index, label ->
                     FilterChip(
                         selected = selectedTab == index,
                         onClick = { onTabChange(index) },
-                        label = { Text(stringResource(labelRes)) },
+                        label = { Text(label) },
                     )
                 }
             }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-            ) {
-                when (selectedTab) {
-                    1 -> WarehouseReceiveRoute()
-                    2 -> WarehouseTransfersRoute()
-                    3 -> StaffOpsLeafRoute("/staff/warehouse/cycle-count")
-                    4 -> StaffOpsLeafRoute("/staff/warehouse/bins")
-                    5 -> StaffOpsLeafRoute("/staff/warehouse/consignment")
-                    6 -> StaffOpsLeafRoute("/staff/warehouse/insights")
-                    else -> WarehouseMasterStockRoute(embedded = true)
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when (href) {
+                    "/staff/warehouse/receive" -> WarehouseReceiveRoute()
+                    "/staff/warehouse/transfers" -> WarehouseTransfersRoute()
+                    "/staff/warehouse/master-stock" -> WarehouseMasterStockRoute(embedded = true)
+                    null -> Text("No leaves")
+                    else -> StaffOpsLeafRoute(href)
                 }
             }
         }

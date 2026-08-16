@@ -4,6 +4,8 @@
 
 ### Added
 
+- **CoolMall D1–D9 staff desks:** Hub opens finance/CRM/logistics/fleet/HR/warranty/chat/analytics/procurement leaves (Fake+Live ops catalog). Warehouse adds cycle/bins/consignment/insights. Dedicated receive/transfers/master-stock unchanged. No POS till; no auto-PO. Plan: `docs/plans/2026-08-16-coolmall-web-feature-injection.md`.
+
 - **CoolMall D1 warehouse (receive + transfers):** Warehouse tab desks — typed OEM receive (`post_stock_receipt`, USD/ZIG) and WH1→WH2 transfers (create / pending approve / reject). Fake + Live. Cycle/bins/consignment/insights still open. Plan: `docs/plans/2026-08-16-coolmall-web-feature-injection.md`.
 
 - **CoolMall Phase B Live Supabase inject:** `vendor/coolmall-gtr/gtradapter` supabase-kt 3.1.1 — Live auth (`resolve_staff_login_email` + GoTrue + staff context), My Account MVP (profile + payslip list), master-stock Live (`list_master_stock`), 3 min idle lock overlay; Fake when URL/key blank or `rpc.forceFake`. Plan: `docs/plans/2026-08-16-coolmall-web-feature-injection.md`.

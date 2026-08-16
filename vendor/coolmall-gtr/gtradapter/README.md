@@ -25,7 +25,7 @@ Photo Storage + branded PDF deferred.
 ## Warehouse
 
 `listMasterStock` → `list_master_stock`.  
-D1: `listWarehouses` / `searchStockItems` / `post_stock_receipt` / `create_stock_transfer` / approve+reject. Typed OEM (Bridge QR later). Cycle/bins/consignment/insights next.
+D1–D9: `GtrStaffOpsAdapter` lists/actions per web leaf (cycle, bins, consignment, insights, finance tabs, CRM, logistics, fleet, HR, warranty, chat, analytics, procurement). Never auto-PO. Bridge QR later.
 
 ## Forbidden
 

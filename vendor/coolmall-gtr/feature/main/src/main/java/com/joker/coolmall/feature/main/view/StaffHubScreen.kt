@@ -31,7 +31,7 @@ import com.joker.coolmall.feature.main.viewmodel.StaffHubViewModel
 @Composable
 internal fun StaffHubRoute(
     viewModel: StaffHubViewModel = hiltViewModel(),
-    onOpenWarehouse: () -> Unit = {},
+    onOpenModule: (String) -> Unit = {},
 ) {
     val modules by viewModel.modules.collectAsStateWithLifecycle()
     val roles by viewModel.rolesLabel.collectAsStateWithLifecycle()
@@ -41,9 +41,7 @@ internal fun StaffHubRoute(
         modules = modules,
         rolesLabel = roles,
         fakeMode = fake,
-        onModuleClick = { mod ->
-            if (mod.id == "warehouse") onOpenWarehouse()
-        },
+        onModuleClick = { mod -> onOpenModule(mod.id) },
     )
 }
 
@@ -106,20 +104,12 @@ internal fun StaffHubScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            if (mod.id == "warehouse") {
-                                Text(
-                                    stringResource(R.string.staff_hub_open_module),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(top = 4.dp),
-                                )
-                            } else {
-                                Text(
-                                    stringResource(R.string.staff_hub_coming_soon),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.padding(top = 4.dp),
-                                )
-                            }
+                            Text(
+                                stringResource(R.string.staff_hub_open_module),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
                         }
                     }
                 }

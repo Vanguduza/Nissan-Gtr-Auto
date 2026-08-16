@@ -59,4 +59,14 @@ class StaffNavTreeTest {
         assertFalse(StaffNavTree.prefersPosHome(listOf("sales", "warehouse")))
         assertFalse(StaffNavTree.prefersPosHome(listOf("admin")))
     }
+
+    @Test
+    fun financeAndProcurementLeavesMatchWebTabs() {
+        val finance = StaffNavTree.MODULES.first { it.id == "finance" }
+        assertEquals(13, finance.children.size)
+        val proc = StaffNavTree.MODULES.first { it.id == "procurement" }
+        assertTrue(proc.children.any { it.href == "/procurement/grn" })
+        val leaves = StaffNavTree.filterLeaves(finance, listOf("finance"))
+        assertEquals(13, leaves.size)
+    }
 }

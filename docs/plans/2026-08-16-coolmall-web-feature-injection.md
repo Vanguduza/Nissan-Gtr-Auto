@@ -298,12 +298,12 @@ A slice is **Done** only when all of the following hold:
 
 | Slice | Must ship | Explicitly out |
 |-------|-----------|----------------|
-| D1 WH | Receive + transfers **Done** (typed OEM; Bridge QR later). Cycle, bins, consignment, insights still open | Auto-PO from insights |
-| D2 Finance | All finance tabs with currency on money | ZIMRA |
-| D3 CRM | Credit, reviews, product pages (**incl. home-rail pins**), kits | Catalog title/OEM/diagram edit |
-| D4 Logistics/Fleet | Pick/DN/jobs, prep, MapLibre track, panic, fleet CRUD | GPS producer (delivery app) |
-| D5 HR | Clock, payroll fund/schedule, organogram, onboarding | Payroll tax / ContiPay bank payout |
-| D6–D9 | Warranty, chat, analytics, procurement | AI auto-PO; Expo |
+| D1 WH | Receive + transfers + cycle/bins/consignment/insights **Done** (typed OEM/fields; Bridge QR later) | Auto-PO from insights |
+| D2 Finance | All finance tabs **Done** (register/journals/reqs/payments/reports/recon/periods/ZiG) | ZIMRA |
+| D3 CRM | Credit, reviews, product pages + pins, kits **Done** | Catalog title/OEM/diagram edit |
+| D4 Logistics/Fleet | Pick/DN/jobs, prep, track point, panic, fleet **Done** | GPS producer (delivery app) |
+| D5 HR | Clock, payroll fund, organogram, onboarding **Done** | Payroll tax / ContiPay bank payout |
+| D6–D9 | Warranty, chat, analytics, procurement **Done** | AI auto-PO; Expo |
 
 ### CoolMall module layout (target)
 
@@ -349,12 +349,12 @@ vendor/coolmall-gtr/
 
 ## Immediate next step (implementation, separate pass)
 
-Phase B Live inject + D1 receive/transfers landed in `vendor/coolmall-gtr/`. Next:
+CoolMall D1–D9 desks landed (`GtrStaffOpsAdapter` + hub module desks). Next:
 
-1. Finish **D1** — cycle count, bins, consignment, insights (no auto-PO)  
+1. Device smoke (Live auth + one finance/WH action)  
 2. B2 polish — photo Storage + payslip PDF / ID+business card  
 3. B3 polish — category/subcategory needle filters + CSV  
-4. Then **D2** finance (after Live auth smoke on device)
+4. Deepen MapLibre tracking desk / Bridge QR where operators need it
 
 ## Out of scope
 

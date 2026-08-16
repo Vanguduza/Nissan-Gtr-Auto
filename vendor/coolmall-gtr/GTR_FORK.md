@@ -58,6 +58,12 @@ Build / test:
 | Transfers | WH1→WH2 create + pending approve/reject |
 | Cycle / bins / consignment / insights | Next D1 pass |
 
+## Phase D1–D9 (this pass)
+
+Hub tiles open module desks with web leaf tabs. `GtrStaffOpsAdapter` Fake+Live (PostgREST list + RPC/Edge actions). Warehouse tab also has cycle / bins / consignment / insights.
+
+**Out:** POS till, ZIMRA, payroll tax, AI auto-PO, Bridge QR (typed fields).
+
 ## Next
 
-Cycle count, bins, consignment, insights. Then D2 finance. Open POS = deep-link to `android-pos` only when asked.
+Device smoke on Live. B2 photo/PDF. B3 category CSV. Deepen individual leaves as operators request.

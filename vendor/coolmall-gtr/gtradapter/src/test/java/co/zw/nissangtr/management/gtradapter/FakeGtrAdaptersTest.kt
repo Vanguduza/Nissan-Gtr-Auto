@@ -200,3 +200,41 @@ class GtrSupabaseConfigTest {
         assertFalse(FakeGtrSupabaseConfig.useLive())
     }
 }
+
+class GtrStaffOpsTest {
+    @Test
+    fun catalogCoversNonPosLeavesExceptDedicatedWarehouseScreens() = runBlocking {
+        val dedicated = setOf(
+            "/staff/warehouse",
+            "/staff/warehouse/receive",
+            "/staff/warehouse/master-stock",
+            "/staff/warehouse/transfers",
+        )
+        val missing = StaffNavTree.MODULES
+            .filter { it.id != StaffNavTree.POS_MODULE_ID }
+            .flatMap { it.children }
+            .map { it.href }
+            .filter { it !in dedicated }
+            .filter { GtrOpsCatalog.spec(it) == null }
+        assertEquals(emptyList<String>(), missing)
+
+        val ops = FakeGtrStaffOpsAdapter()
+        val rows = ops.listLeaf("/staff/finance?tab=journals").getOrThrow()
+        assertTrue(rows.isNotEmpty())
+        val posted = ops.runAction(
+            "/staff/finance?tab=journals",
+            "post",
+            rows.first().id,
+            mapOf("currency" to "USD"),
+        )
+        assertTrue(posted.isSuccess)
+        assertTrue(
+            ops.runAction(
+                "/procurement/orders/new",
+                "create",
+                null,
+                mapOf("currency" to "USD", "supplier_id" to "sup-1"),
+            ).isSuccess,
+        )
+    }
+}

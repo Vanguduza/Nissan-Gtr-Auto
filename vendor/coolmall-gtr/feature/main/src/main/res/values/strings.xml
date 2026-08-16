@@ -28,6 +28,10 @@
     <string name="warehouse_tab_stock">Stock</string>
     <string name="warehouse_tab_receive">Receive</string>
     <string name="warehouse_tab_transfers">Transfers</string>
+    <string name="warehouse_tab_cycle">Cycle</string>
+    <string name="warehouse_tab_bins">Bins</string>
+    <string name="warehouse_tab_consignment">Consignment</string>
+    <string name="warehouse_tab_insights">Insights</string>
     <string name="warehouse_receive_hint">Type OEM (Bridge QR later). Posts to post_stock_receipt.</string>
     <string name="warehouse_transfers_hint">WH1→WH2 create then approve. RPCs create/approve/reject_stock_transfer.</string>
     <string name="warehouse_from_label">From</string>

@@ -14,6 +14,9 @@ import co.zw.nissangtr.management.gtradapter.GtrStaffSession
 import co.zw.nissangtr.management.gtradapter.GtrSupabaseConfig
 import co.zw.nissangtr.management.gtradapter.GtrSupabaseRuntime
 import co.zw.nissangtr.management.gtradapter.GtrWarehouseAdapter
+import co.zw.nissangtr.management.gtradapter.FakeGtrStaffOpsAdapter
+import co.zw.nissangtr.management.gtradapter.GtrStaffOpsAdapter
+import co.zw.nissangtr.management.gtradapter.live.LiveGtrStaffOpsAdapter
 import co.zw.nissangtr.management.gtradapter.live.LiveGtrMyAccountAdapter
 import co.zw.nissangtr.management.gtradapter.live.LiveGtrPasswordAdapter
 import co.zw.nissangtr.management.gtradapter.live.LiveGtrStaffAuthAdapter
@@ -85,4 +88,12 @@ object GtrAdapterModule {
         is GtrSupabaseRuntime.Live -> LiveGtrMyAccountAdapter(runtime.client)
         GtrSupabaseRuntime.Fake -> FakeGtrMyAccountAdapter(session)
     }
+
+    @Provides
+    @Singleton
+    fun provideGtrStaffOpsAdapter(runtime: GtrSupabaseRuntime): GtrStaffOpsAdapter =
+        when (runtime) {
+            is GtrSupabaseRuntime.Live -> LiveGtrStaffOpsAdapter(runtime.client)
+            GtrSupabaseRuntime.Fake -> FakeGtrStaffOpsAdapter()
+        }
 }

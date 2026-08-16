@@ -63,54 +63,110 @@ object StaffNavTree {
             label = "Finance",
             href = "/staff/finance",
             roles = listOf("admin", "finance"),
+            children = listOf(
+                StaffNavLeaf("/staff/finance?tab=accounts", "Online sales", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=petty-cash", "Petty cash", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=cash-sales", "Cash", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=contipay", "ContiPay", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=paynow", "Paynow", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=ecocash", "EcoCash", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=exchange-rate", "ZiG rate", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=journals", "Journals", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=requisitions", "Requisitions", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=payments", "Payments", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=reports", "Reports", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=bank-recon", "Bank recon", listOf("admin", "finance")),
+                StaffNavLeaf("/staff/finance?tab=periods", "Periods", listOf("admin", "finance")),
+            ),
         ),
         StaffNavModule(
             id = "crm",
             label = "CRM",
             href = "/staff/crm/credit",
             roles = listOf("admin", "sales", "finance"),
+            children = listOf(
+                StaffNavLeaf("/staff/crm/credit", "Customer credit", listOf("admin", "sales", "finance")),
+                StaffNavLeaf("/staff/crm/reviews", "Reviews", listOf("admin", "sales")),
+                StaffNavLeaf("/staff/crm/product-pages", "Product pages", listOf("admin", "sales", "warehouse")),
+                StaffNavLeaf("/staff/crm/kits", "Kits", listOf("admin", "sales", "warehouse")),
+            ),
         ),
         StaffNavModule(
             id = "logistics",
             label = "Logistics",
             href = "/staff/logistics",
             roles = listOf("admin", "warehouse", "sales", "dispatcher"),
+            children = listOf(
+                StaffNavLeaf("/staff/logistics", "Jobs / pick", listOf("admin", "warehouse", "sales", "dispatcher")),
+                StaffNavLeaf("/staff/logistics/prep", "Sales prep", listOf("admin", "warehouse", "sales", "dispatcher")),
+                StaffNavLeaf("/staff/logistics/tracking", "Live tracking", listOf("admin", "warehouse", "dispatcher")),
+                StaffNavLeaf("/staff/logistics/panic", "Panic inbox", listOf("admin", "warehouse", "dispatcher")),
+            ),
         ),
         StaffNavModule(
             id = "fleet",
             label = "Fleet",
             href = "/staff/fleet",
             roles = listOf("admin", "warehouse", "dispatcher"),
+            children = listOf(
+                StaffNavLeaf("/staff/fleet", "Company fleet", listOf("admin", "warehouse", "dispatcher")),
+            ),
         ),
         StaffNavModule(
             id = "hr",
             label = "HR",
             href = "/staff/hr",
             roles = listOf("admin", "hr"),
+            children = listOf(
+                StaffNavLeaf("/staff/hr", "HR desk", listOf("admin", "hr")),
+                StaffNavLeaf("/staff/hr?tab=payroll", "Payroll & payslips", listOf("admin", "hr")),
+                StaffNavLeaf("/staff/hr?tab=organogram", "Organogram", listOf("admin", "hr")),
+                StaffNavLeaf("/staff/hr?tab=onboarding", "Onboarding", listOf("admin", "hr")),
+            ),
         ),
         StaffNavModule(
             id = "warranty",
             label = "Warranty",
             href = "/staff/warranty",
             roles = listOf("admin", "warehouse", "sales"),
+            children = listOf(
+                StaffNavLeaf("/staff/warranty", "Claims", listOf("admin", "warehouse", "sales")),
+            ),
         ),
         StaffNavModule(
             id = "chat",
             label = "Chat",
             href = "/staff/chat",
             roles = listOf("admin", "sales", "warehouse"),
+            children = listOf(
+                StaffNavLeaf("/staff/chat", "Inbox", listOf("admin", "sales", "warehouse")),
+            ),
         ),
         StaffNavModule(
             id = "analytics",
             label = "Analytics",
             href = "/staff/analytics",
             roles = listOf("admin", "finance", "sales"),
+            children = listOf(
+                StaffNavLeaf("/staff/analytics", "KPIs", listOf("admin", "finance", "sales")),
+                StaffNavLeaf("/staff/analytics/subscriptions", "Subscriptions", listOf("admin", "finance", "sales")),
+            ),
         ),
         StaffNavModule(
             id = "procurement",
             label = "Procurement",
             href = "/procurement",
             roles = listOf("admin", "warehouse", "finance"),
+            children = listOf(
+                StaffNavLeaf("/procurement", "Overview", listOf("admin", "warehouse", "finance")),
+                StaffNavLeaf("/procurement/suppliers", "Preferred suppliers", listOf("admin", "warehouse", "finance")),
+                StaffNavLeaf("/procurement/orders/new", "New PO", listOf("admin", "warehouse", "finance")),
+                StaffNavLeaf("/procurement/grn", "GRN", listOf("admin", "warehouse", "finance")),
+                StaffNavLeaf("/procurement/approvals", "Approvals", listOf("admin", "warehouse", "finance")),
+                StaffNavLeaf("/procurement/blankets", "Blankets", listOf("admin", "warehouse", "finance")),
+                StaffNavLeaf("/procurement/rfqs", "RFQs", listOf("admin", "warehouse", "finance")),
+                StaffNavLeaf("/procurement/rfqs/new", "New RFQ", listOf("admin", "warehouse", "finance")),
+            ),
         ),
     )
 
@@ -146,6 +202,13 @@ object StaffNavTree {
             afterAccess.filter { it.id != POS_MODULE_ID }
         } else {
             afterAccess
+        }
+    }
+
+    fun filterLeaves(module: StaffNavModule, roles: List<String>): List<StaffNavLeaf> {
+        val leaves = module.children.filter { rolesAllow(roles, it.roles) }
+        return leaves.ifEmpty {
+            listOf(StaffNavLeaf(module.href, module.label, module.roles))
         }
     }
 
