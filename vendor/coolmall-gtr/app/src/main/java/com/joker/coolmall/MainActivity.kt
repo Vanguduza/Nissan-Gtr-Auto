@@ -11,12 +11,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import co.zw.nissangtr.management.gtradapter.GtrIdleLockController
+import co.zw.nissangtr.management.gtradapter.GtrStaffAuthAdapter
+import co.zw.nissangtr.management.gtradapter.GtrStaffSession
 import com.joker.coolmall.core.common.config.ThemePreference
 import com.joker.coolmall.core.common.manager.ThemePreferenceManager
 import com.joker.coolmall.core.common.manager.QQLoginManager
+import com.joker.coolmall.core.data.state.AppState
 import com.joker.coolmall.core.designsystem.theme.AppTheme
 import com.joker.coolmall.navigation.AppNavHost
 import com.joker.coolmall.navigation.AppNavigator
+import com.joker.coolmall.ui.StaffIdleLockHost
 import com.tencent.connect.common.Constants
 import com.tencent.tauth.Tencent
 import dagger.hilt.android.AndroidEntryPoint
@@ -33,6 +38,23 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var navigator: AppNavigator
+
+    @Inject
+    lateinit var appState: AppState
+
+    @Inject
+    lateinit var staffSession: GtrStaffSession
+
+    @Inject
+    lateinit var idleLock: GtrIdleLockController
+
+    @Inject
+    lateinit var gtrStaffAuth: GtrStaffAuthAdapter
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        idleLock.onUserInteraction()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 启动页
@@ -57,9 +79,14 @@ class MainActivity : ComponentActivity() {
                 darkTheme = isDarkTheme,
                 themeColor = primaryColor
             ) {
-                // 设置应用的导航宿主，并传入导航管理器和路由注册器
-                // 这样所有页面都可以通过导航管理器进行导航操作
-                AppNavHost(navigator = navigator)
+                StaffIdleLockHost(
+                    appState = appState,
+                    session = staffSession,
+                    idleLock = idleLock,
+                    auth = gtrStaffAuth,
+                ) {
+                    AppNavHost(navigator = navigator)
+                }
             }
         }
 

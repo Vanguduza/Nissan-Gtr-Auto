@@ -19,6 +19,9 @@ class WarehouseMasterStockViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
+    private val _chassis = MutableStateFlow("")
+    val chassis: StateFlow<String> = _chassis.asStateFlow()
+
     private val _rows = MutableStateFlow<List<MasterStockRow>>(emptyList())
     val rows: StateFlow<List<MasterStockRow>> = _rows.asStateFlow()
 
@@ -36,11 +39,19 @@ class WarehouseMasterStockViewModel @Inject constructor(
         _query.value = value
     }
 
+    fun updateChassis(value: String) {
+        _chassis.value = value
+    }
+
     fun search() {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
-            warehouse.listMasterStock(limit = 200, query = _query.value.ifBlank { null })
+            warehouse.listMasterStock(
+                limit = 200,
+                query = _query.value.ifBlank { null },
+                chassisCode = _chassis.value.ifBlank { null },
+            )
                 .fold(
                     onSuccess = { _rows.value = it },
                     onFailure = { _error.value = it.message ?: "Failed to load master stock" },

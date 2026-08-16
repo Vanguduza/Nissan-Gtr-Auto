@@ -1,31 +1,34 @@
 # GTR Supabase adapter (CoolMall injection)
 
-Contracts mirror **web staff** auth/hub (`apps/web/lib/staff-auth.ts`).  
-CoolMall DI registers Fake implementations by default (`GtrAdapterModule`).
+Contracts mirror **web staff** (`apps/web/lib/staff-auth.ts`, `staff-account.ts`, `staff-warehouse.ts`).  
+DI: `GtrAdapterModule` picks **Live** when `GtrSupabaseConfig.useLive()` (URL + anon set, `rpc.forceFake` false); otherwise **Fake**.
 
-## Auth
+App wires config from BuildConfig ← `local.properties` (`vendor/coolmall-gtr/local.properties.example`).
 
-| Method | Web equivalent | Supabase |
-|--------|----------------|----------|
-| `resolveLoginEmail(identifier)` | `signInWithStaffIdentifier` | RPC `resolve_staff_login_email` |
-| `signInWithPassword(email, password)` | GoTrue | `auth.signInWithPassword` |
-| `signInWithStaffIdentifier` | same | resolve → password |
-| `loadStaffContext()` | `loadStaffContext` | `profiles` + `staff_roles` + RPC `my_module_access` |
-| `changePassword` | `/staff/change-password` | GoTrue `updateUser` |
-| Fake bypass | local smoke | no secrets |
+## Auth (B1)
 
-## Module hub
+| Method | Web equivalent | Live | Fake |
+|--------|----------------|------|------|
+| `resolveLoginEmail` | `resolve_staff_login_email` | RPC | always `fake@local.test` |
+| `signInWithPassword` | GoTrue | auth-kt Email | accepts non-blank |
+| `signInWithStaffIdentifier` | same | resolve → password → context | same |
+| `loadStaffContext` | `loadStaffContext` | profiles + staff_roles + `my_module_access` | admin seed |
+| `changePassword` | `/staff/change-password` | `updateUser` + `clear_must_change_password` | clears flag |
+| `reauthWithPassword` | idle unlock | re-sign with session email | length ≥ 6 |
+| Idle lock | 3 min | `GtrIdleLockController` + MainActivity overlay | same |
 
-`StaffNavTree` mirrors `STAFF_NAV_TREE` ids/roles.  
-`filterModules` = web `filterNavTreeForModuleAccess` with **POS excluded** this phase.
+## My Account (B2 MVP)
 
-## Warehouse (first real desk)
+`GtrMyAccountAdapter` → `get_my_staff_profile` / `update_my_staff_profile` / `list_my_payslip_history`.  
+Photo Storage + branded PDF deferred.
 
-`GtrWarehouseAdapter.listMasterStock` → web RPC `list_master_stock` (Fake seed for smoke).
+## Warehouse (B3 thin)
+
+`listMasterStock(limit, query, chassisCode?)` → `list_master_stock` (OEM query + optional chassis). Category needles later.
 
 ## Forbidden
 
 - CoolMall fashion API as SoR  
 - Porting screens from `android-management-legacy`  
 - Browser/HTML5 QR (Bridge-First only)  
-- POS cart / `staff-pos` bindings this phase
+- POS cart / `staff-pos` bindings in CoolMall

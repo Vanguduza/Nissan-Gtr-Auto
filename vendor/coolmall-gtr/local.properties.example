@@ -1,0 +1,17 @@
+## CoolMall / GTR management — local secrets (gitignored)
+
+Copy to `local.properties` next to this file, or use the monorepo root
+`local.properties` / `vendor/coolmall-gtr/local.properties`.
+
+```
+sdk.dir=C\:\\Users\\YOU\\AppData\\Local\\Android\\Sdk
+
+# Live adapters when both set and rpc.forceFake is not true
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+
+# Optional: force Fake even when URL+key are set
+# rpc.forceFake=true
+```
+
+Never commit real keys. Fake adapters run when URL/key blank or `rpc.forceFake=true`.

@@ -33,16 +33,19 @@ internal fun WarehouseMasterStockRoute(
     viewModel: WarehouseMasterStockViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
+    val chassis by viewModel.chassis.collectAsStateWithLifecycle()
     val rows by viewModel.rows.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
 
     WarehouseMasterStockScreen(
         query = query,
+        chassis = chassis,
         rows = rows,
         loading = loading,
         error = error,
         onQueryChange = viewModel::updateQuery,
+        onChassisChange = viewModel::updateChassis,
         onSearch = viewModel::search,
     )
 }
@@ -51,10 +54,12 @@ internal fun WarehouseMasterStockRoute(
 @Composable
 internal fun WarehouseMasterStockScreen(
     query: String,
+    chassis: String,
     rows: List<MasterStockRow>,
     loading: Boolean,
     error: String?,
     onQueryChange: (String) -> Unit,
+    onChassisChange: (String) -> Unit,
     onSearch: () -> Unit,
 ) {
     CommonScaffold(
@@ -85,6 +90,13 @@ internal fun WarehouseMasterStockScreen(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     label = { Text(stringResource(R.string.warehouse_search_oem)) },
+                )
+                OutlinedTextField(
+                    value = chassis,
+                    onValueChange = onChassisChange,
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.warehouse_search_chassis)) },
                 )
                 TextButton(onClick = onSearch) {
                     Text(stringResource(R.string.warehouse_search))

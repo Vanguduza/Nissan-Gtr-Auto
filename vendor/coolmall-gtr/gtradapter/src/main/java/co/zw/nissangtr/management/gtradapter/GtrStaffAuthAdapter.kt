@@ -23,6 +23,11 @@ interface GtrStaffAuthAdapter {
 
     suspend fun signOut()
 
+    /**
+     * Idle-lock unlock: re-auth with password for the current session email / Fake gate.
+     */
+    suspend fun reauthWithPassword(password: String): Result<Unit>
+
     fun isFakeMode(): Boolean
 }
 
@@ -67,7 +72,11 @@ data class MasterStockRow(
 
 /** Web master-stock panel → RPC list_master_stock. */
 interface GtrWarehouseAdapter {
-    suspend fun listMasterStock(limit: Int = 200, query: String? = null): Result<List<MasterStockRow>>
+    suspend fun listMasterStock(
+        limit: Int = 200,
+        query: String? = null,
+        chassisCode: String? = null,
+    ): Result<List<MasterStockRow>>
 }
 
 /** Holds signed-in staff context for hub / gates (in-memory; Fake or post-login Live). */
@@ -128,6 +137,16 @@ class FakeGtrStaffAuthAdapter(
 
     override suspend fun signOut() {
         session.clear()
+    }
+
+    override suspend fun reauthWithPassword(password: String): Result<Unit> {
+        if (password.length < 6) {
+            return Result.failure(IllegalArgumentException("Unlock failed"))
+        }
+        if (session.context == null) {
+            return Result.failure(IllegalStateException("Not signed in"))
+        }
+        return Result.success(Unit)
     }
 
     override fun isFakeMode(): Boolean = true
@@ -193,8 +212,12 @@ class FakeGtrWarehouseAdapter : GtrWarehouseAdapter {
     override suspend fun listMasterStock(
         limit: Int,
         query: String?,
+        chassisCode: String?,
     ): Result<List<MasterStockRow>> {
         val q = query?.trim()?.lowercase().orEmpty()
+        // Fake seed has no chassis column — chassis filter is a no-op smoke stub.
+        @Suppress("UNUSED_VARIABLE")
+        val chassis = chassisCode?.trim().orEmpty()
         val filtered = if (q.isEmpty()) {
             seed
         } else {

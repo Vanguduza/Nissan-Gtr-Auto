@@ -290,9 +290,9 @@ A slice is **Done** only when all of the following hold:
 
 | # | Work | Acceptance |
 |---|------|------------|
-| B1 | Auth Live | Emp#/email/phone → GoTrue; `must_change_password`; idle lock 3 min; Fake still works without keys |
-| B2 | My Account Live | Profile edit, photo Storage, payslip history+PDF, ID+business card, module chips, sign-out |
-| B3 | Master-stock Live | `list_master_stock` + chassis/cat/OEM filters; sales/finance path parity with web |
+| B1 | Auth Live | Emp#/email/phone → GoTrue; `must_change_password`; idle lock 3 min; Fake still works without keys — **Done** (2026-08-16 CoolMall `gtradapter` Live) |
+| B2 | My Account Live | Profile edit, photo Storage, payslip history+PDF, ID+business card, module chips, sign-out — **MVP Done** (profile + payslip list; photo/PDF/cards follow-up) |
+| B3 | Master-stock Live | `list_master_stock` + chassis/cat/OEM filters; sales/finance path parity with web — **Thin Done** (OEM + chassis fields; category needles follow-up) |
 
 ### Phase D acceptance (each desk)
 
@@ -349,10 +349,11 @@ vendor/coolmall-gtr/
 
 ## Immediate next step (implementation, separate pass)
 
-1. Phase **B1** Auth Live in `vendor/coolmall-gtr/gtradapter`  
-2. Phase **B2** My Account adapter + Account UI parity with web  
-3. Phase **B3** Master-stock Live + filter parity  
-4. Then **D1** warehouse deepen → **D3** includes CRM home-rail pin UI  
+Phase B Live inject landed in `vendor/coolmall-gtr/` (B1–B3 thin). Next:
+
+1. B2 polish — photo Storage + payslip PDF / ID+business card  
+2. B3 polish — category/subcategory needle filters + CSV  
+3. Then **D1** warehouse deepen → **D3** includes CRM home-rail pin UI  
 
 Do not start D2–D9 until B Live auth is green on device.
 

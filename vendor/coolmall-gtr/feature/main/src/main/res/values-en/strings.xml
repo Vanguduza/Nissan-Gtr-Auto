@@ -21,12 +21,21 @@
     <string name="warehouse_master_stock_title">Master stock</string>
     <string name="warehouse_master_stock_hint">OEM qty WH1/WH2 — RPC list_master_stock</string>
     <string name="warehouse_search_oem">OEM / description</string>
+    <string name="warehouse_search_chassis">Chassis</string>
     <string name="warehouse_search">Search</string>
     <string name="warehouse_loading">Loading…</string>
     <string name="warehouse_qty_fmt">Total %1$.0f · WH1 %2$.0f · WH2 %3$.0f</string>
 
     <!-- Account / change-password -->
     <string name="staff_account_title">Staff account</string>
+    <string name="staff_profile_title">My profile</string>
+    <string name="staff_emp_fmt">Emp# %1$s · %2$s</string>
+    <string name="staff_email">Email</string>
+    <string name="staff_phone">Phone</string>
+    <string name="staff_address">Address</string>
+    <string name="staff_save_profile">Save profile</string>
+    <string name="staff_payslips_title">Payslip history</string>
+    <string name="staff_payslip_row_fmt">%1$s · %2$s %3$.2f (%4$s)</string>
     <string name="staff_change_password_title">Change password</string>
     <string name="staff_new_password">New password</string>
     <string name="staff_confirm_password">Confirm password</string>

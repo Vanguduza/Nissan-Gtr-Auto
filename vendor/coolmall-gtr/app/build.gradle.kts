@@ -1,6 +1,27 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.coolmall.android.application.compose)
     alias(libs.plugins.coolmall.hilt)
+}
+
+fun localProp(name: String): String {
+    val local = Properties()
+    // Prefer app-local, then CoolMall root (vendor/coolmall-gtr), then monorepo root.
+    val candidates = listOf(
+        file("local.properties"),
+        rootProject.file("local.properties"),
+        rootProject.file("../../local.properties"),
+    )
+    for (f in candidates) {
+        if (f.exists()) {
+            f.inputStream().use { local.load(it) }
+            break
+        }
+    }
+    return local.getProperty(name)
+        ?: (project.findProperty(name) as? String)
+        ?: ""
 }
 
 android {
@@ -9,6 +30,14 @@ android {
         androidResources {
             localeFilters += listOf("zh", "en")
         }
+        // GTR Supabase inject — never commit real keys (see local.properties.example).
+        buildConfigField("String", "SUPABASE_URL", "\"${localProp("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")
+        buildConfigField(
+            "boolean",
+            "RPC_FORCE_FAKE",
+            localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
+        )
     }
 
     // ABI 分包配置 - 一次性打包多个架构版本
@@ -70,6 +99,7 @@ android {
 dependencies {
     implementation(projects.gtradapter)
     implementation(projects.core.designsystem)
+    implementation(projects.core.ui)
     implementation(projects.core.util)
     implementation(projects.core.data)
     implementation(projects.core.common)
