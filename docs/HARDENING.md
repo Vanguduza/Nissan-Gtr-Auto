@@ -114,3 +114,19 @@ Adopt habits from DIAL D-47 / D-48 without importing DIAL agency locks:
 | SAST/IaC | **Landed:** `.github/workflows/semgrep.yml` job `semgrep-gtr` (hard-fail on `semgrep/rules/*`); community packs advisory. `.github/workflows/checkov.yml` job `checkov` hard-fail HIGH/CRITICAL. Local: root `semgrep.yml`. Keep Epic A RLS smokes (`epic_a_procurement_wh_smoke.sql`) green. |
 
 Procurement fund releases and preferred-supplier RPCs are SECURITY DEFINER — keep mutation guards and role checks intact; do not open table writes from clients.
+
+## 8. Supabase Database Advisors (2026-08-16)
+
+Hardening pass: migration `20260816040000_advisor_security_performance_harden.sql` (applied hosted).
+
+| Finding | Status |
+| --- | --- |
+| `security_definer_view` (`v_master_stock`) | **Fixed** — `security_invoker=true`; no authenticated SELECT |
+| `function_search_path_mutable` | **Fixed** — `SET search_path = public, pg_temp` |
+| `anon_security_definer_function_executable` | **Mostly fixed** — PUBLIC/anon revoked; **7 intentional** anon RPCs remain (storefront rails, Zig rate, delivery track, review stats, staff login lockout helpers) |
+| `authenticated_security_definer_function_executable` | **Helpers fixed**; **~300 client RPCs remain** — accepted: PostgREST calls SECURITY DEFINER with authz inside the function |
+| `auth_rls_initplan` | **Fixed** — `(select auth.uid())` / `(select auth.role())` pattern |
+| `multiple_permissive_policies` | **Accepted** — overlapping staff SELECT + role-scoped write policies are intentional; merging would widen grants |
+| `auth_leaked_password_protection` | **Blocked on plan** — Management API returns 402 (Pro+ HIBP). Enable in Dashboard Auth when on Pro |
+
+Do not “fix” remaining authenticated SD EXECUTE by converting RPCs to SECURITY INVOKER without an RLS rewrite — that weakens the current authz model.

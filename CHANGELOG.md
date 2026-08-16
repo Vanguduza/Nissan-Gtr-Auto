@@ -2,6 +2,10 @@
 
 ## Unreleased — 2026-08-16
 
+### Fixed
+
+- **Supabase Database Advisors (hosted `gylrgwqyuiwkyykardwc`):** Migration `20260816040000_advisor_security_performance_harden.sql` — `v_master_stock` `security_invoker` (clears ERROR); `search_path` on 110 functions; revoke PUBLIC/anon EXECUTE on SD funcs (7 intentional anon RPCs re-granted); revoke authenticated EXECUTE on internal SD helpers; wrap RLS `auth.*` / `current_setting` in `(select …)` (clears `auth_rls_initplan`). Pushed via `db push`. Remaining WARN rationale in `docs/HARDENING.md` §8.
+
 ### Added
 
 - **Staff My Account polish:** Self ID-photo upload on `/staff/account` (`employee-photos` Storage + `update_my_staff_profile` `p_photo_storage_path`); business card PDF alongside ID card via `render-branded-doc`. Migration `20260816030000_employee_photos_self_upload.sql`. File input only (no HTML5 QR/camera).
