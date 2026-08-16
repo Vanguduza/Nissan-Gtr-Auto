@@ -217,6 +217,32 @@ BEGIN
     RAISE EXCEPTION 'other employee saw foreign payslip history';
   END IF;
 
+  -- Photo path (after 20260816030000): self may set under own employee id prefix.
+  IF EXISTS (
+    SELECT 1 FROM storage.buckets WHERE id = 'employee-photos'
+  ) THEN
+    PERFORM public._test_set_auth_uid(v_emp_user);
+    v_prof := public.update_my_staff_profile(
+      NULL, NULL, NULL,
+      v_emp::text || '/portrait-smoke.jpg'
+    );
+    IF (v_prof->>'photo_storage_path') IS DISTINCT FROM (v_emp::text || '/portrait-smoke.jpg') THEN
+      RAISE EXCEPTION 'photo_storage_path not updated: %', v_prof;
+    END IF;
+    BEGIN
+      PERFORM public.update_my_staff_profile(
+        NULL, NULL, NULL,
+        v_other_emp::text || '/evil.jpg'
+      );
+      RAISE EXCEPTION 'expected foreign photo path rejection';
+    EXCEPTION
+      WHEN OTHERS THEN
+        IF SQLERRM NOT ILIKE '%photo path%' THEN
+          RAISE;
+        END IF;
+    END;
+  END IF;
+
   RAISE NOTICE 'staff_my_account_smoke OK';
 END;
 $$;

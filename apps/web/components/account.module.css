@@ -622,6 +622,8 @@
   padding: 0 1rem;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
+  position: relative;
   border: 1px solid var(--staff-border-strong);
   background: color-mix(in srgb, var(--gtr-white) 88%, var(--gtr-mist));
   color: var(--gtr-steel);
@@ -688,6 +690,49 @@
   font-size: 0.95rem;
   color: var(--gtr-steel);
   word-break: break-word;
+}
+
+.photoUpload {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.photoPreview {
+  width: 5.5rem;
+  height: 6.75rem;
+  object-fit: cover;
+  border-radius: var(--staff-radius-sm);
+  border: 1px solid var(--staff-border);
+  background: var(--gtr-mist);
+}
+
+.photoPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5.5rem;
+  height: 6.75rem;
+  border-radius: var(--staff-radius-sm);
+  border: 1px dashed var(--staff-border);
+  background: color-mix(in srgb, var(--gtr-mist) 70%, white);
+  font-size: 0.75rem;
+  color: rgba(18, 21, 28, 0.45);
+  text-align: center;
+  padding: 0.35rem;
+}
+
+.fileInputHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .chipRow {

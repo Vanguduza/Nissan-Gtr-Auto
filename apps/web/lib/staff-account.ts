@@ -1,12 +1,15 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
 import type { StorefrontResult } from "@/lib/customer-storefront";
 import {
+  downloadBrandedBusinessCardPdf,
   downloadBrandedIdCardPdf,
   downloadBrandedPayslipPdf,
   exportPayslip,
   listPayrollDeductions,
   type DocumentCurrency,
 } from "@/lib/staff-hr";
+
+export const EMPLOYEE_PHOTOS_BUCKET = "employee-photos";
 
 export type StaffMyProfile = {
   has_employee: boolean;
@@ -131,25 +134,79 @@ export async function getMyStaffProfile(
 export async function updateMyStaffProfile(
   client: SupabaseClient,
   args: {
-    phoneE164: string;
-    address: string;
-    email: string;
+    phoneE164?: string;
+    address?: string;
+    email?: string;
+    photoStoragePath?: string | null;
     /** When true, call GoTrue updateUser for email before RPC sync. */
     syncAuthEmail?: boolean;
   },
 ): Promise<StorefrontResult<StaffMyProfile>> {
-  const email = args.email.trim();
+  const email = args.email?.trim() ?? "";
   if (args.syncAuthEmail && email) {
     const { error: authErr } = await client.auth.updateUser({ email });
     if (authErr) return { ok: false, error: authErr.message };
   }
-  const { data, error } = await client.rpc("update_my_staff_profile", {
-    p_phone_e164: args.phoneE164.trim() || null,
-    p_address: args.address.trim() || null,
-    p_email: email || null,
-  });
+  const rpcArgs: {
+    p_phone_e164?: string | null;
+    p_address?: string | null;
+    p_email?: string | null;
+    p_photo_storage_path?: string | null;
+  } = {};
+  if (args.phoneE164 !== undefined) {
+    rpcArgs.p_phone_e164 = args.phoneE164.trim() || null;
+  }
+  if (args.address !== undefined) {
+    rpcArgs.p_address = args.address.trim() || null;
+  }
+  if (args.email !== undefined) {
+    rpcArgs.p_email = email || null;
+  }
+  if (args.photoStoragePath !== undefined) {
+    rpcArgs.p_photo_storage_path = args.photoStoragePath;
+  }
+  const { data, error } = await client.rpc("update_my_staff_profile", rpcArgs);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: parseProfile(data) };
+}
+
+/** Web file upload → employee-photos/{employee_id}/… → update_my_staff_profile. */
+export async function uploadMyStaffPhoto(
+  client: SupabaseClient,
+  args: { employeeId: string; file: File },
+): Promise<StorefrontResult<StaffMyProfile>> {
+  const ext = (args.file.name.split(".").pop() || "jpg").toLowerCase();
+  const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+  const path = `${args.employeeId}/portrait-${crypto.randomUUID()}.${safeExt}`;
+  const { error: upErr } = await client.storage
+    .from(EMPLOYEE_PHOTOS_BUCKET)
+    .upload(path, args.file, {
+      contentType:
+        args.file.type || `image/${safeExt === "jpg" ? "jpeg" : safeExt}`,
+      upsert: false,
+    });
+  if (upErr) return { ok: false, error: upErr.message };
+
+  const res = await updateMyStaffProfile(client, {
+    photoStoragePath: path,
+  });
+  if (!res.ok) {
+    await client.storage.from(EMPLOYEE_PHOTOS_BUCKET).remove([path]);
+    return res;
+  }
+  return res;
+}
+
+export async function getMyStaffPhotoPreviewUrl(
+  client: SupabaseClient,
+  photoStoragePath: string | null | undefined,
+): Promise<string | null> {
+  if (!photoStoragePath) return null;
+  const { data, error } = await client.storage
+    .from(EMPLOYEE_PHOTOS_BUCKET)
+    .createSignedUrl(photoStoragePath, 3600);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 }
 
 export async function listMyPayslipHistory(
@@ -182,7 +239,6 @@ export async function downloadMyPayslip(
     }
   }
 
-  // Ensure payslips metadata row exists (idempotent for own/submitted lines).
   const exported = await exportPayslip(client, row.payroll_line_id);
   if (!exported.ok) {
     // Fall through to render payload even if metadata insert fails for cancelled.
@@ -243,5 +299,26 @@ export async function downloadMyIdCard(
     verifyUrl: profile.employee_id
       ? `https://nissangtrauto.co.zw/staff/verify/${profile.employee_id}`
       : null,
+  });
+}
+
+export async function downloadMyBusinessCard(
+  accessToken: string,
+  profile: StaffMyProfile,
+): Promise<StorefrontResult<true>> {
+  if (!profile.has_employee || !profile.employee_code) {
+    return { ok: false, error: "No employee record linked to this account." };
+  }
+  const roleBits = [profile.role_title, profile.grade_code]
+    .filter(Boolean)
+    .join(" · ");
+  return downloadBrandedBusinessCardPdf(accessToken, {
+    storeName: "Nissan GTR Auto",
+    fullName: profile.full_name ?? "Staff",
+    roleTitle: roleBits || "Staff",
+    employeeCode: profile.employee_code,
+    phone: profile.phone_e164 ?? null,
+    email: profile.email ?? null,
+    domain: "nissangtrauto.co.zw",
   });
 }

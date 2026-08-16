@@ -1,5 +1,5 @@
 /**
- * Assert /staff hub tiles use module_access filtering (parity with sidebar).
+ * Assert /staff hub tiles + path gates use module_access (parity with sidebar).
  * Run: node apps/web/scripts/assert-staff-hub-module-access.mjs
  */
 
@@ -34,6 +34,30 @@ const nav = readFileSync(join(root, "apps/web/components/staff-nav.tsx"), "utf8"
 assert(
   nav.includes("filterNavTreeForModuleAccess"),
   "sidebar must keep module_access filter",
+);
+
+const auth = readFileSync(join(root, "apps/web/lib/staff-auth.ts"), "utf8");
+assert(auth.includes("moduleIdForPath"), "moduleIdForPath helper");
+assert(
+  auth.includes("moduleHrefForFilteredChildren"),
+  "filterNavTreeForRoles rewrites inaccessible module href",
+);
+assert(
+  /canAccessPath[\s\S]*moduleAccess/.test(auth),
+  "canAccessPath must gate on moduleAccess",
+);
+
+const finance = readFileSync(
+  join(root, "apps/web/components/staff-finance-dashboard.tsx"),
+  "utf8",
+);
+assert(
+  finance.includes("filterNavTreeForModuleAccess"),
+  "finance desk tiles must use module_access filter",
+);
+assert(
+  !finance.includes("filterNavTreeForRoles("),
+  "finance desk must not use roles-only filter",
 );
 
 console.log("assert-staff-hub-module-access: ok");

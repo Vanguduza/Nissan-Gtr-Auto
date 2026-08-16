@@ -7,11 +7,14 @@ import styles from "@/components/account.module.css";
 import { useStaffAuth } from "@/components/staff-auth-context";
 import { clearStaffIdleLockStorage } from "@/lib/staff-idle-lock-state";
 import {
+  downloadMyBusinessCard,
   downloadMyIdCard,
   downloadMyPayslip,
+  getMyStaffPhotoPreviewUrl,
   getMyStaffProfile,
   listMyPayslipHistory,
   updateMyStaffProfile,
+  uploadMyStaffPhoto,
   type StaffMyProfile,
   type StaffPayslipHistoryRow,
 } from "@/lib/staff-account";
@@ -33,6 +36,7 @@ export function StaffAccountPanel() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -60,6 +64,11 @@ export function StaffAccountPanel() {
     setEmail(prof.data.email ?? sessionEmail ?? "");
     setPhone(prof.data.phone_e164 ?? "");
     setAddress(prof.data.address ?? "");
+    const preview = await getMyStaffPhotoPreviewUrl(
+      client,
+      prof.data.photo_storage_path,
+    );
+    setPhotoPreviewUrl(preview);
     if (hist.ok) setHistory(hist.data);
     else setMessage(hist.error);
   }, []);
@@ -94,6 +103,34 @@ export function StaffAccountPanel() {
         ? "Profile saved. If email changed, confirm via the link Supabase sends."
         : "Profile saved.",
     );
+    await refresh();
+  }
+
+  async function onPhotoSelected(file: File | null) {
+    if (!file || !profile?.employee_id) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Choose a JPEG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Photo must be 5 MB or smaller.");
+      return;
+    }
+    const client = createWebClient();
+    if (!client) return;
+    setBusy(true);
+    setMessage(null);
+    const res = await uploadMyStaffPhoto(client, {
+      employeeId: profile.employee_id,
+      file,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setProfile(res.data);
+    setMessage("Photo uploaded.");
     await refresh();
   }
 
@@ -133,6 +170,25 @@ export function StaffAccountPanel() {
     const res = await downloadMyIdCard(token, profile);
     setBusy(false);
     setMessage(res.ok ? "ID card PDF downloaded (CR80)." : res.error);
+  }
+
+  async function onDownloadBusinessCard() {
+    if (!profile?.has_employee) return;
+    const client = createWebClient();
+    if (!client) return;
+    const session = await client.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (!token) {
+      setMessage("Sign in required for business card PDF.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const res = await downloadMyBusinessCard(token, profile);
+    setBusy(false);
+    setMessage(
+      res.ok ? "Business card PDF downloaded (90×50 mm)." : res.error,
+    );
   }
 
   async function onSignOut() {
@@ -182,9 +238,38 @@ export function StaffAccountPanel() {
               <div>
                 <dt>Photo</dt>
                 <dd>
-                  {profile.photo_storage_path
-                    ? profile.photo_storage_path
-                    : "Not on file"}
+                  <div className={styles.photoUpload}>
+                    {photoPreviewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={photoPreviewUrl}
+                        alt="Your staff photo"
+                        className={styles.photoPreview}
+                      />
+                    ) : (
+                      <span className={styles.photoPlaceholder}>
+                        No photo yet
+                      </span>
+                    )}
+                    <label className={styles.btnSecondary}>
+                      {busy ? "Uploading…" : "Upload photo"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        disabled={busy}
+                        className={styles.fileInputHidden}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null;
+                          e.target.value = "";
+                          void onPhotoSelected(f);
+                        }}
+                      />
+                    </label>
+                    <p className={styles.muted}>
+                      JPEG / PNG / WebP · max 5 MB · file picker only (no
+                      browser camera/QR).
+                    </p>
+                  </div>
                 </dd>
               </div>
             </dl>
@@ -232,6 +317,14 @@ export function StaffAccountPanel() {
                   >
                     Download ID card
                   </button>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    disabled={busy}
+                    onClick={() => void onDownloadBusinessCard()}
+                  >
+                    Download business card
+                  </button>
                 </div>
               </fieldset>
             </form>
@@ -248,7 +341,9 @@ export function StaffAccountPanel() {
         </p>
         <div className={styles.chipRow}>
           {moduleChips.length === 0 ? (
-            <span className={styles.chipMuted}>None listed · role nav applies</span>
+            <span className={styles.chipMuted}>
+              None listed · role nav applies
+            </span>
           ) : (
             moduleChips.map((m) => (
               <span key={m} className={styles.chip}>
@@ -258,9 +353,7 @@ export function StaffAccountPanel() {
           )}
         </div>
         {ctx?.roles?.length ? (
-          <p className={styles.muted}>
-            Staff roles: {ctx.roles.join(", ")}
-          </p>
+          <p className={styles.muted}>Staff roles: {ctx.roles.join(", ")}</p>
         ) : null}
       </section>
 
@@ -293,7 +386,9 @@ export function StaffAccountPanel() {
                     <td>
                       {row.period_start} → {row.period_end}
                     </td>
-                    <td>{row.document_number ?? row.payroll_run_id.slice(0, 8)}</td>
+                    <td>
+                      {row.document_number ?? row.payroll_run_id.slice(0, 8)}
+                    </td>
                     <td>{money(row.gross_amount, row.currency)}</td>
                     <td>{money(row.net_amount, row.currency)}</td>
                     <td>

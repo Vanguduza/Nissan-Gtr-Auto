@@ -12,7 +12,7 @@ import {
   iconStroke,
 } from "@/components/icons";
 import {
-  filterNavTreeForRoles,
+  filterNavTreeForModuleAccess,
   STAFF_NAV_TREE,
   type StaffNavEntry,
   type StaffNavModule,
@@ -27,8 +27,15 @@ function isFinanceModule(
   return e.kind === "module" && e.id === "finance";
 }
 
-function financeModule(roles: readonly StaffRole[]): StaffNavModule | null {
-  return filterNavTreeForRoles([...roles]).find(isFinanceModule) ?? null;
+function financeModule(
+  roles: readonly StaffRole[],
+  moduleAccess: string[] | null | undefined,
+): StaffNavModule | null {
+  return (
+    filterNavTreeForModuleAccess([...roles], moduleAccess).find(
+      isFinanceModule,
+    ) ?? null
+  );
 }
 
 /** Tile dashboard for `/staff/finance` (no `?tab=`). */
@@ -36,7 +43,9 @@ export function StaffFinanceDashboard() {
   const ctx = useStaffAuth();
   const roles = ctx?.roles ?? [];
   const mod =
-    financeModule(roles) ?? STAFF_NAV_TREE.find(isFinanceModule) ?? null;
+    financeModule(roles, ctx?.moduleAccess) ??
+    STAFF_NAV_TREE.find(isFinanceModule) ??
+    null;
 
   if (!mod) return null;
 

@@ -10378,6 +10378,7 @@ export type Database = {
           p_phone_e164?: string
           p_address?: string
           p_email?: string
+          p_photo_storage_path?: string
         }
         Returns: Json
       }

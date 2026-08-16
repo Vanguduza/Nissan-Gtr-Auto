@@ -2,6 +2,14 @@
 
 ## Unreleased — 2026-08-16
 
+### Added
+
+- **Staff My Account polish:** Self ID-photo upload on `/staff/account` (`employee-photos` Storage + `update_my_staff_profile` `p_photo_storage_path`); business card PDF alongside ID card via `render-branded-doc`. Migration `20260816030000_employee_photos_self_upload.sql`. File input only (no HTML5 QR/camera).
+
+- **Staff path gates ↔ module_access:** `canAccessPath` applies organogram `module_access` like hub/sidebar; module header href rewrites to first role-visible child when overview is forbidden; finance desk tiles use `filterNavTreeForModuleAccess`. Asserts updated.
+
+- **Hosted payroll Edge ops docs:** `process-payroll-schedules` deploy + existing `WORKER_SHARED_SECRET` set instructions in `docs/SUPABASE_REMOTE.md` §2b (aligned with `ai_worker_schedules`). No secret values in git.
+
 ### Fixed
 
 - **Staff web P0 RBAC consistency:** `/staff/warehouse/master-stock` `pathAccessFor` now allows admin|warehouse|sales|finance (same as `list_master_stock` / nav) so sales/finance are not false-forbidden. Staff hub `/staff` tiles use `filterNavTreeForModuleAccess` like the sidebar. Asserts: `assert-master-stock-report.mjs`, `assert-staff-hub-module-access.mjs`. CoA **2150** upsert forces `display_name` on conflict in payroll fund migration.

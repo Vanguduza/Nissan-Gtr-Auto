@@ -450,8 +450,21 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = (() => {
  */
 export const STAFF_MODULE_ROLES = {
   hub: [] as const satisfies readonly StaffRole[],
-  warehouse: ["admin", "warehouse"] as const satisfies readonly StaffRole[],
+  /** Union of warehouse leaf roles (overview narrower; master-stock/insights wider). */
+  warehouse: [
+    "admin",
+    "warehouse",
+    "sales",
+    "finance",
+  ] as const satisfies readonly StaffRole[],
   finance: ["admin", "finance"] as const satisfies readonly StaffRole[],
+  /** Union of CRM leaf roles (credit/reviews vs product-pages/kits). */
+  crm: [
+    "admin",
+    "sales",
+    "finance",
+    "warehouse",
+  ] as const satisfies readonly StaffRole[],
   logistics: [
     "admin",
     "warehouse",
@@ -628,19 +641,77 @@ export function hasAnyStaffRole(
   return rolesAllow([...userRoles], [...required]);
 }
 
+/**
+ * Organogram module id for a staff pathname (longest leaf / module href match).
+ * Hub / account / change-password → null (not module-gated).
+ */
+export function moduleIdForPath(pathname: string): string | null {
+  const path = pathname.split("?")[0] || pathname;
+  let best: { id: string; len: number } | null = null;
+  for (const entry of STAFF_NAV_TREE) {
+    if (entry.kind !== "module") continue;
+    for (const child of entry.children) {
+      const leafPath = navHrefParts(child.href).pathname;
+      if (path === leafPath || path.startsWith(`${leafPath}/`)) {
+        if (!best || leafPath.length > best.len) {
+          best = { id: entry.id, len: leafPath.length };
+        }
+      }
+    }
+    const modPath = navHrefParts(entry.href).pathname;
+    if (path === modPath || path.startsWith(`${modPath}/`)) {
+      if (!best || modPath.length > best.len) {
+        best = { id: entry.id, len: modPath.length };
+      }
+    }
+  }
+  return best?.id ?? null;
+}
+
+/**
+ * Role gate + organogram `module_access` (same rule as hub/sidebar).
+ * Empty module_access → roles-only. Admins bypass module filter.
+ */
 export function canAccessPath(
-  ctx: Pick<StaffContext, "isStaff" | "roles">,
+  ctx: Pick<StaffContext, "isStaff" | "roles" | "moduleAccess">,
   pathname: string,
 ): boolean {
   if (!ctx.isStaff) return false;
   const access = pathAccessFor(pathname);
   if (access.kind === "forbidden_page") return true;
   if (access.kind === "any") return true;
-  return rolesAllow(ctx.roles, access.roles);
+  if (!rolesAllow(ctx.roles, access.roles)) return false;
+
+  if (ctx.roles.includes("admin")) return true;
+  const allowed = (ctx.moduleAccess ?? [])
+    .map((m) => m.trim().toLowerCase())
+    .filter(Boolean);
+  if (allowed.length === 0) return true;
+  const modId = moduleIdForPath(pathname);
+  if (!modId) return true;
+  return allowed.includes(modId.toLowerCase());
 }
 
 export function filterNavForRoles(roles: StaffRole[]): StaffNavItem[] {
   return STAFF_NAV_ITEMS.filter((item) => rolesAllow(roles, item.roles));
+}
+
+/**
+ * When module default href is role-forbidden for this user (e.g. sales →
+ * `/staff/warehouse` overview), point the module link at the first visible child
+ * so sidebar/hub headers never deep-link into a forbidden overview.
+ */
+function moduleHrefForFilteredChildren(
+  mod: StaffNavModule,
+  children: StaffNavLeaf[],
+  roles: StaffRole[],
+): string {
+  const access = pathAccessFor(navHrefParts(mod.href).pathname);
+  if (access.kind === "any") return mod.href;
+  if (access.kind === "roles" && rolesAllow(roles, access.roles)) {
+    return mod.href;
+  }
+  return children[0]?.href ?? mod.href;
 }
 
 /** Role-filtered hierarchical nav for the staff sidebar / hub. */
@@ -653,7 +724,11 @@ export function filterNavTreeForRoles(roles: StaffRole[]): StaffNavEntry[] {
     }
     const children = entry.children.filter((c) => rolesAllow(roles, c.roles));
     if (children.length === 0) continue;
-    out.push({ ...entry, children });
+    out.push({
+      ...entry,
+      href: moduleHrefForFilteredChildren(entry, children, roles),
+      children,
+    });
   }
   return out;
 }
