@@ -3,7 +3,7 @@
 - **Date:** 2026-08-16
 - **Branch:** `cursor/management-oss-shell-rebuild-ad25`
 - **Lane:** `@management_app_agent` (design); implementation later same lane + `@backend_agent` only if RPC gaps
-- **Status:** Audit + design only (no full parity build this pass)
+- **Status:** Living design + development playbook (DoD / Phase B–D checklists). Implementation proceeds in separate passes.
 - **Parent / prior:** [2026-08-14-management-oss-shell-rebuild.md](./2026-08-14-management-oss-shell-rebuild.md) — this doc is the **fresh** inventory + injection map after My Account, payroll fund, master-stock RBAC, and advisor harden landed on web
 - **Related:** [staff My Account](./2026-08-16-staff-my-account.md), [payroll fund + payslips](./2026-08-16-payroll-fund-payslip-schedule.md)
 
@@ -93,7 +93,7 @@ Libs: `staff-account`, `staff-auth`, `staff-idle-lock-state`, `staff-warehouse`,
 |------|-------|---------|----------|
 | Customer credit | admin, sales, finance | Limit / hold / marketing opt-in | `set_customer_credit`, `set_customer_marketing_opt_in` |
 | Review moderation | admin, sales | Moderate | `moderate_customer_product_review` |
-| Product pages | admin, sales, warehouse | Price / discount / images | `list/upsert_staff_product_page` |
+| Product pages | admin, sales, warehouse | Price / discount / images / **home-rail pins** (Featured·Movers·Newest; algorithm still fills remainder) | `list/upsert_staff_product_page` (+ pin_* cols) |
 | Kits | admin, sales, warehouse | Kit BOM CRUD | kit RPCs |
 
 ### Logistics / Fleet
@@ -177,7 +177,7 @@ Existing CoolMall feature modules to **repurpose**:
 | Master stock | Warehouse tab | `GtrWarehouseAdapter.listMasterStock` (+ chassis/cat filters) Live | **B** |
 | Receive / transfers / cycle / bins / consignment / insights | `feature:warehouse` leaves | `GtrWarehouseAdapter` expand | **D1** |
 | Finance tabs | `feature:finance` | `GtrFinanceAdapter` ← `staff-finance.ts` | **D2** |
-| CRM leaves | `feature:crm` (+ goods chrome) | `GtrCrmAdapter` | **D3** |
+| CRM leaves | `feature:crm` (+ goods chrome) | `GtrCrmAdapter` (credit, reviews, **product pages + home-rail pins**, kits) | **D3** |
 | Logistics + prep + tracking + panic | `feature:logistics` / order | `GtrLogisticsAdapter` + MapLibre | **D4** |
 | Fleet | `feature:fleet` | `GtrFleetAdapter` | **D4** |
 | HR desk + payroll fund + organogram + onboarding | `feature:hr` | `GtrHrAdapter` (fund/schedule/payslip) | **D5** |
@@ -272,12 +272,87 @@ Each slice: Fake smoke → Live RPC → cite web route in PR → `/security-revi
 
 ---
 
+## Development playbook (Android management / CoolMall)
+
+### Definition of done (per Phase B or D slice)
+
+A slice is **Done** only when all of the following hold:
+
+1. **Web contract cited** — PR links the web route + `lib/staff-*.ts` RPCs used  
+2. **Fake smoke** — CI/local Fake adapter returns seeded rows; unit tests for gates  
+3. **Live path** — supabase-kt (or shared Android RPC kit) behind `local.properties`; no secrets in git  
+4. **Nav parity** — CoolMall `StaffNavTree` leaf matches web `STAFF_NAV_TREE` roles + `module_access` id (POS still excluded)  
+5. **GTR chrome** — no CoolMall fashion palette; steel/chalk/red tokens  
+6. **Bridge-First** — any scan/print/biometric/GPS uses `bridges/` (or deep-link to delivery/POS)  
+7. **Verifier** — focused Gradle tests green; `/security-reviewer` if authz/money touched  
+
+### Phase B checklist (next implementation)
+
+| # | Work | Acceptance |
+|---|------|------------|
+| B1 | Auth Live | Emp#/email/phone → GoTrue; `must_change_password`; idle lock 3 min; Fake still works without keys |
+| B2 | My Account Live | Profile edit, photo Storage, payslip history+PDF, ID+business card, module chips, sign-out |
+| B3 | Master-stock Live | `list_master_stock` + chassis/cat/OEM filters; sales/finance path parity with web |
+
+### Phase D acceptance (each desk)
+
+| Slice | Must ship | Explicitly out |
+|-------|-----------|----------------|
+| D1 WH | Receive, transfers, cycle, bins, consignment, insights | Auto-PO from insights |
+| D2 Finance | All finance tabs with currency on money | ZIMRA |
+| D3 CRM | Credit, reviews, product pages (**incl. home-rail pins**), kits | Catalog title/OEM/diagram edit |
+| D4 Logistics/Fleet | Pick/DN/jobs, prep, MapLibre track, panic, fleet CRUD | GPS producer (delivery app) |
+| D5 HR | Clock, payroll fund/schedule, organogram, onboarding | Payroll tax / ContiPay bank payout |
+| D6–D9 | Warranty, chat, analytics, procurement | AI auto-PO; Expo |
+
+### CoolMall module layout (target)
+
+```
+vendor/coolmall-gtr/
+  gtradapter/          # Fake + Live Supabase contracts (SoR inject)
+  feature/
+    auth/              # B1
+    main/              # Hub, WH master-stock, Account shell
+    user/ or account/  # B2 My Account (or under main)
+    warehouse/         # D1 deepen
+    finance/           # D2
+    crm/               # D3 (+ home-rail pins on product pages)
+    logistics/         # D4
+    fleet/             # D4
+    hr/                # D5
+    warranty/          # D6
+    cs/                # D7 staff chat rebind
+    analytics/         # D8
+    procurement/       # D9
+```
+
+### Test matrix (minimum)
+
+| Layer | What |
+|-------|------|
+| JVM | Adapter Fake: auth gate, module filter, pin upsert payload shape |
+| Device smoke | B1 sign-in/out; B3 master-stock search; D3 pin toggle reflects on storefront after Live |
+| Web regression | Product pages save pins; `list_storefront_home_rails` pins-before-algo |
+
+### Risks (updated)
+
+| Risk | Mitigation |
+|------|------------|
+| Reverting to legacy UI port | This plan + `gtradapter` README ban |
+| Building POS inside CoolMall | Phase C deferred; Open POS deep-link only |
+| Stale CoolMall `StaffNavTree` vs web | Sync + unit test each B/D PR |
+| Pins without stock/price | RPC shop gate still applies — staff UI warns |
+| Dual money paths | Always currency + rate; mirror web |
+| Dirty tree noise | Do not stage screenshots, flaresolverr, catalog-apk |
+
+---
+
 ## Immediate next step (implementation, separate pass)
 
 1. Phase **B1** Auth Live in `vendor/coolmall-gtr/gtradapter`  
 2. Phase **B2** My Account adapter + Account UI parity with web  
 3. Phase **B3** Master-stock Live + filter parity  
-4. Then **D1** warehouse deepen  
+4. Then **D1** warehouse deepen → **D3** includes CRM home-rail pin UI  
 
 Do not start D2–D9 until B Live auth is green on device.
 
@@ -289,3 +364,4 @@ Do not start D2–D9 until B Live auth is green on device.
 - ZIMRA / payroll tax  
 - CoolMall POS till chrome  
 - Implementing full parity in the same PR as this plan  
+- Replacing algorithmic rails (pins are **backup** only)  

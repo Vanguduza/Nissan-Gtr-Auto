@@ -989,7 +989,7 @@ export async function listHomeMerchRails(
   }
   if (!newest.ok) return newest;
 
-  // No curated featured flag — reuse movers slice as Featured.
+  // Fallback when RPC missing: movers slice only (no pins without migration).
   const featured = movers.data.slice(0, railLimit);
   return {
     ok: true,
