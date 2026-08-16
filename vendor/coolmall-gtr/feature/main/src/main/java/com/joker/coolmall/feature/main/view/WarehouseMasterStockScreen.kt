@@ -30,6 +30,7 @@ import com.joker.coolmall.feature.main.viewmodel.WarehouseMasterStockViewModel
 
 @Composable
 internal fun WarehouseMasterStockRoute(
+    embedded: Boolean = false,
     viewModel: WarehouseMasterStockViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -47,6 +48,7 @@ internal fun WarehouseMasterStockRoute(
         onQueryChange = viewModel::updateQuery,
         onChassisChange = viewModel::updateChassis,
         onSearch = viewModel::search,
+        embedded = embedded,
     )
 }
 
@@ -61,17 +63,16 @@ internal fun WarehouseMasterStockScreen(
     onQueryChange: (String) -> Unit,
     onChassisChange: (String) -> Unit,
     onSearch: () -> Unit,
+    embedded: Boolean = false,
 ) {
-    CommonScaffold(
-        topBar = {
-            CenterTopAppBar(R.string.warehouse_master_stock_title, showBackIcon = false)
-        },
-    ) { paddingValues ->
+    val body: @Composable (PaddingValues) -> Unit = { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(SpacePaddingMedium),
+                .then(
+                    if (embedded) Modifier else Modifier.padding(SpacePaddingMedium),
+                ),
         ) {
             Text(
                 text = stringResource(R.string.warehouse_master_stock_hint),
@@ -130,5 +131,15 @@ internal fun WarehouseMasterStockScreen(
                 }
             }
         }
+    }
+    if (embedded) {
+        body(PaddingValues())
+    } else {
+        CommonScaffold(
+            topBar = {
+                CenterTopAppBar(R.string.warehouse_master_stock_title, showBackIcon = false)
+            },
+            content = body,
+        )
     }
 }

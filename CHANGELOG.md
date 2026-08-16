@@ -4,6 +4,8 @@
 
 ### Added
 
+- **CoolMall D1 warehouse (receive + transfers):** Warehouse tab desks — typed OEM receive (`post_stock_receipt`, USD/ZIG) and WH1→WH2 transfers (create / pending approve / reject). Fake + Live. Cycle/bins/consignment/insights still open. Plan: `docs/plans/2026-08-16-coolmall-web-feature-injection.md`.
+
 - **CoolMall Phase B Live Supabase inject:** `vendor/coolmall-gtr/gtradapter` supabase-kt 3.1.1 — Live auth (`resolve_staff_login_email` + GoTrue + staff context), My Account MVP (profile + payslip list), master-stock Live (`list_master_stock`), 3 min idle lock overlay; Fake when URL/key blank or `rpc.forceFake`. Plan: `docs/plans/2026-08-16-coolmall-web-feature-injection.md`.
 
 - **CRM home-rail manual pins (backup control):** Staff Product pages can pin SKUs to Featured / Fast movers / Newest; pins sort ahead of the existing algorithms (discount→qty / qty / created_at). Shop gate unchanged (in-stock + priced). Migration `20260816050000_home_rail_manual_pins.sql`; decision `docs/decisions/2026-08-16-home-rail-manual-pins.md`.

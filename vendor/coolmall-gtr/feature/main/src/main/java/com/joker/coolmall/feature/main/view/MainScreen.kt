@@ -28,7 +28,7 @@ import com.joker.coolmall.feature.main.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
 /**
- * Staff main shell — Hub / Warehouse master-stock / Account.
+ * Staff main shell — Hub / Warehouse desk / Account.
  * No POS cart tab this phase.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -113,7 +113,7 @@ private fun MainScreenContentView(
     ) { page: Int ->
         when (page) {
             TopLevelDestination.HUB.ordinal -> StaffHubRoute(onOpenWarehouse = onOpenWarehouse)
-            TopLevelDestination.WAREHOUSE.ordinal -> WarehouseMasterStockRoute()
+            TopLevelDestination.WAREHOUSE.ordinal -> WarehouseDeskRoute()
             TopLevelDestination.ACCOUNT.ordinal -> StaffAccountRoute()
         }
     }

@@ -50,6 +50,14 @@ Build / test:
 ./gradlew :gtradapter:testDevDebugUnitTest :app:assembleDevDebug
 ```
 
+## Phase D1 (this pass) — Warehouse deepen (partial)
+
+| Slice | Status |
+|-------|--------|
+| Receive | Typed OEM → `post_stock_receipt` (USD/ZIG + unit cost). Bridge QR later |
+| Transfers | WH1→WH2 create + pending approve/reject |
+| Cycle / bins / consignment / insights | Next D1 pass |
+
 ## Next
 
-Phase D desks (warehouse deepen → finance → …). Open POS = deep-link to `android-pos` only when asked.
+Cycle count, bins, consignment, insights. Then D2 finance. Open POS = deep-link to `android-pos` only when asked.

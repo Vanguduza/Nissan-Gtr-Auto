@@ -25,6 +25,23 @@
     <string name="warehouse_search">Search</string>
     <string name="warehouse_loading">Loading…</string>
     <string name="warehouse_qty_fmt">Total %1$.0f · WH1 %2$.0f · WH2 %3$.0f</string>
+    <string name="warehouse_tab_stock">Stock</string>
+    <string name="warehouse_tab_receive">Receive</string>
+    <string name="warehouse_tab_transfers">Transfers</string>
+    <string name="warehouse_receive_hint">Type OEM (Bridge QR later). Posts to post_stock_receipt.</string>
+    <string name="warehouse_transfers_hint">WH1→WH2 create then approve. RPCs create/approve/reject_stock_transfer.</string>
+    <string name="warehouse_from_label">From</string>
+    <string name="warehouse_to_label">To</string>
+    <string name="warehouse_qty">Qty</string>
+    <string name="warehouse_unit_cost">Unit cost</string>
+    <string name="warehouse_notes">Notes</string>
+    <string name="warehouse_post_receipt">Post receipt</string>
+    <string name="warehouse_create_transfer">Create transfer</string>
+    <string name="warehouse_pending_transfers">Pending approval</string>
+    <string name="warehouse_pending_empty">None pending</string>
+    <string name="warehouse_transfer_row_fmt">From %1$s → %2$s</string>
+    <string name="warehouse_approve">Approve</string>
+    <string name="warehouse_reject">Reject</string>
 
     <!-- Account / change-password -->
     <string name="staff_account_title">Staff account</string>

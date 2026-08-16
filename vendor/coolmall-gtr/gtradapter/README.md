@@ -22,9 +22,10 @@ App wires config from BuildConfig ← `local.properties` (`vendor/coolmall-gtr/l
 `GtrMyAccountAdapter` → `get_my_staff_profile` / `update_my_staff_profile` / `list_my_payslip_history`.  
 Photo Storage + branded PDF deferred.
 
-## Warehouse (B3 thin)
+## Warehouse
 
-`listMasterStock(limit, query, chassisCode?)` → `list_master_stock` (OEM query + optional chassis). Category needles later.
+`listMasterStock` → `list_master_stock`.  
+D1: `listWarehouses` / `searchStockItems` / `post_stock_receipt` / `create_stock_transfer` / approve+reject. Typed OEM (Bridge QR later). Cycle/bins/consignment/insights next.
 
 ## Forbidden
 

@@ -298,7 +298,7 @@ A slice is **Done** only when all of the following hold:
 
 | Slice | Must ship | Explicitly out |
 |-------|-----------|----------------|
-| D1 WH | Receive, transfers, cycle, bins, consignment, insights | Auto-PO from insights |
+| D1 WH | Receive + transfers **Done** (typed OEM; Bridge QR later). Cycle, bins, consignment, insights still open | Auto-PO from insights |
 | D2 Finance | All finance tabs with currency on money | ZIMRA |
 | D3 CRM | Credit, reviews, product pages (**incl. home-rail pins**), kits | Catalog title/OEM/diagram edit |
 | D4 Logistics/Fleet | Pick/DN/jobs, prep, MapLibre track, panic, fleet CRUD | GPS producer (delivery app) |
@@ -349,13 +349,12 @@ vendor/coolmall-gtr/
 
 ## Immediate next step (implementation, separate pass)
 
-Phase B Live inject landed in `vendor/coolmall-gtr/` (B1–B3 thin). Next:
+Phase B Live inject + D1 receive/transfers landed in `vendor/coolmall-gtr/`. Next:
 
-1. B2 polish — photo Storage + payslip PDF / ID+business card  
-2. B3 polish — category/subcategory needle filters + CSV  
-3. Then **D1** warehouse deepen → **D3** includes CRM home-rail pin UI  
-
-Do not start D2–D9 until B Live auth is green on device.
+1. Finish **D1** — cycle count, bins, consignment, insights (no auto-PO)  
+2. B2 polish — photo Storage + payslip PDF / ID+business card  
+3. B3 polish — category/subcategory needle filters + CSV  
+4. Then **D2** finance (after Live auth smoke on device)
 
 ## Out of scope
 

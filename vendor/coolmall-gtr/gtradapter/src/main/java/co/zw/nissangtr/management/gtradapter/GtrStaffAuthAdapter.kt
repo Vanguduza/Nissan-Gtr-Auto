@@ -70,13 +70,75 @@ data class MasterStockRow(
     val qtyWh2: Double,
 )
 
-/** Web master-stock panel → RPC list_master_stock. */
+data class GtrWarehouseOption(
+    val id: String,
+    val code: String,
+    val name: String,
+    val roleCode: String? = null,
+    val isQuarantine: Boolean = false,
+)
+
+data class GtrStockItemOption(
+    val id: String,
+    val oemPartNumber: String,
+    val description: String,
+    val baseUomId: String?,
+    val requiresSerial: Boolean = false,
+)
+
+data class GtrReceiptLine(
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+    val unitCost: Double,
+    val currency: String = "USD",
+)
+
+data class GtrTransferLine(
+    val stockItemId: String,
+    val uomId: String,
+    val qty: Double,
+)
+
+data class GtrPendingTransfer(
+    val id: String,
+    val documentNumber: String?,
+    val fromWarehouseId: String?,
+    val toWarehouseId: String?,
+    val notes: String?,
+    val createdAt: String?,
+)
+
+/** Web warehouse desk — master-stock, receive, WH1→WH2 transfers. */
 interface GtrWarehouseAdapter {
     suspend fun listMasterStock(
         limit: Int = 200,
         query: String? = null,
         chassisCode: String? = null,
     ): Result<List<MasterStockRow>>
+
+    suspend fun listWarehouses(includeQuarantine: Boolean = false): Result<List<GtrWarehouseOption>>
+
+    suspend fun searchStockItems(query: String, limit: Int = 20): Result<List<GtrStockItemOption>>
+
+    suspend fun postStockReceipt(
+        toWarehouseId: String,
+        notes: String,
+        lines: List<GtrReceiptLine>,
+    ): Result<String>
+
+    suspend fun listPendingTransfers(): Result<List<GtrPendingTransfer>>
+
+    suspend fun createStockTransfer(
+        fromWarehouseId: String,
+        toWarehouseId: String,
+        notes: String,
+        lines: List<GtrTransferLine>,
+    ): Result<String>
+
+    suspend fun approveStockTransfer(entryId: String): Result<String>
+
+    suspend fun rejectStockTransfer(entryId: String): Result<String>
 }
 
 /** Holds signed-in staff context for hub / gates (in-memory; Fake or post-login Live). */
@@ -174,6 +236,12 @@ class FakeGtrPasswordAdapter(
 }
 
 class FakeGtrWarehouseAdapter : GtrWarehouseAdapter {
+    private val warehouses = listOf(
+        GtrWarehouseOption("wh-1", "WH1", "Receiving", roleCode = "WH1"),
+        GtrWarehouseOption("wh-2", "WH2", "Storefloor", roleCode = "WH2"),
+        GtrWarehouseOption("wh-q", "QUAR", "Quarantine", isQuarantine = true),
+    )
+    private val pending = mutableListOf<GtrPendingTransfer>()
     private val seed = listOf(
         MasterStockRow(
             stockItemId = "si-1001",
@@ -227,5 +295,87 @@ class FakeGtrWarehouseAdapter : GtrWarehouseAdapter {
             }
         }
         return Result.success(filtered.take(limit.coerceAtLeast(1)))
+    }
+
+    override suspend fun listWarehouses(includeQuarantine: Boolean): Result<List<GtrWarehouseOption>> =
+        Result.success(
+            if (includeQuarantine) warehouses else warehouses.filter { !it.isQuarantine },
+        )
+
+    override suspend fun searchStockItems(
+        query: String,
+        limit: Int,
+    ): Result<List<GtrStockItemOption>> {
+        val q = query.trim()
+        if (q.length < 2) return Result.success(emptyList())
+        val qLower = q.lowercase()
+        return Result.success(
+            seed.filter {
+                it.stockItemId.equals(q, ignoreCase = true) ||
+                    it.oemPartNumber.lowercase().contains(qLower) ||
+                    it.description.lowercase().contains(qLower)
+            }.take(limit.coerceIn(1, 50)).map {
+                GtrStockItemOption(
+                    id = it.stockItemId,
+                    oemPartNumber = it.oemPartNumber,
+                    description = it.description,
+                    baseUomId = "uom-ea",
+                )
+            },
+        )
+    }
+
+    override suspend fun postStockReceipt(
+        toWarehouseId: String,
+        notes: String,
+        lines: List<GtrReceiptLine>,
+    ): Result<String> = runCatching {
+        require(toWarehouseId.isNotBlank())
+        require(lines.isNotEmpty()) { "Receipt needs at least one line" }
+        lines.forEach { line ->
+            require(line.stockItemId.isNotBlank() && line.uomId.isNotBlank())
+            require(line.qty > 0)
+            require(line.currency == "USD" || line.currency == "ZIG")
+        }
+        "recv-${java.util.UUID.randomUUID()}"
+    }
+
+    override suspend fun listPendingTransfers(): Result<List<GtrPendingTransfer>> =
+        Result.success(pending.toList())
+
+    override suspend fun createStockTransfer(
+        fromWarehouseId: String,
+        toWarehouseId: String,
+        notes: String,
+        lines: List<GtrTransferLine>,
+    ): Result<String> = runCatching {
+        require(fromWarehouseId.isNotBlank() && toWarehouseId.isNotBlank())
+        require(fromWarehouseId != toWarehouseId) { "From and to warehouses must differ" }
+        require(lines.isNotEmpty()) { "Transfer needs at least one line" }
+        val id = "xfer-${java.util.UUID.randomUUID()}"
+        pending.add(
+            0,
+            GtrPendingTransfer(
+                id = id,
+                documentNumber = "TR-FAKE",
+                fromWarehouseId = fromWarehouseId,
+                toWarehouseId = toWarehouseId,
+                notes = notes.trim().ifEmpty { null },
+                createdAt = "now",
+            ),
+        )
+        id
+    }
+
+    override suspend fun approveStockTransfer(entryId: String): Result<String> = runCatching {
+        require(entryId.isNotBlank())
+        pending.removeAll { it.id == entryId }
+        entryId
+    }
+
+    override suspend fun rejectStockTransfer(entryId: String): Result<String> = runCatching {
+        require(entryId.isNotBlank())
+        pending.removeAll { it.id == entryId }
+        entryId
     }
 }

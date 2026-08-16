@@ -41,6 +41,53 @@ class FakeGtrAdaptersTest {
     }
 
     @Test
+    fun receiveAndTransferFakeFlow() = runBlocking {
+        val wh = FakeGtrWarehouseAdapter()
+        val houses = wh.listWarehouses().getOrThrow()
+        assertEquals(2, houses.size)
+        assertTrue(houses.none { it.isQuarantine })
+
+        val hits = wh.searchStockItems("16546").getOrThrow()
+        assertEquals("16546-6N200", hits.first().oemPartNumber)
+        val item = hits.first()
+        val uom = item.baseUomId ?: error("fake uom")
+
+        val receiptId = wh.postStockReceipt(
+            toWarehouseId = houses.first { it.code == "WH1" }.id,
+            notes = "smoke",
+            lines = listOf(
+                GtrReceiptLine(
+                    stockItemId = item.id,
+                    uomId = uom,
+                    qty = 2.0,
+                    unitCost = 1.5,
+                    currency = "USD",
+                ),
+            ),
+        ).getOrThrow()
+        assertTrue(receiptId.startsWith("recv-"))
+
+        val sameWh = houses.first().id
+        val sameFail = wh.createStockTransfer(
+            fromWarehouseId = sameWh,
+            toWarehouseId = sameWh,
+            notes = "",
+            lines = listOf(GtrTransferLine(item.id, uom, 1.0)),
+        )
+        assertTrue(sameFail.isFailure)
+
+        val xferId = wh.createStockTransfer(
+            fromWarehouseId = houses.first { it.code == "WH1" }.id,
+            toWarehouseId = houses.first { it.code == "WH2" }.id,
+            notes = "move",
+            lines = listOf(GtrTransferLine(item.id, uom, 1.0)),
+        ).getOrThrow()
+        assertEquals(1, wh.listPendingTransfers().getOrThrow().size)
+        assertEquals(xferId, wh.approveStockTransfer(xferId).getOrThrow())
+        assertTrue(wh.listPendingTransfers().getOrThrow().isEmpty())
+    }
+
+    @Test
     fun changePasswordClearsMustChangeFlag() = runBlocking {
         val session = GtrStaffSession()
         session.update(
