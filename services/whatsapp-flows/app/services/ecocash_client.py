@@ -242,7 +242,9 @@ def ecocash_status_is_paid(status: str | None, body: dict[str, Any] | None = Non
         "00",
     }
     for c in candidates:
+        # Exact allowlist only — never substring-match: "success" in "unsuccessful"
+        # and endswith("_ok") on "not_ok" would false-settle as paid.
         norm = c.strip().lower().replace(" ", "_")
-        if norm in paid_tokens or "success" in norm or norm.endswith("_ok"):
+        if norm in paid_tokens:
             return True
     return False

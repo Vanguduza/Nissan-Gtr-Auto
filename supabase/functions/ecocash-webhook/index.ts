@@ -6,6 +6,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   corsHeaders,
+  isEcocashSuccessStatus,
   isLocalUnverifiedAllowed,
   jsonResponse,
 } from "../_shared/payment_edge.ts";
@@ -63,8 +64,8 @@ Deno.serve(async (req) => {
     const status = String(
       body.transactionStatus || body.status || body.paymentStatus || "",
     ).toLowerCase();
-    const success = ["paid", "success", "successful", "completed", "approved", "ok"]
-      .some((t) => status.includes(t));
+    // Exact allowlist — substring match falsely treats unpaid/unsuccessful as paid.
+    const success = isEcocashSuccessStatus(status);
     const providerRef = String(
       body.ecocashReference ||
         body.transactionReference ||
