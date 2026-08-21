@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.supabase_client import get_supabase
+from app.core.webhook_auth import assert_shared_secret, header_secret
 from app.services.checkout_display import (
     CheckoutDisplayError,
     build_zig_settlement,
@@ -27,6 +29,32 @@ from app.services.receipt_pdf import build_receipt_pdf
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/payments/ecocash", tags=["ecocash"])
+
+
+def _authorize_ecocash_settle(request: Request, settings: Settings | None = None) -> None:
+    """Fail closed: EcoCash push/lookup/callback require webhook secret (or local flag)."""
+    cfg = settings or get_settings()
+    provided = header_secret(
+        request,
+        "X-EcoCash-Signature",
+        "x-ecocash-signature",
+        "X-Payments-Webhook-Secret",
+        "x-payments-webhook-secret",
+        "X-Worker-Secret",
+        "x-worker-secret",
+    )
+    # Prefer EcoCash-specific secret; fall back to shared payments worker secret.
+    expected = (cfg.ecocash_webhook_secret or cfg.payments_webhook_secret or "").strip()
+    local = bool(cfg.ecocash_allow_unverified_local or cfg.payments_allow_unverified_local)
+    assert_shared_secret(
+        provided=provided,
+        expected=expected,
+        allow_unverified_local=local,
+        unset_message=(
+            "ECOCASH_WEBHOOK_SECRET or PAYMENTS_WEBHOOK_SECRET required "
+            "(set ECOCASH_ALLOW_UNVERIFIED_LOCAL=1 for local stub only)"
+        ),
+    )
 
 
 class EcoCashPushBody(BaseModel):
@@ -209,8 +237,9 @@ async def push_ecocash_for_order(
 
 
 @router.post("/push")
-async def ecocash_push(body: EcoCashPushBody) -> dict[str, Any]:
+async def ecocash_push(request: Request, body: EcoCashPushBody) -> dict[str, Any]:
     """Manual / retry EcoCash C2B push for an order."""
+    _authorize_ecocash_settle(request)
     order = _get_order(body.order_id)
     if order.get("status") == "PAID":
         return {"ok": True, "order_id": body.order_id, "status": "PAID", "skipped": True}
@@ -219,10 +248,12 @@ async def ecocash_push(body: EcoCashPushBody) -> dict[str, Any]:
 
 @router.post("/lookup")
 async def ecocash_lookup(
+    request: Request,
     body: EcoCashLookupBody,
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     """Poll EcoCash transaction status; mark PAID + send PDF receipt when successful."""
+    _authorize_ecocash_settle(request)
     order = _get_order(body.order_id)
     if order.get("status") == "PAID":
         return {"ok": True, "order_id": body.order_id, "status": "PAID", "receipt": False}
@@ -272,22 +303,19 @@ async def ecocash_lookup(
 async def ecocash_callback(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_ecocash_signature: str | None = Header(default=None, alias="X-EcoCash-Signature"),
 ) -> dict[str, Any]:
     """Server-to-server EcoCash settle (shape may vary — map common fields).
 
-    Plug-in: set ECOCASH_WEBHOOK_SECRET when EcoCash documents a signature header.
-    Until then, accept JSON with sourceReference / order id + success status.
+    Fail closed without ECOCASH_WEBHOOK_SECRET / PAYMENTS_WEBHOOK_SECRET unless
+    ECOCASH_ALLOW_UNVERIFIED_LOCAL=1 (local stub only). Header:
+    X-EcoCash-Signature or X-Payments-Webhook-Secret.
     """
     settings = get_settings()
     raw_body = await request.body()
-    if settings.ecocash_webhook_secret:
-        # Fail closed when secret configured but header missing/wrong (exact algo TBD by EcoCash).
-        if not x_ecocash_signature or x_ecocash_signature != settings.ecocash_webhook_secret:
-            raise HTTPException(status_code=401, detail="invalid EcoCash webhook signature")
+    _authorize_ecocash_settle(request, settings)
 
     try:
-        body = await request.json()
+        body = json.loads(raw_body.decode("utf-8") or "{}")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=422, detail="JSON body required") from exc
     if not isinstance(body, dict):
@@ -349,6 +377,4 @@ async def ecocash_callback(
     )
     paid = _mark_paid(str(order["id"]), ref)
     background_tasks.add_task(_deliver_receipt, paid)
-    # raw_body kept for future HMAC verify once EcoCash publishes the algorithm
-    _ = raw_body
     return {"ok": True, "order_id": paid["id"], "status": "PAID", "receipt": True}

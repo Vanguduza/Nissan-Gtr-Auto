@@ -1,14 +1,29 @@
-"""POST /api/v1/payments/callback — Paynow / PSP server-to-server settle."""
+"""POST /api/v1/payments/callback — Paynow / PSP server-to-server settle.
+
+Fail closed: unauthenticated callers cannot mark orders PAID.
+Auth (any one):
+  - Paynow form body with valid SHA512 field hash (PAYNOW_INTEGRATION_KEY)
+  - Header X-Payments-Webhook-Secret / X-Worker-Secret matching PAYMENTS_WEBHOOK_SECRET
+  - Local only: PAYMENTS_ALLOW_UNVERIFIED_LOCAL=1 when secret and key are unset
+"""
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.core.config import get_settings
 from app.core.supabase_client import get_supabase
+from app.core.webhook_auth import (
+    assert_shared_secret,
+    header_secret,
+    verify_paynow_form_hash,
+)
 from app.services.meta_client import MetaClient
 from app.services.receipt_pdf import build_receipt_pdf
 
@@ -73,34 +88,78 @@ def _is_paid_status(status: str) -> bool:
     return s in {"paid", "ok", "awaiting delivery", "delivered", "success"}
 
 
+def _authorize_payment_callback(request: Request, raw_body: bytes, is_form: bool) -> None:
+    settings = get_settings()
+    key = (settings.paynow_integration_key or "").strip()
+    secret = (settings.payments_webhook_secret or "").strip()
+    local = bool(settings.payments_allow_unverified_local)
+
+    if is_form and key:
+        ok, _fields = verify_paynow_form_hash(raw_body.decode("utf-8", errors="replace"), key)
+        if ok:
+            return
+        raise HTTPException(status_code=401, detail="invalid or missing Paynow hash")
+
+    provided = header_secret(
+        request,
+        "X-Payments-Webhook-Secret",
+        "x-payments-webhook-secret",
+        "X-Worker-Secret",
+        "x-worker-secret",
+    )
+    assert_shared_secret(
+        provided=provided,
+        expected=secret,
+        allow_unverified_local=local and not key,
+        unset_message=(
+            "PAYMENTS_WEBHOOK_SECRET (or PAYNOW_INTEGRATION_KEY for form hash) required "
+            "(set PAYMENTS_ALLOW_UNVERIFIED_LOCAL=1 for local stub only)"
+        ),
+    )
+
+
 @router.post("/callback")
 async def payment_callback(
     request: Request,
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     """Accept JSON or Paynow-style form body; on PAID update order + send PDF receipt."""
+    raw_body = await request.body()
     content_type = (request.headers.get("content-type") or "").lower()
+    is_form = "application/json" not in content_type
+    _authorize_payment_callback(request, raw_body, is_form=is_form)
+
     order_id: str | None = None
     status: str | None = None
     reference: str | None = None
 
-    if "application/json" in content_type:
-        body = PaymentCallbackJson.model_validate(await request.json())
+    if not is_form:
+        try:
+            payload = json.loads(raw_body.decode("utf-8") or "{}")
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=422, detail="JSON body required") from exc
+        body = PaymentCallbackJson.model_validate(payload)
         order_id, status, reference = body.order_id, body.status, body.reference
     else:
-        form = await request.form()
+        form_map = {
+            k: (v[0] if v else "")
+            for k, v in parse_qs(
+                raw_body.decode("utf-8", errors="replace"),
+                keep_blank_values=True,
+            ).items()
+        }
         # Paynow uses reference / paynowreference / status / etc.
         order_id = str(
-            form.get("order_id")
-            or form.get("reference")
-            or form.get("MerchantReference")
+            form_map.get("order_id")
+            or form_map.get("reference")
+            or form_map.get("MerchantReference")
             or "",
         ).strip() or None
-        status = str(form.get("status") or form.get("Status") or "").strip() or None
+        status = str(form_map.get("status") or form_map.get("Status") or "").strip() or None
         reference = str(
-            form.get("paynowreference")
-            or form.get("PaynowReference")
-            or form.get("reference")
+            form_map.get("paynowreference")
+            or form_map.get("PaynowReference")
+            or form_map.get("reference")
             or "",
         ).strip() or None
 

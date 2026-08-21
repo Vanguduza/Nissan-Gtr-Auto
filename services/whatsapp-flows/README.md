@@ -112,7 +112,7 @@ pytest -q
 1. Register at [developers.ecocash.co.zw](https://developers.ecocash.co.zw/) (merchant + online merchant).
 2. Put the API key in `.env` as `ECOCASH_API_KEY`, set `ECOCASH_ENVIRONMENT=live`, `ECOCASH_ALLOW_STUB=false`.
 3. Checkout with `payment_method=ecocash` → C2B push to customer MSISDN → PIN on phone.
-4. Settle via `POST /api/v1/payments/ecocash/callback` or poll `POST /api/v1/payments/ecocash/lookup`.
+4. Settle via `POST /api/v1/payments/ecocash/callback` or poll `POST /api/v1/payments/ecocash/lookup` with header `X-EcoCash-Signature` / `X-Payments-Webhook-Secret` (fail closed without `ECOCASH_WEBHOOK_SECRET` or `PAYMENTS_WEBHOOK_SECRET` unless `ECOCASH_ALLOW_UNVERIFIED_LOCAL=1`).
 5. If EcoCash’s live path/auth header differs from the defaults in `.env.example`, override `ECOCASH_*_PATH_*` / `ECOCASH_AUTH_HEADER` only — no code change.
 
 Without a key, C2B runs in **stub** mode (WhatsApp still tells the customer to approve).
@@ -121,7 +121,7 @@ Without a key, C2B runs in **stub** mode (WhatsApp still tells the customer to a
 
 - Stub link: `generate_payment_link` → storefront-style URL with `psp=paynow&stub=1`
 - Production: swap stub for Edge `paynow-initiate` / ContiPay using service credentials
-- Callback: `POST /api/v1/payments/callback` JSON `{order_id,status:PAID}` or Paynow form fields
+- Callback: `POST /api/v1/payments/callback` — require `X-Payments-Webhook-Secret` (or valid Paynow form hash with `PAYNOW_INTEGRATION_KEY`); local stub only behind `PAYMENTS_ALLOW_UNVERIFIED_LOCAL=1`
 - Flow `payment_method=paynow` sends the CTA URL button instead of EcoCash push
 
 ## Delivery
