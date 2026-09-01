@@ -48,7 +48,6 @@ import co.zw.nissangtr.customer.visual.PremiumCustomerTheme
 import co.zw.nissangtr.customer.visual.PremiumEmptyState
 import co.zw.nissangtr.customer.visual.PremiumPrimaryButton
 import co.zw.nissangtr.customer.visual.PremiumScreenHeader
-import co.zw.nissangtr.customer.visual.PremiumSecondaryButton
 import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
 import co.zw.nissangtr.customer.visual.PremiumTab
 import co.zw.nissangtr.customer.visual.PremiumTopBar
@@ -138,25 +137,40 @@ class PreviewLockedScreenshotTest {
 
     @Test
     fun gateChangeVehicle() {
+        val state = sampleHomeState()
         paparazzi.snapshot(name = "gate_change_vehicle") {
             PhoneShell(PremiumTab.Home) {
-                PremiumCatalogHome(
-                    state = sampleHomeState(),
-                    wishOems = emptySet(),
-                    onShopAll = {},
-                    onSeeAllCategories = {},
-                    onSeeAllPopular = {},
-                    onSeeAllNewest = {},
-                    onOpenProduct = {},
-                    onToggleWish = {},
-                    onAddToCart = {},
-                    onCategoryBrowse = {},
-                    onConfirmCascade = { _, _, _, _ -> },
-                    onConfirmVin = {},
-                    onClearVehicle = {},
-                    onTrackOrder = {},
-                    startVehicleSheetOpen = true,
-                )
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .background(GtrPremiumColors.Surface)
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+                ) {
+                    Text(
+                        text = "Change vehicle",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = GtrPremiumColors.TextPrimary,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Your selection only filters parts currently in stock that fit this vehicle.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GtrPremiumColors.TextSecondary,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    VehicleSelectorSection(
+                        vehicleRows = state.vehicleRows,
+                        confirmedVehicle = state.selectedFitment,
+                        busy = false,
+                        error = null,
+                        onConfirmCascade = { _, _, _, _ -> },
+                        onConfirmVin = {},
+                        onClear = {},
+                        sectionTitle = "Vehicle details",
+                        confirmLabel = "Use this vehicle",
+                        showClear = false,
+                    )
+                }
             }
         }
     }
