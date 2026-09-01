@@ -237,6 +237,7 @@ class PreviewLockedScreenshotTest {
                                     contentDescription = null,
                                     modifier = Modifier.fillMaxWidth().height(132.dp),
                                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    alignment = Alignment.CenterEnd,
                                 )
                                 Spacer(Modifier.height(14.dp))
                                 Text(
