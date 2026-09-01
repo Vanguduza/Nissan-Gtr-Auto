@@ -85,6 +85,14 @@ jobs:
             exit 1
           fi
 
+  vehicle-artwork:
+    name: Vehicle artwork set
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify 94 WebPs cover the Android resolver
+        run: python3 scripts/test_vehicle_artwork_set.py
+
   db-smoke:
     name: Migrate + SQL smoke
     runs-on: ubuntu-latest
@@ -127,6 +135,11 @@ jobs:
           docker exec -i "${{ steps.db.outputs.container }}" \
             psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
             < supabase/tests/phase14_ci_smoke.sql
+      - name: Run vehicle-artwork storage smoke
+        run: |
+          docker exec -i "${{ steps.db.outputs.container }}" \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            < supabase/tests/vehicle_artwork_storage_smoke.sql
       - name: Stop Supabase
         if: always()
         run: npx supabase stop --no-backup || true
