@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from upload_vehicle_artwork import (
     ART_DIR,
     EXPECTED_COUNT,
+    FILENAME_RE,
     public_object_url,
     resolver_filenames,
     verify_local_set,
@@ -39,6 +40,12 @@ class VehicleArtworkSetTest(unittest.TestCase):
             "https://gylrgwqyuiwkyykardwc.supabase.co"
             "/storage/v1/object/public/vehicle-artwork/nissan_navara_d23.webp",
         )
+
+    def test_filename_regex_rejects_traversal(self) -> None:
+        self.assertTrue(FILENAME_RE.match("nissan_navara_d23.webp"))
+        self.assertFalse(FILENAME_RE.match("../nissan_navara_d23.webp"))
+        self.assertFalse(FILENAME_RE.match("nested/nissan_navara_d23.webp"))
+        self.assertFalse(FILENAME_RE.match("nissan_navara_d23.png"))
 
     def test_resolver_does_not_point_at_qashqai(self) -> None:
         names = resolver_filenames()

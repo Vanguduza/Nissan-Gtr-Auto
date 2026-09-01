@@ -29,6 +29,7 @@ CREATE POLICY vehicle_artwork_staff_insert
   TO authenticated
   WITH CHECK (
     bucket_id = 'vehicle-artwork'
+    AND name ~ '^nissan_[a-z0-9_]+\.webp$'
     AND public.has_staff_role(ARRAY['admin', 'warehouse']::public.staff_role[])
   );
 
@@ -38,10 +39,12 @@ CREATE POLICY vehicle_artwork_staff_update
   TO authenticated
   USING (
     bucket_id = 'vehicle-artwork'
+    AND name ~ '^nissan_[a-z0-9_]+\.webp$'
     AND public.has_staff_role(ARRAY['admin', 'warehouse']::public.staff_role[])
   )
   WITH CHECK (
     bucket_id = 'vehicle-artwork'
+    AND name ~ '^nissan_[a-z0-9_]+\.webp$'
     AND public.has_staff_role(ARRAY['admin', 'warehouse']::public.staff_role[])
   );
 
@@ -51,5 +54,6 @@ CREATE POLICY vehicle_artwork_staff_delete
   TO authenticated
   USING (
     bucket_id = 'vehicle-artwork'
+    AND name ~ '^nissan_[a-z0-9_]+\.webp$'
     AND public.has_staff_role(ARRAY['admin', 'warehouse']::public.staff_role[])
   );

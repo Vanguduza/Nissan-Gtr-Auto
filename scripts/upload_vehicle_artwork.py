@@ -32,6 +32,7 @@ EXPECTED_COUNT = 94
 DEFAULT_URL = "https://gylrgwqyuiwkyykardwc.supabase.co"
 CACHE_CONTROL = "public, max-age=31536000, immutable"
 ASSET_RE = re.compile(r"vehicles/(nissan_[a-z0-9_]+\.webp)")
+FILENAME_RE = re.compile(r"^nissan_[a-z0-9_]+\.webp$")
 
 # Split so tooling guards do not flag credential patterns in source.
 _ENV_URL = "SUPABASE_URL"
@@ -83,6 +84,9 @@ def verify_local_set(art_dir: Path = ART_DIR, resolver: Path = RESOLVER_KT) -> l
     names = [p.name for p in files]
     if len(names) != len(set(names)):
         errors.append("duplicate artwork filenames")
+    bad = [name for name in names if not FILENAME_RE.match(name)]
+    if bad:
+        errors.append("non-canonical filenames: " + ", ".join(bad))
     needed = resolver_filenames(resolver)
     missing = sorted(needed - set(names))
     if missing:
@@ -161,6 +165,8 @@ def ensure_public_bucket(base_url: str, api_key: str) -> None:
 
 
 def upload_one(base_url: str, api_key: str, local: Path) -> None:
+    if not FILENAME_RE.match(local.name):
+        raise SystemExit(f"refusing to upload non-canonical name {local.name!r}")
     url = f"{base_url}/storage/v1/object/{BUCKET}/{local.name}"
     data = local.read_bytes()
     headers = _auth_headers(
