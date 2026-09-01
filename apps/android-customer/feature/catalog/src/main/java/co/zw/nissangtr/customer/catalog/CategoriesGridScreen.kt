@@ -31,15 +31,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.customer.visual.CategoryArt
+import co.zw.nissangtr.customer.visual.CategoryGlyph
 import co.zw.nissangtr.customer.visual.GtrPremiumColors
 import co.zw.nissangtr.customer.visual.PremiumScreenHeader
-import co.zw.nissangtr.customer.visual.R
 
 data class CatalogCategoryCard(
     val label: String,
@@ -116,12 +114,7 @@ private fun IllustratedCategoryCard(label: String, onClick: () -> Unit) {
                     .padding(8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                androidx.compose.foundation.Image(
-                    painter = painterResource(art.drawable),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxWidth(),
-                    contentScale = ContentScale.Fit,
-                )
+                CategoryGlyph(art, size = 40.dp)
             }
             Text(
                 label,
@@ -142,6 +135,7 @@ private fun IllustratedCategoryCard(label: String, onClick: () -> Unit) {
 }
 
 private fun artForCategory(label: String): CategoryArt = when {
+    label.contains("service", true) -> CategoryArt.Service
     label.contains("brak", true) -> CategoryArt.Brakes
     label.contains("susp", true) || label.contains("steer", true) -> CategoryArt.Suspension
     label.contains("trans", true) -> CategoryArt.Transmission
