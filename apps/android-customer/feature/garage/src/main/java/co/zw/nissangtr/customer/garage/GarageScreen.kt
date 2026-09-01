@@ -34,9 +34,11 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,7 @@ import co.zw.nissangtr.customer.visual.PremiumScreenHeader
 import co.zw.nissangtr.customer.visual.PremiumStatusChip
 import co.zw.nissangtr.customer.visual.PremiumStatusTone
 import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
+import co.zw.nissangtr.customer.visual.R
 import co.zw.nissangtr.customer.visual.VehicleArtworkStorage
 import co.zw.nissangtr.customer.visual.vehicle.VehicleArtworkResolver
 import co.zw.nissangtr.ui.shop.ShopRemoteImage
@@ -89,7 +92,14 @@ fun GarageScreen(
             ) {
                 PremiumSurfaceCard {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        GenericNissanSilhouette(Modifier.fillMaxWidth().height(100.dp))
+                        Image(
+                            painter = painterResource(R.drawable.gtr_hero_workshop_r35),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(132.dp),
+                            contentScale = ContentScale.Crop,
+                        )
                         Spacer(Modifier.height(14.dp))
                         Text(
                             "No vehicles saved yet",

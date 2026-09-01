@@ -40,7 +40,6 @@ import co.zw.nissangtr.customer.rpc.ProductReviewStats
 import co.zw.nissangtr.customer.rpc.SelectedFitmentVehicle
 import co.zw.nissangtr.customer.rpc.StockState
 import co.zw.nissangtr.customer.rpc.VehicleMasterRow
-import co.zw.nissangtr.customer.visual.GenericNissanSilhouette
 import co.zw.nissangtr.customer.visual.GtrPremiumColors
 import co.zw.nissangtr.customer.visual.PremiumAccountRow
 import co.zw.nissangtr.customer.visual.PremiumBottomNav
@@ -231,7 +230,14 @@ class PreviewLockedScreenshotTest {
                     ) {
                         PremiumSurfaceCard {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                GenericNissanSilhouette(Modifier.fillMaxWidth().height(100.dp))
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(
+                                        R.drawable.gtr_hero_workshop_r35,
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxWidth().height(132.dp),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                )
                                 Spacer(Modifier.height(14.dp))
                                 Text(
                                     "No vehicles saved yet",

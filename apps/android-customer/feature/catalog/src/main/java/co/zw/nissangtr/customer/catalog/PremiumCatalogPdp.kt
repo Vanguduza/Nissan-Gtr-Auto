@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -317,13 +318,17 @@ fun PremiumCatalogPdp(
 private fun DetailRow(label: String, value: String) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
     ) {
-        Text(label, color = GtrPremiumColors.TextSecondary)
+        Text(
+            label,
+            color = GtrPremiumColors.TextSecondary,
+            modifier = Modifier.width(132.dp),
+        )
         Text(
             value,
             color = GtrPremiumColors.TextPrimary,
-            modifier = Modifier.fillMaxWidth(.58f),
+            modifier = Modifier.weight(1f),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )

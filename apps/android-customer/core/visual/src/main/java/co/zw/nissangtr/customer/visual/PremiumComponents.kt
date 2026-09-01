@@ -429,7 +429,6 @@ fun SupportCardsRow(
         SupportCard(
             title = "NEED HELP FINDING A PART?",
             action = "Search VIN",
-            art = R.drawable.gtr_support_help_vin_search,
             background = GtrPremiumColors.PaperWarm,
             onClick = onFindPart,
             modifier = Modifier.weight(1f),
@@ -437,7 +436,6 @@ fun SupportCardsRow(
         SupportCard(
             title = "FAST & RELIABLE DELIVERY",
             action = "Track Order",
-            art = R.drawable.gtr_support_delivery_van,
             background = GtrPremiumColors.PaperCool,
             onClick = onTrackOrder,
             modifier = Modifier.weight(1f),
@@ -449,40 +447,35 @@ fun SupportCardsRow(
 private fun SupportCard(
     title: String,
     action: String,
-    art: Int,
     background: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
+    Column(
         modifier = modifier
             .height(GtrPremiumDimens.SupportCardHeight)
             .clip(RoundedCornerShape(12.dp))
             .background(background)
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(horizontal = 14.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        androidx.compose.foundation.Image(
-            painter = painterResource(art),
-            contentDescription = null,
-            modifier = Modifier.align(Alignment.BottomEnd).size(74.dp),
-            contentScale = ContentScale.Fit,
+        Text(
+            title,
+            color = GtrPremiumColors.Background,
+            style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        Column(Modifier.width(112.dp)) {
-            Text(
-                title,
-                color = GtrPremiumColors.Background,
-                style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "$action ›",
-                color = GtrPremiumColors.RedDark,
-                style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "$action ›",
+            color = GtrPremiumColors.RedDark,
+            style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 
