@@ -1,16 +1,18 @@
 package co.zw.nissangtr.customer.address
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,16 +26,18 @@ import co.zw.nissangtr.bridges.maps.AddressPickMap
 import co.zw.nissangtr.bridges.maps.MapLatLng
 import co.zw.nissangtr.customer.rpc.CustomerAddress
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumEmptyState
+import co.zw.nissangtr.customer.visual.PremiumMessageBanner
+import co.zw.nissangtr.customer.visual.PremiumMessageKind
+import co.zw.nissangtr.customer.visual.PremiumPrimaryButton
+import co.zw.nissangtr.customer.visual.PremiumScreenHeader
+import co.zw.nissangtr.customer.visual.PremiumSecondaryButton
+import co.zw.nissangtr.customer.visual.PremiumStatusChip
+import co.zw.nissangtr.customer.visual.PremiumStatusTone
+import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
 import co.zw.nissangtr.ui.shop.ShopAddressPicker
-import co.zw.nissangtr.ui.shop.ShopHonestEmpty
-import co.zw.nissangtr.ui.shop.ShopSectionHeader
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 
-/**
- * Shipping addresses — list / upsert / delete + optional Google Maps pick (Bridge-First maps-nav).
- * Wired to [RpcNames.UPSERT_CUSTOMER_ADDRESS] / [RpcNames.DELETE_CUSTOMER_ADDRESS].
- */
 @Composable
 fun AddressScreen(
     rpc: RpcClient,
@@ -43,109 +47,98 @@ fun AddressScreen(
     viewModel: AddressViewModel = viewModel(factory = AddressViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
-    val sharp = MaterialTheme.shapes.extraSmall
 
-    ShopDefaultScreen(
-        title = if (state.route == AddressScreenRoute.Edit) "Edit address" else "Addresses",
-        subtitle = null,
-        onBack = {
-            if (state.route == AddressScreenRoute.Edit) viewModel.backToList() else onBack()
-        },
-        modifier = modifier,
-    ) {
-        when (state.route) {
-            AddressScreenRoute.List -> {
-                Text(
-                    "Map pick stores lat/lng with the address (Bridge-First maps-nav).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                state.error?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-                state.message?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall)
-                }
-                ShopSectionHeader(title = "Saved addresses", actionLabel = null)
-                if (state.addresses.isEmpty()) {
-                    ShopHonestEmpty(
-                        title = "No addresses yet",
-                        body = "No addresses.",
-                    )
-                } else {
-                    state.addresses.forEach { addr ->
-                        AddressListRow(
-                            address = addr,
-                            busy = state.busy,
-                            onEdit = { viewModel.openEdit(addr) },
-                            onDelete = { viewModel.delete(addr.id) },
+    Column(modifier.fillMaxSize().background(GtrPremiumColors.Background)) {
+        PremiumScreenHeader(
+            title = if (state.route == AddressScreenRoute.Edit) "Address details" else "Addresses",
+            subtitle = if (state.route == AddressScreenRoute.Edit) "Delivery location" else "Saved delivery addresses",
+            onBack = {
+                if (state.route == AddressScreenRoute.Edit) viewModel.backToList() else onBack()
+            },
+        )
+
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            when (state.route) {
+                AddressScreenRoute.List -> {
+                    state.error?.let { PremiumMessageBanner(it, PremiumMessageKind.Error) }
+                    state.message?.let { PremiumMessageBanner(it, PremiumMessageKind.Success) }
+
+                    if (state.addresses.isEmpty()) {
+                        PremiumEmptyState(
+                            title = "No addresses yet",
+                            body = "Add a delivery address for nationwide dispatch.",
                         )
-                        HorizontalDivider()
+                    } else {
+                        state.addresses.forEach { address ->
+                            AddressListCard(
+                                address = address,
+                                busy = state.busy,
+                                onEdit = { viewModel.openEdit(address) },
+                                onDelete = { viewModel.delete(address.id) },
+                            )
+                        }
                     }
+
+                    PremiumPrimaryButton(
+                        text = "Add address",
+                        onClick = viewModel::openNew,
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    PremiumSecondaryButton(
+                        text = "Refresh",
+                        onClick = viewModel::refresh,
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                Button(
-                    onClick = viewModel::openNew,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.busy,
-                    shape = sharp,
-                ) { Text("Add address") }
-                OutlinedButton(
-                    onClick = viewModel::refresh,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.busy,
-                    shape = sharp,
-                ) { Text("Refresh") }
-            }
-            AddressScreenRoute.Edit -> {
-                AddressEditForm(
+
+                AddressScreenRoute.Edit -> AddressEditForm(
                     form = state.form,
                     busy = state.busy,
                     error = state.error,
                     mapsKeyPresent = mapsKeyPresent,
-                    onBack = viewModel::backToList,
                     onFormChange = viewModel::onFormChange,
                     onMapPick = viewModel::onMapPick,
                     onSave = viewModel::save,
                 )
             }
+            Spacer(Modifier.padding(bottom = 16.dp))
         }
     }
 }
 
 @Composable
-private fun AddressListRow(
+private fun AddressListCard(
     address: CustomerAddress,
     busy: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = !busy, onClick = onEdit)
-            .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(address.summaryLabel(), style = MaterialTheme.typography.titleSmall)
-        Text(
-            listOfNotNull(address.city, address.province, address.country)
-                .joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (address.isDefault) {
-            Text("Default", style = MaterialTheme.typography.labelSmall)
-        }
-        address.geoLatLng()?.let { (lat, lng) ->
-            Text(
-                "Map · %.5f, %.5f".format(lat, lng),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onEdit, enabled = !busy) { Text("Edit") }
-            OutlinedButton(onClick = onDelete, enabled = !busy) { Text("Delete") }
+    PremiumSurfaceCard(onClick = onEdit) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        address.summaryLabel(),
+                        color = GtrPremiumColors.TextPrimary,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        listOfNotNull(address.city, address.province, address.country).joinToString(" • "),
+                        color = GtrPremiumColors.TextSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (address.isDefault) PremiumStatusChip("Default", PremiumStatusTone.Premium)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PremiumSecondaryButton("Edit", onEdit, enabled = !busy, modifier = Modifier.weight(1f))
+                PremiumSecondaryButton("Delete", onDelete, enabled = !busy, modifier = Modifier.weight(1f))
+            }
         }
     }
 }
@@ -156,113 +149,70 @@ private fun AddressEditForm(
     busy: Boolean,
     error: String?,
     mapsKeyPresent: Boolean,
-    onBack: () -> Unit,
     onFormChange: ((AddressFormState) -> AddressFormState) -> Unit,
     onMapPick: (Double, Double) -> Unit,
     onSave: () -> Unit,
 ) {
-    val sharp = MaterialTheme.shapes.extraSmall
     val selected = run {
         val lat = form.latitude.toDoubleOrNull()
         val lng = form.longitude.toDoubleOrNull()
         if (lat != null && lng != null) MapLatLng(lat, lng) else null
     }
 
-    error?.let {
-        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-    }
+    error?.let { PremiumMessageBanner(it, PremiumMessageKind.Error) }
 
-    ShopAddressPicker(
-        addressLine = form.line1,
-        onAddressChange = { v -> onFormChange { it.copy(line1 = v) } },
-        latitude = form.latitude,
-        longitude = form.longitude,
-        onLatitudeChange = { v -> onFormChange { it.copy(latitude = v) } },
-        onLongitudeChange = { v -> onFormChange { it.copy(longitude = v) } },
-        mapsKeyPresent = mapsKeyPresent,
-        mapSlot = {
-            AddressPickMap(
-                selected = selected,
-                onPick = { p -> onMapPick(p.latitude, p.longitude) },
-                mapsKeyPresent = mapsKeyPresent,
+    PremiumSurfaceCard {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "Pin delivery location",
+                color = GtrPremiumColors.TextPrimary,
+                style = MaterialTheme.typography.titleMedium,
             )
-        },
-    )
-
-    OutlinedTextField(
-        value = form.label,
-        onValueChange = { v -> onFormChange { it.copy(label = v) } },
-        label = { Text("Label (Home / Work)") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !busy,
-        shape = sharp,
-    )
-    OutlinedTextField(
-        value = form.line2,
-        onValueChange = { v -> onFormChange { it.copy(line2 = v) } },
-        label = { Text("Apartment / notes") },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !busy,
-        shape = sharp,
-    )
-    OutlinedTextField(
-        value = form.city,
-        onValueChange = { v -> onFormChange { it.copy(city = v) } },
-        label = { Text("City") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !busy,
-        shape = sharp,
-    )
-    OutlinedTextField(
-        value = form.province,
-        onValueChange = { v -> onFormChange { it.copy(province = v) } },
-        label = { Text("Province") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !busy,
-        shape = sharp,
-    )
-    OutlinedTextField(
-        value = form.postalCode,
-        onValueChange = { v -> onFormChange { it.copy(postalCode = v) } },
-        label = { Text("Postal code") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !busy,
-        shape = sharp,
-    )
-    OutlinedTextField(
-        value = form.country,
-        onValueChange = { v -> onFormChange { it.copy(country = v) } },
-        label = { Text("Country") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !busy,
-        shape = sharp,
-    )
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(
-            checked = form.isDefault,
-            onCheckedChange = { v -> onFormChange { it.copy(isDefault = v) } },
-            enabled = !busy,
-        )
-        Text("Default shipping address", style = MaterialTheme.typography.bodyMedium)
+            ShopAddressPicker(
+                addressLine = form.line1,
+                onAddressChange = { value -> onFormChange { it.copy(line1 = value) } },
+                latitude = form.latitude,
+                longitude = form.longitude,
+                onLatitudeChange = { value -> onFormChange { it.copy(latitude = value) } },
+                onLongitudeChange = { value -> onFormChange { it.copy(longitude = value) } },
+                mapsKeyPresent = mapsKeyPresent,
+                mapSlot = {
+                    AddressPickMap(
+                        selected = selected,
+                        onPick = { point -> onMapPick(point.latitude, point.longitude) },
+                        mapsKeyPresent = mapsKeyPresent,
+                    )
+                },
+            )
+        }
     }
-    Button(
-        onClick = onSave,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !busy,
-        shape = sharp,
-    ) {
-        Text(if (form.id == null) "Save address" else "Update address")
+
+    PremiumSurfaceCard {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(form.label, { v -> onFormChange { it.copy(label = v) } }, Modifier.fillMaxWidth(), label = { Text("Label (Home / Work)") }, singleLine = true, enabled = !busy)
+            OutlinedTextField(form.line2, { v -> onFormChange { it.copy(line2 = v) } }, Modifier.fillMaxWidth(), label = { Text("Apartment / notes") }, enabled = !busy)
+            OutlinedTextField(form.city, { v -> onFormChange { it.copy(city = v) } }, Modifier.fillMaxWidth(), label = { Text("City") }, singleLine = true, enabled = !busy)
+            OutlinedTextField(form.province, { v -> onFormChange { it.copy(province = v) } }, Modifier.fillMaxWidth(), label = { Text("Province") }, singleLine = true, enabled = !busy)
+            OutlinedTextField(form.postalCode, { v -> onFormChange { it.copy(postalCode = v) } }, Modifier.fillMaxWidth(), label = { Text("Postal code") }, singleLine = true, enabled = !busy)
+            OutlinedTextField(form.country, { v -> onFormChange { it.copy(country = v) } }, Modifier.fillMaxWidth(), label = { Text("Country") }, singleLine = true, enabled = !busy)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = form.isDefault,
+                    onCheckedChange = { value -> onFormChange { it.copy(isDefault = value) } },
+                    enabled = !busy,
+                )
+                Text("Default shipping address", color = GtrPremiumColors.TextPrimary)
+            }
+            PremiumPrimaryButton(
+                text = if (form.id == null) "Save address" else "Update address",
+                onClick = onSave,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
-/**
- * Compact picker for cart checkout (Nationwide dispatch) — select existing address.
- */
 @Composable
 fun AddressCheckoutPicker(
     addresses: List<CustomerAddress>,
@@ -271,27 +221,30 @@ fun AddressCheckoutPicker(
     onManageAddresses: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ShopSectionHeader(title = "Delivery address", actionLabel = "Manage", onAction = onManageAddresses)
-        if (addresses.isEmpty()) {
-            ShopHonestEmpty(
-                title = "Add an address",
-                body = "No shipping address.",
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Delivery address",
+                color = GtrPremiumColors.TextPrimary,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
             )
-            Button(onClick = onManageAddresses, modifier = Modifier.fillMaxWidth()) {
-                Text("Add address")
-            }
+            PremiumSecondaryButton("Manage", onManageAddresses)
+        }
+        if (addresses.isEmpty()) {
+            PremiumEmptyState("Add an address", "A shipping address is required for delivery.")
+            PremiumPrimaryButton("Add address", onManageAddresses, modifier = Modifier.fillMaxWidth())
         } else {
-            addresses.forEach { addr ->
-                val selected = addr.id == selectedId
-                OutlinedButton(
-                    onClick = { onSelect(addr.id) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        (if (selected) "âœ“ " else "") + addr.summaryLabel(),
-                        maxLines = 2,
-                    )
+            addresses.forEach { address ->
+                PremiumSurfaceCard(onClick = { onSelect(address.id) }) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            address.summaryLabel(),
+                            color = GtrPremiumColors.TextPrimary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (address.id == selectedId) PremiumStatusChip("Selected", PremiumStatusTone.Premium)
+                    }
                 }
             }
         }

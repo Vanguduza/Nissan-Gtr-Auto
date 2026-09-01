@@ -3,26 +3,25 @@ package co.zw.nissangtr.customer.chat
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.ChatMessage
@@ -39,18 +39,20 @@ import co.zw.nissangtr.customer.rpc.ChatSenderKind
 import co.zw.nissangtr.customer.rpc.ChatThread
 import co.zw.nissangtr.customer.rpc.ChatThreadKind
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.customer.rpc.previewLabel
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
-import co.zw.nissangtr.ui.shop.ShopSectionHeader
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumEmptyState
+import co.zw.nissangtr.customer.visual.PremiumMessageBanner
+import co.zw.nissangtr.customer.visual.PremiumMessageKind
+import co.zw.nissangtr.customer.visual.PremiumPrimaryButton
+import co.zw.nissangtr.customer.visual.PremiumScreenHeader
+import co.zw.nissangtr.customer.visual.PremiumSecondaryButton
+import co.zw.nissangtr.customer.visual.PremiumStatusChip
+import co.zw.nissangtr.customer.visual.PremiumStatusTone
+import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-/**
- * Thin live-chat scaffold: thread list + bubbles + composer.
- * Mutations via [RpcNames.START_CHAT_THREAD] / [RpcNames.POST_CHAT_MESSAGE];
- * reads via PostgREST + RLS. Poll refresh (no realtime-kt yet).
- */
 @Composable
 fun ChatScreen(
     rpc: RpcClient,
@@ -62,39 +64,22 @@ fun ChatScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val listState = rememberLazyListState()
-    val sharp = MaterialTheme.shapes.extraSmall
 
     LaunchedEffect(state.messages.size, state.selectedId) {
-        if (state.messages.isNotEmpty()) {
-            listState.animateScrollToItem(state.messages.lastIndex)
-        }
+        if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.lastIndex)
     }
 
-    ShopDefaultScreen(
-        title = "Live chat",
-        subtitle = null,
-        onBack = onBack,
-        scrollable = false,
-        modifier = modifier,
+    Column(
+        modifier = modifier.fillMaxSize().background(GtrPremiumColors.Background),
     ) {
-        Text(
-            if (state.polling) "Polling…" else "Live chat",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (state.unread > 0) {
-            Text("Unread: ${state.unread}", style = MaterialTheme.typography.bodySmall)
-        }
-
-        OutlinedButton(
-            onClick = {
-                openWhatsApp(context, whatsappE164Digits)
+        PremiumScreenHeader(
+            title = "Support",
+            subtitle = if (state.polling) "Checking for replies…" else "Nissan GTR Auto parts counter",
+            onBack = onBack,
+            trailing = {
+                if (state.unread > 0) PremiumStatusChip("${state.unread} new", PremiumStatusTone.Premium)
             },
-            modifier = Modifier.fillMaxWidth(),
-            shape = sharp,
-        ) {
-            Text("Ask counter on WhatsApp")
-        }
+        )
 
         if (state.selectedId == null) {
             ThreadListPane(
@@ -105,6 +90,7 @@ fun ChatScreen(
                 onStart = viewModel::startThread,
                 onRefresh = viewModel::refreshThreads,
                 onOpen = viewModel::openThread,
+                onWhatsApp = { openWhatsApp(context, whatsappE164Digits) },
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -119,10 +105,11 @@ fun ChatScreen(
             )
         }
 
-        state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = sharp) {
-            Text("Back")
+        state.message?.let {
+            PremiumMessageBanner(it, PremiumMessageKind.Success, Modifier.padding(12.dp))
+        }
+        state.error?.let {
+            PremiumMessageBanner(it, PremiumMessageKind.Error, Modifier.padding(12.dp))
         }
     }
 }
@@ -136,95 +123,111 @@ private fun ThreadListPane(
     onStart: () -> Unit,
     onRefresh: () -> Unit,
     onOpen: (String) -> Unit,
+    onWhatsApp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val sharp = MaterialTheme.shapes.extraSmall
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ShopSectionHeader(title = "New thread", actionLabel = null)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = state.kind == ChatThreadKind.SUPPORT,
-                onClick = { onKind(ChatThreadKind.SUPPORT) },
-                label = { Text("Support") },
-                enabled = !state.busy,
-                shape = sharp,
-            )
-            FilterChip(
-                selected = state.kind == ChatThreadKind.PARTS,
-                onClick = { onKind(ChatThreadKind.PARTS) },
-                label = { Text("Parts") },
-                enabled = !state.busy,
-                shape = sharp,
-            )
+        PremiumSurfaceCard {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Start a conversation",
+                    color = GtrPremiumColors.TextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = state.kind == ChatThreadKind.SUPPORT,
+                        onClick = { onKind(ChatThreadKind.SUPPORT) },
+                        label = { Text("Support") },
+                        enabled = !state.busy,
+                    )
+                    FilterChip(
+                        selected = state.kind == ChatThreadKind.PARTS,
+                        onClick = { onKind(ChatThreadKind.PARTS) },
+                        label = { Text("Parts help") },
+                        enabled = !state.busy,
+                    )
+                }
+                OutlinedTextField(
+                    value = state.subject,
+                    onValueChange = onSubject,
+                    label = { Text("Subject (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                OutlinedTextField(
+                    value = state.firstBody,
+                    onValueChange = onFirstBody,
+                    label = { Text("How can we help?") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    enabled = !state.busy,
+                )
+                PremiumPrimaryButton(
+                    text = if (state.busy) "Starting…" else "Start conversation",
+                    onClick = onStart,
+                    enabled = !state.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                PremiumSecondaryButton(
+                    text = "Ask the counter on WhatsApp",
+                    onClick = onWhatsApp,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
-        OutlinedTextField(
-            value = state.subject,
-            onValueChange = onSubject,
-            label = { Text("Subject (optional)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-            shape = sharp,
+
+        Text(
+            "Your conversations",
+            color = GtrPremiumColors.TextPrimary,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
         )
-        OutlinedTextField(
-            value = state.firstBody,
-            onValueChange = onFirstBody,
-            label = { Text("First message (optional)") },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy,
-            shape = sharp,
-        )
-        Button(
-            onClick = onStart,
-            enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-            shape = sharp,
-        ) {
-            Text(if (state.busy) "Starting…" else "Start thread")
+        if (state.threads.isEmpty()) {
+            PremiumEmptyState(
+                title = "No conversations yet",
+                body = "Start a parts or support conversation above.",
+            )
+        } else {
+            state.threads.forEach { thread ->
+                ThreadRow(thread) { onOpen(thread.id) }
+            }
         }
-        OutlinedButton(
+        PremiumSecondaryButton(
+            text = "Refresh conversations",
             onClick = onRefresh,
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth(),
-            shape = sharp,
-        ) {
-            Text("Refresh threads")
-        }
-        HorizontalDivider()
-        ShopSectionHeader(title = "Your threads", actionLabel = null)
-        if (state.threads.isEmpty()) {
-            Text(
-                "No threads yet — start one above.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        state.threads.forEach { thread ->
-            ThreadRow(thread = thread, onClick = { onOpen(thread.id) })
-            HorizontalDivider()
-        }
+        )
     }
 }
 
 @Composable
-private fun ThreadRow(
-    thread: ChatThread,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
-    ) {
-        Text(thread.previewLabel(), style = MaterialTheme.typography.bodyMedium)
-        Text(
-            "${thread.kind.rpcValue} · ${thread.status.rpcValue}" +
-                (thread.lastMessageAt?.let { " · $it" } ?: ""),
-            style = MaterialTheme.typography.bodySmall,
-        )
+private fun ThreadRow(thread: ChatThread, onClick: () -> Unit) {
+    PremiumSurfaceCard(onClick = onClick) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    thread.previewLabel(),
+                    color = GtrPremiumColors.TextPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    thread.lastMessageAt ?: "No messages yet",
+                    color = GtrPremiumColors.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            PremiumStatusChip(
+                thread.status.rpcValue.replaceFirstChar { it.uppercase() },
+                PremiumStatusTone.Neutral,
+            )
+        }
     }
 }
 
@@ -238,69 +241,62 @@ private fun ThreadDetailPane(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val selected = state.selected
-    val sharp = MaterialTheme.shapes.extraSmall
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    Column(modifier = modifier.padding(horizontal = 12.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier.fillMaxWidth().padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    selected?.previewLabel() ?: "Thread",
-                    style = MaterialTheme.typography.titleSmall,
+                    state.selected?.previewLabel() ?: "Conversation",
+                    color = GtrPremiumColors.TextPrimary,
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    selected?.status?.rpcValue ?: "",
+                    state.selected?.status?.rpcValue.orEmpty(),
+                    color = GtrPremiumColors.TextSecondary,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onBackToList, shape = sharp) { Text("Threads") }
-        }
-        OutlinedButton(
-            onClick = onRefresh,
-            enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-            shape = sharp,
-        ) {
-            Text("Refresh messages")
+            PremiumSecondaryButton("Threads", onBackToList)
         }
 
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(state.messages, key = { it.id }) { msg ->
-                MessageBubble(msg)
-            }
+            items(state.messages, key = { it.id }) { MessageBubble(it) }
         }
 
         if (state.threadClosed) {
-            Text("Thread closed", style = MaterialTheme.typography.bodySmall)
+            PremiumMessageBanner("This conversation is closed.", PremiumMessageKind.Info)
         } else {
             OutlinedTextField(
                 value = state.draft,
                 onValueChange = onDraft,
-                label = { Text("Message the counter…") },
+                label = { Text("Message the parts counter…") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.sendBusy,
-                shape = sharp,
+                minLines = 2,
             )
-            Button(
-                onClick = onSend,
-                enabled = !state.sendBusy && state.draft.trim().isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = sharp,
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(if (state.sendBusy) "Sending…" else "Send")
+                PremiumSecondaryButton(
+                    text = "Refresh",
+                    onClick = onRefresh,
+                    enabled = !state.busy,
+                    modifier = Modifier.weight(1f),
+                )
+                PremiumPrimaryButton(
+                    text = if (state.sendBusy) "Sending…" else "Send",
+                    onClick = onSend,
+                    enabled = !state.sendBusy && state.draft.trim().isNotEmpty(),
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
@@ -311,24 +307,29 @@ private fun MessageBubble(msg: ChatMessage) {
     val mine = msg.senderKind == ChatSenderKind.CUSTOMER
     val align = if (mine) Alignment.CenterEnd else Alignment.CenterStart
     val bg = when (msg.senderKind) {
-        ChatSenderKind.CUSTOMER -> MaterialTheme.colorScheme.primaryContainer
-        ChatSenderKind.STAFF -> MaterialTheme.colorScheme.secondaryContainer
-        ChatSenderKind.SYSTEM -> MaterialTheme.colorScheme.surfaceVariant
+        ChatSenderKind.CUSTOMER -> GtrPremiumColors.RedDark.copy(alpha = .55f)
+        ChatSenderKind.STAFF -> GtrPremiumColors.SurfaceRaised
+        ChatSenderKind.SYSTEM -> GtrPremiumColors.SurfaceSoft
     }
-    Box(modifier = Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .align(align)
                 .widthIn(max = 320.dp)
-                .background(bg, MaterialTheme.shapes.medium)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .background(bg, RoundedCornerShape(14.dp))
+                .padding(horizontal = 12.dp, vertical = 9.dp),
         ) {
             Text(
-                msg.senderKind.rpcValue,
+                when (msg.senderKind) {
+                    ChatSenderKind.CUSTOMER -> "You"
+                    ChatSenderKind.STAFF -> "GTR Auto"
+                    ChatSenderKind.SYSTEM -> "System"
+                },
+                color = GtrPremiumColors.TextSecondary,
                 style = MaterialTheme.typography.labelSmall,
             )
-            Text(msg.body, style = MaterialTheme.typography.bodyMedium)
-            Text(msg.createdAt, style = MaterialTheme.typography.bodySmall)
+            Text(msg.body, color = GtrPremiumColors.TextPrimary)
+            Text(msg.createdAt, color = GtrPremiumColors.TextDisabled, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -338,9 +339,8 @@ private const val DEFAULT_WHATSAPP_DIGITS = "263770000000"
 private fun openWhatsApp(context: android.content.Context, digits: String) {
     val clean = digits.filter { it.isDigit() }.ifEmpty { DEFAULT_WHATSAPP_DIGITS }
     val text = URLEncoder.encode(
-        "Hi GTR Auto — I need a parts counter check",
+        "Hi GTR Auto — I need help finding a part",
         StandardCharsets.UTF_8.toString(),
     )
-    val uri = Uri.parse("https://wa.me/$clean?text=$text")
-    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$clean?text=$text")))
 }
