@@ -99,6 +99,7 @@ fun GarageScreen(
                                 .fillMaxWidth()
                                 .height(132.dp),
                             contentScale = ContentScale.Crop,
+                            alignment = Alignment.CenterEnd,
                         )
                         Spacer(Modifier.height(14.dp))
                         Text(
