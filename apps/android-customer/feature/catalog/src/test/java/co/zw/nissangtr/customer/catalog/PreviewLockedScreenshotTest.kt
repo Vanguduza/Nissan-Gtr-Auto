@@ -195,7 +195,9 @@ class PreviewLockedScreenshotTest {
                             PremiumEmptyState(
                                 title = "Your cart is empty",
                                 body = "Add in-stock parts to continue.",
-                                art = R.drawable.gtr_empty_state_cart_empty,
+                                art = R.drawable.ic_mdi_cart,
+                                artTint = GtrPremiumColors.TextSecondary,
+                                artSize = 72.dp,
                             )
                             Spacer(Modifier.height(12.dp))
                             PremiumPrimaryButton(

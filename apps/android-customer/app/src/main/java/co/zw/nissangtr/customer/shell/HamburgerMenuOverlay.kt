@@ -50,15 +50,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.customer.visual.CategoryArt
+import co.zw.nissangtr.customer.visual.CategoryGlyph
 import co.zw.nissangtr.customer.visual.GtrPremiumColors
 import co.zw.nissangtr.customer.visual.PremiumEmptyState
 import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
-import co.zw.nissangtr.customer.visual.R
 import co.zw.nissangtr.ui.theme.GtrLogo
 
 data class MenuCategory(
@@ -303,8 +301,9 @@ fun HamburgerMenuOverlay(
 @Composable
 private fun IllustratedMenuCategory(category: MenuCategory, onClick: () -> Unit) {
     val art = when {
+        category.label.contains("Service", true) -> CategoryArt.Service
         category.label.contains("Brak", true) -> CategoryArt.Brakes
-        category.label.contains("Susp", true) -> CategoryArt.Suspension
+        category.label.contains("Susp", true) || category.label.contains("Steer", true) -> CategoryArt.Suspension
         category.label.contains("Trans", true) -> CategoryArt.Transmission
         category.label.contains("Elect", true) -> CategoryArt.Electrical
         category.label.contains("Light", true) -> CategoryArt.Lighting
@@ -321,12 +320,7 @@ private fun IllustratedMenuCategory(category: MenuCategory, onClick: () -> Unit)
                     .background(GtrPremiumColors.Red.copy(alpha = .13f), MaterialTheme.shapes.medium),
                 contentAlignment = Alignment.Center,
             ) {
-                androidx.compose.foundation.Image(
-                    painter = painterResource(art.drawable),
-                    contentDescription = null,
-                    modifier = Modifier.size(54.dp),
-                    contentScale = ContentScale.Fit,
-                )
+                CategoryGlyph(art)
             }
             Text(
                 category.label,

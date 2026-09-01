@@ -52,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.customer.rpc.CatalogListItem
 import co.zw.nissangtr.customer.rpc.SelectedFitmentVehicle
@@ -309,17 +310,23 @@ fun CollapsedVehicleCard(
     }
 }
 
+/**
+ * Category rail glyphs from Pictogrammers Material Design Icons (Apache 2.0).
+ * See `NOTICE` and `ic_mdi_*.xml`. Pack PNGs (`gtr_categorie_*`) stay on disk
+ * for the copy-pack validator and are not drawn here.
+ */
 enum class CategoryArt(val drawable: Int) {
-    Engine(R.drawable.gtr_categorie_engine),
-    Brakes(R.drawable.gtr_categorie_brakes),
-    Suspension(R.drawable.gtr_categorie_suspension),
-    Exhaust(R.drawable.gtr_categorie_exhaust),
-    Electrical(R.drawable.gtr_categorie_electrical),
-    Body(R.drawable.gtr_categorie_body_exterior),
-    Cooling(R.drawable.gtr_categorie_cooling),
-    Lighting(R.drawable.gtr_categorie_lighting),
-    Transmission(R.drawable.gtr_categorie_transmission),
-    Fuel(R.drawable.gtr_categorie_fuel_system),
+    Service(R.drawable.ic_mdi_oil),
+    Engine(R.drawable.ic_mdi_engine),
+    Brakes(R.drawable.ic_mdi_car_brake_abs),
+    Suspension(R.drawable.ic_mdi_steering),
+    Exhaust(R.drawable.ic_mdi_car),
+    Electrical(R.drawable.ic_mdi_lightning_bolt),
+    Body(R.drawable.ic_mdi_car),
+    Cooling(R.drawable.ic_mdi_car_coolant_level),
+    Lighting(R.drawable.ic_mdi_car_light_dimmed),
+    Transmission(R.drawable.ic_mdi_car_shift_pattern),
+    Fuel(R.drawable.ic_mdi_gas_station),
 }
 
 data class PremiumCategory(
@@ -328,17 +335,32 @@ data class PremiumCategory(
 )
 
 val DefaultPremiumCategories = listOf(
-    PremiumCategory("Service Parts", CategoryArt.Engine),
+    PremiumCategory("Service Parts", CategoryArt.Service),
     PremiumCategory("Braking", CategoryArt.Brakes),
     PremiumCategory("Steering & Suspension", CategoryArt.Suspension),
     PremiumCategory("Engine Parts", CategoryArt.Engine),
     PremiumCategory("Transmission", CategoryArt.Transmission),
     PremiumCategory("Electrical", CategoryArt.Electrical),
     PremiumCategory("Lighting", CategoryArt.Lighting),
-    PremiumCategory("Body & Exhaust", CategoryArt.Exhaust),
+    PremiumCategory("Body & Exhaust", CategoryArt.Body),
     PremiumCategory("Cooling & Heating", CategoryArt.Cooling),
     PremiumCategory("Fuel System", CategoryArt.Fuel),
 )
+
+@Composable
+fun CategoryGlyph(
+    art: CategoryArt,
+    modifier: Modifier = Modifier,
+    size: Dp = 28.dp,
+    tint: Color = GtrPremiumColors.TextPrimary,
+) {
+    Icon(
+        painter = painterResource(art.drawable),
+        contentDescription = null,
+        modifier = modifier.size(size),
+        tint = tint,
+    )
+}
 
 @Composable
 fun IllustratedCategoryRail(
@@ -367,12 +389,7 @@ fun IllustratedCategoryRail(
                         .background(GtrPremiumColors.Red.copy(alpha = .14f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(category.art.drawable),
-                        contentDescription = null,
-                        modifier = Modifier.size(58.dp),
-                        contentScale = ContentScale.Fit,
-                    )
+                    CategoryGlyph(category.art)
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -607,6 +624,8 @@ fun PremiumEmptyState(
     title: String,
     body: String,
     art: Int? = null,
+    artTint: Color? = null,
+    artSize: Dp = 120.dp,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -619,12 +638,21 @@ fun PremiumEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         art?.let {
-            androidx.compose.foundation.Image(
-                painter = painterResource(it),
-                contentDescription = null,
-                modifier = Modifier.size(120.dp),
-                contentScale = ContentScale.Fit,
-            )
+            if (artTint != null) {
+                Icon(
+                    painter = painterResource(it),
+                    contentDescription = null,
+                    modifier = Modifier.size(artSize),
+                    tint = artTint,
+                )
+            } else {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(it),
+                    contentDescription = null,
+                    modifier = Modifier.size(artSize),
+                    contentScale = ContentScale.Fit,
+                )
+            }
             Spacer(Modifier.height(8.dp))
         }
         Text(title, color = GtrPremiumColors.TextPrimary, fontWeight = FontWeight.SemiBold)
