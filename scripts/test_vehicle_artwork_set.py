@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -51,6 +52,20 @@ class VehicleArtworkSetTest(unittest.TestCase):
         names = resolver_filenames()
         self.assertTrue(names)
         self.assertFalse(any("qashqai" in name for name in names))
+
+    def test_fitment_mapping_json_matches_webp_set(self) -> None:
+        mapping_path = REPO / "supabase" / "FITMENT_ART_MAPPING.json"
+        self.assertTrue(mapping_path.is_file(), "pack mapping JSON must live in supabase/")
+        mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+        names = {
+            Path(str(rule.get("asset") or "")).name
+            for rule in mapping.get("rules", [])
+            if rule.get("asset")
+        }
+        files = {path.name for path in ART_DIR.glob("*.webp")}
+        self.assertEqual(names, files)
+        csv_path = REPO / "supabase" / "FITMENT_ART_MAPPING.csv"
+        self.assertTrue(csv_path.is_file(), "pack mapping CSV must live in supabase/")
 
     def test_kotlin_public_base_matches_bucket(self) -> None:
         url_kt = (
