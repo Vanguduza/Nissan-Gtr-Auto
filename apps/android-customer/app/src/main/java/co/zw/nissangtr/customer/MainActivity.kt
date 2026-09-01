@@ -580,6 +580,28 @@ private fun CustomerApp(
                 },
             )
         }
+        ShellOverlay.Cart -> {
+            CartScreen(
+                rpc = rpc,
+                refreshKey = cartRefresh,
+                onBack = {
+                    refreshCartBadge()
+                    overlay = ShellOverlay.None
+                },
+                onContinueShopping = {
+                    refreshCartBadge()
+                    overlay = ShellOverlay.None
+                    tab = ShellTab.Shop
+                },
+                onPay = { invoiceId ->
+                    payInvoiceId = invoiceId
+                    refreshCartBadge()
+                    overlay = ShellOverlay.Pay
+                },
+                onManageAddresses = { openAccount(ProfileDest.Addresses) },
+                onManageOrders = { overlay = ShellOverlay.Orders },
+            )
+        }
         ShellOverlay.Pay -> {
             PayIntentScreen(
                 rpc = rpc,
