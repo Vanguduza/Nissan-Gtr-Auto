@@ -1,20 +1,35 @@
 package co.zw.nissangtr.customer.kits
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
-import co.zw.nissangtr.ui.shop.ShopHonestEmpty
-import co.zw.nissangtr.ui.shop.ShopListCard
-import co.zw.nissangtr.ui.shop.ShopSectionHeader
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumEmptyState
+import co.zw.nissangtr.customer.visual.PremiumMessageBanner
+import co.zw.nissangtr.customer.visual.PremiumMessageKind
+import co.zw.nissangtr.customer.visual.PremiumPrimaryButton
+import co.zw.nissangtr.customer.visual.PremiumScreenHeader
+import co.zw.nissangtr.customer.visual.PremiumStatusChip
+import co.zw.nissangtr.customer.visual.PremiumStatusTone
+import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
 
 @Composable
 fun KitsScreen(
@@ -25,48 +40,84 @@ fun KitsScreen(
     viewModel: KitsViewModel = viewModel(factory = KitsViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
-    val sharp = MaterialTheme.shapes.extraSmall
 
-    ShopDefaultScreen(
-        title = "Service kits",
-        subtitle = null,
-        onBack = onBack,
-        modifier = modifier,
-        loading = state.busy && state.kits.isEmpty(),
-    ) {
-        Text(
-            "Active kits from inventory. Tap a component OEM to open the product page.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(modifier.fillMaxSize().background(GtrPremiumColors.Background)) {
+        PremiumScreenHeader(
+            title = "Service Kits",
+            subtitle = "Everything needed for common maintenance in one place",
+            onBack = onBack,
         )
-        Button(
-            onClick = viewModel::refresh,
-            enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-            shape = sharp,
-        ) { Text("Refresh kits") }
 
-        if (state.kits.isEmpty() && !state.busy) {
-            ShopHonestEmpty(
-                title = "No active kits",
-                body = "No kits.",
-            )
-        }
-
-        state.kits.forEach { kit ->
-            ShopSectionHeader(title = kit.name, actionLabel = kit.sellMode)
-            ShopListCard(
-                title = kit.oem,
-                subtitle = "${kit.components.size} component(s)",
-                onClick = { onOpenProduct(kit.oem) },
-            )
-            kit.components.forEach { comp ->
-                TextButton(onClick = { onOpenProduct(comp.oem) }) {
-                    Text("${comp.oem} · ${comp.name} × ${comp.qty}")
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (state.kits.isEmpty() && !state.busy) {
+                item {
+                    PremiumEmptyState(
+                        title = "No active service kits",
+                        body = "Available maintenance kits will appear here.",
+                    )
                 }
             }
-        }
 
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            items(state.kits, key = { it.kitId }) { kit ->
+                PremiumSurfaceCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth()) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    kit.name,
+                                    color = GtrPremiumColors.TextPrimary,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    "${kit.components.size} included item(s)",
+                                    color = GtrPremiumColors.TextSecondary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            PremiumStatusChip("Kit", PremiumStatusTone.Premium)
+                        }
+
+                        kit.components.forEach { component ->
+                            PremiumSurfaceCard(
+                                onClick = { onOpenProduct(component.oem) },
+                            ) {
+                                Row(Modifier.fillMaxWidth()) {
+                                    Text(
+                                        component.name,
+                                        color = GtrPremiumColors.TextPrimary,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        "× ${component.qty}",
+                                        color = GtrPremiumColors.TextSecondary,
+                                    )
+                                }
+                            }
+                        }
+
+                        PremiumPrimaryButton(
+                            text = "View kit",
+                            onClick = { onOpenProduct(kit.oem) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
+            item {
+                PremiumPrimaryButton(
+                    text = if (state.busy) "Refreshing…" else "Refresh kits",
+                    onClick = viewModel::refresh,
+                    enabled = !state.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            state.error?.let { item { PremiumMessageBanner(it, PremiumMessageKind.Error) } }
+        }
     }
 }

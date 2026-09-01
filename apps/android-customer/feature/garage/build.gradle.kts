@@ -23,6 +23,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:visual"))
     implementation(project(":core:rpc"))
     // Homepage VehicleSelectorSection + VehicleCascade — no second cascade list.
     implementation(project(":feature:catalog"))

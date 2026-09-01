@@ -352,6 +352,25 @@ class CatalogViewModel(
         }
     }
 
+
+    fun quickAddToCart(item: CatalogListItem, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                useCases.addToCart(item.oem, 1.0)
+                _state.update { it.copy(busy = false, message = "Added to cart") }
+                onDone()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        error = UserFacingErrors.from(e, "Could not add to cart"),
+                    )
+                }
+            }
+        }
+    }
+
     companion object {
         fun factory(rpc: RpcClient): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {

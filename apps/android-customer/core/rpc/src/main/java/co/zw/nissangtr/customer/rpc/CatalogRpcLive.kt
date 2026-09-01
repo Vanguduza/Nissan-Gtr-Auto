@@ -27,6 +27,60 @@ import kotlinx.serialization.json.put
 internal object CatalogRpcLive {
     private val json = Json { ignoreUnknownKeys = true }
 
+    @Serializable
+    private data class StockItemImageBrowseRow(
+        @SerialName("stock_item_id") val stockItemId: String,
+        @SerialName("storage_path") val storagePath: String,
+        @SerialName("is_primary") val isPrimary: Boolean = false,
+        @SerialName("sort_order") val sortOrder: Int = 0,
+    )
+
+    private suspend fun loadPrimaryImagePathByItem(
+        client: SupabaseClient,
+        stockItemIds: List<String>,
+    ): Map<String, String> {
+        if (stockItemIds.isEmpty()) return emptyMap()
+        val rows = client.from("stock_item_images")
+            .select(Columns.list("stock_item_id", "storage_path", "is_primary", "sort_order")) {
+                filter { isIn("stock_item_id", stockItemIds) }
+                order("is_primary", Order.DESCENDING)
+                order("sort_order", Order.ASCENDING)
+                limit((stockItemIds.size * 8).coerceAtMost(800).toLong())
+            }
+            .decodeList<StockItemImageBrowseRow>()
+
+        return buildMap {
+            for (row in rows) {
+                val path = row.storagePath.trim().trimStart('/')
+                if (path.isNotEmpty() && !containsKey(row.stockItemId)) {
+                    put(row.stockItemId, path)
+                }
+            }
+        }
+    }
+
+    private suspend fun loadProductImageUrls(
+        client: SupabaseClient,
+        supabaseUrl: String,
+        stockItemId: String,
+    ): List<String> {
+        val rows = client.from("stock_item_images")
+            .select(Columns.list("stock_item_id", "storage_path", "is_primary", "sort_order")) {
+                filter { eq("stock_item_id", stockItemId) }
+                order("is_primary", Order.DESCENDING)
+                order("sort_order", Order.ASCENDING)
+                limit(20)
+            }
+            .decodeList<StockItemImageBrowseRow>()
+
+        val base = supabaseUrl.trimEnd('/')
+        return rows
+            .map { it.storagePath.trim().trimStart('/') }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .map { path -> "$base/storage/v1/object/public/product-images/$path" }
+    }
+
     suspend fun searchCatalog(client: SupabaseClient, mode: SearchMode, query: String): SearchCatalogResponse {
         val trimmed = query.trim()
         require(trimmed.isNotEmpty()) { "search query required" }
@@ -116,6 +170,7 @@ internal object CatalogRpcLive {
         val priceByItem = loadDefaultPrices(client, ids)
         val qtyByItem = loadSaleableQty(client, ids)
         val catByOem = loadCategoryByOem(client, oems)
+        val imageByItem = loadPrimaryImagePathByItem(client, ids)
 
         val list = items.map { row ->
             val price = priceByItem[row.id]
@@ -127,6 +182,7 @@ internal object CatalogRpcLive {
                 stock = stockStateFromQty(qtyByItem[row.id] ?: 0.0, row.reorderPoint),
                 usd = usd,
                 category = catByOem[row.oemPartNumber],
+                imagePath = imageByItem[row.id],
             )
         }
         return CatalogBrowseResult(items = list, categories = categories)
@@ -251,6 +307,7 @@ internal object CatalogRpcLive {
         val priceByItem = loadDefaultPrices(client, ids)
         val qtyByItem = loadSaleableQty(client, ids)
         val catByOem = loadCategoryByOem(client, oems)
+        val imageByItem = loadPrimaryImagePathByItem(client, ids)
 
         val list = items.map { row ->
             val price = priceByItem[row.id]
@@ -262,6 +319,7 @@ internal object CatalogRpcLive {
                 stock = stockStateFromQty(qtyByItem[row.id] ?: 0.0, row.reorderPoint),
                 usd = usd,
                 category = catByOem[row.oemPartNumber],
+                imagePath = imageByItem[row.id],
             )
         }
         return CatalogBrowseResult(items = list, categories = emptyList())
@@ -295,9 +353,9 @@ internal object CatalogRpcLive {
         val diagramUrl = loadDiagramPublicUrl(client, supabaseUrl, item.oemPartNumber)
         val replaces = loadReplaces(client, item.oemPartNumber)
 
-        val imageUrls = buildList {
-            diagramUrl?.let { add(it) }
-        }
+        // Customer merchandise media is sourced ONLY from staff-owned stock_item_images.
+        // EPC diagramUrl remains separate and must never masquerade as product photography.
+        val imageUrls = loadProductImageUrls(client, supabaseUrl, item.id)
 
         return CatalogProduct(
             stockItemId = item.id,

@@ -23,6 +23,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:visual"))
     implementation(project(":core:rpc"))
     implementation(project(":feature:wishlist"))
     implementation(project(":feature:reviews"))

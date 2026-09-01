@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -27,18 +28,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.customer.rpc.CatalogListItem
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumEmptyState
+import co.zw.nissangtr.customer.visual.PremiumProductCard
+import co.zw.nissangtr.customer.visual.ProductImageStorage
+import co.zw.nissangtr.customer.visual.R
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
 import co.zw.nissangtr.ui.shop.ShopFilterDialog
 import co.zw.nissangtr.ui.shop.ShopFilterSortBar
 import co.zw.nissangtr.ui.shop.ShopFilterState
-import co.zw.nissangtr.ui.shop.ShopHonestEmpty
-import co.zw.nissangtr.ui.shop.ShopProductCard
 import co.zw.nissangtr.ui.shop.ShopSortDialog
 import co.zw.nissangtr.ui.shop.ShopSortOption
 
 /**
- * Category PLP — live browse with filter/sort dialogs (ShopKit parity).
- * Shows honest empty only when filtered API returns no rows.
+ * Preview-locked PLP. Existing filter/sort behavior is preserved.
+ * OEM remains an internal navigation key only and is never rendered.
  */
 @Composable
 fun CategoryPlpScreen(
@@ -54,6 +58,7 @@ fun CategoryPlpScreen(
     onToggleWish: (CatalogListItem) -> Unit,
     onApplyFilter: (ShopFilterState) -> Unit,
     onApplySort: (ShopSortOption) -> Unit,
+    onAddToCart: ((CatalogListItem) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var showFilter by remember { mutableStateOf(false) }
@@ -84,12 +89,10 @@ fun CategoryPlpScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(GtrPremiumColors.Background),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ShopCircleIconButton(
@@ -98,46 +101,51 @@ fun CategoryPlpScreen(
                 contentDescription = "Back",
             )
             Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleLarge)
+            Column(Modifier.weight(1f)) {
                 Text(
-                    "${products.size} part(s)",
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = GtrPremiumColors.TextPrimary,
+                )
+                Text(
+                    "${products.size} items",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = GtrPremiumColors.TextSecondary,
                 )
             }
-            if (busy) {
-                CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-            }
+            if (busy) CircularProgressIndicator(modifier = Modifier.padding(8.dp))
         }
+
         ShopFilterSortBar(
             onFilter = { showFilter = true },
             onSort = { showSort = true },
             sortLabel = sortOption.label,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
+
         if (products.isEmpty() && !busy) {
-            ShopHonestEmpty(
-                title = "No parts in this category",
-                body = "No matching stock for this filter. If every category is empty, the catalog SoR may not be loaded yet.",
+            PremiumEmptyState(
+                title = "No matching items in stock",
+                body = "Try another filter or change your selected vehicle.",
+                art = R.drawable.gtr_empty_state_no_items_for_vehicle,
                 modifier = Modifier.padding(24.dp),
             )
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(8.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(products, key = { it.stockItemId }) { item ->
-                    ShopProductCard(
-                        title = item.oem,
-                        subtitle = item.name,
-                        priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
+                    PremiumProductCard(
+                        item = item,
                         liked = wishOems.contains(item.oem.trim().uppercase()),
-                        onLikeClick = { onToggleWish(item) },
-                        onClick = { onOpenProduct(item.oem) },
+                        imageUrl = ProductImageStorage.publicUrl(item.imagePath),
+                        onLike = { onToggleWish(item) },
+                        onOpen = { onOpenProduct(item.oem) },
+                        onAddToCart = onAddToCart?.let { add -> { add(item) } },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
