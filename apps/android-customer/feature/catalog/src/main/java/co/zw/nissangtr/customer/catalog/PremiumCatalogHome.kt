@@ -58,8 +58,9 @@ fun PremiumCatalogHome(
     onClearVehicle: () -> Unit,
     onTrackOrder: () -> Unit,
     modifier: Modifier = Modifier,
+    startVehicleSheetOpen: Boolean = false,
 ) {
-    var vehicleSheetOpen by remember { mutableStateOf(false) }
+    var vehicleSheetOpen by remember { mutableStateOf(startVehicleSheetOpen) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Successful selection changes the selected fitment; only then close the selector.
