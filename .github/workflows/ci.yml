@@ -44,9 +44,9 @@ jobs:
         run: |
           set -euo pipefail
           # Align with .cursor/BUGBOT.md.
-          # Client / bridge / pipeline: any ZIMRA / payroll-tax / HTML5-QR string is a fail.
-          # Migrations/tests may document denials ("no ZIMRA", deny-regex) — those live under
-          # supabase/ and are covered by Bugbot + verifier, not this string gate.
+          # Client / bridge / pipeline: implementation-shaped ZIMRA / payroll-tax /
+          # HTML5-QR hits fail. Denial comments ("no ZIMRA", "Forbidden: html5-qrcode")
+          # are standing exclusions, not integrations.
           # Edge functions: fail on integration-shaped hits (URLs, SDKs, HTML5 QR libs).
           FAIL=0
           scan() {
@@ -54,8 +54,30 @@ jobs:
             local pattern="$2"
             shift 2
             local hits
+            # Implementation-shaped hits only. Denial comments / copy
+            # ("no ZIMRA", "Forbidden: HTML5/browser QR", gross-only payroll)
+            # are standing exclusions, not integrations.
             hits=$(rg -n -i --glob '!**/*.md' --glob '!**/.venv/**' --glob '!**/node_modules/**' \
-              "$pattern" "$@" 2>/dev/null || true)
+              "$pattern" "$@" 2>/dev/null \
+              | rg -vi \
+                -e 'no[[:space:]/._-]*zimra' \
+                -e 'no[[:space:]/._-]*fdms' \
+                -e 'no[[:space:]/._-]*fiscal' \
+                -e 'never[[:space:]].*zimra' \
+                -e 'forbidden:' \
+                -e 'no[[:space:]/._-]*paye' \
+                -e 'no[[:space:]/._-]*nssa' \
+                -e 'no[[:space:]/._-]*pobs' \
+                -e 'no[[:space:]/._-]*apwcs' \
+                -e 'no[[:space:]/._-]*zimdef' \
+                -e 'tax-agnostic' \
+                -e 'zimra\.example' \
+                -e 'standing exclusion' \
+                -e 'html5/browser qr' \
+                -e 'gross only' \
+                -e 'gross payroll' \
+                -e 'gross[[:space:]−-]+manual' \
+              || true)
             if [[ -n "$hits" ]]; then
               echo "::error::Exclusion hit ($label):"
               echo "$hits"

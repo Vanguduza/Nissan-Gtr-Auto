@@ -379,7 +379,7 @@ export function CatalogBrowse({
                         </Link>
                       </td>
                     </tr>
-                  ))}
+                  ))
                 )}
               </tbody>
             </table>
