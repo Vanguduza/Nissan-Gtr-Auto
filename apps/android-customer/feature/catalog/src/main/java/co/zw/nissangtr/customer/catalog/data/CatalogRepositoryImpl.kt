@@ -13,8 +13,7 @@ import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 
 /**
  * Live [CatalogRepository] — the only class in `feature/catalog` allowed to import
- * [RpcClient] directly. ViewModel → use case → repository → RpcClient, never
- * ViewModel → RpcClient (see `CatalogViewModel.factory`).
+ * [RpcClient] directly. ViewModel → use case → repository → transport.
  */
 class CatalogRepositoryImpl(
     private val rpc: RpcClient,
@@ -25,8 +24,7 @@ class CatalogRepositoryImpl(
     override suspend fun browse(category: String?, limit: Int): CatalogBrowseResult =
         rpc.listCatalogBrowse(category, limit)
 
-    override suspend fun loadProduct(oem: String): CatalogProduct =
-        rpc.loadCatalogProduct(oem)
+    override suspend fun loadProduct(oem: String): CatalogProduct = rpc.loadCatalogProduct(oem)
 
     override suspend fun addToCart(oem: String, qty: Double): Pair<String, String> =
         rpc.addCustomerCartLineByOem(oem, qty)
@@ -39,8 +37,7 @@ class CatalogRepositoryImpl(
         rpc.addCustomerCompareItem(stockItemId = stockItemId, oem = oem)
     }
 
-    override suspend fun listVehicleMaster(): List<VehicleMasterRow> =
-        rpc.listVehicleMaster()
+    override suspend fun listVehicleMaster(): List<VehicleMasterRow> = rpc.listVehicleMaster()
 
     override suspend fun listCatalogForVehicle(
         vehicleMasterId: String?,
@@ -51,7 +48,11 @@ class CatalogRepositoryImpl(
     ): CatalogBrowseResult {
         if (rpc is SupabaseRpcClient) {
             val canonicalId = vehicleMasterId?.trim()?.takeIf { it.isNotEmpty() }
-                ?: error("Please reselect your vehicle from the published vehicle master before verifying fitment.")
+                ?: CatalogR2Live.resolveVehicleMasterId(
+                    client = rpc.client,
+                    chassisCode = chassisCode,
+                    engineCode = engineCode,
+                )
             return CatalogR2Live.listCatalogForVehicle(
                 client = rpc.client,
                 vehicleMasterId = canonicalId,
