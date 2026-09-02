@@ -1,6 +1,7 @@
 name: Catalog R2 hard gate
 
 # Uses GitHub OIDC to call the Supabase broker. R2 credentials remain only in Supabase Edge secrets.
+# Hard-gate retrigger after R2 secrets sync: 2026-09-02T19:12+02:00
 on:
   push:
     branches:
