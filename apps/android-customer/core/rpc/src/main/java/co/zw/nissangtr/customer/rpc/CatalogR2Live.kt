@@ -7,11 +7,9 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
@@ -25,6 +23,30 @@ import kotlinx.serialization.json.put
 object CatalogR2Live {
     private const val FUNCTION = "catalog-live-r2"
     private val json = Json { ignoreUnknownKeys = true }
+
+    /**
+     * Compatibility bridge for any pre-hardening caller that still passes chassis/engine only.
+     * It resolves against the published master and fails closed if the combination is ambiguous.
+     */
+    suspend fun resolveVehicleMasterId(
+        client: SupabaseClient,
+        chassisCode: String,
+        engineCode: String?,
+    ): String {
+        val chassis = chassisCode.trim()
+        require(chassis.isNotEmpty()) { "chassis required" }
+        val engine = engineCode?.trim()?.takeIf { it.isNotEmpty() }
+        val matches = CatalogRpcLive.listVehicleMaster(client).filter { row ->
+            row.chassisCode.equals(chassis, ignoreCase = true) &&
+                (engine == null || row.engineCode?.equals(engine, ignoreCase = true) == true)
+        }
+        val ids = matches.mapNotNull { it.id?.trim()?.takeIf(String::isNotEmpty) }.distinct()
+        return when (ids.size) {
+            1 -> ids.single()
+            0 -> error("Vehicle is not present in the published Nissan master. Please reselect it.")
+            else -> error("Vehicle identity is ambiguous in the published master. Please reselect the exact model and engine.")
+        }
+    }
 
     suspend fun listCatalogForVehicle(
         client: SupabaseClient,
