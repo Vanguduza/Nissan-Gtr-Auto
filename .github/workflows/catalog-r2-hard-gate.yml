@@ -1,0 +1,266 @@
+name: Catalog R2 hard gate
+
+on:
+  push:
+    branches:
+      - chatgpt/customer-ui-catalog-hardening-20260902
+    paths:
+      - .github/workflows/catalog-r2-hard-gate.yml
+      - data-pipeline/scripts/build_r2_serving_indexes.mjs
+      - data-pipeline/scripts/register_r2_serving_manifest.mjs
+      - data-pipeline/scripts/publish_catalog_v2_diagram_index.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_VERSION: v2-storage-2026-09
+  SUPABASE_URL: https://gylrgwqyuiwkyykardwc.supabase.co
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+  R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.R2_ACCOUNT_ID }}
+  R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || secrets.R2_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || secrets.R2_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}
+  R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET || secrets.R2_BUCKET || vars.CLOUDFLARE_R2_BUCKET || vars.R2_BUCKET }}
+  R2_ENDPOINT_OVERRIDE: ${{ secrets.CLOUDFLARE_R2_ENDPOINT || secrets.R2_ENDPOINT || vars.CLOUDFLARE_R2_ENDPOINT || vars.R2_ENDPOINT }}
+
+jobs:
+  hard-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize hard-gate report
+        shell: bash
+        run: |
+          mkdir -p out/hard-gate
+          {
+            echo '# Catalog R2 hard gate'
+            echo
+            echo "Branch: ${GITHUB_REF_NAME}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Release: ${RELEASE_VERSION}"
+            echo
+          } > out/hard-gate/report.md
+
+      - name: Resolve credentials without exposing values
+        id: prereq
+        shell: bash
+        run: |
+          set +x
+          missing=0
+          check() {
+            local name="$1" value="$2"
+            if [[ -n "$value" ]]; then
+              echo "- $name: present" >> out/hard-gate/report.md
+            else
+              echo "- $name: MISSING" >> out/hard-gate/report.md
+              missing=1
+            fi
+          }
+          echo '## Credential availability' >> out/hard-gate/report.md
+          check R2_ACCOUNT_ID "$R2_ACCOUNT_ID"
+          check R2_ACCESS_KEY_ID "$R2_ACCESS_KEY_ID"
+          check R2_SECRET_ACCESS_KEY "$R2_SECRET_ACCESS_KEY"
+          check R2_BUCKET "$R2_BUCKET"
+          check SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
+          echo "missing=$missing" >> "$GITHUB_OUTPUT"
+          if [[ -n "$R2_ENDPOINT_OVERRIDE" ]]; then
+            endpoint="$R2_ENDPOINT_OVERRIDE"
+          elif [[ -n "$R2_ACCOUNT_ID" ]]; then
+            endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          else
+            endpoint=""
+          fi
+          echo "endpoint=$endpoint" >> "$GITHUB_OUTPUT"
+
+      - name: Install AWS CLI if needed
+        if: steps.prereq.outputs.missing == '0'
+        shell: bash
+        run: |
+          if ! command -v aws >/dev/null 2>&1; then
+            python -m pip install --user awscli
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Inventory current R2 release and discover source artifacts
+        if: steps.prereq.outputs.missing == '0'
+        id: inventory
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ steps.prereq.outputs.endpoint }}
+        run: |
+          set -euo pipefail
+          echo >> out/hard-gate/report.md
+          echo '## R2 inventory' >> out/hard-gate/report.md
+          aws s3api head-object --bucket "$R2_BUCKET" --key bundles/nissan/catalog_nissan_v2_storage.sqlite.enc --endpoint-url "$R2_ENDPOINT" > out/hard-gate/bundle-head.json
+          bundle_size=$(python - <<'PY'
+          import json
+          print(json.load(open('out/hard-gate/bundle-head.json')).get('ContentLength',0))
+          PY
+          )
+          echo "- encrypted bundle reachable: yes (${bundle_size} bytes)" >> out/hard-gate/report.md
+
+          aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix "serving/nissan/${RELEASE_VERSION}/" --max-keys 10 --endpoint-url "$R2_ENDPOINT" > out/hard-gate/serving.json
+          serving_count=$(python - <<'PY'
+          import json
+          x=json.load(open('out/hard-gate/serving.json'))
+          print(x.get('KeyCount',0))
+          PY
+          )
+          echo "serving_count=$serving_count" >> "$GITHUB_OUTPUT"
+          echo "- serving shard prefix currently contains sample-count: ${serving_count}" >> out/hard-gate/report.md
+
+          aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix "diagrams/nissan/" --max-keys 5 --endpoint-url "$R2_ENDPOINT" > out/hard-gate/diagram-sample.json
+          diagram_sample=$(python - <<'PY'
+          import json
+          x=json.load(open('out/hard-gate/diagram-sample.json'))
+          print(x.get('KeyCount',0))
+          PY
+          )
+          echo "- diagram prefix reachable: $([[ $diagram_sample -gt 0 ]] && echo yes || echo no)" >> out/hard-gate/report.md
+
+          : > out/hard-gate/r2-source-candidates.txt
+          for prefix in normalized/ exports/ source/ sources/ parts/ indexes/ catalog/ catalog-v2/ bundles/nissan/; do
+            aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix "$prefix" --max-keys 200 --endpoint-url "$R2_ENDPOINT" \
+              --query 'Contents[].{Key:Key,Size:Size}' --output text 2>/dev/null >> out/hard-gate/r2-source-candidates.txt || true
+          done
+          echo '- candidate source prefixes inventoried without downloading the full bundle' >> out/hard-gate/report.md
+
+      - name: Locate normalized applicability input
+        if: steps.prereq.outputs.missing == '0'
+        id: source
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ steps.prereq.outputs.endpoint }}
+        run: |
+          set -euo pipefail
+          mkdir -p out/hard-gate/source
+          source_path=''
+
+          # Prefer a publication artifact already present in R2. Never use the 6.3 GB encrypted bundle as a runtime object.
+          candidate=$(awk '{print $1}' out/hard-gate/r2-source-candidates.txt | grep -Ei '(applicability|fitment|normalized).*(ndjson|jsonl)(\.gz)?$' | head -n1 || true)
+          if [[ -n "$candidate" ]]; then
+            echo "Found R2 applicability candidate: $candidate" >> out/hard-gate/report.md
+            aws s3 cp "s3://${R2_BUCKET}/${candidate}" out/hard-gate/source/input --endpoint-url "$R2_ENDPOINT" --only-show-errors
+            case "$candidate" in
+              *.gz) gzip -dc out/hard-gate/source/input > out/hard-gate/source/normalized.ndjson ;;
+              *) cp out/hard-gate/source/input out/hard-gate/source/normalized.ndjson ;;
+            esac
+            source_path='out/hard-gate/source/normalized.ndjson'
+          else
+            local_candidate=$(find data-pipeline -type f \( -iname '*applicability*.ndjson' -o -iname '*fitment*.ndjson' -o -iname '*normalized*.ndjson' -o -iname '*applicability*.jsonl' -o -iname '*fitment*.jsonl' \) -print -quit || true)
+            if [[ -n "$local_candidate" ]]; then
+              source_path="$local_candidate"
+              echo "Found repository applicability candidate: $local_candidate" >> out/hard-gate/report.md
+            fi
+          fi
+
+          if [[ -n "$source_path" ]]; then
+            echo "path=$source_path" >> "$GITHUB_OUTPUT"
+            echo 'found=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'found=false' >> "$GITHUB_OUTPUT"
+            echo '- normalized applicability source: NOT FOUND in repository or discoverable R2 publication prefixes' >> out/hard-gate/report.md
+          fi
+
+      - name: Build and upload immutable live-serving shards
+        if: steps.prereq.outputs.missing == '0' && steps.source.outputs.found == 'true'
+        id: publish
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ steps.prereq.outputs.endpoint }}
+        run: |
+          set -euo pipefail
+          node data-pipeline/scripts/build_r2_serving_indexes.mjs "${{ steps.source.outputs.path }}" --out=out/r2-serving --maker=nissan --version="$RELEASE_VERSION"
+          object_files=$(find out/r2-serving/objects -type f | wc -l | tr -d ' ')
+          manifest_rows=$(grep -cve '^$' out/r2-serving/serving-manifest.ndjson)
+          [[ "$object_files" -gt 0 && "$manifest_rows" -gt 0 ]]
+          aws s3 sync out/r2-serving/objects/ "s3://${R2_BUCKET}/" --endpoint-url "$R2_ENDPOINT" --only-show-errors --content-type application/x-ndjson --content-encoding gzip
+          node data-pipeline/scripts/register_r2_serving_manifest.mjs out/r2-serving/serving-manifest.ndjson
+          echo "- built/uploaded ${object_files} compressed serving objects; ${manifest_rows} routing registrations" >> out/hard-gate/report.md
+          echo 'done=true' >> "$GITHUB_OUTPUT"
+
+      - name: Validate Supabase routing counts
+        if: steps.prereq.outputs.missing == '0'
+        id: supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+          base="${SUPABASE_URL}/rest/v1/catalog_r2_serving_objects"
+          curl -fsS "${base}?select=object_kind&release_id=eq.3c4d2153-b2c8-414d-b05b-d80ed059d759" "${auth[@]}" > out/hard-gate/routing.json
+          python - <<'PY' > out/hard-gate/routing-counts.txt
+          import json,collections
+          rows=json.load(open('out/hard-gate/routing.json'))
+          c=collections.Counter(r['object_kind'] for r in rows)
+          for k in sorted(c): print(f'{k}={c[k]}')
+          PY
+          echo >> out/hard-gate/report.md
+          echo '## Routing counts' >> out/hard-gate/report.md
+          sed 's/^/- /' out/hard-gate/routing-counts.txt >> out/hard-gate/report.md
+
+          vehicle=$(grep -E '^vehicle_fitment=' out/hard-gate/routing-counts.txt | cut -d= -f2 || true)
+          section=$(grep -E '^section_parts=' out/hard-gate/routing-counts.txt | cut -d= -f2 || true)
+          diagram=$(grep -E '^diagram_parts=' out/hard-gate/routing-counts.txt | cut -d= -f2 || true)
+          images=$(grep -E '^diagram_image=' out/hard-gate/routing-counts.txt | cut -d= -f2 || true)
+          echo "vehicle=${vehicle:-0}" >> "$GITHUB_OUTPUT"
+          echo "section=${section:-0}" >> "$GITHUB_OUTPUT"
+          echo "diagram=${diagram:-0}" >> "$GITHUB_OUTPUT"
+          echo "images=${images:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Final hard-gate decision
+        id: final
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          prereq='${{ steps.prereq.outputs.missing }}'
+          source='${{ steps.source.outputs.found }}'
+          vehicle='${{ steps.supabase.outputs.vehicle }}'
+          section='${{ steps.supabase.outputs.section }}'
+          diagram='${{ steps.supabase.outputs.diagram }}'
+          images='${{ steps.supabase.outputs.images }}'
+          echo >> out/hard-gate/report.md
+          echo '## Decision' >> out/hard-gate/report.md
+          if [[ "$prereq" != '0' ]]; then
+            echo '**FAIL — publishing credentials are not available to GitHub Actions.**' >> out/hard-gate/report.md
+            echo 'passed=false' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          if [[ "$source" != 'true' ]]; then
+            echo '**FAIL — normalized applicability build artifact is not available in the repository or discoverable R2 source prefixes. Re-run publication from the catalog build host; do not re-crawl.**' >> out/hard-gate/report.md
+            echo 'passed=false' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          if [[ ${vehicle:-0} -le 0 || ${section:-0} -le 0 || ${diagram:-0} -le 0 ]]; then
+            echo '**FAIL — one or more serving indexes remain unpublished.**' >> out/hard-gate/report.md
+            echo 'passed=false' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          if [[ ${images:-0} -le 0 ]]; then
+            echo '**FAIL — diagram-id → R2 image mappings remain unpublished.**' >> out/hard-gate/report.md
+            echo 'passed=false' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo '**PASS — current Nissan release is live-R2 browse ready without a full-catalog runtime download.**' >> out/hard-gate/report.md
+          echo 'passed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Upload hard-gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-r2-hard-gate-${{ github.run_id }}
+          path: out/hard-gate/
+          if-no-files-found: error
+          retention-days: 14
