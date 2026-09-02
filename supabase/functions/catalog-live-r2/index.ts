@@ -1,9 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { GetObjectCommand, HeadObjectCommand, S3Client } from "npm:@aws-sdk/client-s3@3";
+import { GetObjectCommand, S3Client } from "npm:@aws-sdk/client-s3@3";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3";
 
 const MAX_BYTES = 16 * 1024 * 1024;
+const REQUIRED_SERVING_KINDS = [
+  "vehicle_search",
+  "vehicle_fitment",
+  "section_parts",
+  "diagram_parts",
+  "diagram_image",
+] as const;
 const ORIGINS = new Set([
   "https://nissangtrauto.co.zw",
   "https://www.nissangtrauto.co.zw",
@@ -30,15 +37,18 @@ function cors(req: Request) {
     Vary: "Origin",
   };
 }
+
 function reply(req: Request, status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...cors(req), "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
+
 function normalizePart(value: unknown) {
   return String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
+
 function normalizeCategory(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -46,6 +56,7 @@ function normalizeCategory(value: unknown) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
 function r2Config() {
   const accountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID")?.trim() ?? "";
   const accessKeyId = Deno.env.get("CLOUDFLARE_R2_ACCESS_KEY_ID")?.trim() ?? "";
@@ -61,6 +72,7 @@ function r2Config() {
     }),
   };
 }
+
 async function bodyText(config: NonNullable<ReturnType<typeof r2Config>>, key: string, gzip: boolean) {
   const out = await config.client.send(new GetObjectCommand({ Bucket: config.bucket, Key: key }));
   if (!out.Body) throw new Error("R2 object body missing");
@@ -70,6 +82,7 @@ async function bodyText(config: NonNullable<ReturnType<typeof r2Config>>, key: s
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
   return await new Response(stream).text();
 }
+
 function parseRows(text: string): Row[] {
   const t = text.trim();
   if (!t) return [];
@@ -79,6 +92,7 @@ function parseRows(text: string): Row[] {
   }
   return t.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line) as Row);
 }
+
 function searchable(row: Row) {
   return [
     row.search_text,
@@ -91,15 +105,10 @@ function searchable(row: Row) {
     ...(Array.isArray(row.aliases) ? row.aliases : []),
   ].filter(Boolean).join(" ").toLowerCase();
 }
+
 function queryMatch(row: Row, q: string) {
   const hay = searchable(row);
   return q.toLowerCase().split(/\s+/).filter(Boolean).every((term) => hay.includes(term));
-}
-function imageContentType(key: string) {
-  const lower = key.toLowerCase();
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-  if (lower.endsWith(".webp")) return "image/webp";
-  return "image/png";
 }
 
 Deno.serve(async (req) => {
@@ -147,18 +156,35 @@ Deno.serve(async (req) => {
       .maybeSingle();
     return data as ServingObject | null;
   };
-  const load = async (object: ServingObject) => parseRows(await bodyText(r2, object.object_key, object.content_encoding === "gzip" || object.object_key.endsWith(".gz")));
+
+  const load = async (object: ServingObject) => parseRows(
+    await bodyText(r2, object.object_key, object.content_encoding === "gzip" || object.object_key.endsWith(".gz")),
+  );
+
   const isStaff = async () => {
     const { data } = await admin.from("profiles").select("is_staff").eq("id", userId).maybeSingle();
     return data?.is_staff === true;
   };
 
   if (action === "health") {
-    const { count } = await admin.from("catalog_r2_serving_objects").select("id", { head: true, count: "exact" }).eq("release_id", release.id);
+    const counts = Object.fromEntries(await Promise.all(REQUIRED_SERVING_KINDS.map(async (kind) => {
+      const { count, error } = await admin
+        .from("catalog_r2_serving_objects")
+        .select("id", { head: true, count: "exact" })
+        .eq("release_id", release.id)
+        .eq("maker_slug", maker)
+        .eq("object_kind", kind);
+      if (error) throw new Error(error.message);
+      return [kind, count ?? 0];
+    })));
+    const missing = REQUIRED_SERVING_KINDS.filter((kind) => Number(counts[kind] ?? 0) <= 0);
+    const total = Object.values(counts).reduce((sum, value) => sum + Number(value ?? 0), 0);
     return reply(req, 200, {
       release: release.version,
-      r2_serving_objects: count ?? 0,
-      live_browsing_ready: (count ?? 0) > 0,
+      object_counts: counts,
+      r2_serving_objects: total,
+      missing_required_kinds: missing,
+      live_browsing_ready: missing.length === 0,
       full_catalog_download_required: false,
     });
   }
@@ -243,50 +269,28 @@ Deno.serve(async (req) => {
     if (!(await isStaff())) return reply(req, 403, { error: "staff access required" });
     const diagramId = (param("diagram_id") ?? "").trim();
     if (!diagramId) return reply(req, 400, { error: "diagram_id required" });
-
-    let object = await serving("diagram_image", diagramId);
+    const object = await serving("diagram_image", diagramId);
     if (!object) {
-      const { data: sourceRows, error: sourceError } = await admin.rpc("catalog_v2_diagram_source_ref", { p_diagram_id: diagramId });
-      if (sourceError) return reply(req, 503, { error: "diagram source resolver failed" });
-      const sourceRef = Array.isArray(sourceRows) && sourceRows.length ? Number(sourceRows[0]?.source_ref_id) : NaN;
-      if (!Number.isFinite(sourceRef)) return reply(req, 404, { error: "diagram source not found", diagram_id: diagramId });
-
-      const stem = String(Math.trunc(sourceRef)).padStart(8, "0");
-      for (const ext of ["png", "jpg", "jpeg", "webp"]) {
-        const key = `diagrams/nissan/${stem}.${ext}`;
-        try {
-          const head = await r2.client.send(new HeadObjectCommand({ Bucket: r2.bucket, Key: key }));
-          object = {
-            object_key: key,
-            sha256: null,
-            row_count: 1,
-            bytes: Number(head.ContentLength ?? 0),
-            content_encoding: null,
-            metadata: { source_ref_id: sourceRef, etag: head.ETag ?? null, resolved_on_demand: true },
-          };
-          await admin.from("catalog_r2_serving_objects").upsert({
-            release_id: release.id,
-            maker_slug: maker,
-            object_kind: "diagram_image",
-            scope_key: diagramId,
-            object_key: key,
-            sha256: null,
-            row_count: 1,
-            bytes: Number(head.ContentLength ?? 0),
-            content_type: head.ContentType || imageContentType(key),
-            content_encoding: null,
-            metadata: object.metadata,
-          }, { onConflict: "release_id,object_kind,scope_key" });
-          break;
-        } catch {
-          // Try the next extension. R2 contains a mixture of PNG and JPEG diagram assets.
-        }
-      }
+      return reply(req, 409, {
+        error: "authoritative diagram-to-R2 mapping is not published for this diagram",
+        status: "CATALOG_REPUBLISH_REQUIRED",
+        diagram_id: diagramId,
+        full_catalog_download_required: false,
+      });
     }
-
-    if (!object) return reply(req, 404, { error: "diagram image is not present in the current R2 release", diagram_id: diagramId });
-    const signed = await getSignedUrl(r2.client, new GetObjectCommand({ Bucket: r2.bucket, Key: object.object_key }), { expiresIn: 600 });
-    return reply(req, 200, { signed_url: signed, expires_in: 600, diagram_id: diagramId, sha256: object.sha256, object_key: object.object_key, full_catalog_download_required: false });
+    const signed = await getSignedUrl(
+      r2.client,
+      new GetObjectCommand({ Bucket: r2.bucket, Key: object.object_key }),
+      { expiresIn: 600 },
+    );
+    return reply(req, 200, {
+      signed_url: signed,
+      expires_in: 600,
+      diagram_id: diagramId,
+      sha256: object.sha256,
+      object_key: object.object_key,
+      full_catalog_download_required: false,
+    });
   }
 
   return reply(req, 404, { error: "unknown action", actions: ["health", "customer-stock", "customer-search", "fitment-check", "staff-section-parts", "staff-diagram-parts", "diagram-image"] });
