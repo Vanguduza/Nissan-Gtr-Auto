@@ -1,8 +1,8 @@
-﻿package co.zw.nissangtr.customer.rpc
+package co.zw.nissangtr.customer.rpc
 
 /**
- * Live `vehicle_master` row — cascade source for maker → model → generation → engine.
- * Maker is derived from VIN WMI / variant brand prefixes present in the row (never invented).
+ * Published customer vehicle-master row derived from the approved catalog_v2 release.
+ * [id] is the canonical catalog vehicle key used for EPC-backed fitment validation.
  */
 data class VehicleMasterRow(
     val id: String? = null,
@@ -21,8 +21,10 @@ data class SelectedFitmentVehicle(
     val engine: String?,
     val vin: String? = null,
     val vinPrefix: String? = null,
+    /** Canonical catalog_v2 customer vehicle key. */
+    val vehicleMasterId: String? = null,
 ) {
-    /** Compact bar label — model · chassis · engine (no maker / Nissan tag). */
+    /** Compact bar label — model · chassis · engine (no technical EPC identifiers). */
     fun compactLabel(): String =
         listOfNotNull(
             model.trim().takeIf { it.isNotEmpty() },
@@ -36,7 +38,7 @@ data class SelectedFitmentVehicle(
         listOfNotNull(model, generation, engine).joinToString(" ").trim()
 }
 
-/** Build cascading option lists from live [VehicleMasterRow]s only. */
+/** Build cascading option lists from published [VehicleMasterRow]s only. */
 object VehicleCascade {
     fun deriveMaker(row: VehicleMasterRow): String? {
         val variant = row.modelVariant.trim()
@@ -47,8 +49,8 @@ object VehicleCascade {
         }
         val vp = row.vinPrefix?.trim()?.uppercase().orEmpty()
         return when {
-            vp.startsWith("JNK") -> "Infiniti"
-            vp.startsWith("JN") -> "Nissan"
+            vp.startsWith("JNK") || vp.startsWith("5N3") -> "Infiniti"
+            vp.startsWith("JN") || vp.startsWith("SJN") || vp.startsWith("MNT") -> "Nissan"
             else -> null
         }
     }
@@ -91,7 +93,7 @@ object VehicleCascade {
         val needle = vin.take(11)
         val match = rows.firstOrNull { row ->
             val vp = row.vinPrefix?.trim()?.uppercase().orEmpty()
-            vp.isNotEmpty() && (needle.startsWith(vp) || vp.startsWith(needle.take(vp.length.coerceAtMost(needle.length))))
+            vp.isNotEmpty() && needle.startsWith(vp)
         } ?: return null
         return SelectedFitmentVehicle(
             make = deriveMaker(match),
@@ -100,6 +102,7 @@ object VehicleCascade {
             engine = match.engineCode?.trim()?.takeIf { it.isNotEmpty() },
             vin = vin,
             vinPrefix = match.vinPrefix,
+            vehicleMasterId = match.id,
         )
     }
 
@@ -122,6 +125,7 @@ object VehicleCascade {
             generation = generation,
             engine = engine?.takeIf { it.isNotEmpty() } ?: row.engineCode?.trim(),
             vinPrefix = row.vinPrefix,
+            vehicleMasterId = row.id,
         )
     }
 }
