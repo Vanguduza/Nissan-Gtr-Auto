@@ -38,30 +38,40 @@ jobs:
           echo "token=$token" >> "$GITHUB_OUTPUT"
 
       - name: Inventory live R2 release
+        id: inventory
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
           mkdir -p docs/audits
-          curl -fsS \
+          status=$(curl -sS -o docs/audits/catalog-r2-hard-gate-inventory.json -w '%{http_code}' \
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             -d '{"action":"inventory"}' \
-            "$BROKER_URL" > docs/audits/catalog-r2-hard-gate-inventory.json
-          jq -e '.ok == true' docs/audits/catalog-r2-hard-gate-inventory.json >/dev/null
-          jq '{release:.release,r2_bucket:.r2_bucket,bundle_reachable:.bundle_reachable,bundle_bytes:.bundle_bytes,serving_sample_count:.serving_sample_count,diagram_prefix_reachable:.diagram_prefix_reachable,candidate_count:(.candidates|length),candidates:.candidates}' docs/audits/catalog-r2-hard-gate-inventory.json
+            "$BROKER_URL")
+          echo "$status" > docs/audits/catalog-r2-hard-gate-http-status.txt
+          echo "http_status=$status" >> "$GITHUB_OUTPUT"
+          cat docs/audits/catalog-r2-hard-gate-inventory.json
 
       - name: Persist inventory evidence on hardening branch
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "nissan-gtr-catalog-gate"
           git config user.email "catalog-gate@users.noreply.github.com"
-          git add docs/audits/catalog-r2-hard-gate-inventory.json
+          git add docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt
           if git diff --cached --quiet; then
             echo "Inventory unchanged"
           else
             git commit -m "audit: persist live R2 hard-gate inventory [skip ci]"
             git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
           fi
+
+      - name: Enforce broker success
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.inventory.outputs.http_status }}" = "200"
+          jq -e '.ok == true' docs/audits/catalog-r2-hard-gate-inventory.json >/dev/null
