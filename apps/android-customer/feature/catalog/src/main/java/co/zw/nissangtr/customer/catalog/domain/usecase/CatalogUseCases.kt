@@ -9,24 +9,7 @@ import co.zw.nissangtr.customer.rpc.SearchCatalogResponse
 import co.zw.nissangtr.customer.rpc.SearchMode
 import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 
-/**
- * One use case per user action, sitting between [co.zw.nissangtr.customer.catalog.CatalogViewModel]
- * and [CatalogRepository].
- *
- * **Adopt-first note (structural pattern only, no code/assets copied):** this
- * data â†” domain(model/repository/usecase) â†” presentation layering mirrors
- * [3wiida/OmniCart](https://github.com/3wiida/OmniCart) — a real, verified Jetpack
- * Compose Kotlin e-commerce sample (`app/src/main/java/com/mahmoudibrahem/omnicart/{data,domain,presentation}`,
- * with `domain/repository` + `domain/usecase` subpackages) confirmed via the GitHub API
- * in this pass. **License: none** — the repo has no `LICENSE` file (`license: null` on
- * the GitHub repos API), so it is all-rights-reserved by default, *more* restrictive than
- * AGPL/GPL. Per the adopt-first policy this means **no code, resources, or assets were
- * copied or forked** — only the generic, non-copyrightable architectural shape (Clean
- * Architecture + MVVM: repository interface in `domain`, implementation in `data`,
- * one-class-per-use-case) was applied, the same generic pattern documented by Google's
- * own Apache-2.0 "Now in Android" sample and already the basis for this repo's Jetsnack
- * (Apache-2.0) customer-shell adoption (`docs/plans/2026-08-03-mobile-ui-oss-discovery.md`).
- */
+/** One use case per customer catalog action. */
 class SearchCatalogUseCase(private val repository: CatalogRepository) {
     suspend operator fun invoke(mode: SearchMode, query: String): SearchCatalogResponse {
         val trimmed = query.trim()
@@ -52,13 +35,11 @@ class AddToCartUseCase(private val repository: CatalogRepository) {
 }
 
 class AddToWishlistUseCase(private val repository: CatalogRepository) {
-    suspend operator fun invoke(stockItemId: String, oem: String) =
-        repository.addToWishlist(stockItemId, oem)
+    suspend operator fun invoke(stockItemId: String, oem: String) = repository.addToWishlist(stockItemId, oem)
 }
 
 class AddToCompareUseCase(private val repository: CatalogRepository) {
-    suspend operator fun invoke(stockItemId: String, oem: String) =
-        repository.addToCompare(stockItemId, oem)
+    suspend operator fun invoke(stockItemId: String, oem: String) = repository.addToCompare(stockItemId, oem)
 }
 
 class GetPrimaryVehicleUseCase(private val repository: CatalogRepository) {
@@ -70,26 +51,30 @@ class ListVehicleMasterUseCase(private val repository: CatalogRepository) {
 }
 
 class ListCatalogForVehicleUseCase(private val repository: CatalogRepository) {
-    suspend operator fun invoke(chassisCode: String, engineCode: String?, limit: Int = 50): CatalogBrowseResult =
-        repository.listCatalogForVehicle(chassisCode, engineCode, limit)
+    suspend operator fun invoke(
+        vehicleMasterId: String?,
+        chassisCode: String,
+        engineCode: String?,
+        category: String? = null,
+        limit: Int = 50,
+    ): CatalogBrowseResult = repository.listCatalogForVehicle(
+        vehicleMasterId = vehicleMasterId,
+        chassisCode = chassisCode,
+        engineCode = engineCode,
+        category = category,
+        limit = limit,
+    )
 }
 
 class GetReviewStatsUseCase(private val repository: CatalogRepository) {
-    suspend operator fun invoke(stockItemId: String?, oem: String?) =
-        repository.getReviewStats(stockItemId, oem)
+    suspend operator fun invoke(stockItemId: String?, oem: String?) = repository.getReviewStats(stockItemId, oem)
 }
 
-/**
- * Always returns empty today — see [DealTile] TODO. Deliberately its own use case
- * (not a [CatalogRepository] method backed by a live RPC call) so a not-yet-shipped
- * backend endpoint can never surface as a runtime Postgres "function does not exist"
- * error on the storefront home screen; the UI shows an honest "coming soon" placeholder.
- */
+/** Honest placeholder until an active-deals endpoint exists. */
 class GetActiveDealsUseCase {
     suspend operator fun invoke(): List<DealTile> = emptyList()
 }
 
-/** Aggregates catalog/home use cases behind a single ViewModel constructor parameter. */
 class CatalogUseCases(
     val search: SearchCatalogUseCase,
     val browse: BrowseCatalogUseCase,
