@@ -4,13 +4,17 @@
  *
  * This runs in the catalog release pipeline. It consumes the compact diagram manifest produced
  * while R2 images are uploaded; it never downloads image bytes and never downloads the full EPC
- * bundle. Staff EPC browsing then asks the control plane for a diagram id and receives a short-
- * lived signed R2 URL from `catalog-v2-serve`.
+ * bundle. Staff EPC browsing then asks the live catalog gateway for a diagram id and receives a
+ * short-lived signed R2 URL.
+ *
+ * The publisher dual-registers each diagram in:
+ *  1. the legacy catalog_v2 diagram-image lookup (compatibility), and
+ *  2. catalog_r2_serving_objects (preferred live runtime manifest).
  *
  * NDJSON row contract:
  * {
  *   "diagram_id": "...catalog_v2 diagram id...",
- *   "release_id": "CAT-...",
+ *   "release_id": "CAT-... source release identity...",
  *   "maker_slug": "nissan",
  *   "sha256": "64 lowercase hex",
  *   "r2_key": "diagrams/nissan/ab/<sha>.png",
@@ -55,20 +59,21 @@ function clean(value) {
 }
 function normalize(raw, lineNo) {
   const diagramId = clean(raw.diagram_id);
-  const releaseId = clean(raw.release_id);
+  const sourceReleaseId = clean(raw.release_id);
+  const makerSlug = clean(raw.maker_slug) || "nissan";
   const sha256 = clean(raw.sha256).toLowerCase();
   const r2Key = clean(raw.r2_key);
   if (!diagramId) throw new Error(`line ${lineNo}: diagram_id required`);
-  if (!releaseId) throw new Error(`line ${lineNo}: release_id required`);
+  if (!sourceReleaseId) throw new Error(`line ${lineNo}: release_id required`);
   if (!/^[0-9a-f]{64}$/.test(sha256)) throw new Error(`line ${lineNo}: sha256 must be 64 hex chars`);
   if (!r2Key) throw new Error(`line ${lineNo}: r2_key required`);
   return {
     diagram_id: diagramId,
-    release_id: releaseId,
-    maker_slug: clean(raw.maker_slug) || "nissan",
+    release_id: sourceReleaseId,
+    maker_slug: makerSlug,
     sha256,
     r2_key: r2Key,
-    bytes: raw.bytes == null ? null : Number(raw.bytes),
+    bytes: raw.bytes == null ? 0 : Number(raw.bytes),
     width: raw.width == null ? null : Number(raw.width),
     height: raw.height == null ? null : Number(raw.height),
     content_type: clean(raw.content_type) || "image/png",
@@ -87,13 +92,48 @@ async function rpc(name, body) {
   return text ? JSON.parse(text) : null;
 }
 
+async function currentRelease(makerSlug) {
+  const url = `${supabaseUrl}/rest/v1/catalog_releases?maker_slug=eq.${encodeURIComponent(makerSlug)}&is_current=eq.true&published_at=not.is.null&select=id,version,bucket_name&limit=1`;
+  const resp = await fetch(url, { headers });
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`current release ${resp.status}: ${text.slice(0, 1000)}`);
+  const rows = text ? JSON.parse(text) : [];
+  if (!rows[0]?.id) throw new Error(`no current public catalog release for ${makerSlug}`);
+  return rows[0];
+}
+
+let resolvedRelease = null;
 async function publish(rows, n) {
+  if (!rows.length) return 0;
+  const makerSlug = rows[0].maker_slug;
+  if (!resolvedRelease) resolvedRelease = await currentRelease(makerSlug);
   if (dryRun) {
     console.log(`[dry-run] batch ${n}: ${rows.length}`);
     return rows.length;
   }
+
   const changed = await rpc("catalog_v2_ingest_diagram_image_index_batch", { p_rows: rows });
-  console.log(`batch ${n}: ${rows.length} input, ${changed ?? 0} inserted/updated`);
+  const servingRows = rows.map((row) => ({
+    release_id: resolvedRelease.id,
+    maker_slug: row.maker_slug,
+    object_kind: "diagram_image",
+    scope_key: row.diagram_id,
+    object_key: row.r2_key,
+    sha256: row.sha256,
+    row_count: 1,
+    bytes: row.bytes || 0,
+    content_type: row.content_type,
+    content_encoding: null,
+    metadata: {
+      source_release_id: row.release_id,
+      width: row.width,
+      height: row.height,
+      source_hash: row.source_hash,
+      complete: true,
+    },
+  }));
+  await rpc("catalog_v2_ingest_r2_serving_objects_batch", { p_rows: servingRows });
+  console.log(`batch ${n}: ${rows.length} diagram mappings registered for live R2 browsing`);
   return Number(changed ?? 0);
 }
 
@@ -103,7 +143,7 @@ let lineNo = 0;
 let batchNo = 0;
 let accepted = 0;
 let changed = 0;
-let release = null;
+let sourceRelease = null;
 for await (const line of rl) {
   lineNo += 1;
   const text = line.trim();
@@ -111,8 +151,10 @@ for await (const line of rl) {
   let raw;
   try { raw = JSON.parse(text); } catch (e) { throw new Error(`line ${lineNo}: invalid JSON: ${e.message}`); }
   const row = normalize(raw, lineNo);
-  if (release && release !== row.release_id) throw new Error(`line ${lineNo}: mixed releases are not allowed`);
-  release = row.release_id;
+  if (sourceRelease && sourceRelease !== row.release_id) {
+    throw new Error(`line ${lineNo}: mixed source releases are not allowed`);
+  }
+  sourceRelease = row.release_id;
   batch.push(row);
   accepted += 1;
   if (batch.length >= batchSize) {
@@ -125,4 +167,6 @@ if (batch.length) {
   batchNo += 1;
   changed += await publish(batch, batchNo);
 }
-console.log(`accepted ${accepted} diagram mappings for ${release ?? "(none)"}; inserted/updated ${changed}`);
+console.log(`accepted ${accepted} diagram mappings for source release ${sourceRelease ?? "(none)"}; legacy index changed ${changed}`);
+console.log(`live release: ${resolvedRelease?.version ?? "(dry-run/not resolved)"}`);
+console.log("Normal staff browsing now resolves diagram images from R2 by diagram_id without downloading the full catalog.");
