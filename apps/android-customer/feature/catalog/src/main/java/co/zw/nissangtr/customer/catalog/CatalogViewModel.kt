@@ -103,7 +103,17 @@ class CatalogViewModel(
             try {
                 _state.update { it.copy(vehicleBusy = true, vehicleError = null) }
                 val rows = useCases.listVehicleMaster()
-                _state.update { it.copy(vehicleRows = rows, vehicleBusy = false) }
+                _state.update {
+                    it.copy(
+                        vehicleRows = rows,
+                        vehicleBusy = false,
+                        vehicleError = if (rows.isEmpty()) {
+                            "No vehicles in the live catalog yet."
+                        } else {
+                            null
+                        },
+                    )
+                }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
