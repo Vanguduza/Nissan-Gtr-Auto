@@ -2,10 +2,17 @@ import type { SupabaseClient } from "@gtr/supabase-client";
 
 type QueryValue = string | number | boolean | null | undefined;
 
+/**
+ * Runtime catalog gateway.
+ *
+ * The client never downloads the complete EPC bundle. The gateway combines:
+ * - Supabase control/commerce data, and
+ * - only the requested Cloudflare R2 serving shard or signed diagram image.
+ */
 function gatewayBase(): string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
   if (!base) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured");
-  return `${base}/functions/v1/catalog-v2-serve`;
+  return `${base}/functions/v1/catalog-live-r2`;
 }
 
 export async function catalogGatewayGet<T>(
@@ -58,10 +65,30 @@ export type LiveCatalogPart = {
   applicability?: unknown;
 };
 
+export type LiveCustomerCatalogItem = {
+  stock_item_id: string;
+  name: string;
+  category: string | null;
+  subcategory: string | null;
+  stock: { state: "in_stock" | "low" | "backorder"; qty: number };
+  price: { amount: number; currency: string } | null;
+  fitment_status: "VERIFIED_FIT" | "FITMENT_UNRESOLVED";
+  vehicle_id: string | null;
+  /** Internal routing identity only. Never render in customer UI. */
+  internal_catalog_ref: string | null;
+};
+
+export type CustomerStockResponse = {
+  source: "r2_epc+supabase_commerce";
+  release: string;
+  vehicle_id: string;
+  results: LiveCustomerCatalogItem[];
+  full_catalog_download_required: false;
+};
+
 export type StaffPartsResponse = {
   source: "r2_live";
   release: string;
-  scope: { kind: "section_parts" | "diagram_parts"; key: string };
   row_count: number;
   parts: LiveCatalogPart[];
   full_catalog_download_required: false;
@@ -70,7 +97,6 @@ export type StaffPartsResponse = {
 export type DiagramImageResponse = {
   signed_url: string;
   expires_in: number;
-  maker_slug: string;
   diagram_id: string;
   object_key: string;
   sha256: string | null;
