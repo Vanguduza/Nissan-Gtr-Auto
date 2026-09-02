@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import {
   VehicleCascadeFields,
@@ -10,27 +9,20 @@ import {
 } from "@/components/vehicle-cascade-fields";
 import {
   listVehicleMaster,
-  searchQueryForVehicle,
   VehicleCascade,
   type VehicleMasterRow,
 } from "@/lib/vehicle-catalog";
-import {
-  catalogPath,
-  lookupVariantByChassis,
-  saveEpcContext,
-  type CatalogBrowseContext,
-} from "@/lib/catalog-hierarchy";
+import { saveCustomerVehicle } from "@/lib/customer-vehicle-session";
 import { createWebClient } from "@/lib/supabase";
 import styles from "./vehicle-selector.module.css";
 
 type VehicleSelectorProps = {
-  /** Hide the UK-plate / cascade helper under VIN (homepage). Default: show. */
+  /** Hide the helper under VIN (homepage). Default: show. */
   showNote?: boolean;
 };
 
 type LoadState =
   | { kind: "loading" }
-  | { kind: "auth" }
   | { kind: "error"; message: string }
   | { kind: "ready"; rows: VehicleMasterRow[] };
 
@@ -42,14 +34,18 @@ const emptyForm: VehicleCascadeFormValue = {
   vin: "",
 };
 
+/**
+ * Customer vehicle selector.
+ *
+ * It reads the master derived from the approved catalog_v2 release. Selecting a vehicle stores the
+ * canonical vehicle-master id plus chassis/engine context for shop filtering and EPC-backed
+ * customer fitment checks. It never exposes or navigates the customer into EPC browsing.
+ */
 export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
   const [form, setForm] = useState<VehicleCascadeFormValue>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
-  const [epcCtx, setEpcCtx] = useState<CatalogBrowseContext | null>(null);
-  const [epcChecked, setEpcChecked] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,15 +56,9 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
         if (!cancelled) {
           setLoad({
             kind: "error",
-            message: "Supabase is not configured on this environment.",
+            message: "Vehicle catalog is not configured on this environment.",
           });
         }
-        return;
-      }
-
-      const { data: sessionData } = await client.auth.getSession();
-      if (!sessionData.session) {
-        if (!cancelled) setLoad({ kind: "auth" });
         return;
       }
 
@@ -90,45 +80,13 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   const rows = load.kind === "ready" ? load.rows : [];
   const controlsDisabled = load.kind !== "ready";
 
-  async function resolveEpcLink(chassis: string | null | undefined) {
-    const code = chassis?.trim();
-    if (!code) {
-      setEpcCtx(null);
-      setEpcChecked(null);
-      return;
-    }
-    const client = createWebClient();
-    if (!client) return;
-    const ctx = await lookupVariantByChassis(client, code);
-    setEpcChecked(code);
-    if (ctx) {
-      saveEpcContext(ctx);
-      setEpcCtx(ctx);
-    } else {
-      setEpcCtx(null);
-    }
-  }
-
-  function navigateForVehicle(
+  function completeSelection(
     selected: NonNullable<ReturnType<typeof VehicleCascade.fromCascade>>,
   ) {
-    void resolveEpcLink(selected.generation);
-    if (selected.vin && selected.vin.length >= 11) {
-      router.push(
-        `/search?mode=vin&q=${encodeURIComponent(selected.vin)}`,
-      );
-      return;
-    }
-    const prefix = selected.vinPrefix?.trim();
-    if (prefix) {
-      router.push(
-        `/search?mode=vin&q=${encodeURIComponent(prefix)}`,
-      );
-      return;
-    }
-    const q = searchQueryForVehicle(selected);
-    if (!q) return;
-    router.push(`/search?mode=model&q=${encodeURIComponent(q)}`);
+    saveCustomerVehicle(selected);
+    // Shop consumes the saved canonical vehicle context and resolves saleable stock through the
+    // EPC-derived fitment index. Do not route to model/PNC/OEM technical search.
+    router.push("/shop");
   }
 
   function onSubmit(e: FormEvent) {
@@ -140,11 +98,11 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
       const resolved = VehicleCascade.resolveVin(rows, vinTrim);
       if (!resolved) {
         setFormError(
-          "VIN not found in live catalog. Only prefixes present in vehicle_master are identifiable.",
+          "VIN not found in the published vehicle master. Choose the vehicle manually instead.",
         );
         return;
       }
-      navigateForVehicle(resolved);
+      completeSelection(resolved);
       return;
     }
 
@@ -165,29 +123,16 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
       rows,
     );
     if (!selected) {
-      setFormError("Selection not found in live catalog.");
+      setFormError("Selection not found in the published vehicle master.");
       return;
     }
-    navigateForVehicle(selected);
+    completeSelection(selected);
   }
 
   if (load.kind === "loading") {
     return (
       <div className={styles.form} aria-busy="true" aria-live="polite">
-        <p className={styles.note}>Loading vehicles from catalog…</p>
-      </div>
-    );
-  }
-
-  if (load.kind === "auth") {
-    const next = pathname || "/vehicle";
-    return (
-      <div className={styles.form}>
-        <p className={styles.note}>
-          Live vehicle selection requires a signed-in account.{" "}
-          <Link href={`/login?next=${encodeURIComponent(next)}`}>Sign in</Link>{" "}
-          to load maker / model / generation / engine from the catalog.
-        </p>
+        <p className={styles.note}>Loading Nissan vehicle master…</p>
       </div>
     );
   }
@@ -195,7 +140,7 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
   if (load.kind === "error") {
     return (
       <div className={styles.form} role="alert">
-        <p className={styles.note}>Catalog unavailable: {load.message}</p>
+        <p className={styles.note}>Vehicle catalog unavailable: {load.message}</p>
       </div>
     );
   }
@@ -212,8 +157,6 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
         onChange={(next) => {
           setForm(next);
           setFormError(null);
-          setEpcChecked(null);
-          setEpcCtx(null);
         }}
         disabled={controlsDisabled}
         showNote={showNote}
@@ -228,32 +171,12 @@ export function VehicleSelector({ showNote = true }: VehicleSelectorProps) {
           !vehicleCascadeCanSubmit(form, rows)
         }
       >
-        Find parts for this vehicle
+        Use this vehicle
       </button>
-      {epcCtx ? (
-        <p className={styles.note}>
-          <Link href={catalogPath(epcCtx)}>Browse EPC diagrams</Link> for
-          chassis {epcCtx.variant ?? form.generation}
-        </p>
-      ) : form.generation ? (
-        <p className={styles.note}>
-          <button
-            type="button"
-            className={styles.submit}
-            style={{ marginTop: "0.5rem" }}
-            onClick={() => void resolveEpcLink(form.generation)}
-          >
-            Check EPC diagrams
-          </button>
-          {epcChecked === form.generation ? (
-            <span>
-              {" "}
-              No EPC hierarchy for chassis {form.generation} (and no published
-              alias). Use search by model, or Browse EPC from the maker hub.
-            </span>
-          ) : null}
-        </p>
-      ) : null}
+      <p className={styles.note}>
+        Your vehicle is used to verify fitment against the hosted Nissan catalog and filter live
+        saleable stock. Technical EPC data stays internal.
+      </p>
     </form>
   );
 }
