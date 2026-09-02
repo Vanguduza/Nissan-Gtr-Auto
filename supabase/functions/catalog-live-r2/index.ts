@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { GetObjectCommand, S3Client } from "npm:@aws-sdk/client-s3@3";
+import { GetObjectCommand, HeadObjectCommand, S3Client } from "npm:@aws-sdk/client-s3@3";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3";
 
 const MAX_BYTES = 16 * 1024 * 1024;
@@ -38,6 +38,13 @@ function reply(req: Request, status: number, body: unknown) {
 }
 function normalizePart(value: unknown) {
   return String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+function normalizeCategory(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 function r2Config() {
   const accountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID")?.trim() ?? "";
@@ -87,6 +94,12 @@ function searchable(row: Row) {
 function queryMatch(row: Row, q: string) {
   const hay = searchable(row);
   return q.toLowerCase().split(/\s+/).filter(Boolean).every((term) => hay.includes(term));
+}
+function imageContentType(key: string) {
+  const lower = key.toLowerCase();
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  return "image/png";
 }
 
 Deno.serve(async (req) => {
@@ -187,8 +200,12 @@ Deno.serve(async (req) => {
     const object = await serving("vehicle_search", vehicleId);
     if (!object) return reply(req, 409, { error: "R2 vehicle serving shard not published", status: "CATALOG_REPUBLISH_REQUIRED" });
     let rows = await load(object);
-    const category = (param("category") ?? "").trim().toLowerCase();
-    if (category) rows = rows.filter((row) => [row.category_name, row.subcategory_name].filter(Boolean).some((v) => String(v).toLowerCase().includes(category)));
+    const category = normalizeCategory(param("category"));
+    if (category) {
+      rows = rows.filter((row) => [row.category_name, row.subcategory_name]
+        .filter(Boolean)
+        .some((value) => normalizeCategory(value).includes(category)));
+    }
     if (action === "customer-search") {
       const q = (param("q") ?? "").trim();
       if (!q) return reply(req, 400, { error: "q required" });
@@ -226,8 +243,48 @@ Deno.serve(async (req) => {
     if (!(await isStaff())) return reply(req, 403, { error: "staff access required" });
     const diagramId = (param("diagram_id") ?? "").trim();
     if (!diagramId) return reply(req, 400, { error: "diagram_id required" });
-    const object = await serving("diagram_image", diagramId);
-    if (!object) return reply(req, 409, { error: "R2 diagram mapping not published", status: "CATALOG_REPUBLISH_REQUIRED" });
+
+    let object = await serving("diagram_image", diagramId);
+    if (!object) {
+      const { data: sourceRows, error: sourceError } = await admin.rpc("catalog_v2_diagram_source_ref", { p_diagram_id: diagramId });
+      if (sourceError) return reply(req, 503, { error: "diagram source resolver failed" });
+      const sourceRef = Array.isArray(sourceRows) && sourceRows.length ? Number(sourceRows[0]?.source_ref_id) : NaN;
+      if (!Number.isFinite(sourceRef)) return reply(req, 404, { error: "diagram source not found", diagram_id: diagramId });
+
+      const stem = String(Math.trunc(sourceRef)).padStart(8, "0");
+      for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+        const key = `diagrams/nissan/${stem}.${ext}`;
+        try {
+          const head = await r2.client.send(new HeadObjectCommand({ Bucket: r2.bucket, Key: key }));
+          object = {
+            object_key: key,
+            sha256: null,
+            row_count: 1,
+            bytes: Number(head.ContentLength ?? 0),
+            content_encoding: null,
+            metadata: { source_ref_id: sourceRef, etag: head.ETag ?? null, resolved_on_demand: true },
+          };
+          await admin.from("catalog_r2_serving_objects").upsert({
+            release_id: release.id,
+            maker_slug: maker,
+            object_kind: "diagram_image",
+            scope_key: diagramId,
+            object_key: key,
+            sha256: null,
+            row_count: 1,
+            bytes: Number(head.ContentLength ?? 0),
+            content_type: head.ContentType || imageContentType(key),
+            content_encoding: null,
+            metadata: object.metadata,
+          }, { onConflict: "release_id,object_kind,scope_key" });
+          break;
+        } catch {
+          // Try the next extension. R2 contains a mixture of PNG and JPEG diagram assets.
+        }
+      }
+    }
+
+    if (!object) return reply(req, 404, { error: "diagram image is not present in the current R2 release", diagram_id: diagramId });
     const signed = await getSignedUrl(r2.client, new GetObjectCommand({ Bucket: r2.bucket, Key: object.object_key }), { expiresIn: 600 });
     return reply(req, 200, { signed_url: signed, expires_in: 600, diagram_id: diagramId, sha256: object.sha256, object_key: object.object_key, full_catalog_download_required: false });
   }
