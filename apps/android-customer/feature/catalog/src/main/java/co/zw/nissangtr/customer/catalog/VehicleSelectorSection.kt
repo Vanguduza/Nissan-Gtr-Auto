@@ -94,6 +94,13 @@ fun VehicleSelectorSection(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(sectionTitle, style = MaterialTheme.typography.titleSmall)
+        if (!busy && makers.isEmpty()) {
+            Text(
+                "Maker stays locked until the live vehicle catalog returns rows.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),

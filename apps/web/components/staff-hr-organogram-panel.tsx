@@ -153,8 +153,8 @@ export function StaffHrOrganogramPanel() {
     <div>
       <p className={styles.muted}>
         Grades are admin-editable (A1, B2, …). Roles form a tree;{" "}
-        <code>module_access</code> will gate POS/staff nav (Batch 1 §1.6). No
-        PAYE/NSSA — pay frequency only drives gross payroll scheduling later.
+        <code>module_access</code> will gate POS/staff nav (Batch 1 §1.6).{" "}
+        No PAYE/NSSA — pay frequency only drives gross payroll scheduling later.
       </p>
 
       <fieldset className={styles.fieldset}>

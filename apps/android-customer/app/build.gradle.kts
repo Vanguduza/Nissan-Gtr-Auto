@@ -85,6 +85,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:visual"))
     implementation(project(":core:rpc"))
     implementation(project(":android-ui"))
     implementation(project(":feature:auth"))

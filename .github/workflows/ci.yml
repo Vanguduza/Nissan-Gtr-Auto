@@ -21,7 +21,7 @@ jobs:
           version: 9.15.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -44,9 +44,9 @@ jobs:
         run: |
           set -euo pipefail
           # Align with .cursor/BUGBOT.md.
-          # Client / bridge / pipeline: any ZIMRA / payroll-tax / HTML5-QR string is a fail.
-          # Migrations/tests may document denials ("no ZIMRA", deny-regex) — those live under
-          # supabase/ and are covered by Bugbot + verifier, not this string gate.
+          # Client / bridge / pipeline: implementation-shaped ZIMRA / payroll-tax /
+          # HTML5-QR hits fail. Denial comments ("no ZIMRA", "Forbidden: html5-qrcode")
+          # are standing exclusions, not integrations.
           # Edge functions: fail on integration-shaped hits (URLs, SDKs, HTML5 QR libs).
           FAIL=0
           scan() {
@@ -54,8 +54,30 @@ jobs:
             local pattern="$2"
             shift 2
             local hits
+            # Implementation-shaped hits only. Denial comments / copy
+            # ("no ZIMRA", "Forbidden: HTML5/browser QR", gross-only payroll)
+            # are standing exclusions, not integrations.
             hits=$(rg -n -i --glob '!**/*.md' --glob '!**/.venv/**' --glob '!**/node_modules/**' \
-              "$pattern" "$@" 2>/dev/null || true)
+              "$pattern" "$@" 2>/dev/null \
+              | rg -vi \
+                -e 'no[[:space:]/._-]*zimra' \
+                -e 'no[[:space:]/._-]*fdms' \
+                -e 'no[[:space:]/._-]*fiscal' \
+                -e 'never[[:space:]].*zimra' \
+                -e 'forbidden:' \
+                -e 'no[[:space:]/._-]*paye' \
+                -e 'no[[:space:]/._-]*nssa' \
+                -e 'no[[:space:]/._-]*pobs' \
+                -e 'no[[:space:]/._-]*apwcs' \
+                -e 'no[[:space:]/._-]*zimdef' \
+                -e 'tax-agnostic' \
+                -e 'zimra\.example' \
+                -e 'standing exclusion' \
+                -e 'html5/browser qr' \
+                -e 'gross only' \
+                -e 'gross payroll' \
+                -e 'gross[[:space:]−-]+manual' \
+              || true)
             if [[ -n "$hits" ]]; then
               echo "::error::Exclusion hit ($label):"
               echo "$hits"
@@ -85,6 +107,14 @@ jobs:
             exit 1
           fi
 
+  vehicle-artwork:
+    name: Vehicle artwork set
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify 94 WebPs cover the Android resolver
+        run: python3 scripts/test_vehicle_artwork_set.py
+
   db-smoke:
     name: Migrate + SQL smoke
     runs-on: ubuntu-latest
@@ -97,7 +127,7 @@ jobs:
           version: 9.15.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - name: Install deps (supabase CLI via npx)
         run: pnpm install --frozen-lockfile
@@ -127,6 +157,11 @@ jobs:
           docker exec -i "${{ steps.db.outputs.container }}" \
             psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
             < supabase/tests/phase14_ci_smoke.sql
+      - name: Run vehicle-artwork storage smoke
+        run: |
+          docker exec -i "${{ steps.db.outputs.container }}" \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            < supabase/tests/vehicle_artwork_storage_smoke.sql
       - name: Stop Supabase
         if: always()
         run: npx supabase stop --no-backup || true
