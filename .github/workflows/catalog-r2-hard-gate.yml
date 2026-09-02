@@ -1,7 +1,5 @@
 name: Catalog R2 hard gate
 
-# Uses GitHub OIDC to call the Supabase broker. R2 credentials remain only in Supabase Edge secrets.
-# Deep inspection retrigger: 2026-09-02T19:40+02:00
 on:
   push:
     branches:
@@ -16,13 +14,13 @@ permissions:
 
 env:
   BROKER_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-publish-broker
-  INSPECT_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-inspect-once?gate=of1FxmrrljyAGJFiuU05TpsRuOJWbqZjknZ0hst-b_g&mode=overview
+  DIAGRAM_SYNC_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-diagram-sync
   OIDC_AUDIENCE: nissan-gtr-catalog-publisher
 
 jobs:
-  inventory:
+  diagram-map:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,70 +38,77 @@ jobs:
           test -n "$token" && test "$token" != "null"
           echo "token=$token" >> "$GITHUB_OUTPUT"
 
-      - name: Inventory live R2 release
-        id: inventory
+      - name: Register all R2 diagram objects against catalog diagram IDs
+        id: sync
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
           mkdir -p docs/audits
-          status=$(curl -sS -o docs/audits/catalog-r2-hard-gate-inventory.json -w '%{http_code}' \
-            -H "Authorization: Bearer ${OIDC_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d '{"action":"inventory"}' \
-            "$BROKER_URL")
-          echo "$status" > docs/audits/catalog-r2-hard-gate-http-status.txt
-          echo "http_status=$status" >> "$GITHUB_OUTPUT"
+          next=""
+          pages=0
+          listed=0
+          matched=0
+          unmatched=0
+          : > docs/audits/catalog-r2-diagram-sync-pages.ndjson
+          while true; do
+            if [ -n "$next" ]; then
+              payload=$(jq -nc --arg next "$next" '{next:$next}')
+            else
+              payload='{}'
+            fi
+            response=$(curl -fsS \
+              -H "Authorization: Bearer ${OIDC_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              "$DIAGRAM_SYNC_URL")
+            echo "$response" >> docs/audits/catalog-r2-diagram-sync-pages.ndjson
+            jq -e '.ok == true' <<<"$response" >/dev/null
+            pages=$((pages+1))
+            listed=$((listed + $(jq -r '.listed' <<<"$response")))
+            matched=$((matched + $(jq -r '.matched' <<<"$response")))
+            unmatched=$((unmatched + $(jq -r '.unmatched' <<<"$response")))
+            done=$(jq -r '.done' <<<"$response")
+            if [ "$done" = "true" ]; then break; fi
+            next=$(jq -r '.next // empty' <<<"$response")
+            test -n "$next"
+          done
+          jq -nc \
+            --argjson pages "$pages" \
+            --argjson listed "$listed" \
+            --argjson matched "$matched" \
+            --argjson unmatched "$unmatched" \
+            '{ok:true,pages:$pages,listed:$listed,matched:$matched,unmatched:$unmatched}' \
+            > docs/audits/catalog-r2-diagram-sync-summary.json
+          cat docs/audits/catalog-r2-diagram-sync-summary.json
+          test "$listed" -gt 100000
+          test "$matched" -gt 100000
 
-      - name: Inspect R2 object layout
-        if: steps.inventory.outputs.http_status == '200'
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsS "$INSPECT_URL" -o docs/audits/catalog-r2-object-layout.json
-          jq '.' docs/audits/catalog-r2-object-layout.json
-
-      - name: Probe encrypted bundle header without downloading catalog
-        if: steps.inventory.outputs.http_status == '200'
+      - name: Verify catalog hard-gate state
         shell: bash
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
-          bundle_key=$(jq -r '.release.bundle_object_key' docs/audits/catalog-r2-hard-gate-inventory.json)
-          payload=$(jq -nc --arg key "$bundle_key" '{action:"presign-get",key:$key}')
           curl -fsS \
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "$payload" \
-            "$BROKER_URL" > /tmp/presign.json
-          signed_url=$(jq -r '.signed_url' /tmp/presign.json)
-          test -n "$signed_url" && test "$signed_url" != "null"
-          curl -fsS -r 0-4095 "$signed_url" -o /tmp/catalog-header.bin
-          xxd -p -c 256 /tmp/catalog-header.bin > docs/audits/catalog-r2-bundle-header.hex
-          wc -c /tmp/catalog-header.bin | awk '{print $1}' > docs/audits/catalog-r2-bundle-header-bytes.txt
+            -d '{"action":"final-status"}' \
+            "$BROKER_URL" > docs/audits/catalog-r2-hard-gate-final-status.json
+          cat docs/audits/catalog-r2-hard-gate-final-status.json
 
-      - name: Persist hard-gate evidence on branch
+      - name: Persist diagram mapping evidence
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "nissan-gtr-catalog-gate"
           git config user.email "catalog-gate@users.noreply.github.com"
-          git add docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt docs/audits/catalog-r2-object-layout.json docs/audits/catalog-r2-bundle-header.hex docs/audits/catalog-r2-bundle-header-bytes.txt
+          git add docs/audits/catalog-r2-diagram-sync-pages.ndjson docs/audits/catalog-r2-diagram-sync-summary.json docs/audits/catalog-r2-hard-gate-final-status.json
           if git diff --cached --quiet; then
             echo "Evidence unchanged"
           else
-            git commit -m "audit: persist deep live R2 hard-gate evidence [skip ci]"
+            git commit -m "audit: persist R2 diagram mapping evidence [skip ci]"
             git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
           fi
-
-      - name: Enforce inspection success
-        if: always()
-        shell: bash
-        run: |
-          test "${{ steps.inventory.outputs.http_status }}" = "200"
-          jq -e '.ok == true' docs/audits/catalog-r2-hard-gate-inventory.json >/dev/null
-          test -s docs/audits/catalog-r2-object-layout.json
-          test -s docs/audits/catalog-r2-bundle-header.hex
