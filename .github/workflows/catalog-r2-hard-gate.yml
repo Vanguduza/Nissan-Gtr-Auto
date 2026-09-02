@@ -1,6 +1,6 @@
 name: Catalog R2 hard gate
 
-# Triggered from ChatGPT hard-gate execution. This workflow never prints R2 credential values.
+# Uses GitHub OIDC to call the Supabase broker. R2 credentials remain only in Supabase Edge secrets.
 on:
   push:
     branches:
@@ -15,7 +15,6 @@ permissions:
 
 env:
   BROKER_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-publish-broker
-  ENV_PROBE_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-env-probe?gate=mDrRxr4EgqSWwLmyjvIsaCzOWSturqvQSDrQMwLTrEI
   OIDC_AUDIENCE: nissan-gtr-catalog-publisher
 
 jobs:
@@ -26,14 +25,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: chatgpt/customer-ui-catalog-hardening-20260902
-
-      - name: Probe deployed R2 environment presence
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p docs/audits
-          curl -fsS "$ENV_PROBE_URL" -o docs/audits/catalog-r2-edge-env-presence.json
-          cat docs/audits/catalog-r2-edge-env-presence.json
 
       - name: Mint GitHub OIDC token
         id: oidc
@@ -54,6 +45,7 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
+          mkdir -p docs/audits
           status=$(curl -sS -o docs/audits/catalog-r2-hard-gate-inventory.json -w '%{http_code}' \
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
@@ -63,18 +55,18 @@ jobs:
           echo "http_status=$status" >> "$GITHUB_OUTPUT"
           cat docs/audits/catalog-r2-hard-gate-inventory.json
 
-      - name: Persist hard-gate evidence on branch
+      - name: Persist inventory evidence on hardening branch
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "nissan-gtr-catalog-gate"
           git config user.email "catalog-gate@users.noreply.github.com"
-          git add docs/audits/catalog-r2-edge-env-presence.json docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt
+          git add docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt
           if git diff --cached --quiet; then
-            echo "Audit unchanged"
+            echo "Inventory unchanged"
           else
-            git commit -m "audit: persist live R2 hard-gate evidence [skip ci]"
+            git commit -m "audit: persist live R2 hard-gate inventory [skip ci]"
             git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
           fi
 
@@ -82,6 +74,5 @@ jobs:
         if: always()
         shell: bash
         run: |
-          jq -e '.ok == true' docs/audits/catalog-r2-edge-env-presence.json >/dev/null
           test "${{ steps.inventory.outputs.http_status }}" = "200"
           jq -e '.ok == true' docs/audits/catalog-r2-hard-gate-inventory.json >/dev/null
