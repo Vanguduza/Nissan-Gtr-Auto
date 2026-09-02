@@ -1,7 +1,7 @@
 name: Catalog R2 hard gate
 
 # Uses GitHub OIDC to call the Supabase broker. R2 credentials remain only in Supabase Edge secrets.
-# Hard-gate retrigger after R2 secrets sync: 2026-09-02T19:12+02:00
+# Deep inspection retrigger: 2026-09-02T19:40+02:00
 on:
   push:
     branches:
@@ -16,6 +16,7 @@ permissions:
 
 env:
   BROKER_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-publish-broker
+  INSPECT_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-inspect-once?gate=of1FxmrrljyAGJFiuU05TpsRuOJWbqZjknZ0hst-b_g&mode=overview
   OIDC_AUDIENCE: nissan-gtr-catalog-publisher
 
 jobs:
@@ -54,7 +55,14 @@ jobs:
             "$BROKER_URL")
           echo "$status" > docs/audits/catalog-r2-hard-gate-http-status.txt
           echo "http_status=$status" >> "$GITHUB_OUTPUT"
-          cat docs/audits/catalog-r2-hard-gate-inventory.json
+
+      - name: Inspect R2 object layout
+        if: steps.inventory.outputs.http_status == '200'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS "$INSPECT_URL" -o docs/audits/catalog-r2-object-layout.json
+          jq '.' docs/audits/catalog-r2-object-layout.json
 
       - name: Probe encrypted bundle header without downloading catalog
         if: steps.inventory.outputs.http_status == '200'
@@ -72,29 +80,30 @@ jobs:
             "$BROKER_URL" > /tmp/presign.json
           signed_url=$(jq -r '.signed_url' /tmp/presign.json)
           test -n "$signed_url" && test "$signed_url" != "null"
-          curl -fsS -r 0-127 "$signed_url" -o /tmp/catalog-header.bin
-          xxd -p -c 128 /tmp/catalog-header.bin > docs/audits/catalog-r2-bundle-header.hex
+          curl -fsS -r 0-4095 "$signed_url" -o /tmp/catalog-header.bin
+          xxd -p -c 256 /tmp/catalog-header.bin > docs/audits/catalog-r2-bundle-header.hex
           wc -c /tmp/catalog-header.bin | awk '{print $1}' > docs/audits/catalog-r2-bundle-header-bytes.txt
 
-      - name: Persist inventory evidence on hardening branch
+      - name: Persist hard-gate evidence on branch
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "nissan-gtr-catalog-gate"
           git config user.email "catalog-gate@users.noreply.github.com"
-          git add docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt docs/audits/catalog-r2-bundle-header.hex docs/audits/catalog-r2-bundle-header-bytes.txt
+          git add docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt docs/audits/catalog-r2-object-layout.json docs/audits/catalog-r2-bundle-header.hex docs/audits/catalog-r2-bundle-header-bytes.txt
           if git diff --cached --quiet; then
-            echo "Inventory unchanged"
+            echo "Evidence unchanged"
           else
-            git commit -m "audit: persist live R2 hard-gate inventory and bundle probe [skip ci]"
+            git commit -m "audit: persist deep live R2 hard-gate evidence [skip ci]"
             git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
           fi
 
-      - name: Enforce broker success
+      - name: Enforce inspection success
         if: always()
         shell: bash
         run: |
           test "${{ steps.inventory.outputs.http_status }}" = "200"
           jq -e '.ok == true' docs/audits/catalog-r2-hard-gate-inventory.json >/dev/null
+          test -s docs/audits/catalog-r2-object-layout.json
           test -s docs/audits/catalog-r2-bundle-header.hex
