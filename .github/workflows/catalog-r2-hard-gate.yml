@@ -56,6 +56,26 @@ jobs:
           echo "http_status=$status" >> "$GITHUB_OUTPUT"
           cat docs/audits/catalog-r2-hard-gate-inventory.json
 
+      - name: Probe encrypted bundle header without downloading catalog
+        if: steps.inventory.outputs.http_status == '200'
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          bundle_key=$(jq -r '.release.bundle_object_key' docs/audits/catalog-r2-hard-gate-inventory.json)
+          payload=$(jq -nc --arg key "$bundle_key" '{action:"presign-get",key:$key}')
+          curl -fsS \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$BROKER_URL" > /tmp/presign.json
+          signed_url=$(jq -r '.signed_url' /tmp/presign.json)
+          test -n "$signed_url" && test "$signed_url" != "null"
+          curl -fsS -r 0-127 "$signed_url" -o /tmp/catalog-header.bin
+          xxd -p -c 128 /tmp/catalog-header.bin > docs/audits/catalog-r2-bundle-header.hex
+          wc -c /tmp/catalog-header.bin | awk '{print $1}' > docs/audits/catalog-r2-bundle-header-bytes.txt
+
       - name: Persist inventory evidence on hardening branch
         if: always()
         shell: bash
@@ -63,11 +83,11 @@ jobs:
           set -euo pipefail
           git config user.name "nissan-gtr-catalog-gate"
           git config user.email "catalog-gate@users.noreply.github.com"
-          git add docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt
+          git add docs/audits/catalog-r2-hard-gate-inventory.json docs/audits/catalog-r2-hard-gate-http-status.txt docs/audits/catalog-r2-bundle-header.hex docs/audits/catalog-r2-bundle-header-bytes.txt
           if git diff --cached --quiet; then
             echo "Inventory unchanged"
           else
-            git commit -m "audit: persist live R2 hard-gate inventory [skip ci]"
+            git commit -m "audit: persist live R2 hard-gate inventory and bundle probe [skip ci]"
             git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
           fi
 
@@ -77,3 +97,4 @@ jobs:
         run: |
           test "${{ steps.inventory.outputs.http_status }}" = "200"
           jq -e '.ok == true' docs/audits/catalog-r2-hard-gate-inventory.json >/dev/null
+          test -s docs/audits/catalog-r2-bundle-header.hex
