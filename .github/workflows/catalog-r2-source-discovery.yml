@@ -1,0 +1,71 @@
+name: Catalog R2 source discovery
+
+on:
+  push:
+    branches:
+      - chatgpt/customer-ui-catalog-hardening-20260902
+    paths:
+      - .github/workflows/catalog-r2-source-discovery.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  ZIP_INDEX_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-zip-index
+  OIDC_AUDIENCE: nissan-gtr-catalog-publisher
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/customer-ui-catalog-hardening-20260902
+
+      - name: Mint GitHub OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")
+          token=$(printf '%s' "$response" | jq -r '.value')
+          test -n "$token" && test "$token" != "null"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect migration archive central directories
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/audits
+          for item in post-migration pre-migration pre2; do
+            key="migration-audit/${item}.zip"
+            curl -fsS \
+              -H "Authorization: Bearer ${OIDC_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -nc --arg key "$key" '{key:$key}')" \
+              "$ZIP_INDEX_URL" > "docs/audits/catalog-r2-${item}-zip-index.json"
+            jq -e '.ok == true' "docs/audits/catalog-r2-${item}-zip-index.json" >/dev/null
+            jq '{key,size,entry_count_parsed,match_count,matches}' "docs/audits/catalog-r2-${item}-zip-index.json"
+          done
+
+      - name: Persist source-discovery evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "nissan-gtr-catalog-gate"
+          git config user.email "catalog-gate@users.noreply.github.com"
+          git add docs/audits/catalog-r2-*-zip-index.json
+          if git diff --cached --quiet; then
+            echo "Evidence unchanged"
+          else
+            git commit -m "audit: persist R2 migration archive indexes [skip ci]"
+            git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
+          fi
