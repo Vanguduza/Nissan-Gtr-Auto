@@ -64,6 +64,22 @@ class ListCatalogForVehicleUseCase(private val repository: CatalogRepository) {
         category = category,
         limit = limit,
     )
+
+    /**
+     * Transitional source-compatible overload. Production repository resolves the canonical id
+     * from the published master and fails closed if chassis/engine is ambiguous.
+     */
+    suspend operator fun invoke(
+        chassisCode: String,
+        engineCode: String?,
+        limit: Int = 50,
+    ): CatalogBrowseResult = repository.listCatalogForVehicle(
+        vehicleMasterId = null,
+        chassisCode = chassisCode,
+        engineCode = engineCode,
+        category = null,
+        limit = limit,
+    )
 }
 
 class GetReviewStatsUseCase(private val repository: CatalogRepository) {
