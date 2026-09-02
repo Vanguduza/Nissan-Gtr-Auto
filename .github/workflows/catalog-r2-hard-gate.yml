@@ -1,5 +1,6 @@
 name: Catalog R2 hard gate
 
+# Triggered from ChatGPT hard-gate execution after confirming R2 credentials are already present in the deployed environment.
 on:
   push:
     branches:
