@@ -1,176 +1,177 @@
 # Hosted Supabase cutover
 
-Point clients at the **hosted** project instead of local Docker (`http://127.0.0.1:54321`).
+Point clients at the active hosted control/commerce project instead of local Docker (`http://127.0.0.1:54321`) or the retired hosted project.
 
-**Project (from `docs/decisions/2026-07-23-remote-supabase-project.md`):**
+## Active project
 
 | Field | Value |
 |-------|--------|
-| Ref | `gylrgwqyuiwkyykardwc` |
-| API URL | `https://gylrgwqyuiwkyykardwc.supabase.co` |
+| Ref | `bicyjghgdnzlnjqxzoud` |
+| API URL | `https://bicyjghgdnzlnjqxzoud.supabase.co` |
+| Heavy EPC data | Cloudflare R2 through `catalog-live-r2` |
 
-**Never commit** anon, `service_role`, DB password, or OAuth client secrets. Paste them only into gitignored files / Dashboard / `supabase secrets`.
+Retired project `gylrgwqyuiwkyykardwc` must remain intact until Auth identities/roles, R2 serving manifests, client environments, and end-to-end flows are verified on the replacement project.
+
+**Never commit** publishable/anon keys, `service_role`, database passwords, OAuth secrets, or Cloudflare R2 credentials. Put them only in gitignored files, deployment secret stores, Supabase Dashboard, or `supabase secrets`.
 
 Related: [`docs/CUSTOMER_OAUTH_SETUP.md`](../CUSTOMER_OAUTH_SETUP.md), [`docs/LOCAL_DEVELOPMENT.md`](../LOCAL_DEVELOPMENT.md), root [`.env.example`](../../.env.example).
 
 ---
 
-## 1. Get secrets from Dashboard
+## 1. Get active-project credentials
 
-1. Open [Supabase Dashboard](https://supabase.com/dashboard) → project **gylrgwqyuiwkyykardwc**.
+1. Open Supabase Dashboard → project **bicyjghgdnzlnjqxzoud**.
 2. **Project Settings → API**:
-   - **Project URL** → `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon** `public` key → client anon vars (browser + mobile)
-   - **service_role** → server / Edge / root `.env` only — **never** mobile or `NEXT_PUBLIC_*`
-3. **Project Settings → Database** (optional direct Postgres): copy password into `DATABASE_URL` (see root `.env.example`).
+   - Project URL → `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL`
+   - publishable/anon key → browser + mobile client vars
+   - `service_role` → server / Edge / tooling only; never mobile or `NEXT_PUBLIC_*`
+3. **Project Settings → Database** only when a direct Postgres connection is genuinely required.
 
-Local Docker JWT keys are **not** valid on hosted. Replacing URL alone without swapping keys will fail Auth.
+Local Docker JWT keys and the retired project's keys are not valid on the replacement project. Changing the URL without changing the matching client key will break Auth.
 
 ---
 
-## 2. Env vars per app
+## 2. Env vars per client
 
 ### Web (`apps/web/.env.local` — gitignored)
 
 | Variable | Source |
 |----------|--------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Dashboard → API → Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Dashboard → API → anon |
-| `NEXT_PUBLIC_SITE_URL` | Prod `https://nissangtrauto.co.zw` or local `http://127.0.0.1:3000` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://bicyjghgdnzlnjqxzoud.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | replacement project publishable/anon key |
+| `NEXT_PUBLIC_SITE_URL` | production `https://nissangtrauto.co.zw` or local `http://127.0.0.1:3000` |
 
-Restart `pnpm dev` after changes.
+Restart/redeploy after any public env change.
 
 ### Android customer (`apps/android-customer/local.properties` — gitignored)
 
 | Variable | Source |
 |----------|--------|
-| `SUPABASE_URL` | Same Project URL |
-| `SUPABASE_ANON_KEY` | anon key |
-| `GOOGLE_WEB_CLIENT_ID` | Google Cloud **Web** OAuth client ID (optional until Google Sign-In) |
+| `SUPABASE_URL` | replacement Project URL |
+| `SUPABASE_ANON_KEY` | replacement publishable/anon key |
+| `GOOGLE_WEB_CLIENT_ID` | Google Cloud Web OAuth client ID, when Google sign-in is enabled |
 
-Do **not** set `rpc.forceFake=true` for Live. Rebuild debug after edits.
+Do not set `rpc.forceFake=true` for a live cutover.
 
-### iOS (`apps/ios/Secrets.xcconfig` — gitignored; copy from `Secrets.xcconfig.example`)
-
-| Variable | Source |
-|----------|--------|
-| `SUPABASE_URL` | Project URL |
-| `SUPABASE_ANON_KEY` | anon key |
-
-Leave `STOREFRONT_FORCE_FAKE` unset/off for Live. See `apps/ios/README.md`.
-
-### Root / tooling (gitignored `.env` at repo root)
+### iOS (`apps/ios/Secrets.xcconfig` — gitignored)
 
 | Variable | Source |
 |----------|--------|
-| `SUPABASE_URL` | Project URL |
-| `SUPABASE_ANON_KEY` | anon |
-| `SUPABASE_SERVICE_KEY` | service_role (server only) |
-| `NEXT_PUBLIC_*` | Same as web if used by scripts |
+| `SUPABASE_URL` | replacement Project URL |
+| `SUPABASE_ANON_KEY` | replacement publishable/anon key |
 
-### Edge Function secrets (Dashboard → Edge Functions → Secrets, or `supabase secrets set`)
+Leave `STOREFRONT_FORCE_FAKE` unset/off for Live.
 
-Keep OTP / SMS / email / worker names from [`docs/HARDENING.md`](../HARDENING.md). After cutover, **redeploy** `auth-otp` (and any other functions you rely on) so they run against hosted:
+### Root / tooling (`.env` — gitignored)
 
-```bash
-npx supabase link --project-ref gylrgwqyuiwkyykardwc
-npx supabase functions deploy auth-otp
-```
-
-Do **not** set `AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1` on hosted — stub OTP is refused for `*.supabase.co`.
+Use replacement `SUPABASE_URL`, matching client key, and server-only service role. Never copy the service role into app/mobile/public variables.
 
 ---
 
-## 3. Migrations (push OAuth + pending)
+## 3. Cloudflare R2 serving plane
 
-Pending customer-OAuth-related migrations in-repo (apply if not yet on hosted):
+Heavy catalog data is not restored to Supabase. The replacement project stores only lightweight hierarchy/release metadata plus `catalog_r2_serving_objects` registrations.
 
-- `20260806130000_customer_oauth_ensure_customer.sql`
-- `20260806140000_customer_oauth_otp_mint_harden.sql`
-- `20260806150000_revoke_provision_denied_authenticated.sql`
+`catalog-live-r2` expects these **Supabase Edge Function secrets**:
 
-(Also nearby: `20260806120000_catalog_diagrams_allow_gif.sql`.)
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_R2_ACCESS_KEY_ID`
+- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
+- `CLOUDFLARE_R2_BUCKET`
+- optional `CLOUDFLARE_R2_ENDPOINT`
 
-**Preferred (CLI):**
+The R2 serving manifest is generated/uploaded from the local catalog pipeline, then registered through the service-role-only manifest ingest path. Do not invent manifest rows and do not repopulate heavy EPC tables in Supabase as a substitute.
+
+Required live serving kinds include `vehicle_search`, `vehicle_fitment`, `section_parts`, `diagram_parts`, and `diagram_image`. `catalog-live-r2?action=health` must report the required kinds present and R2 configured before declaring live catalog serving green.
+
+---
+
+## 4. Link CLI and apply only pending migrations
 
 ```bash
-# Login once if needed
 npx supabase login
-
-# Link this repo to hosted (writes supabase/.temp — gitignored)
-npx supabase link --project-ref gylrgwqyuiwkyykardwc
-
-# See local vs remote
+npx supabase link --project-ref bicyjghgdnzlnjqxzoud
 npx supabase migration list
-
-# Apply pending migrations only (non-destructive; do NOT db reset remote)
 npx supabase db push
 ```
 
-**Alternative:** Dashboard → SQL Editor — paste each migration file in order, or use the Migrations UI if you already manage remote that way.
+Then regenerate linked types only when required:
 
-**Do not** run `supabase db reset` against hosted. That destroys remote data.
+```bash
+pnpm db:types:linked
+```
 
-After schema is current: `pnpm db:types:linked` if you need regenerated types from remote.
+Do **not** run `supabase db reset` against either hosted project. Do not recreate legacy `staff_catalog_v2_*`, full-Postgres catalog delivery, or retired customer catalog-fitment RPCs.
 
 ---
 
-## 4. Auth on hosted (config.toml does not apply)
+## 5. Auth is a cutover gate
 
-`supabase/config.toml` only configures **local** GoTrue. On hosted you must configure Dashboard:
+The replacement project must contain the intended production identities and role/profile rows before staff E2E can pass. Do not create fake production users merely to make a smoke test green.
+
+Hosted `supabase/config.toml` settings do not configure production GoTrue. Configure providers and URLs in the replacement project's Dashboard.
 
 ### Providers
 
-1. **Authentication → Providers → Google** — enable; Web Client ID + secret (+ native client IDs as needed).
-2. **Authentication → Providers → Apple** — enable if using Sign in with Apple.
+1. Authentication → Providers → Google — enable and configure when used.
+2. Authentication → Providers → Apple — enable when used.
 
-Details: [`docs/CUSTOMER_OAUTH_SETUP.md`](../CUSTOMER_OAUTH_SETUP.md).
+Google Cloud hosted callback for the replacement project:
 
-Google Cloud **Authorized redirect URI** for hosted:
-
-`https://gylrgwqyuiwkyykardwc.supabase.co/auth/v1/callback`
+`https://bicyjghgdnzlnjqxzoud.supabase.co/auth/v1/callback`
 
 ### URL configuration
 
-**Authentication → URL configuration:**
-
-- **Site URL:** `https://nissangtrauto.co.zw` (prod) — **not** localhost. Confirm-email links open Site URL / `redirect_to`; localhost here breaks Android signup confirms.
-- Redirect allow-list (mirror `config.toml`):
+- Site URL: `https://nissangtrauto.co.zw`
+- Redirect allow-list should include:
   - `https://nissangtrauto.co.zw/auth/callback`
   - `https://www.nissangtrauto.co.zw/auth/callback`
-  - `http://127.0.0.1:3000/auth/callback` (dev web against hosted)
+  - `http://127.0.0.1:3000/auth/callback` for hosted-backend development
   - `gtrcustomer://auth/callback`
   - `gtr-customer://auth/callback`
 
-### Signup gate (ship blocker)
-
-1. **Allow new users to sign up** = **ON** (first Google/Apple needs this).
-2. Wire **Authentication → Hooks → Before user created** → Postgres `public.hook_before_user_created`.
-3. Probe public email `/signup` — expect **HTTP 403** (see OAuth setup doc). A 200 means fail-open.
+Keep the signup gate/hooks described in [`CUSTOMER_OAUTH_SETUP.md`](../CUSTOMER_OAUTH_SETUP.md) fail-closed.
 
 ---
 
-## 5. Verify checklist
+## 6. Staff catalog validation
 
-After env switch + migrations + Auth config:
+The supported staff path is:
 
-- [ ] Web: email/password sign-in against hosted (seeded local users will **not** exist unless you created them on hosted).
-- [ ] Web: Google OAuth once provider enabled; lands on `/auth/callback`.
-- [ ] After Google/Apple: retail `customers` row exists (`handle_new_user` / `ensure_own_customer`).
-- [ ] Android Live: URL + anon in `local.properties`; sign-in works; optional Google ID token when `GOOGLE_WEB_CLIENT_ID` set.
-- [ ] iOS Live: `Secrets.xcconfig` filled; scheme callbacks work.
-- [ ] Public `/signup` returns 403 on hosted.
-- [ ] `auth-otp` redeployed if you use phone/email OTP on hosted.
-- [ ] No `service_role` in mobile or `NEXT_PUBLIC_*`.
+`StaffCatalogBrowser → catalogGatewayGet → catalog-live-r2 → lightweight Supabase hierarchy + R2 technical objects`
+
+The hierarchy actions are:
+
+- `staff-families`
+- `staff-variants`
+- `staff-sections`
+- `staff-diagrams`
+
+Part/image actions are:
+
+- `staff-section-parts`
+- `staff-diagram-parts`
+- `diagram-image`
+
+There must be no app dependency on `staff_catalog_v2_*` RPCs.
 
 ---
 
-## 6. Switching back to local
+## 7. Final cutover gates
 
-Restore gitignored env to:
+Do not delete the retired project until all of the following are green:
 
-```text
-http://127.0.0.1:54321
-```
+- [ ] Replacement migrations applied and schema verified.
+- [ ] `catalog-live-r2` active on `bicyjghgdnzlnjqxzoud`.
+- [ ] R2 Edge secrets configured on replacement project.
+- [ ] R2 serving objects/manifests registered from authoritative local output.
+- [ ] `catalog-live-r2` health reports live browsing ready.
+- [ ] Intended Auth users/profiles/staff roles exist on replacement project.
+- [ ] Staff hierarchy → diagram → part/image path passes authenticated E2E.
+- [ ] Customer auth/catalog/cart/order/payment critical paths pass on replacement project.
+- [ ] Web production/preview env uses replacement URL + matching publishable key.
+- [ ] Android/iOS live config uses replacement URL + matching publishable key.
+- [ ] No service-role or R2 secrets exposed client-side.
+- [ ] Build/typecheck/test gates pass, or any CI infrastructure outage is independently resolved and rerun.
 
-plus the **local** anon/service keys from `supabase status` (after `pnpm db:start`). Local OAuth still uses `supabase/.env` + `config.toml` `[auth.external.*]` — see OAuth setup doc.
+Only after those gates pass may `gylrgwqyuiwkyykardwc` be deleted.
