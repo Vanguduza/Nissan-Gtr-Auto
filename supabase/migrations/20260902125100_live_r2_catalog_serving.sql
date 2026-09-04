@@ -8,7 +8,7 @@ create table if not exists public.catalog_r2_serving_objects (
   maker_slug text not null,
   object_kind text not null check (object_kind in (
     'manifest','vehicle_fitment','vehicle_search','section_parts','diagram_parts',
-    'diagram_image','oem_lookup','taxonomy'
+    'diagram_image','oem_lookup','taxonomy','vehicle_index','vehicle_cascade'
   )),
   scope_key text not null,
   object_key text not null,
@@ -138,47 +138,8 @@ as $$
 $$;
 grant execute on function public.catalog_commerce_stock_for_oems(text[]) to authenticated, service_role;
 
-create or replace function public.customer_catalog_stock_for_vehicle_id(
-  p_vehicle_id text,
-  p_limit integer default 100
-)
-returns table (
-  stock_item_id uuid,
-  oem_part_number text,
-  name text,
-  fitment_evidence text,
-  catalog_release_id text
-)
-language plpgsql
-security definer
-set search_path = public
-stable
-as $$
-declare
-  v_chassis text;
-  v_engine text;
-begin
-  select vm.chassis_code, vm.engine_code
-    into v_chassis, v_engine
-  from public.list_customer_vehicle_master('nissan', 10000, 0) vm
-  where vm.id = p_vehicle_id
-  limit 1;
-  if v_chassis is null then return; end if;
-  return query
-  select * from public.customer_catalog_stock_for_vehicle(
-    v_chassis,
-    v_engine,
-    greatest(1, least(coalesce(p_limit, 100), 100))
-  );
-end;
-$$;
-grant execute on function public.customer_catalog_stock_for_vehicle_id(text, integer) to authenticated, service_role;
+-- Vehicle fitment is served through catalog-live-r2 using R2 vehicle shards.
+-- Do not recreate legacy customer_catalog_stock_for_vehicle[_id] database RPCs here.
 
-alter table public.catalog_delivery_config
-  drop constraint if exists catalog_delivery_config_delivery_mode_check;
-alter table public.catalog_delivery_config
-  add constraint catalog_delivery_config_delivery_mode_check
-  check (delivery_mode in ('offline_bundle','postgres_full','live_r2_index'));
-update public.catalog_delivery_config
-set delivery_mode='live_r2_index', default_storage_backend='r2', updated_at=now()
-where id=1;
+-- catalog_delivery_config belonged to the retired full-Postgres catalog delivery path.
+-- Clean R2-first projects intentionally do not recreate or mutate it.
