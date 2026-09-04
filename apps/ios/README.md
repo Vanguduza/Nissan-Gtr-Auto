@@ -15,7 +15,7 @@ SwiftUI customer shell with thin Cart / Orders / Garage / **Wishlist** / **Compa
 
 ```text
 # Live (scheme env and/or Secrets.xcconfig → Info.plist — never commit secrets)
-SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 
 # Optional force Fake while keeping URL configured

@@ -50,7 +50,7 @@ Copy `.env.example` values into **`local.properties`** (gitignored):
 
 ```properties
 sdk.dir=C\:\\Android\\sdk
-SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPPORT_PHONE=+263771234567
 GOOGLE_MAPS_API_KEY=your-maps-key
