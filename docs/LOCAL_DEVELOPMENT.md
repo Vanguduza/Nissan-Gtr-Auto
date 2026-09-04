@@ -32,7 +32,7 @@ git checkout cursor/erp-cursor-setup-ad25
 
 ## 2. Open in Cursor Desktop (not Cloud)
 
-1. Install [Cursor Desktop](https://cursor.com/download) if needed.
+1. Install Cursor Desktop if needed.
 2. **File → Open Folder** → select the `Nissan-Gtr-Auto` repo root.
 3. Wait for indexing to finish (`.cursorignore` already excludes noise).
 4. Confirm Agent mode works: open Chat/Composer and ask it to summarize `AGENTS.md`.
@@ -43,13 +43,13 @@ You are now local. Do **not** start a new Cloud Agent for day-to-day work unless
 
 | Tool | Purpose | Install |
 |------|---------|---------|
-| Node.js 22+ | Web app / monorepo | https://nodejs.org |
+| Node.js 22+ | Web app / monorepo | nodejs.org |
 | pnpm | Workspace package manager | `npm i -g pnpm` |
-| Docker Desktop | Supabase local stack | https://docker.com/products/docker-desktop |
-| Supabase CLI | Migrations, local DB | https://supabase.com/docs/guides/cli |
+| Docker Desktop | Supabase local stack | docker.com |
+| Supabase CLI | Migrations, local DB | Supabase CLI docs |
 | Python 3.11+ | Data pipeline | system / pyenv |
 | Xcode (macOS) | iOS customer app | App Store |
-| Android Studio | Android apps + bridges | https://developer.android.com/studio |
+| Android Studio | Android apps + bridges | developer.android.com/studio |
 
 Minimal for backend/orchestration work: **Node + pnpm + Docker + Supabase CLI**.
 
@@ -66,53 +66,40 @@ In the opened repo, these should auto-load:
 | `rufler.yaml` | Lane map — reference in prompts with `@web_agent` etc. |
 | `AGENTS.md` | Run commands & conventions |
 
-**Optional local plugins** (install in Cursor Desktop Settings → Plugins / Skills):
-
-- [claude-mem](https://github.com/thedotmack/claude-mem) — persistent memory across local sessions
-- [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) — design skill for storefront
-
-## 5. Local agent workflow (replace Cloud Agent habits)
+## 5. Local agent workflow
 
 | Instead of (Cloud) | Do this (Local) |
 |--------------------|-----------------|
-| Start a Cloud Agent run on cursor.com | Open Composer/Agent in Cursor Desktop |
+| Start a Cloud Agent run | Open Composer/Agent in Cursor Desktop |
 | Wait for remote VM setup | Work immediately against local files |
 | Push-only feedback loop | Run tests/terminals locally, then commit |
-| Cloud-only long tasks | Use local Agents Window; optionally `/in-cloud` only when needed |
+| Cloud-only long tasks | Use local Agents Window; use cloud only intentionally |
 
-**Recommended local loop:**
+Recommended loop:
 
-1. Pick a lane from `rufler.yaml` (e.g. `@backend_agent`).
+1. Pick a lane from `rufler.yaml`.
 2. Open Agent chat, attach `@AGENTS.md` + the relevant folder.
-3. Implement → run `/verifier` → commit on a `cursor/<name>-ad25` branch.
+3. Implement → run `/verifier` → commit on a scoped branch.
 4. Push and open a PR when ready.
 
 ## 6. What to leave alone
 
-- **Keep** `.cursor/environment.json` — harmless for local; used only if someone starts a Cloud Agent later.
-- **Keep** hooks/permissions/sandbox — they also protect local agent shell commands.
-- **Do not** delete orchestration files — they are what make local multi-agent work.
+- Keep `.cursor/environment.json` for optional cloud runs.
+- Keep hooks/permissions/sandbox protections.
+- Do not delete orchestration files.
 
-## 7. Stop / archive the current Cloud run
-
-1. Open the current run: https://cursor.com/agents/bc-b00ea338-fc33-4a85-a69a-3d4ae59ead25
-2. Merge or leave open [PR #1](https://github.com/Vanguduza/Nissan-Gtr-Auto/pull/1) as you prefer.
-3. Archive or stop the cloud agent when you no longer need the remote session.
-4. Continue all new work from Cursor Desktop on your machine.
-
-## 8. Quick checklist
+## 7. Quick checklist
 
 - [ ] Repo cloned / pulled on your machine
-- [ ] Opened in **Cursor Desktop** at repo root
+- [ ] Opened in Cursor Desktop at repo root
 - [ ] Indexing complete; `AGENTS.md` readable by Agent
-- [ ] Node, pnpm, Docker, Supabase CLI installed (as needed)
-- [ ] Branch `cursor/erp-cursor-setup-ad25` checked out (or `main` after merge)
-- [ ] Cloud agent archived when done
-- [ ] Next work started in local Agent chat (not a new cloud run)
+- [ ] Node, pnpm, Docker, Supabase CLI installed as needed
+- [ ] Correct working branch checked out
+- [ ] Tests/builds run locally before merge when CI infrastructure is unavailable
 
 ---
 
-## 9. Auth seed + typed client (Phase 2)
+## 8. Auth seed + typed client
 
 **Local reset** (Docker required) loads `supabase/seed.sql` automatically (`[db.seed]` in `config.toml`):
 
@@ -121,36 +108,39 @@ In the opened repo, these should auto-load:
 | `admin@gtr.local` | `local-dev-admin` | admin |
 | `finance@gtr.local` | `local-dev-finance` | finance |
 | `warehouse@gtr.local` | `local-dev-warehouse` | warehouse |
-| `storefront-a@gtr.local` | `local-dev-customer` | customer (`profiles.id` = `customers.profile_id` = `c0000000-0000-4000-8000-0000000000a1`) |
-| `storefront-b@gtr.local` | `local-dev-customer` | customer (`profiles.id` = `customers.profile_id` = `c0000000-0000-4000-8000-0000000000b2`) |
+| `storefront-a@gtr.local` | `local-dev-customer` | customer |
+| `storefront-b@gtr.local` | `local-dev-customer` | customer |
 
 ```bash
 pnpm db:start
 pnpm db:reset
-pnpm db:types          # local Docker
-# or after linking remote:
+pnpm db:types
+# or after linking the active hosted project:
 pnpm db:types:linked
 ```
 
-Local edge functions (after `supabase start`): `npx supabase functions serve` — serves all under `supabase/functions/` at `http://127.0.0.1:54321/functions/v1/<name>` (leave running in a second terminal).
+Local edge functions: `npx supabase functions serve` after `supabase start`.
 
-**Hosted project** (ref `gylrgwqyuiwkyykardwc`): switch client env off `127.0.0.1:54321`, push migrations with `supabase link` + `supabase db push`, and configure Auth providers on Dashboard — see [`docs/guides/hosted-supabase-cutover.md`](./guides/hosted-supabase-cutover.md). Do **not** `db reset` remote.
+**Active hosted project** (ref `bicyjghgdnzlnjqxzoud`): switch client env off `127.0.0.1:54321`, use the matching replacement-project publishable key, link with `npx supabase link --project-ref bicyjghgdnzlnjqxzoud`, apply only pending migrations, and configure Auth providers in Dashboard. See [`docs/guides/hosted-supabase-cutover.md`](./guides/hosted-supabase-cutover.md). Never run `db reset` against hosted.
 
-Commit `packages/supabase-client/src/database.types.ts` whenever migrations change public schema. **Never** put `service_role` in client packages — only anon via `createBrowserClient`.
+The retired hosted project `gylrgwqyuiwkyykardwc` is recovery-only during cutover and must not be deleted until replacement Auth, R2 serving manifests, app environments, and E2E gates are green.
 
-RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`  
-CI RLS gate + Bugbot/secrets checklist: `docs/HARDENING.md` (`phase14_ci_smoke.sql` via `docker exec … psql`).
+Commit `packages/supabase-client/src/database.types.ts` whenever migrations change public schema. Never put `service_role` in client packages.
 
-**Catalog diagram bytes** (after reset; Navara + X-Trail fixture packs):
+RLS seed smoke: `psql … -f supabase/tests/phase2_rls_smoke.sql`. CI RLS gate + secrets checklist: `docs/HARDENING.md`.
+
+### Catalog data locally vs hosted
+
+Local fixture diagrams may still be loaded for deterministic development/testing:
 
 ```bash
 pnpm db:reset && node supabase/seed_catalog_diagrams.mjs --docker
 ```
 
-See also `data-pipeline/fixtures/*/diagrams/README.md`. Script discovers every `fixtures/<vehicle>/diagrams/<storage-prefix>/*.png` pack idempotently.
+That local fixture workflow does **not** define hosted architecture. Hosted heavy EPC fitment/parts/diagram bytes belong in Cloudflare R2 and are accessed through `catalog-live-r2`; do not restore the heavy catalog into hosted Supabase.
 
 ---
 
 ## Next work after switching
 
-Once local, follow `docs/plans/2026-07-23-master-erp-development.md` (Phase 2+).
+Once local, follow the current versioned source-of-truth plans and architecture decisions. For hosted cutover details, use `docs/guides/hosted-supabase-cutover.md` rather than historical project-ref documentation.
