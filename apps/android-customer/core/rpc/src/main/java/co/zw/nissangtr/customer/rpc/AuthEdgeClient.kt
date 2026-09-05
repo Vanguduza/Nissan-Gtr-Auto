@@ -6,7 +6,6 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
@@ -14,7 +13,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
-internal data class AuthEdgeSession(
+public data class AuthEdgeSession(
     val userId: String,
     val accessToken: String,
     val refreshToken: String,
@@ -23,13 +22,13 @@ internal data class AuthEdgeSession(
     val phoneE164: String?,
 )
 
-internal data class AuthEdgeVerifyState(
+public data class AuthEdgeVerifyState(
     val emailVerified: Boolean,
     val phoneVerified: Boolean?,
     val signupReady: Boolean,
 )
 
-internal object AuthEdgeClient {
+public object AuthEdgeClient {
     private val json = Json { ignoreUnknownKeys = true }
 
     private suspend fun invoke(
@@ -117,10 +116,7 @@ internal object AuthEdgeClient {
         val verified = obj["verified"] as? JsonObject
         return AuthEdgeVerifyState(
             emailVerified = verified?.get("email")?.jsonPrimitive?.booleanOrNull == true,
-            phoneVerified = verified?.get("phone")?.let {
-                if (it is JsonPrimitive && it.isString.not() && it.content == "null") null
-                else it.jsonPrimitive.booleanOrNull
-            },
+            phoneVerified = verified?.get("phone")?.jsonPrimitive?.booleanOrNull,
             signupReady = obj["signup_ready"]?.jsonPrimitive?.booleanOrNull == true,
         )
     }
