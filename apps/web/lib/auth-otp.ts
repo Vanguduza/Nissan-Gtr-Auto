@@ -91,11 +91,7 @@ async function readFunctionsErrorBody(
   return { body: null };
 }
 
-function authEdgeError(
-  body: unknown,
-  fallback: string,
-  status?: number,
-): AuthOtpError {
+function authEdgeError(body: unknown, fallback: string, status?: number): AuthOtpError {
   const msg = edgeErrorMessage(body, fallback);
   return {
     ok: false,
@@ -107,25 +103,31 @@ function authEdgeError(
 }
 
 /**
- * Starts customer signup. Supabase Auth owns the pending user and generates all
- * verification codes. Nissan GTR Auto never generates, stores or exposes OTPs.
+ * Starts or resumes customer signup and asks Supabase Auth to send exactly one
+ * verification challenge. Email and phone are intentionally independent.
  */
 export async function requestAuthOtp(
   client: SupabaseClient,
   args: {
     email: string;
     phoneE164?: string | null;
+    channel?: "email" | "phone";
     fullName?: string | null;
     deviceId?: string | null;
   },
 ): Promise<AuthOtpRequestResult | AuthOtpError> {
   const email = normalizeReceiptEmail(args.email);
   const phone = normalizeE164(args.phoneE164);
+  const channel = args.channel ?? "email";
   if (!email) return { ok: false, error: "Enter a valid email address." };
+  if (channel === "phone" && !phone) {
+    return { ok: false, error: "Enter a valid phone number (E.164)." };
+  }
 
   const { data, error } = await client.functions.invoke("auth-otp", {
     body: {
       action: "request",
+      channel,
       email,
       ...(phone ? { phone_e164: phone } : {}),
       ...(args.fullName?.trim() ? { full_name: args.fullName.trim() } : {}),
@@ -242,9 +244,9 @@ export async function completeAuthSignup(
 }
 
 /**
- * Returning login always goes through the Auth Edge so the project-level
- * identifier/IP/device rate limits are applied consistently. Supabase Auth still
- * performs the password grant and owns the resulting session.
+ * Returning login always goes through the Auth Edge so project-level
+ * identifier/IP/device rate limits are applied before Supabase Auth's password
+ * grant. Supabase Auth remains the only session authority.
  */
 export async function signInWithEmailOrPhone(
   client: SupabaseClient,
