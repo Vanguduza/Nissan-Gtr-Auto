@@ -46,24 +46,23 @@ async function ensurePendingSignupUser(service: SupabaseClient, email: string, p
   return data.user;
 }
 
-async function sendSignupOtp(req: Request, service: SupabaseClient, email: string, phone: string | null, deviceId: unknown) {
+async function sendSignupOtp(req: Request, service: SupabaseClient, channel: "email" | "phone", email: string, phone: string | null, deviceId: unknown) {
   const auth = anonClient();
-  const channels: Record<string,{sent:boolean;error?:string}> = {};
-  await enforceAuthRateLimit(service, req, "signup_request", `email:${email}`, deviceId);
-  const emailResult = await auth.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
-  channels.email = emailResult.error ? { sent:false, error:authFailureCode(emailResult.error,"EMAIL_OTP_SEND_FAILED") } : { sent:true };
-  if (phone) {
-    await enforceAuthRateLimit(service, req, "signup_request", `phone:${phone}`, deviceId);
-    const phoneResult = await auth.auth.signInWithOtp({ phone, options: { shouldCreateUser:false, channel:"sms" } });
-    channels.phone = phoneResult.error ? { sent:false, error:authFailureCode(phoneResult.error,"PHONE_OTP_SEND_FAILED") } : { sent:true };
+  const identifier = channel === "email" ? email : phone;
+  if (!identifier) throw new AuthEdgeError("Valid phone_e164 required",400,"PHONE_REQUIRED");
+  await enforceAuthRateLimit(service, req, "signup_request", `${channel}:${identifier}`, deviceId);
+  const result = channel === "email"
+    ? await auth.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })
+    : await auth.auth.signInWithOtp({ phone: identifier, options: { shouldCreateUser:false, channel:"sms" } });
+  if (result.error) {
+    const code = authFailureCode(result.error, channel === "email" ? "EMAIL_OTP_SEND_FAILED" : "PHONE_OTP_SEND_FAILED");
+    throw new AuthEdgeError(
+      channel === "email" ? "Unable to send email verification code." : "Unable to send phone verification code.",
+      result.error.status === 429 ? 429 : (result.error.status ?? 0) >= 500 ? 503 : 400,
+      code,
+    );
   }
-  const failures = Object.entries(channels).filter(([,r])=>!r.sent);
-  if (failures.length) {
-    const anySent = Object.values(channels).some(r=>r.sent);
-    const firstCode = failures[0]?.[1].error ?? "OTP_DELIVERY_FAILED";
-    throw new AuthEdgeError(anySent ? "One verification channel was sent, but another channel failed. Retry the failed channel." : "Unable to send verification code. Try again later.", firstCode.toLowerCase().includes("rate") ? 429 : 503, firstCode);
-  }
-  return channels;
+  return { [channel]: { sent: true } };
 }
 
 async function verifyOne(req: Request, service: SupabaseClient, expectedUserId: string, channel: "email"|"phone", identifier: string, code: string, deviceId: unknown): Promise<void> {
@@ -90,10 +89,17 @@ Deno.serve(async (req) => {
 
     if (action === "request") {
       if (!email) return jsonResponse(req,{error:"Valid email required",code:"EMAIL_REQUIRED"},400);
+      const requestedChannel = body.channel ?? "email";
+      if (requestedChannel !== "email" && requestedChannel !== "phone") {
+        return jsonResponse(req,{error:"channel must be email or phone",code:"INVALID_CHANNEL"},400);
+      }
+      if (requestedChannel === "phone" && !phone) {
+        return jsonResponse(req,{error:"Valid phone_e164 required",code:"PHONE_REQUIRED"},400);
+      }
       const name = fullName(body.full_name);
       const user = await ensurePendingSignupUser(service,email,phone,name);
-      const channels = await sendSignupOtp(req,service,email,phone,body.device_id);
-      return jsonResponse(req,{ok:true,user_id:user.id,channels,verification_required:{email:true,phone:Boolean(phone)}});
+      const channels = await sendSignupOtp(req,service,requestedChannel,email,phone,body.device_id);
+      return jsonResponse(req,{ok:true,user_id:user.id,channels,requested_channel:requestedChannel,verification_required:{email:true,phone:Boolean(phone)}});
     }
 
     if (action === "verify") {
