@@ -11,11 +11,55 @@ export type CartLineRow = Database["public"]["Tables"]["pos_cart_lines"]["Row"] 
   stock_items?: { oem_part_number: string; description: string | null } | null;
 };
 export type InvoiceRow = Database["public"]["Tables"]["sales_invoices"]["Row"];
+export type CommerceOrderState =
+  | "checkout_pending"
+  | "awaiting_payment"
+  | "payment_processing"
+  | "paid"
+  | "allocation_pending"
+  | "ready_for_pick"
+  | "picking"
+  | "packed"
+  | "ready_for_collection"
+  | "dispatch_ready"
+  | "dispatched"
+  | "delivered"
+  | "payment_failed"
+  | "payment_expired"
+  | "cancelled"
+  | "partially_fulfilled"
+  | "refunded"
+  | "returned";
+
+export type CommerceOrderRow = {
+  id: string;
+  customer_id: string;
+  cart_id: string;
+  checkout_request_id: string;
+  warehouse_id: string;
+  fulfillment_mode: FulfillmentMode;
+  currency: Currency;
+  exchange_rate_applied: number;
+  subtotal: number;
+  total: number;
+  state: CommerceOrderState;
+  reservation_expires_at: string | null;
+  sales_invoice_id: string | null;
+  active_payment_provider: string | null;
+  active_payment_intent_id: string | null;
+  settled_payment_entry_id: string | null;
+  finalized_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
 export type GarageVehicleRow =
   Database["public"]["Tables"]["customer_garage_vehicles"]["Row"];
 
 export type CustomerOrder = {
-  invoice_id: string;
+  /** Stable storefront reference: commerce order id for new checkout, invoice id for legacy orders. */
+  id: string;
+  commerce_order_id: string | null;
+  invoice_id: string | null;
   document_number: string | null;
   doc_type: string;
   status: string;
@@ -28,11 +72,25 @@ export type CustomerOrder = {
   amount_open: number;
   cart_id: string | null;
   posted_at: string | null;
+  reservation_expires_at: string | null;
   pick_list_status: string | null;
   delivery_note_status: string | null;
   /** Non-terminal job id for live track via get_delivery_track_point. */
   active_delivery_job_id: string | null;
 };
+
+export type CustomerOrderListItem = Pick<
+  CustomerOrder,
+  | "id"
+  | "document_number"
+  | "status"
+  | "fulfillment_mode"
+  | "currency"
+  | "total"
+  | "amount_open"
+  | "reservation_expires_at"
+> & { created_at: string };
+
 
 export type StorefrontResult<T> =
   | { ok: true; data: T }
@@ -66,6 +124,7 @@ function storefrontFrom(client: SupabaseClient, table: string) {
 }
 
 const CART_KEY = "gtr.storefront.cart_id";
+const CHECKOUT_REQUEST_PREFIX = "gtr.storefront.checkout_request.";
 
 export function readStoredCartId(): string | null {
   if (typeof window === "undefined") return null;
@@ -76,6 +135,26 @@ export function writeStoredCartId(id: string | null) {
   if (typeof window === "undefined") return;
   if (id) window.localStorage.setItem(CART_KEY, id);
   else window.localStorage.removeItem(CART_KEY);
+}
+
+export function checkoutRequestIdForCart(cartId: string): string {
+  if (typeof window === "undefined") {
+    throw new Error("Checkout request ids are only created in the browser.");
+  }
+  const key = `${CHECKOUT_REQUEST_PREFIX}${cartId}`;
+  const existing = window.localStorage.getItem(key);
+  if (existing) return existing;
+  if (!globalThis.crypto?.randomUUID) {
+    throw new Error("Secure UUID generation is unavailable in this browser.");
+  }
+  const created = globalThis.crypto.randomUUID();
+  window.localStorage.setItem(key, created);
+  return created;
+}
+
+export function clearCheckoutRequestId(cartId: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(`${CHECKOUT_REQUEST_PREFIX}${cartId}`);
 }
 
 export function zigExchangeRate(): number | null {
@@ -130,20 +209,11 @@ export async function resolveMainWarehouseId(
   if (error) return { ok: false, error: error.message };
   if (data?.id) return { ok: true, data: data.id };
 
-  const fallback = await client
-    .from("warehouses")
-    .select("id")
-    .eq("is_active", true)
-    .eq("is_quarantine", false)
-    .order("code")
-    .limit(1)
-    .maybeSingle();
-
-  if (fallback.error) return { ok: false, error: fallback.error.message };
-  if (!fallback.data?.id) {
-    return { ok: false, error: "No saleable warehouse found." };
-  }
-  return { ok: true, data: fallback.data.id };
+  return {
+    ok: false,
+    error:
+      "Storefront warehouse is not configured. Set NEXT_PUBLIC_DEFAULT_WAREHOUSE_ID or activate the canonical MAIN warehouse.",
+  };
 }
 
 export async function loadOpenCart(
@@ -274,13 +344,20 @@ export async function addCartLineByOem(
 export async function checkoutCustomerCart(
   client: SupabaseClient,
   cartId: string,
+  checkoutRequestId: string,
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await client.rpc("checkout_customer_cart", {
+  const { data, error } = await storefrontRpc(client, "checkout_customer_cart", {
     p_cart_id: cartId,
+    p_checkout_request_id: checkoutRequestId,
   });
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "Checkout returned no invoice id." };
+  if (typeof data !== "string" || !data) {
+    return { ok: false, error: "Checkout returned no commerce order id." };
+  }
+  // The server has atomically locked the cart and created the reservation.
+  // Clearing browser cart state is safe only after that response is received.
   writeStoredCartId(null);
+  clearCheckoutRequestId(cartId);
   return { ok: true, data };
 }
 
@@ -298,15 +375,20 @@ export async function listOwnInvoices(
   return { ok: true, data: data ?? [] };
 }
 
-function parseCustomerOrder(raw: unknown): CustomerOrder | null {
+function parseInvoiceCustomerOrder(
+  raw: unknown,
+  commerceOrderId: string | null = null,
+): CustomerOrder | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   if (typeof o.invoice_id !== "string") return null;
   return {
+    id: commerceOrderId ?? o.invoice_id,
+    commerce_order_id: commerceOrderId,
     invoice_id: o.invoice_id,
     document_number:
       typeof o.document_number === "string" ? o.document_number : null,
-    doc_type: String(o.doc_type ?? ""),
+    doc_type: String(o.doc_type ?? "invoice"),
     status: String(o.status ?? ""),
     fulfillment_mode: (o.fulfillment_mode as FulfillmentMode) ?? "immediate",
     currency: (o.currency as Currency) ?? "USD",
@@ -317,6 +399,7 @@ function parseCustomerOrder(raw: unknown): CustomerOrder | null {
     amount_open: Number(o.amount_open ?? 0),
     cart_id: typeof o.cart_id === "string" ? o.cart_id : null,
     posted_at: typeof o.posted_at === "string" ? o.posted_at : null,
+    reservation_expires_at: null,
     pick_list_status:
       typeof o.pick_list_status === "string" ? o.pick_list_status : null,
     delivery_note_status:
@@ -330,17 +413,164 @@ function parseCustomerOrder(raw: unknown): CustomerOrder | null {
   };
 }
 
+function parseCommerceOrder(raw: unknown): CommerceOrderRow | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== "string" || typeof o.cart_id !== "string") return null;
+  return {
+    id: o.id,
+    customer_id: String(o.customer_id ?? ""),
+    cart_id: o.cart_id,
+    checkout_request_id: String(o.checkout_request_id ?? ""),
+    warehouse_id: String(o.warehouse_id ?? ""),
+    fulfillment_mode: (o.fulfillment_mode as FulfillmentMode) ?? "immediate",
+    currency: (o.currency as Currency) ?? "USD",
+    exchange_rate_applied: Number(o.exchange_rate_applied ?? 1),
+    subtotal: Number(o.subtotal ?? 0),
+    total: Number(o.total ?? 0),
+    state: String(o.state ?? "awaiting_payment") as CommerceOrderState,
+    reservation_expires_at:
+      typeof o.reservation_expires_at === "string" ? o.reservation_expires_at : null,
+    sales_invoice_id:
+      typeof o.sales_invoice_id === "string" ? o.sales_invoice_id : null,
+    active_payment_provider:
+      typeof o.active_payment_provider === "string" ? o.active_payment_provider : null,
+    active_payment_intent_id:
+      typeof o.active_payment_intent_id === "string" ? o.active_payment_intent_id : null,
+    settled_payment_entry_id:
+      typeof o.settled_payment_entry_id === "string" ? o.settled_payment_entry_id : null,
+    finalized_at: typeof o.finalized_at === "string" ? o.finalized_at : null,
+    created_at: String(o.created_at ?? ""),
+    updated_at: String(o.updated_at ?? ""),
+  };
+}
+
+function commerceOrderAsCustomerOrder(row: CommerceOrderRow): CustomerOrder {
+  const paid = Boolean(row.settled_payment_entry_id);
+  return {
+    id: row.id,
+    commerce_order_id: row.id,
+    invoice_id: row.sales_invoice_id,
+    document_number: null,
+    doc_type: "commerce_order",
+    status: row.state,
+    fulfillment_mode: row.fulfillment_mode,
+    currency: row.currency,
+    exchange_rate_applied: row.exchange_rate_applied,
+    subtotal: row.subtotal,
+    total: row.total,
+    amount_paid: paid ? row.total : 0,
+    amount_open: paid ? 0 : row.total,
+    cart_id: row.cart_id,
+    posted_at: row.finalized_at,
+    reservation_expires_at: row.reservation_expires_at,
+    pick_list_status: null,
+    delivery_note_status: null,
+    active_delivery_job_id: null,
+  };
+}
+
 export async function getCustomerOrder(
   client: SupabaseClient,
-  invoiceId: string,
+  orderRef: string,
 ): Promise<StorefrontResult<CustomerOrder>> {
+  const staged = await storefrontFrom(client, "commerce_orders")
+    .select("id, customer_id, cart_id, checkout_request_id, warehouse_id, fulfillment_mode, currency, exchange_rate_applied, subtotal, total, state, reservation_expires_at, sales_invoice_id, active_payment_provider, active_payment_intent_id, settled_payment_entry_id, finalized_at, created_at, updated_at")
+    .eq("id", orderRef)
+    .maybeSingle();
+  if (staged.error) return { ok: false, error: staged.error.message };
+
+  const commerce = parseCommerceOrder(staged.data);
+  if (commerce) {
+    if (commerce.sales_invoice_id) {
+      const { data, error } = await client.rpc("get_customer_order", {
+        p_invoice_id: commerce.sales_invoice_id,
+      });
+      if (!error) {
+        const parsed = parseInvoiceCustomerOrder(data, commerce.id);
+        if (parsed) return { ok: true, data: parsed };
+      }
+    }
+    return { ok: true, data: commerceOrderAsCustomerOrder(commerce) };
+  }
+
+  // Backward compatibility for historical URLs that contain a sales invoice id.
   const { data, error } = await client.rpc("get_customer_order", {
-    p_invoice_id: invoiceId,
+    p_invoice_id: orderRef,
   });
   if (error) return { ok: false, error: error.message };
-  const parsed = parseCustomerOrder(data);
+  const parsed = parseInvoiceCustomerOrder(data);
   if (!parsed) return { ok: false, error: "Unexpected order response shape." };
   return { ok: true, data: parsed };
+}
+
+export async function listOwnOrderSummaries(
+  client: SupabaseClient,
+): Promise<StorefrontResult<CustomerOrderListItem[]>> {
+  const staged = await storefrontFrom(client, "commerce_orders")
+    .select("id, fulfillment_mode, currency, total, state, reservation_expires_at, sales_invoice_id, settled_payment_entry_id, created_at")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (staged.error) return { ok: false, error: staged.error.message };
+
+  const invoices = await listOwnInvoices(client);
+  if (!invoices.ok) return invoices;
+  const invoiceById = new Map(invoices.data.map((inv) => [inv.id, inv]));
+  const linkedInvoiceIds = new Set<string>();
+  const out: CustomerOrderListItem[] = [];
+
+  for (const raw of staged.data ?? []) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const id = typeof row.id === "string" ? row.id : null;
+    if (!id) continue;
+    const invoiceId =
+      typeof row.sales_invoice_id === "string" ? row.sales_invoice_id : null;
+    if (invoiceId) linkedInvoiceIds.add(invoiceId);
+    const inv = invoiceId ? invoiceById.get(invoiceId) : undefined;
+    const total = Number(inv?.total ?? row.total ?? 0);
+    const amountOpen = inv
+      ? Math.max(0, Number(inv.total) - Number(inv.amount_paid))
+      : row.settled_payment_entry_id
+        ? 0
+        : total;
+    out.push({
+      id,
+      document_number: inv?.document_number ?? null,
+      status: inv?.status ?? String(row.state ?? ""),
+      fulfillment_mode:
+        (inv?.fulfillment_mode as FulfillmentMode | undefined) ??
+        ((row.fulfillment_mode as FulfillmentMode) ?? "immediate"),
+      currency:
+        (inv?.currency as Currency | undefined) ??
+        ((row.currency as Currency) ?? "USD"),
+      total,
+      amount_open: amountOpen,
+      reservation_expires_at:
+        typeof row.reservation_expires_at === "string"
+          ? row.reservation_expires_at
+          : null,
+      created_at: String(row.created_at ?? inv?.created_at ?? ""),
+    });
+  }
+
+  for (const inv of invoices.data) {
+    if (linkedInvoiceIds.has(inv.id)) continue;
+    out.push({
+      id: inv.id,
+      document_number: inv.document_number,
+      status: inv.status,
+      fulfillment_mode: inv.fulfillment_mode,
+      currency: inv.currency,
+      total: Number(inv.total),
+      amount_open: Math.max(0, Number(inv.total) - Number(inv.amount_paid)),
+      reservation_expires_at: null,
+      created_at: inv.created_at,
+    });
+  }
+
+  out.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return { ok: true, data: out.slice(0, 50) };
 }
 
 export type PaymentIntentResult = {
@@ -349,19 +579,19 @@ export type PaymentIntentResult = {
 };
 
 /** Storefront return URL after ContiPay / Paynow hosted checkout (webhook still settles). */
-export function checkoutReturnUrl(invoiceId?: string): string {
+export function checkoutReturnUrl(orderRef?: string): string {
   const base = siteOrigin();
-  const q = invoiceId
-    ? `?invoice=${encodeURIComponent(invoiceId)}`
+  const q = orderRef
+    ? `?order=${encodeURIComponent(orderRef)}`
     : "";
   return `${base}/checkout/return${q}`;
 }
 
 /** Storefront cancel URL when the customer aborts PSP checkout. */
-export function checkoutCancelUrl(invoiceId?: string): string {
+export function checkoutCancelUrl(orderRef?: string): string {
   const base = siteOrigin();
-  const q = invoiceId
-    ? `?invoice=${encodeURIComponent(invoiceId)}`
+  const q = orderRef
+    ? `?order=${encodeURIComponent(orderRef)}`
     : "";
   return `${base}/checkout/cancel${q}`;
 }
@@ -399,7 +629,7 @@ function parseEdgeIntent(raw: unknown): PaymentIntentResult | null {
  */
 export async function createCustomerContipayIntent(
   client: SupabaseClient,
-  invoiceId: string,
+  orderRef: string,
   method: ContipayMethod = "ecocash",
   settlement?: {
     currency: Currency;
@@ -407,8 +637,8 @@ export async function createCustomerContipayIntent(
     exchangeRate: number;
   },
 ): Promise<StorefrontResult<PaymentIntentResult>> {
-  const returnUrl = checkoutReturnUrl(invoiceId);
-  const cancelUrl = checkoutCancelUrl(invoiceId);
+  const returnUrl = checkoutReturnUrl(orderRef);
+  const cancelUrl = checkoutCancelUrl(orderRef);
 
   const customer = await loadOwnCustomer(client);
   const phone =
@@ -427,7 +657,7 @@ export async function createCustomerContipayIntent(
   }
 
   const metadata = {
-    sales_invoice_id: invoiceId,
+    order_reference_id: orderRef,
     channel: "storefront",
     return_url: returnUrl,
     cancel_url: cancelUrl,
@@ -444,7 +674,7 @@ export async function createCustomerContipayIntent(
 
   const edge = await client.functions.invoke("contipay-initiate", {
     body: {
-      sales_invoice_id: invoiceId,
+      commerce_order_id: orderRef,
       method,
       phone,
       return_url: returnUrl,
@@ -474,7 +704,7 @@ export async function createCustomerContipayIntent(
   }
 
   const { data, error } = await client.rpc("create_customer_contipay_intent", {
-    p_sales_invoice_id: invoiceId,
+    p_sales_invoice_id: orderRef,
     p_method: method,
     p_metadata: metadata,
     ...(settlement
@@ -508,7 +738,7 @@ export async function createCustomerContipayIntent(
  */
 export async function createCustomerPaynowIntent(
   client: SupabaseClient,
-  invoiceId: string,
+  orderRef: string,
   method: PaynowMethod = "ecocash",
   settlement?: {
     currency: Currency;
@@ -516,10 +746,10 @@ export async function createCustomerPaynowIntent(
     exchangeRate: number;
   },
 ): Promise<StorefrontResult<PaymentIntentResult>> {
-  const returnUrl = checkoutReturnUrl(invoiceId);
-  const cancelUrl = checkoutCancelUrl(invoiceId);
+  const returnUrl = checkoutReturnUrl(orderRef);
+  const cancelUrl = checkoutCancelUrl(orderRef);
   const metadata = {
-    sales_invoice_id: invoiceId,
+    order_reference_id: orderRef,
     channel: "storefront",
     return_url: returnUrl,
     cancel_url: cancelUrl,
@@ -534,7 +764,7 @@ export async function createCustomerPaynowIntent(
 
   const edge = await client.functions.invoke("paynow-initiate", {
     body: {
-      sales_invoice_id: invoiceId,
+      commerce_order_id: orderRef,
       method,
       return_url: returnUrl,
       cancel_url: cancelUrl,
@@ -555,7 +785,7 @@ export async function createCustomerPaynowIntent(
   }
 
   const { data, error } = await client.rpc("create_customer_paynow_intent", {
-    p_sales_invoice_id: invoiceId,
+    p_sales_invoice_id: orderRef,
     p_method: method,
     p_metadata: metadata,
     ...(settlement
@@ -591,7 +821,7 @@ export type EcoCashPayerMode = "saved" | "other" | "profile";
  */
 export async function createCustomerEcocashIntent(
   client: SupabaseClient,
-  invoiceId: string,
+  orderRef: string,
   opts: {
     payerMode: EcoCashPayerMode;
     payerMsisdn?: string | null;
@@ -631,7 +861,7 @@ export async function createCustomerEcocashIntent(
 
   const settlement = opts.settlement;
   const metadata = {
-    sales_invoice_id: invoiceId,
+    order_reference_id: orderRef,
     channel: "web",
     ...(settlement
       ? {
@@ -644,7 +874,7 @@ export async function createCustomerEcocashIntent(
 
   const edge = await client.functions.invoke("ecocash-initiate", {
     body: {
-      sales_invoice_id: invoiceId,
+      commerce_order_id: orderRef,
       payer_msisdn: payerMsisdn,
       payer_mode: payerMode,
       channel: "web",
@@ -687,7 +917,7 @@ export async function createCustomerEcocashIntent(
   }
 
   const { data, error } = await client.rpc("create_customer_ecocash_intent", {
-    p_sales_invoice_id: invoiceId,
+    p_sales_invoice_id: orderRef,
     p_payer_msisdn: payerMsisdn,
     p_payer_mode: payerMode,
     p_channel: "web",

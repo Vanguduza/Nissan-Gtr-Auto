@@ -40,6 +40,7 @@ import {
   listJournalEntries,
   listJournalLinesForAccount,
   listOpenInvoicesForCustomer,
+  listPendingManualCommerceOrders,
   listZigExchangeRates,
   lockAccountingPeriod,
   matchBankLine,
@@ -57,6 +58,7 @@ import {
   reverseJournal,
   searchCustomers,
   setZigExchangeRate,
+  settleManualCommercePayment,
   submitFinanceRequisition,
   zigExchangeRate,
   type AccountOption,
@@ -76,6 +78,7 @@ import {
   type FinanceRequisitionLineInput,
   type JournalEntryOption,
   type JournalLineOption,
+  type ManualCommerceOrderOption,
   type OpenInvoiceOption,
   type PaymentEntryOption,
   type PaymentTender,
@@ -310,6 +313,14 @@ function StaffFinancePanelInner() {
   const [openInvoices, setOpenInvoices] = useState<OpenInvoiceOption[]>([]);
   const [arAging, setArAging] = useState<ArAgingSnapshot | null>(null);
   const [arAgingError, setArAgingError] = useState<string | null>(null);
+  const [manualOrders, setManualOrders] = useState<ManualCommerceOrderOption[]>([]);
+  const [manualOrdersError, setManualOrdersError] = useState<string | null>(null);
+  const [manualOrderId, setManualOrderId] = useState("");
+  const [manualTender, setManualTender] = useState<"cash" | "bank">("cash");
+  const [manualReference, setManualReference] = useState("");
+  const [manualSettlementCurrency, setManualSettlementCurrency] =
+    useState<CurrencyCode>("USD");
+  const [manualRequestIds, setManualRequestIds] = useState<Record<string, string>>({});
 
   const [reverseReason, setReverseReason] = useState("");
   const [lastReversal, setLastReversal] = useState<{
@@ -350,6 +361,24 @@ function StaffFinancePanelInner() {
   const [addLineAmount, setAddLineAmount] = useState("");
   const [addLineDesc, setAddLineDesc] = useState("");
   const [addLineDate, setAddLineDate] = useState(todayInput);
+
+  const loadManualOrders = useCallback(async () => {
+    const client = createWebClient();
+    if (!client) return;
+    const res = await listPendingManualCommerceOrders(client);
+    if (!res.ok) {
+      setManualOrders([]);
+      setManualOrdersError(res.error);
+      return;
+    }
+    setManualOrdersError(null);
+    setManualOrders(res.data);
+    setManualOrderId((prev) =>
+      prev && res.data.some((order) => order.id === prev)
+        ? prev
+        : (res.data[0]?.id ?? ""),
+    );
+  }, []);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -631,6 +660,7 @@ function StaffFinancePanelInner() {
 
   useEffect(() => {
     if (boot.kind !== "ready" || tab !== "payments") return;
+    void loadManualOrders();
     void (async () => {
       const client = createWebClient();
       if (!client) return;
@@ -643,7 +673,7 @@ function StaffFinancePanelInner() {
       setArAgingError(null);
       setArAging(res.data);
     })();
-  }, [boot.kind, tab]);
+  }, [boot.kind, tab, loadManualOrders]);
 
   useEffect(() => {
     if (boot.kind !== "ready" || tab !== "exchange-rate") return;
@@ -1217,6 +1247,82 @@ function StaffFinancePanelInner() {
     setMessage("Run a report before exporting CSV.");
   }
 
+  async function onSettleManualOrder(e: FormEvent) {
+    e.preventDefault();
+    const client = createWebClient();
+    if (!client) return;
+    const order = manualOrders.find((item) => item.id === manualOrderId);
+    if (!order) {
+      setMessage("Select a live reserved customer order.");
+      return;
+    }
+    const reference = manualReference.trim();
+    if (manualTender === "bank" && !reference) {
+      setMessage("Bank reference is required for reconciliation.");
+      return;
+    }
+
+    let settlementCurrency: CurrencyCode | undefined;
+    let settlementAmount: number | undefined;
+    let settlementExchangeRate: number | undefined;
+    if (manualSettlementCurrency !== order.currency) {
+      if (order.currency !== "USD" || manualSettlementCurrency !== "ZIG") {
+        setMessage("Only USD orders can currently be settled in ZiG.");
+        return;
+      }
+      const rate = Number(officialRate);
+      if (!Number.isFinite(rate) || rate <= 0) {
+        setMessage("Finance must publish a verified ZiG rate before ZiG settlement.");
+        return;
+      }
+      settlementCurrency = "ZIG";
+      settlementExchangeRate = rate;
+      settlementAmount = Math.round(order.total * rate * 100) / 100;
+    }
+
+    const requestKey = `${order.id}:${manualTender}`;
+    let requestId = manualRequestIds[requestKey];
+    if (!requestId) {
+      if (!globalThis.crypto?.randomUUID) {
+        setMessage("Secure UUID generation is unavailable in this browser.");
+        return;
+      }
+      requestId = globalThis.crypto.randomUUID();
+      setManualRequestIds((prev) => ({ ...prev, [requestKey]: requestId! }));
+    }
+
+    setBusy(true);
+    setMessage(null);
+    const res = await settleManualCommercePayment(client, {
+      orderId: order.id,
+      requestId,
+      tender: manualTender,
+      reference: reference || undefined,
+      settlementCurrency,
+      settlementAmount,
+      settlementExchangeRate,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+
+    setManualRequestIds((prev) => {
+      const next = { ...prev };
+      delete next[requestKey];
+      return next;
+    });
+    setManualReference("");
+    setMessage(
+      `Reserved order settled · payment ${res.data.slice(0, 8)}…` +
+        (settlementCurrency === "ZIG" && settlementAmount != null
+          ? ` · received ${settlementAmount.toFixed(2)} ZiG @ ${settlementExchangeRate}`
+          : ` · ${order.total.toFixed(2)} ${order.currency}`),
+    );
+    await loadManualOrders();
+  }
+
   async function onCreatePayment(e: FormEvent) {
     e.preventDefault();
     const client = createWebClient();
@@ -1607,6 +1713,14 @@ function StaffFinancePanelInner() {
     (j) => j.status === "posted" && !j.is_reversal,
   );
   const selectedStmt = boot.statements.find((s) => s.id === selectedStmtId);
+  const selectedManualOrder = manualOrders.find((order) => order.id === manualOrderId);
+  const manualZigAmount =
+    selectedManualOrder &&
+    selectedManualOrder.currency === "USD" &&
+    Number.isFinite(Number(officialRate)) &&
+    Number(officialRate) > 0
+      ? Math.round(selectedManualOrder.total * Number(officialRate) * 100) / 100
+      : null;
 
   return (
     <div className={styles.form}>
@@ -3063,6 +3177,97 @@ function StaffFinancePanelInner() {
           B2B credit limits / holds:{" "}
           <Link href="/staff/crm/credit">customer credit desk</Link>.
         </p>
+
+        <section style={{ marginBottom: "1rem" }} aria-labelledby="reserved-orders-heading">
+          <h3 id="reserved-orders-heading">Reserved customer orders</h3>
+          <p className={styles.muted}>
+            Cash / bank checkout is not an invoice until payment is verified. Settle only
+            live reservations here; expired or provider-processing orders are rejected
+            server-side before money is accepted.
+          </p>
+          {manualOrdersError ? (
+            <p className={styles.formStatus} role="alert">
+              Reserved-order queue unavailable: {manualOrdersError}
+            </p>
+          ) : manualOrders.length === 0 ? (
+            <p className={styles.muted}>No live customer orders awaiting manual payment.</p>
+          ) : (
+            <form onSubmit={(e) => void onSettleManualOrder(e)}>
+              <div className={styles.formGrid}>
+                <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+                  Reserved order
+                  <select
+                    value={manualOrderId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setManualOrderId(id);
+                      const next = manualOrders.find((order) => order.id === id);
+                      if (next) setManualSettlementCurrency(next.currency);
+                    }}
+                    disabled={busy}
+                  >
+                    {manualOrders.map((order) => (
+                      <option key={order.id} value={order.id}>
+                        {order.document_number ?? order.id.slice(0, 8)} · {order.customer_name} · {order.total.toFixed(2)} {order.currency} · {order.state}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Tender
+                  <select
+                    value={manualTender}
+                    onChange={(e) => setManualTender(e.target.value as "cash" | "bank")}
+                    disabled={busy}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="bank">Bank transfer</option>
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Settlement currency
+                  <select
+                    value={manualSettlementCurrency}
+                    onChange={(e) => setManualSettlementCurrency(e.target.value as CurrencyCode)}
+                    disabled={busy}
+                  >
+                    <option value={selectedManualOrder?.currency ?? "USD"}>
+                      {selectedManualOrder?.currency ?? "USD"}
+                    </option>
+                    {selectedManualOrder?.currency === "USD" ? (
+                      <option value="ZIG">ZiG</option>
+                    ) : null}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  {manualTender === "bank" ? "Bank reference" : "Receipt / note (optional)"}
+                  <input
+                    value={manualReference}
+                    onChange={(e) => setManualReference(e.target.value)}
+                    disabled={busy}
+                    placeholder={manualTender === "bank" ? "Transfer / statement reference" : "Counter receipt note"}
+                  />
+                </label>
+              </div>
+              {selectedManualOrder ? (
+                <p className={styles.muted}>
+                  Reservation expires {new Date(selectedManualOrder.reservation_expires_at).toLocaleString()} ·
+                  {manualSettlementCurrency === "ZIG" && manualZigAmount != null
+                    ? ` collect ${manualZigAmount.toFixed(2)} ZiG @ ${officialRate} ZiG/USD`
+                    : ` collect ${selectedManualOrder.total.toFixed(2)} ${selectedManualOrder.currency}`}
+                </p>
+              ) : null}
+              <div className={styles.formActions}>
+                <button type="submit" className={styles.btn} disabled={busy || !selectedManualOrder}>
+                  {busy ? "Settling…" : "Confirm verified payment"}
+                </button>
+                <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void loadManualOrders()}>
+                  Refresh reservations
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
         {arAgingError ? (
           <p className={styles.muted} role="status">
             AR aging unavailable ({arAgingError}). See{" "}

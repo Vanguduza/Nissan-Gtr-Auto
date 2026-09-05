@@ -15,7 +15,7 @@ export default async function OrderDetailPage({
     <div className={styles.shell}>
       <AccountNav current="/account/orders" />
       <div className={styles.panel}>
-        <OrderDetail invoiceId={id} />
+        <OrderDetail orderRef={id} />
       </div>
     </div>
   );

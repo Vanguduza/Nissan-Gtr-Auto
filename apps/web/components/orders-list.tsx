@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   formatMoney,
   fulfillmentLabel,
-  listOwnInvoices,
+  listOwnOrderSummaries,
   requireSession,
-  type InvoiceRow,
+  type CustomerOrderListItem,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/components/account.module.css";
@@ -16,17 +16,13 @@ type Status =
   | { kind: "loading" }
   | { kind: "auth" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; invoices: InvoiceRow[] };
+  | { kind: "ready"; orders: CustomerOrderListItem[] };
 
 type OrderTab = "active" | "success" | "failed";
 
-function orderTab(inv: InvoiceRow): OrderTab {
-  if (inv.status === "cancelled") return "failed";
-  if (inv.status === "posted") {
-    const open = Number(inv.total) - Number(inv.amount_paid);
-    return open <= 0.001 ? "success" : "active";
-  }
-  // draft / on_hold → in progress
+function orderTab(order: CustomerOrderListItem): OrderTab {
+  if (["cancelled", "payment_expired"].includes(order.status)) return "failed";
+  if (order.amount_open <= 0.001) return "success";
   return "active";
 }
 
@@ -56,12 +52,12 @@ export function OrdersList() {
       return;
     }
 
-    const invoices = await listOwnInvoices(client);
-    if (!invoices.ok) {
-      setStatus({ kind: "error", message: invoices.error });
+    const orders = await listOwnOrderSummaries(client);
+    if (!orders.ok) {
+      setStatus({ kind: "error", message: orders.error });
       return;
     }
-    setStatus({ kind: "ready", invoices: invoices.data });
+    setStatus({ kind: "ready", orders: orders.data });
   }, []);
 
   useEffect(() => {
@@ -70,14 +66,14 @@ export function OrdersList() {
 
   const filtered = useMemo(() => {
     if (status.kind !== "ready") return [];
-    return status.invoices.filter((inv) => orderTab(inv) === tab);
+    return status.orders.filter((order) => orderTab(order) === tab);
   }, [status, tab]);
 
   const counts = useMemo(() => {
     const c = { active: 0, success: 0, failed: 0 };
     if (status.kind !== "ready") return c;
-    for (const inv of status.invoices) {
-      c[orderTab(inv)] += 1;
+    for (const order of status.orders) {
+      c[orderTab(order)] += 1;
     }
     return c;
   }, [status]);
@@ -105,7 +101,7 @@ export function OrdersList() {
     );
   }
 
-  if (status.invoices.length === 0) {
+  if (status.orders.length === 0) {
     return <p className={styles.muted}>No orders yet.</p>;
   }
 
@@ -130,29 +126,29 @@ export function OrdersList() {
         <p className={styles.muted}>No {tab} orders.</p>
       ) : (
         <ul className={styles.list}>
-          {filtered.map((inv) => {
-            const open = Number(inv.total) - Number(inv.amount_paid);
-            return (
-              <li key={inv.id}>
-                <strong>{inv.document_number ?? inv.id}</strong>
-                {" · "}
-                {fulfillmentLabel(inv.fulfillment_mode)}
-                {" · "}
-                {inv.status}
-                <br />
-                <span className={styles.muted}>
-                  {formatMoney(Number(inv.total), inv.currency)}
-                  {open > 0
-                    ? ` · open ${formatMoney(open, inv.currency)}`
-                    : " · paid"}
-                </span>
-                <br />
-                <Link href={`/account/orders/${inv.id}`} className={styles.btn}>
-                  View status
-                </Link>
-              </li>
-            );
-          })}
+          {filtered.map((order) => (
+            <li key={order.id}>
+              <strong>{order.document_number ?? order.id}</strong>
+              {" · "}
+              {fulfillmentLabel(order.fulfillment_mode)}
+              {" · "}
+              {order.status}
+              <br />
+              <span className={styles.muted}>
+                {formatMoney(order.total, order.currency)}
+                {order.amount_open > 0
+                  ? ` · awaiting ${formatMoney(order.amount_open, order.currency)}`
+                  : " · paid"}
+                {order.reservation_expires_at && order.amount_open > 0
+                  ? ` · reserved until ${new Date(order.reservation_expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                  : ""}
+              </span>
+              <br />
+              <Link href={`/account/orders/${order.id}`} className={styles.btn}>
+                View status
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </div>

@@ -12,10 +12,10 @@ export const metadata = { title: "Payment return" };
 export default async function CheckoutReturnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invoice?: string }>;
+  searchParams: Promise<{ order?: string; invoice?: string }>;
 }) {
   const sp = await searchParams;
-  const invoiceId = sp.invoice?.trim() || null;
+  const orderRef = sp.order?.trim() || sp.invoice?.trim() || null;
 
   return (
     <div className={styles.page}>
@@ -30,9 +30,9 @@ export default async function CheckoutReturnPage({
         screen and check your order.
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-        {invoiceId ? (
+        {orderRef ? (
           <Link
-            href={`/account/orders/${encodeURIComponent(invoiceId)}`}
+            href={`/account/orders/${encodeURIComponent(orderRef)}`}
             className={styles.button}
           >
             View order
