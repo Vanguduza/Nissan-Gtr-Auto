@@ -1,153 +1,130 @@
-/**
- * verify-password-reset — consume reset OTP + set new password (service_role).
- * Pair with request-password-reset for OTP send. Mirrors auth-otp fail-closed gates.
- */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { jsonErr, jsonOk } from "../_shared/channel_env.ts";
 import {
-  AUTH_OTP_STUB_CODE,
-  assertOtpChannelAllowed,
-} from "../_shared/auth_otp_env.ts";
+  anonClient,
+  AuthEdgeError,
+  enforceAuthRateLimit,
+  isPendingSignup,
+  jsonResponse,
+  normalizeCode,
+  normalizeE164,
+  normalizeEmail,
+  serviceClient,
+  sessionPayload,
+  userClient,
+} from "../_shared/auth_edge.ts";
 
 type Body = {
   email?: string;
   phone_e164?: string;
+  channel?: "email" | "phone";
   code?: string;
   new_password?: string;
+  device_id?: string;
 };
-
-function normalizeEmail(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const v = raw.trim().toLowerCase();
-  if (!v || !v.includes("@")) return null;
-  return v;
-}
-
-function normalizeE164(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  let v = raw.trim().replace(/[\s\-()]/g, "");
-  if (!v) return null;
-  if (!/^\+?[0-9]{8,15}$/.test(v)) return null;
-  if (!v.startsWith("+")) v = `+${v}`;
-  return v;
-}
-
-function toHex(buf: ArrayBuffer): string {
-  return [...new Uint8Array(buf)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function hashCode(code: string): Promise<string> {
-  const data = new TextEncoder().encode(code.trim());
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return toHex(digest);
-}
-
-function serviceClient(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-}
 
 Deno.serve(async (req) => {
   try {
-    if (req.method !== "POST") return jsonErr("POST required", 405);
+    if (req.method === "OPTIONS") return jsonResponse(req, { ok: true });
+    if (req.method !== "POST") {
+      return jsonResponse(req, { error: "POST required", code: "METHOD_NOT_ALLOWED" }, 405);
+    }
 
     const body = (await req.json().catch(() => ({}))) as Body;
     const email = normalizeEmail(body.email);
     const phone = normalizeE164(body.phone_e164);
-    if (!email && !phone) {
-      return jsonErr("email and/or phone_e164 required", 400);
+    const channel = body.channel ?? (email ? "email" : phone ? "phone" : null);
+    const code = normalizeCode(body.code);
+    const newPassword = typeof body.new_password === "string" ? body.new_password : "";
+
+    if (!channel || (channel === "email" && !email) || (channel === "phone" && !phone)) {
+      return jsonResponse(req, {
+        error: "Choose email or phone and provide a valid identifier",
+        code: "IDENTIFIER_REQUIRED",
+      }, 400);
     }
-    const code = typeof body.code === "string" ? body.code.trim() : "";
-    if (!/^[0-9]{6}$/.test(code)) {
-      return jsonErr("6-digit code required", 400);
+    if (!code) {
+      return jsonResponse(req, { error: "Valid verification code required", code: "CODE_REQUIRED" }, 400);
     }
-    const newPassword =
-      typeof body.new_password === "string" ? body.new_password : "";
     if (newPassword.length < 8) {
-      return jsonErr("new_password must be at least 8 characters", 400);
+      return jsonResponse(req, {
+        error: "New password must be at least 8 characters",
+        code: "PASSWORD_TOO_SHORT",
+      }, 400);
     }
 
-    const supabase = serviceClient();
-    const gateEmail = email ? assertOtpChannelAllowed("email") : null;
-    const gatePhone = phone ? assertOtpChannelAllowed("phone") : null;
-    const stubOk =
-      (gateEmail?.ok && gateEmail.stub && code === AUTH_OTP_STUB_CODE) ||
-      (gatePhone?.ok && gatePhone.stub && code === AUTH_OTP_STUB_CODE);
+    const service = serviceClient();
+    const identifier = channel === "email" ? email! : phone!;
+    await enforceAuthRateLimit(
+      service,
+      req,
+      "password_reset_verify",
+      `${channel}:${identifier}`,
+      body.device_id,
+    );
 
-    if (!stubOk) {
-      const channel = email ? "email" : "phone";
-      const identifier = email ?? phone!;
-      const codeHash = await hashCode(code);
-      const { data: row, error } = await supabase
-        .from("password_reset_challenges")
-        .select("id, code_hash, expires_at, attempt_count, consumed_at")
-        .eq("channel", channel)
-        .eq("identifier", identifier)
-        .is("consumed_at", null)
-        .order("expires_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) return jsonErr(error.message, 400);
-      if (!row) return jsonErr("reset code not found", 401);
-      if (new Date(row.expires_at).getTime() <= Date.now()) {
-        return jsonErr("reset code expired", 401);
-      }
-      if ((row.attempt_count as number) >= 5) {
-        return jsonErr("too many attempts", 429);
-      }
-      if (row.code_hash !== codeHash) {
-        await supabase
-          .from("password_reset_challenges")
-          .update({ attempt_count: (row.attempt_count as number) + 1 })
-          .eq("id", row.id);
-        return jsonErr("invalid reset code", 401);
-      }
-      await supabase
-        .from("password_reset_challenges")
-        .update({ consumed_at: new Date().toISOString() })
-        .eq("id", row.id);
+    const auth = anonClient();
+    const verified = channel === "email"
+      ? await auth.auth.verifyOtp({ email: email!, token: code, type: "recovery" })
+      : await auth.auth.verifyOtp({ phone: phone!, token: code, type: "sms" });
+
+    if (verified.error || !verified.data.session || !verified.data.user) {
+      return jsonResponse(req, {
+        error: "Invalid or expired reset code",
+        code: "RESET_CODE_INVALID_OR_EXPIRED",
+      }, 401);
     }
 
-    let userId: string | null = null;
-    if (email) {
-      const { data: users } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 200,
-      });
-      const match = users?.users?.find((u) => u.email?.toLowerCase() === email);
-      userId = match?.id ?? null;
+    if (isPendingSignup(verified.data.user)) {
+      await auth.auth.signOut({ scope: "local" }).catch(() => undefined);
+      return jsonResponse(req, {
+        error: "This account has not completed signup",
+        code: "SIGNUP_INCOMPLETE",
+      }, 409);
     }
-    if (!userId && phone) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("phone_e164", phone)
-        .maybeSingle();
-      userId = prof?.id ?? null;
-    }
-    if (!userId) return jsonErr("account not found", 404);
 
-    const { error: updErr } = await supabase.auth.admin.updateUserById(userId, {
-      password: newPassword,
+    // Use the Supabase recovery session itself to authorize the password change.
+    // No service-role password mutation is performed.
+    const scoped = userClient();
+    const set = await scoped.auth.setSession({
+      access_token: verified.data.session.access_token,
+      refresh_token: verified.data.session.refresh_token,
     });
-    if (updErr) return jsonErr(updErr.message, 400);
+    if (set.error || !set.data.session) {
+      return jsonResponse(req, {
+        error: "Recovery session could not be established",
+        code: "RECOVERY_SESSION_FAILED",
+      }, 401);
+    }
 
-    await supabase
-      .from("profiles")
-      .update({
-        must_change_password: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
+    const changed = await scoped.auth.updateUser({ password: newPassword });
+    if (changed.error || !changed.data.user) {
+      console.error("verify-password-reset updateUser", changed.error?.code, changed.error?.message);
+      return jsonResponse(req, {
+        error: "Password update failed",
+        code: changed.error?.code ?? "PASSWORD_UPDATE_FAILED",
+      }, changed.error?.status && changed.error.status >= 500 ? 503 : 400);
+    }
 
-    return jsonOk({ ok: true, user_id: userId });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "password reset verify failed";
-    return jsonErr(msg, 500);
+    // Keep the just-recovered session, revoke other refresh-token sessions.
+    await scoped.auth.signOut({ scope: "others" }).catch((error) =>
+      console.warn("verify-password-reset revoke others", String(error))
+    );
+
+    await service.from("profiles").update({
+      must_change_password: false,
+      updated_at: new Date().toISOString(),
+    }).eq("id", changed.data.user.id);
+
+    return jsonResponse(req, {
+      ok: true,
+      password_updated: true,
+      ...sessionPayload(set.data.session, changed.data.user),
+    });
+  } catch (error) {
+    if (error instanceof AuthEdgeError) {
+      return jsonResponse(req, { error: error.message, code: error.code }, error.status);
+    }
+    console.error("verify-password-reset", error);
+    return jsonResponse(req, { error: "Password reset service error", code: "RESET_SERVICE_ERROR" }, 500);
   }
 });
