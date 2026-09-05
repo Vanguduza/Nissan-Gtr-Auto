@@ -13,7 +13,7 @@ enum AppThemeMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Shared storefront dependency for feature tabs + GoTrue session + wish-set + prefs.
+/// Shared storefront dependency for feature tabs + Supabase Auth session + wish-set + prefs.
 @MainActor
 final class StorefrontSession: ObservableObject {
     let api: any StorefrontApi
@@ -21,14 +21,12 @@ final class StorefrontSession: ObservableObject {
 
     @Published private(set) var isSignedIn: Bool
     @Published private(set) var userEmail: String?
-    /// Uppercased OEM keys currently wished — sticky hearts across Home/Shop/PDP/Wishlist.
     @Published private(set) var wishOems: Set<String> = []
     @Published private(set) var wishlistItems: [WishlistItem] = []
 
     @Published var themeMode: AppThemeMode {
         didSet { UserDefaults.standard.set(themeMode.rawValue, forKey: Self.themeKey) }
     }
-    /// Local preference only — no FCM wiring yet.
     @Published var receivePush: Bool {
         didSet { UserDefaults.standard.set(receivePush, forKey: Self.pushKey) }
     }
@@ -39,9 +37,7 @@ final class StorefrontSession: ObservableObject {
     private static let themeKey = "gtr.themeMode"
     private static let pushKey = "gtr.receivePush"
 
-    var requiresSignIn: Bool {
-        !usesFake && !isSignedIn
-    }
+    var requiresSignIn: Bool { !usesFake && !isSignedIn }
 
     var preferredColorScheme: ColorScheme? {
         switch themeMode {
@@ -80,9 +76,7 @@ final class StorefrontSession: ObservableObject {
             self.userEmail = nil
         }
 
-        if AppEnv.isConfigured {
-            self.goTrue = try? GoTrueAuthClient()
-        }
+        if AppEnv.isConfigured { self.goTrue = try? GoTrueAuthClient() }
     }
 
     func isLiked(oem: String) -> Bool {
@@ -123,15 +117,56 @@ final class StorefrontSession: ObservableObject {
             await refreshWishlist()
             return
         }
-        guard let goTrue else {
-            throw StorefrontError.notConfigured
-        }
-
-        let session = try await goTrue.signIn(email: email, password: password)
-        try await applyGoTrueSession(session, liveApi: liveApi)
+        guard let goTrue else { throw StorefrontError.notConfigured }
+        let authSession = try await goTrue.signIn(email: email, password: password)
+        try await applyGoTrueSession(authSession, liveApi: liveApi)
     }
 
-    /// Sign in with Apple → GoTrue `grant_type=id_token` (raw nonce must match hashed request nonce).
+    // MARK: - Supabase Auth Edge signup/recovery
+
+    func requestSignupEmailCode(email: String) async throws {
+        guard !usesFake else { return }
+        guard let goTrue else { throw StorefrontError.notConfigured }
+        try await goTrue.requestSignupEmailCode(email: email)
+    }
+
+    func completeSignup(email: String, code: String, password: String) async throws {
+        guard let liveApi else {
+            isSignedIn = true
+            userEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+            return
+        }
+        guard let goTrue else { throw StorefrontError.notConfigured }
+        let verification = try await goTrue.verifySignupEmailCode(email: email, code: code)
+        guard verification.emailVerified, verification.signupReady else {
+            throw StorefrontError.message("Email verification is incomplete.")
+        }
+        let authSession = try await goTrue.completeSignup(email: email, password: password)
+        try await applyGoTrueSession(authSession, liveApi: liveApi)
+    }
+
+    func requestPasswordReset(email: String) async throws {
+        guard !usesFake else { return }
+        guard let goTrue else { throw StorefrontError.notConfigured }
+        try await goTrue.requestPasswordReset(email: email)
+    }
+
+    func completePasswordReset(email: String, code: String, newPassword: String) async throws {
+        guard let liveApi else {
+            isSignedIn = true
+            userEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+            return
+        }
+        guard let goTrue else { throw StorefrontError.notConfigured }
+        let authSession = try await goTrue.completePasswordReset(
+            email: email,
+            code: code,
+            newPassword: newPassword
+        )
+        try await applyGoTrueSession(authSession, liveApi: liveApi)
+    }
+
+    /// Sign in with Apple → Supabase Auth `grant_type=id_token`.
     func signInWithApple(idToken: String, rawNonce: String, email: String?) async throws {
         guard let liveApi else {
             isSignedIn = true
@@ -139,18 +174,16 @@ final class StorefrontSession: ObservableObject {
             await refreshWishlist()
             return
         }
-        guard let goTrue else {
-            throw StorefrontError.notConfigured
-        }
-        let session = try await goTrue.signInWithIdToken(
+        guard let goTrue else { throw StorefrontError.notConfigured }
+        let authSession = try await goTrue.signInWithIdToken(
             provider: .apple,
             idToken: idToken,
             nonce: rawNonce
         )
-        try await applyGoTrueSession(session, liveApi: liveApi, emailOverride: email)
+        try await applyGoTrueSession(authSession, liveApi: liveApi, emailOverride: email)
     }
 
-    /// Google via ASWebAuthenticationSession → Supabase OAuth PKCE (no GoogleSignIn SDK).
+    /// Google via ASWebAuthenticationSession → Supabase OAuth PKCE.
     func signInWithGoogle() async throws {
         guard let liveApi else {
             isSignedIn = true
@@ -158,14 +191,11 @@ final class StorefrontSession: ObservableObject {
             await refreshWishlist()
             return
         }
-        guard let goTrue else {
-            throw StorefrontError.notConfigured
-        }
-        let session = try await GoogleOAuthBrowser.signIn(using: goTrue)
-        try await applyGoTrueSession(session, liveApi: liveApi)
+        guard let goTrue else { throw StorefrontError.notConfigured }
+        let authSession = try await GoogleOAuthBrowser.signIn(using: goTrue)
+        try await applyGoTrueSession(authSession, liveApi: liveApi)
     }
 
-    /// Deep-link `gtrcustomer://auth/callback` (OAuth / email confirm). Returns true if handled.
     @discardableResult
     func handleAuthCallbackURL(_ url: URL) async -> Bool {
         guard let payload = GoTrueAuthClient.parseAuthCallback(url) else { return false }
@@ -174,38 +204,35 @@ final class StorefrontSession: ObservableObject {
             switch payload {
             case .error(let message):
                 throw StorefrontError.message(message)
-            case .session(let session):
-                try await applyGoTrueSession(session, liveApi: liveApi)
+            case .session(let authSession):
+                try await applyGoTrueSession(authSession, liveApi: liveApi)
             case .pkce(let code):
-                // Browser flow stores verifier in GoogleOAuthBrowser; cold deep-link without
-                // verifier cannot complete PKCE — ignore (in-session ASWebAuth handles it).
                 _ = code
                 _ = goTrue
                 return true
             }
         } catch {
-            // Leave signed-out; SignInScreen shows its own errors for in-app flows.
+            // Leave signed-out; in-app flows display their own errors.
         }
         return true
     }
 
     private func applyGoTrueSession(
-        _ session: GoTrueAuthClient.Session,
+        _ authSession: GoTrueAuthClient.Session,
         liveApi: LiveStorefrontApi,
         emailOverride: String? = nil
     ) async throws {
-        liveApi.setAccessToken(session.accessToken)
-        let email = emailOverride ?? session.email
+        liveApi.setAccessToken(authSession.accessToken)
+        let email = emailOverride ?? authSession.email
         AuthTokenStore.save(
             AuthTokenRecord(
-                accessToken: session.accessToken,
-                refreshToken: session.refreshToken,
+                accessToken: authSession.accessToken,
+                refreshToken: authSession.refreshToken,
                 email: email
             )
         )
         userEmail = email
         isSignedIn = true
-        // Defense-in-depth: mint retail customers row if AuthZ context still null.
         _ = try? await liveApi.ensureOwnCustomerIfNeeded()
         await syncGuestCompareToServer()
         await refreshWishlist()
@@ -214,9 +241,7 @@ final class StorefrontSession: ObservableObject {
     func syncGuestCompareToServer() async {
         let local = GuestCompareStore.readOems()
         guard !local.isEmpty else { return }
-        for oem in local {
-            _ = try? await api.addCompareItem(stockItemId: nil, oem: oem)
-        }
+        for oem in local { _ = try? await api.addCompareItem(stockItemId: nil, oem: oem) }
         if let listed = try? await api.listCompareItems() {
             _ = GuestCompareStore.writeOems(listed.map(\.oemPartNumber))
         }
@@ -228,11 +253,7 @@ final class StorefrontSession: ObservableObject {
         userEmail = nil
         wishOems = []
         wishlistItems = []
-        if usesFake {
-            isSignedIn = true
-        } else {
-            isSignedIn = false
-        }
+        isSignedIn = usesFake
     }
 }
 
@@ -242,7 +263,6 @@ enum FeatureTab: String, CaseIterable, Identifiable {
     case account
 
     var id: String { rawValue }
-
     var title: String {
         switch self {
         case .shop: return "Shop"
@@ -250,7 +270,6 @@ enum FeatureTab: String, CaseIterable, Identifiable {
         case .account: return "Account"
         }
     }
-
     var systemImage: String {
         switch self {
         case .shop: return "magnifyingglass"
