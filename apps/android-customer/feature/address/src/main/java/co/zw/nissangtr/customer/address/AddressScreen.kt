@@ -31,13 +31,12 @@ import co.zw.nissangtr.ui.shop.ShopSectionHeader
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 
 /**
- * Shipping addresses — list / upsert / delete + optional Google Maps pick (Bridge-First maps-nav).
+ * Shipping addresses — list / upsert / delete + keyless MapLibre/OSM pick (Bridge-First maps-nav).
  * Wired to [RpcNames.UPSERT_CUSTOMER_ADDRESS] / [RpcNames.DELETE_CUSTOMER_ADDRESS].
  */
 @Composable
 fun AddressScreen(
     rpc: RpcClient,
-    mapsKeyPresent: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AddressViewModel = viewModel(factory = AddressViewModel.factory(rpc)),
@@ -101,7 +100,6 @@ fun AddressScreen(
                     form = state.form,
                     busy = state.busy,
                     error = state.error,
-                    mapsKeyPresent = mapsKeyPresent,
                     onBack = viewModel::backToList,
                     onFormChange = viewModel::onFormChange,
                     onMapPick = viewModel::onMapPick,
@@ -155,7 +153,6 @@ private fun AddressEditForm(
     form: AddressFormState,
     busy: Boolean,
     error: String?,
-    mapsKeyPresent: Boolean,
     onBack: () -> Unit,
     onFormChange: ((AddressFormState) -> AddressFormState) -> Unit,
     onMapPick: (Double, Double) -> Unit,
@@ -179,12 +176,11 @@ private fun AddressEditForm(
         longitude = form.longitude,
         onLatitudeChange = { v -> onFormChange { it.copy(latitude = v) } },
         onLongitudeChange = { v -> onFormChange { it.copy(longitude = v) } },
-        mapsKeyPresent = mapsKeyPresent,
+        mapAvailable = true,
         mapSlot = {
             AddressPickMap(
                 selected = selected,
                 onPick = { p -> onMapPick(p.latitude, p.longitude) },
-                mapsKeyPresent = mapsKeyPresent,
             )
         },
     )

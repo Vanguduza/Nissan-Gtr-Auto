@@ -34,10 +34,9 @@ public enum AppEnv {
         isConfigured && !forceFake
     }
 
-    /// Digits-only E.164 for `wa.me` CTA (optional; defaults match web placeholder).
+    /// Digits-only E.164 for `wa.me` CTA. Empty means the optional CTA is unavailable.
     public static var whatsappE164Digits: String {
-        let raw = env("WHATSAPP_E164").filter(\.isNumber)
-        return raw.isEmpty ? "263770000000" : raw
+        env("WHATSAPP_E164").filter(\.isNumber)
     }
 
     /// Scheme `ProcessInfo` first, then generated Info.plist keys from `Config/Shared.xcconfig`.

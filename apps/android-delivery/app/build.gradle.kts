@@ -31,17 +31,13 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${localProp("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProp("SUPABASE_ANON_KEY")}\"")
         buildConfigField("String", "SUPPORT_PHONE", "\"${localProp("SUPPORT_PHONE")}\"")
-        buildConfigField(
-            "String",
-            "GOOGLE_MAPS_API_KEY",
-            "\"${localProp("GOOGLE_MAPS_API_KEY")}\"",
-        )
+        val routingBaseUrl = localProp("ROUTING_BASE_URL").ifBlank { "https://router.project-osrm.org/route/v1/driving" }
+        buildConfigField("String", "ROUTING_BASE_URL", "\"$routingBaseUrl\"")
         buildConfigField(
             "boolean",
             "RPC_FORCE_FAKE",
             localProp("rpc.forceFake").equals("true", ignoreCase = true).toString(),
         )
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = localProp("GOOGLE_MAPS_API_KEY")
     }
 
     buildTypes {

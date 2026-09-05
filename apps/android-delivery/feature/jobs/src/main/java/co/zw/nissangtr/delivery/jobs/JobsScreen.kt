@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.maps.DeliveryRouteMap
+import co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher
 import co.zw.nissangtr.bridges.maps.MapLatLng
 import co.zw.nissangtr.bridges.maps.MapStop
 import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
@@ -497,7 +498,7 @@ fun JobDetailScreen(
             }
     }
 
-    LaunchedEffect(job.id, tracking.lastLat, tracking.lastLng, state.mapsKeyPresent) {
+    LaunchedEffect(job.id, tracking.lastLat, tracking.lastLng) {
         vm.refreshRouteGuidance(tracking.lastLat, tracking.lastLng)
     }
 
@@ -546,7 +547,6 @@ fun JobDetailScreen(
                 driver = driverPos,
                 routePoints = state.routePoints,
                 otherStops = otherStops,
-                mapsKeyPresent = state.mapsKeyPresent,
                 myLocationEnabled = tracking.tracking,
             )
         }
@@ -700,7 +700,7 @@ fun JobsScreen(
     camera: PodCameraBridge,
     signature: PodSignatureBridge,
     supportPhone: String,
-    mapsApiKey: String,
+    routingBaseUrl: String = DirectionsRouteFetcher.DEFAULT_ROUTING_BASE_URL,
     trackingVm: TrackingViewModel,
     shellTitle: String = "My jobs",
     shellSubtitle: String? = null,
@@ -710,7 +710,7 @@ fun JobsScreen(
 ) {
     val context = LocalContext.current
     val vm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, mapsApiKey),
+        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, routingBaseUrl),
     )
     val state by vm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()

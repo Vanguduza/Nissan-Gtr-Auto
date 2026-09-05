@@ -179,11 +179,17 @@ export function StaffBlanketPanel() {
       setBusy(false);
       return;
     }
+    const exchangeRate = currency === "ZIG" ? zigExchangeRate() : 1;
+    if (exchangeRate == null) {
+      setMessage("ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled.");
+      setBusy(false);
+      return;
+    }
     const res = await createBlanketPurchaseOrder(client, {
       supplierId,
       warehouseId,
       currency,
-      exchangeRate: currency === "ZIG" ? zigExchangeRate() : 1,
+      exchangeRate,
       blanketMaxValue: max,
       lines,
       notes: notes.trim() || undefined,

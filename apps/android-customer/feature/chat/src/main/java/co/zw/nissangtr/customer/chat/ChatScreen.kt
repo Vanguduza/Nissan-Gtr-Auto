@@ -86,14 +86,16 @@ fun ChatScreen(
             Text("Unread: ${state.unread}", style = MaterialTheme.typography.bodySmall)
         }
 
-        OutlinedButton(
-            onClick = {
-                openWhatsApp(context, whatsappE164Digits)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = sharp,
-        ) {
-            Text("Ask counter on WhatsApp")
+        if (whatsappE164Digits.any { it.isDigit() }) {
+            OutlinedButton(
+                onClick = {
+                    openWhatsApp(context, whatsappE164Digits)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = sharp,
+            ) {
+                Text("Ask counter on WhatsApp")
+            }
         }
 
         if (state.selectedId == null) {
@@ -333,10 +335,9 @@ private fun MessageBubble(msg: ChatMessage) {
     }
 }
 
-private const val DEFAULT_WHATSAPP_DIGITS = "263770000000"
-
 private fun openWhatsApp(context: android.content.Context, digits: String) {
-    val clean = digits.filter { it.isDigit() }.ifEmpty { DEFAULT_WHATSAPP_DIGITS }
+    val clean = digits.filter { it.isDigit() }
+    if (clean.isEmpty()) return
     val text = URLEncoder.encode(
         "Hi GTR Auto — I need a parts counter check",
         StandardCharsets.UTF_8.toString(),

@@ -309,9 +309,13 @@ export async function createJournalDraft(
     lines: JournalLineInput[];
   },
 ): Promise<StorefrontResult<string>> {
+  const configuredZigRate = zigExchangeRate();
+  if (args.currency === "ZIG" && args.exchangeRate == null && configuredZigRate == null) {
+    return { ok: false, error: "ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled." };
+  }
   const exchangeRate =
     args.currency === "ZIG"
-      ? (args.exchangeRate ?? zigExchangeRate())
+      ? (args.exchangeRate ?? configuredZigRate!)
       : (args.exchangeRate ?? 1);
 
   const { data, error } = await client.rpc("create_journal_draft", {
@@ -473,9 +477,13 @@ export async function createPaymentEntry(
     notes?: string;
   },
 ): Promise<StorefrontResult<string>> {
+  const configuredZigRate = zigExchangeRate();
+  if (args.currency === "ZIG" && args.exchangeRate == null && configuredZigRate == null) {
+    return { ok: false, error: "ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled." };
+  }
   const exchangeRate =
     args.currency === "ZIG"
-      ? (args.exchangeRate ?? zigExchangeRate())
+      ? (args.exchangeRate ?? configuredZigRate!)
       : (args.exchangeRate ?? 1);
 
   const { data, error } = await client.rpc("create_payment_entry", {
@@ -1089,9 +1097,13 @@ export async function createFinanceRequisition(
     lines?: FinanceRequisitionLineInput[];
   },
 ): Promise<StorefrontResult<string>> {
+  const configuredZigRate = zigExchangeRate();
+  if (args.currency === "ZIG" && args.exchangeRate == null && configuredZigRate == null) {
+    return { ok: false, error: "ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled." };
+  }
   const exchangeRate =
     args.currency === "ZIG"
-      ? (args.exchangeRate ?? zigExchangeRate())
+      ? (args.exchangeRate ?? configuredZigRate!)
       : (args.exchangeRate ?? 1);
 
   const seedAmount =

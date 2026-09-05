@@ -1,3 +1,4 @@
+-- LOCAL DEVELOPMENT ONLY. Never execute this seed against a hosted/production Supabase project.
 -- Dev-only seed (local `supabase db reset`). Never use these passwords in production.
 -- Requires extensions used by Auth (pgcrypto already in Phase 1 foundation).
 

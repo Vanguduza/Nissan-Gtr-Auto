@@ -113,9 +113,9 @@ Ports from `supabase/config.toml` (`[api]` 54321, `[studio]` 54323). Prefer `127
 
 | Email | Password | Role |
 |-------|----------|------|
-| `admin@gtr.local` | `local-dev-admin` | admin |
-| `finance@gtr.local` | `local-dev-finance` | finance |
-| `warehouse@gtr.local` | `local-dev-warehouse` | warehouse |
+| `admin@gtr.local` | local-only; see `docs/LOCAL_DEVELOPMENT.md` | admin |
+| `finance@gtr.local` | local-only; see `docs/LOCAL_DEVELOPMENT.md` | finance |
+| `warehouse@gtr.local` | local-only; see `docs/LOCAL_DEVELOPMENT.md` | warehouse |
 | `storefront-a@gtr.local` | `local-dev-customer` | customer |
 | `storefront-b@gtr.local` | `local-dev-customer` | customer |
 

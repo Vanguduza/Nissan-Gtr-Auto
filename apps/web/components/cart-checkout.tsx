@@ -60,7 +60,7 @@ export function CartCheckout() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [fulfillment, setFulfillment] = useState<Fulfillment>("immediate");
   const [settleCurrency, setSettleCurrency] = useState<SettleCurrency>("USD");
-  const [zigRate, setZigRate] = useState<number>(1);
+  const [zigRate, setZigRate] = useState<number | null>(null);
   const [tender, setTender] = useState<Tender>("cash");
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
@@ -132,7 +132,7 @@ export function CartCheckout() {
   }, [status]);
 
   const zigTotal = useMemo(
-    () => Math.round(totalUsd * zigRate * 100) / 100,
+    () => (zigRate == null ? null : Math.round(totalUsd * zigRate * 100) / 100),
     [totalUsd, zigRate],
   );
 
@@ -173,6 +173,17 @@ export function CartCheckout() {
       return;
     }
 
+    const requestedZigRate =
+      settleCurrency === "ZIG" ? await fetchZigExchangeRate(client) : null;
+    if (settleCurrency === "ZIG" && requestedZigRate == null) {
+      setMessage(
+        "ZiG settlement is unavailable because Finance has not published a verified exchange rate. Choose USD or try again after the rate is configured.",
+      );
+      setSettleCurrency("USD");
+      setBusy(false);
+      return;
+    }
+
     const invoice = await checkoutCustomerCart(client, cartId);
     if (!invoice.ok) {
       setMessage(invoice.error);
@@ -195,13 +206,13 @@ export function CartCheckout() {
     }
 
     const invTotal = Number(invRow?.total ?? totalUsd);
-    const rate = await fetchZigExchangeRate(client);
+    const rate = requestedZigRate ?? 1;
     const settlement =
-      settleCurrency === "ZIG"
+      settleCurrency === "ZIG" && requestedZigRate != null
         ? {
             currency: "ZIG" as const,
-            amount: Math.round(invTotal * rate * 100) / 100,
-            exchangeRate: rate,
+            amount: Math.round(invTotal * requestedZigRate * 100) / 100,
+            exchangeRate: requestedZigRate,
           }
         : undefined;
 
@@ -479,12 +490,14 @@ export function CartCheckout() {
                 name="settle"
                 checked={settleCurrency === "ZIG"}
                 onChange={() => setSettleCurrency("ZIG")}
+                disabled={zigRate == null}
               />
               <span>
                 <strong>ZiG</strong>
                 <span className={styles.muted}>
-                  ≈ {formatMoney(zigTotal, "ZIG")} @ {zigRate} ZiG per USD
-                  (today&apos;s rate)
+                  {zigRate != null && zigTotal != null
+                    ? `≈ ${formatMoney(zigTotal, "ZIG")} @ ${zigRate} ZiG per USD (today's rate)`
+                    : "Unavailable until Finance publishes a verified exchange rate"}
                 </span>
               </span>
             </label>

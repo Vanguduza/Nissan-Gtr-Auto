@@ -18,8 +18,8 @@ export default function StaffChangePasswordPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (password.length < 8) {
-      setMessage("Password must be at least 8 characters.");
+    if (password.length < 12) {
+      setMessage("Password must be at least 12 characters.");
       return;
     }
     if (password !== confirm) {
@@ -67,7 +67,7 @@ export default function StaffChangePasswordPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={busy}
                 autoComplete="new-password"
-                minLength={8}
+                minLength={12}
                 required
               />
             </label>
@@ -79,7 +79,7 @@ export default function StaffChangePasswordPage() {
                 onChange={(e) => setConfirm(e.target.value)}
                 disabled={busy}
                 autoComplete="new-password"
-                minLength={8}
+                minLength={12}
                 required
               />
             </label>

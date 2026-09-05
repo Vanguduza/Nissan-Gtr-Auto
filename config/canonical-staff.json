@@ -1,0 +1,26 @@
+{
+  "project_ref": "bicyjghgdnzlnjqxzoud",
+  "accounts": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "email": "admin@gtr.local",
+      "full_name": "Nissan GTR Auto Admin",
+      "role": "admin",
+      "password_env": "GTR_CANONICAL_ADMIN_PASSWORD"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "email": "finance@gtr.local",
+      "full_name": "Nissan GTR Auto Finance",
+      "role": "finance",
+      "password_env": "GTR_CANONICAL_FINANCE_PASSWORD"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "email": "warehouse@gtr.local",
+      "full_name": "Nissan GTR Auto Warehouse",
+      "role": "warehouse",
+      "password_env": "GTR_CANONICAL_WAREHOUSE_PASSWORD"
+    }
+  ]
+}

@@ -52,4 +52,6 @@ data-pipeline/.venv/
 
 # Local CLI binaries
 .tools/
+# Server-only canonical staff bootstrap secrets
+.canonical-staff.env
 

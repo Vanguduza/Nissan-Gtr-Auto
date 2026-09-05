@@ -1,5 +1,8 @@
 # Local Development — Switch from Cloud Agents
 
+> **Local-only credentials:** any `local-dev-*` passwords in this document are disposable development fixtures. They are forbidden for hosted/canonical staff accounts.
+
+
 This project is configured for **local Cursor Desktop** as the primary workflow.
 Cloud Agents (`.cursor/environment.json`) remain optional for overnight/long tasks only.
 

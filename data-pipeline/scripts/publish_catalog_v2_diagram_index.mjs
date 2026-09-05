@@ -7,9 +7,8 @@
  * bundle. Staff EPC browsing then asks the live catalog gateway for a diagram id and receives a
  * short-lived signed R2 URL.
  *
- * The publisher dual-registers each diagram in:
- *  1. the legacy catalog_v2 diagram-image lookup (compatibility), and
- *  2. catalog_r2_serving_objects (preferred live runtime manifest).
+ * The publisher registers each diagram directly in catalog_r2_serving_objects,
+ * which is the replacement project's canonical live runtime manifest.
  *
  * NDJSON row contract:
  * {
@@ -112,7 +111,6 @@ async function publish(rows, n) {
     return rows.length;
   }
 
-  const changed = await rpc("catalog_v2_ingest_diagram_image_index_batch", { p_rows: rows });
   const servingRows = rows.map((row) => ({
     release_id: resolvedRelease.id,
     maker_slug: row.maker_slug,
@@ -134,7 +132,7 @@ async function publish(rows, n) {
   }));
   await rpc("catalog_v2_ingest_r2_serving_objects_batch", { p_rows: servingRows });
   console.log(`batch ${n}: ${rows.length} diagram mappings registered for live R2 browsing`);
-  return Number(changed ?? 0);
+  return rows.length;
 }
 
 const rl = createInterface({ input: createReadStream(input), crlfDelay: Infinity });
@@ -167,6 +165,6 @@ if (batch.length) {
   batchNo += 1;
   changed += await publish(batch, batchNo);
 }
-console.log(`accepted ${accepted} diagram mappings for source release ${sourceRelease ?? "(none)"}; legacy index changed ${changed}`);
+console.log(`accepted ${accepted} diagram mappings for source release ${sourceRelease ?? "(none)"}; live mappings registered ${changed}`);
 console.log(`live release: ${resolvedRelease?.version ?? "(dry-run/not resolved)"}`);
 console.log("Normal staff browsing now resolves diagram images from R2 by diagram_id without downloading the full catalog.");

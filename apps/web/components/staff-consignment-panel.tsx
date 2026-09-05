@@ -187,6 +187,12 @@ export function StaffConsignmentPanel() {
     if (!client) return;
     setBusy(true);
     setMessage(null);
+    const exchangeRate = currency === "ZIG" ? zigExchangeRate() : 1;
+    if (exchangeRate == null) {
+      setMessage("ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled.");
+      setBusy(false);
+      return;
+    }
     const res = await createConsignmentDraft(client, {
       kind,
       purpose,
@@ -194,7 +200,7 @@ export function StaffConsignmentPanel() {
       supplierId: kind === "supplier_owned" ? supplierId : undefined,
       customerId: kind === "customer_held" ? customerId : undefined,
       currency,
-      exchangeRate: currency === "ZIG" ? zigExchangeRate() : 1,
+      exchangeRate,
       notes: notes.trim() || undefined,
     });
     setBusy(false);

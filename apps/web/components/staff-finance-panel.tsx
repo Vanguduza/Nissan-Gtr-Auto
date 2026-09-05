@@ -151,7 +151,8 @@ function monthStartInput(): string {
 }
 
 function defaultZigRate(): string {
-  return String(zigExchangeRate());
+  const rate = zigExchangeRate();
+  return rate == null ? "" : String(rate);
 }
 
 function parseExchangeRate(
@@ -421,7 +422,7 @@ function StaffFinancePanelInner() {
     });
 
     const rate = await fetchZigExchangeRate(client);
-    const rateStr = String(rate);
+    const rateStr = rate == null ? "" : String(rate);
     setOfficialRate(rateStr);
     setDailyRate(rateStr);
     setExchangeRate(rateStr);
@@ -442,7 +443,7 @@ function StaffFinancePanelInner() {
       return;
     }
     setRateHistory(history.data);
-    const rateStr = String(rate);
+    const rateStr = rate == null ? "" : String(rate);
     setOfficialRate(rateStr);
     setDailyRate((prev) => (prev.trim() ? prev : rateStr));
   }, []);

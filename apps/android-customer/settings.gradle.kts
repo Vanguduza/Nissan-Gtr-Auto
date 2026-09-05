@@ -40,7 +40,7 @@ include(":pod-camera")
 project(":pod-camera").projectDir =
     file("../../bridges/android/pod-camera")
 
-// Bridge-First — Google Maps address pick / display (maps-nav)
+// Bridge-First — MapLibre address pick / display (maps-nav)
 include(":maps-nav")
 project(":maps-nav").projectDir =
     file("../../bridges/android/maps-nav")

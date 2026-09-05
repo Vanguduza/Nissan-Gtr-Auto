@@ -206,7 +206,6 @@ class MainActivity : ComponentActivity() {
         )
         val supabase = rpc as? SupabaseRpcClient
         liveSupabase = supabase
-        val mapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
         val googleServerClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
         val prefs = CustomerPrefs(this)
         applyTrackIntent(intent)
@@ -256,7 +255,6 @@ class MainActivity : ComponentActivity() {
                                     prefs.themeMode = it
                                 },
                                 whatsappE164 = BuildConfig.WHATSAPP_E164,
-                                mapsKeyPresent = mapsKeyPresent,
                                 trackLaunch = launch,
                                 partsLaunch = parts,
                                 camera = cameraBridge,
@@ -400,7 +398,6 @@ private fun CustomerApp(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     whatsappE164: String,
-    mapsKeyPresent: Boolean,
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
     partsLaunch: PartsLaunchArgs = PartsLaunchArgs(),
     camera: PodCameraBridge?,
@@ -641,7 +638,6 @@ private fun CustomerApp(
                 onSignOut = onSignOut,
                 onSignIn = { overlay = ShellOverlay.SignIn },
                 whatsappE164 = whatsappE164,
-                mapsKeyPresent = mapsKeyPresent,
                 trackToken = trackToken,
                 trackJobId = trackJobId,
                 trackSession = trackSession,
@@ -797,7 +793,6 @@ private fun ProfileStack(
     onSignOut: () -> Unit,
     onSignIn: () -> Unit,
     whatsappE164: String,
-    mapsKeyPresent: Boolean,
     trackToken: String?,
     trackJobId: String?,
     trackSession: Int,
@@ -841,7 +836,6 @@ private fun ProfileStack(
         )
         ProfileDest.Addresses -> AddressScreen(
             rpc = rpc,
-            mapsKeyPresent = mapsKeyPresent,
             onBack = { onDest(ProfileDest.Hub) },
         )
         ProfileDest.Compare -> CompareScreen(

@@ -78,20 +78,20 @@ export function writeStoredCartId(id: string | null) {
   else window.localStorage.removeItem(CART_KEY);
 }
 
-export function zigExchangeRate(): number {
+export function zigExchangeRate(): number | null {
   const raw = process.env.NEXT_PUBLIC_ZIG_EXCHANGE_RATE;
   const n = raw ? Number(raw) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : 1;
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**
  * Official daily ZiG rate (ZiG per 1 USD) from `get_zig_exchange_rate`.
- * Falls back to {@link zigExchangeRate} env default when unset.
+ * Falls back only to an explicitly configured positive env value. Missing rates fail closed.
  */
 export async function fetchZigExchangeRate(
   client: SupabaseClient,
   asOf?: string,
-): Promise<number> {
+): Promise<number | null> {
   const { data, error } = await client.rpc("get_zig_exchange_rate", {
     p_as_of: asOf ?? null,
   });

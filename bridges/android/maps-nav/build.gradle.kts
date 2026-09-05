@@ -35,10 +35,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.runtime:runtime")
 
-    // Maps SDK (proprietary Google) + Apache-2.0 maps-compose wrapper.
-    // Navigation SDK deferred — requires Google partnership; Directions REST + polyline instead.
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
-    implementation("com.google.maps.android:maps-compose:4.4.1")
+    // Keyless/open-source map rendering. Pinned for deterministic production builds.
+    // OpenGL artifact has the widest compatibility across our minSdk 26 fleet.
+    implementation("org.maplibre.gl:android-sdk-opengl:13.4.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
