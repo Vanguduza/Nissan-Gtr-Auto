@@ -3,20 +3,15 @@ import { normalizeE164, normalizeReceiptEmail } from "@gtr/shared";
 
 export type AuthOtpRequestResult = {
   ok: true;
-  stub: boolean;
-  /** Present only when Edge local stub is enabled — never hardcode in the client. */
-  stubCode?: string;
-  channels: Record<string, unknown>;
+  userId?: string;
+  channels: Record<string, { sent?: boolean; error?: string }>;
+  verificationRequired: { email: boolean; phone: boolean };
 };
 
 export type AuthOtpVerifyResult = {
   ok: true;
-  verified: true;
-  email: string | null;
-  phone_e164: string | null;
-  /** Short-lived server proof — required for complete_signup (not login). */
-  proofToken: string;
-  proofExpiresAt?: string;
+  verified: { email: boolean; phone: boolean | null };
+  signupReady: boolean;
 };
 
 export type AuthOtpSessionResult = {
@@ -27,13 +22,14 @@ export type AuthOtpSessionResult = {
   expiresIn?: number;
   email: string | null;
   phone_e164: string | null;
+  customerId?: string;
 };
 
 export type AuthOtpError = {
   ok: false;
   error: string;
   status?: number;
-  /** True when Edge refused send (missing gateway keys, no local stub). */
+  code?: string;
   failClosed?: boolean;
 };
 
@@ -45,11 +41,15 @@ function edgeErrorMessage(body: unknown, fallback: string): string {
   return fallback;
 }
 
+function edgeErrorCode(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const code = (body as Record<string, unknown>).code;
+  return typeof code === "string" && code.trim() ? code.trim() : undefined;
+}
+
 function isFailClosedMessage(msg: string, status?: number): boolean {
   if (status === 503) return true;
-  return /refus|unavail|gateway|not configured|AUTH_OTP|fail.?closed|misconfigured/i.test(
-    msg,
-  );
+  return /unavail|not configured|misconfigured|delivery|provider|service error|fail.?closed/i.test(msg);
 }
 
 async function readFunctionsErrorBody(
@@ -91,163 +91,139 @@ async function readFunctionsErrorBody(
   return { body: null };
 }
 
+function authEdgeError(
+  body: unknown,
+  fallback: string,
+  status?: number,
+): AuthOtpError {
+  const msg = edgeErrorMessage(body, fallback);
+  return {
+    ok: false,
+    error: msg,
+    status,
+    code: edgeErrorCode(body),
+    failClosed: isFailClosedMessage(msg, status),
+  };
+}
+
 /**
- * Customer OTP via Edge `auth-otp` — signup and contact confirmation only.
- * Returning logins use {@link signInWithEmailOrPhone} (password; no OTP).
- * Fail-closed when server returns 503 (no gateway keys / no local stub flag).
- * Never treat stub code as a client-side production default.
+ * Starts customer signup. Supabase Auth owns the pending user and generates all
+ * verification codes. Nissan GTR Auto never generates, stores or exposes OTPs.
  */
 export async function requestAuthOtp(
   client: SupabaseClient,
-  args: { email?: string | null; phoneE164?: string | null },
+  args: {
+    email: string;
+    phoneE164?: string | null;
+    fullName?: string | null;
+    deviceId?: string | null;
+  },
 ): Promise<AuthOtpRequestResult | AuthOtpError> {
   const email = normalizeReceiptEmail(args.email);
   const phone = normalizeE164(args.phoneE164);
-  if (!email && !phone) {
-    return { ok: false, error: "Enter email and/or phone (E.164)." };
-  }
+  if (!email) return { ok: false, error: "Enter a valid email address." };
 
   const { data, error } = await client.functions.invoke("auth-otp", {
     body: {
       action: "request",
-      ...(email ? { email } : {}),
+      email,
       ...(phone ? { phone_e164: phone } : {}),
+      ...(args.fullName?.trim() ? { full_name: args.fullName.trim() } : {}),
+      ...(args.deviceId?.trim() ? { device_id: args.deviceId.trim() } : {}),
     },
   });
 
   if (error) {
-    const { body, status } = await readFunctionsErrorBody(error);
-    const msg = edgeErrorMessage(body, error.message || "OTP request failed");
-    return {
-      ok: false,
-      error: msg,
-      status,
-      failClosed: isFailClosedMessage(msg, status),
-    };
+    const parsed = await readFunctionsErrorBody(error);
+    return authEdgeError(parsed.body, error.message || "Verification request failed", parsed.status);
   }
-
   if (!data || typeof data !== "object") {
-    return { ok: false, error: "Unexpected OTP response." };
+    return { ok: false, error: "Unexpected verification response." };
   }
   const body = data as Record<string, unknown>;
-  if (body.ok === false || (typeof body.error === "string" && body.error)) {
-    const msg = edgeErrorMessage(body, "OTP request refused");
-    const status = typeof body.status === "number" ? body.status : undefined;
-    return {
-      ok: false,
-      error: msg,
-      status,
-      failClosed: isFailClosedMessage(msg, status),
-    };
-  }
-
-  const stub = Boolean(body.stub);
-  const stubCode =
-    typeof body.stub_code === "string" && body.stub_code.trim()
-      ? body.stub_code.trim()
-      : undefined;
-
+  if (body.ok !== true) return authEdgeError(body, "Verification request refused");
+  const required = body.verification_required as Record<string, unknown> | undefined;
   return {
     ok: true,
-    stub,
-    stubCode,
+    userId: typeof body.user_id === "string" ? body.user_id : undefined,
     channels:
       body.channels && typeof body.channels === "object"
-        ? (body.channels as Record<string, unknown>)
+        ? (body.channels as Record<string, { sent?: boolean; error?: string }>)
         : {},
+    verificationRequired: {
+      email: required?.email !== false,
+      phone: required?.phone === true,
+    },
   };
 }
 
+/** Verify one Supabase Auth-generated signup code at a time. */
 export async function verifyAuthOtp(
   client: SupabaseClient,
   args: {
-    email?: string | null;
+    email: string;
     phoneE164?: string | null;
+    channel: "email" | "phone";
     code: string;
+    deviceId?: string | null;
   },
 ): Promise<AuthOtpVerifyResult | AuthOtpError> {
   const email = normalizeReceiptEmail(args.email);
   const phone = normalizeE164(args.phoneE164);
   const code = args.code.trim();
-  if (!email && !phone) {
-    return { ok: false, error: "Enter email and/or phone (E.164)." };
+  if (!email) return { ok: false, error: "Enter a valid email address." };
+  if (args.channel === "phone" && !phone) {
+    return { ok: false, error: "Enter a valid phone number (E.164)." };
   }
-  if (!/^[0-9]{6}$/.test(code)) {
-    return { ok: false, error: "Enter the 6-digit code." };
+  if (!/^[0-9]{6,10}$/.test(code)) {
+    return { ok: false, error: "Enter the verification code." };
   }
 
   const { data, error } = await client.functions.invoke("auth-otp", {
     body: {
       action: "verify",
+      channel: args.channel,
       code,
-      ...(email ? { email } : {}),
+      email,
       ...(phone ? { phone_e164: phone } : {}),
+      ...(args.deviceId?.trim() ? { device_id: args.deviceId.trim() } : {}),
     },
   });
 
   if (error) {
-    const { body, status } = await readFunctionsErrorBody(error);
-    const msg = edgeErrorMessage(body, error.message || "OTP verify failed");
-    return {
-      ok: false,
-      error: msg,
-      status,
-      failClosed: isFailClosedMessage(msg, status),
-    };
+    const parsed = await readFunctionsErrorBody(error);
+    return authEdgeError(parsed.body, error.message || "Verification failed", parsed.status);
   }
-
   if (!data || typeof data !== "object") {
-    return { ok: false, error: "Unexpected OTP verify response." };
+    return { ok: false, error: "Unexpected verification response." };
   }
   const body = data as Record<string, unknown>;
-  if (body.ok === false || body.verified !== true) {
-    return {
-      ok: false,
-      error: edgeErrorMessage(body, "OTP verification failed"),
-    };
-  }
-  const proofToken =
-    typeof body.proof_token === "string" ? body.proof_token.trim() : "";
-  if (!proofToken) {
-    return {
-      ok: false,
-      error: "OTP verify did not return proof_token — cannot complete auth.",
-    };
-  }
-
+  if (body.ok !== true) return authEdgeError(body, "Verification failed");
+  const verified = body.verified as Record<string, unknown> | undefined;
   return {
     ok: true,
-    verified: true,
-    email: typeof body.email === "string" ? body.email : email,
-    phone_e164:
-      typeof body.phone_e164 === "string" ? body.phone_e164 : phone,
-    proofToken,
-    proofExpiresAt:
-      typeof body.proof_expires_at === "string"
-        ? body.proof_expires_at
-        : undefined,
+    verified: {
+      email: verified?.email === true,
+      phone: verified?.phone === null ? null : verified?.phone === true,
+    },
+    signupReady: body.signup_ready === true,
   };
 }
 
-/**
- * Create Auth user + session via Edge after OTP proof (public signup disabled).
- */
+/** Finish a verified pending Supabase Auth signup and mint its normal session. */
 export async function completeAuthSignup(
   client: SupabaseClient,
   args: {
     email: string;
     password: string;
-    proofToken: string;
     fullName?: string | null;
     phoneE164?: string | null;
+    deviceId?: string | null;
   },
 ): Promise<AuthOtpSessionResult | AuthOtpError> {
   const email = normalizeReceiptEmail(args.email);
   const phone = normalizeE164(args.phoneE164);
   if (!email) return { ok: false, error: "Email is required." };
-  if (!args.proofToken.trim()) {
-    return { ok: false, error: "OTP proof missing — verify OTP again." };
-  }
   if (args.password.length < 8) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
@@ -257,21 +233,18 @@ export async function completeAuthSignup(
       action: "complete_signup",
       email,
       password: args.password,
-      proof_token: args.proofToken.trim(),
       ...(phone ? { phone_e164: phone } : {}),
-      ...(args.fullName?.trim()
-        ? { full_name: args.fullName.trim() }
-        : {}),
+      ...(args.fullName?.trim() ? { full_name: args.fullName.trim() } : {}),
+      ...(args.deviceId?.trim() ? { device_id: args.deviceId.trim() } : {}),
     },
   });
-
   return readSessionResult(data, error, "Signup failed");
 }
 
 /**
- * Returning login: email and/or phone + password (no OTP).
- * Email-only uses GoTrue directly; phone (or mixed) goes through Edge to resolve
- * `profiles.phone_e164` → Auth email without exposing the mapping to clients.
+ * Returning login always goes through the Auth Edge so the project-level
+ * identifier/IP/device rate limits are applied consistently. Supabase Auth still
+ * performs the password grant and owns the resulting session.
  */
 export async function signInWithEmailOrPhone(
   client: SupabaseClient,
@@ -279,34 +252,13 @@ export async function signInWithEmailOrPhone(
     email?: string | null;
     phoneE164?: string | null;
     password: string;
+    deviceId?: string | null;
   },
 ): Promise<AuthOtpSessionResult | AuthOtpError> {
   const email = normalizeReceiptEmail(args.email);
   const phone = normalizeE164(args.phoneE164);
-  if (!email && !phone) {
-    return { ok: false, error: "Enter email and/or phone (E.164)." };
-  }
+  if (!email && !phone) return { ok: false, error: "Enter email and/or phone (E.164)." };
   if (!args.password) return { ok: false, error: "Password is required." };
-
-  // Fast path: email + password (staff + customers) — no Edge hop.
-  if (email && !phone) {
-    const { data, error } = await client.auth.signInWithPassword({
-      email,
-      password: args.password,
-    });
-    if (error || !data.session || !data.user) {
-      return { ok: false, error: error?.message ?? "invalid credentials" };
-    }
-    return {
-      ok: true,
-      userId: data.user.id,
-      accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
-      expiresIn: data.session.expires_in,
-      email,
-      phone_e164: null,
-    };
-  }
 
   const { data, error } = await client.functions.invoke("auth-otp", {
     body: {
@@ -314,9 +266,9 @@ export async function signInWithEmailOrPhone(
       password: args.password,
       ...(email ? { email } : {}),
       ...(phone ? { phone_e164: phone } : {}),
+      ...(args.deviceId?.trim() ? { device_id: args.deviceId.trim() } : {}),
     },
   });
-
   const session = await readSessionResult(data, error, "Login failed");
   if (!session.ok) return session;
 
@@ -324,27 +276,16 @@ export async function signInWithEmailOrPhone(
     access_token: session.accessToken,
     refresh_token: session.refreshToken,
   });
-  if (sessionErr) {
-    return { ok: false, error: sessionErr.message };
-  }
+  if (sessionErr) return { ok: false, error: sessionErr.message };
   return session;
 }
 
-/** @deprecated Use {@link signInWithEmailOrPhone} — OTP is not used for login. */
+/** @deprecated Use signInWithEmailOrPhone. */
 export async function completeAuthLogin(
   client: SupabaseClient,
-  args: {
-    email: string;
-    password: string;
-    proofToken?: string;
-    phoneE164?: string | null;
-  },
+  args: { email: string; password: string; phoneE164?: string | null },
 ): Promise<AuthOtpSessionResult | AuthOtpError> {
-  return signInWithEmailOrPhone(client, {
-    email: args.email,
-    phoneE164: args.phoneE164,
-    password: args.password,
-  });
+  return signInWithEmailOrPhone(client, args);
 }
 
 async function readSessionResult(
@@ -353,45 +294,28 @@ async function readSessionResult(
   fallback: string,
 ): Promise<AuthOtpSessionResult | AuthOtpError> {
   if (error) {
-    const { body, status } = await readFunctionsErrorBody(error);
-    const msg = edgeErrorMessage(body, error.message || fallback);
-    return {
-      ok: false,
-      error: msg,
-      status,
-      failClosed: isFailClosedMessage(msg, status),
-    };
+    const parsed = await readFunctionsErrorBody(error);
+    return authEdgeError(parsed.body, error.message || fallback, parsed.status);
   }
   if (!data || typeof data !== "object") {
     return { ok: false, error: `Unexpected response: ${fallback}` };
   }
   const body = data as Record<string, unknown>;
-  if (body.ok === false || (typeof body.error === "string" && body.error)) {
-    const msg = edgeErrorMessage(body, fallback);
-    const status = typeof body.status === "number" ? body.status : undefined;
-    return {
-      ok: false,
-      error: msg,
-      status,
-      failClosed: isFailClosedMessage(msg, status),
-    };
-  }
-  const accessToken =
-    typeof body.access_token === "string" ? body.access_token : "";
-  const refreshToken =
-    typeof body.refresh_token === "string" ? body.refresh_token : "";
+  if (body.ok !== true) return authEdgeError(body, fallback);
+  const accessToken = typeof body.access_token === "string" ? body.access_token : "";
+  const refreshToken = typeof body.refresh_token === "string" ? body.refresh_token : "";
   const userId = typeof body.user_id === "string" ? body.user_id : "";
   if (!accessToken || !refreshToken || !userId) {
-    return { ok: false, error: "Session tokens missing from Edge response." };
+    return { ok: false, error: "Session tokens missing from Auth Edge response." };
   }
   return {
     ok: true,
     userId,
     accessToken,
     refreshToken,
-    expiresIn:
-      typeof body.expires_in === "number" ? body.expires_in : undefined,
+    expiresIn: typeof body.expires_in === "number" ? body.expires_in : undefined,
     email: typeof body.email === "string" ? body.email : null,
     phone_e164: typeof body.phone_e164 === "string" ? body.phone_e164 : null,
+    customerId: typeof body.customer_id === "string" ? body.customer_id : undefined,
   };
 }
