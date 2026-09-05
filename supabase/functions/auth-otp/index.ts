@@ -1,517 +1,402 @@
-/**
- * Customer auth OTP (email and/or phone) — fail-closed without gateway secrets.
- *
- * POST JSON actions:
- *   request | verify | complete_signup | complete_login
- *
- * OTP is for **signup** and **confirming email/phone** only — not for returning logins.
- * Server-side gate (ADR 2026-07-25-auth-otp-fail-closed):
- *   verify → short-lived HMAC proof_token (DB-backed, one-time)
- *   complete_signup → require OTP proof; mint session via service_role
- *   complete_login → password only (email and/or phone); no OTP proof
- * Public GoTrue email signup is blocked by hook_before_user_created; this Edge
- * sets app_metadata.gtr_provisioned_via=auth_otp so Admin createUser is allowed.
- * After createUser, mints retail customers via ensure_customer_for_user (service_role)
- * — handle_new_user cannot see auth_otp meta on Admin AFTER INSERT.
- * OAuth (Google/Apple) uses enable_signup=true + that hook allow-list.
- *
- * Local stub: AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset + non-prod → code 000000.
- * Production: stub refused even if flag set.
- *
- * No ZIMRA / payroll-tax identity flows.
- */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { jsonErr, jsonOk } from "../_shared/channel_env.ts";
+import type { SupabaseClient, User } from "npm:@supabase/supabase-js@2.105.0";
 import {
-  AUTH_OTP_STUB_CODE,
-  assertOtpChannelAllowed,
-} from "../_shared/auth_otp_env.ts";
-import {
-  AUTH_OTP_MAX_ATTEMPTS,
-  AUTH_OTP_PROOF_TTL_SEC,
-  mintOtpProofToken,
-  parseOtpProofToken,
-} from "../_shared/auth_otp_proof.ts";
-import { getSmsGatewayConfig, sendSms } from "../_shared/sms_gateway.ts";
-import { getEmailSendConfig, sendEmail } from "../_shared/email_send.ts";
+  anonClient,
+  AuthEdgeError,
+  authFailureCode,
+  authFailureStatus,
+  enforceAuthRateLimit,
+  getAuthUser,
+  isEmailConfirmed,
+  isPendingSignup,
+  isPhoneConfirmed,
+  jsonResponse,
+  normalizeCode,
+  normalizeE164,
+  normalizeEmail,
+  resolveAuthUserId,
+  serviceClient,
+  sessionPayload,
+} from "../_shared/auth_edge.ts";
 
 type Body = {
   action?: string;
   email?: string;
   phone_e164?: string;
+  channel?: "email" | "phone";
   code?: string;
-  proof_token?: string;
+  email_code?: string;
+  phone_code?: string;
   password?: string;
   full_name?: string;
+  device_id?: string;
 };
 
-function normalizeEmail(raw: unknown): string | null {
+const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
+
+function fullName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
-  const v = raw.trim().toLowerCase();
-  if (!v || !v.includes("@")) return null;
-  return v;
+  const value = raw.trim();
+  return value ? value.slice(0, 160) : null;
 }
 
-function normalizeE164(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  let v = raw.trim().replace(/[\s\-()]/g, "");
-  if (!v) return null;
-  if (!/^\+?[0-9]{8,15}$/.test(v)) return null;
-  if (!v.startsWith("+")) v = `+${v}`;
-  return v;
+function pendingExpired(user: User): boolean {
+  const created = Date.parse(user.created_at);
+  return Number.isFinite(created) && Date.now() - created > PENDING_TTL_MS;
 }
 
-function toHex(buf: ArrayBuffer): string {
-  return [...new Uint8Array(buf)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function hashCode(code: string): Promise<string> {
-  const data = new TextEncoder().encode(code.trim());
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return toHex(digest);
-}
-
-function randomOtp(): string {
-  const n = crypto.getRandomValues(new Uint32Array(1))[0]! % 1_000_000;
-  return n.toString().padStart(6, "0");
-}
-
-function serviceClient(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-}
-
-function anonClient(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-}
-
-async function mintProofRow(
-  supabase: SupabaseClient,
-  email: string | null,
+async function ensurePendingSignupUser(
+  service: SupabaseClient,
+  email: string,
   phone: string | null,
-): Promise<{ proof_token: string; expires_at: string } | { error: string; status: number }> {
-  const expiresAt = new Date(Date.now() + AUTH_OTP_PROOF_TTL_SEC * 1000);
-  const { data: row, error } = await supabase
-    .from("auth_otp_proofs")
-    .insert({
-      email,
-      phone_e164: phone,
-      expires_at: expiresAt.toISOString(),
-    })
-    .select("id")
-    .single();
-  if (error || !row?.id) {
-    return { error: error?.message ?? "failed to mint OTP proof", status: 500 };
+  name: string | null,
+): Promise<User> {
+  let userId = await resolveAuthUserId(service, email, phone);
+
+  if (userId) {
+    let user = await getAuthUser(service, userId);
+    if (!isPendingSignup(user)) {
+      throw new AuthEdgeError(
+        "An account already exists for these details. Sign in instead.",
+        409,
+        "ACCOUNT_EXISTS",
+      );
+    }
+
+    if (pendingExpired(user)) {
+      const { error: deleteError } = await service.auth.admin.deleteUser(user.id);
+      if (deleteError) {
+        throw new AuthEdgeError("Unable to restart expired signup", 503, "SIGNUP_CLEANUP_FAILED");
+      }
+      userId = null;
+    } else {
+      if (normalizeEmail(user.email) !== email) {
+        throw new AuthEdgeError("Pending signup email does not match", 409, "SIGNUP_IDENTIFIER_MISMATCH");
+      }
+      const existingPhone = normalizeE164(user.phone);
+      if (phone && existingPhone && existingPhone !== phone) {
+        throw new AuthEdgeError("Pending signup phone does not match", 409, "SIGNUP_IDENTIFIER_MISMATCH");
+      }
+
+      const metadata = {
+        ...(user.app_metadata ?? {}),
+        gtr_provisioned_via: "supabase_auth_edge",
+        gtr_signup_pending: true,
+        gtr_phone_required: Boolean(phone || existingPhone),
+      };
+      const userMetadata = {
+        ...(user.user_metadata ?? {}),
+        ...(name ? { full_name: name } : {}),
+      };
+      const updates: Record<string, unknown> = {
+        app_metadata: metadata,
+        user_metadata: userMetadata,
+      };
+      if (phone && !existingPhone) updates.phone = phone;
+
+      const { data, error } = await service.auth.admin.updateUserById(user.id, updates);
+      if (error || !data.user) {
+        throw new AuthEdgeError("Unable to update pending signup", 503, "SIGNUP_UPDATE_FAILED");
+      }
+      return data.user;
+    }
   }
-  const token = await mintOtpProofToken({
-    pid: row.id,
+
+  const { data, error } = await service.auth.admin.createUser({
     email,
-    phone_e164: phone,
-    exp: Math.floor(expiresAt.getTime() / 1000),
+    ...(phone ? { phone } : {}),
+    email_confirm: false,
+    ...(phone ? { phone_confirm: false } : {}),
+    app_metadata: {
+      gtr_provisioned_via: "supabase_auth_edge",
+      gtr_signup_pending: true,
+      gtr_phone_required: Boolean(phone),
+    },
+    user_metadata: name ? { full_name: name } : {},
   });
-  if (!token) {
-    return { error: "OTP proof secret unavailable", status: 503 };
+  if (error || !data.user) {
+    const status = error?.status === 422 ? 409 : 400;
+    throw new AuthEdgeError(
+      status === 409 ? "An account already exists for these details. Sign in instead." : "Unable to start signup",
+      status,
+      status === 409 ? "ACCOUNT_EXISTS" : "SIGNUP_CREATE_FAILED",
+    );
   }
-  return { proof_token: token, expires_at: expiresAt.toISOString() };
+  return data.user;
 }
 
-async function consumeProof(
-  supabase: SupabaseClient,
-  proofToken: string,
-  expectEmail: string | null,
-): Promise<
-  | { ok: true; email: string | null; phone_e164: string | null }
-  | { ok: false; error: string; status: number }
-> {
-  const parsed = await parseOtpProofToken(proofToken);
-  if (!parsed.ok) {
-    return { ok: false, error: parsed.error, status: 401 };
-  }
-  const { pid, email: proofEmail, phone_e164: proofPhone } = parsed.payload;
-
-  if (expectEmail && proofEmail && proofEmail !== expectEmail) {
-    return { ok: false, error: "OTP proof email mismatch", status: 401 };
-  }
-  if (expectEmail && !proofEmail) {
-    return {
-      ok: false,
-      error: "OTP proof missing email — verify email OTP before password auth",
-      status: 400,
-    };
-  }
-
-  const { data: row, error } = await supabase
-    .from("auth_otp_proofs")
-    .select("id, email, phone_e164, expires_at, consumed_at")
-    .eq("id", pid)
-    .maybeSingle();
-  if (error) return { ok: false, error: error.message, status: 400 };
-  if (!row) return { ok: false, error: "OTP proof not found", status: 401 };
-  if (row.consumed_at) {
-    return { ok: false, error: "OTP proof already used", status: 401 };
-  }
-  if (new Date(row.expires_at).getTime() <= Date.now()) {
-    return { ok: false, error: "OTP proof expired", status: 401 };
-  }
-
-  const { data: updated, error: updErr } = await supabase
-    .from("auth_otp_proofs")
-    .update({ consumed_at: new Date().toISOString() })
-    .eq("id", pid)
-    .is("consumed_at", null)
-    .select("id")
-    .maybeSingle();
-  if (updErr) return { ok: false, error: updErr.message, status: 400 };
-  if (!updated) {
-    return { ok: false, error: "OTP proof already used", status: 401 };
-  }
-
-  return {
-    ok: true,
-    email: (row.email as string | null) ?? proofEmail,
-    phone_e164: (row.phone_e164 as string | null) ?? proofPhone,
-  };
-}
-
-async function persistPhoneIfNeeded(
-  supabase: SupabaseClient,
-  userId: string,
+async function sendSignupOtp(
+  req: Request,
+  service: SupabaseClient,
+  email: string,
   phone: string | null,
+  deviceId: unknown,
+) {
+  const auth = anonClient();
+  const channels: Record<string, { sent: boolean; error?: string }> = {};
+
+  await enforceAuthRateLimit(service, req, "signup_request", `email:${email}`, deviceId);
+  const emailResult = await auth.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  channels.email = emailResult.error
+    ? { sent: false, error: authFailureCode(emailResult.error, "EMAIL_OTP_SEND_FAILED") }
+    : { sent: true };
+
+  if (phone) {
+    await enforceAuthRateLimit(service, req, "signup_request", `phone:${phone}`, deviceId);
+    const phoneResult = await auth.auth.signInWithOtp({
+      phone,
+      options: { shouldCreateUser: false, channel: "sms" },
+    });
+    channels.phone = phoneResult.error
+      ? { sent: false, error: authFailureCode(phoneResult.error, "PHONE_OTP_SEND_FAILED") }
+      : { sent: true };
+  }
+
+  const failures = Object.entries(channels).filter(([, result]) => !result.sent);
+  if (failures.length) {
+    const anySent = Object.values(channels).some((result) => result.sent);
+    const firstCode = failures[0]?.[1].error ?? "OTP_DELIVERY_FAILED";
+    throw new AuthEdgeError(
+      anySent
+        ? "One verification channel was sent, but another channel failed. Retry the failed channel."
+        : "Unable to send verification code. Try again later.",
+      firstCode.includes("rate") ? 429 : 503,
+      firstCode,
+    );
+  }
+
+  return channels;
+}
+
+async function verifyOne(
+  req: Request,
+  service: SupabaseClient,
+  expectedUserId: string,
+  channel: "email" | "phone",
+  identifier: string,
+  code: string,
+  deviceId: unknown,
 ): Promise<void> {
-  if (!phone) return;
-  await supabase
-    .from("profiles")
-    .update({ phone_e164: phone, updated_at: new Date().toISOString() })
-    .eq("id", userId);
+  await enforceAuthRateLimit(service, req, "signup_verify", `${channel}:${identifier}`, deviceId);
+  const auth = anonClient();
+  const result = channel === "email"
+    ? await auth.auth.verifyOtp({ email: identifier, token: code, type: "email" })
+    : await auth.auth.verifyOtp({ phone: identifier, token: code, type: "sms" });
+
+  if (result.error || !result.data.user || !result.data.session) {
+    throw new AuthEdgeError("Invalid or expired verification code", 401, "OTP_INVALID_OR_EXPIRED");
+  }
+  if (result.data.user.id !== expectedUserId) {
+    await auth.auth.signOut({ scope: "local" }).catch(() => undefined);
+    throw new AuthEdgeError("Verification identity mismatch", 401, "OTP_IDENTITY_MISMATCH");
+  }
+
+  // Verification creates a native Supabase Auth session. Signup is not complete
+  // yet, so revoke this refresh token and never return it to the client.
+  await auth.auth.signOut({ scope: "local" }).catch(() => undefined);
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: { ...new Headers(), ...{} } });
+  }
+
   try {
-    if (req.method !== "POST") {
-      return jsonErr("POST required", 405);
-    }
+    if (req.method !== "POST") return jsonResponse(req, { error: "POST required", code: "METHOD_NOT_ALLOWED" }, 405);
 
     const body = (await req.json().catch(() => ({}))) as Body;
     const action = (body.action ?? "").trim().toLowerCase();
     const email = normalizeEmail(body.email);
     const phone = normalizeE164(body.phone_e164);
-
-    const supabase = serviceClient();
+    const service = serviceClient();
 
     if (action === "request") {
-      if (!email && !phone) {
-        return jsonErr("email and/or phone_e164 required", 400);
-      }
-
-      const channels: ("email" | "phone")[] = [];
-      if (email) channels.push("email");
-      if (phone) channels.push("phone");
-
-      const results: Record<string, unknown> = {};
-      let anyStub = false;
-
-      for (const ch of channels) {
-        const gate = assertOtpChannelAllowed(ch);
-        if (!gate.ok) {
-          return jsonErr(gate.error, gate.status);
-        }
-
-        if (gate.stub) {
-          anyStub = true;
-          results[ch] = {
-            stub: true,
-            stub_code: AUTH_OTP_STUB_CODE,
-            message: "local stub OTP — not for production",
-          };
-          console.warn(
-            `auth-otp: stub request channel=${ch} (AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1)`,
-          );
-          continue;
-        }
-
-        const code = randomOtp();
-        const codeHash = await hashCode(code);
-        const identifier = ch === "email" ? email! : phone!;
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-        const { error: insErr } = await supabase.from("auth_otp_challenges").insert({
-          channel: ch,
-          identifier,
-          code_hash: codeHash,
-          expires_at: expiresAt,
-          attempt_count: 0,
-        });
-        if (insErr) return jsonErr(insErr.message, 400);
-
-        if (ch === "phone") {
-          const smsCfg = getSmsGatewayConfig();
-          if (!smsCfg) {
-            return jsonErr("SMS gateway misconfigured", 503);
-          }
-          await sendSms(
-            smsCfg,
-            phone!,
-            `GTR Auto login code: ${code}. Valid 10 minutes.`,
-          );
-        } else {
-          const emailCfg = getEmailSendConfig();
-          if (!emailCfg) {
-            return jsonErr("Email gateway misconfigured", 503);
-          }
-          await sendEmail(emailCfg, {
-            to: email!,
-            subject: "GTR Auto login code",
-            text: `Your one-time code is ${code}. Valid 10 minutes.`,
-          });
-        }
-        results[ch] = { stub: false, sent: true };
-      }
-
-      return jsonOk({
+      if (!email) return jsonResponse(req, { error: "Valid email required", code: "EMAIL_REQUIRED" }, 400);
+      const name = fullName(body.full_name);
+      const user = await ensurePendingSignupUser(service, email, phone, name);
+      const channels = await sendSignupOtp(req, service, email, phone, body.device_id);
+      return jsonResponse(req, {
         ok: true,
-        stub: anyStub,
-        channels: results,
-        ...(anyStub ? { stub_code: AUTH_OTP_STUB_CODE } : {}),
+        user_id: user.id,
+        channels,
+        verification_required: {
+          email: true,
+          phone: Boolean(phone),
+        },
       });
     }
 
     if (action === "verify") {
-      if (!email && !phone) {
-        return jsonErr("email and/or phone_e164 required", 400);
-      }
-      const code = typeof body.code === "string" ? body.code.trim() : "";
-      if (!/^[0-9]{6}$/.test(code)) {
-        return jsonErr("6-digit code required", 400);
-      }
-
-      const channels: ("email" | "phone")[] = [];
-      if (email) channels.push("email");
-      if (phone) channels.push("phone");
-
-      for (const ch of channels) {
-        const gate = assertOtpChannelAllowed(ch);
-        if (!gate.ok) {
-          return jsonErr(gate.error, gate.status);
-        }
-
-        if (gate.stub) {
-          if (code !== AUTH_OTP_STUB_CODE) {
-            return jsonErr("invalid stub OTP code", 401);
-          }
-          continue;
-        }
-
-        const identifier = ch === "email" ? email! : phone!;
-        const { data: openRows, error: openErr } = await supabase
-          .from("auth_otp_challenges")
-          .select("id, code_hash, attempt_count")
-          .eq("channel", ch)
-          .eq("identifier", identifier)
-          .is("consumed_at", null)
-          .gt("expires_at", new Date().toISOString())
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (openErr) return jsonErr(openErr.message, 400);
-        if (!openRows?.length) {
-          return jsonErr("invalid or expired OTP", 401);
-        }
-        const challenge = openRows[0]!;
-        const attempts = Number(challenge.attempt_count ?? 0);
-        if (attempts >= AUTH_OTP_MAX_ATTEMPTS) {
-          return jsonErr("OTP attempts exceeded — request a new code", 429);
-        }
-
-        const codeHash = await hashCode(code);
-        if (challenge.code_hash !== codeHash) {
-          await supabase
-            .from("auth_otp_challenges")
-            .update({ attempt_count: attempts + 1 })
-            .eq("id", challenge.id);
-          return jsonErr("invalid or expired OTP", 401);
-        }
-
-        await supabase
-          .from("auth_otp_challenges")
-          .update({ consumed_at: new Date().toISOString() })
-          .eq("id", challenge.id);
+      if (!email) return jsonResponse(req, { error: "Valid email required", code: "EMAIL_REQUIRED" }, 400);
+      const userId = await resolveAuthUserId(service, email, phone);
+      if (!userId) return jsonResponse(req, { error: "Signup session not found", code: "SIGNUP_NOT_FOUND" }, 404);
+      const pending = await getAuthUser(service, userId);
+      if (!isPendingSignup(pending)) {
+        return jsonResponse(req, { error: "Signup is already complete", code: "SIGNUP_ALREADY_COMPLETE" }, 409);
       }
 
-      const minted = await mintProofRow(supabase, email, phone);
-      if ("error" in minted) {
-        return jsonErr(minted.error, minted.status);
+      const explicitCode = normalizeCode(body.code);
+      const emailCode = normalizeCode(body.email_code);
+      const phoneCode = normalizeCode(body.phone_code);
+      let verifiedAny = false;
+
+      if (body.channel === "email") {
+        if (!explicitCode) return jsonResponse(req, { error: "Valid code required", code: "CODE_REQUIRED" }, 400);
+        await verifyOne(req, service, userId, "email", email, explicitCode, body.device_id);
+        verifiedAny = true;
+      } else if (body.channel === "phone") {
+        if (!phone) return jsonResponse(req, { error: "Valid phone_e164 required", code: "PHONE_REQUIRED" }, 400);
+        if (!explicitCode) return jsonResponse(req, { error: "Valid code required", code: "CODE_REQUIRED" }, 400);
+        await verifyOne(req, service, userId, "phone", phone, explicitCode, body.device_id);
+        verifiedAny = true;
+      } else {
+        if (emailCode) {
+          await verifyOne(req, service, userId, "email", email, emailCode, body.device_id);
+          verifiedAny = true;
+        }
+        if (phoneCode) {
+          if (!phone) return jsonResponse(req, { error: "Valid phone_e164 required", code: "PHONE_REQUIRED" }, 400);
+          await verifyOne(req, service, userId, "phone", phone, phoneCode, body.device_id);
+          verifiedAny = true;
+        }
       }
 
-      return jsonOk({
+      if (!verifiedAny) {
+        return jsonResponse(req, {
+          error: "Provide channel + code, or email_code / phone_code",
+          code: "CODE_REQUIRED",
+        }, 400);
+      }
+
+      const latest = await getAuthUser(service, userId);
+      const phoneRequired = latest.app_metadata?.gtr_phone_required === true;
+      const verification = {
+        email: isEmailConfirmed(latest),
+        phone: phoneRequired ? isPhoneConfirmed(latest) : null,
+      };
+      return jsonResponse(req, {
         ok: true,
-        verified: true,
-        email: email ?? null,
-        phone_e164: phone ?? null,
-        proof_token: minted.proof_token,
-        proof_expires_at: minted.expires_at,
+        verified: verification,
+        signup_ready: verification.email && (!phoneRequired || verification.phone === true),
       });
     }
 
     if (action === "complete_signup") {
+      if (!email) return jsonResponse(req, { error: "Valid email required", code: "EMAIL_REQUIRED" }, 400);
       const password = typeof body.password === "string" ? body.password : "";
-      const proofToken =
-        typeof body.proof_token === "string" ? body.proof_token.trim() : "";
-      const fullName =
-        typeof body.full_name === "string" ? body.full_name.trim() : "";
-
-      if (!proofToken) return jsonErr("proof_token required", 400);
       if (password.length < 8) {
-        return jsonErr("password must be at least 8 characters", 400);
+        return jsonResponse(req, { error: "Password must be at least 8 characters", code: "PASSWORD_TOO_SHORT" }, 400);
+      }
+      await enforceAuthRateLimit(service, req, "signup_verify", `complete:${email}`, body.device_id);
+
+      const userId = await resolveAuthUserId(service, email, phone);
+      if (!userId) return jsonResponse(req, { error: "Signup session not found", code: "SIGNUP_NOT_FOUND" }, 404);
+      const user = await getAuthUser(service, userId);
+      if (!isPendingSignup(user)) {
+        return jsonResponse(req, { error: "Signup is already complete", code: "SIGNUP_ALREADY_COMPLETE" }, 409);
+      }
+      if (!isEmailConfirmed(user)) {
+        return jsonResponse(req, { error: "Verify your email first", code: "EMAIL_NOT_VERIFIED" }, 409);
+      }
+      const phoneRequired = user.app_metadata?.gtr_phone_required === true;
+      if (phoneRequired && !isPhoneConfirmed(user)) {
+        return jsonResponse(req, { error: "Verify your phone number first", code: "PHONE_NOT_VERIFIED" }, 409);
       }
 
-      const expectEmail = normalizeEmail(body.email);
-      if (!expectEmail) {
-        return jsonErr("email required for signup", 400);
+      // Provision commerce identity before enabling password login. If this fails,
+      // the Auth user stays pending and passwordless, making retry safe.
+      const { data: customerId, error: customerError } = await service.rpc("ensure_customer_for_user", {
+        p_uid: user.id,
+      });
+      if (customerError || !customerId) {
+        throw new AuthEdgeError("Customer provisioning failed", 503, "CUSTOMER_PROVISION_FAILED");
       }
 
-      const consumed = await consumeProof(supabase, proofToken, expectEmail);
-      if (!consumed.ok) {
-        return jsonErr(consumed.error, consumed.status);
+      const name = fullName(body.full_name);
+      const { data: updated, error: updateError } = await service.auth.admin.updateUserById(user.id, {
+        password,
+        app_metadata: {
+          ...(user.app_metadata ?? {}),
+          gtr_provisioned_via: "supabase_auth_edge",
+          gtr_signup_pending: false,
+          gtr_signup_completed_at: new Date().toISOString(),
+        },
+        user_metadata: {
+          ...(user.user_metadata ?? {}),
+          ...(name ? { full_name: name } : {}),
+        },
+      });
+      if (updateError || !updated.user) {
+        throw new AuthEdgeError("Unable to complete Supabase Auth account", 503, "SIGNUP_FINALIZE_FAILED");
       }
 
-      const phoneE164 = consumed.phone_e164 ?? normalizeE164(body.phone_e164);
+      await service.from("profiles").update({
+        ...(phone ? { phone_e164: phone } : {}),
+        ...(name ? { full_name: name } : {}),
+        updated_at: new Date().toISOString(),
+      }).eq("id", user.id);
 
-      const { data: created, error: createErr } = await supabase.auth.admin
-        .createUser({
-          email: expectEmail,
-          password,
-          email_confirm: true,
-          app_metadata: { gtr_provisioned_via: "auth_otp" },
-          user_metadata: fullName ? { full_name: fullName } : undefined,
-        });
-      if (createErr || !created.user) {
-        return jsonErr(createErr?.message ?? "signup failed", 400);
+      const auth = anonClient();
+      const signed = await auth.auth.signInWithPassword({ email, password });
+      if (signed.error || !signed.data.session || !signed.data.user) {
+        throw new AuthEdgeError("Account created but session mint failed. Sign in again.", 503, "SESSION_MINT_FAILED");
       }
 
-      const userId = created.user.id;
-
-      // Admin createUser applies custom app_metadata after AFTER INSERT, so
-      // handle_new_user never mints customers for OTP — do it explicitly.
-      const { data: customerId, error: mintErr } = await supabase.rpc(
-        "ensure_customer_for_user",
-        { p_uid: userId },
-      );
-      if (mintErr || !customerId) {
-        try {
-          const { error: delErr } = await supabase.auth.admin.deleteUser(
-            userId,
-          );
-          if (delErr) {
-            console.error(
-              "auth-otp complete_signup: orphan delete failed",
-              userId,
-              delErr.message,
-            );
-          }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.error(
-            "auth-otp complete_signup: orphan delete threw",
-            userId,
-            msg,
-          );
-        }
-        return jsonErr(
-          mintErr?.message ?? "customer provisioning failed",
-          500,
-        );
-      }
-
-      await persistPhoneIfNeeded(supabase, userId, phoneE164);
-
-      const { data: sessionData, error: signErr } = await anonClient().auth
-        .signInWithPassword({ email: expectEmail, password });
-      if (signErr || !sessionData.session) {
-        // OTP proof was already consumed; account exists — use password login.
-        return jsonErr(
-          signErr?.message ??
-            "account created but session mint failed — sign in via complete_login (or login) with your email and password",
-          400,
-        );
-      }
-
-      return jsonOk({
+      return jsonResponse(req, {
         ok: true,
-        user_id: userId,
         customer_id: customerId,
-        access_token: sessionData.session.access_token,
-        refresh_token: sessionData.session.refresh_token,
-        expires_in: sessionData.session.expires_in,
-        email: expectEmail,
-        phone_e164: phoneE164,
+        email,
+        phone_e164: normalizeE164(updated.user.phone),
+        ...sessionPayload(signed.data.session, signed.data.user),
       });
     }
 
     if (action === "complete_login") {
-      // Returning customers: email/phone + password only (no OTP).
       const password = typeof body.password === "string" ? body.password : "";
-      if (!password) return jsonErr("password required", 400);
-
-      let expectEmail = normalizeEmail(body.email);
-      const phoneE164 = normalizeE164(body.phone_e164);
-
-      if (!expectEmail && !phoneE164) {
-        return jsonErr("email or phone_e164 required for login", 400);
+      if (!password) return jsonResponse(req, { error: "Password required", code: "PASSWORD_REQUIRED" }, 400);
+      if (!email && !phone) {
+        return jsonResponse(req, { error: "Email or phone_e164 required", code: "IDENTIFIER_REQUIRED" }, 400);
       }
 
-      if (!expectEmail && phoneE164) {
-        const { data: profile, error: profErr } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("phone_e164", phoneE164)
-          .maybeSingle();
-        if (profErr) return jsonErr(profErr.message, 500);
-        if (!profile?.id) {
-          return jsonErr("invalid credentials", 401);
-        }
-        const { data: authUser, error: userErr } = await supabase.auth.admin
-          .getUserById(profile.id as string);
-        if (userErr || !authUser.user?.email) {
-          return jsonErr("invalid credentials", 401);
-        }
-        expectEmail = normalizeEmail(authUser.user.email);
+      const identifier = email ? `email:${email}` : `phone:${phone!}`;
+      await enforceAuthRateLimit(service, req, "login", identifier, body.device_id);
+      const auth = anonClient();
+      const signed = email
+        ? await auth.auth.signInWithPassword({ email, password })
+        : await auth.auth.signInWithPassword({ phone: phone!, password });
+
+      if (signed.error || !signed.data.session || !signed.data.user) {
+        return jsonResponse(req, { error: "Invalid credentials", code: "INVALID_CREDENTIALS" }, 401);
+      }
+      if (isPendingSignup(signed.data.user)) {
+        await auth.auth.signOut({ scope: "local" }).catch(() => undefined);
+        return jsonResponse(req, { error: "Complete signup verification first", code: "SIGNUP_INCOMPLETE" }, 403);
       }
 
-      if (!expectEmail) {
-        return jsonErr("email required for login", 400);
-      }
-
-      const { data: sessionData, error: signErr } = await anonClient().auth
-        .signInWithPassword({ email: expectEmail, password });
-      if (signErr || !sessionData.session || !sessionData.user) {
-        return jsonErr(signErr?.message ?? "invalid credentials", 401);
-      }
-
-      return jsonOk({
+      return jsonResponse(req, {
         ok: true,
-        user_id: sessionData.user.id,
-        access_token: sessionData.session.access_token,
-        refresh_token: sessionData.session.refresh_token,
-        expires_in: sessionData.session.expires_in,
-        email: expectEmail,
-        phone_e164: phoneE164,
+        email: normalizeEmail(signed.data.user.email),
+        phone_e164: normalizeE164(signed.data.user.phone),
+        ...sessionPayload(signed.data.session, signed.data.user),
       });
     }
 
-    return jsonErr(
-      "action must be request, verify, complete_signup, or complete_login",
-      400,
-    );
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("auth-otp error:", msg);
-    return jsonErr(msg, 500);
+    return jsonResponse(req, {
+      error: "action must be request, verify, complete_signup, or complete_login",
+      code: "INVALID_ACTION",
+    }, 400);
+  } catch (error) {
+    if (error instanceof AuthEdgeError) {
+      return jsonResponse(req, { error: error.message, code: error.code }, error.status);
+    }
+    const authLike = error as { status?: number; code?: string; message?: string };
+    console.error("auth-otp", authLike?.code ?? "error", authLike?.message ?? String(error));
+    return jsonResponse(req, {
+      error: "Authentication service error",
+      code: authFailureCode(authLike, "AUTH_SERVICE_ERROR"),
+    }, authFailureStatus(authLike));
   }
 });
