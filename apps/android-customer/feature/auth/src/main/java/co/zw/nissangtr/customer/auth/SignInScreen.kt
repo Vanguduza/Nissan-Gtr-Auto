@@ -31,12 +31,8 @@ import co.zw.nissangtr.ui.shop.ShopDefaultScreen
 import kotlinx.coroutines.launch
 
 /**
- * Email/password sign-in + optional Google (Credential Manager → GoTrue ID token).
- * Live: [SupabaseRpcClient.signInWithEmail] / [SupabaseRpcClient.signInWithGoogleIdToken].
- * Fake: [allowSkip] shows Continue without signing in.
- *
- * Google button shows only when [googleServerClientId] is non-blank (Web client ID from
- * `local.properties` → BuildConfig).
+ * Native customer authentication backed by Supabase Auth through the hardened
+ * Auth Edge. Google remains a native Supabase Auth ID-token flow.
  */
 @Composable
 fun SignInScreen(
@@ -50,43 +46,49 @@ fun SignInScreen(
     googleServerClientId: String = "",
 ) {
     if (supabase == null) {
-        FakeSignInPlaceholder(
-            title = title,
-            subtitle = subtitle,
-            allowSkip = allowSkip,
-            onSkip = onSkip,
-            modifier = modifier,
-        )
+        FakeSignInPlaceholder(title, subtitle, allowSkip, onSkip, modifier)
         return
     }
 
-    val vm = sessionViewModel
-        ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
+    val vm = sessionViewModel ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
     val state by vm.signIn.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val googleEnabled = googleServerClientId.isNotBlank()
     var googleError by remember { mutableStateOf<String?>(null) }
 
-    ShopDefaultScreen(
-        title = title,
-        subtitle = subtitle,
-        modifier = modifier,
-    ) {
+    val isReset = state.mode == AuthFormMode.ResetPassword
+    val isSignup = state.mode == AuthFormMode.SignUp
+
+    ShopDefaultScreen(title = title, subtitle = subtitle, modifier = modifier) {
         OutlinedTextField(
             value = state.email,
             onValueChange = vm::onEmailChange,
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !state.busy,
+            enabled = !state.busy && !(isSignup && state.verificationPending),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             shape = MaterialTheme.shapes.extraSmall,
         )
+
+        if ((isSignup && state.verificationPending) || isReset) {
+            OutlinedTextField(
+                value = state.code,
+                onValueChange = vm::onCodeChange,
+                label = { Text(if (isReset) "Recovery code" else "Verification code") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = MaterialTheme.shapes.extraSmall,
+            )
+        }
+
         OutlinedTextField(
             value = state.password,
             onValueChange = vm::onPasswordChange,
-            label = { Text("Password") },
+            label = { Text(if (isReset) "New password" else "Password") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !state.busy,
@@ -94,55 +96,73 @@ fun SignInScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             shape = MaterialTheme.shapes.extraSmall,
         )
+
         Button(
             onClick = {
-                if (state.mode == AuthFormMode.SignIn) vm.signIn() else vm.signUp()
+                when (state.mode) {
+                    AuthFormMode.SignIn -> vm.signIn()
+                    AuthFormMode.SignUp -> vm.signUp()
+                    AuthFormMode.ResetPassword -> vm.completePasswordReset()
+                }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
+            enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank() &&
+                (!state.verificationPending || state.code.length >= 6 || state.mode == AuthFormMode.SignIn),
             shape = MaterialTheme.shapes.medium,
         ) {
             Text(
                 when {
-                    state.busy && state.mode == AuthFormMode.SignIn -> "Signing in…"
-                    state.busy -> "Creating account…"
-                    state.mode == AuthFormMode.SignUp -> "Create account"
+                    state.busy -> "Working…"
+                    state.mode == AuthFormMode.ResetPassword -> "Update password"
+                    state.mode == AuthFormMode.SignUp && state.verificationPending -> "Verify and create account"
+                    state.mode == AuthFormMode.SignUp -> "Send signup code"
                     else -> "Sign in"
                 },
             )
         }
-        OutlinedButton(
-            onClick = {
-                vm.setMode(
-                    if (state.mode == AuthFormMode.SignIn) AuthFormMode.SignUp
-                    else AuthFormMode.SignIn,
+
+        if (isSignup && state.verificationPending) {
+            TextButton(onClick = vm::resendSignupCode, enabled = !state.busy) {
+                Text("Resend verification code")
+            }
+        }
+
+        if (!isReset) {
+            OutlinedButton(
+                onClick = {
+                    vm.setMode(
+                        if (state.mode == AuthFormMode.SignIn) AuthFormMode.SignUp
+                        else AuthFormMode.SignIn,
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.busy,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(
+                    if (state.mode == AuthFormMode.SignIn) "Need an account? Sign up"
+                    else "Have an account? Sign in",
                 )
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy,
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            Text(
-                if (state.mode == AuthFormMode.SignIn) "Need an account? Sign up"
-                else "Have an account? Sign in",
-            )
+            }
+            TextButton(onClick = vm::forgotPassword, enabled = !state.busy) {
+                Text("Forgot password?")
+            }
+        } else {
+            TextButton(
+                onClick = { vm.setMode(AuthFormMode.SignIn) },
+                enabled = !state.busy,
+            ) {
+                Text("Back to sign in")
+            }
         }
-        TextButton(
-            onClick = vm::forgotPassword,
-            enabled = !state.busy,
-        ) {
-            Text("Forgot password?")
-        }
-        if (googleEnabled) {
+
+        if (!isReset && googleEnabled) {
             OutlinedButton(
                 onClick = {
                     googleError = null
                     scope.launch {
                         try {
-                            val result = GoogleIdTokenSignIn.requestIdToken(
-                                context = context,
-                                serverClientId = googleServerClientId,
-                            )
+                            val result = GoogleIdTokenSignIn.requestIdToken(context, googleServerClientId)
                             vm.signInWithGoogleIdToken(result.idToken, result.rawNonce)
                         } catch (e: Exception) {
                             googleError = GoogleIdTokenSignIn.userMessage(e)
@@ -155,29 +175,25 @@ fun SignInScreen(
             ) {
                 Text(if (state.busy) "Signing in with Google…" else "Continue with Google")
             }
-        } else {
+        } else if (!isReset && !googleEnabled) {
             Text(
-                "Google Sign-In appears when GOOGLE_WEB_CLIENT_ID (or GOOGLE_SERVER_CLIENT_ID) is set in local.properties.",
+                "Google Sign-In appears when GOOGLE_WEB_CLIENT_ID (or GOOGLE_SERVER_CLIENT_ID) is configured.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
         if (allowSkip) {
             OutlinedButton(
                 onClick = onSkip,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.busy,
                 shape = MaterialTheme.shapes.medium,
-            ) {
-                Text("Continue without signing in")
-            }
+            ) { Text("Continue without signing in") }
         }
-        state.info?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall)
-        }
-        (googleError ?: state.error)?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
-        }
+
+        state.info?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        (googleError ?: state.error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
 
@@ -189,32 +205,20 @@ private fun FakeSignInPlaceholder(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ShopDefaultScreen(
-        title = title,
-        subtitle = subtitle,
-        modifier = modifier,
-    ) {
+    ShopDefaultScreen(title = title, subtitle = subtitle, modifier = modifier) {
         Text(
-            "GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
+            "Supabase Auth needs Live SUPABASE_URL + ANON_KEY.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
         if (allowSkip) {
-            Button(
-                onClick = onSkip,
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraSmall,
-            ) {
+            Button(onClick = onSkip, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraSmall) {
                 Text("Continue without signing in")
             }
         }
     }
 }
 
-/**
- * Live: block until Authenticated. Fake: bypass by default ([allowFakeSkip]).
- * Exposes the single [AuthSessionViewModel] to content so shell SignIn overlay never creates an orphan VM.
- */
 @Composable
 fun AuthGate(
     liveRpc: Boolean,
@@ -230,44 +234,26 @@ fun AuthGate(
 ) {
     if (!liveRpc || supabase == null) {
         var skipped by remember { mutableStateOf(allowFakeSkip && !showFakeLogin) }
-        if (skipped) {
-            content(null, { /* no session in Fake */ }, null)
-        } else {
-            SignInScreen(
-                supabase = null,
-                allowSkip = allowFakeSkip,
-                onSkip = { skipped = true },
-            )
-        }
+        if (skipped) content(null, { }, null)
+        else SignInScreen(supabase = null, allowSkip = allowFakeSkip, onSkip = { skipped = true })
         return
     }
 
     val vm: AuthSessionViewModel = viewModel(factory = AuthSessionViewModel.factory(supabase))
     val gate by vm.gate.collectAsState()
-
     when (val g = gate) {
-        is AuthGateState.Checking -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("Restoring session…", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        is AuthGateState.NeedsSignIn -> {
-            SignInScreen(
-                supabase = supabase,
-                allowSkip = false,
-                onSkip = {},
-                sessionViewModel = vm,
-                googleServerClientId = googleServerClientId,
-            )
-        }
-        is AuthGateState.SignedIn -> {
-            content(g.email, vm::signOut, vm)
-        }
+        is AuthGateState.Checking -> Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) { Text("Restoring session…", style = MaterialTheme.typography.bodyMedium) }
+        is AuthGateState.NeedsSignIn -> SignInScreen(
+            supabase = supabase,
+            allowSkip = false,
+            onSkip = {},
+            sessionViewModel = vm,
+            googleServerClientId = googleServerClientId,
+        )
+        is AuthGateState.SignedIn -> content(g.email, vm::signOut, vm)
     }
 }
