@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
 import { normalizeE164, normalizeReceiptEmail } from "@gtr/shared";
 
+export type AuthOtpChannel = "email" | "phone";
+
 export type AuthOtpRequestResult = {
   ok: true;
   userId?: string;
@@ -111,7 +113,7 @@ export async function requestAuthOtp(
   args: {
     email: string;
     phoneE164?: string | null;
-    channel?: "email" | "phone";
+    channel?: AuthOtpChannel;
     fullName?: string | null;
     deviceId?: string | null;
   },
@@ -165,7 +167,7 @@ export async function verifyAuthOtp(
   args: {
     email: string;
     phoneE164?: string | null;
-    channel: "email" | "phone";
+    channel: AuthOtpChannel;
     code: string;
     deviceId?: string | null;
   },
