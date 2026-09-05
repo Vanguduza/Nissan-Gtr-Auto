@@ -91,7 +91,7 @@ skip_nonce_check = false
 enabled = false
 
 # Edge Functions — per-function JWT gate at the gateway.
-# Webhooks: verify_jwt = false (HMAC / provider signature in handler).
+# Webhooks: verify_jwt = false (provider signature/secret in handler).
 # Workers: JWT may be on; handlers still require x-worker-secret (WORKER_SHARED_SECRET).
 # Initiate: verify_jwt = true (caller Bearer JWT).
 
@@ -99,6 +99,9 @@ enabled = false
 verify_jwt = false
 
 [functions.paynow-webhook]
+verify_jwt = false
+
+[functions.ecocash-webhook]
 verify_jwt = false
 
 # Meta cannot send a Supabase JWT — AuthZ is X-Hub-Signature-256 in handler.
@@ -109,6 +112,9 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.paynow-initiate]
+verify_jwt = true
+
+[functions.ecocash-initiate]
 verify_jwt = true
 
 [functions.process-sms-outbox]
