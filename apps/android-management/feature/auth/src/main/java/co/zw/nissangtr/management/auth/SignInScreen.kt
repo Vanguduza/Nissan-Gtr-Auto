@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -252,6 +253,7 @@ fun AuthGate(
     supabase: SupabaseRpcClient?,
     allowFakeSkip: Boolean = true,
     showFakeLogin: Boolean = false,
+    forceFreshSignIn: Boolean = false,
     content: @Composable (email: String?, onSignOut: () -> Unit) -> Unit,
 ) {
     if (!liveRpc || supabase == null) {
@@ -271,6 +273,31 @@ fun AuthGate(
 
     val vm: AuthSessionViewModel = viewModel(factory = AuthSessionViewModel.factory(supabase))
     val gate by vm.gate.collectAsState()
+    var freshSignInBoundaryReached by remember { mutableStateOf(!forceFreshSignIn) }
+
+    LaunchedEffect(forceFreshSignIn) {
+        if (forceFreshSignIn) runCatching { supabase.signOut() }
+    }
+    LaunchedEffect(forceFreshSignIn, gate) {
+        if (forceFreshSignIn && gate is AuthGateState.NeedsSignIn) {
+            // Latch once: after cold-start sign-out has reached NotAuthenticated, a later
+            // successful sign-in may pass through normally without being forced out again.
+            freshSignInBoundaryReached = true
+        }
+    }
+
+    if (!freshSignInBoundaryReached) {
+        // Render the actual branded login surface while clearing any restored session;
+        // never expose a previously-authenticated POS frame during kiosk cold start.
+        SignInScreen(
+            supabase = supabase,
+            allowSkip = false,
+            onSkip = {},
+            subtitle = "Welcome to Nissan GTR Auto staff",
+            sessionViewModel = vm,
+        )
+        return
+    }
 
     when (val g = gate) {
         is AuthGateState.Checking -> {

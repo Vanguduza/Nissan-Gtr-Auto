@@ -1,5 +1,14 @@
 package co.zw.nissangtr.management.pos.offline
 
+import co.zw.nissangtr.management.rpc.CatalogPartHit
+import co.zw.nissangtr.management.rpc.EpcDiagramResponse
+import co.zw.nissangtr.management.rpc.EpcDiagramSummary
+import co.zw.nissangtr.management.rpc.EpcMaker
+import co.zw.nissangtr.management.rpc.EpcModel
+import co.zw.nissangtr.management.rpc.EpcSection
+import co.zw.nissangtr.management.rpc.EpcVariant
+import co.zw.nissangtr.management.rpc.PosSaleVehicleSelection
+
 /**
  * Local encrypted outbox / catalog cache for tablet offline POS.
  * Privilege: never stores manager approval tokens (see ADR).
@@ -45,14 +54,55 @@ data class PendingOfflineSale(
     val receiptEmail: String?,
     val receiptWhatsapp: String?,
     val receiptPhone: String?,
+    val vehicleJson: String? = null,
     val soldAtEpochMs: Long,
     val status: PendingSaleStatus,
     val lastError: String? = null,
     val serverInvoiceId: String? = null,
 )
 
+
+/** Full Nissan EPC snapshot stored in the same encrypted tablet SQLite file as POS offline data. */
+data class LocalEpcCatalogBundle(
+    val makers: List<EpcMaker>,
+    val models: List<LocalEpcModelRow>,
+    val variants: List<LocalEpcVariantRow>,
+    val sections: List<LocalEpcSectionRow>,
+    val diagrams: List<LocalEpcDiagramRow>,
+    val syncedAtEpochMs: Long,
+)
+
+data class LocalEpcModelRow(val makerSlug: String, val model: EpcModel)
+data class LocalEpcVariantRow(val makerSlug: String, val modelSlug: String, val variant: EpcVariant)
+data class LocalEpcSectionRow(
+    val makerSlug: String,
+    val modelSlug: String,
+    val variantSlug: String,
+    val section: EpcSection,
+)
+data class LocalEpcDiagramRow(
+    val makerSlug: String,
+    val modelSlug: String,
+    val variantSlug: String,
+    val sectionSlug: String,
+    val diagram: EpcDiagramResponse,
+    val imageBytes: ByteArray? = null,
+)
+
 interface OfflinePosStore {
     fun replaceCatalog(warehouseId: String, pulledAtEpochMs: Long, items: List<LocalCatalogItem>)
+    fun replaceEpcCatalog(bundle: LocalEpcCatalogBundle) = Unit
+    fun hasEpcCatalog(): Boolean = false
+    fun epcCatalogSyncedAtEpochMs(): Long? = null
+    fun listEpcMakers(): List<EpcMaker> = emptyList()
+    fun listEpcModels(makerSlug: String): List<EpcModel> = emptyList()
+    fun listEpcVariants(makerSlug: String, modelSlug: String): List<EpcVariant> = emptyList()
+    fun listEpcSections(makerSlug: String, modelSlug: String, variantSlug: String): List<EpcSection> = emptyList()
+    fun getEpcDiagram(makerSlug: String, modelSlug: String, variantSlug: String, sectionSlug: String): EpcDiagramResponse = EpcDiagramResponse()
+    fun listEpcDiagrams(makerSlug: String, modelSlug: String, variantSlug: String, sectionSlug: String): List<EpcDiagramSummary> = emptyList()
+    fun getEpcDiagramBySlug(makerSlug: String, modelSlug: String, variantSlug: String, sectionSlug: String, diagramSlug: String): EpcDiagramResponse =
+        getEpcDiagram(makerSlug, modelSlug, variantSlug, sectionSlug)
+    fun searchEpcParts(vehicle: PosSaleVehicleSelection, query: String, limit: Int = 80): List<CatalogPartHit> = emptyList()
     fun catalogFor(warehouseId: String): List<LocalCatalogItem>
     fun searchCatalog(warehouseId: String, query: String): List<LocalCatalogItem>
     fun adjustSaleableQty(warehouseId: String, stockItemId: String, delta: Double): Boolean

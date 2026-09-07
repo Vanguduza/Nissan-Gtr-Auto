@@ -9,14 +9,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopSecondaryButton
 import co.zw.nissangtr.ui.shop.ShopSectionHeader
@@ -38,6 +41,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import co.zw.nissangtr.bridges.biometricphoto.CameraxBiometricPhotoBridge
+import co.zw.nissangtr.bridges.escpos.AndroidDocumentPrinterBridge
 import co.zw.nissangtr.bridges.escpos.BluetoothEscPosPrinterBridge
 import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
 import co.zw.nissangtr.bridges.qr.CameraxQrScannerBridge
@@ -55,15 +59,14 @@ import co.zw.nissangtr.management.fleet.FleetScreen
 import co.zw.nissangtr.management.hr.ClockAttendanceScreen
 import co.zw.nissangtr.management.hr.HrModule
 import co.zw.nissangtr.management.hr.HrOnboardingScreen
-import co.zw.nissangtr.management.kiosk.BrandedSplashHost
 import co.zw.nissangtr.management.kiosk.DeviceAdminConsoleScreen
 import co.zw.nissangtr.management.kiosk.IdleSessionHost
 import co.zw.nissangtr.management.kiosk.KioskDevicePrefs
 import co.zw.nissangtr.management.kiosk.KioskModule
 import co.zw.nissangtr.management.kiosk.LockTaskController
-import co.zw.nissangtr.management.kiosk.SplashSessionGate
 import co.zw.nissangtr.management.pos.PosModule
 import co.zw.nissangtr.management.pos.PosScreen
+import co.zw.nissangtr.management.pos.StaffOfflineEpcBrowseScreen
 import co.zw.nissangtr.management.procurement.BlanketsScreen
 import co.zw.nissangtr.management.procurement.ProcurementModule
 import co.zw.nissangtr.management.rpc.ChatStaffRoles
@@ -102,6 +105,7 @@ private enum class ManagementRoute {
     Dispatch,
     Fleet,
     Pos,
+    EpcBrowse,
     Warehouse,
     Bins,
     Consignment,
@@ -126,6 +130,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var qrBridge: CameraxQrScannerBridge
     private lateinit var printerBridge: BluetoothEscPosPrinterBridge
+    private lateinit var documentPrinterBridge: AndroidDocumentPrinterBridge
     private lateinit var biometricPhotoBridge: CameraxBiometricPhotoBridge
     private lateinit var lockTask: LockTaskController
     private lateinit var kioskPrefs: KioskDevicePrefs
@@ -138,6 +143,7 @@ class MainActivity : ComponentActivity() {
         }
         qrBridge = CameraxQrScannerBridge(this)
         printerBridge = BluetoothEscPosPrinterBridge(this)
+        documentPrinterBridge = AndroidDocumentPrinterBridge(this)
         biometricPhotoBridge = CameraxBiometricPhotoBridge(this)
         lockTask = LockTaskController(this, tabletKiosk)
         kioskPrefs = KioskDevicePrefs(applicationContext)
@@ -173,39 +179,37 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    BrandedSplashHost(
-                        prefs = kioskPrefs,
-                        tabletKiosk = tabletKiosk,
-                        onFinished = {},
-                    ) {
-                        AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
-                            IdleSessionHost(
-                                prefs = kioskPrefs,
-                                enabled = tabletKiosk,
+                    AuthGate(
+                        liveRpc = live,
+                        supabase = supabase,
+                        allowFakeSkip = !tabletKiosk,
+                        showFakeLogin = tabletKiosk,
+                        forceFreshSignIn = tabletKiosk,
+                    ) { email, onSignOut ->
+                        IdleSessionHost(
+                            prefs = kioskPrefs,
+                            enabled = tabletKiosk,
+                            liveRpc = live,
+                            supabase = supabase,
+                            signedInEmail = email,
+                            onIdleLock = {
+                                // Clear in-memory nav; overlay handles reauth — stay in Lock Task.
+                            },
+                        ) {
+                            ManagementApp(
+                                rpc = rpc,
+                                qr = qrBridge,
+                                printer = printerBridge,
+                                documentPrinter = documentPrinterBridge,
+                                biometricPhoto = biometricPhotoBridge,
                                 liveRpc = live,
-                                supabase = supabase,
                                 signedInEmail = email,
-                                onIdleLock = {
-                                    // Clear in-memory nav; overlay handles reauth — stay in Lock Task.
-                                },
-                            ) {
-                                ManagementApp(
-                                    rpc = rpc,
-                                    qr = qrBridge,
-                                    printer = printerBridge,
-                                    biometricPhoto = biometricPhotoBridge,
-                                    liveRpc = live,
-                                    signedInEmail = email,
-                                    onSignOut = {
-                                        SplashSessionGate.skipSplashThisProcess = true
-                                        onSignOut()
-                                    },
-                                    supportPhone = BuildConfig.DELIVERY_SUPPORT_PHONE,
-                                    tabletKiosk = tabletKiosk,
-                                    kioskPrefs = kioskPrefs,
-                                    lockTask = lockTask,
-                                )
-                            }
+                                onSignOut = onSignOut,
+                                supportPhone = BuildConfig.DELIVERY_SUPPORT_PHONE,
+                                tabletKiosk = tabletKiosk,
+                                kioskPrefs = kioskPrefs,
+                                lockTask = lockTask,
+                            )
                         }
                     }
                 }
@@ -226,15 +230,25 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (::qrBridge.isInitialized) qrBridge.attachActivity(this)
         if (::printerBridge.isInitialized) printerBridge.attachActivity(this)
+        if (::documentPrinterBridge.isInitialized) documentPrinterBridge.attachActivity(this)
         if (::biometricPhotoBridge.isInitialized) biometricPhotoBridge.attachActivity(this)
         if (::lockTask.isInitialized && BuildConfig.IS_TABLET_KIOSK) {
             lockTask.enterLockTaskIfAllowed()
         }
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && BuildConfig.IS_TABLET_KIOSK) {
+            applyImmersiveChrome()
+            if (::lockTask.isInitialized) lockTask.enterLockTaskIfAllowed()
+        }
+    }
+
     override fun onPause() {
         if (::qrBridge.isInitialized) qrBridge.detachActivity()
         if (::printerBridge.isInitialized) printerBridge.detachActivity()
+        if (::documentPrinterBridge.isInitialized) documentPrinterBridge.detachActivity()
         if (::biometricPhotoBridge.isInitialized) biometricPhotoBridge.detachActivity()
         super.onPause()
     }
@@ -277,6 +291,7 @@ private fun ManagementApp(
     rpc: RpcClient,
     qr: QrScannerBridge,
     printer: EscPosPrinterBridge,
+    documentPrinter: co.zw.nissangtr.bridges.escpos.DocumentPrinterBridge,
     biometricPhoto: CameraxBiometricPhotoBridge,
     liveRpc: Boolean,
     signedInEmail: String?,
@@ -295,6 +310,26 @@ private fun ManagementApp(
     var moduleAccess by remember { mutableStateOf<List<String>>(emptyList()) }
     var staffRoles by remember { mutableStateOf<List<String>>(emptyList()) }
     var showDeviceAdmin by remember { mutableStateOf(false) }
+    var staffPortalActive by remember { mutableStateOf(false) }
+    var staffPortalLoginOpen by remember { mutableStateOf(false) }
+    var staffPortalIdentifier by remember { mutableStateOf("") }
+    var staffPortalPassword by remember { mutableStateOf("") }
+    var staffPortalBusy by remember { mutableStateOf(false) }
+    var staffPortalError by remember { mutableStateOf<String?>(null) }
+    val appScope = rememberCoroutineScope()
+
+    fun returnToPosFromStaffPortal() {
+        appScope.launch {
+            staffPortalBusy = true
+            runCatching { (rpc as? SupabaseRpcClient)?.endStaffPortalSession() }
+                .onFailure { staffPortalError = it.message ?: "Could not restore POS session" }
+            staffPortalActive = false
+            staffPortalBusy = false
+            openModule = null
+            salesHome = true
+            route = ManagementRoute.Pos
+        }
+    }
 
     fun goHome() {
         openModule = null
@@ -313,7 +348,7 @@ private fun ManagementApp(
         }
     }
 
-    LaunchedEffect(liveRpc, signedInEmail) {
+    LaunchedEffect(liveRpc, signedInEmail, staffPortalActive) {
         val roles = if (!liveRpc) {
             showChat = true
             showCredit = true
@@ -332,6 +367,11 @@ private fun ManagementApp(
             ManagementHomeRoles.normalize(roles).any { it == "admin" }
         openModule = null
 
+        if (staffPortalActive) {
+            salesHome = false
+            route = ManagementRoute.Home
+            return@LaunchedEffect
+        }
         val defaultLanding = runCatching { rpc.myDefaultLanding() }.getOrNull()
         when (ManagementHomeRoles.resolveLanding(roles, defaultLanding)) {
             ManagementHomeLanding.Deny -> {
@@ -359,18 +399,21 @@ private fun ManagementApp(
             Text("Loading roles…", style = MaterialTheme.typography.bodyMedium)
         }
         ManagementRoute.RoleDenied -> RoleDeniedScreen(onSignOut = onSignOut)
-        ManagementRoute.Home -> ManagementHome(
-            signedInEmail = signedInEmail,
-            onSignOut = onSignOut,
-            showChat = showChat,
-            showCredit = showCredit,
-            showFleet = showFleet,
-            showDeviceAdmin = showDeviceAdmin,
-            staffRoles = staffRoles,
-            moduleAccess = moduleAccess,
-            onOpenModule = ::openModuleMenu,
-            onOpenDeviceAdmin = { route = ManagementRoute.DeviceAdmin },
-        )
+        ManagementRoute.Home -> {
+            if (staffPortalActive) BackHandler { returnToPosFromStaffPortal() }
+            ManagementHome(
+                signedInEmail = signedInEmail,
+                onSignOut = onSignOut,
+                staffPortalActive = staffPortalActive,
+                onReturnToPos = ::returnToPosFromStaffPortal,
+                showChat = showChat,
+                showCredit = showCredit,
+                showFleet = showFleet,
+                staffRoles = staffRoles,
+                moduleAccess = moduleAccess,
+                onOpenModule = ::openModuleMenu,
+            )
+        }
         ManagementRoute.DeviceAdmin -> {
             BackHandler { goHome() }
             var printerDiagnostics by remember {
@@ -387,17 +430,18 @@ private fun ManagementApp(
                 diagScope.launch {
                     diagnosticsBusy = true
                     printerDiagnostics = runCatching {
-                        val mac = printer.getConfiguredPrinterAddress() ?: "unset"
-                        val bt = printer.getBluetoothPermissionStatus()
-                        val bonded = runCatching { printer.listBondedDevices() }
-                            .getOrDefault(emptyList())
+                        val transport = printer.getConfiguredTransport()
                         val connected = runCatching { printer.isConnected() }.getOrDefault(false)
-                        "ESC/POS · MAC=$mac · BT=$bt · bonded=${bonded.size} · connected=$connected" +
-                            if (bonded.isNotEmpty()) {
-                                " · " + bonded.take(3).joinToString { "${it.name}:${it.address}" }
-                            } else {
-                                ""
-                            }
+                        if (transport == co.zw.nissangtr.bridges.escpos.PrinterTransport.WIFI) {
+                            val host = printer.getConfiguredNetworkHost() ?: "unset"
+                            "ESC/POS · Wi-Fi/LAN · $host:${printer.getConfiguredNetworkPort()} · connected=$connected"
+                        } else {
+                            val mac = printer.getConfiguredPrinterAddress() ?: "unset"
+                            val bt = printer.getBluetoothPermissionStatus()
+                            val bonded = runCatching { printer.listBondedDevices() }.getOrDefault(emptyList())
+                            "ESC/POS · Bluetooth · MAC=$mac · BT=$bt · bonded=${bonded.size} · connected=$connected" +
+                                if (bonded.isNotEmpty()) " · " + bonded.take(3).joinToString { "${it.name}:${it.address}" } else ""
+                        }
                     }.getOrElse { "ESC/POS diagnostics failed: ${it.message}" }
                     scannerDiagnostics = runCatching {
                         val cam = qr.getCameraPermissionStatus()
@@ -474,12 +518,29 @@ private fun ManagementApp(
                 rpc = rpc,
                 qr = qr,
                 printer = printer,
+                documentPrinter = documentPrinter,
                 isSalesHome = salesHome,
                 onOpenHub = ::escapeToHub,
+                onOpenStaffPortal = {
+                    staffPortalError = null
+                    staffPortalIdentifier = ""
+                    staffPortalPassword = ""
+                    staffPortalLoginOpen = true
+                },
+                onOpenKioskSettings = if (showDeviceAdmin) {
+                    { route = ManagementRoute.DeviceAdmin }
+                } else {
+                    null
+                },
+                operatorLabel = signedInEmail,
                 onBack = {
                     if (openModule != null) backFromFeature() else escapeToHub()
                 },
             )
+        }
+        ManagementRoute.EpcBrowse -> {
+            BackHandler { backFromFeature() }
+            StaffOfflineEpcBrowseScreen(onBack = ::backFromFeature)
         }
         ManagementRoute.Warehouse -> {
             BackHandler { backFromFeature() }
@@ -506,6 +567,76 @@ private fun ManagementApp(
             ChatScreen(rpc = rpc, onBack = ::backFromFeature)
         }
     }
+
+    if (staffPortalLoginOpen) {
+        AlertDialog(
+            onDismissRequest = { if (!staffPortalBusy) staffPortalLoginOpen = false },
+            title = { Text("Staff access") },
+            text = {
+                androidx.compose.foundation.layout.Column {
+                    Text(
+                        "Sign in again to open the staff portal. Access is recalculated from this staff account's roles and company module policy.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedTextField(
+                        value = staffPortalIdentifier,
+                        onValueChange = { staffPortalIdentifier = it; staffPortalError = null },
+                        label = { Text("Emp # / email / phone") },
+                        singleLine = true,
+                        enabled = !staffPortalBusy,
+                    )
+                    OutlinedTextField(
+                        value = staffPortalPassword,
+                        onValueChange = { staffPortalPassword = it; staffPortalError = null },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        enabled = !staffPortalBusy,
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    staffPortalError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        appScope.launch {
+                            staffPortalBusy = true
+                            staffPortalError = null
+                            try {
+                                if (liveRpc) {
+                                    val live = rpc as? SupabaseRpcClient
+                                        ?: error("Live staff authentication unavailable")
+                                    live.beginStaffPortalSession(staffPortalIdentifier, staffPortalPassword)
+                                } else {
+                                    require(staffPortalIdentifier.isNotBlank() && staffPortalPassword.isNotBlank())
+                                }
+                                staffPortalLoginOpen = false
+                                staffPortalPassword = ""
+                                staffPortalActive = true
+                                salesHome = false
+                                openModule = null
+                                route = ManagementRoute.Home
+                            } catch (_: Throwable) {
+                                staffPortalError = "Staff sign-in failed"
+                            } finally {
+                                staffPortalBusy = false
+                            }
+                        }
+                    },
+                    enabled = !staffPortalBusy && staffPortalIdentifier.isNotBlank() && staffPortalPassword.isNotBlank(),
+                ) { Text(if (staffPortalBusy) "Signing in…" else "Open staff portal") }
+            },
+            dismissButton = {
+                ShopSecondaryButton(
+                    label = "Cancel",
+                    onClick = { staffPortalLoginOpen = false },
+                    enabled = !staffPortalBusy,
+                )
+            },
+        )
+    }
 }
 
 @Composable
@@ -527,14 +658,14 @@ private fun RoleDeniedScreen(onSignOut: () -> Unit) {
 private fun ManagementHome(
     signedInEmail: String?,
     onSignOut: () -> Unit,
+    staffPortalActive: Boolean,
+    onReturnToPos: () -> Unit,
     showChat: Boolean,
     showCredit: Boolean,
     showFleet: Boolean,
-    showDeviceAdmin: Boolean,
     staffRoles: List<String>,
     moduleAccess: List<String>,
     onOpenModule: (HubModule) -> Unit,
-    onOpenDeviceAdmin: () -> Unit,
 ) {
     fun allowed(key: String) =
         ManagementHomeRoles.moduleAllowed(key, staffRoles, moduleAccess)
@@ -545,7 +676,11 @@ private fun ManagementHome(
     ) {
         if (signedInEmail != null) {
             Text("Signed in: $signedInEmail", style = MaterialTheme.typography.bodySmall)
-            ShopSecondaryButton(label = "Sign out", onClick = onSignOut)
+            if (staffPortalActive) {
+                ShopSecondaryButton(label = "Return to POS", onClick = onReturnToPos)
+            } else {
+                ShopSecondaryButton(label = "Sign out", onClick = onSignOut)
+            }
         }
 
         ShopSectionHeader(title = "Modules", actionLabel = null)
@@ -578,15 +713,6 @@ private fun ManagementHome(
         }
         if (showChat && allowed("chat")) {
             HubModuleTile(HubModule.Chat, "Counter threads", Icons.AutoMirrored.Filled.Chat, onOpenModule)
-        }
-        if (showDeviceAdmin) {
-            ShopSectionHeader(title = "Maintenance", actionLabel = null)
-            StaffModuleTile(
-                title = "Device Admin",
-                subtitle = "Lock Task · idle · bridges",
-                icon = Icons.Filled.AdminPanelSettings,
-                onClick = onOpenDeviceAdmin,
-            )
         }
     }
 }
@@ -644,6 +770,7 @@ private fun featuresFor(
 ): List<Pair<String, ManagementRoute>> = when (module) {
     HubModule.Pos -> listOf(
         "Sales till" to ManagementRoute.Pos,
+        "Offline EPC catalog" to ManagementRoute.EpcBrowse,
     )
     HubModule.Warehouse -> listOf(
         "Receive / Transfer / Cycle" to ManagementRoute.Warehouse,

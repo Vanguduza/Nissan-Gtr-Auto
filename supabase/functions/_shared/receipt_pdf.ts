@@ -31,6 +31,7 @@ export type ReceiptPdfInput = {
   lines: ReceiptLineInput[];
   tenders?: ReceiptTenderInput[];
   customerContact?: string | null;
+  vehicleLabel?: string | null;
 };
 
 function money(n: number, currency: string): string {
@@ -82,6 +83,9 @@ export async function buildReceiptPdf(
   if (input.postedAt) draw(`Date: ${input.postedAt}`, { size: 9 });
   if (input.customerContact) {
     draw(`Customer: ${input.customerContact}`, { size: 9 });
+  }
+  if (input.vehicleLabel) {
+    draw(`Vehicle: ${input.vehicleLabel}`, { bold: true, size: 9 });
   }
   if (input.exchangeRate && input.exchangeRate !== 1) {
     draw(`Exchange rate applied: ${input.exchangeRate}`, { size: 9 });

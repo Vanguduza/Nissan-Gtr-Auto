@@ -77,6 +77,8 @@ class FakeRpcClient : RpcClient {
     private val cartLines = mutableMapOf<String, MutableList<PosCartLineSummary>>()
     /** cartId → customer_id */
     private val cartCustomers = mutableMapOf<String, String>()
+    /** cartId → immutable sale vehicle context. */
+    private val cartVehicles = mutableMapOf<String, PosSaleVehicleSelection>()
     /** pairing_code → (sessionId, cartId) */
     private val openScanSessions = mutableMapOf<String, Pair<String, String>>()
     private val claimedSessions = mutableSetOf<String>()
@@ -465,6 +467,31 @@ class FakeRpcClient : RpcClient {
         return CatalogSearchResult(mode = mode, query = q, parts = parts)
     }
 
+    override suspend fun searchCatalogForVehicle(
+        vehicle: PosSaleVehicleSelection,
+        query: String,
+        limit: Int,
+    ): CatalogSearchResult {
+        val base = searchCatalog(CatalogSearchMode.PART, query)
+        return base.copy(
+            parts = base.parts.take(limit.coerceIn(1, 100)).map {
+                it.copy(chassisCode = vehicle.chassisCode, engineCode = vehicle.engineCode)
+            },
+        )
+    }
+
+    override suspend fun setPosCartVehicle(
+        cartId: String,
+        vehicle: PosSaleVehicleSelection?,
+    ): String {
+        require(cartId in openCarts) { "open cart required" }
+        if (vehicle == null) cartVehicles.remove(cartId) else cartVehicles[cartId] = vehicle
+        return cartId
+    }
+
+    override suspend fun getPosCartVehicle(cartId: String): PosSaleVehicleSelection? =
+        cartVehicles[cartId]
+
     override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {
         require(lineId.isNotBlank()) { "lineId required" }
         require(qty > 0) { "qty must be > 0" }
@@ -680,6 +707,53 @@ class FakeRpcClient : RpcClient {
         quotations
             .filter { status.isNullOrBlank() || it.status.equals(status, ignoreCase = true) }
             .take(limit.coerceIn(1, 200))
+
+    override suspend fun listPosPopularSpares(
+        days: Int,
+        limit: Int,
+    ): List<PopularPosSpare> = listOf(
+        PopularPosSpare(
+            stockItemId = FAKE_STOCK_ITEM_ID,
+            oemPartNumber = "P2-POS-SMOKE-001",
+            description = "Oil filter",
+            unitsSold = 42.0,
+            saleableQty = 18.0,
+            unitPrice = 25.0,
+            currency = CurrencyCode.USD,
+        ),
+        PopularPosSpare(
+            stockItemId = "00000000-0000-4000-8000-0000000000b2",
+            oemPartNumber = "FAKE-PAD-001",
+            description = "Front brake pad set",
+            unitsSold = 31.0,
+            saleableQty = 7.0,
+            unitPrice = 85.0,
+            currency = CurrencyCode.USD,
+        ),
+    ).take(limit.coerceIn(1, 24))
+
+    override suspend fun listPosRecentInvoices(
+        query: String?,
+        limit: Int,
+    ): List<PosInvoiceSummary> {
+        val rows = listOf(
+            PosInvoiceSummary(
+                id = "00000000-0000-4000-8000-0000000000i1",
+                documentNumber = "SINV-00001",
+                customerId = null,
+                customerName = "Walk-in",
+                total = 110.0,
+                currency = CurrencyCode.USD,
+                postedAt = "2026-09-07T06:00:00Z",
+            ),
+        )
+        val q = query?.trim()?.lowercase().orEmpty()
+        return rows.filter { row ->
+            q.isBlank() || row.id.lowercase() == q ||
+                row.documentNumber.orEmpty().lowercase().contains(q) ||
+                row.customerName.orEmpty().lowercase().contains(q)
+        }.take(limit.coerceIn(1, 200))
+    }
 
     override suspend fun pullPosOfflineSnapshot(warehouseId: String): OfflinePosSnapshot {
         require(warehouseId.isNotBlank()) { "warehouseId required for ${RpcNames.PULL_POS_OFFLINE_SNAPSHOT}" }
