@@ -51,7 +51,7 @@ async function loadReceiptData(supabase: SupabaseClient, documentId: string) {
   const { data: inv, error: invErr } = await supabase
     .from("sales_invoices")
     .select(
-      "id, doc_type, status, document_number, currency, exchange_rate_applied, subtotal, total, posted_at, customer_phone_e164, customer_email, warehouse_id",
+      "id, doc_type, status, document_number, currency, exchange_rate_applied, subtotal, total, posted_at, customer_phone_e164, customer_email, warehouse_id, vehicle_model_name, vehicle_generation, vehicle_chassis_code, vehicle_engine_code",
     )
     .eq("id", documentId)
     .maybeSingle();
@@ -172,6 +172,11 @@ async function generateAndStorePdf(
     lines: pdfLines,
     tenders,
     customerContact: inv.customer_email || inv.customer_phone_e164 || null,
+    vehicleLabel: inv.vehicle_model_name
+      ? [inv.vehicle_model_name, inv.vehicle_generation || inv.vehicle_chassis_code, inv.vehicle_engine_code]
+          .filter(Boolean)
+          .join(" · ")
+      : null,
   });
 
   const storagePath = `${documentId}.pdf`;

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Dedicated kiosk starting window. It deliberately matches the POS login's Chalk surface
+      so Android 12+ system splash / activity hand-off cannot expose the launcher or another app.
+      No animated app splash is used; Compose draws the real login immediately.
+    -->
+    <style name="Theme.GTRManagement.Kiosk" parent="Theme.GTRManagement">
+        <item name="android:windowBackground">#FFF4F5F7</item>
+        <item name="android:navigationBarColor">#FFF4F5F7</item>
+        <item name="android:statusBarColor">#FFF4F5F7</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowDisablePreview">false</item>
+    </style>
+</resources>

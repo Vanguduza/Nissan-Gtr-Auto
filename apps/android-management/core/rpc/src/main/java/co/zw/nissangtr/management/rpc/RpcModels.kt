@@ -286,6 +286,8 @@ enum class CatalogSearchMode(val rpcValue: String) {
 /** Part hit from [RpcNames.SEARCH_CATALOG] (type=part or nested fitment). */
 data class CatalogPartHit(
     val oemPartNumber: String,
+    /** Stock master description; populated by POS description/OEM discovery where available. */
+    val description: String? = null,
     val pncCode: String? = null,
     val categoryName: String? = null,
     val subcategoryName: String? = null,
@@ -300,6 +302,50 @@ data class CatalogSearchResult(
     val query: String,
     val parts: List<CatalogPartHit>,
 )
+
+/** Immutable Nissan fitment context attached to a POS cart and snapshotted to invoice. */
+data class PosSaleVehicleSelection(
+    val modelSlug: String,
+    val modelName: String,
+    val generation: String,
+    val chassisCode: String,
+    val engineCode: String,
+) {
+    val displayLabel: String
+        get() = "$modelName · $generation · $engineCode"
+}
+
+/** Ranked from real posted POS invoice lines; never a merchandising placeholder. */
+data class PopularPosSpare(
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String? = null,
+    val unitsSold: Double,
+    val saleableQty: Double,
+    val unitPrice: Double? = null,
+    val currency: CurrencyCode? = null,
+)
+
+/** Posted invoice read model used by POS Orders and Returns. */
+data class PosInvoiceSummary(
+    val id: String,
+    val documentNumber: String? = null,
+    val customerId: String? = null,
+    val customerName: String? = null,
+    val total: Double,
+    val currency: CurrencyCode,
+    val postedAt: String? = null,
+    val vehicleModelName: String? = null,
+    val vehicleGeneration: String? = null,
+    val vehicleChassisCode: String? = null,
+    val vehicleEngineCode: String? = null,
+) {
+    val vehicleLabel: String?
+        get() = vehicleModelName?.let { model ->
+            listOfNotNull(model, vehicleGeneration ?: vehicleChassisCode, vehicleEngineCode)
+                .joinToString(" · ")
+        }
+}
 
 data class WarehouseRef(
     val id: String,
@@ -398,6 +444,7 @@ data class OfflineSaleReplayPayload(
     val receiptWhatsappE164: String? = null,
     val receiptPhoneE164: String? = null,
     val soldAt: String? = null,
+    val vehicle: PosSaleVehicleSelection? = null,
 )
 
 data class OfflineSaleLine(

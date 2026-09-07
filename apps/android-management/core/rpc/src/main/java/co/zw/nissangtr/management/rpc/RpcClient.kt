@@ -96,6 +96,22 @@ interface RpcClient {
         query: String,
     ): CatalogSearchResult
 
+    /** Fitment-scoped spare search when the attendant selected a specific Nissan. */
+    suspend fun searchCatalogForVehicle(
+        vehicle: PosSaleVehicleSelection,
+        query: String,
+        limit: Int = 50,
+    ): CatalogSearchResult = searchCatalog(CatalogSearchMode.PART, query)
+
+    /** Persist or clear sale vehicle context on an open cart. */
+    suspend fun setPosCartVehicle(
+        cartId: String,
+        vehicle: PosSaleVehicleSelection?,
+    ): String = cartId
+
+    /** Read vehicle snapshot from a live/parked cart (resume / quote conversion). */
+    suspend fun getPosCartVehicle(cartId: String): PosSaleVehicleSelection? = null
+
     /**
      * Megazip hierarchy browse (online-only). Offline POS cache remains flat catalog_items.
      */
@@ -114,6 +130,19 @@ interface RpcClient {
         variantSlug: String,
         sectionSlug: String,
     ): EpcDiagramResponse = EpcDiagramResponse()
+    suspend fun listCatalogDiagrams(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): List<EpcDiagramSummary> = emptyList()
+    suspend fun getCatalogDiagramBySlug(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+        diagramSlug: String,
+    ): EpcDiagramResponse = getCatalogDiagram(makerSlug, modelSlug, variantSlug, sectionSlug)
 
     /** Open cart lines (poll refresh for companion scans). */
     suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary>
@@ -205,6 +234,18 @@ interface RpcClient {
         status: String? = null,
         limit: Int = 50,
     ): List<PosQuotationSummary>
+
+    /** Best-selling spares from posted invoices for the operator Home screen. */
+    suspend fun listPosPopularSpares(
+        days: Int = 90,
+        limit: Int = 8,
+    ): List<PopularPosSpare> = emptyList()
+
+    /** Posted sales history search for Orders / Returns. */
+    suspend fun listPosRecentInvoices(
+        query: String? = null,
+        limit: Int = 50,
+    ): List<PosInvoiceSummary> = emptyList()
 
     /**
      * Pull retail catalog + warehouse qty for encrypted offline POS cache.

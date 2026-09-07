@@ -45,6 +45,14 @@ data class EpcSection(
     val sortOrder: Int = 0,
 )
 
+
+data class EpcDiagramSummary(
+    val slug: String,
+    val title: String,
+    val storagePath: String? = null,
+    val imageUrl: String? = null,
+)
+
 data class EpcHotspot(
     val oem: String,
     val pncCode: String? = null,
@@ -61,6 +69,8 @@ data class EpcDiagramPart(
     val subcategoryName: String? = null,
     val stockItemId: String? = null,
     val stockDescription: String? = null,
+    val chassisCode: String? = null,
+    val engineCode: String? = null,
 )
 
 data class EpcDiagramResponse(
@@ -68,6 +78,8 @@ data class EpcDiagramResponse(
     val diagramTitle: String? = null,
     val storagePath: String? = null,
     val imageUrl: String? = null,
+    /** Optional encrypted local-catalog copy for fully offline EPC rendering. */
+    val imageBytes: ByteArray? = null,
     val hotspots: List<EpcHotspot> = emptyList(),
     val parts: List<EpcDiagramPart> = emptyList(),
 )
@@ -110,6 +122,18 @@ internal fun parseEpcVariantList(raw: JsonElement): List<EpcVariant> =
         )
     }
 
+
+internal fun parseEpcDiagramSummaryList(raw: JsonElement): List<EpcDiagramSummary> =
+    raw.asObjectList().mapNotNull { o ->
+        val slug = o.str("slug") ?: return@mapNotNull null
+        EpcDiagramSummary(
+            slug = slug,
+            title = o.str("title") ?: slug,
+            storagePath = o.str("storage_path"),
+            imageUrl = o.str("image_url"),
+        )
+    }
+
 internal fun parseEpcSectionList(raw: JsonElement): List<EpcSection> =
     raw.asObjectList().mapNotNull { o ->
         val slug = o.str("slug") ?: return@mapNotNull null
@@ -144,6 +168,8 @@ internal fun parseEpcDiagram(raw: JsonElement): EpcDiagramResponse {
             subcategoryName = o.str("subcategory_name"),
             stockItemId = o.str("stock_item_id"),
             stockDescription = o.str("stock_description"),
+            chassisCode = o.str("chassis_code"),
+            engineCode = o.str("engine_code"),
         )
     }
     return EpcDiagramResponse(

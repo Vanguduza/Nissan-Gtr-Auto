@@ -36,6 +36,8 @@ object RpcNames {
     const val LIST_CATALOG_VARIANTS = "list_catalog_variants"
     const val LIST_CATALOG_SECTIONS = "list_catalog_sections"
     const val GET_CATALOG_DIAGRAM = "get_catalog_diagram"
+    const val LIST_CATALOG_DIAGRAMS = "list_catalog_diagrams"
+    const val GET_CATALOG_DIAGRAM_BY_SLUG = "get_catalog_diagram_by_slug"
     /** Organogram module_access for signed-in employee (Batch 1 §1.6). */
     const val MY_MODULE_ACCESS = "my_module_access"
     /** Optional hr_roles.default_landing (pos|hub). */
@@ -64,6 +66,11 @@ object RpcNames {
     const val SEND_POS_QUOTATION = "send_pos_quotation"
     const val CONVERT_POS_QUOTATION_TO_CART = "convert_pos_quotation_to_cart"
     const val LIST_POS_QUOTATIONS = "list_pos_quotations"
+    /** Locked operator POS discovery/history read models. */
+    const val LIST_POS_POPULAR_SPARES = "list_pos_popular_spares"
+    const val LIST_POS_RECENT_INVOICES = "list_pos_recent_invoices"
+    const val SET_POS_CART_VEHICLE = "set_pos_cart_vehicle"
+    const val SEARCH_POS_VEHICLE_SPARES = "search_pos_vehicle_spares"
 
     /** Pre-auth staff identifier → GoTrue email (emp#|email|phone). */
     const val RESOLVE_STAFF_LOGIN_EMAIL = "resolve_staff_login_email"

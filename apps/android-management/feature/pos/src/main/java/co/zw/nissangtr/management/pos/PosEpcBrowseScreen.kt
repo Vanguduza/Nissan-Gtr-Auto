@@ -1,6 +1,9 @@
 package co.zw.nissangtr.management.pos
 
+import android.graphics.BitmapFactory
+
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -29,15 +32,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.management.rpc.EpcDiagramPart
 import co.zw.nissangtr.management.rpc.EpcDiagramResponse
+import co.zw.nissangtr.management.rpc.EpcDiagramSummary
 import co.zw.nissangtr.management.rpc.EpcHotspot
 import co.zw.nissangtr.management.rpc.EpcMaker
 import co.zw.nissangtr.management.rpc.EpcModel
 import co.zw.nissangtr.management.rpc.EpcSection
 import co.zw.nissangtr.management.rpc.EpcVariant
-import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
@@ -54,11 +59,18 @@ private sealed class EpcLevel {
         val model: EpcModel,
         val variant: EpcVariant,
     ) : EpcLevel()
+    data class Diagrams(
+        val maker: EpcMaker,
+        val model: EpcModel,
+        val variant: EpcVariant,
+        val section: EpcSection,
+    ) : EpcLevel()
     data class Diagram(
         val maker: EpcMaker,
         val model: EpcModel,
         val variant: EpcVariant,
         val section: EpcSection,
+        val diagram: EpcDiagramSummary,
     ) : EpcLevel()
 }
 
@@ -67,8 +79,8 @@ private sealed class EpcLevel {
  * Hotspot overlays use normalized 0–1 bbox fractions (native Box — not camera/QR).
  */
 @Composable
-fun PosEpcBrowseScreen(
-    rpc: RpcClient,
+internal fun PosEpcBrowseScreen(
+    source: EpcCatalogSource,
     onBack: () -> Unit,
     onSelectOem: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -80,6 +92,7 @@ fun PosEpcBrowseScreen(
     var models by remember { mutableStateOf<List<EpcModel>>(emptyList()) }
     var variants by remember { mutableStateOf<List<EpcVariant>>(emptyList()) }
     var sections by remember { mutableStateOf<List<EpcSection>>(emptyList()) }
+    var diagrams by remember { mutableStateOf<List<EpcDiagramSummary>>(emptyList()) }
     var diagram by remember { mutableStateOf<EpcDiagramResponse?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -89,8 +102,9 @@ fun PosEpcBrowseScreen(
             is EpcLevel.Models -> level = EpcLevel.Makers
             is EpcLevel.Variants -> level = EpcLevel.Models(cur.maker)
             is EpcLevel.Sections -> level = EpcLevel.Variants(cur.maker, cur.model)
+            is EpcLevel.Diagrams -> level = EpcLevel.Sections(cur.maker, cur.model, cur.variant)
             is EpcLevel.Diagram ->
-                level = EpcLevel.Sections(cur.maker, cur.model, cur.variant)
+                level = EpcLevel.Diagrams(cur.maker, cur.model, cur.variant, cur.section)
         }
     }
 
@@ -101,22 +115,27 @@ fun PosEpcBrowseScreen(
         error = null
         try {
             when (val cur = level) {
-                is EpcLevel.Makers -> makers = rpc.listCatalogMakers()
-                is EpcLevel.Models -> models = rpc.listCatalogModels(cur.maker.slug)
+                is EpcLevel.Makers -> makers = source.listMakers()
+                is EpcLevel.Models -> models = source.listModels(cur.maker.slug)
                 is EpcLevel.Variants ->
-                    variants = rpc.listCatalogVariants(cur.maker.slug, cur.model.slug)
+                    variants = source.listVariants(cur.maker.slug, cur.model.slug)
                 is EpcLevel.Sections ->
-                    sections = rpc.listCatalogSections(
+                    sections = source.listSections(
                         cur.maker.slug,
                         cur.model.slug,
                         cur.variant.slug,
                     )
+                is EpcLevel.Diagrams ->
+                    diagrams = source.listDiagrams(
+                        cur.maker.slug, cur.model.slug, cur.variant.slug, cur.section.slug,
+                    )
                 is EpcLevel.Diagram ->
-                    diagram = rpc.getCatalogDiagram(
+                    diagram = source.getDiagramBySlug(
                         cur.maker.slug,
                         cur.model.slug,
                         cur.variant.slug,
                         cur.section.slug,
+                        cur.diagram.slug,
                     )
             }
         } catch (t: Throwable) {
@@ -135,11 +154,12 @@ fun PosEpcBrowseScreen(
         )
         Text(
             text = when (val cur = level) {
-                is EpcLevel.Makers -> "EPC catalog"
+                is EpcLevel.Makers -> if (source.offline) "EPC catalog · Offline" else "EPC catalog"
                 is EpcLevel.Models -> cur.maker.name
                 is EpcLevel.Variants -> cur.model.displayName
                 is EpcLevel.Sections -> cur.variant.chassisCode
-                is EpcLevel.Diagram -> cur.section.name
+                is EpcLevel.Diagrams -> cur.section.name
+                is EpcLevel.Diagram -> cur.diagram.title
             },
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -208,7 +228,7 @@ fun PosEpcBrowseScreen(
                         title = s.name,
                         subtitle = "Diagram",
                         onClick = {
-                            level = EpcLevel.Diagram(
+                            level = EpcLevel.Diagrams(
                                 parent.maker,
                                 parent.model,
                                 parent.variant,
@@ -217,6 +237,34 @@ fun PosEpcBrowseScreen(
                         },
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
+                }
+            }
+            level is EpcLevel.Diagrams -> {
+                val parent = level as EpcLevel.Diagrams
+                if (diagrams.isEmpty()) {
+                    ShopHonestEmpty(
+                        title = "No diagrams",
+                        body = "This EPC section has no diagram records in the local/catalog source.",
+                        modifier = Modifier.padding(16.dp),
+                    )
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(diagrams, key = { it.slug }) { d ->
+                            ShopListCard(
+                                title = d.title,
+                                subtitle = d.slug,
+                                onClick = {
+                                    level = EpcLevel.Diagram(
+                                        parent.maker, parent.model, parent.variant, parent.section, d,
+                                    )
+                                },
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
             level is EpcLevel.Diagram -> {
@@ -248,7 +296,7 @@ private fun EpcDiagramPane(
     var activeOem by remember { mutableStateOf<String?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
-            if (data.imageUrl.isNullOrBlank()) {
+            if (data.imageUrl.isNullOrBlank() && data.imageBytes == null) {
                 Text(
                     "Diagram image unavailable — parts list below.",
                     modifier = Modifier.padding(16.dp),
@@ -257,6 +305,7 @@ private fun EpcDiagramPane(
             } else {
                 EpcHotspotCanvas(
                     imageUrl = data.imageUrl,
+                    imageBytes = data.imageBytes,
                     hotspots = data.hotspots,
                     activeOem = activeOem,
                     onSelectOem = onSelectOem,
@@ -282,7 +331,8 @@ private fun EpcDiagramPane(
 
 @Composable
 private fun EpcHotspotCanvas(
-    imageUrl: String,
+    imageUrl: String?,
+    imageBytes: ByteArray?,
     hotspots: List<EpcHotspot>,
     activeOem: String?,
     onSelectOem: (String) -> Unit,
@@ -291,11 +341,25 @@ private fun EpcHotspotCanvas(
     BoxWithConstraints(modifier = modifier) {
         val w = maxWidth
         val h = maxHeight
-        ShopRemoteImage(
-            url = imageUrl,
-            contentDescription = "EPC diagram",
-            modifier = Modifier.fillMaxSize(),
-        )
+        val localBitmap = remember(imageBytes) {
+            imageBytes?.let { bytes ->
+                runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }.getOrNull()
+            }
+        }
+        if (localBitmap != null) {
+            Image(
+                bitmap = localBitmap,
+                contentDescription = "EPC diagram",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else if (!imageUrl.isNullOrBlank()) {
+            ShopRemoteImage(
+                url = imageUrl,
+                contentDescription = "EPC diagram",
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         hotspots.forEach { hs ->
             val left = w * hs.bboxX.toFloat()
             val top = h * hs.bboxY.toFloat()
