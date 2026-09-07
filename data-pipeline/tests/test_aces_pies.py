@@ -122,7 +122,7 @@ def test_merge_pies_into_mapping(tmp_path: Path) -> None:
     doc, added = merge_pies_into_epc_mapping(items, mapping_path=None)
     assert added >= 1
     out.write_text(json.dumps(doc), encoding="utf-8")
-    doc2, added2 = merge_pies_into_epc_mapping(items, mapping_path=out)
+    _doc2, added2 = merge_pies_into_epc_mapping(items, mapping_path=out)
     assert added2 == 0
 
 

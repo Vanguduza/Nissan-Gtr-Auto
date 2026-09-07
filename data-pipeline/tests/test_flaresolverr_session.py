@@ -68,7 +68,7 @@ def test_flaresolverr_session_reuses_named_session(tmp_path: Path, monkeypatch) 
         async def __aexit__(self, *args):
             return False
 
-        async def post(self, url, json):  # noqa: A002
+        async def post(self, url, json):
             calls.append(json)
             cmd = json.get("cmd")
             if cmd == "sessions.list":
@@ -134,7 +134,7 @@ def test_flaresolverr_session_create_accepts_name(monkeypatch) -> None:
         async def __aexit__(self, *args):
             return False
 
-        async def post(self, url, json):  # noqa: A002
+        async def post(self, url, json):
             assert json["cmd"] == "sessions.create"
             assert json["session"] == "named-1"
             return FakeResp()
@@ -166,7 +166,7 @@ def test_flaresolverr_sessions_list(monkeypatch) -> None:
         async def __aexit__(self, *args):
             return False
 
-        async def post(self, url, json):  # noqa: A002
+        async def post(self, url, json):
             assert json["cmd"] == "sessions.list"
             return FakeResp()
 

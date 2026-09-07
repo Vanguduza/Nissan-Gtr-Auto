@@ -50,7 +50,7 @@ struct SignInScreen: View {
                         .autocorrectionDisabled()
                         .disabled(busy || (mode == .signUp && verificationPending))
 
-                    if (mode == .signUp && verificationPending || mode == .reset {
+                    if (mode == .signUp && verificationPending) || mode == .reset {
                         TextField(mode == .reset ? "Recovery code" : "Verification code", text: $code)
                             .keyboardType(.numberPad)
                             .textContentType(.oneTimeCode)

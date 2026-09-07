@@ -3,7 +3,6 @@ package co.zw.nissangtr.management.rpc
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
@@ -52,16 +51,26 @@ class SupabaseRpcClient(
     val sessionStatus: Flow<SessionStatus> get() = auth.sessionStatus
 
     /**
-     * Email/password sign-in via GoTrue. Session is stored by the SDK session manager —
-     * never put passwords or JWTs in BuildConfig.
+     * Staff email/password sign-in through the hardened Auth Edge. Supabase Auth
+     * still validates credentials and owns the resulting session.
      */
     suspend fun signInWithEmail(email: String, password: String) {
         require(email.isNotBlank()) { "email required" }
         require(password.isNotBlank()) { "password required" }
-        auth.signInWith(Email) {
-            this.email = email.trim()
-            this.password = password
-        }
+        val session = AuthEdgeClient.login(client, email.trim(), password)
+        importAccessToken(session.accessToken, session.refreshToken, session.expiresIn)
+    }
+
+    suspend fun requestPasswordResetForEmail(email: String) {
+        require(email.isNotBlank()) { "email required" }
+        AuthEdgeClient.requestPasswordReset(client, email.trim())
+    }
+
+    suspend fun completePasswordResetForEmail(email: String, code: String, newPassword: String) {
+        require(code.length >= 6) { "recovery code required" }
+        require(newPassword.length >= 8) { "new password must be at least 8 characters" }
+        val session = AuthEdgeClient.verifyPasswordReset(client, email.trim(), code, newPassword)
+        importAccessToken(session.accessToken, session.refreshToken, session.expiresIn)
     }
 
     /** Clears the persisted GoTrue session. */
@@ -851,10 +860,8 @@ class SupabaseRpcClient(
             ?: error("attendant session required before manager approval")
         val email = resolveStaffLoginEmail(managerIdentifier)
         try {
-            auth.signInWith(Email) {
-                this.email = email
-                this.password = managerPassword
-            }
+            val manager = AuthEdgeClient.login(client, email, managerPassword)
+            importAccessToken(manager.accessToken, manager.refreshToken, manager.expiresIn)
             return block()
         } finally {
             auth.importSession(

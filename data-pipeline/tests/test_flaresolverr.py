@@ -62,7 +62,7 @@ def test_flaresolverr_request_ok(monkeypatch) -> None:
         async def __aexit__(self, *args):
             return False
 
-        async def post(self, url, json):  # noqa: A002
+        async def post(self, url, json):
             assert "8191" in url
             assert json["cmd"] == "request.get"
             return FakeResp()

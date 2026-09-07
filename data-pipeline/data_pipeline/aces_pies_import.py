@@ -46,12 +46,12 @@ from data_pipeline.aces_pies.enrich import (
 )
 from data_pipeline.aces_pies.pies import parse_pies_xml, pies_item_to_dict
 from data_pipeline.import_catalog import (
-    load_bundle,
-    load_env_files,
-    resolve_supabase_credentials,
     _batch_upsert_pnc,
     _batch_upsert_stock_items,
     _project,
+    load_bundle,
+    load_env_files,
+    resolve_supabase_credentials,
 )
 from data_pipeline.megazip.config import DEFAULT_PCDB_FILE
 from data_pipeline.megazip.enrich_pcdb import enrich_pcdb

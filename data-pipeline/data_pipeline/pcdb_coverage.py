@@ -11,7 +11,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from data_pipeline.aces_pies_import import _apply_live, main as aces_pies_main
+from data_pipeline.aces_pies_import import _apply_live
+from data_pipeline.aces_pies_import import main as aces_pies_main
 from data_pipeline.import_catalog import (
     UPSERT_BATCH_SIZE,
     load_env_files,
