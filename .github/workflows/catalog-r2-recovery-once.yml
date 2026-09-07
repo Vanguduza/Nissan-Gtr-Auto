@@ -1,0 +1,244 @@
+name: Catalog R2 recovery once
+
+on:
+  push:
+    branches:
+      - chatgpt/customer-ui-catalog-hardening-20260902
+    paths:
+      - .github/workflows/catalog-r2-recovery-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  RECOVERY_URL: https://gylrgwqyuiwkyykardwc.supabase.co/functions/v1/catalog-r2-oidc-recovery-once
+  OIDC_AUDIENCE: nissan-gtr-catalog-publisher
+  RELEASE_VERSION: v2-storage-2026-09
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/customer-ui-catalog-hardening-20260902
+
+      - name: Mint GitHub OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}")
+          token=$(printf '%s' "$response" | jq -r '.value')
+          test -n "$token" && test "$token" != "null"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Recover vehicle and hierarchy evidence from immutable R2 shards
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/audits
+          node <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const zlib = require('zlib');
+
+          const recoveryUrl = process.env.RECOVERY_URL;
+          const token = process.env.OIDC_TOKEN;
+          const version = process.env.RELEASE_VERSION;
+          const scopes = [
+            'VM-133189aac171f1928d3a83ff8965',
+            'VM-17968c936746a2c459b6c50b7e71',
+            'VM-1840b508044b3269c328f24b55aa',
+            'VM-1a627259f294137631ca52a83010',
+            'VM-319b94b36aca37a4109556e8fec2',
+            'VM-5199df72dfbd8db9b6b34e858c49',
+            'VM-68eb9532421c2aa35608d2162a5d',
+            'VM-92ad99a84a8b085643bf4b28e170',
+            'VM-956eff92552105b0318ac00505bf',
+            'VM-b14e305c4dd32a01e2fd3b669313',
+            'VM-b5253d4082d395ed8494b6c14cfb',
+            'VM-c574c805d493f167184f73bd5d4c',
+            'VM-ef9501a8837beb1f3a6364796c71',
+            'VM-f7c339c794c47bfffc0ea751cebf',
+            'VM-f88b3028a9ad872a49f24506011d',
+            'VM-fbc25fe4219f0f38346f5e42df1b',
+          ];
+
+          const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
+          const objectKey = (kind, scope) => {
+            const d = sha(scope);
+            return `serving/nissan/${version}/${kind}/${d.slice(0,2)}/${d.slice(0,32)}.ndjson.gz`;
+          };
+          async function recovery(body) {
+            const r = await fetch(recoveryUrl, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const text = await r.text();
+            if (!r.ok) throw new Error(`recovery ${r.status}: ${text.slice(0,500)}`);
+            return JSON.parse(text);
+          }
+          async function loadGzip(key) {
+            const { signed_url } = await recovery({ action: 'presign-get', key });
+            const r = await fetch(signed_url);
+            if (!r.ok) throw new Error(`R2 GET ${r.status} ${key}`);
+            const buf = Buffer.from(await r.arrayBuffer());
+            let text;
+            try { text = zlib.gunzipSync(buf).toString('utf8'); }
+            catch { text = buf.toString('utf8'); }
+            return text.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+          }
+          async function exactObjectExists(key) {
+            const prefix = key;
+            const r = await recovery({ action: 'list', prefix, max: 2 });
+            return (r.objects || []).some((o) => o.key === key);
+          }
+          function parseVehicleLabel(value) {
+            const text = String(value || '').trim();
+            const m = text.match(/for\s+(\d{4})\s*-\s*(\d{4})\s+Nissan\s+(.+?)\s+([A-Z][A-Z0-9-]{1,15})\s*\|\s*([^,|]+?)\s+sales region/i);
+            if (!m) return null;
+            return { year_start: Number(m[1]), year_end: Number(m[2]), model: m[3].trim(), chassis_code: m[4].trim().toUpperCase(), sales_region: m[5].trim() };
+          }
+          function topCount(map) {
+            return [...map.entries()].sort((a,b) => b[1]-a[1] || String(a[0]).localeCompare(String(b[0])))[0]?.[0] || null;
+          }
+
+          const vehicles = [];
+          const sections = new Map();
+          const diagrams = new Map();
+          const imageCandidates = new Set();
+
+          for (const scope of scopes) {
+            const vehicleRows = await loadGzip(objectKey('vehicle', scope));
+            const labels = new Map();
+            const diagramIds = [];
+            const seenDiagram = new Set();
+            const sectionIds = new Set();
+            for (const row of vehicleRows) {
+              const parsed = parseVehicleLabel(row.category_name);
+              if (parsed) labels.set(JSON.stringify(parsed), (labels.get(JSON.stringify(parsed)) || 0) + 1);
+              if (row.section_id) sectionIds.add(String(row.section_id));
+              if (row.diagram_id && !seenDiagram.has(String(row.diagram_id))) {
+                seenDiagram.add(String(row.diagram_id));
+                diagramIds.push(String(row.diagram_id));
+              }
+              if (row.section_id) {
+                const id = String(row.section_id);
+                const rec = sections.get(id) || { r2_scope_key: id, section_slugs: {}, labels: {}, diagrams: new Set() };
+                if (row.section_slug) rec.section_slugs[String(row.section_slug)] = (rec.section_slugs[String(row.section_slug)] || 0) + 1;
+                if (row.subcategory_name) rec.labels[String(row.subcategory_name)] = (rec.labels[String(row.subcategory_name)] || 0) + 1;
+                if (row.diagram_id) rec.diagrams.add(String(row.diagram_id));
+                sections.set(id, rec);
+              }
+              if (row.diagram_id) {
+                const id = String(row.diagram_id);
+                const rec = diagrams.get(id) || { r2_scope_key: id, section_ids: {}, section_slugs: {}, titles: {} };
+                if (row.section_id) rec.section_ids[String(row.section_id)] = (rec.section_ids[String(row.section_id)] || 0) + 1;
+                if (row.section_slug) rec.section_slugs[String(row.section_slug)] = (rec.section_slugs[String(row.section_slug)] || 0) + 1;
+                if (row.category_name) rec.titles[String(row.category_name)] = (rec.titles[String(row.category_name)] || 0) + 1;
+                diagrams.set(id, rec);
+              }
+            }
+
+            const staffIdentities = new Map();
+            let staffSamples = 0;
+            for (const diagramId of diagramIds.slice(0, 8)) {
+              try {
+                const rows = await loadGzip(objectKey('diagram-parts', diagramId));
+                staffSamples += 1;
+                for (const row of rows.slice(0, 100)) {
+                  const identity = {
+                    vehicle_master_id: row.vehicle_master_id || null,
+                    chassis_code: row.chassis_code || null,
+                    engine_code: row.engine_code || null,
+                    applicability: row.applicability || null,
+                  };
+                  if (identity.vehicle_master_id || identity.chassis_code || identity.engine_code) {
+                    const k = JSON.stringify(identity);
+                    staffIdentities.set(k, (staffIdentities.get(k) || 0) + 1);
+                  }
+                  if (typeof row.source_hash === 'string' && /^[0-9a-f]{64}$/i.test(row.source_hash)) imageCandidates.add(row.source_hash.toLowerCase());
+                }
+              } catch (e) {
+                console.warn(`diagram sample unavailable ${diagramId}: ${e.message}`);
+              }
+            }
+            const bestLabelKey = topCount(labels);
+            vehicles.push({
+              r2_scope_key: scope,
+              vehicle_row_count: vehicleRows.length,
+              identity: bestLabelKey ? JSON.parse(bestLabelKey) : null,
+              identity_candidates: [...labels.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k,count])=>({ ...JSON.parse(k), count })),
+              staff_identity_candidates: [...staffIdentities.entries()].sort((a,b)=>b[1]-a[1]).slice(0,20).map(([k,count])=>({ ...JSON.parse(k), count })),
+              section_count: sectionIds.size,
+              diagram_count: diagramIds.length,
+              staff_diagram_samples: staffSamples,
+            });
+          }
+
+          const imageMatches = [];
+          let tested = 0;
+          for (const h of [...imageCandidates].slice(0, 120)) {
+            tested += 1;
+            const key = `diagrams/nissan/${h.slice(0,2)}/${h}.png`;
+            if (await exactObjectExists(key)) imageMatches.push({ source_hash: h, object_key: key });
+          }
+
+          const sectionOut = [...sections.values()].map((r) => ({
+            r2_scope_key: r.r2_scope_key,
+            section_slug: topCount(new Map(Object.entries(r.section_slugs))),
+            display_name: topCount(new Map(Object.entries(r.labels))),
+            diagram_count: r.diagrams.size,
+          })).sort((a,b)=>a.r2_scope_key.localeCompare(b.r2_scope_key));
+          const diagramOut = [...diagrams.values()].map((r) => ({
+            r2_scope_key: r.r2_scope_key,
+            section_r2_scope_key: topCount(new Map(Object.entries(r.section_ids))),
+            section_slug: topCount(new Map(Object.entries(r.section_slugs))),
+            title: topCount(new Map(Object.entries(r.titles))),
+          })).sort((a,b)=>a.r2_scope_key.localeCompare(b.r2_scope_key));
+
+          const out = {
+            generated_at: new Date().toISOString(),
+            maker_slug: 'nissan',
+            release_version: version,
+            source: 'immutable_r2_serving_shards_via_github_oidc',
+            vehicles,
+            sections: sectionOut,
+            diagrams: diagramOut,
+            image_hash_probe: { tested, matches: imageMatches.length, samples: imageMatches.slice(0,40) },
+          };
+          fs.writeFileSync('docs/audits/catalog-r2-recovered-hierarchy.json', JSON.stringify(out, null, 2) + '\n');
+          console.log(JSON.stringify({ vehicles: vehicles.length, sections: sectionOut.length, diagrams: diagramOut.length, image_hash_tested: tested, image_hash_matches: imageMatches.length }, null, 2));
+          NODE
+
+      - name: Validate recovery artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.vehicles | length == 16' docs/audits/catalog-r2-recovered-hierarchy.json >/dev/null
+          jq -e '.sections | length > 0' docs/audits/catalog-r2-recovered-hierarchy.json >/dev/null
+          jq -e '.diagrams | length > 0' docs/audits/catalog-r2-recovered-hierarchy.json >/dev/null
+          jq '{vehicles:(.vehicles|length),sections:(.sections|length),diagrams:(.diagrams|length),image_hash_probe}' docs/audits/catalog-r2-recovered-hierarchy.json
+
+      - name: Persist recovery evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "nissan-gtr-catalog-recovery"
+          git config user.email "catalog-recovery@users.noreply.github.com"
+          git add docs/audits/catalog-r2-recovered-hierarchy.json
+          if git diff --cached --quiet; then
+            echo "Recovery evidence unchanged"
+          else
+            git commit -m "audit: recover R2 hierarchy evidence [skip ci]"
+            git push origin HEAD:chatgpt/customer-ui-catalog-hardening-20260902
+          fi
