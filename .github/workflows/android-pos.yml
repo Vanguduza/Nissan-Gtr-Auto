@@ -1,0 +1,49 @@
+name: Android POS
+
+on:
+  pull_request:
+    paths:
+      - "apps/android-management/**"
+      - "bridges/android/**"
+      - "packages/android-ui/**"
+      - ".github/workflows/android-pos.yml"
+  push:
+    paths:
+      - "apps/android-management/**"
+      - "bridges/android/**"
+      - "packages/android-ui/**"
+      - ".github/workflows/android-pos.yml"
+
+concurrency:
+  group: android-pos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tablet-pos:
+    name: Tablet POS build + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK 34
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: POS unit tests
+        working-directory: apps/android-management
+        run: bash ./gradlew :feature:pos:testDebugUnitTest --no-daemon
+      - name: Build tablet kiosk APK
+        working-directory: apps/android-management
+        run: bash ./gradlew :app:assembleTabletDebug --no-daemon
+      - name: Upload tablet APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtr-pos-tablet-debug
+          path: apps/android-management/app/build/outputs/apk/tablet/debug/*.apk
+          if-no-files-found: error
