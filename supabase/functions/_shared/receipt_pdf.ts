@@ -30,8 +30,11 @@ export type ReceiptPdfInput = {
   total: number;
   lines: ReceiptLineInput[];
   tenders?: ReceiptTenderInput[];
+  customerName?: string | null;
+  customerContactName?: string | null;
   customerContact?: string | null;
   vehicleLabel?: string | null;
+  vehicleLabels?: string[] | null;
 };
 
 function money(n: number, currency: string): string {
@@ -81,11 +84,18 @@ export async function buildReceiptPdf(
     size: 12,
   });
   if (input.postedAt) draw(`Date: ${input.postedAt}`, { size: 9 });
-  if (input.customerContact) {
-    draw(`Customer: ${input.customerContact}`, { size: 9 });
+  if (input.customerName) {
+    draw(`Customer: ${input.customerName}`, { bold: true, size: 9 });
   }
-  if (input.vehicleLabel) {
-    draw(`Vehicle: ${input.vehicleLabel}`, { bold: true, size: 9 });
+  if (input.customerContactName && input.customerContactName !== input.customerName) {
+    draw(`Contact: ${input.customerContactName}`, { size: 9 });
+  }
+  if (input.customerContact) {
+    draw(`Contact details: ${input.customerContact}`, { size: 9 });
+  }
+  const vehicleLabels = input.vehicleLabels?.filter(Boolean) ?? (input.vehicleLabel ? [input.vehicleLabel] : []);
+  for (const vehicleLabel of vehicleLabels) {
+    draw(`Vehicle: ${vehicleLabel}`, { bold: true, size: 9 });
   }
   if (input.exchangeRate && input.exchangeRate !== 1) {
     draw(`Exchange rate applied: ${input.exchangeRate}`, { size: 9 });

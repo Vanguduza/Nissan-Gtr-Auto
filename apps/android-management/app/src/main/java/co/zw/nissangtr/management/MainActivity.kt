@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.platform.LocalContext
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopSecondaryButton
 import co.zw.nissangtr.ui.shop.ShopSectionHeader
@@ -317,17 +318,37 @@ private fun ManagementApp(
     var staffPortalBusy by remember { mutableStateOf(false) }
     var staffPortalError by remember { mutableStateOf<String?>(null) }
     val appScope = rememberCoroutineScope()
+    val appContext = LocalContext.current.applicationContext
+    val staffPortalGuard = remember(appContext) {
+        appContext.getSharedPreferences("gtr_pos_staff_portal_guard", android.content.Context.MODE_PRIVATE)
+    }
+
+    // A staff elevation is intentionally process-scoped. If the process dies while elevated,
+    // persisted GoTrue state may belong to the elevated staff account; fail closed to a fresh login.
+    LaunchedEffect(liveRpc) {
+        if (liveRpc && staffPortalGuard.getBoolean("elevation_in_progress", false)) {
+            runCatching { (rpc as? SupabaseRpcClient)?.signOut() }
+            staffPortalGuard.edit().putBoolean("elevation_in_progress", false).apply()
+            staffPortalActive = false
+            route = null
+        }
+    }
 
     fun returnToPosFromStaffPortal() {
         appScope.launch {
             staffPortalBusy = true
-            runCatching { (rpc as? SupabaseRpcClient)?.endStaffPortalSession() }
-                .onFailure { staffPortalError = it.message ?: "Could not restore POS session" }
+            val restored = runCatching { (rpc as? SupabaseRpcClient)?.endStaffPortalSession() }
+            if (restored.isFailure && liveRpc) {
+                // Never leave a possibly elevated persisted session behind after restore failure.
+                runCatching { (rpc as? SupabaseRpcClient)?.signOut() }
+                staffPortalError = "POS session restore failed; sign in again"
+            }
+            staffPortalGuard.edit().putBoolean("elevation_in_progress", false).apply()
             staffPortalActive = false
             staffPortalBusy = false
             openModule = null
             salesHome = true
-            route = ManagementRoute.Pos
+            route = if (restored.isSuccess || !liveRpc) ManagementRoute.Pos else null
         }
     }
 
@@ -605,6 +626,7 @@ private fun ManagementApp(
                             staffPortalBusy = true
                             staffPortalError = null
                             try {
+                                staffPortalGuard.edit().putBoolean("elevation_in_progress", true).commit()
                                 if (liveRpc) {
                                     val live = rpc as? SupabaseRpcClient
                                         ?: error("Live staff authentication unavailable")
@@ -619,6 +641,7 @@ private fun ManagementApp(
                                 openModule = null
                                 route = ManagementRoute.Home
                             } catch (_: Throwable) {
+                                staffPortalGuard.edit().putBoolean("elevation_in_progress", false).apply()
                                 staffPortalError = "Staff sign-in failed"
                             } finally {
                                 staffPortalBusy = false

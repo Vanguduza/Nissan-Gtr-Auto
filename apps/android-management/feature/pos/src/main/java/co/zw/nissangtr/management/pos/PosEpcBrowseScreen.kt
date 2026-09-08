@@ -3,9 +3,11 @@ package co.zw.nissangtr.management.pos
 import android.graphics.BitmapFactory
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +46,7 @@ import co.zw.nissangtr.management.rpc.EpcMaker
 import co.zw.nissangtr.management.rpc.EpcModel
 import co.zw.nissangtr.management.rpc.EpcSection
 import co.zw.nissangtr.management.rpc.EpcVariant
+import co.zw.nissangtr.management.rpc.PosPopularPin
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
@@ -83,6 +87,9 @@ internal fun PosEpcBrowseScreen(
     source: EpcCatalogSource,
     onBack: () -> Unit,
     onSelectOem: (String) -> Unit,
+    popularPins: List<PosPopularPin> = emptyList(),
+    onPinPopular: ((PosPopularPin) -> Unit)? = null,
+    onUnpinPopular: ((PosPopularPin) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var level by remember { mutableStateOf<EpcLevel>(EpcLevel.Makers) }
@@ -94,7 +101,14 @@ internal fun PosEpcBrowseScreen(
     var sections by remember { mutableStateOf<List<EpcSection>>(emptyList()) }
     var diagrams by remember { mutableStateOf<List<EpcDiagramSummary>>(emptyList()) }
     var diagram by remember { mutableStateOf<EpcDiagramResponse?>(null) }
+    var pinMenu by remember { mutableStateOf<List<PosPopularPin>?>(null) }
     val scope = rememberCoroutineScope()
+
+    fun openPinMenu(candidates: List<PosPopularPin>) {
+        if (onPinPopular != null && onUnpinPopular != null && candidates.isNotEmpty()) {
+            pinMenu = candidates
+        }
+    }
 
     fun goBack() {
         when (val cur = level) {
@@ -190,12 +204,15 @@ internal fun PosEpcBrowseScreen(
             ) {
                 items(models.sortedBy { it.sortKey }, key = { it.slug }) { m ->
                     val parent = (level as EpcLevel.Models).maker
+                    val pin = epcModelPopularPin(parent, m)
                     ShopListCard(
                         title = m.displayName,
                         subtitle = listOfNotNull(m.bodyType, m.yearStart?.toString())
                             .joinToString(" · ")
                             .ifBlank { null },
                         onClick = { level = EpcLevel.Variants(parent, m) },
+                        onLongClick = if (onPinPopular != null) ({ openPinMenu(listOf(pin)) }) else null,
+                        onLongClickLabel = "Pin or unpin this model in Popular Items",
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
@@ -206,6 +223,7 @@ internal fun PosEpcBrowseScreen(
             ) {
                 items(variants, key = { it.slug }) { v ->
                     val parent = level as EpcLevel.Variants
+                    val pin = epcVariantPopularPin(parent.maker, parent.model, v)
                     ShopListCard(
                         title = v.chassisCode,
                         subtitle = listOfNotNull(v.grade, v.yearLabel, v.engineCode)
@@ -214,6 +232,8 @@ internal fun PosEpcBrowseScreen(
                         onClick = {
                             level = EpcLevel.Sections(parent.maker, parent.model, v)
                         },
+                        onLongClick = if (onPinPopular != null) ({ openPinMenu(listOf(pin)) }) else null,
+                        onLongClickLabel = "Pin or unpin this model variant in Popular Items",
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
@@ -224,6 +244,7 @@ internal fun PosEpcBrowseScreen(
             ) {
                 items(sections.sortedBy { it.sortOrder }, key = { it.slug }) { s ->
                     val parent = level as EpcLevel.Sections
+                    val pin = epcSectionPopularPin(parent.maker, parent.model, s)
                     ShopListCard(
                         title = s.name,
                         subtitle = "Diagram",
@@ -235,6 +256,8 @@ internal fun PosEpcBrowseScreen(
                                 s,
                             )
                         },
+                        onLongClick = if (onPinPopular != null) ({ openPinMenu(listOf(pin)) }) else null,
+                        onLongClickLabel = "Pin or unpin this category in Popular Items",
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
@@ -276,14 +299,49 @@ internal fun PosEpcBrowseScreen(
                         modifier = Modifier.padding(16.dp),
                     )
                 } else {
+                    val parent = level as EpcLevel.Diagram
                     EpcDiagramPane(
                         data = d,
                         onSelectOem = onSelectOem,
                         onAddOem = onSelectOem,
+                        onLongPressPart = if (onPinPopular != null) ({ part ->
+                            openPinMenu(epcPartPopularCandidates(parent.maker, parent.model, parent.section, part))
+                        }) else null,
                     )
                 }
             }
         }
+    }
+
+    pinMenu?.let { candidates ->
+        AlertDialog(
+            onDismissRequest = { pinMenu = null },
+            title = { Text("Popular Items") },
+            text = {
+                Column {
+                    Text(
+                        "Choose what this EPC item should contribute to the operator Home row.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    candidates.forEach { pin ->
+                        val pinned = popularPins.any { it.kind == pin.kind && it.itemKey == pin.itemKey }
+                        TextButton(
+                            onClick = {
+                                if (pinned) onUnpinPopular?.invoke(pin) else onPinPopular?.invoke(pin)
+                                pinMenu = null
+                            },
+                        ) {
+                            Text(
+                                if (pinned) "Unpin ${pin.kind.rpcValue}: ${pin.label}"
+                                else "Pin ${pin.kind.rpcValue} to Popular: ${pin.label}",
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { pinMenu = null }) { Text("Cancel") } },
+        )
     }
 }
 
@@ -292,6 +350,7 @@ private fun EpcDiagramPane(
     data: EpcDiagramResponse,
     onSelectOem: (String) -> Unit,
     onAddOem: (String) -> Unit,
+    onLongPressPart: ((EpcDiagramPart) -> Unit)? = null,
 ) {
     var activeOem by remember { mutableStateOf<String?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -323,6 +382,7 @@ private fun EpcDiagramPane(
                 onOpen = { onSelectOem(part.oemPartNumber) },
                 onAdd = { onAddOem(part.oemPartNumber) },
                 onHover = { activeOem = it },
+                onLongClick = onLongPressPart?.let { callback -> ({ callback(part) }) },
             )
             HorizontalDivider()
         }
@@ -383,6 +443,7 @@ private fun EpcHotspotCanvas(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpcPartRow(
     part: EpcDiagramPart,
@@ -390,14 +451,27 @@ private fun EpcPartRow(
     onOpen: () -> Unit,
     onAdd: () -> Unit,
     onHover: (String?) -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
+    val interaction = if (onLongClick == null) {
+        Modifier.clickable {
+            onHover(part.oemPartNumber)
+            onOpen()
+        }
+    } else {
+        Modifier.combinedClickable(
+            onClick = {
+                onHover(part.oemPartNumber)
+                onOpen()
+            },
+            onLongClick = onLongClick,
+            onLongClickLabel = "Pin or unpin part, category or subcategory in Popular Items",
+        )
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onHover(part.oemPartNumber)
-                onOpen()
-            }
+            .then(interaction)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Text(

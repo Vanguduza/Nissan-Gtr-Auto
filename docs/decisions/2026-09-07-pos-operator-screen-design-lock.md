@@ -8,10 +8,11 @@
 
 The operator-facing POS preview approved on 2026-09-07 is the canonical visual and interaction reference for the tablet sales screen. The implementation must preserve its core composition, density, hierarchy, visual language and operator-first workflow unless a later owner-approved decision explicitly supersedes this lock.
 
-Two owner corrections are part of this lock:
+Three owner corrections are part of this lock:
 
 1. **The left navigation item `Reports` is replaced by `EPC Browse`.** Reports are not part of the canonical salesperson POS rail.
 2. **The top preview information band is replaced by a Nissan-only vehicle cascade: `Model → Generation → Engine`.** Make is intentionally omitted because Nissan GTR Auto is a Nissan-only shop. Generation is catalog-backed by chassis/year variant grouping; engine is derived from that generation.
+3. **The benchmark `Popular Spares` strip evolves into `Popular Items`.** It preserves algorithmic best sellers and adds per-operator EPC pins for parts, models, categories and subcategories. EPC long press must offer Pin to Popular / Unpin. The row remains a benchmark-style horizontal merchandising carousel.
 
 ## Canonical composition
 
@@ -42,15 +43,16 @@ No control in the canonical screen may be decorative-only when presented as acti
 | Global search | Without a selected vehicle: live `searchCatalog` by Part/OEM, VIN, Model or PNC. With a selected vehicle: `search_pos_vehicle_spares` restricts results to that chassis/engine fitment. Offline flat-catalog fallback is allowed only when no fitment claim is being made. |
 | Scan icon | CameraX/Bridge-first inventory QR scan and add-to-sale |
 | Spare category tiles | Seed real catalog searches; never hard-coded fake product results |
+| Popular Items | Horizontal bidirectional carousel combining server-ranked popular spares with per-operator EPC pins. Pin/unpin syncs through encrypted local cache and backend; pinned OEMs de-duplicate algorithmic cards. |
 | Search result cards | OEM/PNC/category/fitment + live saleable stock; Add to Sale uses the canonical POS cart RPC path |
 | Quick Sale | Warehouse/currency/fulfilment/customer context, cart actions and checkout |
-| Customer | Search/select real customer and bind to current sale |
+| Customer | Dedicated customer selection/management workspace: search, create/edit individual or business accounts, manage safe receipt-contact fields and customer garage vehicles. One saved vehicle auto-filters; multiple vehicles open a chooser; manual “Shop for another vehicle” and mid-sale switching are supported. |
 | Orders | Existing POS quotations plus parked-sale resume workflow |
 | Returns | Manager-approved refund through the finance refund pipeline for an eligible completed sale |
-| EPC Browse | Existing online EPC maker → model → variant → section → diagram/parts hierarchy; selected OEM adds through the canonical cart path |
+| EPC Browse | Full online/offline EPC maker → model → variant → section → diagram/parts hierarchy; selected OEM adds through the canonical cart path. Long press model/variant/category/part to Pin to Popular or Unpin; diagram parts can expose part/category/subcategory pin candidates. |
 | Settings | Sole tablet maintenance doorway: offline snapshot/sync, printer transport, scan companion, and authorized kiosk/device administration. Kiosk tools must not be duplicated in the general hub. |
-| Current Sale | Real cart lines, selected vehicle context, quantity mutation/removal, manager price override, totals, receipt contacts, split tender and checkout |
-| Final invoice / receipt | Snapshot Model, Generation, Chassis and Engine from the cart onto `sales_invoices`; show vehicle on printed receipt, PDF receipt and POS order/return history. Offline replay preserves the same snapshot. |
+| Current Sale | Real cart lines, selected customer, active vehicle plus accumulated multi-vehicle sale context, quantity mutation/removal, manager price override, totals, receipt contacts, split tender and checkout |
+| Final invoice / receipt | Snapshot safe customer display/business/contact fields and all shopped vehicle contexts from the cart onto `sales_invoices`; show relevant customer/vehicle details on printed/PDF receipts and POS history. Offline replay preserves the same context. |
 
 ## Business-logic rule
 
@@ -73,10 +75,15 @@ Primary implementation files:
 - `apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosOperatorWorkspace.kt`
 - `apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosScreen.kt`
 - `apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosViewModel.kt`
+- `apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosCustomerWorkspace.kt`
+- `apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosPopularItems.kt`
 - `apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosEpcBrowseScreen.kt`
 - `apps/android-management/feature/kiosk/src/main/java/co/zw/nissangtr/management/kiosk/LockTaskController.kt`
 - `bridges/android/escpos-printer/src/main/java/co/zw/nissangtr/bridges/escpos/PrinterModels.kt`
 - `packages/android-ui/src/main/java/co/zw/nissangtr/ui/shop/ShopWarmTheme.kt`
 - `supabase/migrations/20260907090000_pos_vehicle_context.sql`
+- `supabase/migrations/20260907110000_pos_customer_garage_management.sql`
+- `supabase/migrations/20260907130000_pos_multi_vehicle_context.sql`
+- `supabase/migrations/20260907140000_pos_operator_popular_pins.sql`
 
 The approved preview remains the visual reference; this document records its software-contract interpretation so future refactors cannot silently thin or replace the screen.

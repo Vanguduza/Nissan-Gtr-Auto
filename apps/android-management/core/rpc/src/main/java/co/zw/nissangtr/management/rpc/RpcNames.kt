@@ -68,9 +68,18 @@ object RpcNames {
     const val LIST_POS_QUOTATIONS = "list_pos_quotations"
     /** Locked operator POS discovery/history read models. */
     const val LIST_POS_POPULAR_SPARES = "list_pos_popular_spares"
+    const val LIST_POS_POPULAR_PINS = "list_pos_popular_pins"
+    const val UPSERT_POS_POPULAR_PIN = "upsert_pos_popular_pin"
+    const val DELETE_POS_POPULAR_PIN = "delete_pos_popular_pin"
     const val LIST_POS_RECENT_INVOICES = "list_pos_recent_invoices"
     const val SET_POS_CART_VEHICLE = "set_pos_cart_vehicle"
     const val SEARCH_POS_VEHICLE_SPARES = "search_pos_vehicle_spares"
+    const val LIST_POS_CUSTOMERS = "list_pos_customers"
+    const val CREATE_POS_CUSTOMER = "create_pos_customer"
+    const val UPDATE_POS_CUSTOMER = "update_pos_customer"
+    const val LIST_POS_CUSTOMER_GARAGE = "list_pos_customer_garage"
+    const val UPSERT_POS_CUSTOMER_GARAGE_VEHICLE = "upsert_pos_customer_garage_vehicle"
+    const val SET_POS_CART_CUSTOMER = "set_pos_cart_customer"
 
     /** Pre-auth staff identifier → GoTrue email (emp#|email|phone). */
     const val RESOLVE_STAFF_LOGIN_EMAIL = "resolve_staff_login_email"

@@ -1,5 +1,7 @@
 package co.zw.nissangtr.management.pos.offline
 
+import co.zw.nissangtr.management.rpc.PosPopularItemKind
+import co.zw.nissangtr.management.rpc.PosPopularPin
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -8,6 +10,7 @@ class InMemoryOfflinePosStore : OfflinePosStore {
     private val catalog = ConcurrentHashMap<String, MutableList<LocalCatalogItem>>()
     private val pulledAt = ConcurrentHashMap<String, Long>()
     private val sales = ConcurrentHashMap<String, PendingOfflineSale>()
+    private val popularPins = ConcurrentHashMap<String, LocalPopularPinRecord>()
 
     override fun replaceCatalog(
         warehouseId: String,
@@ -16,6 +19,31 @@ class InMemoryOfflinePosStore : OfflinePosStore {
     ) {
         catalog[warehouseId] = items.toMutableList()
         pulledAt[warehouseId] = pulledAtEpochMs
+    }
+
+    override fun listPopularPins(userId: String, includeDeleted: Boolean): List<LocalPopularPinRecord> =
+        popularPins.values.filter { it.userId == userId && (includeDeleted || !it.deleted) }
+            .sortedByDescending { it.pin.updatedAt.orEmpty() }
+
+    override fun upsertPopularPin(userId: String, pin: PosPopularPin, dirtyAction: PopularPinDirtyAction?) {
+        popularPins["$userId|${pin.stableKey}"] = LocalPopularPinRecord(userId, pin, dirtyAction, deleted = false)
+    }
+
+    override fun markPopularPinDeleted(userId: String, kind: PosPopularItemKind, itemKey: String, dirtyAction: PopularPinDirtyAction?) {
+        val key = "$userId|${kind.rpcValue}:$itemKey"
+        val current = popularPins[key] ?: LocalPopularPinRecord(
+            userId, PosPopularPin(kind, itemKey, itemKey, searchQuery = itemKey), dirtyAction, deleted = true,
+        )
+        popularPins[key] = current.copy(dirtyAction = dirtyAction, deleted = true)
+    }
+
+    override fun deletePopularPinRecord(userId: String, kind: PosPopularItemKind, itemKey: String) {
+        popularPins.remove("$userId|${kind.rpcValue}:$itemKey")
+    }
+
+    override fun replacePopularPins(userId: String, pins: List<PosPopularPin>) {
+        popularPins.keys.filter { it.startsWith("$userId|") }.forEach(popularPins::remove)
+        pins.forEach { upsertPopularPin(userId, it, null) }
     }
 
     override fun catalogFor(warehouseId: String): List<LocalCatalogItem> =
@@ -80,6 +108,7 @@ class InMemoryOfflinePosStore : OfflinePosStore {
         catalog.clear()
         sales.clear()
         pulledAt.clear()
+        popularPins.clear()
     }
 
     companion object {

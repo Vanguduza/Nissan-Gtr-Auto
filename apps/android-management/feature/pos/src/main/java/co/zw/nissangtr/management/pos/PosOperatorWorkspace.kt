@@ -1,8 +1,10 @@
 package co.zw.nissangtr.management.pos
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -17,23 +19,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -50,19 +57,24 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.management.rpc.CatalogPartHit
@@ -70,12 +82,21 @@ import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.EpcModel
 import co.zw.nissangtr.management.rpc.PopularPosSpare
 import co.zw.nissangtr.management.rpc.PosInvoiceSummary
+import co.zw.nissangtr.management.rpc.PosPopularItemKind
+import co.zw.nissangtr.management.rpc.PosPopularPin
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopPrimaryButton
+import co.zw.nissangtr.ui.shop.ShopRemoteImage
 import co.zw.nissangtr.ui.shop.ShopSecondaryButton
 import co.zw.nissangtr.ui.shop.ShopWarmTheme
 import co.zw.nissangtr.ui.theme.GtrColors
 import co.zw.nissangtr.ui.theme.GtrLogo
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import org.json.JSONArray
 
 /** Canonical operator-facing POS destinations locked by the 2026-09-07 kiosk design. */
 internal enum class OperatorPosDestination(
@@ -86,8 +107,8 @@ internal enum class OperatorPosDestination(
     SearchSpares("Search Spares", Icons.Filled.Search),
     QuickSale("Quick Sale", Icons.Filled.PointOfSale),
     Customer("Customer", Icons.Filled.AccountCircle),
-    Orders("Orders", Icons.Filled.ReceiptLong),
-    Returns("Returns", Icons.Filled.CompareArrows),
+    Orders("Orders", Icons.AutoMirrored.Filled.ReceiptLong),
+    Returns("Returns", Icons.AutoMirrored.Filled.CompareArrows),
     EpcBrowse("EPC Browse", Icons.Filled.Build),
     Settings("Settings", Icons.Filled.Settings),
 }
@@ -125,7 +146,27 @@ internal fun PosOperatorWorkspace(
     ShopWarmTheme(darkTheme = false) {
         var destination by remember { mutableStateOf(OperatorPosDestination.Home) }
         var searchDraft by remember(state.searchQuery) { mutableStateOf(state.searchQuery) }
-        val recentSearches = remember { mutableStateListOf<String>() }
+        val context = LocalContext.current
+        val searchPrefs = remember(context) {
+            context.getSharedPreferences("gtr_pos_recent_searches", android.content.Context.MODE_PRIVATE)
+        }
+        val recentSearches = remember(searchPrefs) {
+            mutableStateListOf<String>().apply {
+                val stored = searchPrefs.getString("queries", "[]").orEmpty()
+                runCatching {
+                    val array = JSONArray(stored)
+                    for (i in 0 until minOf(array.length(), 8)) {
+                        array.optString(i).trim().takeIf { it.isNotEmpty() }?.let(::add)
+                    }
+                }
+            }
+        }
+
+        fun persistRecentSearches() {
+            val array = JSONArray()
+            recentSearches.take(8).forEach(array::put)
+            searchPrefs.edit().putString("queries", array.toString()).apply()
+        }
 
         fun submitSearch(query: String = searchDraft) {
             val q = query.trim()
@@ -134,7 +175,8 @@ internal fun PosOperatorWorkspace(
             viewModel.onSearchQueryChange(q)
             recentSearches.remove(q)
             recentSearches.add(0, q)
-            while (recentSearches.size > 5) recentSearches.removeLast()
+            while (recentSearches.size > 8) recentSearches.removeLast()
+            persistRecentSearches()
             viewModel.searchCatalog()
             destination = OperatorPosDestination.SearchSpares
         }
@@ -188,6 +230,7 @@ internal fun PosOperatorWorkspace(
                             viewModel = viewModel,
                             recentSearches = recentSearches,
                             onSearch = ::submitSearch,
+                            onClearRecentSearches = { recentSearches.clear(); persistRecentSearches() },
                             onDestination = { destination = it },
                             onOpenStaffPortal = onOpenStaffPortal,
                             onOpenKioskSettings = onOpenKioskSettings,
@@ -242,6 +285,7 @@ internal fun PosOperatorWorkspace(
                         viewModel = viewModel,
                         recentSearches = recentSearches,
                         onSearch = ::submitSearch,
+                        onClearRecentSearches = { recentSearches.clear(); persistRecentSearches() },
                         onDestination = { destination = it },
                         onOpenStaffPortal = onOpenStaffPortal,
                         onOpenKioskSettings = onOpenKioskSettings,
@@ -303,6 +347,12 @@ private fun OperatorNavigationRail(
             Spacer(Modifier.height(4.dp))
         }
         Spacer(Modifier.weight(1f))
+        Image(
+            painter = painterResource(R.drawable.pos_nav_car_locked),
+            contentDescription = null,
+            modifier = Modifier.fillMaxWidth().height(116.dp),
+            contentScale = ContentScale.Crop,
+        )
         if (onOpenHub != null) {
             Text(
                 "ALL MODULES",
@@ -356,38 +406,80 @@ private fun OperatorSearchHeader(
     viewModel: PosViewModel,
     operatorLabel: String?,
 ) {
+    var clock by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            clock = LocalDateTime.now()
+            delay(30_000)
+        }
+    }
+    val operatorName = operatorLabel?.substringBefore('@')?.ifBlank { "Operator" } ?: "Operator"
+    val initials = operatorName
+        .split(Regex("[^A-Za-z0-9]+"))
+        .filter { it.isNotBlank() }
+        .take(2)
+        .joinToString("") { it.take(1).uppercase(Locale.ENGLISH) }
+        .ifBlank { "OS" }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            Text(
+                "Spares  ·  Service  ·  Performance",
+                modifier = Modifier.width(152.dp),
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 value = searchDraft,
                 onValueChange = onSearchDraftChange,
                 modifier = Modifier.weight(1f),
                 singleLine = true,
-                placeholder = { Text("Search by part name, OEM number, VIN or vehicle model…") },
+                placeholder = { Text("Search by part name, part number, VIN or vehicle model…") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     IconButton(onClick = onScan, enabled = !state.busy) {
                         Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan part")
                     }
                 },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
+                shape = MaterialTheme.shapes.extraLarge,
             )
-            Button(onClick = onSubmit, enabled = !state.busy && searchDraft.isNotBlank()) {
-                Text("Search")
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(50),
+                color = GtrColors.SteelLift,
+                contentColor = Color.White,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(initials, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                }
             }
-            Column(horizontalAlignment = Alignment.End) {
+            Column(modifier = Modifier.width(112.dp)) {
+                Text(operatorName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text(
-                    operatorLabel?.substringBefore('@')?.ifBlank { "Operator" } ?: "Operator",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    if (state.isOffline) "POS Kiosk · Offline" else "POS Kiosk",
+                    color = if (state.isOffline) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                )
+            }
+            Column(modifier = Modifier.width(112.dp), horizontalAlignment = Alignment.End) {
+                Text(
+                    clock.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy", Locale.ENGLISH)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                 )
                 Text(
-                    if (state.isOffline) "POS Kiosk · Offline" else "POS Kiosk · Online",
-                    color = if (state.isOffline) MaterialTheme.colorScheme.error else GtrColors.Accent,
-                    style = MaterialTheme.typography.labelSmall,
+                    clock.format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
@@ -402,7 +494,7 @@ private fun OperatorSearchHeader(
                 options = state.vehicleModels,
                 optionLabel = { it.displayName },
                 onSelect = viewModel::selectVehicleModel,
-                enabled = !state.busy && !state.isOffline,
+                enabled = !state.busy && state.vehicleModels.isNotEmpty(),
                 modifier = Modifier.weight(1f),
             )
             VehicleCascadeDropdown(
@@ -463,6 +555,7 @@ private fun OperatorDestinationContent(
     viewModel: PosViewModel,
     recentSearches: List<String>,
     onSearch: (String) -> Unit,
+    onClearRecentSearches: () -> Unit,
     onDestination: (OperatorPosDestination) -> Unit,
     onOpenStaffPortal: (() -> Unit)?,
     onOpenKioskSettings: (() -> Unit)?,
@@ -479,9 +572,10 @@ private fun OperatorDestinationContent(
                 viewModel = viewModel,
                 recentSearches = recentSearches,
                 onSearch = onSearch,
+                onClearRecentSearches = onClearRecentSearches,
                 onDestination = onDestination,
             )
-            OperatorPosDestination.SearchSpares -> OperatorSearchResults(state, viewModel, recentSearches, onSearch)
+            OperatorPosDestination.SearchSpares -> OperatorSearchResults(state, viewModel, recentSearches, onSearch, onClearRecentSearches)
             OperatorPosDestination.QuickSale -> OperatorQuickSale(state, viewModel)
             OperatorPosDestination.Customer -> OperatorCustomer(state, viewModel)
             OperatorPosDestination.Orders -> OperatorOrders(state, viewModel)
@@ -499,6 +593,9 @@ private fun OperatorDestinationContent(
                         viewModel.addOemToCart(oem)
                         onDestination(OperatorPosDestination.QuickSale)
                     },
+                    popularPins = state.popularPins,
+                    onPinPopular = viewModel::pinPopularItem,
+                    onUnpinPopular = viewModel::unpinPopularItem,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 560.dp, max = 720.dp),
                 )
             }
@@ -518,72 +615,54 @@ private fun OperatorHome(
     viewModel: PosViewModel,
     recentSearches: List<String>,
     onSearch: (String) -> Unit,
+    onClearRecentSearches: () -> Unit,
     onDestination: (OperatorPosDestination) -> Unit,
 ) {
+    val popularListState = rememberLazyListState()
+    val popularScope = rememberCoroutineScope()
+    val popularItems = buildPopularRowItems(state.popularPins, state.popularSpares)
+
+    fun activatePin(pin: PosPopularPin) {
+        when (pin.kind) {
+            PosPopularItemKind.PART -> pin.oemPartNumber?.let(viewModel::addOemToCart)
+            PosPopularItemKind.MODEL -> {
+                viewModel.onSearchModeChange(CatalogSearchMode.MODEL)
+                onSearch(pin.searchQuery)
+            }
+            PosPopularItemKind.CATEGORY, PosPopularItemKind.SUBCATEGORY -> {
+                viewModel.onSearchModeChange(CatalogSearchMode.PNC)
+                onSearch(pin.searchQuery)
+            }
+        }
+    }
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth().height(210.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(910f / 278f),
             shape = MaterialTheme.shapes.large,
-            color = Color.Transparent,
+            color = GtrColors.Steel,
         ) {
-            Row(
-                modifier = Modifier
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color(0xFF07090C), GtrColors.Steel, GtrColors.SteelLift),
-                        ),
-                    )
-                    .padding(horizontal = 28.dp, vertical = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Genuine Parts\nReal Performance",
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        "Find the correct spare by OEM, VIN, vehicle model or EPC.",
-                        color = GtrColors.Silver,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    state.saleVehicle?.let { vehicle ->
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(vehicle.displayLabel, color = Color.White) },
-                            leadingIcon = { Icon(Icons.Filled.DirectionsCar, contentDescription = null, tint = GtrColors.Primary) },
-                        )
-                    } ?: Text(
-                        "Select Model · Generation · Engine above to filter by exact fitment.",
-                        color = GtrColors.Silver,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-                Icon(
-                    Icons.Filled.DirectionsCar,
-                    contentDescription = null,
-                    tint = GtrColors.Primary,
-                    modifier = Modifier.size(118.dp),
-                )
-            }
+            Image(
+                painter = painterResource(R.drawable.pos_home_hero_locked),
+                contentDescription = "Nissan GT-R genuine parts and performance hero",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
         }
 
-        Text("Browse spares", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
-            modifier = Modifier.fillMaxWidth().height(190.dp),
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().height(116.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            gridItems(operatorCategories) { category ->
+            items(operatorCategories) { category ->
                 Surface(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(88.dp)
+                        .width(132.dp)
+                        .height(108.dp)
                         .clickable {
                             viewModel.onSearchModeChange(CatalogSearchMode.PNC)
                             onSearch(category.query)
@@ -594,10 +673,21 @@ private fun OperatorHome(
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Icon(category.icon, contentDescription = null, tint = GtrColors.Steel)
-                        Text(category.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                        Icon(
+                            category.icon,
+                            contentDescription = null,
+                            tint = GtrColors.Steel,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        Text(
+                            category.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -608,30 +698,61 @@ private fun OperatorHome(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Popular Spares", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text(
-                "EPC Browse",
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { onDestination(OperatorPosDestination.EpcBrowse) },
-                style = MaterialTheme.typography.labelLarge,
-            )
+            Text("Popular Items", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                IconButton(
+                    onClick = {
+                        popularScope.launch {
+                            popularListState.animateScrollToItem((popularListState.firstVisibleItemIndex - 2).coerceAtLeast(0))
+                        }
+                    },
+                    enabled = popularListState.canScrollBackward,
+                ) { Icon(Icons.Filled.ChevronLeft, contentDescription = "Scroll Popular Items left") }
+                IconButton(
+                    onClick = {
+                        popularScope.launch {
+                            val target = (popularListState.firstVisibleItemIndex + 2)
+                                .coerceAtMost((popularItems.size - 1).coerceAtLeast(0))
+                            popularListState.animateScrollToItem(target)
+                        }
+                    },
+                    enabled = popularListState.canScrollForward,
+                ) { Icon(Icons.Filled.ChevronRight, contentDescription = "Scroll Popular Items right") }
+                Text(
+                    "EPC Browse",
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onDestination(OperatorPosDestination.EpcBrowse) },
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
-        if (state.popularSpares.isEmpty()) {
+        if (popularItems.isEmpty()) {
             ShopHonestEmpty(
-                title = "Popular spares will appear from sales history",
-                body = "No posted-sales ranking is available yet. Search, scan, or use EPC Browse to find a spare.",
+                title = "Popular Items is ready for shortcuts",
+                body = "Best sellers appear automatically. In EPC Browse, long-press a model, category, subcategory or part and choose Pin to Popular.",
             )
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 180.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 260.dp),
+            LazyRow(
+                state = popularListState,
+                modifier = Modifier.fillMaxWidth().height(226.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                gridItems(state.popularSpares, key = { it.stockItemId }) { spare ->
-                    PopularSpareCard(spare = spare, busy = state.busy, onAdd = {
-                        viewModel.addOemToCart(spare.oemPartNumber)
-                    })
+                items(popularItems, key = { it.stableKey }) { item ->
+                    when (item) {
+                        is PosPopularRowItem.AlgorithmicSpare -> PopularSpareCard(
+                            spare = item.spare,
+                            busy = state.busy,
+                            onAdd = { viewModel.addOemToCart(item.spare.oemPartNumber) },
+                            modifier = Modifier.width(206.dp),
+                        )
+                        is PosPopularRowItem.Pinned -> PopularPinnedCard(
+                            pin = item.pin,
+                            busy = state.busy,
+                            onOpen = { activatePin(item.pin) },
+                            onUnpin = { viewModel.unpinPopularItem(item.pin) },
+                            modifier = Modifier.width(206.dp),
+                        )
+                    }
                 }
             }
         }
@@ -639,7 +760,7 @@ private fun OperatorHome(
             Text("Search matches", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             OperatorPartGrid(state = state, viewModel = viewModel)
         }
-        RecentSearches(recentSearches, onSearch)
+        RecentSearches(recentSearches, onSearch, onClearRecentSearches)
     }
 }
 
@@ -657,6 +778,7 @@ private fun OperatorSearchResults(
     viewModel: PosViewModel,
     recentSearches: List<String>,
     onSearch: (String) -> Unit,
+    onClearRecentSearches: () -> Unit,
 ) {
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -675,7 +797,7 @@ private fun OperatorSearchResults(
         } else {
             OperatorPartGrid(state = state, viewModel = viewModel)
         }
-        RecentSearches(recentSearches, onSearch)
+        RecentSearches(recentSearches, onSearch, onClearRecentSearches)
     }
 }
 
@@ -749,19 +871,90 @@ private fun OperatorPartCard(
 }
 
 @Composable
-private fun PopularSpareCard(
-    spare: PopularPosSpare,
+private fun PopularPinnedCard(
+    pin: PosPopularPin,
     busy: Boolean,
-    onAdd: () -> Unit,
+    onOpen: () -> Unit,
+    onUnpin: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxHeight(),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(Icons.Filled.Inventory2, contentDescription = null, tint = GtrColors.SilverDim)
+            if (!pin.imageUrl.isNullOrBlank()) {
+                ShopRemoteImage(
+                    url = pin.imageUrl,
+                    contentDescription = pin.label,
+                    modifier = Modifier.fillMaxWidth().height(72.dp),
+                    contentScale = ContentScale.Fit,
+                    placeholderLabel = pin.kind.rpcValue,
+                )
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(72.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.small,
+                ) {
+                    Icon(
+                        imageVector = when (pin.kind) {
+                            PosPopularItemKind.MODEL -> Icons.Filled.DirectionsCar
+                            PosPopularItemKind.PART -> Icons.Filled.Inventory2
+                            PosPopularItemKind.CATEGORY, PosPopularItemKind.SUBCATEGORY -> Icons.Filled.Build
+                        },
+                        contentDescription = null,
+                        tint = GtrColors.SilverDim,
+                        modifier = Modifier.padding(20.dp),
+                    )
+                }
+            }
+            Text(
+                "Pinned · ${pin.kind.rpcValue.replaceFirstChar { it.uppercase() }}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(pin.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                pin.subtitle ?: pin.searchQuery,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = onOpen, enabled = !busy, modifier = Modifier.weight(1f)) {
+                    Text(if (pin.kind == PosPopularItemKind.PART) "Add" else "Open")
+                }
+                TextButton(onClick = onUnpin, enabled = !busy) { Text("Unpin") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PopularSpareCard(
+    spare: PopularPosSpare,
+    busy: Boolean,
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxHeight(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            ShopRemoteImage(
+                url = spare.imageUrl,
+                contentDescription = spare.description ?: spare.oemPartNumber,
+                modifier = Modifier.fillMaxWidth().height(72.dp),
+                contentScale = ContentScale.Fit,
+                placeholderLabel = "No product image",
+            )
             Text(
                 spare.description ?: "Genuine spare",
                 style = MaterialTheme.typography.titleSmall,
@@ -792,9 +985,17 @@ private fun PopularSpareCard(
 private fun RecentSearches(
     recentSearches: List<String>,
     onSearch: (String) -> Unit,
+    onClear: () -> Unit,
 ) {
     if (recentSearches.isEmpty()) return
-    Text("Recent searches", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Recent searches", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        TextButton(onClick = onClear) { Text("Clear all") }
+    }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(recentSearches) { query ->
             AssistChip(onClick = { onSearch(query) }, label = { Text(query) })
@@ -817,14 +1018,7 @@ private fun OperatorQuickSale(state: PosUiState, viewModel: PosViewModel) {
 
 @Composable
 private fun OperatorCustomer(state: PosUiState, viewModel: PosViewModel) {
-    Column(
-        modifier = Modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Customer", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Find and attach a registered or trade customer to the current sale.")
-        CartSetupSection(state, viewModel)
-    }
+    PosCustomerWorkspace(state = state, viewModel = viewModel)
 }
 
 @Composable
@@ -923,7 +1117,7 @@ private fun InvoiceSummaryCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Icons.Filled.ReceiptLong, contentDescription = null, tint = GtrColors.Steel)
+            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = GtrColors.Steel)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     invoice.documentNumber ?: invoice.id.take(12),

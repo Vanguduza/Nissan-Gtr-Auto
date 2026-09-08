@@ -2,28 +2,37 @@ package co.zw.nissangtr.management.pos
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -50,6 +59,7 @@ import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
 import co.zw.nissangtr.ui.shop.ShopOrderBox
 import co.zw.nissangtr.ui.shop.ShopPresenceBanner
+import co.zw.nissangtr.ui.shop.ShopRemoteImage
 import co.zw.nissangtr.ui.shop.ShopPrimaryButton
 import co.zw.nissangtr.ui.shop.ShopSecondaryButton
 import co.zw.nissangtr.ui.shop.ShopStaffPanel
@@ -193,34 +203,16 @@ internal fun CartSetupSection(
                     )
                 }
             }
-            OutlinedTextField(
-                value = state.customerQuery,
-                onValueChange = viewModel::onCustomerQueryChange,
-                label = { Text("Customer") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = viewModel::searchCustomers,
-                    enabled = !state.busy,
-                    modifier = Modifier.height(48.dp),
-                ) { Text("Find") }
-                if (state.customerName.isNotBlank()) {
-                    TextButton(onClick = viewModel::clearCustomer) {
-                        Text(state.customerName)
-                    }
-                }
-            }
-            state.customerHits.take(4).forEach { c ->
+            if (state.customerName.isNotBlank()) {
                 Text(
-                    c.displayName,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.selectCustomer(c) }
-                        .padding(vertical = 6.dp),
-                    style = MaterialTheme.typography.bodyLarge,
+                    "Customer · ${state.customerName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                Text(
+                    "Walk-in sale · use Customer from the POS navigation to attach or create an account",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -435,10 +427,12 @@ internal fun RightCartPane(
     onCustomerClick: (() -> Unit)? = null,
 ) {
     val cartTotal = PosCartLineOps.cartTotal(state.cartLines)
-    ShopStaffPanel(modifier = modifier, title = "Current sale") {
+    val paymentOpen = remember { mutableStateOf(false) }
+
+    ShopStaffPanel(modifier = modifier, title = "Current Sale") {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -446,13 +440,14 @@ internal fun RightCartPane(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    if (state.cartId.isBlank()) "Preparing sale…" else "Cart ${state.cartId.take(8)}…",
+                    if (state.cartLines.isEmpty()) "No items yet" else "${state.cartLines.size} line${if (state.cartLines.size == 1) "" else "s"}",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 TextButton(
                     onClick = viewModel::requestVoidCart,
                     enabled = !state.busy && state.cartId.isNotBlank() && state.cartLines.isNotEmpty(),
-                ) { Text("Clear sale") }
+                ) { Text("Clear", color = MaterialTheme.colorScheme.primary) }
             }
 
             state.saleVehicle?.let { vehicle ->
@@ -469,116 +464,240 @@ internal fun RightCartPane(
                 }
             }
 
-            HorizontalDivider()
-            state.cartLines.forEach { line ->
-                ShopListCard(
-                    title = line.oemPartNumber ?: line.stockItemId.take(8),
-                    subtitle = "@ ${line.unitPrice} = ${line.lineTotal}" +
-                        if (line.isCoreCharge) " (core)" else "",
-                    onClick = {},
-                    trailing = if (!line.isCoreCharge) {
-                        {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(
-                                    onClick = { viewModel.requestPriceOverride(line) },
-                                    enabled = !state.busy,
-                                ) { Text("Price") }
-                                OutlinedButton(
-                                    onClick = { viewModel.bumpLineQty(line, -1.0) },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.height(40.dp),
-                                ) { Text("−") }
-                                Text(
-                                    "×${line.qty.toInt()}",
-                                    modifier = Modifier.padding(horizontal = 6.dp),
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                OutlinedButton(
-                                    onClick = { viewModel.bumpLineQty(line, 1.0) },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.height(40.dp),
-                                ) { Text("+") }
-                            }
-                        }
-                    } else {
-                        null
-                    },
-                    badges = if (line.isCoreCharge) {
-                        { ShopStatusChip(label = "core", background = GtrColors.Mist) }
-                    } else {
-                        null
-                    },
-                )
-            }
             if (state.cartLines.isEmpty()) {
                 ShopHonestEmpty(
                     title = "Empty cart",
-                    body = "Search, scan, choose Popular Spares, or browse EPC to add lines.",
+                    body = "Search, scan, choose Popular Items, or browse EPC to add lines.",
                 )
+            } else {
+                state.cartLines.forEach { line ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 1.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(58.dp),
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                if (!line.imageUrl.isNullOrBlank()) {
+                                    ShopRemoteImage(
+                                        url = line.imageUrl,
+                                        contentDescription = line.description ?: line.oemPartNumber,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                                        placeholderLabel = "Part",
+                                    )
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Filled.Inventory2,
+                                            contentDescription = null,
+                                            tint = GtrColors.SilverDim,
+                                            modifier = Modifier.size(28.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    line.description ?: line.oemPartNumber ?: "Part ${line.stockItemId.take(8)}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                )
+                                val lineOem = line.oemPartNumber
+                                if (!line.description.isNullOrBlank() && !lineOem.isNullOrBlank()) {
+                                    Text(
+                                        lineOem,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text(
+                                    "${state.currency.rpcValue} ${"%.2f".format(line.unitPrice)} each",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (line.isCoreCharge) {
+                                    ShopStatusChip(label = "core charge", background = GtrColors.Mist)
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    "${state.currency.rpcValue} ${"%.2f".format(line.lineTotal)}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                )
+                                if (!line.isCoreCharge) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.bumpLineQty(line, -1.0) },
+                                            enabled = !state.busy,
+                                            modifier = Modifier.size(38.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                        ) { Text("−") }
+                                        Text(
+                                            line.qty.toInt().toString(),
+                                            modifier = Modifier.width(34.dp),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        )
+                                        OutlinedButton(
+                                            onClick = { viewModel.bumpLineQty(line, 1.0) },
+                                            enabled = !state.busy,
+                                            modifier = Modifier.size(38.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                        ) { Text("+") }
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.requestPriceOverride(line) },
+                                        enabled = !state.busy,
+                                    ) { Text("Override price") }
+                                }
+                            }
+                        }
+                    }
+                }
             }
+
             if (onCustomerClick != null) {
                 ShopSecondaryButton(
-                    label = if (state.customerName.isBlank()) {
-                        "Add Customer (Optional)"
-                    } else {
-                        "Customer · ${state.customerName}"
-                    },
+                    label = if (state.customerName.isBlank()) "Add Customer (Optional)" else "Customer · ${state.customerName}",
                     onClick = onCustomerClick,
                     enabled = !state.busy,
                 )
             }
-            Text(
-                "Total ${state.currency.rpcValue} ${"%.2f".format(cartTotal)}",
-                style = MaterialTheme.typography.headlineSmall,
-            )
 
             HorizontalDivider()
-            Text("Tender / receipt", style = MaterialTheme.typography.titleSmall)
-            OutlinedTextField(
-                value = state.receiptEmail,
-                onValueChange = viewModel::onReceiptEmailChange,
-                label = { Text("Receipt email") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Subtotal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${state.currency.rpcValue} ${"%.2f".format(cartTotal)}", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            }
+            Text(
+                "Manager-approved adjustments are already reflected in the authoritative line prices.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                value = state.receiptWhatsapp,
-                onValueChange = viewModel::onReceiptWhatsappChange,
-                label = { Text("Receipt WhatsApp") },
+            HorizontalDivider()
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            state.tenderLines.forEachIndexed { index, row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("cash", "ecocash", "paynow").forEach { t ->
-                        FilterChip(
-                            selected = row.tender == t,
-                            onClick = { viewModel.onTenderChange(index, t) },
-                            label = { Text(t) },
-                            enabled = !state.busy,
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = row.amount,
-                    onValueChange = { viewModel.onTenderAmountChange(index, it) },
-                    label = { Text("Amount (optional split)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    enabled = !state.busy,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Total", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "${state.currency.rpcValue} ${"%.2f".format(cartTotal)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 )
             }
-
             ShopPrimaryButton(
-                label = "Checkout",
-                onClick = viewModel::checkout,
-                enabled = !state.busy,
+                label = "Proceed to Payment  →",
+                onClick = { paymentOpen.value = true },
+                enabled = !state.busy && state.cartLines.isNotEmpty(),
             )
         }
     }
+
+    if (paymentOpen.value) {
+        PaymentDialog(
+            state = state,
+            viewModel = viewModel,
+            total = cartTotal,
+            onDismiss = { paymentOpen.value = false },
+            onCheckout = {
+                viewModel.checkout()
+                paymentOpen.value = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun PaymentDialog(
+    state: PosUiState,
+    viewModel: PosViewModel,
+    total: Double,
+    onDismiss: () -> Unit,
+    onCheckout: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!state.busy) onDismiss() },
+        title = { Text("Payment") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Total ${state.currency.rpcValue} ${"%.2f".format(total)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                )
+                OutlinedTextField(
+                    value = state.receiptEmail,
+                    onValueChange = viewModel::onReceiptEmailChange,
+                    label = { Text("Receipt email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                OutlinedTextField(
+                    value = state.receiptWhatsapp,
+                    onValueChange = viewModel::onReceiptWhatsappChange,
+                    label = { Text("Receipt WhatsApp") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                state.tenderLines.forEachIndexed { index, row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("cash", "ecocash", "paynow").forEach { tender ->
+                            FilterChip(
+                                selected = row.tender == tender,
+                                onClick = { viewModel.onTenderChange(index, tender) },
+                                label = { Text(tender) },
+                                enabled = !state.busy,
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = row.amount,
+                        onValueChange = { viewModel.onTenderAmountChange(index, it) },
+                        label = { Text("Amount${if (state.tenderLines.size > 1) " · split ${index + 1}" else ""}") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !state.busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                    if (state.tenderLines.size > 1) {
+                        TextButton(onClick = { viewModel.removeTenderLine(index) }, enabled = !state.busy) {
+                            Text("Remove split")
+                        }
+                    }
+                }
+                TextButton(onClick = viewModel::addTenderLine, enabled = !state.busy) {
+                    Text("Add split tender")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onCheckout,
+                enabled = !state.busy && state.cartLines.isNotEmpty(),
+            ) { Text("Complete payment") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !state.busy) { Text("Back") }
+        },
+    )
 }
 
 /** Manager reauth overlay for discount / void / refund / price-override — modal by design so

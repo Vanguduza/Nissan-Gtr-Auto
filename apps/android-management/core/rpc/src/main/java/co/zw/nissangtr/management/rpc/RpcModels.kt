@@ -324,7 +324,39 @@ data class PopularPosSpare(
     val saleableQty: Double,
     val unitPrice: Double? = null,
     val currency: CurrencyCode? = null,
+    val imageUrl: String? = null,
 )
+
+/** Explicit operator shortcut shown alongside algorithmic best sellers on the Popular Items row. */
+enum class PosPopularItemKind(val rpcValue: String) {
+    PART("part"),
+    MODEL("model"),
+    CATEGORY("category"),
+    SUBCATEGORY("subcategory"),
+    ;
+
+    companion object {
+        fun fromRpc(value: String?): PosPopularItemKind =
+            entries.firstOrNull { it.rpcValue.equals(value, ignoreCase = true) } ?: PART
+    }
+}
+
+data class PosPopularPin(
+    val kind: PosPopularItemKind,
+    val itemKey: String,
+    val label: String,
+    val subtitle: String? = null,
+    val searchQuery: String = label,
+    val makerSlug: String? = null,
+    val modelSlug: String? = null,
+    val categoryName: String? = null,
+    val subcategoryName: String? = null,
+    val oemPartNumber: String? = null,
+    val imageUrl: String? = null,
+    val updatedAt: String? = null,
+) {
+    val stableKey: String get() = "${kind.rpcValue}:$itemKey"
+}
 
 /** Posted invoice read model used by POS Orders and Returns. */
 data class PosInvoiceSummary(
@@ -361,6 +393,8 @@ data class PosCartLineSummary(
     val unitPrice: Double,
     val lineTotal: Double,
     val isCoreCharge: Boolean = false,
+    val description: String? = null,
+    val imageUrl: String? = null,
 )
 
 /** Row from [RpcNames.LIST_POS_QUOTATIONS]. */
@@ -445,6 +479,7 @@ data class OfflineSaleReplayPayload(
     val receiptPhoneE164: String? = null,
     val soldAt: String? = null,
     val vehicle: PosSaleVehicleSelection? = null,
+    val vehicleContexts: List<PosSaleVehicleSelection> = emptyList(),
 )
 
 data class OfflineSaleLine(
@@ -475,11 +510,48 @@ data class ChatMessageSummary(
     val createdAt: String,
 )
 
-/** Named-customer hit from PostgREST `customers` (POS / credit / consignment). */
+/** POS customer type. Only non-sensitive commercial/contact profile fields are exposed here. */
+enum class PosCustomerKind(val rpcValue: String) {
+    INDIVIDUAL("individual"),
+    BUSINESS("business"),
+    ;
+
+    companion object {
+        fun fromRpc(value: String?): PosCustomerKind =
+            entries.find { it.rpcValue == value } ?: INDIVIDUAL
+    }
+}
+
+/** Named-customer read model used by the operator POS customer workspace. */
 data class CustomerOption(
     val id: String,
     val displayName: String,
-)
+    val kind: PosCustomerKind = PosCustomerKind.INDIVIDUAL,
+    val businessName: String? = null,
+    val email: String? = null,
+    val phoneE164: String? = null,
+    val whatsappE164: String? = null,
+) {
+    val receiptDisplayName: String
+        get() = businessName?.takeIf { it.isNotBlank() } ?: displayName
+}
+
+/** Canonical customer-garage vehicle fitment available to the POS. */
+data class CustomerGarageVehicle(
+    val id: String,
+    val customerId: String,
+    val make: String? = null,
+    val modelSlug: String? = null,
+    val model: String? = null,
+    val generation: String? = null,
+    val chassisCode: String? = null,
+    val engine: String? = null,
+    val vin: String? = null,
+    val isPrimary: Boolean = false,
+) {
+    val displayLabel: String
+        get() = listOfNotNull(model, generation ?: chassisCode, engine).filter { it.isNotBlank() }.joinToString(" · ")
+}
 
 data class SupplierRef(
     val id: String,

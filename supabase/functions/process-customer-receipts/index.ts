@@ -51,7 +51,7 @@ async function loadReceiptData(supabase: SupabaseClient, documentId: string) {
   const { data: inv, error: invErr } = await supabase
     .from("sales_invoices")
     .select(
-      "id, doc_type, status, document_number, currency, exchange_rate_applied, subtotal, total, posted_at, customer_phone_e164, customer_email, warehouse_id, vehicle_model_name, vehicle_generation, vehicle_chassis_code, vehicle_engine_code",
+      "id, doc_type, status, document_number, currency, exchange_rate_applied, subtotal, total, posted_at, customer_display_name, customer_business_name, customer_phone_e164, customer_email, warehouse_id, vehicle_model_name, vehicle_generation, vehicle_chassis_code, vehicle_engine_code, vehicle_contexts",
     )
     .eq("id", documentId)
     .maybeSingle();
@@ -171,11 +171,18 @@ async function generateAndStorePdf(
     total: Number(inv.total),
     lines: pdfLines,
     tenders,
-    customerContact: inv.customer_email || inv.customer_phone_e164 || null,
+    customerName: inv.customer_business_name || inv.customer_display_name || null,
+    customerContactName: inv.customer_business_name ? inv.customer_display_name : null,
+    customerContact: [inv.customer_email, inv.customer_phone_e164].filter(Boolean).join(" · ") || null,
     vehicleLabel: inv.vehicle_model_name
       ? [inv.vehicle_model_name, inv.vehicle_generation || inv.vehicle_chassis_code, inv.vehicle_engine_code]
           .filter(Boolean)
           .join(" · ")
+      : null,
+    vehicleLabels: Array.isArray(inv.vehicle_contexts)
+      ? inv.vehicle_contexts.map((v: Record<string, unknown>) =>
+          [v.model_name, v.generation || v.chassis_code, v.engine_code].filter(Boolean).join(" · ")
+        ).filter(Boolean)
       : null,
   });
 

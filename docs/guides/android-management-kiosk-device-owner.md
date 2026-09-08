@@ -63,6 +63,8 @@ Chosen fleet path when the bootloader is unlockable and the shop accepts root op
    - Home / Recents / notifications blocked for ordinary staff
    - No flash to stock launcher after crash or reboot (`BOOT_COMPLETED` + persistent HOME)
 7. **Kiosk settings** are reached only from **POS → Settings → Kiosk & device** by an authorized admin. Confirm idle **3 min** (override 1–15), Wi‑Fi/BT maintenance, Bluetooth/Wi-Fi printer diagnostics, scanner diagnostics, hardening status, policy reassert, audited Exit Lock Task and reboot.
+   - **A4 / desktop printing:** install or enable the printer's compatible Android PrintService (for example built-in/Mopria/vendor service) only while in authorized Kiosk & device maintenance. Ordinary POS printing uses Android Print Framework; it does not pretend every desktop printer speaks a common raw protocol. Return from Print settings and verify Lock Task/persistent HOME are reasserted.
+   - **Receipt printers:** Bluetooth SPP and Wi-Fi/LAN raw TCP are direct ESC/POS only where the printer supports ESC/POS.
 
 ### Risks (accepted for primary CN SKUs)
 
@@ -121,4 +123,6 @@ Logout returns directly to the in-app staff login. Cold process start also force
 - [ ] No app splash, launcher flash, Recents flash, or previously-authenticated POS frame on cold start
 - [ ] Idle 3 min → lock overlay; all kiosk maintenance is under POS Settings; Exit Lock Task audited locally
 - [ ] Bluetooth SPP and Wi-Fi/LAN ESC/POS printer endpoints can be configured from POS Settings
+- [ ] A4 Print Framework opens the expected system/vendor PrintService while Lock Task is active; if the OEM blocks the print UI, allow-list only the required print-spooler/service package and retest
+- [ ] Returning from authorized Print/Wi-Fi/Bluetooth settings reasserts persistent HOME + Lock Task
 - [ ] Sales-only → POS; finance/hr/dispatcher/admin/warehouse → hub; empty roles → deny

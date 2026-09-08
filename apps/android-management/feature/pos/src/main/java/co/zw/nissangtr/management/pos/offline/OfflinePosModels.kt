@@ -8,6 +8,8 @@ import co.zw.nissangtr.management.rpc.EpcModel
 import co.zw.nissangtr.management.rpc.EpcSection
 import co.zw.nissangtr.management.rpc.EpcVariant
 import co.zw.nissangtr.management.rpc.PosSaleVehicleSelection
+import co.zw.nissangtr.management.rpc.PosPopularPin
+import co.zw.nissangtr.management.rpc.PosPopularItemKind
 
 /**
  * Local encrypted outbox / catalog cache for tablet offline POS.
@@ -43,6 +45,15 @@ data class LocalCartLine(
     val isCoreCharge: Boolean = false,
 )
 
+enum class PopularPinDirtyAction { UPSERT, DELETE }
+
+data class LocalPopularPinRecord(
+    val userId: String,
+    val pin: PosPopularPin,
+    val dirtyAction: PopularPinDirtyAction? = null,
+    val deleted: Boolean = false,
+)
+
 data class PendingOfflineSale(
     val clientSaleId: String,
     val warehouseId: String,
@@ -55,6 +66,7 @@ data class PendingOfflineSale(
     val receiptWhatsapp: String?,
     val receiptPhone: String?,
     val vehicleJson: String? = null,
+    val vehicleContextsJson: String? = null,
     val soldAtEpochMs: Long,
     val status: PendingSaleStatus,
     val lastError: String? = null,
@@ -91,6 +103,11 @@ data class LocalEpcDiagramRow(
 
 interface OfflinePosStore {
     fun replaceCatalog(warehouseId: String, pulledAtEpochMs: Long, items: List<LocalCatalogItem>)
+    fun listPopularPins(userId: String, includeDeleted: Boolean = false): List<LocalPopularPinRecord> = emptyList()
+    fun upsertPopularPin(userId: String, pin: PosPopularPin, dirtyAction: PopularPinDirtyAction? = null) = Unit
+    fun markPopularPinDeleted(userId: String, kind: PosPopularItemKind, itemKey: String, dirtyAction: PopularPinDirtyAction? = PopularPinDirtyAction.DELETE) = Unit
+    fun deletePopularPinRecord(userId: String, kind: PosPopularItemKind, itemKey: String) = Unit
+    fun replacePopularPins(userId: String, pins: List<PosPopularPin>) = Unit
     fun replaceEpcCatalog(bundle: LocalEpcCatalogBundle) = Unit
     fun hasEpcCatalog(): Boolean = false
     fun epcCatalogSyncedAtEpochMs(): Long? = null

@@ -18,6 +18,8 @@ import co.zw.nissangtr.management.rpc.OfflineSaleLine
 import co.zw.nissangtr.management.rpc.OfflineSaleReplayPayload
 import co.zw.nissangtr.management.rpc.PosTenderLine
 import co.zw.nissangtr.management.rpc.PosSaleVehicleSelection
+import co.zw.nissangtr.management.rpc.PosPopularItemKind
+import co.zw.nissangtr.management.rpc.PosPopularPin
 import co.zw.nissangtr.management.rpc.RpcClient
 import org.json.JSONArray
 import org.json.JSONObject
@@ -58,8 +60,9 @@ class OfflinePosSyncEngine(
                         if (summaries.isEmpty()) {
                             val fallback = rpc.getCatalogDiagram(maker.slug, model.slug, variant.slug, section.slug)
                             if (fallback.diagramSlug != null || fallback.parts.isNotEmpty()) {
-                                val bytes = if (cacheDiagramImages && !fallback.imageUrl.isNullOrBlank()) {
-                                    runCatching { downloadDiagramBytes(fallback.imageUrl) }.getOrNull()
+                                val fallbackImageUrl = fallback.imageUrl
+                                val bytes = if (cacheDiagramImages && !fallbackImageUrl.isNullOrBlank()) {
+                                    runCatching { downloadDiagramBytes(fallbackImageUrl) }.getOrNull()
                                 } else null
                                 diagramRows += LocalEpcDiagramRow(maker.slug, model.slug, variant.slug, section.slug, fallback, bytes)
                             }
@@ -68,8 +71,9 @@ class OfflinePosSyncEngine(
                                 val diagram = rpc.getCatalogDiagramBySlug(
                                     maker.slug, model.slug, variant.slug, section.slug, summary.slug,
                                 )
-                                val bytes = if (cacheDiagramImages && !diagram.imageUrl.isNullOrBlank()) {
-                                    runCatching { downloadDiagramBytes(diagram.imageUrl) }.getOrNull()
+                                val diagramImageUrl = diagram.imageUrl
+                                val bytes = if (cacheDiagramImages && !diagramImageUrl.isNullOrBlank()) {
+                                    runCatching { downloadDiagramBytes(diagramImageUrl) }.getOrNull()
                                 } else null
                                 diagramRows += LocalEpcDiagramRow(
                                     makerSlug = maker.slug,
@@ -112,6 +116,52 @@ class OfflinePosSyncEngine(
         store.getEpcDiagramBySlug(makerSlug, modelSlug, variantSlug, sectionSlug, diagramSlug)
     fun searchLocalEpcParts(vehicle: PosSaleVehicleSelection, query: String, limit: Int = 80): List<CatalogPartHit> =
         store.searchEpcParts(vehicle, query, limit)
+
+    fun listLocalPopularPins(userId: String): List<PosPopularPin> =
+        store.listPopularPins(userId).map { it.pin }
+
+    suspend fun refreshPopularPins(userId: String): List<PosPopularPin> {
+        require(userId.isNotBlank())
+        flushPopularPinMutations(userId)
+        val remote = rpc.listPosPopularPins()
+        store.replacePopularPins(userId, remote)
+        return remote
+    }
+
+    suspend fun pinPopularItem(userId: String, pin: PosPopularPin, online: Boolean) {
+        require(userId.isNotBlank())
+        store.upsertPopularPin(userId, pin, PopularPinDirtyAction.UPSERT)
+        if (online) {
+            rpc.upsertPosPopularPin(pin)
+            store.upsertPopularPin(userId, pin, null)
+        }
+    }
+
+    suspend fun unpinPopularItem(userId: String, kind: PosPopularItemKind, itemKey: String, online: Boolean) {
+        require(userId.isNotBlank())
+        store.markPopularPinDeleted(userId, kind, itemKey, PopularPinDirtyAction.DELETE)
+        if (online) {
+            rpc.deletePosPopularPin(kind, itemKey)
+            store.deletePopularPinRecord(userId, kind, itemKey)
+        }
+    }
+
+    suspend fun flushPopularPinMutations(userId: String) {
+        val dirty = store.listPopularPins(userId, includeDeleted = true).filter { it.dirtyAction != null }
+        for (row in dirty) {
+            when (row.dirtyAction) {
+                PopularPinDirtyAction.UPSERT -> {
+                    rpc.upsertPosPopularPin(row.pin)
+                    store.upsertPopularPin(userId, row.pin, null)
+                }
+                PopularPinDirtyAction.DELETE -> {
+                    rpc.deletePosPopularPin(row.pin.kind, row.pin.itemKey)
+                    store.deletePopularPinRecord(userId, row.pin.kind, row.pin.itemKey)
+                }
+                null -> Unit
+            }
+        }
+    }
 
     private suspend fun downloadDiagramBytes(url: String): ByteArray = withContext(Dispatchers.IO) {
         val connection = URL(url).openConnection().apply {
@@ -160,6 +210,7 @@ class OfflinePosSyncEngine(
         receiptWhatsapp: String? = null,
         receiptPhone: String? = null,
         vehicle: PosSaleVehicleSelection? = null,
+        vehicleContexts: List<PosSaleVehicleSelection> = emptyList(),
     ): String {
         require(warehouseId.isNotBlank())
         require(lines.isNotEmpty()) { "Add at least one line before offline checkout" }
@@ -204,6 +255,18 @@ class OfflinePosSyncEngine(
                 .put("engine_code", v.engineCode)
                 .toString()
         }
+        val vehicleContextsJson = JSONArray().apply {
+            vehicleContexts.distinctBy { "${it.modelSlug}|${it.chassisCode}|${it.engineCode}" }.forEach { v ->
+                put(
+                    JSONObject()
+                        .put("model_slug", v.modelSlug)
+                        .put("model_name", v.modelName)
+                        .put("generation", v.generation)
+                        .put("chassis_code", v.chassisCode)
+                        .put("engine_code", v.engineCode),
+                )
+            }
+        }.toString()
 
         store.enqueueSale(
             PendingOfflineSale(
@@ -218,6 +281,7 @@ class OfflinePosSyncEngine(
                 receiptWhatsapp = receiptWhatsapp,
                 receiptPhone = receiptPhone,
                 vehicleJson = vehicleJson,
+                vehicleContextsJson = vehicleContextsJson,
                 soldAtEpochMs = clockMs(),
                 status = PendingSaleStatus.Pending,
             ),
@@ -338,6 +402,23 @@ class OfflinePosSyncEngine(
                 engineCode = o.getString("engine_code"),
             )
         }
+        val vehicleContexts = vehicleContextsJson?.takeIf { it.isNotBlank() }?.let { raw ->
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.getJSONObject(i)
+                    add(
+                        PosSaleVehicleSelection(
+                            modelSlug = o.getString("model_slug"),
+                            modelName = o.getString("model_name"),
+                            generation = o.getString("generation"),
+                            chassisCode = o.getString("chassis_code"),
+                            engineCode = o.getString("engine_code"),
+                        ),
+                    )
+                }
+            }
+        }.orEmpty()
         return OfflineSaleReplayPayload(
             warehouseId = warehouseId,
             currency = CurrencyCode.entries.find { it.rpcValue == currency } ?: CurrencyCode.USD,
@@ -350,6 +431,7 @@ class OfflinePosSyncEngine(
             receiptPhoneE164 = receiptPhone,
             soldAt = null,
             vehicle = vehicle,
+            vehicleContexts = vehicleContexts,
         )
     }
     private companion object {

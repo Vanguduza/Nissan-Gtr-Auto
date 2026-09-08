@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Tablet-only: Device Owner receiver + HOME launcher + boot recovery. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REBOOT" />
 
@@ -12,7 +13,8 @@
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:lockTaskMode="if_whitelisted"
-            android:screenOrientation="landscape">
+            android:screenOrientation="landscape"
+            tools:replace="android:theme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
