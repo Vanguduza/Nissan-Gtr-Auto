@@ -2,6 +2,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -127,6 +128,17 @@ jobs:
           docker exec -i "${{ steps.db.outputs.container }}" \
             psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
             < supabase/tests/phase14_ci_smoke.sql
+      - name: Run POS customer / EPC / Popular Items smoke
+        run: |
+          set -euo pipefail
+          for sql in \
+            supabase/tests/pos_operator_discovery_smoke.sql \
+            supabase/tests/pos_vehicle_context_smoke.sql \
+            supabase/tests/pos_customer_garage_popular_items_smoke.sql; do
+            echo "Running $sql"
+            docker exec -i "${{ steps.db.outputs.container }}" \
+              psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$sql"
+          done
       - name: Stop Supabase
         if: always()
         run: npx supabase stop --no-backup || true
