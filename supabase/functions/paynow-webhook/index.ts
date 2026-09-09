@@ -2,7 +2,8 @@
  * Paynow webhook / result settle.
  * Env: PAYNOW_INTEGRATION_KEY — verify inbound field hash (not stub prefix).
  * Local unverified settle: PAYNOW_ALLOW_UNVERIFIED_LOCAL=1 only when key unset.
- * Does not trust webhook allocations for AR — ledger uses DB intent amount.
+ * Does not trust webhook allocations for AR — passes p_allocations=null so
+ * mark_paynow_settled derives AR allocation from intent metadata + amount.
  *
  * Paynow posts application/x-www-form-urlencoded to resulturl with hash in body.
  * https://developers.paynow.co.zw/docs/paynow/status_update/
