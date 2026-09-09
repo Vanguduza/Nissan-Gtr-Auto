@@ -39,9 +39,6 @@ fun DeviceAdminConsoleScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val engineAudio by prefs.engineAudioEnabled.collectAsState(
-        initial = KioskDevicePrefs.DEFAULT_ENGINE_AUDIO_ENABLED,
-    )
     val idleMinutes by prefs.idleMinutes.collectAsState(
         initial = KioskDevicePrefs.DEFAULT_IDLE_MINUTES,
     )
@@ -52,23 +49,6 @@ fun DeviceAdminConsoleScreen(
         subtitle = if (tabletKiosk) "Kiosk maintenance" else "Portable management",
         onBack = onBack,
     ) {
-        ShopStaffPanel(title = "Engine audio (splash)") {
-            Text(
-                "Default OFF. OEM bootanimation zip audio is best-effort; app toggle is authoritative.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Switch(
-                checked = engineAudio,
-                onCheckedChange = { enabled ->
-                    scope.launch { prefs.setEngineAudioEnabled(enabled) }
-                },
-            )
-            Text(
-                if (engineAudio) "Engine audio: ON" else "Engine audio: OFF",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-
         ShopStaffPanel(title = "Idle lock (minutes)") {
             Text(
                 "Default ${KioskDevicePrefs.DEFAULT_IDLE_MINUTES} min. Override " +
@@ -92,9 +72,19 @@ fun DeviceAdminConsoleScreen(
         ShopStaffPanel(title = "Hardening path") {
             Text(path.label, style = MaterialTheme.typography.bodyMedium)
             Text(path.detail, style = MaterialTheme.typography.bodySmall)
+            if (tabletKiosk) {
+                ShopPrimaryButton(
+                    label = "Re-assert dedicated kiosk policy",
+                    onClick = {
+                        KioskAuditLog.append(context, "reassert_kiosk_policy")
+                        lockTask.reassertDedicatedKioskPolicy()
+                        lockTask.enterLockTaskIfAllowed()
+                    },
+                )
+            }
             Text(
-                "Path B (Magisk + Lock Task) is primary for rooted CN tablets. " +
-                    "Path A = Device Owner + Lock Task fallback. This console does not auto-flash Magisk. " +
+                "Device Owner + Lock Task is authoritative. Root/Magisk may provide OEM-level boot branding only; " +
+                    "the app itself never plays a startup splash before staff login. " +
                     "See docs/guides/android-management-kiosk-device-owner.md",
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -121,6 +111,7 @@ fun DeviceAdminConsoleScreen(
                     label = "Wi‑Fi settings",
                     onClick = {
                         KioskAuditLog.append(context, "open_wifi_settings")
+                        lockTask.exitLockTask()
                         context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
                     },
                 )
@@ -128,7 +119,16 @@ fun DeviceAdminConsoleScreen(
                     label = "Bluetooth settings",
                     onClick = {
                         KioskAuditLog.append(context, "open_bluetooth_settings")
+                        lockTask.exitLockTask()
                         context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+                    },
+                )
+                ShopPrimaryButton(
+                    label = "Print services / vendor drivers",
+                    onClick = {
+                        KioskAuditLog.append(context, "open_print_services")
+                        lockTask.exitLockTask()
+                        context.startActivity(Intent(Settings.ACTION_PRINT_SETTINGS))
                     },
                 )
                 ShopSecondaryButton(

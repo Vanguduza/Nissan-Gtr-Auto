@@ -96,6 +96,22 @@ interface RpcClient {
         query: String,
     ): CatalogSearchResult
 
+    /** Fitment-scoped spare search when the attendant selected a specific Nissan. */
+    suspend fun searchCatalogForVehicle(
+        vehicle: PosSaleVehicleSelection,
+        query: String,
+        limit: Int = 50,
+    ): CatalogSearchResult = searchCatalog(CatalogSearchMode.PART, query)
+
+    /** Persist or clear sale vehicle context on an open cart. */
+    suspend fun setPosCartVehicle(
+        cartId: String,
+        vehicle: PosSaleVehicleSelection?,
+    ): String = cartId
+
+    /** Read vehicle snapshot from a live/parked cart (resume / quote conversion). */
+    suspend fun getPosCartVehicle(cartId: String): PosSaleVehicleSelection? = null
+
     /**
      * Megazip hierarchy browse (online-only). Offline POS cache remains flat catalog_items.
      */
@@ -114,6 +130,19 @@ interface RpcClient {
         variantSlug: String,
         sectionSlug: String,
     ): EpcDiagramResponse = EpcDiagramResponse()
+    suspend fun listCatalogDiagrams(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): List<EpcDiagramSummary> = emptyList()
+    suspend fun getCatalogDiagramBySlug(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+        diagramSlug: String,
+    ): EpcDiagramResponse = getCatalogDiagram(makerSlug, modelSlug, variantSlug, sectionSlug)
 
     /** Open cart lines (poll refresh for companion scans). */
     suspend fun listPosCartLines(cartId: String): List<PosCartLineSummary>
@@ -205,6 +234,25 @@ interface RpcClient {
         status: String? = null,
         limit: Int = 50,
     ): List<PosQuotationSummary>
+
+    /** Best-selling spares from posted invoices for the operator Home screen. */
+    suspend fun listPosPopularSpares(
+        days: Int = 90,
+        limit: Int = 8,
+    ): List<PopularPosSpare> = emptyList()
+
+    /** Per-operator explicit shortcuts merged with algorithmic popular spares in the Home row. */
+    suspend fun listPosPopularPins(): List<PosPopularPin> = emptyList()
+
+    suspend fun upsertPosPopularPin(pin: PosPopularPin): String = pin.stableKey
+
+    suspend fun deletePosPopularPin(kind: PosPopularItemKind, itemKey: String): Boolean = false
+
+    /** Posted sales history search for Orders / Returns. */
+    suspend fun listPosRecentInvoices(
+        query: String? = null,
+        limit: Int = 50,
+    ): List<PosInvoiceSummary> = emptyList()
 
     /**
      * Pull retail catalog + warehouse qty for encrypted offline POS cache.
@@ -433,8 +481,46 @@ interface RpcClient {
 
     // --- Named customers (PostgREST + RLS — finance/POS/credit pattern) ---
 
-    /** Search by display_name ilike or exact UUID (≥2 chars). */
+    /** Search POS-visible customers by name/business/contact or exact UUID (≥2 chars). */
     suspend fun searchCustomers(query: String): List<CustomerOption>
+
+    /** Staff-safe customer create/update surface; finance/credit fields are deliberately excluded. */
+    suspend fun createPosCustomer(
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String? = null,
+        email: String? = null,
+        phoneE164: String? = null,
+        whatsappE164: String? = null,
+    ): String
+
+    suspend fun updatePosCustomer(
+        customerId: String,
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String? = null,
+        email: String? = null,
+        phoneE164: String? = null,
+        whatsappE164: String? = null,
+    )
+
+    suspend fun listPosCustomerGarage(customerId: String): List<CustomerGarageVehicle>
+
+    suspend fun upsertPosCustomerGarageVehicle(
+        customerId: String,
+        vehicleId: String? = null,
+        modelSlug: String,
+        make: String,
+        model: String,
+        generation: String,
+        chassisCode: String,
+        engine: String,
+        vin: String? = null,
+        isPrimary: Boolean = false,
+    ): String
+
+    /** Changes the customer on an already-open POS cart without recreating the sale. */
+    suspend fun setPosCartCustomer(cartId: String, customerId: String?)
 
     // --- Phase 8b blankets (procurement) ---
 

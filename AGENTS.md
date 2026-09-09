@@ -1,5 +1,22 @@
 # Nissan GTR Auto ERP — Agent Instructions
 
+## MANDATORY PROJECT TRUTH GATE — READ FIRST
+
+Before planning, editing, merging, building, packaging, or releasing anything in this repository:
+
+1. Read `PROJECT_CANONICAL_STATE.json`.
+2. Run `python3 scripts/project_truth_guard.py status` (Windows: `py -3 scripts/project_truth_guard.py status`).
+3. Never treat `main`, the GitHub default branch, the newest timestamp, the current checkout, or chat/agent memory as canonical by itself.
+4. For the target app, inspect every relevant divergent branch and verify the recorded canonical/locked lineage before modifying it.
+5. Enable repository hooks once per clone with `scripts/install-repo-guardrails.sh` or `scripts/install-repo-guardrails.ps1`.
+6. Every commit must contain the automatically generated `docs/project-state/CHANGE_LEDGER.jsonl` / `LAST_CHANGE.json` evidence. Do not bypass the hooks. CI independently verifies the ledger.
+7. Before any APK/AAB/release build, the app-specific `release-check` must pass. Gradle assembly for customer and POS is wired to this gate and must not be bypassed.
+8. If canonical state says `release_blocked_until_reconciled=true`, reconcile the locked implementation and subsequent work first. Never remove, thin, fake, or silently replace locked features merely to make a build pass.
+9. Any approved change to canonical lineage must update `PROJECT_CANONICAL_STATE.json` in the same reviewed reconciliation change.
+10. Every delivered artifact must be traceable to repository + branch + commit SHA + target app + canonical-state revision.
+
+These rules override any older branch/workflow assumptions elsewhere in this document.
+
 ## Project Overview
 
 Composable ERP for Nissan spare-parts distribution. Polyglot monorepo with one Supabase backend and four client surfaces. See `README.md` for architecture and `rufler.yaml` for agent lane assignments.
@@ -96,6 +113,9 @@ cd apps/ios && xcodebuild -scheme GTRCustomer -destination 'platform=iOS Simulat
 ## PR Checklist
 
 Before opening a PR, verify:
+- [ ] `PROJECT_CANONICAL_STATE.json` read and target lineage verified
+- [ ] Automatic change ledger generated and `verify-head` passes
+- [ ] Target app `release-check` passes before any build/release
 - [ ] No ZIMRA or payroll tax references introduced
 - [ ] No HTML5/browser QR scanning added
 - [ ] New tables have RLS policies in the migration

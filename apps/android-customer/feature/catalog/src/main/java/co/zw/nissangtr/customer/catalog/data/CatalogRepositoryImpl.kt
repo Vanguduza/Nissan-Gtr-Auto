@@ -3,16 +3,17 @@ package co.zw.nissangtr.customer.catalog.data
 import co.zw.nissangtr.customer.catalog.domain.CatalogRepository
 import co.zw.nissangtr.customer.rpc.CatalogBrowseResult
 import co.zw.nissangtr.customer.rpc.CatalogProduct
+import co.zw.nissangtr.customer.rpc.CatalogR2Live
 import co.zw.nissangtr.customer.rpc.GarageVehicle
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.SearchCatalogResponse
 import co.zw.nissangtr.customer.rpc.SearchMode
+import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
 import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 
 /**
  * Live [CatalogRepository] — the only class in `feature/catalog` allowed to import
- * [RpcClient] directly. ViewModel → use case → repository → RpcClient, never
- * ViewModel → RpcClient (see `CatalogViewModel.factory`).
+ * [RpcClient] directly. ViewModel → use case → repository → transport.
  */
 class CatalogRepositoryImpl(
     private val rpc: RpcClient,
@@ -23,8 +24,10 @@ class CatalogRepositoryImpl(
     override suspend fun browse(category: String?, limit: Int): CatalogBrowseResult =
         rpc.listCatalogBrowse(category, limit)
 
-    override suspend fun loadProduct(oem: String): CatalogProduct =
-        rpc.loadCatalogProduct(oem)
+    override suspend fun popular(limit: Int): List<co.zw.nissangtr.customer.rpc.CatalogListItem> =
+        rpc.listCustomerPopularSpares(limit = limit)
+
+    override suspend fun loadProduct(oem: String): CatalogProduct = rpc.loadCatalogProduct(oem)
 
     override suspend fun addToCart(oem: String, qty: Double): Pair<String, String> =
         rpc.addCustomerCartLineByOem(oem, qty)
@@ -37,15 +40,32 @@ class CatalogRepositoryImpl(
         rpc.addCustomerCompareItem(stockItemId = stockItemId, oem = oem)
     }
 
-    override suspend fun listVehicleMaster(): List<VehicleMasterRow> =
-        rpc.listVehicleMaster()
+    override suspend fun listVehicleMaster(): List<VehicleMasterRow> = rpc.listVehicleMaster()
 
     override suspend fun listCatalogForVehicle(
+        vehicleMasterId: String?,
         chassisCode: String,
         engineCode: String?,
+        category: String?,
         limit: Int,
-    ): CatalogBrowseResult =
-        rpc.listCatalogForVehicle(chassisCode, engineCode, limit)
+    ): CatalogBrowseResult {
+        if (rpc is SupabaseRpcClient) {
+            val canonicalId = vehicleMasterId?.trim()?.takeIf { it.isNotEmpty() }
+                ?: CatalogR2Live.resolveVehicleMasterId(
+                    client = rpc.client,
+                    chassisCode = chassisCode,
+                    engineCode = engineCode,
+                )
+            return CatalogR2Live.listCatalogForVehicle(
+                client = rpc.client,
+                vehicleMasterId = canonicalId,
+                category = category,
+                limit = limit,
+            )
+        }
+        // Non-Supabase test transports use the interface fallback only.
+        return rpc.listCatalogForVehicle(chassisCode, engineCode, limit)
+    }
 
     override suspend fun getPrimaryVehicle(): GarageVehicle? {
         val vehicles = rpc.listGarageVehicles()

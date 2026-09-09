@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+
 from data_pipeline.amayama_catalog_auto import ScrapeConfig, claim_next_url, queue_status_counts
 from data_pipeline.scrape_amayama import enqueue_url, init_db
 
@@ -49,7 +51,7 @@ def test_claim_hybrid_falls_back_to_deep_first(tmp_path) -> None:
 
 def test_reclaim_stale_processing(tmp_path) -> None:
     import sqlite3
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from data_pipeline.amayama_catalog_auto import reclaim_stale_processing
 
@@ -57,7 +59,7 @@ def test_reclaim_stale_processing(tmp_path) -> None:
     init_db(db)
     enqueue_url(db, "https://partsouq.com/en/catalog/genuine/vehicle?c=Nissan&vid=1", hierarchy_level=2)
     conn = sqlite3.connect(db)
-    stale = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    stale = (datetime.now(UTC) - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("UPDATE queue SET status = 'PROCESSING', updated_at = ?", (stale,))
     conn.commit()
     conn.close()

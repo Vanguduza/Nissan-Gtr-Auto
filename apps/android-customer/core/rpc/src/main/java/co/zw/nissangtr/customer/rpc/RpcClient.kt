@@ -4,8 +4,7 @@ package co.zw.nissangtr.customer.rpc
  * Thin customer RPC boundary for Compose screens.
  *
  * **Live:** [SupabaseRpcClient] via [RpcClientFactory] when `SUPABASE_URL` +
- * `SUPABASE_ANON_KEY` are set (override with `rpc.forceFake=true`).
- * **Fallback:** [FakeRpcClient].
+ * `SUPABASE_ANON_KEY` are set. Production has no fake transport fallback.
  *
  * List reads (open cart lines, own invoices, garage, chat) use PostgREST / RLS —
  * not mutation RPCs.
@@ -40,6 +39,9 @@ interface RpcClient {
 
     /** Browse PLP — PostgREST stock_items + default price list (web `listCatalogProducts` subset). */
     suspend fun listCatalogBrowse(category: String? = null, limit: Int = 50): CatalogBrowseResult
+
+    /** Aggregate posted-sales popularity, customer-safe fields only. */
+    suspend fun listCustomerPopularSpares(days: Int = 90, limit: Int = 8): List<CatalogListItem> = emptyList()
 
     /** Megazip hierarchy — maker hub. */
     suspend fun listCatalogMakers(): List<EpcMaker>

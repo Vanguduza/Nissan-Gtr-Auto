@@ -23,7 +23,7 @@ type Status =
   | { kind: "error"; message: string }
   | { kind: "ready"; order: CustomerOrder };
 
-export function OrderDetail({ invoiceId }: { invoiceId: string }) {
+export function OrderDetail({ orderRef }: { orderRef: string }) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [busy, setBusy] = useState<"contipay" | "paynow" | "ecocash" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -46,13 +46,13 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
       return;
     }
 
-    const order = await getCustomerOrder(client, invoiceId);
+    const order = await getCustomerOrder(client, orderRef);
     if (!order.ok) {
       setStatus({ kind: "error", message: order.error });
       return;
     }
     setStatus({ kind: "ready", order: order.data });
-  }, [invoiceId]);
+  }, [orderRef]);
 
   useEffect(() => {
     void refresh();
@@ -70,10 +70,10 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
 
     const result =
       rail === "contipay"
-        ? await createCustomerContipayIntent(client, invoiceId)
+        ? await createCustomerContipayIntent(client, orderRef)
         : rail === "paynow"
-          ? await createCustomerPaynowIntent(client, invoiceId)
-          : await createCustomerEcocashIntent(client, invoiceId, {
+          ? await createCustomerPaynowIntent(client, orderRef)
+          : await createCustomerEcocashIntent(client, orderRef, {
               payerMode: ecocashMode,
               payerMsisdn: ecocashMode === "other" ? ecocashOther : null,
             });
@@ -121,33 +121,37 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
     { label: "Order received", done: true },
     {
       label: "Picked",
-      done: Boolean(
-        order.pick_list_status &&
-          ["picked", "completed", "done"].includes(order.pick_list_status),
-      ),
+      done:
+        ["ready_for_pick", "picking", "packed", "ready_for_collection", "dispatch_ready", "dispatched", "delivered", "partially_fulfilled"].includes(order.status) ||
+        Boolean(
+          order.pick_list_status &&
+            ["picked", "completed", "done"].includes(order.pick_list_status),
+        ),
     },
     {
       label:
         order.fulfillment_mode === "immediate"
           ? "Ready for counter pickup"
           : "Out for delivery",
-      done: Boolean(
-        order.delivery_note_status &&
-          ["dispatched", "delivered", "completed"].includes(
-            order.delivery_note_status,
-          ),
-      ),
+      done:
+        ["dispatched", "delivered"].includes(order.status) ||
+        Boolean(
+          order.delivery_note_status &&
+            ["dispatched", "delivered", "completed"].includes(
+              order.delivery_note_status,
+            ),
+        ),
     },
     {
       label: order.fulfillment_mode === "immediate" ? "Collected" : "Delivered",
-      done: order.delivery_note_status === "delivered",
+      done: order.status === "delivered" || order.delivery_note_status === "delivered",
     },
   ];
 
   return (
     <>
       <h1 className={styles.title}>
-        {order.document_number ?? order.invoice_id}
+        {order.document_number ?? order.id}
       </h1>
       <p className={styles.lede}>
         Fulfillment: <strong>{fulfillmentLabel(order.fulfillment_mode)}</strong>
@@ -159,6 +163,12 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
           ? ` · open ${formatMoney(order.amount_open, order.currency)}`
           : " · paid"}
       </p>
+      {order.reservation_expires_at && order.amount_open > 0 ? (
+        <p className={styles.muted}>
+          Stock is reserved until {new Date(order.reservation_expires_at).toLocaleString()}.
+          Payment must be confirmed before that reservation expires.
+        </p>
+      ) : null}
       {order.pick_list_status || order.delivery_note_status ? (
         <p className={styles.muted}>
           Pick: {order.pick_list_status ?? "—"} · Delivery:{" "}
@@ -174,7 +184,7 @@ export function OrderDetail({ invoiceId }: { invoiceId: string }) {
         ))}
       </ol>
 
-      {order.amount_open > 0 ? (
+      {order.amount_open > 0 && !["payment_expired", "cancelled", "refunded", "returned"].includes(order.status) ? (
         <div className={styles.formActions}>
           <button
             type="button"

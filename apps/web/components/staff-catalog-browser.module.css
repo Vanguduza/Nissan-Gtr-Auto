@@ -1,0 +1,194 @@
+.shell {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  color: #f7f7f8;
+}
+
+.intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #292e37;
+  border-radius: 16px;
+  background: #12151c;
+}
+
+.intro h1,
+.paneHead h2 {
+  margin: 0;
+}
+
+.intro p {
+  max-width: 760px;
+  color: #a8abb2;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #e12b3f !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.liveBadge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(200, 16, 46, 0.52);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: #f7f7f8;
+  background: rgba(200, 16, 46, 0.13);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cascade {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #292e37;
+  border-radius: 14px;
+  background: #181c24;
+}
+
+.cascade label {
+  display: grid;
+  gap: 6px;
+}
+
+.cascade label > span {
+  color: #a8abb2;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cascade select {
+  min-height: 44px;
+  border: 1px solid #292e37;
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #f7f7f8;
+  background: #090b0f;
+}
+
+.diagramGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.diagramCard {
+  display: grid;
+  gap: 6px;
+  min-height: 96px;
+  border: 1px solid #292e37;
+  border-radius: 12px;
+  padding: 12px;
+  color: #f7f7f8;
+  background: #181c24;
+  text-align: left;
+  cursor: pointer;
+}
+
+.diagramCard span {
+  color: #a8abb2;
+  font-size: 12px;
+}
+
+.diagramCard:hover,
+.active {
+  border-color: #c8102e;
+  box-shadow: 0 0 0 1px rgba(200, 16, 46, 0.24);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  gap: 14px;
+}
+
+.diagramPane,
+.partsPane {
+  min-width: 0;
+  border: 1px solid #292e37;
+  border-radius: 16px;
+  background: #12151c;
+  overflow: hidden;
+}
+
+.paneHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #292e37;
+}
+
+.paneHead > span {
+  color: #a8abb2;
+  font-size: 12px;
+}
+
+.diagramImage {
+  display: block;
+  width: 100%;
+  max-height: 760px;
+  object-fit: contain;
+  background: #f6f6f4;
+}
+
+.imagePlaceholder,
+.loading,
+.message {
+  padding: 18px;
+  color: #a8abb2;
+  background: #181c24;
+  border-radius: 12px;
+}
+
+.message {
+  color: #f7f7f8;
+  border: 1px solid rgba(200, 16, 46, 0.45);
+}
+
+.tableWrap {
+  max-height: 720px;
+  overflow: auto;
+}
+
+.tableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #292e37;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tableWrap th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #a8abb2;
+  background: #181c24;
+}
+
+@media (max-width: 960px) {
+  .cascade,
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .intro {
+    flex-direction: column;
+  }
+}

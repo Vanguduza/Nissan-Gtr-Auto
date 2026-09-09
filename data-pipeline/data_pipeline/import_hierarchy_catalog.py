@@ -9,12 +9,12 @@ from typing import Any
 from data_pipeline.bundle_filter import _sanitize_vehicle_rows, filter_complete_bundle
 from data_pipeline.import_catalog import (
     ImportResult,
+    _chunks,
+    _project,
     import_catalog,
     import_supabase,
     load_env_files,
     resolve_supabase_credentials,
-    _chunks,
-    _project,
 )
 from data_pipeline.validate import validate_bundle
 

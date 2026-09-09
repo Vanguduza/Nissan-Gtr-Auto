@@ -144,13 +144,19 @@ export function StaffWarehouseCycleCountPanel() {
     }
     setBusy(true);
     setMessage(null);
+    const exchangeRate = currency === "ZIG" ? zigExchangeRate() : 1;
+    if (exchangeRate == null) {
+      setMessage("ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled.");
+      setBusy(false);
+      return;
+    }
     const res = await createStockReconciliationDraft(client, {
       warehouseId,
       scope,
       itemIds: partialItems.map((i) => i.id),
       notes: notes.trim() || undefined,
       currency,
-      exchangeRate: currency === "ZIG" ? zigExchangeRate() : 1,
+      exchangeRate,
     });
     setBusy(false);
     if (!res.ok) {
@@ -314,7 +320,7 @@ export function StaffWarehouseCycleCountPanel() {
           </div>
           {currency === "ZIG" ? (
             <p className={styles.muted} style={{ marginTop: "0.65rem" }}>
-              ZIG exchange rate applied: {zigExchangeRate()}
+              ZIG exchange rate applied: {zigExchangeRate() ?? "not configured — Finance must publish a rate"}
             </p>
           ) : null}
           {scope === "partial" ? (

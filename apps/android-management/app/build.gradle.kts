@@ -83,6 +83,25 @@ android {
     }
 }
 
+val verifyCanonicalPosLineage by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Refuse POS APK/AAB builds from stale or superseded repository lineage."
+    val repoRoot = rootProject.projectDir.parentFile.parentFile
+    workingDir(repoRoot)
+    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+    if (isWindows) {
+        commandLine("py", "-3", "scripts/project_truth_guard.py", "release-check", "--app", "pos-android")
+    } else {
+        commandLine("python3", "scripts/project_truth_guard.py", "release-check", "--app", "pos-android")
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("assemble", ignoreCase = true) || name.startsWith("bundle", ignoreCase = true)) {
+        dependsOn(verifyCanonicalPosLineage)
+    }
+}
+
 dependencies {
     implementation(project(":core:rpc"))
     implementation(project(":android-ui"))

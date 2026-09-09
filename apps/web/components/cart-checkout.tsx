@@ -10,12 +10,14 @@ import {
 } from "@/components/icons";
 import {
   checkoutCustomerCart,
+  checkoutRequestIdForCart,
   createCustomerContipayIntent,
   createCustomerEcocashIntent,
   createCustomerPaynowIntent,
   ensureOpenCart,
   fetchZigExchangeRate,
   formatMoney,
+  getCustomerOrder,
   fulfillmentLabel,
   loadCartLines,
   loadOpenCart,
@@ -60,7 +62,7 @@ export function CartCheckout() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [fulfillment, setFulfillment] = useState<Fulfillment>("immediate");
   const [settleCurrency, setSettleCurrency] = useState<SettleCurrency>("USD");
-  const [zigRate, setZigRate] = useState<number>(1);
+  const [zigRate, setZigRate] = useState<number | null>(null);
   const [tender, setTender] = useState<Tender>("cash");
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
@@ -132,7 +134,7 @@ export function CartCheckout() {
   }, [status]);
 
   const zigTotal = useMemo(
-    () => Math.round(totalUsd * zigRate * 100) / 100,
+    () => (zigRate == null ? null : Math.round(totalUsd * zigRate * 100) / 100),
     [totalUsd, zigRate],
   );
 
@@ -173,51 +175,69 @@ export function CartCheckout() {
       return;
     }
 
-    const invoice = await checkoutCustomerCart(client, cartId);
-    if (!invoice.ok) {
-      setMessage(invoice.error);
-      setBusy(false);
-      return;
-    }
-
-    const { data: invRow } = await client
-      .from("sales_invoices")
-      .select("status, total")
-      .eq("id", invoice.data)
-      .maybeSingle();
-    if (invRow?.status === "on_hold") {
-      setBusy(false);
+    const requestedZigRate =
+      settleCurrency === "ZIG" ? await fetchZigExchangeRate(client) : null;
+    if (settleCurrency === "ZIG" && requestedZigRate == null) {
       setMessage(
-        "Order created on hold (credit hold or over credit limit). Sales must clear it before fulfillment. Opening order…",
+        "ZiG settlement is unavailable because Finance has not published a verified exchange rate. Choose USD or try again after the rate is configured.",
       );
-      router.push(`/account/orders/${invoice.data}`);
+      setSettleCurrency("USD");
+      setBusy(false);
       return;
     }
 
-    const invTotal = Number(invRow?.total ?? totalUsd);
-    const rate = await fetchZigExchangeRate(client);
+    let checkoutRequestId: string;
+    try {
+      checkoutRequestId = checkoutRequestIdForCart(cartId);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to create a secure checkout request id.");
+      setBusy(false);
+      return;
+    }
+
+    const staged = await checkoutCustomerCart(client, cartId, checkoutRequestId);
+    if (!staged.ok) {
+      // The request id remains in localStorage. A retry therefore resolves to the
+      // same server-side order if the first response was lost after commit.
+      setMessage(staged.error);
+      setBusy(false);
+      return;
+    }
+
+    const order = await getCustomerOrder(client, staged.data);
+    if (!order.ok) {
+      setMessage(
+        `Order ${staged.data} was reserved, but its status could not be reloaded: ${order.error}. Open Orders to continue payment.`,
+      );
+      setBusy(false);
+      router.push(`/account/orders/${staged.data}`);
+      return;
+    }
+
+    const orderTotal = order.data.total;
+    const rate = requestedZigRate ?? 1;
     const settlement =
-      settleCurrency === "ZIG"
+      settleCurrency === "ZIG" && requestedZigRate != null
         ? {
             currency: "ZIG" as const,
-            amount: Math.round(invTotal * rate * 100) / 100,
-            exchangeRate: rate,
+            amount: Math.round(orderTotal * requestedZigRate * 100) / 100,
+            exchangeRate: requestedZigRate,
           }
         : undefined;
 
     if (tender === "contipay") {
       const intent = await createCustomerContipayIntent(
         client,
-        invoice.data,
+        staged.data,
         "ecocash",
         settlement,
       );
       if (!intent.ok) {
         setMessage(
-          `Invoice created, but ContiPay failed: ${intent.error}. Pay from order page.`,
+          `Order reserved, but ContiPay could not start: ${intent.error}. Retry payment from the order page before the reservation expires.`,
         );
         setBusy(false);
-        router.push(`/account/orders/${invoice.data}`);
+        router.push(`/account/orders/${staged.data}`);
         return;
       }
       if (intent.data.checkoutUrl) {
@@ -227,27 +247,27 @@ export function CartCheckout() {
       }
       setMessage(
         settlement
-          ? `Invoice created. ContiPay intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}). Opening order…`
-          : "Invoice created. ContiPay intent ready. Opening order…",
+          ? `Order reserved. ContiPay intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}).`
+          : "Order reserved. ContiPay intent ready; payment confirmation is pending.",
       );
       setBusy(false);
-      router.push(`/account/orders/${invoice.data}`);
+      router.push(`/account/orders/${staged.data}`);
       return;
     }
 
     if (tender === "paynow") {
       const intent = await createCustomerPaynowIntent(
         client,
-        invoice.data,
+        staged.data,
         "ecocash",
         settlement,
       );
       if (!intent.ok) {
         setMessage(
-          `Invoice created, but Paynow failed: ${intent.error}. Pay from order page.`,
+          `Order reserved, but Paynow could not start: ${intent.error}. Retry payment from the order page before the reservation expires.`,
         );
         setBusy(false);
-        router.push(`/account/orders/${invoice.data}`);
+        router.push(`/account/orders/${staged.data}`);
         return;
       }
       if (intent.data.checkoutUrl) {
@@ -257,44 +277,46 @@ export function CartCheckout() {
       }
       setMessage(
         settlement
-          ? `Invoice created. Paynow intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}). Opening order…`
-          : "Invoice created. Paynow intent ready. Opening order…",
+          ? `Order reserved. Paynow intent ready (settle ZiG ${settlement.amount.toFixed(2)} @ ${rate}).`
+          : "Order reserved. Paynow intent ready; payment confirmation is pending.",
       );
       setBusy(false);
-      router.push(`/account/orders/${invoice.data}`);
+      router.push(`/account/orders/${staged.data}`);
       return;
     }
 
     if (tender === "ecocash") {
-      const intent = await createCustomerEcocashIntent(client, invoice.data, {
+      const intent = await createCustomerEcocashIntent(client, staged.data, {
         payerMode: ecocashMode,
         payerMsisdn: ecocashMode === "other" ? ecocashOther : null,
         settlement,
       });
       if (!intent.ok) {
         setMessage(
-          `Invoice created, but EcoCash direct failed: ${intent.error}. Pay from order page.`,
+          `Order reserved, but EcoCash direct could not start: ${intent.error}. Retry payment from the order page before the reservation expires.`,
         );
         setBusy(false);
-        router.push(`/account/orders/${invoice.data}`);
+        router.push(`/account/orders/${staged.data}`);
         return;
       }
       setMessage(
         intent.data.message ??
-          "Invoice created. EcoCash PIN request sent — approve on the EcoCash handset.",
+          "Order reserved. EcoCash PIN request sent — approve it on the payer handset.",
       );
       setBusy(false);
-      router.push(`/account/orders/${invoice.data}`);
+      router.push(`/account/orders/${staged.data}`);
       return;
     }
 
+    // Cash / bank is deliberately not treated as settlement. No invoice, journal
+    // or stock issue is posted until a verified payment is recorded.
     setBusy(false);
     setMessage(
       settlement
-        ? `Order placed. Pay ZiG ${settlement.amount.toFixed(2)} (rate ${rate} ZiG/USD) at counter or transfer.`
-        : "Order placed. Pay USD at counter or transfer — invoice stays open.",
+        ? `Order reserved. Pay ZiG ${settlement.amount.toFixed(2)} (rate ${rate} ZiG/USD) before the reservation expires.`
+        : "Order reserved. Pay USD at the counter or by bank transfer before the reservation expires.",
     );
-    router.push(`/account/orders/${invoice.data}`);
+    router.push(`/account/orders/${staged.data}`);
   }
 
   if (status.kind === "loading") {
@@ -347,10 +369,10 @@ export function CartCheckout() {
       {customer && (creditHold || overLimit) ? (
         <p className={styles.lede} role="status">
           {creditHold
-            ? "Your account is on credit hold. Checkout will still create an invoice, but it will remain on_hold until sales clears the hold."
-            : `This cart would put you over your credit limit (${formatMoney(creditLimit, "USD")}; open ${formatMoney(openBalance, "USD")} + cart ${formatMoney(totalUsd, "USD")}). Checkout will post on_hold.`}
+            ? "Your trade account is on credit hold. This checkout still requires payment before invoicing or fulfillment."
+            : `This cart would exceed your trade credit limit (${formatMoney(creditLimit, "USD")}; open ${formatMoney(openBalance, "USD")} + cart ${formatMoney(totalUsd, "USD")}). Online checkout still requires payment before invoicing or fulfillment.`}
           {" "}
-          See <Link href="/b2b">B2B credit</Link>.
+          See <Link href="/b2b">B2B credit</Link> for account-credit options.
         </p>
       ) : null}
 
@@ -479,12 +501,14 @@ export function CartCheckout() {
                 name="settle"
                 checked={settleCurrency === "ZIG"}
                 onChange={() => setSettleCurrency("ZIG")}
+                disabled={zigRate == null}
               />
               <span>
                 <strong>ZiG</strong>
                 <span className={styles.muted}>
-                  ≈ {formatMoney(zigTotal, "ZIG")} @ {zigRate} ZiG per USD
-                  (today&apos;s rate)
+                  {zigRate != null && zigTotal != null
+                    ? `≈ ${formatMoney(zigTotal, "ZIG")} @ ${zigRate} ZiG per USD (today's rate)`
+                    : "Unavailable until Finance publishes a verified exchange rate"}
                 </span>
               </span>
             </label>
@@ -507,7 +531,7 @@ export function CartCheckout() {
             <span>
               <strong>Cash / bank</strong>
               <span className={styles.muted}>
-                Pay at counter or transfer — invoice stays open
+                Reserve stock, then pay before the reservation expires
               </span>
             </span>
           </label>

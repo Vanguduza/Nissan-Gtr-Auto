@@ -12,37 +12,37 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 _ATTR_RE = re.compile(
     r"""([^\s=]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')""",
-    re.I,
+    re.IGNORECASE,
 )
 _ZOOM_SPLIT_RE = re.compile(
     r'(?=<div[^>]+id="zoom_container_\d+")',
-    re.I,
+    re.IGNORECASE,
 )
 _DRAG_IMG_RE = re.compile(
     r"<img\b([^>]*\bclass=\"[^\"]*\bdrag\b[^\"]*\"[^>]*)>",
-    re.I,
+    re.IGNORECASE,
 )
 _LABEL_RE = re.compile(
     r"<div\b([^>]*\blable-single\b[^>]*)>",
-    re.I,
+    re.IGNORECASE,
 )
 _PART_ROW_RE = re.compile(
     r'<tr\b[^>]*class="[^"]*\bpart-search-tr\b[^"]*"[^>]*>(.*?)</tr>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _OEM_HREF_RE = re.compile(
     r'class="oem"[^>]*>.*?<a[^>]+href="[^"]*[?&]q=([^\"&]+)(?:&[^"]*)?"[^>]*>([^<]*)</a>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _CODE_TD_RE = re.compile(
     r'class="codeonimage"[^>]*>([^<]*)</td>',
-    re.I,
+    re.IGNORECASE,
 )
 _ENGINE_TD_RE = re.compile(
     r'<td\b[^>]*class="[^"]*\bhidden-xs\b[^"]*"[^>]*>([^<]+)</td>',
-    re.I,
+    re.IGNORECASE,
 )
-_WH_RE = re.compile(r"width:\s*(\d+)px;\s*height:\s*(\d+)px", re.I)
+_WH_RE = re.compile(r"width:\s*(\d+)px;\s*height:\s*(\d+)px", re.IGNORECASE)
 _ENGINE_TOKEN_RE = re.compile(r"\b([A-Z]{2,3}\d{2}[A-Z]{0,3})\b")
 
 
@@ -67,7 +67,7 @@ def _parse_pair(raw: str | None) -> tuple[float, float] | None:
 
 
 def _absolute_url(src: str, *, base_url: str) -> str:
-    if src.startswith("http://") or src.startswith("https://"):
+    if src.startswith(("http://", "https://")):
         return src
     return urljoin(base_url.rstrip("/") + "/", src.lstrip("/"))
 
@@ -91,7 +91,7 @@ def _table_part_index(html: str) -> dict[str, dict[str, str]]:
                 engine = token.upper()
                 break
         name = ""
-        tds = re.findall(r"<td\b[^>]*>(.*?)</td>", row_html, flags=re.I | re.S)
+        tds = re.findall(r"<td\b[^>]*>(.*?)</td>", row_html, flags=re.IGNORECASE | re.DOTALL)
         if len(tds) >= 2:
             name = re.sub(r"<[^>]+>", "", tds[1]).strip()
         row = {"oem": oem, "codeonimage": code, "engine_code": engine, "name": name}
@@ -128,6 +128,171 @@ def _hints_from_url(url: str) -> dict[str, Any]:
         values = qs.get(key) or qs.get(key.upper())
         if values and values[0]:
             hints[key] = values[0]
+    return hints
+
+
+_GENERIC_PART_NAMES = frozenset(
+    {
+        "BOLT",
+        "NUT",
+        "SCREW",
+        "WASHER",
+        "PIN",
+        "CLIP",
+        "CLAMP",
+        "RIVET",
+        "GROMMET",
+        "O-RING",
+        "ORING",
+        "SEAL",
+        "PLUG",
+        "CAP",
+    }
+)
+
+# Leading tokens that are assembly names, not vehicle models.
+_ASSEMBLY_START_WORDS = frozenset(
+    {
+        "BRAKE",
+        "ENGINE",
+        "POWER",
+        "TRAIN",
+        "AIR",
+        "FUEL",
+        "STEERING",
+        "SUSPENSION",
+        "TRANSMISSION",
+        "CLUTCH",
+        "EXHAUST",
+        "COOLING",
+        "HEATER",
+        "WIPER",
+        "DOOR",
+        "HOOD",
+        "ROOF",
+        "FLOOR",
+        "SEAT",
+        "INSTRUMENT",
+        "LIGHTING",
+        "WIRING",
+        "PISTON",
+        "ELECTRICAL",
+        "BODY",
+        "CHASSIS",
+        "INTERIOR",
+        "EXTERIOR",
+    }
+)
+
+_KNOWN_NISSAN_MODEL_HEADS = frozenset(
+    {
+        "ALMERA", "ALTIMA", "ARMADA", "BLUEBIRD", "CEFIRO", "CUBE",
+        "FRONTIER", "JUKE", "LAUREL", "LEAF", "MAXIMA", "MICRA",
+        "MURANO", "NAVARA", "NOTE", "PATHFINDER", "PATROL", "PRIMERA",
+        "QASHQAI", "ROGUE", "SENTRA", "SILVIA", "SKYLINE", "SUNNY",
+        "TERRANO", "TITAN", "VERSA", "X-TRAIL",
+    }
+)
+
+_MODEL_HEAD_RE = re.compile(
+    r"^("
+    r"[A-Z0-9][A-Z0-9+]{1,20}"
+    r"(?:\s*/\s*[A-Z0-9+][A-Z0-9+]{0,20})?"
+    r"(?:\s+(?:COUPE|SEDAN|WAGON|HATCH|CAB|TRUCK|VAN))?"
+    r")\s+(.+)$",
+    re.IGNORECASE,
+)
+
+
+def is_generic_part_name(name: str | None) -> bool:
+    if not name:
+        return False
+    token = re.sub(r"\s+", " ", str(name)).strip().upper()
+    return token in _GENERIC_PART_NAMES
+
+
+def strip_vehicle_model_prefix(title: str | None) -> str:
+    """Strip leading maker/model tokens from diagram titles."""
+    text = re.sub(r"\s+", " ", (title or "")).strip()
+    if not text:
+        return ""
+    text = re.sub(r"^NISSAN\s+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b0?[1-9]\.(?:19|20)\d{2}\b", " ", text)
+    text = re.sub(r"\b(?:19|20)\d{2}\b", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    match = _MODEL_HEAD_RE.match(text)
+    if not match:
+        return text
+    head, rest = match.group(1), match.group(2)
+    head_u = head.upper()
+    first = head_u.split()[0]
+    first_base = first.split("/", 1)[0]
+    rest_first = rest.upper().split()[0] if rest.strip() else ""
+    looks_like_model = (
+        bool(re.search(r"[\d+/]", head_u))
+        or first_base in _KNOWN_NISSAN_MODEL_HEADS
+        or (first not in _ASSEMBLY_START_WORDS and rest_first in _ASSEMBLY_START_WORDS)
+    )
+    if looks_like_model and rest.strip():
+        return rest.strip(" -;,:")
+    return text
+
+
+def normalize_epc_category_name(name: str | None) -> str | None:
+    if name is None:
+        return None
+    cleaned = strip_vehicle_model_prefix(str(name))
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -;,:")
+    return cleaned.upper() if cleaned else None
+
+
+def category_hints_from_url(url: str) -> dict[str, str]:
+    """Extract EPC category hints from PartSouq query params (``cname`` / ``cid``)."""
+    hints: dict[str, str] = {}
+    if not url:
+        return hints
+    qs = parse_qs(urlparse(url).query)
+    for key in ("cname", "CNAME", "category", "cat"):
+        values = qs.get(key)
+        if values and values[0]:
+            name = re.sub(r"\+", " ", values[0]).strip()
+            name = re.sub(r"\s+", " ", name)
+            if name:
+                hints["category_name"] = name.upper()
+                break
+    return hints
+
+
+def subcategory_from_diagram_title(title: str | None) -> str | None:
+    """Legacy helper: only return an explicit ``; SUB`` tail when present."""
+    hints = assembly_hints_from_diagram_title(title or "")
+    return hints.get("subcategory_name")
+
+
+def assembly_hints_from_diagram_title(title: str | None) -> dict[str, str]:
+    """Parse diagram titles into assembly category / unit subcategory.
+
+    Examples:
+      ``QASHQAI+2 PISTON,CRANKSHAFT & FLYWHEEL; ILLUSTRATION``
+      → category=PISTON,CRANKSHAFT & FLYWHEEL, subcategory=ILLUSTRATION
+    """
+    hints: dict[str, str] = {}
+    raw = re.sub(r"\s+", " ", (title or "")).strip()
+    if not raw:
+        return hints
+    body = strip_vehicle_model_prefix(raw)
+    if ";" in body:
+        left, right = body.split(";", 1)
+        cat = normalize_epc_category_name(left)
+        sub = normalize_epc_category_name(right)
+        if cat:
+            hints["category_name"] = cat
+        if sub:
+            hints["subcategory_name"] = sub
+        return hints
+    cat = normalize_epc_category_name(body)
+    if cat and not is_generic_part_name(cat):
+        hints["category_name"] = cat
     return hints
 
 
@@ -209,7 +374,16 @@ def parse_diagram_section(
     if len(engines) == 1:
         vehicle["engine_code"] = next(iter(engines))
 
-    return {
+    url_category = category_hints_from_url(source_url)
+    diagram_category = assembly_hints_from_diagram_title(alt)
+    category_name = url_category.get("category_name") or diagram_category.get("category_name")
+    subcategory_name = diagram_category.get("subcategory_name")
+    if not subcategory_name and url_category.get("category_name"):
+        diagram_name = diagram_category.get("category_name")
+        if diagram_name and diagram_name != category_name:
+            subcategory_name = diagram_name
+
+    payload = {
         "image_url": _absolute_url(src, base_url=base_url),
         "image_width": image_width,
         "image_height": image_height,
@@ -218,6 +392,11 @@ def parse_diagram_section(
         "source_url": source_url,
         "diagram_title": alt,
     }
+    if category_name:
+        payload["category_name"] = category_name
+    if subcategory_name:
+        payload["subcategory_name"] = subcategory_name
+    return payload
 
 
 def parse_partsouq_parts_html(
@@ -268,10 +447,10 @@ def is_partsouq_parts_html(html: str) -> bool:
 
 _VEHICLE_CELL_RE = re.compile(
     r'<td[^>]*data-title="([^"]+)"[^>]*>(.*?)</td>',
-    re.I | re.S,
+    re.IGNORECASE | re.DOTALL,
 )
 _YEAR_FROM_RE = re.compile(r"\b((?:19|20)\d{2})\b")
-_CSS_NOISE_RE = re.compile(r"(?:PX|PX\d)$", re.I)
+_CSS_NOISE_RE = re.compile(r"(?:PX|PX\d)$", re.IGNORECASE)
 
 
 def is_partsouq_vehicle_url(url: str) -> bool:
@@ -360,7 +539,7 @@ def parse_partsouq_vehicle_html(
     vid = vid_from_url(source_url)
     if not vid:
         # Fall back to vid embedded in page links
-        m = re.search(r"[?&]vid=(\d+)", html, flags=re.I)
+        m = re.search(r"[?&]vid=(\d+)", html, flags=re.IGNORECASE)
         if m:
             vid = m.group(1)
 

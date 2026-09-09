@@ -22,13 +22,13 @@ ADR: [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decision
 | `:app` | `co.zw.nissangtr.delivery` | Launcher + auth gate + bridge Activity attach |
 | `:core:rpc` | `…delivery.rpc` | `RpcClient` + Fake/Live + delivery RPC names |
 | `:feature:auth` | `…delivery.auth` | GoTrue sign-in; gate role `driver` \| `admin` |
-| `:feature:jobs` | `…delivery.jobs` | Job list/detail, presence, live Maps route, fail, stops, panic, geofence UI |
+| `:feature:jobs` | `…delivery.jobs` | Job list/detail, presence, live MapLibre route, fail, stops, panic, geofence UI |
 | `:feature:tracking` | `…delivery.tracking` | FGS GPS via location-tracker; throttle; offline location queue |
 | `:feature:pod` | `…delivery.pod` | Camera + Compose Canvas signature; OTP; offline POD queue |
 | `:location-tracker` | `…bridges.location` | From `bridges/android/location-tracker` |
 | `:pod-camera` | `…bridges.podcamera` | From `bridges/android/pod-camera` |
 | `:pod-signature` | `…bridges.podsignature` | From `bridges/android/pod-signature` |
-| `:maps-nav` | `…bridges.maps` | From `bridges/android/maps-nav` — Maps Compose + Directions (display only) |
+| `:maps-nav` | `…bridges.maps` | From `bridges/android/maps-nav` — MapLibre + OpenFreeMap/OSM + OSRM-compatible routing (display only) |
 
 ## Features → RPCs
 
@@ -50,18 +50,19 @@ Copy `.env.example` values into **`local.properties`** (gitignored):
 
 ```properties
 sdk.dir=C\:\\Android\\sdk
-SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
-SUPPORT_PHONE=+263771234567
-GOOGLE_MAPS_API_KEY=your-maps-key
+SUPPORT_PHONE=+263XXXXXXXXX
+# Optional custom OSRM-compatible endpoint; defaults to public router.project-osrm.org
+# ROUTING_BASE_URL=https://your-router.example/route/v1/driving
 # rpc.forceFake=true
 ```
 
 Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`.
 
-**Maps:** enable **Maps SDK for Android** and **Directions API** on the key in Google Cloud Console.
-Restrict by package `co.zw.nissangtr.delivery` + SHA-1 for release. Without the key, job detail
-still shows dropoff placeholders and can open external turn-by-turn; in-app tiles/route need the key.
+**Maps:** in-app maps are keyless: MapLibre Native renders OpenFreeMap/OSM-compatible tiles and
+routing uses an OSRM-compatible HTTP endpoint. No Google Maps SDK/API key is required.
+`ROUTING_BASE_URL` is optional; production may point it at a controlled OSRM deployment.
 GPS ingest always uses `:location-tracker` FGS — the map is display-only.
 
 ## Build APK

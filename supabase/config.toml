@@ -1,5 +1,5 @@
 # Nissan GTR Auto ERP — local Supabase
-project_id = "gylrgwqyuiwkyykardwc"
+project_id = "bicyjghgdnzlnjqxzoud"
 
 [api]
 enabled = true
@@ -35,7 +35,6 @@ file_size_limit = "50MiB"
 enabled = true
 # Local only. Production Auth site URL: https://nissangtrauto.co.zw
 site_url = "http://127.0.0.1:3000"
-# Web + mobile OAuth / deep-link return paths (mirror on hosted Auth → URL config).
 additional_redirect_urls = [
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3000/auth/callback",
@@ -46,31 +45,25 @@ additional_redirect_urls = [
   "gtrcustomer://auth/callback",
   "gtr-customer://auth/callback",
 ]
-# Must be true so first-time Google/Apple can create Auth users.
-# Public email/password GoTrue signup is blocked by hook_before_user_created
-# (OTP complete_signup + HR onboarding set app_metadata.gtr_provisioned_via).
+# Keep signup enabled at GoTrue so OAuth and server-side Supabase Auth provisioning work.
+# Direct public password signup remains blocked by hook_before_user_created.
 enable_signup = true
 
 [auth.email]
-# GoTrue maps this to EXTERNAL_EMAIL_ENABLED — false disables ALL email auth
-# (including password login). Keep true so seeded/staff users can sign in;
-# public email signup is blocked by [auth.hook.before_user_created], not this flag.
 enable_signup = true
 enable_confirmations = false
 
-# Reject public /signup while allowing Google/Apple + Edge Admin provisioning.
-# Hosted: Dashboard → Authentication → Hooks → Before user created → same pg function.
+# Reject direct public signup while allowing Google/Apple, HR provisioning and the
+# canonical Supabase Auth Edge provisioning marker.
 [auth.hook.before_user_created]
 enabled = true
 uri = "pg-functions://postgres/public/hook_before_user_created"
 
-# OAuth — secrets via env() only; never commit values.
-# Local: keep enabled=false until Client ID + Secret exist in supabase/.env
-#   (or shell). Then set enabled=true and restart (`supabase stop` / `start`).
-#   Env names: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID / _SECRET
-#              SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID / _SECRET
-# Hosted: Dashboard → Authentication → Providers (enable + paste credentials).
-# config.toml does not control hosted. See docs/CUSTOMER_OAUTH_SETUP.md
+# Hosted Send Email / Send SMS hooks are HTTP hooks configured in the Supabase
+# Auth Hooks dashboard and point to auth-send-email-hook / auth-send-sms-hook.
+# The Edge handlers verify Standard Webhooks signatures and fail closed when
+# their generated hook secrets or delivery credentials are absent.
+
 [auth.external.google]
 enabled = false
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
@@ -91,9 +84,10 @@ skip_nonce_check = false
 enabled = false
 
 # Edge Functions — per-function JWT gate at the gateway.
-# Webhooks: verify_jwt = false (HMAC / provider signature in handler).
-# Workers: JWT may be on; handlers still require x-worker-secret (WORKER_SHARED_SECRET).
-# Initiate: verify_jwt = true (caller Bearer JWT).
+# Provider/Auth hooks use verify_jwt=false because their own signed callback
+# contract is authoritative. Public auth orchestration endpoints are also false;
+# Supabase Auth itself mints/verifies credentials and the handlers apply their
+# own validation/rate limits before returning any session.
 
 [functions.contipay-webhook]
 verify_jwt = false
@@ -101,7 +95,9 @@ verify_jwt = false
 [functions.paynow-webhook]
 verify_jwt = false
 
-# Meta cannot send a Supabase JWT — AuthZ is X-Hub-Signature-256 in handler.
+[functions.ecocash-webhook]
+verify_jwt = false
+
 [functions.whatsapp-webhook]
 verify_jwt = false
 
@@ -109,6 +105,9 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.paynow-initiate]
+verify_jwt = true
+
+[functions.ecocash-initiate]
 verify_jwt = true
 
 [functions.process-sms-outbox]
@@ -120,47 +119,51 @@ verify_jwt = true
 [functions.demand-forecast]
 verify_jwt = true
 
-# Staff JWT → KPI RPCs + optional Gemini narrative
 [functions.analytics-insights]
 verify_jwt = true
 
-# Cron worker: still requires x-worker-secret (WORKER_SHARED_SECRET)
 [functions.process-ai-reports]
 verify_jwt = true
 
-# Cron worker: opt-in CRM promos (x-worker-secret)
 [functions.process-crm-promos]
 verify_jwt = true
 
-# Staff JWT → ABC + forecast KPIs + optional Gemini directives
 [functions.stores-insights]
 verify_jwt = true
 
-# Authenticated catalog typeahead — Meili proxy with FTS fallback
 [functions.catalog-search-meili]
 verify_jwt = true
 
-# Optional chat notify worker (x-worker-secret); stub delivery by default
 [functions.chat-notify-on-message]
 verify_jwt = true
 
-# Public company-domain receipt links (Next.js proxies with anon JWT).
-# AuthZ = download_token lookup; service_role stays inside the function.
 [functions.receipt-download]
 verify_jwt = true
 
 [functions.render-branded-doc]
 verify_jwt = true
 
-# HR/admin: create/link Auth user after complete_hr_onboarding; deliver temp
-# credentials via hr_credential_outbox + existing email/SMS/WA gateways.
-# AuthZ = staff JWT + has_staff_role(admin|hr); never returns password to client.
 [functions.hr-onboarding-create-auth]
 verify_jwt = true
 
-# Customer signup/login OTP (email | phone). Fail-closed without gateway secrets;
-# AUTH_OTP_ALLOW_UNVERIFIED_LOCAL=1 + keys unset → stub code 000000 only (non-prod).
-# verify mints proof_token; complete_signup/login require it.
-# Public GoTrue email signup blocked by before_user_created hook (not enable_signup=false).
+# Canonical customer Auth Edge. Supabase Auth owns users, passwords, OTPs,
+# verification and sessions. This function only orchestrates signup/login UX,
+# custom abuse controls and commerce-profile provisioning.
 [functions.auth-otp]
+verify_jwt = false
+
+# Public recovery endpoints. Request is deliberately non-enumerating; verify
+# must present a native Supabase recovery/email OTP or phone OTP.
+[functions.request-password-reset]
+verify_jwt = false
+
+[functions.verify-password-reset]
+verify_jwt = false
+
+# Supabase Auth Send Email / Send SMS hooks authenticate with signed Standard
+# Webhooks payloads, not a Supabase user JWT.
+[functions.auth-send-email-hook]
+verify_jwt = false
+
+[functions.auth-send-sms-hook]
 verify_jwt = false

@@ -10,9 +10,6 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.GTRCustomer">
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${GOOGLE_MAPS_API_KEY}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

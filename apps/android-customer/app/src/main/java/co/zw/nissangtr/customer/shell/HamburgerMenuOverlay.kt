@@ -36,9 +36,8 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,15 +49,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import co.zw.nissangtr.ui.shop.ShopHonestEmpty
-import co.zw.nissangtr.ui.theme.GtrColors
+import co.zw.nissangtr.customer.visual.CategoryArt
+import co.zw.nissangtr.customer.visual.CategoryGlyph
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
 import co.zw.nissangtr.ui.theme.GtrLogo
 
-/**
- * Car Parts category tree for the hamburger — distinct icons per row
- * (layout inspired by industry IA; GTR labels, no third-party brand assets).
- */
 data class MenuCategory(
     val label: String,
     val icon: ImageVector,
@@ -66,103 +64,47 @@ data class MenuCategory(
 )
 
 val GtrCarPartCategories: List<MenuCategory> = listOf(
-    MenuCategory(
-        "Service Parts",
-        Icons.Filled.CarRepair,
-        listOf(
-            "Oil filters" to Icons.Filled.FilterAlt,
-            "Air filters" to Icons.Filled.FilterAlt,
-            "Cabin filters" to Icons.Filled.FilterAlt,
-            "Belts" to Icons.Filled.Settings,
-            "Fluids" to Icons.Filled.OilBarrel,
-        ),
-    ),
-    MenuCategory(
-        "Braking",
-        Icons.Filled.Speed,
-        listOf(
-            "Brake pads" to Icons.Filled.Speed,
-            "Brake discs" to Icons.Filled.Speed,
-            "Calipers" to Icons.Filled.Build,
-            "Brake fluid" to Icons.Filled.WaterDrop,
-        ),
-    ),
-    MenuCategory(
-        "Steering & Suspension",
-        Icons.Filled.Settings,
-        listOf(
-            "Shock absorbers" to Icons.Filled.Settings,
-            "Coil springs" to Icons.Filled.Settings,
-            "Control arms" to Icons.Filled.Build,
-            "Tie rods" to Icons.Filled.Handyman,
-        ),
-    ),
-    MenuCategory(
-        "Engine Parts",
-        Icons.Filled.Build,
-        listOf(
-            "Gaskets" to Icons.Filled.Widgets,
-            "Timing belts" to Icons.Filled.Settings,
-            "Pulleys" to Icons.Filled.Settings,
-            "Sensors" to Icons.Filled.ElectricBolt,
-        ),
-    ),
-    MenuCategory(
-        "Transmission",
-        Icons.Filled.Settings,
-        listOf(
-            "Clutch kits" to Icons.Filled.Settings,
-            "Flywheels" to Icons.Filled.Settings,
-            "Gearbox mounts" to Icons.Filled.Build,
-        ),
-    ),
-    MenuCategory(
-        "Electrical",
-        Icons.Filled.ElectricBolt,
-        listOf(
-            "Batteries" to Icons.Filled.BatteryFull,
-            "Alternators" to Icons.Filled.ElectricBolt,
-            "Starters" to Icons.Filled.ElectricBolt,
-            "Ignition" to Icons.Filled.Lightbulb,
-        ),
-    ),
-    MenuCategory(
-        "Lighting",
-        Icons.Filled.Lightbulb,
-        listOf(
-            "Headlamp bulbs" to Icons.Filled.Lightbulb,
-            "LED kits" to Icons.Filled.Lightbulb,
-            "Indicators" to Icons.Filled.Lightbulb,
-        ),
-    ),
-    MenuCategory(
-        "Body & Exhaust",
-        Icons.Filled.DirectionsCar,
-        listOf(
-            "Exhaust systems" to Icons.Filled.DirectionsCar,
-            "Body panels" to Icons.Filled.DirectionsCar,
-            "Mirrors" to Icons.Filled.DirectionsCar,
-        ),
-    ),
-    MenuCategory(
-        "Cooling & Heating",
-        Icons.Filled.Thermostat,
-        listOf(
-            "Radiators" to Icons.Filled.Thermostat,
-            "Water pumps" to Icons.Filled.WaterDrop,
-            "Thermostats" to Icons.Filled.Thermostat,
-            "Hoses" to Icons.Filled.WaterDrop,
-        ),
-    ),
-    MenuCategory(
-        "Fuel System",
-        Icons.Filled.LocalGasStation,
-        listOf(
-            "Fuel injectors" to Icons.Filled.LocalGasStation,
-            "Fuel filters" to Icons.Filled.FilterAlt,
-            "Throttle bodies" to Icons.Filled.Build,
-        ),
-    ),
+    MenuCategory("Service Parts", Icons.Filled.CarRepair, listOf(
+        "Oil filters" to Icons.Filled.FilterAlt, "Air filters" to Icons.Filled.FilterAlt,
+        "Cabin filters" to Icons.Filled.FilterAlt, "Belts" to Icons.Filled.Settings,
+        "Fluids" to Icons.Filled.OilBarrel,
+    )),
+    MenuCategory("Braking", Icons.Filled.Speed, listOf(
+        "Brake pads" to Icons.Filled.Speed, "Brake discs" to Icons.Filled.Speed,
+        "Calipers" to Icons.Filled.Build, "Brake fluid" to Icons.Filled.WaterDrop,
+    )),
+    MenuCategory("Steering & Suspension", Icons.Filled.Settings, listOf(
+        "Shock absorbers" to Icons.Filled.Settings, "Coil springs" to Icons.Filled.Settings,
+        "Control arms" to Icons.Filled.Build, "Tie rods" to Icons.Filled.Handyman,
+    )),
+    MenuCategory("Engine Parts", Icons.Filled.Build, listOf(
+        "Gaskets" to Icons.Filled.Widgets, "Timing belts" to Icons.Filled.Settings,
+        "Pulleys" to Icons.Filled.Settings, "Sensors" to Icons.Filled.ElectricBolt,
+    )),
+    MenuCategory("Transmission", Icons.Filled.Settings, listOf(
+        "Clutch kits" to Icons.Filled.Settings, "Flywheels" to Icons.Filled.Settings,
+        "Gearbox mounts" to Icons.Filled.Build,
+    )),
+    MenuCategory("Electrical", Icons.Filled.ElectricBolt, listOf(
+        "Batteries" to Icons.Filled.BatteryFull, "Alternators" to Icons.Filled.ElectricBolt,
+        "Starters" to Icons.Filled.ElectricBolt, "Ignition" to Icons.Filled.Lightbulb,
+    )),
+    MenuCategory("Lighting", Icons.Filled.Lightbulb, listOf(
+        "Headlamp bulbs" to Icons.Filled.Lightbulb, "LED kits" to Icons.Filled.Lightbulb,
+        "Indicators" to Icons.Filled.Lightbulb,
+    )),
+    MenuCategory("Body & Exhaust", Icons.Filled.DirectionsCar, listOf(
+        "Exhaust systems" to Icons.Filled.DirectionsCar, "Body panels" to Icons.Filled.DirectionsCar,
+        "Mirrors" to Icons.Filled.DirectionsCar,
+    )),
+    MenuCategory("Cooling & Heating", Icons.Filled.Thermostat, listOf(
+        "Radiators" to Icons.Filled.Thermostat, "Water pumps" to Icons.Filled.WaterDrop,
+        "Thermostats" to Icons.Filled.Thermostat, "Hoses" to Icons.Filled.WaterDrop,
+    )),
+    MenuCategory("Fuel System", Icons.Filled.LocalGasStation, listOf(
+        "Fuel injectors" to Icons.Filled.LocalGasStation, "Fuel filters" to Icons.Filled.FilterAlt,
+        "Throttle bodies" to Icons.Filled.Build,
+    )),
 )
 
 data class RootMenuItem(
@@ -171,53 +113,33 @@ data class RootMenuItem(
     val action: RootMenuKind,
 )
 
-enum class RootMenuKind {
-    CarParts,
-    EmptySoon, // Accessories, Detailing, Tools, …
-    Deals,
-}
+enum class RootMenuKind { CarParts, Category, Popular, Kits, Epc }
 
 val GtrRootMenuItems: List<RootMenuItem> = listOf(
     RootMenuItem("Car Parts", Icons.Filled.CarRepair, RootMenuKind.CarParts),
-    RootMenuItem("Accessories", Icons.Filled.Widgets, RootMenuKind.EmptySoon),
-    RootMenuItem("Detailing", Icons.Filled.Spa, RootMenuKind.EmptySoon),
-    RootMenuItem("Tools", Icons.Filled.Handyman, RootMenuKind.EmptySoon),
-    RootMenuItem("Service Kits", Icons.Filled.CarRepair, RootMenuKind.EmptySoon),
-    RootMenuItem("Engine Oils", Icons.Filled.OilBarrel, RootMenuKind.EmptySoon),
-    RootMenuItem("Car Batteries", Icons.Filled.BatteryFull, RootMenuKind.EmptySoon),
-    RootMenuItem("Wiper Blades", Icons.Filled.WaterDrop, RootMenuKind.EmptySoon),
-    RootMenuItem("Deals", Icons.Filled.LocalOffer, RootMenuKind.Deals),
-    RootMenuItem("Shop By Brand", Icons.Filled.DirectionsCar, RootMenuKind.EmptySoon),
+    RootMenuItem("Accessories", Icons.Filled.Widgets, RootMenuKind.Category),
+    RootMenuItem("Detailing", Icons.Filled.Spa, RootMenuKind.Category),
+    RootMenuItem("Tools", Icons.Filled.Handyman, RootMenuKind.Category),
+    RootMenuItem("Service Kits", Icons.Filled.CarRepair, RootMenuKind.Kits),
+    RootMenuItem("Engine Oils", Icons.Filled.OilBarrel, RootMenuKind.Category),
+    RootMenuItem("Car Batteries", Icons.Filled.BatteryFull, RootMenuKind.Category),
+    RootMenuItem("Wiper Blades", Icons.Filled.WaterDrop, RootMenuKind.Category),
+    RootMenuItem("Popular Parts", Icons.Filled.LocalOffer, RootMenuKind.Popular),
+    RootMenuItem("Illustrated EPC", Icons.Filled.DirectionsCar, RootMenuKind.Epc),
 )
 
 sealed class HamburgerMenuAction {
-    /** Opens the All Categories grid (not home / not root menu). */
     data object OpenAllCategories : HamburgerMenuAction()
-    /** Browse a category / subcategory PLP in Shop tab. */
     data class BrowseCategory(val label: String) : HamburgerMenuAction()
-    /** Megazip hierarchy EPC diagrams. */
     data object OpenEpcBrowse : HamburgerMenuAction()
-    data object OpenDeals : HamburgerMenuAction()
-    data object OpenAbout : HamburgerMenuAction()
+    data object OpenPopular : HamburgerMenuAction()
+    data object OpenKits : HamburgerMenuAction()
     data object OpenContact : HamburgerMenuAction()
-    data object OpenStoreLocator : HamburgerMenuAction()
     data object Close : HamburgerMenuAction()
 }
 
-private enum class MenuPane {
-    Root,
-    CarParts,
-    Category,
-    Deals,
-    About,
-    Contact,
-    StoreLocator,
-}
+private enum class MenuPane { Root, CarParts, Category }
 
-/**
- * Full-screen hamburger — full IA list; Car Parts → categories with distinct icons;
- * All car parts → categories page; leaf category taps show empty inventory dialog.
- */
 @Composable
 fun HamburgerMenuOverlay(
     onAction: (HamburgerMenuAction) -> Unit,
@@ -225,219 +147,175 @@ fun HamburgerMenuOverlay(
 ) {
     var pane by remember { mutableStateOf(MenuPane.Root) }
     var selectedCategory by remember { mutableStateOf<MenuCategory?>(null) }
-    var emptyDialogTitle by remember { mutableStateOf<String?>(null) }
 
-    fun browseCategory(label: String) {
-        onAction(HamburgerMenuAction.BrowseCategory(label))
-    }
-
-    emptyDialogTitle?.let { title ->
-        EmptyCatalogDialog(
-            title = title,
-            onDismiss = { emptyDialogTitle = null },
-        )
-    }
-
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(GtrPremiumColors.Background),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                GtrLogo(modifier = Modifier.height(36.dp))
-                TextButton(onClick = { onAction(HamburgerMenuAction.Close) }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close menu")
-                }
+        Row(
+            Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GtrLogo(modifier = Modifier.height(44.dp).weight(1f))
+            IconButton(onClick = { onAction(HamburgerMenuAction.Close) }) {
+                Icon(Icons.Filled.Close, "Close menu", tint = GtrPremiumColors.TextPrimary)
             }
-            HorizontalDivider(color = GtrColors.Mist)
+        }
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-            ) {
-                when (pane) {
-                    MenuPane.Root -> {
-                        GtrRootMenuItems.forEach { item ->
-                            MenuRow(
-                                icon = item.icon,
-                                label = item.label,
-                                onClick = {
-                                    when (item.action) {
-                                        RootMenuKind.CarParts -> pane = MenuPane.CarParts
-                                        RootMenuKind.Deals -> pane = MenuPane.Deals
-                                        RootMenuKind.EmptySoon -> emptyDialogTitle = item.label
-                                    }
-                                },
-                            )
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            when (pane) {
+                MenuPane.Root -> {
+                    Text(
+                        "SHOP",
+                        color = GtrPremiumColors.TextSecondary,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(4.dp),
+                    )
+                    GtrRootMenuItems.forEach { item ->
+                        RootRow(item) {
+                            when (item.action) {
+                                RootMenuKind.CarParts -> pane = MenuPane.CarParts
+                                RootMenuKind.Category -> onAction(HamburgerMenuAction.BrowseCategory(item.label))
+                                RootMenuKind.Popular -> onAction(HamburgerMenuAction.OpenPopular)
+                                RootMenuKind.Kits -> onAction(HamburgerMenuAction.OpenKits)
+                                RootMenuKind.Epc -> onAction(HamburgerMenuAction.OpenEpcBrowse)
+                            }
                         }
-                    }
-                    MenuPane.CarParts -> {
-                        TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("â† Menu")
-                        }
-                        Text(
-                            "Car Parts",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                        MenuRow(
-                            icon = Icons.Filled.Widgets,
-                            label = "All car parts",
-                            onClick = { onAction(HamburgerMenuAction.OpenAllCategories) },
-                        )
-                        MenuRow(
-                            icon = Icons.Filled.DirectionsCar,
-                            label = "EPC diagrams (by vehicle)",
-                            onClick = { onAction(HamburgerMenuAction.OpenEpcBrowse) },
-                        )
-                        GtrCarPartCategories.forEach { cat ->
-                            MenuRow(
-                                icon = cat.icon,
-                                label = cat.label,
-                                onClick = {
-                                    selectedCategory = cat
-                                    pane = MenuPane.Category
-                                },
-                            )
-                        }
-                    }
-                    MenuPane.Category -> {
-                        val cat = selectedCategory
-                        TextButton(onClick = { pane = MenuPane.CarParts }) {
-                            Text("â† Car Parts")
-                        }
-                        Text(
-                            cat?.label.orEmpty(),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                        MenuRow(
-                            icon = cat?.icon ?: Icons.Filled.Build,
-                            label = "All ${cat?.label.orEmpty()}",
-                            onClick = { browseCategory(cat?.label.orEmpty()) },
-                        )
-                        cat?.subcategories.orEmpty().forEach { (sub, icon) ->
-                            MenuRow(
-                                icon = icon,
-                                label = sub,
-                                onClick = { browseCategory(sub) },
-                            )
-                        }
-                    }
-                    MenuPane.Deals -> {
-                        TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("â† Menu")
-                        }
-                        ShopHonestEmpty(
-                            title = "No deals feed yet",
-                            body = "No deals.",
-                        )
-                    }
-                    MenuPane.About -> {
-                        TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("â† Menu")
-                        }
-                        ShopHonestEmpty(
-                            title = "About Nissan GTR Auto",
-                            body = "Genuine Nissan parts · Harare counter & nationwide dispatch.",
-                        )
-                    }
-                    MenuPane.Contact -> {
-                        TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("â† Menu")
-                        }
-                        ShopHonestEmpty(
-                            title = "Contact",
-                            body = "Harare counter · nissangtrauto.co.zw/contact",
-                        )
-                    }
-                    MenuPane.StoreLocator -> {
-                        TextButton(onClick = { pane = MenuPane.Root }) {
-                            Text("â† Menu")
-                        }
-                        ShopHonestEmpty(
-                            title = "Store locator",
-                            body = "Harare counter.",
-                        )
                     }
                 }
-            }
 
-            HorizontalDivider(color = GtrColors.Mist)
-            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-                TextButton(onClick = { pane = MenuPane.StoreLocator }) {
-                    Icon(Icons.Filled.Store, null, Modifier.size(16.dp))
-                    Text(" Store Locator")
+                MenuPane.CarParts -> {
+                    TextButton(onClick = { pane = MenuPane.Root }) {
+                        Text("‹ Menu", color = GtrPremiumColors.RedBright)
+                    }
+                    Text(
+                        "Car Parts",
+                        color = GtrPremiumColors.TextPrimary,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                    PremiumSurfaceCard(
+                        onClick = { onAction(HamburgerMenuAction.OpenAllCategories) },
+                    ) {
+                        Text(
+                            "All car parts",
+                            color = GtrPremiumColors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    PremiumSurfaceCard(onClick = { onAction(HamburgerMenuAction.OpenEpcBrowse) }) {
+                        Text("Illustrated EPC diagrams", color = GtrPremiumColors.TextPrimary, fontWeight = FontWeight.SemiBold)
+                    }
+                    GtrCarPartCategories.forEach { cat ->
+                        IllustratedMenuCategory(cat) {
+                            selectedCategory = cat
+                            pane = MenuPane.Category
+                        }
+                    }
                 }
-                TextButton(onClick = { pane = MenuPane.About }) {
-                    Icon(Icons.Filled.Info, null, Modifier.size(16.dp))
-                    Text(" About Us")
+
+                MenuPane.Category -> {
+                    val cat = selectedCategory
+                    TextButton(onClick = { pane = MenuPane.CarParts }) {
+                        Text("‹ Car Parts", color = GtrPremiumColors.RedBright)
+                    }
+                    Text(
+                        cat?.label.orEmpty(),
+                        color = GtrPremiumColors.TextPrimary,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    PremiumSurfaceCard(
+                        onClick = {
+                            cat?.label?.let { onAction(HamburgerMenuAction.BrowseCategory(it)) }
+                        },
+                    ) {
+                        Text(
+                            "Shop all ${cat?.label.orEmpty()}",
+                            color = GtrPremiumColors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    cat?.subcategories.orEmpty().forEach { (sub, icon) ->
+                        RootRow(
+                            RootMenuItem(sub, icon, RootMenuKind.Category),
+                        ) {
+                            onAction(HamburgerMenuAction.BrowseCategory(sub))
+                        }
+                    }
                 }
-                TextButton(onClick = { pane = MenuPane.Contact }) {
-                    Icon(Icons.Filled.Phone, null, Modifier.size(16.dp))
-                    Text(" Contact Us")
-                }
-            }
+
+
         }
     }
 }
 
 @Composable
-fun EmptyCatalogDialog(
-    title: String,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Text("No items added yet.")
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("OK") }
-        },
-    )
+private fun IllustratedMenuCategory(category: MenuCategory, onClick: () -> Unit) {
+    val art = when {
+        category.label.contains("Service", true) -> CategoryArt.Service
+        category.label.contains("Brak", true) -> CategoryArt.Brakes
+        category.label.contains("Susp", true) || category.label.contains("Steer", true) -> CategoryArt.Suspension
+        category.label.contains("Trans", true) -> CategoryArt.Transmission
+        category.label.contains("Elect", true) -> CategoryArt.Electrical
+        category.label.contains("Light", true) -> CategoryArt.Lighting
+        category.label.contains("Body", true) || category.label.contains("Exhaust", true) -> CategoryArt.Body
+        category.label.contains("Cool", true) -> CategoryArt.Cooling
+        category.label.contains("Fuel", true) -> CategoryArt.Fuel
+        else -> CategoryArt.Engine
+    }
+    PremiumSurfaceCard(onClick = onClick) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(58.dp)
+                    .background(GtrPremiumColors.Red.copy(alpha = .13f), MaterialTheme.shapes.medium),
+                contentAlignment = Alignment.Center,
+            ) {
+                CategoryGlyph(art)
+            }
+            Text(
+                category.label,
+                color = GtrPremiumColors.TextPrimary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f).padding(start = 12.dp),
+            )
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                null,
+                tint = GtrPremiumColors.TextSecondary,
+            )
+        }
+    }
 }
 
 @Composable
-private fun MenuRow(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
+private fun RootRow(item: RootMenuItem, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 14.dp),
+            .padding(horizontal = 10.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp),
-        )
+        Icon(item.icon, null, tint = GtrPremiumColors.Red, modifier = Modifier.size(22.dp))
         Text(
-            label,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f),
+            item.label,
+            color = GtrPremiumColors.TextPrimary,
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
         )
         Icon(
             Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            null,
+            tint = GtrPremiumColors.TextSecondary,
         )
     }
-    HorizontalDivider(color = GtrColors.Mist)
 }

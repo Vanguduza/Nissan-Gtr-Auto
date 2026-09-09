@@ -1,5 +1,8 @@
 # Local Development — Switch from Cloud Agents
 
+> **Local-only credentials:** any `local-dev-*` passwords in this document are disposable development fixtures. They are forbidden for hosted/canonical staff accounts.
+
+
 This project is configured for **local Cursor Desktop** as the primary workflow.
 Cloud Agents (`.cursor/environment.json`) remain optional for overnight/long tasks only.
 
@@ -134,7 +137,7 @@ pnpm db:types:linked
 
 Local edge functions (after `supabase start`): `npx supabase functions serve` — serves all under `supabase/functions/` at `http://127.0.0.1:54321/functions/v1/<name>` (leave running in a second terminal).
 
-**Hosted project** (ref `gylrgwqyuiwkyykardwc`): switch client env off `127.0.0.1:54321`, push migrations with `supabase link` + `supabase db push`, and configure Auth providers on Dashboard — see [`docs/guides/hosted-supabase-cutover.md`](./guides/hosted-supabase-cutover.md). Do **not** `db reset` remote.
+**Active hosted project** (ref `bicyjghgdnzlnjqxzoud`): switch client env off `127.0.0.1:54321`, use the matching replacement-project publishable key, push migrations with `supabase link --project-ref bicyjghgdnzlnjqxzoud` + `supabase db push`, and configure Auth providers on Dashboard — see [`docs/guides/hosted-supabase-cutover.md`](./guides/hosted-supabase-cutover.md). Do **not** `db reset` remote. The retired project `gylrgwqyuiwkyykardwc` is recovery-only during cutover and must not be deleted until Auth, R2 serving, client-env and E2E gates are green.
 
 Commit `packages/supabase-client/src/database.types.ts` whenever migrations change public schema. **Never** put `service_role` in client packages — only anon via `createBrowserClient`.
 
@@ -146,6 +149,8 @@ CI RLS gate + Bugbot/secrets checklist: `docs/HARDENING.md` (`phase14_ci_smoke.s
 ```bash
 pnpm db:reset && node supabase/seed_catalog_diagrams.mjs --docker
 ```
+
+This command is for deterministic **local fixtures only**. Hosted heavy EPC part/fitment/diagram payloads belong in Cloudflare R2 and are served through `catalog-live-r2`; do not restore the heavy hosted catalog into Supabase.
 
 See also `data-pipeline/fixtures/*/diagrams/README.md`. Script discovers every `fixtures/<vehicle>/diagrams/<storage-prefix>/*.png` pack idempotently.
 

@@ -77,6 +77,8 @@ class FakeRpcClient : RpcClient {
     private val cartLines = mutableMapOf<String, MutableList<PosCartLineSummary>>()
     /** cartId → customer_id */
     private val cartCustomers = mutableMapOf<String, String>()
+    /** cartId → immutable sale vehicle context. */
+    private val cartVehicles = mutableMapOf<String, PosSaleVehicleSelection>()
     /** pairing_code → (sessionId, cartId) */
     private val openScanSessions = mutableMapOf<String, Pair<String, String>>()
     private val claimedSessions = mutableSetOf<String>()
@@ -216,9 +218,31 @@ class FakeRpcClient : RpcClient {
         ),
     )
 
+    private val popularPins = mutableListOf<PosPopularPin>()
+
     private val customers = mutableListOf(
-        CustomerOption(id = FAKE_CUSTOMER_ID, displayName = "Acme Motors (B2B)"),
-        CustomerOption(id = FAKE_CUSTOMER_USER_ID, displayName = "Walk-in Sample"),
+        CustomerOption(
+            id = FAKE_CUSTOMER_ID,
+            displayName = "Tendai Moyo",
+            kind = PosCustomerKind.BUSINESS,
+            businessName = "Acme Motors",
+            email = "accounts@acme.test",
+            phoneE164 = "+263771000001",
+            whatsappE164 = "+263771000001",
+        ),
+        CustomerOption(
+            id = FAKE_CUSTOMER_USER_ID,
+            displayName = "Walk-in Sample",
+            email = "sample@example.test",
+        ),
+    )
+    private val customerGarage = mutableListOf(
+        CustomerGarageVehicle(
+            id = "00000000-0000-0000-0000-000000000191",
+            customerId = FAKE_CUSTOMER_ID,
+            make = "Nissan", modelSlug = "gt-r", model = "GT-R", generation = "R35",
+            chassisCode = "R35", engine = "VR38DETT", isPrimary = true,
+        ),
     )
 
     private val customerCredit = mutableMapOf(
@@ -465,6 +489,31 @@ class FakeRpcClient : RpcClient {
         return CatalogSearchResult(mode = mode, query = q, parts = parts)
     }
 
+    override suspend fun searchCatalogForVehicle(
+        vehicle: PosSaleVehicleSelection,
+        query: String,
+        limit: Int,
+    ): CatalogSearchResult {
+        val base = searchCatalog(CatalogSearchMode.PART, query)
+        return base.copy(
+            parts = base.parts.take(limit.coerceIn(1, 100)).map {
+                it.copy(chassisCode = vehicle.chassisCode, engineCode = vehicle.engineCode)
+            },
+        )
+    }
+
+    override suspend fun setPosCartVehicle(
+        cartId: String,
+        vehicle: PosSaleVehicleSelection?,
+    ): String {
+        require(cartId in openCarts) { "open cart required" }
+        if (vehicle == null) cartVehicles.remove(cartId) else cartVehicles[cartId] = vehicle
+        return cartId
+    }
+
+    override suspend fun getPosCartVehicle(cartId: String): PosSaleVehicleSelection? =
+        cartVehicles[cartId]
+
     override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {
         require(lineId.isNotBlank()) { "lineId required" }
         require(qty > 0) { "qty must be > 0" }
@@ -680,6 +729,65 @@ class FakeRpcClient : RpcClient {
         quotations
             .filter { status.isNullOrBlank() || it.status.equals(status, ignoreCase = true) }
             .take(limit.coerceIn(1, 200))
+
+    override suspend fun listPosPopularSpares(
+        days: Int,
+        limit: Int,
+    ): List<PopularPosSpare> = listOf(
+        PopularPosSpare(
+            stockItemId = FAKE_STOCK_ITEM_ID,
+            oemPartNumber = "P2-POS-SMOKE-001",
+            description = "Oil filter",
+            unitsSold = 42.0,
+            saleableQty = 18.0,
+            unitPrice = 25.0,
+            currency = CurrencyCode.USD,
+        ),
+        PopularPosSpare(
+            stockItemId = "00000000-0000-4000-8000-0000000000b2",
+            oemPartNumber = "FAKE-PAD-001",
+            description = "Front brake pad set",
+            unitsSold = 31.0,
+            saleableQty = 7.0,
+            unitPrice = 85.0,
+            currency = CurrencyCode.USD,
+        ),
+    ).take(limit.coerceIn(1, 24))
+
+    override suspend fun listPosPopularPins(): List<PosPopularPin> = popularPins.toList()
+
+    override suspend fun upsertPosPopularPin(pin: PosPopularPin): String {
+        popularPins.removeAll { it.kind == pin.kind && it.itemKey == pin.itemKey }
+        popularPins.add(0, pin)
+        while (popularPins.size > 24) popularPins.removeLast()
+        return pin.stableKey
+    }
+
+    override suspend fun deletePosPopularPin(kind: PosPopularItemKind, itemKey: String): Boolean =
+        popularPins.removeAll { it.kind == kind && it.itemKey == itemKey }
+
+    override suspend fun listPosRecentInvoices(
+        query: String?,
+        limit: Int,
+    ): List<PosInvoiceSummary> {
+        val rows = listOf(
+            PosInvoiceSummary(
+                id = "00000000-0000-4000-8000-0000000000i1",
+                documentNumber = "SINV-00001",
+                customerId = null,
+                customerName = "Walk-in",
+                total = 110.0,
+                currency = CurrencyCode.USD,
+                postedAt = "2026-09-07T06:00:00Z",
+            ),
+        )
+        val q = query?.trim()?.lowercase().orEmpty()
+        return rows.filter { row ->
+            q.isBlank() || row.id.lowercase() == q ||
+                row.documentNumber.orEmpty().lowercase().contains(q) ||
+                row.customerName.orEmpty().lowercase().contains(q)
+        }.take(limit.coerceIn(1, 200))
+    }
 
     override suspend fun pullPosOfflineSnapshot(warehouseId: String): OfflinePosSnapshot {
         require(warehouseId.isNotBlank()) { "warehouseId required for ${RpcNames.PULL_POS_OFFLINE_SNAPSHOT}" }
@@ -1242,8 +1350,74 @@ class FakeRpcClient : RpcClient {
         return if (uuidLike) {
             customers.filter { it.id.equals(q, ignoreCase = true) }
         } else {
-            customers.filter { it.displayName.contains(q, ignoreCase = true) }
+            customers.filter { c ->
+                listOfNotNull(c.displayName, c.businessName, c.email, c.phoneE164, c.whatsappE164)
+                    .any { it.contains(q, ignoreCase = true) }
+            }
         }
+    }
+
+    override suspend fun createPosCustomer(
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ): String {
+        require(displayName.isNotBlank())
+        val id = UUID.randomUUID().toString()
+        customers += CustomerOption(id, displayName.trim(), kind, businessName, email, phoneE164, whatsappE164)
+        return id
+    }
+
+    override suspend fun updatePosCustomer(
+        customerId: String,
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ) {
+        val i = customers.indexOfFirst { it.id == customerId }
+        require(i >= 0) { "customer not found" }
+        customers[i] = CustomerOption(customerId, displayName.trim(), kind, businessName, email, phoneE164, whatsappE164)
+    }
+
+    override suspend fun listPosCustomerGarage(customerId: String): List<CustomerGarageVehicle> =
+        customerGarage.filter { it.customerId == customerId }.sortedByDescending { it.isPrimary }
+
+    override suspend fun upsertPosCustomerGarageVehicle(
+        customerId: String,
+        vehicleId: String?,
+        modelSlug: String,
+        make: String,
+        model: String,
+        generation: String,
+        chassisCode: String,
+        engine: String,
+        vin: String?,
+        isPrimary: Boolean,
+    ): String {
+        require(customers.any { it.id == customerId }) { "customer not found" }
+        val id = vehicleId ?: UUID.randomUUID().toString()
+        if (isPrimary) {
+            for (i in customerGarage.indices) {
+                if (customerGarage[i].customerId == customerId) customerGarage[i] = customerGarage[i].copy(isPrimary = false)
+            }
+        }
+        val row = CustomerGarageVehicle(
+            id, customerId, make, modelSlug, model, generation, chassisCode, engine, vin, isPrimary,
+        )
+        val i = customerGarage.indexOfFirst { it.id == id && it.customerId == customerId }
+        if (i >= 0) customerGarage[i] = row else customerGarage += row
+        return id
+    }
+
+    override suspend fun setPosCartCustomer(cartId: String, customerId: String?) {
+        require(cartId in openCarts) { "open cart required" }
+        if (customerId.isNullOrBlank()) cartCustomers.remove(cartId) else cartCustomers[cartId] = customerId
     }
 
     override suspend fun listSuppliers(): List<SupplierRef> = suppliers.toList()

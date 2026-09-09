@@ -40,7 +40,7 @@ data class CartLineSummary(
     val oemPartNumber: String? = null,
     /** True when this line is the core-charge / deposit sibling (parent–child cart split). */
     val isCoreDeposit: Boolean = false,
-    /** Unit price USD when known (fake / browse); null live until list cart exposes amounts. */
+    /** Unit price USD when known (browse); null live until list cart exposes amounts. */
     val unitPriceUsd: Double? = null,
 )
 
@@ -82,6 +82,8 @@ data class GarageVehicle(
     val make: String?,
     val model: String?,
     val generation: String?,
+    val chassisCode: String? = null,
+    val modelSlug: String? = null,
     val engine: String?,
     val vin: String?,
     val isPrimary: Boolean,
@@ -92,6 +94,8 @@ data class GarageVehicleInput(
     val make: String? = null,
     val model: String? = null,
     val generation: String? = null,
+    val chassisCode: String? = null,
+    val modelSlug: String? = null,
     val engine: String? = null,
     val vin: String? = null,
     val isPrimary: Boolean = false,

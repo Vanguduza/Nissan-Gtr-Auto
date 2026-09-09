@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,8 +42,9 @@ import co.zw.nissangtr.ui.theme.GtrLogo
 
 /**
  * Staff tablet login — Shopping-By-KMP [LoginScreen] layout (display title, label-above
- * fields, 60dp pill CTA, divider row) with GTR brand tokens. Emp# / email / phone + password
- * via [resolve_staff_login_email] then GoTrue. Not for customer storefront.
+ * fields, 60dp pill CTA, divider row) with GTR brand tokens. Emp# / email / phone
+ * resolves to the staff Auth identity, then password grants and recovery go through
+ * the hardened Auth Edge backed by Supabase Auth. Not for customer storefront.
  */
 @Composable
 fun SignInScreen(
@@ -91,8 +93,29 @@ fun SignInScreen(
                     keyboardType = KeyboardType.Email,
                 ),
             )
+            if (state.mode == StaffAuthMode.ResetPassword) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Recovery code", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                TextField(
+                    value = state.code,
+                    onValueChange = vm::onCodeChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                    shape = MaterialTheme.shapes.small,
+                    colors = kmpTextFieldColors(),
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Next,
+                        keyboardType = KeyboardType.Number,
+                    ),
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Password", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (state.mode == StaffAuthMode.ResetPassword) "New password" else "Password",
+                style = MaterialTheme.typography.bodyMedium,
+            )
             Spacer(modifier = Modifier.height(4.dp))
             TextField(
                 value = state.password,
@@ -113,10 +136,36 @@ fun SignInScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         ShopPrimaryButton(
-            label = if (state.busy) "Signing in…" else "Sign in",
-            onClick = vm::signIn,
-            enabled = !state.busy && state.identifier.isNotBlank() && state.password.isNotBlank(),
+            label = when {
+                state.busy -> "Working…"
+                state.mode == StaffAuthMode.ResetPassword -> "Update password"
+                else -> "Sign in"
+            },
+            onClick = if (state.mode == StaffAuthMode.ResetPassword) vm::completePasswordReset else vm::signIn,
+            enabled = !state.busy && state.identifier.isNotBlank() && state.password.isNotBlank() &&
+                (state.mode != StaffAuthMode.ResetPassword || state.code.length >= 6),
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        if (state.mode == StaffAuthMode.SignIn) {
+            ShopSecondaryButton(
+                label = "Forgot password?",
+                onClick = vm::requestPasswordReset,
+                enabled = !state.busy && state.identifier.isNotBlank(),
+            )
+        } else {
+            ShopSecondaryButton(
+                label = "Request another recovery code",
+                onClick = vm::requestPasswordReset,
+                enabled = !state.busy && state.identifier.isNotBlank(),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ShopSecondaryButton(
+                label = "Back to sign in",
+                onClick = vm::showSignIn,
+                enabled = !state.busy,
+            )
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
         LaterAuthDivider()
@@ -132,6 +181,10 @@ fun SignInScreen(
             )
         }
 
+        state.info?.let {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
         state.error?.let {
             Spacer(modifier = Modifier.height(12.dp))
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -252,6 +305,7 @@ fun AuthGate(
     supabase: SupabaseRpcClient?,
     allowFakeSkip: Boolean = true,
     showFakeLogin: Boolean = false,
+    forceFreshSignIn: Boolean = false,
     content: @Composable (email: String?, onSignOut: () -> Unit) -> Unit,
 ) {
     if (!liveRpc || supabase == null) {
@@ -271,6 +325,31 @@ fun AuthGate(
 
     val vm: AuthSessionViewModel = viewModel(factory = AuthSessionViewModel.factory(supabase))
     val gate by vm.gate.collectAsState()
+    var freshSignInBoundaryReached by remember { mutableStateOf(!forceFreshSignIn) }
+
+    LaunchedEffect(forceFreshSignIn) {
+        if (forceFreshSignIn) runCatching { supabase.signOut() }
+    }
+    LaunchedEffect(forceFreshSignIn, gate) {
+        if (forceFreshSignIn && gate is AuthGateState.NeedsSignIn) {
+            // Latch once: after cold-start sign-out has reached NotAuthenticated, a later
+            // successful sign-in may pass through normally without being forced out again.
+            freshSignInBoundaryReached = true
+        }
+    }
+
+    if (!freshSignInBoundaryReached) {
+        // Render the actual branded login surface while clearing any restored session;
+        // never expose a previously-authenticated POS frame during kiosk cold start.
+        SignInScreen(
+            supabase = supabase,
+            allowSkip = false,
+            onSkip = {},
+            subtitle = "Welcome to Nissan GTR Auto staff",
+            sessionViewModel = vm,
+        )
+        return
+    }
 
     when (val g = gate) {
         is AuthGateState.Checking -> {

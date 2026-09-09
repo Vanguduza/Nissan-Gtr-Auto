@@ -67,6 +67,7 @@ import co.zw.nissangtr.customer.cart.CartModule
 import co.zw.nissangtr.customer.cart.CartScreen
 import co.zw.nissangtr.customer.catalog.CatalogModule
 import co.zw.nissangtr.customer.catalog.CatalogScreen
+import co.zw.nissangtr.customer.catalog.CatalogLanding
 import co.zw.nissangtr.customer.catalog.CategoriesGridScreen
 import co.zw.nissangtr.customer.catalog.EpcBrowseScreen
 import co.zw.nissangtr.customer.chat.ChatModule
@@ -86,7 +87,6 @@ import co.zw.nissangtr.customer.profile.EditProfileScreen
 import co.zw.nissangtr.customer.returns.ReturnsScreen
 import co.zw.nissangtr.customer.prefs.CustomerPrefs
 import co.zw.nissangtr.customer.prefs.ThemeMode
-import co.zw.nissangtr.customer.rpc.FakeRpcClient
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcClientFactory
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
@@ -100,6 +100,9 @@ import co.zw.nissangtr.customer.wishlist.WishlistModule
 import co.zw.nissangtr.customer.wishlist.WishlistScreen
 import co.zw.nissangtr.customer.wishlist.WishlistStore
 import co.zw.nissangtr.customer.ui.CustomerShopTheme
+import co.zw.nissangtr.customer.shell.CustomerPremiumBottomBar
+import co.zw.nissangtr.customer.ui.CustomerPremiumSplash
+import co.zw.nissangtr.customer.ui.PremiumAccountTab
 import co.zw.nissangtr.ui.shop.ShopBottomBar
 import co.zw.nissangtr.ui.shop.ShopBottomTab
 import co.zw.nissangtr.ui.shop.ShopDefaultScreen
@@ -119,9 +122,9 @@ import kotlinx.coroutines.launch
 private enum class ShellTab(val label: String, val icon: ImageVector) {
     Home("Home", Icons.Filled.Home),
     Shop("Shop", Icons.Filled.Storefront),
+    Garage("Garage", Icons.Filled.DirectionsCar),
     Wishlist("Wishlist", Icons.Filled.Favorite),
-    Garage("My Garage", Icons.Filled.DirectionsCar),
-    Settings("Settings", Icons.Filled.Settings),
+    Account("Account", Icons.Filled.AccountCircle),
 }
 
 /** Nested account destinations — Reviews / Wallet / Settings / Help removed from hub. */
@@ -137,8 +140,6 @@ private enum class ProfileDest(val title: String, val subtitle: String) {
     Pay("Pay", "ContiPay · Paynow · EcoCash"),
     Chat("Live chat", "Counter support"),
     Track("Live delivery", "Last point · ETA only"),
-    Notifications("Notifications", "Inbox"),
-    Coupons("Coupons", "Promos"),
 }
 
 private enum class ShellOverlay {
@@ -148,7 +149,7 @@ private enum class ShellOverlay {
     Account,
     SignIn,
     Categories,
-    EpcBrowse,
+    Epc,
     Pay,
     Orders,
 }
@@ -196,17 +197,14 @@ class MainActivity : ComponentActivity() {
         )
         val live = RpcClientFactory.isLive(
             BuildConfig.SUPABASE_URL,
-            BuildConfig.SUPABASE_ANON_KEY,
-            BuildConfig.RPC_FORCE_FAKE,
+            BuildConfig.SUPABASE_ANON_KEY
         )
         val rpc: RpcClient = RpcClientFactory.create(
             supabaseUrl = BuildConfig.SUPABASE_URL,
-            supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
-            forceFake = BuildConfig.RPC_FORCE_FAKE,
+            supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY
         )
         val supabase = rpc as? SupabaseRpcClient
         liveSupabase = supabase
-        val mapsKeyPresent = BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
         val googleServerClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
         val prefs = CustomerPrefs(this)
         applyTrackIntent(intent)
@@ -226,7 +224,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     var splashDone by remember { mutableStateOf(false) }
                     if (!splashDone) {
-                        ShopSplash(onFinished = { splashDone = true })
+                        CustomerPremiumSplash(onFinished = { splashDone = true })
                     } else {
                         AuthGate(
                             liveRpc = live,
@@ -235,7 +233,7 @@ class MainActivity : ComponentActivity() {
                         ) { email, onSignOut, authVm ->
                             val launch by trackLaunch
                             val parts by partsLaunch
-                            val signedIn = !live || email != null
+                            val signedIn = email != null
                             LaunchedEffect(email) {
                                 if (live && email != null) {
                                     syncGuestCompare(rpc)
@@ -256,7 +254,6 @@ class MainActivity : ComponentActivity() {
                                     prefs.themeMode = it
                                 },
                                 whatsappE164 = BuildConfig.WHATSAPP_E164,
-                                mapsKeyPresent = mapsKeyPresent,
                                 trackLaunch = launch,
                                 partsLaunch = parts,
                                 camera = cameraBridge,
@@ -400,7 +397,6 @@ private fun CustomerApp(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     whatsappE164: String,
-    mapsKeyPresent: Boolean,
     trackLaunch: TrackLaunchArgs = TrackLaunchArgs(),
     partsLaunch: PartsLaunchArgs = PartsLaunchArgs(),
     camera: PodCameraBridge?,
@@ -421,6 +417,7 @@ private fun CustomerApp(
     var cartRefresh by remember { mutableIntStateOf(0) }
     var payInvoiceId by remember { mutableStateOf<String?>(null) }
     var lastBackExitAt by remember { mutableLongStateOf(0L) }
+    var accountSettingsOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val wishlistStore: WishlistStore = viewModel(factory = WishlistStore.factory(rpc))
@@ -430,10 +427,7 @@ private fun CustomerApp(
         overlay = ShellOverlay.Account
     }
 
-    fun openTrack(jobId: String?, token: String?, resetFake: Boolean = false) {
-        if (resetFake && rpc is FakeRpcClient) {
-            rpc.resetFakeTrackPoint()
-        }
+    fun openTrack(jobId: String?, token: String?) {
         trackJobId = jobId
         trackToken = token
         trackSession += 1
@@ -464,12 +458,8 @@ private fun CustomerApp(
                 overlay = ShellOverlay.Cart
                 return true
             }
-            ShellOverlay.Categories -> {
+            ShellOverlay.Categories, ShellOverlay.Epc -> {
                 overlay = ShellOverlay.Menu
-                return true
-            }
-            ShellOverlay.EpcBrowse -> {
-                overlay = ShellOverlay.None
                 return true
             }
             ShellOverlay.Account -> {
@@ -519,11 +509,7 @@ private fun CustomerApp(
     LaunchedEffect(trackLaunch.seq) {
         if (trackLaunch.seq == 0 || trackLaunch.seq == lastLaunchSeq) return@LaunchedEffect
         lastLaunchSeq = trackLaunch.seq
-        openTrack(
-            jobId = trackLaunch.jobId,
-            token = trackLaunch.token,
-            resetFake = !liveRpc && trackLaunch.token == FakeRpcClient.SEED_TRACK_TOKEN,
-        )
+        openTrack(jobId = trackLaunch.jobId, token = trackLaunch.token)
     }
 
     LaunchedEffect(partsLaunch.seq) {
@@ -554,19 +540,26 @@ private fun CustomerApp(
                         is HamburgerMenuAction.OpenAllCategories -> {
                             overlay = ShellOverlay.Categories
                         }
-                        is HamburgerMenuAction.OpenEpcBrowse -> {
-                            overlay = ShellOverlay.EpcBrowse
-                        }
+                        is HamburgerMenuAction.OpenEpcBrowse -> { overlay = ShellOverlay.Epc }
                         is HamburgerMenuAction.BrowseCategory -> {
                             openCatalog(seed = action.label)
                             overlay = ShellOverlay.None
                         }
-                        HamburgerMenuAction.OpenDeals,
-                        HamburgerMenuAction.OpenAbout,
-                        HamburgerMenuAction.OpenContact,
-                        HamburgerMenuAction.OpenStoreLocator -> Unit
+                        HamburgerMenuAction.OpenPopular -> {
+                            openCatalog()
+                            overlay = ShellOverlay.None
+                        }
+                        HamburgerMenuAction.OpenKits -> openAccount(ProfileDest.Kits)
+                        HamburgerMenuAction.OpenContact -> openAccount(ProfileDest.Chat)
                     }
                 },
+            )
+        }
+        ShellOverlay.Epc -> {
+            EpcBrowseScreen(
+                rpc = rpc,
+                onBack = { overlay = ShellOverlay.Menu },
+                onOpenOem = { oem -> openCatalog(oem = oem) },
             )
         }
         ShellOverlay.Categories -> {
@@ -574,16 +567,6 @@ private fun CustomerApp(
                 onBack = { overlay = ShellOverlay.None },
                 onCategoryClick = { label ->
                     openCatalog(seed = label)
-                    overlay = ShellOverlay.None
-                },
-            )
-        }
-        ShellOverlay.EpcBrowse -> {
-            EpcBrowseScreen(
-                rpc = rpc,
-                onBack = { overlay = ShellOverlay.None },
-                onOpenOem = { oem ->
-                    openCatalog(oem = oem)
                     overlay = ShellOverlay.None
                 },
             )
@@ -641,27 +624,13 @@ private fun CustomerApp(
                 onSignOut = onSignOut,
                 onSignIn = { overlay = ShellOverlay.SignIn },
                 whatsappE164 = whatsappE164,
-                mapsKeyPresent = mapsKeyPresent,
                 trackToken = trackToken,
                 trackJobId = trackJobId,
                 trackSession = trackSession,
                 onOpenTrack = { jobId, token ->
-                    openTrack(
-                        jobId = jobId,
-                        token = token,
-                        resetFake = !liveRpc && (
-                            jobId == FakeRpcClient.SEED_ACTIVE_JOB_ID ||
-                                token == FakeRpcClient.SEED_TRACK_TOKEN
-                            ),
-                    )
+                    openTrack(jobId = jobId, token = token)
                 },
-                onDemoTrack = {
-                    openTrack(
-                        jobId = if (!liveRpc) FakeRpcClient.SEED_ACTIVE_JOB_ID else null,
-                        token = if (!liveRpc) FakeRpcClient.SEED_TRACK_TOKEN else null,
-                        resetFake = !liveRpc,
-                    )
-                },
+                onTrack = { openTrack(jobId = null, token = null) },
                 onOpenGarage = {
                     overlay = ShellOverlay.None
                     tab = ShellTab.Garage
@@ -675,8 +644,6 @@ private fun CustomerApp(
         ShellOverlay.SignIn -> {
             SignInScreen(
                 supabase = supabase,
-                allowSkip = !liveRpc,
-                onSkip = { overlay = ShellOverlay.None },
                 sessionViewModel = authSessionViewModel,
                 googleServerClientId = googleServerClientId,
             )
@@ -692,11 +659,12 @@ private fun CustomerApp(
                     )
                 },
                 bottomBar = {
-                    ShopBottomBar(
+                    CustomerPremiumBottomBar(
                         tabs = bottomTabs,
                         selectedKey = tab.name,
                         onSelect = { key ->
                             tab = ShellTab.valueOf(key)
+                            accountSettingsOpen = false
                             overlay = ShellOverlay.None
                         },
                     )
@@ -719,9 +687,10 @@ private fun CustomerApp(
                                 onOpenCart = { overlay = ShellOverlay.Cart },
                                 onCartChanged = { refreshCartBadge() },
                                 onManageVehicle = { tab = ShellTab.Garage },
-                                onOpenEpcBrowse = { overlay = ShellOverlay.EpcBrowse },
+                                onTrackOrder = { openAccount(ProfileDest.Track) },
                                 initialOem = null,
                                 showShellChrome = true,
+                                landing = CatalogLanding.Home,
                                 viewModelKey = "home",
                                 camera = camera,
                                 modifier = tabMod,
@@ -735,11 +704,12 @@ private fun CustomerApp(
                                 onOpenCart = { overlay = ShellOverlay.Cart },
                                 onCartChanged = { refreshCartBadge() },
                                 onManageVehicle = { tab = ShellTab.Garage },
-                                onOpenEpcBrowse = { overlay = ShellOverlay.EpcBrowse },
+                                onTrackOrder = { openAccount(ProfileDest.Track) },
                                 initialOem = catalogOem,
                                 initialCategorySeed = catalogSeed,
                                 categorySeedSeq = catalogSeedSeq,
                                 showShellChrome = true,
+                                landing = CatalogLanding.Shop,
                                 viewModelKey = "shop",
                                 camera = camera,
                                 modifier = tabMod,
@@ -761,22 +731,50 @@ private fun CustomerApp(
                                 modifier = tabMod,
                             )
                         }
-                        ShellTab.Settings -> {
-                            SettingsHubScreen(
-                                prefs = prefs,
-                                themeMode = themeMode,
-                                onThemeModeChange = onThemeModeChange,
-                                signedInEmail = signedInEmail,
-                                onSignOut = if (signedInEmail != null) onSignOut else null,
-                                onSignIn = if (signedInEmail == null) {
-                                    { overlay = ShellOverlay.SignIn }
-                                } else {
-                                    null
-                                },
-                                onOpenAccount = { openAccount() },
-                                onEditProfile = { openAccount(ProfileDest.EditProfile) },
-                                rootModifier = tabMod,
-                            )
+                        ShellTab.Account -> {
+                            if (accountSettingsOpen) {
+                                SettingsHubScreen(
+                                    prefs = prefs,
+                                    themeMode = themeMode,
+                                    onThemeModeChange = onThemeModeChange,
+                                    signedInEmail = signedInEmail,
+                                    onSignOut = if (signedInEmail != null) onSignOut else null,
+                                    onSignIn = if (signedInEmail == null) {
+                                        { overlay = ShellOverlay.SignIn }
+                                    } else {
+                                        null
+                                    },
+                                    onOpenAccount = { accountSettingsOpen = false },
+                                    onEditProfile = {
+                                        accountSettingsOpen = false
+                                        openAccount(ProfileDest.EditProfile)
+                                    },
+                                    rootModifier = tabMod,
+                                )
+                            } else {
+                                PremiumAccountTab(
+                                    signedInEmail = signedInEmail,
+                                    liveRpc = liveRpc,
+                                    onSignIn = { overlay = ShellOverlay.SignIn },
+                                    onSignOut = onSignOut,
+                                    onEditProfile = { openAccount(ProfileDest.EditProfile) },
+                                    onOrders = { openAccount(ProfileDest.Orders) },
+                                    onReturns = { openAccount(ProfileDest.Returns) },
+                                    onLoyalty = { openAccount(ProfileDest.Loyalty) },
+                                    onKits = { openAccount(ProfileDest.Kits) },
+                                    onAddresses = { openAccount(ProfileDest.Addresses) },
+                                    onPay = { openAccount(ProfileDest.Pay) },
+                                    onGarage = {
+                                        accountSettingsOpen = false
+                                        tab = ShellTab.Garage
+                                    },
+                                    onCompare = { openAccount(ProfileDest.Compare) },
+                                    onTrack = { openAccount(ProfileDest.Track) },
+                                    onChat = { openAccount(ProfileDest.Chat) },
+                                    onSettings = { accountSettingsOpen = true },
+                                    modifier = tabMod,
+                                )
+                            }
                         }
                     }
                 }
@@ -797,12 +795,11 @@ private fun ProfileStack(
     onSignOut: () -> Unit,
     onSignIn: () -> Unit,
     whatsappE164: String,
-    mapsKeyPresent: Boolean,
     trackToken: String?,
     trackJobId: String?,
     trackSession: Int,
     onOpenTrack: (jobId: String?, token: String?) -> Unit,
-    onDemoTrack: () -> Unit,
+    onTrack: () -> Unit,
     onOpenGarage: () -> Unit,
     onOpenProduct: (oem: String) -> Unit,
 ) {
@@ -813,7 +810,7 @@ private fun ProfileStack(
             onSignOut = onSignOut,
             onSignIn = onSignIn,
             onOpen = onDest,
-            onDemoTrack = onDemoTrack,
+            onTrack = onTrack,
             onClose = onClose,
             onOpenGarage = onOpenGarage,
         )
@@ -841,7 +838,6 @@ private fun ProfileStack(
         )
         ProfileDest.Addresses -> AddressScreen(
             rpc = rpc,
-            mapsKeyPresent = mapsKeyPresent,
             onBack = { onDest(ProfileDest.Hub) },
         )
         ProfileDest.Compare -> CompareScreen(
@@ -862,26 +858,6 @@ private fun ProfileStack(
             sessionKey = trackSession,
             onBack = { onDest(ProfileDest.Hub) },
         )
-        ProfileDest.Notifications -> ShopDefaultScreen(
-            title = "Notifications",
-            subtitle = null,
-            onBack = { onDest(ProfileDest.Hub) },
-        ) {
-            ShopHonestEmpty(
-                title = "No notifications yet",
-                body = "No notifications.",
-            )
-        }
-        ProfileDest.Coupons -> ShopDefaultScreen(
-            title = "Coupons",
-            subtitle = null,
-            onBack = { onDest(ProfileDest.Hub) },
-        ) {
-            ShopHonestEmpty(
-                title = "No coupons yet",
-                body = "No coupons.",
-            )
-        }
     }
 }
 
@@ -892,7 +868,7 @@ private fun ProfileHub(
     onSignOut: () -> Unit,
     onSignIn: () -> Unit,
     onOpen: (ProfileDest) -> Unit,
-    onDemoTrack: () -> Unit,
+    onTrack: () -> Unit,
     onClose: () -> Unit,
     onOpenGarage: () -> Unit,
 ) {
@@ -915,11 +891,11 @@ private fun ProfileHub(
         }
         Spacer(modifier = Modifier.height(16.dp))
         ShopProfileAvatar(
-            initials = signedInEmail?.take(2) ?: if (liveRpc) "?" else "FK",
+            initials = signedInEmail?.take(2) ?: "?",
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            signedInEmail ?: if (liveRpc) "Guest" else "Fake mode",
+            signedInEmail ?: "Guest",
             style = MaterialTheme.typography.headlineMedium,
         )
         Spacer(modifier = Modifier.height(32.dp))
@@ -936,12 +912,8 @@ private fun ProfileHub(
             ShopProfileItemBox("Payment methods", Icons.Filled.CreditCard) { onOpen(ProfileDest.Pay) }
             ShopProfileItemBox("My garage", Icons.Filled.DirectionsCar, onClick = onOpenGarage)
             ShopProfileItemBox("Compare", Icons.Filled.CompareArrows) { onOpen(ProfileDest.Compare) }
-            ShopProfileItemBox("Track delivery", Icons.Filled.LocalShipping, onClick = onDemoTrack)
-            ShopProfileItemBox("Live chat", Icons.Filled.Chat) { onOpen(ProfileDest.Chat) }
-            ShopProfileItemBox("Notifications", Icons.Filled.Notifications) { onOpen(ProfileDest.Notifications) }
-            ShopProfileItemBox("My coupons", Icons.Filled.CardGiftcard, isLastItem = true) {
-                onOpen(ProfileDest.Coupons)
-            }
+            ShopProfileItemBox("Track delivery", Icons.Filled.LocalShipping, onClick = onTrack)
+            ShopProfileItemBox("Live chat", Icons.Filled.Chat, isLastItem = true) { onOpen(ProfileDest.Chat) }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -957,7 +929,7 @@ private fun ProfileHub(
         OutlinedButton(
             onClick = onSignOut,
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            enabled = signedInEmail != null || !liveRpc,
+            enabled = signedInEmail != null,
         ) {
             Text("Sign out")
         }

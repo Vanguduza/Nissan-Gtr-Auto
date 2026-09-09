@@ -1,0 +1,11 @@
+{
+  "actor": "ChatGPT guardrail bootstrap",
+  "branch_at_record": "chatgpt/pos-reconcile-green-20260907",
+  "change_id": "agent-truth-gate-bootstrap",
+  "changed_files": ["AGENTS.md"],
+  "domains": ["documentation", "repository"],
+  "intent": "Make canonical-state inspection, automatic change evidence, divergent-branch inspection and app release-check mandatory for every coding agent before work or build.",
+  "recorded_at_utc": "2026-09-09T01:35:00+00:00",
+  "schema_version": 1,
+  "source_commits": ["4d731572159ba0717e5160e6e738c50550f53e67"]
+}

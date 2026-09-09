@@ -23,7 +23,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -43,11 +43,11 @@ REPO_COMPOSE = Path("..") / "docker-compose.satellites.yml"
 
 # Patterns that indicate the *run* is dying (not per-URL CF blocks).
 FATAL_LOG_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("traceback", re.compile(r"^Traceback \(most recent call last\):", re.M)),
-    ("flaresolverr_unreachable", re.compile(r"Connection refused|ConnectError|Failed to establish|All connection attempts failed", re.I)),
-    ("flaresolverr_down", re.compile(r"FlareSolverr.*(unreachable|not running|failed|error|timeout)|Unable to connect.*8191", re.I)),
-    ("session_lost", re.compile(r"Session (not found|does not exist|expired)|createSession failed|session.*invalid", re.I)),
-    ("unhandled", re.compile(r"Unhandled exception|FATAL|SystemExit", re.I)),
+    ("traceback", re.compile(r"^Traceback \(most recent call last\):", re.MULTILINE)),
+    ("flaresolverr_unreachable", re.compile(r"Connection refused|ConnectError|Failed to establish|All connection attempts failed", re.IGNORECASE)),
+    ("flaresolverr_down", re.compile(r"FlareSolverr.*(unreachable|not running|failed|error|timeout)|Unable to connect.*8191", re.IGNORECASE)),
+    ("session_lost", re.compile(r"Session (not found|does not exist|expired)|createSession failed|session.*invalid", re.IGNORECASE)),
+    ("unhandled", re.compile(r"Unhandled exception|FATAL|SystemExit", re.IGNORECASE)),
 ]
 
 TRANSIENT_KINDS = frozenset(
@@ -93,7 +93,7 @@ class Alert:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _pipeline_root() -> Path:
@@ -196,7 +196,7 @@ def flaresolverr_healthy(url: str = FLARESOLVERR_URL, timeout: float = 3.0) -> b
         import urllib.request
 
         req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             # 405 Method Not Allowed still proves the service is up.
             return 200 <= getattr(resp, "status", 200) < 500
     except Exception:  # noqa: BLE001
@@ -210,7 +210,7 @@ def flaresolverr_healthy(url: str = FLARESOLVERR_URL, timeout: float = 3.0) -> b
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return 200 <= getattr(resp, "status", 200) < 500
         except urllib.error.HTTPError as exc:
             return 400 <= exc.code < 500
@@ -379,7 +379,7 @@ def start_crawl(
     creationflags = 0
     if sys.platform == "win32":
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
-    proc = subprocess.Popen(  # noqa: S603
+    proc = subprocess.Popen(
         [python_exe, *argv],
         cwd=str(cwd),
         stdout=out_f,
@@ -603,7 +603,7 @@ def watch_loop(
                             continue
                     except (OSError, json.JSONDecodeError, ValueError, TypeError):
                         pass
-                return 1 if (data_kind := _alert_kind(alert_path)) != "completed" else 0
+                return 1 if _alert_kind(alert_path) != "completed" else 0
 
         chunk, offset = read_new_log_chunk(err_log, offset)
         if chunk:

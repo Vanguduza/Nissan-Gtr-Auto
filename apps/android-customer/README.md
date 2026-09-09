@@ -17,7 +17,7 @@ and privacy-safe track in `apps/web/lib/customer-delivery-track.ts`.
 | Module | Package | Role |
 |--------|---------|------|
 | `:app` | `co.zw.nissangtr.customer` | Launcher + route shell + auth gate |
-| `:core:rpc` | `…customer.rpc` | `RpcClient` + `FakeRpcClient` + `SupabaseRpcClient` + `RpcNames` |
+| `:core:rpc` | `…customer.rpc` | `RpcClient` + `SupabaseRpcClient` + `RpcNames` |
 | `:feature:auth` | `…customer.auth` | `SignInScreen` + `AuthGate` (GoTrue email/password + Google ID token) |
 | `:feature:cart` | `…customer.cart` | Create / add line / checkout |
 | `:feature:orders` | `…customer.orders` | Invoice list + `get_customer_order` |
@@ -72,7 +72,6 @@ Home → **Wishlist** / **Compare** / **Reviews**.
 
 ### Fake demo (no Supabase)
 
-1. Leave `SUPABASE_URL` / key unset (or `rpc.forceFake=true`).
 2. `.\gradlew.bat assembleDebug` → install debug APK.
 3. Home → **Wishlist** — seed OEMs `15208-65F0C` / `16546-EB70A`; toggle notify; move to cart; add OEM.
 4. Home → **Compare** — seed oil filter; add OEM; matrix when ≥2 items.
@@ -106,8 +105,6 @@ Never commit client secrets. The Android client ID is not embedded — only the 
 
 | Mode | When | Implementation |
 |------|------|----------------|
-| **Live** | `SUPABASE_URL` + `SUPABASE_ANON_KEY` set and `rpc.forceFake` ≠ `true` | `SupabaseRpcClient` (postgrest-kt + auth-kt + storage-kt) |
-| **Fake** | URL/key missing, or `rpc.forceFake=true` | `FakeRpcClient` (in-memory, including wishlist/compare/reviews) |
 
 Put secrets in **`local.properties`** (gitignored). Fake treats session as signed-in for compare gating (iOS parity).
 

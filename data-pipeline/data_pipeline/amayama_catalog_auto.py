@@ -25,24 +25,28 @@ import shutil
 import sqlite3
 import sys
 import time
-import urllib.request
 from dataclasses import asdict, dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import Any
-from urllib.parse import parse_qs, urljoin, urlparse, unquote
+from typing import Any, Self
+from urllib.parse import parse_qs, unquote, urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
-from data_pipeline.import_catalog import import_catalog, import_supabase, load_bundle, load_env_files, resolve_supabase_credentials
-from data_pipeline.storage_diagrams import supabase_file_options
+from data_pipeline.import_catalog import (
+    import_catalog,
+    import_supabase,
+    load_bundle,
+    load_env_files,
+    resolve_supabase_credentials,
+)
 from data_pipeline.parse_fast import write_bundle
 from data_pipeline.parse_partsouq_html import (
     assembly_hints_from_diagram_title,
     category_hints_from_url,
     is_generic_part_name,
     normalize_epc_category_name,
-    subcategory_from_diagram_title,
 )
+from data_pipeline.storage_diagrams import supabase_file_options
 from data_pipeline.validate import validate_bundle
 
 logger = logging.getLogger("data_pipeline.amayama_catalog_auto")
@@ -296,8 +300,8 @@ def ensure_session_for_proxy(
                 sid = data.get("session")
                 if sid:
                     asyncio.run(flaresolverr_session_destroy(flaresolverr_url, str(sid)))
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception:
+                logger.debug("Failed to destroy persisted FlareSolverr session", exc_info=True)
         clean_browser_session(session_dir)
         write_session_meta(
             session_dir,
@@ -424,7 +428,7 @@ async def manual_cf_pass(
         await page.goto(target, wait_until="domcontentloaded", timeout=60000)
         try:
             await wait_for_cf_clear(page, timeout_ms=timeout_ms)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             await context.close()
             raise RuntimeError(
                 "Cloudflare was not cleared in time. Re-run --cf-pass and complete the check."
@@ -541,7 +545,7 @@ async def flaresolverr_request(
         raise RuntimeError(f"FlareSolverr error: {data.get('message') or data}")
     solution = data.get("solution")
     if not isinstance(solution, dict):
-        raise RuntimeError(f"FlareSolverr missing solution: {data}")
+        raise TypeError(f"FlareSolverr missing solution: {data}")
     return solution
 
 
@@ -600,8 +604,8 @@ async def flaresolverr_session_destroy(api_url: str, session: str) -> None:
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             await client.post(api_url, json={"cmd": "sessions.destroy", "session": session})
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception:
+        logger.debug("Failed to destroy FlareSolverr session %s", session, exc_info=True)
 
 
 class ConcurrencyGate:
@@ -611,7 +615,7 @@ class ConcurrencyGate:
         self.limit = max(1, int(limit))
         self._sem = asyncio.Semaphore(self.limit)
 
-    async def __aenter__(self) -> ConcurrencyGate:
+    async def __aenter__(self) -> Self:
         await self._sem.acquire()
         return self
 
@@ -742,7 +746,7 @@ class FlareSolverrSession:
                     method=method,
                     post_data=post_data,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 msg = str(exc).lower()
                 if "session" in msg or "not found" in msg:
                     logger.warning("FlareSolverr session lost (%s) — recreating", exc)
@@ -810,7 +814,7 @@ class FlareSolverrSession:
             logger.info("Destroyed FlareSolverr session %s", self.session_id)
         self.session_id = None
 
-    async def __aenter__(self) -> FlareSolverrSession:
+    async def __aenter__(self) -> Self:
         await self.ensure()
         return self
 
@@ -825,8 +829,7 @@ async def flaresolverr_health(api_url: str) -> bool:
         return False
     # API is /v1 — health is typically on /
     base = api_url.rstrip("/")
-    if base.endswith("/v1"):
-        base = base[: -len("/v1")]
+    base = base.removesuffix("/v1")
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(f"{base}/health")
@@ -933,9 +936,7 @@ def is_recaptcha_challenge(html: str) -> bool:
         "access denied",
         "are you a robot",
     )
-    if any(p in low for p in blocking_phrases) and "g-recaptcha" in low:
-        return True
-    return False
+    return any(p in low for p in blocking_phrases) and "g-recaptcha" in low
 
 
 
@@ -1358,14 +1359,22 @@ VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{11,17}$", re.IGNORECASE)
 
 # Multi-make chassis→vin_prefix registry (config/chassis_catalogs.json).
 # CHASSIS_CATALOG is the *active brand* curated map (compat for tests/imports).
-from data_pipeline.chassis_catalog_registry import (  # noqa: E402
+from data_pipeline.chassis_catalog_registry import (
     active_chassis_catalog,
-    chassis_from_prefix as registry_chassis_from_prefix,
-    display_name as brand_display_name,
-    load_catalogs as load_chassis_catalogs,
-    lookup_chassis as registry_lookup_chassis,
     resolve_chassis_vin,
     set_active_brand,
+)
+from data_pipeline.chassis_catalog_registry import (
+    chassis_from_prefix as registry_chassis_from_prefix,
+)
+from data_pipeline.chassis_catalog_registry import (
+    display_name as brand_display_name,
+)
+from data_pipeline.chassis_catalog_registry import (
+    load_catalogs as load_chassis_catalogs,
+)
+from data_pipeline.chassis_catalog_registry import (
+    lookup_chassis as registry_lookup_chassis,
 )
 
 load_chassis_catalogs()
@@ -1709,7 +1718,13 @@ def normalize_pnc(raw: Any, *, oem: str | None = None) -> str | None:
     PartSouq alphanumeric codes such as ``C8320`` / ``16132PA``.
     """
     if raw is not None:
-        alnum = re.sub(r"[^0-9A-Za-z]", "", str(raw)).upper()
+        raw_text = str(raw).strip().upper()
+        prefixed = re.fullmatch(r"PNC[-\s]?([0-9]{5})", raw_text)
+        if prefixed:
+            return prefixed.group(1)
+        if not re.fullmatch(r"[0-9A-Z]+", raw_text):
+            return None
+        alnum = raw_text
         if alnum.isdigit() and len(alnum) >= 5:
             return alnum[:5]
         labeled = _PNC_LABELED_DIGITS_RE.fullmatch(alnum)
@@ -2660,7 +2675,7 @@ def upload_diagram_supabase(
             file=local_path.read_bytes(),
             file_options=supabase_file_options(content_type),
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error("Supabase upload failed for %s: %s", storage_path, exc)
         raise
 
@@ -2699,7 +2714,7 @@ def is_in_scope_url(url: str, config: ScrapeConfig) -> bool:
         if not path.lower().startswith(f"/{locale}/"):
             return False
         # Reject other language mirrors even if substring somehow matched
-        if re.match(r"^/(es|fr|de|ar|ru|ja|zh|pt|it)/", path, flags=re.I):
+        if re.match(r"^/(es|fr|de|ar|ru|ja|zh|pt|it)/", path, flags=re.IGNORECASE):
             return False
         c_vals = [v.strip().lower() for v in parse_qs(parsed.query).get("c", []) if v]
         if c_vals:
@@ -2728,7 +2743,7 @@ def prune_out_of_scope_queue(db_path: Path, config: ScrapeConfig) -> int:
 def extract_hrefs_from_html(html: str, base_url: str) -> list[str]:
     """Pull absolute http(s) links from HTML without BeautifulSoup."""
     found: list[str] = []
-    for match in re.finditer(r'''href\s*=\s*["']([^"']+)["']''', html, flags=re.I):
+    for match in re.finditer(r'''href\s*=\s*["']([^"']+)["']''', html, flags=re.IGNORECASE):
         href = fully_unescape(match.group(1).strip())
         if not href or href.startswith(("#", "javascript:", "mailto:")):
             continue
@@ -2743,7 +2758,7 @@ def extract_embedded_json_payloads(html: str) -> list[dict[str, Any]]:
     for match in re.finditer(
         r'<script[^>]*type=["\']application/json["\'][^>]*>(.*?)</script>',
         html,
-        flags=re.I | re.S,
+        flags=re.IGNORECASE | re.DOTALL,
     ):
         raw = match.group(1).strip()
         try:
@@ -2760,7 +2775,7 @@ def extract_embedded_json_payloads(html: str) -> list[dict[str, Any]]:
     for match in re.finditer(
         r'<script[^>]*id=["\']__NEXT_DATA__["\'][^>]*>(.*?)</script>',
         html,
-        flags=re.I | re.S,
+        flags=re.IGNORECASE | re.DOTALL,
     ):
         try:
             data = json.loads(match.group(1).strip())
@@ -3370,8 +3385,8 @@ async def run_crawl(
         finally:
             try:
                 await context.storage_state(path=str(paths["storage_state"]))
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception:
+                logger.debug("Failed to persist browser storage state", exc_info=True)
             await context.close()
 
     if pages_done["n"] > 0:

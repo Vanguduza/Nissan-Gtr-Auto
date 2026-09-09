@@ -35,7 +35,6 @@ data class JobsUiState(
     val failNotes: String = "",
     val createReattempt: Boolean = true,
     val supportPhone: String = "",
-    val mapsKeyPresent: Boolean = false,
     val routePoints: List<MapLatLng> = emptyList(),
     val routeLabel: String? = null,
     val routeBusy: Boolean = false,
@@ -49,17 +48,16 @@ class JobsViewModel(
     private val gps: GpsBridge,
     private val appContext: Context,
     supportPhone: String,
-    private val mapsApiKey: String,
+    private val routingBaseUrl: String,
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         JobsUiState(
             supportPhone = supportPhone,
-            mapsKeyPresent = mapsApiKey.isNotBlank(),
         ),
     )
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
 
-    private val directions by lazy { DirectionsRouteFetcher(mapsApiKey) }
+    private val directions by lazy { DirectionsRouteFetcher(routingBaseUrl) }
 
     init {
         refresh()
@@ -231,15 +229,6 @@ class JobsViewModel(
         val destLng = job.dropoffLng
         if (destLat == null || destLng == null) {
             _state.update { it.copy(error = "Dropoff coordinates missing", routePoints = emptyList()) }
-            return
-        }
-        if (mapsApiKey.isBlank()) {
-            _state.update {
-                it.copy(
-                    routeLabel = "Maps key missing — markers only; set GOOGLE_MAPS_API_KEY",
-                    routePoints = emptyList(),
-                )
-            }
             return
         }
         viewModelScope.launch {
@@ -444,7 +433,7 @@ class JobsViewModel(
             gps: GpsBridge,
             appContext: Context,
             supportPhone: String,
-            mapsApiKey: String,
+            routingBaseUrl: String,
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -454,7 +443,7 @@ class JobsViewModel(
                         gps,
                         appContext.applicationContext,
                         supportPhone,
-                        mapsApiKey,
+                        routingBaseUrl,
                     ) as T
             }
     }

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.customer.catalog.data.CatalogRepositoryImpl
-import co.zw.nissangtr.customer.catalog.domain.DealTile
 import co.zw.nissangtr.customer.catalog.domain.usecase.CatalogUseCases
 import co.zw.nissangtr.customer.rpc.CatalogListItem
 import co.zw.nissangtr.customer.rpc.CatalogProduct
@@ -48,8 +47,8 @@ data class CatalogUiState(
     val vehicleRows: List<VehicleMasterRow> = emptyList(),
     val vehicleBusy: Boolean = false,
     val vehicleError: String? = null,
-    /** Always empty until a real backend RPC ships — see [DealTile] TODO. Never fabricated. */
-    val deals: List<DealTile> = emptyList(),
+    /** Real aggregate posted-sales popularity; no curated/fabricated ranking. */
+    val popularItems: List<CatalogListItem> = emptyList(),
     val reviewStats: ProductReviewStats? = null,
     val busy: Boolean = false,
     val message: String? = null,
@@ -103,7 +102,17 @@ class CatalogViewModel(
             try {
                 _state.update { it.copy(vehicleBusy = true, vehicleError = null) }
                 val rows = useCases.listVehicleMaster()
-                _state.update { it.copy(vehicleRows = rows, vehicleBusy = false) }
+                _state.update {
+                    it.copy(
+                        vehicleRows = rows,
+                        vehicleBusy = false,
+                        vehicleError = if (rows.isEmpty()) {
+                            "No vehicles in the live catalog yet."
+                        } else {
+                            null
+                        },
+                    )
+                }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
@@ -113,10 +122,10 @@ class CatalogViewModel(
                 }
             }
             try {
-                val deals = useCases.getActiveDeals()
-                _state.update { it.copy(deals = deals) }
+                val popular = useCases.getPopularParts(8)
+                _state.update { it.copy(popularItems = popular) }
             } catch (_: Exception) {
-                // Stub use case never throws today.
+                // Browse/new-in-stock remain usable if aggregate popularity is temporarily unavailable.
             }
         }
     }
@@ -178,6 +187,7 @@ class CatalogViewModel(
         }
         try {
             val browse = useCases.listCatalogForVehicle(
+                vehicleMasterId = selected.vehicleMasterId,
                 chassisCode = selected.generation,
                 engineCode = selected.engine,
                 limit = 50,
@@ -340,6 +350,25 @@ class CatalogViewModel(
                         message = "Added to cart $cartId · line $lineId",
                     )
                 }
+                onDone()
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        error = UserFacingErrors.from(e, "Could not add to cart"),
+                    )
+                }
+            }
+        }
+    }
+
+
+    fun quickAddToCart(item: CatalogListItem, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, message = null) }
+            try {
+                useCases.addToCart(item.oem, 1.0)
+                _state.update { it.copy(busy = false, message = "Added to cart") }
                 onDone()
             } catch (e: Exception) {
                 _state.update {

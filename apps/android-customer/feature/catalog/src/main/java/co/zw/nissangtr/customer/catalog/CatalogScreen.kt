@@ -82,11 +82,13 @@ fun CatalogScreen(
     onOpenCart: () -> Unit = {},
     onCartChanged: () -> Unit = {},
     onManageVehicle: () -> Unit = {},
-    onOpenEpcBrowse: () -> Unit = {},
+    onTrackOrder: () -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onOpenEpcBrowse: () -> Unit = {},
     initialOem: String? = null,
     initialCategorySeed: String? = null,
     categorySeedSeq: Int = 0,
     showShellChrome: Boolean = false,
+    landing: CatalogLanding = CatalogLanding.Home,
     viewModelKey: String = "catalog",
     camera: PodCameraBridge? = null,
     modifier: Modifier = Modifier,
@@ -137,23 +139,38 @@ fun CatalogScreen(
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (state.route) {
-            CatalogScreenRoute.Home -> KmpHome(
-                state = state,
-                rpc = rpc,
-                wishOems = wishOems,
-                showShellChrome = showShellChrome,
-                onBack = onBack,
-                onSeeAllCategories = viewModel::openCategories,
-                onSeeAllNewest = viewModel::openNewest,
-                onSeeAllMostSale = viewModel::openNewest,
-                onOpenProduct = viewModel::openProduct,
-                onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
-                onCategoryBrowse = viewModel::openCategoryBrowse,
-                onConfirmCascade = viewModel::confirmCascadeVehicle,
-                onConfirmVin = viewModel::confirmVinVehicle,
-                onClearVehicle = viewModel::clearSelectedVehicle,
-                onOpenEpcBrowse = onOpenEpcBrowse,
-            )
+            CatalogScreenRoute.Home -> when (landing) {
+                CatalogLanding.Home -> PremiumCatalogHome(
+                    state = state,
+                    wishOems = wishOems,
+                    onShopAll = viewModel::openNewest,
+                    onSeeAllCategories = viewModel::openCategories,
+                    onSeeAllPopular = viewModel::openNewest,
+                    onSeeAllNewest = viewModel::openNewest,
+                    onOpenProduct = viewModel::openProduct,
+                    onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
+                    onAddToCart = { item ->
+                        viewModel.quickAddToCart(item) { onCartChanged() }
+                    },
+                    onCategoryBrowse = viewModel::openCategoryBrowse,
+                    onConfirmCascade = viewModel::confirmCascadeVehicle,
+                    onConfirmVin = viewModel::confirmVinVehicle,
+                    onClearVehicle = viewModel::clearSelectedVehicle,
+                    onTrackOrder = onTrackOrder,
+                )
+                CatalogLanding.Shop -> PremiumShopBrowse(
+                    state = state,
+                    wishOems = wishOems,
+                    onOpenProduct = viewModel::openProduct,
+                    onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
+                    onAddToCart = { item ->
+                        viewModel.quickAddToCart(item) { onCartChanged() }
+                    },
+                    onConfirmCascade = viewModel::confirmCascadeVehicle,
+                    onConfirmVin = viewModel::confirmVinVehicle,
+                    onClearVehicle = viewModel::clearSelectedVehicle,
+                )
+            }
             CatalogScreenRoute.Categories -> CategoriesGridScreen(
                 onBack = viewModel::navigateHome,
                 onCategoryClick = viewModel::openCategoryBrowse,
@@ -171,6 +188,9 @@ fun CatalogScreen(
                 onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
                 onApplyFilter = viewModel::applyBrowseFilter,
                 onApplySort = viewModel::applyBrowseSort,
+                onAddToCart = { item ->
+                    viewModel.quickAddToCart(item) { onCartChanged() }
+                },
             )
             CatalogScreenRoute.Newest -> NewestProductsScreen(
                 products = displayItems,
@@ -184,11 +204,14 @@ fun CatalogScreen(
                 onToggleWish = { item -> wishlistStore.toggle(item.stockItemId, item.oem) },
                 onApplyFilter = viewModel::applyBrowseFilter,
                 onApplySort = viewModel::applyBrowseSort,
+                onAddToCart = { item ->
+                    viewModel.quickAddToCart(item) { onCartChanged() }
+                },
             )
             CatalogScreenRoute.Product -> state.product?.let { product ->
-                KmpPdp(
+                PremiumCatalogPdp(
                     product = product,
-                    primaryVehicle = state.primaryVehicle,
+                    selectedVehicle = state.selectedFitment,
                     qty = state.addQty,
                     busy = state.busy,
                     reviewStats = state.reviewStats,
@@ -224,218 +247,6 @@ fun CatalogScreen(
     }
 }
 
-private val homeBanners = listOf(
-    "Genuine Nissan parts · Harare counter & nationwide dispatch",
-    "Click & Collect same day at the Harare counter",
-    "ZiG settlement available at checkout",
-)
-
-@Composable
-private fun CompactFitmentBar(label: String) {
-    Text(
-        text = "Shopping for · $label",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
-}
-
-@Composable
-private fun KmpHome(
-    state: CatalogUiState,
-    rpc: RpcClient,
-    wishOems: Set<String>,
-    showShellChrome: Boolean,
-    onBack: () -> Unit,
-    onSeeAllCategories: () -> Unit,
-    onSeeAllMostSale: () -> Unit,
-    onSeeAllNewest: () -> Unit,
-    onOpenProduct: (String) -> Unit,
-    onToggleWish: (CatalogListItem) -> Unit,
-    onCategoryBrowse: (String) -> Unit,
-    onConfirmCascade: (String, String, String, String?) -> Unit,
-    onConfirmVin: (String) -> Unit,
-    onClearVehicle: () -> Unit,
-    onOpenEpcBrowse: () -> Unit = {},
-) {
-    val newest = state.browseItems.take(8)
-    val mostSale = state.browseItems.drop(8).take(8).ifEmpty { state.browseItems.take(8) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Spacer(Modifier.height(8.dp))
-            if (showShellChrome) {
-                InlineCatalogSearch(
-                    rpc = rpc,
-                    onOpenProduct = onOpenProduct,
-                    onApplyFilter = onCategoryBrowse,
-                )
-                CompactFitmentBar(label = state.fitmentBarLabel())
-                Spacer(Modifier.height(8.dp))
-                VehicleSelectorSection(
-                    vehicleRows = state.vehicleRows,
-                    confirmedVehicle = state.selectedFitment,
-                    busy = state.vehicleBusy,
-                    error = state.vehicleError,
-                    onConfirmCascade = onConfirmCascade,
-                    onConfirmVin = onConfirmVin,
-                    onClear = onClearVehicle,
-                )
-                TextButton(onClick = onOpenEpcBrowse) {
-                    Text("Browse EPC diagrams")
-                }
-            } else {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    TextButton(onClick = onBack) { Text("Home") }
-                }
-                InlineCatalogSearch(
-                    rpc = rpc,
-                    onOpenProduct = onOpenProduct,
-                    onApplyFilter = onCategoryBrowse,
-                )
-                CompactFitmentBar(label = state.fitmentBarLabel())
-                Spacer(Modifier.height(8.dp))
-                VehicleSelectorSection(
-                    vehicleRows = state.vehicleRows,
-                    confirmedVehicle = state.selectedFitment,
-                    busy = state.vehicleBusy,
-                    error = state.vehicleError,
-                    onConfirmCascade = onConfirmCascade,
-                    onConfirmVin = onConfirmVin,
-                    onClear = onClearVehicle,
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface),
-        ) {
-            Text(
-                "Special for you",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(16.dp),
-            )
-            ShopBannerCarousel(banners = homeBanners)
-            Spacer(Modifier.height(16.dp))
-
-            ShopMerchTitleRow(
-                title = "Category",
-                actionLabel = "See all",
-                onAction = onSeeAllCategories,
-            )
-            ShopCategoryChipRow(
-                categories = DefaultCatalogCategoryCards.map { it.label },
-                onCategory = onCategoryBrowse,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-
-            Spacer(Modifier.height(16.dp))
-            if (state.deals.isEmpty()) {
-                ShopHonestEmpty(
-                    title = "No flash deals",
-                    body = "No deals.",
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-            } else {
-                ShopMerchTitleRow(title = "Flash deals", actionLabel = null)
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(8.dp),
-                ) {
-                    rowItems(state.deals, key = { it.id }) { deal ->
-                        ShopProductCard(
-                            title = deal.title,
-                            subtitle = deal.subtitle,
-                            priceLabel = "Deal",
-                            liked = false,
-                            onLikeClick = {},
-                            onClick = {},
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            ShopMerchTitleRow(
-                title = "Most sale",
-                actionLabel = "See all",
-                onAction = onSeeAllMostSale,
-            )
-            if (mostSale.isEmpty()) {
-                ShopHonestEmpty(
-                    title = "No stock yet",
-                    body = "Catalog SoR has no saleable stock items. Reload inventory, then refresh.",
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-            } else {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(8.dp),
-                ) {
-                    rowItems(mostSale, key = { it.stockItemId }) { item ->
-                        ShopProductCard(
-                            title = item.oem,
-                            subtitle = item.name,
-                            priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
-                            liked = wishOems.contains(item.oem.trim().uppercase()),
-                            onLikeClick = { onToggleWish(item) },
-                            onClick = { onOpenProduct(item.oem) },
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            ShopMerchTitleRow(
-                title = "Newest products",
-                actionLabel = "See all",
-                onAction = onSeeAllNewest,
-            )
-            if (newest.isEmpty()) {
-                ShopHonestEmpty(
-                    title = "No recent parts",
-                    body = "No stock rows yet — empty catalog, not a filter bug.",
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-            } else {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(8.dp),
-                ) {
-                    rowItems(newest, key = { "n-${it.stockItemId}" }) { item ->
-                        ShopProductCard(
-                            title = item.oem,
-                            subtitle = item.name,
-                            priceLabel = item.usd?.let { "USD %.2f".format(it) } ?: "On request",
-                            liked = wishOems.contains(item.oem.trim().uppercase()),
-                            onLikeClick = { onToggleWish(item) },
-                            onClick = { onOpenProduct(item.oem) },
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-}
-
 /** Dedicated page of recently added products (browse order = newest-first when available). */
 @Composable
 fun NewestProductsScreen(
@@ -450,6 +261,7 @@ fun NewestProductsScreen(
     onToggleWish: (CatalogListItem) -> Unit,
     onApplyFilter: (co.zw.nissangtr.ui.shop.ShopFilterState) -> Unit,
     onApplySort: (co.zw.nissangtr.ui.shop.ShopSortOption) -> Unit,
+    onAddToCart: ((CatalogListItem) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     CategoryPlpScreen(
@@ -465,278 +277,7 @@ fun NewestProductsScreen(
         onToggleWish = onToggleWish,
         onApplyFilter = onApplyFilter,
         onApplySort = onApplySort,
+        onAddToCart = onAddToCart,
         modifier = modifier,
     )
-}
-
-@Composable
-private fun KmpPdp(
-    product: CatalogProduct,
-    primaryVehicle: GarageVehicle?,
-    qty: String,
-    busy: Boolean,
-    reviewStats: ProductReviewStats?,
-    liked: Boolean,
-    onQtyChange: (String) -> Unit,
-    onBack: () -> Unit,
-    onAddToCart: () -> Unit,
-    onToggleWishlist: () -> Unit,
-    onOpenReviews: () -> Unit,
-) {
-    val priceLabel = when {
-        product.usd == null -> "Price on request"
-        product.coreCharge > 0 ->
-            "USD %.2f + %.2f core".format(product.usd, product.coreCharge)
-        else -> "USD %.2f".format(product.usd)
-    }
-    val galleryUrls = product.imageUrls.filter { it.isNotBlank() }.distinct()
-    var selectedThumb by remember(product.oem) { mutableStateOf(0) }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 88.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(320.dp)
-                    .background(GtrColors.Mist),
-            ) {
-                ShopProductGalleryHero(
-                    imageUrls = galleryUrls,
-                    heroLabel = product.oem,
-                    modifier = Modifier.fillMaxSize(),
-                    selectedIndex = selectedThumb,
-                )
-                Box(modifier = Modifier.padding(16.dp).align(Alignment.TopStart)) {
-                    ShopCircleIconButton(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        onClick = onBack,
-                        contentDescription = "Back",
-                    )
-                }
-                Box(modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
-                    ShopCircleIconButton(
-                        imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        onClick = onToggleWishlist,
-                        contentDescription = "Wishlist",
-                    )
-                }
-                if (galleryUrls.size > 1) {
-                    Card(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = MaterialTheme.shapes.small,
-                    ) {
-                        LazyRow(
-                            contentPadding = PaddingValues(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            rowItems(galleryUrls.indices.toList(), key = { it }) { i ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(65.dp)
-                                        .clip(MaterialTheme.shapes.small)
-                                        .clickable { selectedThumb = i },
-                                ) {
-                                    ShopRemoteImage(
-                                        url = galleryUrls[i],
-                                        contentDescription = "Image ${i + 1}",
-                                        modifier = Modifier.fillMaxSize(),
-                                        placeholderLabel = "${i + 1}",
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(product.stock.label(), style = MaterialTheme.typography.titleMedium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ShopRatingRow(
-                        avgRating = reviewStats?.avgRating ?: 0.0,
-                        reviewCount = reviewStats?.reviewCount ?: 0,
-                    )
-                    TextButton(onClick = onOpenReviews) { Text("Reviews") }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            Text(
-                product.oem,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.headlineLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                product.name,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Product details",
-                modifier = Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Spacer(Modifier.height(8.dp))
-            StableExpandableDescription(
-                text = product.descriptionText(),
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            if (product.coreCharge > 0) {
-                Text(
-                    "Part USD %.2f".format(product.usd ?: 0.0),
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    "Core deposit USD %.2f (separate cart line - refundable on core return)".format(
-                        product.coreCharge,
-                    ),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            HorizontalDivider(modifier = Modifier.padding(16.dp), color = GtrColors.Mist)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Reviews", style = MaterialTheme.typography.titleLarge)
-                TextButton(onClick = onOpenReviews) { Text("See all / write") }
-            }
-            Text(
-                when {
-                    reviewStats == null || reviewStats.reviewCount == 0 ->
-                        "No reviews yet"
-                    else ->
-                        "%.1f average · %d review(s). Tap above to read or submit.".format(
-                            reviewStats.avgRating,
-                            reviewStats.reviewCount,
-                        )
-                },
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = GtrColors.Mist)
-            Text(
-                "Fitment",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(
-                fitmentVersusGarage(product, primaryVehicle),
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (product.fitmentLines.isNotEmpty()) {
-                product.fitmentLines.forEach { line ->
-                    Text(
-                        " · $line",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-            OutlinedTextField(
-                value = qty,
-                onValueChange = onQtyChange,
-                label = { Text("Qty") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                singleLine = true,
-                enabled = !busy,
-                shape = MaterialTheme.shapes.small,
-            )
-            Spacer(Modifier.height(16.dp))
-        }
-
-        Card(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(8.dp),
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-        ) {
-            ShopStickyCtaBar(
-                priceLabel = priceLabel,
-                ctaLabel = if (busy) "Adding…" else "Add to cart",
-                onCta = onAddToCart,
-                enabled = !busy,
-            )
-        }
-    }
-}
-
-/**
- * Stable Read More — no layout-measure loop. Collapsed text is truncated once;
- * expand/collapse only toggles maxLines (no finalText rewrite that flashes).
- */
-@Composable
-private fun StableExpandableDescription(
-    text: String,
-    modifier: Modifier = Modifier,
-    collapsedLines: Int = 2,
-) {
-    var expanded by remember(text) { mutableStateOf(false) }
-    val needsToggle = text.length > 120 || text.lines().size > collapsedLines
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = text,
-            maxLines = if (expanded) Int.MAX_VALUE else collapsedLines,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        if (needsToggle) {
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(if (expanded) "Show Less" else "Read More")
-            }
-        }
-    }
-}
-
-private fun fitmentVersusGarage(product: CatalogProduct, vehicle: GarageVehicle?): String {
-    if (vehicle == null) {
-        return "Add a vehicle in My Garage for sticky fitment."
-    }
-    val garage = vehicle.summaryLabel()
-    if (product.fitmentLines.isEmpty()) {
-        return "Garage: $garage - no published fitment lines for this OEM yet."
-    }
-    val tokens = listOfNotNull(vehicle.model, vehicle.generation, vehicle.engine)
-        .map { it.trim() }
-        .filter { it.length >= 2 }
-    val matches = tokens.isNotEmpty() && product.fitmentLines.any { line ->
-        tokens.any { tok -> line.contains(tok, ignoreCase = true) }
-    }
-    return if (matches) {
-        "Fits your garage vehicle: $garage"
-    } else {
-        "May not fit your garage vehicle ($garage). Check OEM fitment below."
-    }
 }

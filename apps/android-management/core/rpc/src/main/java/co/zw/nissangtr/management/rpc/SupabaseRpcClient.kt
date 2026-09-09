@@ -3,7 +3,6 @@ package co.zw.nissangtr.management.rpc
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
@@ -43,6 +42,7 @@ import kotlinx.serialization.json.doubleOrNull
  */
 class SupabaseRpcClient(
     val client: SupabaseClient,
+    private val projectUrl: String? = null,
 ) : RpcClient {
 
     /** GoTrue Auth plugin — [signInWithEmail] (preferred) or [importAccessToken] fallback. */
@@ -52,16 +52,26 @@ class SupabaseRpcClient(
     val sessionStatus: Flow<SessionStatus> get() = auth.sessionStatus
 
     /**
-     * Email/password sign-in via GoTrue. Session is stored by the SDK session manager —
-     * never put passwords or JWTs in BuildConfig.
+     * Staff email/password sign-in through the hardened Auth Edge. Supabase Auth
+     * still validates credentials and owns the resulting session.
      */
     suspend fun signInWithEmail(email: String, password: String) {
         require(email.isNotBlank()) { "email required" }
         require(password.isNotBlank()) { "password required" }
-        auth.signInWith(Email) {
-            this.email = email.trim()
-            this.password = password
-        }
+        val session = AuthEdgeClient.login(client, email.trim(), password)
+        importAccessToken(session.accessToken, session.refreshToken, session.expiresIn)
+    }
+
+    suspend fun requestPasswordResetForEmail(email: String) {
+        require(email.isNotBlank()) { "email required" }
+        AuthEdgeClient.requestPasswordReset(client, email.trim())
+    }
+
+    suspend fun completePasswordResetForEmail(email: String, code: String, newPassword: String) {
+        require(code.length >= 6) { "recovery code required" }
+        require(newPassword.length >= 8) { "new password must be at least 8 characters" }
+        val session = AuthEdgeClient.verifyPasswordReset(client, email.trim(), code, newPassword)
+        importAccessToken(session.accessToken, session.refreshToken, session.expiresIn)
     }
 
     /** Clears the persisted GoTrue session. */
@@ -332,14 +342,105 @@ class SupabaseRpcClient(
         mode: CatalogSearchMode,
         query: String,
     ): CatalogSearchResult {
+        val q = query.trim()
         val raw = client.postgrest.rpc(
             RpcNames.SEARCH_CATALOG,
             buildJsonObject {
                 put("p_mode", mode.rpcValue)
-                put("p_query", query.trim())
+                put("p_query", q)
             },
         ).decodeAs<kotlinx.serialization.json.JsonObject>()
-        return parseCatalogSearchResult(raw, mode, query.trim())
+        val canonical = parseCatalogSearchResult(raw, mode, q)
+        if (mode != CatalogSearchMode.PART || q.length < 2) return canonical
+
+        // Operator POS promises part-name and partial-OEM discovery. The canonical catalog RPC
+        // is fitment-centric, so merge stock-master matches without replacing its authority.
+        val descriptionMatches = client.from("stock_items")
+            .select(Columns.list("id", "base_uom_id", "oem_part_number", "description")) {
+                filter { ilike("description", "%$q%") }
+                order("oem_part_number", Order.ASCENDING)
+                limit(30)
+            }
+            .decodeList<StockItemRow>()
+        val oemMatches = client.from("stock_items")
+            .select(Columns.list("id", "base_uom_id", "oem_part_number", "description")) {
+                filter { ilike("oem_part_number", "%$q%") }
+                order("oem_part_number", Order.ASCENDING)
+                limit(30)
+            }
+            .decodeList<StockItemRow>()
+        val stockHits = (descriptionMatches + oemMatches)
+            .distinctBy { it.oemPartNumber }
+            .map { row ->
+                CatalogPartHit(
+                    oemPartNumber = row.oemPartNumber,
+                    description = row.description,
+                )
+            }
+        return canonical.copy(
+            parts = (canonical.parts + stockHits).distinctBy { it.oemPartNumber }.take(50),
+        )
+    }
+
+    override suspend fun searchCatalogForVehicle(
+        vehicle: PosSaleVehicleSelection,
+        query: String,
+        limit: Int,
+    ): CatalogSearchResult {
+        val q = query.trim()
+        val raw = client.postgrest.rpc(
+            RpcNames.SEARCH_POS_VEHICLE_SPARES,
+            buildJsonObject {
+                put("p_model_slug", vehicle.modelSlug)
+                put("p_chassis_code", vehicle.chassisCode)
+                put("p_engine_code", vehicle.engineCode)
+                put("p_query", q)
+                put("p_limit", limit.coerceIn(1, 100))
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonObject>()
+        return parseCatalogSearchResult(raw, CatalogSearchMode.PART, q)
+    }
+
+    override suspend fun setPosCartVehicle(
+        cartId: String,
+        vehicle: PosSaleVehicleSelection?,
+    ): String = client.postgrest.rpc(
+        RpcNames.SET_POS_CART_VEHICLE,
+        buildJsonObject {
+            put("p_cart_id", cartId)
+            if (vehicle == null) {
+                put("p_model_slug", JsonNull)
+                put("p_model_name", JsonNull)
+                put("p_generation", JsonNull)
+                put("p_chassis_code", JsonNull)
+                put("p_engine_code", JsonNull)
+            } else {
+                put("p_model_slug", vehicle.modelSlug)
+                put("p_model_name", vehicle.modelName)
+                put("p_generation", vehicle.generation)
+                put("p_chassis_code", vehicle.chassisCode)
+                put("p_engine_code", vehicle.engineCode)
+            }
+        },
+    ).decodeAs<String>()
+
+    override suspend fun getPosCartVehicle(cartId: String): PosSaleVehicleSelection? {
+        val row = client.from("pos_carts")
+            .select(Columns.list(
+                "vehicle_model_slug", "vehicle_model_name", "vehicle_generation",
+                "vehicle_chassis_code", "vehicle_engine_code",
+            )) {
+                filter { eq("id", cartId) }
+                limit(1)
+            }
+            .decodeList<PosCartVehicleRow>()
+            .firstOrNull() ?: return null
+        val slug = row.modelSlug?.takeIf { it.isNotBlank() } ?: return null
+        val name = row.modelName?.takeIf { it.isNotBlank() } ?: return null
+        val generation = row.generation?.takeIf { it.isNotBlank() } ?: row.chassisCode.orEmpty()
+        val chassis = row.chassisCode?.takeIf { it.isNotBlank() } ?: return null
+        val engine = row.engineCode?.takeIf { it.isNotBlank() } ?: return null
+        return PosSaleVehicleSelection(slug, name, generation, chassis, engine)
     }
 
     override suspend fun listCatalogMakers(): List<EpcMaker> {
@@ -403,6 +504,44 @@ class SupabaseRpcClient(
         return parsed
     }
 
+    override suspend fun listCatalogDiagrams(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+    ): List<EpcDiagramSummary> {
+        val raw = client.postgrest.rpc(
+            RpcNames.LIST_CATALOG_DIAGRAMS,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+                put("p_variant_slug", variantSlug)
+                put("p_section_slug", sectionSlug)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return parseEpcDiagramSummaryList(raw)
+    }
+
+    override suspend fun getCatalogDiagramBySlug(
+        makerSlug: String,
+        modelSlug: String,
+        variantSlug: String,
+        sectionSlug: String,
+        diagramSlug: String,
+    ): EpcDiagramResponse {
+        val raw = client.postgrest.rpc(
+            RpcNames.GET_CATALOG_DIAGRAM_BY_SLUG,
+            buildJsonObject {
+                put("p_maker_slug", makerSlug)
+                put("p_model_slug", modelSlug)
+                put("p_variant_slug", variantSlug)
+                put("p_section_slug", sectionSlug)
+                put("p_diagram_slug", diagramSlug)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return parseEpcDiagram(raw)
+    }
+
     override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {
         require(lineId.isNotBlank())
         require(qty > 0) { "qty must be > 0" }
@@ -440,18 +579,36 @@ class SupabaseRpcClient(
             }
             .decodeList<PosCartLineRow>()
 
-        // OEM labels optional — soft-fail so cart still shows without stock_items join.
-        val oemByItem = mutableMapOf<String, String>()
-        rows.map { it.stockItemId }.distinct().take(20).forEach { itemId ->
+        // Merchandising labels/images are optional — soft-fail so the authoritative cart remains usable.
+        val itemMeta = mutableMapOf<String, StockItemOemRow>()
+        val imageByItem = mutableMapOf<String, String>()
+        rows.map { it.stockItemId }.distinct().take(40).forEach { itemId ->
             runCatching {
                 client.from("stock_items")
-                    .select(Columns.list("id", "oem_part_number")) {
+                    .select(Columns.list("id", "oem_part_number", "description")) {
                         filter { eq("id", itemId) }
                         limit(1)
                     }
                     .decodeList<StockItemOemRow>()
                     .firstOrNull()
-                    ?.let { oemByItem[it.id] = it.oemPartNumber }
+                    ?.let { itemMeta[it.id] = it }
+            }
+            runCatching {
+                client.from("stock_item_images")
+                    .select(Columns.list("storage_path", "is_primary", "sort_order")) {
+                        filter { eq("stock_item_id", itemId) }
+                        order("is_primary", Order.DESCENDING)
+                        order("sort_order", Order.ASCENDING)
+                        limit(1)
+                    }
+                    .decodeList<StockItemImagePathRow>()
+                    .firstOrNull()?.storagePath?.trim()?.takeIf { it.isNotEmpty() }?.let { path ->
+                        imageByItem[itemId] = if (path.startsWith("http://", true) || path.startsWith("https://", true)) {
+                            path
+                        } else {
+                            projectUrl?.let { base -> "$base/storage/v1/object/public/product-images/${path.trimStart('/')}" } ?: path
+                        }
+                    }
             }
         }
 
@@ -459,11 +616,13 @@ class SupabaseRpcClient(
             PosCartLineSummary(
                 id = row.id,
                 stockItemId = row.stockItemId,
-                oemPartNumber = oemByItem[row.stockItemId],
+                oemPartNumber = itemMeta[row.stockItemId]?.oemPartNumber,
                 qty = row.qty,
                 unitPrice = row.unitPrice,
                 lineTotal = row.lineTotal,
                 isCoreCharge = row.isCoreCharge,
+                description = itemMeta[row.stockItemId]?.description,
+                imageUrl = imageByItem[row.stockItemId],
             )
         }
     }
@@ -683,6 +842,116 @@ class SupabaseRpcClient(
         }
     }
 
+    override suspend fun listPosPopularSpares(
+        days: Int,
+        limit: Int,
+    ): List<PopularPosSpare> {
+        val rows = client.postgrest.rpc(
+            RpcNames.LIST_POS_POPULAR_SPARES,
+            buildJsonObject {
+                put("p_days", days.coerceIn(1, 365))
+                put("p_limit", limit.coerceIn(1, 24))
+            },
+        ).decodeList<PopularPosSpareRow>()
+        return rows.map { row ->
+            PopularPosSpare(
+                stockItemId = row.stockItemId,
+                oemPartNumber = row.oemPartNumber,
+                description = row.description,
+                unitsSold = row.unitsSold,
+                saleableQty = row.saleableQty,
+                unitPrice = row.unitPrice,
+                currency = row.currency?.let { value ->
+                    CurrencyCode.entries.find { it.rpcValue == value }
+                },
+                imageUrl = row.imageStoragePath?.trim()?.takeIf { it.isNotEmpty() }?.let { path ->
+                    if (path.startsWith("http://", true) || path.startsWith("https://", true)) path
+                    else projectUrl?.let { base -> "$base/storage/v1/object/public/product-images/${path.trimStart('/')}" }
+                },
+            )
+        }
+    }
+
+    override suspend fun listPosPopularPins(): List<PosPopularPin> {
+        val rows = client.postgrest.rpc(RpcNames.LIST_POS_POPULAR_PINS).decodeList<PosPopularPinRow>()
+        return rows.map { row ->
+            PosPopularPin(
+                kind = PosPopularItemKind.fromRpc(row.itemType),
+                itemKey = row.itemKey,
+                label = row.label,
+                subtitle = row.subtitle,
+                searchQuery = row.searchQuery,
+                makerSlug = row.makerSlug,
+                modelSlug = row.modelSlug,
+                categoryName = row.categoryName,
+                subcategoryName = row.subcategoryName,
+                oemPartNumber = row.oemPartNumber,
+                imageUrl = row.imageUrl?.trim()?.takeIf { it.isNotEmpty() }?.let { path ->
+                    if (path.startsWith("http://", true) || path.startsWith("https://", true)) path
+                    else if (PosPopularItemKind.fromRpc(row.itemType) == PosPopularItemKind.PART) {
+                        projectUrl?.let { base -> "$base/storage/v1/object/public/product-images/${path.trimStart('/')}" } ?: path
+                    } else path
+                },
+                updatedAt = row.updatedAt,
+            )
+        }
+    }
+
+    override suspend fun upsertPosPopularPin(pin: PosPopularPin): String =
+        client.postgrest.rpc(
+            RpcNames.UPSERT_POS_POPULAR_PIN,
+            buildJsonObject {
+                put("p_item_type", pin.kind.rpcValue)
+                put("p_item_key", pin.itemKey)
+                put("p_label", pin.label)
+                if (pin.subtitle.isNullOrBlank()) put("p_subtitle", JsonNull) else put("p_subtitle", pin.subtitle)
+                put("p_search_query", pin.searchQuery)
+                if (pin.makerSlug.isNullOrBlank()) put("p_maker_slug", JsonNull) else put("p_maker_slug", pin.makerSlug)
+                if (pin.modelSlug.isNullOrBlank()) put("p_model_slug", JsonNull) else put("p_model_slug", pin.modelSlug)
+                if (pin.categoryName.isNullOrBlank()) put("p_category_name", JsonNull) else put("p_category_name", pin.categoryName)
+                if (pin.subcategoryName.isNullOrBlank()) put("p_subcategory_name", JsonNull) else put("p_subcategory_name", pin.subcategoryName)
+                if (pin.oemPartNumber.isNullOrBlank()) put("p_oem_part_number", JsonNull) else put("p_oem_part_number", pin.oemPartNumber)
+                if (pin.imageUrl.isNullOrBlank()) put("p_image_url", JsonNull) else put("p_image_url", pin.imageUrl)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun deletePosPopularPin(kind: PosPopularItemKind, itemKey: String): Boolean =
+        client.postgrest.rpc(
+            RpcNames.DELETE_POS_POPULAR_PIN,
+            buildJsonObject {
+                put("p_item_type", kind.rpcValue)
+                put("p_item_key", itemKey)
+            },
+        ).decodeAs<Boolean>()
+
+    override suspend fun listPosRecentInvoices(
+        query: String?,
+        limit: Int,
+    ): List<PosInvoiceSummary> {
+        val rows = client.postgrest.rpc(
+            RpcNames.LIST_POS_RECENT_INVOICES,
+            buildJsonObject {
+                if (query.isNullOrBlank()) put("p_query", JsonNull) else put("p_query", query.trim())
+                put("p_limit", limit.coerceIn(1, 200))
+            },
+        ).decodeList<PosInvoiceRow>()
+        return rows.map { row ->
+            PosInvoiceSummary(
+                id = row.id,
+                documentNumber = row.documentNumber,
+                customerId = row.customerId,
+                customerName = row.customerName,
+                total = row.total,
+                currency = CurrencyCode.entries.find { it.rpcValue == row.currency } ?: CurrencyCode.USD,
+                postedAt = row.postedAt,
+                vehicleModelName = row.vehicleModelName,
+                vehicleGeneration = row.vehicleGeneration,
+                vehicleChassisCode = row.vehicleChassisCode,
+                vehicleEngineCode = row.vehicleEngineCode,
+            )
+        }
+    }
+
     override suspend fun pullPosOfflineSnapshot(warehouseId: String): OfflinePosSnapshot {
         require(warehouseId.isNotBlank())
         val raw = client.postgrest.rpc(
@@ -776,6 +1045,35 @@ class SupabaseRpcClient(
                         }
                         if (payload.soldAt.isNullOrBlank()) put("sold_at", JsonNull)
                         else put("sold_at", payload.soldAt)
+                        if (payload.vehicle == null) {
+                            put("vehicle", JsonNull)
+                        } else {
+                            put(
+                                "vehicle",
+                                buildJsonObject {
+                                    put("model_slug", payload.vehicle.modelSlug)
+                                    put("model_name", payload.vehicle.modelName)
+                                    put("generation", payload.vehicle.generation)
+                                    put("chassis_code", payload.vehicle.chassisCode)
+                                    put("engine_code", payload.vehicle.engineCode)
+                                },
+                            )
+                        }
+                        putJsonArray("vehicle_contexts") {
+                            payload.vehicleContexts.distinctBy { v ->
+                                "${v.modelSlug}|${v.chassisCode}|${v.engineCode}"
+                            }.forEach { v ->
+                                add(
+                                    buildJsonObject {
+                                        put("model_slug", v.modelSlug)
+                                        put("model_name", v.modelName)
+                                        put("generation", v.generation)
+                                        put("chassis_code", v.chassisCode)
+                                        put("engine_code", v.engineCode)
+                                    },
+                                )
+                            }
+                        }
                     },
                 )
             },
@@ -842,6 +1140,45 @@ class SupabaseRpcClient(
      * Second-user manager reauth for POS approval RPCs.
      * Saves attendant session → signs in manager → runs [block] → restores attendant.
      */
+    private var staffPortalAttendantSession: UserSession? = null
+
+    /**
+     * Starts an elevated staff-portal session without losing the POS attendant session.
+     * The supplied staff identity is authenticated normally, then all hub/module access is
+     * resolved from that identity. The attendant session is retained in memory only and
+     * restored by [endStaffPortalSession].
+     */
+    suspend fun beginStaffPortalSession(identifier: String, password: String) {
+        require(identifier.isNotBlank() && password.isNotBlank()) { "staff credentials required" }
+        if (staffPortalAttendantSession != null) error("staff portal session already active")
+        val attendant = auth.currentSessionOrNull()
+            ?: error("attendant session required before staff portal access")
+        if (staffLoginIsLocked(identifier)) error("staff sign-in temporarily locked")
+        val email = resolveStaffLoginEmail(identifier)
+        try {
+            signInWithEmail(email, password)
+            val roles = listMyStaffRoles()
+            if (roles.isEmpty()) error("no active staff role")
+            recordStaffLoginAttempt(identifier, true)
+            staffPortalAttendantSession = attendant
+        } catch (t: Throwable) {
+            runCatching { recordStaffLoginAttempt(identifier, false) }
+            auth.importSession(attendant)
+            throw t
+        }
+    }
+
+    suspend fun endStaffPortalSession() {
+        val attendant = staffPortalAttendantSession ?: return
+        try {
+            auth.importSession(attendant)
+        } finally {
+            staffPortalAttendantSession = null
+        }
+    }
+
+    fun isStaffPortalSessionActive(): Boolean = staffPortalAttendantSession != null
+
     suspend fun <T> withManagerApproval(
         managerIdentifier: String,
         managerPassword: String,
@@ -851,10 +1188,8 @@ class SupabaseRpcClient(
             ?: error("attendant session required before manager approval")
         val email = resolveStaffLoginEmail(managerIdentifier)
         try {
-            auth.signInWith(Email) {
-                this.email = email
-                this.password = managerPassword
-            }
+            val manager = AuthEdgeClient.login(client, email, managerPassword)
+            importAccessToken(manager.accessToken, manager.refreshToken, manager.expiresIn)
             return block()
         } finally {
             auth.importSession(
@@ -1458,18 +1793,98 @@ class SupabaseRpcClient(
     override suspend fun searchCustomers(query: String): List<CustomerOption> {
         val q = query.trim()
         if (q.length < 2) return emptyList()
-        val uuidLike = UUID_REGEX.matches(q)
-        return client.from("customers")
-            .select(Columns.list("id", "display_name")) {
-                filter {
-                    if (uuidLike) eq("id", q)
-                    else ilike("display_name", "%$q%")
-                }
-                order("display_name", Order.ASCENDING)
-                limit(20)
-            }
-            .decodeList<CustomerOptionRow>()
-            .map { CustomerOption(id = it.id, displayName = it.displayName) }
+        return client.postgrest.rpc(
+            RpcNames.LIST_POS_CUSTOMERS,
+            buildJsonObject {
+                put("p_query", q)
+                put("p_limit", 30)
+            },
+        ).decodeList<PosCustomerRow>().map { it.toModel() }
+    }
+
+    override suspend fun createPosCustomer(
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ): String = client.postgrest.rpc(
+        RpcNames.CREATE_POS_CUSTOMER,
+        buildJsonObject {
+            put("p_customer_kind", kind.rpcValue)
+            put("p_display_name", displayName.trim())
+            if (businessName.isNullOrBlank()) put("p_business_name", JsonNull) else put("p_business_name", businessName.trim())
+            if (email.isNullOrBlank()) put("p_email", JsonNull) else put("p_email", email.trim())
+            if (phoneE164.isNullOrBlank()) put("p_phone_e164", JsonNull) else put("p_phone_e164", phoneE164.trim())
+            if (whatsappE164.isNullOrBlank()) put("p_whatsapp_e164", JsonNull) else put("p_whatsapp_e164", whatsappE164.trim())
+        },
+    ).decodeAs<String>()
+
+    override suspend fun updatePosCustomer(
+        customerId: String,
+        kind: PosCustomerKind,
+        displayName: String,
+        businessName: String?,
+        email: String?,
+        phoneE164: String?,
+        whatsappE164: String?,
+    ) {
+        client.postgrest.rpc(
+            RpcNames.UPDATE_POS_CUSTOMER,
+            buildJsonObject {
+                put("p_customer_id", customerId)
+                put("p_customer_kind", kind.rpcValue)
+                put("p_display_name", displayName.trim())
+                if (businessName.isNullOrBlank()) put("p_business_name", JsonNull) else put("p_business_name", businessName.trim())
+                if (email.isNullOrBlank()) put("p_email", JsonNull) else put("p_email", email.trim())
+                if (phoneE164.isNullOrBlank()) put("p_phone_e164", JsonNull) else put("p_phone_e164", phoneE164.trim())
+                if (whatsappE164.isNullOrBlank()) put("p_whatsapp_e164", JsonNull) else put("p_whatsapp_e164", whatsappE164.trim())
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listPosCustomerGarage(customerId: String): List<CustomerGarageVehicle> =
+        client.postgrest.rpc(
+            RpcNames.LIST_POS_CUSTOMER_GARAGE,
+            buildJsonObject { put("p_customer_id", customerId) },
+        ).decodeList<PosCustomerGarageRow>().map { it.toModel() }
+
+    override suspend fun upsertPosCustomerGarageVehicle(
+        customerId: String,
+        vehicleId: String?,
+        modelSlug: String,
+        make: String,
+        model: String,
+        generation: String,
+        chassisCode: String,
+        engine: String,
+        vin: String?,
+        isPrimary: Boolean,
+    ): String = client.postgrest.rpc(
+        RpcNames.UPSERT_POS_CUSTOMER_GARAGE_VEHICLE,
+        buildJsonObject {
+            put("p_customer_id", customerId)
+            if (vehicleId.isNullOrBlank()) put("p_vehicle_id", JsonNull) else put("p_vehicle_id", vehicleId)
+            put("p_model_slug", modelSlug.trim())
+            put("p_make", make.trim())
+            put("p_model", model.trim())
+            put("p_generation", generation.trim())
+            put("p_chassis_code", chassisCode.trim())
+            put("p_engine", engine.trim())
+            if (vin.isNullOrBlank()) put("p_vin", JsonNull) else put("p_vin", vin.trim())
+            put("p_is_primary", isPrimary)
+        },
+    ).decodeAs<String>()
+
+    override suspend fun setPosCartCustomer(cartId: String, customerId: String?) {
+        client.postgrest.rpc(
+            RpcNames.SET_POS_CART_CUSTOMER,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                if (customerId.isNullOrBlank()) put("p_customer_id", JsonNull) else put("p_customer_id", customerId)
+            },
+        ).decodeAs<String>()
     }
 
     override suspend fun listSuppliers(): List<SupplierRef> =
@@ -2102,7 +2517,7 @@ class SupabaseRpcClient(
                 install(Postgrest)
                 install(Functions)
             }
-            return SupabaseRpcClient(client)
+            return SupabaseRpcClient(client, supabaseUrl.trimEnd('/'))
         }
 
         private fun List<ConfirmPickLineInput>.toJsonArray(): JsonArray = buildJsonArray {
@@ -2176,6 +2591,7 @@ private data class StockItemRow(
     val id: String,
     @SerialName("base_uom_id") val baseUomId: String,
     @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
 )
 
 @Serializable
@@ -2358,6 +2774,15 @@ private data class PosScanSessionCartRow(
 )
 
 @Serializable
+private data class PosCartVehicleRow(
+    @SerialName("vehicle_model_slug") val modelSlug: String? = null,
+    @SerialName("vehicle_model_name") val modelName: String? = null,
+    @SerialName("vehicle_generation") val generation: String? = null,
+    @SerialName("vehicle_chassis_code") val chassisCode: String? = null,
+    @SerialName("vehicle_engine_code") val engineCode: String? = null,
+)
+
+@Serializable
 private data class PosQuotationRow(
     val id: String,
     @SerialName("document_number") val documentNumber: String? = null,
@@ -2370,6 +2795,49 @@ private data class PosQuotationRow(
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("line_count") val lineCount: Long = 0,
     val total: Double = 0.0,
+)
+
+@Serializable
+private data class PopularPosSpareRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
+    @SerialName("units_sold") val unitsSold: Double = 0.0,
+    @SerialName("saleable_qty") val saleableQty: Double = 0.0,
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    val currency: String? = null,
+    @SerialName("image_storage_path") val imageStoragePath: String? = null,
+)
+
+@Serializable
+private data class PosPopularPinRow(
+    @SerialName("item_type") val itemType: String,
+    @SerialName("item_key") val itemKey: String,
+    val label: String,
+    val subtitle: String? = null,
+    @SerialName("search_query") val searchQuery: String,
+    @SerialName("maker_slug") val makerSlug: String? = null,
+    @SerialName("model_slug") val modelSlug: String? = null,
+    @SerialName("category_name") val categoryName: String? = null,
+    @SerialName("subcategory_name") val subcategoryName: String? = null,
+    @SerialName("oem_part_number") val oemPartNumber: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+)
+
+@Serializable
+private data class PosInvoiceRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String? = null,
+    @SerialName("customer_id") val customerId: String? = null,
+    @SerialName("customer_name") val customerName: String? = null,
+    val total: Double = 0.0,
+    val currency: String,
+    @SerialName("posted_at") val postedAt: String? = null,
+    @SerialName("vehicle_model_name") val vehicleModelName: String? = null,
+    @SerialName("vehicle_generation") val vehicleGeneration: String? = null,
+    @SerialName("vehicle_chassis_code") val vehicleChassisCode: String? = null,
+    @SerialName("vehicle_engine_code") val vehicleEngineCode: String? = null,
 )
 
 @Serializable
@@ -2392,13 +2860,55 @@ private data class PosCartLineQtyUpdate(
 private data class StockItemOemRow(
     val id: String,
     @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String? = null,
 )
 
 @Serializable
-private data class CustomerOptionRow(
+private data class StockItemImagePathRow(
+    @SerialName("storage_path") val storagePath: String,
+    @SerialName("is_primary") val isPrimary: Boolean = false,
+    @SerialName("sort_order") val sortOrder: Int = 0,
+)
+
+@Serializable
+private data class PosCustomerRow(
     val id: String,
     @SerialName("display_name") val displayName: String,
-)
+    @SerialName("customer_kind") val customerKind: String = "individual",
+    @SerialName("business_name") val businessName: String? = null,
+    val email: String? = null,
+    @SerialName("phone_e164") val phoneE164: String? = null,
+    @SerialName("whatsapp_e164") val whatsappE164: String? = null,
+) {
+    fun toModel() = CustomerOption(
+        id = id,
+        displayName = displayName,
+        kind = PosCustomerKind.fromRpc(customerKind),
+        businessName = businessName,
+        email = email,
+        phoneE164 = phoneE164,
+        whatsappE164 = whatsappE164,
+    )
+}
+
+@Serializable
+private data class PosCustomerGarageRow(
+    val id: String,
+    @SerialName("customer_id") val customerId: String,
+    val make: String? = null,
+    @SerialName("model_slug") val modelSlug: String? = null,
+    val model: String? = null,
+    val generation: String? = null,
+    @SerialName("chassis_code") val chassisCode: String? = null,
+    val engine: String? = null,
+    val vin: String? = null,
+    @SerialName("is_primary") val isPrimary: Boolean = false,
+) {
+    fun toModel() = CustomerGarageVehicle(
+        id = id, customerId = customerId, make = make, modelSlug = modelSlug, model = model,
+        generation = generation, chassisCode = chassisCode, engine = engine, vin = vin, isPrimary = isPrimary,
+    )
+}
 
 @Serializable
 private data class SupplierRow(
@@ -2654,6 +3164,7 @@ private fun collectPartHits(
                 out.add(
                     CatalogPartHit(
                         oemPartNumber = oem,
+                        description = (obj["description"] as? JsonPrimitive)?.contentOrNull,
                         pncCode = (obj["pnc_code"] as? JsonPrimitive)?.content,
                         categoryName = (obj["category_name"] as? JsonPrimitive)?.content,
                         subcategoryName = (obj["subcategory_name"] as? JsonPrimitive)?.content,

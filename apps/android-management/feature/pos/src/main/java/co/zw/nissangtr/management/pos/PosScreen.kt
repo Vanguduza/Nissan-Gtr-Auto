@@ -2,25 +2,26 @@ package co.zw.nissangtr.management.pos
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -28,12 +29,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -41,7 +42,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import co.zw.nissangtr.bridges.escpos.DocumentPrinterBridge
 import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
+import co.zw.nissangtr.bridges.escpos.PrinterTransport
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.pos.offline.InMemoryOfflinePosStore
 import co.zw.nissangtr.management.pos.offline.OfflinePosConnectivity
@@ -49,7 +52,6 @@ import co.zw.nissangtr.management.pos.offline.OfflinePosRpcHolder
 import co.zw.nissangtr.management.pos.offline.OfflinePosSyncEngine
 import co.zw.nissangtr.management.pos.offline.OfflinePosSyncWorker
 import co.zw.nissangtr.management.pos.offline.SqlCipherOfflinePosStore
-import co.zw.nissangtr.management.rpc.CatalogSearchMode
 import co.zw.nissangtr.management.rpc.CurrencyCode
 import co.zw.nissangtr.management.rpc.FulfillmentMode
 import co.zw.nissangtr.management.rpc.RpcClient
@@ -57,31 +59,31 @@ import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
 import co.zw.nissangtr.ui.shop.ShopOrderBox
 import co.zw.nissangtr.ui.shop.ShopPresenceBanner
+import co.zw.nissangtr.ui.shop.ShopRemoteImage
 import co.zw.nissangtr.ui.shop.ShopPrimaryButton
-import co.zw.nissangtr.ui.shop.ShopProductCard
 import co.zw.nissangtr.ui.shop.ShopSecondaryButton
 import co.zw.nissangtr.ui.shop.ShopStaffPanel
-import co.zw.nissangtr.ui.shop.ShopStaffScreen
 import co.zw.nissangtr.ui.shop.ShopStatusChip
 import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
- * Tablet counter POS: two-pane landscape layout — LEFT: catalog/search + every POS function
- * entry point (till setup, companion, quotations, discount/void/refund/price-override
- * triggers, offline status); RIGHT: the active cart (line items, totals, tender/checkout).
- * Falls back to a stacked single column below [TWO_PANE_MIN_WIDTH] (phone-width fallback —
- * `feature/pos` has no separate tablet source set, see `app/src/tablet` for the flavor that
- * only overrides kiosk lock-task wiring, not this screen).
- * QR / print via bridges only — never browser/HTML5 / Web Bluetooth. No ZIMRA.
+ * Canonical Nissan GTR Auto operator POS entry point. The 2026-09-07 design lock is rendered
+ * by [PosOperatorWorkspace]: dark role-aware navigation, search/discovery canvas and persistent
+ * Current Sale pane on landscape tablets, with a compact stacked fallback. Transaction authority
+ * remains in [PosViewModel]/[RpcClient]; QR and receipt printing remain Android bridge-first.
  */
 @Composable
 fun PosScreen(
     rpc: RpcClient,
     qr: QrScannerBridge,
     printer: EscPosPrinterBridge,
+    documentPrinter: DocumentPrinterBridge? = null,
     onBack: () -> Unit,
     isSalesHome: Boolean = false,
     onOpenHub: (() -> Unit)? = null,
+    onOpenStaffPortal: (() -> Unit)? = null,
+    onOpenKioskSettings: (() -> Unit)? = null,
+    operatorLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -92,6 +94,9 @@ fun PosScreen(
     DisposableEffect(rpc) {
         OfflinePosRpcHolder.set(rpc)
         onDispose { OfflinePosRpcHolder.set(null) }
+    }
+    DisposableEffect(offlineStore) {
+        onDispose { offlineStore.close() }
     }
     val offlineEngine = remember(offlineStore) {
         OfflinePosSyncEngine(
@@ -105,7 +110,7 @@ fun PosScreen(
     }
     val onlineFlow = remember { OfflinePosConnectivity.onlineFlow(context) }
     val viewModel: PosViewModel = viewModel(
-        factory = PosViewModel.factory(rpc, qr, printer, offlineEngine, onlineFlow),
+        factory = PosViewModel.factory(rpc, qr, printer, documentPrinter, offlineEngine, onlineFlow),
     )
     val state by viewModel.state.collectAsState()
 
@@ -118,148 +123,23 @@ fun PosScreen(
         }
     }
 
-    ShopStaffScreen(
-        title = "POS",
-        subtitle = "Companion · Bridge QR/print",
+    PosOperatorWorkspace(
+        state = state,
+        viewModel = viewModel,
+        operatorLabel = operatorLabel,
+        onOpenHub = onOpenHub,
+        onOpenStaffPortal = onOpenStaffPortal,
+        onOpenKioskSettings = onOpenKioskSettings,
         modifier = modifier,
-        scrollable = false,
-        onBack = onBack,
-    ) {
-        Text(
-            "Counter till · Bridge QR / ESC/POS · No ZIMRA",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        PosWorkspace(state = state, viewModel = viewModel)
-
-        state.lastBindMessage?.let {
-            Text("Last bind: $it", style = MaterialTheme.typography.bodyMedium)
-        }
-        state.lastInvoiceId?.let {
-            Text("Last invoice: $it", style = MaterialTheme.typography.bodySmall)
-        }
-        state.message?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium)
-        }
-        state.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
-        }
-
-        if (onOpenHub != null) {
-            ShopSecondaryButton(
-                label = if (isSalesHome) "All modules (hub)" else "Hub",
-                onClick = { onOpenHub.invoke() },
-            )
-        }
-    }
+    )
 
     if (state.managerPrompt != null) {
         ManagerAuthDialog(state = state, viewModel = viewModel)
     }
 }
 
-private val TWO_PANE_MIN_WIDTH = 700.dp
-
-/**
- * Outer two-pane split. Left ~60% hosts catalog + every non-cart POS function; right ~40%
- * is always the active cart (line items / totals / tender / checkout) regardless of which
- * left-pane function is open, so a cashier can companion-pair or browse quotations without
- * losing sight of the cart in progress.
- */
 @Composable
-private fun PosWorkspace(
-    state: PosUiState,
-    viewModel: PosViewModel,
-) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val twoPane = maxWidth >= TWO_PANE_MIN_WIDTH
-        if (twoPane) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 480.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                LeftFunctionsPane(
-                    state = state,
-                    viewModel = viewModel,
-                    modifier = Modifier
-                        .weight(0.6f)
-                        .fillMaxHeight(),
-                )
-                RightCartPane(
-                    state = state,
-                    viewModel = viewModel,
-                    modifier = Modifier
-                        .weight(0.4f)
-                        .fillMaxHeight(),
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LeftFunctionsPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
-                RightCartPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
-            }
-        }
-    }
-}
-
-/**
- * LEFT pane: offline status, mode switcher (Till / Companion / Quotations), and every
- * function entry point that isn't part of the cart itself (catalog, setup, discount/void/
- * refund/price-override triggers, printer, park/resume, companion pairing).
- */
-@Composable
-private fun LeftFunctionsPane(
-    state: PosUiState,
-    viewModel: PosViewModel,
-    modifier: Modifier = Modifier,
-) {
-    ShopStaffPanel(modifier = modifier, title = null) {
-        Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (state.isOffline || state.pendingOfflineSales > 0) {
-                OfflineStatusBanner(state = state, viewModel = viewModel)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = state.mode == PosWorkspaceMode.Till,
-                    onClick = { viewModel.setMode(PosWorkspaceMode.Till) },
-                    label = { Text("Till") },
-                    enabled = !state.busy,
-                    shape = MaterialTheme.shapes.extraSmall,
-                )
-                FilterChip(
-                    selected = state.mode == PosWorkspaceMode.Companion,
-                    onClick = { viewModel.setMode(PosWorkspaceMode.Companion) },
-                    label = { Text("Scan companion") },
-                    enabled = !state.busy && !state.isOffline,
-                    shape = MaterialTheme.shapes.extraSmall,
-                )
-                FilterChip(
-                    selected = state.showQuotes,
-                    onClick = viewModel::toggleQuotes,
-                    label = { Text("Quotations") },
-                    enabled = !state.busy && !state.isOffline,
-                    shape = MaterialTheme.shapes.extraSmall,
-                )
-            }
-
-            when {
-                state.showQuotes -> QuotesPanel(state = state, viewModel = viewModel)
-                state.mode == PosWorkspaceMode.Till -> TillFunctionsSection(state = state, viewModel = viewModel)
-                else -> CompanionSection(state = state, viewModel = viewModel)
-            }
-        }
-    }
-}
-
-@Composable
-private fun OfflineStatusBanner(
+internal fun OfflineStatusBanner(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
@@ -286,120 +166,9 @@ private fun OfflineStatusBanner(
     }
 }
 
-/** Till mode content for the left pane: setup → catalog → cart-level action triggers. */
-@Composable
-private fun TillFunctionsSection(
-    state: PosUiState,
-    viewModel: PosViewModel,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CartSetupSection(state = state, viewModel = viewModel)
-        CatalogPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth())
-        CartActionTriggers(state = state, viewModel = viewModel)
-        PrinterSection(state = state, viewModel = viewModel)
-        ParkedAndPairingSection(state = state, viewModel = viewModel)
-    }
-}
-
-@Composable
-private fun CatalogPane(
-    state: PosUiState,
-    viewModel: PosViewModel,
-    modifier: Modifier = Modifier,
-) {
-    var showEpc by remember { mutableStateOf(false) }
-    ShopStaffPanel(modifier = modifier, title = "Catalog") {
-            // EPC hierarchy is online-only; offline cache stays flat catalog_items.
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                CatalogSearchMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = !showEpc && state.searchMode == mode,
-                        onClick = {
-                            showEpc = false
-                            viewModel.onSearchModeChange(mode)
-                        },
-                        label = { Text(mode.rpcValue) },
-                        enabled = !state.busy,
-                    )
-                }
-                FilterChip(
-                    selected = showEpc,
-                    onClick = { showEpc = true },
-                    label = { Text("EPC") },
-                    enabled = !state.busy && !state.isOffline,
-                )
-            }
-            if (showEpc) {
-                PosEpcBrowseScreen(
-                    rpc = viewModel.rpcForEpc(),
-                    onBack = { showEpc = false },
-                    onSelectOem = { oem ->
-                        viewModel.addOemToCart(oem)
-                        showEpc = false
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 320.dp, max = 520.dp),
-                )
-            } else {
-            OutlinedTextField(
-                value = state.searchQuery,
-                onValueChange = viewModel::onSearchQueryChange,
-                label = { Text("OEM / VIN / model / PNC") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ShopPrimaryButton(
-                    label = "Search",
-                    onClick = viewModel::searchCatalog,
-                    enabled = !state.busy,
-                    modifier = Modifier.weight(1f),
-                )
-                ShopSecondaryButton(
-                    label = "Scan QR",
-                    onClick = viewModel::tillScanAddLine,
-                    enabled = !state.busy,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 140.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 180.dp, max = 360.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(state.searchHits, key = { it.oemPartNumber + (it.pncCode ?: "") }) { hit ->
-                    val meta = listOfNotNull(
-                        hit.categoryName,
-                        hit.pncCode?.let { "PNC $it" },
-                    ).joinToString(" · ").ifBlank { null }
-                    ShopProductCard(
-                        title = hit.oemPartNumber,
-                        subtitle = meta,
-                        priceLabel = hit.saleableQty?.let { "Stock ${formatQty(it)}" } ?: "Stock —",
-                        onClick = { if (!state.busy) viewModel.addPartFromCatalog(hit) },
-                        modifier = Modifier.fillMaxWidth(),
-                        cardHeight = 160.dp,
-                    )
-                }
-            }
-            if (state.searchHits.isEmpty()) {
-                ShopHonestEmpty(
-                    title = "Empty catalog grid",
-                    body = "Search or scan to fill the catalog grid",
-                )
-            }
-            }
-    }
-}
-
 /** Warehouse / currency / fulfillment / customer selection + cart-open trigger. */
 @Composable
-private fun CartSetupSection(
+internal fun CartSetupSection(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
@@ -434,34 +203,16 @@ private fun CartSetupSection(
                     )
                 }
             }
-            OutlinedTextField(
-                value = state.customerQuery,
-                onValueChange = viewModel::onCustomerQueryChange,
-                label = { Text("Customer") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = viewModel::searchCustomers,
-                    enabled = !state.busy,
-                    modifier = Modifier.height(48.dp),
-                ) { Text("Find") }
-                if (state.customerName.isNotBlank()) {
-                    TextButton(onClick = viewModel::clearCustomer) {
-                        Text(state.customerName)
-                    }
-                }
-            }
-            state.customerHits.take(4).forEach { c ->
+            if (state.customerName.isNotBlank()) {
                 Text(
-                    c.displayName,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.selectCustomer(c) }
-                        .padding(vertical = 6.dp),
-                    style = MaterialTheme.typography.bodyLarge,
+                    "Customer · ${state.customerName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                Text(
+                    "Walk-in sale · use Customer from the POS navigation to attach or create an account",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -481,7 +232,7 @@ private fun CartSetupSection(
  * for discount/void/refund gates through [ManagerAuthDialog]; per-line price override stays
  * attached to its line in [RightCartPane]). */
 @Composable
-private fun CartActionTriggers(
+internal fun CartActionTriggers(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
@@ -534,24 +285,38 @@ private fun CartActionTriggers(
 }
 
 @Composable
-private fun PrinterSection(
+internal fun PrinterSection(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
-    ShopStaffPanel(title = "ESC/POS (Bluetooth bridge)") {
+    ShopStaffPanel(title = "Receipt printer") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = state.printerTransport == PrinterTransport.BLUETOOTH,
+                onClick = { viewModel.onPrinterTransportChange(PrinterTransport.BLUETOOTH) },
+                label = { Text("Bluetooth") },
+                enabled = !state.busy,
+            )
+            FilterChip(
+                selected = state.printerTransport == PrinterTransport.WIFI,
+                onClick = { viewModel.onPrinterTransportChange(PrinterTransport.WIFI) },
+                label = { Text("Wi-Fi / LAN") },
+                enabled = !state.busy,
+            )
+        }
+
+        if (state.printerTransport == PrinterTransport.BLUETOOTH) {
             OutlinedButton(
                 onClick = viewModel::refreshBondedPrinters,
                 enabled = !state.busy,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("List bonded printers") }
+            ) { Text("Find bonded Bluetooth printers") }
             state.bondedPrinters.forEach { device ->
                 Text(
                     "${device.name} · ${device.address}",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(enabled = !state.busy) {
-                            viewModel.selectBondedPrinter(device)
-                        }
+                        .clickable(enabled = !state.busy) { viewModel.selectBondedPrinter(device) }
                         .padding(vertical = 8.dp),
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -559,26 +324,68 @@ private fun PrinterSection(
             OutlinedTextField(
                 value = state.printerMac,
                 onValueChange = viewModel::onPrinterMacChange,
-                label = { Text("Printer MAC") },
+                label = { Text("Bluetooth MAC") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !state.busy,
             )
-            OutlinedButton(
-                onClick = viewModel::connectPrinter,
+        } else {
+            OutlinedTextField(
+                value = state.printerHost,
+                onValueChange = viewModel::onPrinterHostChange,
+                label = { Text("Printer IP / hostname") },
+                placeholder = { Text("192.168.1.50") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 enabled = !state.busy,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-            ) {
-                Text(if (state.printerConnected) "Printer connected" else "Connect printer")
-            }
+            )
+            OutlinedTextField(
+                value = state.printerPort,
+                onValueChange = viewModel::onPrinterPortChange,
+                label = { Text("TCP port") },
+                supportingText = { Text("ESC/POS network printers normally use 9100") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !state.busy,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+        }
+
+        OutlinedButton(
+            onClick = viewModel::connectPrinter,
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            Text(if (state.printerConnected) "Printer connected" else "Connect printer")
+        }
+        Text(
+            "Supports ESC/POS over Bluetooth SPP or Wi-Fi/LAN raw TCP. Vendor-only receipt protocols can use their Android driver where provided.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    ShopStaffPanel(title = "A4 / desktop printers") {
+        Text(
+            "Uses Android Print Framework. Mopria and installed HP, Canon, Epson, Brother, Samsung/Xerox or other PrintService drivers can discover and drive compatible A4 printers.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Printer service/driver installation is admin-only under Settings → Kiosk & device.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(
+            onClick = viewModel::printLastInvoiceA4,
+            enabled = state.lastA4DocumentLines.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) { Text("Print last invoice on A4") }
     }
 }
 
 /** Parked-cart resume + owner-side companion pairing code (create/revoke). */
 @Composable
-private fun ParkedAndPairingSection(
+internal fun ParkedAndPairingSection(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
@@ -613,125 +420,284 @@ private fun ParkedAndPairingSection(
 
 /** RIGHT pane: the active cart only — line items, totals, tender/receipt, checkout. */
 @Composable
-private fun RightCartPane(
+internal fun RightCartPane(
     state: PosUiState,
     viewModel: PosViewModel,
     modifier: Modifier = Modifier,
+    onCustomerClick: (() -> Unit)? = null,
 ) {
     val cartTotal = PosCartLineOps.cartTotal(state.cartLines)
-    ShopStaffPanel(modifier = modifier, title = "Cart") {
+    val paymentOpen = remember { mutableStateOf(false) }
+
+    ShopStaffPanel(modifier = modifier, title = "Current Sale") {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                if (state.cartId.isBlank()) {
-                    "No cart open — use the left panel to open one"
-                } else {
-                    "Cart ${state.cartId.take(8)}…"
-                },
-                style = MaterialTheme.typography.bodySmall,
-            )
-
-            HorizontalDivider()
-            state.cartLines.forEach { line ->
-                ShopListCard(
-                    title = line.oemPartNumber ?: line.stockItemId.take(8),
-                    subtitle = "@ ${line.unitPrice} = ${line.lineTotal}" +
-                        if (line.isCoreCharge) " (core)" else "",
-                    onClick = {},
-                    trailing = if (!line.isCoreCharge) {
-                        {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(
-                                    onClick = { viewModel.requestPriceOverride(line) },
-                                    enabled = !state.busy,
-                                ) { Text("Price") }
-                                OutlinedButton(
-                                    onClick = { viewModel.bumpLineQty(line, -1.0) },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.height(40.dp),
-                                ) { Text("−") }
-                                Text(
-                                    "×${line.qty.toInt()}",
-                                    modifier = Modifier.padding(horizontal = 6.dp),
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                OutlinedButton(
-                                    onClick = { viewModel.bumpLineQty(line, 1.0) },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.height(40.dp),
-                                ) { Text("+") }
-                            }
-                        }
-                    } else {
-                        null
-                    },
-                    badges = if (line.isCoreCharge) {
-                        { ShopStatusChip(label = "core", background = GtrColors.Mist) }
-                    } else {
-                        null
-                    },
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (state.cartLines.isEmpty()) "No items yet" else "${state.cartLines.size} line${if (state.cartLines.size == 1) "" else "s"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                TextButton(
+                    onClick = viewModel::requestVoidCart,
+                    enabled = !state.busy && state.cartId.isNotBlank() && state.cartLines.isNotEmpty(),
+                ) { Text("Clear", color = MaterialTheme.colorScheme.primary) }
             }
+
+            state.saleVehicle?.let { vehicle ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.small,
+                    color = GtrColors.Mist,
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text("Vehicle", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(vehicle.displayLabel, style = MaterialTheme.typography.titleSmall)
+                        Text("Chassis ${vehicle.chassisCode}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
             if (state.cartLines.isEmpty()) {
                 ShopHonestEmpty(
                     title = "Empty cart",
-                    body = "Tap catalog tiles to add lines",
+                    body = "Search, scan, choose Popular Items, or browse EPC to add lines.",
                 )
-            }
-            Text(
-                "Total ${state.currency.rpcValue} ${"%.2f".format(cartTotal)}",
-                style = MaterialTheme.typography.headlineSmall,
-            )
-
-            HorizontalDivider()
-            Text("Tender / receipt", style = MaterialTheme.typography.titleSmall)
-            OutlinedTextField(
-                value = state.receiptEmail,
-                onValueChange = viewModel::onReceiptEmailChange,
-                label = { Text("Receipt email") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            OutlinedTextField(
-                value = state.receiptWhatsapp,
-                onValueChange = viewModel::onReceiptWhatsappChange,
-                label = { Text("Receipt WhatsApp") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-            )
-            state.tenderLines.forEachIndexed { index, row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("cash", "ecocash", "paynow").forEach { t ->
-                        FilterChip(
-                            selected = row.tender == t,
-                            onClick = { viewModel.onTenderChange(index, t) },
-                            label = { Text(t) },
-                            enabled = !state.busy,
-                        )
+            } else {
+                state.cartLines.forEach { line ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 1.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(58.dp),
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                if (!line.imageUrl.isNullOrBlank()) {
+                                    ShopRemoteImage(
+                                        url = line.imageUrl,
+                                        contentDescription = line.description ?: line.oemPartNumber,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                                        placeholderLabel = "Part",
+                                    )
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Filled.Inventory2,
+                                            contentDescription = null,
+                                            tint = GtrColors.SilverDim,
+                                            modifier = Modifier.size(28.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    line.description ?: line.oemPartNumber ?: "Part ${line.stockItemId.take(8)}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                )
+                                val lineOem = line.oemPartNumber
+                                if (!line.description.isNullOrBlank() && !lineOem.isNullOrBlank()) {
+                                    Text(
+                                        lineOem,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text(
+                                    "${state.currency.rpcValue} ${"%.2f".format(line.unitPrice)} each",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (line.isCoreCharge) {
+                                    ShopStatusChip(label = "core charge", background = GtrColors.Mist)
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    "${state.currency.rpcValue} ${"%.2f".format(line.lineTotal)}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                )
+                                if (!line.isCoreCharge) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.bumpLineQty(line, -1.0) },
+                                            enabled = !state.busy,
+                                            modifier = Modifier.size(38.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                        ) { Text("−") }
+                                        Text(
+                                            line.qty.toInt().toString(),
+                                            modifier = Modifier.width(34.dp),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        )
+                                        OutlinedButton(
+                                            onClick = { viewModel.bumpLineQty(line, 1.0) },
+                                            enabled = !state.busy,
+                                            modifier = Modifier.size(38.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                        ) { Text("+") }
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.requestPriceOverride(line) },
+                                        enabled = !state.busy,
+                                    ) { Text("Override price") }
+                                }
+                            }
+                        }
                     }
                 }
-                OutlinedTextField(
-                    value = row.amount,
-                    onValueChange = { viewModel.onTenderAmountChange(index, it) },
-                    label = { Text("Amount (optional split)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
+            }
+
+            if (onCustomerClick != null) {
+                ShopSecondaryButton(
+                    label = if (state.customerName.isBlank()) "Add Customer (Optional)" else "Customer · ${state.customerName}",
+                    onClick = onCustomerClick,
                     enabled = !state.busy,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
             }
 
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Subtotal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${state.currency.rpcValue} ${"%.2f".format(cartTotal)}", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            }
+            Text(
+                "Manager-approved adjustments are already reflected in the authoritative line prices.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Total", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "${state.currency.rpcValue} ${"%.2f".format(cartTotal)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                )
+            }
             ShopPrimaryButton(
-                label = "Checkout",
-                onClick = viewModel::checkout,
-                enabled = !state.busy,
+                label = "Proceed to Payment  →",
+                onClick = { paymentOpen.value = true },
+                enabled = !state.busy && state.cartLines.isNotEmpty(),
             )
         }
     }
+
+    if (paymentOpen.value) {
+        PaymentDialog(
+            state = state,
+            viewModel = viewModel,
+            total = cartTotal,
+            onDismiss = { paymentOpen.value = false },
+            onCheckout = {
+                viewModel.checkout()
+                paymentOpen.value = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun PaymentDialog(
+    state: PosUiState,
+    viewModel: PosViewModel,
+    total: Double,
+    onDismiss: () -> Unit,
+    onCheckout: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!state.busy) onDismiss() },
+        title = { Text("Payment") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Total ${state.currency.rpcValue} ${"%.2f".format(total)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                )
+                OutlinedTextField(
+                    value = state.receiptEmail,
+                    onValueChange = viewModel::onReceiptEmailChange,
+                    label = { Text("Receipt email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                OutlinedTextField(
+                    value = state.receiptWhatsapp,
+                    onValueChange = viewModel::onReceiptWhatsappChange,
+                    label = { Text("Receipt WhatsApp") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                state.tenderLines.forEachIndexed { index, row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("cash", "ecocash", "paynow").forEach { tender ->
+                            FilterChip(
+                                selected = row.tender == tender,
+                                onClick = { viewModel.onTenderChange(index, tender) },
+                                label = { Text(tender) },
+                                enabled = !state.busy,
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = row.amount,
+                        onValueChange = { viewModel.onTenderAmountChange(index, it) },
+                        label = { Text("Amount${if (state.tenderLines.size > 1) " · split ${index + 1}" else ""}") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !state.busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                    if (state.tenderLines.size > 1) {
+                        TextButton(onClick = { viewModel.removeTenderLine(index) }, enabled = !state.busy) {
+                            Text("Remove split")
+                        }
+                    }
+                }
+                TextButton(onClick = viewModel::addTenderLine, enabled = !state.busy) {
+                    Text("Add split tender")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onCheckout,
+                enabled = !state.busy && state.cartLines.isNotEmpty(),
+            ) { Text("Complete payment") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !state.busy) { Text("Back") }
+        },
+    )
 }
 
 /** Manager reauth overlay for discount / void / refund / price-override — modal by design so
@@ -816,7 +782,7 @@ private fun formatQty(qty: Double): String =
     if (qty == qty.toLong().toDouble()) qty.toLong().toString() else "%.1f".format(qty)
 
 @Composable
-private fun QuotesPanel(
+internal fun QuotesPanel(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {
@@ -893,7 +859,7 @@ private fun QuotesPanel(
 }
 
 @Composable
-private fun CompanionSection(
+internal fun CompanionSection(
     state: PosUiState,
     viewModel: PosViewModel,
 ) {

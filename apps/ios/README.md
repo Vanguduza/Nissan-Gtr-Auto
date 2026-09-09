@@ -15,14 +15,14 @@ SwiftUI customer shell with thin Cart / Orders / Garage / **Wishlist** / **Compa
 
 ```text
 # Live (scheme env and/or Secrets.xcconfig → Info.plist — never commit secrets)
-SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 
 # Optional force Fake while keeping URL configured
 STOREFRONT_FORCE_FAKE=1
 
 # Optional WhatsApp wa.me digits (Chat tab CTA)
-WHATSAPP_E164=263770000000
+WHATSAPP_E164=263XXXXXXXXX
 ```
 
 Resolution order for URL / anon / force-fake / WhatsApp: **scheme `ProcessInfo` env**, then **Info.plist** keys injected by `Config/Shared.xcconfig` (optional `#include?` of `Secrets.xcconfig`).
@@ -63,9 +63,9 @@ Seed staff (not storefront customers) — see [`docs/LOCAL_DEVELOPMENT.md`](../.
 
 | Email | Password | Role |
 |-------|----------|------|
-| `admin@gtr.local` | `local-dev-admin` | admin |
-| `finance@gtr.local` | `local-dev-finance` | finance |
-| `warehouse@gtr.local` | `local-dev-warehouse` | warehouse |
+| `admin@gtr.local` | local-only; see `docs/LOCAL_DEVELOPMENT.md` | admin |
+| `finance@gtr.local` | local-only; see `docs/LOCAL_DEVELOPMENT.md` | finance |
+| `warehouse@gtr.local` | local-only; see `docs/LOCAL_DEVELOPMENT.md` | warehouse |
 
 `supabase/seed.sql` seeds **staff only** — no customer passwords there.
 

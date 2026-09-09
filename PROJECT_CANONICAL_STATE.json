@@ -10,11 +10,38 @@
     "release_requires_provenance": true
   },
   "canonical_state": {
-    "status": "SPECIALIZED_RECONCILIATION_REQUIRED",
+    "status": "MULTI_APP_GUARDED_RECONCILIATION",
     "release_blocked": true,
     "default_branch_at_bootstrap": "cursor/erp-cursor-setup-ad25",
-    "required_ancestors": [],
-    "notes": "The default branch is explicitly NOT canonical. Stronger app-specific customer/POS guardrails exist on the active reconciliation lineage and must be reconciled before this repo can clear its release block."
+    "notes": "Repository-wide release tags remain blocked until app-specific reconciliations are promoted. App build gates below are authoritative per application."
+  },
+  "applications": {
+    "customer-android": {
+      "module": "apps/android-customer",
+      "status": "LOCKED_ILLUSTRATED_CANONICAL_CANDIDATE",
+      "canonical_visual_branch": "cursor/android-customer-preview-locked-078e",
+      "required_ancestor": "27bc0a54794bc2a60d21bb24b80be4c3c10bb694",
+      "release_blocked_until_reconciled": false,
+      "legacy_lineage_status": "SHELVED_DO_NOT_RELEASE",
+      "notes": "Bespoke illustrated storefront branch head is mandatory visual ancestor. Production/auth/catalog/POS-derived customer capabilities are reconciled on top; fake/demo runtime is forbidden."
+    },
+    "pos-android": {
+      "module": "apps/android-management/feature/pos",
+      "status": "LOCKED_POS_RECONCILIATION_LINEAGE",
+      "canonical_branch": "chatgpt/pos-reconcile-green-20260907",
+      "required_ancestor": "a431d13ee9c34638561c5854e3d490793ed43b9d",
+      "release_blocked_until_reconciled": false
+    },
+    "management-android": {
+      "module": "apps/android-management",
+      "status": "CANONICAL_DISCOVERY_REQUIRED",
+      "release_blocked_until_reconciled": true
+    },
+    "delivery-android": {
+      "module": "apps/android-delivery",
+      "status": "CANONICAL_DISCOVERY_REQUIRED",
+      "release_blocked_until_reconciled": true
+    }
   },
   "tracking": {
     "ledger": "docs/project-state/CHANGE_LEDGER.jsonl",

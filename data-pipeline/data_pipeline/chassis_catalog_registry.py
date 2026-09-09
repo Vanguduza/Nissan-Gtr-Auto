@@ -295,7 +295,7 @@ def ensure_catalogs_file(path: Path | None = None) -> Path:
 
 
 def load_catalogs(*, path: Path | str | None = None, force: bool = False) -> dict[str, dict[str, Any]]:
-    global _catalogs, _prefix_index
+    global _catalogs
     if _catalogs is not None and not force:
         return _catalogs
 

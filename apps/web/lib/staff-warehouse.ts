@@ -263,9 +263,13 @@ export async function createStockReconciliationDraft(
     exchangeRate?: number;
   },
 ): Promise<StorefrontResult<string>> {
+  const configuredZigRate = zigExchangeRate();
+  if (args.currency === "ZIG" && args.exchangeRate == null && configuredZigRate == null) {
+    return { ok: false, error: "ZiG exchange rate is not configured. Finance must publish a verified rate before ZiG transactions are enabled." };
+  }
   const exchangeRate =
     args.currency === "ZIG"
-      ? (args.exchangeRate ?? zigExchangeRate())
+      ? (args.exchangeRate ?? configuredZigRate!)
       : (args.exchangeRate ?? 1);
 
   const { data, error } = await client.rpc("create_stock_reconciliation_draft", {

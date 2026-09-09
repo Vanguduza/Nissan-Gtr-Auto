@@ -11,7 +11,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from data_pipeline.megazip.config import MegazipConfig, MakerPaths, load_priority_model_seeds
+from data_pipeline.megazip.config import MakerPaths, MegazipConfig
 from data_pipeline.megazip.parse_html import (
     _DIAGRAM_IMG,
     _section_rank,
@@ -21,6 +21,7 @@ from data_pipeline.megazip.parse_html import (
 )
 from data_pipeline.megazip.state import (
     acquire_model_leases,
+    claim_next_url,
     enqueue_url,
     heartbeat_leases,
     init_db,
@@ -28,14 +29,13 @@ from data_pipeline.megazip.state import (
     list_active_leases,
     load_all_parsed,
     mark_url,
-    claim_next_url,
     pending_count,
+    queue_stats,
     reclaim_stale_processing,
     release_leases,
     reset_url_pending,
     save_cache,
     upsert_parsed,
-    queue_stats,
 )
 from data_pipeline.parse_partsouq_html import normalize_chassis_code
 
@@ -613,10 +613,14 @@ async def crawl_maker(
 
                 url = row["url"]
                 chassis = row.get("chassis_code") or ""
-                if active_priority and row.get("page_type") in ("section_list", "diagram"):
-                    if chassis and not _priority_allows(chassis, active_priority):
-                        mark_url(paths.state_db, url, ok=True)
-                        continue
+                if (
+                    active_priority
+                    and row.get("page_type") in ("section_list", "diagram")
+                    and chassis
+                    and not _priority_allows(chassis, active_priority)
+                ):
+                    mark_url(paths.state_db, url, ok=True)
+                    continue
 
                 await asyncio.sleep(rate + random.uniform(0, rate * 0.3))
                 try:
@@ -676,13 +680,17 @@ async def crawl_maker(
 
                     for item in _discover_from_parsed(parsed, maker_slug=paths.slug):
                         ch = item.get("chassis_code") or chassis
-                        if active_priority and item.get("page_type") in (
-                            "variant_list",
-                            "section_list",
-                            "diagram",
+                        if (
+                            active_priority
+                            and item.get("page_type") in (
+                                "variant_list",
+                                "section_list",
+                                "diagram",
+                            )
+                            and ch
+                            and not _priority_allows(ch, active_priority)
                         ):
-                            if ch and not _priority_allows(ch, active_priority):
-                                continue
+                            continue
                         enqueue_url(
                             paths.state_db,
                             item["url"],

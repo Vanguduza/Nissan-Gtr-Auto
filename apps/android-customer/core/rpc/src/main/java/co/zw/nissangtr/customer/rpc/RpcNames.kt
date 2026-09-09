@@ -3,7 +3,7 @@ package co.zw.nissangtr.customer.rpc
 /**
  * Canonical Postgres RPC names mirroring web storefront + chat helpers.
  * Live: [SupabaseRpcClient] → `client.postgrest.rpc(RpcNames.X, params)`.
- * Fallback: [FakeRpcClient].
+ * Test fixtures may instantiate test transports directly; production runtime is live-only.
  */
 object RpcNames {
     /** Four-way catalog lookup — mirrors apps/web/lib/catalog-search.ts */
@@ -15,6 +15,7 @@ object RpcNames {
     const val LIST_CATALOG_VARIANTS = "list_catalog_variants"
     const val LIST_CATALOG_SECTIONS = "list_catalog_sections"
     const val GET_CATALOG_DIAGRAM = "get_catalog_diagram"
+    const val LIST_CUSTOMER_POPULAR_SPARES = "list_customer_popular_spares"
 
     const val CREATE_CUSTOMER_CART = "create_customer_cart"
     const val ADD_CUSTOMER_CART_LINE = "add_customer_cart_line"

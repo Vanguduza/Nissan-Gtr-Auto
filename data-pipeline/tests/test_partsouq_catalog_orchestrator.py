@@ -25,7 +25,6 @@ from data_pipeline.partsouq_catalog_orchestrator import (
     write_manifest,
 )
 
-
 AVAILABLE = ["Nissan", "Toyota", "Honda", "Mercedes-Benz"]
 
 

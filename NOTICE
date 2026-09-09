@@ -20,3 +20,22 @@ notice applies to substantial portions adapted from that project.
 GTR brand tokens, Supabase RPC clients, Bridge-First hardware modules, and
 business domain logic are original to this repository and are not part of
 Shopping-By-KMP.
+
+Pictogrammers Material Design Icons
+-----------------------------------
+Category-rail and empty-cart vector drawables under
+`apps/android-customer/core/visual/src/main/res/drawable/ic_mdi_*.xml`
+are derived from Material Design Icons:
+
+  https://github.com/Templarian/MaterialDesign
+  Copyright (c) 2014–2024 Austin Andrews / Pictogrammers
+  License: Apache License 2.0
+  https://www.apache.org/licenses/LICENSE-2.0
+
+Icons used: oil, car-brake-abs, steering, engine, car-shift-pattern,
+lightning-bolt, car-light-dimmed, car, car-coolant-level, gas-station, cart.
+
+Converted from SVG path data to Android vector drawables; fill is #FFFFFFFF
+so Compose can tint them. Pack PNGs (`gtr_categorie_*`,
+`gtr_empty_state_cart_empty`) remain on disk for the copy-pack validator
+and are not drawn on these surfaces.

@@ -3,6 +3,8 @@ package co.zw.nissangtr.customer.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import co.zw.nissangtr.customer.rpc.AuthEdgeClient
+import co.zw.nissangtr.customer.rpc.AuthEdgeSession
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
 import co.zw.nissangtr.customer.rpc.UserFacingErrors
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -18,20 +20,23 @@ sealed class AuthGateState {
     data class SignedIn(val email: String?) : AuthGateState()
 }
 
+enum class AuthFormMode { SignIn, SignUp, ResetPassword }
+
 data class SignInUiState(
     val email: String = "",
     val password: String = "",
+    val code: String = "",
     val mode: AuthFormMode = AuthFormMode.SignIn,
+    val verificationPending: Boolean = false,
     val busy: Boolean = false,
     val error: String? = null,
     val info: String? = null,
 )
 
-enum class AuthFormMode { SignIn, SignUp }
-
 /**
- * Observes GoTrue [SessionStatus] and drives email/password + Google ID-token sign-in / sign-out.
- * Live only — Fake mode bypasses this ViewModel in [AuthGate].
+ * Supabase Auth remains the identity/session authority. Password login, signup
+ * verification and recovery enter through the hardened Auth Edge so project
+ * identifier/IP/device throttles cannot be bypassed by this native client.
  */
 class AuthSessionViewModel(
     private val supabase: SupabaseRpcClient,
@@ -47,8 +52,7 @@ class AuthSessionViewModel(
             supabase.sessionStatus.collect { status ->
                 _gate.value = when (status) {
                     is SessionStatus.Initializing -> AuthGateState.Checking
-                    is SessionStatus.Authenticated ->
-                        AuthGateState.SignedIn(status.session.user?.email)
+                    is SessionStatus.Authenticated -> AuthGateState.SignedIn(status.session.user?.email)
                     is SessionStatus.NotAuthenticated -> AuthGateState.NeedsSignIn
                     is SessionStatus.RefreshFailure -> AuthGateState.NeedsSignIn
                 }
@@ -58,18 +62,43 @@ class AuthSessionViewModel(
 
     fun onEmailChange(v: String) = _signIn.update { it.copy(email = v, error = null, info = null) }
     fun onPasswordChange(v: String) = _signIn.update { it.copy(password = v, error = null, info = null) }
+    fun onCodeChange(v: String) = _signIn.update {
+        it.copy(code = v.filter(Char::isDigit).take(10), error = null, info = null)
+    }
+
     fun setMode(mode: AuthFormMode) = _signIn.update {
-        it.copy(mode = mode, error = null, info = null)
+        it.copy(
+            mode = mode,
+            code = "",
+            verificationPending = false,
+            password = if (mode == AuthFormMode.SignIn) it.password else "",
+            error = null,
+            info = null,
+        )
+    }
+
+    private suspend fun adoptSession(session: AuthEdgeSession) {
+        supabase.importAccessToken(
+            accessToken = session.accessToken,
+            refreshToken = session.refreshToken,
+            expiresIn = session.expiresIn,
+        )
+        supabase.ensureOwnCustomerIfNeeded()
     }
 
     fun signIn() {
-        val email = _signIn.value.email
+        val email = _signIn.value.email.trim()
         val password = _signIn.value.password
         viewModelScope.launch {
             _signIn.update { it.copy(busy = true, error = null, info = null) }
             try {
-                supabase.signInWithEmail(email, password)
-                _signIn.update { it.copy(busy = false, password = "") }
+                val session = AuthEdgeClient.login(
+                    client = supabase.client,
+                    email = email,
+                    password = password,
+                )
+                adoptSession(session)
+                _signIn.update { it.copy(busy = false, password = "", code = "") }
             } catch (e: Exception) {
                 _signIn.update {
                     it.copy(busy = false, error = UserFacingErrors.from(e, "Sign-in failed"))
@@ -78,36 +107,54 @@ class AuthSessionViewModel(
         }
     }
 
-    /**
-     * Exchange a Google ID token for a GoTrue session, then ensure retail `customers` row.
-     */
-    fun signInWithGoogleIdToken(idToken: String, rawNonce: String?) {
-        viewModelScope.launch {
-            _signIn.update { it.copy(busy = true, error = null, info = null) }
-            try {
-                supabase.signInWithGoogleIdToken(idToken, rawNonce)
-                _signIn.update { it.copy(busy = false, password = "") }
-            } catch (e: Exception) {
-                _signIn.update {
-                    it.copy(busy = false, error = UserFacingErrors.from(e, "Google sign-in failed"))
-                }
-            }
-        }
-    }
-
     fun signUp() {
-        val email = _signIn.value.email
-        val password = _signIn.value.password
+        val state = _signIn.value
+        val email = state.email.trim()
+        val password = state.password
         viewModelScope.launch {
             _signIn.update { it.copy(busy = true, error = null, info = null) }
             try {
-                supabase.signUpWithEmail(email, password)
+                if (!state.verificationPending) {
+                    require(password.length >= 8) { "Password must be at least 8 characters" }
+                    AuthEdgeClient.requestSignupOtp(
+                        client = supabase.client,
+                        email = email,
+                        channel = "email",
+                    )
+                    _signIn.update {
+                        it.copy(
+                            busy = false,
+                            verificationPending = true,
+                            info = "Supabase Auth sent a verification code to your email.",
+                        )
+                    }
+                    return@launch
+                }
+
+                require(state.code.length >= 6) { "Enter the verification code" }
+                val verified = AuthEdgeClient.verifySignupOtp(
+                    client = supabase.client,
+                    email = email,
+                    channel = "email",
+                    code = state.code,
+                )
+                require(verified.emailVerified && verified.signupReady) {
+                    "Email verification is incomplete"
+                }
+                val session = AuthEdgeClient.completeSignup(
+                    client = supabase.client,
+                    email = email,
+                    password = password,
+                )
+                adoptSession(session)
                 _signIn.update {
                     it.copy(
                         busy = false,
                         password = "",
+                        code = "",
+                        verificationPending = false,
                         mode = AuthFormMode.SignIn,
-                        info = "Account created. Check email if confirmation is required, then sign in.",
+                        info = "Account created.",
                     )
                 }
             } catch (e: Exception) {
@@ -118,8 +165,21 @@ class AuthSessionViewModel(
         }
     }
 
+    fun resendSignupCode() {
+        val email = _signIn.value.email.trim()
+        viewModelScope.launch {
+            _signIn.update { it.copy(busy = true, error = null, info = null) }
+            try {
+                AuthEdgeClient.requestSignupOtp(supabase.client, email, channel = "email")
+                _signIn.update { it.copy(busy = false, info = "A new verification code was requested.") }
+            } catch (e: Exception) {
+                _signIn.update { it.copy(busy = false, error = UserFacingErrors.from(e, "Resend failed")) }
+            }
+        }
+    }
+
     fun forgotPassword() {
-        val email = _signIn.value.email
+        val email = _signIn.value.email.trim()
         if (email.isBlank()) {
             _signIn.update { it.copy(error = "Enter your email to reset password") }
             return
@@ -127,16 +187,65 @@ class AuthSessionViewModel(
         viewModelScope.launch {
             _signIn.update { it.copy(busy = true, error = null, info = null) }
             try {
-                supabase.resetPasswordForEmail(email)
+                AuthEdgeClient.requestPasswordReset(supabase.client, email)
                 _signIn.update {
                     it.copy(
                         busy = false,
-                        info = "Password reset email sent (if the account exists).",
+                        mode = AuthFormMode.ResetPassword,
+                        verificationPending = true,
+                        password = "",
+                        code = "",
+                        info = "If the account exists, Supabase Auth sent a recovery code.",
+                    )
+                }
+            } catch (e: Exception) {
+                _signIn.update { it.copy(busy = false, error = UserFacingErrors.from(e, "Reset failed")) }
+            }
+        }
+    }
+
+    fun completePasswordReset() {
+        val state = _signIn.value
+        val email = state.email.trim()
+        viewModelScope.launch {
+            _signIn.update { it.copy(busy = true, error = null, info = null) }
+            try {
+                require(state.code.length >= 6) { "Enter the recovery code" }
+                require(state.password.length >= 8) { "New password must be at least 8 characters" }
+                val session = AuthEdgeClient.verifyPasswordReset(
+                    client = supabase.client,
+                    email = email,
+                    code = state.code,
+                    newPassword = state.password,
+                )
+                adoptSession(session)
+                _signIn.update {
+                    it.copy(
+                        busy = false,
+                        code = "",
+                        password = "",
+                        verificationPending = false,
+                        mode = AuthFormMode.SignIn,
+                        info = "Password updated.",
                     )
                 }
             } catch (e: Exception) {
                 _signIn.update {
-                    it.copy(busy = false, error = UserFacingErrors.from(e, "Reset failed"))
+                    it.copy(busy = false, error = UserFacingErrors.from(e, "Password reset failed"))
+                }
+            }
+        }
+    }
+
+    fun signInWithGoogleIdToken(idToken: String, rawNonce: String?) {
+        viewModelScope.launch {
+            _signIn.update { it.copy(busy = true, error = null, info = null) }
+            try {
+                supabase.signInWithGoogleIdToken(idToken, rawNonce)
+                _signIn.update { it.copy(busy = false, password = "") }
+            } catch (e: Exception) {
+                _signIn.update {
+                    it.copy(busy = false, error = UserFacingErrors.from(e, "Google sign-in failed"))
                 }
             }
         }

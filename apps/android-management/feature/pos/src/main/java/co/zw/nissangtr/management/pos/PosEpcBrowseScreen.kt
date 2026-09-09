@@ -1,8 +1,13 @@
 package co.zw.nissangtr.management.pos
 
+import android.graphics.BitmapFactory
+
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -17,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,15 +35,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import co.zw.nissangtr.management.rpc.EpcDiagramPart
 import co.zw.nissangtr.management.rpc.EpcDiagramResponse
+import co.zw.nissangtr.management.rpc.EpcDiagramSummary
 import co.zw.nissangtr.management.rpc.EpcHotspot
 import co.zw.nissangtr.management.rpc.EpcMaker
 import co.zw.nissangtr.management.rpc.EpcModel
 import co.zw.nissangtr.management.rpc.EpcSection
 import co.zw.nissangtr.management.rpc.EpcVariant
-import co.zw.nissangtr.management.rpc.RpcClient
+import co.zw.nissangtr.management.rpc.PosPopularPin
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
@@ -54,11 +63,18 @@ private sealed class EpcLevel {
         val model: EpcModel,
         val variant: EpcVariant,
     ) : EpcLevel()
+    data class Diagrams(
+        val maker: EpcMaker,
+        val model: EpcModel,
+        val variant: EpcVariant,
+        val section: EpcSection,
+    ) : EpcLevel()
     data class Diagram(
         val maker: EpcMaker,
         val model: EpcModel,
         val variant: EpcVariant,
         val section: EpcSection,
+        val diagram: EpcDiagramSummary,
     ) : EpcLevel()
 }
 
@@ -67,10 +83,13 @@ private sealed class EpcLevel {
  * Hotspot overlays use normalized 0–1 bbox fractions (native Box — not camera/QR).
  */
 @Composable
-fun PosEpcBrowseScreen(
-    rpc: RpcClient,
+internal fun PosEpcBrowseScreen(
+    source: EpcCatalogSource,
     onBack: () -> Unit,
     onSelectOem: (String) -> Unit,
+    popularPins: List<PosPopularPin> = emptyList(),
+    onPinPopular: ((PosPopularPin) -> Unit)? = null,
+    onUnpinPopular: ((PosPopularPin) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var level by remember { mutableStateOf<EpcLevel>(EpcLevel.Makers) }
@@ -80,8 +99,16 @@ fun PosEpcBrowseScreen(
     var models by remember { mutableStateOf<List<EpcModel>>(emptyList()) }
     var variants by remember { mutableStateOf<List<EpcVariant>>(emptyList()) }
     var sections by remember { mutableStateOf<List<EpcSection>>(emptyList()) }
+    var diagrams by remember { mutableStateOf<List<EpcDiagramSummary>>(emptyList()) }
     var diagram by remember { mutableStateOf<EpcDiagramResponse?>(null) }
+    var pinMenu by remember { mutableStateOf<List<PosPopularPin>?>(null) }
     val scope = rememberCoroutineScope()
+
+    fun openPinMenu(candidates: List<PosPopularPin>) {
+        if (onPinPopular != null && onUnpinPopular != null && candidates.isNotEmpty()) {
+            pinMenu = candidates
+        }
+    }
 
     fun goBack() {
         when (val cur = level) {
@@ -89,8 +116,9 @@ fun PosEpcBrowseScreen(
             is EpcLevel.Models -> level = EpcLevel.Makers
             is EpcLevel.Variants -> level = EpcLevel.Models(cur.maker)
             is EpcLevel.Sections -> level = EpcLevel.Variants(cur.maker, cur.model)
+            is EpcLevel.Diagrams -> level = EpcLevel.Sections(cur.maker, cur.model, cur.variant)
             is EpcLevel.Diagram ->
-                level = EpcLevel.Sections(cur.maker, cur.model, cur.variant)
+                level = EpcLevel.Diagrams(cur.maker, cur.model, cur.variant, cur.section)
         }
     }
 
@@ -101,22 +129,27 @@ fun PosEpcBrowseScreen(
         error = null
         try {
             when (val cur = level) {
-                is EpcLevel.Makers -> makers = rpc.listCatalogMakers()
-                is EpcLevel.Models -> models = rpc.listCatalogModels(cur.maker.slug)
+                is EpcLevel.Makers -> makers = source.listMakers()
+                is EpcLevel.Models -> models = source.listModels(cur.maker.slug)
                 is EpcLevel.Variants ->
-                    variants = rpc.listCatalogVariants(cur.maker.slug, cur.model.slug)
+                    variants = source.listVariants(cur.maker.slug, cur.model.slug)
                 is EpcLevel.Sections ->
-                    sections = rpc.listCatalogSections(
+                    sections = source.listSections(
                         cur.maker.slug,
                         cur.model.slug,
                         cur.variant.slug,
                     )
+                is EpcLevel.Diagrams ->
+                    diagrams = source.listDiagrams(
+                        cur.maker.slug, cur.model.slug, cur.variant.slug, cur.section.slug,
+                    )
                 is EpcLevel.Diagram ->
-                    diagram = rpc.getCatalogDiagram(
+                    diagram = source.getDiagramBySlug(
                         cur.maker.slug,
                         cur.model.slug,
                         cur.variant.slug,
                         cur.section.slug,
+                        cur.diagram.slug,
                     )
             }
         } catch (t: Throwable) {
@@ -135,11 +168,12 @@ fun PosEpcBrowseScreen(
         )
         Text(
             text = when (val cur = level) {
-                is EpcLevel.Makers -> "EPC catalog"
+                is EpcLevel.Makers -> if (source.offline) "EPC catalog · Offline" else "EPC catalog"
                 is EpcLevel.Models -> cur.maker.name
                 is EpcLevel.Variants -> cur.model.displayName
                 is EpcLevel.Sections -> cur.variant.chassisCode
-                is EpcLevel.Diagram -> cur.section.name
+                is EpcLevel.Diagrams -> cur.section.name
+                is EpcLevel.Diagram -> cur.diagram.title
             },
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -170,12 +204,15 @@ fun PosEpcBrowseScreen(
             ) {
                 items(models.sortedBy { it.sortKey }, key = { it.slug }) { m ->
                     val parent = (level as EpcLevel.Models).maker
+                    val pin = epcModelPopularPin(parent, m)
                     ShopListCard(
                         title = m.displayName,
                         subtitle = listOfNotNull(m.bodyType, m.yearStart?.toString())
                             .joinToString(" · ")
                             .ifBlank { null },
                         onClick = { level = EpcLevel.Variants(parent, m) },
+                        onLongClick = if (onPinPopular != null) ({ openPinMenu(listOf(pin)) }) else null,
+                        onLongClickLabel = "Pin or unpin this model in Popular Items",
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
@@ -186,6 +223,7 @@ fun PosEpcBrowseScreen(
             ) {
                 items(variants, key = { it.slug }) { v ->
                     val parent = level as EpcLevel.Variants
+                    val pin = epcVariantPopularPin(parent.maker, parent.model, v)
                     ShopListCard(
                         title = v.chassisCode,
                         subtitle = listOfNotNull(v.grade, v.yearLabel, v.engineCode)
@@ -194,6 +232,8 @@ fun PosEpcBrowseScreen(
                         onClick = {
                             level = EpcLevel.Sections(parent.maker, parent.model, v)
                         },
+                        onLongClick = if (onPinPopular != null) ({ openPinMenu(listOf(pin)) }) else null,
+                        onLongClickLabel = "Pin or unpin this model variant in Popular Items",
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
@@ -204,19 +244,50 @@ fun PosEpcBrowseScreen(
             ) {
                 items(sections.sortedBy { it.sortOrder }, key = { it.slug }) { s ->
                     val parent = level as EpcLevel.Sections
+                    val pin = epcSectionPopularPin(parent.maker, parent.model, s)
                     ShopListCard(
                         title = s.name,
                         subtitle = "Diagram",
                         onClick = {
-                            level = EpcLevel.Diagram(
+                            level = EpcLevel.Diagrams(
                                 parent.maker,
                                 parent.model,
                                 parent.variant,
                                 s,
                             )
                         },
+                        onLongClick = if (onPinPopular != null) ({ openPinMenu(listOf(pin)) }) else null,
+                        onLongClickLabel = "Pin or unpin this category in Popular Items",
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
+                }
+            }
+            level is EpcLevel.Diagrams -> {
+                val parent = level as EpcLevel.Diagrams
+                if (diagrams.isEmpty()) {
+                    ShopHonestEmpty(
+                        title = "No diagrams",
+                        body = "This EPC section has no diagram records in the local/catalog source.",
+                        modifier = Modifier.padding(16.dp),
+                    )
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(diagrams, key = { it.slug }) { d ->
+                            ShopListCard(
+                                title = d.title,
+                                subtitle = d.slug,
+                                onClick = {
+                                    level = EpcLevel.Diagram(
+                                        parent.maker, parent.model, parent.variant, parent.section, d,
+                                    )
+                                },
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
             level is EpcLevel.Diagram -> {
@@ -228,14 +299,49 @@ fun PosEpcBrowseScreen(
                         modifier = Modifier.padding(16.dp),
                     )
                 } else {
+                    val parent = level as EpcLevel.Diagram
                     EpcDiagramPane(
                         data = d,
                         onSelectOem = onSelectOem,
                         onAddOem = onSelectOem,
+                        onLongPressPart = if (onPinPopular != null) ({ part ->
+                            openPinMenu(epcPartPopularCandidates(parent.maker, parent.model, parent.section, part))
+                        }) else null,
                     )
                 }
             }
         }
+    }
+
+    pinMenu?.let { candidates ->
+        AlertDialog(
+            onDismissRequest = { pinMenu = null },
+            title = { Text("Popular Items") },
+            text = {
+                Column {
+                    Text(
+                        "Choose what this EPC item should contribute to the operator Home row.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    candidates.forEach { pin ->
+                        val pinned = popularPins.any { it.kind == pin.kind && it.itemKey == pin.itemKey }
+                        TextButton(
+                            onClick = {
+                                if (pinned) onUnpinPopular?.invoke(pin) else onPinPopular?.invoke(pin)
+                                pinMenu = null
+                            },
+                        ) {
+                            Text(
+                                if (pinned) "Unpin ${pin.kind.rpcValue}: ${pin.label}"
+                                else "Pin ${pin.kind.rpcValue} to Popular: ${pin.label}",
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { pinMenu = null }) { Text("Cancel") } },
+        )
     }
 }
 
@@ -244,11 +350,12 @@ private fun EpcDiagramPane(
     data: EpcDiagramResponse,
     onSelectOem: (String) -> Unit,
     onAddOem: (String) -> Unit,
+    onLongPressPart: ((EpcDiagramPart) -> Unit)? = null,
 ) {
     var activeOem by remember { mutableStateOf<String?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
-            if (data.imageUrl.isNullOrBlank()) {
+            if (data.imageUrl.isNullOrBlank() && data.imageBytes == null) {
                 Text(
                     "Diagram image unavailable — parts list below.",
                     modifier = Modifier.padding(16.dp),
@@ -257,6 +364,7 @@ private fun EpcDiagramPane(
             } else {
                 EpcHotspotCanvas(
                     imageUrl = data.imageUrl,
+                    imageBytes = data.imageBytes,
                     hotspots = data.hotspots,
                     activeOem = activeOem,
                     onSelectOem = onSelectOem,
@@ -274,6 +382,7 @@ private fun EpcDiagramPane(
                 onOpen = { onSelectOem(part.oemPartNumber) },
                 onAdd = { onAddOem(part.oemPartNumber) },
                 onHover = { activeOem = it },
+                onLongClick = onLongPressPart?.let { callback -> ({ callback(part) }) },
             )
             HorizontalDivider()
         }
@@ -282,7 +391,8 @@ private fun EpcDiagramPane(
 
 @Composable
 private fun EpcHotspotCanvas(
-    imageUrl: String,
+    imageUrl: String?,
+    imageBytes: ByteArray?,
     hotspots: List<EpcHotspot>,
     activeOem: String?,
     onSelectOem: (String) -> Unit,
@@ -291,11 +401,25 @@ private fun EpcHotspotCanvas(
     BoxWithConstraints(modifier = modifier) {
         val w = maxWidth
         val h = maxHeight
-        ShopRemoteImage(
-            url = imageUrl,
-            contentDescription = "EPC diagram",
-            modifier = Modifier.fillMaxSize(),
-        )
+        val localBitmap = remember(imageBytes) {
+            imageBytes?.let { bytes ->
+                runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }.getOrNull()
+            }
+        }
+        if (localBitmap != null) {
+            Image(
+                bitmap = localBitmap,
+                contentDescription = "EPC diagram",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else if (!imageUrl.isNullOrBlank()) {
+            ShopRemoteImage(
+                url = imageUrl,
+                contentDescription = "EPC diagram",
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         hotspots.forEach { hs ->
             val left = w * hs.bboxX.toFloat()
             val top = h * hs.bboxY.toFloat()
@@ -319,6 +443,7 @@ private fun EpcHotspotCanvas(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpcPartRow(
     part: EpcDiagramPart,
@@ -326,14 +451,27 @@ private fun EpcPartRow(
     onOpen: () -> Unit,
     onAdd: () -> Unit,
     onHover: (String?) -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
+    val interaction = if (onLongClick == null) {
+        Modifier.clickable {
+            onHover(part.oemPartNumber)
+            onOpen()
+        }
+    } else {
+        Modifier.combinedClickable(
+            onClick = {
+                onHover(part.oemPartNumber)
+                onOpen()
+            },
+            onLongClick = onLongClick,
+            onLongClickLabel = "Pin or unpin part, category or subcategory in Popular Items",
+        )
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onHover(part.oemPartNumber)
-                onOpen()
-            }
+            .then(interaction)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Text(

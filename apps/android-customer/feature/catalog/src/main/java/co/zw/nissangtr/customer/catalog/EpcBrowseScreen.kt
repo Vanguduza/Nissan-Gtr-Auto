@@ -2,6 +2,7 @@ package co.zw.nissangtr.customer.catalog
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -42,7 +43,7 @@ import co.zw.nissangtr.ui.shop.ShopCircleIconButton
 import co.zw.nissangtr.ui.shop.ShopHonestEmpty
 import co.zw.nissangtr.ui.shop.ShopListCard
 import co.zw.nissangtr.ui.shop.ShopRemoteImage
-import co.zw.nissangtr.ui.theme.GtrColors
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
 import kotlinx.coroutines.launch
 
 private sealed class EpcLevel {
@@ -126,7 +127,7 @@ fun EpcBrowseScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize().background(GtrPremiumColors.Background)) {
         ShopCircleIconButton(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
             onClick = { goBack() },
@@ -256,11 +257,12 @@ private fun EpcDiagramPane(
                 Text(
                     "Diagram image unavailable — parts list below.",
                     modifier = Modifier.padding(16.dp),
-                    color = GtrColors.SilverDim,
+                    color = GtrPremiumColors.TextSecondary,
                 )
             } else {
+                val diagramUrl = data.imageUrl.orEmpty()
                 EpcHotspotCanvas(
-                    imageUrl = data.imageUrl,
+                    imageUrl = diagramUrl,
                     hotspots = data.hotspots,
                     activeOem = activeOem,
                     onSelectOem = onOpenOem,
@@ -312,9 +314,9 @@ private fun EpcHotspotCanvas(
                     .border(
                         width = 2.dp,
                         color = if (activeOem == hs.oem) {
-                            GtrColors.Primary
+                            GtrPremiumColors.RedBright
                         } else {
-                            GtrColors.Primary.copy(alpha = 0.55f)
+                            GtrPremiumColors.RedBright.copy(alpha = 0.55f)
                         },
                     )
                     .clickable { onSelectOem(hs.oem) },
@@ -343,13 +345,13 @@ private fun EpcPartRow(
         Text(
             part.oemPartNumber,
             style = MaterialTheme.typography.titleSmall,
-            color = if (active) GtrColors.Primary else MaterialTheme.colorScheme.onSurface,
+            color = if (active) GtrPremiumColors.RedBright else GtrPremiumColors.TextPrimary,
         )
         Text(
             listOfNotNull(part.pncCode, part.categoryName, part.stockDescription)
                 .joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
-            color = GtrColors.SilverDim,
+            color = GtrPremiumColors.TextSecondary,
         )
         if (!part.stockItemId.isNullOrBlank()) {
             TextButton(onClick = onAdd) { Text("Add to cart") }

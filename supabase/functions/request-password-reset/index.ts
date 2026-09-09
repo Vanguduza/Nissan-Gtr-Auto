@@ -1,140 +1,125 @@
-/**
- * request-password-reset — send reset OTP via email and/or SMS.
- * Verify + set password: verify-password-reset Edge.
- * Mirrors auth-otp fail-closed channel gates. No ZIMRA.
- */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { jsonErr, jsonOk } from "../_shared/channel_env.ts";
 import {
-  AUTH_OTP_STUB_CODE,
-  assertOtpChannelAllowed,
-} from "../_shared/auth_otp_env.ts";
-import { getSmsGatewayConfig, sendSms } from "../_shared/sms_gateway.ts";
-import { getEmailSendConfig, sendEmail } from "../_shared/email_send.ts";
+  anonClient,
+  AuthEdgeError,
+  authFailureCode,
+  enforceAuthRateLimit,
+  jsonResponse,
+  normalizeE164,
+  normalizeEmail,
+  serviceClient,
+} from "../_shared/auth_edge.ts";
 
 type Body = {
   email?: string;
   phone_e164?: string;
+  channel?: "email" | "phone";
+  redirect_to?: string;
+  device_id?: string;
 };
 
-function normalizeEmail(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const v = raw.trim().toLowerCase();
-  if (!v || !v.includes("@")) return null;
-  return v;
+function safeRedirect(raw: unknown): string | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const url = new URL(raw.trim());
+    const allowed = new Set([
+      "https://nissangtrauto.co.zw",
+      "https://www.nissangtrauto.co.zw",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+    ]);
+    if (!allowed.has(url.origin)) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
-function normalizeE164(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  let v = raw.trim().replace(/[\s\-()]/g, "");
-  if (!v) return null;
-  if (!/^\+?[0-9]{8,15}$/.test(v)) return null;
-  if (!v.startsWith("+")) v = `+${v}`;
-  return v;
-}
-
-function toHex(buf: ArrayBuffer): string {
-  return [...new Uint8Array(buf)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function hashCode(code: string): Promise<string> {
-  const data = new TextEncoder().encode(code.trim());
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return toHex(digest);
-}
-
-function randomOtp(): string {
-  const n = crypto.getRandomValues(new Uint32Array(1))[0]! % 1_000_000;
-  return n.toString().padStart(6, "0");
-}
-
-function serviceClient(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+function isOperationalAuthError(error: { status?: number; code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.status === 429) return true;
+  if ((error.status ?? 0) >= 500) return true;
+  const code = (error.code ?? "").toLowerCase();
+  return code.includes("hook") || code.includes("smtp") || code.includes("sms") || code.includes("provider") || code.includes("disabled");
 }
 
 Deno.serve(async (req) => {
   try {
-    if (req.method !== "POST") return jsonErr("POST required", 405);
+    if (req.method === "OPTIONS") {
+      return jsonResponse(req, { ok: true }, 200);
+    }
+    if (req.method !== "POST") {
+      return jsonResponse(req, { error: "POST required", code: "METHOD_NOT_ALLOWED" }, 405);
+    }
 
     const body = (await req.json().catch(() => ({}))) as Body;
     const email = normalizeEmail(body.email);
     const phone = normalizeE164(body.phone_e164);
-    if (!email && !phone) {
-      return jsonErr("email and/or phone_e164 required", 400);
+    const channel = body.channel ?? (email ? "email" : phone ? "phone" : null);
+    if (!channel || (channel === "email" && !email) || (channel === "phone" && !phone)) {
+      return jsonResponse(req, {
+        error: "Choose email or phone and provide a valid identifier",
+        code: "IDENTIFIER_REQUIRED",
+      }, 400);
     }
 
-    const supabase = serviceClient();
-    const channels: ("email" | "phone")[] = [];
-    if (email) channels.push("email");
-    if (phone) channels.push("phone");
+    const service = serviceClient();
+    const auth = anonClient();
+    const identifier = channel === "email" ? email! : phone!;
+    await enforceAuthRateLimit(
+      service,
+      req,
+      "password_reset_request",
+      `${channel}:${identifier}`,
+      body.device_id,
+    );
 
-    const results: Record<string, unknown> = {};
-    let anyStub = false;
-
-    for (const ch of channels) {
-      const gate = assertOtpChannelAllowed(ch);
-      if (!gate.ok) return jsonErr(gate.error, gate.status);
-
-      if (gate.stub) {
-        anyStub = true;
-        results[ch] = {
-          stub: true,
-          stub_code: AUTH_OTP_STUB_CODE,
-          message: "local stub OTP — not for production",
-        };
-        continue;
-      }
-
-      const code = randomOtp();
-      const codeHash = await hashCode(code);
-      const identifier = ch === "email" ? email! : phone!;
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-      const { error: insErr } = await supabase
-        .from("password_reset_challenges")
-        .insert({
-          channel: ch,
-          identifier,
-          code_hash: codeHash,
-          expires_at: expiresAt,
-          attempt_count: 0,
-        });
-      if (insErr) return jsonErr(insErr.message, 400);
-
-      if (ch === "phone") {
-        const smsCfg = getSmsGatewayConfig();
-        if (!smsCfg) return jsonErr("SMS gateway misconfigured", 503);
-        await sendSms(
-          smsCfg,
-          phone!,
-          `GTR Auto password reset code: ${code}. Valid 10 minutes.`,
-        );
-      } else {
-        const emailCfg = getEmailSendConfig();
-        if (!emailCfg) return jsonErr("Email gateway misconfigured", 503);
-        await sendEmail(emailCfg, {
-          to: email!,
-          subject: "GTR Auto password reset",
-          text: `Your password reset code is ${code}. Valid 10 minutes.`,
-        });
-      }
-      results[ch] = { stub: false, sent: true };
+    let error: { status?: number; code?: string; message?: string } | null = null;
+    if (channel === "email") {
+      const redirectTo = safeRedirect(body.redirect_to);
+      const result = await auth.auth.resetPasswordForEmail(
+        email!,
+        redirectTo ? { redirectTo } : undefined,
+      );
+      error = result.error;
+    } else {
+      const result = await auth.auth.signInWithOtp({
+        phone: phone!,
+        options: { shouldCreateUser: false, channel: "sms" },
+      });
+      error = result.error;
     }
 
-    return jsonOk({
+    // Account existence is deliberately not disclosed. Infrastructure/provider
+    // failures and rate limiting are operational conditions and remain visible.
+    if (error && isOperationalAuthError(error)) {
+      if (error.status === 429) {
+        return jsonResponse(req, {
+          error: "Too many reset requests. Try again later.",
+          code: "AUTH_RATE_LIMITED",
+        }, 429);
+      }
+      console.error("request-password-reset provider failure", error.code, error.message);
+      return jsonResponse(req, {
+        error: "Password reset delivery service is unavailable",
+        code: authFailureCode(error, "RESET_DELIVERY_UNAVAILABLE"),
+      }, 503);
+    }
+
+    return jsonResponse(req, {
       ok: true,
-      stub: anyStub,
-      channels: results,
-      ...(anyStub ? { stub_code: AUTH_OTP_STUB_CODE } : {}),
+      channel,
+      message: channel === "email"
+        ? "If an account matches that email, a Supabase Auth recovery code has been sent."
+        : "If an account matches that phone number, a Supabase Auth verification code has been sent.",
     });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "password reset request failed";
-    return jsonErr(msg, 500);
+  } catch (error) {
+    if (error instanceof AuthEdgeError) {
+      return jsonResponse(req, { error: error.message, code: error.code }, error.status);
+    }
+    console.error("request-password-reset", error);
+    return jsonResponse(req, { error: "Password reset service error", code: "RESET_SERVICE_ERROR" }, 500);
   }
 });

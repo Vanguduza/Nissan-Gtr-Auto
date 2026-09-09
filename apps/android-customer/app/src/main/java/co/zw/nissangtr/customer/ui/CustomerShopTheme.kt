@@ -1,17 +1,24 @@
 package co.zw.nissangtr.customer.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
-import co.zw.nissangtr.ui.shop.ShopWarmTheme
+import co.zw.nissangtr.customer.visual.PremiumCustomerTheme
+import co.zw.nissangtr.ui.shop.ShopTheme
 
 /**
- * Customer-app presentation wrapper. The warm commerce treatment is shared with the
- * operator POS kiosk so customer and counter experiences remain visibly one product.
+ * Preview-locked customer theme.
+ *
+ * Customer Android is intentionally dark-first. The [darkTheme] argument remains only
+ * for source compatibility with the existing Settings flow; customer presentation is
+ * always the approved premium dark storefront.
+ *
+ * Shared ShopKit remains untouched.
  */
 @Composable
 fun CustomerShopTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    ShopWarmTheme(darkTheme = darkTheme, content = content)
+    ShopTheme(darkTheme = true) {
+        PremiumCustomerTheme(content)
+    }
 }

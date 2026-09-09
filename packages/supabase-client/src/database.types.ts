@@ -697,6 +697,36 @@ export type Database = {
           },
         ]
       }
+      canonical_staff_accounts: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["staff_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          is_active?: boolean
+          role: Database["public"]["Enums"]["staff_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          is_active?: boolean
+          role?: Database["public"]["Enums"]["staff_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chart_of_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["account_type"]
@@ -8517,6 +8547,23 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      canonical_staff_drift: {
+        Args: never
+        Returns: {
+          auth_present: boolean
+          email: string
+          email_confirmed: boolean
+          email_matches: boolean
+          in_sync: boolean
+          is_staff: boolean
+          no_extra_roles: boolean
+          profile_present: boolean
+          provisioned_via_hr: boolean
+          role: Database["public"]["Enums"]["staff_role"]
+          role_matches: boolean
+          user_id: string
+        }[]
       }
       clear_bank_matches: { Args: { p_match_ids: string[] }; Returns: number }
       clear_must_change_password: { Args: never; Returns: undefined }

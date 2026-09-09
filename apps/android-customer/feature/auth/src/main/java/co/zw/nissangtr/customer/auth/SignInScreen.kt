@@ -1,14 +1,17 @@
 package co.zw.nissangtr.customer.auth
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,206 +24,228 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.SupabaseRpcClient
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumMessageBanner
+import co.zw.nissangtr.customer.visual.PremiumMessageKind
+import co.zw.nissangtr.customer.visual.PremiumPrimaryButton
+import co.zw.nissangtr.customer.visual.PremiumSecondaryButton
+import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
+import co.zw.nissangtr.customer.visual.R
 import kotlinx.coroutines.launch
 
-/**
- * Email/password sign-in + optional Google (Credential Manager → GoTrue ID token).
- * Live: [SupabaseRpcClient.signInWithEmail] / [SupabaseRpcClient.signInWithGoogleIdToken].
- * Fake: [allowSkip] shows Continue without signing in.
- *
- * Google button shows only when [googleServerClientId] is non-blank (Web client ID from
- * `local.properties` → BuildConfig).
- */
 @Composable
 fun SignInScreen(
     supabase: SupabaseRpcClient?,
-    allowSkip: Boolean,
-    onSkip: () -> Unit,
     modifier: Modifier = Modifier,
-    title: String = "Sign in",
+    title: String = "Welcome back",
     subtitle: String? = null,
     sessionViewModel: AuthSessionViewModel? = null,
     googleServerClientId: String = "",
 ) {
-    if (supabase == null) {
-        FakeSignInPlaceholder(
-            title = title,
-            subtitle = subtitle,
-            allowSkip = allowSkip,
-            onSkip = onSkip,
-            modifier = modifier,
-        )
-        return
-    }
+    requireNotNull(supabase) { "Live Supabase client required" }
 
-    val vm = sessionViewModel
-        ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
+    val vm = sessionViewModel ?: viewModel(factory = AuthSessionViewModel.factory(supabase))
     val state by vm.signIn.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val googleEnabled = googleServerClientId.isNotBlank()
     var googleError by remember { mutableStateOf<String?>(null) }
+    val isReset = state.mode == AuthFormMode.ResetPassword
+    val isSignup = state.mode == AuthFormMode.SignUp
 
-    ShopDefaultScreen(
-        title = title,
-        subtitle = subtitle,
-        modifier = modifier,
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(GtrPremiumColors.Background),
     ) {
-        OutlinedTextField(
-            value = state.email,
-            onValueChange = vm::onEmailChange,
-            label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            shape = MaterialTheme.shapes.extraSmall,
-        )
-        OutlinedTextField(
-            value = state.password,
-            onValueChange = vm::onPasswordChange,
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !state.busy,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            shape = MaterialTheme.shapes.extraSmall,
-        )
-        Button(
-            onClick = {
-                if (state.mode == AuthFormMode.SignIn) vm.signIn() else vm.signUp()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank(),
-            shape = MaterialTheme.shapes.medium,
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(230.dp)
+                .background(GtrPremiumColors.Background),
         ) {
-            Text(
-                when {
-                    state.busy && state.mode == AuthFormMode.SignIn -> "Signing in…"
-                    state.busy -> "Creating account…"
-                    state.mode == AuthFormMode.SignUp -> "Create account"
-                    else -> "Sign in"
-                },
+            Image(
+                painter = painterResource(R.drawable.gtr_hero_workshop_r35),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alpha = .72f,
             )
-        }
-        OutlinedButton(
-            onClick = {
-                vm.setMode(
-                    if (state.mode == AuthFormMode.SignIn) AuthFormMode.SignUp
-                    else AuthFormMode.SignIn,
+            Column(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(20.dp),
+            ) {
+                Text(
+                    "NISSAN GTR AUTO",
+                    color = GtrPremiumColors.TextPrimary,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
                 )
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.busy,
-            shape = MaterialTheme.shapes.medium,
+                Text(
+                    "PARTS • PERFORMANCE • PRECISION",
+                    color = GtrPremiumColors.TextSecondary,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+        }
+
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                if (state.mode == AuthFormMode.SignIn) "Need an account? Sign up"
-                else "Have an account? Sign in",
-            )
-        }
-        TextButton(
-            onClick = vm::forgotPassword,
-            enabled = !state.busy,
-        ) {
-            Text("Forgot password?")
-        }
-        if (googleEnabled) {
-            OutlinedButton(
-                onClick = {
-                    googleError = null
-                    scope.launch {
-                        try {
-                            val result = GoogleIdTokenSignIn.requestIdToken(
-                                context = context,
-                                serverClientId = googleServerClientId,
-                            )
-                            vm.signInWithGoogleIdToken(result.idToken, result.rawNonce)
-                        } catch (e: Exception) {
-                            googleError = GoogleIdTokenSignIn.userMessage(e)
-                        }
-                    }
+                when (state.mode) {
+                    AuthFormMode.SignIn -> title
+                    AuthFormMode.SignUp -> if (state.verificationPending) "Verify your account" else "Create your account"
+                    AuthFormMode.ResetPassword -> "Reset your password"
                 },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.busy,
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Text(if (state.busy) "Signing in with Google…" else "Continue with Google")
-            }
-        } else {
-            Text(
-                "Google Sign-In appears when GOOGLE_WEB_CLIENT_ID (or GOOGLE_SERVER_CLIENT_ID) is set in local.properties.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = GtrPremiumColors.TextPrimary,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
             )
-        }
-        if (allowSkip) {
-            OutlinedButton(
-                onClick = onSkip,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.busy,
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Text("Continue without signing in")
+            Text(
+                subtitle ?: when (state.mode) {
+                    AuthFormMode.SignIn -> "Sign in to sync your garage, orders, wishlist and delivery updates."
+                    AuthFormMode.SignUp -> if (state.verificationPending) "Enter the verification code sent to you." else "Create an account for a faster Nissan parts experience."
+                    AuthFormMode.ResetPassword -> "Enter your recovery code and choose a new password."
+                },
+                color = GtrPremiumColors.TextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            PremiumSurfaceCard {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = state.email,
+                        onValueChange = vm::onEmailChange,
+                        label = { Text("Email") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !state.busy && !(isSignup && state.verificationPending),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    )
+                    if ((isSignup && state.verificationPending) || isReset) {
+                        OutlinedTextField(
+                            value = state.code,
+                            onValueChange = vm::onCodeChange,
+                            label = { Text(if (isReset) "Recovery code" else "Verification code") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            enabled = !state.busy,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = state.password,
+                        onValueChange = vm::onPasswordChange,
+                        label = { Text(if (isReset) "New password" else "Password") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !state.busy,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    )
+
+                    PremiumPrimaryButton(
+                        text = when {
+                            state.busy -> "Working…"
+                            isReset -> "Update password"
+                            isSignup && state.verificationPending -> "Verify and create account"
+                            isSignup -> "Send signup code"
+                            else -> "Sign in"
+                        },
+                        onClick = {
+                            when (state.mode) {
+                                AuthFormMode.SignIn -> vm.signIn()
+                                AuthFormMode.SignUp -> vm.signUp()
+                                AuthFormMode.ResetPassword -> vm.completePasswordReset()
+                            }
+                        },
+                        enabled = !state.busy && state.email.isNotBlank() && state.password.isNotBlank() &&
+                            (!state.verificationPending || state.code.length >= 6 || state.mode == AuthFormMode.SignIn),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    if (isSignup && state.verificationPending) {
+                        PremiumSecondaryButton(
+                            text = "Resend verification code",
+                            onClick = vm::resendSignupCode,
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    if (!isReset) {
+                        PremiumSecondaryButton(
+                            text = if (state.mode == AuthFormMode.SignIn) "Need an account? Sign up" else "Have an account? Sign in",
+                            onClick = { vm.setMode(if (state.mode == AuthFormMode.SignIn) AuthFormMode.SignUp else AuthFormMode.SignIn) },
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (state.mode == AuthFormMode.SignIn) {
+                            TextButton(onClick = vm::forgotPassword, enabled = !state.busy) {
+                                Text("Forgot password?", color = GtrPremiumColors.RedBright)
+                            }
+                        }
+                    } else {
+                        PremiumSecondaryButton(
+                            text = "Back to sign in",
+                            onClick = { vm.setMode(AuthFormMode.SignIn) },
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    if (!isReset && googleEnabled) {
+                        PremiumSecondaryButton(
+                            text = "Continue with Google",
+                            onClick = {
+                                googleError = null
+                                scope.launch {
+                                    try {
+                                        val result = GoogleIdTokenSignIn.requestIdToken(
+                                            context = context,
+                                            serverClientId = googleServerClientId,
+                                        )
+                                        vm.signInWithGoogleIdToken(result.idToken, result.rawNonce)
+                                    } catch (e: Exception) {
+                                        googleError = GoogleIdTokenSignIn.userMessage(e)
+                                    }
+                                }
+                            },
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                }
             }
-        }
-        state.info?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall)
-        }
-        (googleError ?: state.error)?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
+
+            state.info?.let {
+                PremiumMessageBanner(it, PremiumMessageKind.Info)
+            }
+            (googleError ?: state.error)?.let {
+                PremiumMessageBanner(it, PremiumMessageKind.Error)
+            }
         }
     }
 }
 
-@Composable
-private fun FakeSignInPlaceholder(
-    title: String,
-    subtitle: String?,
-    allowSkip: Boolean,
-    onSkip: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ShopDefaultScreen(
-        title = title,
-        subtitle = subtitle,
-        modifier = modifier,
-    ) {
-        Text(
-            "GoTrue sign-in needs Live SUPABASE_URL + ANON_KEY.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
-        if (allowSkip) {
-            Button(
-                onClick = onSkip,
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraSmall,
-            ) {
-                Text("Continue without signing in")
-            }
-        }
-    }
-}
-
-/**
- * Live: block until Authenticated. Fake: bypass by default ([allowFakeSkip]).
- * Exposes the single [AuthSessionViewModel] to content so shell SignIn overlay never creates an orphan VM.
- */
 @Composable
 fun AuthGate(
     liveRpc: Boolean,
     supabase: SupabaseRpcClient?,
-    allowFakeSkip: Boolean = true,
-    showFakeLogin: Boolean = false,
     googleServerClientId: String = "",
     content: @Composable (
         email: String?,
@@ -229,16 +254,7 @@ fun AuthGate(
     ) -> Unit,
 ) {
     if (!liveRpc || supabase == null) {
-        var skipped by remember { mutableStateOf(allowFakeSkip && !showFakeLogin) }
-        if (skipped) {
-            content(null, { /* no session in Fake */ }, null)
-        } else {
-            SignInScreen(
-                supabase = null,
-                allowSkip = allowFakeSkip,
-                onSkip = { skipped = true },
-            )
-        }
+        error("Live authentication client unavailable")
         return
     }
 
@@ -250,24 +266,24 @@ fun AuthGate(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(GtrPremiumColors.Background)
                     .padding(24.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Restoring session…", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Restoring your Nissan GTR Auto session…",
+                    color = GtrPremiumColors.TextSecondary,
+                )
             }
         }
         is AuthGateState.NeedsSignIn -> {
             SignInScreen(
                 supabase = supabase,
-                allowSkip = false,
-                onSkip = {},
                 sessionViewModel = vm,
                 googleServerClientId = googleServerClientId,
             )
         }
-        is AuthGateState.SignedIn -> {
-            content(g.email, vm::signOut, vm)
-        }
+        is AuthGateState.SignedIn -> content(g.email, vm::signOut, vm)
     }
 }

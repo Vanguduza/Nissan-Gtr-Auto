@@ -6,7 +6,6 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.providers.Google
-import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
@@ -50,18 +49,14 @@ class SupabaseRpcClient(
     val sessionStatus: Flow<SessionStatus> get() = auth.sessionStatus
 
     /**
-     * Email/password sign-in via GoTrue. Session is stored by the SDK session manager —
-     * never put passwords or JWTs in BuildConfig.
+     * Email/password sign-in through the hardened Auth Edge. Supabase Auth still
+     * validates the password and owns the resulting session.
      */
     suspend fun signInWithEmail(email: String, password: String) {
         require(email.isNotBlank()) { "email required" }
         require(password.isNotBlank()) { "password required" }
-        auth.signInWith(Email) {
-            this.email = email.trim()
-            this.password = password
-        }
-        // Email/password users are not minted by handle_new_user (OAuth/OTP only) —
-        // ensure storefront AuthZ before cart / wishlist RPCs.
+        val session = AuthEdgeClient.login(client, email = email.trim(), password = password)
+        importAccessToken(session.accessToken, session.refreshToken, session.expiresIn)
         ensureOwnCustomerIfNeeded()
     }
 
@@ -96,26 +91,18 @@ class SupabaseRpcClient(
     }
 
     /**
-     * Email/password register via GoTrue (mirrors web signup).
-     * May require email confirmation depending on project Auth settings.
-     * Confirm links must open the app — pass [AUTH_EMAIL_REDIRECT] (must be on Dashboard redirect allow-list).
-     * Hosted **Site URL** must not stay on localhost or confirm emails default there.
+     * Direct one-shot signup is intentionally disabled. Registration is a
+     * request → verify → complete Auth Edge flow; callers must use [AuthEdgeClient].
      */
-    suspend fun signUpWithEmail(email: String, password: String) {
-        require(email.isNotBlank()) { "email required" }
-        require(password.length >= 6) { "password must be at least 6 characters" }
-        auth.signUpWith(Email, redirectUrl = AUTH_EMAIL_REDIRECT) {
-            this.email = email.trim()
-            this.password = password
-        }
-        // When Confirm email is off, session exists immediately — mint customers now.
-        if (isSignedIn()) ensureOwnCustomerIfNeeded()
+    @Deprecated("Use AuthEdgeClient requestSignupOtp/verifySignupOtp/completeSignup")
+    suspend fun signUpWithEmail(email: String, password: String): Nothing {
+        error("Direct signup disabled; use the Supabase Auth Edge signup flow")
     }
 
-    /** Sends a password-recovery email via GoTrue (no fake stub in production). */
+    /** Request non-enumerating password recovery through the hardened Auth Edge. */
     suspend fun resetPasswordForEmail(email: String) {
         require(email.isNotBlank()) { "email required" }
-        auth.resetPasswordForEmail(email.trim(), redirectUrl = AUTH_EMAIL_REDIRECT)
+        AuthEdgeClient.requestPasswordReset(client, email.trim())
     }
 
     /** Clears the persisted GoTrue session. */
@@ -163,6 +150,24 @@ class SupabaseRpcClient(
 
     override suspend fun listCatalogBrowse(category: String?, limit: Int): CatalogBrowseResult =
         CatalogRpcLive.listCatalogBrowse(client, category, limit)
+
+    override suspend fun listCustomerPopularSpares(days: Int, limit: Int): List<CatalogListItem> =
+        client.postgrest.rpc(
+            RpcNames.LIST_CUSTOMER_POPULAR_SPARES,
+            buildJsonObject {
+                put("p_days", days.coerceIn(1, 365))
+                put("p_limit", limit.coerceIn(1, 24))
+            },
+        ).decodeList<PopularSpareRow>().map { row ->
+            CatalogListItem(
+                stockItemId = row.stockItemId,
+                oem = row.oemPartNumber,
+                name = row.description,
+                stock = stockStateFromQty(row.saleableQty, null),
+                usd = row.unitPrice,
+                imagePath = row.imagePath,
+            )
+        }
 
     override suspend fun listCatalogMakers(): List<EpcMaker> =
         CatalogRpcLive.listCatalogMakers(client)
@@ -457,6 +462,8 @@ class SupabaseRpcClient(
                     "make",
                     "model",
                     "generation",
+                    "chassis_code",
+                    "model_slug",
                     "engine",
                     "vin",
                     "is_primary",
@@ -472,6 +479,8 @@ class SupabaseRpcClient(
                     make = it.make,
                     model = it.model,
                     generation = it.generation,
+                    chassisCode = it.chassisCode,
+                    modelSlug = it.modelSlug,
                     engine = it.engine,
                     vin = it.vin,
                     isPrimary = it.isPrimary,
@@ -486,6 +495,8 @@ class SupabaseRpcClient(
                 putNullable("p_make", input.make)
                 putNullable("p_model", input.model)
                 putNullable("p_generation", input.generation)
+                putNullable("p_chassis_code", input.chassisCode)
+                putNullable("p_model_slug", input.modelSlug)
                 putNullable("p_engine", input.engine)
                 putNullable("p_vin", input.vin)
                 put("p_is_primary", input.isPrimary)
@@ -1034,11 +1045,23 @@ private data class InvoiceRow(
 )
 
 @Serializable
+private data class PopularSpareRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("oem_part_number") val oemPartNumber: String,
+    val description: String,
+    @SerialName("saleable_qty") val saleableQty: Double = 0.0,
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    @SerialName("image_path") val imagePath: String? = null,
+)
+
+@Serializable
 private data class GarageRow(
     val id: String,
     val make: String? = null,
     val model: String? = null,
     val generation: String? = null,
+    @SerialName("chassis_code") val chassisCode: String? = null,
+    @SerialName("model_slug") val modelSlug: String? = null,
     val engine: String? = null,
     val vin: String? = null,
     @SerialName("is_primary") val isPrimary: Boolean = false,

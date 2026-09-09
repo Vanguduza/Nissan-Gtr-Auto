@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "gtr-android-customer"
 include(":app")
 include(":core:rpc")
+include(":core:visual")
 include(":feature:auth")
 include(":feature:cart")
 include(":feature:orders")
@@ -40,7 +41,7 @@ include(":pod-camera")
 project(":pod-camera").projectDir =
     file("../../bridges/android/pod-camera")
 
-// Bridge-First — Google Maps address pick / display (maps-nav)
+// Bridge-First — MapLibre address pick / display (maps-nav)
 include(":maps-nav")
 project(":maps-nav").projectDir =
     file("../../bridges/android/maps-nav")
