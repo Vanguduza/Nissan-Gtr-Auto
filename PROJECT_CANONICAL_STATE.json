@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "repository": "Vanguduza/Nissan-Gtr-Auto",
+  "policy": {
+    "default_branch_is_not_authority": true,
+    "build_requires_verified_lineage": true,
+    "every_change_requires_ledger_entry": true,
+    "silent_feature_thinning_forbidden": true,
+    "release_requires_provenance": true
+  },
+  "applications": {
+    "customer-android": {
+      "module": "apps/android-customer",
+      "status": "LOCKED_RECONCILIATION_REQUIRED",
+      "canonical_visual_branch": "cursor/android-customer-preview-locked-078e",
+      "required_ancestor": "56797ca3072c6715c39f8b159045b1857b7db556",
+      "release_blocked_until_reconciled": true,
+      "notes": "The illustrated/premium customer implementation is mandatory. A legacy storefront or shared-theme-only customer build is not canonical. Reconcile later backend/auth/catalog work onto this lineage before releasing."
+    },
+    "pos-android": {
+      "module": "apps/android-management/feature/pos",
+      "status": "ACTIVE_RECONCILIATION_LINEAGE",
+      "canonical_branch": "chatgpt/pos-reconcile-green-20260907",
+      "required_ancestor": "1e0a8b764e1335a64b454f47760f688a8781e07b",
+      "release_blocked_until_reconciled": false,
+      "notes": "POS release lineage must preserve locked visual benchmark plus all subsequently approved functional changes."
+    },
+    "management-android": {
+      "module": "apps/android-management",
+      "status": "CANONICAL_LINEAGE_MUST_BE_RESOLVED_BEFORE_RELEASE",
+      "release_blocked_until_reconciled": true
+    },
+    "delivery-android": {
+      "module": "apps/android-delivery",
+      "status": "CANONICAL_LINEAGE_MUST_BE_RESOLVED_BEFORE_RELEASE",
+      "release_blocked_until_reconciled": true
+    }
+  }
+}
