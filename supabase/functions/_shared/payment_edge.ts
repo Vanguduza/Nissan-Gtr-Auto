@@ -341,6 +341,29 @@ export function isPaynowFailureStatus(status: string | undefined | null): boolea
   return s === "cancelled" || s === "refunded" || s === "disputed";
 }
 
+/**
+ * EcoCash success allowlist — exact match only.
+ * Never use substring includes(): "unpaid".includes("paid") and
+ * "unsuccessful".includes("success") are true in JS and would false-settle.
+ */
+const ECOCASH_SUCCESS_STATUSES = new Set([
+  "paid",
+  "success",
+  "successful",
+  "completed",
+  "complete",
+  "approved",
+  "ok",
+  "00",
+]);
+
+export function isEcocashSuccessStatus(
+  status: string | undefined | null,
+): boolean {
+  const s = (status ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  return ECOCASH_SUCCESS_STATUSES.has(s);
+}
+
 // ---------------------------------------------------------------------------
 // ContiPay — Basic Auth acquire + webhook HMAC-SHA256
 // Initiate source: https://github.com/njzw/contipay-js-client (PUT redirect)

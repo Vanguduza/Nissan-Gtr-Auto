@@ -49,5 +49,13 @@ def test_stub_c2b_when_no_api_key() -> None:
 
 def test_paid_status_mapping() -> None:
     assert ecocash_status_is_paid("SUCCESS")
+    assert ecocash_status_is_paid("successful")
+    assert ecocash_status_is_paid("00")
     assert ecocash_status_is_paid(None, {"transactionStatus": "Completed"})
     assert not ecocash_status_is_paid("FAILED")
+    # Substring traps that previously false-settled as paid
+    assert not ecocash_status_is_paid("unsuccessful")
+    assert not ecocash_status_is_paid("unpaid")
+    assert not ecocash_status_is_paid("not_ok")
+    assert not ecocash_status_is_paid("not_paid")
+    assert not ecocash_status_is_paid("not_approved")
