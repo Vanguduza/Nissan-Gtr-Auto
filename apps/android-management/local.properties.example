@@ -3,8 +3,8 @@
 # sdk.dir=C\:\\Users\\YOU\\AppData\\Local\\Android\\Sdk
 
 # Same names as root .env.example / web NEXT_PUBLIC_SUPABASE_* (without NEXT_PUBLIC_ prefix)
-SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_lUPea8xMrOL95roFgAB0IQ_03JHYyVD
 
 # Optional: force FakeRpcClient even when URL+key are set
 # rpc.forceFake=true

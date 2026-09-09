@@ -50,7 +50,6 @@ type LoadState = "idle" | "loading" | "ready" | "error";
 
 export function StaffCatalogBrowser() {
   const client = useMemo(() => createWebClient(), []);
-  const db = client as any;
   const [families, setFamilies] = useState<Family[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
@@ -67,26 +66,25 @@ export function StaffCatalogBrowser() {
   useEffect(() => {
     if (!client) {
       setState("error");
-      setMessage("Supabase is not configured.");
+      setMessage("Catalog service is not configured.");
       return;
     }
     let cancelled = false;
     void (async () => {
       setState("loading");
-      const { data, error } = await db.rpc("staff_catalog_v2_list_families", {
-        p_maker_slug: "nissan",
-      });
-      if (cancelled) return;
-      if (error) {
+      try {
+        const data = await catalogGatewayGet<{ families: Family[] }>(client, "staff-families", { maker: "nissan" });
+        if (cancelled) return;
+        setFamilies(data.families ?? []);
+        setState("ready");
+      } catch {
+        if (cancelled) return;
         setState("error");
-        setMessage(error.message);
-        return;
+        setMessage("Catalog hierarchy is temporarily unavailable.");
       }
-      setFamilies((data ?? []) as Family[]);
-      setState("ready");
     })();
     return () => { cancelled = true; };
-  }, [client, db]);
+  }, [client]);
 
   async function chooseFamily(next: string) {
     setFamilyId(next);
@@ -101,14 +99,17 @@ export function StaffCatalogBrowser() {
     setMessage(null);
     if (!next || !client) return;
     setState("loading");
-    const { data, error } = await db.rpc("staff_catalog_v2_list_variants", { p_family_id: next });
-    if (error) {
+    try {
+      const data = await catalogGatewayGet<{ variants: Variant[] }>(client, "staff-variants", {
+        maker: "nissan",
+        family_id: next,
+      });
+      setVariants(data.variants ?? []);
+      setState("ready");
+    } catch {
       setState("error");
-      setMessage(error.message);
-      return;
+      setMessage("Catalog variants are temporarily unavailable.");
     }
-    setVariants((data ?? []) as Variant[]);
-    setState("ready");
   }
 
   async function chooseVariant(next: string) {
@@ -122,14 +123,17 @@ export function StaffCatalogBrowser() {
     setMessage(null);
     if (!next || !client) return;
     setState("loading");
-    const { data, error } = await db.rpc("staff_catalog_v2_list_sections", { p_variant_id: next });
-    if (error) {
+    try {
+      const data = await catalogGatewayGet<{ sections: Section[] }>(client, "staff-sections", {
+        maker: "nissan",
+        variant_id: next,
+      });
+      setSections(data.sections ?? []);
+      setState("ready");
+    } catch {
       setState("error");
-      setMessage(error.message);
-      return;
+      setMessage("Catalog sections are temporarily unavailable.");
     }
-    setSections((data ?? []) as Section[]);
-    setState("ready");
   }
 
   async function chooseSection(next: string) {
@@ -145,20 +149,30 @@ export function StaffCatalogBrowser() {
     const section = sections.find((x) => x.section_id === next);
     if (!family || !variant || !section) return;
     setState("loading");
-    const { data, error } = await db.rpc("staff_catalog_v2_list_diagrams", {
-      p_family_slug: family.family_slug,
-      p_variant_slug: variant.variant_slug,
-      p_section_slug: section.section_slug,
-      p_limit: 500,
-      p_offset: 0,
-    });
-    if (error) {
+    const collected: Diagram[] = [];
+    let offset = 0;
+    const page = 200;
+    try {
+      while (true) {
+        const data = await catalogGatewayGet<{ diagrams: Diagram[] }>(client, "staff-diagrams", {
+          maker: "nissan",
+          family_slug: family.family_slug,
+          variant_slug: variant.variant_slug,
+          section_slug: section.section_slug,
+          limit: page,
+          offset,
+        });
+        const rows = data.diagrams ?? [];
+        collected.push(...rows);
+        if (rows.length < page) break;
+        offset += rows.length;
+      }
+      setDiagrams(collected);
+      setState("ready");
+    } catch {
       setState("error");
-      setMessage(error.message);
-      return;
+      setMessage("Catalog diagrams are temporarily unavailable.");
     }
-    setDiagrams((data ?? []) as Diagram[]);
-    setState("ready");
   }
 
   async function openDiagram(diagram: Diagram) {
@@ -182,9 +196,9 @@ export function StaffCatalogBrowser() {
       setImageUrl(image.signed_url);
       setParts(partData.parts ?? []);
       setState("ready");
-    } catch (error) {
+    } catch {
       setState("error");
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage("Diagram content is temporarily unavailable.");
     }
   }
 
