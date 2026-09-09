@@ -1,40 +1,11 @@
 {
   "actor": "ChatGPT guardrail bootstrap",
   "branch_at_record": "chatgpt/pos-reconcile-green-20260907",
-  "change_id": "guardrails-bootstrap-v1",
-  "changed_files": [
-    "PROJECT_CANONICAL_STATE.json",
-    "scripts/project_truth_guard.py",
-    ".githooks/pre-commit",
-    ".githooks/pre-push",
-    "scripts/install-repo-guardrails.sh",
-    "scripts/install-repo-guardrails.ps1",
-    "docs/project-state/README.md",
-    ".github/workflows/project-truth-guard.yml",
-    "apps/android-customer/app/build.gradle.kts",
-    "apps/android-management/app/build.gradle.kts"
-  ],
-  "domains": [
-    "ci",
-    "customer-android",
-    "documentation",
-    "management-android",
-    "pos-android",
-    "repository"
-  ],
-  "intent": "Bootstrap repository-enforced canonical lineage, automatic per-change recording, and stale-build prevention. Earlier installation commits are consolidated here because server-side GitHub file writes do not execute local git hooks.",
-  "recorded_at_utc": "2026-09-09T01:30:00+00:00",
+  "change_id": "agent-truth-gate-bootstrap",
+  "changed_files": ["AGENTS.md"],
+  "domains": ["documentation", "repository"],
+  "intent": "Make canonical-state inspection, automatic change evidence, divergent-branch inspection and app release-check mandatory for every coding agent before work or build.",
+  "recorded_at_utc": "2026-09-09T01:35:00+00:00",
   "schema_version": 1,
-  "source_commits": [
-    "3e183f41b1b4128be82c44f583f0bdd4f80e0937",
-    "c8f37a3f82ebae59b3c89cdf8a9a57ccc4ba9886",
-    "7a7c704a620f71ac7035614559cf2720fdba6b73",
-    "4f6f79457c521c82183c7613159e01617b1f7cd7",
-    "df73a84ad8a907a57986178e12544e74b7f21437",
-    "a7a9ee8195fdc5d4b310813ea54f2673a6eac20d",
-    "e96314a7e25223775adebba6d2e8062cacf47628",
-    "4d8b8c9df990fd333c66b25e039a4306ff4046c6",
-    "531c884abb0ca4e49cb212c800b7a42810c374eb",
-    "554a7a4b223f9aaa78b49bb671fef145c6d4a234"
-  ]
+  "source_commits": ["4d731572159ba0717e5160e6e738c50550f53e67"]
 }
