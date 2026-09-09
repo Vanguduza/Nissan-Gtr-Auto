@@ -3,26 +3,26 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/catalogue-watchdog-alert.ps1",
+        "command": "bash .cursor/hooks/catalogue-watchdog-alert.sh",
         "description": "Inject PartSouq catalogue crawl watchdog alert context"
       }
     ],
     "afterFileEdit": [
       {
-        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/format.ps1",
+        "command": "bash .cursor/hooks/format.sh",
         "description": "Auto-format edited files"
       }
     ],
     "beforeShellExecution": [
       {
-        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/guard-prod.ps1",
+        "command": "bash .cursor/hooks/guard-prod.sh",
         "failClosed": true,
         "description": "Block production database and deployment commands"
       }
     ],
     "subagentStop": [
       {
-        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/run-changed-tests.ps1",
+        "command": "bash .cursor/hooks/run-changed-tests.sh",
         "description": "Run tests for changed areas after subagent completes"
       }
     ]
