@@ -1,6 +1,10 @@
 /**
  * verify-password-reset — consume reset OTP + set new password (service_role).
  * Pair with request-password-reset for OTP send. Mirrors auth-otp fail-closed gates.
+ *
+ * Email lookup uses GoTrue Admin `?email=` filter (same as hr-onboarding-create-auth).
+ * Do NOT use listUsers({ page: 1, perPage: 200 }) — that silently misses users beyond
+ * the first page and previously burned the OTP before the lookup failed.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -52,6 +56,38 @@ function serviceClient(): SupabaseClient {
   );
 }
 
+/** Exact email → auth user id via GoTrue Admin filter (not paginated listUsers). */
+async function findAuthUserIdByEmail(email: string): Promise<string | null> {
+  const base = Deno.env.get("SUPABASE_URL")?.replace(/\/$/, "");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!base || !key) return null;
+  const res = await fetch(
+    `${base}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${key}`,
+        apikey: key,
+      },
+    },
+  );
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null) as
+    | { users?: Array<{ id?: string; email?: string }> }
+    | { id?: string; email?: string }
+    | null;
+  if (!json) return null;
+  if (Array.isArray((json as { users?: unknown }).users)) {
+    const hit = (json as { users: Array<{ id?: string; email?: string }> })
+      .users
+      .find((u) => normalizeEmail(u.email) === email);
+    return hit?.id ?? null;
+  }
+  if (typeof (json as { id?: string }).id === "string") {
+    return (json as { id: string }).id;
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") return jsonErr("POST required", 405);
@@ -78,6 +114,8 @@ Deno.serve(async (req) => {
     const stubOk =
       (gateEmail?.ok && gateEmail.stub && code === AUTH_OTP_STUB_CODE) ||
       (gatePhone?.ok && gatePhone.stub && code === AUTH_OTP_STUB_CODE);
+
+    let challengeId: string | null = null;
 
     if (!stubOk) {
       const channel = email ? "email" : "phone";
@@ -107,20 +145,14 @@ Deno.serve(async (req) => {
           .eq("id", row.id);
         return jsonErr("invalid reset code", 401);
       }
-      await supabase
-        .from("password_reset_challenges")
-        .update({ consumed_at: new Date().toISOString() })
-        .eq("id", row.id);
+      // Defer consume until password update succeeds — avoid burning OTP on
+      // missing account / GoTrue failures.
+      challengeId = row.id as string;
     }
 
     let userId: string | null = null;
     if (email) {
-      const { data: users } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 200,
-      });
-      const match = users?.users?.find((u) => u.email?.toLowerCase() === email);
-      userId = match?.id ?? null;
+      userId = await findAuthUserIdByEmail(email);
     }
     if (!userId && phone) {
       const { data: prof } = await supabase
@@ -136,6 +168,13 @@ Deno.serve(async (req) => {
       password: newPassword,
     });
     if (updErr) return jsonErr(updErr.message, 400);
+
+    if (challengeId) {
+      await supabase
+        .from("password_reset_challenges")
+        .update({ consumed_at: new Date().toISOString() })
+        .eq("id", challengeId);
+    }
 
     await supabase
       .from("profiles")
