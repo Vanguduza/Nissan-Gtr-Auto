@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -eu
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+if command -v python3 >/dev/null 2>&1; then
+  exec python3 scripts/project_truth_guard.py record
+fi
+if command -v py >/dev/null 2>&1; then
+  exec py -3 scripts/project_truth_guard.py record
+fi
+if command -v python >/dev/null 2>&1; then
+  exec python scripts/project_truth_guard.py record
+fi
+echo "BLOCKED: Python 3 is required by the Nissan GTR repository truth guard." >&2
+exit 90
