@@ -81,6 +81,25 @@ android {
     }
 }
 
+val verifyCanonicalCustomerLineage by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Refuse customer APK/AAB builds from stale or unreconciled repository lineage."
+    val repoRoot = rootProject.projectDir.parentFile.parentFile
+    workingDir(repoRoot)
+    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+    if (isWindows) {
+        commandLine("py", "-3", "scripts/project_truth_guard.py", "release-check", "--app", "customer-android")
+    } else {
+        commandLine("python3", "scripts/project_truth_guard.py", "release-check", "--app", "customer-android")
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("assemble", ignoreCase = true) || name.startsWith("bundle", ignoreCase = true)) {
+        dependsOn(verifyCanonicalCustomerLineage)
+    }
+}
+
 dependencies {
     implementation(project(":core:rpc"))
     implementation(project(":android-ui"))
