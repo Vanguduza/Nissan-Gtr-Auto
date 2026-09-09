@@ -1,0 +1,22 @@
+name: Project Truth Guard
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-project-truth:
+    name: Verify repository truth
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Show canonical state
+        run: python3 scripts/project_truth_guard.py status
+      - name: Verify automatic change ledger
+        run: python3 scripts/project_truth_guard.py verify-head
