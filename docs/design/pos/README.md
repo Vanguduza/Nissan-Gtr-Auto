@@ -9,9 +9,17 @@ Canonical design and frontend-engineering documentation for the Nissan GTR Auto 
 |---|----------|-----------------|
 | 1 | [`../../decisions/2026-09-13-pos-adaptive-benchmark-fidelity.md`](../../decisions/2026-09-13-pos-adaptive-benchmark-fidelity.md) | The decisions and why, in ADR form |
 | 2 | [`POS_FRONTEND_BLUEPRINT_REV_1_5.md`](POS_FRONTEND_BLUEPRINT_REV_1_5.md) | Authority, adaptive geometry, token pipeline, design language and interaction grammar, components, Quick Access, phone POS, application architecture, certification, capability contract |
-| 3 | [`VisualReferenceSpec.json`](VisualReferenceSpec.json) | Measured geometry — ratios normative, dp canonical, Rpx provenance only |
-| 4 | [`APPROVED_VISUAL_DELTAS.md`](APPROVED_VISUAL_DELTAS.md) | Every intentional difference from the benchmark |
-| 5 | [`reference/`](reference/) | The owner-approved benchmark raster |
+| 3 | [`FEATURE_REGISTER.md`](FEATURE_REGISTER.md) | **The completeness ledger — 162 rows. This, not the prose, defines scope** |
+| 4 | [`VisualReferenceSpec.json`](VisualReferenceSpec.json) | Measured geometry — ratios normative, dp canonical, Rpx provenance only |
+| 5 | [`APPROVED_VISUAL_DELTAS.md`](APPROVED_VISUAL_DELTAS.md) | Every intentional difference from the benchmark |
+| 6 | [`reference/`](reference/) | The owner-approved benchmark raster |
+
+## Building from this
+
+Read blueprint **§0.1 How to build from this document** first. It defines the agent protocol:
+what to read before starting, the forbidden shortcuts, what a completion report must contain, and
+the drift audit. The feature register is the ledger you work against — rows are never deleted, and a
+row moves to `done` only when its gate has actually run.
 
 ## Before changing POS UI
 
