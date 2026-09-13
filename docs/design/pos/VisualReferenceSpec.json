@@ -1,0 +1,102 @@
+{
+  "$comment": "Machine-readable geometry contract for the Nissan GTR Auto POS. Derived by measurement from the owner-approved benchmark. Ratios are normative; dp values are the canonical expanded frame. Rpx values are provenance, NOT implementation targets.",
+  "schema_version": 2,
+  "revision": "1.4",
+  "generated": "2026-09-13",
+  "status": "provisional-lossy-source",
+
+  "source": {
+    "file": "reference/benchmark-home-expanded-2026-09-07.jpg",
+    "sha256": "3843e9f60e50f67764402eeaca85b07ec27656b058dbb1477f2b5fdb46552193",
+    "measured_px": { "w": 1280, "h": 853 },
+    "declared_reference_px": { "w": 1536, "h": 1024 },
+    "scale_to_reference": 1.2,
+    "lossless_original_available": false,
+    "caveat": "JPEG. Colour samples carry compression error of a few units and edges are soft. Colour tokens below are provisional until resampled from a lossless export; geometry ratios are unaffected at this precision."
+  },
+
+  "canonicalFrame": {
+    "$comment": "The benchmark composition snaps to an 8dp grid at this frame. This is the reference for the Expanded window class, not a fixed app size.",
+    "widthDp": 1280,
+    "heightDp": 800,
+    "gridDp": 8,
+    "rpxToDp": 0.8333333
+  },
+
+  "zones": {
+    "$comment": "ratio is normative and drives layout at every width. dp is the value at canonicalFrame. minDp/maxDp clamp the ratio.",
+    "navRail":   { "ratio": 0.1125, "dp": 144, "minDp": 112, "maxDp": 176, "measuredRatio": 0.1102 },
+    "discovery": { "ratio": 0.6125, "dp": 784, "minDp": 360, "maxDp": null, "measuredRatio": 0.6148, "flex": true },
+    "cartPane":  { "ratio": 0.2750, "dp": 352, "minDp": 320, "maxDp": 420, "measuredRatio": 0.2750 }
+  },
+
+  "bands": {
+    "$comment": "Vertical rhythm of the discovery canvas at canonicalFrame.",
+    "header":         { "dp": 96,  "measuredRpx": 112, "pinned": true },
+    "hero":           { "dp": 240, "measuredRpx": 288, "minDp": 160, "collapsible": true },
+    "categoryRow":    { "dp": 96,  "measuredRpx": 115 },
+    "sectionHeading": { "dp": 32 },
+    "quickAccessRow": { "dp": 208, "measuredRpx": 253 },
+    "recentSearches": { "dp": 56 }
+  },
+
+  "components": {
+    "navItem":        { "heightDp": 48, "measuredRpx": 59, "radiusToken": "radius.sm" },
+    "categoryCard":   { "heightDp": 96, "widthDp": 96,  "minWidthDp": 88,  "maxWidthDp": 128, "gapDp": 12, "measuredPitchRpx": 131, "aspect": "1:1" },
+    "quickAccessCard":{ "heightDp": 208, "widthDp": 180, "minWidthDp": 160, "maxWidthDp": 220, "gapDp": 12, "measuredPitchRpx": 229, "aspect": "1:1.16" },
+    "cartRow":        { "minHeightDp": 72 },
+    "searchField":    { "heightDp": 48, "maxWidthDp": 560 },
+    "primaryCta":     { "heightDp": 56, "radiusToken": "radius.md" }
+  },
+
+  "gutters": {
+    "canvasHorizontalDp": 20,
+    "canvasTopDp": 16,
+    "paneHorizontalDp": 20,
+    "measuredCanvasGutterRpx": 23
+  },
+
+  "gridRules": {
+    "$comment": "How item counts are chosen per row. Counts are DERIVED, never hardcoded.",
+    "categoryRow": {
+      "mode": "fluid-scroll",
+      "formula": "n = floor((contentWidth + gap) / (minWidth + gap))",
+      "benchmarkCount": 7,
+      "benchmarkCountIsNotACap": true
+    },
+    "quickAccessRow": {
+      "mode": "fluid-scroll-unbounded",
+      "formula": "cardWidth = clamp(minWidth, (contentWidth - (n-1)*gap) / n, maxWidth)",
+      "benchmarkVisibleCount": 4,
+      "benchmarkCountIsNotACap": true
+    }
+  },
+
+  "colorSamples": {
+    "$comment": "Provisional. Measured 6x6 patch averages from the lossy source. Resample from lossless before Phase 2 freeze. Any value adopted must be added to packages/ui/brand-tokens.json, never defined only here.",
+    "navBackground":   { "measured": "#1B2024", "note": "cool charcoal; B exceeds R by 9 — benchmark sampling confirms a mild blue bias, resolving the Rev 1.3 conditional" },
+    "canvas":          { "measured": "#F3F4F8", "existingToken": "GtrColors.Chalk #F4F5F7", "note": "COOL grey, within JPEG error of the token the POS already renders through ShopTheme -> GtrTheme. Confirms the existing palette; the Rev 1.3 name 'CanvasWarm' was wrong but the colour was already right." },
+    "surfacePrimary":  { "measured": "#FEFEFE" },
+    "heroBackdrop":    { "measured": "#060709" },
+    "brandRed":        { "measured": "#CB1432", "existingToken": "GtrColors.Primary #C8102E", "note": "within JPEG error of the existing brand token — adopt the token, do not adopt the sample" }
+  },
+
+  "tolerances": {
+    "$comment": "Rev 1.4 certifies RATIO and STRUCTURE, not absolute pixels. Rev 1.3's +/-2 Rpx pixel gate is withdrawn; see blueprint section 10.",
+    "zoneRatio": 0.015,
+    "bandRatio": 0.03,
+    "componentAspect": 0.05,
+    "perceptualMaxDelta": 0.06,
+    "appliesAt": ["1280x800", "1024x768", "800x1280", "412x915", "360x800"]
+  },
+
+  "nonNormative": {
+    "$comment": "Present in the benchmark but explicitly NOT authoritative. See blueprint section 2.",
+    "currency": "KSh — benchmark mock content. Deployment is Zimbabwe: USD / ZiG per AGENTS.md multi-currency rule.",
+    "taxRate": "VAT (16%) — Kenyan rate in the mock. Real rate comes from backend tax policy; invoices stay tax-agnostic per action-plan exclusions.",
+    "copyDefects": ["'GNGUINE PARTS' is a typo in the benchmark and must render as 'GENUINE PARTS'"],
+    "helperCopy": "'Add Customer (Optional)' — parenthetical helper copy conflicts with the copy rules; resolved to 'Add Customer' (delta D-008).",
+    "dates": "Tue, 27 May 2025 is mock content.",
+    "navigation": "'Reports' appears in the benchmark rail and is replaced by 'EPC Browse' (delta D-001)."
+  }
+}
