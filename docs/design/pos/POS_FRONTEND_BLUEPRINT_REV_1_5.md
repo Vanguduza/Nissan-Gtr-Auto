@@ -14,6 +14,31 @@
 
 ---
 
+## Contents
+
+| § | Section | What it settles |
+|---|---|---|
+| [0](#0-what-this-revision-is) | What this revision is | Posture, changelog from 1.3 and 1.4 |
+| [0.1](#01-how-to-build-from-this-document) | **How to build from this document** | **Agent protocol, forbidden shortcuts, completion evidence** |
+| [1](#1-authority-hierarchy) | Authority hierarchy | What outranks what; what binds and what does not |
+| [2](#2-benchmark-authority-scope) | Benchmark authority scope | What the reference does and does not govern |
+| [3](#3-adaptive-geometry-system) | Adaptive geometry | Zone ratios, canonical dp frame, layout law, window classes |
+| [4](#4-token-system) | Token system | Generated pipeline, palette, spacing, radius, elevation, type, icons, density, motion |
+| [5](#5-design-language-and-interaction-grammar) | Design language | Principles, permission matrix, depth, micro-interactions, alignment, feedback, keyboard, dark, forbidden |
+| [6](#6-component-anatomy-expanded) | Component anatomy | Rail, header, hero, categories, cart, **receipt and print preview** |
+| [7](#7-quick-access-panel) | Quick Access panel | Operator-pinned heterogeneous row |
+| [8](#8-vehicle-cascade-in-the-header) | Vehicle cascade | Fitment context |
+| [9](#9-phone-pos) | Phone POS | Compact product, operational parity table |
+| [10](#10-application-architecture) | Application architecture | Modules, gateways, state, navigation, checkout, tender, catalogue, security, hardware |
+| [11](#11-certification) | Certification | Gates, reference sizes, goldens, lint, harness, component matrix, test layers |
+| [12](#12-capability-continuity-contract) | Capability continuity | What must survive the rebuild |
+| [13](#13-definition-of-done) | Definition of done | The completion bar |
+| [14](#14-coherence) | Coherence | How it holds together |
+
+Companion documents: [`FEATURE_REGISTER.md`](FEATURE_REGISTER.md) · [`VisualReferenceSpec.json`](VisualReferenceSpec.json) · [`APPROVED_VISUAL_DELTAS.md`](APPROVED_VISUAL_DELTAS.md)
+
+---
+
 ## 0. What this revision is
 
 **Rev 1.5 treats the POS as a clean-room rebuild.** The implementation currently in
@@ -56,6 +81,79 @@ as a source of *capability requirements* — never as a design constraint.
 | Catalogue package lifecycle | Dropped | Restored as §10.9 — manifest, checksum, resumable, atomic activation, rollback |
 | Security and privacy | Dropped | Restored as §10.10 |
 | Component certification matrix, test layers | Dropped | Restored as §11.6, §11.7 |
+
+---
+
+## 0.1 How to build from this document
+
+This document is written to be executed by someone — or something — that was not part of the
+conversation that produced it. The rules below exist because the common failure modes of a long
+build are not bad code: they are **silent feature thinning**, **drift**, and **declaring done what
+is not done**.
+
+### 0.1.1 Before starting any work
+
+1. Read §1 (authority), §0.1 (this section), and the phase row you are implementing in §12.1.
+2. Read [`FEATURE_REGISTER.md`](FEATURE_REGISTER.md) and identify **every** register ID your phase
+   owns. The register, not your reading of the prose, defines your scope.
+3. Read the sections your register IDs reference. Do not infer a requirement you have not read.
+4. If a requirement is ambiguous, resolve it by §1.1. If it stays ambiguous, **raise it** — do not
+   choose the easier reading and proceed.
+
+### 0.1.2 Forbidden shortcuts
+
+These are not style preferences. Any one of them present in work reported as complete makes the
+report false.
+
+| Forbidden | Why |
+|---|---|
+| `TODO`, `FIXME`, `NotImplementedError`, empty bodies in a delivered feature | The feature is not delivered |
+| A "simplified for now" implementation of a specified behaviour | This is thinning with extra steps |
+| Mock, stub, sample or placeholder data outside `src/debug` or `src/test` | §10.14 and release-build assertions forbid it |
+| Hardcoded operator-facing strings | Every string is a resource keyed to §10.11 |
+| Skipping, disabling, or `@Ignore`-ing a test to get a green build | The gate exists to be met, not passed |
+| Disabling or suppressing a design-lint rule | Lint rules encode decisions; changing one is a document change |
+| Substituting a simpler component for a specified one | Quietly changes the product |
+| Removing a row from the feature register or the §9.3 parity table | This is the exact failure the register exists to prevent |
+| Inventing a visual convention not in §4 or §5 | Register a delta or do not do it |
+| Marking a register row done without its gate having run | Unverified completion is the most expensive kind |
+| Widening scope beyond the phase you are in | Drift; raise it instead |
+| Claiming a phase complete with a known failure unreported | Report the failure; scaling scope down is the owner's call |
+
+### 0.1.3 Reporting a phase complete
+
+A completion report is not a narrative. It is evidence, and it must contain all four:
+
+1. **Register delta** — which IDs moved to `done`, and the commit for each.
+2. **Gate output** — which of §11.1's gates ran, and their actual result. Not "tests pass" — the
+   output.
+3. **Deltas registered** — any new rows in `APPROVED_VISUAL_DELTAS.md`, or an explicit "none".
+4. **Known gaps** — anything specified but not delivered, why, and what unblocks it. An empty list
+   is a claim that everything in scope is done.
+
+A phase with an unmet gate is **not complete**. It is a phase with an unmet gate, reported as such.
+
+### 0.1.4 Drift audit
+
+Before each phase and before release certification, audit the **whole** register, not only the
+current phase:
+
+- Every `done` row still passes its gate.
+- Every parity-table row (§9.3) is still reachable on both form factors.
+- Every capability in §12 still exists.
+- No feature has quietly become "partial".
+
+Drift is not detected by looking at the current diff. It is detected by re-checking what was
+already declared finished.
+
+### 0.1.5 When blocked
+
+Finish everything that does not depend on the blocker. State the blocker precisely: what is needed,
+who owns it, what is done in the meantime. Two dependencies are already known and specified rather
+than discovered — operator pin storage (§7.4) and the reserve-first contract (§10.6). Both belong to
+`@backend_agent`.
+
+Never substitute a local simulation for a missing backend and report the feature as working.
 
 ---
 
@@ -818,6 +916,103 @@ Money rows render backend values with explicit currency (D-006). A zero discount
 
 ---
 
+### 6.6 Receipt composition and print preview
+
+The receipt is the only artefact of this product that leaves the building. It is treated as a
+designed surface, not as a serialisation side effect.
+
+#### 6.6.1 The receipt is a document model, not a string
+
+```kotlin
+@Immutable
+data class ReceiptDocument(
+    val header: ReceiptHeader,          // branding, branch, till, operator, timestamp
+    val lines: List<ReceiptLine>,       // description, part number, qty, unit, extended
+    val totals: ReceiptTotals,          // subtotal, discount, tax, total — backend values
+    val tenders: List<ReceiptTender>,   // type, amount, reference, change given
+    val footer: ReceiptFooter,          // policy text, contact, reprint marker
+    val meta: ReceiptMeta,              // invoice no, sale id, reprint count, copy label
+)
+```
+
+Three renderers consume one model, so they cannot disagree:
+
+| Renderer | Target | Purpose |
+|---|---|---|
+| `EscPosRenderer` | Thermal printer | The physical receipt |
+| `PreviewRenderer` | Compose | On-screen preview (§6.6.3) |
+| `PdfRenderer` | PDF/share | Email, reprint archive, customer copy |
+
+**A preview that is drawn independently of the print path is worse than no preview** — it teaches
+the operator to trust something that is not what prints. All three renderers are driven from the
+same `ReceiptDocument` and the same width profile, and the preview and ESC/POS renderers are
+certified against each other on the same fixtures (§11.7 layer 4).
+
+#### 6.6.2 Paper profile governs layout
+
+Thermal paper is a fixed-character-width medium. Layout is character-grid, not dp:
+
+| Profile | Width | Chars (Font A) | Typical use |
+|---|---|---:|---|
+| `Paper58` | 58 mm | 32 | Compact counter printers |
+| `Paper80` | 80 mm | 48 | Standard counter printers |
+
+Rules that fall out of that and must be honoured by every renderer:
+
+- Description columns **truncate or wrap deterministically** to the profile width; a wrapped line
+  indents to the description column, never to column zero.
+- Money right-aligns to the last column. Amounts never wrap.
+- The part number sits on its own continuation line at `Paper58`, inline at `Paper80`.
+- Logo raster only where the printer profile reports graphics support; otherwise the text lockup.
+- Capability is **queried from the printer profile**, never assumed from the model name.
+
+#### 6.6.3 The preview surface
+
+Preview is reachable before printing and from any completed sale, and is the default confirmation
+step for a reprint.
+
+- Renders the exact character grid at the active paper profile, in a monospaced face on a paper-
+  coloured ground with a subtle page edge — it should read as paper, not as a UI list.
+- Shows the profile in use (`80 mm · 48 col`) and the target printer, both changeable from the
+  preview without leaving it.
+- Scrolls vertically only. Never reflows to the screen width — that would misrepresent the output.
+- Actions: `Print` · `Reprint` · `Share PDF` · `Email` · `Change printer`.
+- At Compact it is a full screen, not a sheet, so the grid is legible at real proportions.
+- When no printer is reachable the preview still renders, with `Print` disabled and the reason
+  stated — the operator can still share or email.
+
+#### 6.6.4 Reprints and duplicate protection
+
+- The first print of a sale is the **original**. Every subsequent print is a **reprint** and is
+  marked as such in the footer with its reprint count.
+- Reprints are audited: sale id, operator, timestamp, reason where policy requires one.
+- A reprint never re-posts anything financial. It renders a stored `ReceiptDocument`; it does not
+  recompute totals, and it cannot be used to reissue a sale.
+- A customer copy and a merchant copy are distinct `copy` values on the same document, not two
+  different documents.
+
+#### 6.6.5 Print failure is a first-class state
+
+Printing fails often at a counter — paper out, cover open, printer asleep, Bluetooth dropped. It is
+modelled, not thrown:
+
+| State | Operator surface | Recovery |
+|---|---|---|
+| `NoPrinterConfigured` | Preview with `Print` disabled | Choose printer |
+| `Unreachable` | Inline in preview | Retry · choose another · share PDF |
+| `PaperOut` / `CoverOpen` | Inline, named exactly | Fix and retry — job is retained |
+| `PartialPrint` | Explicit warning | **Reprint marked as reprint**, never a silent second original |
+| `Failed` | Inline with reason | Retry · share PDF |
+
+**A failed print never blocks sale completion.** The sale is already settled; the receipt is a
+delivery concern. The queued job survives navigation and app restart, and the operator is told
+plainly that the sale is complete but the receipt did not print.
+
+All printing goes through `bridges/android/escpos-printer` (Bridge-First, A1). No Web Bluetooth, no
+HTML5 print path, ever.
+
+---
+
 ## 7. Quick Access panel
 
 **This replaces "Popular Spares" (D-003).** The row evolves from a merchandising strip into the
@@ -996,7 +1191,9 @@ Every POS operation, and how it is reached on each surface. No operation is tabl
 | Split tender | Payment surface | Dedicated tender screen, one leg per step | Same normalised state |
 | Terminal / EcoCash / Paynow | Payment surface | Same adapters | Online only |
 | Payment recovery | Dedicated surface | Dedicated screen | Never a sheet — §10.4 |
+| Preview receipt | Preview panel over the canvas | Dedicated full screen | §6.6.3 — never a sheet at Compact |
 | Print receipt | ESC/POS bridge | ESC/POS bridge | Bridge-First |
+| Reprint / share PDF / email | From preview or sale history | From preview or sale history | Marked as reprint, audited |
 | Till / shift open-close | Rail → Till | More → Till | |
 | Offline cash sale | Restricted mode | Restricted mode | Identical rules |
 | Pin / unpin | Long-press | Long-press | §7.2 |
@@ -1380,6 +1577,44 @@ documented maximum with layout adaptation rather than clipping.
 Where accessibility scaling and benchmark proportion conflict, accessibility wins — and the scaled
 layout is still certified (§11.3 requires golden surfaces at maximum font scale).
 
+### 10.18 Hardware bridge architecture
+
+All hardware access goes through `bridges/` (Bridge-First, A1). No WebView, no HTML5 camera, no Web
+Bluetooth — not for scanning, not for printing, not for anything.
+
+Each bridge presents a typed interface to `pos-domain` and a capability descriptor, so the UI can
+render what is actually available rather than what is theoretically supported:
+
+```kotlin
+interface PosHardware {
+    val scanner: ScannerBridge?     // null when no physical scanner is paired
+    val camera: CameraBridge?
+    val printer: PrinterBridge?
+    val terminal: TerminalBridge?
+}
+
+data class PrinterProfile(
+    val name: String,
+    val paper: PaperProfile,        // Paper58 | Paper80
+    val supportsGraphics: Boolean,
+    val supportsCutter: Boolean,
+    val connection: Connection,     // Bluetooth | USB | Network
+)
+```
+
+| Bridge | Responsibility | Failure surface |
+|---|---|---|
+| `ScannerBridge` | Key-event interception, `ScannerProfile` timing, normalisation (§5.10) | Falls back to camera, then manual entry |
+| `CameraBridge` | CameraX QR/barcode, transient surface, permission handling | Falls back to manual entry |
+| `PrinterBridge` | Discovery, profile query, job serialisation, retry, duplicate protection (§6.6) | §6.6.5 states |
+| `TerminalBridge` | Intent/service adapter normalised to the five outcomes (§10.7) | `Unknown` → recovery |
+
+Capability is **queried, never assumed**. A bridge that reports no capability renders its dependent
+action disabled with a reason (§10.7), never hidden and never enabled-then-failing.
+
+Every bridge is faked in `pos-ui` tests so the full flow — scan, tender, print — is exercisable
+without hardware, and verified against real devices at §11.7 layer 9.
+
 ---
 
 ## 11. Certification
@@ -1415,6 +1650,7 @@ Every gate runs at `1280×800`, `1024×768`, `800×1280`, `412×915`, `360×800`
 Expanded: Home empty cart · Home populated · search active · vehicle cascade open · Quick Access
 populated · Quick Access empty · cart locked · payment · offline · EPC browse.
 Compact: Sell home · cart sheet · checkout review · tender step · offline · recovery.
+Receipt: preview at `Paper58` and `Paper80`, print-failure state, reprint marking.
 Design language: every glass surface twice — API 31+ backdrop blur and the pre-31 fallback (§5.3).
 Empty states: empty cart, empty Quick Access, no search results, no vehicle selected.
 Accessibility: Expanded Home and Compact cart at the documented maximum font scale.
@@ -1473,6 +1709,7 @@ and extended to the surfaces this revision adds. A screen cannot pass while a co
 | Overlay / popover | **Both glass treatments** (§5.3), elevation | Focus move and restore, outside/Esc dismiss | Smooth open and close |
 | Snackbar | Placement, never over CTA | Undo restores exactly | — |
 | Cart sheet (Compact) | Geometry at both compact sizes | Expand, collapse, scroll | 60 fps drag |
+| Receipt preview | Character grid at both paper profiles, paper ground | Renderer parity with ESC/POS on fixtures; print, reprint, share, change printer | Renders long receipts without jank |
 | Skeleton set | Matches final geometry exactly | No reflow on load | — |
 
 ### 11.7 Test layers
@@ -1519,7 +1756,7 @@ are implemented is this document's recommendation, not the old code's precedent.
 | Quotations create / send / convert (L4) | Same | `QuotationGateway` |
 | Park and resume sale | Same | `CartGateway` |
 | Companion scan pairing | Same | Bridge + `pos-data` |
-| ESC/POS receipt printing | Same, Bridge-First | `bridges/android/escpos-printer` |
+| ESC/POS receipt printing | Extended — one `ReceiptDocument`, three renderers, on-screen preview, reprint marking, modelled failure states | `bridges/android/escpos-printer` |
 | QR / barcode camera scanning | Same, Bridge-First | `bridges` + CameraX |
 | Till / shift open and close | Same | `TillGateway` |
 | EPC browse | Same hierarchy, rebuilt on the new design system | `CatalogGateway` hierarchy calls |
@@ -1577,6 +1814,11 @@ now so they can be scheduled into `@backend_agent`'s lane rather than discovered
 - Authorisation gates are RPC-enforced; hiding navigation is never the control.
 - Scanner, CameraX and receipt printing are real bridge integrations.
 - Golden, performance, accessibility and security gates pass; design lint is green.
+- The receipt previews exactly what prints — preview and ESC/POS renderers certified against the
+  same fixtures — with reprints marked, failures modelled, and a failed print never blocking a
+  completed sale.
+- Every row of the feature register is `done` with its gate passed, or `dropped` with an owner
+  reference. No row is `partial` and no row has been deleted.
 - Undo covers every reversible destructive action; confirmation dialogs are reserved for what cannot
   be undone.
 - The POS is fully operable from a physical keyboard, with a visible focus ring and a documented

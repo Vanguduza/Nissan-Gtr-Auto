@@ -1,16 +1,18 @@
 {
   "actor": "claude-code",
   "branch_at_record": "port-work",
-  "change_id": "d6b4fe6a1ee96465e683",
+  "change_id": "0205fed0d03e8c7dff50",
   "changed_files": [
-    "docs/design/pos/POS_FRONTEND_BLUEPRINT_REV_1_5.md"
+    "docs/design/pos/FEATURE_REGISTER.md",
+    "docs/design/pos/POS_FRONTEND_BLUEPRINT_REV_1_5.md",
+    "docs/design/pos/README.md"
   ],
-  "diff_sha256": "d6b4fe6a1ee96465e683de0e410e6eadb2cde7523212a82ea87c808cd1737c74",
+  "diff_sha256": "0205fed0d03e8c7dff5053a731354388be12b981859b776b60382a3b9ccd02c0",
   "domains": [
     "documentation"
   ],
-  "intent": "port b662b379 onto POS reconcile lineage",
-  "recorded_at_utc": "2026-10-01T01:12:50.924917+00:00",
+  "intent": "port 55249309 onto POS reconcile lineage",
+  "recorded_at_utc": "2026-10-01T01:12:51.161413+00:00",
   "schema_version": 1,
-  "source_parent": "dbb2e7b750739b8e6fd1281b562733b8a26ed2af"
+  "source_parent": "552772f03b45316c96587d31bc2ac040d457c927"
 }
