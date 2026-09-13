@@ -1,18 +1,43 @@
 {
   "actor": "claude-code",
   "branch_at_record": "port-work",
-  "change_id": "89b436c79cdbaf5e0357",
+  "change_id": "ae96597fe6d737bc8e94",
   "changed_files": [
-    "docs/design/pos/ANTIGRAVITY_BUILD_PROMPT.md",
-    "docs/design/pos/POS_FRONTEND_BLUEPRINT_REV_1_5.md",
-    "docs/design/pos/README.md"
+    "apps/android-management/benchmark/build.gradle.kts",
+    "apps/android-management/benchmark/src/main/AndroidManifest.xml",
+    "apps/android-management/benchmark/src/main/java/co/zw/nissangtr/management/benchmark/BaselineProfileGenerator.kt",
+    "apps/android-management/build.gradle.kts",
+    "apps/android-management/feature/pos-data/build.gradle.kts",
+    "apps/android-management/feature/pos-data/src/main/AndroidManifest.xml",
+    "apps/android-management/feature/pos-domain/build.gradle.kts",
+    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/error/PosError.kt",
+    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/result/PosResult.kt",
+    "apps/android-management/feature/pos-domain/src/test/kotlin/co/zw/nissangtr/pos/domain/DomainPurityTest.kt",
+    "apps/android-management/feature/pos-ui/build.gradle.kts",
+    "apps/android-management/feature/pos-ui/src/main/AndroidManifest.xml",
+    "apps/android-management/feature/pos-ui/src/test/java/co/zw/nissangtr/pos/ui/harness/BaselineScreenshotTest.kt",
+    "apps/android-management/feature/pos-ui/src/test/java/co/zw/nissangtr/pos/ui/harness/ReferenceSizes.kt",
+    "apps/android-management/settings.gradle.kts",
+    "docs/design/pos/reference/benchmark-home-expanded-2026-09-07.jpg",
+    "packages/pos-design/build.gradle.kts",
+    "packages/pos-design/src/main/AndroidManifest.xml",
+    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/tokens/PosTokens.kt",
+    "packages/ui/brand-tokens.json",
+    "packages/ui/package.json",
+    "packages/ui/scripts/build-tokens.mjs",
+    "packages/ui/src/tokens.css",
+    "packages/ui/src/tokens.ts",
+    "scripts/design-lint.py",
+    "scripts/resample-benchmark-colors.py"
   ],
-  "diff_sha256": "89b436c79cdbaf5e035716db45363e603772ad10263f9253e8760ed689722a12",
+  "diff_sha256": "ae96597fe6d737bc8e9407f8502d6e56b53f0170ddf59626fd409f0a5e443b0e",
   "domains": [
-    "documentation"
+    "documentation",
+    "management-android",
+    "repository"
   ],
-  "intent": "port 3e4856b8 onto POS reconcile lineage",
-  "recorded_at_utc": "2026-10-01T01:12:51.383930+00:00",
+  "intent": "port 9d2e0873 onto POS reconcile lineage",
+  "recorded_at_utc": "2026-10-01T01:12:51.609114+00:00",
   "schema_version": 1,
-  "source_parent": "28755e5ec7a9dcf3a5f6e8824aae8c2216c48d57"
+  "source_parent": "aad8ff116ec302d1b8612b6e04c575cf8fa90c99"
 }

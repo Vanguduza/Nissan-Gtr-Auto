@@ -33,6 +33,15 @@ include(":android-ui")
 project(":android-ui").projectDir =
     file("../../packages/android-ui")
 
+// POS Clean Rebuild Architecture Modules (§10.1)
+include(":pos-design")
+project(":pos-design").projectDir =
+    file("../../packages/pos-design")
+include(":feature:pos-domain")
+include(":feature:pos-data")
+include(":feature:pos-ui")
+include(":benchmark")
+
 // Bridge-First — consume only; impl lives under bridges/
 // location-tracker intentionally NOT included — driver GPS producer is
 // apps/android-delivery only. Management is staff view/subscribe.

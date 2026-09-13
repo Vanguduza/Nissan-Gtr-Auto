@@ -12,7 +12,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json",
+    "build:tokens": "node ./scripts/build-tokens.mjs",
+    "build": "node ./scripts/build-tokens.mjs && tsc -p tsconfig.json",
     "test": "echo \"no tests yet\"",
     "lint": "echo \"lint: ui — pending\""
   },

@@ -1,4 +1,5 @@
-{
+// AUTO-GENERATED from brand-tokens.json — DO NOT EDIT DIRECTLY
+export const brandTokens = {
   "$schema": "./brand-tokens.schema.json",
   "meta": {
     "name": "Nissan GTR Auto",
@@ -82,7 +83,6 @@
   },
   "space": {
     "0": 0,
-    "0_5": 2,
     "1": 4,
     "2": 8,
     "3": 12,
@@ -92,6 +92,7 @@
     "8": 32,
     "10": 40,
     "12": 48,
+    "0_5": 2,
     "xs": 4,
     "sm": 8,
     "md": 16,
@@ -112,10 +113,30 @@
     "staffSm": 6
   },
   "elevation": {
-    "0": { "y": 0, "blur": 0, "spread": 0, "opacity": 0.0 },
-    "1": { "y": 1, "blur": 2, "spread": 0, "opacity": 0.06 },
-    "2": { "y": 2, "blur": 8, "spread": 0, "opacity": 0.08 },
-    "3": { "y": 8, "blur": 24, "spread": 0, "opacity": 0.12 }
+    "0": {
+      "y": 0,
+      "blur": 0,
+      "spread": 0,
+      "opacity": 0
+    },
+    "1": {
+      "y": 1,
+      "blur": 2,
+      "spread": 0,
+      "opacity": 0.06
+    },
+    "2": {
+      "y": 2,
+      "blur": 8,
+      "spread": 0,
+      "opacity": 0.08
+    },
+    "3": {
+      "y": 8,
+      "blur": 24,
+      "spread": 0,
+      "opacity": 0.12
+    }
   },
   "motion": {
     "entranceMs": 320,
@@ -127,4 +148,6 @@
     "broadsheet hairline newspaper layouts",
     "generic Material purple seed"
   ]
-}
+} as const;
+
+export type BrandTokens = typeof brandTokens;
