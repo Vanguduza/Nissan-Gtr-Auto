@@ -651,8 +651,14 @@ So the contract for every glass surface is a **declared pair**:
 Both must be screenshot-certified (§11.3). A glass surface that has not had its fallback rendered and
 reviewed is not done. Never a neon glow, never a coloured blur, never blur on a surface that scrolls.
 
-Set and record the project's `minSdk` next to this table — it determines which column most operators
-actually see.
+**This project's `minSdk` is 26** (`feature/pos/build.gradle.kts`). The fallback column is therefore
+not an edge case — it is what every device below Android 12 renders, which on a counter fleet of
+budget tablets is likely the majority. Design the fallback first and treat the blur as the
+enhancement, not the reverse.
+
+Two further build facts constrain §5.5: the module is on Compose BOM `2024.06.00`, which predates
+`SharedTransitionLayout`. Shared-element continuity requires a BOM bump; until it lands, use M3
+crossfades rather than approximating shared bounds by hand.
 
 ### 5.4 Micro-interactions
 
