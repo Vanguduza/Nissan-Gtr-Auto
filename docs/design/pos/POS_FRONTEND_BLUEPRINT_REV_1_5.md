@@ -49,6 +49,13 @@ as a source of *capability requirements* — never as a design constraint.
 | Reserve-first | "Blocked on backend" | **Contract specified here** so it can be built (§10.6) |
 | Migration | Per-file keep/rebuild table | **Capability continuity contract** (§12) |
 | Design language | Dropped in the 1.4 rewrite | **Restored and extended as §5** — principles, permission matrix, micro-interactions, spatial continuity, layering, plus what Android can actually render |
+| Alignment, optical offsets, letter spacing | Dropped | Restored as §5.8 and §4.6 tracking |
+| Feedback surface, undo, keyboard operation | Absent from Rev 1.3 too | **New** — §5.9, §5.10: one snackbar surface, undo over confirm, keyboard-first shortcuts and a focus contract |
+| Dark scheme, locale formatting | Absent | **New** — §5.11 |
+| Tender adapters, terminal outcomes, reduced basket | Dropped | Restored as §10.7, §10.8 |
+| Catalogue package lifecycle | Dropped | Restored as §10.9 — manifest, checksum, resumable, atomic activation, rollback |
+| Security and privacy | Dropped | Restored as §10.10 |
+| Component certification matrix, test layers | Dropped | Restored as §11.6, §11.7 |
 
 ---
 
@@ -126,7 +133,7 @@ component anatomy and visual treatment**. It is **not** authoritative for:
 |---|---|---|
 | Currency | `KSh` (Kenyan shillings) | Backend money state; USD / ZiG; `AGENTS.md` multi-currency law |
 | Tax rate and model | `VAT (16%)` — the Kenyan rate | Backend tax policy; invoices stay tax-agnostic (no ZIMRA) |
-| Copy strings | `GNGUINE PARTS` (typo); `Add Customer (Optional)` (helper copy) | §10.10 copy rules |
+| Copy strings | `GNGUINE PARTS` (typo); `Add Customer (Optional)` (helper copy) | §10.14 copy rules |
 | Sample data | Part numbers, prices, `Tue, 27 May 2025` | Real catalogue and device clock |
 | Feature inventory | `Reports` in the rail | Delta D-001 → `EPC Browse` |
 
@@ -346,7 +353,7 @@ primary CTA, active navigation and brand emphasis. `unknown` — the ambiguous-t
 a duplicate charge is the failure mode — gets its own treatment distinct from both. All three go
 into `brand-tokens.json` so every surface inherits the separation. Registered as **D-011**.
 
-Colour is never the only status signal (§10.9).
+Colour is never the only status signal (§10.13).
 
 ### 4.3 Spacing
 
@@ -411,20 +418,25 @@ what a cart pane needs.
 Confirm the benchmark's actual face against the lossless export in Phase 1. If it is neither, that is
 a delta to register — not a reason to keep whatever happens to be vendored today.
 
-| Role | Family | Size / line | Weight | Compact | Use |
-|---|---|---|---|---|---|
-| `display.hero` | Display | 32 / 38 | 700 | 24 / 30 | Hero headline only |
-| `heading.1` | Inter | 24 / 30 | 700 | 20 / 26 | Pane title, Total |
-| `heading.2` | Inter | 20 / 26 | 600 | 18 / 24 | Section titles |
-| `heading.3` | Inter | 16 / 22 | 600 | — | Card titles |
-| `body.primary` | Inter | 14 / 20 | 400 | — | Product names, labels |
-| `body.secondary` | Inter | 12 / 16 | 400 | — | Part numbers, metadata |
-| `label.action` | Inter | 14 / 18 | 500 | — | Buttons, nav labels |
-| `label.meta` | Inter | 11 / 14 | 500 | — | Date, role, small metadata |
-| `numeric.price` | Inter | 15 / 20 | 600 | — | Unit price — **tnum** |
-| `numeric.total` | Inter | 24 / 30 | 700 | 20 / 26 | Total, balance — **tnum** |
-| `numeric.quantity` | Inter | 14 / 18 | 500 | — | Quantity, stock — **tnum** |
-| `mono.reference` | JetBrains Mono | 12 / 16 | 400 | — | Correlation IDs, terminal references in recovery |
+| Role | Family | Size / line | Weight | Tracking | Compact | Use |
+|---|---|---|---|---:|---|---|
+| `display.hero` | Display | 32 / 38 | 700 | −0.02em | 24 / 30 | Hero headline only |
+| `heading.1` | Inter | 24 / 30 | 700 | −0.015em | 20 / 26 | Pane title, Total |
+| `heading.2` | Inter | 20 / 26 | 600 | −0.01em | 18 / 24 | Section titles |
+| `heading.3` | Inter | 16 / 22 | 600 | −0.005em | — | Card titles |
+| `body.primary` | Inter | 14 / 20 | 400 | 0 | — | Product names, labels |
+| `body.secondary` | Inter | 12 / 16 | 400 | +0.005em | — | Part numbers, metadata |
+| `label.action` | Inter | 14 / 18 | 500 | +0.01em | — | Buttons, nav labels |
+| `label.meta` | Inter | 11 / 14 | 500 | +0.02em | — | Date, role, small metadata |
+| `numeric.price` | Inter | 15 / 20 | 600 | 0 | — | Unit price — **tnum** |
+| `numeric.total` | Inter | 24 / 30 | 700 | −0.01em | 20 / 26 | Total, balance — **tnum** |
+| `numeric.quantity` | Inter | 14 / 18 | 500 | 0 | — | Quantity, stock — **tnum** |
+| `mono.reference` | JetBrains Mono | 12 / 16 | 400 | 0 | — | Correlation IDs, terminal references |
+
+**Tracking tightens as size grows and opens as it shrinks** — the standard optical curve, and the
+thing whose absence makes an otherwise correct type scale look amateur. Rev 1.3 required
+"letter spacing per role" and never supplied it. Numeric roles hold at 0: tabular figures are already
+fixed-advance, and tracking them breaks column alignment.
 
 Part numbers use `body.secondary` with `ss02`; payment correlation references use `mono.reference`,
 because an operator reading one to a support line cannot afford an ambiguous glyph.
@@ -513,7 +525,7 @@ Android can actually render, and at what cost.
 | Shared-element transition | Card → detail, search → results, cart → checkout | Anywhere it drops frames | Continuity must not cost fluidity |
 
 Rev 1.3 permitted neumorphism for "rare tactile segmented controls if visually justified". That
-exception is withdrawn: it cannot meet §10.13 contrast requirements and there is no control in this
+exception is withdrawn: it cannot meet §10.17 contrast requirements and there is no control in this
 product that needs it.
 
 ### 5.3 Depth, and what Android actually does
@@ -605,7 +617,145 @@ rather than trapping the operator silently.
 - **Every surface has a designed empty state**: empty cart, no search results, empty Quick Access
   (§7.5), no vehicle selected, empty till. Empty states state the next useful action.
 
-### 5.8 Forbidden outright
+### 5.8 Alignment and optical contract
+
+Rev 1.3 devoted a section to this and it was dropped in the rewrite. It is restored because shared
+edges are most of what separates a professional interface from a competent one — misalignment reads
+as carelessness even to someone who cannot name what is wrong.
+
+**Structural alignment.** The discovery canvas has one content box (§3, gutters `space.5`). Every
+band aligns to its left and right edges: the hero, the category row, section headings, the Quick
+Access row and the recent-search chips all begin on the same vertical line and end on the same one.
+The header's search field shares that left edge at Expanded. Section headings align with the
+card-grid edge beneath them, never indented independently.
+
+**Cart column alignment.** Every cart row resolves to the same column grid, so the eye reads down a
+column rather than scanning each row:
+
+```
+[thumb 48] [gap 12] [name / part-number column — flexes] [price column — right] [⋮ 32] [stepper 96]
+```
+
+Product name and part number share a left edge. Prices right-align on a common axis. Steppers align
+on a common axis regardless of price width. A long product name never pushes a price out of column —
+it truncates (§6.5).
+
+**Numeric alignment.** In the totals block, labels form a left column and figures a right column,
+right-aligned on the decimal. With `tnum` on every numeric role, digits hold their column as values
+change — which is why §4.6 sets numeric tracking to 0.
+
+**Optical alignment.** Mathematical centring is not sufficient. Explicit optical offsets are
+permitted, and required, for: asymmetric icons (play, chevron, send) · glyphs inside circular
+buttons · price baselines against adjacent labels · the brand logo lockup · text beside an icon ·
+the `−` and `+` marks in the quantity stepper, which are optically different weights at the same
+point size.
+
+Every optical offset is a **named token or a documented component-spec value**, never an unexplained
+magic number:
+
+```kotlin
+object PosOptical {
+    val stepperMinus = DpOffset(0.dp, (-0.5).dp)   // minus sits visually high in most grotesques
+    val chevronTrailing = DpOffset(1.dp, 0.dp)
+    val iconBesideText = DpOffset(0.dp, (-0.5).dp)
+}
+```
+
+Bounded to ±2 dp. Anything larger is a layout bug being papered over.
+
+### 5.9 Feedback, undo and confirmation
+
+Rev 1.3 specified error *classification* but never a feedback **surface**. Without one, every
+developer invents their own and the product acquires four notification styles.
+
+One surface, one set of rules:
+
+| Kind | Surface | Duration | Action |
+|---|---|---|---|
+| Confirmation of a reversible act | Snackbar, bottom-start of the working area | 5 s | **Undo** |
+| Transient failure | Snackbar | 8 s | Retry |
+| Blocking error | Inline at the point of failure, not a snackbar | Persistent | Explicit next action |
+| Background progress | Header status chip | While active | Tap for detail |
+| Destructive confirmation | Dialog | — | Named verb, never "OK" |
+
+**Prefer undo over confirm.** A modern operational interface does not interrupt a fast operator to
+ask "are you sure?" for something it can simply reverse. Removing a cart line, unpinning a Quick
+Access item and clearing a fitment context all complete immediately with an Undo snackbar.
+
+Reserve confirmation dialogs for what genuinely cannot be undone: clearing a populated cart,
+voiding a tendered sale, and any manager-authorised action. Those dialogs name the verb
+(`Void sale`), never `OK`, and never make the destructive choice the visually dominant one.
+
+Snackbars never overlap the primary CTA or the cart totals, never queue more than one deep, and
+never carry an error the operator must act on — that goes inline where the problem is.
+
+### 5.10 Keyboard, focus and scanner ergonomics
+
+A counter POS with a physical keyboard and scanner is a **keyboard-first application**. Treating it
+as touch-only is the single biggest speed loss available, and it is what most POS software gets
+wrong.
+
+**Focus contract** — deterministic, never incidental:
+
+- Search holds focus on Home by default; a completed scan returns focus to search.
+- Adding a line does **not** steal focus from search — the operator keeps scanning.
+- Opening an overlay moves focus into it and restores the prior focus on dismissal.
+- Focus order follows visual order; every interactive element is reachable by keyboard and D-pad.
+- A visible focus ring is mandatory (`borderFocus`, 1.5 dp) — it is not decoration, it is how a
+  keyboard operator knows where they are.
+
+**Shortcuts** (Expanded and Medium, physical keyboard present):
+
+| Key | Action |
+|---|---|
+| `/` or `Ctrl+K` | Focus search |
+| `F2` | Open vehicle cascade |
+| `F4` | Park sale |
+| `F8` | Proceed to payment |
+| `+` / `−` | Quantity on the focused cart line |
+| `Del` | Remove focused line (with Undo) |
+| `Esc` | Dismiss the top transient layer |
+| `Ctrl+Z` | Undo the last reversible action |
+
+Shortcuts are discoverable — a `?` overlay lists them — and never the *only* path to an action.
+
+**Scanner input.** A physical scanner is a keyboard that types very fast. Detection is a timing
+heuristic, and it must be configurable rather than hard-coded, because scanner models differ:
+
+```kotlin
+data class ScannerProfile(
+    val maxInterKeyGapMs: Int = 30,    // keystrokes closer than this are machine-typed
+    val minLength: Int = 6,
+    val terminator: Char = '\n',
+)
+```
+
+Flow: `key events → detector → normalised code → lookup → unique match adds to cart, ambiguous match
+opens a disambiguation surface, no match surfaces a scannable-but-unknown state`.
+
+The detector must not swallow ordinary typing, and — per §9.4 — a physical scanner being active must
+never raise the soft keyboard. Profiles are validated against each supported scanner model and the
+results recorded, not assumed.
+
+### 5.11 Dark scheme and locale formatting
+
+**Dark is a first-class scheme, not an inversion.** Counter tablets run evening shifts. Every token
+in §4 resolves in both schemes from the same generated source; elevation in dark is carried by
+surface lightness rather than shadow, which does not read on a dark ground; brand red is lightened to
+`brandRedPressed` for contrast on dark surfaces. Both schemes are golden-certified (§11.3).
+
+**Formatting is a contract, not a call site decision.** One formatter, used everywhere:
+
+- **Money** always renders with an explicit currency marker and `tnum`; never a bare number. A
+  `Money` value type carries amount plus currency (§12) — a `Double` on its own is a lint failure.
+- Grouping and decimal separators follow the configured locale, not the device's, so two operators
+  on one counter never see different formats for the same figure.
+- Dates and times follow the same configured locale; relative time ("2 min ago") is permitted only
+  for sync status, never for financial timestamps.
+- Part numbers and reference codes are never locale-formatted, never wrapped mid-token, and always
+  selectable for copy.
+
+### 5.12 Forbidden outright
 
 Continuous decorative animation · hero parallax · confetti or celebration effects · neon or coloured
 glow · gradient-filled text · a second saturated accent hue · glass on the rail, canvas, cart pane or
@@ -980,7 +1130,7 @@ val discovery: StateFlow<DiscoveryProjection> = store.select { it.toDiscoveryPro
 ```
 
   Every projection is `@Immutable` with stable keys. A quantity change must not recompose the
-  catalogue — §10.11 makes that a measured gate, not an aspiration.
+  catalogue — §10.15 makes that a measured gate, not an aspiration.
 
 Illegal combinations are structurally impossible rather than guarded: there is no
 `isCartLocked` boolean to contradict an `isEditable` boolean, because the state is a sealed
@@ -1046,7 +1196,98 @@ lines intact and a non-destructive notice, and re-reserves on the next attempt. 
 held by an abandoned cart, and an operator must never be told a sale failed because a timer they
 could not see ran out.
 
-### 10.7 Errors are data
+### 10.7 Tender adapters and terminal outcomes
+
+The UI consumes a **normalised tender capability model**. Provider specifics stay behind adapters:
+Cash · swipe terminal · EcoCash · Paynow · ContiPay · future approved providers. Adding a provider
+must not touch a composable.
+
+```kotlin
+data class TenderCapability(
+    val type: TenderType,
+    val available: Boolean,
+    val unavailableReason: TenderBlockReason?,   // offline, provider down, amount out of range…
+    val requiresReference: Boolean,
+    val supportsPartial: Boolean,
+)
+```
+
+A tender that cannot be used renders **disabled with its reason visible** — never absent (the
+operator cannot tell missing from broken), never enabled-then-failing.
+
+**Every terminal attempt normalises to exactly one outcome:**
+
+| Outcome | Meaning | Consequence |
+|---|---|---|
+| `Approved` | Funds confirmed moved | Apply leg, recompute remaining from the backend |
+| `Declined` | Provider refused | Offer another tender; no recovery needed |
+| `Cancelled` | Operator or customer aborted | Return to tender selection unchanged |
+| `Error` | Attempt failed before authorisation | Retryable with a fresh idempotency key |
+| `Unknown` | **Cannot prove whether funds moved** | Block further charging for that amount and provider; open recovery |
+
+`Unknown` is not a failure — conflating the two is how a customer gets charged twice. It carries the
+correlation reference forward, blocks the duplicate, and requires an explicit resolution path.
+
+### 10.8 Reduced basket after partial payment
+
+A real counter case Rev 1.3 specified and the rewrite dropped: money has cleared, but the customer
+cannot cover the remainder.
+
+Where policy permits, a governed flow reduces the basket to match confirmed funds:
+
+1. Display what has already cleared, per leg, with tender and reference.
+2. Identify which lines are removable — some may already be committed or reserved against.
+3. **The backend recalculates the legal reduced basket.** The frontend never computes it.
+4. The operator confirms the reduced contents and the resulting total explicitly.
+5. Inventory reservations reconcile atomically with the reduction.
+6. An audit event records the reduction, the operator, and the reason.
+
+Never reachable by accident: it is an explicit action from the partially-paid state, never a
+by-product of editing a cart. A reserved cart is not editable (§10.5) — this is the one governed
+exception, and it goes through its own state, not through the cart editor.
+
+### 10.9 Catalogue package lifecycle
+
+The sellable catalogue is large and must work offline, so it ships as a **verified package**, not as
+rows accumulated by a sync loop. This is distinct from the offline sale outbox (§10.12) — two
+different stores with two different jobs, which Rev 1.3 conflated.
+
+Required properties, in order of execution:
+
+| Stage | Requirement |
+|---|---|
+| Manifest | Package version, build id, row counts, size, cryptographic checksum |
+| Download | **Resumable**; metered-network aware; cancellable without corrupting current state |
+| Staging | Written to a temporary location, never over the active database |
+| Verification | Checksum and manifest validated **before** activation |
+| Activation | **Atomic** swap — the app is never in a half-updated catalogue state |
+| Rollback | The previous version is retained until the new one has served one clean session |
+| Startup | Integrity check on every launch; a failed check falls back to the previous version and reports |
+
+Encrypted at rest (SQLCipher) with the passphrase wrapped by the Android Keystore. Read-only in
+production — the POS never writes to the catalogue package.
+
+An operator must be able to see catalogue version and freshness (§6.2 status zone), because "the
+price is wrong" and "the catalogue is three weeks old" are the same problem seen from two ends.
+
+### 10.10 Security and privacy
+
+- **No raw card data, ever** — not in memory beyond the adapter, not in storage, not in logs, not in
+  crash reports. No PAN, no track data, no CVV, no auth codes.
+- Payment **correlation references** may be stored where policy permits; they are what makes recovery
+  possible. Secrets and authorisation data may not.
+- Keys and passphrases via Android Keystore. Nothing derived from a device identifier.
+- **Never cache a manager approval token.** Discount, void, refund and price override require a live
+  reauth — caching the grant is the privilege-escalation hole the offline ADR explicitly closes.
+- Production logging **redacts** personally identifiable and payment-sensitive values by default.
+  Redaction is opt-out per field, not opt-in, so a new field is safe until proven otherwise.
+- Catalogue manifests and checksums verified before activation (§10.9).
+- Audit operator actions for till, payment, recovery, void, discount, refund and price override.
+- **Fake and simulated payment providers live only in test source sets** and must be structurally
+  unselectable in a release build — enforced by lint (§11.4) and by a release-build assertion test.
+- Screenshots of payment and recovery surfaces are blocked (`FLAG_SECURE`) on those screens.
+
+### 10.11 Errors are data
 
 ```kotlin
 sealed interface PosError {
@@ -1067,7 +1308,7 @@ reaches a screen. Never surface exception names, HTTP codes, SQL terms or stack 
 further charging for that amount and provider, carry the correlation reference into recovery, and
 require an explicit resolution path.
 
-### 10.8 Offline
+### 10.12 Offline
 
 Offline is a restricted mode with modelled restrictions, not a degraded imitation of online:
 
@@ -1083,7 +1324,7 @@ Sales queue through an encrypted outbox with a client-generated id, replayed ide
 drift and stock shortfall surface as **conflicts for operator review**, never as invented ledger
 rows. Card and mobile-money requests are never queued.
 
-### 10.9 Semantic states
+### 10.13 Semantic states
 
 | Family | Treatment | Consequence |
 |---|---|---|
@@ -1097,14 +1338,14 @@ rows. Card and mobile-money requests are never queued.
 Colour is never the only signal — every family carries an icon and a label, which is also what makes
 the design legible to a colour-blind operator and to a screenshot diff.
 
-### 10.10 Copy
+### 10.14 Copy
 
 No tutorial paragraphs, no helper copy on obvious controls (D-008), verbs on buttons, errors that
 state what happened and the next permitted action, no engineering language, no placeholder or fake
-data in production builds. Every operator string is a resource keyed to §10.7. Deterministic preview
+data in production builds. Every operator string is a resource keyed to §10.11. Deterministic preview
 data lives only in a debug or test source set.
 
-### 10.11 Performance
+### 10.15 Performance
 
 Targets apply to the supported baseline device — to be named from the pilot fleet's lowest spec.
 
@@ -1121,7 +1362,7 @@ from catalogue by construction (§10.3), verified by a recomposition-count test.
 Prefer local-first rendering. Where loading is genuinely required, use skeletons that match final
 geometry exactly; indeterminate spinners are not a default.
 
-### 10.12 Product imagery
+### 10.16 Product imagery
 
 A deterministic media contract per catalogue image: background treatment, bounding-box padding, crop
 mode, aspect class, thumbnail variants, fallback, cache key and version. Adjacent cards must not
@@ -1129,7 +1370,7 @@ show wildly different object scales — this is the single largest contributor t
 cheap. Missing image resolves to a neutral placeholder, never a bright illustration that steals
 emphasis. Hero imagery is treated separately from product imagery.
 
-### 10.13 Accessibility
+### 10.17 Accessibility
 
 Contrast to WCAG AA; 48 dp minimum touch targets at every window class; focus order following
 visual order; predictable keyboard and D-pad traversal; TalkBack labels describing action and state
@@ -1209,6 +1450,50 @@ it up (screenshot runner, lint script, reference-size matrix) gates everything d
 Performance certification adds Macrobenchmark + Baseline Profiles for: cold launch into POS, Home
 render, search typing, Quick Access fling, barcode add-to-cart, repeated quantity change, proceed to
 payment, tender step, cart → receipt.
+
+### 11.6 Component certification matrix
+
+Rev 1.3 required each component to certify individually before full-screen certification. Restored,
+and extended to the surfaces this revision adds. A screen cannot pass while a component in it has not.
+
+| Component | Visual gate | Functional gate | Performance gate |
+|---|---|---|---|
+| Rail item | Proportion, active/inactive, focus ring | Navigation intent, keyboard reachable | No jank on selection |
+| Header cascade field | Field geometry, disabled/enabled states | Level reset, fitment context set and cleared | Popover open under one frame |
+| Search field | Geometry, leading/trailing icons, focus | Typed query, scan path, `/` shortcut | Debounce and cancel correctness |
+| Hero | Crop, overlay gradient, text layout, collapse | Collapses to `minDp`, drops at Compact | Image decode and cache |
+| Category card | Size, icon, label, selected state | Category filter applied | Smooth horizontal scroll |
+| Quick Access card ×3 kinds | Each kind's anatomy, empty state | Tap per kind, long-press pin/unpin, reorder | Stable unbounded `LazyRow` |
+| Cart row | Column alignment, truncation | Quantity, remove with undo, lock | Isolated recomposition |
+| Quantity stepper | Optical `−`/`+`, target size | Optimistic then settle, animates on divergence | No dropped frame on repeat |
+| Totals block | Numeric column, tabular figures | Backend truth, currency explicit | Negligible recomposition |
+| Payment CTA | Proportion, pressed state | Reserve-first intent, no duplicate submit | — |
+| Tender step | Hierarchy, disabled-with-reason | Capability model, split legs | — |
+| Status pill | Semantic token + icon + label | State mapping, all six families | Trivial |
+| Overlay / popover | **Both glass treatments** (§5.3), elevation | Focus move and restore, outside/Esc dismiss | Smooth open and close |
+| Snackbar | Placement, never over CTA | Undo restores exactly | — |
+| Cart sheet (Compact) | Geometry at both compact sizes | Expand, collapse, scroll | 60 fps drag |
+| Skeleton set | Matches final geometry exactly | No reflow on load | — |
+
+### 11.7 Test layers
+
+| # | Layer | Where it runs |
+|---|---|---|
+| 1 | Token resolution and theme tests | JVM |
+| 2 | **Reducer and state-machine tests** — cart, reserve, split tender, recovery | JVM, `pos-domain`, no Android |
+| 3 | Gateway contract tests against recorded fixtures | JVM |
+| 4 | Catalogue integrity, package activation and rollback tests | Instrumented |
+| 5 | Compose semantics and accessibility tests | JVM (Robolectric) |
+| 6 | Golden screenshot tests at five sizes, both schemes, both glass treatments | JVM (Roborazzi) |
+| 7 | Recomposition-count tests for cart isolation | JVM |
+| 8 | Payment simulator tests — **test source set only** | JVM |
+| 9 | Hardware integration tests — scanner profiles, printer, terminal | On device |
+| 10 | Offline, reconnect and replay-idempotency tests | Instrumented |
+| 11 | Macrobenchmark and Baseline Profile verification | On device |
+| 12 | Release-build assertions — no fake providers, no debug data, `FLAG_SECURE` present | CI on the release variant |
+
+Layers 2, 5, 6 and 7 run on the JVM and gate every pull request. Layers 9 and 11 run on the pilot
+device before release certification. Layer 12 is the one that catches what review misses.
 
 ---
 
@@ -1292,6 +1577,16 @@ now so they can be scheduled into `@backend_agent`'s lane rather than discovered
 - Authorisation gates are RPC-enforced; hiding navigation is never the control.
 - Scanner, CameraX and receipt printing are real bridge integrations.
 - Golden, performance, accessibility and security gates pass; design lint is green.
+- Undo covers every reversible destructive action; confirmation dialogs are reserved for what cannot
+  be undone.
+- The POS is fully operable from a physical keyboard, with a visible focus ring and a documented
+  shortcut set.
+- Both colour schemes and both glass capability treatments are golden-certified.
+- The catalogue package verifies, activates atomically and rolls back; version and freshness are
+  visible to the operator.
+- No card data reaches storage or logs; no manager approval token is ever cached; fake providers
+  cannot be selected in a release build.
+- Every component in §11.6 passes its three gates before its screen is certified.
 - The owner signs off the canonical-frame render, dated in the registry.
 
 Additionally, as architecture gates: the domain module builds with no Android dependency and its
