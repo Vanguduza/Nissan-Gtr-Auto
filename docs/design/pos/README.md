@@ -8,6 +8,7 @@ Canonical design and frontend-engineering documentation for the Nissan GTR Auto 
 | # | Document | What it settles |
 |---|----------|-----------------|
 | 1 | [`../../decisions/2026-09-13-pos-adaptive-benchmark-fidelity.md`](../../decisions/2026-09-13-pos-adaptive-benchmark-fidelity.md) | The decisions and why, in ADR form |
+| 1a | [`ANTIGRAVITY_BUILD_PROMPT.md`](ANTIGRAVITY_BUILD_PROMPT.md) | Opening brief for an agent build in Antigravity — paste §A to start |
 | 2 | [`POS_FRONTEND_BLUEPRINT_REV_1_5.md`](POS_FRONTEND_BLUEPRINT_REV_1_5.md) | Authority, adaptive geometry, token pipeline, design language and interaction grammar, components, Quick Access, phone POS, application architecture, certification, capability contract |
 | 3 | [`FEATURE_REGISTER.md`](FEATURE_REGISTER.md) | **The completeness ledger — 162 rows. This, not the prose, defines scope** |
 | 4 | [`VisualReferenceSpec.json`](VisualReferenceSpec.json) | Measured geometry — ratios normative, dp canonical, Rpx provenance only |
