@@ -28,13 +28,13 @@ as a source of *capability requirements* — never as a design constraint.
 
 | Area | Rev 1.3 | Now |
 |------|---------|-----|
-| Fidelity model | ±2 Rpx against a 1536×1024 raster | Ratio + grammar + behaviour across four window classes (§3, §10) |
+| Fidelity model | ±2 Rpx against a 1536×1024 raster | Ratio + grammar + behaviour across four window classes (§3, §11) |
 | Geometry source | Illustrative JSON, "measure later" | Measured, committed, ratio-normative `VisualReferenceSpec.json` |
 | Tokens | 23 colour names, 0 values | Complete valued system, generated from one source (§4) |
 | Benchmark authority | Total | Scoped to composition and geometry (§2) |
-| Popular row | "no seven-item cap" | **Quick Access panel** — operator-pinned, heterogeneous, unbounded (§6) |
-| Vehicle cascade | Progressive disclosure out of search | **Permanent header cascade** (§7) |
-| Phone | "compact recomposition" | A designed phone POS with full operational parity (§8) |
+| Popular row | "no seven-item cap" | **Quick Access panel** — operator-pinned, heterogeneous, unbounded (§7) |
+| Vehicle cascade | Progressive disclosure out of search | **Permanent header cascade** (§8) |
+| Phone | "compact recomposition" | A designed phone POS with full operational parity (§9) |
 | Repo governance | Not referenced | Subordinated to the truth protocol and owner decisions (§1) |
 
 ### From Rev 1.4
@@ -44,10 +44,11 @@ as a source of *capability requirements* — never as a design constraint.
 | Posture toward existing code | "Adopt-first is binding" | **Clean-room.** Capability continuity, not code continuity (§1.2) |
 | Theming | Keep `ShopTheme` → `GtrTheme` (Material3 slot overrides) | **Dedicated `PosTheme`** over generated tokens; M3 for interaction primitives only (§4.1) |
 | Typography | Keep vendored Titillium Web + Source Sans 3 because they exist | **Inter** for product UI on merit; display face is a brand-moment choice (§4.6) |
-| Data access | Keep the 102-method `RpcClient`; defer the split | **Replace with typed feature gateways** returning `Result` (§9.2) |
-| State | Three ViewModels sharing a `StateFlow`; defer decomposition | **One store, pure reducers, screen-scoped projections** (§9.3) |
-| Reserve-first | "Blocked on backend" | **Contract specified here** so it can be built (§9.6) |
-| Migration | Per-file keep/rebuild table | **Capability continuity contract** (§11) |
+| Data access | Keep the 102-method `RpcClient`; defer the split | **Replace with typed feature gateways** returning `Result` (§10.2) |
+| State | Three ViewModels sharing a `StateFlow`; defer decomposition | **One store, pure reducers, screen-scoped projections** (§10.3) |
+| Reserve-first | "Blocked on backend" | **Contract specified here** so it can be built (§10.6) |
+| Migration | Per-file keep/rebuild table | **Capability continuity contract** (§12) |
+| Design language | Dropped in the 1.4 rewrite | **Restored and extended as §5** — principles, permission matrix, micro-interactions, spatial continuity, layering, plus what Android can actually render |
 
 ---
 
@@ -61,7 +62,7 @@ this order.
 |---|---|---|
 | **A0** | [`PROJECT_TRUTH_PROTOCOL.md`](../../../PROJECT_TRUTH_PROTOCOL.md) + [`PROJECT_CANONICAL_STATE.json`](../../../PROJECT_CANONICAL_STATE.json) | Lineage, release blocking, the prohibition on silent feature thinning. Nothing below may delete a capability to satisfy a visual goal. |
 | **A1** | [`AGENTS.md`](../../../AGENTS.md) hard exclusions + global laws | No ZIMRA, no payroll tax, Bridge-First, RLS mandate, ledger immutability, explicit multi-currency. |
-| **A2** | [Tablet Kiosk POS action plan](../../plans/2026-08-03-tablet-kiosk-pos-full-action-plan.md) §10 locked decisions | Separate tablet/phone APKs (L1), Admin‑or‑shop‑manager authorisation (L2), finance refund pipeline (L3), quotations (L4), idle timeout (L5). |
+| **A2** | [Tablet Kiosk POS action plan](../../plans/2026-08-03-tablet-kiosk-pos-full-action-plan.md) §11 locked decisions | Separate tablet/phone APKs (L1), Admin‑or‑shop‑manager authorisation (L2), finance refund pipeline (L3), quotations (L4), idle timeout (L5). |
 | **A3** | [Kiosk / role-routing specification](../../../Nissan_GTR_Auto_POS_Kiosk_Role_Based_Routing_Specification.md) | Boot, splash, login, role routing, Lock Task. Owns everything **before** the POS surface renders; this document owns everything **after**. |
 | **A4** | Owner-approved benchmark | Expanded composition and visual quality — **within the scope fixed by §2**. |
 | **A5** | [`APPROVED_VISUAL_DELTAS.md`](APPROVED_VISUAL_DELTAS.md) | Every intentional benchmark difference. |
@@ -92,13 +93,13 @@ Three things do bind, and none of them is an implementation detail:
 | Binds | Why it is not "existing implementation" |
 |---|---|
 | `AGENTS.md` hard exclusions — no ZIMRA/FDMS, no payroll tax, Bridge-First hardware, RLS mandate, ledger immutability, explicit multi-currency | Legal scope and correctness law, not a code shape |
-| Action plan §10 locked decisions — L1 separate tablet/phone APKs, L2 Admin-or-shop-manager authorisation, L3 refunds post through the finance pipeline, L4 quotations | Owner product decisions |
+| Action plan §11 locked decisions — L1 separate tablet/phone APKs, L2 Admin-or-shop-manager authorisation, L3 refunds post through the finance pipeline, L4 quotations | Owner product decisions |
 | Truth protocol A0 — no silent feature thinning | Governance. A rebuild may replace any code; it may not quietly drop a capability |
 
 **Capability continuity, not code continuity.** Every behaviour the counter performs today must
 exist in the rebuild — offline cash sales, split tender, manager reauth for discount/void/refund/
 price override, quotations, park and resume, companion scan pairing, ESC/POS printing. None of the
-current code has to survive for that to be true. §11 enumerates the capabilities; it no longer
+current code has to survive for that to be true. §12 enumerates the capabilities; it no longer
 enumerates files to keep.
 
 ### 1.3 No accidental redesign
@@ -110,7 +111,7 @@ answer all five:
 2. Is it required for accessibility or for a supported window class?
 3. Is it already a row in the delta registry?
 4. Does it preserve the benchmark's hierarchy and product identity?
-5. Does it still pass the §10 gates afterwards?
+5. Does it still pass the §11 gates afterwards?
 
 If 1, 2 and 3 are all no, do not make the change. Raise it instead.
 
@@ -125,7 +126,7 @@ component anatomy and visual treatment**. It is **not** authoritative for:
 |---|---|---|
 | Currency | `KSh` (Kenyan shillings) | Backend money state; USD / ZiG; `AGENTS.md` multi-currency law |
 | Tax rate and model | `VAT (16%)` — the Kenyan rate | Backend tax policy; invoices stay tax-agnostic (no ZIMRA) |
-| Copy strings | `GNGUINE PARTS` (typo); `Add Customer (Optional)` (helper copy) | §9.10 copy rules |
+| Copy strings | `GNGUINE PARTS` (typo); `Add Customer (Optional)` (helper copy) | §10.10 copy rules |
 | Sample data | Part numbers, prices, `Tue, 27 May 2025` | Real catalogue and device clock |
 | Feature inventory | `Reports` in the rail | Delta D-001 → `EPC Browse` |
 
@@ -189,7 +190,7 @@ itemWidth = clamp(minItemWidth, (contentWidth - (n-1)*gap) / n, maxItemWidth)
 
 The benchmark's 7 categories and 4 visible Quick Access cards are *outputs of this formula at 1280
 dp*, not constants. No count from the benchmark may appear as a literal in layout code — this is
-lint-enforced (§10.4).
+lint-enforced (§11.4).
 
 ### 3.4 What scales, what holds
 
@@ -289,7 +290,7 @@ fun PosTheme(
 
 Material3 remains a dependency for interaction primitives — ripple, focus, gesture and
 accessibility plumbing — and supplies **no** visual identity. `MaterialTheme.colorScheme` and
-`MaterialTheme.typography` are lint failures inside POS components (§10.4).
+`MaterialTheme.typography` are lint failures inside POS components (§11.4).
 
 ### 4.1.1 Semantic palette
 
@@ -345,7 +346,7 @@ primary CTA, active navigation and brand emphasis. `unknown` — the ambiguous-t
 a duplicate charge is the failure mode — gets its own treatment distinct from both. All three go
 into `brand-tokens.json` so every surface inherits the separation. Registered as **D-011**.
 
-Colour is never the only status signal (§9.9).
+Colour is never the only status signal (§10.9).
 
 ### 4.3 Spacing
 
@@ -472,9 +473,150 @@ clarity. Destructive actions never bounce.
 
 ---
 
-## 5. Component anatomy (Expanded)
+## 5. Design language and interaction grammar
 
-### 5.1 Navigation rail — 144 dp
+Tokens (§4) say what values exist. This section says **how they are allowed to be combined** — which
+is what keeps a product from reading as a pile of trends. It carries forward Rev 1.3's governing
+principles, permission matrix and SaaS interaction grammar, and adds what Rev 1.3 omitted: what
+Android can actually render, and at what cost.
+
+### 5.1 Governing principles
+
+1. **Quiet base, strong hierarchy.** The canvas is calm. Importance is carried by scale, weight and
+   placement before colour.
+2. **One dominant accent.** Brand red is the only dominant action and selection colour. Status hues
+   are never decorative.
+3. **Borders before shadows.** Subtle borders and tonal separation are the default; shadow means
+   genuine elevation.
+4. **Glass is contextual, never structural.** Frosted surfaces belong to transient overlays — never
+   the rail, canvas, or cart pane.
+5. **Density without noise.** Operational information may be dense; decorative UI stays sparse.
+6. **Motion explains state.** Animation is feedback, never ornament.
+7. **Every value has provenance.** Colour, radius, spacing, type and motion come from a token or a
+   measured reference value.
+
+### 5.2 Pattern permission matrix
+
+| Pattern | Permitted | Forbidden | Why |
+|---|---|---|---|
+| Industrial minimalism | Everywhere — it is the base language | — | Closest to benchmark identity |
+| Bento / modular composition | Category cards, Quick Access cards, till and shift panels, EPC section grids | Resizing the §3 canonical zones | Organisation without redesigning the composition |
+| Glass / acrylic | Vehicle cascade popover, search overlay, product detail, modal layers | Nav rail, canvas, cart pane, ordinary cards, phone bottom bar | Prevents trend noise; see §5.3 for what it costs |
+| Soft depth | Cart pane, dialogs, floating menus, phone cart sheet | Every ordinary card | Elevation must keep semantic meaning |
+| Soft borders | Cards, controls, chips, section boundaries | — | Modern SaaS cleanliness |
+| Ambient gradient | Hero image overlay only | Commerce canvas, cart, any data-dense surface | Keeps the product professional |
+| Micro-interaction | Press, add-to-cart, scan success, chip select, quantity change | Continuous decorative animation | Tactile quality without distraction |
+| Spatial layering | Sheets, drawers, detail inspectors | Navigation that should be direct | Preserves task context |
+| Progressive disclosure | Fitment filters, advanced stock, recovery detail, supplier metadata | Primary checkout controls | Reduces clutter |
+| Data-rich minimalism | Search results, cart, totals, till, management surfaces | Marketing ornament | Optimised for professional use |
+| Neumorphic cues | Nowhere by default | Cards, shell, navigation | Dated, low-contrast, fails WCAG AA |
+| Shared-element transition | Card → detail, search → results, cart → checkout | Anywhere it drops frames | Continuity must not cost fluidity |
+
+Rev 1.3 permitted neumorphism for "rare tactile segmented controls if visually justified". That
+exception is withdrawn: it cannot meet §10.13 contrast requirements and there is no control in this
+product that needs it.
+
+### 5.3 Depth, and what Android actually does
+
+Rev 1.3 specified "low blur" for contextual glass without noting that on Android this is a
+capability question, not a styling one. Three constraints shape the implementation:
+
+- **Blur is API 31+.** `Modifier.blur()` and `RenderEffect.createBlurEffect` require Android 12.
+  Below that, `Modifier.blur` is ignored — it does not throw, it silently renders unblurred, which is
+  exactly how an unreviewed glass surface ships as a flat translucent rectangle on half the fleet.
+- **`Modifier.blur` blurs the composable's own content, not what is behind it.** Backdrop blur needs
+  the background captured into a graphics layer (`rememberGraphicsLayer()` / `record()`) and blurred
+  there, or an equivalent library approach. Applying `blur` to the overlay itself blurs the overlay's
+  text.
+- **Blurring live content every frame is expensive.** Blur a captured snapshot taken when the overlay
+  opens; do not blur continuously while content animates behind it.
+
+So the contract for every glass surface is a **declared pair**:
+
+| Capability | Treatment |
+|---|---|
+| API 31+ | Backdrop blur 16–20 dp radius on a captured layer · `surfacePrimary` at 72% · 1 dp `borderSubtle` · `elevation.3` |
+| Below API 31 | **No blur.** `surfacePrimary` at 94% over a `scrim` at 32% · 1 dp `borderSubtle` · `elevation.3` |
+
+Both must be screenshot-certified (§11.3). A glass surface that has not had its fallback rendered and
+reviewed is not done. Never a neon glow, never a coloured blur, never blur on a surface that scrolls.
+
+Set and record the project's `minSdk` next to this table — it determines which column most operators
+actually see.
+
+### 5.4 Micro-interactions
+
+Acknowledgement only. Each maps to a motion tier from §4.9.
+
+| Interaction | Behaviour | Tier |
+|---|---|---|
+| Press (card, button, chip) | Scale 0.98, `spring.press` return | M1 |
+| Add to cart | `Add` label swaps to a check for ~600 ms, then returns; the cart row inserts with a slide-and-fade | M2 |
+| Scan success | Row highlight pulse once + **light haptic tick** | M1 |
+| Chip / category select | Background, border and label transition together, never staggered | M2 |
+| Quantity change | Optimistic increment immediately; settle from the backend. If the settled value differs, **animate to the true value** | M2 |
+| Pin / unpin | Card scales in or out of the Quick Access row in place | M2 |
+| Tender leg confirmed | Remaining balance counts down to the backend figure | M2 |
+| Destructive (clear, void, remove) | Fade and collapse. No bounce, no playful easing | M2 |
+
+**Haptics are part of the design, not a platform default.** A counter operator is often looking at
+the customer, not the screen — a light tick on add-to-cart, scan success and tender confirmation is
+the fastest feedback channel available. Never vibrate on error alone; pair it with the visual state.
+
+A quantity that settles to a different value must never snap silently — that is how an operator sells
+the wrong count.
+
+### 5.5 Spatial continuity
+
+Preserve object identity across a transition where it is honest to do so:
+
+| From | To | Technique |
+|---|---|---|
+| Product card | Detail overlay / sheet | Shared bounds on the image and title |
+| Search suggestion | Result context | Shared text bounds |
+| Cart | Checkout | Shared totals block |
+| Tender leg | Remaining balance | Shared numeric position |
+
+Use `SharedTransitionLayout` where the Compose version in use supports it. **Never fake a shared
+element that janks** — a clean M3 crossfade reads as deliberate; a stuttering shared element reads as
+broken. If it cannot hold frame rate on the baseline device, it does not ship.
+
+### 5.6 Contextual actions and layering
+
+Primary operational actions are **always visible**: search, add, quantity, proceed to payment. Never
+behind a hover, a long-press, or a menu.
+
+Secondary actions appear through, in order of preference: row overflow menu · long-press contextual
+menu (the pin/unpin path, §7.2) · anchored popover · selected-item toolbar.
+
+**Maximum two transient layers deep.** If a third would be required, promote the workflow to a full
+screen or a dedicated state. Recovery is always a screen (§10.4). Every transient layer dismisses on
+outside tap and on back, except where a selection flow is incomplete — and an incomplete flow says so
+rather than trapping the operator silently.
+
+### 5.7 Loading, empty and skeleton states
+
+- **Local-first.** If the data exists locally, render it. No spinner for trivial local work.
+- **Skeletons match final geometry exactly** — the same card width the §3.3 formula produces at that
+  window size, the same row height density produces. A skeleton that reflows on load is worse than
+  no skeleton.
+- **No indeterminate spinner as a default pattern.** A spinner is for a genuinely unbounded wait, and
+  it carries a label saying what is being waited on.
+- **Every surface has a designed empty state**: empty cart, no search results, empty Quick Access
+  (§7.5), no vehicle selected, empty till. Empty states state the next useful action.
+
+### 5.8 Forbidden outright
+
+Continuous decorative animation · hero parallax · confetti or celebration effects · neon or coloured
+glow · gradient-filled text · a second saturated accent hue · glass on the rail, canvas, cart pane or
+phone bottom bar · animated splash inside the POS surface (the branded startup sequence belongs to
+the kiosk specification, A3) · shadow used where a border would do.
+
+---
+
+## 6. Component anatomy (Expanded)
+
+### 6.1 Navigation rail — 144 dp
 
 Top to bottom: logo lockup · eight destinations · flexible spacer · GT-R artwork · brand statement
 (`BUILT FOR A HIGHER STANDARD`). Both bottom blocks are **present in the benchmark** — Rev 1.3's
@@ -490,27 +632,27 @@ Destinations, canonical order:
 Active: brand-red filled rounded rect, 48 dp tall, `radius.sm`, white icon and label, no glow, no
 gradient. Inactive: transparent, muted icon and label.
 
-### 5.2 Header — 96 dp
+### 6.2 Header — 96 dp
 
-Four zones: **vehicle cascade** (§7, replacing the taxonomy line) · dominant search field ·
+Four zones: **vehicle cascade** (§8, replacing the taxonomy line) · dominant search field ·
 operator identity · date/time. Offline status surfaces in the context zone when applicable (D-005).
 
 Search field: 48 dp tall, max 560 dp, leading search icon, trailing scanner affordance. No
 permanent filter clutter.
 
-### 5.3 Hero — 240 dp, collapsible to 160
+### 6.3 Hero — 240 dp, collapsible to 160
 
 Dark GT-R identity panel: image, headline, supporting line, three value indicators
 (`GENUINE PARTS` — D-007). No permanent cascade dropdowns; the cascade lives in the header.
 Permitted: overlay gradient for legibility, restrained ambient highlight, crossfade on legitimate
 asset change. Forbidden: continuous parallax, decorative motion.
 
-### 5.4 Category row — 96 dp
+### 6.4 Category row — 96 dp
 
 Icon-first modular cards, `radius.md`, 96 dp square nominal, 12 dp gaps, horizontally scrollable.
 Seven cards is the benchmark's *output at 1280 dp*, not a cap.
 
-### 5.5 Cart pane — 352 dp, min 320
+### 6.5 Cart pane — 352 dp, min 320
 
 Order: header (`Current Sale` + clear) · scrollable item list · `Add Customer` (D-008) ·
 subtotal / discount / tax · divider · total · `Proceed to Payment`.
@@ -526,12 +668,12 @@ Money rows render backend values with explicit currency (D-006). A zero discount
 
 ---
 
-## 6. Quick Access panel
+## 7. Quick Access panel
 
 **This replaces "Popular Spares" (D-003).** The row evolves from a merchandising strip into the
 operator's own working set.
 
-### 6.1 Definition
+### 7.1 Definition
 
 A per-operator, horizontally scrollable, **unbounded** row of items the operator pins for everyday
 use. It is heterogeneous — three entity kinds share one row:
@@ -540,16 +682,16 @@ use. It is heterogeneous — three entity kinds share one row:
 |---|---|---|---|
 | `Spare` | image, name, part number, unit price, `Add` | Add to cart | Pin / Unpin |
 | `Category` | icon, label, item count | Filter discovery to that category | Pin / Unpin |
-| `Vehicle` | model / generation / engine identity | Set the fitment context (§7) | Pin / Unpin |
+| `Vehicle` | model / generation / engine identity | Set the fitment context (§8) | Pin / Unpin |
 
-### 6.2 Pinning
+### 7.2 Pinning
 
 Pin and unpin are available by **long-press from anywhere in the app** that renders one of those
 three entities — Quick Access itself, search results, category browse, EPC browse, the vehicle
 cascade, cart rows. A long-press opens a contextual menu containing Pin/Unpin; there is no
 permanently visible pin control cluttering cards.
 
-### 6.3 Ordering
+### 7.3 Ordering
 
 Deterministic, in precedence order:
 
@@ -560,7 +702,7 @@ Deterministic, in precedence order:
 No server popularity ranking is merged into this row — that was the old model. Server-ranked
 popular items, if surfaced at all, belong in search and category browse.
 
-### 6.4 Persistence
+### 7.4 Persistence
 
 Pins are **operator-scoped and server-persisted**, so they follow the operator between the counter
 tablet and the phone. They are not device-local preferences.
@@ -580,7 +722,7 @@ pos_operator_pins(staff_user_id, entity_kind, entity_ref, pin_order, pinned_at)
 Until those exist, the row renders from a local projection and the UI must surface pin failures
 rather than simulating success — a server rejection is never swallowed.
 
-### 6.5 Behaviour
+### 7.5 Behaviour
 
 - `LazyRow`, stable keys, unbounded. **No literal item count anywhere in the code.**
 - Card width from the §3.3 formula; clamp 160–220 dp; 12 dp gaps.
@@ -591,12 +733,12 @@ rather than simulating success — a server rejection is never swallowed.
 
 ---
 
-## 7. Vehicle cascade in the header
+## 8. Vehicle cascade in the header
 
 **This replaces the `Spares · Service · Performance` taxonomy line (D-002).** The line was
 decorative; fitment is the highest-value filter at the counter.
 
-### 7.1 Fields
+### 8.1 Fields
 
 Model → Generation → Engine, left to right, in header zone 1. A Maker field precedes them only when
 the multi-make catalog is active; in single-make deployments Maker is implicit.
@@ -604,7 +746,7 @@ the multi-make catalog is active; in single-make deployments Maker is implicit.
 Each field is a compact dropdown: label above, value or placeholder inside, `radius.sm`, 40 dp tall.
 Selecting a level enables and resets the levels to its right.
 
-### 7.2 Data contract
+### 8.2 Data contract
 
 Reuses the existing cascade — no new query layer. Per
 [`docs/guides/vehicle-cascade-and-epc-browse.md`](../../guides/vehicle-cascade-and-epc-browse.md):
@@ -612,13 +754,13 @@ Model = `vehicle_master.model_variant`, Generation = `chassis_code`, Engine = `e
 Search stays on `search_catalog` / `part_fitment`. EPC hierarchy browse stays separate and joins at
 `chassis_code`.
 
-### 7.3 Fitment context
+### 8.3 Fitment context
 
 A confirmed vehicle sets a **session-scoped fitment context** that filters search results, category
 browse and EPC entry until cleared. It renders as a dismissible chip once set, so the operator can
-always see and drop the active filter. It is pinnable to Quick Access (§6.1).
+always see and drop the active filter. It is pinnable to Quick Access (§7.1).
 
-### 7.4 Responsive form
+### 8.4 Responsive form
 
 | Class | Presentation |
 |---|---|
@@ -628,11 +770,11 @@ always see and drop the active filter. It is pinnable to Quick Access (§6.1).
 
 Rev 1.3's Path A (cascade reached only through search activation) is **withdrawn** — the cascade is
 now permanent at Expanded and Medium. Path B (Search Spares screen) and Path C (compact sheet)
-survive as §7.4 rows.
+survive as §8.4 rows.
 
 ---
 
-## 8. Phone POS
+## 9. Phone POS
 
 The phone POS is **not a shrunken tablet**. It is a designed compact product that performs every
 counter operation, built from the same tokens, grammar, state machines and RPCs.
@@ -641,7 +783,7 @@ Action plan **L1** stands: the phone APK carries no Device Owner, no Lock Task, 
 ownership. What changes in Rev 1.4 is capability — the phone moves from "optional POS" to **full
 operational parity**, because a salesperson away from the counter must be able to complete a sale.
 
-### 8.1 What makes it the same product
+### 9.1 What makes it the same product
 
 Inherited without exception: colour semantics, type roles, radius family, icon family, card
 grammar, motion tiers, status semantics, error taxonomy, domain state machines, RPC contracts,
@@ -650,7 +792,7 @@ offline restrictions and authorisation gates.
 Deliberately different: navigation model, cart presentation, checkout choreography, hero treatment,
 and information density. Identity comes from grammar, not geometry.
 
-### 8.2 Shell
+### 9.2 Shell
 
 ```
 ┌────────────────────────────────┐
@@ -679,14 +821,14 @@ Sale, Returns, Settings, Till).
 The cart bar is the phone's equivalent of the Expanded cart pane: always visible, always showing
 live item count and backend-authoritative total, expanding to a full-height sheet on tap.
 
-### 8.3 Operational parity
+### 9.3 Operational parity
 
 Every POS operation, and how it is reached on each surface. No operation is tablet-only.
 
 | Operation | Expanded (tablet) | Compact (phone) | Notes |
 |---|---|---|---|
 | Catalogue search | Header field | Persistent search field | Same `search_catalog` path |
-| Vehicle fitment | Header cascade | Chip → bottom sheet cascade | §7.4 |
+| Vehicle fitment | Header cascade | Chip → bottom sheet cascade | §8.4 |
 | Category browse | Category row | Category chips → results screen | |
 | EPC browse | Rail destination | Bottom-nav tab | Reuses `PosEpcBrowseScreen` |
 | Barcode scan | Physical scanner + CameraX | CameraX; physical scanner if paired | Bridge-First |
@@ -700,16 +842,16 @@ Every POS operation, and how it is reached on each surface. No operation is tabl
 | Void | Cart, manager reauth | Cart sheet, manager reauth | L2 |
 | Refund | Returns destination | Returns via More | L3 — posts through `post_finance_refund` |
 | Price override | Line overflow, manager reauth | Line overflow, manager reauth | L2 |
-| Proceed to payment | Pane CTA | Cart bar CTA → checkout screen | Reserve-first (§9.6) |
+| Proceed to payment | Pane CTA | Cart bar CTA → checkout screen | Reserve-first (§10.6) |
 | Split tender | Payment surface | Dedicated tender screen, one leg per step | Same normalised state |
 | Terminal / EcoCash / Paynow | Payment surface | Same adapters | Online only |
-| Payment recovery | Dedicated surface | Dedicated screen | Never a sheet — §9.4 |
+| Payment recovery | Dedicated surface | Dedicated screen | Never a sheet — §10.4 |
 | Print receipt | ESC/POS bridge | ESC/POS bridge | Bridge-First |
 | Till / shift open-close | Rail → Till | More → Till | |
 | Offline cash sale | Restricted mode | Restricted mode | Identical rules |
-| Pin / unpin | Long-press | Long-press | §6.2 |
+| Pin / unpin | Long-press | Long-press | §7.2 |
 
-### 8.4 Compact choreography
+### 9.4 Compact choreography
 
 - **Checkout is navigation, not a layer.** At Expanded the cart is already visible, so payment can
   be a focused layer. At Compact, `Proceed to Payment` pushes a dedicated screen: review → tender →
@@ -720,20 +862,20 @@ Every POS operation, and how it is reached on each surface. No operation is tabl
   to frequent positive actions without separation.
 - **Keyboard discipline.** A paired physical scanner must not raise the soft keyboard.
 
-### 8.5 Compact-specific certification
+### 9.5 Compact-specific certification
 
 Golden surfaces at `412×915` and `360×800`: Sell home, cart sheet, checkout review, tender step,
-offline state, recovery. Plus a font-scale variant at the documented maximum (§10.3).
+offline state, recovery. Plus a font-scale variant at the documented maximum (§11.3).
 
 ---
 
-## 9. Application architecture
+## 10. Application architecture
 
 The current POS is a 947-line screen talking to a 102-method interface through a 1533-line
 ViewModel with two tests. That shape is why it is hard to make it look right, hard to make it fast,
 and impossible to certify. The architecture below is the recommendation, independent of it.
 
-### 9.1 Module structure
+### 10.1 Module structure
 
 One feature is not one module. Split so that the design system and the domain can be tested without
 Android, and so screenshot tests can run on the JVM against fakes:
@@ -756,7 +898,7 @@ tested at all.
 Dependency injection: adopt **Hilt**. There is none today (`PosModule` is a three-line stub), and
 constructor-injected gateways are what make the fakes above possible.
 
-### 9.2 Typed gateways — replacing the God interface
+### 10.2 Typed gateways — replacing the God interface
 
 A 102-method `RpcClient` shared by catalogue, cart, checkout, manager reauth, quotations, companion
 pairing and offline replay is the root technical cause of the current POS's problems. Replace it
@@ -810,7 +952,7 @@ the message is engineering prose one `catch` away from an operator's screen. A r
 makes a retry after a dropped connection safe, and they are the difference between "we think the
 charge went through" and knowing.
 
-### 9.3 State — one store, pure reducers, scoped projections
+### 10.3 State — one store, pure reducers, scoped projections
 
 Three ViewModels sharing a `cartId` inside one `StateFlow` is the shape to avoid; so is one
 ViewModel that owns everything. Use a single store over a pure reducer, with screens selecting
@@ -838,13 +980,13 @@ val discovery: StateFlow<DiscoveryProjection> = store.select { it.toDiscoveryPro
 ```
 
   Every projection is `@Immutable` with stable keys. A quantity change must not recompose the
-  catalogue — §9.11 makes that a measured gate, not an aspiration.
+  catalogue — §10.11 makes that a measured gate, not an aspiration.
 
 Illegal combinations are structurally impossible rather than guarded: there is no
 `isCartLocked` boolean to contradict an `isEditable` boolean, because the state is a sealed
 hierarchy where "locked" and "editable" are different types.
 
-### 9.4 Navigation
+### 10.4 Navigation
 
 Type-safe routes (Navigation Compose 2.8+ `@Serializable` destinations), **one graph for both form
 factors**. The window class decides *presentation*, never *existence*:
@@ -858,12 +1000,12 @@ factors**. The window class decides *presentation*, never *existence*:
 | Recovery | Dedicated screen | Dedicated screen |
 
 Forking the graph per form factor is how parity rots — a destination gets added on the tablet and
-silently never reaches the phone. One graph makes the §8.3 parity table enforceable.
+silently never reaches the phone. One graph makes the §9.3 parity table enforceable.
 
 Recovery is always a dedicated screen on both. An ambiguous payment is not a thing to dismiss by
 tapping outside it.
 
-### 9.5 Cart and checkout state machine
+### 10.5 Cart and checkout state machine
 
 ```kotlin
 sealed interface CheckoutState {
@@ -882,7 +1024,7 @@ Only `Open` permits cart mutation — the type system enforces it, so no UI path
 cart. `PartiallyPaid.remaining` is **always** the backend's figure; the frontend never computes a
 remaining balance.
 
-### 9.6 Reserve-first — the contract to build
+### 10.6 Reserve-first — the contract to build
 
 Rev 1.4 marked this "blocked on backend". That defers the most important correctness property in
 the product. Specify it here so `@backend_agent` can build it:
@@ -904,7 +1046,7 @@ lines intact and a non-destructive notice, and re-reserves on the next attempt. 
 held by an abandoned cart, and an operator must never be told a sale failed because a timer they
 could not see ran out.
 
-### 9.7 Errors are data
+### 10.7 Errors are data
 
 ```kotlin
 sealed interface PosError {
@@ -925,7 +1067,7 @@ reaches a screen. Never surface exception names, HTTP codes, SQL terms or stack 
 further charging for that amount and provider, carry the correlation reference into recovery, and
 require an explicit resolution path.
 
-### 9.8 Offline
+### 10.8 Offline
 
 Offline is a restricted mode with modelled restrictions, not a degraded imitation of online:
 
@@ -941,7 +1083,7 @@ Sales queue through an encrypted outbox with a client-generated id, replayed ide
 drift and stock shortfall surface as **conflicts for operator review**, never as invented ledger
 rows. Card and mobile-money requests are never queued.
 
-### 9.9 Semantic states
+### 10.9 Semantic states
 
 | Family | Treatment | Consequence |
 |---|---|---|
@@ -955,14 +1097,14 @@ rows. Card and mobile-money requests are never queued.
 Colour is never the only signal — every family carries an icon and a label, which is also what makes
 the design legible to a colour-blind operator and to a screenshot diff.
 
-### 9.10 Copy
+### 10.10 Copy
 
 No tutorial paragraphs, no helper copy on obvious controls (D-008), verbs on buttons, errors that
 state what happened and the next permitted action, no engineering language, no placeholder or fake
-data in production builds. Every operator string is a resource keyed to §9.7. Deterministic preview
+data in production builds. Every operator string is a resource keyed to §10.7. Deterministic preview
 data lives only in a debug or test source set.
 
-### 9.11 Performance
+### 10.11 Performance
 
 Targets apply to the supported baseline device — to be named from the pilot fleet's lowest spec.
 
@@ -974,12 +1116,12 @@ Targets apply to the supported baseline device — to be named from the pilot fl
 Enforced, not hoped for: **Baseline Profile generated from day one** and a Macrobenchmark suite in
 CI. Compose discipline — stable keys, `@Immutable` projections, `derivedStateOf` only where
 measured, pre-sized images, async decode, no I/O in composition, and cart recomposition isolated
-from catalogue by construction (§9.3), verified by a recomposition-count test.
+from catalogue by construction (§10.3), verified by a recomposition-count test.
 
 Prefer local-first rendering. Where loading is genuinely required, use skeletons that match final
 geometry exactly; indeterminate spinners are not a default.
 
-### 9.12 Product imagery
+### 10.12 Product imagery
 
 A deterministic media contract per catalogue image: background treatment, bounding-box padding, crop
 mode, aspect class, thumbnail variants, fallback, cache key and version. Adjacent cards must not
@@ -987,7 +1129,7 @@ show wildly different object scales — this is the single largest contributor t
 cheap. Missing image resolves to a neutral placeholder, never a bright illustration that steals
 emphasis. Hero imagery is treated separately from product imagery.
 
-### 9.13 Accessibility
+### 10.13 Accessibility
 
 Contrast to WCAG AA; 48 dp minimum touch targets at every window class; focus order following
 visual order; predictable keyboard and D-pad traversal; TalkBack labels describing action and state
@@ -995,17 +1137,17 @@ in operator language; colour never the sole signal; reduced motion honoured; fon
 documented maximum with layout adaptation rather than clipping.
 
 Where accessibility scaling and benchmark proportion conflict, accessibility wins — and the scaled
-layout is still certified (§10.3 requires golden surfaces at maximum font scale).
+layout is still certified (§11.3 requires golden surfaces at maximum font scale).
 
 ---
 
-## 10. Certification
+## 11. Certification
 
 Rev 1.3 gated on pixel equality. That gate was unsatisfiable (its own illustrative coordinates were
 6–10 Rpx off the real ones, against a ±2 Rpx tolerance) and incompatible with an adaptive product.
 Rev 1.4 certifies **proportion, grammar and behaviour**.
 
-### 10.1 Gates
+### 11.1 Gates
 
 | Gate | Asserts | Fails when |
 |---|---|---|
@@ -1016,27 +1158,30 @@ Rev 1.4 certifies **proportion, grammar and behaviour**.
 | **V5 Assets** | Icon family, hero crop, product-image treatment | A foreign icon set or inconsistent image scaling |
 | **V6 Provenance** | Every benchmark difference maps to a registry row | An unregistered difference exists |
 | **V7 Responsive identity** | Compact preserves tokens, grammar, semantics, state machines | The phone reads as a different product |
-| **V8 Behaviour** | State machines, authorisation gates, offline restrictions | A gate is bypassable from the UI |
-| **V9 Owner sign-off** | Final render approved at the canonical frame | — |
+| **V8 Design language** | §5 permission matrix respected; every glass surface renders both capability treatments; motion within tier durations; no forbidden pattern present | Glass on a structural surface, a second accent hue, decorative animation, or an unrendered blur fallback |
+| **V9 Behaviour** | State machines, authorisation gates, offline restrictions | A gate is bypassable from the UI |
+| **V10 Owner sign-off** | Final render approved at the canonical frame | — |
 
-**V9's owner is the shop owner**, recorded as a dated row in the delta registry. Rev 1.3 referred to
+**V10's owner is the shop owner**, recorded as a dated row in the delta registry. Rev 1.3 referred to
 "the owner" nine times without ever naming who signs.
 
-### 10.2 Reference sizes
+### 11.2 Reference sizes
 
 Every gate runs at `1280×800`, `1024×768`, `800×1280`, `412×915`, `360×800`.
 
-### 10.3 Golden surfaces
+### 11.3 Golden surfaces
 
 Expanded: Home empty cart · Home populated · search active · vehicle cascade open · Quick Access
 populated · Quick Access empty · cart locked · payment · offline · EPC browse.
 Compact: Sell home · cart sheet · checkout review · tender step · offline · recovery.
+Design language: every glass surface twice — API 31+ backdrop blur and the pre-31 fallback (§5.3).
+Empty states: empty cart, empty Quick Access, no search results, no vehicle selected.
 Accessibility: Expanded Home and Compact cart at the documented maximum font scale.
 
 Perceptual comparison uses a locked threshold with a difference heatmap, never a demand for
 mathematically zero pixel difference — Android font rasterisation makes that unrealistic.
 
-### 10.4 Design lint
+### 11.4 Design lint
 
 CI fails the build on any of these inside `apps/android-management/feature/pos/`:
 
@@ -1050,9 +1195,12 @@ CI fails the build on any of these inside `apps/android-management/feature/pos/`
 - **any integer literal used as an item count in a lazy row** — counts are derived (§3.3);
 - fake payment providers in the production source set;
 - a duplicate canonical POS screen implementation;
-- price or tax arithmetic inside a composable.
+- price or tax arithmetic inside a composable;
+- `Modifier.blur` applied without a declared pre-API-31 fallback (§5.3);
+- a second saturated accent hue, gradient-filled text, or a glow effect;
+- an infinite-repeating animation outside a designed loading state.
 
-### 10.5 Harness
+### 11.5 Harness
 
 None of this exists yet — the repo has no screenshot tooling, no Macrobenchmark module, and two
 test files in `feature/pos`. **The harness is a Phase 1 deliverable, not a Phase 9 one.** Standing
@@ -1064,7 +1212,7 @@ payment, tender step, cart → receipt.
 
 ---
 
-## 11. Capability continuity contract
+## 12. Capability continuity contract
 
 The POS is rebuilt clean. No file in `feature/pos` is preserved on the grounds that it exists — the
 rebuild is judged on capability, not on code lineage.
@@ -1098,12 +1246,12 @@ to drop it. Add the row.
 **Explicitly not preserved:** `PosScreen.kt`'s composition, its two-pane fallback, the `ui.shop`
 component set inside POS, `PosViewModel`'s structure, the `RpcClient` interface shape, the
 Material3-slot theming path, and `material-icons-extended`. Each is replaced by a recommendation
-in §4 and §9.
+in §4 and §10.
 
 **Out of scope:** `apps/web/(staff)/staff/pos` is a different platform and a legitimate surface, not
 a duplicate POS to delete. It inherits the same generated tokens (§4.1) and nothing else.
 
-### 11.1 Sequence
+### 12.1 Sequence
 
 | Phase | Deliverable | Gate |
 |---|---|---|
@@ -1114,28 +1262,28 @@ a duplicate POS to delete. It inherits the same generated tokens (§4.1) and not
 | **4 Expanded shell** | Rail · header + cascade · hero · category row · Quick Access · cart pane, against fakes | V1, V2, V4, V5 at every Expanded size |
 | **5 Data binding** | Gateway implementations · search · fitment · categories · EPC · image pipeline | Contract tests per gateway |
 | **6 Cart and Quick Access** | Cart flows · long-press pin/unpin · reorder · heterogeneous cards · **pin RPCs** | Pins persist per operator across devices; recomposition isolation verified |
-| **7 Compact** | Phone shell · cart sheet · checkout · tender steps · bottom navigation | V7 + compact goldens; §8.3 parity table fully exercised |
-| **8 Checkout** | **Reserve-first (§9.6 contract)** · split tender · terminal adapters · unknown → recovery | V8; no duplicate charge reachable under fault injection |
+| **7 Compact** | Phone shell · cart sheet · checkout · tender steps · bottom navigation | V7 + compact goldens; §9.3 parity table fully exercised |
+| **8 Checkout** | **Reserve-first (§10.6 contract)** · split tender · terminal adapters · unknown → recovery | V9; no duplicate charge reachable under fault injection |
 | **9 Hardware** | Scanner · CameraX · ESC/POS · terminal capability matrix | Bridge-First verified on target devices |
 | **10 Certification** | Full golden suite · Macrobenchmark · security · accessibility · owner sign-off | All gates green |
 
 Phase 1 is the one that is usually skipped and the one that determines whether any of the rest is
-achievable. Two backend dependencies — operator pins (§6.4) and reserve-first (§9.6) — are specified
+achievable. Two backend dependencies — operator pins (§7.4) and reserve-first (§10.6) — are specified
 now so they can be scheduled into `@backend_agent`'s lane rather than discovered at Phase 6 and 8.
 
 ---
 
-## 12. Definition of done
+## 13. Definition of done
 
 - Expanded Home matches the benchmark's **proportions, grammar and hierarchy** at every reference
-  size, within §10.1 tolerances.
+  size, within §11.1 tolerances.
 - Every difference from the benchmark is registered with an owner reference.
 - No `Reports` destination in POS navigation.
 - Quick Access is operator-scoped, heterogeneous, unbounded, pinnable by long-press from anywhere,
   server-persisted, with **no literal item count in the codebase**.
 - Vehicle cascade is permanent in the header at Expanded/Medium and recomposes at Compact, driving a
   visible, clearable fitment context.
-- The phone performs every operation in the §8.3 parity table.
+- The phone performs every operation in the §9.3 parity table.
 - Money is backend-authoritative with explicit currency; no `KSh`, no hardcoded VAT rate, no ZIMRA.
 - Copy is correct — `GENUINE PARTS`, `Add Customer` — and lives in string resources.
 - Error red is visually distinct from brand red.
@@ -1155,18 +1303,18 @@ named and scheduled — but never silently marked done.
 
 ---
 
-## 13. Coherence
+## 14. Coherence
 
 1. The benchmark supplies composition — within the scope §2 fixes.
 2. Measured ratios supply adaptivity; pixels supply provenance only.
 3. Industrial minimalism supplies the base language.
 4. Soft borders and restrained depth supply hierarchy.
 5. Modularity supplies organisation, never arbitrary reshaping.
-6. Glass supplies transient focus, never permanent structure.
+6. Glass supplies transient focus, never permanent structure — and declares its fallback.
 7. Progressive disclosure suppresses clutter.
 8. Editorial typography and tabular numerals supply scanability.
 9. Semantic colour supplies meaning — and brand red is not error red.
-10. Motion supplies feedback, not decoration.
+10. Motion and haptics supply feedback, not decoration.
 11. Recomposition supplies device fitness; tokens supply identity across devices.
 12. State machines supply behavioural determinism.
 13. The delta registry supplies governance.

@@ -19,7 +19,7 @@ performs today is enumerated in blueprint §11 and must exist when the rebuild s
 Owner product decisions (action plan L1–L7), `AGENTS.md` hard exclusions and the truth protocol
 continue to bind; none of them is an implementation detail.
 
-Nine substantive decisions:
+Ten substantive decisions:
 
 1. **Adaptive fidelity replaces pixel fidelity.** The benchmark is measured, committed and reduced
    to normative *ratios* plus a canonical **1280 × 800 dp** frame on which the whole composition
@@ -83,6 +83,21 @@ Nine substantive decisions:
 9. **Reserve-first is specified, not blocked.** Blueprint §9.6 carries the RPC contract, TTL,
    idempotency and expiry behaviour so `@backend_agent` can build it, rather than leaving the
    product's most important correctness property as a deferred note.
+
+10. **The modern-UI design language is a specified layer, not a mood.** Blueprint §5 carries the
+   governing principles, a pattern permission matrix (where bento, glass, soft depth, ambient
+   gradient, micro-interactions, spatial layering, progressive disclosure and shared-element
+   transitions are permitted and where they are forbidden), micro-interaction and haptic specs,
+   spatial continuity rules, a two-layer nesting limit, and skeleton/empty-state rules — and it is
+   certified by a gate (V8), not left to taste.
+
+   Two decisions inside it: **neumorphism is withdrawn entirely** (Rev 1.3 allowed it for "rare
+   tactile segmented controls"; it cannot meet WCAG AA and no control here needs it), and **every
+   glass surface must declare a capability pair**. Blur on Android is API 31+ and `Modifier.blur`
+   silently no-ops below it, so an unreviewed glass surface ships as a flat translucent rectangle on
+   part of the fleet. Both treatments — backdrop blur and the pre-31 fallback — are screenshot-
+   certified, and backdrop blur must be applied to a captured graphics layer rather than to the
+   overlay's own content.
 
 ## Why
 
