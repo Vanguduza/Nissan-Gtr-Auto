@@ -1,20 +1,18 @@
 {
   "actor": "claude-code",
   "branch_at_record": "port-work",
-  "change_id": "3cc5696381223e7d36bc",
+  "change_id": "7966d99ada1e19006d8e",
   "changed_files": [
     "docs/decisions/2026-09-13-pos-adaptive-benchmark-fidelity.md",
-    "docs/design/pos/POS_FRONTEND_BLUEPRINT_REV_1_4.md",
     "docs/design/pos/POS_FRONTEND_BLUEPRINT_REV_1_5.md",
-    "docs/design/pos/README.md",
-    "docs/design/pos/VisualReferenceSpec.json"
+    "docs/design/pos/README.md"
   ],
-  "diff_sha256": "3cc5696381223e7d36bc1f2482166acd4d1da43198f3d47696d067b719ced84e",
+  "diff_sha256": "7966d99ada1e19006d8e9f5d8e9a4fa00f2f6791a64c5d94d6e245767358f2fa",
   "domains": [
     "documentation"
   ],
-  "intent": "port 7475f2c8 onto POS reconcile lineage",
-  "recorded_at_utc": "2026-10-01T01:12:50.475992+00:00",
+  "intent": "port dbff3513 onto POS reconcile lineage",
+  "recorded_at_utc": "2026-10-01T01:12:50.720670+00:00",
   "schema_version": 1,
-  "source_parent": "35889c848b5d175aa528bb3b62d1749e0317a894"
+  "source_parent": "fc57c3db1645c39d4dfe47bed875fe1bc92e97fa"
 }
