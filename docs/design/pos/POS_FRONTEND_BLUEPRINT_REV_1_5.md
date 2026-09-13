@@ -1,9 +1,9 @@
 # Nissan GTR Auto POS — Frontend Development System
 
-**Revision:** 1.4 — Adaptive Fidelity Edition
+**Revision:** 1.5 — Clean-Room Edition
 **Date:** 2026-09-13
 **Lane:** `@management_app_agent` (UI) · `@backend_agent` (pin + fitment + reservation contracts)
-**Status:** accepted — supersedes Rev 1.3 in full
+**Status:** accepted — supersedes Rev 1.3 and 1.4 in full
 **Implementation path:** `apps/android-management/feature/pos` (tablet + phone, shared module)
 **Visual reference:** [`reference/benchmark-home-expanded-2026-09-07.jpg`](reference/benchmark-home-expanded-2026-09-07.jpg) · geometry in [`VisualReferenceSpec.json`](VisualReferenceSpec.json) · deltas in [`APPROVED_VISUAL_DELTAS.md`](APPROVED_VISUAL_DELTAS.md)
 
@@ -14,24 +14,40 @@
 
 ---
 
-## 0. What changed from Rev 1.3, and why
+## 0. What this revision is
 
-Rev 1.3 was a sound governance charter with three structural faults: it gated on pixel equality
-against a single raster, it specified token *names* without *values*, and it was written as if it
-governed an existing implementation rather than a rebuild. Rev 1.4 keeps the governance and fixes
-the engineering.
+**Rev 1.5 treats the POS as a clean-room rebuild.** The implementation currently in
+`apps/android-management/feature/pos` is a wrong implementation of the product — it is one of the
+reasons this redesign exists — and it has **no authority over any recommendation here**. Rev 1.4
+still deferred to it in places ("adopt-first", "keep the vendored typefaces", "do not split the
+ViewModel until the gateway is split"). Those deferrals are withdrawn. This document now recommends
+what a modern, professional, fully functional SaaS POS requires, and treats the existing code purely
+as a source of *capability requirements* — never as a design constraint.
 
-| Area | Rev 1.3 | Rev 1.4 |
-|------|---------|---------|
+### From Rev 1.3
+
+| Area | Rev 1.3 | Now |
+|------|---------|-----|
 | Fidelity model | ±2 Rpx against a 1536×1024 raster | Ratio + grammar + behaviour across four window classes (§3, §10) |
 | Geometry source | Illustrative JSON, "measure later" | Measured, committed, ratio-normative `VisualReferenceSpec.json` |
-| Tokens | 23 colour names, 0 values; radius/elevation/type roles with no numbers | Complete valued system routed through `brand-tokens.json` (§4) |
-| Benchmark authority | Total (A1 over everything) | Scoped to composition and geometry; copy, currency and tax explicitly excluded (§2) |
+| Tokens | 23 colour names, 0 values | Complete valued system, generated from one source (§4) |
+| Benchmark authority | Total | Scoped to composition and geometry (§2) |
 | Popular row | "no seven-item cap" | **Quick Access panel** — operator-pinned, heterogeneous, unbounded (§6) |
-| Vehicle cascade | Progressive disclosure out of search | **Permanent header cascade** replacing the taxonomy line (§7) |
-| Phone | "compact recomposition" of the tablet | A designed phone POS with full operational parity (§8) |
-| Scope framing | Governs the existing POS | Explicit rebuild with a per-file migration contract (§11) |
-| Repo governance | Not referenced | Subordinated to the truth protocol and the locked action plan (§1) |
+| Vehicle cascade | Progressive disclosure out of search | **Permanent header cascade** (§7) |
+| Phone | "compact recomposition" | A designed phone POS with full operational parity (§8) |
+| Repo governance | Not referenced | Subordinated to the truth protocol and owner decisions (§1) |
+
+### From Rev 1.4
+
+| Area | Rev 1.4 | Now |
+|------|---------|-----|
+| Posture toward existing code | "Adopt-first is binding" | **Clean-room.** Capability continuity, not code continuity (§1.2) |
+| Theming | Keep `ShopTheme` → `GtrTheme` (Material3 slot overrides) | **Dedicated `PosTheme`** over generated tokens; M3 for interaction primitives only (§4.1) |
+| Typography | Keep vendored Titillium Web + Source Sans 3 because they exist | **Inter** for product UI on merit; display face is a brand-moment choice (§4.6) |
+| Data access | Keep the 102-method `RpcClient`; defer the split | **Replace with typed feature gateways** returning `Result` (§9.2) |
+| State | Three ViewModels sharing a `StateFlow`; defer decomposition | **One store, pure reducers, screen-scoped projections** (§9.3) |
+| Reserve-first | "Blocked on backend" | **Contract specified here** so it can be built (§9.6) |
+| Migration | Per-file keep/rebuild table | **Capability continuity contract** (§11) |
 
 ---
 
@@ -63,12 +79,27 @@ this order.
    implementation.
 4. Still ambiguous → raise an unresolved decision. Do not improvise a new visual convention in code.
 
-### 1.2 Adopt-first is binding
+### 1.2 What binds, and what does not
 
-Action plan §2 and §9 forbid rebuilding the Batch 1 cart/checkout system of record. This document
-rebuilds **the POS user interface only**. Every RPC, reducer boundary and offline contract that
-exists today is reused. "Delete the legacy POS" in Rev 1.3 §13.1 is narrowed to: delete the legacy
-POS **composables**, and only after their behaviour is carried forward per §11.
+**The existing POS implementation is not an authority.** No part of it constrains a recommendation
+in this document — not `PosScreen.kt`'s composition, not the `ui.shop` component set, not the
+`ShopTheme` / `GtrTheme` plumbing, not the `RpcClient` gateway shape, not `PosViewModel`'s
+structure, not the currently vendored UI typefaces. Where a design choice here differs from what is
+in the tree, the tree is what changes.
+
+Three things do bind, and none of them is an implementation detail:
+
+| Binds | Why it is not "existing implementation" |
+|---|---|
+| `AGENTS.md` hard exclusions — no ZIMRA/FDMS, no payroll tax, Bridge-First hardware, RLS mandate, ledger immutability, explicit multi-currency | Legal scope and correctness law, not a code shape |
+| Action plan §10 locked decisions — L1 separate tablet/phone APKs, L2 Admin-or-shop-manager authorisation, L3 refunds post through the finance pipeline, L4 quotations | Owner product decisions |
+| Truth protocol A0 — no silent feature thinning | Governance. A rebuild may replace any code; it may not quietly drop a capability |
+
+**Capability continuity, not code continuity.** Every behaviour the counter performs today must
+exist in the rebuild — offline cash sales, split tender, manager reauth for discount/void/refund/
+price override, quotations, park and resume, companion scan pairing, ESC/POS printing. None of the
+current code has to survive for that to be true. §11 enumerates the capabilities; it no longer
+enumerates files to keep.
 
 ### 1.3 No accidental redesign
 
@@ -94,7 +125,7 @@ component anatomy and visual treatment**. It is **not** authoritative for:
 |---|---|---|
 | Currency | `KSh` (Kenyan shillings) | Backend money state; USD / ZiG; `AGENTS.md` multi-currency law |
 | Tax rate and model | `VAT (16%)` — the Kenyan rate | Backend tax policy; invoices stay tax-agnostic (no ZIMRA) |
-| Copy strings | `GNGUINE PARTS` (typo); `Add Customer (Optional)` (helper copy) | §9.4 copy rules |
+| Copy strings | `GNGUINE PARTS` (typo); `Add Customer (Optional)` (helper copy) | §9.10 copy rules |
 | Sample data | Part numbers, prices, `Tue, 27 May 2025` | Real catalogue and device clock |
 | Feature inventory | `Reports` in the rail | Delta D-001 → `EPC Browse` |
 
@@ -213,78 +244,108 @@ Rev 1.3 listed 23 colour names with no values, five radii with no dp, elevation 
 values were "specified" but absent, and eleven type roles with no sizes — while forbidding
 arbitrary values in feature code. Rev 1.4 supplies the values.
 
-### 4.1 Source of truth
+### 4.1 Token pipeline
 
-`packages/ui/brand-tokens.json` → `@gtr/ui` (web) and `co.zw.nissangtr.ui.theme.GtrColors` (Android)
-is the **only** place a brand primitive may be defined. It already carries the warning *"Do not
-invent alternate brand hues."*
+A serious multi-surface product **generates** its tokens. It does not hand-maintain a Kotlin object,
+a CSS file and a Swift struct and hope they agree.
 
-The POS defines a **semantic layer over** those primitives — it does not fork them:
+`packages/ui/brand-tokens.json` stays the single source. Build [Style
+Dictionary](https://amzn.github.io/style-dictionary/) over it and emit, per build:
+
+| Output | Consumer |
+|---|---|
+| `PosTokens.kt` (Compose) | `apps/android-management`, `apps/android-customer`, `apps/android-delivery` |
+| `tokens.css` + typed TS constants | `apps/web` |
+| `Tokens.swift` | `apps/ios` |
+
+Hand-written `GtrColors.kt` becomes generated output rather than a maintained file. A brand value
+that exists in Kotlin but not in `brand-tokens.json` is a build failure, not a review comment.
+
+**Do not theme the POS by overriding Material3's `ColorScheme`.** M3's semantic slots — `primary`,
+`surface`, `surfaceVariant`, `onSurfaceVariant`, `outline` — are a general app vocabulary. The POS
+needs the nav rail, the canvas, the cart pane, the hero backdrop, elevated layers and six status
+families to be independently addressable, and mapping those onto M3 slots means approximating your
+own design in someone else's vocabulary. That approximation is visible in the current app.
+
+Provide a dedicated theme instead:
 
 ```kotlin
-// packages/android-ui/src/main/java/co/zw/nissangtr/ui/pos/PosPalette.kt
-@Immutable
-data class PosPalette(
-    val navBackground: Color,      // GtrColors.Steel
-    val navSurfaceRaised: Color,   // GtrColors.SteelLift
-    val navActiveFill: Color,      // GtrColors.Primary
-    val brandRed: Color,           // GtrColors.Primary
-    val brandRedPressed: Color,    // GtrColors.PrimaryHover
-    val canvas: Color,             // GtrColors.Chalk
-    val surfacePrimary: Color,     // GtrColors.White
-    val surfaceElevated: Color,    // GtrColors.White + elevation.2
-    val borderSubtle: Color,       // GtrColors.Mist
-    val borderStrong: Color,       // GtrColors.Silver
-    val textPrimary: Color,        // GtrColors.Steel
-    val textSecondary: Color,      // GtrColors.SilverDim
-    val textMuted: Color,          // GtrColors.StockBo
-    val success: Color,            // GtrColors.StockIn
-    val warning: Color,            // GtrColors.StockLow
-    val error: Color,              // NEW primitive — see 4.2, must not equal brandRed
-    val offline: Color,            // GtrColors.Warning (amber)
-    val scrim: Color,
+@Composable
+fun PosTheme(
+    windowClass: PosWindowClass,
+    density: PosDensity = PosDensity.Operational,
+    content: @Composable () -> Unit,
+) = CompositionLocalProvider(
+    LocalPosPalette   provides PosPalette.resolve(isSystemInDarkTheme()),
+    LocalPosType      provides PosType.resolve(windowClass),
+    LocalPosSpace     provides PosSpace,
+    LocalPosShape     provides PosShape,
+    LocalPosElevation provides PosElevation,
+    LocalPosMotion    provides PosMotion.resolve(reducedMotionEnabled()),
+    LocalPosGeometry  provides PosGeometry.resolve(windowClass),
+    content = content,
 )
 ```
 
-Every field but `error` resolves to a primitive that already exists. The POS is not getting a new
-palette — it is getting **named POS roles over the brand palette it already uses**.
+Material3 remains a dependency for interaction primitives — ripple, focus, gesture and
+accessibility plumbing — and supplies **no** visual identity. `MaterialTheme.colorScheme` and
+`MaterialTheme.typography` are lint failures inside POS components (§10.4).
 
-Naming note: Rev 1.3 proposed `object GtrColor`, one character from the existing `GtrColors`. That
-collision is rejected outright.
+### 4.1.1 Semantic palette
+
+```kotlin
+@Immutable
+data class PosPalette(
+    val navBackground: Color, val navSurfaceRaised: Color, val navActiveFill: Color,
+    val brandRed: Color, val brandRedPressed: Color,
+    val canvas: Color, val surfacePrimary: Color, val surfaceElevated: Color,
+    val heroBackdrop: Color,
+    val borderSubtle: Color, val borderStrong: Color, val borderFocus: Color,
+    val textPrimary: Color, val textSecondary: Color, val textMuted: Color, val textOnBrand: Color,
+    val success: Color, val warning: Color, val error: Color, val unknown: Color,
+    val offline: Color, val scrim: Color,
+)
+```
+
+Dark scheme is a **first-class requirement**, not an afterthought: counter tablets run evening
+shifts, and every value above resolves in both schemes from the same generated source.
 
 ### 4.2 Colour values
 
 Measured values are provisional until resampled from a lossless export; the ratios and the
 *decisions* below are not.
 
-| Semantic | Value | Provenance |
-|---|---|---|
-| `canvas` | `GtrColors.Chalk` `#F4F5F7` | Measured `#F3F4F8`. **Within JPEG error of the token already in use** — the shipped POS canvas is already correct. No migration. |
-| `navBackground` | `GtrColors.Steel` `#12151C` | Measured `#1B2024`. Measurement sits between `Steel` and `SteelLift` `#1E2430`; both are cool. Confirm which on the lossless export. |
-| `surfacePrimary` | `GtrColors.White` `#FFFFFF` | Measured `#FEFEFE` |
-| `heroBackdrop` | `#0A0C0E` | Measured `#060709` — darker than `Steel`; hero-only, add to `brand-tokens.json` if adopted |
-| `brandRed` | `GtrColors.Primary` `#C8102E` | Measured `#CB1432`, within JPEG error. Adopt the token, not the sample. |
-| `error` | **`#8E0F22` — new primitive** | Decision, not measurement — see below |
-| `offline` | `GtrColors.Warning` `#B45309` | Existing token |
-| `success` | `GtrColors.StockIn` `#0B6E4F` | Existing token |
+Every value below is a **target derived from the benchmark**, expressed as a brand-token name to be
+emitted by the §4.1 pipeline. Where a name already exists in `brand-tokens.json` it is reused because
+the measurement matches, not because the file already contained it.
 
-**Sampling confirms the existing palette.** Rev 1.3 hedged on whether the dark neutrals carry a blue
-bias and proposed a token named `CanvasWarm`. Measurement settles both: the rail is cool
-(`#1B2024`, B exceeds R by 9) and the canvas is cool (`#F3F4F8`) — and `GtrColors.Chalk`, which the
-POS already renders through `ShopTheme` → `GtrTheme`, is `#F4F5F7`. There is no warm-to-cool
-migration to perform. `CanvasWarm` was simply the wrong name for a colour the app already had right.
+| Semantic | Target | Brand token | Provenance |
+|---|---|---|---|
+| `canvas` | `#F4F5F7` | `neutral.canvas` | Measured `#F3F4F8` |
+| `navBackground` | `#12151C` – `#1E2430` | `neutral.ink.deep` | Measured `#1B2024`; pick on the lossless export |
+| `surfacePrimary` | `#FFFFFF` | `neutral.surface` | Measured `#FEFEFE` |
+| `heroBackdrop` | `#0A0C0E` | `neutral.ink.absolute` | Measured `#060709` |
+| `brandRed` | `#C8102E` | `brand.red` | Measured `#CB1432`, within JPEG error |
+| `brandRedPressed` | `#E01234` | `brand.red.pressed` | Existing brand value |
+| `error` | `#8E0F22` | `status.error` | **New** — decision, see below |
+| `unknown` | `#5B4A2E` | `status.unknown` | **New** — ambiguous terminal outcome |
+| `warning` | `#B45309` | `status.warning` | Existing brand value |
+| `success` | `#0B6E4F` | `status.success` | Existing brand value |
+| `offline` | `#B45309` | `status.offline` | Shares the warning hue, distinct icon and label |
 
-*(The warm surface — `ShopWarmTheme`, background `#F7F1EA` — belongs to the **customer** app
-(`CustomerShopTheme`). It is not in the management/POS path and is unaffected by this document.)*
+**What sampling settles.** Rev 1.3 hedged on whether the dark neutrals carry a blue bias and
+proposed a token named `CanvasWarm`. Measurement settles it: rail and canvas are both cool
+(`#1B2024`, `#F3F4F8`), so `CanvasWarm` was the wrong name, and the benchmark's red is the brand
+red. These are measured facts about the target, independent of what any current code does.
 
-**The red collision, resolved.** `GtrColors.Danger` and `GtrColors.Primary` are the same byte value
-`#C8102E`, and `GtrTheme`'s light scheme wires `error = GtrColors.Danger` — so today a blocking
-error and the primary call to action are *the same colour*. Rev 1.3 raised this and left it optional
-("may use a differentiated deep red"). It is now decided: **error resolves to a darker `#8E0F22`,
-always paired with an error icon**, and brand red is reserved for primary CTA, active navigation and
-brand emphasis. This is the one genuinely new primitive in §4.1 and it belongs in
-`packages/ui/brand-tokens.json` so web and iOS inherit the same separation. Colour is never the only
-status signal (§9.3). Registered as **D-011**.
+**The red collision.** `Danger` and `Primary` are the same value `#C8102E` in the brand file, so a
+blocking error and the primary call to action are indistinguishable. Rev 1.3 raised this and left it
+optional. Decided: **error resolves to `#8E0F22`, always icon-paired**; brand red is reserved for
+primary CTA, active navigation and brand emphasis. `unknown` — the ambiguous-terminal family, where
+a duplicate charge is the failure mode — gets its own treatment distinct from both. All three go
+into `brand-tokens.json` so every surface inherits the separation. Registered as **D-011**.
+
+Colour is never the only status signal (§9.9).
 
 ### 4.3 Spacing
 
@@ -331,34 +392,41 @@ Values describe the visual outcome. Use whichever renderer matches on the suppor
 
 ### 4.6 Typography
 
-**Families are already chosen and vendored — do not introduce a new one.** `GtrTypography` pairs
-**Titillium Web** (display / chrome) with **Source Sans 3** (body), both OFL, vendored under
-`res/font/`. Rev 1.3's "choose and lock one primary UI family, package and license it appropriately"
-is already satisfied; the POS maps its semantic roles onto that pair rather than adding a third
-family and a new licence obligation.
+**Recommendation: Inter (variable) for all product UI.**
 
-- `display.*`, `heading.*`, `label.action`, `numeric.total` → `GtrDisplayFont` (Titillium Web)
-- `body.*`, `label.meta`, `numeric.price`, `numeric.quantity` → `GtrBodyFont` (Source Sans 3)
+This is a merit choice for a dense, numeric, operational interface, not an inventory choice:
 
-Sizes are at the canonical frame. Compact drops one step where marked. Confirm the pairing against
-the lossless reference in Phase 1; if the benchmark used something else, that is a delta to register,
-not a silent substitution.
+- A true **variable weight axis**, so 500 and 600 are real cuts — no synthetic bold anywhere.
+- Genuine **tabular lining figures** (`tnum`), plus slashed zero (`zero`) and disambiguated `1`/`l`/`I`
+  (`ss02`) — which matters when an operator reads a part number like `15208-65F0A` aloud.
+- Large x-height and open apertures at 11–14 sp, where most of this interface lives.
+- OFL, variable-font small, and it renders predictably across Android API levels.
 
-| Role | Size / line | Weight | Compact | Use |
-|---|---|---|---|---|
-| `display.hero` | 32 / 38 | 700 | 24 / 30 | Hero headline only |
-| `heading.1` | 24 / 30 | 700 | 20 / 26 | Pane title, Total |
-| `heading.2` | 20 / 26 | 600 | 18 / 24 | Section titles |
-| `heading.3` | 16 / 22 | 600 | — | Card titles |
-| `body.primary` | 14 / 20 | 400 | — | Product names, labels |
-| `body.secondary` | 12 / 16 | 400 | — | Part numbers, metadata |
-| `label.action` | 14 / 18 | 500 | — | Buttons, nav labels |
-| `label.meta` | 11 / 14 | 500 | — | Date, role, small metadata |
-| `numeric.price` | 15 / 20 | 600 | — | Unit price — **tabular** |
-| `numeric.total` | 24 / 30 | 700 | 20 / 26 | Total, remaining balance — **tabular** |
-| `numeric.quantity` | 14 / 18 | 500 | — | Quantity, stock — **tabular** |
+A display face for brand moments only — the rail logo lockup and the hero headline — is a separate,
+owner-level choice and may remain Titillium Web. It must not set product UI: it has a narrow weight
+range and squarish letterforms that lose legibility in dense rows, which is precisely the opposite of
+what a cart pane needs.
 
-All `numeric.*` roles use tabular figures (`FontFeature "tnum"`). Never synthetic bold.
+Confirm the benchmark's actual face against the lossless export in Phase 1. If it is neither, that is
+a delta to register — not a reason to keep whatever happens to be vendored today.
+
+| Role | Family | Size / line | Weight | Compact | Use |
+|---|---|---|---|---|---|
+| `display.hero` | Display | 32 / 38 | 700 | 24 / 30 | Hero headline only |
+| `heading.1` | Inter | 24 / 30 | 700 | 20 / 26 | Pane title, Total |
+| `heading.2` | Inter | 20 / 26 | 600 | 18 / 24 | Section titles |
+| `heading.3` | Inter | 16 / 22 | 600 | — | Card titles |
+| `body.primary` | Inter | 14 / 20 | 400 | — | Product names, labels |
+| `body.secondary` | Inter | 12 / 16 | 400 | — | Part numbers, metadata |
+| `label.action` | Inter | 14 / 18 | 500 | — | Buttons, nav labels |
+| `label.meta` | Inter | 11 / 14 | 500 | — | Date, role, small metadata |
+| `numeric.price` | Inter | 15 / 20 | 600 | — | Unit price — **tnum** |
+| `numeric.total` | Inter | 24 / 30 | 700 | 20 / 26 | Total, balance — **tnum** |
+| `numeric.quantity` | Inter | 14 / 18 | 500 | — | Quantity, stock — **tnum** |
+| `mono.reference` | JetBrains Mono | 12 / 16 | 400 | — | Correlation IDs, terminal references in recovery |
+
+Part numbers use `body.secondary` with `ss02`; payment correlation references use `mono.reference`,
+because an operator reading one to a support line cannot afford an ambiguous glyph.
 
 ### 4.7 Icons
 
@@ -376,17 +444,19 @@ component.
 
 ### 4.8 Density
 
-`GtrDensity` already exists (`Standard` / `Compact`) and carries `screenPadding`, `sectionGap` and
-`homePadding` through `LocalGtrExtras`. The POS adds a third intention rather than a parallel system:
+```kotlin
+enum class PosDensity { Comfortable, Operational, Compact }
+```
 
-| Intention | Maps to | Use |
-|---|---|---|
-| `Comfortable` | `GtrDensity.Standard` | Touch-heavy, lower information density |
-| `Operational` | **POS default** — `Standard` padding, tighter section gaps | Counter POS |
-| `Compact` | `GtrDensity.Compact` | Constrained displays, data-heavy management surfaces |
+| Intention | Row height | Section gap | Secondary metadata | Use |
+|---|---:|---:|---|---|
+| `Comfortable` | 80 dp | 24 dp | Always shown | Training, low-volume counters |
+| `Operational` | 72 dp | 16 dp | Shown | **POS default** |
+| `Compact` | 64 dp | 12 dp | On demand | Constrained displays, management surfaces |
 
-Density may change padding, row height and secondary-metadata visibility within bounded rules. It
-may never reduce a touch target below 48 dp or move a primary CTA out of reach.
+Density is a POS concern and owns its own scale. It may change padding, row height and
+secondary-metadata visibility within these bounds. It may never reduce a touch target below 48 dp,
+move a primary CTA out of reach, or change type sizes — those are §4.6's and only §4.6's.
 
 ### 4.9 Motion
 
@@ -630,10 +700,10 @@ Every POS operation, and how it is reached on each surface. No operation is tabl
 | Void | Cart, manager reauth | Cart sheet, manager reauth | L2 |
 | Refund | Returns destination | Returns via More | L3 — posts through `post_finance_refund` |
 | Price override | Line overflow, manager reauth | Line overflow, manager reauth | L2 |
-| Proceed to payment | Pane CTA | Cart bar CTA → checkout screen | Reserve-first (§9.2) |
+| Proceed to payment | Pane CTA | Cart bar CTA → checkout screen | Reserve-first (§9.6) |
 | Split tender | Payment surface | Dedicated tender screen, one leg per step | Same normalised state |
 | Terminal / EcoCash / Paynow | Payment surface | Same adapters | Online only |
-| Payment recovery | Dedicated surface | Dedicated screen | Never a sheet — §9.5 |
+| Payment recovery | Dedicated surface | Dedicated screen | Never a sheet — §9.4 |
 | Print receipt | ESC/POS bridge | ESC/POS bridge | Bridge-First |
 | Till / shift open-close | Rail → Till | More → Till | |
 | Offline cash sale | Restricted mode | Restricted mode | Identical rules |
@@ -657,133 +727,275 @@ offline state, recovery. Plus a font-scale variant at the documented maximum (§
 
 ---
 
-## 9. Architecture and behaviour
+## 9. Application architecture
 
-### 9.1 State ownership
+The current POS is a 947-line screen talking to a 102-method interface through a 1533-line
+ViewModel with two tests. That shape is why it is hard to make it look right, hard to make it fast,
+and impossible to certify. The architecture below is the recommendation, independent of it.
+
+### 9.1 Module structure
+
+One feature is not one module. Split so that the design system and the domain can be tested without
+Android, and so screenshot tests can run on the JVM against fakes:
 
 ```text
-PosViewModel              catalogue query · fitment context · categories
-                          · quick access projection · catalogue readiness
-CartViewModel / slice     cart display projection · quantity intents
-                          · customer association · checkout readiness
-PosOperationsViewModel    till/shift · reservation · payment orchestration
-                          · terminal state · recovery queue · fulfilment
+packages/pos-design/            PosTheme, tokens (generated), primitives, component library
+                                — no domain types, no gateways, Compose only
+apps/android-management/
+  feature/pos-domain/           PosState, PosIntent, PosEvent, reducers, projections
+                                — pure Kotlin, zero Android dependencies, 100% unit-testable
+  feature/pos-data/             gateway implementations, DTO mapping, offline outbox, cache
+  feature/pos-ui/               composables, PosStore wiring, navigation
+  feature/pos-ui/src/test/      Roborazzi screenshot tests against fake gateways
 ```
 
-No composable performs authoritative tax, price, stock or payment arithmetic. All I/O passes
-through typed gateways; composables consume state and emit intents.
+`pos-domain` having no Android dependency is the load-bearing constraint: it makes the payment,
+reservation and recovery state machines testable in milliseconds, which is the only way they get
+tested at all.
 
-> **Note on scope.** `PosViewModel.kt` is 1533 lines today and its own header records that the
-> audit recommends splitting `RpcClient` (102 methods) *before* splitting the ViewModel, or the
-> dependency simply spreads across more files. Rev 1.4 does not mandate the ViewModel split as part
-> of the UI rebuild. Treat the boundaries above as the target, reached after the gateway split.
+Dependency injection: adopt **Hilt**. There is none today (`PosModule` is a three-line stub), and
+constructor-injected gateways are what make the fakes above possible.
 
-### 9.2 Cart state
+### 9.2 Typed gateways — replacing the God interface
+
+A 102-method `RpcClient` shared by catalogue, cart, checkout, manager reauth, quotations, companion
+pairing and offline replay is the root technical cause of the current POS's problems. Replace it
+with narrow, feature-owned gateways:
 
 ```kotlin
-sealed interface CartUiState {
-    data object Empty : CartUiState
-    data class Open(val cart: CartProjection) : CartUiState
-    data class Reserving(val cart: CartProjection) : CartUiState
-    data class LockedForCheckout(val checkout: CheckoutProjection) : CartUiState
-    data class PaymentInProgress(val payment: PaymentProjection) : CartUiState
-    data class RecoveryRequired(val recovery: RecoveryProjection) : CartUiState
-    data class Completed(val receipt: ReceiptProjection) : CartUiState
+interface CatalogGateway {
+    suspend fun search(q: SearchQuery): PosResult<SearchPage>
+    suspend fun categories(): PosResult<List<Category>>
+    suspend fun product(id: ProductId): PosResult<Product>
+}
+
+interface CartGateway {
+    suspend fun open(warehouse: WarehouseId, currency: CurrencyCode): PosResult<CartId>
+    suspend fun addLine(cart: CartId, product: ProductId, qty: Int): PosResult<CartProjection>
+    suspend fun setQuantity(cart: CartId, line: LineId, qty: Int): PosResult<CartProjection>
+    suspend fun attachCustomer(cart: CartId, customer: CustomerId?): PosResult<CartProjection>
+}
+
+interface CheckoutGateway {
+    suspend fun reserve(cart: CartId, key: IdempotencyKey): PosResult<CheckoutSnapshot>
+    suspend fun release(reservation: ReservationId): PosResult<Unit>
+    suspend fun finalize(reservation: ReservationId): PosResult<Receipt>
+}
+
+interface TenderGateway {
+    suspend fun capabilities(snapshot: CheckoutSnapshot): PosResult<List<TenderCapability>>
+    suspend fun submit(leg: TenderLeg, key: IdempotencyKey): PosResult<TenderOutcome>
 }
 ```
 
-Illegal combinations (offline + terminal charging, locked + editable) are structurally impossible,
-not guarded by booleans.
+plus `FitmentGateway`, `PinGateway`, `TillGateway`, `RecoveryGateway`, `QuotationGateway`. Each is
+declared in `pos-domain` and implemented in `pos-data`. Eight small interfaces are trivially fakeable;
+one large one is not.
 
-**Reserve-first is a backend dependency, not a UI decision.** There is no POS stock-reservation RPC
-in `supabase/` today; checkout is a single `checkout_pos_cart_with_tenders` call. `Reserving` and
-`LockedForCheckout` cannot ship until `@backend_agent` lands a reservation contract. Until then the
-UI implements the states and transitions straight through, and the certification matrix marks the
-reserve-first row **blocked**, not passed.
+**Business outcomes are values, never exceptions.**
 
-### 9.3 Semantic states
+```kotlin
+sealed interface PosResult<out T> {
+    data class Ok<out T>(val value: T) : PosResult<T>
+    data class Err(val error: PosError) : PosResult<Nothing>
+}
+```
+
+The current code throws `IllegalStateException("Offline checkout is cash-only (EcoCash/Paynow
+require live rails)")` for an ordinary business rule. That is control flow through exceptions, and
+the message is engineering prose one `catch` away from an operator's screen. A restricted tender is a
+*modelled state*, surfaced by disabling the tender with a reason — not a thrown error.
+
+**Idempotency keys are mandatory** on every mutating call that moves money or stock. They are what
+makes a retry after a dropped connection safe, and they are the difference between "we think the
+charge went through" and knowing.
+
+### 9.3 State — one store, pure reducers, scoped projections
+
+Three ViewModels sharing a `cartId` inside one `StateFlow` is the shape to avoid; so is one
+ViewModel that owns everything. Use a single store over a pure reducer, with screens selecting
+narrow projections.
+
+```kotlin
+// pos-domain — pure, no Android, no coroutines in the signature
+fun reduce(state: PosState, event: PosEvent): Reduction   // Reduction(state, effects)
+
+class PosStore(scope: CoroutineScope, effects: PosEffectHandler) {
+    val state: StateFlow<PosState>
+    fun dispatch(intent: PosIntent)
+}
+```
+
+- **Reducers are total and pure.** Same state + event ⇒ same result. This is what makes split
+  tender, reserve-first and payment recovery testable without a device or a backend.
+- **Effects are declarative.** A reducer returns `Effect.Reserve(cartId, key)`; the handler calls the
+  gateway and dispatches the resulting event back. No reducer performs I/O.
+- **Screens read projections, not state.**
+
+```kotlin
+val cart:      StateFlow<CartProjection>      = store.select { it.toCartProjection() }
+val discovery: StateFlow<DiscoveryProjection> = store.select { it.toDiscoveryProjection() }
+```
+
+  Every projection is `@Immutable` with stable keys. A quantity change must not recompose the
+  catalogue — §9.11 makes that a measured gate, not an aspiration.
+
+Illegal combinations are structurally impossible rather than guarded: there is no
+`isCartLocked` boolean to contradict an `isEditable` boolean, because the state is a sealed
+hierarchy where "locked" and "editable" are different types.
+
+### 9.4 Navigation
+
+Type-safe routes (Navigation Compose 2.8+ `@Serializable` destinations), **one graph for both form
+factors**. The window class decides *presentation*, never *existence*:
+
+| Destination | Expanded | Compact |
+|---|---|---|
+| Cart | Persistent pane | Summary bar → full sheet |
+| Checkout | Focused layer over the canvas | Pushed screen |
+| Product detail | Anchored popover | Bottom sheet |
+| Vehicle cascade | Inline header fields | Full-height sheet |
+| Recovery | Dedicated screen | Dedicated screen |
+
+Forking the graph per form factor is how parity rots — a destination gets added on the tablet and
+silently never reaches the phone. One graph makes the §8.3 parity table enforceable.
+
+Recovery is always a dedicated screen on both. An ambiguous payment is not a thing to dismiss by
+tapping outside it.
+
+### 9.5 Cart and checkout state machine
+
+```kotlin
+sealed interface CheckoutState {
+    data object Idle : CheckoutState
+    data class Open(val cart: CartProjection) : CheckoutState
+    data class Reserving(val cart: CartProjection, val key: IdempotencyKey) : CheckoutState
+    data class Locked(val snapshot: CheckoutSnapshot) : CheckoutState
+    data class TenderInFlight(val snapshot: CheckoutSnapshot, val leg: TenderLeg) : CheckoutState
+    data class PartiallyPaid(val snapshot: CheckoutSnapshot, val remaining: Money) : CheckoutState
+    data class RecoveryRequired(val recovery: RecoveryContext) : CheckoutState
+    data class Settled(val receipt: Receipt) : CheckoutState
+}
+```
+
+Only `Open` permits cart mutation — the type system enforces it, so no UI path can edit a reserved
+cart. `PartiallyPaid.remaining` is **always** the backend's figure; the frontend never computes a
+remaining balance.
+
+### 9.6 Reserve-first — the contract to build
+
+Rev 1.4 marked this "blocked on backend". That defers the most important correctness property in
+the product. Specify it here so `@backend_agent` can build it:
+
+```text
+reserve_pos_cart(p_cart_id uuid, p_idempotency_key text)
+  → { reservation_id, expires_at, snapshot: { lines[], subtotal, tax, total, currency } }
+  · validates cart, session, warehouse, price drift
+  · reserves stock atomically; fails closed with the shortfall per line
+  · idempotent on p_idempotency_key — a retry returns the same reservation
+  · TTL (recommend 10 minutes), extended by tender activity
+
+release_pos_reservation(p_reservation_id uuid)     -- explicit cancel or TTL sweep
+finalize_pos_sale(p_reservation_id, p_tenders[])   -- posts through existing checkout SoR
+```
+
+Expiry behaviour must be designed, not discovered: on expiry the UI returns to `Open` with the
+lines intact and a non-destructive notice, and re-reserves on the next attempt. Stock must never be
+held by an abandoned cart, and an operator must never be told a sale failed because a timer they
+could not see ran out.
+
+### 9.7 Errors are data
+
+```kotlin
+sealed interface PosError {
+    data class Transient(val retryable: Boolean) : PosError
+    data class Input(val field: FieldRef, val reason: InputReason) : PosError
+    data class BusinessRule(val rule: RuleId, val detail: RuleDetail) : PosError
+    data class PaymentUnknown(val correlation: CorrelationRef) : PosError
+    data class HardwareUnavailable(val device: DeviceKind) : PosError
+    data class OfflineRestricted(val blocked: Set<TenderType>) : PosError
+}
+```
+
+Every variant maps to a string resource keyed by `RuleId` — so operator copy is written once, by
+someone who writes copy, and reviewed independently of the code. No `catch (e: Exception) { e.message }`
+reaches a screen. Never surface exception names, HTTP codes, SQL terms or stack traces.
+
+`PaymentUnknown` is not failure. It means the system cannot prove whether funds moved: block
+further charging for that amount and provider, carry the correlation reference into recovery, and
+require an explicit resolution path.
+
+### 9.8 Offline
+
+Offline is a restricted mode with modelled restrictions, not a degraded imitation of online:
+
+- Local catalogue search stays available.
+- **Cash only** — non-cash tenders render disabled with the reason, never fail on submit.
+- **Walk-in only** — named credit customers require live credit state.
+- Discount, void, refund and price override stay online: they need manager reauth against a live
+  RPC (action plan L2), and caching an approval token is a privilege-escalation hole.
+- Ambiguous prior payments stay blocked from retry.
+- Sync state is explicit in the header (D-005).
+
+Sales queue through an encrypted outbox with a client-generated id, replayed idempotently; price
+drift and stock shortfall surface as **conflicts for operator review**, never as invented ledger
+rows. Card and mobile-money requests are never queued.
+
+### 9.9 Semantic states
 
 | Family | Treatment | Consequence |
 |---|---|---|
 | Positive | `success` + icon + label | Continue |
 | Attention | `warning` + icon | Continue with awareness |
-| Blocking | `error` (`#8E0F22`) + icon + explicit action | Progression blocked |
-| Unknown | Neutral/attention hybrid, distinct icon | **Duplicate charge blocked** |
-| Offline | `offline` amber | Tender set restricted |
-| Selected | Brand red | Current context |
+| Blocking | `error` `#8E0F22` + icon + explicit action | Progression blocked |
+| Unknown | `unknown` + distinct icon | **Duplicate charge blocked** |
+| Offline | `offline` amber + label | Tender set restricted |
+| Selected | `brandRed` | Current context |
 
-Colour is never the only signal — every row carries an icon or a label.
+Colour is never the only signal — every family carries an icon and a label, which is also what makes
+the design legible to a colour-blind operator and to a screenshot diff.
 
-### 9.4 Copy
+### 9.10 Copy
 
-No tutorial paragraphs, no helper copy on obvious controls (D-008), verbs on buttons, errors state
-what happened and the next permitted action, no engineering language in operator UI, no placeholder
-or fake data in production builds. Deterministic preview data lives only in `src/debug` — the
-pattern `packages/android-ui/src/debug/.../ui/shop` already establishes.
+No tutorial paragraphs, no helper copy on obvious controls (D-008), verbs on buttons, errors that
+state what happened and the next permitted action, no engineering language, no placeholder or fake
+data in production builds. Every operator string is a resource keyed to §9.7. Deterministic preview
+data lives only in a debug or test source set.
 
-Every operator-facing string lives in a string resource. A copy catalogue keyed to the §9.5 error
-taxonomy is a Phase 3 deliverable.
+### 9.11 Performance
 
-### 9.5 Errors
-
-1. Transient → concise retry.
-2. Correctable input → focus the offending control.
-3. Business-rule rejection → state the constraint and the permitted next action.
-4. **Payment unknown → block duplicate charge, open recovery.** `Unknown` is not failure; it means
-   the system cannot prove whether funds moved.
-5. Hardware unavailable → offer an approved alternative.
-6. Offline restriction → name which tenders are unavailable.
-
-Never surface exception names, HTTP codes, database terms or stack traces.
-
-### 9.6 Offline
-
-Aligned to [`ADR 2026-08-03`](../../decisions/2026-08-03-offline-sqlcipher-pos-cache.md) and to what
-`PosViewModel` already enforces:
-
-- Local catalogue search remains available.
-- **Cash only.** Non-cash tenders are unavailable — already enforced at `PosViewModel.kt:1360`.
-- **Walk-in only.** Named credit customers are online-only — already enforced; Rev 1.3 omitted this.
-- Discount, void, refund, price override, quotations stay online (manager reauth needs a live RPC).
-- Ambiguous prior payments stay blocked from retry.
-- Sync state is explicit in the header (D-005).
-
-Card and mobile-money requests are **never** queued as ordinary offline writes.
-
-Note: the offline SQLCipher store is a **sale outbox**, not a catalogue package. Rev 1.3 §14.1
-conflated the two. A read-only encrypted catalogue package with resumable download and rollback is
-a separate, unbuilt concern.
-
-### 9.7 Performance
-
-Targets apply to the **supported baseline device** — named in the Path B SKU list the action plan
-§11 still has open. Until that list lands, targets are measured on the lowest-spec tablet in the
-pilot fleet and the figure recorded here.
+Targets apply to the supported baseline device — to be named from the pilot fleet's lowest spec.
 
 - Touch feedback within one frame; local cart acknowledgement immediate.
 - Indexed local catalogue lookup < 100 ms; first useful search results < 250 ms.
 - Sustained 60 fps on cart and Quick Access scrolling.
 - No blank intermediate frame on transition; no spinner for trivial local work.
 
-Compose rules: stable keys, immutable models, `derivedStateOf` only where measured, isolate cart
-recomposition from catalogue browsing, pre-size images, async decode, no I/O in composition.
+Enforced, not hoped for: **Baseline Profile generated from day one** and a Macrobenchmark suite in
+CI. Compose discipline — stable keys, `@Immutable` projections, `derivedStateOf` only where
+measured, pre-sized images, async decode, no I/O in composition, and cart recomposition isolated
+from catalogue by construction (§9.3), verified by a recomposition-count test.
 
-### 9.8 Product imagery
+Prefer local-first rendering. Where loading is genuinely required, use skeletons that match final
+geometry exactly; indeterminate spinners are not a default.
 
-Deterministic media contract per catalogue image: background treatment, bounding-box padding, crop
-mode, aspect class, thumbnail variants, fallback, cache key. Adjacent cards must not show wildly
-different object scales. Missing image → neutral placeholder, never a bright illustration that
-steals emphasis. Hero imagery is treated separately from product imagery.
+### 9.12 Product imagery
 
-### 9.9 Accessibility
+A deterministic media contract per catalogue image: background treatment, bounding-box padding, crop
+mode, aspect class, thumbnail variants, fallback, cache key and version. Adjacent cards must not
+show wildly different object scales — this is the single largest contributor to a catalogue looking
+cheap. Missing image resolves to a neutral placeholder, never a bright illustration that steals
+emphasis. Hero imagery is treated separately from product imagery.
 
-Contrast to WCAG AA; 48 dp minimum touch targets at every window class; focus order follows visual
-order; predictable keyboard/D-pad; TalkBack labels describe action and state in operator language;
-colour never the sole signal; reduced motion honoured; font scaling supported to a documented
-maximum with layout adaptation rather than clipping.
+### 9.13 Accessibility
 
-Where accessibility scaling and benchmark proportion conflict, **accessibility wins** — and unlike
-Rev 1.3, the scaled layout is still certified: §10.3 requires golden surfaces at maximum font scale.
+Contrast to WCAG AA; 48 dp minimum touch targets at every window class; focus order following
+visual order; predictable keyboard and D-pad traversal; TalkBack labels describing action and state
+in operator language; colour never the sole signal; reduced motion honoured; font scaling to a
+documented maximum with layout adaptation rather than clipping.
+
+Where accessibility scaling and benchmark proportion conflict, accessibility wins — and the scaled
+layout is still certified (§10.3 requires golden surfaces at maximum font scale).
 
 ---
 
@@ -830,7 +1042,9 @@ CI fails the build on any of these inside `apps/android-management/feature/pos/`
 
 - raw colour literals outside token definitions;
 - ad hoc `RoundedCornerShape` values outside the design system;
-- direct Material default typography in canonical components;
+- any reference to `MaterialTheme.colorScheme` or `MaterialTheme.typography` in POS components;
+- exceptions thrown for business outcomes instead of returning `PosError`;
+- a bare `Double`/`BigDecimal` used as money without a currency;
 - unapproved icon libraries, including `material-icons-extended` (§4.7);
 - a `Reports` navigation destination;
 - **any integer literal used as an item count in a lazy row** — counts are derived (§3.3);
@@ -850,55 +1064,64 @@ payment, tender step, cart → receipt.
 
 ---
 
-## 11. Migration contract
+## 11. Capability continuity contract
 
-Rev 1.3's fatal omission: it read as if it governed an existing implementation. It does not. The
-current `PosScreen.kt` is a 947-line two-pane catalogue/cart screen on Material 3 and the `ui.shop`
-component library, with **no rail, no header cascade, no hero, no category row, no Quick Access row
-and no recent searches**. None of the eight canonical destinations appear in it.
+The POS is rebuilt clean. No file in `feature/pos` is preserved on the grounds that it exists — the
+rebuild is judged on capability, not on code lineage.
 
-This is a UI rebuild. It is not a rewrite of the POS domain.
+What the truth protocol forbids is losing a capability silently. So the contract is a list of
+**behaviours that must exist when the rebuild ships**, each with where its logic now lives. How they
+are implemented is this document's recommendation, not the old code's precedent.
 
-| Path | Disposition | Note |
+| Capability | Must survive as | Home in the new architecture |
 |---|---|---|
-| `PosScreen.kt` | **Rebuild** | Compose the new shell; behaviour ported per rows below, not deleted |
-| `PosScreen.kt` — two-pane fallback logic | **Supersede** | Replaced by the §3.5 window-class system |
-| `PosViewModel.kt` | **Keep** | Rebind to new intents. Do not split until `RpcClient` is split |
-| `PosViewModel.kt` — split tender (`PosTenderDraft`, lines 45–69, 337–364) | **Keep** | Already correct; drives §8.3 tender steps |
-| `PosViewModel.kt` — offline guards (line ~1360) | **Keep** | Cash-only and walk-in-only rules are canonical (§9.6) |
-| `PosCartLineOps.kt` | **Keep** | Pure, tested |
-| `PosEpcBrowseScreen.kt` | **Retheme** | Retokenise to §4; becomes a first-class destination |
-| `offline/*` | **Keep** | Outbox, sync engine, SQLCipher store all unchanged |
-| `ShopTheme` / `GtrTheme` wrapper | **Keep** | Already supplies the correct cool canvas, brand colours, vendored fonts and shape scale |
-| `ui.shop` composables used by POS (`ShopProductCard`, `ShopListCard`, `ShopStatusChip`, …) | **Replace in POS only** | POS gets its own component set matching the benchmark's anatomy; the `Shop*` public API is frozen (Phase A) so it stays for its other consumers |
-| `ShopWarmTheme` | **Untouched** | Customer app only (`CustomerShopTheme`); not in the POS path |
-| `material-icons-extended` in `feature/pos` | **Remove** | Replaced by packaged Lucide (§4.7) |
-| `apps/web/(staff)/staff/pos` | **Out of scope** | Different platform; explicitly not a "duplicate POS" to delete |
+| Catalogue search (name, part number, fitment, barcode, EPC) | Same coverage, cancellable, debounced | `CatalogGateway` + discovery projection |
+| Vehicle fitment cascade | Extended — now permanent in the header (D-002) | `FitmentGateway` + session fitment context |
+| Cart line add / quantity / remove | Same, with optimistic echo and authoritative settle | `CartGateway` + reducer |
+| Split-bill tenders | Same, as explicit legs with backend-returned remaining balance | `TenderGateway` + `CheckoutState` |
+| Offline cash sale queue | Same rules — cash-only, walk-in-only — as *modelled restrictions*, not thrown exceptions | `pos-data` outbox + `PosError.OfflineRestricted` |
+| Offline replay and conflict surfacing | Same idempotent replay; conflicts reviewable | `pos-data` sync engine |
+| Manager reauth: discount, void, refund, price override | Same, online-only, RPC-enforced (L2) | `PosError.BusinessRule` + reauth flow |
+| Refunds through the finance pipeline (L3) | Unchanged — no parallel refund path | Existing finance RPC |
+| Quotations create / send / convert (L4) | Same | `QuotationGateway` |
+| Park and resume sale | Same | `CartGateway` |
+| Companion scan pairing | Same | Bridge + `pos-data` |
+| ESC/POS receipt printing | Same, Bridge-First | `bridges/android/escpos-printer` |
+| QR / barcode camera scanning | Same, Bridge-First | `bridges` + CameraX |
+| Till / shift open and close | Same | `TillGateway` |
+| EPC browse | Same hierarchy, rebuilt on the new design system | `CatalogGateway` hierarchy calls |
+| Currency and exchange rate on every money field | Same — `AGENTS.md` law | `Money` value type, never a bare `Double` |
 
-Nothing here deletes a capability. Under truth-protocol A0, silent feature thinning is forbidden —
-if a behaviour in the current screen has no row above, it is an omission in this table, not a
-licence to drop it.
+Anything a current screen does that is not in this table is an omission in the table, not a licence
+to drop it. Add the row.
+
+**Explicitly not preserved:** `PosScreen.kt`'s composition, its two-pane fallback, the `ui.shop`
+component set inside POS, `PosViewModel`'s structure, the `RpcClient` interface shape, the
+Material3-slot theming path, and `material-icons-extended`. Each is replaced by a recommendation
+in §4 and §9.
+
+**Out of scope:** `apps/web/(staff)/staff/pos` is a different platform and a legitimate surface, not
+a duplicate POS to delete. It inherits the same generated tokens (§4.1) and nothing else.
 
 ### 11.1 Sequence
 
-Reconciled with the action plan's phases rather than replacing them.
-
 | Phase | Deliverable | Gate |
 |---|---|---|
-| **0 Freeze** | Benchmark committed ✓ · delta registry ✓ · reference spec ✓ · this document ✓ | Done in this change |
-| **1 Harness** | Screenshot runner · design-lint CI · reference-size matrix · lossless benchmark resample | Harness runs green on an empty baseline |
-| **2 Design system** | `PosPalette` · spacing/radius/elevation/type · Lucide vendoring · motion · adaptive layout primitives | V3 passes on a token showcase |
-| **3 Expanded shell** | Rail · header + cascade · hero · category row · Quick Access · cart pane, debug data | V1, V2, V4, V5 pass at all Expanded sizes |
-| **4 Catalogue binding** | Search · fitment context · category browse · EPC retheme · image pipeline | Search and cascade drive real results |
-| **5 Cart binding** | Cart projection · quantity · customer · isolated recomposition | V8 cart behaviour |
-| **6 Quick Access** | Long-press pin/unpin · reorder · heterogeneous cards · **backend pin RPCs** | Pins persist per operator across devices |
-| **7 Compact** | Phone shell · cart sheet · checkout · tender steps · bottom nav | V7 + compact goldens |
-| **8 Checkout** | Reserve-first *(blocked on backend)* · split tender · terminal · unknown/recovery | V8; reserve-first marked blocked until the RPC exists |
-| **9 Hardware** | Scanner · CameraX · ESC/POS · terminal | Bridge-First verified |
+| **0 Freeze** | Benchmark committed · delta registry · reference spec · this document | Done |
+| **1 Foundations** | Module split (`pos-design` / `pos-domain` / `pos-data` / `pos-ui`) · Hilt · Style Dictionary pipeline · Roborazzi + Macrobenchmark + design-lint CI · lossless benchmark resample | Harness green on an empty baseline; tokens generate for all three platforms |
+| **2 Design system** | `PosTheme` · generated tokens · Inter + display face · Lucide vendoring · component library · adaptive primitives (`PosScaffold`, clamp law) | V3 on a component gallery, screenshot-tested at all five reference sizes |
+| **3 Domain core** | `PosState` · reducers · projections · gateway interfaces · fakes | Reducer suite covers cart, reserve, split tender, recovery — on the JVM |
+| **4 Expanded shell** | Rail · header + cascade · hero · category row · Quick Access · cart pane, against fakes | V1, V2, V4, V5 at every Expanded size |
+| **5 Data binding** | Gateway implementations · search · fitment · categories · EPC · image pipeline | Contract tests per gateway |
+| **6 Cart and Quick Access** | Cart flows · long-press pin/unpin · reorder · heterogeneous cards · **pin RPCs** | Pins persist per operator across devices; recomposition isolation verified |
+| **7 Compact** | Phone shell · cart sheet · checkout · tender steps · bottom navigation | V7 + compact goldens; §8.3 parity table fully exercised |
+| **8 Checkout** | **Reserve-first (§9.6 contract)** · split tender · terminal adapters · unknown → recovery | V8; no duplicate charge reachable under fault injection |
+| **9 Hardware** | Scanner · CameraX · ESC/POS · terminal capability matrix | Bridge-First verified on target devices |
 | **10 Certification** | Full golden suite · Macrobenchmark · security · accessibility · owner sign-off | All gates green |
 
-Phases 6 and 8 carry `@backend_agent` dependencies (§6.4, §9.2). Raise them now so they are
-scheduled, not discovered.
+Phase 1 is the one that is usually skipped and the one that determines whether any of the rest is
+achievable. Two backend dependencies — operator pins (§6.4) and reserve-first (§9.6) — are specified
+now so they can be scheduled into `@backend_agent`'s lane rather than discovered at Phase 6 and 8.
 
 ---
 
@@ -923,8 +1146,12 @@ scheduled, not discovered.
 - Golden, performance, accessibility and security gates pass; design lint is green.
 - The owner signs off the canonical-frame render, dated in the registry.
 
-Reserve-first and server-persisted pins may be **explicitly deferred** with their backend
-dependency named — but never silently marked done.
+Additionally, as architecture gates: the domain module builds with no Android dependency and its
+reducer suite runs on the JVM; tokens are generated from `brand-tokens.json` for all three
+platforms; no POS component references `MaterialTheme`; and a Baseline Profile ships with the build.
+
+Reserve-first and server-persisted pins may be **explicitly deferred** with their backend contract
+named and scheduled — but never silently marked done.
 
 ---
 

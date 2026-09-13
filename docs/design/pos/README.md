@@ -8,7 +8,7 @@ Canonical design and frontend-engineering documentation for the Nissan GTR Auto 
 | # | Document | What it settles |
 |---|----------|-----------------|
 | 1 | [`../../decisions/2026-09-13-pos-adaptive-benchmark-fidelity.md`](../../decisions/2026-09-13-pos-adaptive-benchmark-fidelity.md) | The decisions and why, in ADR form |
-| 2 | [`POS_FRONTEND_BLUEPRINT_REV_1_4.md`](POS_FRONTEND_BLUEPRINT_REV_1_4.md) | Authority, adaptive geometry, tokens, components, phone POS, certification, migration |
+| 2 | [`POS_FRONTEND_BLUEPRINT_REV_1_5.md`](POS_FRONTEND_BLUEPRINT_REV_1_5.md) | Authority, adaptive geometry, token pipeline, components, Quick Access, phone POS, application architecture, certification, capability contract |
 | 3 | [`VisualReferenceSpec.json`](VisualReferenceSpec.json) | Measured geometry — ratios normative, dp canonical, Rpx provenance only |
 | 4 | [`APPROVED_VISUAL_DELTAS.md`](APPROVED_VISUAL_DELTAS.md) | Every intentional difference from the benchmark |
 | 5 | [`reference/`](reference/) | The owner-approved benchmark raster |

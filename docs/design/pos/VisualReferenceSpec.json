@@ -1,7 +1,7 @@
 {
   "$comment": "Machine-readable geometry contract for the Nissan GTR Auto POS. Derived by measurement from the owner-approved benchmark. Ratios are normative; dp values are the canonical expanded frame. Rpx values are provenance, NOT implementation targets.",
   "schema_version": 2,
-  "revision": "1.4",
+  "revision": "1.5",
   "generated": "2026-09-13",
   "status": "provisional-lossy-source",
 
@@ -82,7 +82,7 @@
   },
 
   "tolerances": {
-    "$comment": "Rev 1.4 certifies RATIO and STRUCTURE, not absolute pixels. Rev 1.3's +/-2 Rpx pixel gate is withdrawn; see blueprint section 10.",
+    "$comment": "Rev 1.5 certifies RATIO and STRUCTURE, not absolute pixels. Rev 1.3's +/-2 Rpx pixel gate is withdrawn; see blueprint section 10.",
     "zoneRatio": 0.015,
     "bandRatio": 0.03,
     "componentAspect": 0.05,
