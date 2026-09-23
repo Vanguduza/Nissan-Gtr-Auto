@@ -32,7 +32,13 @@ function generateKotlinTokens() {
   }
   // Status colors
   for (const [k, v] of Object.entries(tokens.color.status)) {
-    colorLines.push(`        val Status_${k} = Color(${hexToArgbHex(v)})`);
+    if (typeof v === 'string') {
+      colorLines.push(`        val Status_${k} = Color(${hexToArgbHex(v)})`);
+    } else if (typeof v === 'object' && v !== null) {
+      for (const [subK, subV] of Object.entries(v)) {
+        colorLines.push(`        val Status_${k}_${subK} = Color(${hexToArgbHex(subV)})`);
+      }
+    }
   }
   // Neutral colors
   colorLines.push(`        val Neutral_canvas = Color(${hexToArgbHex(tokens.color.neutral.canvas)})`);
@@ -42,8 +48,14 @@ function generateKotlinTokens() {
   colorLines.push(`        val Neutral_borderSubtle = Color(${hexToArgbHex(tokens.color.neutral.borderSubtle)})`);
   colorLines.push(`        val Neutral_borderStrong = Color(${hexToArgbHex(tokens.color.neutral.borderStrong)})`);
   colorLines.push(`        val Neutral_borderFocus = Color(${hexToArgbHex(tokens.color.neutral.borderFocus)})`);
+  colorLines.push(`        val Neutral_scrim = Color(${hexToArgbHex(tokens.color.neutral.scrim || '#000000')})`);
   for (const [k, v] of Object.entries(tokens.color.neutral.ink)) {
     colorLines.push(`        val Neutral_ink_${k} = Color(${hexToArgbHex(v)})`);
+  }
+  if (tokens.color.neutral.dark) {
+    for (const [k, v] of Object.entries(tokens.color.neutral.dark)) {
+      colorLines.push(`        val Neutral_dark_${k} = Color(${hexToArgbHex(v)})`);
+    }
   }
 
   const spaceLines = [];

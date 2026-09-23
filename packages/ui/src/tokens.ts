@@ -30,7 +30,14 @@ export const brandTokens = {
       "unknown": "#5B4A2E",
       "warning": "#B45309",
       "success": "#0B6E4F",
-      "offline": "#B45309"
+      "offline": "#B45309",
+      "dark": {
+        "error": "#EF4444",
+        "unknown": "#D97706",
+        "warning": "#F59E0B",
+        "success": "#10B981",
+        "offline": "#F59E0B"
+      }
     },
     "neutral": {
       "canvas": "#F4F5F7",
@@ -46,7 +53,17 @@ export const brandTokens = {
       "borderSubtle": "#E8ECF1",
       "borderStrong": "#C0C5CE",
       "borderFocus": "#C8102E",
-      "scrim": "#000000"
+      "scrim": "#000000",
+      "dark": {
+        "canvas": "#12151C",
+        "surface": "#1E2430",
+        "surfaceElevated": "#282E3D",
+        "heroBackdrop": "#0A0C0E",
+        "borderSubtle": "#2A3241",
+        "borderStrong": "#4A5568",
+        "borderFocus": "#E01234",
+        "scrim": "#000000"
+      }
     },
     "stock": {
       "inStock": "#0B6E4F",
