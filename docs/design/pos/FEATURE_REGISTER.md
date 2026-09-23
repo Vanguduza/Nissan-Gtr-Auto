@@ -32,27 +32,27 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| SYS-01 | Style Dictionary pipeline → Kotlin, CSS/TS, Swift from `brand-tokens.json` | 4.1 | 1 | todo |
-| SYS-02 | `PosTheme` over CompositionLocals; no Material identity | 4.1 | 2 | todo |
-| SYS-03 | `PosPalette` light scheme | 4.1.1, 4.2 | 2 | todo |
-| SYS-04 | `PosPalette` dark scheme (first-class, not inversion) | 5.11 | 2 | todo |
-| SYS-05 | `error` and `unknown` primitives separated from brand red | 4.2 | 2 | todo |
-| SYS-06 | Spacing scale | 4.3 | 2 | todo |
-| SYS-07 | Radius scale | 4.4 | 2 | todo |
-| SYS-08 | Border and elevation tokens | 4.5 | 2 | todo |
-| SYS-09 | Type roles incl. tracking and `tnum` | 4.6 | 2 | todo |
-| SYS-10 | Lucide vendored; `material-icons-extended` removed from POS | 4.7 | 2 | todo |
-| SYS-11 | Density scale (Comfortable / Operational / Compact) | 4.8 | 2 | todo |
-| SYS-12 | Motion tiers, springs, reduced-motion honouring | 4.9 | 2 | todo |
-| SYS-13 | `PosOptical` offset tokens, bounded ±2 dp | 5.8 | 2 | todo |
-| SYS-14 | Adaptive primitives — `PosScaffold`, clamp law, derived counts | 3.3 | 2 | todo |
-| SYS-15 | `PosWindowClass` derivation from available size | 3.5 | 2 | todo |
-| SYS-16 | Locale formatting contract; `Money` value type | 5.11 | 2 | todo |
-| SYS-17 | Single feedback surface + undo | 5.9 | 2 | todo |
-| SYS-18 | Keyboard shortcut map + `?` discoverability overlay | 5.10 | 2 | todo |
-| SYS-19 | Focus contract and visible focus ring | 5.10 | 2 | todo |
-| SYS-20 | Glass capability pair — API 31+ blur and pre-31 fallback | 5.3 | 2 | todo |
-| SYS-21 | Skeletons matching final geometry exactly | 5.7 | 2 | todo |
+| SYS-01 | Style Dictionary pipeline → Kotlin, CSS/TS, Swift from `brand-tokens.json` | 4.1 | 1 | done |
+| SYS-02 | `PosTheme` over CompositionLocals; no Material identity | 4.1 | 2 | done |
+| SYS-03 | `PosPalette` light scheme | 4.1.1, 4.2 | 2 | done |
+| SYS-04 | `PosPalette` dark scheme (first-class, not inversion) | 5.11 | 2 | done |
+| SYS-05 | `error` and `unknown` primitives separated from brand red | 4.2 | 2 | done |
+| SYS-06 | Spacing scale | 4.3 | 2 | done |
+| SYS-07 | Radius scale | 4.4 | 2 | done |
+| SYS-08 | Border and elevation tokens | 4.5 | 2 | done |
+| SYS-09 | Type roles incl. tracking and `tnum` | 4.6 | 2 | done |
+| SYS-10 | Lucide vendored; `material-icons-extended` removed from POS | 4.7 | 2 | done |
+| SYS-11 | Density scale (Comfortable / Operational / Compact) | 4.8 | 2 | done |
+| SYS-12 | Motion tiers, springs, reduced-motion honouring | 4.9 | 2 | done |
+| SYS-13 | `PosOptical` offset tokens, bounded ±2 dp | 5.8 | 2 | done |
+| SYS-14 | Adaptive primitives — `PosScaffold`, clamp law, derived counts | 3.3 | 2 | done |
+| SYS-15 | `PosWindowClass` derivation from available size | 3.5 | 2 | done |
+| SYS-16 | Locale formatting contract; `Money` value type | 5.11 | 2 | done |
+| SYS-17 | Single feedback surface + undo | 5.9 | 2 | done |
+| SYS-18 | Keyboard shortcut map + `?` discoverability overlay | 5.10 | 2 | done |
+| SYS-19 | Focus contract and visible focus ring | 5.10 | 2 | done |
+| SYS-20 | Glass capability pair — API 31+ blur and pre-31 fallback | 5.3 | 2 | done |
+| SYS-21 | Skeletons matching final geometry exactly | 5.7 | 2 | done |
 
 ## ARCH — Application architecture
 
