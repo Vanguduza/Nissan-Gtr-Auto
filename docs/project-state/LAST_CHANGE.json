@@ -1,17 +1,16 @@
 {
   "actor": "claude-code",
   "branch_at_record": "port-work",
-  "change_id": "fece72046e760135edc3",
+  "change_id": "71d6b95af738ab005a97",
   "changed_files": [
-    "apps/android-management/feature/pos/build.gradle.kts"
+    "docs/audit/2026-09-30-pos-visual-build-audit.md"
   ],
-  "diff_sha256": "fece72046e760135edc3021f9e1d1b5c4165b3232c2d9df98ff09647de1b4a4c",
+  "diff_sha256": "71d6b95af738ab005a97cd153343880cbbd1b8c7a42cb4c57814342248ddb4c5",
   "domains": [
-    "management-android",
-    "pos-android"
+    "documentation"
   ],
-  "intent": "restore icons dependency for reconcile POS screens",
-  "recorded_at_utc": "2026-10-01T01:13:01.190559+00:00",
+  "intent": "port 9e81c9bd",
+  "recorded_at_utc": "2026-10-01T01:13:01.429123+00:00",
   "schema_version": 1,
-  "source_parent": "a7e9817b183b5d6cfe11fa584bc49fa4474e9d7a"
+  "source_parent": "98036e047e2853bac8b527eb2786f3bb1aad1962"
 }
