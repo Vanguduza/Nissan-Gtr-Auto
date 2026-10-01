@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -123,6 +124,44 @@ fun PosRail(active: PosDestination, onSelect: (PosDestination) -> Unit, modifier
                 )
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.width(24.dp).height(3.dp).background(palette.brandRed))
+            }
+        }
+    }
+}
+
+/** Compact portrait: the same eight destinations as a bottom navigation bar (Blueprint §9). */
+@Composable
+fun PosBottomNav(active: PosDestination, onSelect: (PosDestination) -> Unit, modifier: Modifier = Modifier) {
+    val palette = PosTheme.palette
+    val type = PosTheme.type
+    Row(
+        modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        RailItems.forEach { item ->
+            val selected = item.destination == active
+            Column(
+                Modifier
+                    .weight(1f)
+                    .height(56.dp)
+                    .clip(PosTheme.shape.sm)
+                    .background(if (selected) palette.navActiveFill else palette.navBackground)
+                    .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(item.destination) }),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                val tint = if (selected) palette.textOnBrand else palette.textMuted
+                PosIcon(item.icon, tint = tint, size = 20.dp, contentDescription = stringResource(item.label))
+                PosText(
+                    stringResource(item.label).substringBefore(' '),
+                    type.labelMeta.copy(fontSize = 10.sp),
+                    tint,
+                    maxLines = 1,
+                )
             }
         }
     }

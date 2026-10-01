@@ -53,8 +53,11 @@ import co.zw.nissangtr.pos.ui.common.formatQty
 fun PosCartPane(
     cart: CartProjection,
     busy: Boolean,
+    customerName: String?,
     onQty: (CartLine, Double) -> Unit,
     onRemove: (CartLine) -> Unit,
+    /** Voids the whole sale; needs manager approval. */
+    onClear: () -> Unit,
     onAddCustomer: () -> Unit,
     onPay: () -> Unit,
     onPark: () -> Unit,
@@ -77,7 +80,7 @@ fun PosCartPane(
                 Row(
                     Modifier
                         .clip(PosTheme.shape.sm)
-                        .clickable(enabled = !busy, role = Role.Button) { cart.lines.forEach(onRemove) }
+                        .clickable(enabled = !busy, role = Role.Button, onClick = onClear)
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -107,7 +110,7 @@ fun PosCartPane(
             }
         }
         Spacer(Modifier.height(12.dp))
-        SoftButton(stringResource(R.string.pos_add_customer), PosIcons.User, enabled = true, onClick = onAddCustomer)
+        SoftButton(customerName ?: stringResource(R.string.pos_add_customer), PosIcons.User, enabled = true, onClick = onAddCustomer)
         Spacer(Modifier.height(16.dp))
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderSubtle))
         Spacer(Modifier.height(12.dp))

@@ -170,4 +170,7 @@ object RpcNames {
     const val LIST_FLEET_VEHICLES = "list_fleet_vehicles"
     const val UPSERT_FLEET_VEHICLE = "upsert_fleet_vehicle"
     const val SET_FLEET_VEHICLE_STATUS = "set_fleet_vehicle_status"
+    const val LIST_POS_HIDDEN_BESTSELLERS = "list_pos_hidden_bestsellers"
+    const val HIDE_POS_BESTSELLER = "hide_pos_bestseller"
+    const val UNHIDE_POS_BESTSELLER = "unhide_pos_bestseller"
 }

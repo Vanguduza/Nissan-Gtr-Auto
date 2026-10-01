@@ -249,6 +249,28 @@ interface RpcClient {
     suspend fun deletePosPopularPin(kind: PosPopularItemKind, itemKey: String): Boolean = false
 
     /** Posted sales history search for Orders / Returns. */
+    /** Stock id, base UOM, default price, saleable qty and image for OEM numbers (benchmark POS search). */
+    suspend fun hydratePosParts(oemPartNumbers: List<String>): List<PosPartMeta> = emptyList()
+
+    /** Owner decision D1: best sellers this operator removed from Popular Items. */
+    suspend fun listPosHiddenBestsellers(): List<String> = emptyList()
+
+    suspend fun hidePosBestseller(stockItemId: String): Boolean = false
+
+    suspend fun unhidePosBestseller(stockItemId: String): Boolean = false
+
+    /** Signed-in staff member's display name for the POS header. */
+    suspend fun currentStaffDisplayName(): String? = null
+
+    /** Parked POS sales, newest first. */
+    suspend fun listPosParkedCarts(limit: Int = 50): List<PosParkedCart> = emptyList()
+
+    /** Currency of a POS cart. */
+    suspend fun posCartCurrency(cartId: String): CurrencyCode? = null
+
+    /** Invoice number for a posted sale (receipt header). */
+    suspend fun salesInvoiceDocumentNumber(invoiceId: String): String? = null
+
     suspend fun listPosRecentInvoices(
         query: String? = null,
         limit: Int = 50,

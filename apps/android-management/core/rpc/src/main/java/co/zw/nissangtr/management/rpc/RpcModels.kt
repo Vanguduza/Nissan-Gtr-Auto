@@ -838,3 +838,25 @@ data class HrOnboardingAuthResult(
     val mustChangePassword: Boolean,
     val channels: List<HrOnboardingAuthChannel> = emptyList(),
 )
+
+/** Stock master, default-list price, saleable quantity and primary image for one OEM (POS search hydration). */
+data class PosPartMeta(
+    val stockItemId: String,
+    val uomId: String?,
+    val oemPartNumber: String,
+    val description: String?,
+    val unitPrice: Double?,
+    val currency: CurrencyCode?,
+    val saleableQty: Double,
+    val imageUrl: String?,
+)
+
+/** A parked POS sale, as listed on the Orders destination. */
+data class PosParkedCart(
+    val id: String,
+    val documentNumber: String?,
+    val updatedAt: String?,
+    val currency: CurrencyCode,
+    val total: Double,
+    val lineCount: Int,
+)

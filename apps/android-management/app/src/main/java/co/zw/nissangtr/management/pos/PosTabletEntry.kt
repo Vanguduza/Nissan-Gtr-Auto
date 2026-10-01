@@ -1,0 +1,139 @@
+package co.zw.nissangtr.management.pos
+
+import android.widget.Toast
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import co.zw.nissangtr.bridges.escpos.DocumentPrinterBridge
+import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
+import co.zw.nissangtr.bridges.escpos.EscPosReceiptLine
+import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
+import co.zw.nissangtr.bridges.qr.QrScannerBridge
+import co.zw.nissangtr.management.rpc.RpcClient
+import co.zw.nissangtr.pos.data.RpcPosGateways
+import co.zw.nissangtr.pos.data.RpcSaleGateways
+import co.zw.nissangtr.pos.design.theme.PosTheme
+import co.zw.nissangtr.pos.design.theme.PosWindowClass
+import co.zw.nissangtr.pos.domain.model.ReceiptPaper
+import co.zw.nissangtr.pos.domain.state.PosIntent
+import co.zw.nissangtr.pos.ui.home.PosHomeScreen
+import co.zw.nissangtr.pos.ui.home.PosHostActions
+import co.zw.nissangtr.pos.ui.sale.ReceiptLine
+import co.zw.nissangtr.pos.ui.store.PosGateways
+import co.zw.nissangtr.pos.ui.store.PosStoreViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+
+/** Characters per line on the 80 mm ESC/POS printer (Font A). */
+private const val THERMAL_COLUMNS = 42
+
+/**
+ * The benchmark POS on the counter tablet (owner decisions D4–D6): the :feature:pos-ui shell bound
+ * to live data through :feature:pos-data, with the printer and scanner bridges (Bridge-First).
+ */
+@Composable
+fun PosTabletEntry(
+    rpc: RpcClient,
+    qr: QrScannerBridge,
+    printer: EscPosPrinterBridge,
+    documentPrinter: DocumentPrinterBridge?,
+    onStaffPortal: (() -> Unit)?,
+    onKioskSettings: (() -> Unit)?,
+    onExitToHub: (() -> Unit)?,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val vm: PosStoreViewModel = viewModel(
+        factory = PosStoreViewModel.factory {
+            val core = RpcPosGateways(rpc)
+            val sale = RpcSaleGateways(rpc)
+            PosGateways(
+                session = core.session,
+                catalog = core.catalog,
+                fitment = core.fitment,
+                cart = core.cart,
+                pins = core.pins,
+                checkout = sale.checkout,
+                customers = sale.customers,
+                sales = sale.sales,
+                epc = sale.epc,
+            )
+        },
+    )
+    val state by vm.store.state.collectAsState()
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(15_000)
+            now = LocalDateTime.now()
+        }
+    }
+
+    fun toast(message: String) = Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+
+    val host = PosHostActions(
+        onScan = {
+            scope.launch {
+                val permission = qr.getCameraPermissionStatus().let {
+                    if (it == CameraPermissionStatus.GRANTED) it else qr.requestCameraPermission()
+                }
+                if (permission != CameraPermissionStatus.GRANTED) {
+                    toast("Camera permission is needed to scan.")
+                    return@launch
+                }
+                runCatching { qr.scanOnce() }
+                    .onSuccess { vm.store.dispatch(PosIntent.SearchFor(it.rawValue.trim())) }
+                    .onFailure { toast("Scan cancelled or failed.") }
+            }
+        },
+        onPrint = { lines, paper -> scope.launch { print(lines, paper, printer, documentPrinter, ::toast) } },
+        onStaffPortal = onStaffPortal,
+        onKioskSettings = onKioskSettings,
+        onExitToHub = onExitToHub,
+    )
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        PosTheme(windowClass = PosWindowClass.derive(maxWidth, maxHeight)) {
+            PosHomeScreen(state = state, now = now, dispatch = vm.store::dispatch, host = host)
+        }
+    }
+}
+
+/** A failed print never blocks a completed sale (§6.6): it is reported and can be retried. */
+private suspend fun print(
+    lines: List<ReceiptLine>,
+    paper: ReceiptPaper,
+    printer: EscPosPrinterBridge,
+    documentPrinter: DocumentPrinterBridge?,
+    toast: (String) -> Unit,
+) {
+    runCatching {
+        when (paper) {
+            ReceiptPaper.Thermal80 -> {
+                if (!printer.isConnected()) printer.connect()
+                printer.printReceiptLines(lines.map { EscPosReceiptLine(columns(it.left, it.right, THERMAL_COLUMNS), emphasis = it.strong) })
+            }
+            ReceiptPaper.A4 -> {
+                val doc = documentPrinter ?: error("No document printer on this device.")
+                doc.printTextDocument("Receipt", lines.map { columns(it.left, it.right, 80) })
+            }
+        }
+    }.onFailure { toast("Receipt not printed: ${it.message ?: "printer unavailable"}. The sale is complete; print again from the receipt.") }
+}
+
+private fun columns(left: String, right: String, width: Int): String {
+    if (right.isEmpty()) return left.take(width)
+    val room = (width - right.length - 1).coerceAtLeast(1)
+    return left.take(room).padEnd(room) + " " + right
+}

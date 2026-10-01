@@ -1,6 +1,22 @@
 package co.zw.nissangtr.pos.domain.gateway
 
+import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.CartProjection
+import co.zw.nissangtr.pos.domain.model.Customer
+import co.zw.nissangtr.pos.domain.model.CustomerDraft
+import co.zw.nissangtr.pos.domain.model.EpcDiagram
+import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
+import co.zw.nissangtr.pos.domain.model.EpcSection
+import co.zw.nissangtr.pos.domain.model.EpcVariant
+import co.zw.nissangtr.pos.domain.model.GarageVehicle
+import co.zw.nissangtr.pos.domain.model.InvoiceSummary
+import co.zw.nissangtr.pos.domain.model.ManagerCredentials
+import co.zw.nissangtr.pos.domain.model.Money
+import co.zw.nissangtr.pos.domain.model.ParkedSale
+import co.zw.nissangtr.pos.domain.model.QuoteChannel
+import co.zw.nissangtr.pos.domain.model.Quotation
+import co.zw.nissangtr.pos.domain.model.ReceiptContacts
+import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.model.CatalogPart
 import co.zw.nissangtr.pos.domain.model.CurrencyCode
 import co.zw.nissangtr.pos.domain.model.Operator
@@ -48,4 +64,48 @@ interface PinGateway {
 
 interface SessionGateway {
     suspend fun operator(): PosResult<Operator>
+}
+
+/** Outcome of a posted sale; the receipt is assembled from it and the cart snapshot. */
+data class CheckoutResult(val invoiceId: String, val documentNumber: String?)
+
+interface CheckoutGateway {
+    /** `checkout_pos_cart_with_tenders`: tenders must equal the balance exactly. */
+    suspend fun checkout(cartId: String, tenders: List<TenderLine>, contacts: ReceiptContacts): PosResult<CheckoutResult>
+
+    /** EcoCash push to the customer's phone; returns the payment reference. */
+    suspend fun requestEcoCash(msisdn: String, amount: Money, reference: String): PosResult<String>
+}
+
+interface CustomerGateway {
+    suspend fun search(query: String): PosResult<List<Customer>>
+    suspend fun create(draft: CustomerDraft): PosResult<Customer>
+    suspend fun update(customerId: String, draft: CustomerDraft): PosResult<Customer>
+    suspend fun garage(customerId: String): PosResult<List<GarageVehicle>>
+    suspend fun attach(cartId: String, customerId: String?): PosResult<Unit>
+    suspend fun saveToGarage(customerId: String, vehicle: VehicleSelection, isPrimary: Boolean): PosResult<Unit>
+}
+
+interface SalesGateway {
+    suspend fun parked(): PosResult<List<ParkedSale>>
+    suspend fun park(cartId: String): PosResult<Unit>
+    suspend fun resume(cartId: String): PosResult<CartProjection>
+    suspend fun quotations(): PosResult<List<Quotation>>
+    suspend fun createQuotation(cartId: String, validUntil: String?, notes: String?): PosResult<String>
+    suspend fun sendQuotation(quotationId: String, channel: QuoteChannel, contact: String?): PosResult<Unit>
+    suspend fun convertQuotation(quotationId: String): PosResult<CartProjection>
+    suspend fun recentInvoices(query: String?): PosResult<List<InvoiceSummary>>
+
+    /**
+     * Runs [request] with a manager's own sign-in for this one action; the cashier's session is
+     * never replaced. Returns the refreshed cart when the action changed it.
+     */
+    suspend fun approve(credentials: ManagerCredentials, request: ApprovalRequest, cartId: String): PosResult<CartProjection?>
+}
+
+interface EpcGateway {
+    suspend fun variants(model: VehicleModel): PosResult<List<EpcVariant>>
+    suspend fun sections(model: VehicleModel, variant: EpcVariant): PosResult<List<EpcSection>>
+    suspend fun diagrams(model: VehicleModel, variant: EpcVariant, section: EpcSection): PosResult<List<EpcDiagram>>
+    suspend fun diagram(model: VehicleModel, variant: EpcVariant, section: EpcSection, diagram: EpcDiagram): PosResult<EpcDiagramDetail>
 }

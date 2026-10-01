@@ -70,7 +70,7 @@ private val moneyFormat = ThreadLocal.withInitial {
 fun formatMoney(money: Money): String {
     val symbol = when (money.currency.code) {
         "USD" -> "US$"
-        "ZWG" -> "ZiG"
+        "ZIG" -> "ZiG"
         else -> money.currency.code
     }
     return "$symbol ${moneyFormat.get()!!.format(money.minor / 100.0)}"
@@ -85,6 +85,16 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.Pinned -> stringResource(R.string.pos_notice_pinned)
         PosNotice.Unpinned -> stringResource(R.string.pos_notice_unpinned)
         PosNotice.BestSellerHidden -> stringResource(R.string.pos_notice_hidden)
+        PosNotice.SaleParked -> stringResource(R.string.pos_notice_parked)
+        PosNotice.SaleResumed -> stringResource(R.string.pos_notice_resumed)
+        PosNotice.QuoteCreated -> stringResource(R.string.pos_notice_quote_created)
+        PosNotice.QuoteSent -> stringResource(R.string.pos_notice_quote_sent)
+        PosNotice.QuoteConverted -> stringResource(R.string.pos_notice_quote_converted)
+        PosNotice.CustomerSaved -> stringResource(R.string.pos_notice_customer_saved)
+        PosNotice.VehicleSaved -> stringResource(R.string.pos_notice_vehicle_saved)
+        PosNotice.EcoCashSent -> stringResource(R.string.pos_notice_ecocash)
+        PosNotice.Approved -> stringResource(R.string.pos_notice_approved)
+        PosNotice.Refunded -> stringResource(R.string.pos_notice_refunded)
     }
     is PosFeedback.Failure -> errorText(feedback.error)
 }
@@ -96,7 +106,9 @@ fun errorText(error: PosError): String = when (error) {
     is PosError.Input -> stringResource(R.string.pos_error_input, error.field)
     is PosError.BusinessRule -> when (error.rule) {
         "part_not_sellable" -> stringResource(R.string.pos_error_not_sellable)
-        else -> stringResource(R.string.pos_error_rule)
+        "tenders_unbalanced" -> stringResource(R.string.pos_error_unbalanced)
+        "cart_not_empty" -> stringResource(R.string.pos_error_cart_not_empty)
+        else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)
     }
     is PosError.PaymentUnknown -> stringResource(R.string.pos_error_payment_unknown)
     is PosError.HardwareUnavailable -> stringResource(R.string.pos_error_hardware, error.device)

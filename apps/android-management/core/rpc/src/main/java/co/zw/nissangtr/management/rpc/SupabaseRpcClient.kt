@@ -1168,6 +1168,134 @@ class SupabaseRpcClient(
         }
     }
 
+    override suspend fun hydratePosParts(oemPartNumbers: List<String>): List<PosPartMeta> {
+        val oems = oemPartNumbers.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(60)
+        if (oems.isEmpty()) return emptyList()
+        val items = client.from("stock_items")
+            .select(Columns.list("id", "base_uom_id", "oem_part_number", "description")) {
+                filter { isIn("oem_part_number", oems) }
+            }
+            .decodeList<StockItemRow>()
+        if (items.isEmpty()) return emptyList()
+        val ids = items.map { it.id }
+        val prices = client.from("price_list_items")
+            .select(Columns.raw("stock_item_id, unit_price, price_lists!inner(currency, is_default, is_active)")) {
+                filter {
+                    isIn("stock_item_id", ids)
+                    eq("price_lists.is_default", true)
+                    eq("price_lists.is_active", true)
+                }
+            }
+            .decodeList<PosPriceRow>()
+            .groupBy { it.stockItemId }
+            .mapValues { it.value.first() }
+        val levels = client.from("stock_levels")
+            .select(Columns.raw("stock_item_id, quantity, warehouses!inner(is_active, is_quarantine)")) {
+                filter {
+                    isIn("stock_item_id", ids)
+                    eq("warehouses.is_active", true)
+                    eq("warehouses.is_quarantine", false)
+                }
+            }
+            .decodeList<PosLevelRow>()
+            .groupBy { it.stockItemId }
+            .mapValues { entry -> entry.value.sumOf { it.quantity } }
+        val images = client.from("stock_item_images")
+            .select(Columns.list("stock_item_id", "storage_path", "is_primary", "sort_order")) {
+                filter { isIn("stock_item_id", ids) }
+                order("is_primary", Order.DESCENDING)
+                order("sort_order", Order.ASCENDING)
+            }
+            .decodeList<PosImageRow>()
+            .groupBy { it.stockItemId }
+            .mapValues { it.value.first().storagePath }
+        return items.map { row ->
+            val price = prices[row.id]
+            PosPartMeta(
+                stockItemId = row.id,
+                uomId = row.baseUomId,
+                oemPartNumber = row.oemPartNumber,
+                description = row.description,
+                unitPrice = price?.unitPrice,
+                currency = price?.priceList?.currency?.let { c -> CurrencyCode.entries.find { it.rpcValue == c } },
+                saleableQty = levels[row.id] ?: 0.0,
+                imageUrl = images[row.id]?.let(::productImageUrl),
+            )
+        }
+    }
+
+    private fun productImageUrl(path: String): String? {
+        val trimmed = path.trim().takeIf { it.isNotEmpty() } ?: return null
+        if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) return trimmed
+        return projectUrl?.let { base -> "$base/storage/v1/object/public/product-images/${trimmed.trimStart('/')}" }
+    }
+
+    override suspend fun listPosHiddenBestsellers(): List<String> =
+        client.postgrest.rpc(RpcNames.LIST_POS_HIDDEN_BESTSELLERS)
+            .decodeList<PosHiddenRow>()
+            .map { it.stockItemId }
+
+    override suspend fun hidePosBestseller(stockItemId: String): Boolean =
+        client.postgrest.rpc(
+            RpcNames.HIDE_POS_BESTSELLER,
+            buildJsonObject { put("p_stock_item_id", stockItemId) },
+        ).decodeAs<Boolean>()
+
+    override suspend fun unhidePosBestseller(stockItemId: String): Boolean =
+        client.postgrest.rpc(
+            RpcNames.UNHIDE_POS_BESTSELLER,
+            buildJsonObject { put("p_stock_item_id", stockItemId) },
+        ).decodeAs<Boolean>()
+
+    override suspend fun currentStaffDisplayName(): String? {
+        val uid = currentUserId() ?: return null
+        val name = client.from("profiles")
+            .select(Columns.list("full_name")) { filter { eq("id", uid) } }
+            .decodeList<PosProfileNameRow>()
+            .firstOrNull()
+            ?.fullName
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        return name ?: currentUserEmail()?.substringBefore('@')
+    }
+
+    override suspend fun listPosParkedCarts(limit: Int): List<PosParkedCart> =
+        client.from("pos_carts")
+            .select(Columns.raw("id, document_number, updated_at, currency, pos_cart_lines ( line_total )")) {
+                filter {
+                    eq("status", "parked")
+                    eq("channel", "pos")
+                }
+                order("updated_at", Order.DESCENDING)
+                limit(limit.toLong().coerceIn(1, 100))
+            }
+            .decodeList<PosParkedCartRow>()
+            .map { row ->
+                PosParkedCart(
+                    id = row.id,
+                    documentNumber = row.documentNumber,
+                    updatedAt = row.updatedAt,
+                    currency = CurrencyCode.entries.find { it.rpcValue == row.currency } ?: CurrencyCode.USD,
+                    total = row.lines.sumOf { it.lineTotal },
+                    lineCount = row.lines.size,
+                )
+            }
+
+    override suspend fun posCartCurrency(cartId: String): CurrencyCode? =
+        client.from("pos_carts")
+            .select(Columns.list("currency")) { filter { eq("id", cartId) } }
+            .decodeList<PosCartCurrencyRow>()
+            .firstOrNull()
+            ?.currency
+            ?.let { c -> CurrencyCode.entries.find { it.rpcValue == c } }
+
+    override suspend fun salesInvoiceDocumentNumber(invoiceId: String): String? =
+        client.from("sales_invoices")
+            .select(Columns.list("document_number")) { filter { eq("id", invoiceId) } }
+            .decodeList<PosInvoiceDocRow>()
+            .firstOrNull()
+            ?.documentNumber
+
     suspend fun endStaffPortalSession() {
         val attendant = staffPortalAttendantSession ?: return
         try {
@@ -3183,3 +3311,49 @@ private fun collectPartHits(
         }
     }
 }
+
+@Serializable
+private data class PosPriceListRef(val currency: String? = null)
+
+@Serializable
+private data class PosPriceRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("unit_price") val unitPrice: Double,
+    @SerialName("price_lists") val priceList: PosPriceListRef? = null,
+)
+
+@Serializable
+private data class PosLevelRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    val quantity: Double,
+)
+
+@Serializable
+private data class PosImageRow(
+    @SerialName("stock_item_id") val stockItemId: String,
+    @SerialName("storage_path") val storagePath: String,
+)
+
+@Serializable
+private data class PosHiddenRow(@SerialName("stock_item_id") val stockItemId: String)
+
+@Serializable
+private data class PosProfileNameRow(@SerialName("full_name") val fullName: String? = null)
+
+@Serializable
+private data class PosLineTotalRow(@SerialName("line_total") val lineTotal: Double)
+
+@Serializable
+private data class PosParkedCartRow(
+    val id: String,
+    @SerialName("document_number") val documentNumber: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+    val currency: String,
+    @SerialName("pos_cart_lines") val lines: List<PosLineTotalRow> = emptyList(),
+)
+
+@Serializable
+private data class PosInvoiceDocRow(@SerialName("document_number") val documentNumber: String? = null)
+
+@Serializable
+private data class PosCartCurrencyRow(val currency: String)

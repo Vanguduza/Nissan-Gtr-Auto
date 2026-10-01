@@ -34,7 +34,7 @@ class PosHomeScreenshotTest {
                     state = state,
                     now = now,
                     dispatch = {},
-                    host = PosHostActions(onPay = {}, onAddCustomer = {}, onPark = {}, onScan = {}),
+                    host = PosHostActions(onScan = {}, onPrint = { _, _ -> }),
                 )
             }
         }

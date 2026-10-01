@@ -18,6 +18,7 @@ import co.zw.nissangtr.pos.domain.model.VehicleSelection
 import co.zw.nissangtr.pos.domain.result.PosResult
 import co.zw.nissangtr.pos.domain.state.PosFeedback
 import co.zw.nissangtr.pos.domain.state.PosIntent
+import co.zw.nissangtr.pos.ui.fakes.FakeSaleGateways
 import co.zw.nissangtr.pos.ui.fakes.PosFixtures
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -80,6 +81,10 @@ class PosStoreTest {
         },
         cart = cart,
         pins = pins,
+        checkout = FakeSaleGateways.checkout,
+        customers = FakeSaleGateways.customers,
+        sales = FakeSaleGateways.sales,
+        epc = FakeSaleGateways.epc,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -144,5 +149,37 @@ class PosStoreTest {
         s.dispatch(PosIntent.SearchFor("filter"))
         advanceUntilIdle()
         assertEquals(listOf("Oil Filter", "Air Filter"), s.state.value.searchResults?.map { it.name })
+    }
+
+    @Test
+    fun `checkout posts the sale and produces a receipt with change`() = runTest {
+        val s = store(gateways())
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        advanceUntilIdle()
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.OpenPayment)
+        s.dispatch(
+            co.zw.nissangtr.pos.domain.state.PosSaleIntent.Checkout(
+                tenders = listOf(co.zw.nissangtr.pos.domain.model.TenderLine(co.zw.nissangtr.pos.domain.model.Tender.Cash, Money(1250, CurrencyCode.USD))),
+                cashGiven = Money(2000, CurrencyCode.USD),
+                contacts = co.zw.nissangtr.pos.domain.model.ReceiptContacts(null, null),
+            ),
+        )
+        advanceUntilIdle()
+        val receipt = s.state.value.receipt
+        assertEquals("INV-000123", receipt?.documentNumber)
+        assertEquals(750L, receipt?.change?.minor)
+        assertTrue(s.state.value.cart.isEmpty)
+    }
+
+    @Test
+    fun `void approval empties the sale`() = runTest {
+        val s = store(gateways())
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        advanceUntilIdle()
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.RequestApproval(co.zw.nissangtr.pos.domain.model.ApprovalRequest.VoidSale))
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.SubmitApproval(co.zw.nissangtr.pos.domain.model.ManagerCredentials("mgr", "pw", null)))
+        advanceUntilIdle()
+        assertTrue(s.state.value.cart.isEmpty)
+        assertEquals(null, s.state.value.approval)
     }
 }

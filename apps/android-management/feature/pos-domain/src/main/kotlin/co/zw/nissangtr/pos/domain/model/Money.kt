@@ -9,7 +9,7 @@ value class CurrencyCode(val code: String) {
 
     companion object {
         val USD = CurrencyCode("USD")
-        val ZWG = CurrencyCode("ZWG")
+        val ZIG = CurrencyCode("ZIG")
     }
 }
 

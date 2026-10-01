@@ -49,6 +49,10 @@ import co.zw.nissangtr.pos.design.primitives.posFocusRing
 import co.zw.nissangtr.pos.design.primitives.posNeuRaised
 import co.zw.nissangtr.pos.design.primitives.posNeuRaisedSmall
 import co.zw.nissangtr.pos.design.theme.PosTheme
+import co.zw.nissangtr.pos.design.theme.PosWindowClass
+import co.zw.nissangtr.pos.ui.common.PosModal
+import co.zw.nissangtr.pos.ui.common.PosPrimaryButton
+import co.zw.nissangtr.pos.ui.common.PosRowEnd
 import co.zw.nissangtr.pos.domain.model.Operator
 import co.zw.nissangtr.pos.domain.model.VehicleCascade
 import co.zw.nissangtr.pos.domain.model.VehicleGeneration
@@ -78,57 +82,31 @@ fun PosHeader(
     modifier: Modifier = Modifier,
 ) {
     val palette = PosTheme.palette
+    val windowClass = PosTheme.geometry.windowClass
+    if (windowClass == PosWindowClass.CompactPortrait || windowClass == PosWindowClass.CompactLandscape) {
+        Column(modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                VehicleButton(cascade, onPickModel, onPickGeneration, onPickEngine, onPinVehicle, Modifier.weight(1f))
+                OperatorBlock(operator, compact = true)
+            }
+            SearchField(searchQuery, onSearchChange, onSearchSubmit, onScan, Modifier.fillMaxWidth())
+            if (!online) PosText(stringResource(R.string.pos_offline), PosTheme.type.labelMeta, palette.offline, maxLines = 1)
+        }
+        return
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(96.dp)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = if (windowClass == PosWindowClass.Expanded) 20.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (windowClass == PosWindowClass.Expanded) 16.dp else 12.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-            CascadeField(
-                label = stringResource(R.string.pos_cascade_model),
-                value = cascade.model?.name,
-                placeholder = stringResource(R.string.pos_cascade_select_model),
-                enabled = cascade.models.isNotEmpty(),
-                options = cascade.models,
-                optionLabel = { it.name },
-                onPick = onPickModel,
-                width = 120,
-            )
-            CascadeField(
-                label = stringResource(R.string.pos_cascade_generation),
-                value = cascade.generation?.label,
-                placeholder = stringResource(R.string.pos_cascade_generation),
-                enabled = cascade.generationEnabled && cascade.generations.isNotEmpty(),
-                options = cascade.generations,
-                optionLabel = { it.label },
-                onPick = onPickGeneration,
-                width = 112,
-            )
-            CascadeField(
-                label = stringResource(R.string.pos_cascade_engine),
-                value = cascade.engine,
-                placeholder = stringResource(R.string.pos_cascade_engine),
-                enabled = cascade.engineEnabled && cascade.engines.isNotEmpty(),
-                options = cascade.engines,
-                optionLabel = { it },
-                onPick = onPickEngine,
-                width = 112,
-            )
-            val canPin = cascade.selection() != null
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(PosTheme.shape.sm)
-                    .alpha(if (canPin) 1f else 0.4f)
-                    .posFocusRing()
-                    .clickable(enabled = canPin, role = Role.Button, onClick = onPinVehicle),
-                contentAlignment = Alignment.Center,
-            ) {
-                PosIcon(PosIcons.Pin, tint = palette.textSecondary, size = 18.dp, contentDescription = stringResource(R.string.pos_cascade_pin_vehicle))
-            }
+        when (windowClass) {
+            PosWindowClass.Expanded ->
+                CascadeFields(cascade, onPickModel, onPickGeneration, onPickEngine, onPinVehicle, stacked = false)
+            else ->
+                VehicleButton(cascade, onPickModel, onPickGeneration, onPickEngine, onPinVehicle, Modifier.widthIn(max = 260.dp))
         }
 
         SearchField(
@@ -148,7 +126,7 @@ fun PosHeader(
             )
         }
 
-        OperatorBlock(operator)
+        OperatorBlock(operator, compact = windowClass != PosWindowClass.Expanded)
         ClockBlock(now)
     }
 }
@@ -285,7 +263,7 @@ private fun SearchField(
 }
 
 @Composable
-private fun OperatorBlock(operator: Operator?) {
+private fun OperatorBlock(operator: Operator?, compact: Boolean = false) {
     val palette = PosTheme.palette
     val type = PosTheme.type
     if (operator == null) return
@@ -300,9 +278,11 @@ private fun OperatorBlock(operator: Operator?) {
                 color = palette.textOnBrand,
             )
         }
-        Column {
-            PosText(operator.displayName, type.labelAction.copy(fontWeight = FontWeight.SemiBold), palette.textPrimary, maxLines = 1)
-            PosText(operator.roleLabel, type.labelMeta, palette.textMuted, maxLines = 1)
+        if (!compact) {
+            Column {
+                PosText(operator.displayName, type.labelAction.copy(fontWeight = FontWeight.SemiBold), palette.textPrimary, maxLines = 1)
+                PosText(operator.roleLabel, type.labelMeta, palette.textMuted, maxLines = 1)
+            }
         }
     }
 }
@@ -314,5 +294,110 @@ private fun ClockBlock(now: LocalDateTime) {
     Column(horizontalAlignment = Alignment.End) {
         PosText(now.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy", Locale.ENGLISH)), type.labelMeta, palette.textMuted, maxLines = 1)
         PosText(now.format(DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)), type.heading3.copy(fontWeight = FontWeight.Bold), palette.textPrimary, maxLines = 1)
+    }
+}
+
+@Composable
+private fun CascadeFields(
+    cascade: VehicleCascade,
+    onPickModel: (VehicleModel) -> Unit,
+    onPickGeneration: (VehicleGeneration) -> Unit,
+    onPickEngine: (String) -> Unit,
+    onPinVehicle: () -> Unit,
+    stacked: Boolean,
+) {
+    val palette = PosTheme.palette
+    val content: @Composable () -> Unit = {
+            CascadeField(
+                label = stringResource(R.string.pos_cascade_model),
+                value = cascade.model?.name,
+                placeholder = stringResource(R.string.pos_cascade_select_model),
+                enabled = cascade.models.isNotEmpty(),
+                options = cascade.models,
+                optionLabel = { it.name },
+                onPick = onPickModel,
+                width = 120,
+            )
+            CascadeField(
+                label = stringResource(R.string.pos_cascade_generation),
+                value = cascade.generation?.label,
+                placeholder = stringResource(R.string.pos_cascade_generation),
+                enabled = cascade.generationEnabled && cascade.generations.isNotEmpty(),
+                options = cascade.generations,
+                optionLabel = { it.label },
+                onPick = onPickGeneration,
+                width = 112,
+            )
+            CascadeField(
+                label = stringResource(R.string.pos_cascade_engine),
+                value = cascade.engine,
+                placeholder = stringResource(R.string.pos_cascade_engine),
+                enabled = cascade.engineEnabled && cascade.engines.isNotEmpty(),
+                options = cascade.engines,
+                optionLabel = { it },
+                onPick = onPickEngine,
+                width = 112,
+            )
+            val canPin = cascade.selection() != null
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(PosTheme.shape.sm)
+                    .alpha(if (canPin) 1f else 0.4f)
+                    .posFocusRing()
+                    .clickable(enabled = canPin, role = Role.Button, onClick = onPinVehicle),
+                contentAlignment = Alignment.Center,
+            ) {
+                PosIcon(PosIcons.Pin, tint = palette.textSecondary, size = 18.dp, contentDescription = stringResource(R.string.pos_cascade_pin_vehicle))
+            }
+            }
+    if (stacked) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) { content() }
+    }
+}
+
+/** Medium / Compact: one vehicle field that opens the cascade as a focus dialog (§8.4). */
+@Composable
+private fun VehicleButton(
+    cascade: VehicleCascade,
+    onPickModel: (VehicleModel) -> Unit,
+    onPickGeneration: (VehicleGeneration) -> Unit,
+    onPickEngine: (String) -> Unit,
+    onPinVehicle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = PosTheme.palette
+    var open by remember { mutableStateOf(false) }
+    Row(
+        modifier
+            .height(48.dp)
+            .posNeuRaisedSmall()
+            .clip(PosTheme.shape.md)
+            .background(palette.surfacePrimary)
+            .posFocusRing(PosTheme.shape.md)
+            .clickable(role = Role.Button) { open = true }
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PosIcon(PosIcons.Car, tint = palette.textPrimary, size = 18.dp)
+        PosText(
+            cascade.selection()?.label ?: stringResource(R.string.pos_select_vehicle),
+            PosTheme.type.labelAction.copy(fontWeight = FontWeight.SemiBold),
+            palette.textPrimary,
+            maxLines = 1,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        PosIcon(PosIcons.ChevronDown, tint = palette.textMuted, size = 16.dp)
+    }
+    if (open) {
+        PosModal(stringResource(R.string.pos_choose_vehicle), onDismiss = { open = false }) {
+            CascadeFields(cascade, onPickModel, onPickGeneration, onPickEngine, onPinVehicle, stacked = true)
+            PosRowEnd {
+                PosPrimaryButton(stringResource(R.string.pos_done), enabled = true, onClick = { open = false })
+            }
+        }
     }
 }

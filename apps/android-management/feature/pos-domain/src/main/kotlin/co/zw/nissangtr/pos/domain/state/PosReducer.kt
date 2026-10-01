@@ -15,12 +15,21 @@ fun reduce(state: PosState, msg: PosMsg): Reduction = when (msg) {
 }
 
 private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (intent) {
+    is PosSaleIntent -> reduceSaleIntent(state, intent)
+
     PosIntent.Start -> Reduction(
         state,
         listOf(PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular),
     )
 
-    is PosIntent.Navigate -> Reduction(state.copy(destination = intent.destination))
+    is PosIntent.Navigate -> Reduction(
+        state.copy(destination = intent.destination),
+        when (intent.destination) {
+            PosDestination.Orders -> listOf(PosSaleEffect.LoadOrders)
+            PosDestination.Returns -> listOf(PosSaleEffect.LoadInvoices(state.invoiceQuery.trim()))
+            else -> emptyList()
+        },
+    )
 
     is PosIntent.EditSearch -> Reduction(state.copy(searchQuery = intent.query))
 
@@ -142,6 +151,8 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
 }
 
 private fun reduceEvent(state: PosState, event: PosEvent): Reduction = when (event) {
+    is PosSaleEvent -> reduceSaleEvent(state, event)
+
     is PosEvent.OperatorLoaded -> Reduction(state.copy(operator = event.operator))
 
     is PosEvent.ModelsLoaded -> Reduction(state.copy(cascade = state.cascade.copy(models = event.models)))
@@ -191,7 +202,14 @@ private fun reduceEvent(state: PosState, event: PosEvent): Reduction = when (eve
             }
             is Rollback.UnhideBestSeller -> state.copy(hiddenBestSellers = state.hiddenBestSellers - r.stockItemId)
         }
-        Reduction(rolledBack.copy(searching = false, feedback = PosFeedback.Failure(event.error)))
+        Reduction(
+            rolledBack.copy(
+                searching = false,
+                customerSearching = false,
+                epc = rolledBack.epc.copy(loading = false),
+                feedback = PosFeedback.Failure(event.error),
+            ),
+        )
     }
 }
 

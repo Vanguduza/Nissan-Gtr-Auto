@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import co.zw.nissangtr.pos.design.icons.CircleAlert
 import co.zw.nissangtr.pos.design.icons.CircleCheck
 import co.zw.nissangtr.pos.design.icons.Pin
@@ -46,14 +48,50 @@ import co.zw.nissangtr.pos.ui.R
 import co.zw.nissangtr.pos.ui.common.PosIcon
 import co.zw.nissangtr.pos.ui.common.PosText
 import co.zw.nissangtr.pos.ui.common.feedbackText
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.text.style.TextAlign
+import co.zw.nissangtr.pos.design.icons.ChevronUp
+import co.zw.nissangtr.pos.design.theme.PosWindowClass
+import co.zw.nissangtr.pos.domain.model.ApprovalRequest
+import co.zw.nissangtr.pos.domain.model.ReceiptPaper
+import co.zw.nissangtr.pos.domain.state.PosSaleIntent
+import co.zw.nissangtr.pos.ui.common.LocalPosDialogDepth
+import co.zw.nissangtr.pos.ui.common.PosModal
+import co.zw.nissangtr.pos.ui.common.PosPrimaryButton
+import co.zw.nissangtr.pos.ui.common.formatMoney
+import co.zw.nissangtr.pos.ui.common.posBehindDialog
+import co.zw.nissangtr.pos.ui.common.rememberPosDialogDepth
+import co.zw.nissangtr.pos.ui.sale.ApprovalDialog
+import co.zw.nissangtr.pos.ui.sale.CustomerScreen
+import co.zw.nissangtr.pos.ui.sale.EpcScreen
+import co.zw.nissangtr.pos.ui.sale.GarageChooserDialog
+import co.zw.nissangtr.pos.ui.sale.OrdersScreen
+import co.zw.nissangtr.pos.ui.sale.PaymentDialog
+import co.zw.nissangtr.pos.ui.sale.QuickSaleScreen
+import co.zw.nissangtr.pos.ui.sale.ReceiptLine
+import co.zw.nissangtr.pos.ui.sale.ReturnsScreen
+import co.zw.nissangtr.pos.ui.sale.SettingsScreen
 import java.time.LocalDateTime
 
 /** Host actions for destinations and flows that live outside this screen (payment, customer, park). */
 data class PosHostActions(
-    val onPay: () -> Unit,
-    val onAddCustomer: () -> Unit,
-    val onPark: () -> Unit,
+    /** Camera / companion scan through the QR bridge (Bridge-First); the code arrives as a search. */
     val onScan: () -> Unit,
+    /** Print the receipt lines: ESC/POS for 80 mm, the document printer for A4. */
+    val onPrint: (List<ReceiptLine>, ReceiptPaper) -> Unit,
+    /** Settings → Staff portal: second login, then management (owner decision D4). */
+    val onStaffPortal: (() -> Unit)? = null,
+    /** Kiosk & device maintenance, for device administrators only. */
+    val onKioskSettings: (() -> Unit)? = null,
+    /** Leave the POS for the module hub (non-kiosk builds). */
+    val onExitToHub: (() -> Unit)? = null,
 )
 
 /**
@@ -69,9 +107,34 @@ fun PosHomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
+    val dialogDepth = rememberPosDialogDepth()
+    val geometry = PosTheme.geometry
+    val compact = geometry.windowClass == PosWindowClass.CompactPortrait || geometry.windowClass == PosWindowClass.CompactLandscape
+    var cartSheet by rememberSaveable { mutableStateOf(false) }
+    val tap: () -> Unit = { if (state.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+    val cartPane: @Composable () -> Unit = {
+        PosCartPane(
+            cart = state.cart,
+            busy = state.cartBusy > 0,
+            customerName = state.customer?.displayName,
+            onQty = { line, qty -> tap(); dispatch(PosIntent.SetQuantity(line.lineId, qty)) },
+            onRemove = { dispatch(PosIntent.RemoveLine(it.lineId)) },
+            onClear = { dispatch(PosSaleIntent.RequestApproval(ApprovalRequest.VoidSale)) },
+            onAddCustomer = { cartSheet = false; dispatch(PosIntent.Navigate(PosDestination.Customer)) },
+            onPay = { cartSheet = false; dispatch(PosSaleIntent.OpenPayment) },
+            onPark = { cartSheet = false; dispatch(PosSaleIntent.Park) },
+        )
+    }
+    CompositionLocalProvider(LocalPosDialogDepth provides dialogDepth) {
+    BoxWithConstraints(modifier) {
+    // Side cart only while rail + 320 dp cart + a usable canvas fit (§3.5); otherwise a sale bar + sheet.
+    val cartAsSheet = !geometry.isCartPersistent || maxWidth < 900.dp
     PosScaffold(
-        modifier = modifier,
-        rail = { PosRail(active = state.destination, onSelect = { dispatch(PosIntent.Navigate(it)) }) },
+        modifier = Modifier.posBehindDialog(dialogDepth.intValue),
+        rail = if (compact && geometry.isBottomNav) null else {
+            { PosRail(active = state.destination, onSelect = { dispatch(PosIntent.Navigate(it)) }) }
+        },
+        bottomBar = { PosBottomNav(active = state.destination, onSelect = { dispatch(PosIntent.Navigate(it)) }) },
         header = {
             PosHeader(
                 cascade = state.cascade,
@@ -88,25 +151,15 @@ fun PosHomeScreen(
                 onScan = host.onScan,
             )
         },
-        cartPane = {
-            PosCartPane(
-                cart = state.cart,
-                busy = state.cartBusy > 0,
-                onQty = { line, qty -> dispatch(PosIntent.SetQuantity(line.lineId, qty)) },
-                onRemove = { dispatch(PosIntent.RemoveLine(it.lineId)) },
-                onAddCustomer = host.onAddCustomer,
-                onPay = host.onPay,
-                onPark = host.onPark,
-            )
-        },
+        cartPane = if (cartAsSheet) null else cartPane,
     ) { _ ->
-        BoxWithConstraints {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
         // §3.6: the hero yields first — clamp(160, available * 0.34, 280); 240 dp at the canonical frame.
         val heroHeight = (maxHeight * 0.34f).coerceIn(160.dp, 280.dp)
         Column(
             Modifier
                 .verticalScroll(rememberScrollState())
-                .padding(start = PosTheme.geometry.canvasGutter, end = PosTheme.geometry.canvasGutter, bottom = 20.dp),
+                .padding(start = PosTheme.geometry.canvasGutter, end = PosTheme.geometry.canvasGutter, bottom = if (cartAsSheet) 96.dp else 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             state.feedback?.let { FeedbackBanner(it, onDismiss = { dispatch(PosIntent.DismissFeedback) }) }
@@ -115,7 +168,7 @@ fun PosHomeScreen(
             }
             when (state.destination) {
                 PosDestination.Home -> {
-                    PosHero(height = heroHeight)
+                    PosHero(height = if (compact) 112.dp else heroHeight, identityStrip = compact)
                     PosCategoryRow(
                         onOpen = { dispatch(PosIntent.OpenCategory(it)) },
                         onPin = { dispatch(PosIntent.Pin(PopularPin.forCategory(it))) },
@@ -141,10 +194,61 @@ fun PosHomeScreen(
                     )
                 }
                 PosDestination.SearchSpares -> SearchResults(state, dispatch)
-                else -> EmptyCard(stringResource(R.string.pos_destination_pending, stringResource(RailItems.first { it.destination == state.destination }.label)))
+                PosDestination.QuickSale -> QuickSaleScreen(state, dispatch)
+                PosDestination.Customer -> CustomerScreen(state, dispatch)
+                PosDestination.Orders -> OrdersScreen(state, dispatch)
+                PosDestination.Returns -> ReturnsScreen(state, dispatch)
+                PosDestination.EpcBrowse -> EpcScreen(state, dispatch)
+                PosDestination.Settings -> SettingsScreen(state, dispatch, host)
             }
         }
+        if (cartAsSheet) {
+            SaleBar(
+                state = state,
+                onOpen = { cartSheet = true },
+                onPay = { dispatch(PosSaleIntent.OpenPayment) },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
+        }
+    }
+
+    if (cartAsSheet && cartSheet) {
+        PosModal(stringResource(R.string.pos_cart_title), onDismiss = { cartSheet = false }) {
+            Box(Modifier.heightIn(min = 360.dp, max = 640.dp)) { cartPane() }
+        }
+    }
+    if (state.paymentOpen || state.receipt != null) PaymentDialog(state, dispatch, host.onPrint)
+    ApprovalDialog(state, dispatch)
+    GarageChooserDialog(state, dispatch)
+    }
+    }
+}
+
+/** Sale summary bar: the cart as a bar that opens a sheet when there is no room for the pane. */
+@Composable
+private fun SaleBar(state: PosState, onOpen: () -> Unit, onPay: () -> Unit, modifier: Modifier = Modifier) {
+    val palette = PosTheme.palette
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+            .posNeuRaised()
+            .clip(PosTheme.shape.lg)
+            .background(palette.surfacePrimary)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SoftButton(
+            pluralStringResource(R.plurals.pos_items, state.cart.lines.size, state.cart.lines.size),
+            PosIcons.ChevronUp,
+            enabled = true,
+            onClick = onOpen,
+            modifier = Modifier.widthIn(max = 116.dp),
+        )
+        PosText(formatMoney(state.cart.total), PosTheme.type.numericPrice.copy(fontSize = 17.sp), palette.textPrimary, maxLines = 1, modifier = Modifier.weight(1f), align = TextAlign.End)
+        PosPrimaryButton(stringResource(R.string.pos_pay), enabled = !state.cart.isEmpty && state.cartBusy == 0, onClick = onPay)
     }
 }
 

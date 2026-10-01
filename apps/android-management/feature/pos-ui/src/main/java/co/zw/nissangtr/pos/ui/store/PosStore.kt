@@ -1,16 +1,26 @@
 package co.zw.nissangtr.pos.ui.store
 
 import co.zw.nissangtr.pos.domain.gateway.CartGateway
+import co.zw.nissangtr.pos.domain.gateway.CheckoutGateway
+import co.zw.nissangtr.pos.domain.gateway.CustomerGateway
+import co.zw.nissangtr.pos.domain.gateway.EpcGateway
+import co.zw.nissangtr.pos.domain.gateway.SalesGateway
 import co.zw.nissangtr.pos.domain.gateway.CatalogGateway
 import co.zw.nissangtr.pos.domain.gateway.FitmentGateway
 import co.zw.nissangtr.pos.domain.gateway.PinGateway
 import co.zw.nissangtr.pos.domain.gateway.SessionGateway
 import co.zw.nissangtr.pos.domain.model.CartProjection
+import co.zw.nissangtr.pos.domain.model.Money
+import co.zw.nissangtr.pos.domain.model.Receipt
+import co.zw.nissangtr.pos.domain.model.Tender
 import co.zw.nissangtr.pos.domain.result.PosResult
 import co.zw.nissangtr.pos.domain.state.PosEffect
 import co.zw.nissangtr.pos.domain.state.PosEvent
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosMsg
+import co.zw.nissangtr.pos.domain.state.PosNotice
+import co.zw.nissangtr.pos.domain.state.PosSaleEffect
+import co.zw.nissangtr.pos.domain.state.PosSaleEvent
 import co.zw.nissangtr.pos.domain.state.PosState
 import co.zw.nissangtr.pos.domain.state.Rollback
 import co.zw.nissangtr.pos.domain.state.reduce
@@ -30,6 +40,10 @@ data class PosGateways(
     val fitment: FitmentGateway,
     val cart: CartGateway,
     val pins: PinGateway,
+    val checkout: CheckoutGateway,
+    val customers: CustomerGateway,
+    val sales: SalesGateway,
+    val epc: EpcGateway,
 )
 
 /**
@@ -40,6 +54,8 @@ class PosStore(
     private val scope: CoroutineScope,
     private val gateways: PosGateways,
     initial: PosState = PosState(),
+    /** Receipt timestamp source; injectable so tests and goldens are deterministic. */
+    private val clock: () -> String = { java.time.OffsetDateTime.now().withNano(0).toString() },
 ) {
     private val _state = MutableStateFlow(initial)
     val state: StateFlow<PosState> = _state.asStateFlow()
@@ -62,6 +78,7 @@ class PosStore(
 
     private fun run(effect: PosEffect) {
         when (effect) {
+            is PosSaleEffect -> runSale(effect)
             PosEffect.LoadOperator -> launch {
                 gateways.session.operator().onOk { apply(PosEvent.OperatorLoaded(it)) }
             }
@@ -129,6 +146,101 @@ class PosStore(
                     ok = PosEvent.HidePersisted(effect.stockItemId),
                     rollback = Rollback.UnhideBestSeller(effect.stockItemId),
                 )
+            }
+        }
+    }
+
+    private fun runSale(effect: PosSaleEffect) {
+        when (effect) {
+            is PosSaleEffect.Checkout -> launch {
+                when (val r = gateways.checkout.checkout(effect.cart.cartId, effect.tenders, effect.contacts)) {
+                    is PosResult.Ok -> {
+                        val change = effect.cashGiven?.let { given ->
+                            val cash = effect.tenders.filter { it.tender == Tender.Cash }.sumOf { it.amount.minor }
+                            Money((given.minor - cash).coerceAtLeast(0), given.currency)
+                        }
+                        apply(
+                            PosSaleEvent.CheckoutDone(
+                                Receipt(
+                                    invoiceId = r.value.invoiceId,
+                                    documentNumber = r.value.documentNumber,
+                                    lines = effect.cart.lines,
+                                    subtotal = effect.cart.subtotal,
+                                    discount = effect.cart.discount,
+                                    total = effect.cart.total,
+                                    tenders = effect.tenders,
+                                    cashGiven = effect.cashGiven,
+                                    change = change,
+                                    customerName = effect.customerName,
+                                    vehicleLabel = effect.vehicleLabel,
+                                    operatorName = effect.operatorName,
+                                    issuedAtIso = clock(),
+                                ),
+                            ),
+                        )
+                    }
+                    is PosResult.Err -> apply(PosSaleEvent.PaymentFailed(r.error))
+                }
+            }
+            is PosSaleEffect.EcoCash -> launch {
+                gateways.checkout.requestEcoCash(effect.msisdn, effect.amount, effect.reference)
+                    .onOk { apply(PosSaleEvent.EcoCashSent(it)) }
+            }
+            is PosSaleEffect.SearchCustomers -> launch {
+                gateways.customers.search(effect.query).onOk { apply(PosSaleEvent.CustomersLoaded(effect.query, it)) }
+            }
+            is PosSaleEffect.SaveCustomer -> launch {
+                val r = effect.customerId?.let { gateways.customers.update(it, effect.draft) } ?: gateways.customers.create(effect.draft)
+                r.onOk { apply(PosSaleEvent.CustomerSaved(it)) }
+            }
+            is PosSaleEffect.LoadGarage -> launch {
+                gateways.customers.garage(effect.customerId).onOk { apply(PosSaleEvent.GarageLoaded(effect.customerId, it)) }
+            }
+            is PosSaleEffect.AttachCustomer -> launch {
+                gateways.customers.attach(effect.cartId, effect.customerId).onOk { }
+            }
+            is PosSaleEffect.SaveToGarage -> launch {
+                gateways.customers.saveToGarage(effect.customerId, effect.vehicle, effect.primary).onOk { apply(PosSaleEvent.VehicleSaved) }
+            }
+            is PosSaleEffect.Approve -> launch {
+                when (val r = gateways.sales.approve(effect.credentials, effect.request, effect.cartId)) {
+                    is PosResult.Ok -> apply(PosSaleEvent.Approved(effect.request, r.value))
+                    is PosResult.Err -> apply(PosSaleEvent.ApprovalFailed(r.error))
+                }
+            }
+            is PosSaleEffect.Park -> launch {
+                gateways.sales.park(effect.cartId).onOk { apply(PosSaleEvent.SaleParked) }
+            }
+            is PosSaleEffect.Resume -> launch {
+                gateways.sales.resume(effect.cartId).onOk { apply(PosSaleEvent.CartReplaced(it, PosNotice.SaleResumed)) }
+            }
+            PosSaleEffect.LoadOrders -> {
+                launch { gateways.sales.parked().onOk { apply(PosSaleEvent.OrdersLoaded(it, null)) } }
+                launch { gateways.sales.quotations().onOk { apply(PosSaleEvent.OrdersLoaded(null, it)) } }
+            }
+            is PosSaleEffect.CreateQuotation -> launch {
+                gateways.sales.createQuotation(effect.cartId, effect.validUntil, effect.notes).onOk { apply(PosSaleEvent.QuoteCreated) }
+            }
+            is PosSaleEffect.SendQuotation -> launch {
+                gateways.sales.sendQuotation(effect.quotationId, effect.channel, effect.contact).onOk { apply(PosSaleEvent.QuoteSent) }
+            }
+            is PosSaleEffect.ConvertQuotation -> launch {
+                gateways.sales.convertQuotation(effect.quotationId).onOk { apply(PosSaleEvent.CartReplaced(it, PosNotice.QuoteConverted)) }
+            }
+            is PosSaleEffect.LoadInvoices -> launch {
+                gateways.sales.recentInvoices(effect.query.ifBlank { null }).onOk { apply(PosSaleEvent.InvoicesLoaded(effect.query, it)) }
+            }
+            is PosSaleEffect.EpcVariants -> launch {
+                gateways.epc.variants(effect.model).onOk { apply(PosSaleEvent.EpcVariantsLoaded(effect.model, it)) }
+            }
+            is PosSaleEffect.EpcSections -> launch {
+                gateways.epc.sections(effect.model, effect.variant).onOk { apply(PosSaleEvent.EpcSectionsLoaded(effect.variant, it)) }
+            }
+            is PosSaleEffect.EpcDiagrams -> launch {
+                gateways.epc.diagrams(effect.model, effect.variant, effect.section).onOk { apply(PosSaleEvent.EpcDiagramsLoaded(effect.section, it)) }
+            }
+            is PosSaleEffect.EpcDetail -> launch {
+                gateways.epc.diagram(effect.model, effect.variant, effect.section, effect.diagram).onOk { apply(PosSaleEvent.EpcDetailLoaded(it)) }
             }
         }
     }

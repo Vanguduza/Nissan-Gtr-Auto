@@ -85,7 +85,7 @@ import kotlinx.coroutines.launch
 // ---------------------------------------------------------------- Hero (§6.3)
 
 @Composable
-fun PosHero(height: Dp, modifier: Modifier = Modifier) {
+fun PosHero(height: Dp, modifier: Modifier = Modifier, identityStrip: Boolean = false) {
     val palette = PosTheme.palette
     val type = PosTheme.type
     Box(
@@ -114,6 +114,12 @@ fun PosHero(height: Dp, modifier: Modifier = Modifier) {
                     ),
                 ),
         )
+        if (identityStrip) {
+            // Compact (§3.5): the hero becomes an identity strip — title only, no badges.
+            Column(Modifier.padding(start = 20.dp).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                PosText(stringResource(R.string.pos_hero_title), type.heading2.copy(fontWeight = FontWeight.Bold), palette.textOnBrand)
+            }
+        } else {
         Column(Modifier.padding(start = 36.dp, top = 32.dp, bottom = 24.dp).fillMaxHeight()) {
             PosText(stringResource(R.string.pos_hero_title), type.displayHero, palette.textOnBrand)
             Spacer(Modifier.height(10.dp))
@@ -126,6 +132,7 @@ fun PosHero(height: Dp, modifier: Modifier = Modifier) {
                 HeroBadge(PosIcons.ShieldCheck, stringResource(R.string.pos_hero_badge_quality))
                 HeroBadge(PosIcons.Gauge, stringResource(R.string.pos_hero_badge_performance))
             }
+        }
         }
     }
 }

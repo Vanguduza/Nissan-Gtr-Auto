@@ -754,6 +754,46 @@ class FakeRpcClient : RpcClient {
         ),
     ).take(limit.coerceIn(1, 24))
 
+    private val hiddenBestsellers = linkedSetOf<String>()
+
+    override suspend fun hydratePosParts(oemPartNumbers: List<String>): List<PosPartMeta> =
+        oemPartNumbers.map { it.trim() }.filter { it.isNotEmpty() }.distinct().map { oem ->
+            val ref = lookupStockItemByOem(oem)
+            PosPartMeta(
+                stockItemId = ref.stockItemId,
+                uomId = ref.uomId,
+                oemPartNumber = oem,
+                description = null,
+                unitPrice = 10.0 + (oem.hashCode().toLong().and(0xFFFF) % 9000) / 100.0,
+                currency = CurrencyCode.USD,
+                saleableQty = (oem.hashCode().toLong().and(0xFF) % 40).toDouble(),
+                imageUrl = null,
+            )
+        }
+
+    override suspend fun listPosHiddenBestsellers(): List<String> = hiddenBestsellers.toList()
+
+    override suspend fun hidePosBestseller(stockItemId: String): Boolean = hiddenBestsellers.add(stockItemId) || true
+
+    override suspend fun unhidePosBestseller(stockItemId: String): Boolean = hiddenBestsellers.remove(stockItemId)
+
+    override suspend fun currentStaffDisplayName(): String = "Fake Operator"
+
+    override suspend fun listPosParkedCarts(limit: Int): List<PosParkedCart> =
+        parkedCarts.take(limit).map { id ->
+            val lines = cartLines[id].orEmpty()
+            PosParkedCart(
+                id = id,
+                documentNumber = "PARK-${id.take(6)}",
+                updatedAt = null,
+                currency = CurrencyCode.USD,
+                total = lines.sumOf { it.lineTotal },
+                lineCount = lines.size,
+            )
+        }
+
+    override suspend fun salesInvoiceDocumentNumber(invoiceId: String): String = "INV-FAKE-${invoiceId.take(6)}"
+
     override suspend fun listPosPopularPins(): List<PosPopularPin> = popularPins.toList()
 
     override suspend fun upsertPosPopularPin(pin: PosPopularPin): String {

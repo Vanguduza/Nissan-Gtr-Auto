@@ -320,3 +320,20 @@ Rows QACC-05, PAY-01 and PAY-02 were `blocked` on backend work. On 2026-10-01 th
 `partial`: the canonical lineage (`chatgpt/pos-reconcile-green-20260907`) already ships pin storage
 and reserve-first commerce. Remaining gaps are noted per row. QACC-09 to QACC-11 and SEC-09 were
 added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisions.md`).
+
+## TABLET-BUILD (2026-10-01, Phases 3–7 working slice — verified by JVM and Roborazzi tests, not yet on a device)
+
+| ID | Feature | Blueprint ref | Phase | Status |
+|---|---|---|---|---|
+| TAB-01 | Tablet POS route renders the benchmark POS on live data (holding screen removed); Settings → Staff portal second login (D4) | 10.1, D4–D6 | 5 | partial — `PosTabletEntry` binds `pos-ui` to `pos-data` gateways over `RpcClient`; compiles in both flavours; not yet run on a device against Supabase |
+| TAB-02 | Payment: split tender, cash change (display only), EcoCash push, receipt contacts; tenders must equal the server total | 6.6, 10.6 | 8 | partial — reducer + store tests; reserve-first (§10.6) contract still not on the backend |
+| TAB-03 | Receipt preview = printed lines (80 mm ESC/POS, A4 document printer); failed print never blocks the sale | 6.6 | 9 | partial — shared `receiptLines` for preview and print; printer not exercised on hardware here |
+| TAB-04 | Manager approval for discount, price override, void, refund (manager signs in for that action only) | D4, 10.x | 8 | partial — uses existing `withManagerApproval`; tests with fakes |
+| TAB-05 | Customer search/create/edit, attach to sale, garage (0/1/many), save vehicle to garage | 9.3 | 6 | partial — screens + reducer tests |
+| TAB-06 | Orders: parked sales (resume) and quotations (create, send, convert) | 9.3 | 6 | partial |
+| TAB-07 | Returns: recent invoices, manager-approved refund | 9.3 | 8 | partial |
+| TAB-08 | EPC Browse drill-down (model → variant → section → diagram → parts, pin, find) | 9.3 | 5 | partial — diagram image hotspots not drawn yet (parts list only) |
+| TAB-09 | Focus dialogs: own window, page behind dimmed and (API 31+) blurred, back/outside dismiss, bottom sheet on phones | 5.6 | 4 | done (code) — screenshot `tablet-payment_dialog`; blur itself needs a device to observe |
+| TAB-10 | Medium (icon rail, vehicle dialog, sale bar + cart sheet below 900 dp) and Compact (bottom navigation, stacked header, identity-strip hero, sale bar + sheet) | 3.5, 8.4, 9 | 7 | partial — rendered at 1024×768, 800×1280, 412×915, 360×800 |
+| TAB-11 | Offline sale queue on the new shell | 10.x | 8 | todo — new shell blocks checkout offline (cash-only offline queue lives in legacy `PosViewModel`, not yet ported) |
+| TAB-12 | Companion phone pairing on the new shell | 9 | 9 | todo |
