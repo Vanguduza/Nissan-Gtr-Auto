@@ -97,9 +97,11 @@ Both columns cannot be true. Each row needs one owner decision.
 3. **Fix F3.** Push the missing ancestor commits, or correct `PROJECT_CANONICAL_STATE.json`.
 4. **Rebase line B onto line A.** The phase 1 and 2 work is mostly new, separate modules
    (`packages/pos-design`, `pos-*` feature modules, tokens), so it should port cleanly.
-5. **Re-skin and refactor; do not clean-room.** Move the existing `PosOperatorWorkspace` from
-   `ShopWarmTheme` to `PosTheme`. Then run Rev 1.5's architecture changes (typed gateways, a single
-   store) against the §12 capability contract, keeping every feature from line A.
+5. ~~Re-skin and refactor; do not clean-room.~~ **Corrected 2026-10-01 (owner D5):** rebuild the POS
+   **UI** new in `:feature:pos-ui` from `:pos-design` against the benchmark. Keep line A's
+   **capabilities** (ViewModel, RPCs, offline, kiosk, Staff portal) and wire the new UI to them. Do not
+   re-theme `PosOperatorWorkspace` / `PosScreen` panels or reuse the `ui.shop` kit: they are
+   pre-benchmark UI and would carry the old screen forward. Enforced by design-lint DL-09/DL-10.
 6. Update the Rev 1.5 blueprint and feature register for what line A already has. Add a
    management-access / staff-portal row. Fix the pins backend and theme statements.
 7. Only then continue the Antigravity phases (screens) from the corrected register.

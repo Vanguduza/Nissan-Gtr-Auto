@@ -51,6 +51,23 @@ recalculates role and `module_access` before showing any management module.
 - `apps/android-pos` (PR #11) is **not** the product direction.
 - The Rev 1.5 blueprint and feature register must add the Staff portal as a required capability.
 
+## D5 — Rebuild the POS UI from the benchmark; keep only capabilities from the old POS
+
+The POS screens are built **new** in `:feature:pos-ui` from `:pos-design` (Rev 1.5), against the
+benchmark and these decisions. The existing UI is **not** re-themed:
+
+- `PosOperatorWorkspace.kt` (2026-09-07) gives the benchmark layout, but it is assembled from the
+  pre-benchmark kit. Its Current Sale pane is `RightCartPane` in `ShopStaffPanel`. Quick Sale,
+  Orders and Settings re-host the July panels `CartSetupSection`, `QuotesPanel`, `PrinterSection`
+  and others. Re-theming it would carry that old screen forward.
+- What is kept from the canonical lineage is **behaviour**: `PosViewModel`, RPCs, offline/SQLCipher,
+  pins, customer garage, multi-vehicle context, kiosk, Staff portal. The new UI binds to these.
+- When each new screen reaches parity (§12 capability contract), the matching old composable is
+  deleted. No screen ships with both.
+- Enforcement: `scripts/design-lint.py` DL-09 (no `ui.shop` / `GtrTheme` / `management.pos` imports in
+  clean modules) and DL-10 (no dependency on `:feature:pos` or `:android-ui`). This runs in the
+  Android POS workflow.
+
 ## Still open
 
 - `PROJECT_CANONICAL_STATE.json` on `chatgpt/pos-reconcile-green-20260907` requires the ancestor

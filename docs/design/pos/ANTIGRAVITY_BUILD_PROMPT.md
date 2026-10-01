@@ -30,7 +30,12 @@ it.
 Also read `docs/decisions/2026-10-01-pos-owner-decisions.md`. It overrides the blueprint on the popular
 row, the vehicle cascade, the start-up splash and Staff portal access. Build on the branch that
 descends from `chatgpt/pos-reconcile-green-20260907` (the canonical POS lineage), and keep every
-working capability already there (§12). Re-skin and refactor it; do not rewrite it from scratch.
+working capability already there (§12) — but **capability only, never its UI**. The existing
+`PosOperatorWorkspace.kt` / `PosScreen.kt` screens and the `ui.shop` kit (`ShopStaffPanel`,
+`ShopWarmTheme`, …) are pre-benchmark UI and are **not** to be re-themed or reused. Build every POS
+screen new in `:feature:pos-ui` from `:pos-design` against the benchmark, wire it to the existing
+ViewModel/RPC/offline logic, then retire the old screens. `scripts/design-lint.py` rules DL-09/DL-10
+fail the build if the new modules import or depend on the old UI.
 
 Then read `AGENTS.md` and `docs/plans/2026-08-03-tablet-kiosk-pos-full-action-plan.md` §10 for the
 constraints that outrank the blueprint.

@@ -42,6 +42,18 @@ RE_REPORTS_NAV = re.compile(r'["\']Reports["\']|NavDestination\.Reports')
 RE_LAZY_ROW_LITERAL_COUNT = re.compile(r'items\(\s*\d+\s*\)')
 RE_UNGUARDED_BLUR = re.compile(r'Modifier\.blur\(')
 RE_DOMAIN_ANDROID = re.compile(r'import\s+(android\.|androidx\.)')
+# DL-09: the benchmark POS must not be assembled from the pre-benchmark screen kit.
+RE_LEGACY_UI_IMPORT = re.compile(
+    r'import\s+co\.zw\.nissangtr\.(ui\.shop\.|ui\.theme\.(GtrTheme|GtrColors)|management\.pos\.)'
+)
+# DL-10: clean modules may not depend on the legacy POS module or the shared shop kit.
+RE_LEGACY_MODULE_DEP = re.compile(r'project\(\s*":(feature:pos|android-ui)"\s*\)')
+LEGACY_DEP_BUILD_FILES = [
+    REPO_ROOT / "packages" / "pos-design" / "build.gradle.kts",
+    REPO_ROOT / "apps" / "android-management" / "feature" / "pos-domain" / "build.gradle.kts",
+    REPO_ROOT / "apps" / "android-management" / "feature" / "pos-data" / "build.gradle.kts",
+    REPO_ROOT / "apps" / "android-management" / "feature" / "pos-ui" / "build.gradle.kts",
+]
 
 def scan_file(file_path: Path):
     is_test_file = "test" in file_path.parts
@@ -87,6 +99,9 @@ def scan_file(file_path: Path):
         if RE_LAZY_ROW_LITERAL_COUNT.search(line):
             add_violation("DL-08", file_path, idx, "Forbidden integer literal item count in lazy layout; counts must be derived.")
 
+        if RE_LEGACY_UI_IMPORT.search(line):
+            add_violation("DL-09", file_path, idx, "Legacy pre-benchmark UI import (ui.shop / GtrTheme / management.pos); build from :pos-design only.")
+
         # Rule: Domain purity (ARCH-03)
         if is_domain_file and not is_test_file:
             if RE_DOMAIN_ANDROID.search(line):
@@ -101,6 +116,15 @@ def main():
             for file in files:
                 if file.endswith((".kt", ".java")):
                     scan_file(Path(root) / file)
+
+    for build_file in LEGACY_DEP_BUILD_FILES:
+        if not build_file.exists():
+            continue
+        for idx, line in enumerate(build_file.read_text(encoding="utf-8").splitlines(), start=1):
+            if line.strip().startswith("//"):
+                continue
+            if RE_LEGACY_MODULE_DEP.search(line):
+                add_violation("DL-10", build_file, idx, "Clean POS module depends on legacy :feature:pos or :android-ui.")
 
     if violations:
         print(f"\nFAILED: {len(violations)} design lint violation(s) detected:")
