@@ -97,6 +97,19 @@ locked kiosk is never stranded. The hub's "Offline EPC catalog" entry is removed
 rebuilt. **Builds from this lineage must not be deployed to a live counter** until the new POS reaches
 §12 capability parity.
 
+## D7 — The web POS is the same product as the tablet POS
+
+The web POS (`apps/web` `/staff/pos`) is redesigned to **look and function exactly like the tablet
+POS**: the same benchmark, the same decisions D1–D6, the same tokens (`packages/ui/brand-tokens.json`
+→ `tokens.css` / `tokens.ts`), the same blueprint anatomy and the same feature register. Only the
+platform deltas W-001 to W-006 in `docs/design/pos/WEB_POS_PARITY.md` are allowed: online-only, no
+browser camera scanning, browser print instead of ESC/POS, no drawer kick, and no kiosk. The Staff
+portal second login is kept identical.
+
+The July 2026 web POS UI (`staff-pos-panel.tsx`, `staff-pos-shell.tsx`) is pre-benchmark and is
+retired. It must not be restyled. New code goes in `apps/web/components/pos/` and `apps/web/lib/pos/`
+(design-lint DL-12).
+
 ## Still open
 
 - `PROJECT_CANONICAL_STATE.json` on `chatgpt/pos-reconcile-green-20260907` requires the ancestor

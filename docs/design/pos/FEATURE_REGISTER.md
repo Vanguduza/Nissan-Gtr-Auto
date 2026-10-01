@@ -276,6 +276,22 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 ---
 
+## WEB — Web POS parity (owner D7, `WEB_POS_PARITY.md`)
+
+| ID | Feature | § | Phase | Status |
+|---|---|---|---|---|
+| WEB-01 | Web POS consumes generated `tokens.css` / `tokens.ts` only; no ad hoc colours | 4.1, D7 | 2 | todo |
+| WEB-02 | Expanded composition (rail, header, hero, categories, Popular Items, recent searches, Current Sale) at the benchmark ratios | 3, 6 | 3 | todo |
+| WEB-03 | Window classes and compact recomposition with the same breakpoints as the tablet | 3.5, 9 | 7 | todo |
+| WEB-04 | Typed `lib/pos/` gateway per RPC in the parity matrix | 10.2 | 5 | todo |
+| WEB-05 | Full capability parity per `WEB_POS_PARITY.md` §3 (cart, vehicle, pins, customer and garage, manager gate, quotations, returns, EPC) | 12 | 5–10 | todo |
+| WEB-06 | W-001 online-only behaviour with the shared offline status surface | 10.12 | 9 | todo |
+| WEB-07 | W-002 companion pairing + keyboard-wedge scanner; no browser camera | 10.18 | 9 | todo |
+| WEB-08 | W-003 browser print of the shared receipt document model (80 mm, A4) | 6.6 | 9 | todo |
+| WEB-09 | Staff portal second login from POS → Settings (D4) | D4 | 3 | todo |
+| WEB-10 | Playwright screenshots against the benchmark at 1536×1024 and each window class | 11 | 11 | todo |
+| WEB-11 | Pre-benchmark web POS UI deleted (`staff-pos-panel.tsx`, `staff-pos-shell.tsx`) | D7 | 3 | todo |
+
 ## Summary
 
 | Area | Rows |
@@ -296,7 +312,8 @@ passed, commit referenced) · `dropped` (owner reference required)
 | A11Y | 8 |
 | PHONE | 8 |
 | CERT | 10 |
-| **Total** | **166** |
+| WEB | 11 |
+| **Total** | **177** |
 
 Rows QACC-05, PAY-01 and PAY-02 were `blocked` on backend work. On 2026-10-01 they moved to
 `partial`: the canonical lineage (`chatgpt/pos-reconcile-green-20260907`) already ships pin storage

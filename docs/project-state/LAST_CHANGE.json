@@ -1,34 +1,22 @@
 {
   "actor": "claude-code",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "eeb8a4906a33ca2ef4e3",
+  "change_id": "418314a8f93b18bb4a8e",
   "changed_files": [
-    "apps/android-management/app/src/main/java/co/zw/nissangtr/management/MainActivity.kt",
-    "apps/android-management/feature/pos-ui/src/main/res/drawable-nodpi/pos_home_hero_locked.webp",
-    "apps/android-management/feature/pos-ui/src/main/res/drawable-nodpi/pos_nav_car_locked.webp",
-    "apps/android-management/feature/pos/build.gradle.kts",
-    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosCustomerWorkspace.kt",
-    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosEpcBrowseScreen.kt",
-    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosOperatorWorkspace.kt",
-    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosRuntime.kt",
-    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosScreen.kt",
-    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/StaffOfflineEpcBrowseScreen.kt",
-    "apps/android-management/feature/pos/src/main/res/drawable-nodpi/pos_home_hero_locked.webp",
-    "apps/android-management/feature/pos/src/main/res/drawable-nodpi/pos_nav_car_locked.webp",
-    "docs/decisions/2026-09-07-pos-operator-screen-design-lock.md",
-    "docs/decisions/2026-09-08-pos-customer-garage-popular-items.md",
+    ".github/workflows/ci.yml",
     "docs/decisions/2026-10-01-pos-owner-decisions.md",
+    "docs/design/pos/FEATURE_REGISTER.md",
+    "docs/design/pos/WEB_POS_PARITY.md",
     "scripts/design-lint.py"
   ],
-  "diff_sha256": "eeb8a4906a33ca2ef4e326ab0ad1120aa13fc9b1c5a8a3fd11524d9b394404dd",
+  "diff_sha256": "418314a8f93b18bb4a8e905d54da6a2954dbed66b896c424bc0106a996d4c469",
   "domains": [
+    "ci",
     "documentation",
-    "management-android",
-    "pos-android",
     "repository"
   ],
-  "intent": "delete pre-benchmark POS UI; keep behaviour only (owner D6)",
-  "recorded_at_utc": "2026-10-01T02:04:13.035354+00:00",
+  "intent": "web POS parity contract (owner D7)",
+  "recorded_at_utc": "2026-10-01T02:12:34.846277+00:00",
   "schema_version": 1,
-  "source_parent": "8acef8c1dc228400409f4f1a2bdb863dca920ac4"
+  "source_parent": "395140f92948c51d310ce3e2515143962f86e6b1"
 }
