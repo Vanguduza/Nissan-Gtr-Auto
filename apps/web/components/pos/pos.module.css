@@ -455,8 +455,19 @@
   padding: 12px;
   border-radius: var(--gtr-radius-md);
   background: var(--gtr-color-neutral-surface);
+  /* Brand-red outer lining gives the soft card an edge; deepens on hover/focus. */
+  border: 1.5px solid color-mix(in srgb, var(--pos-red) 70%, transparent);
   box-shadow: var(--gtr-neu-raised);
   min-height: 208px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.partCard:hover,
+.partCard:focus-within {
+  border-color: var(--pos-red);
+  box-shadow: var(--gtr-neu-raised), 0 0 0 3px color-mix(in srgb, var(--pos-red) 14%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .partCard { transition: none; }
 }
 .partImage {
   display: grid;

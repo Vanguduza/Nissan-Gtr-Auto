@@ -3,6 +3,7 @@ package co.zw.nissangtr.pos.ui.home
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -315,6 +316,8 @@ fun PartCard(
             .posNeuRaised()
             .clip(PosTheme.shape.md)
             .background(palette.surfacePrimary)
+            // Brand-red outer lining (owner request) — gives the soft card an edge.
+            .border(1.5.dp, palette.brandRed.copy(alpha = 0.7f), PosTheme.shape.md)
             .combinedClickable(
                 onClick = {},
                 onLongClick = {

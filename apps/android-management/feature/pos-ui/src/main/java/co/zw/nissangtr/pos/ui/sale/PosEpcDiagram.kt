@@ -177,7 +177,7 @@ private fun EpcPartsList(
                     .heightIn(min = 64.dp)
                     .clip(PosTheme.shape.md)
                     .background(if (on) palette.surfaceElevated else palette.surfacePrimary)
-                    .border(if (on) 2.dp else 1.dp, if (on) palette.brandRed else palette.borderSubtle, PosTheme.shape.md)
+                    .border(if (on) 2.dp else 1.5.dp, if (on) palette.brandRed else palette.brandRed.copy(alpha = 0.7f), PosTheme.shape.md)
                     .clickable(role = Role.Button) { dispatch(PosSaleIntent.EpcSelect(p.oemPartNumber)) }
                     .semantics { selected = on }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
