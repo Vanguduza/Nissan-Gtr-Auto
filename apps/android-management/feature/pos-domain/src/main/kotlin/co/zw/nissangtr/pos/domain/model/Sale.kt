@@ -30,7 +30,15 @@ data class Receipt(
     val vehicleLabel: String?,
     val operatorName: String?,
     val issuedAtIso: String,
+    /** Queued offline: the invoice number is assigned when the outbox replays (§10.12). */
+    val offline: Boolean = false,
 )
+
+/** Offline outbox counts. [conflicts] are replays the server refused (price drift, stock) for review. */
+data class OfflineSyncStatus(val pending: Int, val conflicts: Int, val synced: Int = 0)
+
+/** A cash sale written to the encrypted outbox under a client-generated id. */
+data class OfflineQueued(val clientSaleId: String, val soldAtIso: String, val status: OfflineSyncStatus)
 
 enum class ReceiptPaper { Thermal80, A4 }
 

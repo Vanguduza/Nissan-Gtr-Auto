@@ -19,6 +19,7 @@ import co.zw.nissangtr.bridges.escpos.EscPosPrinterBridge
 import co.zw.nissangtr.bridges.escpos.EscPosReceiptLine
 import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
+import co.zw.nissangtr.management.pos.offline.OfflinePosConnectivity
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.pos.data.RpcPosGateways
 import co.zw.nissangtr.pos.data.RpcSaleGateways
@@ -55,7 +56,8 @@ fun PosTabletEntry(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val vm: PosStoreViewModel = viewModel(
-        factory = PosStoreViewModel.factory {
+        factory = PosStoreViewModel.owning {
+            val outbox = PosOfflineOutbox.open(context, rpc)
             val core = RpcPosGateways(rpc)
             val sale = RpcSaleGateways(rpc)
             PosGateways(
@@ -68,10 +70,15 @@ fun PosTabletEntry(
                 customers = sale.customers,
                 sales = sale.sales,
                 epc = sale.epc,
-            )
+                offline = outbox,
+            ) to outbox::close
         },
     )
     val state by vm.store.state.collectAsState()
+    // Offline restricted mode follows the device's validated connectivity (§10.12).
+    LaunchedEffect(Unit) {
+        OfflinePosConnectivity.onlineFlow(context).collect { vm.store.dispatch(PosIntent.ConnectivityChanged(it)) }
+    }
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {

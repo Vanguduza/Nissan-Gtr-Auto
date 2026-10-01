@@ -129,6 +129,41 @@ class PosScreensScreenshotTest {
         epcState().let { s -> s.copy(epc = s.epc.copy(image = EpcImage(s.epc.detail!!.imageUrl!!, null), activeOem = null)) },
     )
 
+    private fun offlineSale(): PosState {
+        val local = co.zw.nissangtr.pos.domain.state.LOCAL_CART_ID
+        return sale.copy(online = false, cart = sale.cart.copy(cartId = local), offlineQueue = co.zw.nissangtr.pos.domain.model.OfflineSyncStatus(2, 0))
+    }
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun offlineHome() = capture("offline_home", 1280.dp, 800.dp, offlineSale())
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun offlinePayment() = capture("offline_payment", 1280.dp, 800.dp, offlineSale().copy(paymentOpen = true))
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun offlineReceipt() = capture(
+        "offline_receipt",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(
+            online = false,
+            offlineQueue = co.zw.nissangtr.pos.domain.model.OfflineSyncStatus(3, 0),
+            receipt = co.zw.nissangtr.pos.domain.model.Receipt(
+                "c0ffee00-1111", "OFFLINE-C0FFEE00", sale.cart.lines, sale.cart.subtotal, sale.cart.discount, sale.cart.total,
+                listOf(co.zw.nissangtr.pos.domain.model.TenderLine(co.zw.nissangtr.pos.domain.model.Tender.Cash, sale.cart.total)),
+                null, null, null, null, "Tendai Moyo", "2026-10-01T10:00", offline = true,
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun settingsOutbox() = capture(
+        "settings_outbox",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(destination = PosDestination.Settings, offlineQueue = co.zw.nissangtr.pos.domain.model.OfflineSyncStatus(2, 1)),
+    )
+
     @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
     fun settings() = capture("settings", 1280.dp, 800.dp, PosFixtures.homeEmpty.copy(destination = PosDestination.Settings))
 

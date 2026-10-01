@@ -502,6 +502,18 @@ fun SettingsScreen(state: PosState, dispatch: (PosIntent) -> Unit, host: PosHost
                 onSelect = { dispatch(PosSaleIntent.SetHaptics(it)) },
             )
         }
+        ListRow(
+            stringResource(R.string.pos_offline_sales),
+            stringResource(R.string.pos_offline_sales_hint, state.offlineQueue.pending, state.offlineQueue.conflicts),
+        ) {
+            SoftButton(
+                stringResource(if (state.offlineSyncing) R.string.pos_loading else R.string.pos_sync_now),
+                null,
+                enabled = state.online && !state.offlineSyncing,
+                onClick = { dispatch(PosSaleIntent.SyncOffline) },
+                modifier = Modifier.width(140.dp),
+            )
+        }
         ListRow(stringResource(R.string.pos_scanner), stringResource(R.string.pos_scanner_hint))
         ListRow(stringResource(R.string.pos_receipts_setting), stringResource(R.string.pos_receipts_setting_hint))
         host.onKioskSettings?.let { open ->

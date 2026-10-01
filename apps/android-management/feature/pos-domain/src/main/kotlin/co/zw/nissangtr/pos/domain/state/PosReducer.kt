@@ -19,7 +19,11 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
 
     PosIntent.Start -> Reduction(
         state,
-        listOf(PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular),
+        // Online: replay anything queued last time and refresh the offline snapshot; offline: just count.
+        listOf(
+            PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular,
+            if (state.online) PosSaleEffect.SyncOffline else PosSaleEffect.LoadOfflineStatus,
+        ),
     )
 
     is PosIntent.Navigate -> Reduction(
@@ -82,6 +86,12 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
     }
 
     is PosIntent.AddPart -> when {
+        !state.online || state.cart.isLocal && !state.cart.isEmpty -> if (state.online) {
+            // Back online with an unpaid local cart still moving to the server: wait for it.
+            Reduction(state)
+        } else {
+            localAdd(state, intent.part)
+        }
         !intent.part.canAdd -> Reduction(
             state.copy(feedback = PosFeedback.Failure(PosError.BusinessRule("part_not_sellable", intent.part.oemPartNumber))),
         )
@@ -93,6 +103,8 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
 
     is PosIntent.SetQuantity -> when {
         state.cart.cartId.isEmpty() -> Reduction(state)
+        state.cart.isLocal -> localSetQuantity(state, intent.lineId, intent.qty)
+        !state.online -> offlineRefusal(state, "server_cart")
         intent.qty <= 0.0 -> Reduction(
             state.copy(cartBusy = state.cartBusy + 1),
             listOf(PosEffect.RemoveLine(state.cart.cartId, intent.lineId)),
@@ -105,6 +117,10 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
 
     is PosIntent.RemoveLine -> if (state.cart.cartId.isEmpty()) {
         Reduction(state)
+    } else if (state.cart.isLocal) {
+        localSetQuantity(state, intent.lineId, 0.0)
+    } else if (!state.online) {
+        offlineRefusal(state, "server_cart")
     } else {
         Reduction(
             state.copy(cartBusy = state.cartBusy + 1),
@@ -147,7 +163,7 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
 
     PosIntent.DismissFeedback -> Reduction(state.copy(feedback = null))
 
-    is PosIntent.ConnectivityChanged -> Reduction(state.copy(online = intent.online))
+    is PosIntent.ConnectivityChanged -> reduceConnectivity(state, intent.online)
 }
 
 private fun reduceEvent(state: PosState, event: PosEvent): Reduction = when (event) {
@@ -243,8 +259,8 @@ private fun researchEffect(state: PosState): List<PosEffect> =
     }
 
 private fun cartVehicleEffect(state: PosState, vehicle: VehicleSelection?): List<PosEffect> =
-    if (state.cart.cartId.isNotEmpty() && state.vehicle != vehicle) {
-        listOf(PosEffect.SetCartVehicle(state.cart.cartId, vehicle))
+    if (state.cart.serverCartId != null && state.vehicle != vehicle) {
+        listOf(PosEffect.SetCartVehicle(state.cart.serverCartId!!, vehicle))
     } else {
         emptyList()
     }

@@ -38,9 +38,12 @@ class PosReducerTest {
     private val r35 = VehicleGeneration("R35", "R35")
 
     @Test
-    fun `start loads operator, models and popular row`() {
+    fun `start loads operator, models, popular row and syncs the offline outbox`() {
         val r = reduce(PosState(), PosIntent.Start)
-        assertEquals(listOf(PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular), r.effects)
+        assertEquals(
+            listOf(PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, co.zw.nissangtr.pos.domain.state.PosSaleEffect.SyncOffline),
+            r.effects,
+        )
     }
 
     @Test

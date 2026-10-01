@@ -95,6 +95,8 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.EcoCashSent -> stringResource(R.string.pos_notice_ecocash)
         PosNotice.Approved -> stringResource(R.string.pos_notice_approved)
         PosNotice.Refunded -> stringResource(R.string.pos_notice_refunded)
+        PosNotice.OfflineSaleQueued -> stringResource(R.string.pos_notice_offline_queued)
+        PosNotice.OfflineSynced -> stringResource(R.string.pos_notice_offline_synced)
     }
     is PosFeedback.Failure -> errorText(feedback.error)
 }
@@ -108,9 +110,19 @@ fun errorText(error: PosError): String = when (error) {
         "part_not_sellable" -> stringResource(R.string.pos_error_not_sellable)
         "tenders_unbalanced" -> stringResource(R.string.pos_error_unbalanced)
         "cart_not_empty" -> stringResource(R.string.pos_error_cart_not_empty)
+        "offline_stock" -> stringResource(R.string.pos_error_offline_stock, error.detail)
         else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)
     }
     is PosError.PaymentUnknown -> stringResource(R.string.pos_error_payment_unknown)
     is PosError.HardwareUnavailable -> stringResource(R.string.pos_error_hardware, error.device)
-    is PosError.OfflineRestricted -> stringResource(R.string.pos_error_offline)
+    is PosError.OfflineRestricted -> stringResource(
+        when {
+            "server_cart" in error.blocked -> R.string.pos_error_offline_server_cart
+            "walk_in_only" in error.blocked -> R.string.pos_error_offline_walk_in
+            "non_cash" in error.blocked -> R.string.pos_error_offline_cash
+            "manager_approval" in error.blocked -> R.string.pos_error_offline_approval
+            "no_outbox" in error.blocked -> R.string.pos_error_offline_no_outbox
+            else -> R.string.pos_error_offline
+        },
+    )
 }

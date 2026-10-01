@@ -17,6 +17,7 @@ import co.zw.nissangtr.pos.domain.model.Receipt
 import co.zw.nissangtr.pos.domain.model.VehicleModel
 import co.zw.nissangtr.pos.domain.model.CatalogPart
 import co.zw.nissangtr.pos.domain.model.CurrencyCode
+import co.zw.nissangtr.pos.domain.model.OfflineSyncStatus
 import co.zw.nissangtr.pos.domain.model.Operator
 import co.zw.nissangtr.pos.domain.model.PopularPin
 import co.zw.nissangtr.pos.domain.model.PopularRowItem
@@ -39,6 +40,7 @@ enum class PosNotice {
     Pinned, Unpinned, BestSellerHidden,
     SaleParked, SaleResumed, QuoteCreated, QuoteSent, QuoteConverted,
     CustomerSaved, VehicleSaved, EcoCashSent, Approved, Refunded,
+    OfflineSaleQueued, OfflineSynced,
 }
 
 data class PosState(
@@ -79,6 +81,9 @@ data class PosState(
     val invoices: List<InvoiceSummary>? = null,
     val epc: EpcBrowse = EpcBrowse(),
     val hapticsEnabled: Boolean = true,
+    /** Offline outbox: sales waiting to replay and refused replays awaiting review (§10.12). */
+    val offlineQueue: OfflineSyncStatus = OfflineSyncStatus(0, 0),
+    val offlineSyncing: Boolean = false,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

@@ -148,6 +148,7 @@ fun PosHomeScreen(
                 onPinVehicle = { state.cascade.selection()?.let { dispatch(PosIntent.Pin(PopularPin.forVehicle(it))) } },
                 onSearchChange = { dispatch(PosIntent.EditSearch(it)) },
                 onSearchSubmit = { dispatch(PosIntent.SubmitSearch) },
+                queued = state.offlineQueue.pending + state.offlineQueue.conflicts,
                 onScan = host.onScan,
             )
         },

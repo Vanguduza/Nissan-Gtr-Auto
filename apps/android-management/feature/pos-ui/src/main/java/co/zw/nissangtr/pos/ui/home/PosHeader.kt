@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -80,6 +81,8 @@ fun PosHeader(
     onSearchSubmit: () -> Unit,
     onScan: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Offline outbox: sales waiting to replay plus refused replays (§10.12, D-005). */
+    queued: Int = 0,
 ) {
     val palette = PosTheme.palette
     val windowClass = PosTheme.geometry.windowClass
@@ -90,7 +93,7 @@ fun PosHeader(
                 OperatorBlock(operator, compact = true)
             }
             SearchField(searchQuery, onSearchChange, onSearchSubmit, onScan, Modifier.fillMaxWidth())
-            if (!online) PosText(stringResource(R.string.pos_offline), PosTheme.type.labelMeta, palette.offline, maxLines = 1)
+            SyncStatus(online, queued)
         }
         return
     }
@@ -117,14 +120,7 @@ fun PosHeader(
             modifier = Modifier.weight(1f).widthIn(max = 560.dp),
         )
 
-        if (!online) {
-            PosText(
-                text = stringResource(R.string.pos_offline),
-                style = PosTheme.type.labelMeta,
-                color = palette.offline,
-                maxLines = 1,
-            )
-        }
+        SyncStatus(online, queued)
 
         OperatorBlock(operator, compact = windowClass != PosWindowClass.Expanded)
         ClockBlock(now)
@@ -400,4 +396,16 @@ private fun VehicleButton(
             }
         }
     }
+}
+
+/** Sync state in the context zone: offline restricted mode, and sales still waiting to replay. */
+@Composable
+private fun SyncStatus(online: Boolean, queued: Int) {
+    val text = when {
+        !online && queued > 0 -> stringResource(R.string.pos_offline_queued, queued)
+        !online -> stringResource(R.string.pos_offline)
+        queued > 0 -> pluralStringResource(R.plurals.pos_to_sync, queued, queued)
+        else -> return
+    }
+    PosText(text, PosTheme.type.labelMeta.copy(fontWeight = FontWeight.SemiBold), PosTheme.palette.offline, maxLines = 2)
 }

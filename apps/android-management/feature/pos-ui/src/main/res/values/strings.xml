@@ -22,7 +22,24 @@
     <string name="pos_search_placeholder">Search by part name, part number, or vehicle model…</string>
     <string name="pos_search_label">Search spares</string>
     <string name="pos_scan">Scan barcode</string>
-    <string name="pos_offline">Offline — browsing only</string>
+    <string name="pos_offline">Offline · cash, walk-in sales only</string>
+    <string name="pos_offline_queued">Offline · %1$d queued</string>
+    <plurals name="pos_to_sync">
+        <item quantity="one">%1$d sale to sync</item>
+        <item quantity="other">%1$d sales to sync</item>
+    </plurals>
+    <string name="pos_notice_offline_queued">Sale saved offline. It posts when the connection is back.</string>
+    <string name="pos_notice_offline_synced">Offline sales synced.</string>
+    <string name="pos_error_offline_server_cart">This sale was started online. Finish it when the connection is back, or remove its lines to sell offline.</string>
+    <string name="pos_error_offline_walk_in">Offline sales are walk-in only. Customer accounts need the connection.</string>
+    <string name="pos_error_offline_cash">Offline sales are cash only.</string>
+    <string name="pos_error_offline_approval">Discounts, voids, refunds and price changes need a manager online.</string>
+    <string name="pos_error_offline_no_outbox">Offline selling is not set up on this device.</string>
+    <string name="pos_error_offline_stock">Not enough stock of %1$s in the last offline snapshot.</string>
+    <string name="pos_receipt_offline">OFFLINE SALE · invoice no. issued on sync</string>
+    <string name="pos_offline_sales">Offline sales</string>
+    <string name="pos_offline_sales_hint">%1$d waiting to sync · %2$d need review</string>
+    <string name="pos_sync_now">Sync now</string>
 
     <!-- Hero (§6.3; copy per D-007) -->
     <string name="pos_hero_title">Genuine Parts\nReal Performance</string>

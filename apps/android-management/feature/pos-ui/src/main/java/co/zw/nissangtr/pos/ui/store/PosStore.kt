@@ -4,6 +4,8 @@ import co.zw.nissangtr.pos.domain.gateway.CartGateway
 import co.zw.nissangtr.pos.domain.gateway.CheckoutGateway
 import co.zw.nissangtr.pos.domain.gateway.CustomerGateway
 import co.zw.nissangtr.pos.domain.gateway.EpcGateway
+import co.zw.nissangtr.pos.domain.model.CatalogPart
+import co.zw.nissangtr.pos.domain.gateway.OfflineSaleGateway
 import co.zw.nissangtr.pos.domain.gateway.SalesGateway
 import co.zw.nissangtr.pos.domain.gateway.CatalogGateway
 import co.zw.nissangtr.pos.domain.gateway.FitmentGateway
@@ -44,6 +46,7 @@ data class PosGateways(
     val customers: CustomerGateway,
     val sales: SalesGateway,
     val epc: EpcGateway,
+    val offline: OfflineSaleGateway = OfflineSaleGateway.None,
 )
 
 /**
@@ -95,8 +98,10 @@ class PosStore(
             is PosEffect.Search -> {
                 searchJob?.cancel()
                 searchJob = scope.launch {
-                    gateways.catalog.search(effect.query, effect.vehicle)
-                        .onOk { apply(PosEvent.SearchLoaded(effect.query, it)) }
+                    // Offline the counter searches the last catalogue snapshot (§10.12).
+                    val result = if (state.value.online) gateways.catalog.search(effect.query, effect.vehicle)
+                    else gateways.offline.searchLocal(effect.query)
+                    result.onOk { apply(PosEvent.SearchLoaded(effect.query, it)) }
                 }
             }
             PosEffect.LoadPopular -> {
@@ -241,6 +246,34 @@ class PosStore(
             }
             is PosSaleEffect.EpcDetail -> launch {
                 gateways.epc.diagram(effect.model, effect.variant, effect.section, effect.diagram).onOk { apply(PosSaleEvent.EpcDetailLoaded(it)) }
+            }
+            is PosSaleEffect.QueueOfflineSale -> launch {
+                when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
+                    is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
+                    is PosResult.Err -> apply(PosSaleEvent.PaymentFailed(r.error))
+                }
+            }
+            is PosSaleEffect.PromoteLocalCart -> cartMutation {
+                // The reducer already released the local cart; rebuild it line by line on the server.
+                val opened = gateways.cart.open(effect.cart.currency)
+                if (opened !is PosResult.Ok) return@cartMutation opened
+                state.value.vehicle?.let { gateways.cart.setVehicle(opened.value.cartId, it).onOk { } }
+                var last: PosResult<CartProjection> = opened
+                for (line in effect.cart.lines) {
+                    val part = CatalogPart(line.stockItemId, line.oemPartNumber, line.name, line.unitPrice, null, line.imageUrl)
+                    last = gateways.cart.addLine(opened.value.cartId, part, line.qty)
+                    if (last is PosResult.Err) break
+                }
+                last
+            }
+            PosSaleEffect.SyncOffline -> launch {
+                when (val r = gateways.offline.sync()) {
+                    is PosResult.Ok -> apply(PosSaleEvent.OfflineStatusLoaded(r.value, afterSync = true))
+                    is PosResult.Err -> apply(PosSaleEvent.OfflineSyncFailed(r.error))
+                }
+            }
+            PosSaleEffect.LoadOfflineStatus -> launch {
+                gateways.offline.status().onOk { apply(PosSaleEvent.OfflineStatusLoaded(it, afterSync = false)) }
             }
             is PosSaleEffect.EpcLoadImage -> launch {
                 // A missing image is not an error: the parts list still sells.

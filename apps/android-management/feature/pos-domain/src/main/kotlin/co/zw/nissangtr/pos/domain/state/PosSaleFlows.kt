@@ -16,6 +16,8 @@ import co.zw.nissangtr.pos.domain.model.GarageVehicle
 import co.zw.nissangtr.pos.domain.model.InvoiceSummary
 import co.zw.nissangtr.pos.domain.model.ManagerCredentials
 import co.zw.nissangtr.pos.domain.model.Money
+import co.zw.nissangtr.pos.domain.model.OfflineQueued
+import co.zw.nissangtr.pos.domain.model.OfflineSyncStatus
 import co.zw.nissangtr.pos.domain.model.ParkedSale
 import co.zw.nissangtr.pos.domain.model.Quotation
 import co.zw.nissangtr.pos.domain.model.QuoteChannel
@@ -67,6 +69,8 @@ sealed interface PosSaleIntent : PosIntent {
     data class EpcAdd(val part: EpcPart) : PosSaleIntent
 
     data class SetHaptics(val enabled: Boolean) : PosSaleIntent
+    /** Replay the offline outbox now (Settings → Offline sales). */
+    data object SyncOffline : PosSaleIntent
 }
 
 // ---------------------------------------------------------------- events
@@ -93,6 +97,9 @@ sealed interface PosSaleEvent : PosEvent {
     data class EpcImageLoaded(val url: String, val bytes: ByteArray?) : PosSaleEvent
     data class EpcResolved(val oemPartNumber: String, val part: CatalogPart?) : PosSaleEvent
     data class PaymentFailed(val error: PosError) : PosSaleEvent
+    data class OfflineSaleQueued(val sale: PosSaleEffect.QueueOfflineSale, val queued: OfflineQueued) : PosSaleEvent
+    data class OfflineStatusLoaded(val status: OfflineSyncStatus, val afterSync: Boolean) : PosSaleEvent
+    data class OfflineSyncFailed(val error: PosError) : PosSaleEvent
 }
 
 // ---------------------------------------------------------------- effects
@@ -127,6 +134,18 @@ sealed interface PosSaleEffect : PosEffect {
     data class EpcDetail(val model: VehicleModel, val variant: EpcVariant, val section: EpcSection, val diagram: EpcDiagram) : PosSaleEffect
     data class EpcLoadImage(val url: String) : PosSaleEffect
     data class EpcResolve(val oemPartNumber: String) : PosSaleEffect
+    data class QueueOfflineSale(
+        val cart: CartProjection,
+        val tenders: List<TenderLine>,
+        val cashGiven: Money?,
+        val contacts: ReceiptContacts,
+        val vehicle: VehicleSelection?,
+        val operatorName: String?,
+    ) : PosSaleEffect
+    /** Move an unpaid local cart onto a new server cart once the connection is back. */
+    data class PromoteLocalCart(val cart: CartProjection) : PosSaleEffect
+    data object SyncOffline : PosSaleEffect
+    data object LoadOfflineStatus : PosSaleEffect
 }
 
 // ---------------------------------------------------------------- reducer
@@ -137,10 +156,24 @@ private fun failure(e: PosError) = PosFeedback.Failure(e)
 /** Money that the sale must settle: the server cart total, never a till calculation. */
 private fun PosState.balance(): Money = cart.total
 
-internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction = when (intent) {
+internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction =
+    if (state.online) reduceSaleIntentAny(state, intent) else offlineGuard(state, intent) ?: reduceSaleIntentAny(state, intent)
+
+/** Offline restricted mode (§10.12): what needs a live connection is refused with its reason up front. */
+private fun offlineGuard(state: PosState, intent: PosSaleIntent): Reduction? = when (intent) {
+    is PosSaleIntent.RequestApproval, is PosSaleIntent.SubmitApproval -> offlineRefusal(state, "manager_approval")
+    is PosSaleIntent.SelectCustomer, is PosSaleIntent.CreateCustomer -> offlineRefusal(state, "walk_in_only")
+    PosSaleIntent.Park, is PosSaleIntent.Resume, is PosSaleIntent.CreateQuotation,
+    is PosSaleIntent.SendQuotation, is PosSaleIntent.ConvertQuotation, PosSaleIntent.LoadOrders,
+    is PosSaleIntent.LoadInvoices, is PosSaleIntent.RequestEcoCash, PosSaleIntent.SyncOffline -> offlineRefusal(state, "online_only")
+    else -> null
+}
+
+private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reduction = when (intent) {
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
-        !state.online -> Reduction(state.copy(feedback = failure(PosError.OfflineRestricted(setOf("checkout")))))
+        !state.online && !state.cart.isLocal -> offlineRefusal(state, "server_cart")
+        !state.online && state.customer != null -> offlineRefusal(state, "walk_in_only")
         else -> Reduction(state.copy(paymentOpen = true, ecoCashReference = null))
     }
 
@@ -156,6 +189,21 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
                 Reduction(state.copy(feedback = failure(PosError.BusinessRule("tenders_unbalanced", ""))))
             intent.tenders.any { it.tender != Tender.Cash } && !state.online ->
                 Reduction(state.copy(feedback = failure(PosError.OfflineRestricted(setOf("non_cash")))))
+            state.cart.isLocal && state.online -> offlineRefusal(state, "local_cart_online")
+            state.cart.isLocal -> Reduction(
+                state.copy(paying = true, feedback = null),
+                listOf(
+                    PosSaleEffect.QueueOfflineSale(
+                        cart = state.cart,
+                        tenders = intent.tenders,
+                        cashGiven = intent.cashGiven,
+                        contacts = intent.contacts,
+                        vehicle = state.vehicle,
+                        operatorName = state.operator?.displayName,
+                    ),
+                ),
+            )
+            !state.online -> offlineRefusal(state, "server_cart")
             else -> Reduction(
                 state.copy(paying = true, feedback = null),
                 listOf(
@@ -204,13 +252,13 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
         state.copy(customer = intent.customer, garage = emptyList(), garagePrompt = false),
         listOfNotNull(
             PosSaleEffect.LoadGarage(intent.customer.id),
-            state.cart.cartId.takeIf { it.isNotEmpty() }?.let { PosSaleEffect.AttachCustomer(it, intent.customer.id) },
+            state.cart.serverCartId?.let { PosSaleEffect.AttachCustomer(it, intent.customer.id) },
         ),
     )
 
     PosSaleIntent.ClearCustomer -> Reduction(
         state.copy(customer = null, garage = emptyList(), garagePrompt = false),
-        listOfNotNull(state.cart.cartId.takeIf { it.isNotEmpty() }?.let { PosSaleEffect.AttachCustomer(it, null) }),
+        listOfNotNull(state.cart.serverCartId?.let { PosSaleEffect.AttachCustomer(it, null) }),
     )
 
     is PosSaleIntent.CreateCustomer -> validateDraft(state, intent.draft)
@@ -233,7 +281,7 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
             )
             Reduction(
                 base.copy(cascade = cascade, vehicle = selection),
-                listOfNotNull(state.cart.cartId.takeIf { it.isNotEmpty() }?.let { PosEffect.SetCartVehicle(it, selection) }),
+                listOfNotNull(state.cart.serverCartId?.let { PosEffect.SetCartVehicle(it, selection) }),
             )
         }
     }
@@ -352,6 +400,9 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
     )
 
     is PosSaleIntent.SetHaptics -> Reduction(state.copy(hapticsEnabled = intent.enabled))
+
+    PosSaleIntent.SyncOffline -> if (state.offlineSyncing) Reduction(state)
+    else Reduction(state.copy(offlineSyncing = true), listOf(PosSaleEffect.SyncOffline))
 }
 
 private fun validateDraft(state: PosState, draft: CustomerDraft): Reduction? = when {
@@ -396,6 +447,26 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     )
 
     is PosSaleEvent.PaymentFailed -> Reduction(state.copy(paying = false, feedback = failure(event.error)))
+
+    is PosSaleEvent.OfflineSaleQueued -> Reduction(
+        state.copy(
+            paying = false,
+            receipt = offlineReceipt(event.sale, event.queued),
+            cart = CartProjection.empty(state.currency),
+            offlineQueue = event.queued.status,
+            feedback = notice(PosNotice.OfflineSaleQueued),
+        ),
+    )
+
+    is PosSaleEvent.OfflineStatusLoaded -> Reduction(
+        state.copy(
+            offlineQueue = event.status,
+            offlineSyncing = false,
+            feedback = if (event.afterSync && event.status.synced > 0) notice(PosNotice.OfflineSynced) else state.feedback,
+        ),
+    )
+
+    is PosSaleEvent.OfflineSyncFailed -> Reduction(state.copy(offlineSyncing = false, feedback = failure(event.error)))
 
     is PosSaleEvent.EcoCashSent -> Reduction(state.copy(ecoCashReference = event.reference, feedback = notice(PosNotice.EcoCashSent)))
 

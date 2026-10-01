@@ -15,6 +15,12 @@ import co.zw.nissangtr.pos.domain.model.PopularPin
 import co.zw.nissangtr.pos.domain.model.VehicleGeneration
 import co.zw.nissangtr.pos.domain.model.VehicleModel
 import co.zw.nissangtr.pos.domain.model.VehicleSelection
+import co.zw.nissangtr.pos.domain.gateway.OfflineSaleGateway
+import co.zw.nissangtr.pos.domain.model.OfflineQueued
+import co.zw.nissangtr.pos.domain.model.OfflineSyncStatus
+import co.zw.nissangtr.pos.domain.model.ReceiptContacts
+import co.zw.nissangtr.pos.domain.model.Tender
+import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.result.PosResult
 import co.zw.nissangtr.pos.domain.state.PosFeedback
 import co.zw.nissangtr.pos.domain.state.PosIntent
@@ -66,7 +72,23 @@ class PosStoreTest {
         override suspend fun unhideBestSeller(stockItemId: String): PosResult<Unit> = PosResult.Ok(Unit)
     }
 
-    private fun gateways(cart: CartGateway = FakeCart(), pins: PinGateway = FakePins()) = PosGateways(
+    private class FakeOutbox : OfflineSaleGateway {
+        val queued = mutableListOf<CartProjection>()
+        var syncs = 0
+        override suspend fun searchLocal(query: String) =
+            PosResult.Ok(PosFixtures.bestSellers.filter { it.name.contains(query, ignoreCase = true) })
+        override suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts): PosResult<OfflineQueued> {
+            queued += cart
+            return PosResult.Ok(OfflineQueued("c0ffee00-1111", "2026-10-01T10:00", OfflineSyncStatus(queued.size, 0)))
+        }
+        override suspend fun sync(): PosResult<OfflineSyncStatus> {
+            syncs++
+            return PosResult.Ok(OfflineSyncStatus(0, 0, synced = queued.size))
+        }
+        override suspend fun status() = PosResult.Ok(OfflineSyncStatus(queued.size, 0))
+    }
+
+    private fun gateways(cart: CartGateway = FakeCart(), pins: PinGateway = FakePins(), outbox: OfflineSaleGateway = OfflineSaleGateway.None) = PosGateways(
         session = object : SessionGateway {
             override suspend fun operator() = PosResult.Ok(Operator("Tendai Moyo", "Sales"))
         },
@@ -86,6 +108,7 @@ class PosStoreTest {
         customers = FakeSaleGateways.customers,
         sales = FakeSaleGateways.sales,
         epc = FakeSaleGateways.epc,
+        offline = outbox,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -199,5 +222,35 @@ class PosStoreTest {
         s.dispatch(PosSaleIntent.EpcAdd(epc.detail!!.parts.first()))
         advanceUntilIdle()
         assertEquals("D1060-JF00A", s.state.value.cart.lines.single().oemPartNumber)
+    }
+
+    @Test
+    fun `offline - search the snapshot, sell for cash, then reconnect moves the next cart to the server and syncs`() = runTest {
+        val cart = FakeCart()
+        val outbox = FakeOutbox()
+        val s = store(gateways(cart = cart, outbox = outbox))
+        s.dispatch(PosIntent.ConnectivityChanged(false))
+        s.dispatch(PosIntent.SearchFor("oil"))
+        advanceUntilIdle()
+        val oil = s.state.value.searchResults!!.single()
+        s.dispatch(PosIntent.AddPart(oil))
+        s.dispatch(PosSaleIntent.OpenPayment)
+        s.dispatch(PosSaleIntent.Checkout(listOf(TenderLine(Tender.Cash, oil.price!!)), null, ReceiptContacts(null, null)))
+        advanceUntilIdle()
+        assertEquals(0, cart.opened)
+        assertEquals(1, outbox.queued.size)
+        assertTrue(s.state.value.receipt!!.offline)
+        assertEquals(1, s.state.value.offlineQueue.pending)
+
+        // An unpaid local cart when the connection returns: rebuilt on the server, outbox drained.
+        s.dispatch(PosSaleIntent.NewSale)
+        s.dispatch(PosIntent.AddPart(oil))
+        s.dispatch(PosIntent.ConnectivityChanged(true))
+        advanceUntilIdle()
+        assertEquals(1, cart.opened)
+        assertEquals("cart-1", s.state.value.cart.cartId)
+        assertEquals(oil.oemPartNumber, s.state.value.cart.lines.single().oemPartNumber)
+        assertEquals(1, outbox.syncs)
+        assertEquals(0, s.state.value.offlineQueue.pending)
     }
 }

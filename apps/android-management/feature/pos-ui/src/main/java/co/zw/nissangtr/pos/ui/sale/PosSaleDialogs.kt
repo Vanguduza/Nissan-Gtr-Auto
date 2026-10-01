@@ -126,6 +126,10 @@ fun PaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit, onPrint: (List
             PosText(stringResource(R.string.pos_amount_due), type.bodyPrimary, palette.textSecondary, modifier = Modifier.weight(1f))
             PosText(formatMoney(total), type.numericTotal, palette.textPrimary)
         }
+        if (!state.online) {
+            Spacer(Modifier.height(8.dp))
+            PosText(stringResource(R.string.pos_error_offline_cash), type.labelMeta.copy(fontWeight = FontWeight.SemiBold), palette.offline)
+        }
         Spacer(Modifier.height(12.dp))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val narrow = maxWidth < 520.dp
@@ -314,6 +318,7 @@ fun receiptLines(r: Receipt): List<ReceiptLine> {
     val customer = r.customerName?.let { stringResource(R.string.pos_receipt_customer, it) }
     val vehicle = r.vehicleLabel?.let { stringResource(R.string.pos_receipt_vehicle, it) }
     val thanks = stringResource(R.string.pos_receipt_thanks)
+    val offline = stringResource(R.string.pos_receipt_offline)
     val tenderNames = Tender.entries.associateWith { tenderLabel(it) }
     return buildList {
         add(ReceiptLine(brand, strong = true))
@@ -337,6 +342,7 @@ fun receiptLines(r: Receipt): List<ReceiptLine> {
         r.cashGiven?.let { add(ReceiptLine(cashGiven, formatMoney(it))) }
         r.change?.let { add(ReceiptLine(change, formatMoney(it), strong = true)) }
         add(ReceiptLine(""))
+        if (r.offline) add(ReceiptLine(offline, strong = true))
         add(ReceiptLine(thanks))
     }
 }

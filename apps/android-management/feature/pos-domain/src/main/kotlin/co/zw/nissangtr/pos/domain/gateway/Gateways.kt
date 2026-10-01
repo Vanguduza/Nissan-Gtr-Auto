@@ -1,5 +1,8 @@
 package co.zw.nissangtr.pos.domain.gateway
 
+import co.zw.nissangtr.pos.domain.error.PosError
+import co.zw.nissangtr.pos.domain.model.OfflineSyncStatus
+import co.zw.nissangtr.pos.domain.model.OfflineQueued
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.CartProjection
 import co.zw.nissangtr.pos.domain.model.Customer
@@ -111,4 +114,26 @@ interface EpcGateway {
 
     /** Diagram image bytes (public Storage object); decoded on the UI side. */
     suspend fun image(url: String): PosResult<ByteArray>
+}
+
+/**
+ * Encrypted offline outbox (Blueprint §10.12): cash, walk-in sales queued under a client id and
+ * replayed idempotently; refusals come back as conflicts for review, never as invented ledger rows.
+ */
+interface OfflineSaleGateway {
+    /** Search the last catalogue snapshot (prices and stock as of the last sync). */
+    suspend fun searchLocal(query: String): PosResult<List<CatalogPart>>
+    suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts): PosResult<OfflineQueued>
+    /** Replay the outbox and refresh the snapshot; call only while online. */
+    suspend fun sync(): PosResult<OfflineSyncStatus>
+    suspend fun status(): PosResult<OfflineSyncStatus>
+
+    /** No outbox on this device (tests, previews): offline selling stays unavailable. */
+    object None : OfflineSaleGateway {
+        private val refused = PosResult.Err(PosError.OfflineRestricted(setOf("no_outbox")))
+        override suspend fun searchLocal(query: String) = refused
+        override suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts) = refused
+        override suspend fun sync(): PosResult<OfflineSyncStatus> = PosResult.Ok(OfflineSyncStatus(0, 0))
+        override suspend fun status(): PosResult<OfflineSyncStatus> = PosResult.Ok(OfflineSyncStatus(0, 0))
+    }
 }
