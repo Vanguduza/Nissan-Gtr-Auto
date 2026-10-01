@@ -353,32 +353,20 @@ class SupabaseRpcClient(
         val canonical = parseCatalogSearchResult(raw, mode, q)
         if (mode != CatalogSearchMode.PART || q.length < 2) return canonical
 
-        // Operator POS promises part-name and partial-OEM discovery. The canonical catalog RPC
-        // is fitment-centric, so merge stock-master matches without replacing its authority.
-        val descriptionMatches = client.from("stock_items")
-            .select(Columns.list("id", "base_uom_id", "oem_part_number", "description")) {
-                filter { ilike("description", "%$q%") }
-                order("oem_part_number", Order.ASCENDING)
-                limit(30)
-            }
-            .decodeList<StockItemRow>()
-        val oemMatches = client.from("stock_items")
-            .select(Columns.list("id", "base_uom_id", "oem_part_number", "description")) {
-                filter { ilike("oem_part_number", "%$q%") }
-                order("oem_part_number", Order.ASCENDING)
-                limit(30)
-            }
-            .decodeList<StockItemRow>()
-        val stockHits = (descriptionMatches + oemMatches)
-            .distinctBy { it.oemPartNumber }
-            .map { row ->
-                CatalogPartHit(
-                    oemPartNumber = row.oemPartNumber,
-                    description = row.description,
-                )
-            }
+        // Operator POS promises part-name and partial-OEM discovery. The canonical catalog RPC is
+        // fitment-centric, so merge the shop's stock (`search_pos_stock_items`: part number and
+        // every description word, same rule as the web POS) without replacing its authority.
+        val stock = client.postgrest.rpc(
+            RpcNames.SEARCH_POS_STOCK_ITEMS,
+            buildJsonObject {
+                put("p_query", q)
+                put("p_limit", 50)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonObject>()
+        val stockHits = parseCatalogSearchResult(stock, CatalogSearchMode.PART, q).parts
+        val seen = stockHits.map { it.oemPartNumber.trim().uppercase() }.toSet()
         return canonical.copy(
-            parts = (canonical.parts + stockHits).distinctBy { it.oemPartNumber }.take(50),
+            parts = (stockHits + canonical.parts.filterNot { it.oemPartNumber.trim().uppercase() in seen }).take(50),
         )
     }
 

@@ -95,7 +95,11 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
             localAdd(state, intent.part)
         }
         !intent.part.canAdd -> Reduction(
-            state.copy(feedback = PosFeedback.Failure(PosError.BusinessRule("part_not_sellable", intent.part.oemPartNumber))),
+            state.copy(
+                feedback = PosFeedback.Failure(
+                    PosError.BusinessRule(if (intent.part.outOfStock) "out_of_stock" else "part_not_sellable", intent.part.oemPartNumber),
+                ),
+            ),
         )
         else -> Reduction(
             state.copy(cartBusy = state.cartBusy + 1),

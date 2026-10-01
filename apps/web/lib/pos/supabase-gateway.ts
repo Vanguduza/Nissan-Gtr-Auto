@@ -34,8 +34,23 @@ function rpc(client: SupabaseClient, fn: string, args?: Record<string, unknown>)
   return call.call(client, fn, args);
 }
 
+/**
+ * Database refusals are mostly operator-readable (RAISE EXCEPTION texts); the few that are not
+ * (stock-ledger internals, privilege errors) are reworded here so ids never reach the cashier.
+ */
+export function operatorMessage(message: string | null | undefined, fallback: string): string {
+  const m = (message ?? "").trim();
+  if (!m) return fallback;
+  if (/insufficient .*(qty|stock)|short \d/i.test(m)) {
+    return "Not enough stock to complete this sale. Reduce or remove the line that is out of stock.";
+  }
+  if (/permission denied|42501/i.test(m)) return "Your account is not allowed to do this.";
+  if (/offline_price_conflict/i.test(m)) return "The price changed since this sale was rung up. Check the line prices.";
+  return m;
+}
+
 function fail<T>(error: { message: string } | null | undefined, fallback: string): PosResult<T> {
-  return { ok: false, error: error?.message ?? fallback };
+  return { ok: false, error: operatorMessage(error?.message, fallback) };
 }
 
 function asCurrency(value: unknown): PosCurrency {
@@ -320,9 +335,24 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         return { ok: true, data: await partsFromHits(results) };
       }
       if (q.length < 2) return { ok: true, data: [] };
-      const res = await searchPosCatalog(client, "part", q);
-      if (!res.ok) return res;
-      return { ok: true, data: await partsFromHits(res.data) };
+      // The shop's own stock (part number and description words) plus catalogue fitment hits;
+      // a stocked part with no fitment row is only found by the first.
+      const [stock, catalog] = await Promise.all([
+        rpc(client, "search_pos_stock_items", { p_query: q, p_limit: 50 }),
+        searchPosCatalog(client, "part", q),
+      ]);
+      if (stock.error && !catalog.ok) return catalog;
+      const stockHits = ((stock.data as { results?: unknown[] } | null)?.results ?? []) as Array<{
+        oem_part_number: string;
+        description: string | null;
+        category_name?: string | null;
+      }>;
+      const seen = new Set(stockHits.map((h) => h.oem_part_number.trim().toUpperCase()));
+      const merged = [
+        ...stockHits.map((h) => ({ ...h, category_name: h.category_name ?? null })),
+        ...(catalog.ok ? catalog.data : []).filter((h) => !seen.has(h.oem_part_number.trim().toUpperCase())),
+      ];
+      return { ok: true, data: await partsFromHits(merged) };
     },
 
     async listBestSellers() {

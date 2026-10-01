@@ -198,6 +198,10 @@ internal fun classify(e: Exception): PosError {
             PosError.Transient(retryable = true, message = msg)
         "required" in lower && ("role" in lower || "approval" in lower) ->
             PosError.BusinessRule("forbidden", serverMessage(msg))
+        // Stock-ledger internals (batch ids, FIFO shortfalls) are reworded, never shown raw.
+        "insufficient" in lower && ("qty" in lower || "stock" in lower) ->
+            PosError.BusinessRule("insufficient_stock", "")
+        "permission denied" in lower -> PosError.BusinessRule("forbidden", "")
         else -> PosError.BusinessRule("server", serverMessage(msg))
     }
 }

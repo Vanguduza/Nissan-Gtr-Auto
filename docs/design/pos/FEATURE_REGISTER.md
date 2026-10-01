@@ -284,7 +284,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 | WEB-02 | Expanded composition (rail, header, hero, categories, Popular Items, recent searches, Current Sale) at the benchmark ratios | 3, 6 | 3 | partial — home composition built and screenshot at 1536×1024 and 1280×800 with preview data (`docs/design/pos/web/`); real product imagery depends on live data |
 | WEB-03 | Window classes and compact recomposition with the same breakpoints as the tablet | 3.5, 9 | 7 | partial — expanded, medium and compact (sticky sale bar + Pay); the designed phone recomposition (§9) is still PHONE work |
 | WEB-04 | Typed `lib/pos/` gateway per RPC in the parity matrix | 10.2 | 5 | partial — gateway covers every parity-matrix capability (cart, setup, vehicle, pins + hide, customer + garage, manager discount/override/void/refund, checkout + EcoCash, park/resume, quotations, returns, EPC); not yet run against a live database |
-| WEB-05 | Full capability parity per `WEB_POS_PARITY.md` §3 (cart, vehicle, pins, customer and garage, manager gate, quotations, returns, EPC) | 12 | 5–10 | partial — all screens built and exercised end to end on preview data (Playwright 2026-10-01: payment, receipt, discount, quote, park/resume, refund, customer garage, EPC add, pins); not yet run against a live database |
+| WEB-05 | Full capability parity per `WEB_POS_PARITY.md` §3 (cart, vehicle, pins, customer and garage, manager gate, quotations, returns, EPC) | 12 | 5–10 | partial — all screens exercised on preview data; 2026-10-01 live run against the real migrated schema (local Postgres + PostgREST 12, real RLS, staff sign-in through the login page): search → add → cash sale SINV-00002, EPC Navara D40 › Filters › Oil filter with real diagram image and callout at its seeded position → sale SINV-00003, pairing code created and claimed + phone QR scan landed; Realtime, Edge functions and hosted Storage not exercised |
 | WEB-06 | W-001 online-only behaviour with the shared offline status surface | 10.12 | 9 | partial — offline banner; every sale mutation blocked while offline |
 | WEB-07 | W-002 companion pairing + keyboard-wedge scanner; no browser camera | 10.18 | 9 | partial — scanner input into the search field; companion phone pairing screen not rebuilt on web yet |
 | WEB-08 | W-003 browser print of the shared receipt document model (80 mm, A4) | 6.6 | 9 | done (code) — browser print at 80 mm and A4 renders the shared receipt format v1 (same text the tablet prints); screenshots `web-pos-receipt-*` |
@@ -339,3 +339,12 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | TAB-12 | Companion phone pairing on the new shell | 9 | 9 | done (code) — till: Pair phone (cart pane + Settings) shows the 6-digit code with expiry, polls session and cart every 3 s, ends with the sale; phone: Settings → Scan for a till claims the code (same staff account; server refuses cross-rep) and camera scans go to the till's cart via `add_cart_line_from_qr`; lifecycle and phone scan checked on the seeded DB (`supabase/tests/companion_pairing_smoke.sql`); not yet run on two devices |
 | WEB-13 | Companion phone pairing on the web POS: pairing code with expiry, live cart lines and session status over Realtime, end pairing; no browser camera | 9, W-002 | 9 | partial — built and Playwright-checked on preview data; Realtime not yet run against a live project |
 | WEB-14 | Adaptive layout (expanded / medium / compact) and focus dialogs over a blurred, inert page | 3.5, 5.6 | 7 | done (web) — Playwright at 1536×1024, 1280×800, 1024×768, 820×1180, 390×844 |
+
+### 2026-10-01 live-run fixes
+
+| ID | Finding | Fix |
+|---|---|---|
+| LIVE-01 | Web counter search without a vehicle only matched catalogue fitment rows: "oil filter" and even an exact stocked part number returned nothing | `search_pos_stock_items` (migration `20261001120000`): stock by part number and every description word, staff-only; web and tablet merge it with `search_catalog` hits |
+| LIVE-02 | Out-of-stock parts could be added and failed only at checkout | Add disabled / refused with "out of stock" on web and tablet (online and offline) |
+| LIVE-03 | Checkout showed "insufficient FIFO batch qty for item <uuid>" | Stock-ledger and privilege errors reworded for the cashier on both clients |
+

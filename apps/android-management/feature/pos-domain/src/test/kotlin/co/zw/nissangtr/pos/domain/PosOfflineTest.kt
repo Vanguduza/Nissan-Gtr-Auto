@@ -129,4 +129,16 @@ class PosOfflineTest {
         assertEquals(PosNotice.OfflineSynced, (done.feedback as PosFeedback.Notice).notice)
         assertNull(reduce(PosState(), PosSaleEvent.OfflineStatusLoaded(OfflineSyncStatus(0, 0), afterSync = false)).state.feedback)
     }
+
+    @Test
+    fun `a part known to be out of stock is refused before it reaches the cart, online or offline`() {
+        val none = oil.copy(saleableQty = 0.0)
+        val online = reduce(PosState(), PosIntent.AddPart(none))
+        assertTrue(online.effects.isEmpty())
+        assertEquals("out_of_stock", ((online.state.feedback as PosFeedback.Failure).error as PosError.BusinessRule).rule)
+        val off = reduce(offline, PosIntent.AddPart(none)).state
+        assertEquals("out_of_stock", ((off.feedback as PosFeedback.Failure).error as PosError.BusinessRule).rule)
+        // Unknown stock (catalogue-only hit with a price) is still allowed online.
+        assertTrue(reduce(PosState(), PosIntent.AddPart(oil.copy(saleableQty = null))).effects.isNotEmpty())
+    }
 }

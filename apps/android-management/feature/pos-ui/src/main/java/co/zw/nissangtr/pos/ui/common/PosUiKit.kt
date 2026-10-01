@@ -111,6 +111,8 @@ fun errorText(error: PosError): String = when (error) {
         "tenders_unbalanced" -> stringResource(R.string.pos_error_unbalanced)
         "cart_not_empty" -> stringResource(R.string.pos_error_cart_not_empty)
         "offline_stock" -> stringResource(R.string.pos_error_offline_stock, error.detail)
+        "out_of_stock" -> stringResource(R.string.pos_error_out_of_stock, error.detail)
+        "insufficient_stock" -> stringResource(R.string.pos_error_insufficient_stock)
         else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)
     }
     is PosError.PaymentUnknown -> stringResource(R.string.pos_error_payment_unknown)

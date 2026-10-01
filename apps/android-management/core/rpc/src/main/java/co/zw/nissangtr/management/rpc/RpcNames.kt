@@ -74,6 +74,7 @@ object RpcNames {
     const val LIST_POS_RECENT_INVOICES = "list_pos_recent_invoices"
     const val SET_POS_CART_VEHICLE = "set_pos_cart_vehicle"
     const val SEARCH_POS_VEHICLE_SPARES = "search_pos_vehicle_spares"
+    const val SEARCH_POS_STOCK_ITEMS = "search_pos_stock_items"
     const val LIST_POS_CUSTOMERS = "list_pos_customers"
     const val CREATE_POS_CUSTOMER = "create_pos_customer"
     const val UPDATE_POS_CUSTOMER = "update_pos_customer"

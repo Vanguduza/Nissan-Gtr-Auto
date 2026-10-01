@@ -15,7 +15,9 @@ data class CatalogPart(
     /** Normalised OEM number used to match pins, best sellers and cart lines. */
     val oemKey: String get() = oemPartNumber.trim().uppercase()
 
-    val canAdd: Boolean get() = stockItemId != null && price != null
+    /** Known to have none on hand (null = not known, e.g. a catalogue-only hit). */
+    val outOfStock: Boolean get() = saleableQty != null && saleableQty <= 0.0
+    val canAdd: Boolean get() = stockItemId != null && price != null && !outOfStock
 }
 
 /** Discovery category tile. [query] seeds a real catalogue search — never canned results. */

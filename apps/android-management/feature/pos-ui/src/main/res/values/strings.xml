@@ -53,6 +53,8 @@
     <string name="pos_companion_end">End pairing</string>
     <string name="pos_companion_pair_again">Pair again</string>
     <string name="pos_done">Done</string>
+    <string name="pos_error_out_of_stock">%1$s is out of stock. It can be sold once stock is received.</string>
+    <string name="pos_error_insufficient_stock">Not enough stock to complete this sale. Reduce or remove the line that is out of stock.</string>
     <string name="pos_scanner_link_title">Scan for a till</string>
     <string name="pos_scanner_link_hint">Use this device as the scanner for a till\'s open sale.</string>
     <string name="pos_scanner_link_steps">Signed in with the same staff account as the till, enter the code the till shows under Pair phone.</string>

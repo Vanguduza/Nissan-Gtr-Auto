@@ -67,7 +67,8 @@ export function PartCard({
     pressTimer.current = null;
   };
 
-  const actionable = addLabel === "Find" || Boolean(part.price);
+  const outOfStock = part.saleableQty != null && part.saleableQty <= 0;
+  const actionable = addLabel === "Find" || (Boolean(part.price) && !outOfStock);
   return (
     <article
       className={styles.partCard}

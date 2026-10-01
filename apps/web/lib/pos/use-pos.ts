@@ -368,6 +368,10 @@ export function usePos(gateway: PosGateway) {
         setError(`${part.oemPartNumber} has no price — it cannot be sold until it is priced.`);
         return;
       }
+      if (part.saleableQty != null && part.saleableQty <= 0) {
+        setError(`${part.oemPartNumber} is out of stock — it cannot be sold until stock is received.`);
+        return;
+      }
       setBusy(true);
       const c = await ensureCart();
       if (c) {

@@ -43,6 +43,8 @@ internal fun localAdd(state: PosState, part: CatalogPart): Reduction {
     val stockItemId = part.stockItemId
     return when {
         !cart.isEmpty && !cart.isLocal -> offlineRefusal(state, "server_cart")
+        part.outOfStock ->
+            Reduction(state.copy(feedback = PosFeedback.Failure(PosError.BusinessRule("out_of_stock", part.oemPartNumber))))
         price == null || stockItemId == null ->
             Reduction(state.copy(feedback = PosFeedback.Failure(PosError.BusinessRule("part_not_sellable", part.oemPartNumber))))
         !cart.isEmpty && price.currency != cart.currency -> offlineRefusal(state, "currency")
