@@ -73,6 +73,15 @@
     "money": {
       "usd": "#0B6E4F",
       "zig": "#B45309"
+    },
+    "neumorph": {
+      "$comment": "Owner-approved soft-UI treatment (delta D-015, 2026-10-01). Light: cool canvas highlights/shades. Dark: steel rail.",
+      "highlight": "#FFFFFF",
+      "shade": "#D2D7E0",
+      "dark": {
+        "highlight": "#283040",
+        "shade": "#0A0D12"
+      }
     }
   },
   "font": {
@@ -129,10 +138,30 @@
     "staffSm": 6
   },
   "elevation": {
-    "0": { "y": 0, "blur": 0, "spread": 0, "opacity": 0.0 },
-    "1": { "y": 1, "blur": 2, "spread": 0, "opacity": 0.06 },
-    "2": { "y": 2, "blur": 8, "spread": 0, "opacity": 0.08 },
-    "3": { "y": 8, "blur": 24, "spread": 0, "opacity": 0.12 }
+    "0": {
+      "y": 0,
+      "blur": 0,
+      "spread": 0,
+      "opacity": 0.0
+    },
+    "1": {
+      "y": 1,
+      "blur": 2,
+      "spread": 0,
+      "opacity": 0.06
+    },
+    "2": {
+      "y": 2,
+      "blur": 8,
+      "spread": 0,
+      "opacity": 0.08
+    },
+    "3": {
+      "y": 8,
+      "blur": 24,
+      "spread": 0,
+      "opacity": 0.12
+    }
   },
   "motion": {
     "entranceMs": 320,
@@ -143,5 +172,11 @@
     "cream-serif terracotta",
     "broadsheet hairline newspaper layouts",
     "generic Material purple seed"
-  ]
+  ],
+  "neumorph": {
+    "distance": 6,
+    "blur": 16,
+    "distanceSm": 3,
+    "blurSm": 8
+  }
 }

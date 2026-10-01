@@ -52,6 +52,10 @@ object PosTokens {
         val Neutral_dark_borderStrong = Color(0xFF4A5568)
         val Neutral_dark_borderFocus = Color(0xFFE01234)
         val Neutral_dark_scrim = Color(0xFF000000)
+        val Neumorph_highlight = Color(0xFFFFFFFF)
+        val Neumorph_shade = Color(0xFFD2D7E0)
+        val Neumorph_dark_highlight = Color(0xFF283040)
+        val Neumorph_dark_shade = Color(0xFF0A0D12)
     }
 
     object SpaceTokens {

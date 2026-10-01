@@ -1,22 +1,25 @@
 {
   "actor": "claude-code",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "418314a8f93b18bb4a8e",
+  "change_id": "cfe15f7513c937dd84ac",
   "changed_files": [
-    ".github/workflows/ci.yml",
-    "docs/decisions/2026-10-01-pos-owner-decisions.md",
-    "docs/design/pos/FEATURE_REGISTER.md",
-    "docs/design/pos/WEB_POS_PARITY.md",
-    "scripts/design-lint.py"
+    "apps/web/app/(staff)/staff/pos/page.tsx",
+    "apps/web/components/staff-pos-panel.tsx",
+    "apps/web/components/staff-pos-shell.tsx",
+    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/tokens/PosTokens.kt",
+    "packages/ui/brand-tokens.json",
+    "packages/ui/package.json",
+    "packages/ui/scripts/build-tokens.mjs",
+    "packages/ui/src/tokens.css",
+    "packages/ui/src/tokens.ts"
   ],
-  "diff_sha256": "418314a8f93b18bb4a8e905d54da6a2954dbed66b896c424bc0106a996d4c469",
+  "diff_sha256": "cfe15f7513c937dd84acb6bd03275db8ac44156f82a053405f489766acff2cae",
   "domains": [
-    "ci",
-    "documentation",
-    "repository"
+    "repository",
+    "web"
   ],
-  "intent": "web POS parity contract (owner D7)",
-  "recorded_at_utc": "2026-10-01T02:12:34.846277+00:00",
+  "intent": "tokens: neumorph + css flatten fix",
+  "recorded_at_utc": "2026-10-01T02:40:09.869128+00:00",
   "schema_version": 1,
-  "source_parent": "395140f92948c51d310ce3e2515143962f86e6b1"
+  "source_parent": "8e93e9049af6b6b26eafa48bc681923585adee09"
 }

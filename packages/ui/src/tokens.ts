@@ -74,6 +74,15 @@ export const brandTokens = {
     "money": {
       "usd": "#0B6E4F",
       "zig": "#B45309"
+    },
+    "neumorph": {
+      "$comment": "Owner-approved soft-UI treatment (delta D-015, 2026-10-01). Light: cool canvas highlights/shades. Dark: steel rail.",
+      "highlight": "#FFFFFF",
+      "shade": "#D2D7E0",
+      "dark": {
+        "highlight": "#283040",
+        "shade": "#0A0D12"
+      }
     }
   },
   "font": {
@@ -164,7 +173,13 @@ export const brandTokens = {
     "cream-serif terracotta",
     "broadsheet hairline newspaper layouts",
     "generic Material purple seed"
-  ]
+  ],
+  "neumorph": {
+    "distance": 6,
+    "blur": 16,
+    "distanceSm": 3,
+    "blurSm": 8
+  }
 } as const;
 
 export type BrandTokens = typeof brandTokens;

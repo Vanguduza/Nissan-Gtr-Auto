@@ -58,6 +58,18 @@ function generateKotlinTokens() {
     }
   }
 
+  if (tokens.color.neumorph) {
+    for (const [k, v] of Object.entries(tokens.color.neumorph)) {
+      if (typeof v === 'string' && !k.startsWith('$')) {
+        colorLines.push(`        val Neumorph_${k} = Color(${hexToArgbHex(v)})`);
+      } else if (k === 'dark' && v && typeof v === 'object') {
+        for (const [dk, dv] of Object.entries(v)) {
+          colorLines.push(`        val Neumorph_dark_${dk} = Color(${hexToArgbHex(dv)})`);
+        }
+      }
+    }
+  }
+
   const spaceLines = [];
   for (const [k, v] of Object.entries(tokens.space)) {
     if (typeof v === 'number') {
@@ -97,32 +109,63 @@ ${radiusLines.join('\n')}
 }
 
 // 2. Generate CSS Variables
+// Flattens the full colour tree. `dark` sub-objects become a separate dark-scheme block so no
+// object is ever stringified into a variable.
+function flattenColors(node, prefix, light, dark) {
+  for (const [k, v] of Object.entries(node)) {
+    if (k.startsWith('$')) continue;
+    if (k === 'dark' && v && typeof v === 'object') {
+      for (const [dk, dv] of Object.entries(v)) {
+        if (typeof dv === 'string') dark.push(`  --gtr-color-${prefix}-${dk}: ${dv};`);
+      }
+    } else if (v && typeof v === 'object') {
+      flattenColors(v, `${prefix}-${k}`, light, dark);
+    } else if (typeof v === 'string') {
+      light.push(`  --gtr-color-${prefix}-${k}: ${v};`);
+    }
+  }
+}
+
 function generateCssVariables() {
-  const lines = [':root {'];
-  for (const [k, v] of Object.entries(tokens.color.brand)) {
-    lines.push(`  --gtr-color-brand-${k}: ${v};`);
+  const light = [];
+  const dark = [];
+  for (const [group, node] of Object.entries(tokens.color)) {
+    flattenColors(node, group, light, dark);
   }
-  for (const [k, v] of Object.entries(tokens.color.status)) {
-    lines.push(`  --gtr-color-status-${k}: ${v};`);
-  }
-  lines.push(`  --gtr-color-neutral-canvas: ${tokens.color.neutral.canvas};`);
-  lines.push(`  --gtr-color-neutral-surface: ${tokens.color.neutral.surface};`);
-  lines.push(`  --gtr-color-neutral-hero-backdrop: ${tokens.color.neutral.heroBackdrop};`);
-  for (const [k, v] of Object.entries(tokens.color.neutral.ink)) {
-    lines.push(`  --gtr-color-neutral-ink-${k}: ${v};`);
-  }
+  // Legacy alias kept for existing consumers.
+  light.push(`  --gtr-color-neutral-hero-backdrop: ${tokens.color.neutral.heroBackdrop};`);
   for (const [k, v] of Object.entries(tokens.space)) {
     if (typeof v === 'number') {
-      lines.push(`  --gtr-space-${k.replace('_', '-')}: ${v}px;`);
+      light.push(`  --gtr-space-${k.replace('_', '-')}: ${v}px;`);
     }
   }
   for (const [k, v] of Object.entries(tokens.radius)) {
     if (typeof v === 'number') {
-      lines.push(`  --gtr-radius-${k}: ${v}px;`);
+      light.push(`  --gtr-radius-${k}: ${v}px;`);
     }
   }
-  lines.push('}');
-  return lines.join('\n') + '\n';
+  for (const [k, e] of Object.entries(tokens.elevation || {})) {
+    light.push(`  --gtr-elevation-${k}: 0 ${e.y}px ${e.blur}px ${e.spread}px rgba(10, 12, 14, ${e.opacity});`);
+  }
+  if (tokens.neumorph) {
+    const n = tokens.neumorph;
+    const hi = 'var(--gtr-color-neumorph-highlight)';
+    const sh = 'var(--gtr-color-neumorph-shade)';
+    light.push(`  --gtr-neu-raised: ${n.distance}px ${n.distance}px ${n.blur}px ${sh}, -${n.distance}px -${n.distance}px ${n.blur}px ${hi};`);
+    light.push(`  --gtr-neu-raised-sm: ${n.distanceSm}px ${n.distanceSm}px ${n.blurSm}px ${sh}, -${n.distanceSm}px -${n.distanceSm}px ${n.blurSm}px ${hi};`);
+    light.push(`  --gtr-neu-pressed: inset ${n.distanceSm}px ${n.distanceSm}px ${n.blurSm}px ${sh}, inset -${n.distanceSm}px -${n.distanceSm}px ${n.blurSm}px ${hi};`);
+  }
+  for (const [k, v] of Object.entries(tokens.motion || {})) {
+    if (typeof v === 'number') light.push(`  --gtr-motion-${k}: ${v}ms;`);
+  }
+  for (const [k, v] of Object.entries((tokens.font && tokens.font.pos) || {})) {
+    light.push(`  --gtr-font-pos-${k}: "${v}";`);
+  }
+  const out = [':root {', ...light, '}'];
+  if (dark.length) {
+    out.push('', '[data-gtr-scheme="dark"] {', ...dark, '}');
+  }
+  return out.join('\n') + '\n';
 }
 
 // 3. Generate TypeScript constants
