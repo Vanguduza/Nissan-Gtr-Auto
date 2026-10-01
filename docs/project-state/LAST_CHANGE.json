@@ -1,25 +1,17 @@
 {
   "actor": "claude-code",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "cfe15f7513c937dd84ac",
+  "change_id": "d71d0c56f80a61be0b3c",
   "changed_files": [
-    "apps/web/app/(staff)/staff/pos/page.tsx",
-    "apps/web/components/staff-pos-panel.tsx",
-    "apps/web/components/staff-pos-shell.tsx",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/tokens/PosTokens.kt",
-    "packages/ui/brand-tokens.json",
-    "packages/ui/package.json",
-    "packages/ui/scripts/build-tokens.mjs",
-    "packages/ui/src/tokens.css",
-    "packages/ui/src/tokens.ts"
+    "supabase/migrations/20261001100000_pos_popular_hidden_bestsellers.sql",
+    "supabase/tests/pos_hidden_bestsellers_smoke.sql"
   ],
-  "diff_sha256": "cfe15f7513c937dd84acb6bd03275db8ac44156f82a053405f489766acff2cae",
+  "diff_sha256": "d71d0c56f80a61be0b3cdbb4bb3a4b6794d68026e806cf65b653a41dea2dca6e",
   "domains": [
-    "repository",
-    "web"
+    "backend"
   ],
-  "intent": "tokens: neumorph + css flatten fix",
-  "recorded_at_utc": "2026-10-01T02:40:09.869128+00:00",
+  "intent": "backend: hidden best sellers for D1",
+  "recorded_at_utc": "2026-10-01T02:40:10.092431+00:00",
   "schema_version": 1,
-  "source_parent": "8e93e9049af6b6b26eafa48bc681923585adee09"
+  "source_parent": "d15786db1bc0dff6bea625e2115ae3716891c861"
 }
