@@ -9,13 +9,16 @@ import {
   Disc3,
   Droplet,
   Gauge,
+  Pin,
+  Tag,
   ShieldCheck,
   Sparkles,
   Wrench,
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import type { PopularPin } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import { PartCard } from "./PartCard";
 import styles from "./pos.module.css";
@@ -74,14 +77,19 @@ export function PosHome({ pos }: { pos: PosStore }) {
     <>
       <PosHero />
 
-      <div className={styles.categories} role="list" aria-label="Spare categories">
+      <div className={styles.categories} role="group" aria-label="Spare categories">
         {CATEGORIES.map(({ label, query, icon: Icon }) => (
           <button
             key={label}
             type="button"
-            role="listitem"
             className={`${styles.category} ${styles.focusable}`}
+            title="Long-press or right-click to pin to Popular Items"
             onClick={() => void pos.runSearch(query)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              void pos.pinCategory(label, query);
+            }}
+            {...longPress(() => void pos.pinCategory(label, query))}
           >
             <Icon className={styles.categoryIcon} size={30} strokeWidth={1.5} aria-hidden />
             {label}
@@ -121,7 +129,9 @@ export function PosHome({ pos }: { pos: PosStore }) {
                   onRemove={() => void pos.removePopular(item)}
                 />
               ) : (
-                (() => {
+                item.pin.kind !== "part" ? (
+                  <PinCard key={item.key} pin={item.pin} onOpen={() => void pos.activatePin(item.pin)} onRemove={() => void pos.removePopular(item)} />
+                ) : (() => {
                   const live = pos.partForPin(item.pin);
                   return (
                     <PartCard
@@ -203,5 +213,63 @@ export function PosSearchResults({ pos }: { pos: PosStore }) {
         </div>
       )}
     </section>
+  );
+}
+
+/** Long-press fires once and swallows the click that follows release. */
+function longPress(fire: () => void) {
+  let timer: number | null = null;
+  let fired = false;
+  const clear = () => {
+    if (timer) window.clearTimeout(timer);
+    timer = null;
+  };
+  return {
+    onPointerDown: () => {
+      fired = false;
+      timer = window.setTimeout(() => {
+        fired = true;
+        fire();
+      }, 600);
+    },
+    onPointerUp: clear,
+    onPointerLeave: clear,
+    onClickCapture: (e: { preventDefault: () => void; stopPropagation: () => void }) => {
+      if (!fired) return;
+      fired = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+  };
+}
+
+/** Non-part pin (vehicle, category, subcategory): opens the vehicle or the search it stands for. */
+function PinCard({ pin, onOpen, onRemove }: { pin: PopularPin; onOpen: () => void; onRemove: () => void }) {
+  const [menu, setMenu] = useState(false);
+  const Icon = pin.kind === "model" ? Car : Tag;
+  return (
+    <article className={styles.partCard} onContextMenu={(e) => { e.preventDefault(); setMenu(true); }}>
+      <span className={styles.pinTag}>
+        <Pin size={10} aria-hidden /> {pin.kind === "model" ? "Vehicle" : pin.kind === "category" ? "Category" : "Subcategory"}
+      </span>
+      <button type="button" className={`${styles.iconButton} ${styles.cardMenu}`} aria-label={`More actions for ${pin.label}`} onClick={() => setMenu((m) => !m)}>
+        ⋮
+      </button>
+      {menu ? (
+        <div className={styles.menu} role="menu">
+          <button type="button" role="menuitem" className={styles.menuItem} onClick={() => { setMenu(false); onRemove(); }}>
+            Remove from Popular
+          </button>
+        </div>
+      ) : null}
+      <div className={styles.partImage}>
+        <Icon size={34} strokeWidth={1.4} aria-hidden />
+      </div>
+      <div className={styles.partName}>{pin.label}</div>
+      <div className={styles.partOem}>{pin.subtitle ?? ""}</div>
+      <button type="button" className={styles.softButton} onClick={onOpen}>
+        {pin.kind === "model" ? "Shop for this vehicle" : "Show parts"}
+      </button>
+    </article>
   );
 }

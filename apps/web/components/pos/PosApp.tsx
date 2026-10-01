@@ -1,35 +1,17 @@
 "use client";
 
-import { CircleAlert, FlaskConical, WifiOff, X } from "lucide-react";
+import { CircleAlert, CircleCheck, FlaskConical, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useState } from "react";
 import type { PosGateway } from "@/lib/pos/gateway";
-import { usePos, type PosDestination } from "@/lib/pos/use-pos";
+import { usePos, type PosStore } from "@/lib/pos/use-pos";
 import { CurrentSale } from "./CurrentSale";
+import { GarageChooser, ManagerDialog, Modal, PaymentDialog, ReceiptView } from "./PosDialogs";
 import { PosHeader } from "./PosHeader";
 import { PosHome, PosSearchResults } from "./PosHome";
 import { PosRail } from "./PosRail";
+import { CustomerScreen, EpcScreen, OrdersScreen, QuickSaleScreen, ReturnsScreen } from "./PosScreens";
 import styles from "./pos.module.css";
-
-/** Screens not yet rebuilt on web state exactly what is pending — never a fake success. */
-const PENDING: Partial<Record<PosDestination, { title: string; body: string }>> = {
-  quickSale: { title: "Quick Sale", body: "Warehouse, currency and fulfilment setup for the sale is being rebuilt to the approved design." },
-  customer: { title: "Customer", body: "Customer search, create/edit and garage vehicles are being rebuilt to the approved design." },
-  orders: { title: "Orders", body: "Quotations and parked sales are being rebuilt to the approved design." },
-  returns: { title: "Returns", body: "Manager-approved returns through the finance refund pipeline are being rebuilt to the approved design." },
-  epc: { title: "EPC Browse", body: "Maker → model → variant → section → diagram browsing is being rebuilt to the approved design." },
-};
-
-function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
-  return (
-    <div className={styles.modalScrim} role="presentation" onClick={onClose}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <h2 className={styles.panelTitle}>{title}</h2>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function StaffPortalDialog({ gateway, onClose }: { gateway: PosGateway; onClose: () => void }) {
   const router = useRouter();
@@ -53,8 +35,8 @@ function StaffPortalDialog({ gateway, onClose }: { gateway: PosGateway; onClose:
       >
         <p className={styles.muted}>Confirm your password to open management features.</p>
         <input
-          className={`${styles.cascadeSelect} ${styles.focusable}`}
-          style={{ width: "100%", maxWidth: "none", marginTop: 12 }}
+          className={styles.input}
+          style={{ width: "100%", marginTop: 12 }}
           type="password"
           autoComplete="current-password"
           value={password}
@@ -62,9 +44,9 @@ function StaffPortalDialog({ gateway, onClose }: { gateway: PosGateway; onClose:
           aria-label="Password"
           autoFocus
         />
-        {error ? <p className={styles.statusError} role="alert">{error}</p> : null}
-        <div className={styles.modalActions}>
-          <button type="submit" className={styles.pay} style={{ width: "auto", padding: "0 24px", height: 44 }} disabled={busy || !password}>
+        {error ? <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">{error}</p> : null}
+        <div className={styles.rowEnd}>
+          <button type="submit" className={styles.primaryButton} disabled={busy || !password}>
             Continue
           </button>
         </div>
@@ -73,33 +55,100 @@ function StaffPortalDialog({ gateway, onClose }: { gateway: PosGateway; onClose:
   );
 }
 
-export function PosApp({ gateway }: { gateway: PosGateway }) {
-  const pos = usePos(gateway);
-  const [portal, setPortal] = useState(false);
-  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
+function QuoteDialog({ pos, onClose }: { pos: PosStore; onClose: () => void }) {
+  const [validUntil, setValidUntil] = useState(() => new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+  return (
+    <Modal title="Create quotation" onClose={onClose}>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (await pos.quoteCurrent(validUntil || null, notes.trim() || null)) onClose();
+        }}
+      >
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Valid until</span>
+            <input className={styles.input} type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Notes</span>
+            <input className={styles.input} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </label>
+        </div>
+        <div className={styles.rowEnd}>
+          <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className={styles.primaryButton}>
+            Create quotation
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
-  const content = useMemo(() => {
-    if (pos.destination === "home") return <PosHome pos={pos} />;
-    if (pos.destination === "search") return <PosSearchResults pos={pos} />;
-    if (pos.destination === "settings") {
+function Destination({ pos, onPortal, onQuote }: { pos: PosStore; onPortal: () => void; onQuote: () => void }) {
+  switch (pos.destination) {
+    case "home":
+      return <PosHome pos={pos} />;
+    case "search":
+      return <PosSearchResults pos={pos} />;
+    case "quickSale":
+      return <QuickSaleScreen pos={pos} onQuote={onQuote} />;
+    case "customer":
+      return <CustomerScreen pos={pos} />;
+    case "orders":
+      return <OrdersScreen pos={pos} />;
+    case "returns":
+      return <ReturnsScreen pos={pos} />;
+    case "epc":
+      return <EpcScreen pos={pos} />;
+    case "settings":
       return (
         <section className={styles.panel}>
           <h2 className={styles.panelTitle}>Settings</h2>
-          <p className={styles.muted}>Management features open through the Staff portal after you confirm your password.</p>
-          <button type="button" className={styles.softButton} style={{ marginTop: 16, padding: "0 18px" }} onClick={() => setPortal(true)}>
-            Staff portal
-          </button>
+          <div className={styles.list}>
+            <div className={styles.listRow}>
+              <span>
+                <div className={styles.listTitle}>Staff portal</div>
+                <div className={styles.muted}>Management features open after you confirm your password.</div>
+              </span>
+              <button type="button" className={styles.primaryButton} onClick={onPortal}>
+                Open
+              </button>
+            </div>
+            <div className={styles.listRow}>
+              <span>
+                <div className={styles.listTitle}>Scanner</div>
+                <div className={styles.muted}>
+                  USB and Bluetooth barcode scanners type straight into the search field. Camera scanning runs on the counter tablet and the
+                  companion phone, not in the browser.
+                </div>
+              </span>
+            </div>
+            <div className={styles.listRow}>
+              <span>
+                <div className={styles.listTitle}>Receipts</div>
+                <div className={styles.muted}>
+                  Printed from the browser at 80 mm or A4 after each sale. ESC/POS printers and the cash drawer are driven by the counter
+                  tablet.
+                </div>
+              </span>
+            </div>
+          </div>
         </section>
       );
-    }
-    const pending = PENDING[pos.destination];
-    return pending ? (
-      <section className={styles.panel}>
-        <h2 className={styles.panelTitle}>{pending.title}</h2>
-        <p className={styles.muted}>{pending.body}</p>
-      </section>
-    ) : null;
-  }, [pos]);
+  }
+}
+
+export function PosApp({ gateway }: { gateway: PosGateway }) {
+  const pos = usePos(gateway);
+  const [portal, setPortal] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [quoting, setQuoting] = useState(false);
+  const [paper, setPaper] = useState<"80mm" | "A4">("80mm");
 
   return (
     <div className={styles.app}>
@@ -109,7 +158,8 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
         <main className={styles.canvas}>
           {pos.isPreview ? (
             <div className={`${styles.statusBanner} ${styles.statusPreview}`} role="status">
-              <FlaskConical size={16} aria-hidden /> Preview data — development only, not connected to the shop database.
+              <FlaskConical size={16} aria-hidden /> Preview data — development only, not connected to the shop database. Preview manager: “manager” /
+              “preview”.
             </div>
           ) : null}
           {!pos.online ? (
@@ -117,7 +167,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
               <WifiOff size={16} aria-hidden /> Offline — browsing only. Sales resume when the connection returns.
             </div>
           ) : null}
-          {pos.error ? (
+          {pos.error && !pos.managerPrompt && !paying ? (
             <div className={`${styles.statusBanner} ${styles.statusError}`} role="alert">
               <CircleAlert size={16} aria-hidden /> {pos.error}
               <button type="button" className={`${styles.iconButton} ${styles.statusDismiss}`} aria-label="Dismiss" onClick={pos.dismissError}>
@@ -125,30 +175,36 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
               </button>
             </div>
           ) : null}
-          {content}
+          {pos.notice ? (
+            <div className={`${styles.statusBanner} ${styles.statusNotice}`} role="status">
+              <CircleCheck size={16} aria-hidden /> {pos.notice}
+              <button type="button" className={`${styles.iconButton} ${styles.statusDismiss}`} aria-label="Dismiss" onClick={pos.dismissNotice}>
+                <X size={14} aria-hidden />
+              </button>
+            </div>
+          ) : null}
+          <Destination pos={pos} onPortal={() => setPortal(true)} onQuote={() => setQuoting(true)} />
         </main>
         <CurrentSale
           pos={pos}
-          onAddCustomer={() => setNotice(PENDING.customer ?? null)}
-          onPay={() =>
-            setNotice({
-              title: "Payment",
-              body: "Split tender, EcoCash and receipt delivery are being rebuilt to the approved design. No payment has been taken.",
-            })
-          }
+          onAddCustomer={() => pos.setDestination("customer")}
+          onPay={() => {
+            pos.dismissError();
+            setPaying(true);
+          }}
         />
       </div>
-      {portal ? <StaffPortalDialog gateway={gateway} onClose={() => setPortal(false)} /> : null}
-      {notice ? (
-        <Modal title={notice.title} onClose={() => setNotice(null)}>
-          <p className={styles.muted}>{notice.body}</p>
-          <div className={styles.modalActions}>
-            <button type="button" className={styles.softButton} style={{ padding: "0 18px" }} onClick={() => setNotice(null)}>
-              Close
-            </button>
-          </div>
-        </Modal>
+
+      {paying || pos.lastReceipt ? <PaymentDialog pos={pos} onClose={() => setPaying(false)} paper={paper} setPaper={setPaper} /> : null}
+      {pos.lastReceipt ? (
+        <div className={styles.printOnly} aria-hidden>
+          <ReceiptView receipt={pos.lastReceipt} paper={paper} />
+        </div>
       ) : null}
+      <ManagerDialog pos={pos} />
+      <GarageChooser pos={pos} />
+      {quoting ? <QuoteDialog pos={pos} onClose={() => setQuoting(false)} /> : null}
+      {portal ? <StaffPortalDialog gateway={gateway} onClose={() => setPortal(false)} /> : null}
     </div>
   );
 }

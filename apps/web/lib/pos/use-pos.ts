@@ -4,6 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PosGateway } from "@/lib/pos/gateway";
 import { buildPopularRow, pinForPart } from "@/lib/pos/popular";
 import type {
+  CustomerInput,
+  GarageVehicle,
+  ManagerCredentials,
+  PosCustomer,
+  ReceiptContacts,
+  ReceiptDocument,
+  SaleSetup,
+  TenderLine,
+  Warehouse,
   PopularPin,
   PopularRowItem,
   PosCart,
@@ -17,6 +26,13 @@ import type {
 
 const RECENT_KEY = "gtr.pos.recentSearches";
 const RECENT_MAX = 8;
+
+/** Actions that need an approver (`is_pos_approver`): discount, price override, void, refund. */
+export type ManagerPrompt =
+  | { kind: "void" }
+  | { kind: "discount"; percent: number }
+  | { kind: "override"; lineId: string; lineName: string; unitPrice: number }
+  | { kind: "refund"; invoiceId: string; documentNumber: string | null };
 
 export type PosDestination =
   | "home"
@@ -69,7 +85,14 @@ export function usePos(gateway: PosGateway) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   const [cart, setCart] = useState<PosCart | null>(null);
-  const currency: PosCurrency = cart?.currency ?? "USD";
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [setup, setSetup] = useState<SaleSetup>({ warehouseId: null, currency: "USD", fulfillmentMode: "immediate" });
+  const [managerPrompt, setManagerPrompt] = useState<ManagerPrompt | null>(null);
+  const [discount, setDiscount] = useState<{ cartId: string; percent: number; amount: number } | null>(null);
+  const [garageChoices, setGarageChoices] = useState<GarageVehicle[] | null>(null);
+  const [lastReceipt, setLastReceipt] = useState<ReceiptDocument | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const currency: PosCurrency = cart?.currency ?? setup.currency;
   const cartRef = useRef<PosCart | null>(null);
   cartRef.current = cart;
 
@@ -99,6 +122,9 @@ export function usePos(gateway: PosGateway) {
       setPins(report(p) ?? []);
       setBestSellers(report(b) ?? []);
       setHidden(new Set(report(h) ?? []));
+      const w = report(await gateway.listWarehouses()) ?? [];
+      setWarehouses(w);
+      setSetup((cur) => (cur.warehouseId || w.length === 0 ? cur : { ...cur, warehouseId: w[0].id }));
     })();
     return () => {
       window.removeEventListener("online", on);
@@ -257,20 +283,23 @@ export function usePos(gateway: PosGateway) {
   // Current Sale
   const ensureCart = useCallback(async (): Promise<PosCart | null> => {
     if (cartRef.current) return cartRef.current;
-    const opened = report(await gateway.openCart("USD"));
+    const opened = report(await gateway.openCart(setup));
     if (!opened) return null;
     let next = opened;
     if (vehicle) next = report(await gateway.setCartVehicle(opened.id, vehicle)) ?? opened;
     setCart(next);
     return next;
-  }, [gateway, report, vehicle]);
+  }, [gateway, report, vehicle, setup]);
+
+  const guardOnline = useCallback(() => {
+    if (online) return true;
+    setError("Offline — the web POS cannot change a sale until the connection returns.");
+    return false;
+  }, [online]);
 
   const addPart = useCallback(
     async (part: PosPart) => {
-      if (!online) {
-        setError("Offline — the web POS cannot change a sale until the connection returns.");
-        return;
-      }
+      if (!guardOnline()) return;
       if (!part.price) {
         setError(`${part.oemPartNumber} has no price — it cannot be sold until it is priced.`);
         return;
@@ -283,38 +312,273 @@ export function usePos(gateway: PosGateway) {
       }
       setBusy(false);
     },
-    [online, ensureCart, gateway, report],
+    [guardOnline, ensureCart, gateway, report],
   );
 
   const setLineQty = useCallback(
     async (lineId: string, qty: number) => {
       const c = cartRef.current;
-      if (!c || !online) return;
+      if (!c || !guardOnline()) return;
       const next = report(await gateway.setLineQty(c.id, lineId, qty));
       if (next) setCart(next);
     },
-    [gateway, online, report],
+    [gateway, guardOnline, report],
   );
 
   const removeLine = useCallback(
     async (lineId: string) => {
       const c = cartRef.current;
-      if (!c || !online) return;
+      if (!c || !guardOnline()) return;
       const next = report(await gateway.removeLine(c.id, lineId));
       if (next) setCart(next);
     },
-    [gateway, online, report],
+    [gateway, guardOnline, report],
   );
 
-  const clearSale = useCallback(async () => {
+  /** Quick Sale setup applies to the next sale; it is locked once parts are on the sale. */
+  const changeSetup = useCallback(
+    (next: Partial<SaleSetup>) => {
+      const c = cartRef.current;
+      if (c && c.lines.length > 0) {
+        setError("Sale setup is locked once parts are on the sale. Park or finish this sale first.");
+        return;
+      }
+      if (c) setCart(null);
+      setSetup((cur) => ({ ...cur, ...next }));
+    },
+    [],
+  );
+
+  // Manager-gated actions
+  const requestManager = useCallback((prompt: ManagerPrompt) => {
+    if (!guardOnline()) return;
+    setManagerPrompt(prompt);
+  }, [guardOnline]);
+
+  const confirmManager = useCallback(
+    async (manager: ManagerCredentials, notes: string | null): Promise<boolean> => {
+      const prompt = managerPrompt;
+      const c = cartRef.current;
+      if (!prompt) return false;
+      setBusy(true);
+      try {
+        if (prompt.kind === "void") {
+          if (!c) return false;
+          const res = await gateway.voidCart(c.id, manager, notes);
+          if (!res.ok) return Boolean(report(res));
+          setCart(null);
+          setDiscount(null);
+          setNotice("Sale voided with manager approval.");
+        } else if (prompt.kind === "discount") {
+          if (!c) return false;
+          const before = c.lines.reduce((s, l) => s + l.lineTotal, 0);
+          const next = report(await gateway.applyDiscount(c.id, prompt.percent, manager, notes));
+          if (!next) return false;
+          const after = next.lines.reduce((s, l) => s + l.lineTotal, 0);
+          setCart(next);
+          setDiscount({ cartId: next.id, percent: prompt.percent, amount: Math.max(0, before - after) + (discount?.cartId === next.id ? discount.amount : 0) });
+          setNotice(`${prompt.percent}% discount applied with manager approval.`);
+        } else if (prompt.kind === "override") {
+          if (!c) return false;
+          const next = report(await gateway.overrideLinePrice(c.id, prompt.lineId, prompt.unitPrice, manager, notes));
+          if (!next) return false;
+          setCart(next);
+          setNotice(`Price for ${prompt.lineName} overridden with manager approval.`);
+        } else {
+          const refundId = report(await gateway.refundInvoice(prompt.invoiceId, manager, notes));
+          if (!refundId) return false;
+          setNotice(`Refund posted for ${prompt.documentNumber ?? "the sale"} (${refundId}).`);
+        }
+        setManagerPrompt(null);
+        return true;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [managerPrompt, gateway, report, discount],
+  );
+
+  // Customer + garage (0 → manual cascade, 1 → auto-select, many → chooser)
+  const applyVehicle = useCallback(
+    async (v: { modelSlug: string | null; chassisCode: string | null; engineCode: string | null }) => {
+      if (!v.modelSlug || !v.chassisCode) return;
+      setModelSlug(v.modelSlug);
+      const list = report(await gateway.listVariants(v.modelSlug)) ?? [];
+      setVariants(list);
+      setChassisCode(v.chassisCode);
+      const engines = [...new Set(list.filter((x) => x.chassisCode === v.chassisCode).map((x) => x.engineCode).filter(Boolean))];
+      setEngineCode(v.engineCode ?? (engines.length === 1 ? (engines[0] as string) : ""));
+    },
+    [gateway, report],
+  );
+
+  const selectCustomer = useCallback(
+    async (customer: PosCustomer | null) => {
+      if (!guardOnline()) return;
+      const c = await ensureCart();
+      if (!c) return;
+      const next = report(await gateway.setCartCustomer(c.id, customer?.id ?? null));
+      if (!next) return;
+      setCart(next);
+      setGarageChoices(null);
+      if (!customer) return;
+      const garage = report(await gateway.listGarage(customer.id)) ?? [];
+      if (garage.length === 1) {
+        const g = garage[0];
+        await applyVehicle({ modelSlug: g.modelSlug, chassisCode: g.chassisCode, engineCode: g.engine });
+      } else if (garage.length > 1) {
+        setGarageChoices(garage);
+      }
+    },
+    [guardOnline, ensureCart, gateway, report, applyVehicle],
+  );
+
+  const chooseGarageVehicle = useCallback(
+    async (g: GarageVehicle | null) => {
+      setGarageChoices(null);
+      if (g) await applyVehicle({ modelSlug: g.modelSlug, chassisCode: g.chassisCode, engineCode: g.engine });
+    },
+    [applyVehicle],
+  );
+
+  const saveCustomer = useCallback(
+    async (input: CustomerInput, id: string | null): Promise<PosCustomer | null> => {
+      const res = id ? await gateway.updateCustomer(id, input) : await gateway.createCustomer(input);
+      return report(res);
+    },
+    [gateway, report],
+  );
+
+  const addVehicleToGarage = useCallback(async () => {
     const c = cartRef.current;
-    if (!c || !online) return;
-    if (report(await gateway.voidCart(c.id))) setCart(null);
-  }, [gateway, online, report]);
+    if (!c?.customerId || !vehicle) return;
+    if (report(await gateway.saveGarageVehicle(c.customerId, vehicle, false))) {
+      setNotice(`${vehicle.modelName} ${vehicle.chassisCode} saved to ${c.customerName ?? "the customer"}'s garage.`);
+    }
+  }, [gateway, report, vehicle]);
+
+  // Payment
+  const checkout = useCallback(
+    async (tenders: TenderLine[], contacts: ReceiptContacts): Promise<ReceiptDocument | null> => {
+      const c = cartRef.current;
+      if (!c || !guardOnline()) return null;
+      setBusy(true);
+      try {
+        const invoiceId = report(await gateway.checkout(c.id, tenders, contacts));
+        if (!invoiceId) return null;
+        const receipt = report(await gateway.loadReceipt(invoiceId));
+        const doc = receipt ? { ...receipt, tenders: receipt.tenders.length ? receipt.tenders : tenders, operator } : null;
+        setLastReceipt(doc);
+        setCart(null);
+        setDiscount(null);
+        return doc;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [gateway, guardOnline, report, operator],
+  );
+
+  const requestEcocash = useCallback(
+    async (receipt: ReceiptDocument, msisdn: string) => {
+      const id = report(await gateway.requestEcocash(receipt.invoiceId, msisdn, receipt.total, receipt.currency, cartRef.current?.customerId ?? null));
+      if (id) setNotice(`EcoCash request sent to ${msisdn}. The customer approves it with their PIN.`);
+    },
+    [gateway, report],
+  );
+
+  // Orders
+  const parkCurrent = useCallback(async () => {
+    const c = cartRef.current;
+    if (!c || c.lines.length === 0 || !guardOnline()) return;
+    if (report(await gateway.parkCart(c.id))) {
+      setCart(null);
+      setDiscount(null);
+      setNotice("Sale parked. Resume it from Orders.");
+    }
+  }, [gateway, guardOnline, report]);
+
+  const resume = useCallback(
+    async (cartId: string) => {
+      if (cartRef.current && cartRef.current.lines.length > 0) {
+        setError("Park or finish the current sale before resuming another.");
+        return;
+      }
+      const next = report(await gateway.resumeCart(cartId));
+      if (next) {
+        setCart(next);
+        setDestination("home");
+      }
+    },
+    [gateway, report],
+  );
+
+  const quoteCurrent = useCallback(
+    async (validUntil: string | null, notes: string | null) => {
+      const c = cartRef.current;
+      if (!c || c.lines.length === 0) return null;
+      const id = report(await gateway.createQuotation(c.id, validUntil, notes));
+      if (id) setNotice("Quotation created. Send or convert it from Orders.");
+      return id;
+    },
+    [gateway, report],
+  );
+
+  const convertQuote = useCallback(
+    async (quotationId: string) => {
+      if (cartRef.current && cartRef.current.lines.length > 0) {
+        setError("Park or finish the current sale before converting a quotation.");
+        return;
+      }
+      const next = report(await gateway.convertQuotation(quotationId));
+      if (next) {
+        setCart(next);
+        setDestination("home");
+      }
+    },
+    [gateway, report],
+  );
+
+  // Pins beyond parts: vehicle (model) and category, both from anywhere they render (blueprint §7.2)
+  const pinVehicle = useCallback(async () => {
+    if (!vehicle) return;
+    const pin: PopularPin = {
+      kind: "model",
+      key: `${vehicle.modelSlug}|${vehicle.chassisCode}|${vehicle.engineCode}`,
+      label: `${vehicle.modelName} ${vehicle.chassisCode}`,
+      subtitle: vehicle.engineCode,
+      searchQuery: `${vehicle.modelName} ${vehicle.chassisCode}`,
+      oemPartNumber: null,
+      imageUrl: null,
+    };
+    if (report(await gateway.pin(pin))) setPins((cur) => [pin, ...cur.filter((p) => !(p.kind === pin.kind && p.key === pin.key))]);
+  }, [gateway, report, vehicle]);
+
+  const pinCategory = useCallback(
+    async (label: string, query: string, kind: "category" | "subcategory" = "category") => {
+      const pin: PopularPin = { kind, key: label.toLowerCase(), label, subtitle: kind === "category" ? "Category" : "Subcategory", searchQuery: query, oemPartNumber: null, imageUrl: null };
+      if (report(await gateway.pin(pin))) setPins((cur) => [pin, ...cur.filter((p) => !(p.kind === pin.kind && p.key === pin.key))]);
+    },
+    [gateway, report],
+  );
+
+  const activatePin = useCallback(
+    async (pin: PopularPin) => {
+      if (pin.kind === "model") {
+        const [slug, chassis, engine] = pin.key.split("|");
+        await applyVehicle({ modelSlug: slug ?? null, chassisCode: chassis ?? null, engineCode: engine ?? null });
+        return;
+      }
+      await runSearch(pin.searchQuery);
+    },
+    [applyVehicle, runSearch],
+  );
 
   const subtotal = useMemo(() => (cart?.lines ?? []).reduce((sum, l) => sum + l.lineTotal, 0), [cart]);
+  const discountAmount = discount && cart && discount.cartId === cart.id ? discount.amount : 0;
 
   return {
+    gateway,
     isPreview: gateway.isPreview,
     destination,
     setDestination,
@@ -322,6 +586,8 @@ export function usePos(gateway: PosGateway) {
     online,
     error,
     dismissError: () => setError(null),
+    notice,
+    dismissNotice: () => setNotice(null),
     busy,
     // vehicle
     models,
@@ -335,6 +601,7 @@ export function usePos(gateway: PosGateway) {
     selectGeneration,
     selectEngine: setEngineCode,
     clearVehicle,
+    applyVehicle,
     // search
     query,
     setQuery,
@@ -347,15 +614,42 @@ export function usePos(gateway: PosGateway) {
     partForPin,
     isPinned,
     pinPart,
+    pinVehicle,
+    pinCategory,
+    activatePin,
     removePopular,
     // sale
     cart,
     currency,
     subtotal,
+    discountAmount,
     addPart,
     setLineQty,
     removeLine,
-    clearSale,
+    warehouses,
+    setup,
+    changeSetup,
+    // manager
+    managerPrompt,
+    requestManager,
+    cancelManager: () => setManagerPrompt(null),
+    confirmManager,
+    // customer
+    selectCustomer,
+    saveCustomer,
+    garageChoices,
+    chooseGarageVehicle,
+    addVehicleToGarage,
+    // payment
+    checkout,
+    requestEcocash,
+    lastReceipt,
+    clearReceipt: () => setLastReceipt(null),
+    // orders
+    parkCurrent,
+    resume,
+    quoteCurrent,
+    convertQuote,
   };
 }
 

@@ -64,10 +64,113 @@ export type CartLine = {
 
 export type PosCart = {
   id: string;
+  documentNumber: string | null;
+  status: string;
   currency: PosCurrency;
+  warehouseId: string | null;
+  fulfillmentMode: FulfillmentMode;
   lines: CartLine[];
+  customerId: string | null;
   customerName: string | null;
   vehicle: SelectedVehicle | null;
+  /** Every vehicle shopped for in this sale (multi-vehicle context). */
+  vehicles: SelectedVehicle[];
 };
 
 export type PosResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+// ───────── Sale setup (Quick Sale) ─────────
+export type FulfillmentMode = "immediate" | "dispatch";
+export type Warehouse = { id: string; code: string; name: string };
+export type SaleSetup = { warehouseId: string | null; currency: PosCurrency; fulfillmentMode: FulfillmentMode };
+
+// ───────── Customers + garage ─────────
+export type CustomerKind = "individual" | "business";
+export type PosCustomer = {
+  id: string;
+  kind: CustomerKind;
+  displayName: string;
+  businessName: string | null;
+  email: string | null;
+  phoneE164: string | null;
+  whatsappE164: string | null;
+};
+export type CustomerInput = Omit<PosCustomer, "id">;
+export type GarageVehicle = {
+  id: string;
+  modelSlug: string | null;
+  model: string | null;
+  generation: string | null;
+  chassisCode: string | null;
+  engine: string | null;
+  vin: string | null;
+  isPrimary: boolean;
+};
+
+// ───────── Payment + receipt ─────────
+/** `public.payment_tender` values usable at the counter (ContiPay/Paynow are online PSP flows). */
+export type Tender = "cash" | "bank" | "ecocash" | "store_credit";
+export type TenderLine = { tender: Tender; amount: number };
+export type ReceiptContacts = { email: string | null; whatsappE164: string | null; phoneE164: string | null };
+export type ReceiptLine = { name: string; oemPartNumber: string; qty: number; unitPrice: number; lineTotal: number };
+export type ReceiptDocument = {
+  invoiceId: string;
+  documentNumber: string | null;
+  postedAt: string | null;
+  currency: PosCurrency;
+  customerName: string | null;
+  lines: ReceiptLine[];
+  subtotal: number;
+  total: number;
+  amountPaid: number;
+  tenders: TenderLine[];
+  vehicleLabel: string | null;
+  operator: string;
+};
+
+// ───────── Manager approval ─────────
+export type ManagerCredentials = { identifier: string; password: string };
+
+// ───────── Orders + returns ─────────
+export type QuotationStatus = "draft" | "issued" | "sent" | "converted" | "cancelled" | "expired";
+export type Quotation = {
+  id: string;
+  documentNumber: string | null;
+  status: QuotationStatus;
+  validUntil: string | null;
+  sentChannel: string | null;
+  createdAt: string;
+  lineCount: number;
+  total: number;
+  currency: PosCurrency;
+};
+export type ParkedCart = { id: string; documentNumber: string | null; updatedAt: string; lineCount: number; total: number; currency: PosCurrency };
+export type RecentInvoice = {
+  id: string;
+  documentNumber: string | null;
+  customerName: string | null;
+  total: number;
+  currency: PosCurrency;
+  postedAt: string | null;
+  vehicleLabel: string | null;
+};
+
+// ───────── EPC ─────────
+export type EpcSection = { slug: string; name: string; thumbnailUrl: string | null };
+export type EpcDiagramRef = { slug: string; title: string; imageUrl: string | null };
+export type EpcHotspot = { oem: string; pnc: string | null; x: number; y: number; w: number; h: number };
+export type EpcDiagramPart = {
+  oemPartNumber: string;
+  pnc: string | null;
+  name: string;
+  categoryName: string | null;
+  subcategoryName: string | null;
+};
+export type EpcDiagram = {
+  title: string;
+  imageUrl: string | null;
+  width: number | null;
+  height: number | null;
+  hotspots: EpcHotspot[];
+  parts: EpcDiagramPart[];
+};

@@ -1,4 +1,19 @@
 import type {
+  CustomerInput,
+  EpcDiagram,
+  EpcDiagramRef,
+  EpcSection,
+  GarageVehicle,
+  ManagerCredentials,
+  ParkedCart,
+  PosCustomer,
+  Quotation,
+  RecentInvoice,
+  ReceiptContacts,
+  ReceiptDocument,
+  SaleSetup,
+  TenderLine,
+  Warehouse,
   PopularPin,
   PosCart,
   PosCurrency,
@@ -31,13 +46,51 @@ export interface PosGateway {
   unhideBestSeller(stockItemId: string): Promise<PosResult<true>>;
 
   // Current Sale
-  openCart(currency: PosCurrency): Promise<PosResult<PosCart>>;
+  listWarehouses(): Promise<PosResult<Warehouse[]>>;
+  openCart(setup: SaleSetup): Promise<PosResult<PosCart>>;
   loadCart(cartId: string): Promise<PosResult<PosCart>>;
   addPart(cartId: string, part: PosPart, qty: number): Promise<PosResult<PosCart>>;
   setLineQty(cartId: string, lineId: string, qty: number): Promise<PosResult<PosCart>>;
   removeLine(cartId: string, lineId: string): Promise<PosResult<PosCart>>;
   setCartVehicle(cartId: string, vehicle: SelectedVehicle | null): Promise<PosResult<PosCart>>;
-  voidCart(cartId: string): Promise<PosResult<true>>;
+  /** Void needs an approver (`is_pos_approver`) — runs on the manager's isolated session. */
+  voidCart(cartId: string, manager: ManagerCredentials, notes: string | null): Promise<PosResult<true>>;
+
+  // Manager-gated pricing
+  applyDiscount(cartId: string, percent: number, manager: ManagerCredentials, notes: string | null): Promise<PosResult<PosCart>>;
+  overrideLinePrice(cartId: string, lineId: string, unitPrice: number, manager: ManagerCredentials, notes: string | null): Promise<PosResult<PosCart>>;
+
+  // Customers
+  searchCustomers(query: string): Promise<PosResult<PosCustomer[]>>;
+  createCustomer(input: CustomerInput): Promise<PosResult<PosCustomer>>;
+  updateCustomer(id: string, input: CustomerInput): Promise<PosResult<PosCustomer>>;
+  setCartCustomer(cartId: string, customerId: string | null): Promise<PosResult<PosCart>>;
+  listGarage(customerId: string): Promise<PosResult<GarageVehicle[]>>;
+  saveGarageVehicle(customerId: string, vehicle: SelectedVehicle, isPrimary: boolean): Promise<PosResult<true>>;
+
+  // Payment
+  checkout(cartId: string, tenders: TenderLine[], contacts: ReceiptContacts): Promise<PosResult<string>>;
+  loadReceipt(invoiceId: string): Promise<PosResult<ReceiptDocument>>;
+  requestEcocash(invoiceId: string, msisdn: string, amount: number, currency: PosCurrency, customerId: string | null): Promise<PosResult<string>>;
+
+  // Orders
+  parkCart(cartId: string): Promise<PosResult<true>>;
+  listParked(): Promise<PosResult<ParkedCart[]>>;
+  resumeCart(cartId: string): Promise<PosResult<PosCart>>;
+  listQuotations(): Promise<PosResult<Quotation[]>>;
+  createQuotation(cartId: string, validUntil: string | null, notes: string | null): Promise<PosResult<string>>;
+  sendQuotation(quotationId: string, channel: "email" | "sms" | "whatsapp", contact: string | null): Promise<PosResult<true>>;
+  convertQuotation(quotationId: string): Promise<PosResult<PosCart>>;
+
+  // Returns
+  listRecentInvoices(query: string): Promise<PosResult<RecentInvoice[]>>;
+  refundInvoice(invoiceId: string, manager: ManagerCredentials, notes: string | null): Promise<PosResult<string>>;
+
+  // EPC Browse (Nissan only — make is never chosen)
+  listEpcVariants(modelSlug: string): Promise<PosResult<VehicleVariant[]>>;
+  listEpcSections(modelSlug: string, variantSlug: string): Promise<PosResult<EpcSection[]>>;
+  listEpcDiagrams(modelSlug: string, variantSlug: string, sectionSlug: string): Promise<PosResult<EpcDiagramRef[]>>;
+  getEpcDiagram(modelSlug: string, variantSlug: string, sectionSlug: string, diagramSlug: string): Promise<PosResult<EpcDiagram>>;
 
   operatorLabel(): Promise<string>;
   /** Staff portal second login (owner decision D4): re-enter the password before management opens. */

@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, Car, CreditCard, Minus, Plus, Trash2, User, X } from "lucide-react";
+import { ArrowRight, Car, ChevronUp, CreditCard, Minus, Pause, Plus, Trash2, User, X } from "lucide-react";
+import { useState } from "react";
 import { formatMoney } from "@/lib/pos/money";
 import type { PosStore } from "@/lib/pos/use-pos";
 import { PartThumb } from "./PartCard";
@@ -22,16 +23,32 @@ export function CurrentSale({
   const lines = pos.cart?.lines ?? [];
   const currency = pos.currency;
   const locked = !pos.online;
+  const [expanded, setExpanded] = useState(false);
+  const total = pos.subtotal;
+  const otherVehicles = (pos.cart?.vehicles ?? []).filter(
+    (v) => !(pos.vehicle && v.chassisCode === pos.vehicle.chassisCode && v.engineCode === pos.vehicle.engineCode),
+  );
 
   return (
-    <aside className={styles.cart} aria-label="Current sale">
+    <>
+    <div className={styles.compactBar}>
+      <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
+        <ChevronUp size={16} aria-hidden /> {lines.length} item{lines.length === 1 ? "" : "s"}
+      </button>
+      <strong>{formatMoney(total, currency)}</strong>
+      <button type="button" className={styles.primaryButton} disabled={lines.length === 0 || locked} onClick={onPay}>
+        Pay
+      </button>
+    </div>
+    <aside className={`${styles.cart} ${expanded ? "" : styles.cartCollapsed}`} aria-label="Current sale">
       <div className={styles.cartHead}>
         <h2 className={styles.cartTitle}>Current Sale</h2>
         <button
           type="button"
           className={`${styles.textLink} ${styles.clear}`}
           disabled={lines.length === 0 || locked}
-          onClick={() => void pos.clearSale()}
+          title="Voiding a sale needs manager approval"
+          onClick={() => pos.requestManager({ kind: "void" })}
         >
           <Trash2 size={16} aria-hidden /> Clear
         </button>
@@ -51,6 +68,12 @@ export function CurrentSale({
           >
             <X size={14} aria-hidden />
           </button>
+        </div>
+      ) : null}
+
+      {otherVehicles.length > 0 ? (
+        <div className={styles.muted} style={{ marginBottom: 8 }}>
+          Also on this sale: {otherVehicles.map((v) => `${v.modelName} ${v.chassisCode}`).join(", ")}
         </div>
       ) : null}
 
@@ -112,11 +135,11 @@ export function CurrentSale({
       <div className={styles.totals}>
         <div className={styles.totalRow}>
           <span>Subtotal</span>
-          <strong>{formatMoney(pos.subtotal, currency)}</strong>
+          <strong>{formatMoney(pos.subtotal + pos.discountAmount, currency)}</strong>
         </div>
         <div className={styles.totalRow}>
           <span>Discount</span>
-          <span>{formatMoney(0, currency)}</span>
+          <span>{pos.discountAmount > 0 ? `− ${formatMoney(pos.discountAmount, currency)}` : formatMoney(0, currency)}</span>
         </div>
       </div>
       <div className={styles.grandTotal}>
@@ -126,6 +149,12 @@ export function CurrentSale({
       <button type="button" className={styles.pay} disabled={lines.length === 0 || locked} onClick={onPay}>
         <CreditCard size={20} aria-hidden /> Proceed to Payment <ArrowRight size={20} aria-hidden />
       </button>
+      {lines.length > 0 ? (
+        <button type="button" className={styles.textLink} style={{ marginTop: 10 }} onClick={() => void pos.parkCurrent()}>
+          <Pause size={14} aria-hidden /> Park sale
+        </button>
+      ) : null}
     </aside>
+    </>
   );
 }

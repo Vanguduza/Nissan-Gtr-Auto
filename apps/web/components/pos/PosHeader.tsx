@@ -1,6 +1,6 @@
 "use client";
 
-import { ScanBarcode, Search } from "lucide-react";
+import { Pin, ScanBarcode, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
@@ -76,6 +76,17 @@ export function PosHeader({ pos }: { pos: PosStore }) {
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          className={styles.iconButton}
+          style={{ alignSelf: "flex-end" }}
+          disabled={!pos.vehicle}
+          aria-label="Pin this vehicle to Popular Items"
+          title="Pin this vehicle to Popular Items"
+          onClick={() => void pos.pinVehicle()}
+        >
+          <Pin size={16} aria-hidden />
+        </button>
       </div>
 
       <form
