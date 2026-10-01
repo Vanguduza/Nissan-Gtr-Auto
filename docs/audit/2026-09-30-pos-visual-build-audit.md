@@ -71,6 +71,8 @@ model**. Line B needs that capability added to its register; line C does not fit
 
 Both columns cannot be true. Each row needs one owner decision.
 
+**Resolved 2026-10-01:** see `docs/decisions/2026-10-01-pos-owner-decisions.md`. Best sellers plus pins, all removable and addable. Make is never shown. The animated GT-R splash is built from the POS hero image. Management is reached through Settings → Staff portal after a second login.
+
 ### F6 — Smaller drifts in line B
 - The blueprint specifies the **Inter** typeface for the UI; `PosType.kt` uses `FontFamily.Default`
   (Roboto).
@@ -89,7 +91,7 @@ Both columns cannot be true. Each row needs one owner decision.
 
 ## 3. Recommended path
 
-1. **Owner decisions** on the F5 rows and on F4 (confirm: POS = tablet APK, management through
+1. ~~**Owner decisions** on the F5 rows and on F4~~ (done 2026-10-01) (confirm: POS = tablet APK, management through
    Settings → Staff portal). Record them in one decision file and update the delta registry.
 2. **Close or supersede PR #11.** Its dark till contradicts the benchmark.
 3. **Fix F3.** Push the missing ancestor commits, or correct `PROJECT_CANONICAL_STATE.json`.
