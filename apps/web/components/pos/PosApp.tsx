@@ -97,6 +97,54 @@ function HapticsSetting() {
   );
 }
 
+/** Pair the companion scanner phone to this sale: the phone scans, lines land here live. */
+function CompanionDialog({ pos, onClose }: { pos: PosStore; onClose: () => void }) {
+  const c = pos.companion;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const left = c ? Math.max(0, Math.floor((new Date(c.expiresAt).getTime() - now) / 1000)) : 0;
+  const status = !c
+    ? null
+    : c.status === "claimed"
+      ? "Phone connected — scans go straight into this sale."
+      : c.status === "open" && left > 0
+        ? `Waiting for the phone · code expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`
+        : "This code has expired or was ended. Create a new one.";
+  return (
+    <Modal title="Companion phone" onClose={onClose}>
+      <p className={styles.muted}>
+        Open the GTR scanner app on the phone, choose Pair with till, and enter this code. The phone uses its own camera; this
+        browser never opens a camera.
+      </p>
+      {c ? (
+        <>
+          <div className={styles.pairingCode} aria-live="polite">{c.pairingCode}</div>
+          <p className={styles.muted} role="status">{status}</p>
+        </>
+      ) : null}
+      <div className={styles.rowEnd}>
+        {c ? (
+          <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => void pos.unpairCompanion()}>
+            End pairing
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={styles.primaryButton}
+          disabled={!pos.online}
+          onClick={() => void pos.pairCompanion()}
+          autoFocus
+        >
+          {c ? "New code" : "Create pairing code"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function QuoteDialog({ pos, onClose }: { pos: PosStore; onClose: () => void }) {
   const [validUntil, setValidUntil] = useState(() => new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
@@ -131,7 +179,7 @@ function QuoteDialog({ pos, onClose }: { pos: PosStore; onClose: () => void }) {
   );
 }
 
-function Destination({ pos, onPortal, onQuote }: { pos: PosStore; onPortal: () => void; onQuote: () => void }) {
+function Destination({ pos, onPortal, onQuote, onCompanion }: { pos: PosStore; onPortal: () => void; onQuote: () => void; onCompanion: () => void }) {
   switch (pos.destination) {
     case "home":
       return <PosHome pos={pos} />;
@@ -164,6 +212,17 @@ function Destination({ pos, onPortal, onQuote }: { pos: PosStore; onPortal: () =
             <HapticsSetting />
             <div className={styles.listRow}>
               <span>
+                <div className={styles.listTitle}>Companion phone</div>
+                <div className={styles.muted}>
+                  {pos.companion?.status === "claimed" ? "Paired with this sale." : "Pair the scanner phone to add parts to this sale by scanning."}
+                </div>
+              </span>
+              <button type="button" className={styles.primaryButton} onClick={onCompanion}>
+                {pos.companion ? "Manage" : "Pair"}
+              </button>
+            </div>
+            <div className={styles.listRow}>
+              <span>
                 <div className={styles.listTitle}>Scanner</div>
                 <div className={styles.muted}>
                   USB and Bluetooth barcode scanners type straight into the search field. Camera scanning runs on the counter tablet and the
@@ -191,6 +250,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
   const [portal, setPortal] = useState(false);
   const [paying, setPaying] = useState(false);
   const [quoting, setQuoting] = useState(false);
+  const [companionOpen, setCompanionOpen] = useState(false);
   const [paper, setPaper] = useState<"80mm" | "A4">("80mm");
 
   const { windowClass, cartMode } = useWindowClass();
@@ -200,7 +260,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
     <div id="pos-shell" className={styles.app}>
       <PosRail active={pos.destination} onSelect={pos.setDestination} windowClass={windowClass} />
       <div className={styles.main}>
-        <PosHeader pos={pos} windowClass={windowClass} />
+        <PosHeader pos={pos} windowClass={windowClass} onScan={() => setCompanionOpen(true)} />
         <main className={styles.canvas}>
           {pos.isPreview ? (
             <div className={`${styles.statusBanner} ${styles.statusPreview}`} role="status">
@@ -229,7 +289,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
               </button>
             </div>
           ) : null}
-          <Destination pos={pos} onPortal={() => setPortal(true)} onQuote={() => setQuoting(true)} />
+          <Destination pos={pos} onPortal={() => setPortal(true)} onQuote={() => setQuoting(true)} onCompanion={() => setCompanionOpen(true)} />
         </main>
         <CurrentSale
           pos={pos}
@@ -252,6 +312,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
       <ManagerDialog pos={pos} />
       <GarageChooser pos={pos} />
       {quoting ? <QuoteDialog pos={pos} onClose={() => setQuoting(false)} /> : null}
+      {companionOpen ? <CompanionDialog pos={pos} onClose={() => setCompanionOpen(false)} /> : null}
       {portal ? <StaffPortalDialog gateway={gateway} onClose={() => setPortal(false)} /> : null}
       <div id="pos-layers" />
     </div>

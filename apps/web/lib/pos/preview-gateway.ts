@@ -138,6 +138,13 @@ export function createPreviewPosGateway(): PosGateway {
 
     listWarehouses: () => ok([{ id: "wh-main", code: "WH2", name: "Main counter" }, { id: "wh-yard", code: "WH3", name: "Yard store" }]),
     openCart: (setup) => ok(save({ ...emptyCart(), currency: setup.currency, warehouseId: setup.warehouseId ?? "wh-main", fulfillmentMode: setup.fulfillmentMode })),
+    createScanSession: (cartId) => {
+      get(cartId);
+      return ok({ sessionId: `preview-${cartId}`, pairingCode: "482 913", expiresAt: new Date(Date.now() + 10 * 60_000).toISOString() });
+    },
+    revokeScanSession: () => ok(true as const),
+    // Preview has no phone and no realtime; nothing ever changes remotely.
+    watchCompanion: () => () => {},
     loadCart: (id) => ok(get(id)),
     addPart: (cartId, part, qty) => {
       const c = get(cartId);

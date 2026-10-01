@@ -337,3 +337,5 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | TAB-10 | Medium (icon rail, vehicle dialog, sale bar + cart sheet below 900 dp) and Compact (bottom navigation, stacked header, identity-strip hero, sale bar + sheet) | 3.5, 8.4, 9 | 7 | partial — rendered at 1024×768, 800×1280, 412×915, 360×800 |
 | TAB-11 | Offline sale queue on the new shell | 10.x | 8 | todo — new shell blocks checkout offline (cash-only offline queue lives in legacy `PosViewModel`, not yet ported) |
 | TAB-12 | Companion phone pairing on the new shell | 9 | 9 | todo |
+| WEB-13 | Companion phone pairing on the web POS: pairing code with expiry, live cart lines and session status over Realtime, end pairing; no browser camera | 9, W-002 | 9 | partial — built and Playwright-checked on preview data; Realtime not yet run against a live project |
+| WEB-14 | Adaptive layout (expanded / medium / compact) and focus dialogs over a blurred, inert page | 3.5, 5.6 | 7 | done (web) — Playwright at 1536×1024, 1280×800, 1024×768, 820×1180, 390×844 |

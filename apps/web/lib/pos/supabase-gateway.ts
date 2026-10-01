@@ -596,6 +596,32 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       return error ? fail(error, "Could not save the vehicle.") : { ok: true, data: true };
     },
 
+    async createScanSession(cartId) {
+      const { data, error } = await rpc(client, "create_pos_scan_session", { p_cart_id: cartId });
+      const row = (Array.isArray(data) ? data[0] : data) as { session_id: string; pairing_code: string; expires_at: string } | null;
+      if (error || !row) return fail(error, "Could not create a pairing code.");
+      return { ok: true, data: { sessionId: row.session_id, pairingCode: row.pairing_code, expiresAt: row.expires_at } };
+    },
+
+    async revokeScanSession(sessionId) {
+      const { error } = await rpc(client, "revoke_pos_scan_session", { p_session_id: sessionId });
+      return error ? fail(error, "Could not end the pairing.") : { ok: true, data: true };
+    },
+
+    watchCompanion(cartId, sessionId, onCart, onStatus) {
+      const channel = client
+        .channel(`pos-companion-${sessionId}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "pos_cart_lines", filter: `cart_id=eq.${cartId}` }, () => onCart())
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pos_scan_sessions", filter: `id=eq.${sessionId}` }, (payload) => {
+          const status = (payload.new as { status?: string } | null)?.status;
+          if (status) onStatus(status);
+        })
+        .subscribe();
+      return () => {
+        void client.removeChannel(channel);
+      };
+    },
+
     async checkout(cartId, tenders, contacts) {
       const { data, error } = await rpc(client, "checkout_pos_cart_with_tenders", {
         p_cart_id: cartId,

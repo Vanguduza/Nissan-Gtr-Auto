@@ -68,6 +68,12 @@ export interface PosGateway {
   listGarage(customerId: string): Promise<PosResult<GarageVehicle[]>>;
   saveGarageVehicle(customerId: string, vehicle: SelectedVehicle, isPrimary: boolean): Promise<PosResult<true>>;
 
+  // Companion phone (scan sessions; the phone scans with its own camera — never the browser)
+  createScanSession(cartId: string): Promise<PosResult<ScanSession>>;
+  revokeScanSession(sessionId: string): Promise<PosResult<true>>;
+  /** Live updates while a companion is paired: cart lines and session status. Returns unsubscribe. */
+  watchCompanion(cartId: string, sessionId: string, onCart: () => void, onStatus: (status: string) => void): () => void;
+
   // Payment
   checkout(cartId: string, tenders: TenderLine[], contacts: ReceiptContacts): Promise<PosResult<string>>;
   loadReceipt(invoiceId: string): Promise<PosResult<ReceiptDocument>>;
@@ -96,3 +102,5 @@ export interface PosGateway {
   /** Staff portal second login (owner decision D4): re-enter the password before management opens. */
   reauthenticate(password: string): Promise<PosResult<true>>;
 }
+
+export type ScanSession = { sessionId: string; pairingCode: string; expiresAt: string };

@@ -132,7 +132,7 @@ function VehicleButton({ pos, sheet }: { pos: PosStore; sheet: boolean }) {
  * Header: vehicle cascade (zone 1, replaces the taxonomy line — delta D-002; Make never shown —
  * D2), search with scanner input (keyboard-wedge / companion only — web delta W-002), operator, clock.
  */
-export function PosHeader({ pos, windowClass }: { pos: PosStore; windowClass: WindowClass }) {
+export function PosHeader({ pos, windowClass, onScan }: { pos: PosStore; windowClass: WindowClass; onScan: () => void }) {
   const now = useClock();
   return (
     <header className={styles.header}>
@@ -168,10 +168,11 @@ export function PosHeader({ pos, windowClass }: { pos: PosStore; windowClass: Wi
           autoComplete="off"
         />
         <button
-          type="submit"
+          type="button"
           className={styles.iconButton}
-          aria-label="Search (scanner input is typed here)"
-          title="Scan with a USB/Bluetooth scanner into this field, or pair the companion phone in Settings"
+          aria-label="Scan with the companion phone"
+          title="USB and Bluetooth scanners type straight into this field. Tap to pair the companion phone."
+          onClick={onScan}
         >
           <ScanBarcode size={22} strokeWidth={1.75} aria-hidden />
         </button>

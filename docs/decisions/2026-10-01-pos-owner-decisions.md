@@ -170,3 +170,20 @@ Supabase `auth`, `storage` and `cron` schemas, then the seed and the SQL smoke t
 - `PROJECT_CANONICAL_STATE.json` on `chatgpt/pos-reconcile-green-20260907` requires the ancestor
   `1e0a8b764e13…` for `pos-android`. No branch on GitHub contains it, so `assemble*` is blocked
   until it is pushed or the manifest is corrected.
+
+## The "missing" required ancestor `1e0a8b764e13…` (investigated 2026-10-01)
+
+- The commit exists on GitHub (`ci: add POS migration smoke and manual dispatch`, 2026-09-08,
+  12 lines in `.github/workflows/ci.yml`) but is **not reachable from any branch**. Its line of
+  history was rewritten; the canonical branch carries the same work under different commit IDs.
+- By patch content, all but two of the 2,760 commits on that old line are already on
+  `ccr-8c44a0d0-msyynq`, including the CI change itself. Files on the old line that are absent here
+  are the pre-benchmark POS screens deleted on purpose (D6/D7) and one file,
+  `catalog/images/bluetooth_content_share.html`, added by the `auto-sync: 2026-08-09` commit, which
+  **contains what appears to be an Anthropic API key**. That is the likely reason the history was
+  rewritten.
+- Do **not** merge `1e0a8b76` to satisfy the release check: it would bring the key back into this
+  history. The owner should (1) revoke that key in the Anthropic console, (2) ask GitHub Support to
+  purge the unreachable commits, and (3) approve changing `pos-android.required_ancestor` in
+  `PROJECT_CANONICAL_STATE.json` to a commit on the clean lineage (AGENTS rule 9: lineage changes
+  need the owner).

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PosGateway } from "@/lib/pos/gateway";
+import type { PosGateway, ScanSession } from "@/lib/pos/gateway";
 import { haptic } from "@/lib/pos/haptics";
 import { buildPopularRow, pinForPart } from "@/lib/pos/popular";
 import type {
@@ -309,6 +309,52 @@ export function usePos(gateway: PosGateway) {
     return next;
   }, [gateway, report, vehicle, setup]);
 
+  // Companion phone: pair a scanner phone to this sale. The phone scans; lines arrive live.
+  const [companion, setCompanion] = useState<(ScanSession & { status: string }) | null>(null);
+  const companionRef = useRef(companion);
+  companionRef.current = companion;
+
+  const pairCompanion = useCallback(async () => {
+    const open = await ensureCart();
+    if (!open) return;
+    const session = report(await gateway.createScanSession(open.id));
+    if (!session) return;
+    haptic("success");
+    setCompanion({ ...session, status: "open" });
+  }, [ensureCart, gateway, report]);
+
+  const unpairCompanion = useCallback(async () => {
+    const current = companionRef.current;
+    if (!current) return;
+    if (current.status === "open" || current.status === "claimed") await gateway.revokeScanSession(current.sessionId);
+    setCompanion(null);
+  }, [gateway]);
+
+  useEffect(() => {
+    if (!companion || !cart) return;
+    const cartId = cart.id;
+    return gateway.watchCompanion(
+      cartId,
+      companion.sessionId,
+      () => {
+        void gateway.loadCart(cartId).then((r) => {
+          if (r.ok && cartRef.current?.id === cartId) {
+            haptic("tap");
+            setCart(r.data);
+          }
+        });
+      },
+      (status) => setCompanion((c) => (c ? { ...c, status } : c)),
+    );
+    // Re-subscribe only when the paired session or the sale changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateway, companion?.sessionId, cart?.id]);
+
+  // A finished, parked or voided sale ends the pairing.
+  useEffect(() => {
+    if (!cart && companionRef.current) void unpairCompanion();
+  }, [cart, unpairCompanion]);
+
   const guardOnline = useCallback(() => {
     if (online) return true;
     setError("Offline — the web POS cannot change a sale until the connection returns.");
@@ -604,6 +650,9 @@ export function usePos(gateway: PosGateway) {
   return {
     gateway,
     isPreview: gateway.isPreview,
+    companion,
+    pairCompanion,
+    unpairCompanion,
     destination,
     setDestination,
     operator,
