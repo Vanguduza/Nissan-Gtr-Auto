@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Rail (Blueprint §6.1, canonical order; no Reports — D-001) -->
+    <string name="pos_brand_name">Nissan GTR Auto</string>
+    <string name="pos_nav_home">Home</string>
+    <string name="pos_nav_search">Search Spares</string>
+    <string name="pos_nav_quick_sale">Quick Sale</string>
+    <string name="pos_nav_customer">Customer</string>
+    <string name="pos_nav_orders">Orders</string>
+    <string name="pos_nav_returns">Returns</string>
+    <string name="pos_nav_epc">EPC Browse</string>
+    <string name="pos_nav_settings">Settings</string>
+    <string name="pos_brand_statement">BUILT\nFOR A\nHIGHER\nSTANDARD</string>
+
+    <!-- Header (§6.2) and vehicle cascade (§8; Make is never shown — D2) -->
+    <string name="pos_cascade_model">Model</string>
+    <string name="pos_cascade_generation">Generation</string>
+    <string name="pos_cascade_engine">Engine</string>
+    <string name="pos_cascade_select_model">Select model</string>
+    <string name="pos_cascade_pin_vehicle">Pin vehicle to Popular Items</string>
+    <string name="pos_cascade_clear_vehicle">Clear vehicle</string>
+    <string name="pos_search_placeholder">Search by part name, part number, or vehicle model…</string>
+    <string name="pos_search_label">Search spares</string>
+    <string name="pos_scan">Scan barcode</string>
+    <string name="pos_offline">Offline — browsing only</string>
+
+    <!-- Hero (§6.3; copy per D-007) -->
+    <string name="pos_hero_title">Genuine Parts\nReal Performance</string>
+    <string name="pos_hero_sub">Keep your GTR at its best.</string>
+    <string name="pos_hero_badge_genuine">GENUINE\nPARTS</string>
+    <string name="pos_hero_badge_quality">TRUSTED\nQUALITY</string>
+    <string name="pos_hero_badge_performance">PERFORMANCE\nFOCUSED</string>
+
+    <!-- Categories (§6.4) -->
+    <string name="pos_categories">Spare categories</string>
+    <string name="pos_cat_engine">Engine &amp; Drivetrain</string>
+    <string name="pos_cat_brakes">Brakes</string>
+    <string name="pos_cat_suspension">Suspension</string>
+    <string name="pos_cat_body">Body &amp; Exterior</string>
+    <string name="pos_cat_electrical">Electrical</string>
+    <string name="pos_cat_fluids">Fluids &amp; Chemicals</string>
+    <string name="pos_cat_accessories">Accessories</string>
+
+    <!-- Popular Items (§7, D1) -->
+    <string name="pos_popular_title">Popular Items</string>
+    <string name="pos_popular_empty">No best sellers yet. Long-press any part, category or vehicle to pin it here.</string>
+    <string name="pos_scroll_left">Scroll left</string>
+    <string name="pos_scroll_right">Scroll right</string>
+    <string name="pos_pin">Pin to Popular</string>
+    <string name="pos_unpin">Unpin from Popular</string>
+    <string name="pos_remove_popular">Remove from Popular</string>
+    <string name="pos_more_actions">More actions for %1$s</string>
+    <string name="pos_pinned">Pinned</string>
+    <string name="pos_pin_kind_vehicle">Vehicle</string>
+    <string name="pos_pin_kind_category">Category</string>
+    <string name="pos_pin_kind_subcategory">Subcategory</string>
+    <string name="pos_add">Add</string>
+    <string name="pos_find">Find</string>
+    <string name="pos_shop_vehicle">Shop for this vehicle</string>
+    <string name="pos_show_parts">Show parts</string>
+    <string name="pos_needs_price">Needs price</string>
+    <string name="pos_in_stock">%1$s in stock</string>
+    <string name="pos_out_of_stock">Out of stock</string>
+
+    <!-- Recent searches (SHELL-13) -->
+    <string name="pos_recent_title">Recent Searches</string>
+    <string name="pos_clear_all">Clear All</string>
+
+    <!-- Search results -->
+    <string name="pos_search_title">Search Spares</string>
+    <string name="pos_search_for_vehicle">Parts for %1$s</string>
+    <string name="pos_results_count">%1$d results</string>
+    <string name="pos_search_hint">Search by part name, OEM number, PNC or vehicle, or choose a vehicle above.</string>
+    <string name="pos_search_none">No matching parts.</string>
+    <string name="pos_searching">Searching…</string>
+
+    <!-- Cart pane (§6.5) -->
+    <string name="pos_cart_title">Current Sale</string>
+    <string name="pos_cart_clear">Clear</string>
+    <string name="pos_cart_empty">Search, scan, choose a Popular Item or browse EPC to add parts.</string>
+    <string name="pos_add_customer">Add Customer</string>
+    <string name="pos_subtotal">Subtotal</string>
+    <string name="pos_discount">Discount</string>
+    <string name="pos_total">Total</string>
+    <string name="pos_proceed_payment">Proceed to Payment</string>
+    <string name="pos_park_sale">Park sale</string>
+    <string name="pos_qty_increase">Increase quantity</string>
+    <string name="pos_qty_decrease">Decrease quantity</string>
+    <string name="pos_remove_line">Remove %1$s</string>
+
+    <!-- Destinations not yet rebuilt on the tablet -->
+    <string name="pos_destination_pending">%1$s is being rebuilt on the benchmark design. It is available on the web POS meanwhile.</string>
+
+    <!-- Feedback (ARCH-10: every PosError maps to a resource) -->
+    <string name="pos_notice_pinned">Pinned to Popular Items.</string>
+    <string name="pos_notice_unpinned">Removed from Popular Items.</string>
+    <string name="pos_notice_hidden">Best seller removed from Popular Items.</string>
+    <string name="pos_error_transient">Could not reach the shop server. Check the connection and try again.</string>
+    <string name="pos_error_input">Check %1$s and try again.</string>
+    <string name="pos_error_not_sellable">This part has no shop price yet. Ask a manager to price it.</string>
+    <string name="pos_error_rule">The server refused this action.</string>
+    <string name="pos_error_payment_unknown">Payment status unknown. Check before retrying.</string>
+    <string name="pos_error_hardware">%1$s is not available.</string>
+    <string name="pos_error_offline">Not available offline.</string>
+    <string name="pos_dismiss">Dismiss</string>
+</resources>

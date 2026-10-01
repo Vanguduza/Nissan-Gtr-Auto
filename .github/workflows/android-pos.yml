@@ -42,7 +42,7 @@ jobs:
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
       - name: POS unit tests
         working-directory: apps/android-management
-        run: bash ./gradlew :feature:pos:testDebugUnitTest --no-daemon
+        run: bash ./gradlew :feature:pos:testDebugUnitTest :feature:pos-domain:test :feature:pos-ui:testDebugUnitTest --no-daemon
       - name: Build tablet kiosk APK
         working-directory: apps/android-management
         run: bash ./gradlew :app:assembleTabletDebug --no-daemon

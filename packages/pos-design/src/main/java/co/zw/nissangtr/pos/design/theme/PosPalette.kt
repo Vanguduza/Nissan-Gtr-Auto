@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 import co.zw.nissangtr.pos.design.tokens.PosTokens
 
 /**
- * 22-slot semantic palette for Nissan GTR POS (Blueprint §4.1.1, §4.2, §5.11 / SYS-03, SYS-04, SYS-05).
+ * 24-slot semantic palette for Nissan GTR POS (Blueprint §4.1.1, §4.2, §5.11 / SYS-03, SYS-04, SYS-05).
  * Resolves strictly from generated PosTokens — zero raw color literals.
  */
 @Immutable
@@ -32,6 +32,9 @@ data class PosPalette(
     val unknown: Color,
     val offline: Color,
     val scrim: Color,
+    /** Soft-UI light source (top-left) and shade (bottom-right) — owner decision D8. */
+    val neuHighlight: Color,
+    val neuShade: Color,
 ) {
     companion object {
         fun light(): PosPalette = PosPalette(
@@ -57,6 +60,8 @@ data class PosPalette(
             unknown = PosTokens.ColorTokens.Status_unknown,
             offline = PosTokens.ColorTokens.Status_offline,
             scrim = PosTokens.ColorTokens.Neutral_scrim.copy(alpha = 0.32f),
+            neuHighlight = PosTokens.ColorTokens.Neumorph_highlight,
+            neuShade = PosTokens.ColorTokens.Neumorph_shade,
         )
 
         fun dark(): PosPalette = PosPalette(
@@ -82,6 +87,8 @@ data class PosPalette(
             unknown = PosTokens.ColorTokens.Status_dark_unknown,
             offline = PosTokens.ColorTokens.Status_dark_offline,
             scrim = PosTokens.ColorTokens.Neutral_dark_scrim.copy(alpha = 0.60f),
+            neuHighlight = PosTokens.ColorTokens.Neumorph_dark_highlight,
+            neuShade = PosTokens.ColorTokens.Neumorph_dark_shade,
         )
 
         fun resolve(darkTheme: Boolean): PosPalette = if (darkTheme) dark() else light()

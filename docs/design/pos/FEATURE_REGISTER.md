@@ -58,35 +58,35 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| ARCH-01 | Module split `pos-design` / `pos-domain` / `pos-data` / `pos-ui` | 10.1 | 1 | todo |
-| ARCH-02 | Hilt dependency injection | 10.1 | 1 | todo |
-| ARCH-03 | `pos-domain` has zero Android dependency — enforced in CI | 10.1 | 1 | todo |
-| ARCH-04 | Eight typed gateways replacing `RpcClient` | 10.2 | 3 | todo |
-| ARCH-05 | `PosResult`; no exceptions for business outcomes | 10.2 | 3 | todo |
+| ARCH-01 | Module split `pos-design` / `pos-domain` / `pos-data` / `pos-ui` | 10.1 | 1 | done — 2026-10-01: all four modules build in `:app:compileTabletDebugKotlin`; UI in `pos-ui`, pure logic in `pos-domain` |
+| ARCH-02 | Hilt dependency injection | 10.1 | 1 | partial — Hilt plugin applied to `pos-ui`; `PosStore` is constructor-injected with `PosGateways` but no Hilt module binds them yet (Phase 5) |
+| ARCH-03 | `pos-domain` has zero Android dependency — enforced in CI | 10.1 | 1 | done — 2026-10-01: `DomainPurityTest` passes and `:feature:pos-domain:test` now runs in `android-pos.yml` |
+| ARCH-04 | Eight typed gateways replacing `RpcClient` | 10.2 | 3 | partial — Catalog, Fitment, Cart, Pin, Session gateways declared in `pos-domain`; Checkout, Tender, Till, Recovery, Quotation not yet; no `pos-data` implementations yet (Phase 5) |
+| ARCH-05 | `PosResult`; no exceptions for business outcomes | 10.2 | 3 | partial — every new gateway returns `PosResult`; legacy `PosViewModel` still throws |
 | ARCH-06 | Idempotency keys on every money- or stock-moving call | 10.2 | 3 | todo |
-| ARCH-07 | `PosStore` over pure, total reducers | 10.3 | 3 | todo |
-| ARCH-08 | Screen-scoped immutable projections | 10.3 | 3 | todo |
+| ARCH-07 | `PosStore` over pure, total reducers | 10.3 | 3 | partial — `PosStore` over pure `reduce()` covers home: cascade, search, recent, Popular Items (D1), cart add/qty/remove, pins with rollback; 17 JVM reducer tests + 6 store tests. Checkout, customer, quotes, returns not yet |
+| ARCH-08 | Screen-scoped immutable projections | 10.3 | 3 | partial — screens read `PosState` and derived `popularRow`; per-screen projections still to split as destinations land |
 | ARCH-09 | Type-safe navigation, one graph for both form factors | 10.4 | 3 | todo |
-| ARCH-10 | `PosError` taxonomy mapped to string resources | 10.11 | 3 | todo |
+| ARCH-10 | `PosError` taxonomy mapped to string resources | 10.11 | 3 | done — 2026-10-01: every `PosError` case maps to a string resource (`PosUiKit.errorText`); new taxonomy cases must add one |
 
 ## SHELL — Expanded shell
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| SHELL-01 | Nav rail, eight destinations, canonical order, no `Reports` | 6.1, D-001 | 4 | todo |
-| SHELL-02 | Rail active and inactive states | 6.1 | 4 | todo |
-| SHELL-03 | Rail logo lockup | 6.1 | 4 | todo |
-| SHELL-04 | Rail GT-R artwork and brand statement | 6.1 | 4 | todo |
-| SHELL-05 | Header four zones | 6.2 | 4 | todo |
-| SHELL-06 | Search field with scan affordance | 6.2 | 4 | todo |
-| SHELL-07 | Operator identity block | 6.2 | 4 | todo |
-| SHELL-08 | Date and time block | 6.2 | 4 | todo |
-| SHELL-09 | Offline status surface | 6.2, D-005 | 4 | todo |
+| SHELL-01 | Nav rail, eight destinations, canonical order, no `Reports` | 6.1, D-001 | 4 | partial — built in `pos-ui` (eight destinations, canonical order, no Reports; lint DL-07 green); screenshots `docs/design/pos/tablet/2026-10-01-tablet-home-*.png`; §11.1 tolerance gate against the benchmark not yet automated |
+| SHELL-02 | Rail active and inactive states | 6.1 | 4 | partial — brand-red filled active pill, muted inactive; same gate note as SHELL-01 |
+| SHELL-03 | Rail logo lockup | 6.1 | 4 | partial — logo lockup from `brand/logo.png`; same gate note as SHELL-01 |
+| SHELL-04 | Rail GT-R artwork and brand statement | 6.1 | 4 | partial — GT-R artwork flexes to remaining height, brand statement present at 1280×800; same gate note |
+| SHELL-05 | Header four zones | 6.2 | 4 | partial — four zones; header spans canvas + cart as in the benchmark (`PosScaffold` fixed); Medium collapse (§8.4) not yet |
+| SHELL-06 | Search field with scan affordance | 6.2 | 4 | partial — search field with scan affordance; scan routes to the host (bridge wiring in Phase 9) |
+| SHELL-07 | Operator identity block | 6.2 | 4 | partial — operator block from `SessionGateway` |
+| SHELL-08 | Date and time block | 6.2 | 4 | partial — date/time block; host supplies the time |
+| SHELL-09 | Offline status surface | 6.2, D-005 | 4 | partial — offline label in the header when `online=false`; offline outbox wiring not yet |
 | SHELL-10 | Catalogue version and freshness indicator | 10.9 | 5 | todo |
-| SHELL-11 | Hero with collapse to `minDp` and drop at Compact | 6.3, D-009 | 4 | todo |
-| SHELL-12 | Category row, derived count, horizontally scrollable | 6.4 | 4 | todo |
-| SHELL-13 | Recent searches chips with clear | 6.4, D-004 | 4 | todo |
-| SHELL-14 | Adaptive zone law verified at all five reference sizes | 3.3, 3.5 | 4 | todo |
+| SHELL-11 | Hero with collapse to `minDp` and drop at Compact | 6.3, D-009 | 4 | partial — hero follows §3.6 (`clamp(160, available×0.34, 280)`), live text over the text-free crop; drop at Compact not yet |
+| SHELL-12 | Category row, derived count, horizontally scrollable | 6.4 | 4 | partial — category count derived by §3.3 formula (no literal), horizontally scrollable, long-press pins |
+| SHELL-13 | Recent searches chips with clear | 6.4, D-004 | 4 | partial — recent searches chips with Clear All, newest first, bounded |
+| SHELL-14 | Adaptive zone law verified at all five reference sizes | 3.3, 3.5 | 4 | partial — verified at 1280×800, 1536×1024, 1024×768 (light + dark); 800×1280 shows the icon rail but the Medium header/hero (§8.4) is not built; Compact sizes are Phase 7 |
 
 ## DISC — Discovery, search and catalogue browse
 
@@ -105,7 +105,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| FIT-01 | Header cascade — Model → Generation → Engine | 8.1, D-002 | 4 | todo |
+| FIT-01 | Header cascade — Model → Generation → Engine | 8.1, D-002 | 4 | partial — Expanded inline Model → Generation → Engine (no Make, D2), selection resets levels to the right, late responses dropped; Medium popover and Compact sheet not yet |
 | FIT-02 | Maker field when the multi-make catalogue is active | 8.1 | 4 | dropped — owner D2 2026-10-01: Make is never shown (D-013) |
 | FIT-03 | Cascade bound to `vehicle_master` / `search_catalog` | 8.2 | 5 | todo |
 | FIT-04 | Session fitment context — visible, dismissible chip | 8.3 | 5 | todo |
@@ -132,14 +132,14 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| CART-01 | Pane anatomy and order | 6.5 | 4 | todo |
-| CART-02 | Row column grid and deterministic truncation | 5.8, 6.5 | 4 | todo |
-| CART-03 | Unit price, tabular figures | 6.5, D-012 | 4 | todo |
+| CART-01 | Pane anatomy and order | 6.5 | 4 | partial — header · scrolling lines · Add Customer · subtotal/discount · total · Proceed to Payment · Park; only the list scrolls |
+| CART-02 | Row column grid and deterministic truncation | 5.8, 6.5 | 4 | partial — thumbnail · name (≤2 lines) · part number · unit price · remove · stepper |
+| CART-03 | Unit price, tabular figures | 6.5, D-012 | 4 | partial — unit price per row in `numericPrice` (tnum) |
 | CART-04 | Quantity stepper — optimistic, settles, animates on divergence | 5.4 | 6 | todo |
 | CART-05 | Remove line with undo | 5.9 | 6 | todo |
 | CART-06 | Customer association | 6.5, D-008 | 6 | todo |
 | CART-07 | Totals block — right-aligned, backend values, explicit currency | 6.5, D-006 | 6 | todo |
-| CART-08 | Zero-value discount row stays visible | 6.5 | 4 | todo |
+| CART-08 | Zero-value discount row stays visible | 6.5 | 4 | partial — discount row always rendered, US$ 0.00 included |
 | CART-09 | Clear cart behind confirmation naming the verb | 5.9 | 6 | todo |
 | CART-10 | Park and resume sale | 12 | 6 | todo |
 | CART-11 | Locked-for-checkout state; cart not editable when reserved | 10.5 | 8 | todo |
@@ -263,10 +263,10 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| CERT-01 | Roborazzi screenshot harness on the JVM | 11.5 | 1 | todo |
+| CERT-01 | Roborazzi screenshot harness on the JVM | 11.5 | 1 | done — 2026-10-01: Roborazzi on the JVM green (`BaselineScreenshotTest`, `DesignSystemScreenshotTest`, `PosHomeScreenshotTest`); Robolectric runtime fetched via mirror locally |
 | CERT-02 | Macrobenchmark module + Baseline Profile generation | 11.5 | 1 | todo |
 | CERT-03 | Design-lint CI script with every §11.4 rule | 11.4 | 1 | todo |
-| CERT-04 | Five-reference-size test matrix | 11.2 | 1 | todo |
+| CERT-04 | Five-reference-size test matrix | 11.2 | 1 | partial — harness covers all five sizes; home certified at Expanded sizes only (Compact belongs to Phase 7) |
 | CERT-05 | Lossless benchmark export resampled for colour | 11.5 | 1 | todo |
 | CERT-06 | Complete golden surface set, both schemes, both glass treatments | 11.3 | 10 | todo |
 | CERT-07 | Gates V1–V10 all passing | 11.1 | 10 | todo |

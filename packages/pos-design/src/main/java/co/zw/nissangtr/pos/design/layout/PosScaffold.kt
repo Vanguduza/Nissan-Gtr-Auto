@@ -22,6 +22,9 @@ import kotlin.math.max
  * Adaptive layout mathematics and derived item count formulas (Blueprint §3.3 / SYS-14).
  */
 object PosAdaptiveMath {
+    /** Cart pane share of the window width, measured from the benchmark (§3.1). */
+    const val CART_RATIO_VALUE = 0.275f
+
     fun clamp(min: Dp, value: Dp, max: Dp): Dp {
         return value.coerceIn(min, max)
     }
@@ -84,41 +87,39 @@ fun PosScaffold(
                     }
                 }
 
-                // 2. Central Discovery Canvas & Header
+                // 2. Cart pane takes its clamped share of the whole window first (§3.1/§3.3:
+                //    ratio 0.275 → 352 dp at the 1280 dp canonical frame); the canvas absorbs the rest.
                 val remainingForCenterAndCart = availableWidth - geometry.railWidth
                 val actualCartWidth = if (geometry.isCartPersistent && cartPane != null) {
-                    PosAdaptiveMath.clamp(320.dp, remainingForCenterAndCart * 0.28f, 420.dp)
+                    PosAdaptiveMath.clamp(320.dp, availableWidth * PosAdaptiveMath.CART_RATIO_VALUE, 420.dp)
                 } else {
                     0.dp
                 }
                 val canvasWidth = remainingForCenterAndCart - actualCartWidth
 
-                Column(
-                    modifier = Modifier
-                        .width(canvasWidth)
-                        .fillMaxHeight(),
-                ) {
+                // 3. The header spans canvas and cart, as in the benchmark: operator and clock sit
+                //    above the cart pane, and the cart pane starts below the header.
+                Column(modifier = Modifier.width(remainingForCenterAndCart).fillMaxHeight()) {
                     if (header != null) {
                         header()
                     }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                    ) {
-                        content(canvasWidth)
-                    }
-                }
-
-                // 3. Cart Pane
-                if (cartPane != null && actualCartWidth > 0.dp) {
-                    Box(
-                        modifier = Modifier
-                            .width(actualCartWidth)
-                            .fillMaxHeight()
-                            .background(palette.surfacePrimary),
-                    ) {
-                        cartPane()
+                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .width(canvasWidth)
+                                .fillMaxHeight(),
+                        ) {
+                            content(canvasWidth)
+                        }
+                        if (cartPane != null && actualCartWidth > 0.dp) {
+                            Box(
+                                modifier = Modifier
+                                    .width(actualCartWidth)
+                                    .fillMaxHeight(),
+                            ) {
+                                cartPane()
+                            }
+                        }
                     }
                 }
             }
