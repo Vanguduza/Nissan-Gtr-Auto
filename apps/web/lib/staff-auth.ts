@@ -61,20 +61,17 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
     id: "pos",
     label: "POS",
     href: "/staff/pos",
-    defaultTab: "cart",
     roles: ["admin", "warehouse", "sales"],
     children: [
       {
-        href: "/staff/pos?tab=cart",
-        label: "Cart",
-        tab: "cart",
+        href: "/staff/pos",
+        label: "Counter POS",
         exact: true,
         roles: ["admin", "warehouse", "sales"],
       },
       {
-        href: "/staff/pos?tab=prep",
+        href: "/staff/pos/prep",
         label: "Online prep",
-        tab: "prep",
         exact: true,
         roles: ["admin", "warehouse", "sales"],
       },

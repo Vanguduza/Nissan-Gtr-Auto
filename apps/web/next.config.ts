@@ -6,6 +6,12 @@ const extensionAlias = {
   ".mjs": [".mts", ".mjs"],
 } as const;
 
+// The POS preview data source is development-only (lib/pos/preview-gateway.ts). Refuse to build
+// a production bundle with it switched on.
+if (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_POS_PREVIEW === "1") {
+  throw new Error("NEXT_PUBLIC_POS_PREVIEW=1 is not allowed in production builds.");
+}
+
 const nextConfig: NextConfig = {
   transpilePackages: [
     "@gtr/ui",
