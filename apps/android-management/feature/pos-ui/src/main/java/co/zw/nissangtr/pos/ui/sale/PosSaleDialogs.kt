@@ -1,6 +1,8 @@
 package co.zw.nissangtr.pos.ui.sale
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +45,13 @@ import co.zw.nissangtr.pos.domain.model.GarageVehicle
 import co.zw.nissangtr.pos.domain.model.ManagerCredentials
 import co.zw.nissangtr.pos.domain.model.Money
 import co.zw.nissangtr.pos.domain.model.Receipt
+import co.zw.nissangtr.pos.domain.model.thermalLines
+import co.zw.nissangtr.pos.domain.model.receiptRows
+import co.zw.nissangtr.pos.domain.model.THERMAL_COLUMNS
+import co.zw.nissangtr.pos.domain.model.ReceiptRow
+import co.zw.nissangtr.pos.domain.model.ReceiptLabels
+import androidx.compose.ui.platform.LocalContext
+import android.content.res.Resources
 import co.zw.nissangtr.pos.domain.model.ReceiptContacts
 import co.zw.nissangtr.pos.domain.model.ReceiptPaper
 import co.zw.nissangtr.pos.domain.model.Tender
@@ -282,69 +291,58 @@ private fun ReceiptDialog(receipt: Receipt, onPrint: (List<ReceiptLine>, Receipt
 @Composable
 fun ReceiptPreview(receipt: Receipt, paper: ReceiptPaper) {
     val palette = PosTheme.palette
-    val mono = PosTheme.type.monoReference.copy(fontSize = 12.sp, lineHeight = 17.sp, fontFamily = FontFamily.Monospace)
+    val mono = PosTheme.type.monoReference.copy(fontSize = 11.sp, lineHeight = 16.sp, fontFamily = FontFamily.Monospace)
     Column(
         Modifier
-            .widthIn(max = if (paper == ReceiptPaper.Thermal80) 320.dp else 620.dp)
+            // 42 monospace columns at 11 sp plus padding; A4's 80 columns scroll sideways on narrow screens.
+            .widthIn(max = if (paper == ReceiptPaper.Thermal80) 360.dp else 640.dp)
+            .horizontalScroll(rememberScrollState())
             .fillMaxWidth()
             .border(1.dp, palette.borderSubtle, PosTheme.shape.sm)
             .background(palette.surfacePrimary)
             .padding(18.dp),
     ) {
-        receiptLines(receipt).forEach { (left, right, strong) ->
-            Row(Modifier.fillMaxWidth()) {
-                PosText(left, mono.copy(fontWeight = if (strong) FontWeight.Bold else FontWeight.Normal), palette.textPrimary, modifier = Modifier.weight(1f))
-                if (right.isNotEmpty()) PosText(right, mono.copy(fontWeight = if (strong) FontWeight.Bold else FontWeight.Normal), palette.textPrimary, align = TextAlign.End)
+        // Exactly the printed text: 42 columns on 80 mm paper, 80 on A4.
+        val width = if (paper == ReceiptPaper.Thermal80) THERMAL_COLUMNS else A4_COLUMNS
+        receiptLines(receipt).forEach { row ->
+            thermalLines(row.left, row.right, width).forEach { text ->
+                PosText(text, mono.copy(fontWeight = if (row.strong) FontWeight.Bold else FontWeight.Normal), palette.textPrimary, maxLines = 1)
             }
         }
     }
 }
 
-/** One printed row: label left, amount right. Shared by the preview and the printer hand-off. */
-data class ReceiptLine(val left: String, val right: String = "", val strong: Boolean = false)
+/** One printed row: label left, amount right (shared receipt format v1, `ReceiptRow`). */
+typealias ReceiptLine = ReceiptRow
 
-/** Receipt content from string resources (§10.11), identical for preview, ESC/POS and A4. */
+/** Printed labels from string resources (§10.11); `{0}` marks the value, as in the shared spec. */
+fun receiptLabels(res: Resources): ReceiptLabels = ReceiptLabels(
+    brand = res.getString(R.string.pos_receipt_brand),
+    strap = res.getString(R.string.pos_receipt_strap),
+    invoice = res.getString(R.string.pos_receipt_invoice, "{0}"),
+    servedBy = res.getString(R.string.pos_receipt_served_by, "{0}"),
+    customer = res.getString(R.string.pos_receipt_customer, "{0}"),
+    vehicle = res.getString(R.string.pos_receipt_vehicle, "{0}"),
+    subtotal = res.getString(R.string.pos_subtotal),
+    discount = res.getString(R.string.pos_discount),
+    total = res.getString(R.string.pos_receipt_total),
+    cashGiven = res.getString(R.string.pos_cash_given),
+    change = res.getString(R.string.pos_change_due),
+    offline = res.getString(R.string.pos_receipt_offline),
+    thanks = res.getString(R.string.pos_receipt_thanks),
+    tenders = mapOf(
+        Tender.Cash to res.getString(R.string.pos_tender_cash),
+        Tender.Bank to res.getString(R.string.pos_tender_bank),
+        Tender.EcoCash to res.getString(R.string.pos_tender_ecocash),
+        Tender.StoreCredit to res.getString(R.string.pos_tender_store_credit),
+    ),
+)
+
+/** Receipt rows in the shared format, identical for preview, ESC/POS and A4 (and the web POS). */
 @Composable
 fun receiptLines(r: Receipt): List<ReceiptLine> {
-    val subtotal = stringResource(R.string.pos_subtotal)
-    val discount = stringResource(R.string.pos_discount)
-    val total = stringResource(R.string.pos_receipt_total)
-    val cashGiven = stringResource(R.string.pos_cash_given)
-    val change = stringResource(R.string.pos_change_due)
-    val brand = stringResource(R.string.pos_receipt_brand)
-    val strap = stringResource(R.string.pos_receipt_strap)
-    val invoice = stringResource(R.string.pos_receipt_invoice, r.documentNumber ?: r.invoiceId.take(8))
-    val servedBy = r.operatorName?.let { stringResource(R.string.pos_receipt_served_by, it) }
-    val customer = r.customerName?.let { stringResource(R.string.pos_receipt_customer, it) }
-    val vehicle = r.vehicleLabel?.let { stringResource(R.string.pos_receipt_vehicle, it) }
-    val thanks = stringResource(R.string.pos_receipt_thanks)
-    val offline = stringResource(R.string.pos_receipt_offline)
-    val tenderNames = Tender.entries.associateWith { tenderLabel(it) }
-    return buildList {
-        add(ReceiptLine(brand, strong = true))
-        add(ReceiptLine(strap))
-        add(ReceiptLine(""))
-        add(ReceiptLine(invoice, strong = true))
-        add(ReceiptLine(r.issuedAtIso.replace('T', ' ').take(16)))
-        servedBy?.let { add(ReceiptLine(it)) }
-        customer?.let { add(ReceiptLine(it)) }
-        vehicle?.let { add(ReceiptLine(it)) }
-        add(ReceiptLine(""))
-        r.lines.forEach { l ->
-            add(ReceiptLine(l.name))
-            add(ReceiptLine("  ${l.oemPartNumber}  ${formatQty(l.qty)} × ${formatMoney(l.unitPrice)}", formatMoney(l.lineTotal)))
-        }
-        add(ReceiptLine(""))
-        add(ReceiptLine(subtotal, formatMoney(r.subtotal)))
-        add(ReceiptLine(discount, formatMoney(r.discount)))
-        add(ReceiptLine(total, formatMoney(r.total), strong = true))
-        r.tenders.forEach { add(ReceiptLine(tenderNames.getValue(it.tender), formatMoney(it.amount))) }
-        r.cashGiven?.let { add(ReceiptLine(cashGiven, formatMoney(it))) }
-        r.change?.let { add(ReceiptLine(change, formatMoney(it), strong = true)) }
-        add(ReceiptLine(""))
-        if (r.offline) add(ReceiptLine(offline, strong = true))
-        add(ReceiptLine(thanks))
-    }
+    val res = LocalContext.current.resources
+    return remember(r, res) { receiptRows(r, receiptLabels(res)) }
 }
 
 private val ApprovalRequest.titleRes: Int
@@ -425,3 +423,6 @@ fun GarageChooserDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
         }
     }
 }
+
+/** Characters per line on the A4 document printer. */
+const val A4_COLUMNS = 80

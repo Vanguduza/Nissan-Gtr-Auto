@@ -26,6 +26,10 @@ import co.zw.nissangtr.pos.data.RpcSaleGateways
 import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.design.theme.PosWindowClass
 import co.zw.nissangtr.pos.domain.model.ReceiptPaper
+import co.zw.nissangtr.pos.domain.model.THERMAL_COLUMNS
+import co.zw.nissangtr.pos.domain.model.thermalLines
+import co.zw.nissangtr.pos.domain.model.thermalText
+import co.zw.nissangtr.pos.ui.sale.A4_COLUMNS
 import co.zw.nissangtr.pos.domain.state.CompanionIntent
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.ui.home.PosHomeScreen
@@ -36,9 +40,6 @@ import co.zw.nissangtr.pos.ui.store.PosStoreViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
-
-/** Characters per line on the 80 mm ESC/POS printer (Font A). */
-private const val THERMAL_COLUMNS = 42
 
 /**
  * The benchmark POS on the counter tablet (owner decisions D4–D6): the :feature:pos-ui shell bound
@@ -135,18 +136,14 @@ private suspend fun print(
         when (paper) {
             ReceiptPaper.Thermal80 -> {
                 if (!printer.isConnected()) printer.connect()
-                printer.printReceiptLines(lines.map { EscPosReceiptLine(columns(it.left, it.right, THERMAL_COLUMNS), emphasis = it.strong) })
+                printer.printReceiptLines(
+                    lines.flatMap { row -> thermalLines(row.left, row.right, THERMAL_COLUMNS).map { EscPosReceiptLine(it, emphasis = row.strong) } },
+                )
             }
             ReceiptPaper.A4 -> {
                 val doc = documentPrinter ?: error("No document printer on this device.")
-                doc.printTextDocument("Receipt", lines.map { columns(it.left, it.right, 80) })
+                doc.printTextDocument("Receipt", thermalText(lines, A4_COLUMNS))
             }
         }
     }.onFailure { toast("Receipt not printed: ${it.message ?: "printer unavailable"}. The sale is complete; print again from the receipt.") }
-}
-
-private fun columns(left: String, right: String, width: Int): String {
-    if (right.isEmpty()) return left.take(width)
-    val room = (width - right.length - 1).coerceAtLeast(1)
-    return left.take(room).padEnd(room) + " " + right
 }

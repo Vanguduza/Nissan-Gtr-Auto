@@ -167,7 +167,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| RCPT-01 | `ReceiptDocument` model — one model, three renderers | 6.6.1 | 9 | todo |
+| RCPT-01 | `ReceiptDocument` model — one model, three renderers | 6.6.1 | 9 | partial — shared counter-receipt format v1 (`packages/shared/src/pos/receipt.ts`, Kotlin port `ReceiptFormat.kt`) drives web preview/print, tablet preview, ESC/POS 42-col and A4 80-col; conformance fixture `packages/shared/fixtures/pos-receipt/v1.json` checked by node and JVM tests, tablet string resources pinned to its labels; Edge `receipt_pdf` not yet on it |
 | RCPT-02 | `EscPosRenderer` | 6.6.1 | 9 | todo |
 | RCPT-03 | `PreviewRenderer` | 6.6.3 | 9 | todo |
 | RCPT-04 | `PdfRenderer` with share and email | 6.6.1 | 9 | todo |
@@ -287,7 +287,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 | WEB-05 | Full capability parity per `WEB_POS_PARITY.md` §3 (cart, vehicle, pins, customer and garage, manager gate, quotations, returns, EPC) | 12 | 5–10 | partial — all screens built and exercised end to end on preview data (Playwright 2026-10-01: payment, receipt, discount, quote, park/resume, refund, customer garage, EPC add, pins); not yet run against a live database |
 | WEB-06 | W-001 online-only behaviour with the shared offline status surface | 10.12 | 9 | partial — offline banner; every sale mutation blocked while offline |
 | WEB-07 | W-002 companion pairing + keyboard-wedge scanner; no browser camera | 10.18 | 9 | partial — scanner input into the search field; companion phone pairing screen not rebuilt on web yet |
-| WEB-08 | W-003 browser print of the shared receipt document model (80 mm, A4) | 6.6 | 9 | partial — browser print of the receipt at 80 mm and A4 with print-only layout; uses a web receipt view, not yet the shared `@gtr/documents` model |
+| WEB-08 | W-003 browser print of the shared receipt document model (80 mm, A4) | 6.6 | 9 | done (code) — browser print at 80 mm and A4 renders the shared receipt format v1 (same text the tablet prints); screenshots `web-pos-receipt-*` |
 | WEB-09 | Staff portal second login from POS → Settings (D4) | D4 | 3 | partial — Settings → Staff portal re-auth dialog; not yet run against a live database |
 | WEB-10 | Playwright screenshots against the benchmark at 1536×1024 and each window class | 11 | 11 | partial — Playwright flows and screenshots run manually (`docs/design/pos/web/`); not yet an automated CI gate |
 | WEB-11 | Pre-benchmark web POS UI deleted (`staff-pos-panel.tsx`, `staff-pos-shell.tsx`) | D7 | 3 | done — deleted 2026-10-01; online order prep moved to `/staff/pos/prep` |
@@ -327,7 +327,7 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 |---|---|---|---|---|
 | TAB-01 | Tablet POS route renders the benchmark POS on live data (holding screen removed); Settings → Staff portal second login (D4) | 10.1, D4–D6 | 5 | partial — `PosTabletEntry` binds `pos-ui` to `pos-data` gateways over `RpcClient`; compiles in both flavours; not yet run on a device against Supabase |
 | TAB-02 | Payment: split tender, cash change (display only), EcoCash push, receipt contacts; tenders must equal the server total | 6.6, 10.6 | 8 | partial — reducer + store tests; reserve-first (§10.6) contract still not on the backend |
-| TAB-03 | Receipt preview = printed lines (80 mm ESC/POS, A4 document printer); failed print never blocks the sale | 6.6 | 9 | partial — shared `receiptLines` for preview and print; printer not exercised on hardware here |
+| TAB-03 | Receipt preview = printed lines (80 mm ESC/POS, A4 document printer); failed print never blocks the sale | 6.6 | 9 | partial — preview, ESC/POS and A4 all render the shared receipt format v1 (conformance-tested); printer not exercised on hardware here |
 | TAB-04 | Manager approval for discount, price override, void, refund (manager signs in for that action only) | D4, 10.x | 8 | partial — uses existing `withManagerApproval`; tests with fakes |
 | TAB-05 | Customer search/create/edit, attach to sale, garage (0/1/many), save vehicle to garage | 9.3 | 6 | partial — screens + reducer tests |
 | TAB-06 | Orders: parked sales (resume) and quotations (create, send, convert) | 9.3 | 6 | partial |

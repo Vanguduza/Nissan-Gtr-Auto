@@ -267,7 +267,7 @@
     <string name="pos_staff_portal">Staff portal</string>
     <string name="pos_staff_portal_hint">Management features open after you sign in again.</string>
     <string name="pos_tender_amount">Amount</string>
-    <string name="pos_tender_bank">Bank</string>
+    <string name="pos_tender_bank">Card / bank</string>
     <string name="pos_tender_cash">Cash</string>
     <string name="pos_tender_ecocash">EcoCash</string>
     <string name="pos_tender_store_credit">Store credit</string>

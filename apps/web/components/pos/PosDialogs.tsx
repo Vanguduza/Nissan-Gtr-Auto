@@ -4,6 +4,8 @@ import { Banknote, Car, Plus, Printer, ShieldCheck, Smartphone, Trash2, X } from
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
+import { THERMAL_COLUMNS, thermalLines } from "@gtr/shared";
+import { webReceiptRows } from "@/lib/pos/receipt";
 import type { ReceiptDocument, Tender, TenderLine } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
@@ -230,46 +232,18 @@ const TENDERS: Array<{ id: Tender; label: string }> = [
   { id: "store_credit", label: "Store credit" },
 ];
 
+/** Shared counter-receipt format v1: exactly the text the tablet prints (42 columns on 80 mm, 80 on A4). */
 export function ReceiptView({ receipt, paper }: { receipt: ReceiptDocument; paper: "80mm" | "A4" }) {
+  const width = paper === "80mm" ? THERMAL_COLUMNS : 80;
   return (
     <div className={`${styles.receipt} ${paper === "80mm" ? styles.receiptPaper80 : styles.receiptPaperA4}`}>
-      <div className={styles.receiptHead}>
-        <strong>NISSAN GTR AUTO</strong>
-        <div>Genuine Parts · Real Performance</div>
-        <div>{receipt.documentNumber ?? receipt.invoiceId}</div>
-        <div>{receipt.postedAt ? new Date(receipt.postedAt).toLocaleString("en-ZW") : ""}</div>
-      </div>
-      {receipt.customerName ? <div>Customer: {receipt.customerName}</div> : null}
-      {receipt.vehicleLabel ? <div>Vehicle: {receipt.vehicleLabel}</div> : null}
-      <hr className={styles.receiptRule} />
-      {receipt.lines.map((l, i) => (
-        <div key={`${l.oemPartNumber}-${i}`} style={{ marginBottom: 6 }}>
-          <div>{l.name}</div>
-          <div>{l.oemPartNumber}</div>
-          <div className={styles.receiptLine}>
-            <span style={{ whiteSpace: "nowrap" }}>
-              {l.qty} × {formatMoney(l.unitPrice, receipt.currency)}
-            </span>
-            <span>{formatMoney(l.lineTotal, receipt.currency)}</span>
+      {webReceiptRows(receipt).flatMap((row, i) =>
+        thermalLines(row.left, row.right, width).map((text, j) => (
+          <div key={`${i}-${j}`} className={styles.receiptText} style={row.strong ? { fontWeight: 700 } : undefined}>
+            {text || "\u00a0"}
           </div>
-        </div>
-      ))}
-      <hr className={styles.receiptRule} />
-      <div className={styles.receiptLine}>
-        <strong>Total</strong>
-        <strong>{formatMoney(receipt.total, receipt.currency)}</strong>
-      </div>
-      {receipt.tenders.map((t, i) => (
-        <div key={`${t.tender}-${i}`} className={styles.receiptLine}>
-          <span>{TENDERS.find((x) => x.id === t.tender)?.label ?? t.tender}</span>
-          <span>{formatMoney(t.amount, receipt.currency)}</span>
-        </div>
-      ))}
-      <hr className={styles.receiptRule} />
-      <div className={styles.receiptHead}>
-        {receipt.operator ? <div>Served by {receipt.operator}</div> : null}
-        <div>Thank you</div>
-      </div>
+        )),
+      )}
     </div>
   );
 }

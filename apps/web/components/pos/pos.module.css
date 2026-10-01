@@ -1380,11 +1380,22 @@
   font-size: 12px;
   line-height: 1.45;
 }
+/* The paper hugs its columns: 42 at 10.5px monospace ≈ 70 mm, inside 80 mm paper's printable width. */
 .receiptPaper80 {
-  width: 72mm;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+/* One printed line; monospace so the 42/80-column layout is what the paper gets. */
+.receiptText {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre;
 }
 .receiptPaperA4 {
   width: 100%;
+  overflow-x: auto;
 }
 .receiptHead {
   text-align: center;
