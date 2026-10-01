@@ -130,8 +130,16 @@ never lower text contrast or hide focus rings.
   text-free crop of the locked hero artwork), seven category tiles, Popular Items (best sellers +
   pins, remove/add), recent searches, and Current Sale (quantity, remove, clear, vehicle chip,
   totals in explicit currency, no tax row).
-- Pending on web: Quick Sale, Customer, Orders, Returns, EPC Browse and Payment screens. They show an
-  explicit "being rebuilt" state; no fake success.
+- Built later on 2026-10-01: Payment (split tender, cash change, EcoCash request, receipt contacts,
+  browser-printed receipt at 80 mm / A4), Customer (search, create/edit, garage with 0/1/many
+  behaviour), Quick Sale (warehouse, currency, fulfilment; manager-approved discount and price
+  override; park; quotation; manager-approved void), Orders (parked sales, quotations: send and
+  convert), Returns (manager-approved refund), EPC Browse (model → variant → section → diagram,
+  hotspots, add, pin), vehicle/category/subcategory pins, multi-vehicle display, compact sale bar.
+- Manager approval on web: the approver signs in on an isolated, non-persisted Supabase client
+  (`createEphemeralClient`); the RPC runs as the approver; the cashier's session is never replaced.
+- Still pending on web: companion phone pairing screen, the designed phone recomposition, the shared
+  `@gtr/documents` receipt model, and verification against a live database.
 - New backend: `pos_operator_hidden_bestsellers` + `list_pos_hidden_bestsellers` / `hide_pos_bestseller` /
   `unhide_pos_bestseller` (RLS owner-only) for D1. Not yet applied to a database.
 

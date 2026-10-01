@@ -39,21 +39,21 @@ The tablet behaviour lives in `PosViewModel.kt` (86 operations, about 55 RPCs). 
 
 | Capability | RPCs (tablet) | Web today |
 |---|---|---|
-| Cart: create, add, park, resume | `create_pos_cart`, `add_cart_line`, `park_pos_cart`, `resume_pos_cart` | ✅ |
+| Cart: create (warehouse/currency/fulfilment setup), add, park, resume | `create_pos_cart`, `add_cart_line`, `park_pos_cart`, `resume_pos_cart` | ✅ |
 | Cart: qty, remove line, void | `pos_cart_lines` update/delete (RLS table writes), `void_pos_cart` | ✅ (new POS) |
 | Split tender checkout | `checkout_pos_cart_with_tenders` | ✅ |
-| EcoCash direct charge | `create_ecocash_intent` | partial |
+| EcoCash direct charge | `create_ecocash_intent` | ✅ after checkout (customer approves with PIN) |
 | Companion scan pairing | `create/claim/revoke_pos_scan_session` | ✅ |
-| Catalogue search (Part/OEM, VIN, Model, PNC) | `search_catalog` | partial |
-| Vehicle cascade, fitment-filtered search, cart vehicle, multi-vehicle sale | `list_catalog_models` / `list_catalog_variants`, `search_pos_vehicle_spares`, `set_pos_cart_vehicle` (+ cart vehicle read) | ✅ single vehicle; multi-vehicle pending |
-| Popular Items: best sellers + pins, remove/add (D1) | `list_pos_popular_spares`, `list/upsert/delete_pos_popular_pin`, `list/hide/unhide_pos_bestseller(s)` | ✅ (part pins; model/category/subcategory pins pending) |
-| Customer search/create/edit, bind to cart | `list_pos_customers`, `create_pos_customer`, `update_pos_customer`, `set_pos_cart_customer` | search only (via finance customer search) |
-| Customer garage | `list_pos_customer_garage`, `upsert_pos_customer_garage_vehicle` | ❌ |
-| Manager-gated discount / price override / void / refund | `apply_pos_cart_discount`, `apply_pos_line_price_override`, `void_pos_cart`, `post_pos_refund` | ❌ |
-| Quotations: create, list, send, convert | `create_pos_quotation_from_cart`, `list_pos_quotations`, `send_pos_quotation`, `convert_pos_quotation_to_cart` | ❌ |
-| Returns from recent invoices | `list_pos_recent_invoices`, `post_pos_refund` | ❌ |
-| EPC Browse (maker → model → variant → section → diagram) | `list_catalog_*`, `get_catalog_diagram*` | ❌ in POS (storefront `catalog-diagram.ts` / `catalog-hierarchy.ts` reusable) |
-| Receipt contacts and receipt document | checkout args + receipt artifacts | partial |
+| Catalogue search (Part/OEM, VIN, Model, PNC) | `search_catalog` | ✅ part search; vehicle-filtered when a vehicle is chosen |
+| Vehicle cascade, fitment-filtered search, cart vehicle, multi-vehicle sale | `list_catalog_models` / `list_catalog_variants`, `search_pos_vehicle_spares`, `set_pos_cart_vehicle` (+ cart vehicle read) | ✅ active vehicle + every vehicle shopped for on the sale |
+| Popular Items: best sellers + pins, remove/add (D1) | `list_pos_popular_spares`, `list/upsert/delete_pos_popular_pin`, `list/hide/unhide_pos_bestseller(s)` | ✅ part, vehicle, category and subcategory pins |
+| Customer search/create/edit, bind to cart | `list_pos_customers`, `create_pos_customer`, `update_pos_customer`, `set_pos_cart_customer` | ✅ |
+| Customer garage | `list_pos_customer_garage`, `upsert_pos_customer_garage_vehicle` | ✅ 0 manual / 1 auto / many chooser; save current vehicle |
+| Manager-gated discount / price override / void / refund | `apply_pos_cart_discount`, `apply_pos_line_price_override`, `void_pos_cart`, `post_pos_refund` | ✅ manager signs in on an isolated, non-persisted session |
+| Quotations: create, list, send, convert | `create_pos_quotation_from_cart`, `list_pos_quotations`, `send_pos_quotation`, `convert_pos_quotation_to_cart` | ✅ |
+| Returns from recent invoices | `list_pos_recent_invoices`, `post_pos_refund` | ✅ |
+| EPC Browse (maker → model → variant → section → diagram) | `list_catalog_*`, `get_catalog_diagram_by_slug` | ✅ Nissan model → variant → section → diagram with hotspots, add and pin |
+| Receipt contacts and receipt document | checkout args + receipt artifacts | ✅ email/WhatsApp contacts; browser print 80 mm / A4 |
 
 ## 4. Build rules
 
