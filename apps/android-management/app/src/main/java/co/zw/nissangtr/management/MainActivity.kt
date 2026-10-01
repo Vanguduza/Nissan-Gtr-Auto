@@ -66,8 +66,6 @@ import co.zw.nissangtr.management.kiosk.KioskDevicePrefs
 import co.zw.nissangtr.management.kiosk.KioskModule
 import co.zw.nissangtr.management.kiosk.LockTaskController
 import co.zw.nissangtr.management.pos.PosModule
-import co.zw.nissangtr.management.pos.PosScreen
-import co.zw.nissangtr.management.pos.StaffOfflineEpcBrowseScreen
 import co.zw.nissangtr.management.procurement.BlanketsScreen
 import co.zw.nissangtr.management.procurement.ProcurementModule
 import co.zw.nissangtr.management.rpc.ChatStaffRoles
@@ -535,13 +533,10 @@ private fun ManagementApp(
             BackHandler {
                 if (openModule != null) backFromFeature() else escapeToHub()
             }
-            PosScreen(
-                rpc = rpc,
-                qr = qr,
-                printer = printer,
-                documentPrinter = documentPrinter,
-                isSalesHome = salesHome,
-                onOpenHub = ::escapeToHub,
+            // Owner decision D6 (2026-10-01): the pre-benchmark POS UI was deleted. Until the
+            // benchmark POS in :feature:pos-ui lands, keep only the operational doorways the
+            // kiosk depends on (Staff portal, Kiosk & device, hub) — no sales UI.
+            PosRebuildHoldScreen(
                 onOpenStaffPortal = {
                     staffPortalError = null
                     staffPortalIdentifier = ""
@@ -553,15 +548,16 @@ private fun ManagementApp(
                 } else {
                     null
                 },
-                operatorLabel = signedInEmail,
-                onBack = {
-                    if (openModule != null) backFromFeature() else escapeToHub()
-                },
+                onOpenHub = ::escapeToHub,
             )
         }
         ManagementRoute.EpcBrowse -> {
             BackHandler { backFromFeature() }
-            StaffOfflineEpcBrowseScreen(onBack = ::backFromFeature)
+            PosRebuildHoldScreen(
+                onOpenStaffPortal = null,
+                onOpenKioskSettings = null,
+                onOpenHub = ::backFromFeature,
+            )
         }
         ManagementRoute.Warehouse -> {
             BackHandler { backFromFeature() }
@@ -659,6 +655,32 @@ private fun ManagementApp(
                 )
             },
         )
+    }
+}
+
+/**
+ * Temporary holding surface for the POS route while the benchmark POS UI is built in
+ * :feature:pos-ui (owner decision D6). Not a sales screen: it only keeps the kiosk's
+ * maintenance and Staff portal doorways reachable so a locked tablet is never stranded.
+ */
+@Composable
+private fun PosRebuildHoldScreen(
+    onOpenStaffPortal: (() -> Unit)?,
+    onOpenKioskSettings: (() -> Unit)?,
+    onOpenHub: (() -> Unit)?,
+) {
+    ShopStaffScreen(
+        title = "Nissan GTR Auto",
+        subtitle = "POS",
+    ) {
+        ShopHonestEmpty(
+            title = "POS is being rebuilt",
+            body = "Sales are unavailable on this build. The counter POS is being rebuilt to the " +
+                "approved design. Use a previous release for live sales.",
+        )
+        onOpenStaffPortal?.let { ShopSecondaryButton(label = "Staff portal", onClick = it) }
+        onOpenKioskSettings?.let { ShopSecondaryButton(label = "Kiosk & device", onClick = it) }
+        onOpenHub?.let { ShopSecondaryButton(label = "Back to modules", onClick = it) }
     }
 }
 
@@ -793,7 +815,6 @@ private fun featuresFor(
 ): List<Pair<String, ManagementRoute>> = when (module) {
     HubModule.Pos -> listOf(
         "Sales till" to ManagementRoute.Pos,
-        "Offline EPC catalog" to ManagementRoute.EpcBrowse,
     )
     HubModule.Warehouse -> listOf(
         "Receive / Transfer / Cycle" to ManagementRoute.Warehouse,

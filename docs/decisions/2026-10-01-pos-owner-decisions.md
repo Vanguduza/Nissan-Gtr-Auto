@@ -68,6 +68,35 @@ benchmark and these decisions. The existing UI is **not** re-themed:
   clean modules) and DL-10 (no dependency on `:feature:pos` or `:android-ui`). This runs in the
   Android POS workflow.
 
+## D6 — Delete the pre-benchmark POS frontend; keep only behaviour
+
+To stop old UI leaking into the benchmark POS, the existing POS Compose UI was **deleted**
+(2026-10-01), not kept for gradual replacement. This replaces the "delete each old composable at
+parity" step in D5.
+
+**Deleted (UI):** `PosScreen.kt` (incl. payment and manager-auth dialogs, till/printer/companion/
+quotes panels), `PosOperatorWorkspace.kt`, `PosCustomerWorkspace.kt`, `PosEpcBrowseScreen.kt`,
+`StaffOfflineEpcBrowseScreen.kt`. Retrievable from git history at `chatgpt/pos-reconcile-green-20260907`
+for **capability reference only**. Their layouts and components must not be copied.
+
+**Kept (behaviour, no UI):** `PosViewModel.kt` (all sale, cart, customer, garage, vehicle, pins,
+quotes, park/resume, returns, payment, manager-gate logic), `PosCartLineOps.kt`,
+`PosPopularItems.kt` (row merge and pin logic), `EpcCatalogSource.kt`, `offline/*` (SQLCipher store,
+sync engine and worker, connectivity, passphrase), `PosModule.kt`, all unit tests, all Supabase
+migrations and RPCs, kiosk module, Staff portal flow in `MainActivity.kt`.
+**New:** `PosRuntime.kt`, the non-visual wiring formerly inside `PosScreen` (offline store, sync engine,
+ViewModel factory) for the new UI to bind to.
+
+**Module boundary:** `:feature:pos` is now logic-only. It has no Compose and no dependency on
+`:android-ui` (the shop kit). The hero and rail artwork (`pos_home_hero_locked.webp`,
+`pos_nav_car_locked.webp`) moved to `:feature:pos-ui` for the benchmark hero and the D3 splash.
+
+**Interim state:** until the benchmark POS UI ships, the tablet POS route shows a holding screen
+with **no sales capability**. It keeps only the Staff portal, Kiosk & device and hub doorways, so a
+locked kiosk is never stranded. The hub's "Offline EPC catalog" entry is removed until EPC Browse is
+rebuilt. **Builds from this lineage must not be deployed to a live counter** until the new POS reaches
+§12 capability parity.
+
 ## Still open
 
 - `PROJECT_CANONICAL_STATE.json` on `chatgpt/pos-reconcile-green-20260907` requires the ancestor

@@ -1,5 +1,11 @@
 # POS Customer Garage + Popular Items — Canonical Extension
 
+> **Partly superseded 2026-10-01 (owner decision D6, `docs/decisions/2026-10-01-pos-owner-decisions.md`).**
+> The behaviour and backend contracts here remain binding. The Compose files named as implementation
+> (`PosOperatorWorkspace.kt`, `PosScreen.kt`, `PosCustomerWorkspace.kt`, `PosEpcBrowseScreen.kt`) were
+> **deleted** as pre-benchmark UI. The benchmark POS is rebuilt in `:feature:pos-ui` from `:pos-design`.
+> Theme statements naming `ShopWarmTheme` are superseded by `PosTheme`.
+
 **Status:** LOCKED / additive to the 2026-09-07 operator-screen design lock  
 **Date:** 2026-09-08  
 **Applies to:** Android tablet POS, POS RPCs, encrypted offline cache, receipt snapshots

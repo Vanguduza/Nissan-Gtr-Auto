@@ -1,22 +1,34 @@
 {
   "actor": "claude-code",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "e192784cbe51773688f0",
+  "change_id": "eeb8a4906a33ca2ef4e3",
   "changed_files": [
-    ".github/workflows/android-pos.yml",
-    "docs/audit/2026-09-30-pos-visual-build-audit.md",
+    "apps/android-management/app/src/main/java/co/zw/nissangtr/management/MainActivity.kt",
+    "apps/android-management/feature/pos-ui/src/main/res/drawable-nodpi/pos_home_hero_locked.webp",
+    "apps/android-management/feature/pos-ui/src/main/res/drawable-nodpi/pos_nav_car_locked.webp",
+    "apps/android-management/feature/pos/build.gradle.kts",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosCustomerWorkspace.kt",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosEpcBrowseScreen.kt",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosOperatorWorkspace.kt",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosRuntime.kt",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/PosScreen.kt",
+    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/StaffOfflineEpcBrowseScreen.kt",
+    "apps/android-management/feature/pos/src/main/res/drawable-nodpi/pos_home_hero_locked.webp",
+    "apps/android-management/feature/pos/src/main/res/drawable-nodpi/pos_nav_car_locked.webp",
+    "docs/decisions/2026-09-07-pos-operator-screen-design-lock.md",
+    "docs/decisions/2026-09-08-pos-customer-garage-popular-items.md",
     "docs/decisions/2026-10-01-pos-owner-decisions.md",
-    "docs/design/pos/ANTIGRAVITY_BUILD_PROMPT.md",
     "scripts/design-lint.py"
   ],
-  "diff_sha256": "e192784cbe51773688f071fd3793f7497f740ada471048570634a4fb8ec4c4c6",
+  "diff_sha256": "eeb8a4906a33ca2ef4e326ab0ad1120aa13fc9b1c5a8a3fd11524d9b394404dd",
   "domains": [
-    "ci",
     "documentation",
+    "management-android",
+    "pos-android",
     "repository"
   ],
-  "intent": "forbid legacy POS UI in benchmark rebuild",
-  "recorded_at_utc": "2026-10-01T01:46:26.435220+00:00",
+  "intent": "delete pre-benchmark POS UI; keep behaviour only (owner D6)",
+  "recorded_at_utc": "2026-10-01T02:04:13.035354+00:00",
   "schema_version": 1,
-  "source_parent": "b10ce3973f893b77420053e05f6369470f9bde31"
+  "source_parent": "8acef8c1dc228400409f4f1a2bdb863dca920ac4"
 }

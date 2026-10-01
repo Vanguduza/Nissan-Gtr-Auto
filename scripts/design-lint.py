@@ -47,6 +47,7 @@ RE_LEGACY_UI_IMPORT = re.compile(
     r'import\s+co\.zw\.nissangtr\.(ui\.shop\.|ui\.theme\.(GtrTheme|GtrColors)|management\.pos\.)'
 )
 # DL-10: clean modules may not depend on the legacy POS module or the shared shop kit.
+RE_COMPOSE_IMPORT = re.compile(r'import\s+(androidx\.compose\.|co\.zw\.nissangtr\.ui\.)')
 RE_LEGACY_MODULE_DEP = re.compile(r'project\(\s*":(feature:pos|android-ui)"\s*\)')
 LEGACY_DEP_BUILD_FILES = [
     REPO_ROOT / "packages" / "pos-design" / "build.gradle.kts",
@@ -116,6 +117,18 @@ def main():
             for file in files:
                 if file.endswith((".kt", ".java")):
                     scan_file(Path(root) / file)
+
+    # DL-11: :feature:pos is logic-only (owner decision D6); UI belongs in :feature:pos-ui.
+    logic_dir = REPO_ROOT / "apps" / "android-management" / "feature" / "pos" / "src"
+    if logic_dir.exists():
+        for root, _, files in os.walk(logic_dir):
+            for file in files:
+                if not file.endswith((".kt", ".java")):
+                    continue
+                path = Path(root) / file
+                for idx, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                    if RE_COMPOSE_IMPORT.search(line):
+                        add_violation("DL-11", path, idx, "UI in logic-only :feature:pos; build POS UI in :feature:pos-ui.")
 
     for build_file in LEGACY_DEP_BUILD_FILES:
         if not build_file.exists():
