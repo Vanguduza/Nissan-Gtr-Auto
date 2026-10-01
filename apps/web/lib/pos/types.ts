@@ -157,7 +157,8 @@ export type RecentInvoice = {
 
 // ───────── EPC ─────────
 export type EpcSection = { slug: string; name: string; thumbnailUrl: string | null };
-export type EpcDiagramRef = { slug: string; title: string; imageUrl: string | null };
+/** [id] is the full-catalogue diagram id that keys its R2 part shard and image. */
+export type EpcDiagramRef = { id: string | null; slug: string; title: string; imageUrl: string | null };
 export type EpcHotspot = { oem: string; pnc: string | null; x: number; y: number; w: number; h: number };
 export type EpcDiagramPart = {
   oemPartNumber: string;
@@ -173,4 +174,6 @@ export type EpcDiagram = {
   height: number | null;
   hotspots: EpcHotspot[];
   parts: EpcDiagramPart[];
+  /** Why parts or the image are missing (e.g. not yet published to the live catalogue). */
+  notice?: string | null;
 };

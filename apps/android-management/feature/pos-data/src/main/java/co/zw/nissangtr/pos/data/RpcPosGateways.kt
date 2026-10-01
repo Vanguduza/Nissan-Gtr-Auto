@@ -7,6 +7,12 @@ import co.zw.nissangtr.management.rpc.PosPopularItemKind
 import co.zw.nissangtr.management.rpc.PosPopularPin
 import co.zw.nissangtr.management.rpc.PosSaleVehicleSelection
 import co.zw.nissangtr.management.rpc.RpcClient
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonObject
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.gateway.CartGateway
 import co.zw.nissangtr.pos.domain.gateway.CatalogGateway
@@ -72,6 +78,9 @@ class RpcPosGateways(private val rpc: RpcClient) {
     val catalog: CatalogGateway = object : CatalogGateway {
         override suspend fun search(query: String, vehicle: VehicleSelection?) = call {
             val q = query.trim()
+            // Full catalogue first: the R2 fitment shard for this exact vehicle, joined to shop stock.
+            // R2 not serving yet (or vehicle not in the published master): Supabase fitment rows below.
+            vehicle?.let { liveVehicleSearch(it, q) }?.let { return@call it }
             val hits = when {
                 vehicle != null -> rpc.searchCatalogForVehicle(vehicle.toRpc(), q).parts
                 q.length < 2 -> emptyList()
@@ -89,6 +98,41 @@ class RpcPosGateways(private val rpc: RpcClient) {
                     imageUrl = null,
                 )
             }
+        }
+
+        /** Vehicle-filtered search over the full catalogue; null when it is not available. */
+        private suspend fun liveVehicleSearch(vehicle: VehicleSelection, q: String): List<CatalogPart>? = try {
+            rpc.resolveVehicleMasterId(vehicle.chassisCode, vehicle.engineCode)?.let { id ->
+                val params = buildMap {
+                    put("vehicle_id", id)
+                    put("limit", "100")
+                    if (q.isNotEmpty()) put("q", q)
+                }
+                rpc.catalogLive(if (q.isEmpty()) "customer-stock" else "customer-search", params)["results"]
+                    ?.jsonArray.orEmpty()
+                    .mapNotNull { it as? JsonObject }
+                    .map { r ->
+                        val price = r["price"] as? JsonObject
+                        val stock = r["stock"] as? JsonObject
+                        val name = r.text("name") ?: "Nissan part"
+                        CatalogPart(
+                            stockItemId = r.text("stock_item_id"),
+                            oemPartNumber = r.text("internal_catalog_ref") ?: name,
+                            name = name,
+                            price = price?.let { p ->
+                                p["amount"]?.jsonPrimitive?.doubleOrNull?.let { amount ->
+                                    Money.ofMajor(amount, CurrencyCode((p.text("currency") ?: "USD").uppercase()))
+                                }
+                            },
+                            saleableQty = stock?.get("qty")?.jsonPrimitive?.doubleOrNull,
+                            imageUrl = null,
+                        )
+                    }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
         }
 
         override suspend fun bestSellers() = call {
@@ -286,3 +330,7 @@ private fun PopularPin.toRpc() = PosPopularPin(
     oemPartNumber = oemPartNumber,
     imageUrl = imageUrl,
 )
+
+private fun JsonObject.text(key: String): String? =
+    (this[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+

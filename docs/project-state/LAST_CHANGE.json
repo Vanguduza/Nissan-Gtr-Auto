@@ -1,23 +1,41 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "d0c3722eac4182482120",
+  "change_id": "cf9bcf94b9d46decb4e3",
   "changed_files": [
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/home/PosDiscovery.kt",
+    "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/EpcModels.kt",
+    "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/RpcClient.kt",
+    "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/SupabaseRpcClient.kt",
+    "apps/android-management/feature/pos-data/src/main/java/co/zw/nissangtr/pos/data/RpcPosGateways.kt",
+    "apps/android-management/feature/pos-data/src/main/java/co/zw/nissangtr/pos/data/RpcSaleGateways.kt",
+    "apps/android-management/feature/pos-data/src/test/java/co/zw/nissangtr/pos/data/LiveEpcGatewayTest.kt",
+    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/model/Sale.kt",
+    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/common/PosUiKit.kt",
     "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/sale/PosEpcDiagram.kt",
-    "apps/web/components/pos/pos.module.css",
-    "docs/design/pos/tablet/2026-10-01-tablet-epc.png",
-    "docs/design/pos/tablet/2026-10-01-tablet-home-1280x800_sale.png",
-    "docs/design/pos/web/2026-10-01-web-pos-home-1536-preview.png"
+    "apps/android-management/feature/pos-ui/src/main/res/values/strings.xml",
+    "apps/ios/Sources/GTRCustomerCore/LiveStorefrontApi.swift",
+    "apps/web/components/pos/PosScreens.tsx",
+    "apps/web/lib/catalog-live-gateway.ts",
+    "apps/web/lib/pos/gateway.ts",
+    "apps/web/lib/pos/preview-gateway.ts",
+    "apps/web/lib/pos/supabase-gateway.ts",
+    "apps/web/lib/pos/types.ts",
+    "docs/design/pos/FEATURE_REGISTER.md",
+    "docs/design/pos/web/2026-10-01-web-pos-epc-live-r2.png",
+    "docs/design/pos/web/2026-10-01-web-pos-epc-r2-not-connected.png",
+    "docs/guides/vehicle-cascade-and-epc-browse.md",
+    "supabase/migrations/20261001130000_retire_demo_catalog_rows.sql"
   ],
-  "diff_sha256": "d0c3722eac41824821201b0b7dae0b0111bd513f15ee0ca8b272d39bc32f4873",
+  "diff_sha256": "cf9bcf94b9d46decb4e3cf262f262e55ef549cc965e29f411b9d15841d60c3b7",
   "domains": [
+    "backend",
     "documentation",
     "management-android",
+    "repository",
     "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-01T17:36:36.374866+00:00",
+  "recorded_at_utc": "2026-10-01T18:24:26.590408+00:00",
   "schema_version": 1,
-  "source_parent": "71286f0462355e590769b94024bbde3485ed2492"
+  "source_parent": "c7756061b40c8d12a0659380594b12b6f637f0b1"
 }

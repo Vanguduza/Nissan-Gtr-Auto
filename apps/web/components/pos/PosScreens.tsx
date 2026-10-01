@@ -520,6 +520,8 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
   const [active, setActive] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
+  /** Why the live catalogue could not show this level (fail closed, never fixture data). */
+  const [epcError, setEpcError] = useState<string | null>(null);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const boxes = useMemo(() => {
     if (!diagram) return [];
@@ -564,15 +566,17 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
     if (!variant) return;
     setSection(s);
     setDiagram(null);
+    setEpcError(null);
     const r = await pos.gateway.listEpcDiagrams(model, variant.slug, s.slug);
-    if (!r.ok) return;
+    if (!r.ok) return setEpcError(r.error);
     setDiagrams(r.data);
     if (r.data.length === 1) await openDiagram(r.data[0], s);
   };
   const openDiagram = async (d: EpcDiagramRef, s = section) => {
     if (!variant || !s) return;
-    const r = await pos.gateway.getEpcDiagram(model, variant.slug, s.slug, d.slug);
-    if (!r.ok) return;
+    setEpcError(null);
+    const r = await pos.gateway.getEpcDiagram(model, variant.slug, s.slug, d);
+    if (!r.ok) return setEpcError(r.error);
     setNatural(null);
     setImageFailed(false);
     setActive(null);
@@ -656,7 +660,13 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
         </div>
       ) : !diagram ? (
         <div className={styles.list}>
-          {diagrams.length === 0 ? <div className={styles.emptyCard}>No diagrams in this section yet.</div> : null}
+          {epcError ? (
+            <div className={styles.emptyCard} role="status">
+              {epcError}
+            </div>
+          ) : diagrams.length === 0 ? (
+            <div className={styles.emptyCard}>No diagrams in this section yet.</div>
+          ) : null}
           {diagrams.map((d) => (
             <button key={d.slug} type="button" className={styles.listRow} style={{ border: 0, font: "inherit", textAlign: "left", cursor: "pointer" }} onClick={() => void openDiagram(d)}>
               <span className={styles.listTitle}>{d.title}</span>
@@ -696,15 +706,15 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
                   ))}
                 </div>
                 <p className={styles.diagramCaption}>
-                  {boxes.length ? `${boxes.length} callout${boxes.length === 1 ? "" : "s"}. Tap one to find its part.` : "No callouts on this diagram yet. Use the parts list."}
+                  {boxes.length ? `${boxes.length} callout${boxes.length === 1 ? "" : "s"}. Tap one to find its part.` : "Match the reference numbers on the diagram to the PNC in the parts list."}
                 </p>
               </>
             ) : (
-              <div className={styles.diagramEmpty}>Diagram image not available. The parts list still works.</div>
+              <div className={styles.diagramEmpty}>{diagram.notice ?? "Diagram image not available. The parts list still works."}</div>
             )}
           </div>
           <div className={styles.list} style={{ marginTop: 0 }}>
-            {diagram.parts.length === 0 ? <div className={styles.emptyCard}>No parts listed on this diagram.</div> : null}
+            {diagram.parts.length === 0 ? <div className={styles.emptyCard}>{diagram.notice ?? "No parts listed on this diagram."}</div> : null}
             {diagram.parts.map((p) => (
               <div
                 key={p.oemPartNumber}

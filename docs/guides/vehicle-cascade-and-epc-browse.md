@@ -355,3 +355,14 @@ SELECT * FROM get_catalog_diagram('nissan','x-trail','t31-mr20','section-filters
 | Android | `VehicleCatalogModels.kt`, `EpcBrowseScreen.kt`, `CatalogRpcLive.kt` |
 | iOS | `VehicleCatalogModels.swift`, `EpcBrowseScreen.swift`, `LiveStorefrontApi.swift` |
 | Pipeline | `docs/guides/megazip-multivehicle-catalog.md`, `import_hierarchy_catalog.py`, `import_catalog` |
+
+## 2026-10-01 — every app on the full catalogue
+
+POS EPC (web and tablet) no longer reads `get_catalog_diagram*` / Supabase Storage fixture art. Diagram
+lists, parts and images go through `catalog-live-r2` (`staff-diagrams`, `staff-diagram-parts`,
+`diagram-image`); the lightweight hierarchy RPCs (`list_catalog_models/variants/sections`) still read the
+Supabase hierarchy. Vehicle-filtered POS search and iOS vehicle parts use the vehicle's R2 fitment shard
+via the published vehicle master. The fixture catalogue is retired by migration `20261001130000` wherever
+the full catalogue is present. Nothing here works until the R2 Edge secrets are set and the serving
+objects are published (`docs/CATALOG_R2_HARD_GATE_2026-09-02.md`).
+

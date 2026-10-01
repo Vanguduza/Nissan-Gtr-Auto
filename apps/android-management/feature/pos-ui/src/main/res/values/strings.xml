@@ -53,6 +53,9 @@
     <string name="pos_companion_end">End pairing</string>
     <string name="pos_companion_pair_again">Pair again</string>
     <string name="pos_done">Done</string>
+    <string name="pos_catalog_publishing">This part of the catalogue is still being published. Try again later.</string>
+    <string name="pos_catalog_not_connected">The full catalogue is not connected yet (catalogue storage keys are missing).</string>
+    <string name="pos_catalog_unavailable">The parts catalogue is unavailable right now.</string>
     <string name="pos_error_out_of_stock">%1$s is out of stock. It can be sold once stock is received.</string>
     <string name="pos_error_insufficient_stock">Not enough stock to complete this sale. Reduce or remove the line that is out of stock.</string>
     <string name="pos_scanner_link_title">Scan for a till</string>
@@ -190,7 +193,7 @@
     <string name="pos_epc_parts_count">%1$d parts on this diagram</string>
     <string name="pos_epc_callout">Callout %1$d, part %2$s</string>
     <string name="pos_epc_callouts_hint">%1$d callouts. Tap one to find its part.</string>
-    <string name="pos_epc_no_callouts">No callouts on this diagram yet. Use the parts list.</string>
+    <string name="pos_epc_no_callouts">Match the reference numbers on the diagram to the PNC in the parts list.</string>
     <string name="pos_epc_image_missing">Diagram image not available. The parts list still works.</string>
     <string name="pos_epc_pnc">PNC %1$s</string>
     <string name="pos_epc_pick_model">Choose a model to browse the parts catalogue</string>

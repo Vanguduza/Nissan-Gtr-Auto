@@ -6,6 +6,14 @@ import co.zw.nissangtr.management.rpc.PosCustomerKind
 import co.zw.nissangtr.management.rpc.PosInvoiceSummary
 import co.zw.nissangtr.management.rpc.PosTenderLine
 import co.zw.nissangtr.management.rpc.RpcClient
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonObject
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
+import co.zw.nissangtr.pos.domain.model.EpcMissing
+import co.zw.nissangtr.management.rpc.CatalogLiveException
 import co.zw.nissangtr.management.rpc.SupabaseRpcClient
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.gateway.CheckoutGateway
@@ -212,29 +220,63 @@ class RpcSaleGateways(private val rpc: RpcClient) {
             rpc.listCatalogSections(EPC_MAKER, model.slug, variant.slug).sortedBy { it.sortOrder }.map { EpcSection(it.slug, it.name) }
         }
 
+        // Diagram lists, parts and images come from the full catalogue (`catalog-live-r2`: Supabase
+        // hierarchy + R2 shards), never from fixture rows; unavailable content fails closed.
         override suspend fun diagrams(model: VehicleModel, variant: EpcVariant, section: EpcSection) = call {
-            rpc.listCatalogDiagrams(EPC_MAKER, model.slug, variant.slug, section.slug).map { EpcDiagram(it.slug, it.title) }
+            live {
+                val out = mutableListOf<EpcDiagram>()
+                var offset = 0
+                while (true) {
+                    val page = rpc.catalogLive(
+                        "staff-diagrams",
+                        mapOf(
+                            "family_slug" to model.slug,
+                            "variant_slug" to variant.slug,
+                            "section_slug" to section.slug,
+                            "limit" to "200",
+                            "offset" to offset.toString(),
+                        ),
+                    )["diagrams"]?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
+                    page.forEach { d ->
+                        val id = d.str("diagram_id") ?: return@forEach
+                        out += EpcDiagram(slug = id, title = d.str("title") ?: d.str("name_en") ?: id, id = id)
+                    }
+                    if (page.size < 200) break
+                    offset += page.size
+                }
+                out
+            }
         }
 
         override suspend fun diagram(model: VehicleModel, variant: EpcVariant, section: EpcSection, diagram: EpcDiagram) = call {
-            val r = rpc.getCatalogDiagramBySlug(EPC_MAKER, model.slug, variant.slug, section.slug, diagram.slug)
-            val refByOem = r.hotspots.associate { it.oem.trim().uppercase() to it.pncCode }
-            EpcDiagramDetail(
-                diagram = EpcDiagram(r.diagramSlug ?: diagram.slug, r.diagramTitle ?: diagram.title),
-                imageUrl = r.imageUrl,
-                hotspots = r.hotspots.map { EpcHotspot(it.oem, it.pncCode, it.bboxX, it.bboxY, it.bboxWidth, it.bboxHeight) },
-                imageWidth = r.imageWidth,
-                imageHeight = r.imageHeight,
-                parts = r.parts.distinctBy { it.oemPartNumber.trim().uppercase() }.map { p ->
-                    EpcPart(
-                        oemPartNumber = p.oemPartNumber,
-                        name = p.stockDescription ?: p.subcategoryName ?: p.categoryName ?: p.oemPartNumber,
-                        pncCode = p.pncCode ?: refByOem[p.oemPartNumber.trim().uppercase()],
-                        refNo = null,
-                        qtyRequired = null,
-                    )
-                },
-            )
+            val id = diagram.id ?: throw PosFailure(PosError.BusinessRule("catalog_unavailable", ""))
+            coroutineScope {
+                val image = async { runCatching { rpc.catalogLive("diagram-image", mapOf("diagram_id" to id)) } }
+                val parts = async { runCatching { rpc.catalogLive("staff-diagram-parts", mapOf("diagram_id" to id)) } }
+                val img = image.await()
+                val prt = parts.await()
+                if (img.isFailure && prt.isFailure) throw PosFailure(liveError(prt.exceptionOrNull()))
+                val seen = HashSet<String>()
+                val rows = prt.getOrNull()?.get("parts")?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
+                EpcDiagramDetail(
+                    diagram = diagram,
+                    imageUrl = img.getOrNull()?.str("signed_url"),
+                    parts = rows.mapNotNull { p ->
+                        val oem = (p.str("display_oem_number") ?: p.str("normalized_oem_number"))?.trim() ?: return@mapNotNull null
+                        if (!seen.add(oem.uppercase().filter { it.isLetterOrDigit() })) return@mapNotNull null
+                        EpcPart(
+                            oemPartNumber = oem,
+                            name = p.str("name") ?: p.str("description") ?: p.str("subcategory_name") ?: oem,
+                            pncCode = p.str("pnc_code"),
+                            refNo = null,
+                            qtyRequired = null,
+                        )
+                    },
+                    // R2 part shards carry no callout boxes; rows are matched to the artwork by PNC.
+                    hotspots = emptyList(),
+                    missing = (img.exceptionOrNull() ?: prt.exceptionOrNull())?.let(::liveMissing),
+                )
+            }
         }
 
         override suspend fun image(url: String) = call { downloadDiagram(url) }
@@ -343,4 +385,26 @@ private suspend fun downloadDiagram(url: String): ByteArray = withContext(Dispat
         }
         out.toByteArray()
     }
+}
+
+private fun JsonObject.str(key: String): String? =
+    (this[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+
+private fun liveMissing(e: Throwable): EpcMissing = when {
+    e is CatalogLiveException && e.publishing -> EpcMissing.Publishing
+    e is CatalogLiveException && e.notConnected -> EpcMissing.NotConnected
+    else -> EpcMissing.Unavailable
+}
+
+private fun liveError(e: Throwable?): PosError = when (e?.let(::liveMissing)) {
+    EpcMissing.Publishing -> PosError.BusinessRule("catalog_publishing", "")
+    EpcMissing.NotConnected -> PosError.BusinessRule("catalog_not_connected", "")
+    else -> PosError.BusinessRule("catalog_unavailable", "")
+}
+
+/** Runs a live-catalogue read, turning its fail-closed refusals into operator errors. */
+private inline fun <T> live(block: () -> T): T = try {
+    block()
+} catch (e: CatalogLiveException) {
+    throw PosFailure(liveError(e))
 }

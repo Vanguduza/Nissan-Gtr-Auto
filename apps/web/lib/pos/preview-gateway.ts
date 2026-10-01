@@ -319,7 +319,7 @@ export function createPreviewPosGateway(): PosGateway {
 
     listEpcVariants: (slug) => ok(VARIANTS[slug] ?? []),
     listEpcSections: () => ok([{ slug: "brakes", name: "Brakes", thumbnailUrl: null }, { slug: "suspension", name: "Front suspension", thumbnailUrl: null }]),
-    listEpcDiagrams: () => ok([{ slug: "front-brake", title: "Front brake", imageUrl: null }]),
+    listEpcDiagrams: () => ok([{ id: "preview-front-brake", slug: "front-brake", title: "Front brake", imageUrl: null }]),
     getEpcDiagram: () => ok(DIAGRAM),
 
     operatorLabel: () => Promise.resolve("Preview operator"),

@@ -152,7 +152,11 @@ data class EpcVariant(val slug: String, val chassisCode: String, val engineCode:
 
 data class EpcSection(val slug: String, val name: String)
 
-data class EpcDiagram(val slug: String, val title: String)
+/** [id] is the full-catalogue diagram id that keys its R2 part shard and image. */
+data class EpcDiagram(val slug: String, val title: String, val id: String? = null)
+
+/** Why part of a live-catalogue diagram could not be shown (fail closed, never fixture data). */
+enum class EpcMissing { Publishing, NotConnected, Unavailable }
 
 data class EpcPart(
     val oemPartNumber: String,
@@ -207,6 +211,8 @@ data class EpcDiagramDetail(
     /** Source image size when the catalogue stores it; otherwise the decoded image decides. */
     val imageWidth: Int? = null,
     val imageHeight: Int? = null,
+    /** Set when the image or the parts list is not available from the live catalogue. */
+    val missing: EpcMissing? = null,
 )
 
 /** Diagram image bytes as fetched for [url]; [bytes] is null when the download failed. */

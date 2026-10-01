@@ -40,6 +40,7 @@ import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.domain.model.CatalogPart
 import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
 import co.zw.nissangtr.pos.domain.model.EpcImage
+import co.zw.nissangtr.pos.domain.model.EpcMissing
 import co.zw.nissangtr.pos.domain.model.PopularPin
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosSaleIntent
@@ -150,7 +151,7 @@ private fun EpcDiagramCanvas(
                 )
             }
             detail.imageUrl != null && image == null -> EmptyCard(stringResource(R.string.pos_loading))
-            else -> EmptyCard(stringResource(R.string.pos_epc_image_missing))
+            else -> EmptyCard(stringResource(detail.missing.messageRes(R.string.pos_epc_image_missing)))
         }
     }
 }
@@ -166,7 +167,7 @@ private fun EpcPartsList(
     val palette = PosTheme.palette
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PosText(stringResource(R.string.pos_epc_parts_count, detail.parts.size), PosTheme.type.bodySecondary, palette.textMuted)
-        if (detail.parts.isEmpty()) EmptyCard(stringResource(R.string.pos_epc_empty))
+        if (detail.parts.isEmpty()) EmptyCard(stringResource(detail.missing.messageRes(R.string.pos_epc_empty)))
         detail.parts.forEach { p ->
             val key = p.oemPartNumber.trim().uppercase()
             val on = key == activeOem?.trim()?.uppercase()
@@ -212,3 +213,11 @@ private fun EpcPartsList(
         }
     }
 }
+
+/** Fail-closed live-catalogue states in the cashier's words. */
+private fun EpcMissing?.messageRes(fallback: Int): Int = when (this) {
+    EpcMissing.Publishing -> R.string.pos_catalog_publishing
+    EpcMissing.NotConnected -> R.string.pos_catalog_not_connected
+    EpcMissing.Unavailable, null -> fallback
+}
+

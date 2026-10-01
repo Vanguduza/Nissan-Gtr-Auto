@@ -204,3 +204,15 @@ private fun JsonObject.int(key: String): Int? =
 private fun JsonObject.double(key: String): Double? =
     this[key]?.jsonPrimitive?.doubleOrNull
         ?: this[key]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+
+/** A `catalog-live-r2` refusal: HTTP status plus the catalogue state (e.g. `CATALOG_REPUBLISH_REQUIRED`). */
+class CatalogLiveException(
+    val httpStatus: Int,
+    val catalogStatus: String?,
+    message: String,
+) : RuntimeException(message) {
+    val publishing: Boolean get() = catalogStatus == "CATALOG_REPUBLISH_REQUIRED"
+    val notConnected: Boolean get() = message?.contains("R2 is not configured", ignoreCase = true) == true ||
+        message?.contains("no current catalog release", ignoreCase = true) == true
+}
+

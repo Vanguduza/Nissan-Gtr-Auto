@@ -21,11 +21,18 @@ import type {
   VehicleModel,
   VehicleVariant,
 } from "@/lib/pos/types";
+import {
+  CatalogGatewayError,
+  catalogGatewayGet,
+  type CustomerStockResponse,
+  type DiagramImageResponse,
+  type StaffPartsResponse,
+} from "@/lib/catalog-live-gateway";
+import { listVehicleMaster, type VehicleMasterRow } from "@/lib/vehicle-catalog";
 import { searchPosCatalog } from "@/lib/staff-pos";
 
 const NISSAN_MAKER_SLUG = "nissan";
 const PRODUCT_IMAGE_BUCKET = "product-images";
-const DIAGRAM_BUCKET = "catalog-diagrams";
 
 // Generated database types predate the September POS RPCs; call those through a narrow untyped shim.
 type RpcResult = { data: unknown; error: { message: string } | null };
@@ -51,6 +58,19 @@ export function operatorMessage(message: string | null | undefined, fallback: st
 
 function fail<T>(error: { message: string } | null | undefined, fallback: string): PosResult<T> {
   return { ok: false, error: operatorMessage(error?.message, fallback) };
+}
+
+type StaffDiagramRow = { diagram_id: string; title: string | null; name_en: string | null; image_ready: boolean };
+
+/** Cashier wording for the live catalogue's fail-closed states. */
+export function liveCatalogMessage(e: unknown, fallback: string): string {
+  if (e instanceof CatalogGatewayError) {
+    if (e.catalogStatus === "CATALOG_REPUBLISH_REQUIRED") return "This part of the catalogue is still being published. Try again later.";
+    if (/R2 is not configured/i.test(e.message)) return "The full catalogue is not connected yet (catalogue storage keys are missing).";
+    if (e.httpStatus === 403) return "Your account cannot open the parts catalogue.";
+    if (e.httpStatus === 503 && /no current catalog release/i.test(e.message)) return "No catalogue release is published yet.";
+  }
+  return fallback;
 }
 
 function asCurrency(value: unknown): PosCurrency {
@@ -105,11 +125,47 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     return projectUrl ? `${projectUrl}/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/${p.replace(/^\//, "")}` : null;
   }
 
-  function diagramUrl(path: string | null | undefined): string | null {
-    const p = path?.trim();
-    if (!p) return null;
-    if (/^https?:\/\//i.test(p)) return p;
-    return projectUrl ? `${projectUrl}/storage/v1/object/public/${DIAGRAM_BUCKET}/${p.replace(/^\//, "")}` : null;
+  let vehicleMaster: Promise<VehicleMasterRow[] | null> | null = null;
+
+  /** The published vehicle-master id for this exact chassis + engine, or null if absent/ambiguous. */
+  async function vehicleMasterId(v: SelectedVehicle): Promise<string | null> {
+    vehicleMaster ??= listVehicleMaster(client).then((r) => (r.ok ? r.data : null));
+    const rows = (await vehicleMaster) ?? [];
+    const ids = new Set(
+      rows
+        .filter(
+          (r) =>
+            r.chassisCode.trim().toUpperCase() === v.chassisCode.trim().toUpperCase() &&
+            (r.engineCode ?? "").trim().toUpperCase() === v.engineCode.trim().toUpperCase(),
+        )
+        .map((r) => r.id),
+    );
+    return ids.size === 1 ? [...ids][0] : null;
+  }
+
+  /** Vehicle-filtered search over the full catalogue (R2 shard + shop stock); null = not available. */
+  async function liveVehicleSearch(v: SelectedVehicle, q: string): Promise<PosPart[] | null> {
+    const id = await vehicleMasterId(v);
+    if (!id) return null;
+    try {
+      const res = await catalogGatewayGet<CustomerStockResponse>(client, q ? "customer-search" : "customer-stock", {
+        maker: NISSAN_MAKER_SLUG,
+        vehicle_id: id,
+        q: q || undefined,
+        limit: 100,
+      });
+      return res.results.map((r) => ({
+        stockItemId: r.stock_item_id,
+        oemPartNumber: r.internal_catalog_ref ?? r.name,
+        name: r.name,
+        price: r.price ? { amount: r.price.amount, currency: asCurrency(r.price.currency) } : null,
+        saleableQty: r.stock.qty,
+        imageUrl: null,
+        categoryName: r.subcategory ?? r.category,
+      }));
+    } catch {
+      return null;
+    }
   }
 
   /** Price, saleable stock and image per OEM — same sources as `list_pos_popular_spares`. */
@@ -319,6 +375,10 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     async searchParts(query, vehicle) {
       const q = query.trim();
       if (vehicle) {
+        // Full catalogue first: the R2 fitment shard for this exact vehicle, joined to shop stock.
+        const live = await liveVehicleSearch(vehicle, q);
+        if (live) return { ok: true, data: live };
+        // R2 not serving yet (or vehicle not in the published master): Supabase fitment rows.
         const { data, error } = await rpc(client, "search_pos_vehicle_spares", {
           p_model_slug: vehicle.modelSlug,
           p_chassis_code: vehicle.chassisCode,
@@ -848,52 +908,71 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       };
     },
 
+    // Diagram lists, parts and images come from the full catalogue through `catalog-live-r2`
+    // (hierarchy in Supabase, part shards and images in R2), never from fixture rows.
     async listEpcDiagrams(modelSlug, variantSlug, sectionSlug) {
-      const { data, error } = await rpc(client, "list_catalog_diagrams", {
-        p_maker_slug: NISSAN_MAKER_SLUG,
-        p_model_slug: modelSlug,
-        p_variant_slug: variantSlug,
-        p_section_slug: sectionSlug,
-      });
-      if (error) return fail(error, "Could not load diagrams.");
-      return {
-        ok: true,
-        data: ((data ?? []) as Array<{ slug: string; title: string; storage_path: string | null; image_url: string | null }>).map((r) => ({
-          slug: r.slug,
-          title: r.title,
-          imageUrl: diagramUrl(r.image_url ?? r.storage_path),
-        })),
-      };
+      try {
+        const rows: StaffDiagramRow[] = [];
+        for (let offset = 0; ; ) {
+          const page = await catalogGatewayGet<{ diagrams?: StaffDiagramRow[] }>(client, "staff-diagrams", {
+            maker: NISSAN_MAKER_SLUG,
+            family_slug: modelSlug,
+            variant_slug: variantSlug,
+            section_slug: sectionSlug,
+            limit: 200,
+            offset,
+          });
+          const got = page.diagrams ?? [];
+          rows.push(...got);
+          if (got.length < 200) break;
+          offset += got.length;
+        }
+        return {
+          ok: true,
+          data: rows.map((r) => ({ id: r.diagram_id, slug: r.diagram_id, title: r.title ?? r.name_en ?? "Diagram", imageUrl: null })),
+        };
+      } catch (e) {
+        return { ok: false, error: liveCatalogMessage(e, "Could not load diagrams.") };
+      }
     },
 
-    async getEpcDiagram(modelSlug, variantSlug, sectionSlug, diagramSlug) {
-      const { data, error } = await rpc(client, "get_catalog_diagram_by_slug", {
-        p_maker_slug: NISSAN_MAKER_SLUG,
-        p_model_slug: modelSlug,
-        p_variant_slug: variantSlug,
-        p_section_slug: sectionSlug,
-        p_diagram_slug: diagramSlug,
+    async getEpcDiagram(_modelSlug, _variantSlug, _sectionSlug, ref) {
+      if (!ref.id) return { ok: false, error: "This diagram is not in the live catalogue." };
+      const [image, parts] = await Promise.allSettled([
+        catalogGatewayGet<DiagramImageResponse>(client, "diagram-image", { maker: NISSAN_MAKER_SLUG, diagram_id: ref.id }),
+        catalogGatewayGet<StaffPartsResponse>(client, "staff-diagram-parts", { maker: NISSAN_MAKER_SLUG, diagram_id: ref.id }),
+      ]);
+      if (image.status === "rejected" && parts.status === "rejected") {
+        return { ok: false, error: liveCatalogMessage(parts.reason, "Could not load the diagram.") };
+      }
+      const seen = new Set<string>();
+      const partRows = (parts.status === "fulfilled" ? parts.value.parts : []).flatMap((p) => {
+        const oem = (p.display_oem_number ?? p.normalized_oem_number ?? "").trim();
+        const key = oem.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (!oem || seen.has(key)) return [];
+        seen.add(key);
+        return [{
+          oemPartNumber: oem,
+          pnc: p.pnc_code ?? null,
+          name: p.name ?? p.description ?? p.subcategory_name ?? oem,
+          categoryName: p.category_name ?? null,
+          subcategoryName: p.subcategory_name ?? null,
+        }];
       });
-      if (error) return fail(error, "Could not load the diagram.");
-      const d = (data ?? {}) as {
-        diagram: { title: string; storage_path: string | null; image_url: string | null; width: number | null; height: number | null } | null;
-        hotspots: Array<{ oem: string; pnc_code: string | null; bbox_x: number; bbox_y: number; bbox_width: number; bbox_height: number }>;
-        parts: Array<{ oem_part_number: string; pnc_code: string | null; category_name: string | null; subcategory_name: string | null; stock_description: string | null }>;
-      };
-      if (!d.diagram) return { ok: false, error: "Diagram not found." };
       const diagram: EpcDiagram = {
-        title: d.diagram.title,
-        imageUrl: diagramUrl(d.diagram.image_url ?? d.diagram.storage_path),
-        width: d.diagram.width,
-        height: d.diagram.height,
-        hotspots: (d.hotspots ?? []).map((h) => ({ oem: h.oem, pnc: h.pnc_code, x: num(h.bbox_x), y: num(h.bbox_y), w: num(h.bbox_width), h: num(h.bbox_height) })),
-        parts: (d.parts ?? []).map((p) => ({
-          oemPartNumber: p.oem_part_number,
-          pnc: p.pnc_code,
-          name: p.stock_description ?? p.subcategory_name ?? p.oem_part_number,
-          categoryName: p.category_name,
-          subcategoryName: p.subcategory_name,
-        })),
+        title: ref.title,
+        imageUrl: image.status === "fulfilled" ? image.value.signed_url : null,
+        width: null,
+        height: null,
+        // R2 part shards carry no callout boxes; rows are matched to the artwork by PNC.
+        hotspots: [],
+        parts: partRows,
+        notice:
+          image.status === "rejected"
+            ? liveCatalogMessage(image.reason, "Diagram image unavailable.")
+            : parts.status === "rejected"
+              ? liveCatalogMessage(parts.reason, "Parts list unavailable.")
+              : null,
       };
       return { ok: true, data: diagram };
     },

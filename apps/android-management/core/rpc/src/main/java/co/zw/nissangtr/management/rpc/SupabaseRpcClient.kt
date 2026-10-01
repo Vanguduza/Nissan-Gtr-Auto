@@ -40,6 +40,8 @@ import kotlinx.serialization.json.doubleOrNull
  * Uses anon key + Auth session (never hardcode JWTs). List reads via PostgREST + RLS.
  * Session persistence: auth-kt default Android session manager (Settings / SharedPreferences).
  */
+private const val CATALOG_LIVE_FN = "catalog-live-r2"
+
 class SupabaseRpcClient(
     val client: SupabaseClient,
     private val projectUrl: String? = null,
@@ -686,6 +688,52 @@ class SupabaseRpcClient(
             .decodeList<PosScanSessionCartRow>()
             .firstOrNull()
             ?.cartId
+    }
+
+    @Volatile private var vehicleMasterCache: List<VehicleMasterRpcRow>? = null
+
+    override suspend fun resolveVehicleMasterId(chassisCode: String, engineCode: String): String? {
+        val rows = vehicleMasterCache ?: client.postgrest.rpc(
+            "list_customer_vehicle_master",
+            buildJsonObject {
+                put("p_maker", "nissan")
+                put("p_limit", 10000)
+                put("p_offset", 0)
+            },
+        ).decodeList<VehicleMasterRpcRow>().also { vehicleMasterCache = it }
+        val ids = rows.filter {
+            it.chassisCode.equals(chassisCode.trim(), ignoreCase = true) &&
+                it.engineCode.orEmpty().equals(engineCode.trim(), ignoreCase = true)
+        }.map { it.id }.distinct()
+        return ids.singleOrNull()
+    }
+
+    override suspend fun catalogLive(action: String, params: Map<String, String>): JsonObject {
+        val response = try {
+            client.functions.invoke(CATALOG_LIVE_FN) {
+                setBody(
+                    buildJsonObject {
+                        put("action", action)
+                        put("maker", "nissan")
+                        params.forEach { (k, v) -> put(k, v) }
+                    },
+                )
+            }
+        } catch (e: io.github.jan.supabase.exceptions.RestException) {
+            // Non-2xx: the gateway's JSON body ({error, status}) is carried in the exception text.
+            val text = listOfNotNull(e.error, e.description, e.message).joinToString(" ")
+            throw CatalogLiveException(
+                httpStatus = e.statusCode,
+                catalogStatus = if ("CATALOG_REPUBLISH_REQUIRED" in text) "CATALOG_REPUBLISH_REQUIRED" else null,
+                message = e.error,
+            )
+        }
+        val root = Json.parseToJsonElement(response.bodyAsText()) as? JsonObject
+            ?: throw CatalogLiveException(502, null, "invalid live catalogue response")
+        root.stringOrNull("error")?.takeIf { it.isNotBlank() }?.let {
+            throw CatalogLiveException(response.status.value, root.stringOrNull("status"), it)
+        }
+        return root
     }
 
     override suspend fun getPosScanSessionStatus(sessionId: String): String? {
@@ -2909,6 +2957,13 @@ private data class PosScanSessionRow(
 @Serializable
 private data class PosScanSessionCartRow(
     @SerialName("cart_id") val cartId: String,
+)
+
+@Serializable
+private data class VehicleMasterRpcRow(
+    val id: String,
+    @SerialName("chassis_code") val chassisCode: String,
+    @SerialName("engine_code") val engineCode: String? = null,
 )
 
 @Serializable

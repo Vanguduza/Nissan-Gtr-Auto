@@ -848,14 +848,12 @@ public final class LiveStorefrontApi: StorefrontApi {
         return CatalogBrowseResult(items: list, categories: categories)
     }
 
+    /// The complete customer vehicle master derived from the published full catalogue
+    /// (same source as web and Android) — not the old fixture `vehicle_master` table.
     public func listVehicleMaster() async throws -> [VehicleMasterRow] {
-        let rows: [VehicleMasterDbRow] = try await client.selectDecode(
-            table: "vehicle_master",
-            query: [
-                "select=id,vin_prefix,chassis_code,engine_code,production_year,model_variant",
-                "order=model_variant.asc",
-                "limit=500",
-            ].joined(separator: "&")
+        let rows: [CustomerVehicleMasterRpcRow] = try await client.rpcDecodeArrayAllowEmpty(
+            "list_customer_vehicle_master",
+            body: ["p_maker": "nissan", "p_limit": 10000, "p_offset": 0]
         )
         return rows.map {
             VehicleMasterRow(
@@ -867,6 +865,44 @@ public final class LiveStorefrontApi: StorefrontApi {
                 modelVariant: $0.modelVariant
             )
         }
+    }
+
+    /// Stocked parts for one published vehicle from its R2 fitment shard (`catalog-live-r2`);
+    /// nil when the vehicle is not in the master or the live catalogue is not serving yet.
+    private func liveCatalogForVehicle(chassis: String, engine: String?, limit: Int) async -> CatalogBrowseResult? {
+        guard let master = try? await listVehicleMaster() else { return nil }
+        let ids = Set(master.filter { row in
+            row.chassisCode.caseInsensitiveCompare(chassis) == .orderedSame
+                && (engine.map { row.engineCode?.caseInsensitiveCompare($0) == .orderedSame } ?? true)
+        }.compactMap(\.id))
+        guard ids.count == 1, let vehicleId = ids.first else { return nil }
+        guard let data = try? await client.invokeFunction(
+            "catalog-live-r2",
+            body: ["action": "customer-stock", "maker": "nissan", "vehicle_id": vehicleId, "limit": limit]
+        ),
+            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            root["error"] == nil,
+            let results = root["results"] as? [[String: Any]]
+        else { return nil }
+        let items: [CatalogListItem] = results.compactMap { row in
+            guard let rawId = row["stock_item_id"] as? String, let stockItemId = UUID(uuidString: rawId),
+                  let ref = (row["internal_catalog_ref"] as? String)?.nilIfEmpty
+            else { return nil }
+            let stock = row["stock"] as? [String: Any]
+            let price = row["price"] as? [String: Any]
+            let usd = (price?["currency"] as? String)?.uppercased() == "USD"
+                ? (price?["amount"] as? NSNumber).map { Decimal($0.doubleValue) } : nil
+            return CatalogListItem(
+                stockItemId: stockItemId,
+                oem: ref,
+                name: (row["name"] as? String)?.nilIfEmpty ?? "Nissan part",
+                stock: CatalogStockState(rawValue: (stock?["state"] as? String) ?? "") ?? .backorder,
+                usd: usd,
+                category: (row["subcategory"] as? String) ?? (row["category"] as? String)
+            )
+        }
+        let categories = Array(Set(items.compactMap { $0.category?.nilIfEmpty })).sorted()
+        return CatalogBrowseResult(items: items, categories: categories)
     }
 
     public func listCatalogMakers() async throws -> [EpcMaker] {
@@ -951,6 +987,11 @@ public final class LiveStorefrontApi: StorefrontApi {
         guard !chassis.isEmpty else { throw StorefrontError.message("chassis required") }
         let cap = min(max(limit, 1), 100)
         let engine = engineCode?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        // Full catalogue first (R2 fitment shard for the published vehicle); Supabase fitment
+        // rows below only while the live catalogue is not serving.
+        if let live = await liveCatalogForVehicle(chassis: chassis, engine: engine, limit: cap) {
+            return live
+        }
         var oemFilter: [String] = []
         for code in CatalogChassisAlias.lookupCodes(chassis) {
             var fitQuery = [
@@ -2352,8 +2393,8 @@ private struct PncCategoryMatchRow: Decodable {
     }
 }
 
-private struct VehicleMasterDbRow: Decodable {
-    let id: String?
+private struct CustomerVehicleMasterRpcRow: Decodable {
+    let id: String
     let vinPrefix: String?
     let chassisCode: String
     let engineCode: String?

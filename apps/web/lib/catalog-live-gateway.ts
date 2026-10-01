@@ -15,6 +15,18 @@ function gatewayBase(): string {
   return `${base}/functions/v1/catalog-live-r2`;
 }
 
+/** Gateway refusal with its HTTP status and catalogue state (e.g. `CATALOG_REPUBLISH_REQUIRED`). */
+export class CatalogGatewayError extends Error {
+  constructor(
+    message: string,
+    readonly httpStatus: number,
+    readonly catalogStatus: string | null,
+  ) {
+    super(message);
+    this.name = "CatalogGatewayError";
+  }
+}
+
 export async function catalogGatewayGet<T>(
   client: SupabaseClient,
   route: string,
@@ -41,10 +53,12 @@ export async function catalogGatewayGet<T>(
   });
   const payload = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    throw new Error(
+    throw new CatalogGatewayError(
       typeof payload?.error === "string"
         ? payload.error
         : `Catalog gateway ${resp.status}`,
+      resp.status,
+      typeof payload?.status === "string" ? payload.status : null,
     );
   }
   return payload as T;

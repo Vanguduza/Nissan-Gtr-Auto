@@ -348,3 +348,13 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | LIVE-02 | Out-of-stock parts could be added and failed only at checkout | Add disabled / refused with "out of stock" on web and tablet (online and offline) |
 | LIVE-03 | Checkout showed "insufficient FIFO batch qty for item <uuid>" | Stock-ledger and privilege errors reworded for the cashier on both clients |
 
+### 2026-10-01 full catalogue on every app
+
+| ID | Change |
+|---|---|
+| CAT-01 | Migration `20261001130000_retire_demo_catalog_rows` removes the Navara D40 / X-Trail T31 fixture rows (variants, sections, diagrams, fitment, vehicle master) wherever the full catalogue is loaded; local fixture-only databases keep them for development |
+| CAT-02 | Web POS and tablet POS EPC: diagram lists, parts and images come from `catalog-live-r2` (Supabase hierarchy + R2 part shards + signed R2 images); fail closed with "being published" / "not connected" states, never fixture data. R2 shards carry no callout boxes, so rows are matched by PNC |
+| CAT-03 | Web POS and tablet POS vehicle-filtered search: the vehicle's R2 fitment shard (published vehicle-master id → `customer-search` / `customer-stock`) first; Supabase fitment rows only while R2 is not serving |
+| CAT-04 | iOS: vehicle selector reads the full published vehicle master (`list_customer_vehicle_master`), vehicle parts come from the R2 shard first (same as Android). Not compiled here (no Swift toolchain). iOS customer EPC browse still uses the old diagram RPC: staff-only in the target architecture, needs an owner decision |
+| CAT-05 | Live web check against the real schema with a `catalog-live-r2` stand-in: R2 off → "full catalogue is not connected yet"; R2 serving → signed image + R2 parts + Add |
+

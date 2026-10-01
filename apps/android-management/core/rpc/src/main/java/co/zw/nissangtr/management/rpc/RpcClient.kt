@@ -130,6 +130,19 @@ interface RpcClient {
         variantSlug: String,
         sectionSlug: String,
     ): EpcDiagramResponse = EpcDiagramResponse()
+    /**
+     * Full-catalogue gateway (`catalog-live-r2`): the Supabase hierarchy plus R2 part shards and
+     * signed diagram images. Fails closed with [CatalogLiveException] (never fixture data).
+     */
+    suspend fun catalogLive(action: String, params: Map<String, String> = emptyMap()): kotlinx.serialization.json.JsonObject =
+        throw CatalogLiveException(503, null, "live catalogue not available on this client")
+
+    /**
+     * Published vehicle-master id (full catalogue) for an exact chassis + engine; null when the
+     * vehicle is absent or ambiguous. Keys the vehicle's R2 fitment shard.
+     */
+    suspend fun resolveVehicleMasterId(chassisCode: String, engineCode: String): String? = null
+
     suspend fun listCatalogDiagrams(
         makerSlug: String,
         modelSlug: String,

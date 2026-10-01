@@ -96,7 +96,7 @@ export interface PosGateway {
   listEpcVariants(modelSlug: string): Promise<PosResult<VehicleVariant[]>>;
   listEpcSections(modelSlug: string, variantSlug: string): Promise<PosResult<EpcSection[]>>;
   listEpcDiagrams(modelSlug: string, variantSlug: string, sectionSlug: string): Promise<PosResult<EpcDiagramRef[]>>;
-  getEpcDiagram(modelSlug: string, variantSlug: string, sectionSlug: string, diagramSlug: string): Promise<PosResult<EpcDiagram>>;
+  getEpcDiagram(modelSlug: string, variantSlug: string, sectionSlug: string, diagram: EpcDiagramRef): Promise<PosResult<EpcDiagram>>;
 
   operatorLabel(): Promise<string>;
   /** Staff portal second login (owner decision D4): re-enter the password before management opens. */
