@@ -26,6 +26,7 @@ tablet composition.
 | D-012 | Cart row price | Single price per row | Explicitly the **unit** price; line extension is implied by the quantity stepper | Confirmed arithmetically from the benchmark (2,500 + 18,000 + 3,800×2 = 28,100). Rev 1.3 left "unit or line price" ambiguous. | Blueprint §5 | no | no |
 | D-013 | Header, zone 1 | Static taxonomy line | **Model → Generation → Engine only; Make is never shown.** Supersedes the "plus Maker" clause of D-002 | Nissan-only shop | Owner D2, 2026-10-01 | yes | no |
 | D-014 | Popular row | Fixed row of server-ranked popular products | **Popular Items = server best sellers + operator pins**, in a horizontally scrolling row. The operator can remove or add any item; removed best sellers stay hidden for that operator. Pin kinds: part, model/vehicle, category, subcategory. Supersedes D-003's pins-only Quick Access | Owner wants algorithmic discovery plus a personal working set | Owner D1, 2026-10-01 | yes | no |
+| D-015 | All interactive controls | Flat white cards and plain controls | **Neumorphic soft-UI treatment** on controls and cards: raised (`--gtr-neu-raised`) and pressed (`--gtr-neu-pressed`) shadows on the cool canvas, red accents for primary and active states, dark neumorph on the steel rail. Composition, hierarchy and colours stay as the benchmark. Text contrast and visible focus rings are never reduced by the effect | Owner visual style reference (neumorphism), applied "where necessary" | Owner D8, 2026-10-01 | yes | no |
 
 ## Withdrawn from Rev 1.3
 

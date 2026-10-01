@@ -110,6 +110,31 @@ The July 2026 web POS UI (`staff-pos-panel.tsx`, `staff-pos-shell.tsx`) is pre-b
 retired. It must not be restyled. New code goes in `apps/web/components/pos/` and `apps/web/lib/pos/`
 (design-lint DL-12).
 
+## D8 — Neumorphic soft-UI treatment, inside the benchmark
+
+The owner supplied a neumorphism reference to use "where necessary". It is applied to controls and
+cards, not to the layout: category tiles, Popular Items cards, the search field, the vehicle selects,
+quantity steppers, secondary buttons, chips and status surfaces use raised and pressed soft shadows.
+The steel rail uses the dark variant, and brand red stays the primary and active colour. Tokens live
+in `packages/ui/brand-tokens.json` (`color.neumorph`, `neumorph`) and are generated for web
+(`--gtr-neu-*`) and Android (`PosTokens.Neumorph_*`). Recorded as delta D-015. Neumorphism must
+never lower text contrast or hide focus rings.
+
+## D7 progress (2026-10-01)
+
+- The July web POS UI was deleted. Online order prep (a hub surface, formerly `?tab=prep`) moved to
+  `/staff/pos/prep`.
+- The new web POS lives at `/staff/pos` (`app/(pos)`), full-screen behind the same staff gate.
+  Code is in `components/pos/` and `lib/pos/`.
+- Built: rail, header with Model → Generation → Engine, fitment-aware search, hero (live text over a
+  text-free crop of the locked hero artwork), seven category tiles, Popular Items (best sellers +
+  pins, remove/add), recent searches, and Current Sale (quantity, remove, clear, vehicle chip,
+  totals in explicit currency, no tax row).
+- Pending on web: Quick Sale, Customer, Orders, Returns, EPC Browse and Payment screens. They show an
+  explicit "being rebuilt" state; no fake success.
+- New backend: `pos_operator_hidden_bestsellers` + `list_pos_hidden_bestsellers` / `hide_pos_bestseller` /
+  `unhide_pos_bestseller` (RLS owner-only) for D1. Not yet applied to a database.
+
 ## Still open
 
 - `PROJECT_CANONICAL_STATE.json` on `chatgpt/pos-reconcile-green-20260907` requires the ancestor

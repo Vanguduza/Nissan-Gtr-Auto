@@ -124,8 +124,8 @@ passed, commit referenced) · `dropped` (owner reference required)
 | QACC-06 | Unbounded `LazyRow`; no literal item count in code | 7.5 | 6 | todo |
 | QACC-07 | Empty state inviting the first pin | 7.5 | 6 | todo |
 | QACC-08 | Offline — cached pins render, mutations queue as pending | 7.5 | 6 | todo |
-| QACC-09 | Server best sellers merged into the row after pins (minus pinned duplicates) | 7.3, D-014 | 6 | todo |
-| QACC-10 | Operator can remove any best seller; hides are operator-scoped, server-persisted and survive ranking refresh until re-added | 7.3, D-014 | 6 | todo — backend hide list required |
+| QACC-09 | Server best sellers merged into the row after pins (minus pinned duplicates) | 7.3, D-014 | 6 | partial — web row merges best sellers after pins (`lib/pos/popular.ts`, mirrors `PosPopularItems.kt`); tablet UI pending rebuild |
+| QACC-10 | Operator can remove any best seller; hides are operator-scoped, server-persisted and survive ranking refresh until re-added | 7.3, D-014 | 6 | partial — `20261001100000_pos_popular_hidden_bestsellers.sql` + smoke + web UI; migration not yet applied or smoked (no local database in this environment) |
 | QACC-11 | Subcategory and model pin kinds (in addition to spare, category, vehicle) | 7.1, D-014 | 6 | todo |
 
 ## CART — Current Sale
@@ -280,17 +280,17 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| WEB-01 | Web POS consumes generated `tokens.css` / `tokens.ts` only; no ad hoc colours | 4.1, D7 | 2 | todo |
-| WEB-02 | Expanded composition (rail, header, hero, categories, Popular Items, recent searches, Current Sale) at the benchmark ratios | 3, 6 | 3 | todo |
-| WEB-03 | Window classes and compact recomposition with the same breakpoints as the tablet | 3.5, 9 | 7 | todo |
-| WEB-04 | Typed `lib/pos/` gateway per RPC in the parity matrix | 10.2 | 5 | todo |
-| WEB-05 | Full capability parity per `WEB_POS_PARITY.md` §3 (cart, vehicle, pins, customer and garage, manager gate, quotations, returns, EPC) | 12 | 5–10 | todo |
-| WEB-06 | W-001 online-only behaviour with the shared offline status surface | 10.12 | 9 | todo |
-| WEB-07 | W-002 companion pairing + keyboard-wedge scanner; no browser camera | 10.18 | 9 | todo |
+| WEB-01 | Web POS consumes generated `tokens.css` / `tokens.ts` only; no ad hoc colours | 4.1, D7 | 2 | done — `tokens.css` only; design-lint DL-12 + web typecheck + production build pass (2026-10-01) |
+| WEB-02 | Expanded composition (rail, header, hero, categories, Popular Items, recent searches, Current Sale) at the benchmark ratios | 3, 6 | 3 | partial — home composition built and screenshot at 1536×1024 and 1280×800 with preview data (`docs/design/pos/web/`); real product imagery depends on live data |
+| WEB-03 | Window classes and compact recomposition with the same breakpoints as the tablet | 3.5, 9 | 7 | partial — expanded and medium layouts; compact is an interim scrolling layout until PHONE work |
+| WEB-04 | Typed `lib/pos/` gateway per RPC in the parity matrix | 10.2 | 5 | partial — `lib/pos/` gateway: cascade, search (fitment-aware), best sellers, pins, best-seller hide, cart open/add/qty/remove/void/vehicle, Staff portal re-auth |
+| WEB-05 | Full capability parity per `WEB_POS_PARITY.md` §3 (cart, vehicle, pins, customer and garage, manager gate, quotations, returns, EPC) | 12 | 5–10 | partial — home, search, Popular Items and Current Sale live; Quick Sale, Customer, Orders, Returns, EPC Browse and Payment pending |
+| WEB-06 | W-001 online-only behaviour with the shared offline status surface | 10.12 | 9 | partial — offline banner and sale mutations blocked offline; shared status surface |
+| WEB-07 | W-002 companion pairing + keyboard-wedge scanner; no browser camera | 10.18 | 9 | partial — scanner input into the search field; companion pairing UI not rebuilt yet |
 | WEB-08 | W-003 browser print of the shared receipt document model (80 mm, A4) | 6.6 | 9 | todo |
-| WEB-09 | Staff portal second login from POS → Settings (D4) | D4 | 3 | todo |
-| WEB-10 | Playwright screenshots against the benchmark at 1536×1024 and each window class | 11 | 11 | todo |
-| WEB-11 | Pre-benchmark web POS UI deleted (`staff-pos-panel.tsx`, `staff-pos-shell.tsx`) | D7 | 3 | todo |
+| WEB-09 | Staff portal second login from POS → Settings (D4) | D4 | 3 | partial — re-auth dialog from Settings → Staff portal; not yet verified against live auth |
+| WEB-10 | Playwright screenshots against the benchmark at 1536×1024 and each window class | 11 | 11 | partial — Playwright screenshots taken manually (`docs/design/pos/web/`); not yet an automated CI gate |
+| WEB-11 | Pre-benchmark web POS UI deleted (`staff-pos-panel.tsx`, `staff-pos-shell.tsx`) | D7 | 3 | done — deleted 2026-10-01; online order prep moved to `/staff/pos/prep` |
 
 ## Summary
 
