@@ -1167,7 +1167,7 @@ and information density. Identity comes from grammar, not geometry.
 │ └────┘└────┘└────┘└────┘       │
 │ CATEGORIES                     │
 │ (chips, horizontal)            │                                   40dp
-│ ── recent searches ──          │                                   
+│ ── recent searches ──          │
 ├────────────────────────────────┤
 │ 🛒 3 items          $326.00  ▲ │  persistent cart bar              64dp
 ├────────────────────────────────┤

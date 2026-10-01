@@ -25,7 +25,7 @@ function hexToArgbHex(hex) {
 // 1. Generate Kotlin Compose Tokens
 function generateKotlinTokens() {
   const colorLines = [];
-  
+
   // Brand colors
   for (const [k, v] of Object.entries(tokens.color.brand)) {
     colorLines.push(`        val Brand_${k} = Color(${hexToArgbHex(v)})`);

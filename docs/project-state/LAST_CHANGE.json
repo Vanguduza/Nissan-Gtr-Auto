@@ -1,19 +1,18 @@
 {
   "actor": "claude-code",
   "branch_at_record": "port-work",
-  "change_id": "096eadab9dff3a0adea6",
+  "change_id": "0f176d3710a19b63565e",
   "changed_files": [
-    "docs/design/pos/ANTIGRAVITY_BUILD_PROMPT.md",
-    "docs/design/pos/APPROVED_VISUAL_DELTAS.md",
-    "docs/design/pos/FEATURE_REGISTER.md",
-    "docs/design/pos/POS_FRONTEND_BLUEPRINT_REV_1_5.md"
+    "docs/design/pos/POS_FRONTEND_BLUEPRINT_REV_1_5.md",
+    "packages/ui/scripts/build-tokens.mjs"
   ],
-  "diff_sha256": "096eadab9dff3a0adea6a9b2178207b316a3b7c4b2724bfffccc53e8ab74c884",
+  "diff_sha256": "0f176d3710a19b63565efa67066e9729667ffdb47920d168c9acf75ea076dded",
   "domains": [
-    "documentation"
+    "documentation",
+    "repository"
   ],
-  "intent": "align POS design docs with owner decisions and canonical lineage",
-  "recorded_at_utc": "2026-10-01T01:14:04.879969+00:00",
+  "intent": "whitespace",
+  "recorded_at_utc": "2026-10-01T01:14:17.484215+00:00",
   "schema_version": 1,
-  "source_parent": "09653938249923c5fa0324e31fb2d059b29ed74b"
+  "source_parent": "2bd98a3845847fc3224048ab7ed6f69f195f029b"
 }
