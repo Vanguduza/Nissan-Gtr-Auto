@@ -706,7 +706,7 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
                   ))}
                 </div>
                 <p className={styles.diagramCaption}>
-                  {boxes.length ? `${boxes.length} callout${boxes.length === 1 ? "" : "s"}. Tap one to find its part.` : "Match the reference numbers on the diagram to the PNC in the parts list."}
+                  {boxes.length ? `${boxes.length} callout${boxes.length === 1 ? "" : "s"}. Tap one to find its part.` : "Match the reference numbers on the diagram to the Ref in the parts list."}
                 </p>
               </>
             ) : (
@@ -729,6 +729,7 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
                 <span style={{ minWidth: 0 }}>
                   <div className={styles.listTitle}>{p.name}</div>
                   <div className={styles.muted}>
+                    {p.ref ? `Ref ${p.ref} · ` : ""}
                     {p.oemPartNumber}
                     {p.pnc ? ` · PNC ${p.pnc}` : ""}
                   </div>

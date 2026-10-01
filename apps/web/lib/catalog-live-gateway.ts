@@ -72,6 +72,8 @@ export type LiveCatalogPart = {
   category_name?: string | null;
   subcategory_name?: string | null;
   pnc_code?: string | null;
+  /** Reference number printed on the diagram artwork. */
+  callout_ref?: string | null;
   diagram_id?: string | null;
   section_id?: string | null;
   chassis_code?: string | null;

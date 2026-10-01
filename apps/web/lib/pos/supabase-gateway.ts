@@ -954,6 +954,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         return [{
           oemPartNumber: oem,
           pnc: p.pnc_code ?? null,
+          ref: p.callout_ref ?? null,
           name: p.name ?? p.description ?? p.subcategory_name ?? oem,
           categoryName: p.category_name ?? null,
           subcategoryName: p.subcategory_name ?? null,

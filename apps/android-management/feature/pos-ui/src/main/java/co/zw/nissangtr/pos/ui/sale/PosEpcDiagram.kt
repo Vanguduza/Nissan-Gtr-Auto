@@ -195,7 +195,11 @@ private fun EpcPartsList(
                 Column(Modifier.weight(1f)) {
                     PosText(p.name, PosTheme.type.labelAction.copy(fontWeight = FontWeight.SemiBold), palette.textPrimary, maxLines = 2)
                     PosText(
-                        listOfNotNull(p.oemPartNumber, p.pncCode?.let { stringResource(R.string.pos_epc_pnc, it) }).joinToString(" · "),
+                        listOfNotNull(
+                            p.refNo?.let { stringResource(R.string.pos_epc_ref, it) },
+                            p.oemPartNumber,
+                            p.pncCode?.let { stringResource(R.string.pos_epc_pnc, it) },
+                        ).joinToString(" · "),
                         PosTheme.type.labelMeta,
                         palette.textMuted,
                         maxLines = 2,

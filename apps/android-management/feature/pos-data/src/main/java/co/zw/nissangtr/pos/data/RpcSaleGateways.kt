@@ -268,7 +268,8 @@ class RpcSaleGateways(private val rpc: RpcClient) {
                             oemPartNumber = oem,
                             name = p.str("name") ?: p.str("description") ?: p.str("subcategory_name") ?: oem,
                             pncCode = p.str("pnc_code"),
-                            refNo = null,
+                            // The reference number printed on the diagram artwork.
+                            refNo = p.str("callout_ref"),
                             qtyRequired = null,
                         )
                     },

@@ -163,6 +163,8 @@ export type EpcHotspot = { oem: string; pnc: string | null; x: number; y: number
 export type EpcDiagramPart = {
   oemPartNumber: string;
   pnc: string | null;
+  /** Reference number printed on the diagram artwork. */
+  ref?: string | null;
   name: string;
   categoryName: string | null;
   subcategoryName: string | null;
