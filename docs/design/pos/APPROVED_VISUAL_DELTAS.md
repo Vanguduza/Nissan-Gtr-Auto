@@ -24,14 +24,22 @@ tablet composition.
 | D-010 | Whole screen | Single fixed 1536×1024 composition | Ratio-driven adaptive composition across four window classes; a separate compact phone recomposition | The product must run on more than one counter tablet, and full POS operation is required from the phone APK. | Owner, 2026-09-13 | yes | yes |
 | D-011 | Error colour | Error state and primary CTA are both brand red | Error resolves to a darker `#8E0F22`, always icon-paired; brand red stays reserved for CTA, active nav and brand emphasis | `GtrColors.Danger` and `GtrColors.Primary` are the same byte value `#C8102E`, and `GtrTheme` wires `error = Danger` — a blocking error is currently indistinguishable from the button the operator is meant to press. | ADR 2026-09-13 | yes | no |
 | D-012 | Cart row price | Single price per row | Explicitly the **unit** price; line extension is implied by the quantity stepper | Confirmed arithmetically from the benchmark (2,500 + 18,000 + 3,800×2 = 28,100). Rev 1.3 left "unit or line price" ambiguous. | Blueprint §5 | no | no |
+| D-013 | Header, zone 1 | Static taxonomy line | **Model → Generation → Engine only; Make is never shown.** Supersedes the "plus Maker" clause of D-002 | Nissan-only shop | Owner D2, 2026-10-01 | yes | no |
+| D-014 | Popular row | Fixed row of server-ranked popular products | **Popular Items = server best sellers + operator pins**, in a horizontally scrolling row. The operator can remove or add any item; removed best sellers stay hidden for that operator. Pin kinds: part, model/vehicle, category, subcategory. Supersedes D-003's pins-only Quick Access | Owner wants algorithmic discovery plus a personal working set | Owner D1, 2026-10-01 | yes | no |
 
 ## Withdrawn from Rev 1.3
 
 | Was | Status | Why |
 |-----|--------|-----|
-| "POS migrates from the warm surface to a cool canvas" | **Not a delta** | Measurement error on first pass. The POS renders through `ShopTheme` → `GtrTheme`, whose background is `GtrColors.Chalk` `#F4F5F7` — already cool and within JPEG error of the measured benchmark canvas `#F3F4F8`. `ShopWarmTheme` belongs to the customer app and was never in the POS path. Nothing to change. |
+| "POS migrates from the warm surface to a cool canvas" | **Not a delta — but see correction below** | Measurement error on first pass. The POS renders through `ShopTheme` → `GtrTheme`, whose background is `GtrColors.Chalk` `#F4F5F7` — already cool and within JPEG error of the measured benchmark canvas `#F3F4F8`. `ShopWarmTheme` belongs to the customer app and was never in the POS path. Nothing to change. |
 | "Vehicle cascade moved out of a permanent hero overlay into contextual search" | **Withdrawn** | The benchmark hero contains no cascade dropdowns, so there was nothing to move. Superseded by D-002, which places the cascade in the header. |
 | "±2 Rpx critical geometry tolerance" | **Withdrawn** | Incompatible with an adaptive layout, and unsatisfiable against the illustrative coordinates Rev 1.3 shipped. Replaced by ratio tolerances in `VisualReferenceSpec.json`. |
+
+**Correction (2026-10-01):** the "Not a delta" reasoning above was written against `cursor/erp-cursor-setup-ad25`.
+On the canonical lineage (`chatgpt/pos-reconcile-green-20260907`), `PosOperatorWorkspace.kt` wraps the POS in
+`ShopWarmTheme` (warm cream canvas `#F7F1EA`). That **is** a departure from the benchmark's cool canvas
+(about `#F3F4F8`), and no delta sanctions it. The fix is conformance, not a new delta: move the POS onto
+`PosTheme` (`neutral.canvas` `#F4F5F7`). D-002 and D-003 remain for history and are superseded by D-013 and D-014.
 
 ## How to add a delta
 

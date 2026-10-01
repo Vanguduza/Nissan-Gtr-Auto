@@ -27,6 +27,11 @@ it.
 7. `docs/design/pos/reference/benchmark-home-expanded-2026-09-07.jpg` — the owner-approved design.
    **Open this image and look at it.** It is the visual target.
 
+Also read `docs/decisions/2026-10-01-pos-owner-decisions.md`. It overrides the blueprint on the popular
+row, the vehicle cascade, the start-up splash and Staff portal access. Build on the branch that
+descends from `chatgpt/pos-reconcile-green-20260907` (the canonical POS lineage), and keep every
+working capability already there (§12). Re-skin and refactor it; do not rewrite it from scratch.
+
 Then read `AGENTS.md` and `docs/plans/2026-08-03-tablet-kiosk-pos-full-action-plan.md` §10 for the
 constraints that outrank the blueprint.
 

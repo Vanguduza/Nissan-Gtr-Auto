@@ -1050,15 +1050,25 @@ Deterministic, in precedence order:
 2. Pin recency for items with no explicit order.
 3. Stable entity id as final tie-break.
 
-No server popularity ranking is merged into this row — that was the old model. Server-ranked
-popular items, if surfaced at all, belong in search and category browse.
+> **Superseded by owner decision D1 (2026-10-01, `docs/decisions/2026-10-01-pos-owner-decisions.md`, delta D-014).** The row shows
+> **server-ranked best sellers together with operator pins**. The operator can remove or add any
+> item, from either source. A removed best seller stays hidden for that operator until they add it
+> back. Pinnable kinds: part, model/vehicle, category, subcategory. Pins keep the ordering above;
+> best sellers follow in server rank order, minus hidden items and any already pinned.
 
 ### 7.4 Persistence
 
 Pins are **operator-scoped and server-persisted**, so they follow the operator between the counter
 tablet and the phone. They are not device-local preferences.
 
-**Backend dependency — `@backend_agent` lane, not yet built.** This needs a pin table keyed by
+> **Correction (2026-10-01):** on the canonical lineage (`chatgpt/pos-reconcile-green-20260907`) the
+> pin backend already exists: `20260907140000_pos_operator_popular_pins.sql` (`list_pos_popular_pins`,
+> `upsert_pos_popular_pin`, `delete_pos_popular_pin`; item types part/model/category/subcategory;
+> owner-only RLS). Still missing are explicit reorder and the per-operator **best-seller hide**
+> list required by D1. Extend that table and its RPCs; do not create the parallel
+> `pos_operator_pins` table below.
+
+**Backend dependency — `@backend_agent` lane (original Rev 1.5 text).** This needs a pin table keyed by
 staff user and entity reference, with RLS restricting rows to their owner, plus list/pin/unpin/
 reorder RPCs. Contract shape:
 
@@ -1091,8 +1101,9 @@ decorative; fitment is the highest-value filter at the counter.
 
 ### 8.1 Fields
 
-Model → Generation → Engine, left to right, in header zone 1. A Maker field precedes them only when
-the multi-make catalog is active; in single-make deployments Maker is implicit.
+Model → Generation → Engine, left to right, in header zone 1. **Make is never shown**, in any
+deployment or window class (owner decision D2, 2026-10-01, delta D-013). The earlier "Maker field
+when the multi-make catalog is active" clause is withdrawn.
 
 Each field is a compact dropdown: label above, value or placeholder inside, `radius.sm`, 40 dp tall.
 Selecting a level enables and resets the levels to its right.

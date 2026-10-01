@@ -106,7 +106,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
 | FIT-01 | Header cascade — Model → Generation → Engine | 8.1, D-002 | 4 | todo |
-| FIT-02 | Maker field when the multi-make catalogue is active | 8.1 | 4 | todo |
+| FIT-02 | Maker field when the multi-make catalogue is active | 8.1 | 4 | dropped — owner D2 2026-10-01: Make is never shown (D-013) |
 | FIT-03 | Cascade bound to `vehicle_master` / `search_catalog` | 8.2 | 5 | todo |
 | FIT-04 | Session fitment context — visible, dismissible chip | 8.3 | 5 | todo |
 | FIT-05 | Responsive cascade forms — inline, popover, sheet | 8.4 | 7 | todo |
@@ -120,10 +120,13 @@ passed, commit referenced) · `dropped` (owner reference required)
 | QACC-02 | Long-press pin/unpin from anywhere those entities render | 7.2 | 6 | todo |
 | QACC-03 | Deterministic ordering — pin order, recency, stable id | 7.3 | 6 | todo |
 | QACC-04 | Drag to reorder | 7.3 | 6 | todo |
-| QACC-05 | Operator-scoped server persistence + RPCs | 7.4 | 6 | **blocked** — backend |
+| QACC-05 | Operator-scoped server persistence + RPCs | 7.4 | 6 | partial — `20260907140000_pos_operator_popular_pins.sql` on the canonical lineage provides list/upsert/delete with owner RLS; reorder RPC missing |
 | QACC-06 | Unbounded `LazyRow`; no literal item count in code | 7.5 | 6 | todo |
 | QACC-07 | Empty state inviting the first pin | 7.5 | 6 | todo |
 | QACC-08 | Offline — cached pins render, mutations queue as pending | 7.5 | 6 | todo |
+| QACC-09 | Server best sellers merged into the row after pins (minus pinned duplicates) | 7.3, D-014 | 6 | todo |
+| QACC-10 | Operator can remove any best seller; hides are operator-scoped, server-persisted and survive ranking refresh until re-added | 7.3, D-014 | 6 | todo — backend hide list required |
+| QACC-11 | Subcategory and model pin kinds (in addition to spare, category, vehicle) | 7.1, D-014 | 6 | todo |
 
 ## CART — Current Sale
 
@@ -146,8 +149,8 @@ passed, commit referenced) · `dropped` (owner reference required)
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| PAY-01 | Reserve-first sequence | 10.6 | 8 | **blocked** — backend |
-| PAY-02 | Reservation TTL and designed expiry behaviour | 10.6 | 8 | **blocked** — backend |
+| PAY-01 | Reserve-first sequence | 10.6 | 8 | partial — reserve-first commerce checkout landed on the canonical lineage (`9033801f`, `20260905105502_commerce_reservation_expiry_cron_v1.sql`); verify it against the §10.6 contract for POS |
+| PAY-02 | Reservation TTL and designed expiry behaviour | 10.6 | 8 | partial — expiry cron exists on the canonical lineage; POS-designed expiry UX not built |
 | PAY-03 | Tender capability model; blocked tenders disabled with reason | 10.7 | 8 | todo |
 | PAY-04 | Adapters — cash, swipe terminal, EcoCash, Paynow, ContiPay | 10.7 | 8 | todo |
 | PAY-05 | Five normalised terminal outcomes | 10.7 | 8 | todo |
@@ -228,6 +231,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 | SEC-06 | Audit till, payment, recovery, void, discount, refund, override | 10.10 | 10 | todo |
 | SEC-07 | Fake providers test-source-set only + release-build assertion | 10.10 | 10 | todo |
 | SEC-08 | `FLAG_SECURE` on payment and recovery surfaces | 10.10 | 10 | todo |
+| SEC-09 | **Staff portal** — POS → Settings → Staff portal; second credential login; role and `module_access` recalculated before any management module renders; management reached only this way from the tablet POS | owner D4 2026-10-01 | 3 | partial — implemented in `MainActivity.kt` on the canonical lineage; not yet on `PosTheme` or certified |
 
 ## A11Y — Accessibility
 
@@ -281,19 +285,20 @@ passed, commit referenced) · `dropped` (owner reference required)
 | SHELL | 14 |
 | DISC | 8 |
 | FIT | 6 |
-| QACC | 8 |
+| QACC | 11 |
 | CART | 12 |
 | PAY | 13 |
 | RCPT | 11 |
 | CAT | 9 |
 | HW | 8 |
 | OFF | 8 |
-| SEC | 8 |
+| SEC | 9 |
 | A11Y | 8 |
 | PHONE | 8 |
 | CERT | 10 |
-| **Total** | **162** |
+| **Total** | **166** |
 
-Three rows are `blocked` on backend work that is specified but not built: QACC-05 (operator pin
-storage), PAY-01 and PAY-02 (reserve-first). Those contracts are in blueprint §7.4 and §10.6 so they
-can be scheduled rather than discovered.
+Rows QACC-05, PAY-01 and PAY-02 were `blocked` on backend work. On 2026-10-01 they moved to
+`partial`: the canonical lineage (`chatgpt/pos-reconcile-green-20260907`) already ships pin storage
+and reserve-first commerce. Remaining gaps are noted per row. QACC-09 to QACC-11 and SEC-09 were
+added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisions.md`).
