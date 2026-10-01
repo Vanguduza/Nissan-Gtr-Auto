@@ -164,6 +164,39 @@ class PosScreensScreenshotTest {
         PosFixtures.homeEmpty.copy(destination = PosDestination.Settings, offlineQueue = co.zw.nissangtr.pos.domain.model.OfflineSyncStatus(2, 1)),
     )
 
+    private val pairing = co.zw.nissangtr.pos.domain.model.CompanionSession(
+        "s1", "cart-1", "482913", "2099-10-01T07:57:00Z", co.zw.nissangtr.pos.domain.model.CompanionStatus.Open,
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun companionCode() = capture("companion_code", 1280.dp, 800.dp, sale.copy(companion = pairing, companionOpen = true))
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun companionClaimed() = capture(
+        "companion_claimed",
+        1280.dp,
+        800.dp,
+        sale.copy(companion = pairing.copy(status = co.zw.nissangtr.pos.domain.model.CompanionStatus.Claimed), companionOpen = true),
+    )
+
+    @Test @Config(qualifiers = "w400dp-h860dp-port-mdpi")
+    fun companionPhone() = capture("companion_phone", 400.dp, 860.dp, sale.copy(companion = pairing, companionOpen = true))
+
+    @Test @Config(qualifiers = "w400dp-h860dp-port-mdpi")
+    fun scannerCode() = capture("scanner_code", 400.dp, 860.dp, PosFixtures.homeEmpty.copy(destination = PosDestination.Settings, scannerOpen = true))
+
+    @Test @Config(qualifiers = "w400dp-h860dp-port-mdpi")
+    fun scannerLinked() = capture(
+        "scanner_linked",
+        400.dp,
+        860.dp,
+        PosFixtures.homeEmpty.copy(
+            destination = PosDestination.Settings,
+            scannerOpen = true,
+            scanner = co.zw.nissangtr.pos.domain.model.ScannerLink("s1", "cart-1", listOf("D1060-JF00A", "15208-65F0A")),
+        ),
+    )
+
     @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
     fun settings() = capture("settings", 1280.dp, 800.dp, PosFixtures.homeEmpty.copy(destination = PosDestination.Settings))
 

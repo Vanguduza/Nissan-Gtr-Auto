@@ -19,8 +19,11 @@ import co.zw.nissangtr.pos.domain.model.ParkedSale
 import co.zw.nissangtr.pos.domain.model.QuoteChannel
 import co.zw.nissangtr.pos.domain.model.Quotation
 import co.zw.nissangtr.pos.domain.model.ReceiptContacts
+import co.zw.nissangtr.pos.domain.model.ScannerLink
 import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.model.CatalogPart
+import co.zw.nissangtr.pos.domain.model.CompanionSession
+import co.zw.nissangtr.pos.domain.model.CompanionStatus
 import co.zw.nissangtr.pos.domain.model.CurrencyCode
 import co.zw.nissangtr.pos.domain.model.Operator
 import co.zw.nissangtr.pos.domain.model.PopularPin
@@ -135,5 +138,30 @@ interface OfflineSaleGateway {
         override suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts) = refused
         override suspend fun sync(): PosResult<OfflineSyncStatus> = PosResult.Ok(OfflineSyncStatus(0, 0))
         override suspend fun status(): PosResult<OfflineSyncStatus> = PosResult.Ok(OfflineSyncStatus(0, 0))
+    }
+}
+
+/** Companion phone pairing (`create_pos_scan_session` / `revoke_pos_scan_session`). */
+interface CompanionGateway {
+    suspend fun create(cartId: String): PosResult<CompanionSession>
+    suspend fun revoke(sessionId: String): PosResult<Unit>
+    suspend fun status(sessionId: String): PosResult<CompanionStatus>
+    /** The cart as it stands now, phone scans included. */
+    suspend fun cart(cartId: String): PosResult<CartProjection>
+
+    /** Phone side: claim a till's code (same staff account as the till) → session and cart. */
+    suspend fun claim(pairingCode: String): PosResult<ScannerLink>
+
+    /** Phone side: add the scanned inventory QR to the till's cart; returns what was added. */
+    suspend fun addFromQr(cartId: String, payload: String): PosResult<String>
+
+    object None : CompanionGateway {
+        private val refused = PosResult.Err(PosError.BusinessRule("companion_unavailable", ""))
+        override suspend fun create(cartId: String) = refused
+        override suspend fun revoke(sessionId: String): PosResult<Unit> = PosResult.Ok(Unit)
+        override suspend fun status(sessionId: String) = refused
+        override suspend fun cart(cartId: String) = refused
+        override suspend fun claim(pairingCode: String) = refused
+        override suspend fun addFromQr(cartId: String, payload: String) = refused
     }
 }

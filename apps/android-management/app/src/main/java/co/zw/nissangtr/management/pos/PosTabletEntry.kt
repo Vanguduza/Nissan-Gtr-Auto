@@ -26,6 +26,7 @@ import co.zw.nissangtr.pos.data.RpcSaleGateways
 import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.design.theme.PosWindowClass
 import co.zw.nissangtr.pos.domain.model.ReceiptPaper
+import co.zw.nissangtr.pos.domain.state.CompanionIntent
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.ui.home.PosHomeScreen
 import co.zw.nissangtr.pos.ui.home.PosHostActions
@@ -71,6 +72,7 @@ fun PosTabletEntry(
                 sales = sale.sales,
                 epc = sale.epc,
                 offline = outbox,
+                companion = sale.companion,
             ) to outbox::close
         },
     )
@@ -100,7 +102,11 @@ fun PosTabletEntry(
                     return@launch
                 }
                 runCatching { qr.scanOnce() }
-                    .onSuccess { vm.store.dispatch(PosIntent.SearchFor(it.rawValue.trim())) }
+                    .onSuccess {
+                        // Linked to another till as its scanner: the part goes into that sale.
+                        val raw = it.rawValue.trim()
+                        vm.store.dispatch(if (vm.store.state.value.scanner != null) CompanionIntent.Scanned(raw) else PosIntent.SearchFor(raw))
+                    }
                     .onFailure { toast("Scan cancelled or failed.") }
             }
         },

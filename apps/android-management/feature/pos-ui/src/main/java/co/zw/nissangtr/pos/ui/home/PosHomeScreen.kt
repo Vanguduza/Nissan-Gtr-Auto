@@ -62,6 +62,10 @@ import co.zw.nissangtr.pos.design.theme.PosWindowClass
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.ReceiptPaper
 import co.zw.nissangtr.pos.domain.state.PosSaleIntent
+import co.zw.nissangtr.pos.ui.sale.CompanionDialog
+import co.zw.nissangtr.pos.ui.sale.ScannerDialog
+import co.zw.nissangtr.pos.domain.state.isLocal
+import co.zw.nissangtr.pos.domain.state.CompanionIntent
 import co.zw.nissangtr.pos.ui.common.LocalPosDialogDepth
 import co.zw.nissangtr.pos.ui.common.PosModal
 import co.zw.nissangtr.pos.ui.common.PosPrimaryButton
@@ -123,6 +127,8 @@ fun PosHomeScreen(
             onAddCustomer = { cartSheet = false; dispatch(PosIntent.Navigate(PosDestination.Customer)) },
             onPay = { cartSheet = false; dispatch(PosSaleIntent.OpenPayment) },
             onPark = { cartSheet = false; dispatch(PosSaleIntent.Park) },
+            onPhone = if (state.online && !state.cart.isLocal) ({ cartSheet = false; dispatch(CompanionIntent.Open) }) else null,
+            phoneLive = state.companion?.live == true,
         )
     }
     CompositionLocalProvider(LocalPosDialogDepth provides dialogDepth) {
@@ -222,6 +228,8 @@ fun PosHomeScreen(
     if (state.paymentOpen || state.receipt != null) PaymentDialog(state, dispatch, host.onPrint)
     ApprovalDialog(state, dispatch)
     GarageChooserDialog(state, dispatch)
+    if (state.companionOpen) CompanionDialog(state, dispatch, now)
+    if (state.scannerOpen) ScannerDialog(state, dispatch, host.onScan)
     }
     }
 }

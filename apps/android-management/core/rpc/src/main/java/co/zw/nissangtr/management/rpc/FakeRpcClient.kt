@@ -596,6 +596,12 @@ class FakeRpcClient : RpcClient {
         return claimedSessionCarts[sessionId]
     }
 
+    override suspend fun getPosScanSessionStatus(sessionId: String): String? = when {
+        openScanSessions.values.any { it.first == sessionId } -> "open"
+        sessionId in claimedSessions -> "claimed"
+        else -> "revoked"
+    }
+
     private val parkedCarts = mutableSetOf<String>()
     private val quotations = mutableListOf<PosQuotationSummary>()
     private var fakeIsPosApprover = true

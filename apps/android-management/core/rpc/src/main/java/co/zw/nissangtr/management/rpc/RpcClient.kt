@@ -174,6 +174,9 @@ interface RpcClient {
     /** Load cart_id for a claimed/open session (companion after claim). */
     suspend fun getPosScanSessionCartId(sessionId: String): String?
 
+    /** Session status (`open` / `claimed` / `revoked` / `expired`) for the till showing the pairing. */
+    suspend fun getPosScanSessionStatus(sessionId: String): String? = null
+
     /** Hold open cart ([RpcNames.PARK_POS_CART]). */
     suspend fun parkPosCart(cartId: String): String
 

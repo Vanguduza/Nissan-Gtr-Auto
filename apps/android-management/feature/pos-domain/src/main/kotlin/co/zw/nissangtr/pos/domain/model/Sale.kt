@@ -40,6 +40,29 @@ data class OfflineSyncStatus(val pending: Int, val conflicts: Int, val synced: I
 /** A cash sale written to the encrypted outbox under a client-generated id. */
 data class OfflineQueued(val clientSaleId: String, val soldAtIso: String, val status: OfflineSyncStatus)
 
+enum class CompanionStatus { Open, Claimed, Revoked, Expired }
+
+/** A companion-phone pairing bound to one server cart. */
+data class CompanionSession(
+    val sessionId: String,
+    val cartId: String,
+    val pairingCode: String,
+    val expiresAtIso: String,
+    val status: CompanionStatus,
+) {
+    /** The phone can still claim (open) or is scanning (claimed). */
+    val live: Boolean get() = status == CompanionStatus.Open || status == CompanionStatus.Claimed
+}
+
+/** This device as the scanner for another till's sale (the phone half of the pairing). */
+data class ScannerLink(
+    val sessionId: String,
+    val cartId: String,
+    /** Most recent scans first, for the operator's own reassurance. */
+    val scans: List<String> = emptyList(),
+    val busy: Boolean = false,
+)
+
 enum class ReceiptPaper { Thermal80, A4 }
 
 enum class CustomerKind { Individual, Business }

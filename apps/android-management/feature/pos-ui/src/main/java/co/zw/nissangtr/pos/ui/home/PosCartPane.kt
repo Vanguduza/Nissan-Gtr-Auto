@@ -31,6 +31,7 @@ import co.zw.nissangtr.pos.design.icons.ArrowRight
 import co.zw.nissangtr.pos.design.icons.CreditCard
 import co.zw.nissangtr.pos.design.icons.Pause
 import co.zw.nissangtr.pos.design.icons.PosIcons
+import co.zw.nissangtr.pos.design.icons.Smartphone
 import co.zw.nissangtr.pos.design.icons.Trash2
 import co.zw.nissangtr.pos.design.primitives.posFocusRing
 import co.zw.nissangtr.pos.design.primitives.posNeuRaised
@@ -62,6 +63,9 @@ fun PosCartPane(
     onPay: () -> Unit,
     onPark: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Companion phone scanner: null hides it (offline); [phoneLive] when a phone is paired. */
+    onPhone: (() -> Unit)? = null,
+    phoneLive: Boolean = false,
 ) {
     val palette = PosTheme.palette
     val type = PosTheme.type
@@ -145,21 +149,38 @@ fun PosCartPane(
             Spacer(Modifier.width(10.dp))
             PosIcon(PosIcons.ArrowRight, tint = palette.textOnBrand, size = 20.dp)
         }
-        if (!cart.isEmpty) {
+        if (!cart.isEmpty || onPhone != null) {
             Spacer(Modifier.height(8.dp))
-            Row(
-                Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .clip(PosTheme.shape.sm)
-                    .clickable(enabled = !busy, role = Role.Button, onClick = onPark)
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                PosIcon(PosIcons.Pause, tint = palette.brandRed, size = 14.dp)
-                PosText(stringResource(R.string.pos_park_sale), type.labelAction, palette.brandRed)
+            Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!cart.isEmpty) {
+                    FooterLink(PosIcons.Pause, stringResource(R.string.pos_park_sale), enabled = !busy, onClick = onPark)
+                }
+                onPhone?.let {
+                    FooterLink(
+                        PosIcons.Smartphone,
+                        stringResource(if (phoneLive) R.string.pos_companion_live else R.string.pos_companion_pair),
+                        enabled = true,
+                        onClick = it,
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun FooterLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    val palette = PosTheme.palette
+    Row(
+        Modifier
+            .clip(PosTheme.shape.sm)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        PosIcon(icon, tint = palette.brandRed, size = 14.dp)
+        PosText(label, PosTheme.type.labelAction, palette.brandRed, maxLines = 1)
     }
 }
 

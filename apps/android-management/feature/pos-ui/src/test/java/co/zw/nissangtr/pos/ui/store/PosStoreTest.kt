@@ -22,6 +22,11 @@ import co.zw.nissangtr.pos.domain.model.ReceiptContacts
 import co.zw.nissangtr.pos.domain.model.Tender
 import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.result.PosResult
+import kotlinx.coroutines.test.advanceTimeBy
+import co.zw.nissangtr.pos.domain.state.CompanionIntent
+import co.zw.nissangtr.pos.domain.model.CompanionStatus
+import co.zw.nissangtr.pos.domain.model.CompanionSession
+import co.zw.nissangtr.pos.domain.gateway.CompanionGateway
 import co.zw.nissangtr.pos.domain.state.PosFeedback
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosSaleIntent
@@ -88,7 +93,32 @@ class PosStoreTest {
         override suspend fun status() = PosResult.Ok(OfflineSyncStatus(queued.size, 0))
     }
 
-    private fun gateways(cart: CartGateway = FakeCart(), pins: PinGateway = FakePins(), outbox: OfflineSaleGateway = OfflineSaleGateway.None) = PosGateways(
+    private class FakeCompanion : CompanionGateway {
+        var polls = 0
+        val revoked = mutableListOf<String>()
+        override suspend fun create(cartId: String) =
+            PosResult.Ok(CompanionSession("s1", cartId, "482913", "2099-01-01T00:00:00Z", CompanionStatus.Open))
+        override suspend fun revoke(sessionId: String): PosResult<Unit> { revoked += sessionId; return PosResult.Ok(Unit) }
+        override suspend fun status(sessionId: String): PosResult<CompanionStatus> {
+            polls++
+            return PosResult.Ok(if (polls >= 2) CompanionStatus.Claimed else CompanionStatus.Open)
+        }
+        // The phone has scanned the pads into the sale by the second poll.
+        override suspend fun cart(cartId: String): PosResult<CartProjection> {
+            val lines = if (polls >= 2) listOf(PosFixtures.line("p1", PosFixtures.brakePads, 1.0)) else emptyList()
+            val total = Money(lines.sumOf { it.lineTotal.minor }, CurrencyCode.USD)
+            return PosResult.Ok(CartProjection(cartId, CurrencyCode.USD, lines, total, Money.zero(CurrencyCode.USD), total))
+        }
+        override suspend fun claim(pairingCode: String) = PosResult.Ok(co.zw.nissangtr.pos.domain.model.ScannerLink("s1", "cart-1"))
+        override suspend fun addFromQr(cartId: String, payload: String) = PosResult.Ok(payload)
+    }
+
+    private fun gateways(
+        cart: CartGateway = FakeCart(),
+        pins: PinGateway = FakePins(),
+        outbox: OfflineSaleGateway = OfflineSaleGateway.None,
+        companion: CompanionGateway = CompanionGateway.None,
+    ) = PosGateways(
         session = object : SessionGateway {
             override suspend fun operator() = PosResult.Ok(Operator("Tendai Moyo", "Sales"))
         },
@@ -109,6 +139,7 @@ class PosStoreTest {
         sales = FakeSaleGateways.sales,
         epc = FakeSaleGateways.epc,
         offline = outbox,
+        companion = companion,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -252,5 +283,27 @@ class PosStoreTest {
         assertEquals(oil.oemPartNumber, s.state.value.cart.lines.single().oemPartNumber)
         assertEquals(1, outbox.syncs)
         assertEquals(0, s.state.value.offlineQueue.pending)
+    }
+
+    @Test
+    fun `companion pairing opens a sale, shows the code, picks up phone scans and ends on request`() = runTest {
+        val cart = FakeCart()
+        val companion = FakeCompanion()
+        val s = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), gateways(cart = cart, companion = companion), companionPollMs = 1_000)
+        s.dispatch(CompanionIntent.Open)
+        advanceTimeBy(100)
+        assertEquals(1, cart.opened)
+        assertEquals("482913", s.state.value.companion?.pairingCode)
+        assertEquals("cart-1", s.state.value.companion?.cartId)
+        advanceTimeBy(2_500)
+        assertEquals(CompanionStatus.Claimed, s.state.value.companion?.status)
+        assertEquals("D1060-JF00A", s.state.value.cart.lines.single().oemPartNumber)
+        s.dispatch(CompanionIntent.End)
+        advanceUntilIdle()
+        assertEquals(listOf("s1"), companion.revoked)
+        assertEquals(null, s.state.value.companion)
+        val polls = companion.polls
+        advanceTimeBy(5_000)
+        assertEquals(polls, companion.polls)
     }
 }

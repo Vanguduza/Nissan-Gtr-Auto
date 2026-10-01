@@ -116,8 +116,8 @@ function CompanionDialog({ pos, onClose }: { pos: PosStore; onClose: () => void 
   return (
     <Modal title="Companion phone" onClose={onClose}>
       <p className={styles.muted}>
-        Open the GTR scanner app on the phone, choose Pair with till, and enter this code. The phone uses its own camera; this
-        browser never opens a camera.
+        On a phone signed in with your staff account, open POS, then Settings, then Scan for a till, and enter this code. The phone
+        uses its own camera; this browser never opens a camera.
       </p>
       {c ? (
         <>

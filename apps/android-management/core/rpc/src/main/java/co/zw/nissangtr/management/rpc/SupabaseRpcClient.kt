@@ -700,6 +700,18 @@ class SupabaseRpcClient(
             ?.cartId
     }
 
+    override suspend fun getPosScanSessionStatus(sessionId: String): String? {
+        require(sessionId.isNotBlank())
+        return client.from("pos_scan_sessions")
+            .select(Columns.list("status")) {
+                filter { eq("id", sessionId) }
+                limit(1)
+            }
+            .decodeList<PosScanSessionStatusRow>()
+            .firstOrNull()
+            ?.status
+    }
+
     override suspend fun parkPosCart(cartId: String): String {
         require(cartId.isNotBlank())
         return client.postgrest.rpc(
@@ -2909,6 +2921,11 @@ private data class PosScanSessionRow(
 @Serializable
 private data class PosScanSessionCartRow(
     @SerialName("cart_id") val cartId: String,
+)
+
+@Serializable
+private data class PosScanSessionStatusRow(
+    @SerialName("status") val status: String,
 )
 
 @Serializable

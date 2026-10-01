@@ -33,6 +33,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import co.zw.nissangtr.pos.domain.state.CompanionEvent
+import co.zw.nissangtr.pos.domain.state.CompanionEffect
+import co.zw.nissangtr.pos.domain.gateway.CompanionGateway
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -47,6 +51,7 @@ data class PosGateways(
     val sales: SalesGateway,
     val epc: EpcGateway,
     val offline: OfflineSaleGateway = OfflineSaleGateway.None,
+    val companion: CompanionGateway = CompanionGateway.None,
 )
 
 /**
@@ -59,6 +64,8 @@ class PosStore(
     initial: PosState = PosState(),
     /** Receipt timestamp source; injectable so tests and goldens are deterministic. */
     private val clock: () -> String = { java.time.OffsetDateTime.now().withNano(0).toString() },
+    /** Companion poll interval (Realtime is web-only; the till polls the session and cart). */
+    private val companionPollMs: Long = 3_000,
 ) {
     private val _state = MutableStateFlow(initial)
     val state: StateFlow<PosState> = _state.asStateFlow()
@@ -66,6 +73,7 @@ class PosStore(
     /** Cart mutations run one at a time so a line never races its own quantity change. */
     private val cartLock = Mutex()
     private var searchJob: Job? = null
+    private var companionJob: Job? = null
 
     fun dispatch(intent: PosIntent) = apply(intent)
 
@@ -247,6 +255,7 @@ class PosStore(
             is PosSaleEffect.EpcDetail -> launch {
                 gateways.epc.diagram(effect.model, effect.variant, effect.section, effect.diagram).onOk { apply(PosSaleEvent.EpcDetailLoaded(it)) }
             }
+            is CompanionEffect -> runCompanion(effect)
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
@@ -286,6 +295,51 @@ class PosStore(
                         PosSaleEvent.EpcResolved(effect.oemPartNumber, r.value.firstOrNull { it.oemKey == effect.oemPartNumber.trim().uppercase() }),
                     )
                     is PosResult.Err -> apply(PosSaleEvent.EpcResolved(effect.oemPartNumber, null))
+                }
+            }
+        }
+    }
+
+    private fun runCompanion(effect: CompanionEffect) {
+        when (effect) {
+            is CompanionEffect.Create -> launch {
+                var opened: CartProjection? = null
+                val cartId = effect.cartId ?: when (val r = gateways.cart.open(state.value.currency)) {
+                    is PosResult.Ok -> r.value.also { opened = it }.cartId
+                    is PosResult.Err -> return@launch apply(CompanionEvent.Failed(r.error))
+                }
+                if (opened != null) state.value.vehicle?.let { gateways.cart.setVehicle(cartId, it) }
+                when (val r = gateways.companion.create(cartId)) {
+                    is PosResult.Ok -> apply(CompanionEvent.Created(r.value, opened))
+                    is PosResult.Err -> apply(CompanionEvent.Failed(r.error))
+                }
+            }
+            is CompanionEffect.Revoke -> {
+                companionJob?.cancel()
+                // Best effort: an unreachable server expires the code on its own.
+                launch { gateways.companion.revoke(effect.sessionId) }
+            }
+            is CompanionEffect.ClaimCode -> launch {
+                when (val r = gateways.companion.claim(effect.pairingCode)) {
+                    is PosResult.Ok -> apply(CompanionEvent.Claimed(r.value))
+                    is PosResult.Err -> apply(CompanionEvent.ScannerFailed(r.error))
+                }
+            }
+            is CompanionEffect.AddFromQr -> launch {
+                when (val r = gateways.companion.addFromQr(effect.cartId, effect.payload)) {
+                    is PosResult.Ok -> apply(CompanionEvent.ScanAdded(r.value))
+                    is PosResult.Err -> apply(CompanionEvent.ScannerFailed(r.error))
+                }
+            }
+            is CompanionEffect.Watch -> {
+                companionJob?.cancel()
+                companionJob = scope.launch {
+                    while (state.value.companion?.let { it.sessionId == effect.sessionId && it.live } == true) {
+                        delay(companionPollMs)
+                        val status = (gateways.companion.status(effect.sessionId) as? PosResult.Ok)?.value ?: continue
+                        val cart = (gateways.companion.cart(effect.cartId) as? PosResult.Ok)?.value
+                        apply(CompanionEvent.Polled(effect.sessionId, status, cart))
+                    }
                 }
             }
         }

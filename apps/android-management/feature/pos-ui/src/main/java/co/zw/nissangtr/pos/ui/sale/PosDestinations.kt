@@ -502,6 +502,24 @@ fun SettingsScreen(state: PosState, dispatch: (PosIntent) -> Unit, host: PosHost
                 onSelect = { dispatch(PosSaleIntent.SetHaptics(it)) },
             )
         }
+        ListRow(stringResource(R.string.pos_companion_title), stringResource(R.string.pos_companion_settings_hint)) {
+            SoftButton(
+                stringResource(if (state.companion?.live == true) R.string.pos_companion_live else R.string.pos_companion_pair),
+                null,
+                enabled = state.online,
+                onClick = { dispatch(co.zw.nissangtr.pos.domain.state.CompanionIntent.Open) },
+                modifier = Modifier.width(160.dp),
+            )
+        }
+        ListRow(stringResource(R.string.pos_scanner_link_title), stringResource(R.string.pos_scanner_link_hint)) {
+            SoftButton(
+                stringResource(if (state.scanner != null) R.string.pos_scanner_link_live_short else R.string.pos_open),
+                null,
+                enabled = state.online || state.scanner != null,
+                onClick = { dispatch(co.zw.nissangtr.pos.domain.state.CompanionIntent.OpenScanner) },
+                modifier = Modifier.width(160.dp),
+            )
+        }
         ListRow(
             stringResource(R.string.pos_offline_sales),
             stringResource(R.string.pos_offline_sales_hint, state.offlineQueue.pending, state.offlineQueue.conflicts),

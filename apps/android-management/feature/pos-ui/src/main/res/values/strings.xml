@@ -40,6 +40,29 @@
     <string name="pos_offline_sales">Offline sales</string>
     <string name="pos_offline_sales_hint">%1$d waiting to sync · %2$d need review</string>
     <string name="pos_sync_now">Sync now</string>
+    <string name="pos_companion_title">Companion phone</string>
+    <string name="pos_companion_pair">Pair phone</string>
+    <string name="pos_companion_live">Phone paired</string>
+    <string name="pos_companion_settings_hint">A staff phone scans parts into the open sale with its own camera.</string>
+    <string name="pos_companion_steps">On a phone signed in with your staff account, open POS → Settings → Scan for a till and enter this code.</string>
+    <string name="pos_companion_expires">Code expires at %1$s</string>
+    <string name="pos_companion_waiting">Waiting for the phone…</string>
+    <string name="pos_companion_claimed">Phone connected. Its scans go straight into this sale.</string>
+    <string name="pos_companion_ended">This pairing has ended.</string>
+    <string name="pos_companion_expired">This code has expired. Pair again for a new one.</string>
+    <string name="pos_companion_end">End pairing</string>
+    <string name="pos_companion_pair_again">Pair again</string>
+    <string name="pos_done">Done</string>
+    <string name="pos_scanner_link_title">Scan for a till</string>
+    <string name="pos_scanner_link_hint">Use this device as the scanner for a till\'s open sale.</string>
+    <string name="pos_scanner_link_steps">Signed in with the same staff account as the till, enter the code the till shows under Pair phone.</string>
+    <string name="pos_scanner_link_code">Pairing code</string>
+    <string name="pos_scanner_link_connect">Connect</string>
+    <string name="pos_scanner_link_live">Connected. Scans go into the till\'s sale.</string>
+    <string name="pos_scanner_link_live_short">Connected</string>
+    <string name="pos_scanner_link_scan">Scan part</string>
+    <string name="pos_scanner_link_recent">Added to the sale</string>
+    <string name="pos_scanner_link_leave">Disconnect</string>
 
     <!-- Hero (§6.3; copy per D-007) -->
     <string name="pos_hero_title">Genuine Parts\nReal Performance</string>
@@ -155,7 +178,6 @@
     <string name="pos_customer_search_hint">Name, business, phone, email or customer ID</string>
     <string name="pos_discount_percent">Discount %</string>
     <string name="pos_display_name">Name</string>
-    <string name="pos_done">Done</string>
     <string name="pos_ecocash_phone">EcoCash phone</string>
     <string name="pos_ecocash_send">Send EcoCash request</string>
     <string name="pos_ecocash_sent">EcoCash request sent · %1$s</string>

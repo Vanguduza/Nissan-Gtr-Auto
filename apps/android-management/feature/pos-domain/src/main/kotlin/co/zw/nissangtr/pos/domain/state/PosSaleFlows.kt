@@ -170,6 +170,8 @@ private fun offlineGuard(state: PosState, intent: PosSaleIntent): Reduction? = w
 }
 
 private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reduction = when (intent) {
+    is CompanionIntent -> reduceCompanionIntent(state, intent)
+
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
         !state.online && !state.cart.isLocal -> offlineRefusal(state, "server_cart")
@@ -413,6 +415,8 @@ private fun validateDraft(state: PosState, draft: CustomerDraft): Reduction? = w
 }
 
 internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = when (event) {
+    is CompanionEvent -> reduceCompanionEvent(state, event)
+
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 
     is PosSaleEvent.CustomerSaved -> reduceSaleIntent(

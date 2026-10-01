@@ -3,6 +3,7 @@ package co.zw.nissangtr.pos.domain.state
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.CartProjection
+import co.zw.nissangtr.pos.domain.model.CompanionSession
 import co.zw.nissangtr.pos.domain.model.Customer
 import co.zw.nissangtr.pos.domain.model.EpcDiagram
 import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
@@ -14,6 +15,7 @@ import co.zw.nissangtr.pos.domain.model.InvoiceSummary
 import co.zw.nissangtr.pos.domain.model.ParkedSale
 import co.zw.nissangtr.pos.domain.model.Quotation
 import co.zw.nissangtr.pos.domain.model.Receipt
+import co.zw.nissangtr.pos.domain.model.ScannerLink
 import co.zw.nissangtr.pos.domain.model.VehicleModel
 import co.zw.nissangtr.pos.domain.model.CatalogPart
 import co.zw.nissangtr.pos.domain.model.CurrencyCode
@@ -84,6 +86,14 @@ data class PosState(
     /** Offline outbox: sales waiting to replay and refused replays awaiting review (§10.12). */
     val offlineQueue: OfflineSyncStatus = OfflineSyncStatus(0, 0),
     val offlineSyncing: Boolean = false,
+    /** Companion phone pairing for the open sale, its dialog, and a create in flight. */
+    val companion: CompanionSession? = null,
+    val companionOpen: Boolean = false,
+    val companionPairing: Boolean = false,
+    /** This device scanning into another till's sale. */
+    val scanner: ScannerLink? = null,
+    val scannerOpen: Boolean = false,
+    val scannerClaiming: Boolean = false,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

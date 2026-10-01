@@ -10,11 +10,14 @@ import co.zw.nissangtr.management.rpc.SupabaseRpcClient
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.gateway.CheckoutGateway
 import co.zw.nissangtr.pos.domain.gateway.CheckoutResult
+import co.zw.nissangtr.pos.domain.gateway.CompanionGateway
 import co.zw.nissangtr.pos.domain.gateway.CustomerGateway
 import co.zw.nissangtr.pos.domain.gateway.EpcGateway
 import co.zw.nissangtr.pos.domain.gateway.SalesGateway
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.CartProjection
+import co.zw.nissangtr.pos.domain.model.CompanionSession
+import co.zw.nissangtr.pos.domain.model.CompanionStatus
 import co.zw.nissangtr.pos.domain.model.Customer
 import co.zw.nissangtr.pos.domain.model.CustomerDraft
 import co.zw.nissangtr.pos.domain.model.CustomerKind
@@ -33,6 +36,7 @@ import co.zw.nissangtr.pos.domain.model.ParkedSale
 import co.zw.nissangtr.pos.domain.model.QuoteChannel
 import co.zw.nissangtr.pos.domain.model.Quotation
 import co.zw.nissangtr.pos.domain.model.ReceiptContacts
+import co.zw.nissangtr.pos.domain.model.ScannerLink
 import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.model.VehicleModel
 import co.zw.nissangtr.pos.domain.model.VehicleSelection
@@ -234,6 +238,40 @@ class RpcSaleGateways(private val rpc: RpcClient) {
         }
 
         override suspend fun image(url: String) = call { downloadDiagram(url) }
+    }
+
+    val companion: CompanionGateway = object : CompanionGateway {
+        override suspend fun create(cartId: String) = call {
+            val created = rpc.createPosScanSession(cartId)
+            CompanionSession(created.sessionId, cartId, created.pairingCode, created.expiresAt, CompanionStatus.Open)
+        }
+
+        override suspend fun revoke(sessionId: String) = call { rpc.revokePosScanSession(sessionId); Unit }
+
+        override suspend fun status(sessionId: String) = call {
+            when (rpc.getPosScanSessionStatus(sessionId)?.lowercase()) {
+                "open" -> CompanionStatus.Open
+                "claimed" -> CompanionStatus.Claimed
+                "expired" -> CompanionStatus.Expired
+                else -> CompanionStatus.Revoked
+            }
+        }
+
+        override suspend fun cart(cartId: String) = call { projectionOf(cartId) }
+
+        override suspend fun claim(pairingCode: String) = call {
+            val sessionId = rpc.claimPosScanSession(pairingCode)
+            val cartId = rpc.getPosScanSessionCartId(sessionId)
+                ?: throw PosFailure(PosError.BusinessRule("companion_cart", "This pairing has no open sale."))
+            ScannerLink(sessionId, cartId)
+        }
+
+        override suspend fun addFromQr(cartId: String, payload: String) = call {
+            rpc.addCartLineFromQr(cartId, payload, 1.0)
+            // Show the part number the inventory label carries (gtr://part/{oem}?batch=…), not the raw payload.
+            Regex("^gtr://part/([^?]+)").find(payload.trim())?.groupValues?.get(1)
+                ?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: payload
+        }
     }
 
     /** Server cart in its own currency (resume / quote conversion can bring back a ZiG cart). */
