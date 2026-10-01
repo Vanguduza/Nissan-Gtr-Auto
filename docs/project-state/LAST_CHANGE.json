@@ -1,45 +1,17 @@
 {
   "actor": "claude-code",
   "branch_at_record": "port-work",
-  "change_id": "62cd74de036eaf1e0b75",
+  "change_id": "fece72046e760135edc3",
   "changed_files": [
-    "apps/android-management/feature/pos-ui/src/test/java/co/zw/nissangtr/pos/ui/gallery/ComponentGallery.kt",
-    "apps/android-management/feature/pos-ui/src/test/java/co/zw/nissangtr/pos/ui/gallery/DesignSystemScreenshotTest.kt",
-    "apps/android-management/feature/pos/build.gradle.kts",
-    "docs/design/pos/FEATURE_REGISTER.md",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/icons/PosIcons.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/layout/PosScaffold.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/primitives/Money.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/primitives/PosFocusRing.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/primitives/PosGlassSurface.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/primitives/PosSkeleton.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/primitives/PosSnackbar.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/shortcuts/PosShortcuts.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosDensity.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosElevation.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosMotion.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosOptical.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosPalette.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosShape.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosSpace.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosTheme.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosType.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/theme/PosWindowClass.kt",
-    "packages/pos-design/src/main/java/co/zw/nissangtr/pos/design/tokens/PosTokens.kt",
-    "packages/ui/brand-tokens.json",
-    "packages/ui/scripts/build-tokens.mjs",
-    "packages/ui/src/tokens.css",
-    "packages/ui/src/tokens.ts"
+    "apps/android-management/feature/pos/build.gradle.kts"
   ],
-  "diff_sha256": "62cd74de036eaf1e0b756917eb92afef482e65fdad24376c757a6251310df6a5",
+  "diff_sha256": "fece72046e760135edc3021f9e1d1b5c4165b3232c2d9df98ff09647de1b4a4c",
   "domains": [
-    "documentation",
     "management-android",
-    "pos-android",
-    "repository"
+    "pos-android"
   ],
-  "intent": "port 660a8905 onto POS reconcile lineage",
-  "recorded_at_utc": "2026-10-01T01:12:51.864160+00:00",
+  "intent": "restore icons dependency for reconcile POS screens",
+  "recorded_at_utc": "2026-10-01T01:13:01.190559+00:00",
   "schema_version": 1,
-  "source_parent": "6514e98674e24069645d80ef56123d1ea876ceb6"
+  "source_parent": "a7e9817b183b5d6cfe11fa584bc49fa4474e9d7a"
 }
