@@ -1,25 +1,19 @@
 {
   "actor": "claude-code",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "8ca1077c07826c5e89e8",
+  "change_id": "6b00df309c264b21bb52",
   "changed_files": [
-    "docs/decisions/2026-10-01-pos-owner-decisions.md",
-    "docs/design/pos/FEATURE_REGISTER.md",
-    "docs/design/pos/WEB_POS_PARITY.md",
-    "docs/design/pos/web/2026-10-01-web-pos-epc-preview.png",
-    "docs/design/pos/web/2026-10-01-web-pos-orders-preview.png",
-    "docs/design/pos/web/2026-10-01-web-pos-payment-preview.png",
-    "docs/design/pos/web/2026-10-01-web-pos-phone-preview.png",
-    "docs/design/pos/web/2026-10-01-web-pos-popular-pins-preview.png",
-    "docs/design/pos/web/2026-10-01-web-pos-quick-sale-discount-preview.png",
+    "apps/web/components/pos/PosDialogs.tsx",
+    "apps/web/components/pos/pos.module.css",
     "docs/design/pos/web/2026-10-01-web-pos-receipt-preview.png"
   ],
-  "diff_sha256": "8ca1077c07826c5e89e8206b1dfc721d9369b6df8d30df03b8ee96556baa0cd5",
+  "diff_sha256": "6b00df309c264b21bb52e41652abefc7b3c443b76eec4daadd9fb2c85d350be2",
   "domains": [
-    "documentation"
+    "documentation",
+    "web"
   ],
-  "intent": "docs: web POS progress",
-  "recorded_at_utc": "2026-10-01T03:25:13.472173+00:00",
+  "intent": "receipt dialog layout",
+  "recorded_at_utc": "2026-10-01T03:49:36.936805+00:00",
   "schema_version": 1,
-  "source_parent": "b5c3cd91941fbf9fcb7cc61b0724b0b5e0d70285"
+  "source_parent": "c1bde57436d5f41976f3cd5e918ac3fc1781fe8a"
 }

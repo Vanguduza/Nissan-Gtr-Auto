@@ -1128,17 +1128,48 @@
 .receiptLine {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
   font-variant-numeric: tabular-nums;
 }
+.receiptLine > span:first-child {
+  min-width: 0;
+}
+/* Amounts never break across lines, even on 80 mm paper. */
+.receiptLine > :last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .receiptPreview {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   margin-top: 14px;
-  padding: 16px;
+  padding: 20px;
   border-radius: var(--gtr-radius-sm);
-  background: var(--gtr-color-brand-white);
+  background: var(--gtr-color-neutral-canvas);
   box-shadow: var(--gtr-neu-pressed);
-  max-height: 320px;
+  max-height: min(420px, 55dvh);
   overflow-y: auto;
+}
+/* The slip sits centred on the preview like the paper it will print on. */
+.receiptPreview > .receipt {
+  flex: 0 0 auto;
+  padding: 16px 18px;
+  border-radius: var(--gtr-radius-xs);
+  background: var(--gtr-color-brand-white);
+  box-shadow: var(--gtr-elevation-2);
+}
+.receiptPreview > .receiptPaperA4 {
+  flex: 1 1 auto;
+  padding: 28px 32px;
+}
+.receiptToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .printOnly {
   display: none;

@@ -155,11 +155,12 @@ export function ReceiptView({ receipt, paper }: { receipt: ReceiptDocument; pape
       {receipt.vehicleLabel ? <div>Vehicle: {receipt.vehicleLabel}</div> : null}
       <hr className={styles.receiptRule} />
       {receipt.lines.map((l, i) => (
-        <div key={`${l.oemPartNumber}-${i}`}>
+        <div key={`${l.oemPartNumber}-${i}`} style={{ marginBottom: 6 }}>
           <div>{l.name}</div>
+          <div>{l.oemPartNumber}</div>
           <div className={styles.receiptLine}>
-            <span>
-              {l.oemPartNumber} · {l.qty} × {formatMoney(l.unitPrice, receipt.currency)}
+            <span style={{ whiteSpace: "nowrap" }}>
+              {l.qty} × {formatMoney(l.unitPrice, receipt.currency)}
             </span>
             <span>{formatMoney(l.lineTotal, receipt.currency)}</span>
           </div>
@@ -224,7 +225,7 @@ export function PaymentDialog({
     const usedEcocash = receipt.tenders.some((t) => t.tender === "ecocash");
     return (
       <Modal title={`Sale complete · ${receipt.documentNumber ?? ""}`} onClose={() => { pos.clearReceipt(); onClose(); }} wide>
-        <div className={styles.row}>
+        <div className={styles.receiptToolbar}>
           <div className={styles.segment} role="group" aria-label="Paper">
             {(["80mm", "A4"] as const).map((p) => (
               <button key={p} type="button" className={`${styles.segmentItem} ${paper === p ? styles.segmentActive : ""}`} onClick={() => setPaper(p)}>
