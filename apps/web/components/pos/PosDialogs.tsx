@@ -1,36 +1,124 @@
 "use client";
 
-import { Banknote, Car, Plus, Printer, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { Banknote, Car, Plus, Printer, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
 import type { ReceiptDocument, Tender, TenderLine } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 
+/** Open dialog layers, oldest first. Everything beneath the top layer is inert. */
+const layers: HTMLElement[] = [];
+const SHELL_ID = "pos-shell";
+const LAYERS_ID = "pos-layers";
+
+function syncInert() {
+  const shell = document.getElementById(SHELL_ID);
+  const top = layers[layers.length - 1];
+  shell?.toggleAttribute("inert", layers.length > 0);
+  layers.forEach((el) => el.toggleAttribute("inert", el !== top));
+  document.documentElement.classList.toggle(styles.scrollLocked, layers.length > 0);
+}
+
+const FOCUSABLE =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Focus dialog: the dialog is the only interactive thing on screen. The page behind is blurred,
+ * dimmed and inert (no clicks, no tab stops, no screen-reader access); focus moves in, is trapped,
+ * Escape closes, and focus returns to what opened it. On phones it rises as a bottom sheet.
+ */
 export function Modal({
   title,
   children,
   onClose,
   wide,
+  sheet,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  /** Bottom sheet on every size (cart, vehicle picker on phones). Dialogs become sheets on Compact anyway. */
+  sheet?: boolean;
 }) {
-  return (
-    <div className={styles.modalScrim} role="presentation" onClick={onClose}>
+  const layerRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const [mounted, setMounted] = useState(false);
+  const titleId = useId();
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const layer = layerRef.current;
+    const dialog = dialogRef.current;
+    if (!layer || !dialog) return;
+    const opener = document.activeElement as HTMLElement | null;
+    layers.push(layer);
+    syncInert();
+    const first = dialog.querySelector<HTMLElement>("[autofocus]") ?? dialog.querySelector<HTMLElement>(FOCUSABLE);
+    (first ?? dialog).focus({ preventScroll: true });
+
+    const onKey = (e: KeyboardEvent) => {
+      if (layers[layers.length - 1] !== layer) return;
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeRef.current();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null);
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const firstItem = items[0];
+      const lastItem = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === firstItem) {
+        e.preventDefault();
+        lastItem.focus();
+      } else if (!e.shiftKey && document.activeElement === lastItem) {
+        e.preventDefault();
+        firstItem.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      const i = layers.indexOf(layer);
+      if (i >= 0) layers.splice(i, 1);
+      syncInert();
+      if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+    };
+  }, [mounted]);
+
+  if (!mounted) return null;
+  return createPortal(
+    <div ref={layerRef} className={`${styles.modalScrim} ${sheet ? styles.modalScrimSheet : ""}`} role="presentation" onMouseDown={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}>
       <div
-        className={`${styles.modal} ${wide ? styles.modalWide : ""}`}
+        ref={dialogRef}
+        className={`${styles.modal} ${wide ? styles.modalWide : ""} ${sheet ? styles.modalSheet : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
+        aria-labelledby={titleId}
+        tabIndex={-1}
       >
-        <h2 className={styles.panelTitle}>{title}</h2>
+        <div className={styles.modalHead}>
+          <h2 id={titleId} className={styles.panelTitle}>{title}</h2>
+          <button type="button" className={styles.iconButton} aria-label="Close" onClick={onClose}>
+            <X size={18} aria-hidden />
+          </button>
+        </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.getElementById(LAYERS_ID) ?? document.body,
   );
 }
 

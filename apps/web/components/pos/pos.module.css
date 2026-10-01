@@ -4,7 +4,7 @@
  * packages/ui tokens (design-lint DL-12: no raw hex here).
  */
 
-.app {
+.root {
   --pos-rail: clamp(112px, 11.25vw, 176px);
   --pos-cart: clamp(320px, 27.5vw, 420px);
   --pos-header: 96px;
@@ -12,15 +12,21 @@
   --pos-ink: var(--gtr-color-neutral-ink-deep);
   --pos-muted: var(--gtr-color-neutral-ink-muted);
   --pos-red: var(--gtr-color-brand-red);
+  --pos-bottom-nav: 64px;
 
+  color: var(--pos-ink);
+  font-family: var(--pos-font), system-ui, sans-serif;
+  background: var(--gtr-color-neutral-canvas);
+}
+
+.app {
   display: grid;
   grid-template-columns: var(--pos-rail) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
   overflow: hidden;
   background: var(--gtr-color-neutral-canvas);
-  color: var(--pos-ink);
-  font-family: var(--pos-font), system-ui, sans-serif;
+  transition: filter var(--gtr-motion-hoverMs);
 }
 
 /* ───────── Rail (dark, neumorphic dark scheme) ───────── */
@@ -481,9 +487,11 @@
   font-size: 15px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .partMeta {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
   gap: 6px;
@@ -799,32 +807,116 @@
   cursor: not-allowed;
 }
 
+/* ───────── Focus dialog: the page behind is blurred, dimmed and inert ───────── */
+.scrollLocked,
+.scrollLocked body {
+  overflow: hidden;
+}
 .modalScrim {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 40;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--gtr-color-neutral-scrim) 32%, transparent);
+  padding: 16px;
+  background: color-mix(in srgb, var(--gtr-color-neutral-scrim) 38%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(110%);
+  backdrop-filter: blur(10px) saturate(110%);
+  animation: posScrimIn 180ms ease-out;
+}
+.modalScrim[inert] {
+  /* A dialog under another dialog recedes too. */
+  filter: blur(2px);
 }
 .modal {
   width: min(440px, calc(100vw - 32px));
-  padding: 24px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px 24px;
   border-radius: var(--gtr-radius-lg);
   background: var(--gtr-color-neutral-surface);
-  box-shadow: var(--gtr-elevation-3);
+  box-shadow: var(--gtr-elevation-3), var(--gtr-neu-raised);
+  animation: posDialogIn 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.modal:focus {
+  outline: none;
+}
+.modalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.modalHead .panelTitle {
+  margin: 0;
+}
+.modalScrimSheet {
+  place-items: end center;
+  padding: 0;
+}
+.modalSheet {
+  width: min(640px, 100vw);
+  max-height: 88dvh;
+  border-radius: var(--gtr-radius-lg) var(--gtr-radius-lg) 0 0;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  animation: posSheetIn 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes posScrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes posDialogIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes posSheetIn {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modalScrim,
+  .modal,
+  .modalSheet {
+    animation: none;
+  }
+}
+.cartInSheet {
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.cartInSheet .cartTitle {
+  display: none;
+}
+.cartInSheet .cartHead {
+  justify-content: flex-end;
+}
+
 .modalActions {
   display: flex;
   justify-content: flex-end;
   margin-top: 18px;
 }
 
-/* ───────── Window classes ───────── */
-@media (max-height: 880px) {
+/* ───────── Window classes (blueprint §3.5) — set on .root by useWindowClass ─────────
+ * Expanded ≥1040: full rail · inline cascade · side cart.
+ * Medium 600–1039: 88 px icon rail · vehicle button · side cart while ≥900 px, else sale bar + sheet.
+ * Compact <600: bottom navigation · stacked header · hero identity strip · sale bar + sheet.
+ */
+
+/* Short screens: the hero yields first (§3.6), then the rail artwork. */
+@media (max-height: 820px) {
+  .hero {
+    height: clamp(160px, 30dvh, 240px);
+  }
   .railCar {
     display: none;
   }
+}
+@media (max-height: 700px) {
   .addCustomer {
     margin: 10px 0 8px;
   }
@@ -836,55 +928,198 @@
     padding: 8px 0;
   }
 }
-@media (max-width: 1100px) {
-  .main {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-  }
-  .header {
-    flex-wrap: wrap;
-    padding: 12px var(--pos-gutter);
-  }
-  .cart {
-    margin: 0 var(--pos-gutter) 16px;
-    max-height: 42dvh;
-  }
+
+/* Vehicle button (Medium / Compact cascade) */
+.vehicleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 240px;
+  height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--gtr-radius-md);
+  background: var(--gtr-color-neutral-surface);
+  box-shadow: var(--gtr-neu-raised-sm);
+  color: var(--pos-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 0 1 auto;
 }
-@media (max-width: 720px) {
-  /* Interim compact layout: the whole page scrolls. The designed phone POS (blueprint §9) is
-     feature-register PHONE work. */
-  .app {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto;
-    height: auto;
-    min-height: 100dvh;
-    overflow: visible;
-  }
-  .main {
-    grid-template-rows: auto auto auto;
-  }
-  .canvas {
-    overflow: visible;
-  }
-  .cart {
-    max-height: none;
-  }
-  .rail {
-    flex-direction: row;
-    overflow-x: auto;
-    padding: 8px;
-  }
-  .railLogo,
-  .railFoot {
-    display: none;
-  }
-  .navItem span {
-    display: none;
-  }
-  .heroCopy {
-    max-width: 100%;
-  }
+.vehicleButtonLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.cascadeDialog {
+  display: grid;
+  gap: 14px;
+  margin: 8px 0 4px;
+}
+.cascadeDialog .cascadeField {
+  width: 100%;
+}
+.cascadeDialog .cascadeSelect {
+  width: 100%;
+  max-width: none;
+  height: 48px;
+  font-size: 15px;
+}
+
+/* Sale summary bar (cart as a sheet) */
+.compactBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 var(--pos-gutter) 12px;
+  padding: 10px 12px 10px 10px;
+  border-radius: var(--gtr-radius-lg);
+  background: var(--gtr-color-neutral-surface);
+  box-shadow: var(--gtr-neu-raised);
+}
+.compactTotal {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Medium */
+.root[data-window="medium"] {
+  --pos-rail: 88px;
+  --pos-cart: 320px;
+  --pos-gutter: 16px;
+}
+.railIcons {
+  padding: 14px 10px;
+  align-items: stretch;
+}
+.railIcons .railLogo {
+  max-width: 56px;
+  margin-bottom: 10px;
+}
+.railIcons .navItem {
+  justify-content: center;
+  padding: 0;
+}
+.root[data-window="medium"] .header {
+  gap: 12px;
+}
+.root[data-window="medium"] .search {
+  flex: 1 1 auto;
+  max-width: none;
+  margin: 0;
+}
+.root[data-window="medium"] .operatorName,
+.root[data-window="medium"] .operatorSub {
+  display: none;
+}
+
+/* Cart as a sheet (Medium below 900 px, and Compact) */
+.root[data-cart="sheet"] .main {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+/* Compact */
+.root[data-window="compact"] {
+  --pos-gutter: 14px;
+}
+.root[data-window="compact"] .app {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--pos-bottom-nav);
+}
+.root[data-window="compact"] .main {
+  grid-row: 1;
+}
+.root[data-window="compact"] .header {
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px var(--pos-gutter) 8px;
+}
+.root[data-window="compact"] .vehicleButton {
+  flex: 1 1 0;
+  max-width: none;
+}
+.root[data-window="compact"] .search {
+  order: 3;
+  flex: 1 1 100%;
+  max-width: none;
+  height: 48px;
+  margin: 0;
+}
+.root[data-window="compact"] .hero {
+  height: 96px;
+  min-height: 96px;
+}
+.root[data-window="compact"] .heroBadges,
+.root[data-window="compact"] .heroSub,
+.root[data-window="compact"] .heroRule {
+  display: none;
+}
+.root[data-window="compact"] .heroTitle {
+  font-size: 20px;
+}
+.root[data-window="compact"] .heroCopy {
+  padding: 16px 18px;
+}
+.root[data-window="compact"] .categories {
+  grid-auto-flow: column;
+  grid-template-columns: none;
+  grid-auto-columns: 96px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+.root[data-window="compact"] .modalScrim {
+  place-items: end center;
+  padding: 0;
+}
+.root[data-window="compact"] .modal {
+  width: 100vw;
+  max-height: 90dvh;
+  border-radius: var(--gtr-radius-lg) var(--gtr-radius-lg) 0 0;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  animation-name: posSheetIn;
+}
+.bottomNav {
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: center;
+  padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+  background: var(--gtr-color-brand-steel);
+}
+.bottomNavItem {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: var(--gtr-radius-sm);
+  background: transparent;
+  color: var(--gtr-color-brand-silver);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.bottomNavItem span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bottomNavActive {
+  background: var(--pos-red);
+  color: var(--gtr-color-brand-primaryInk);
+  font-weight: 600;
+}
+
+
+
+
 
 /* ───────── Forms, lists and operations screens ───────── */
 .field {
@@ -1189,24 +1424,4 @@
   }
 }
 
-/* ───────── Compact sale bar (phone) ───────── */
-.compactBar {
-  display: none;
-}
-@media (max-width: 720px) {
-  .compactBar {
-    position: sticky;
-    bottom: 0;
-    z-index: 8;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 16px;
-    background: var(--gtr-color-neutral-surface);
-    box-shadow: var(--gtr-elevation-3);
-  }
-  .cartCollapsed {
-    display: none;
-  }
-}
+

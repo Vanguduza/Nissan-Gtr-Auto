@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { haptic, hapticsEnabled, hapticsSupported, setHapticsEnabled } from "@/lib/pos/haptics";
 import type { PosGateway } from "@/lib/pos/gateway";
 import { usePos, type PosStore } from "@/lib/pos/use-pos";
+import { useWindowClass } from "@/lib/pos/window-class";
 import { CurrentSale } from "./CurrentSale";
 import { GarageChooser, ManagerDialog, Modal, PaymentDialog, ReceiptView } from "./PosDialogs";
 import { PosHeader } from "./PosHeader";
@@ -192,11 +193,14 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
   const [quoting, setQuoting] = useState(false);
   const [paper, setPaper] = useState<"80mm" | "A4">("80mm");
 
+  const { windowClass, cartMode } = useWindowClass();
+
   return (
-    <div className={styles.app}>
-      <PosRail active={pos.destination} onSelect={pos.setDestination} />
+    <div className={styles.root} data-window={windowClass} data-cart={cartMode}>
+    <div id="pos-shell" className={styles.app}>
+      <PosRail active={pos.destination} onSelect={pos.setDestination} windowClass={windowClass} />
       <div className={styles.main}>
-        <PosHeader pos={pos} />
+        <PosHeader pos={pos} windowClass={windowClass} />
         <main className={styles.canvas}>
           {pos.isPreview ? (
             <div className={`${styles.statusBanner} ${styles.statusPreview}`} role="status">
@@ -229,6 +233,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
         </main>
         <CurrentSale
           pos={pos}
+          mode={cartMode}
           onAddCustomer={() => pos.setDestination("customer")}
           onPay={() => {
             pos.dismissError();
@@ -236,6 +241,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
           }}
         />
       </div>
+    </div>
 
       {paying || pos.lastReceipt ? <PaymentDialog pos={pos} onClose={() => setPaying(false)} paper={paper} setPaper={setPaper} /> : null}
       {pos.lastReceipt ? (
@@ -247,6 +253,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
       <GarageChooser pos={pos} />
       {quoting ? <QuoteDialog pos={pos} onClose={() => setQuoting(false)} /> : null}
       {portal ? <StaffPortalDialog gateway={gateway} onClose={() => setPortal(false)} /> : null}
+      <div id="pos-layers" />
     </div>
   );
 }

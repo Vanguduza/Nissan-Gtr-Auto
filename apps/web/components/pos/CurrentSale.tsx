@@ -4,6 +4,8 @@ import { ArrowRight, Car, ChevronUp, CreditCard, Minus, Pause, Plus, Trash2, Use
 import { useState } from "react";
 import { formatMoney } from "@/lib/pos/money";
 import type { PosStore } from "@/lib/pos/use-pos";
+import type { CartMode } from "@/lib/pos/window-class";
+import { Modal } from "./PosDialogs";
 import { PartThumb } from "./PartCard";
 import styles from "./pos.module.css";
 
@@ -13,10 +15,13 @@ import styles from "./pos.module.css";
  */
 export function CurrentSale({
   pos,
+  mode,
   onAddCustomer,
   onPay,
 }: {
   pos: PosStore;
+  /** "pane": persistent side pane. "sheet": summary bar that opens the sale as a focus sheet. */
+  mode: CartMode;
   onAddCustomer: () => void;
   onPay: () => void;
 }) {
@@ -29,18 +34,8 @@ export function CurrentSale({
     (v) => !(pos.vehicle && v.chassisCode === pos.vehicle.chassisCode && v.engineCode === pos.vehicle.engineCode),
   );
 
-  return (
+  const body = (
     <>
-    <div className={styles.compactBar}>
-      <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
-        <ChevronUp size={16} aria-hidden /> {lines.length} item{lines.length === 1 ? "" : "s"}
-      </button>
-      <strong>{formatMoney(total, currency)}</strong>
-      <button type="button" className={styles.primaryButton} disabled={lines.length === 0 || locked} onClick={onPay}>
-        Pay
-      </button>
-    </div>
-    <aside className={`${styles.cart} ${expanded ? "" : styles.cartCollapsed}`} aria-label="Current sale">
       <div className={styles.cartHead}>
         <h2 className={styles.cartTitle}>Current Sale</h2>
         <button
@@ -128,7 +123,7 @@ export function CurrentSale({
         </div>
       )}
 
-      <button type="button" className={`${styles.softButton} ${styles.addCustomer}`} onClick={onAddCustomer}>
+      <button type="button" className={`${styles.softButton} ${styles.addCustomer}`} onClick={() => { setExpanded(false); onAddCustomer(); }}>
         <User size={16} aria-hidden /> {pos.cart?.customerName ? pos.cart.customerName : "Add Customer"}
       </button>
 
@@ -146,7 +141,7 @@ export function CurrentSale({
         <span className={styles.grandLabel}>Total</span>
         <span className={styles.grandValue}>{formatMoney(pos.subtotal, currency)}</span>
       </div>
-      <button type="button" className={styles.pay} disabled={lines.length === 0 || locked} onClick={onPay}>
+      <button type="button" className={styles.pay} disabled={lines.length === 0 || locked} onClick={() => { setExpanded(false); onPay(); }}>
         <CreditCard size={20} aria-hidden /> Proceed to Payment <ArrowRight size={20} aria-hidden />
       </button>
       {lines.length > 0 ? (
@@ -154,7 +149,32 @@ export function CurrentSale({
           <Pause size={14} aria-hidden /> Park sale
         </button>
       ) : null}
-    </aside>
+    </>
+  );
+
+  if (mode === "pane") {
+    return (
+      <aside className={styles.cart} aria-label="Current sale">
+        {body}
+      </aside>
+    );
+  }
+  return (
+    <>
+      <div className={styles.compactBar} role="region" aria-label="Current sale summary">
+        <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => setExpanded(true)} aria-haspopup="dialog">
+          <ChevronUp size={16} aria-hidden /> {lines.length} item{lines.length === 1 ? "" : "s"}
+        </button>
+        <strong className={styles.compactTotal}>{formatMoney(total, currency)}</strong>
+        <button type="button" className={styles.primaryButton} disabled={lines.length === 0 || locked} onClick={onPay}>
+          Pay
+        </button>
+      </div>
+      {expanded ? (
+        <Modal title="Current Sale" sheet onClose={() => setExpanded(false)}>
+          <div className={`${styles.cart} ${styles.cartInSheet}`}>{body}</div>
+        </Modal>
+      ) : null}
     </>
   );
 }
