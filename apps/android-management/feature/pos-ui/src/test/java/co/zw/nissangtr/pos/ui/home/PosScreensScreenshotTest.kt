@@ -7,9 +7,7 @@ import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.design.theme.PosWindowClass
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.CurrencyCode
-import co.zw.nissangtr.pos.domain.model.EpcDiagram
-import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
-import co.zw.nissangtr.pos.domain.model.EpcPart
+import co.zw.nissangtr.pos.domain.model.EpcImage
 import co.zw.nissangtr.pos.domain.model.EpcSection
 import co.zw.nissangtr.pos.domain.model.EpcVariant
 import co.zw.nissangtr.pos.domain.model.InvoiceSummary
@@ -98,25 +96,38 @@ class PosScreensScreenshotTest {
         ),
     )
 
-    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
-    fun epc() {
-        val model = VehicleModel("gt-r", "GT-R")
-        val variant = EpcVariant("r35", "R35", "VR38DETT", "2007–")
-        val section = EpcSection("brakes", "Brakes")
-        val diagram = EpcDiagram("front-brake", "Front brake")
-        capture(
-            "epc",
-            1280.dp,
-            800.dp,
-            PosFixtures.homeEmpty.copy(
-                destination = PosDestination.EpcBrowse,
-                epc = EpcBrowse(
-                    model = model, variant = variant, section = section,
-                    detail = EpcDiagramDetail(diagram, null, listOf(EpcPart("D1060-JF00A", "Front Brake Pad Set", "41060", null, null), EpcPart("40206-JF00A", "Front Rotor", "40206", null, null))),
-                ),
+    private fun epcState(): PosState {
+        val detail = FakeSaleGateways.brakeDiagram
+        return PosFixtures.homeEmpty.copy(
+            destination = PosDestination.EpcBrowse,
+            epc = EpcBrowse(
+                model = VehicleModel("gt-r", "GT-R"),
+                variant = EpcVariant("r35", "R35", "VR38DETT", "2007–"),
+                section = EpcSection("brakes", "Brakes"),
+                diagrams = listOf(detail.diagram),
+                detail = detail,
+                image = EpcImage(detail.imageUrl!!, FakeSaleGateways.diagramPng),
+                activeOem = "D1060-JF00A",
             ),
         )
     }
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun epc() = capture("epc", 1280.dp, 800.dp, epcState())
+
+    @Test @Config(qualifiers = "w800dp-h1280dp-port-mdpi")
+    fun epcPortrait() = capture("epc_portrait", 800.dp, 1280.dp, epcState())
+
+    @Test @Config(qualifiers = "w400dp-h860dp-port-mdpi")
+    fun epcPhone() = capture("epc_phone", 400.dp, 860.dp, epcState())
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun epcImageMissing() = capture(
+        "epc_image_missing",
+        1280.dp,
+        800.dp,
+        epcState().let { s -> s.copy(epc = s.epc.copy(image = EpcImage(s.epc.detail!!.imageUrl!!, null), activeOem = null)) },
+    )
 
     @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
     fun settings() = capture("settings", 1280.dp, 800.dp, PosFixtures.homeEmpty.copy(destination = PosDestination.Settings))

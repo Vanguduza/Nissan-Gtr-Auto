@@ -12,6 +12,7 @@ import co.zw.nissangtr.pos.domain.model.Customer
 import co.zw.nissangtr.pos.domain.model.CustomerDraft
 import co.zw.nissangtr.pos.domain.model.EpcDiagram
 import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
+import co.zw.nissangtr.pos.domain.model.EpcHotspot
 import co.zw.nissangtr.pos.domain.model.EpcPart
 import co.zw.nissangtr.pos.domain.model.EpcSection
 import co.zw.nissangtr.pos.domain.model.EpcVariant
@@ -27,6 +28,10 @@ import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.model.VehicleModel
 import co.zw.nissangtr.pos.domain.model.VehicleSelection
 import co.zw.nissangtr.pos.domain.result.PosResult
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import java.io.ByteArrayOutputStream
 
 /** Test-only fakes for the sale, customer, back-office and EPC gateways. */
 object FakeSaleGateways {
@@ -69,6 +74,42 @@ object FakeSaleGateways {
         override suspend fun sections(model: VehicleModel, variant: EpcVariant) = PosResult.Ok(listOf(EpcSection("brakes", "Brakes")))
         override suspend fun diagrams(model: VehicleModel, variant: EpcVariant, section: EpcSection) = PosResult.Ok(listOf(EpcDiagram("front-brake", "Front brake")))
         override suspend fun diagram(model: VehicleModel, variant: EpcVariant, section: EpcSection, diagram: EpcDiagram) =
-            PosResult.Ok(EpcDiagramDetail(diagram, null, listOf(EpcPart("D1060-JF00A", "Front Brake Pad Set", "41060", null, null))))
+            PosResult.Ok(brakeDiagram.copy(diagram = diagram))
+        override suspend fun image(url: String): PosResult<ByteArray> = PosResult.Ok(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47))
+    }
+
+    /** Front-brake diagram: pixel callouts on a 480×320 source image (seed `part_fitment` style). */
+    val brakeDiagram = EpcDiagramDetail(
+        diagram = EpcDiagram("front-brake", "Front brake"),
+        imageUrl = "fake://catalog-diagrams/r35/front-brake.png",
+        parts = listOf(
+            EpcPart("D1060-JF00A", "Front Brake Pad Set", "41060", null, null),
+            EpcPart("40206-JF00A", "Front Rotor", "40206", null, null),
+            EpcPart("41001-JF00A", "Front Caliper (L)", "41001", null, null),
+        ),
+        hotspots = listOf(
+            EpcHotspot("D1060-JF00A", "41060", 214.0, 96.0, 70.0, 120.0),
+            EpcHotspot("40206-JF00A", "40206", 40.0, 40.0, 150.0, 240.0),
+            EpcHotspot("41001-JF00A", "41001", 300.0, 70.0, 140.0, 170.0),
+        ),
+    )
+
+    /** Placeholder line art at the callout positions (Robolectric native graphics), so screenshots show boxes on parts. */
+    val diagramPng: ByteArray by lazy {
+        val bmp = Bitmap.createBitmap(480, 320, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        c.drawColor(android.graphics.Color.WHITE)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+            color = android.graphics.Color.rgb(0x33, 0x33, 0x33)
+        }
+        c.drawOval(45f, 45f, 185f, 275f, p)
+        c.drawOval(85f, 120f, 145f, 200f, p)
+        c.drawRect(222f, 104f, 276f, 208f, p)
+        c.drawRoundRect(308f, 78f, 432f, 232f, 30f, 30f, p)
+        c.drawLine(185f, 160f, 222f, 160f, p)
+        c.drawLine(276f, 160f, 308f, 160f, p)
+        ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
     }
 }

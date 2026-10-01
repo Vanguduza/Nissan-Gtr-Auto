@@ -299,7 +299,7 @@ class SqlCipherOfflinePosStore private constructor(
             "SELECT diagram_slug,title,storage_path,image_url,image_blob FROM epc_diagrams WHERE maker_slug=? AND model_slug=? AND variant_slug=? AND section_slug=? AND diagram_slug=? LIMIT 1",
             arrayOf(makerSlug, modelSlug, variantSlug, sectionSlug, diagramSlug),
         ).use { c ->
-            if (c.moveToFirst()) response = EpcDiagramResponse(c.nullString(0), c.nullString(1), c.nullString(2), c.nullString(3), if(c.isNull(4)) null else c.getBlob(4))
+            if (c.moveToFirst()) response = EpcDiagramResponse(c.nullString(0), c.nullString(1), c.nullString(2), c.nullString(3), imageBytes = if(c.isNull(4)) null else c.getBlob(4))
         }
         val parts = mutableListOf<EpcDiagramPart>()
         db().rawQuery(

@@ -242,6 +242,19 @@ class PosStore(
             is PosSaleEffect.EpcDetail -> launch {
                 gateways.epc.diagram(effect.model, effect.variant, effect.section, effect.diagram).onOk { apply(PosSaleEvent.EpcDetailLoaded(it)) }
             }
+            is PosSaleEffect.EpcLoadImage -> launch {
+                // A missing image is not an error: the parts list still sells.
+                val bytes = (gateways.epc.image(effect.url) as? PosResult.Ok)?.value
+                apply(PosSaleEvent.EpcImageLoaded(effect.url, bytes))
+            }
+            is PosSaleEffect.EpcResolve -> launch {
+                when (val r = gateways.catalog.search(effect.oemPartNumber, null)) {
+                    is PosResult.Ok -> apply(
+                        PosSaleEvent.EpcResolved(effect.oemPartNumber, r.value.firstOrNull { it.oemKey == effect.oemPartNumber.trim().uppercase() }),
+                    )
+                    is PosResult.Err -> apply(PosSaleEvent.EpcResolved(effect.oemPartNumber, null))
+                }
+            }
         }
     }
 

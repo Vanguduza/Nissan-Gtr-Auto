@@ -53,16 +53,19 @@ const PARTS: PosPart[] = [
 ];
 const DIAGRAM: EpcDiagram = {
   title: "Front brake",
-  imageUrl: null,
-  width: 1000,
-  height: 700,
+  // Pixel callouts on a 480×320 source with no stored size: the loaded image decides (as seeded data does).
+  imageUrl: "/pos/epc-front-brake.svg",
+  width: null,
+  height: null,
   hotspots: [
-    { oem: "D1060-JF00A", pnc: "41060", x: 120, y: 160, w: 90, h: 50 },
-    { oem: "54618-JF00B", pnc: "54618", x: 520, y: 380, w: 90, h: 50 },
+    { oem: "D1060-JF00A", pnc: "41060", x: 214, y: 96, w: 70, h: 120 },
+    { oem: "40206-JF00A", pnc: "40206", x: 40, y: 40, w: 150, h: 240 },
+    { oem: "41001-JF00A", pnc: "41001", x: 300, y: 70, w: 140, h: 170 },
   ],
   parts: [
     { oemPartNumber: "D1060-JF00A", pnc: "41060", name: "Front Brake Pad Set", categoryName: "Brakes", subcategoryName: "Front brake" },
-    { oemPartNumber: "54618-JF00B", pnc: "54618", name: "Front Stabiliser Link", categoryName: "Suspension", subcategoryName: "Front suspension" },
+    { oemPartNumber: "40206-JF00A", pnc: "40206", name: "Front Rotor", categoryName: "Brakes", subcategoryName: "Front brake" },
+    { oemPartNumber: "41001-JF00A", pnc: "41001", name: "Front Caliper (L)", categoryName: "Brakes", subcategoryName: "Front brake" },
   ],
 };
 

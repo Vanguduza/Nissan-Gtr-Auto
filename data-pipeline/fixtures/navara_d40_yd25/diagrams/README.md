@@ -1,6 +1,6 @@
 # Navara D40 diagram placeholders
 
-Minimal 64×64 PNGs for local PDP canvas (no scrape). Paths match `diagram_assets.json` / `part_fitment.diagram_path`.
+Placeholder line art, 480×320 px, for the local PDP canvas and EPC Browse (no scrape). The seeded `part_fitment.bbox_*` callouts are pixels of this size, so each box sits on its drawn part. Paths match `diagram_assets.json` / `part_fitment.diagram_path`.
 
 After `supabase db reset`:
 

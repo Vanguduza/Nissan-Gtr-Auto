@@ -35,6 +35,8 @@ type Props = {
   width?: number;
   height?: number;
   sizes?: string;
+  /** Natural pixel size once loaded (pixel-space EPC hotspots scale against it). */
+  onNaturalSize?: (width: number, height: number) => void;
 };
 
 /**
@@ -51,7 +53,11 @@ export function CatalogStorageImage({
   width = DEFAULT_W,
   height = DEFAULT_H,
   sizes,
+  onNaturalSize,
 }: Props) {
+  const onLoad = onNaturalSize
+    ? (e: { currentTarget: HTMLImageElement }) => onNaturalSize(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)
+    : undefined;
   const quality = variant === "thumb" ? THUMB_QUALITY : DIAGRAM_QUALITY;
   const resolvedSizes =
     sizes ??
@@ -72,6 +78,7 @@ export function CatalogStorageImage({
         fetchPriority={priority ? "high" : "auto"}
         width={width}
         height={height}
+        onLoad={onLoad}
       />
     );
   }
@@ -87,6 +94,7 @@ export function CatalogStorageImage({
       sizes={resolvedSizes}
       quality={quality}
       priority={priority}
+      onLoad={onLoad}
       {...(priority ? {} : { loading: "lazy" as const })}
     />
   );

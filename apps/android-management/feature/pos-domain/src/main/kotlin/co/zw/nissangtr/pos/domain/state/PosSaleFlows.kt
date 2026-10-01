@@ -3,10 +3,13 @@ package co.zw.nissangtr.pos.domain.state
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.CartProjection
+import co.zw.nissangtr.pos.domain.model.CatalogPart
 import co.zw.nissangtr.pos.domain.model.Customer
 import co.zw.nissangtr.pos.domain.model.CustomerDraft
 import co.zw.nissangtr.pos.domain.model.EpcDiagram
 import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
+import co.zw.nissangtr.pos.domain.model.EpcImage
+import co.zw.nissangtr.pos.domain.model.EpcPart
 import co.zw.nissangtr.pos.domain.model.EpcSection
 import co.zw.nissangtr.pos.domain.model.EpcVariant
 import co.zw.nissangtr.pos.domain.model.GarageVehicle
@@ -58,6 +61,10 @@ sealed interface PosSaleIntent : PosIntent {
     data class EpcPickSection(val section: EpcSection) : PosSaleIntent
     data class EpcPickDiagram(val diagram: EpcDiagram) : PosSaleIntent
     data object EpcBack : PosSaleIntent
+    /** Tap on a diagram callout or a parts row; tapping the selected one again clears it. */
+    data class EpcSelect(val oemPartNumber: String) : PosSaleIntent
+    /** Add a diagram part: the exact stocked OEM goes straight to the cart, else search for it. */
+    data class EpcAdd(val part: EpcPart) : PosSaleIntent
 
     data class SetHaptics(val enabled: Boolean) : PosSaleIntent
 }
@@ -83,6 +90,8 @@ sealed interface PosSaleEvent : PosEvent {
     data class EpcSectionsLoaded(val variant: EpcVariant, val sections: List<EpcSection>) : PosSaleEvent
     data class EpcDiagramsLoaded(val section: EpcSection, val diagrams: List<EpcDiagram>) : PosSaleEvent
     data class EpcDetailLoaded(val detail: EpcDiagramDetail) : PosSaleEvent
+    data class EpcImageLoaded(val url: String, val bytes: ByteArray?) : PosSaleEvent
+    data class EpcResolved(val oemPartNumber: String, val part: CatalogPart?) : PosSaleEvent
     data class PaymentFailed(val error: PosError) : PosSaleEvent
 }
 
@@ -116,6 +125,8 @@ sealed interface PosSaleEffect : PosEffect {
     data class EpcSections(val model: VehicleModel, val variant: EpcVariant) : PosSaleEffect
     data class EpcDiagrams(val model: VehicleModel, val variant: EpcVariant, val section: EpcSection) : PosSaleEffect
     data class EpcDetail(val model: VehicleModel, val variant: EpcVariant, val section: EpcSection, val diagram: EpcDiagram) : PosSaleEffect
+    data class EpcLoadImage(val url: String) : PosSaleEffect
+    data class EpcResolve(val oemPartNumber: String) : PosSaleEffect
 }
 
 // ---------------------------------------------------------------- reducer
@@ -312,7 +323,7 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
         val section = state.epc.section
         if (model == null || variant == null || section == null) Reduction(state)
         else Reduction(
-            state.copy(epc = state.epc.copy(detail = null, loading = true)),
+            state.copy(epc = state.epc.copy(detail = null, image = null, activeOem = null, loading = true)),
             listOf(PosSaleEffect.EpcDetail(model, variant, section, intent.diagram)),
         )
     }
@@ -321,13 +332,23 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
         state.copy(
             epc = with(state.epc) {
                 when {
-                    detail != null -> copy(detail = null)
+                    detail != null -> copy(detail = null, image = null, activeOem = null)
                     section != null -> copy(section = null, diagrams = null)
                     variant != null -> copy(variant = null, sections = null)
                     else -> EpcBrowse()
                 }.copy(loading = false)
             },
         ),
+    )
+
+    is PosSaleIntent.EpcSelect -> Reduction(
+        state.copy(epc = state.epc.copy(activeOem = intent.oemPartNumber.takeUnless { it.equals(state.epc.activeOem, ignoreCase = true) })),
+    )
+
+    is PosSaleIntent.EpcAdd -> if (intent.part.oemPartNumber.isBlank()) Reduction(state)
+    else Reduction(
+        state.copy(epc = state.epc.copy(activeOem = intent.part.oemPartNumber)),
+        listOf(PosSaleEffect.EpcResolve(intent.part.oemPartNumber)),
     )
 
     is PosSaleIntent.SetHaptics -> Reduction(state.copy(hapticsEnabled = intent.enabled))
@@ -423,7 +444,23 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     else Reduction(state.copy(epc = state.epc.copy(sections = event.sections, loading = false)))
 
     is PosSaleEvent.EpcDiagramsLoaded -> if (state.epc.section != event.section) Reduction(state)
-    else Reduction(state.copy(epc = state.epc.copy(diagrams = event.diagrams, loading = false)))
+    else {
+        val listed = state.copy(epc = state.epc.copy(diagrams = event.diagrams, loading = false))
+        // A section with a single diagram opens it straight away (same as web).
+        event.diagrams.singleOrNull()?.let { reduceSaleIntent(listed, PosSaleIntent.EpcPickDiagram(it)) } ?: Reduction(listed)
+    }
 
-    is PosSaleEvent.EpcDetailLoaded -> Reduction(state.copy(epc = state.epc.copy(detail = event.detail, loading = false)))
+    is PosSaleEvent.EpcDetailLoaded -> if (state.epc.section == null) Reduction(state)
+    else Reduction(
+        state.copy(epc = state.epc.copy(detail = event.detail, image = null, activeOem = null, loading = false)),
+        listOfNotNull(event.detail.imageUrl?.let { PosSaleEffect.EpcLoadImage(it) }),
+    )
+
+    is PosSaleEvent.EpcImageLoaded -> if (state.epc.detail?.imageUrl != event.url) Reduction(state)
+    else Reduction(state.copy(epc = state.epc.copy(image = EpcImage(event.url, event.bytes))))
+
+    is PosSaleEvent.EpcResolved -> event.part
+        ?.takeIf { it.stockItemId != null && it.oemKey == event.oemPartNumber.trim().uppercase() }
+        ?.let { reduce(state, PosIntent.AddPart(it)) }
+        ?: reduce(state, PosIntent.SearchFor(event.oemPartNumber))
 }

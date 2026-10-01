@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
+import { epcBox } from "@/lib/epc-box";
 
 export const CATALOG_DIAGRAMS_BUCKET = "catalog-diagrams";
 
@@ -176,36 +177,29 @@ export function resolveDiagramImageUrl(
   return fallback || null;
 }
 
-/** Hotspot layout: 0–1 fractions vs absolute pixels (shared by EPC canvas + stub). */
-export function hotspotStyle(h: {
-  x: number | null;
-  y: number | null;
-  width: number | null;
-  height: number | null;
-}): import("react").CSSProperties | null {
-  if (
-    h.x == null ||
-    h.y == null ||
-    h.width == null ||
-    h.height == null ||
-    !(h.width > 0) ||
-    !(h.height > 0)
-  ) {
-    return null;
-  }
-  const asFraction = h.x <= 1 && h.y <= 1 && h.width <= 1 && h.height <= 1;
-  if (asFraction) {
-    return {
-      left: `${h.x * 100}%`,
-      top: `${h.y * 100}%`,
-      width: `${h.width * 100}%`,
-      height: `${h.height * 100}%`,
-    };
-  }
+/**
+ * Hotspot layout as percentages of the drawn image. Boxes arrive as 0–1 fractions or as pixels of
+ * the source image; pixel boxes need its size (`catalog_diagrams.image_width/height`, else the
+ * loaded image's natural size) and return null until it is known. Boxes wholly outside the image
+ * are dropped and overhangs clipped (same rules as the POS `epcBox` and the tablet).
+ */
+export function hotspotStyle(
+  h: {
+    x: number | null;
+    y: number | null;
+    width: number | null;
+    height: number | null;
+  },
+  imageWidth?: number | null,
+  imageHeight?: number | null,
+): import("react").CSSProperties | null {
+  if (h.x == null || h.y == null || h.width == null || h.height == null) return null;
+  const box = epcBox({ x: h.x, y: h.y, w: h.width, h: h.height }, imageWidth, imageHeight);
+  if (!box) return null;
   return {
-    left: h.x,
-    top: h.y,
-    width: h.width,
-    height: h.height,
+    left: `${box.left * 100}%`,
+    top: `${box.top * 100}%`,
+    width: `${box.width * 100}%`,
+    height: `${box.height * 100}%`,
   };
 }

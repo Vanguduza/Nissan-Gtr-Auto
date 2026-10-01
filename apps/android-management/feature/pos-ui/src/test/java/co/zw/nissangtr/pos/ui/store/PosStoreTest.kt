@@ -18,6 +18,7 @@ import co.zw.nissangtr.pos.domain.model.VehicleSelection
 import co.zw.nissangtr.pos.domain.result.PosResult
 import co.zw.nissangtr.pos.domain.state.PosFeedback
 import co.zw.nissangtr.pos.domain.state.PosIntent
+import co.zw.nissangtr.pos.domain.state.PosSaleIntent
 import co.zw.nissangtr.pos.ui.fakes.FakeSaleGateways
 import co.zw.nissangtr.pos.ui.fakes.PosFixtures
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -71,7 +72,7 @@ class PosStoreTest {
         },
         catalog = object : CatalogGateway {
             override suspend fun search(query: String, vehicle: VehicleSelection?) =
-                PosResult.Ok(PosFixtures.bestSellers.filter { it.name.contains(query, ignoreCase = true) })
+                PosResult.Ok(PosFixtures.bestSellers.filter { it.name.contains(query, ignoreCase = true) || it.oemPartNumber.equals(query, ignoreCase = true) })
             override suspend fun bestSellers() = PosResult.Ok(PosFixtures.bestSellers)
         },
         fitment = object : FitmentGateway {
@@ -181,5 +182,22 @@ class PosStoreTest {
         advanceUntilIdle()
         assertTrue(s.state.value.cart.isEmpty)
         assertEquals(null, s.state.value.approval)
+    }
+
+    @Test
+    fun `EPC drill-down opens the only diagram, loads its image, and Add puts the part in the cart`() = runTest {
+        val s = store(gateways())
+        s.dispatch(PosSaleIntent.EpcPickModel(PosFixtures.models.first()))
+        advanceUntilIdle()
+        s.dispatch(PosSaleIntent.EpcPickVariant(s.state.value.epc.variants!!.first()))
+        advanceUntilIdle()
+        s.dispatch(PosSaleIntent.EpcPickSection(s.state.value.epc.sections!!.first()))
+        advanceUntilIdle()
+        val epc = s.state.value.epc
+        assertEquals(3, epc.detail?.hotspots?.size)
+        assertTrue(epc.image?.bytes?.isNotEmpty() == true)
+        s.dispatch(PosSaleIntent.EpcAdd(epc.detail!!.parts.first()))
+        advanceUntilIdle()
+        assertEquals("D1060-JF00A", s.state.value.cart.lines.single().oemPartNumber)
     }
 }

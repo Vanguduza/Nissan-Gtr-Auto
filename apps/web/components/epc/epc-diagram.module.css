@@ -38,11 +38,18 @@
   min-height: clamp(12rem, 36vw, 22rem);
 }
 
+.stage {
+  --epc-max-h: clamp(14rem, 48vw, 28rem);
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
+
 .diagramImg {
   display: block;
   width: 100%;
   height: auto;
-  max-height: clamp(14rem, 48vw, 28rem);
+  max-height: var(--epc-max-h);
   object-fit: contain;
   background: #0a0c10;
 }

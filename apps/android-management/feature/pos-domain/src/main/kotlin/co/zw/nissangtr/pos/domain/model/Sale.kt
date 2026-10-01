@@ -131,4 +131,57 @@ data class EpcPart(
     val qtyRequired: String?,
 )
 
-data class EpcDiagramDetail(val diagram: EpcDiagram, val imageUrl: String?, val parts: List<EpcPart>)
+/**
+ * A clickable callout on an exploded diagram. Boxes arrive either as 0–1 fractions of the image
+ * or as pixels of the source image (`part_fitment.bbox_*`); [normalizedIn] resolves both.
+ */
+data class EpcHotspot(
+    val oemPartNumber: String,
+    val pncCode: String?,
+    val x: Double,
+    val y: Double,
+    val width: Double,
+    val height: Double,
+) {
+    val oemKey: String get() = oemPartNumber.trim().uppercase()
+
+    /**
+     * The box as fractions of the drawn image, clipped to it. Pixel boxes need the image size
+     * (stored on the diagram or read from the decoded image); returns null when it is unknown or
+     * the box falls entirely outside the image, so a bad callout is never drawn over the wrong part.
+     */
+    fun normalizedIn(imageWidth: Int?, imageHeight: Int?): EpcBox? {
+        if (!(width > 0.0) || !(height > 0.0) || x < 0.0 || y < 0.0) return null
+        val fractions = x <= 1.0 && y <= 1.0 && width <= 1.0 && height <= 1.0
+        val (w, h) = when {
+            fractions -> 1.0 to 1.0
+            imageWidth != null && imageHeight != null && imageWidth > 0 && imageHeight > 0 -> imageWidth.toDouble() to imageHeight.toDouble()
+            else -> return null
+        }
+        val left = x / w
+        val top = y / h
+        if (left >= 1.0 || top >= 1.0) return null
+        return EpcBox(left, top, minOf(width / w, 1.0 - left), minOf(height / h, 1.0 - top))
+    }
+}
+
+/** Fractions (0–1) of the drawn diagram image. */
+data class EpcBox(val left: Double, val top: Double, val width: Double, val height: Double)
+
+data class EpcDiagramDetail(
+    val diagram: EpcDiagram,
+    val imageUrl: String?,
+    val parts: List<EpcPart>,
+    val hotspots: List<EpcHotspot> = emptyList(),
+    /** Source image size when the catalogue stores it; otherwise the decoded image decides. */
+    val imageWidth: Int? = null,
+    val imageHeight: Int? = null,
+)
+
+/** Diagram image bytes as fetched for [url]; [bytes] is null when the download failed. */
+class EpcImage(val url: String, val bytes: ByteArray?) {
+    override fun equals(other: Any?): Boolean =
+        other is EpcImage && other.url == url && (other.bytes?.contentEquals(bytes) ?: (bytes == null))
+
+    override fun hashCode(): Int = 31 * url.hashCode() + (bytes?.contentHashCode() ?: 0)
+}

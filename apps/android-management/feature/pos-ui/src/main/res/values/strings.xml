@@ -147,6 +147,11 @@
     <string name="pos_email">Email</string>
     <string name="pos_epc_empty">Nothing to show at this level of the catalogue.</string>
     <string name="pos_epc_parts_count">%1$d parts on this diagram</string>
+    <string name="pos_epc_callout">Callout %1$d, part %2$s</string>
+    <string name="pos_epc_callouts_hint">%1$d callouts. Tap one to find its part.</string>
+    <string name="pos_epc_no_callouts">No callouts on this diagram yet. Use the parts list.</string>
+    <string name="pos_epc_image_missing">Diagram image not available. The parts list still works.</string>
+    <string name="pos_epc_pnc">PNC %1$s</string>
     <string name="pos_epc_pick_model">Choose a model to browse the parts catalogue</string>
     <string name="pos_find_customer">Find customer</string>
     <string name="pos_finish_current_first">Finish or park the current sale before resuming another.</string>

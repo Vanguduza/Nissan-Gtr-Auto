@@ -21,6 +21,7 @@ import co.zw.nissangtr.pos.domain.model.CustomerKind
 import co.zw.nissangtr.pos.domain.model.CurrencyCode
 import co.zw.nissangtr.pos.domain.model.EpcDiagram
 import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
+import co.zw.nissangtr.pos.domain.model.EpcHotspot
 import co.zw.nissangtr.pos.domain.model.EpcPart
 import co.zw.nissangtr.pos.domain.model.EpcSection
 import co.zw.nissangtr.pos.domain.model.EpcVariant
@@ -35,6 +36,10 @@ import co.zw.nissangtr.pos.domain.model.ReceiptContacts
 import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.model.VehicleModel
 import co.zw.nissangtr.pos.domain.model.VehicleSelection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.net.URL
 
 private const val EPC_MAKER = "nissan"
 
@@ -213,6 +218,9 @@ class RpcSaleGateways(private val rpc: RpcClient) {
             EpcDiagramDetail(
                 diagram = EpcDiagram(r.diagramSlug ?: diagram.slug, r.diagramTitle ?: diagram.title),
                 imageUrl = r.imageUrl,
+                hotspots = r.hotspots.map { EpcHotspot(it.oem, it.pncCode, it.bboxX, it.bboxY, it.bboxWidth, it.bboxHeight) },
+                imageWidth = r.imageWidth,
+                imageHeight = r.imageHeight,
                 parts = r.parts.distinctBy { it.oemPartNumber.trim().uppercase() }.map { p ->
                     EpcPart(
                         oemPartNumber = p.oemPartNumber,
@@ -224,6 +232,8 @@ class RpcSaleGateways(private val rpc: RpcClient) {
                 },
             )
         }
+
+        override suspend fun image(url: String) = call { downloadDiagram(url) }
     }
 
     /** Server cart in its own currency (resume / quote conversion can bring back a ZiG cart). */
@@ -275,3 +285,24 @@ private fun PosInvoiceSummary.toDomain() = InvoiceSummary(
     postedAt = postedAt,
     vehicleLabel = listOfNotNull(vehicleModelName, vehicleChassisCode, vehicleEngineCode).joinToString(" ").ifBlank { null },
 )
+
+/** Exploded diagrams are small line art; anything past this is refused rather than decoded. */
+private const val MAX_DIAGRAM_BYTES = 8 * 1024 * 1024
+
+private suspend fun downloadDiagram(url: String): ByteArray = withContext(Dispatchers.IO) {
+    val connection = URL(url).openConnection().apply {
+        connectTimeout = 10_000
+        readTimeout = 20_000
+    }
+    connection.getInputStream().use { input ->
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(16 * 1024)
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            require(out.size() + n <= MAX_DIAGRAM_BYTES) { "diagram image too large" }
+            out.write(buffer, 0, n)
+        }
+        out.toByteArray()
+    }
+}

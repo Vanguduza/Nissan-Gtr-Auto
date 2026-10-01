@@ -1334,8 +1334,43 @@
   background: color-mix(in srgb, var(--pos-red) 12%, transparent);
   cursor: pointer;
 }
+.hotspot:hover,
+.hotspot:focus-visible {
+  background: color-mix(in srgb, var(--pos-red) 24%, transparent);
+  outline: none;
+}
 .hotspotActive {
   background: color-mix(in srgb, var(--pos-red) 35%, transparent);
+}
+/* Sized by the image itself so callout percentages track it at every width. */
+.diagramStage {
+  position: relative;
+  line-height: 0;
+}
+.hotspotLabel {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  padding: 1px 4px;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 700;
+  color: var(--gtr-color-neutral-surface);
+  background: var(--pos-red);
+}
+.diagramCaption {
+  margin: 0;
+  padding: 6px 10px 8px;
+  font-size: 12px;
+  color: var(--pos-muted);
+}
+.epcPartRow {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.calloutNo {
+  min-width: 24px;
+  font-weight: 700;
+  color: var(--pos-red);
 }
 
 /* ───────── Receipt (browser print — web delta W-003) ───────── */

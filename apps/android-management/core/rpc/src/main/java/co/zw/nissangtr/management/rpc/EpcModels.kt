@@ -78,6 +78,9 @@ data class EpcDiagramResponse(
     val diagramTitle: String? = null,
     val storagePath: String? = null,
     val imageUrl: String? = null,
+    /** Source image size when `catalog_diagrams.image_width/height` are set (pixel hotspots). */
+    val imageWidth: Int? = null,
+    val imageHeight: Int? = null,
     /** Optional encrypted local-catalog copy for fully offline EPC rendering. */
     val imageBytes: ByteArray? = null,
     val hotspots: List<EpcHotspot> = emptyList(),
@@ -177,6 +180,8 @@ internal fun parseEpcDiagram(raw: JsonElement): EpcDiagramResponse {
         diagramTitle = diagram?.str("title"),
         storagePath = diagram?.str("storage_path"),
         imageUrl = diagram?.str("image_url"),
+        imageWidth = diagram?.int("width")?.takeIf { it > 0 },
+        imageHeight = diagram?.int("height")?.takeIf { it > 0 },
         hotspots = hotspots,
         parts = parts,
     )

@@ -6,6 +6,7 @@ import co.zw.nissangtr.pos.domain.model.CartProjection
 import co.zw.nissangtr.pos.domain.model.Customer
 import co.zw.nissangtr.pos.domain.model.EpcDiagram
 import co.zw.nissangtr.pos.domain.model.EpcDiagramDetail
+import co.zw.nissangtr.pos.domain.model.EpcImage
 import co.zw.nissangtr.pos.domain.model.EpcSection
 import co.zw.nissangtr.pos.domain.model.EpcVariant
 import co.zw.nissangtr.pos.domain.model.GarageVehicle
@@ -98,5 +99,8 @@ data class EpcBrowse(
     val section: EpcSection? = null,
     val diagrams: List<EpcDiagram>? = null,
     val detail: EpcDiagramDetail? = null,
+    val image: EpcImage? = null,
+    /** OEM selected on the diagram or in the parts list; both highlight it. */
+    val activeOem: String? = null,
     val loading: Boolean = false,
 )

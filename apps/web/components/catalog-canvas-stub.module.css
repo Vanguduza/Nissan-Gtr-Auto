@@ -22,11 +22,18 @@
   place-items: end stretch;
 }
 
+.stage {
+  --stub-max-h: clamp(16rem, 48vw, 28rem);
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
+
 .diagramImg {
   display: block;
   width: 100%;
   height: auto;
-  max-height: clamp(16rem, 48vw, 28rem);
+  max-height: var(--stub-max-h);
   object-fit: contain;
   background: #0a0c10;
 }

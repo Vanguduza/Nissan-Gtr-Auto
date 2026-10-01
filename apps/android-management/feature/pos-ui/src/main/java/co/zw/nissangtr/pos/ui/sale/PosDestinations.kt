@@ -478,27 +478,7 @@ fun EpcScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
             }
         }
         epc.detail?.let { detail ->
-            PosText(stringResource(R.string.pos_epc_parts_count, detail.parts.size), PosTheme.type.bodySecondary, palette.textMuted)
-            Spacer(Modifier.height(8.dp))
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val grid = PosAdaptiveMath.deriveLazyRow(maxWidth, minItemWidth = 180.dp, maxItemWidth = 260.dp, gap = 12.dp)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    detail.parts.forEach { p ->
-                        val part = CatalogPart(null, p.oemPartNumber, p.name, null, null, null)
-                        val pin = PopularPin.forPart(part)
-                        PartCard(
-                            part = part,
-                            width = grid.itemWidth,
-                            pinnedBadge = false,
-                            addEnabled = true,
-                            findInstead = true,
-                            onAdd = { dispatch(PosIntent.SearchFor(p.oemPartNumber)) },
-                            menu = listOf(CardAction(PosIcons.Pin, R.string.pos_pin) { dispatch(PosIntent.Pin(pin)) }),
-                            modifier = Modifier.heightIn(min = 0.dp),
-                        )
-                    }
-                }
-            }
+            EpcDiagramDetailView(detail, epc.image, epc.activeOem, dispatch)
         }
     }
 }

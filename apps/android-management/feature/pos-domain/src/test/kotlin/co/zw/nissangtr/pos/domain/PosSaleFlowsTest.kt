@@ -173,4 +173,74 @@ class PosSaleFlowsTest {
         s = reduce(s, PosSaleIntent.EpcBack).state
         assertNull(s.epc.model)
     }
+
+    private fun epcAt(m: VehicleModel = VehicleModel("navara", "Navara")): PosState {
+        val v = co.zw.nissangtr.pos.domain.model.EpcVariant("d40-yd25", "D40", "YD25", null)
+        val sec = co.zw.nissangtr.pos.domain.model.EpcSection("section-filters", "Filters")
+        var s = reduce(PosState(), PosSaleIntent.EpcPickModel(m)).state
+        s = reduce(s, PosSaleIntent.EpcPickVariant(v)).state
+        return reduce(s, PosSaleIntent.EpcPickSection(sec)).state
+    }
+
+    private val oilFilter = co.zw.nissangtr.pos.domain.model.EpcPart("15208-65F0C", "Oil filter", "15208", null, null)
+    private val oilDetail = co.zw.nissangtr.pos.domain.model.EpcDiagramDetail(
+        co.zw.nissangtr.pos.domain.model.EpcDiagram("oil-filter", "Oil filter"),
+        "https://x/storage/v1/object/public/catalog-diagrams/navara-d40/15208-oil-filter.png",
+        listOf(oilFilter),
+        listOf(co.zw.nissangtr.pos.domain.model.EpcHotspot("15208-65F0C", "15208", 120.5, 84.0, 48.0, 62.0)),
+    )
+
+    @Test
+    fun `a section with one diagram opens it, and the loaded diagram fetches its image`() {
+        val d = co.zw.nissangtr.pos.domain.model.EpcDiagram("oil-filter", "Oil filter")
+        val listed = reduce(epcAt(), PosSaleEvent.EpcDiagramsLoaded(epcAt().epc.section!!, listOf(d)))
+        assertTrue(listed.effects.single() is PosSaleEffect.EpcDetail)
+        val loaded = reduce(listed.state, PosSaleEvent.EpcDetailLoaded(oilDetail))
+        assertEquals(oilDetail.imageUrl, (loaded.effects.single() as PosSaleEffect.EpcLoadImage).url)
+        val bytes = byteArrayOf(1, 2, 3)
+        val withImage = reduce(loaded.state, PosSaleEvent.EpcImageLoaded(oilDetail.imageUrl!!, bytes)).state
+        assertTrue(withImage.epc.image!!.bytes!!.contentEquals(bytes))
+        // A late image for another diagram is ignored.
+        assertEquals(withImage, reduce(withImage, PosSaleEvent.EpcImageLoaded("https://x/other.png", null)).state)
+        val back = reduce(withImage, PosSaleIntent.EpcBack).state
+        assertNull(back.epc.detail)
+        assertNull(back.epc.image)
+    }
+
+    @Test
+    fun `selecting a callout highlights its part and a second tap clears it`() {
+        val s = reduce(epcAt(), PosSaleEvent.EpcDetailLoaded(oilDetail)).state
+        val on = reduce(s, PosSaleIntent.EpcSelect("15208-65F0C")).state
+        assertEquals("15208-65F0C", on.epc.activeOem)
+        assertNull(reduce(on, PosSaleIntent.EpcSelect("15208-65f0c")).state.epc.activeOem)
+    }
+
+    @Test
+    fun `adding a diagram part puts the stocked OEM in the cart, otherwise searches for it`() {
+        val s = reduce(epcAt(), PosSaleEvent.EpcDetailLoaded(oilDetail)).state.copy(cart = cart)
+        val resolve = reduce(s, PosSaleIntent.EpcAdd(oilFilter))
+        assertEquals("15208-65F0C", (resolve.effects.single() as PosSaleEffect.EpcResolve).oemPartNumber)
+        val stocked = co.zw.nissangtr.pos.domain.model.CatalogPart("si-oil", "15208-65F0C", "Oil filter", usd(12.0), 4.0, null)
+        val added = reduce(resolve.state, PosSaleEvent.EpcResolved("15208-65F0C", stocked))
+        assertTrue(added.effects.any { it is PosEffect.AddToCart && it.part == stocked })
+        val missing = reduce(resolve.state, PosSaleEvent.EpcResolved("15208-65F0C", null))
+        assertTrue(missing.effects.any { it is PosEffect.Search && it.query == "15208-65F0C" })
+    }
+
+    @Test
+    fun `hotspot boxes accept fractions or source pixels and never draw outside the image`() {
+        val px = co.zw.nissangtr.pos.domain.model.EpcHotspot("A", null, 120.0, 80.0, 48.0, 64.0)
+        assertNull(px.normalizedIn(null, null))
+        val box = px.normalizedIn(480, 320)!!
+        assertEquals(0.25, box.left, 1e-9)
+        assertEquals(0.25, box.top, 1e-9)
+        assertEquals(0.1, box.width, 1e-9)
+        assertEquals(0.2, box.height, 1e-9)
+        val frac = co.zw.nissangtr.pos.domain.model.EpcHotspot("B", null, 0.5, 0.5, 0.2, 0.2).normalizedIn(null, null)!!
+        assertEquals(0.5, frac.left, 1e-9)
+        // Outside a 64x64 placeholder: not drawn at all.
+        assertNull(px.normalizedIn(64, 64))
+        // Overhanging the edge: clipped.
+        assertEquals(0.75, co.zw.nissangtr.pos.domain.model.EpcHotspot("C", null, 0.25, 0.0, 0.9, 0.1).normalizedIn(null, null)!!.width, 1e-9)
+    }
 }

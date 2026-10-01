@@ -206,7 +206,7 @@ All `SECURITY INVOKER`, grant `authenticated` + `service_role`:
 
 - `diagram`: null if missing; else slug, title, storage_path, image_url, width/height, diagram_kind, hotspot_count  
   — first diagram for section (`ORDER BY slug LIMIT 1`)
-- `hotspots`: from `part_fitment` where `diagram_path = storage_path` AND `bbox_x IS NOT NULL` (normalized 0–1 boxes); may join companion `itemslist_id` / `callout_ref`
+- `hotspots`: from `part_fitment` where `diagram_path = storage_path` AND `bbox_x IS NOT NULL`. Boxes are either 0–1 fractions or pixels of the source image; clients resolve pixel boxes against `diagram.width/height` when set, else the loaded image's natural size, and drop boxes that fall outside the image (`apps/web/lib/epc-box.ts`, tablet `EpcHotspot.normalizedIn`); may join companion `itemslist_id` / `callout_ref`
 - `parts`: fitment rows for that `diagram_path` + PNC names + optional `stock_item_id` / description (limit 500)
 - `companion_parts`: `catalog_diagram_parts` for section (Megazip HTML table)
 - Empty miss: `{ diagram: null, hotspots: [], parts: [], companion_parts: [] }`
@@ -228,7 +228,7 @@ Maker → Models (A–Z) → Variants → Sections → Diagram + hotspots → Pa
 | Models A–Z | `sort_key` / `display_name` |
 | Variant (chassis/grade/years) | `catalog_variants` cards (chassis + grade + year_label + engine) |
 | Assembly / section groups | `catalog_sections` grid |
-| Exploded diagram canvas | `EpcDiagramCanvas` / Android Box overlays — **normalized bbox**, not camera/QR |
+| Exploded diagram canvas | `EpcDiagramCanvas` / Android Box overlays — bbox as fractions or source pixels (see `epc-box.ts`), not camera/QR |
 | Clickable callouts | Hotspots ↔ table row hover sync (`activeOem`) |
 | Parts list under diagram | Fitment `parts` + optional companion table; click → PDP `/parts/[oem]` |
 | Stock / price | Join `stock_items` in RPC; web adds RETAIL `price_list_items` overlay in `EpcDiagramHub` |
@@ -328,7 +328,7 @@ Clone checklist for display parity:
 ### EPC browse screens
 
 - [ ] Routes or stack: Maker → Model → Variant → Section → Diagram.
-- [ ] Diagram split: image + hotspot overlays (0–1 bbox) + parts table; hover sync; OEM → PDP.
+- [x] Diagram split: image + hotspot overlays (fraction or pixel bbox) + parts table; hover sync; OEM → PDP.
 - [ ] Breadcrumb / back; session EPC context for return-from-PDP.
 - [ ] Empty/error: no makers, no diagram image, parts-only section.
 

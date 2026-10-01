@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowLeft, Building2, Car, FileText, Pause, Pin, Play, Search, Send, Undo2, User } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { epcBox, sameOem } from "@/lib/pos/epc";
 import { formatMoney } from "@/lib/pos/money";
 import type {
   CustomerInput,
@@ -517,6 +518,32 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
   const [diagrams, setDiagrams] = useState<EpcDiagramRef[]>([]);
   const [diagram, setDiagram] = useState<EpcDiagram | null>(null);
   const [active, setActive] = useState<string | null>(null);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const boxes = useMemo(() => {
+    if (!diagram) return [];
+    // Pixel callouts are in source-image pixels: the stored size wins, else the loaded image's.
+    const w = diagram.width ?? natural?.w;
+    const h = diagram.height ?? natural?.h;
+    return diagram.hotspots.flatMap((spot, i) => {
+      const box = epcBox(spot, w, h);
+      return box ? [{ h: spot, box, n: i + 1 }] : [];
+    });
+  }, [diagram, natural]);
+  const callouts = useMemo(() => {
+    const m = new Map<string, number>();
+    diagram?.hotspots.forEach((h, i) => {
+      const k = h.oem.trim().toUpperCase();
+      if (!m.has(k)) m.set(k, i + 1);
+    });
+    return m;
+  }, [diagram]);
+  const select = (oem: string, fromDiagram: boolean) => {
+    const next = sameOem(active, oem) ? null : oem;
+    setActive(next);
+    if (next && fromDiagram) rowRefs.current[next.trim().toUpperCase()]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
   const modelName = pos.models.find((m) => m.slug === model)?.name ?? "";
 
   useEffect(() => {
@@ -545,7 +572,11 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
   const openDiagram = async (d: EpcDiagramRef, s = section) => {
     if (!variant || !s) return;
     const r = await pos.gateway.getEpcDiagram(model, variant.slug, s.slug, d.slug);
-    if (r.ok) setDiagram(r.data);
+    if (!r.ok) return;
+    setNatural(null);
+    setImageFailed(false);
+    setActive(null);
+    setDiagram(r.data);
   };
   const addOem = async (part: EpcDiagramPart) => {
     const res = await pos.gateway.searchParts(part.oemPartNumber, null);
@@ -578,7 +609,10 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
             type="button"
             className={`${styles.textLink} ${styles.statusDismiss}`}
             onClick={() => {
-              if (diagram) setDiagram(null);
+              if (diagram) {
+                setDiagram(null);
+                setActive(null);
+              }
               else if (section) setSection(null);
               else setVariant(null);
             }}
@@ -632,36 +666,57 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
       ) : (
         <div className={styles.screenGrid} style={{ marginTop: 14 }}>
           <div className={styles.diagramWrap}>
-            {diagram.imageUrl ? (
+            {diagram.imageUrl && !imageFailed ? (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={diagram.imageUrl} alt={diagram.title} />
-                {diagram.width && diagram.height
-                  ? diagram.hotspots.map((h, i) => (
-                      <button
-                        key={`${h.oem}-${i}`}
-                        type="button"
-                        aria-label={`Part ${h.pnc ?? h.oem}`}
-                        className={`${styles.hotspot} ${active === h.oem ? styles.hotspotActive : ""}`}
-                        style={{
-                          left: `${(h.x / (diagram.width as number)) * 100}%`,
-                          top: `${(h.y / (diagram.height as number)) * 100}%`,
-                          width: `${(h.w / (diagram.width as number)) * 100}%`,
-                          height: `${(h.h / (diagram.height as number)) * 100}%`,
-                        }}
-                        onClick={() => setActive(h.oem)}
-                      />
-                    ))
-                  : null}
+                <div className={styles.diagramStage}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={diagram.imageUrl}
+                    alt={diagram.title}
+                    onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                    onError={() => setImageFailed(true)}
+                  />
+                  {boxes.map(({ h, box, n }) => (
+                    <button
+                      key={`${h.oem}-${n}`}
+                      type="button"
+                      aria-label={`Callout ${n}, part ${h.oem}`}
+                      aria-pressed={sameOem(active, h.oem)}
+                      className={`${styles.hotspot} ${sameOem(active, h.oem) ? styles.hotspotActive : ""}`}
+                      style={{
+                        left: `${box.left * 100}%`,
+                        top: `${box.top * 100}%`,
+                        width: `${box.width * 100}%`,
+                        height: `${box.height * 100}%`,
+                      }}
+                      onClick={() => select(h.oem, true)}
+                    >
+                      <span className={styles.hotspotLabel}>{String(n).padStart(2, "0")}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className={styles.diagramCaption}>
+                  {boxes.length ? `${boxes.length} callout${boxes.length === 1 ? "" : "s"}. Tap one to find its part.` : "No callouts on this diagram yet. Use the parts list."}
+                </p>
               </>
             ) : (
-              <div className={styles.diagramEmpty}>Diagram image not uploaded yet — parts list is available.</div>
+              <div className={styles.diagramEmpty}>Diagram image not available. The parts list still works.</div>
             )}
           </div>
           <div className={styles.list} style={{ marginTop: 0 }}>
+            {diagram.parts.length === 0 ? <div className={styles.emptyCard}>No parts listed on this diagram.</div> : null}
             {diagram.parts.map((p) => (
-              <div key={p.oemPartNumber} className={`${styles.listRow} ${active === p.oemPartNumber ? styles.listRowSelected : ""}`}>
-                <span>
+              <div
+                key={p.oemPartNumber}
+                ref={(el) => {
+                  rowRefs.current[p.oemPartNumber.trim().toUpperCase()] = el;
+                }}
+                className={`${styles.listRow} ${styles.epcPartRow} ${sameOem(active, p.oemPartNumber) ? styles.listRowSelected : ""}`}
+                onClick={() => select(p.oemPartNumber, false)}
+                style={{ cursor: "pointer" }}
+              >
+                <span className={styles.calloutNo}>{callouts.get(p.oemPartNumber.trim().toUpperCase())?.toString().padStart(2, "0") ?? "–"}</span>
+                <span style={{ minWidth: 0 }}>
                   <div className={styles.listTitle}>{p.name}</div>
                   <div className={styles.muted}>
                     {p.oemPartNumber}
@@ -673,13 +728,22 @@ export function EpcScreen({ pos }: { pos: PosStore }) {
                     type="button"
                     className={styles.iconButton}
                     aria-label={`Pin ${p.name} to Popular`}
-                    onClick={() =>
-                      void pos.pinPart({ stockItemId: null, oemPartNumber: p.oemPartNumber, name: p.name, price: null, saleableQty: null, imageUrl: null })
-                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void pos.pinPart({ stockItemId: null, oemPartNumber: p.oemPartNumber, name: p.name, price: null, saleableQty: null, imageUrl: null });
+                    }}
                   >
                     <Pin size={14} aria-hidden />
                   </button>
-                  <button type="button" className={styles.primaryButton} onClick={() => void addOem(p)}>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActive(p.oemPartNumber);
+                      void addOem(p);
+                    }}
+                  >
                     Add
                   </button>
                 </div>

@@ -499,9 +499,7 @@ class SupabaseRpcClient(
                 put("p_section_slug", sectionSlug)
             },
         ).decodeAs<kotlinx.serialization.json.JsonElement>()
-        val parsed = parseEpcDiagram(raw)
-        // image_url / storage_path come from RPC; UI resolves Storage when needed.
-        return parsed
+        return withDiagramUrl(parseEpcDiagram(raw))
     }
 
     override suspend fun listCatalogDiagrams(
@@ -539,7 +537,19 @@ class SupabaseRpcClient(
                 put("p_diagram_slug", diagramSlug)
             },
         ).decodeAs<kotlinx.serialization.json.JsonElement>()
-        return parseEpcDiagram(raw)
+        return withDiagramUrl(parseEpcDiagram(raw))
+    }
+
+    /**
+     * Seeded and pipeline diagrams carry only `storage_path`; resolve it to the public
+     * `catalog-diagrams` object so the tablet (and the offline catalogue sync) can fetch the image.
+     */
+    private fun withDiagramUrl(d: EpcDiagramResponse): EpcDiagramResponse {
+        if (!d.imageUrl.isNullOrBlank()) return d
+        val path = d.storagePath?.trim()?.takeIf { it.isNotEmpty() } ?: return d
+        val url = if (path.startsWith("http://", true) || path.startsWith("https://", true)) path
+        else projectUrl?.let { base -> "$base/storage/v1/object/public/catalog-diagrams/${path.trimStart('/')}" }
+        return d.copy(imageUrl = url)
     }
 
     override suspend fun setPosCartLineQty(lineId: String, qty: Double, unitPrice: Double) {

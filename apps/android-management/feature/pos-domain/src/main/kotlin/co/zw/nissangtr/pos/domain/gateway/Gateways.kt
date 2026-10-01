@@ -108,4 +108,7 @@ interface EpcGateway {
     suspend fun sections(model: VehicleModel, variant: EpcVariant): PosResult<List<EpcSection>>
     suspend fun diagrams(model: VehicleModel, variant: EpcVariant, section: EpcSection): PosResult<List<EpcDiagram>>
     suspend fun diagram(model: VehicleModel, variant: EpcVariant, section: EpcSection, diagram: EpcDiagram): PosResult<EpcDiagramDetail>
+
+    /** Diagram image bytes (public Storage object); decoded on the UI side. */
+    suspend fun image(url: String): PosResult<ByteArray>
 }
