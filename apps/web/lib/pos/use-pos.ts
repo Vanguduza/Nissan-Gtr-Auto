@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PosGateway } from "@/lib/pos/gateway";
+import { haptic } from "@/lib/pos/haptics";
 import { buildPopularRow, pinForPart } from "@/lib/pos/popular";
 import type {
   CustomerInput,
@@ -101,6 +102,14 @@ export function usePos(gateway: PosGateway) {
     setError(res.error);
     return null;
   }, []);
+
+  // Haptics: every surfaced error buzzes as an error; every confirmation as a success.
+  useEffect(() => {
+    if (error) haptic("error");
+  }, [error]);
+  useEffect(() => {
+    if (notice) haptic("success");
+  }, [notice]);
 
   // Initial load
   useEffect(() => {
@@ -243,6 +252,11 @@ export function usePos(gateway: PosGateway) {
     [partCache],
   );
 
+  const addPinLocal = useCallback((pin: PopularPin) => {
+    haptic("select");
+    setPins((cur) => [pin, ...cur.filter((p) => !(p.kind === pin.kind && p.key === pin.key))]);
+  }, []);
+
   const isPinned = useCallback(
     (part: PosPart) => pins.some((p) => p.kind === "part" && p.key === pinForPart(part).key),
     [pins],
@@ -251,7 +265,7 @@ export function usePos(gateway: PosGateway) {
   const pinPart = useCallback(
     async (part: PosPart) => {
       const pin = pinForPart(part);
-      if (report(await gateway.pin(pin))) setPins((cur) => [pin, ...cur.filter((p) => !(p.kind === pin.kind && p.key === pin.key))]);
+      if (report(await gateway.pin(pin))) addPinLocal(pin);
       if (part.stockItemId && hidden.has(part.stockItemId)) {
         if (report(await gateway.unhideBestSeller(part.stockItemId))) {
           setHidden((cur) => {
@@ -269,13 +283,17 @@ export function usePos(gateway: PosGateway) {
     async (item: PopularRowItem) => {
       if (item.source === "pin") {
         if (report(await gateway.unpin(item.pin))) {
+          haptic("select");
           setPins((cur) => cur.filter((p) => !(p.kind === item.pin.kind && p.key === item.pin.key)));
         }
         return;
       }
       const id = item.part.stockItemId;
       if (!id) return;
-      if (report(await gateway.hideBestSeller(id))) setHidden((cur) => new Set(cur).add(id));
+      if (report(await gateway.hideBestSeller(id))) {
+        haptic("select");
+        setHidden((cur) => new Set(cur).add(id));
+      }
     },
     [gateway, report],
   );
@@ -308,7 +326,10 @@ export function usePos(gateway: PosGateway) {
       const c = await ensureCart();
       if (c) {
         const next = report(await gateway.addPart(c.id, part, 1));
-        if (next) setCart(next);
+        if (next) {
+          setCart(next);
+          haptic("tap");
+        }
       }
       setBusy(false);
     },
@@ -319,6 +340,7 @@ export function usePos(gateway: PosGateway) {
     async (lineId: string, qty: number) => {
       const c = cartRef.current;
       if (!c || !guardOnline()) return;
+      haptic("tap");
       const next = report(await gateway.setLineQty(c.id, lineId, qty));
       if (next) setCart(next);
     },
@@ -329,6 +351,7 @@ export function usePos(gateway: PosGateway) {
     async (lineId: string) => {
       const c = cartRef.current;
       if (!c || !guardOnline()) return;
+      haptic("select");
       const next = report(await gateway.removeLine(c.id, lineId));
       if (next) setCart(next);
     },
@@ -469,6 +492,7 @@ export function usePos(gateway: PosGateway) {
         const receipt = report(await gateway.loadReceipt(invoiceId));
         const doc = receipt ? { ...receipt, tenders: receipt.tenders.length ? receipt.tenders : tenders, operator } : null;
         setLastReceipt(doc);
+        if (doc) haptic("success");
         setCart(null);
         setDiscount(null);
         return doc;
@@ -551,13 +575,13 @@ export function usePos(gateway: PosGateway) {
       oemPartNumber: null,
       imageUrl: null,
     };
-    if (report(await gateway.pin(pin))) setPins((cur) => [pin, ...cur.filter((p) => !(p.kind === pin.kind && p.key === pin.key))]);
+    if (report(await gateway.pin(pin))) addPinLocal(pin);
   }, [gateway, report, vehicle]);
 
   const pinCategory = useCallback(
     async (label: string, query: string, kind: "category" | "subcategory" = "category") => {
       const pin: PopularPin = { kind, key: label.toLowerCase(), label, subtitle: kind === "category" ? "Category" : "Subcategory", searchQuery: query, oemPartNumber: null, imageUrl: null };
-      if (report(await gateway.pin(pin))) setPins((cur) => [pin, ...cur.filter((p) => !(p.kind === pin.kind && p.key === pin.key))]);
+      if (report(await gateway.pin(pin))) addPinLocal(pin);
     },
     [gateway, report],
   );

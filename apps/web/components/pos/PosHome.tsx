@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import { haptic } from "@/lib/pos/haptics";
 import type { PopularPin } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import { PartCard } from "./PartCard";
@@ -78,22 +79,14 @@ export function PosHome({ pos }: { pos: PosStore }) {
       <PosHero />
 
       <div className={styles.categories} role="group" aria-label="Spare categories">
-        {CATEGORIES.map(({ label, query, icon: Icon }) => (
-          <button
+        {CATEGORIES.map(({ label, query, icon }) => (
+          <CategoryTile
             key={label}
-            type="button"
-            className={`${styles.category} ${styles.focusable}`}
-            title="Long-press or right-click to pin to Popular Items"
-            onClick={() => void pos.runSearch(query)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              void pos.pinCategory(label, query);
-            }}
-            {...longPress(() => void pos.pinCategory(label, query))}
-          >
-            <Icon className={styles.categoryIcon} size={30} strokeWidth={1.5} aria-hidden />
-            {label}
-          </button>
+            label={label}
+            icon={icon}
+            onOpen={() => void pos.runSearch(query)}
+            onPin={() => void pos.pinCategory(label, query)}
+          />
         ))}
       </div>
 
@@ -216,31 +209,50 @@ export function PosSearchResults({ pos }: { pos: PosStore }) {
   );
 }
 
-/** Long-press fires once and swallows the click that follows release. */
-function longPress(fire: () => void) {
-  let timer: number | null = null;
-  let fired = false;
+/**
+ * Category tile: tap searches; long-press (or right-click) pins it to Popular Items. State lives in
+ * refs so a re-render between press and release cannot lose the "long-press fired" flag.
+ */
+function CategoryTile({ label, icon: Icon, onOpen, onPin }: { label: string; icon: LucideIcon; onOpen: () => void; onPin: () => void }) {
+  const timer = useRef<number | null>(null);
+  const fired = useRef(false);
   const clear = () => {
-    if (timer) window.clearTimeout(timer);
-    timer = null;
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = null;
   };
-  return {
-    onPointerDown: () => {
-      fired = false;
-      timer = window.setTimeout(() => {
-        fired = true;
-        fire();
-      }, 600);
-    },
-    onPointerUp: clear,
-    onPointerLeave: clear,
-    onClickCapture: (e: { preventDefault: () => void; stopPropagation: () => void }) => {
-      if (!fired) return;
-      fired = false;
-      e.preventDefault();
-      e.stopPropagation();
-    },
-  };
+  return (
+    <button
+      type="button"
+      className={`${styles.category} ${styles.focusable}`}
+      title="Long-press or right-click to pin to Popular Items"
+      onPointerDown={() => {
+        fired.current = false;
+        clear();
+        timer.current = window.setTimeout(() => {
+          fired.current = true;
+          haptic("longPress");
+          onPin();
+        }, 600);
+      }}
+      onPointerUp={clear}
+      onPointerLeave={clear}
+      onClick={() => {
+        if (fired.current) {
+          fired.current = false;
+          return;
+        }
+        onOpen();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        clear();
+        onPin();
+      }}
+    >
+      <Icon className={styles.categoryIcon} size={30} strokeWidth={1.5} aria-hidden />
+      {label}
+    </button>
+  );
 }
 
 /** Non-part pin (vehicle, category, subcategory): opens the vehicle or the search it stands for. */

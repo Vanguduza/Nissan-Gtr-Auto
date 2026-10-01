@@ -291,6 +291,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 | WEB-09 | Staff portal second login from POS → Settings (D4) | D4 | 3 | partial — Settings → Staff portal re-auth dialog; not yet run against a live database |
 | WEB-10 | Playwright screenshots against the benchmark at 1536×1024 and each window class | 11 | 11 | partial — Playwright flows and screenshots run manually (`docs/design/pos/web/`); not yet an automated CI gate |
 | WEB-11 | Pre-benchmark web POS UI deleted (`staff-pos-panel.tsx`, `staff-pos-shell.tsx`) | D7 | 3 | done — deleted 2026-10-01; online order prep moved to `/staff/pos/prep` |
+| WEB-12 | Haptic feedback: add/qty tap, pin/remove select, long-press, sale complete, errors; Settings On/Off; honours reduced motion | D7 | 3 | done (web) — Vibration API in `lib/pos/haptics.ts`; Android browsers only, silent no-op on iOS/desktop. Tablet native haptics pending the tablet rebuild |
 
 ## Summary
 

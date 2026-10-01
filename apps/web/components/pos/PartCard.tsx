@@ -2,6 +2,7 @@
 
 import { EllipsisVertical, Package, Pin, PinOff, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { haptic } from "@/lib/pos/haptics";
 import { formatMoney } from "@/lib/pos/money";
 import type { PosPart } from "@/lib/pos/types";
 import styles from "./pos.module.css";
@@ -56,7 +57,10 @@ export function PartCard({
 
   const startPress = () => {
     if (!hasMenu) return;
-    pressTimer.current = window.setTimeout(() => setMenu(true), 550);
+    pressTimer.current = window.setTimeout(() => {
+      haptic("longPress");
+      setMenu(true);
+    }, 550);
   };
   const endPress = () => {
     if (pressTimer.current) window.clearTimeout(pressTimer.current);

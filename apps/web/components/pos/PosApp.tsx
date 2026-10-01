@@ -2,7 +2,8 @@
 
 import { CircleAlert, CircleCheck, FlaskConical, WifiOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { haptic, hapticsEnabled, hapticsSupported, setHapticsEnabled } from "@/lib/pos/haptics";
 import type { PosGateway } from "@/lib/pos/gateway";
 import { usePos, type PosStore } from "@/lib/pos/use-pos";
 import { CurrentSale } from "./CurrentSale";
@@ -52,6 +53,46 @@ function StaffPortalDialog({ gateway, onClose }: { gateway: PosGateway; onClose:
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** Device-local on/off for vibration feedback; shows plainly when the device cannot vibrate. */
+function HapticsSetting() {
+  const [supported, setSupported] = useState(false);
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    setSupported(hapticsSupported());
+    setOn(hapticsEnabled());
+  }, []);
+  return (
+    <div className={styles.listRow}>
+      <span>
+        <div className={styles.listTitle}>Haptic feedback</div>
+        <div className={styles.muted}>
+          {supported
+            ? "Short vibrations confirm adds, pins, long-presses, completed sales and errors."
+            : "This device or browser cannot vibrate (iPhone, iPad and desktop browsers). Visual feedback still applies."}
+        </div>
+      </span>
+      <div className={styles.segment} role="group" aria-label="Haptic feedback">
+        {[true, false].map((v) => (
+          <button
+            key={String(v)}
+            type="button"
+            aria-pressed={on === v}
+            disabled={!supported}
+            className={`${styles.segmentItem} ${on === v ? styles.segmentActive : ""}`}
+            onClick={() => {
+              setHapticsEnabled(v);
+              setOn(v);
+              if (v) haptic("success");
+            }}
+          >
+            {v ? "On" : "Off"}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -119,6 +160,7 @@ function Destination({ pos, onPortal, onQuote }: { pos: PosStore; onPortal: () =
                 Open
               </button>
             </div>
+            <HapticsSetting />
             <div className={styles.listRow}>
               <span>
                 <div className={styles.listTitle}>Scanner</div>
