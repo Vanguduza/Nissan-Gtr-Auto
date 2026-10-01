@@ -136,7 +136,9 @@ jobs:
           for sql in \
             supabase/tests/pos_operator_discovery_smoke.sql \
             supabase/tests/pos_vehicle_context_smoke.sql \
-            supabase/tests/pos_customer_garage_popular_items_smoke.sql; do
+            supabase/tests/pos_customer_garage_popular_items_smoke.sql \
+            supabase/tests/pos_hidden_bestsellers_smoke.sql \
+            supabase/tests/web_pos_sale_flow_smoke.sql; do
             echo "Running $sql"
             docker exec -i "${{ steps.db.outputs.container }}" \
               psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$sql"

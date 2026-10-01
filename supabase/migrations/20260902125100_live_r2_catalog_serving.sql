@@ -2,6 +2,25 @@
 -- Supabase = control/commerce plane; Cloudflare R2 = immutable EPC technical data plane.
 -- Normal customer/staff browsing never requires the complete encrypted catalog bundle.
 
+-- catalog_releases was created outside migrations on the live project; nothing in this repo
+-- created it, so a fresh `supabase db reset` failed on the foreign key below. This guarded
+-- definition is a no-op where the table already exists and covers the columns every reader uses
+-- (catalog-live-r2 edge function, data-pipeline publish scripts). Service-role only.
+create table if not exists public.catalog_releases (
+  id uuid primary key default gen_random_uuid(),
+  maker_slug text not null,
+  version text not null,
+  bucket_name text null,
+  is_current boolean not null default false,
+  published_at timestamptz null,
+  created_at timestamptz not null default now(),
+  unique (maker_slug, version)
+);
+
+alter table public.catalog_releases enable row level security;
+revoke all on public.catalog_releases from anon, authenticated;
+grant all on public.catalog_releases to service_role;
+
 create table if not exists public.catalog_r2_serving_objects (
   id uuid primary key default gen_random_uuid(),
   release_id uuid not null references public.catalog_releases(id) on delete cascade,

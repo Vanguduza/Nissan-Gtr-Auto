@@ -20,3 +20,39 @@ BEGIN
     RAISE EXCEPTION 'anon must not execute hide_pos_bestseller';
   END IF;
 END $$;
+
+-- Behaviour: hide is per operator, list returns only the caller's rows, unhide restores.
+DO $$
+DECLARE
+  v_a uuid := gen_random_uuid();
+  v_b uuid := gen_random_uuid();
+  v_item uuid;
+  v_n int;
+BEGIN
+  SELECT id INTO v_item FROM public.stock_items LIMIT 1;
+  IF v_item IS NULL THEN
+    RAISE NOTICE 'pos_hidden_bestsellers_smoke: no stock_items; behaviour checks skipped';
+    RETURN;
+  END IF;
+  INSERT INTO auth.users (id, email) VALUES (v_a, 'hide-a@smoke.test'), (v_b, 'hide-b@smoke.test');
+  INSERT INTO public.profiles (id) VALUES (v_a), (v_b) ON CONFLICT (id) DO NOTHING;
+  INSERT INTO public.staff_roles (user_id, role) VALUES (v_a, 'sales'), (v_b, 'sales');
+
+  PERFORM set_config('request.jwt.claim.sub', v_a::text, true);
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM public.hide_pos_bestseller(v_item);
+  PERFORM public.hide_pos_bestseller(v_item); -- idempotent
+  SELECT count(*) INTO v_n FROM public.list_pos_hidden_bestsellers();
+  IF v_n <> 1 THEN RAISE EXCEPTION 'operator A should see 1 hidden best seller, got %', v_n; END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', v_b::text, true);
+  SELECT count(*) INTO v_n FROM public.list_pos_hidden_bestsellers();
+  IF v_n <> 0 THEN RAISE EXCEPTION 'operator B must not see operator A hides, got %', v_n; END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', v_a::text, true);
+  PERFORM public.unhide_pos_bestseller(v_item);
+  SELECT count(*) INTO v_n FROM public.list_pos_hidden_bestsellers();
+  IF v_n <> 0 THEN RAISE EXCEPTION 'unhide should restore the best seller, got %', v_n; END IF;
+
+  DELETE FROM auth.users WHERE id IN (v_a, v_b);
+END $$;

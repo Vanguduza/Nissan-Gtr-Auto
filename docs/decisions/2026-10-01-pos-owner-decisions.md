@@ -143,6 +143,28 @@ never lower text contrast or hide focus rings.
 - New backend: `pos_operator_hidden_bestsellers` + `list_pos_hidden_bestsellers` / `hide_pos_bestseller` /
   `unhide_pos_bestseller` (RLS owner-only) for D1. Not yet applied to a database.
 
+## Backend verification on a real Postgres (2026-10-01)
+
+All 132 migrations were applied in order to a fresh PostgreSQL 16, using local stand-ins for the
+Supabase `auth`, `storage` and `cron` schemas, then the seed and the SQL smoke tests were run.
+
+- **Fresh `db reset` was broken:** `public.catalog_releases` was created outside migrations on the
+  live project, so `20260902125100_live_r2_catalog_serving.sql` failed on its foreign key. That
+  migration now carries a guarded `create table if not exists` (service-role only), covering the
+  columns the edge function and pipeline scripts read. It is a no-op where the table already exists.
+- **Sales-only cashiers could not complete a sale:** checkout, tender settlement and refunds post
+  through `create_journal_draft` / `post_journal`, which only admitted admin/finance.
+  `20261001110000_pos_sales_cashier_journal_posting.sql` marks those three POS entry points as
+  internal posting for the duration of the call (same pattern as the storefront flag). Who may sell,
+  settle or refund is unchanged, and a cashier still cannot post a journal directly.
+- **`hide_pos_bestseller` and its sibling functions** were executable by `anon`; this is now revoked.
+- **New test `supabase/tests/web_pos_sale_flow_smoke.sql`:** a sales-role cashier runs the web/tablet
+  call sequence (open → add → vehicle → park/resume → over-tender refused → cash + EcoCash split).
+  It asserts the invoice is posted, stock is issued, every journal balances, the flag is cleared and
+  direct journal posting is refused.
+- **All 46 web POS calls** (RPCs and tables in `lib/pos/supabase-gateway.ts`) match exactly one
+  database signature that `authenticated` may execute.
+
 ## Still open
 
 - `PROJECT_CANONICAL_STATE.json` on `chatgpt/pos-reconcile-green-20260907` requires the ancestor

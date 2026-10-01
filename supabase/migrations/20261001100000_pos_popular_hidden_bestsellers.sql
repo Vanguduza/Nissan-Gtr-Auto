@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.pos_operator_hidden_bestsellers (
 );
 
 ALTER TABLE public.pos_operator_hidden_bestsellers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.pos_operator_hidden_bestsellers FROM anon;
 
 DROP POLICY IF EXISTS pos_operator_hidden_bestsellers_own_read ON public.pos_operator_hidden_bestsellers;
 CREATE POLICY pos_operator_hidden_bestsellers_own_read
@@ -63,9 +64,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.list_pos_hidden_bestsellers() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.hide_pos_bestseller(uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.unhide_pos_bestseller(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.list_pos_hidden_bestsellers() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.hide_pos_bestseller(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.unhide_pos_bestseller(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.list_pos_hidden_bestsellers() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.hide_pos_bestseller(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.unhide_pos_bestseller(uuid) TO authenticated, service_role;
