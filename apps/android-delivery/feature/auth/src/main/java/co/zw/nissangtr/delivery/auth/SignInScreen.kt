@@ -50,6 +50,7 @@ import co.zw.nissangtr.delivery.design.SlopesDestructiveButton
 import co.zw.nissangtr.delivery.design.SlopesPrimaryButton
 import co.zw.nissangtr.delivery.design.SlopesTextField
 import co.zw.nissangtr.delivery.design.SlopesTone
+import co.zw.nissangtr.delivery.design.neuRaised
 import co.zw.nissangtr.delivery.rpc.SupabaseRpcClient
 
 @Composable
@@ -59,7 +60,7 @@ fun SignInScreen(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "Driver sign in",
-    subtitle: String = "Nissan GTR Auto · deliveries",
+    subtitle: String = "Use your staff email",
     sessionViewModel: AuthSessionViewModel? = null,
 ) {
     if (supabase == null) {
@@ -111,7 +112,7 @@ fun SignInForm(
     onSignIn: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = "Driver sign in",
-    subtitle: String = "Nissan GTR Auto · deliveries",
+    subtitle: String = "Use your staff email",
 ) {
     AuthBackdrop(modifier, title = title, subtitle = subtitle) {
         SlopesTextField(
@@ -158,11 +159,12 @@ private fun AuthBackdrop(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Slopes.colors
-    val sky = if (c.isDark) {
-        Brush.verticalGradient(listOf(Color(0xFF0E2A52), Color(0xFF061325), c.background))
-    } else {
-        Brush.verticalGradient(listOf(Color(0xFF2C7BE5), Color(0xFF7FB2F0), c.background))
-    }
+    // Brand steel header fading into the canvas (brand-tokens: steel #12151C, steelLift #1E2430).
+    val sky = Brush.verticalGradient(
+        0f to Color(0xFF0A0C0E),
+        0.28f to Color(0xFF1E2430),
+        0.5f to c.background,
+    )
     Box(
         modifier
             .fillMaxSize()
@@ -182,26 +184,26 @@ private fun AuthBackdrop(
             Box(
                 Modifier
                     .size(84.dp)
-                    .shadow(16.dp, RoundedCornerShape(22.dp))
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White),
+                    .shadow(18.dp, RoundedCornerShape(24.dp), spotColor = c.accent)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(c.accent),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.LocalShipping, contentDescription = null, tint = Color(0xFF1F66C9), modifier = Modifier.size(46.dp))
+                Icon(Icons.Filled.LocalShipping, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
             }
             Spacer(Modifier.height(18.dp))
             Text("GTR Delivery", style = MaterialTheme.typography.displaySmall, color = Color.White)
             Text(
-                "Every drop, on the map",
+                "Nissan GTR Auto · drivers",
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.86f),
+                color = Color(0xFFC0C5CE),
             )
             Spacer(Modifier.height(36.dp))
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .shadow(20.dp, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 20.dp)
+                    .neuRaised(cornerRadius = 24.dp, distance = 6.dp, blur = 16.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .background(c.surface)
                     .padding(20.dp),

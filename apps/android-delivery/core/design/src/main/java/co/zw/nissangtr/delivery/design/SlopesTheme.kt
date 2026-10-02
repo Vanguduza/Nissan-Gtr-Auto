@@ -20,77 +20,86 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Driver app visual system, modelled on Slopes: a map-first layout with a light grouped
- * background, white inset cards, one blue accent, bold large titles and number-led stats.
- * Light and dark modes share the same structure; only the palette changes.
+ * Driver app visual system: the Slopes layout (map-first, draggable sheet, large titles,
+ * number-led stats) in Nissan GTR Auto brand colours (packages/ui/brand-tokens.json: GTR red,
+ * steel, silver, chalk) with the owner-approved soft-UI depth (neumorph tokens, D-015).
+ * Cards share the canvas colour and are lifted by a light and a dark shadow; tracks and fields
+ * are pressed in. Light and dark modes share the same structure; only the palette changes.
  */
 @Immutable
 data class SlopesColors(
     val isDark: Boolean,
-    /** Grouped page background behind cards (iOS systemGroupedBackground). */
+    /** Canvas behind everything; neumorphic cards use the same colour. */
     val background: Color,
-    /** Sheets, cards and list groups. */
+    /** Cards, sheets and list groups (same tone as the canvas for soft-UI). */
     val surface: Color,
-    /** Search fields, segmented tracks, inactive tiles. */
+    /** Pressed-in fill for fields, tracks and inactive controls. */
     val fill: Color,
     val label: Color,
     val secondaryLabel: Color,
     val tertiaryLabel: Color,
     val separator: Color,
+    /** GTR red. */
     val accent: Color,
-    /** Tinted accent fill for secondary action tiles and round buttons. */
     val accentTint: Color,
     val onAccent: Color,
     val danger: Color,
     val dangerTint: Color,
     val success: Color,
     val warning: Color,
-    /** Route line on the map (Slopes draws tracks in red). */
+    /** Route line on the map. */
     val route: Color,
     val mapChrome: Color,
     val scrim: Color,
+    /** Soft-UI light source (top-left) and shade (bottom-right). */
+    val neuHighlight: Color,
+    val neuShade: Color,
 )
 
 val SlopesLight = SlopesColors(
     isDark = false,
-    background = Color(0xFFF2F2F7),
-    surface = Color(0xFFFFFFFF),
-    fill = Color(0xFFE9E9EE),
-    label = Color(0xFF111114),
-    secondaryLabel = Color(0xFF6E6E76),
-    tertiaryLabel = Color(0xFFA3A3AB),
-    separator = Color(0xFFE3E3E8),
-    accent = Color(0xFF1F66C9),
-    accentTint = Color(0xFFDCE8F8),
+    background = Color(0xFFECEFF3),
+    surface = Color(0xFFECEFF3),
+    fill = Color(0xFFE0E4EA),
+    label = Color(0xFF12151C),
+    secondaryLabel = Color(0xFF5E6573),
+    tertiaryLabel = Color(0xFF8B929E),
+    separator = Color(0xFFD9DEE5),
+    accent = Color(0xFFC8102E),
+    accentTint = Color(0xFFF6DDE1),
     onAccent = Color(0xFFFFFFFF),
-    danger = Color(0xFFD9262E),
-    dangerTint = Color(0xFFFBE3E4),
-    success = Color(0xFF2FA84F),
-    warning = Color(0xFFE08A00),
-    route = Color(0xFFE5262B),
-    mapChrome = Color(0xF7FFFFFF),
-    scrim = Color(0x33000000),
+    danger = Color(0xFF8E0F22),
+    dangerTint = Color(0xFFF1DADE),
+    success = Color(0xFF0B6E4F),
+    warning = Color(0xFFB45309),
+    route = Color(0xFFC8102E),
+    mapChrome = Color(0xF5ECEFF3),
+    scrim = Color(0x5212151C),
+    neuHighlight = Color(0xFFFFFFFF),
+    neuShade = Color(0xFFC9CFD9),
 )
 
 val SlopesDark = SlopesColors(
     isDark = true,
-    background = Color(0xFF000000),
-    surface = Color(0xFF1C1C1E),
-    fill = Color(0xFF2C2C30),
-    label = Color(0xFFF5F5F7),
-    secondaryLabel = Color(0xFF9A9AA2),
-    tertiaryLabel = Color(0xFF5E5E66),
-    separator = Color(0xFF34343A),
-    accent = Color(0xFF4A90F2),
-    accentTint = Color(0xFF17283F),
+    background = Color(0xFF181C24),
+    surface = Color(0xFF181C24),
+    fill = Color(0xFF12151C),
+    label = Color(0xFFF4F5F7),
+    secondaryLabel = Color(0xFFA3AAB6),
+    tertiaryLabel = Color(0xFF6B7280),
+    separator = Color(0xFF2A3241),
+    accent = Color(0xFFE01234),
+    accentTint = Color(0xFF3A1720),
     onAccent = Color(0xFFFFFFFF),
-    danger = Color(0xFFFF4D4F),
-    dangerTint = Color(0xFF3A1A1C),
-    success = Color(0xFF3CCB62),
-    warning = Color(0xFFFFA726),
-    route = Color(0xFFFF4D4F),
-    mapChrome = Color(0xF21C1C1E),
-    scrim = Color(0x66000000),
+    danger = Color(0xFFEF4444),
+    dangerTint = Color(0xFF3B1A1E),
+    success = Color(0xFF10B981),
+    warning = Color(0xFFF59E0B),
+    route = Color(0xFFE01234),
+    mapChrome = Color(0xF2181C24),
+    scrim = Color(0x99000000),
+    neuHighlight = Color(0xFF283040),
+    neuShade = Color(0xFF0A0D12),
 )
 
 val LocalSlopesColors = staticCompositionLocalOf { SlopesLight }

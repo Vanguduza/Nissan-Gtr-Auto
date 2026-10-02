@@ -33,13 +33,17 @@ ADR: [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decision
 
 ## Visual style
 
-Modelled on the Slopes iOS app: each main screen is a full-bleed map with a draggable sheet
-(grabber, bold large title, tinted action tiles, number-led stats, white grouped lists on a grey
-background). Tabs: **Today** (stops by Up next / Delivered / Failed, driver status), **Route**
-(live GPS, progress timeline, stop order) and **Account** (status, appearance, shift, safety).
-A stop opens on the map with its driving route and Overview / Proof / Issue sections.
-Appearance is System / Light / Dark (Account tab); the map switches between the OpenFreeMap
-light and dark styles unless `MAPLIBRE_STYLE_URL` points at a self-hosted style.
+Slopes-style layout in Nissan GTR Auto brand colours (`packages/ui/brand-tokens.json`: GTR red
+accent, steel / silver / chalk neutrals) with the approved soft-UI depth (neumorph tokens, D-015):
+cards, tiles and buttons are raised; fields, tracks and icon wells are pressed in.
+Each main screen is a full-bleed map with a draggable sheet, kept short on purpose:
+**Today** shows the next stop, three numbers and the rest of the day (finished stops fold into a
+drawer; status changes in a pop-up); **Route** has the GPS / optimise / next-stop actions, a
+progress bar and the stop order (GPS detail in a drawer); **Account** is a short settings list
+whose choices open pop-ups. A stop shows four actions and three numbers; items, drop-off and
+live tracking are drawers; proof of delivery and issues open as pop-up sheets.
+Appearance is System / Light / Dark; the map follows it (OpenFreeMap light/dark) unless
+`MAPLIBRE_STYLE_URL` points at a self-hosted style.
 
 Screenshots: `./gradlew :feature:jobs:recordPaparazziDebug` (goldens use a plain grid where the
 map goes; add `-PdeliveryMapDir=<dir>` with `overview-light.png` etc. to preview over real maps).

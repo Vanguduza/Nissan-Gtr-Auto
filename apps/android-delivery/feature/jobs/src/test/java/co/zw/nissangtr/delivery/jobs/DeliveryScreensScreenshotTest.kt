@@ -6,6 +6,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
@@ -33,6 +35,7 @@ import co.zw.nissangtr.bridges.podsignature.rememberComposeSignaturePadState
 import co.zw.nissangtr.delivery.auth.SignInForm
 import co.zw.nissangtr.delivery.design.Slopes
 import co.zw.nissangtr.delivery.design.SlopesMode
+import co.zw.nissangtr.delivery.design.SlopesSheetFrame
 import co.zw.nissangtr.delivery.design.SlopesTab
 import co.zw.nissangtr.delivery.design.SlopesTabBar
 import co.zw.nissangtr.delivery.design.SlopesTheme
@@ -98,10 +101,14 @@ class DeliveryScreensScreenshotTest {
     @Test fun account_dark() = shot(SlopesMode.Dark) {
         Shell("Account", null) { vm, tvm -> DeliveryMeTab(baseState, vm, tvm, "tatenda.driver@nissangtrauto.co.zw", {}, appearance = SlopesMode.Dark, appVersion = "GTR Delivery 0.1.1") }
     }
-    @Test fun stop_light() = shot(SlopesMode.Light) { Detail("detail", tab = 0) }
-    @Test fun stop_dark() = shot(SlopesMode.Dark) { Detail("detail", tab = 0) }
-    @Test fun stop_proof_light() = shot(SlopesMode.Light) { Detail("detail", tab = 1) }
-    @Test fun stop_issue_dark() = shot(SlopesMode.Dark) { Detail("detail", tab = 2) }
+    @Test fun stop_light() = shot(SlopesMode.Light) { Detail("detail", popup = null) }
+    @Test fun stop_dark() = shot(SlopesMode.Dark) { Detail("detail", popup = null) }
+    @Test fun stop_proof_light() = shot(SlopesMode.Light) { Detail("detail", popup = StopPopup.Proof) }
+    @Test fun stop_issue_dark() = shot(SlopesMode.Dark) { Detail("detail", popup = StopPopup.Issue) }
+    @Test fun today_status_light() = shot(SlopesMode.Light) {
+        Shell("Today", "overview") { vm, tvm -> JobsListScreen(baseState, vm, tvm, tracking = tracking) }
+        Popup("Your status", "Dispatch sees this", 0.5f) { PresenceChooser(DriverPresenceStatus.ON_DUTY) {} }
+    }
     @Test fun signin_light() = shot(SlopesMode.Light) { SignIn() }
     @Test fun signin_dark() = shot(SlopesMode.Dark) { SignIn() }
 
@@ -145,7 +152,7 @@ class DeliveryScreensScreenshotTest {
     }
 
     @Composable
-    private fun Detail(map: String, tab: Int) {
+    private fun Detail(map: String, popup: StopPopup?) {
         val (vm, tvm) = viewModels()
         val job = jobs.first { it.id == FakeRpcClient.JOB_1 }
         WithMap(map) {
@@ -159,24 +166,35 @@ class DeliveryScreensScreenshotTest {
                 camera = FakePodCameraBridge(),
                 signature = FakePodSignatureBridge(),
                 onBack = {},
-                initialTab = tab,
-                proofContent = {
-                    PodSectionContent(
-                        state = PodUiState(jobId = job.id, otpGenerated = true, otpCode = "4821"),
-                        padState = rememberComposeSignaturePadState(),
-                        onCapturePhoto = {},
-                        onConfirmSignature = {},
-                        onFullScreenSignature = {},
-                        onResign = {},
-                        onSendCode = {},
-                        onCodeChange = {},
-                        onVerifyCode = {},
-                        onNotesChange = {},
-                        onSubmit = {},
-                        onFlushQueue = {},
-                    )
-                },
             )
+        }
+        // ModalBottomSheet opens in a window Paparazzi cannot draw, so the pop-up is framed here.
+        when (popup) {
+            StopPopup.Proof -> Popup("Proof of delivery", job.documentNumber, 0.9f) {
+                PodSectionContent(
+                    state = PodUiState(jobId = job.id, otpGenerated = true, otpCode = "4821"),
+                    padState = rememberComposeSignaturePadState(),
+                    onCapturePhoto = {},
+                    onConfirmSignature = {},
+                    onFullScreenSignature = {},
+                    onResign = {},
+                    onSendCode = {},
+                    onCodeChange = {},
+                    onVerifyCode = {},
+                    onNotesChange = {},
+                    onSubmit = {},
+                    onFlushQueue = {},
+                )
+            }
+            StopPopup.Issue -> Popup("Report an issue", job.documentNumber, 0.9f) { StopIssueContent(job, detailState, vm) }
+            null -> Unit
+        }
+    }
+
+    @Composable
+    private fun Popup(title: String, subtitle: String?, height: Float, content: @Composable ColumnScope.() -> Unit) {
+        Box(Modifier.fillMaxSize().background(Slopes.colors.scrim), contentAlignment = Alignment.BottomCenter) {
+            SlopesSheetFrame(title = title, subtitle = subtitle, onClose = {}, modifier = Modifier.fillMaxHeight(height), content = content)
         }
     }
 

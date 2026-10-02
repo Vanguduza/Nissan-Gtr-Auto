@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Draw
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Sms
@@ -46,6 +47,8 @@ import co.zw.nissangtr.bridges.podsignature.SignaturePadView
 import co.zw.nissangtr.bridges.podsignature.rememberComposeSignaturePadState
 import co.zw.nissangtr.delivery.design.Slopes
 import co.zw.nissangtr.delivery.design.SlopesBanner
+import co.zw.nissangtr.delivery.design.SlopesDrawer
+import co.zw.nissangtr.delivery.design.neuRaised
 import co.zw.nissangtr.delivery.design.SlopesGroup
 import co.zw.nissangtr.delivery.design.SlopesIconBadge
 import co.zw.nissangtr.delivery.design.SlopesPill
@@ -154,7 +157,6 @@ fun PodSectionContent(
     val nextStep = steps.indexOfFirst { !it.second }
 
     Column(modifier.fillMaxWidth()) {
-        SlopesSectionHeader("Proof of delivery")
         SlopesTimeline(
             segments = steps.mapIndexed { i, (label, done) ->
                 SlopesSegment(
@@ -170,7 +172,7 @@ fun PodSectionContent(
         )
 
         // 1 · Photo
-        SlopesSectionHeader("1  Photo of the goods")
+        SlopesSectionHeader("1  Photo")
         if (state.photoLocalPath != null) {
             LocalImagePreview(path = state.photoLocalPath, heightDp = 170, contentDescription = "Delivery photo")
             Spacer(Modifier.height(10.dp))
@@ -179,7 +181,7 @@ fun PodSectionContent(
                 onCapturePhoto,
                 enabled = !state.busy,
                 icon = Icons.Filled.CameraAlt,
-                modifier = Modifier.padding(horizontal = 18.dp),
+                modifier = Modifier.padding(horizontal = 20.dp),
             )
         } else {
             SlopesGroup {
@@ -203,8 +205,9 @@ fun PodSectionContent(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .padding(horizontal = 20.dp)
+                    .neuRaised()
+                    .clip(RoundedCornerShape(18.dp))
                     .background(Color.White),
             ) {
                 ComposeSignaturePad(
@@ -223,7 +226,7 @@ fun PodSectionContent(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SlopesTintedButton(
                     "Clear",
                     { padState.clear() },
@@ -247,7 +250,7 @@ fun PodSectionContent(
                 background = Color.White,
             )
             Spacer(Modifier.height(10.dp))
-            SlopesTintedButton("Sign again", onResign, enabled = !state.busy, modifier = Modifier.padding(horizontal = 18.dp))
+            SlopesTintedButton("Sign again", onResign, enabled = !state.busy, modifier = Modifier.padding(horizontal = 20.dp))
         }
 
         // 3 · Customer code
@@ -263,7 +266,7 @@ fun PodSectionContent(
         }
         Spacer(Modifier.height(12.dp))
         Row(
-            Modifier.padding(horizontal = 18.dp),
+            Modifier.padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = androidx.compose.ui.Alignment.Bottom,
         ) {
@@ -288,16 +291,22 @@ fun PodSectionContent(
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
-        SlopesTextField(
-            value = state.notes,
-            onValueChange = onNotesChange,
-            label = "Notes (optional)",
-            placeholder = "Left with reception, gate code…",
-            singleLine = false,
-            enabled = !state.busy,
-            modifier = Modifier.padding(horizontal = 18.dp),
-        )
+        Spacer(Modifier.height(18.dp))
+        SlopesDrawer(
+            title = "Add a note",
+            summary = state.notes.ifBlank { "Optional — e.g. left with reception" },
+            icon = Icons.Filled.EditNote,
+        ) {
+            SlopesTextField(
+                value = state.notes,
+                onValueChange = onNotesChange,
+                label = "Note for dispatch",
+                placeholder = "Left with reception, gate code…",
+                singleLine = false,
+                enabled = !state.busy,
+                modifier = Modifier.padding(16.dp),
+            )
+        }
 
         Spacer(Modifier.height(18.dp))
         SlopesPrimaryButton(
@@ -309,7 +318,7 @@ fun PodSectionContent(
             onClick = onSubmit,
             enabled = !state.busy && podReady,
             icon = if (podReady) Icons.Filled.CheckCircle else null,
-            modifier = Modifier.padding(horizontal = 18.dp),
+            modifier = Modifier.padding(horizontal = 20.dp),
         )
 
         if (state.queuedCount > 0) {
@@ -351,7 +360,7 @@ private fun LocalImagePreview(
             contentDescription = contentDescription,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp)
+                .padding(horizontal = 20.dp)
                 .height(heightDp.dp)
                 .clip(shape)
                 .background(background),

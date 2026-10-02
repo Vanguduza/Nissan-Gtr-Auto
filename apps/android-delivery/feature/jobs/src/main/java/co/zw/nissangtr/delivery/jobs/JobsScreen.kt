@@ -1,9 +1,11 @@
 package co.zw.nissangtr.delivery.jobs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,8 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.GpsFixed
@@ -29,24 +31,21 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,9 +53,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.bridges.location.GpsBridge
@@ -71,6 +72,7 @@ import co.zw.nissangtr.delivery.design.SlopesActionTiles
 import co.zw.nissangtr.delivery.design.SlopesBanner
 import co.zw.nissangtr.delivery.design.SlopesCheckRow
 import co.zw.nissangtr.delivery.design.SlopesDestructiveButton
+import co.zw.nissangtr.delivery.design.SlopesDrawer
 import co.zw.nissangtr.delivery.design.SlopesGroup
 import co.zw.nissangtr.delivery.design.SlopesIconBadge
 import co.zw.nissangtr.delivery.design.SlopesLargeTitle
@@ -79,20 +81,23 @@ import co.zw.nissangtr.delivery.design.SlopesMapControlButton
 import co.zw.nissangtr.delivery.design.SlopesMapControls
 import co.zw.nissangtr.delivery.design.SlopesMapFab
 import co.zw.nissangtr.delivery.design.SlopesMapSheetLayout
+import co.zw.nissangtr.delivery.design.SlopesModalSheet
 import co.zw.nissangtr.delivery.design.SlopesMode
 import co.zw.nissangtr.delivery.design.SlopesPill
+import co.zw.nissangtr.delivery.design.SlopesPrimaryButton
 import co.zw.nissangtr.delivery.design.SlopesRoundButton
 import co.zw.nissangtr.delivery.design.SlopesRow
 import co.zw.nissangtr.delivery.design.SlopesSearchField
 import co.zw.nissangtr.delivery.design.SlopesSectionHeader
 import co.zw.nissangtr.delivery.design.SlopesSegment
-import co.zw.nissangtr.delivery.design.SlopesSegmented
 import co.zw.nissangtr.delivery.design.SlopesStat
 import co.zw.nissangtr.delivery.design.SlopesStatRow
+import co.zw.nissangtr.delivery.design.SlopesStatusChip
 import co.zw.nissangtr.delivery.design.SlopesTextField
 import co.zw.nissangtr.delivery.design.SlopesTimeline
 import co.zw.nissangtr.delivery.design.SlopesToggleRow
 import co.zw.nissangtr.delivery.design.SlopesTone
+import co.zw.nissangtr.delivery.design.neuRaised
 import co.zw.nissangtr.delivery.pod.PodSection
 import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
@@ -109,12 +114,12 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 // =============================================================================================
-// Today — map of the day's stops with the job list in a sheet (Slopes "Logbook").
+// Today — the next stop up front; the rest of the day one tap away.
 // =============================================================================================
 
 /**
- * Today tab: full-bleed map of the day's drops and a draggable sheet with the day's numbers,
- * the driver's status, and the stops grouped as Up next / Delivered / Failed.
+ * Today tab: map of the day's drops, and a sheet with the next stop, three numbers, the rest of
+ * today's stops, and finished stops folded into a drawer. Status changes in a pop-up.
  */
 @Composable
 fun JobsListScreen(
@@ -126,28 +131,24 @@ fun JobsListScreen(
 ) {
     val c = Slopes.colors
     var searchOpen by rememberSaveable { mutableStateOf(false) }
+    var statusOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     val active = remember(state.jobs) {
         state.jobs.filter { JobStatusGate.isActive(it.status) }.sortedBy { it.routeSequence ?: Int.MAX_VALUE }
     }
-    val done = remember(state.jobs) { state.jobs.filter { it.status == "completed" } }
-    val failed = remember(state.jobs) { state.jobs.filter { it.status == "failed" } }
-    val distanceByJob = remember(state.optimizedStops) {
-        state.optimizedStops.associate { it.deliveryJobId to it.distanceM }
-    }
+    val finished = remember(state.jobs) { state.jobs.filterNot { JobStatusGate.isActive(it.status) } }
+    val distanceByJob = remember(state.optimizedStops) { state.optimizedStops.associate { it.deliveryJobId to it.distanceM } }
     fun matches(job: DeliveryJobSummary): Boolean {
         val q = query.trim()
-        if (q.isEmpty()) return true
-        return listOfNotNull(job.documentNumber, job.dropoffAddressText, job.notes)
-            .any { it.contains(q, ignoreCase = true) }
+        return q.isEmpty() || listOfNotNull(job.documentNumber, job.dropoffAddressText, job.notes).any { it.contains(q, ignoreCase = true) }
     }
-    val codDue = remember(active) { codTotalLabel(active) }
     val stops = remember(active) { active.mapNotNull { it.toMapStop() } }
     val driver = tracking.driverPosition()
+    val next = active.firstOrNull()
 
     SlopesMapSheetLayout(
         modifier = modifier,
-        collapsedFraction = 0.56f,
+        collapsedFraction = 0.55f,
         map = { obscured ->
             DeliveryMap(
                 DeliveryMapSpec(
@@ -162,140 +163,183 @@ fun JobsListScreen(
         mapControls = {
             SlopesMapControls {
                 SlopesMapControlButton(Icons.Filled.Refresh, "Refresh jobs", vm::refresh, enabled = !state.busy)
-                SlopesMapControlButton(Icons.Filled.Route, "Optimise route", vm::optimizeStops, divider = true, enabled = !state.busy)
             }
         },
         sheetHeader = {
-            SlopesLargeTitle(
-                title = "Today",
-                subtitle = "${todayLabel()} · ${state.presence.displayLabel()}",
-            ) {
+            SlopesLargeTitle(title = "Today", subtitle = todayLabel()) {
+                SlopesStatusChip(state.presence.displayLabel(), presenceColor(state.presence), onClick = { statusOpen = true })
                 SlopesRoundButton(Icons.Filled.Search, "Search stops", onClick = { searchOpen = !searchOpen })
             }
         },
     ) {
+        if (searchOpen) {
+            SlopesSearchField(value = query, onValueChange = { query = it }, placeholder = "Search stops or addresses")
+            Spacer(Modifier.height(16.dp))
+        }
+        state.error?.let {
+            SlopesBanner(it.trim(), tone = SlopesTone.Danger, icon = Icons.Filled.ReportProblem)
+            Spacer(Modifier.height(16.dp))
+        }
+
+        if (next != null && query.isBlank()) {
+            NextStopCard(next, distanceByJob[next.id]) { vm.selectJob(next.id) }
+            Spacer(Modifier.height(18.dp))
+        }
         SlopesStatRow(
             listOf(
-                SlopesStat(active.size.toString(), "to deliver", unit = "stops", icon = Icons.Filled.Place),
-                SlopesStat(done.size.toString(), "delivered", icon = Icons.Filled.CheckCircle),
-                SlopesStat(failed.size.toString(), "failed", icon = Icons.Filled.Cancel),
-                SlopesStat(codDue ?: "—", "to collect", icon = Icons.Filled.Payments),
+                SlopesStat(active.size.toString(), "stops left"),
+                SlopesStat(state.jobs.count { it.status == "completed" }.toString(), "delivered"),
+                SlopesStat(codTotalLabel(active) ?: "—", "to collect"),
             ),
         )
-        Spacer(Modifier.height(16.dp))
-        PresenceControl(state = state, vm = vm, trackingVm = trackingVm)
-        StatusBanners(state.message, state.error)
 
-        if (searchOpen) {
-            Spacer(Modifier.height(14.dp))
-            SlopesSearchField(value = query, onValueChange = { query = it }, placeholder = "Search stops, addresses, notes")
-        }
-
-        SlopesSectionHeader("Up next", action = if (active.size > 1) "Optimise" else null, onAction = vm::optimizeStops)
-        val upNext = active.filter(::matches)
-        SlopesGroup {
-            if (upNext.isEmpty()) {
-                SlopesRow(
-                    title = if (query.isBlank()) "No deliveries waiting" else "No stops match “$query”",
-                    subtitle = if (query.isBlank()) "Go on duty and refresh to pull new jobs." else null,
-                    leading = { SlopesIconBadge(Icons.Filled.LocalShipping) },
-                    divider = false,
-                )
-            }
-            upNext.forEachIndexed { i, job ->
-                JobRow(
-                    job = job,
-                    leading = {
-                        val meters = distanceByJob[job.id]
-                        if (meters != null) {
-                            SlopesLeadingCount("%.1f".format(meters / 1000), "km")
-                        } else {
-                            SlopesLeadingCount("#${job.routeSequence ?: i + 1}", "stop")
-                        }
-                    },
-                    divider = i < upNext.lastIndex,
-                    onClick = { vm.selectJob(job.id) },
-                )
-            }
-        }
-
-        val delivered = done.filter(::matches)
-        if (delivered.isNotEmpty()) {
-            SlopesSectionHeader("Delivered")
+        val later = active.filter { (query.isNotBlank() || it.id != next?.id) && matches(it) }
+        if (later.isNotEmpty() || query.isNotBlank()) {
+            SlopesSectionHeader(if (query.isBlank()) "Later today" else "Matching stops")
             SlopesGroup {
-                delivered.forEachIndexed { i, job ->
-                    JobRow(
-                        job = job,
+                if (later.isEmpty()) {
+                    SlopesRow(title = "No stops match “$query”", leading = { SlopesIconBadge(Icons.Filled.Search) }, divider = false)
+                }
+                later.forEachIndexed { i, job ->
+                    val meters = distanceByJob[job.id]
+                    SlopesRow(
+                        title = job.documentNumber ?: "Job ${job.id.take(8)}",
+                        subtitle = job.dropoffAddressText ?: job.notes,
                         leading = {
-                            SlopesIconBadge(Icons.Filled.CheckCircle, tint = c.success, container = c.success.copy(alpha = 0.14f), round = true)
+                            if (meters != null) {
+                                SlopesLeadingCount("%.1f".format(meters / 1000), "km")
+                            } else {
+                                SlopesLeadingCount("#${job.routeSequence ?: i + 2}", "stop")
+                            }
                         },
-                        divider = i < delivered.lastIndex,
+                        divider = i < later.lastIndex,
                         onClick = { vm.selectJob(job.id) },
                     )
                 }
             }
-        }
-        val failedShown = failed.filter(::matches)
-        if (failedShown.isNotEmpty()) {
-            SlopesSectionHeader("Failed")
+        } else if (next == null) {
+            Spacer(Modifier.height(18.dp))
             SlopesGroup {
-                failedShown.forEachIndexed { i, job ->
-                    JobRow(
-                        job = job,
-                        subtitleOverride = job.failureReasonCode?.let { failureLabel(it) },
-                        leading = { SlopesIconBadge(Icons.Filled.Cancel, tint = c.danger, container = c.dangerTint, round = true) },
-                        divider = i < failedShown.lastIndex,
+                SlopesRow(
+                    title = "No deliveries waiting",
+                    subtitle = "Go on duty and refresh",
+                    leading = { SlopesIconBadge(Icons.Filled.LocalShipping) },
+                    divider = false,
+                )
+            }
+        }
+
+        val done = finished.filter(::matches)
+        if (done.isNotEmpty()) {
+            Spacer(Modifier.height(20.dp))
+            val delivered = done.count { it.status == "completed" }
+            SlopesDrawer(
+                title = "Finished",
+                summary = listOfNotNull(
+                    "$delivered delivered".takeIf { delivered > 0 },
+                    "${done.size - delivered} failed".takeIf { done.size > delivered },
+                ).joinToString(" · "),
+                icon = Icons.Filled.TaskAlt,
+                iconTint = c.success,
+            ) {
+                done.forEachIndexed { i, job ->
+                    val ok = job.status == "completed"
+                    SlopesRow(
+                        title = job.documentNumber ?: job.id.take(8),
+                        subtitle = if (ok) job.dropoffAddressText else job.failureReasonCode?.let(::failureLabel),
+                        leading = {
+                            SlopesIconBadge(
+                                if (ok) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
+                                tint = if (ok) c.success else c.danger,
+                                round = true,
+                                size = 32.dp,
+                            )
+                        },
+                        divider = i < done.lastIndex,
                         onClick = { vm.selectJob(job.id) },
                     )
                 }
             }
         }
     }
+
+    if (statusOpen) {
+        SlopesModalSheet(title = "Your status", subtitle = "Dispatch sees this", onDismiss = { statusOpen = false }) {
+            PresenceChooser(state.presence) { s ->
+                applyPresence(s, state, vm, trackingVm)
+                statusOpen = false
+            }
+        }
+    }
 }
 
+/** Raised hero card for the stop the driver should do next. */
 @Composable
-private fun JobRow(
-    job: DeliveryJobSummary,
-    leading: @Composable () -> Unit,
-    divider: Boolean,
-    onClick: () -> Unit,
-    subtitleOverride: String? = null,
-) {
+private fun NextStopCard(job: DeliveryJobSummary, meters: Double?, onOpen: () -> Unit) {
     val c = Slopes.colors
     val cod = job.settlement?.displayAmountDue()?.takeIf { it > 0.0 }
-    SlopesRow(
-        title = job.documentNumber ?: "Job ${job.id.take(8)}",
-        subtitle = subtitleOverride
-            ?: job.dropoffAddressText?.takeIf { it.isNotBlank() }
-            ?: job.notes?.takeIf { it.isNotBlank() }
-            ?: "Tap for the drop-off and receipt",
-        subtitleIcon = if (subtitleOverride == null) Icons.Filled.Place else null,
-        leading = leading,
-        divider = divider,
-        onClick = onClick,
-        trailing = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (job.reattemptOf != null) SlopesPill("Reattempt", c.warning)
-                if (cod != null) SlopesPill("${job.settlement!!.currency.rpcValue} %.2f".format(cod), c.accent)
-                if (job.status == "pending") SlopesPill("Pending", c.secondaryLabel)
-            }
-        },
-    )
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .neuRaised(cornerRadius = 22.dp, distance = 6.dp, blur = 14.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(c.surface)
+            .clickable(onClick = onOpen)
+            .padding(18.dp),
+    ) {
+        Text("NEXT STOP", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = c.accent)
+        Spacer(Modifier.height(6.dp))
+        Text(job.documentNumber ?: "Job ${job.id.take(8)}", style = MaterialTheme.typography.headlineSmall, color = c.label)
+        job.dropoffAddressText?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            meters?.let { SlopesPill("%.1f km".format(it / 1000), c.secondaryLabel) }
+            cod?.let { SlopesPill("Collect ${job.settlement!!.currency.rpcValue} %.2f".format(it), c.accent) }
+            if (job.status == "pending") SlopesPill("Pending", c.warning)
+        }
+        Spacer(Modifier.height(16.dp))
+        SlopesPrimaryButton("Go to stop", onOpen, icon = Icons.Filled.Navigation)
+    }
 }
 
-/** Four-way driver status; going on duty starts live GPS, a break or offline stops it. */
+/** Status choices (pop-up body; also rendered by screenshot tests). */
 @Composable
-private fun PresenceControl(
-    state: JobsUiState,
-    vm: JobsViewModel,
-    trackingVm: TrackingViewModel,
-) {
-    val options = DriverPresenceStatus.entries
-    SlopesSegmented(
-        options = options.map { it.displayLabel() },
-        selected = options.indexOf(state.presence).coerceAtLeast(0),
-        onSelect = { i -> applyPresence(options[i], state, vm, trackingVm) },
-    )
+internal fun PresenceChooser(current: DriverPresenceStatus, onPick: (DriverPresenceStatus) -> Unit) {
+    SlopesGroup {
+        DriverPresenceStatus.entries.forEachIndexed { i, s ->
+            SlopesCheckRow(
+                title = s.displayLabel(),
+                subtitle = when (s) {
+                    DriverPresenceStatus.AVAILABLE -> "Ready for new jobs"
+                    DriverPresenceStatus.ON_DUTY -> "Driving — live location shared"
+                    DriverPresenceStatus.BREAK -> "Paused — location sharing stops"
+                    DriverPresenceStatus.OFFLINE -> "Off shift"
+                },
+                selected = s == current,
+                onClick = { onPick(s) },
+                divider = i < DriverPresenceStatus.entries.lastIndex,
+                leading = {
+                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(12.dp).clip(CircleShape).background(presenceColor(s)))
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun presenceColor(s: DriverPresenceStatus): Color {
+    val c = Slopes.colors
+    return when (s) {
+        DriverPresenceStatus.AVAILABLE -> c.success
+        DriverPresenceStatus.ON_DUTY -> c.accent
+        DriverPresenceStatus.BREAK -> c.warning
+        DriverPresenceStatus.OFFLINE -> c.tertiaryLabel
+    }
 }
 
 private fun applyPresence(
@@ -314,20 +358,8 @@ private fun applyPresence(
     }
 }
 
-@Composable
-private fun StatusBanners(message: String?, error: String?) {
-    if (message != null) {
-        Spacer(Modifier.height(12.dp))
-        SlopesBanner(message, tone = SlopesTone.Info, icon = Icons.Filled.CheckCircle)
-    }
-    if (error != null) {
-        Spacer(Modifier.height(12.dp))
-        SlopesBanner(error.trim(), tone = SlopesTone.Danger, icon = Icons.Filled.ReportProblem)
-    }
-}
-
 // =============================================================================================
-// Route — the day's run: map, live GPS, a progress timeline and the stop order.
+// Route — actions, progress and the stop order; GPS detail in a drawer.
 // =============================================================================================
 
 @Composable
@@ -340,16 +372,15 @@ fun DeliveryRouteTab(
 ) {
     val c = Slopes.colors
     val ordered = remember(state.jobs, state.optimizedStops) { orderedStops(state) }
-    val stops = remember(ordered) {
-        ordered.filter { JobStatusGate.isActive(it.status) }.mapNotNull { it.toMapStop() }
-    }
+    val stops = remember(ordered) { ordered.filter { JobStatusGate.isActive(it.status) }.mapNotNull { it.toMapStop() } }
     val driver = tracking.driverPosition()
     val nextActive = ordered.firstOrNull { JobStatusGate.isActive(it.status) }
     val totalKm = state.optimizedStops.mapNotNull { it.distanceM }.sum() / 1000.0
+    val hasActive = nextActive != null
 
     SlopesMapSheetLayout(
         modifier = modifier,
-        collapsedFraction = 0.54f,
+        collapsedFraction = 0.52f,
         map = { obscured ->
             DeliveryMap(
                 DeliveryMapSpec(
@@ -371,12 +402,11 @@ fun DeliveryRouteTab(
                 title = "Route",
                 subtitle = buildString {
                     append("${stops.size} ${if (stops.size == 1) "stop" else "stops"} left")
-                    if (totalKm > 0) append(" · %.1f km planned".format(totalKm))
+                    if (totalKm > 0) append(" · %.1f km".format(totalKm))
                 },
             )
         },
     ) {
-        val hasActive = nextActive != null
         SlopesActionTiles(
             listOf(
                 if (tracking.tracking) {
@@ -399,26 +429,10 @@ fun DeliveryRouteTab(
                 SlopesAction("Next stop", Icons.Filled.Navigation, { nextActive?.let { vm.selectJob(it.id) } }, enabled = hasActive),
             ),
         )
-        Spacer(Modifier.height(16.dp))
-        SlopesStatRow(
-            listOf(
-                SlopesStat(
-                    if (tracking.tracking) "On" else "Off",
-                    "live GPS",
-                    icon = Icons.Filled.GpsFixed,
-                    tint = if (tracking.tracking) c.success else null,
-                ),
-                SlopesStat(tracking.ingestCount.toString(), "sent", unit = "pings", icon = Icons.Filled.CloudUpload),
-                SlopesStat(tracking.queuedCount.toString(), "waiting", unit = "queued", icon = Icons.Filled.Schedule),
-                SlopesStat(
-                    if (totalKm > 0) "%.1f".format(totalKm) else "—",
-                    "planned",
-                    unit = if (totalKm > 0) "km" else null,
-                    icon = Icons.Filled.Straighten,
-                ),
-            ),
-        )
-        StatusBanners(state.message, state.error ?: tracking.error)
+        state.error?.let {
+            Spacer(Modifier.height(16.dp))
+            SlopesBanner(it.trim(), tone = SlopesTone.Danger, icon = Icons.Filled.ReportProblem)
+        }
 
         if (ordered.isNotEmpty()) {
             SlopesSectionHeader("Progress")
@@ -428,9 +442,9 @@ fun DeliveryRouteTab(
                         weight = 1f,
                         color = when {
                             job.status == "completed" -> c.success
-                            job.status == "failed" -> c.danger
+                            job.status == "failed" -> c.warning
                             job.id == nextActive?.id -> c.accent
-                            else -> c.fill
+                            else -> c.separator
                         },
                         label = (job.routeSequence ?: (i + 1)).toString(),
                     )
@@ -440,30 +454,46 @@ fun DeliveryRouteTab(
             )
         }
 
-        SlopesSectionHeader("Stop order", action = if (hasActive) "Optimise" else null, onAction = vm::optimizeStops)
+        SlopesSectionHeader("Stop order")
         SlopesGroup {
             if (ordered.isEmpty()) {
                 SlopesRow(
                     title = "No stops yet",
-                    subtitle = "Assigned deliveries appear here in driving order.",
+                    subtitle = "Assigned deliveries appear here in driving order",
                     leading = { SlopesIconBadge(Icons.Filled.Route) },
                     divider = false,
                 )
             }
             ordered.forEachIndexed { i, job ->
-                val meters = state.optimizedStops.firstOrNull { it.deliveryJobId == job.id }?.distanceM
+                val active = JobStatusGate.isActive(job.status)
                 SlopesRow(
                     title = job.documentNumber ?: job.id.take(8),
-                    subtitle = listOfNotNull(
-                        meters?.let { "%.1f km from previous".format(it / 1000) },
-                        job.dropoffAddressText,
-                    ).joinToString(" · ").ifBlank { null },
-                    leading = { SlopesLeadingCount("#${job.routeSequence ?: i + 1}", "stop") },
-                    trailing = { StatusPill(job.status) },
+                    subtitle = job.dropoffAddressText,
+                    titleColor = if (active) null else c.tertiaryLabel,
+                    leading = { SlopesLeadingCount("${job.routeSequence ?: i + 1}", "stop") },
+                    trailing = {
+                        when {
+                            job.status == "completed" -> SlopesPill("Done", c.success)
+                            job.status == "failed" -> SlopesPill("Failed", c.warning)
+                            job.id == nextActive?.id -> SlopesPill("Next", c.accent)
+                        }
+                    },
                     divider = i < ordered.lastIndex,
                     onClick = { vm.selectJob(job.id) },
                 )
             }
+        }
+
+        Spacer(Modifier.height(20.dp))
+        SlopesDrawer(
+            title = "Live GPS",
+            summary = if (tracking.tracking) "On · ${tracking.ingestCount} updates sent" else "Off",
+            icon = Icons.Filled.GpsFixed,
+            iconTint = if (tracking.tracking) c.success else c.tertiaryLabel,
+        ) {
+            SlopesRow("Updates sent", trailing = { ValueText(tracking.ingestCount.toString()) })
+            SlopesRow("Waiting to send", trailing = { ValueText(tracking.queuedCount.toString()) })
+            SlopesRow("Last position", trailing = { ValueText(tracking.lastLatLng ?: "—") }, divider = false)
         }
     }
 }
@@ -474,8 +504,13 @@ private fun orderedStops(state: JobsUiState): List<DeliveryJobSummary> {
     return state.jobs.sortedWith(compareBy({ rank[it.id] ?: Int.MAX_VALUE }, { it.routeSequence ?: Int.MAX_VALUE }))
 }
 
+@Composable
+private fun ValueText(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = Slopes.colors.secondaryLabel, maxLines = 1)
+}
+
 // =============================================================================================
-// Account — profile, status, appearance, shift actions and safety.
+// Account — a short settings list; choices open in pop-ups.
 // =============================================================================================
 
 @Composable
@@ -491,52 +526,55 @@ fun DeliveryMeTab(
     appVersion: String? = null,
 ) {
     val c = Slopes.colors
+    var statusOpen by rememberSaveable { mutableStateOf(false) }
+    var appearanceOpen by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier
             .fillMaxSize()
             .background(c.background)
             .verticalScroll(rememberScrollState())
             .statusBarsPadding()
-            .padding(top = 12.dp, bottom = 28.dp),
+            .padding(top = 16.dp, bottom = 28.dp),
     ) {
         SlopesLargeTitle(title = "Account")
+        Spacer(Modifier.height(4.dp))
         SlopesGroup {
             SlopesRow(
                 title = signedInEmail ?: "Driver",
                 subtitle = "Driver · Nissan GTR Auto",
                 leading = {
-                    Box(
-                        Modifier.size(48.dp).clip(CircleShape).background(c.accentTint),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    Box(Modifier.size(52.dp).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
                         Text(
                             initials(signedInEmail),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = c.accent,
+                            color = c.onAccent,
                         )
                     }
                 },
                 divider = false,
             )
         }
-        Spacer(Modifier.height(16.dp))
-        SlopesStatRow(
-            listOf(
-                SlopesStat(state.jobs.count { JobStatusGate.isActive(it.status) }.toString(), "to deliver", unit = "stops", icon = Icons.Filled.Place),
-                SlopesStat(state.jobs.count { it.status == "completed" }.toString(), "delivered", icon = Icons.Filled.CheckCircle),
-                SlopesStat(state.jobs.count { it.status == "failed" }.toString(), "failed", icon = Icons.Filled.Cancel),
-            ),
-        )
 
-        SlopesSectionHeader("Status")
-        PresenceControl(state = state, vm = vm, trackingVm = trackingVm)
-
-        SlopesSectionHeader("Appearance")
-        SlopesSegmented(
-            options = SlopesMode.entries.map { it.label },
-            selected = SlopesMode.entries.indexOf(appearance),
-            onSelect = { onAppearanceChange(SlopesMode.entries[it]) },
-        )
+        SlopesSectionHeader("Preferences")
+        SlopesGroup {
+            SlopesRow(
+                "Status",
+                leading = {
+                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(12.dp).clip(CircleShape).background(presenceColor(state.presence)))
+                    }
+                },
+                trailing = { ValueText(state.presence.displayLabel()) },
+                onClick = { statusOpen = true },
+            )
+            SlopesRow(
+                "Appearance",
+                leading = { SlopesIconBadge(Icons.Filled.Contrast) },
+                trailing = { ValueText(appearance.label) },
+                onClick = { appearanceOpen = true },
+                divider = false,
+            )
+        }
 
         SlopesSectionHeader("Shift")
         SlopesGroup {
@@ -548,14 +586,16 @@ fun DeliveryMeTab(
                 divider = false,
             )
         }
-        StatusBanners(state.message, state.error)
+        state.message?.let {
+            Spacer(Modifier.height(14.dp))
+            SlopesBanner(it, icon = Icons.Filled.CheckCircle)
+        }
 
-        SlopesSectionHeader("Safety")
+        SlopesSectionHeader("Help")
         SlopesGroup {
             EmergencyRow(state.supportPhone, vm::raisePanic, divider = true)
             SlopesRow(
                 title = "Call dispatch",
-                subtitle = state.supportPhone.ifBlank { "Support number not set" },
                 leading = { SlopesIconBadge(Icons.Filled.Phone) },
                 onClick = vm::dialSupport,
                 divider = false,
@@ -563,17 +603,13 @@ fun DeliveryMeTab(
         }
 
         if (onSignOut != null) {
-            Spacer(Modifier.height(24.dp))
-            SlopesGroup {
-                SlopesRow(
-                    title = "Sign out",
-                    titleColor = c.danger,
-                    leading = { SlopesIconBadge(Icons.AutoMirrored.Filled.Logout, tint = c.danger, container = c.dangerTint) },
-                    onClick = onSignOut,
-                    chevron = false,
-                    divider = false,
-                )
-            }
+            Spacer(Modifier.height(26.dp))
+            SlopesDestructiveButton(
+                "Sign out",
+                onSignOut,
+                icon = Icons.AutoMirrored.Filled.Logout,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
         }
         appVersion?.let {
             Text(
@@ -585,9 +621,40 @@ fun DeliveryMeTab(
             )
         }
     }
+
+    if (statusOpen) {
+        SlopesModalSheet(title = "Your status", subtitle = "Dispatch sees this", onDismiss = { statusOpen = false }) {
+            PresenceChooser(state.presence) { s ->
+                applyPresence(s, state, vm, trackingVm)
+                statusOpen = false
+            }
+        }
+    }
+    if (appearanceOpen) {
+        SlopesModalSheet(title = "Appearance", onDismiss = { appearanceOpen = false }) {
+            SlopesGroup {
+                SlopesMode.entries.forEachIndexed { i, m ->
+                    SlopesCheckRow(
+                        title = m.label,
+                        subtitle = when (m) {
+                            SlopesMode.System -> "Match the phone"
+                            SlopesMode.Light -> "Bright, for daylight"
+                            SlopesMode.Dark -> "Easier at night"
+                        },
+                        selected = m == appearance,
+                        onClick = {
+                            onAppearanceChange(m)
+                            appearanceOpen = false
+                        },
+                        divider = i < SlopesMode.entries.lastIndex,
+                    )
+                }
+            }
+        }
+    }
 }
 
-/** Red emergency row, the way Slopes shows "Emergency – Call Ski Patrol". */
+/** Emergency row in the danger colour. */
 @Composable
 private fun EmergencyRow(supportPhone: String, onPanic: () -> Unit, divider: Boolean) {
     val c = Slopes.colors
@@ -595,23 +662,19 @@ private fun EmergencyRow(supportPhone: String, onPanic: () -> Unit, divider: Boo
         title = "Emergency – alert dispatch",
         subtitle = supportPhone.ifBlank { "Sends your location and calls support" },
         titleColor = c.danger,
-        leading = { SlopesIconBadge(Icons.Filled.Phone, tint = c.danger, container = c.dangerTint, round = true) },
+        leading = { SlopesIconBadge(Icons.Filled.Phone, tint = c.danger, round = true) },
         onClick = onPanic,
         divider = divider,
     )
 }
 
 // =============================================================================================
-// Stop detail — map + route, then Overview / Proof / Issue (Slopes' Overview / Analyze / Vitals).
+// Stop detail — four actions and three numbers; details in drawers; proof and issues pop up.
 // =============================================================================================
 
-private enum class DetailTab(val label: String) { Overview("Overview"), Proof("Proof"), Issue("Issue") }
+/** Pop-ups a stop can open. */
+enum class StopPopup { Proof, Issue }
 
-/**
- * Stop detail: map with the driving route, actions (Navigate / Arrived / Complete / Issue),
- * trip numbers, then Overview (tracking, receipt, drop-off), Proof (photo, signature, code)
- * and Issue (failure reasons, reattempt, emergency). Done and failed stops stay read-only.
- */
 @Composable
 fun JobDetailScreen(
     job: DeliveryJobSummary,
@@ -624,26 +687,11 @@ fun JobDetailScreen(
     signature: PodSignatureBridge,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    initialTab: Int = 0,
-    proofContent: (@Composable () -> Unit)? = null,
 ) {
-    val c = Slopes.colors
-    val active = JobStatusGate.isActive(job.status)
-    var tab by remember(job.id) { mutableIntStateOf(if (active) initialTab else 0) }
-    var expandRequests by remember(job.id) { mutableIntStateOf(0) }
-    fun openTab(t: DetailTab) {
-        tab = t.ordinal
-        expandRequests++
-    }
-    val dest = job.dropoffPosition()
-    val driver = tracking.driverPosition()
+    var popup by remember(job.id) { mutableStateOf<StopPopup?>(null) }
     val otherStops = remember(state.jobs, job.id) {
-        state.jobs
-            .filter { it.id != job.id && JobStatusGate.isActive(it.status) }
-            .mapNotNull { it.toMapStop() }
+        state.jobs.filter { it.id != job.id && JobStatusGate.isActive(it.status) }.mapNotNull { it.toMapStop() }
     }
-    val tabs = if (active) DetailTab.entries else listOf(DetailTab.Overview)
-    val trackingThis = tracking.tracking && tracking.trackingJobId == job.id
 
     LaunchedEffect(job.id, tracking.lastLat, tracking.lastLng) {
         vm.refreshRouteGuidance(tracking.lastLat, tracking.lastLng)
@@ -651,14 +699,12 @@ fun JobDetailScreen(
 
     SlopesMapSheetLayout(
         modifier = modifier,
-        collapsedFraction = 0.6f,
-        startExpanded = active && initialTab != 0,
-        expandRequests = expandRequests,
+        collapsedFraction = 0.58f,
         map = { obscured ->
             DeliveryMap(
                 DeliveryMapSpec(
-                    destination = dest,
-                    driver = driver,
+                    destination = job.dropoffPosition(),
+                    driver = tracking.driverPosition(),
                     routePoints = state.routePoints,
                     otherStops = otherStops,
                     styleUrl = state.mapStyleUrl,
@@ -675,138 +721,170 @@ fun JobDetailScreen(
                     { vm.refreshRouteGuidance(tracking.lastLat, tracking.lastLng) },
                     enabled = !state.routeBusy,
                 )
-                SlopesMapControlButton(
-                    Icons.Filled.MyLocation,
-                    "Distance to drop-off",
-                    vm::checkGeofence,
-                    divider = true,
-                    enabled = active && !state.busy,
-                )
             }
         },
         sheetHeader = {
             SlopesLargeTitle(
                 title = job.documentNumber ?: "Job ${job.id.take(8)}",
-                subtitle = job.dropoffAddressText?.takeIf { it.isNotBlank() }
-                    ?: job.routeSequence?.let { "Stop #$it" },
+                subtitle = job.dropoffAddressText?.takeIf { it.isNotBlank() } ?: job.routeSequence?.let { "Stop #$it" },
             ) {
-                StatusPill(job.status)
                 SlopesRoundButton(Icons.Filled.Close, "Close", onClick = onBack, tinted = false)
             }
         },
     ) {
-        SlopesActionTiles(
-            listOf(
-                SlopesAction("Navigate", Icons.Filled.Navigation, vm::openNavigation, primary = true, enabled = dest != null),
-                SlopesAction("Arrived", Icons.Filled.Flag, vm::checkGeofence, enabled = active && !state.busy),
-                SlopesAction(
-                    "Complete",
-                    Icons.Filled.Draw,
-                    { openTab(DetailTab.Proof) },
-                    enabled = active && JobStatusGate.canOpenCompleteFlow(job),
-                ),
-                SlopesAction("Issue", Icons.Filled.ReportProblem, { openTab(DetailTab.Issue) }, enabled = active),
-            ),
-        )
-        Spacer(Modifier.height(16.dp))
-        val cod = job.settlement?.displayAmountDue()?.takeIf { it > 0.0 }
-        SlopesStatRow(
-            listOf(
-                SlopesStat(
-                    value = state.routeDistanceMeters?.let { if (it >= 1000) "%.1f".format(it / 1000.0) else it.toString() } ?: "—",
-                    unit = state.routeDistanceMeters?.let { if (it >= 1000) "km" else "m" },
-                    label = if (state.routeEtaSource == RouteEtaSource.STRAIGHT_LINE) "straight line" else "to drive",
-                    icon = Icons.Filled.Straighten,
-                ),
-                SlopesStat(
-                    value = state.routeDurationSeconds?.let { formatMinutes(it) } ?: "—",
-                    unit = state.routeDurationSeconds?.let { if (it >= 3600) null else "min" },
-                    label = if (state.routeBusy) "routing…" else "drive time",
-                    icon = Icons.Filled.Schedule,
-                ),
-                SlopesStat(job.routeSequence?.let { "#$it" } ?: "—", "stop", icon = Icons.Filled.Place),
-                SlopesStat(
-                    value = cod?.let { "%.2f".format(it) } ?: "Paid",
-                    unit = cod?.let { job.settlement!!.currency.rpcValue },
-                    label = if (cod != null) "to collect" else "nothing due",
-                    icon = Icons.Filled.Payments,
-                    tint = if (cod != null) c.accent else null,
-                ),
-            ),
-        )
-        if (!active) {
-            Spacer(Modifier.height(14.dp))
-            if (job.status == "completed") {
-                SlopesBanner("Delivered — proof of delivery is on file.", tone = SlopesTone.Success, icon = Icons.Filled.CheckCircle)
-            } else {
-                SlopesBanner(
-                    "Failed" + (job.failureReasonCode?.let { " · ${failureLabel(it)}" } ?: "") + ". This stop is read-only.",
-                    tone = SlopesTone.Danger,
-                    icon = Icons.Filled.Cancel,
-                )
-            }
-        }
-        StatusBanners(state.message, state.error ?: tracking.error)
+        StopBody(job, state, tracking, vm, trackingVm, onPopup = { popup = it })
+    }
 
-        if (tabs.size > 1) {
-            Spacer(Modifier.height(18.dp))
-            SlopesSegmented(tabs.map { it.label }, tab, { tab = it })
-        }
-
-        when (tabs.getOrElse(tab) { DetailTab.Overview }) {
-            DetailTab.Overview -> OverviewTab(
-                job = job,
-                state = state,
-                tracking = tracking,
-                trackingThis = trackingThis,
-                vm = vm,
-                trackingVm = trackingVm,
-                onOpenProof = { openTab(DetailTab.Proof) },
+    when (popup) {
+        StopPopup.Proof -> SlopesModalSheet(
+            title = "Proof of delivery",
+            subtitle = job.documentNumber,
+            onDismiss = { popup = null },
+        ) {
+            PodSection(
+                rpc = rpc,
+                camera = camera,
+                signature = signature,
+                jobId = job.id,
+                onCompleted = {
+                    popup = null
+                    vm.refresh()
+                    trackingVm.stopTracking()
+                    vm.selectJob(null)
+                },
             )
-            DetailTab.Proof -> {
-                Spacer(Modifier.height(4.dp))
-                if (proofContent != null) {
-                    proofContent()
-                } else {
-                    PodSection(
-                        rpc = rpc,
-                        camera = camera,
-                        signature = signature,
-                        jobId = job.id,
-                        onCompleted = {
-                            vm.refresh()
-                            trackingVm.stopTracking()
-                            vm.selectJob(null)
-                        },
-                    )
-                }
-            }
-            DetailTab.Issue -> IssueTab(job, state, vm)
         }
+        StopPopup.Issue -> SlopesModalSheet(
+            title = "Report an issue",
+            subtitle = job.documentNumber,
+            onDismiss = { popup = null },
+        ) {
+            StopIssueContent(job, state, vm)
+        }
+        null -> Unit
     }
 }
 
+/** Sheet body of a stop (also rendered by screenshot tests). */
 @Composable
-private fun OverviewTab(
+internal fun StopBody(
     job: DeliveryJobSummary,
     state: JobsUiState,
     tracking: TrackingUiState,
-    trackingThis: Boolean,
     vm: JobsViewModel,
     trackingVm: TrackingViewModel,
-    onOpenProof: () -> Unit,
+    onPopup: (StopPopup) -> Unit,
 ) {
     val c = Slopes.colors
-    if (JobStatusGate.isActive(job.status)) {
-        SlopesSectionHeader("Live tracking")
-        SlopesGroup {
+    val active = JobStatusGate.isActive(job.status)
+    val trackingThis = tracking.tracking && tracking.trackingJobId == job.id
+
+    if (active) {
+        SlopesActionTiles(
+            listOf(
+                SlopesAction("Navigate", Icons.Filled.Navigation, vm::openNavigation, primary = true, enabled = job.dropoffPosition() != null),
+                SlopesAction("Arrived", Icons.Filled.Flag, vm::checkGeofence, enabled = !state.busy),
+                SlopesAction("Complete", Icons.Filled.Draw, { onPopup(StopPopup.Proof) }, enabled = JobStatusGate.canOpenCompleteFlow(job)),
+                SlopesAction("Issue", Icons.Filled.ReportProblem, { onPopup(StopPopup.Issue) }),
+            ),
+        )
+    } else if (job.status == "completed") {
+        SlopesBanner("Delivered — proof of delivery is on file", tone = SlopesTone.Success, icon = Icons.Filled.CheckCircle)
+    } else {
+        SlopesBanner(
+            "Failed" + (job.failureReasonCode?.let { " · ${failureLabel(it)}" } ?: ""),
+            tone = SlopesTone.Danger,
+            icon = Icons.Filled.Cancel,
+        )
+    }
+
+    val cod = job.settlement?.displayAmountDue()?.takeIf { it > 0.0 }
+    Spacer(Modifier.height(18.dp))
+    SlopesStatRow(
+        listOf(
+            SlopesStat(
+                value = state.routeDistanceMeters?.let { if (it >= 1000) "%.1f".format(it / 1000.0) else it.toString() } ?: "—",
+                unit = state.routeDistanceMeters?.let { if (it >= 1000) "km" else "m" },
+                label = if (state.routeEtaSource == RouteEtaSource.STRAIGHT_LINE) "straight line" else "away",
+            ),
+            SlopesStat(
+                value = state.routeDurationSeconds?.let { formatMinutes(it) } ?: "—",
+                unit = state.routeDurationSeconds?.let { if (it >= 3600) null else "min" },
+                label = if (state.routeBusy) "routing…" else "drive",
+            ),
+            SlopesStat(
+                value = cod?.let { "%.2f".format(it) } ?: "Paid",
+                unit = cod?.let { job.settlement!!.currency.rpcValue },
+                label = if (cod != null) "to collect" else "nothing due",
+                tint = if (cod != null) c.accent else null,
+            ),
+        ),
+    )
+
+    val latest = state.error ?: tracking.error
+    if (latest != null) {
+        Spacer(Modifier.height(16.dp))
+        SlopesBanner(latest.trim(), tone = SlopesTone.Danger, icon = Icons.Filled.ReportProblem)
+    } else {
+        state.message?.let {
+            Spacer(Modifier.height(16.dp))
+            SlopesBanner(it, icon = Icons.Filled.CheckCircle)
+        }
+    }
+
+    Spacer(Modifier.height(20.dp))
+    SlopesDrawer(title = "Items", summary = itemsSummary(job), icon = Icons.Filled.Inventory2) {
+        if (job.lineItems.isEmpty()) SlopesRow("No line items on the delivery note", divider = false)
+        job.lineItems.forEachIndexed { i, line ->
+            val row = line.formatReceiptRow()
+            val described = line.description?.takeIf { it.isNotBlank() }
+            SlopesRow(
+                title = described ?: line.oemPartNumber ?: "Line item",
+                subtitle = listOfNotNull(
+                    "Qty ${row.substringBefore(" × ")}",
+                    line.oemPartNumber?.takeIf { it.isNotBlank() && described != null },
+                ).joinToString(" · "),
+                trailing = { ValueText(row.substringAfterLast(" · ", "")) },
+                divider = i < job.lineItems.lastIndex,
+            )
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+    SlopesDrawer(
+        title = "Drop-off",
+        summary = JobStatusGate.receiptNotes(job) ?: job.etaAt?.let { "ETA ${formatEta(it)}" } ?: job.dropoffAddressText,
+        icon = Icons.Filled.Place,
+    ) {
+        val lines = JobStatusGate.deliveryAddressLines(job)
+        SlopesRow(
+            title = lines.first(),
+            subtitle = lines.drop(1).joinToString(" · ").ifBlank { null },
+            onClick = if (job.dropoffPosition() != null) vm::openNavigation else null,
+        )
+        JobStatusGate.receiptNotes(job)?.let { SlopesRow(it, subtitle = "Note from dispatch") }
+        job.etaAt?.let {
+            SlopesRow("ETA ${formatEta(it)}", subtitle = job.etaSeconds?.let { s -> "About ${formatMinutes(s)} min from dispatch" })
+        }
+        SlopesRow("Delivery note", trailing = { ValueText(job.deliveryNoteId.take(8)) }, divider = false)
+    }
+    if (active) {
+        Spacer(Modifier.height(16.dp))
+        val g = state.geofence
+        SlopesDrawer(
+            title = "Live tracking",
+            summary = when {
+                g?.suggestComplete == true -> "At the drop-off"
+                g?.distanceM != null -> "%.0f m from the drop-off".format(g.distanceM)
+                trackingThis -> "Sharing · ${tracking.ingestCount} updates"
+                else -> "Not sharing"
+            },
+            icon = Icons.Filled.GpsFixed,
+            iconTint = if (trackingThis) c.success else c.tertiaryLabel,
+            initiallyOpen = g?.suggestArrive == true || g?.suggestComplete == true,
+        ) {
             SlopesToggleRow(
                 title = "Share live location",
-                subtitle = if (trackingThis) {
-                    "${tracking.ingestCount} sent · ${tracking.queuedCount} queued"
-                } else {
-                    "Dispatch sees you on the map"
-                },
+                subtitle = if (trackingThis) "${tracking.queuedCount} waiting to send" else "Dispatch sees you on the map",
                 checked = trackingThis,
                 onCheckedChange = { on ->
                     if (on) {
@@ -816,119 +894,41 @@ private fun OverviewTab(
                         trackingVm.stopTracking()
                     }
                 },
-                leading = { SlopesIconBadge(Icons.Filled.GpsFixed, tint = c.success, container = c.success.copy(alpha = 0.14f)) },
             )
-            val g = state.geofence
             SlopesRow(
-                title = "Distance to drop-off",
-                subtitle = g?.distanceM?.let { "%.0f m away".format(it) } ?: "Check how close you are",
-                leading = { SlopesIconBadge(Icons.Filled.MyLocation) },
+                title = "Check distance",
+                subtitle = g?.distanceM?.let { "%.0f m away".format(it) },
+                leading = { SlopesIconBadge(Icons.Filled.MyLocation, size = 32.dp) },
                 onClick = vm::checkGeofence,
-                divider = g != null && (g.suggestArrive || g.suggestComplete),
+                divider = g?.suggestArrive == true || g?.suggestComplete == true,
             )
             if (g?.suggestArrive == true) {
                 SlopesRow(
-                    title = "Confirm arrival",
-                    subtitle = "You are close to the drop-off",
-                    leading = { SlopesIconBadge(Icons.Filled.Flag, tint = c.success, container = c.success.copy(alpha = 0.14f)) },
+                    "Confirm arrival",
+                    leading = { SlopesIconBadge(Icons.Filled.Flag, tint = c.success, size = 32.dp) },
                     onClick = vm::markArrived,
                     divider = g.suggestComplete,
                 )
             }
             if (g?.suggestComplete == true) {
                 SlopesRow(
-                    title = "Complete this delivery",
-                    subtitle = "Photo, signature and the customer's code",
+                    "Complete this delivery",
                     titleColor = c.accent,
-                    leading = { SlopesIconBadge(Icons.Filled.Draw) },
+                    leading = { SlopesIconBadge(Icons.Filled.Draw, size = 32.dp) },
                     onClick = {
                         vm.acknowledgeCompleteSuggestion()
-                        onOpenProof()
+                        onPopup(StopPopup.Proof)
                     },
                     divider = false,
                 )
             }
         }
     }
-
-    SlopesSectionHeader("Receipt")
-    val header = remember(job) { JobStatusGate.receiptHeaderLines(job) }
-    val notes = remember(job) { JobStatusGate.receiptNotes(job) }
-    SlopesGroup {
-        if (job.lineItems.isEmpty()) {
-            SlopesRow(
-                title = "No line items on the delivery note",
-                leading = { SlopesIconBadge(Icons.Filled.Inventory2) },
-            )
-        }
-        job.lineItems.forEach { line ->
-            val row = line.formatReceiptRow()
-            val amount = row.substringAfterLast(" · ", "")
-            val described = line.description?.takeIf { it.isNotBlank() }
-            SlopesRow(
-                title = described ?: line.oemPartNumber ?: "Line item",
-                subtitle = listOfNotNull(
-                    "Qty ${row.substringBefore(" × ")}",
-                    line.oemPartNumber?.takeIf { it.isNotBlank() && described != null },
-                    if (line.isCoreCharge) "core charge" else null,
-                ).joinToString(" · "),
-                leading = { SlopesIconBadge(Icons.Filled.Inventory2) },
-                trailing = {
-                    if (amount.isNotBlank()) {
-                        Text(
-                            amount,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = c.label,
-                        )
-                    }
-                },
-            )
-        }
-        header.forEachIndexed { i, line ->
-            SlopesRow(
-                title = line,
-                leading = { SlopesIconBadge(Icons.Filled.Description, tint = c.secondaryLabel, container = c.fill) },
-                divider = i < header.lastIndex || notes != null,
-            )
-        }
-        notes?.let {
-            SlopesRow(
-                title = it,
-                subtitle = "Note from dispatch",
-                leading = { SlopesIconBadge(Icons.Filled.Description, tint = c.warning, container = c.warning.copy(alpha = 0.14f)) },
-                divider = false,
-            )
-        }
-    }
-
-    SlopesSectionHeader("Drop-off")
-    SlopesGroup {
-        val lines = JobStatusGate.deliveryAddressLines(job)
-        SlopesRow(
-            title = lines.first(),
-            subtitle = lines.drop(1).joinToString(" · ").ifBlank { null },
-            leading = { SlopesIconBadge(Icons.Filled.Place, tint = c.route, container = c.route.copy(alpha = 0.12f)) },
-            onClick = if (job.dropoffPosition() != null) vm::openNavigation else null,
-            divider = job.etaAt != null,
-        )
-        job.etaAt?.let { eta ->
-            SlopesRow(
-                title = "ETA ${formatEta(eta)}",
-                subtitle = job.etaSeconds?.let { "About ${formatMinutes(it)} min from dispatch" },
-                leading = { SlopesIconBadge(Icons.Filled.Schedule) },
-                divider = false,
-            )
-        }
-    }
 }
 
+/** Issue pop-up body: reason, notes, reattempt, then the action; emergency at the end. */
 @Composable
-private fun IssueTab(
-    job: DeliveryJobSummary,
-    state: JobsUiState,
-    vm: JobsViewModel,
-) {
-    SlopesSectionHeader("What happened?")
+internal fun StopIssueContent(job: DeliveryJobSummary, state: JobsUiState, vm: JobsViewModel) {
     SlopesGroup {
         DeliveryFailureReason.entries.forEachIndexed { i, reason ->
             SlopesCheckRow(
@@ -939,49 +939,34 @@ private fun IssueTab(
             )
         }
     }
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(18.dp))
     SlopesTextField(
         value = state.failNotes,
         onValueChange = vm::onFailNotes,
         label = "Notes for dispatch",
-        placeholder = "What did you find at the drop-off?",
+        placeholder = "Optional",
         singleLine = false,
-        modifier = Modifier.padding(horizontal = 18.dp),
+        modifier = Modifier.padding(horizontal = 20.dp),
     )
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(18.dp))
     SlopesGroup {
         SlopesToggleRow(
             title = "Book a reattempt",
-            subtitle = "Creates a new delivery for this note",
             checked = state.createReattempt,
             onCheckedChange = vm::onCreateReattempt,
             divider = false,
         )
     }
-    Spacer(Modifier.height(16.dp))
-    SlopesDestructiveButton(
+    Spacer(Modifier.height(20.dp))
+    SlopesPrimaryButton(
         label = "Mark as failed",
         onClick = vm::failSelectedJob,
         enabled = !state.busy && JobStatusGate.canMarkFailed(job),
         icon = Icons.Filled.Cancel,
-        modifier = Modifier.padding(horizontal = 18.dp),
+        modifier = Modifier.padding(horizontal = 20.dp),
     )
-    SlopesSectionHeader("Emergency")
-    SlopesGroup {
-        EmergencyRow(state.supportPhone, vm::raisePanic, divider = false)
-    }
-}
-
-@Composable
-private fun StatusPill(status: String) {
-    val c = Slopes.colors
-    when (status) {
-        "dispatched" -> SlopesPill("On the way", c.accent)
-        "pending" -> SlopesPill("Pending", c.warning)
-        "completed" -> SlopesPill("Delivered", c.success)
-        "failed" -> SlopesPill("Failed", c.danger)
-        else -> SlopesPill(status.replaceFirstChar { it.uppercase() }, c.secondaryLabel)
-    }
+    Spacer(Modifier.height(18.dp))
+    SlopesGroup { EmergencyRow(state.supportPhone, vm::raisePanic, divider = false) }
 }
 
 // =============================================================================================
@@ -1002,14 +987,7 @@ fun JobsScreen(
 ) {
     val context = LocalContext.current
     val vm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(
-            rpc,
-            gps,
-            context,
-            supportPhone,
-            routingBaseUrl = routingBaseUrl,
-            mapStyleUrl = mapStyleUrl,
-        ),
+        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, routingBaseUrl = routingBaseUrl, mapStyleUrl = mapStyleUrl),
     )
     val state by vm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
@@ -1062,6 +1040,14 @@ internal fun codTotalLabel(jobs: List<DeliveryJobSummary>): String? {
     if (due.isEmpty()) return null
     val currencies = due.map { it.first }.distinct()
     return if (currencies.size == 1) "${currencies.single()} %.2f".format(due.sumOf { it.second }) else "${due.size} stops"
+}
+
+/** "2 items · USD 45.50 due" for the Items drawer header. */
+private fun itemsSummary(job: DeliveryJobSummary): String {
+    val n = job.lineItems.size
+    val count = if (n == 1) "1 item" else "$n items"
+    val due = job.settlement?.displayAmountDue()?.takeIf { it > 0.0 }
+    return if (due != null) "$count · ${job.settlement!!.currency.rpcValue} %.2f due".format(due) else count
 }
 
 private fun formatEta(raw: String): String =
