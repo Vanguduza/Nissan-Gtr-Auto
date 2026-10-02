@@ -48,6 +48,7 @@ private val PremiumShapes = Shapes(
 fun paletteFor(style: CustomerStyle, darkTheme: Boolean): GtrPalette = when (style) {
     CustomerStyle.Illustrated -> if (darkTheme) IllustratedPalette else IllustratedLightPalette
     CustomerStyle.Pos -> if (darkTheme) PosDarkPalette else PosPalette
+    CustomerStyle.Express -> if (darkTheme) ExpressDarkPalette else ExpressPalette
 }
 
 /**

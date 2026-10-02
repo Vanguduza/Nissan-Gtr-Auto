@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Express category glyph (drawn for Nissan GTR Auto; mirrors Figma "Glyph/*"). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:pathData="M12,9h5a1,1 0 0,1 1,1v3a1,1 0 0,1 -1,1h-5a1,1 0 0,1 -1,-1v-3a1,1 0 0,1 1,-1z" android:fillColor="#C8102E" />
+    <path android:pathData="M31,9h5a1,1 0 0,1 1,1v3a1,1 0 0,1 -1,1h-5a1,1 0 0,1 -1,-1v-3a1,1 0 0,1 1,-1z" android:fillColor="#C8102E" />
+    <path android:pathData="M10,13h28a4,4 0 0,1 4,4v17a4,4 0 0,1 -4,4h-28a4,4 0 0,1 -4,-4v-17a4,4 0 0,1 4,-4z" android:fillColor="#C8102E" />
+    <path android:pathData="M12 25.5h7M33.5 22v7M30 25.5h7" android:fillColor="#000" android:strokeColor="#FFFFFF" android:strokeWidth="2.8" android:strokeLineCap="round" />
+</vector>

@@ -68,6 +68,7 @@ import co.zw.nissangtr.ui.shop.ShopRatingRow
 import co.zw.nissangtr.ui.shop.ShopStickyCtaBar
 import co.zw.nissangtr.ui.shop.ShopProductGalleryHero
 import co.zw.nissangtr.ui.shop.ShopRemoteImage
+import co.zw.nissangtr.customer.visual.isExpressStyle
 import co.zw.nissangtr.ui.theme.GtrColors
 
 /**
@@ -91,6 +92,8 @@ fun CatalogScreen(
     landing: CatalogLanding = CatalogLanding.Home,
     viewModelKey: String = "catalog",
     camera: PodCameraBridge? = null,
+    /** Shell destinations for the Express home; when set and the Express style is active it replaces the home body. */
+    expressActions: ExpressHomeActions? = null,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: CatalogViewModel = viewModel(
@@ -140,7 +143,21 @@ fun CatalogScreen(
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when (state.route) {
             CatalogScreenRoute.Home -> when (landing) {
-                CatalogLanding.Home -> PremiumCatalogHome(
+                CatalogLanding.Home -> if (expressActions != null && isExpressStyle) {
+                    ExpressCatalogHome(
+                        state = state,
+                        actions = expressActions,
+                        onSeeAllCategories = viewModel::openCategories,
+                        onSeeAllPopular = viewModel::openNewest,
+                        onSeeAllNewest = viewModel::openNewest,
+                        onOpenProduct = viewModel::openProduct,
+                        onAddToCart = { item -> viewModel.quickAddToCart(item) { onCartChanged() } },
+                        onCategoryBrowse = viewModel::openCategoryBrowse,
+                        onConfirmCascade = viewModel::confirmCascadeVehicle,
+                        onConfirmVin = viewModel::confirmVinVehicle,
+                        onClearVehicle = viewModel::clearSelectedVehicle,
+                    )
+                } else PremiumCatalogHome(
                     state = state,
                     wishOems = wishOems,
                     onShopAll = viewModel::openNewest,

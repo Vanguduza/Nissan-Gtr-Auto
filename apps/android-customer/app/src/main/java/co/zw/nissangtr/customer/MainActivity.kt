@@ -67,6 +67,14 @@ import co.zw.nissangtr.customer.cart.CartScreen
 import co.zw.nissangtr.customer.catalog.CatalogModule
 import co.zw.nissangtr.customer.catalog.CatalogScreen
 import co.zw.nissangtr.customer.catalog.CatalogLanding
+import co.zw.nissangtr.customer.catalog.ExpressHomeActions
+import co.zw.nissangtr.customer.visual.ExpressBottomBar
+import co.zw.nissangtr.customer.visual.ExpressTab
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ShoppingBag
 import co.zw.nissangtr.customer.catalog.CategoriesGridScreen
 import co.zw.nissangtr.customer.chat.ChatModule
 import co.zw.nissangtr.customer.chat.ChatScreen
@@ -123,6 +131,9 @@ import kotlinx.coroutines.launch
  * Primary shell tabs — Home / Shop / Wishlist / My Garage / Settings.
  * Cart + Account / Sign-in live in the top strip; extras under My Account.
  */
+/** Express bottom-bar key for the bag; opens the cart overlay rather than a tab. */
+private const val EXPRESS_BAG_KEY = "Bag"
+
 private enum class ShellTab(val label: String, val icon: ImageVector) {
     Home("Home", Icons.Filled.Home),
     Shop("Shop", Icons.Filled.Storefront),
@@ -681,25 +692,51 @@ private fun CustomerApp(
             )
         }
         ShellOverlay.None -> {
+            val express = customerStyle == CustomerStyle.Express
             Scaffold(
                 topBar = {
-                    CustomerShellTopBar(
-                        cartBadgeCount = cartBadge,
-                        onOpenMenu = { overlay = ShellOverlay.Menu },
-                        onOpenAccount = { openAccount() },
-                        onOpenCart = { overlay = ShellOverlay.Cart },
-                    )
+                    // Express Home draws its own brand header (logo, account, wishlist, settings).
+                    if (!(express && tab == ShellTab.Home)) {
+                        CustomerShellTopBar(
+                            cartBadgeCount = cartBadge,
+                            onOpenMenu = { overlay = ShellOverlay.Menu },
+                            onOpenAccount = { openAccount() },
+                            onOpenCart = { overlay = ShellOverlay.Cart },
+                        )
+                    }
                 },
                 bottomBar = {
-                    CustomerPremiumBottomBar(
-                        tabs = bottomTabs,
-                        selectedKey = tab.name,
-                        onSelect = { key ->
-                            tab = ShellTab.valueOf(key)
-                            accountSettingsOpen = false
-                            overlay = ShellOverlay.None
-                        },
-                    )
+                    if (express) {
+                        ExpressBottomBar(
+                            tabs = listOf(
+                                ExpressTab(ShellTab.Home.name, "Home", Icons.Outlined.Home),
+                                ExpressTab(ShellTab.Shop.name, "Explore", Icons.Outlined.Search),
+                                ExpressTab(ShellTab.Garage.name, "Garage", Icons.Outlined.Build),
+                                ExpressTab(ShellTab.Wishlist.name, "Wishlist", Icons.Outlined.FavoriteBorder),
+                                ExpressTab(EXPRESS_BAG_KEY, "Bag", Icons.Outlined.ShoppingBag, badge = cartBadge),
+                            ),
+                            selectedKey = tab.name,
+                            onSelect = { key ->
+                                if (key == EXPRESS_BAG_KEY) {
+                                    overlay = ShellOverlay.Cart
+                                } else {
+                                    tab = ShellTab.valueOf(key)
+                                    accountSettingsOpen = false
+                                    overlay = ShellOverlay.None
+                                }
+                            },
+                        )
+                    } else {
+                        CustomerPremiumBottomBar(
+                            tabs = bottomTabs,
+                            selectedKey = tab.name,
+                            onSelect = { key ->
+                                tab = ShellTab.valueOf(key)
+                                accountSettingsOpen = false
+                                overlay = ShellOverlay.None
+                            },
+                        )
+                    }
                 },
             ) { padding ->
                 // weight(1f) bounds tab height so scrollable children are not measured
@@ -725,6 +762,17 @@ private fun CustomerApp(
                                 landing = CatalogLanding.Home,
                                 viewModelKey = "home",
                                 camera = camera,
+                                expressActions = ExpressHomeActions(
+                                    onWishlist = { tab = ShellTab.Wishlist },
+                                    onAccount = { openAccount() },
+                                    onSettings = {
+                                        tab = ShellTab.Account
+                                        accountSettingsOpen = true
+                                    },
+                                    onDeliveryAddress = { openAccount(ProfileDest.Addresses) },
+                                    onSearch = { tab = ShellTab.Shop },
+                                    onServiceKits = { openAccount(ProfileDest.Kits) },
+                                ),
                                 modifier = tabMod,
                             )
                         }

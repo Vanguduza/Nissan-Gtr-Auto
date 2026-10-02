@@ -171,43 +171,64 @@ fun PremiumCatalogHome(
     }
 
     if (vehicleSheetOpen) {
-        ModalBottomSheet(
-            onDismissRequest = { vehicleSheetOpen = false },
+        VehiclePickerSheet(
+            state = state,
             sheetState = sheetState,
-            containerColor = GtrPremiumColors.Surface,
-            contentColor = GtrPremiumColors.TextPrimary,
+            onDismiss = { vehicleSheetOpen = false },
+            onConfirmCascade = onConfirmCascade,
+            onConfirmVin = onConfirmVin,
+            onClearVehicle = onClearVehicle,
+        )
+    }
+}
+
+/** Bottom sheet to choose or change the vehicle the shop is filtered for. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun VehiclePickerSheet(
+    state: CatalogUiState,
+    sheetState: androidx.compose.material3.SheetState,
+    onDismiss: () -> Unit,
+    onConfirmCascade: (String, String, String, String?) -> Unit,
+    onConfirmVin: (String) -> Unit,
+    onClearVehicle: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = GtrPremiumColors.Surface,
+        contentColor = GtrPremiumColors.TextPrimary,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            ) {
-                Text(
-                    text = if (state.selectedFitment == null) "Choose your vehicle" else "Change vehicle",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = GtrPremiumColors.TextPrimary,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Your selection only filters parts currently in stock that fit this vehicle.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GtrPremiumColors.TextSecondary,
-                )
-                Spacer(Modifier.height(16.dp))
-                VehicleSelectorSection(
-                    vehicleRows = state.vehicleRows,
-                    confirmedVehicle = state.selectedFitment,
-                    busy = state.vehicleBusy,
-                    error = state.vehicleError,
-                    onConfirmCascade = onConfirmCascade,
-                    onConfirmVin = onConfirmVin,
-                    onClear = onClearVehicle,
-                    sectionTitle = "Vehicle details",
-                    confirmLabel = "Use this vehicle",
-                    showClear = false,
-                )
-            }
+            Text(
+                text = if (state.selectedFitment == null) "Choose your vehicle" else "Change vehicle",
+                style = MaterialTheme.typography.headlineSmall,
+                color = GtrPremiumColors.TextPrimary,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Your selection only filters parts currently in stock that fit this vehicle.",
+                style = MaterialTheme.typography.bodySmall,
+                color = GtrPremiumColors.TextSecondary,
+            )
+            Spacer(Modifier.height(16.dp))
+            VehicleSelectorSection(
+                vehicleRows = state.vehicleRows,
+                confirmedVehicle = state.selectedFitment,
+                busy = state.vehicleBusy,
+                error = state.vehicleError,
+                onConfirmCascade = onConfirmCascade,
+                onConfirmVin = onConfirmVin,
+                onClear = onClearVehicle,
+                sectionTitle = "Vehicle details",
+                confirmLabel = "Use this vehicle",
+                showClear = false,
+            )
         }
     }
 }

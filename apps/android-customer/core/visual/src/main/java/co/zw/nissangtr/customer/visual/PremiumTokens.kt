@@ -7,8 +7,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/** The two customer app styles, each with a light and a dark mode. [Illustrated] dark is the locked premium design. */
-enum class CustomerStyle { Illustrated, Pos }
+/**
+ * The customer app styles, each with a light and a dark mode. [Illustrated] dark is the locked
+ * premium design. [Express] is the quick-commerce home from Figma ("GTR Customer — Home"):
+ * red-to-black header, round category buttons, equal product cards, floating soft-UI tab bar.
+ */
+enum class CustomerStyle { Illustrated, Pos, Express }
 
 /** Every colour the customer screens use. One instance per [CustomerStyle]. */
 @Immutable
@@ -161,6 +165,58 @@ val PosDarkPalette = GtrPalette(
     heroTextSecondary = Color(0xFFC9CED6),
     productCardBorder = Color(0xB3E01234),
     productCardBorderWidth = 1.5f,
+)
+
+/** Express light: white sheet, chalk panels, white cards (brand-tokens: chalk, mist, steel, GTR red). */
+val ExpressPalette = GtrPalette(
+    style = CustomerStyle.Express,
+    isDark = false,
+    background = Color(0xFFFFFFFF),
+    surface = Color(0xFFF4F5F7),
+    surfaceRaised = Color(0xFFFFFFFF),
+    surfaceSoft = Color(0xFFF4F5F7),
+    surfaceHigh = Color(0xFFE8ECF1),
+    border = Color(0xFFE8ECF1),
+    red = Color(0xFFC8102E),
+    redBright = Color(0xFFE01234),
+    redDark = Color(0xFF8E0F22),
+    textPrimary = Color(0xFF12151C),
+    textSecondary = Color(0xFF5E6573),
+    textDisabled = Color(0xFF8B929E),
+    success = Color(0xFF0B6E4F),
+    warning = Color(0xFFB45309),
+    info = Color(0xFF1F66C9),
+    paperWarm = Color(0xFFF4F5F7),
+    paperCool = Color(0xFFE8ECF1),
+    paperInk = Color(0xFF12151C),
+    paperAction = Color(0xFFC8102E),
+    heroBackground = Color(0xFF12151C),
+    heroText = Color(0xFFFFFFFF),
+    heroTextSecondary = Color(0xFFC0C5CE),
+    productCardBorder = Color(0xFFE8ECF1),
+    productCardBorderWidth = 1f,
+)
+
+/** Express dark: steel sheet and panels, same red accents. */
+val ExpressDarkPalette = ExpressPalette.copy(
+    isDark = true,
+    background = Color(0xFF0E1116),
+    surface = Color(0xFF161A22),
+    surfaceRaised = Color(0xFF1E2430),
+    surfaceSoft = Color(0xFF242A35),
+    surfaceHigh = Color(0xFF2A3241),
+    border = Color(0xFF2A3241),
+    textPrimary = Color(0xFFF4F5F7),
+    textSecondary = Color(0xFFA3AAB6),
+    textDisabled = Color(0xFF6B7280),
+    success = Color(0xFF10B981),
+    warning = Color(0xFFF59E0B),
+    paperWarm = Color(0xFF1E2430),
+    paperCool = Color(0xFF242A35),
+    paperInk = Color(0xFFF4F5F7),
+    paperAction = Color(0xFFE01234),
+    heroBackground = Color(0xFF0A0C0E),
+    productCardBorder = Color(0xFF2A3241),
 )
 
 val LocalGtrPalette = staticCompositionLocalOf { IllustratedPalette }

@@ -114,6 +114,12 @@ fun SettingsHubScreen(
                         selected = style == CustomerStyle.Pos,
                         onSelect = { onStyleChange(CustomerStyle.Pos) },
                     )
+                    StyleOption(
+                        title = "Express",
+                        body = "Quick-shop home with category buttons",
+                        selected = style == CustomerStyle.Express,
+                        onSelect = { onStyleChange(CustomerStyle.Express) },
+                    )
                 }
             }
 

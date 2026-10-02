@@ -16,10 +16,11 @@ enum class ThemeMode {
 class CustomerPrefs(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** Illustrated (premium dark, default) or the POS counter look. */
+    /** Illustrated (premium dark, default), the POS counter look, or the Express quick-shop look. */
     var customerStyle: CustomerStyle
         get() = when (prefs.getString(KEY_STYLE, null)) {
             CustomerStyle.Pos.name -> CustomerStyle.Pos
+            CustomerStyle.Express.name -> CustomerStyle.Express
             else -> CustomerStyle.Illustrated
         }
         set(value) {

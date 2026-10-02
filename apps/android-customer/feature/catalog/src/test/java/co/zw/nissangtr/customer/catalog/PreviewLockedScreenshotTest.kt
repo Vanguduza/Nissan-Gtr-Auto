@@ -41,6 +41,13 @@ import co.zw.nissangtr.customer.rpc.SelectedFitmentVehicle
 import co.zw.nissangtr.customer.rpc.StockState
 import co.zw.nissangtr.customer.rpc.VehicleMasterRow
 import co.zw.nissangtr.customer.visual.CustomerStyle
+import co.zw.nissangtr.customer.visual.ExpressBottomBar
+import co.zw.nissangtr.customer.visual.ExpressTab
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ShoppingBag
 import co.zw.nissangtr.customer.visual.GtrPremiumColors
 import co.zw.nissangtr.customer.visual.PremiumAccountRow
 import co.zw.nissangtr.customer.visual.PremiumBottomNav
@@ -118,6 +125,47 @@ class PreviewLockedScreenshotTest {
                         onClearVehicle = {},
                         onTrackOrder = {},
                     )
+                }
+            }
+        }
+    }
+
+    /** Express style home (Figma "GTR Customer — Home"), own header and floating tab bar. */
+    @Test
+    fun expressHome() {
+        for (dark in listOf(false, true)) {
+            paparazzi.snapshot(name = "express_home_${if (dark) "dark" else "light"}") {
+                ShopTheme(darkTheme = dark) {
+                    PremiumCustomerTheme(style = CustomerStyle.Express, darkTheme = dark) {
+                        Column(Modifier.fillMaxSize().background(GtrPremiumColors.Background)) {
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                                ExpressCatalogHome(
+                                    state = sampleHomeState(),
+                                    actions = ExpressHomeActions({}, {}, {}, {}, {}, {}, deliverToLabel = "Borrowdale, Harare"),
+                                    onSeeAllCategories = {},
+                                    onSeeAllPopular = {},
+                                    onSeeAllNewest = {},
+                                    onOpenProduct = {},
+                                    onAddToCart = {},
+                                    onCategoryBrowse = {},
+                                    onConfirmCascade = { _, _, _, _ -> },
+                                    onConfirmVin = {},
+                                    onClearVehicle = {},
+                                )
+                            }
+                            ExpressBottomBar(
+                                tabs = listOf(
+                                    ExpressTab("Home", "Home", Icons.Outlined.Home),
+                                    ExpressTab("Shop", "Explore", Icons.Outlined.Search),
+                                    ExpressTab("Garage", "Garage", Icons.Outlined.Build),
+                                    ExpressTab("Wishlist", "Wishlist", Icons.Outlined.FavoriteBorder),
+                                    ExpressTab("Bag", "Bag", Icons.Outlined.ShoppingBag, badge = 2),
+                                ),
+                                selectedKey = "Home",
+                                onSelect = {},
+                            )
+                        }
+                    }
                 }
             }
         }
