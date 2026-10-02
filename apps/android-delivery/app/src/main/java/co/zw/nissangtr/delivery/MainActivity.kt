@@ -3,6 +3,7 @@ package co.zw.nissangtr.delivery
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,6 +40,7 @@ import co.zw.nissangtr.delivery.jobs.JobDetailScreen
 import co.zw.nissangtr.delivery.jobs.JobsListScreen
 import co.zw.nissangtr.delivery.jobs.JobsModule
 import co.zw.nissangtr.delivery.jobs.JobsViewModel
+import co.zw.nissangtr.delivery.jobs.resolveSelectedJob
 import co.zw.nissangtr.delivery.pod.PodModule
 import co.zw.nissangtr.delivery.rpc.RpcClient
 import co.zw.nissangtr.delivery.rpc.RpcClientFactory
@@ -91,7 +93,7 @@ class MainActivity : ComponentActivity() {
                     if (!splashDone) {
                         ShopSplash(
                             brand = "Nissan GTR Auto",
-                            tagline = "Driver · jobs · live maps · POD",
+                            tagline = "Driver",
                             onFinished = { splashDone = true },
                         )
                     } else {
@@ -101,10 +103,10 @@ class MainActivity : ComponentActivity() {
                                 gps = gpsBridge,
                                 camera = cameraBridge,
                                 signature = signatureBridge,
-                                liveRpc = live,
                                 signedInEmail = email,
                                 supportPhone = BuildConfig.SUPPORT_PHONE,
                                 routingBaseUrl = BuildConfig.ROUTING_BASE_URL,
+                                mapStyleUrl = BuildConfig.MAPLIBRE_STYLE_URL,
                                 onSignOut = onSignOut,
                             )
                         }
@@ -174,10 +176,10 @@ private fun DeliveryApp(
     gps: GpsBridge,
     camera: PodCameraBridge,
     signature: PodSignatureBridge,
-    liveRpc: Boolean,
     signedInEmail: String?,
     supportPhone: String,
     routingBaseUrl: String,
+    mapStyleUrl: String,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -185,15 +187,23 @@ private fun DeliveryApp(
         factory = TrackingViewModel.factory(rpc, gps, context),
     )
     val jobsVm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, routingBaseUrl),
+        factory = JobsViewModel.factory(
+            rpc,
+            gps,
+            context,
+            supportPhone,
+            routingBaseUrl,
+            mapStyleUrl,
+        ),
     )
     val state by jobsVm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
-    val selected = jobsVm.selectedJob()
+    // Derive from collected state so selectedJobId invalidates composition (not a raw VM peek).
+    val selected = resolveSelectedJob(state)
     var tab by remember { mutableStateOf(DriverTab.Jobs) }
-    val modeLabel = if (liveRpc) "Live · GPS/POD" else "Fake · GPS/POD"
 
     if (selected != null) {
+        BackHandler { jobsVm.selectJob(null) }
         JobDetailScreen(
             job = selected,
             state = state,
@@ -232,7 +242,7 @@ private fun DeliveryApp(
                     state = state,
                     vm = jobsVm,
                     trackingVm = trackingVm,
-                    shellSubtitle = modeLabel,
+                    shellSubtitle = null,
                 )
                 DriverTab.Route -> DeliveryRouteTab(
                     state = state,
@@ -245,7 +255,6 @@ private fun DeliveryApp(
                     vm = jobsVm,
                     trackingVm = trackingVm,
                     signedInEmail = signedInEmail,
-                    modeLabel = modeLabel,
                     onSignOut = onSignOut,
                 )
             }

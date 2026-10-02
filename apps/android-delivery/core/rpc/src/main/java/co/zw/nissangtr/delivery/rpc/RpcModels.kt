@@ -1,5 +1,11 @@
 package co.zw.nissangtr.delivery.rpc
 
+/** Mirrors `public.currency_code` — never assume USD silently. */
+enum class CurrencyCode(val rpcValue: String) {
+    USD("USD"),
+    ZIG("ZIG"),
+}
+
 /** Mirrors `public.driver_presence_status`. */
 enum class DriverPresenceStatus(val rpcValue: String) {
     AVAILABLE("available"),
@@ -33,6 +39,41 @@ object DriverStaffRoles {
         roles.any { it in ALLOWED }
 }
 
+/**
+ * Optional COD / invoice settlement on a delivery job (H4 dual-read).
+ *
+ * Prefer `*_minor` when present; majors are legacy NUMERIC bridges.
+ * Never invent payable amounts — callers supply DB/API values only.
+ * Live path: [RpcNames.GET_DELIVERY_JOB_SETTLEMENT] (driver-scoped DEFINER).
+ */
+data class DeliveryJobSettlement(
+    val currency: CurrencyCode,
+    val invoiceTotal: Double? = null,
+    val invoiceTotalMinor: Long? = null,
+    val amountPaid: Double? = null,
+    val amountPaidMinor: Long? = null,
+    /** Explicit open balance / COD collect when API provides it. */
+    val amountDue: Double? = null,
+    val amountDueMinor: Long? = null,
+)
+
+/**
+ * One DN / invoice sell line for receipt copy (driver-scoped DEFINER).
+ * Prefer `*_minor` when present; never invent amounts.
+ */
+data class DeliveryJobLineItem(
+    val lineId: String,
+    val qty: Double,
+    val oemPartNumber: String?,
+    val description: String?,
+    val currency: CurrencyCode = CurrencyCode.USD,
+    val unitPrice: Double? = null,
+    val lineTotal: Double? = null,
+    val unitPriceMinor: Long? = null,
+    val lineTotalMinor: Long? = null,
+    val isCoreCharge: Boolean = false,
+)
+
 data class DeliveryJobSummary(
     val id: String,
     val deliveryNoteId: String,
@@ -49,6 +90,15 @@ data class DeliveryJobSummary(
     val podPhotoPath: String?,
     val podSignaturePath: String?,
     val assigneeUserId: String?,
+    /** H4 dual-read COD/settlement snapshot when API provides money fields. */
+    val settlement: DeliveryJobSettlement? = null,
+    /**
+     * Human-readable dropoff when the API provides it (Fake seeds; Live may be null
+     * until a driver-scoped address RPC exists — UI falls back to lat/lng + notes).
+     */
+    val dropoffAddressText: String? = null,
+    /** DN/invoice lines for receipt banner (Fake seeds; Live via get_delivery_job_lines). */
+    val lineItems: List<DeliveryJobLineItem> = emptyList(),
 )
 
 data class GeofenceSuggestion(

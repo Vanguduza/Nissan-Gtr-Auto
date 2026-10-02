@@ -22,18 +22,19 @@ ADR: [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decision
 | `:app` | `co.zw.nissangtr.delivery` | Launcher + auth gate + bridge Activity attach |
 | `:core:rpc` | `…delivery.rpc` | `RpcClient` + Fake/Live + delivery RPC names |
 | `:feature:auth` | `…delivery.auth` | GoTrue sign-in; gate role `driver` \| `admin` |
-| `:feature:jobs` | `…delivery.jobs` | Job list/detail, presence, live MapLibre route, fail, stops, panic, geofence UI |
-| `:feature:tracking` | `…delivery.tracking` | FGS GPS via location-tracker; throttle; offline location queue |
-| `:feature:pod` | `…delivery.pod` | Camera + Compose Canvas signature; OTP; offline POD queue |
+| `:feature:jobs` | `…delivery.jobs` | Job list/detail, presence, MapLibre live map, fail, stops, panic, geofence UI |
+| `:feature:tracking` | `…delivery.tracking` | FGS GPS via location-tracker; throttle; offline location queue; `MapLibreJobMap` |
+| `:feature:pod` | `…delivery.pod` | Camera evidence photo + Compose Canvas signature; OTP; offline POD queue; Storage `delivery-pods` + `submit_delivery_pod` |
 | `:location-tracker` | `…bridges.location` | From `bridges/android/location-tracker` |
 | `:pod-camera` | `…bridges.podcamera` | From `bridges/android/pod-camera` |
 | `:pod-signature` | `…bridges.podsignature` | From `bridges/android/pod-signature` |
-| `:maps-nav` | `…bridges.maps` | From `bridges/android/maps-nav` — MapLibre + OpenFreeMap/OSM + OSRM-compatible routing (display only) |
+| `:maps-nav` | `…bridges.maps` | From `bridges/android/maps-nav` — OSRM + deprecated Google Directions/Maps fallback |
 
 ## Features → RPCs
 
 | Feature | RPC / path |
 |---------|------------|
+| Auth | GoTrue **email + password** only (role gate: `driver` \| `admin`). No Google/Apple on this app. Password reset: web `/forgot-password` (same Edge as storefront). |
 | Presence | `set_driver_presence` |
 | Job list | PostgREST `delivery_jobs` (assignee = me) |
 | GPS ingest | `ingest_delivery_location` (≥5s client throttle) |
@@ -50,19 +51,43 @@ Copy `.env.example` values into **`local.properties`** (gitignored):
 
 ```properties
 sdk.dir=C\:\\Android\\sdk
-SUPABASE_URL=https://bicyjghgdnzlnjqxzoud.supabase.co
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
-SUPPORT_PHONE=+263XXXXXXXXX
-# Optional custom OSRM-compatible endpoint; defaults to public router.project-osrm.org
-# ROUTING_BASE_URL=https://your-router.example/route/v1/driving
+SUPPORT_PHONE=+263771234567
+# Preferred route SoR (DIAL D-44). When set, in-app polyline + ETA use OSRM.
+# When unset/unreachable, UI falls back to approximate straight-line (no “unconfigured” nag).
+# OSRM_URL=http://10.0.2.2:5000
+# MapLibre courier map SoR (default on). Set false only for deprecated Google Maps fallback.
+# useMapLibre=false
+# Self-host Zimbabwe basemap (infra/satellites/maptiles/) — prepare + tileserver-gl on :8081
+# Emulator (debug default when unset):
+# MAPLIBRE_STYLE_URL=http://10.0.2.2:8081/styles/basic-preview/style.json
+# Wireless phone → PC LAN IP (same Wi-Fi; Windows: ipconfig):
+# MAPLIBRE_STYLE_URL=http://192.168.x.x:8081/styles/basic-preview/style.json
+# Deprecated — Google Maps tiles + Directions only when useMapLibre=false or coords missing / OSRM unset
+# GOOGLE_MAPS_API_KEY=your-maps-key
 # rpc.forceFake=true
 ```
 
-Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`.
+Never commit real keys. Fake mode runs when URL/key missing or `rpc.forceFake=true`
+(Fake sign-in/out still works locally). For **Live** GoTrue, copy
+`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` from `apps/web/.env.local`
+into `SUPABASE_URL` / `SUPABASE_ANON_KEY` here (same hosted project).
 
-**Maps:** in-app maps are keyless: MapLibre Native renders OpenFreeMap/OSM-compatible tiles and
-routing uses an OSRM-compatible HTTP endpoint. No Google Maps SDK/API key is required.
-`ROUTING_BASE_URL` is optional; production may point it at a controlled OSRM deployment.
+**Maps (Epic B / D-44):** **`MapLibreJobMap`** is the courier map SoR on `JobDetailScreen`. Google `DeliveryRouteMap` is an **explicit deprecated fallback** only (`useMapLibre=false` or missing coords) — never silent SoR.
+
+**Zimbabwe basemap (practical shipping):** Full OpenMapTiles MBTiles for Zimbabwe is typically **hundreds of MB** after Planetiler — **not** bundled into the APK (Play/APK size). Workflow:
+
+1. `powershell -File infra/satellites/maptiles/prepare.ps1` → gitignored `infra/satellites/maptiles/data/basemap.mbtiles`
+2. `docker compose -f docker-compose.satellites.yml --profile maptiles up -d`
+3. Point the app at tileserver-gl:
+   - **Emulator:** debug builds default `MAPLIBRE_STYLE_URL` to `http://10.0.2.2:8081/styles/basic-preview/style.json`
+   - **Wireless device:** set `MAPLIBRE_STYLE_URL=http://<PC_LAN_IP>:8081/styles/basic-preview/style.json` in `local.properties`
+4. Release / unset → public demotiles last resort only
+
+Optional later: first-run download of a trimmed MBTiles pack into app storage (still not a 1GB APK asset). Do not commit multi-GB blobs; keep under `data/` + prepare script (git-lfs only if already adopted).
+
+**Routing:** set **`OSRM_URL`** to a self-hosted OSRM base (see `infra/satellites/README.md`). When configured, distance/ETA prefer OSRM and the UI shows `eta_source=osrm`. Google Directions is deprecated fallback only when `OSRM_URL` is blank.
 GPS ingest always uses `:location-tracker` FGS — the map is display-only.
 
 ## Build APK
@@ -88,13 +113,14 @@ cd apps/android-delivery
 
 ## Driver flow (scaffold)
 
-1. Sign in as staff with role **`driver`** (Fake mode bypasses auth).
-2. Home → **My jobs**.
-3. Set presence (`available` / `on_duty` / `break` / `offline`).
-4. Open a job → **Start always-on GPS** (FGS + battery cadence) → live map route + **Turn-by-turn**.
-5. **Check geofence suggestion** → confirm arrive / complete manually (never auto).
-6. POD: photo → **touch signature pad** → generate/verify OTP → submit.
-7. Fail with reason + optional reattempt; **Optimize stops**; **PANIC**.
+1. Sign in as staff with role **`driver`** (Fake mode: Continue without signing in; Sign out returns to gate).
+2. Home → **My jobs** (Active / Done / Failed tabs). Tap any row → job detail.
+3. Job detail shows **Receipt copy** banners (document + **items bought** + white **notes**) and **Delivery address**; Done/Failed are read-only for complete.
+4. Set presence (`available` / `on_duty` / `break` / `offline`) on Me tab.
+5. **Route** tab → MapLibre live map with delivery pins + driver GPS (Start live GPS / On duty).
+6. Active job → **Complete job** → existing POD (CameraX photo + touch signature + OTP) → Storage `delivery-pods` + `submit_delivery_pod` (Active→Done). Stays Active until signature.
+7. **Mark job Failed** → `fail_delivery_job` (+ optional reattempt).
+8. Geofence suggestions confirm-only; **Optimize stops**; **PANIC**.
 
 ## Exclusions
 
@@ -102,6 +128,7 @@ cd apps/android-delivery
 - No payroll tax
 - No HTML5 / WebView geo or camera — Bridge-First only
 - No POS / warehouse / HR / finance modules
+- No Fleetbase runtime
 
 ## Shared client
 

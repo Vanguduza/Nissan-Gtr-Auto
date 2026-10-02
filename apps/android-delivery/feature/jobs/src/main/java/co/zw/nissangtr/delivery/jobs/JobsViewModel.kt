@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.location.LocationPermissionStatus
 import co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher
+import co.zw.nissangtr.bridges.maps.DrivingRoute
 import co.zw.nissangtr.bridges.maps.ExternalNavigation
 import co.zw.nissangtr.bridges.maps.MapLatLng
 import co.zw.nissangtr.bridges.maps.RouteFetchResult
@@ -25,6 +26,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Distance/ETA provider for in-app route guidance (D-44 / Epic B). */
+enum class RouteEtaSource(val wire: String, val label: String) {
+    OSRM("osrm", "Driving"),
+    /** Haversine when the router is unreachable — no scary “unconfigured” UX. */
+    STRAIGHT_LINE("straight_line", "Approx."),
+}
+
 data class JobsUiState(
     val jobs: List<DeliveryJobSummary> = emptyList(),
     val selectedJobId: String? = null,
@@ -35,39 +43,96 @@ data class JobsUiState(
     val failNotes: String = "",
     val createReattempt: Boolean = true,
     val supportPhone: String = "",
+    /**
+     * Optional self-hosted MapLibre style (tileserver-gl, see infra/satellites/maptiles/).
+     * Blank → the keyless maps-nav default (OpenFreeMap).
+     */
+    val mapStyleUrl: String = "",
     val routePoints: List<MapLatLng> = emptyList(),
     val routeLabel: String? = null,
+    val routeEtaSource: RouteEtaSource? = null,
     val routeBusy: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
 
+/** Resolve job detail from list state — used by shell so Compose tracks [JobsUiState.selectedJobId]. */
+fun resolveSelectedJob(state: JobsUiState): DeliveryJobSummary? {
+    val id = state.selectedJobId ?: return null
+    return state.jobs.find { it.id == id }
+}
+
+/** Pure label builder for route guidance — distance/ETA only (no scaffold nags). */
+internal fun formatRouteGuidanceLabel(
+    etaSource: RouteEtaSource,
+    summary: String?,
+    distanceMeters: Int?,
+    durationSeconds: Int?,
+): String {
+    val dist = distanceMeters?.let { d ->
+        if (d >= 1000) "%.1f km".format(d / 1000.0) else "${d}m"
+    }
+    val dur = durationSeconds?.let { s ->
+        val m = s / 60
+        if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
+    }
+    return listOfNotNull(
+        etaSource.label.takeIf { it.isNotBlank() },
+        summary?.takeIf { it.isNotBlank() && it != "OSRM" },
+        dist,
+        dur,
+    ).joinToString(" · ").ifBlank { etaSource.label }
+}
+
+/** Straight-line fallback when OSRM/Google is unset or unreachable. */
+internal fun straightLineRoute(origin: MapLatLng, destination: MapLatLng): DrivingRoute {
+    val meters = haversineMeters(origin, destination)
+    // ~30 km/h urban crawl estimate for a usable ETA chip.
+    val seconds = ((meters / 8.33).toInt()).coerceAtLeast(60)
+    return DrivingRoute(
+        points = listOf(origin, destination),
+        distanceMeters = meters.toInt(),
+        durationSeconds = seconds,
+        summary = null,
+    )
+}
+
+internal fun haversineMeters(a: MapLatLng, b: MapLatLng): Double {
+    val r = 6_371_000.0
+    val dLat = Math.toRadians(b.latitude - a.latitude)
+    val dLon = Math.toRadians(b.longitude - a.longitude)
+    val lat1 = Math.toRadians(a.latitude)
+    val lat2 = Math.toRadians(b.latitude)
+    val h = Math.sin(dLat / 2).let { it * it } +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2).let { it * it }
+    return 2 * r * Math.asin(Math.sqrt(h))
+}
+
 class JobsViewModel(
     private val rpc: RpcClient,
     private val gps: GpsBridge,
     private val appContext: Context,
     supportPhone: String,
-    private val routingBaseUrl: String,
+    private val routingBaseUrl: String = DirectionsRouteFetcher.DEFAULT_ROUTING_BASE_URL,
+    mapStyleUrl: String = "",
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         JobsUiState(
             supportPhone = supportPhone,
+            mapStyleUrl = mapStyleUrl.trim(),
         ),
     )
     val state: StateFlow<JobsUiState> = _state.asStateFlow()
 
-    private val directions by lazy { DirectionsRouteFetcher(routingBaseUrl) }
+    private val router by lazy { DirectionsRouteFetcher(routingBaseUrl) }
 
     init {
         refresh()
         loadPresence()
     }
 
-    fun selectedJob(): DeliveryJobSummary? {
-        val id = _state.value.selectedJobId ?: return null
-        return _state.value.jobs.find { it.id == id }
-    }
+    fun selectedJob(): DeliveryJobSummary? = resolveSelectedJob(_state.value)
 
     fun selectJob(id: String?) = _state.update {
         it.copy(
@@ -75,6 +140,7 @@ class JobsViewModel(
             geofence = null,
             routePoints = emptyList(),
             routeLabel = null,
+            routeEtaSource = null,
             error = null,
             message = null,
         )
@@ -252,16 +318,18 @@ class JobsViewModel(
                     it.copy(
                         routeBusy = false,
                         routePoints = emptyList(),
-                        routeLabel = "Waiting for GPS for route — destination marked",
+                        routeLabel = "Waiting for GPS",
+                        routeEtaSource = null,
                     )
                 }
                 return@launch
             }
+            val origin = MapLatLng(originLat!!, originLng!!)
+            val destination = MapLatLng(destLat, destLng)
             val otherWaypoints = _state.value.jobs
                 .filter {
                     it.id != job.id &&
-                        it.status != "completed" &&
-                        it.status != "failed" &&
+                        JobStatusGate.isActive(it.status) &&
                         it.dropoffLat != null &&
                         it.dropoffLng != null &&
                         (it.routeSequence ?: Int.MAX_VALUE) > (job.routeSequence ?: -1)
@@ -270,43 +338,39 @@ class JobsViewModel(
                 .take(3)
                 .map { MapLatLng(it.dropoffLat!!, it.dropoffLng!!) }
 
+            fun applyRoute(etaSource: RouteEtaSource, route: DrivingRoute) {
+                _state.update {
+                    it.copy(
+                        routeBusy = false,
+                        routePoints = route.points,
+                        routeEtaSource = etaSource,
+                        routeLabel = formatRouteGuidanceLabel(
+                            etaSource = etaSource,
+                            summary = route.summary,
+                            distanceMeters = route.distanceMeters,
+                            durationSeconds = route.durationSeconds,
+                        ),
+                    )
+                }
+            }
+
+            fun applyStraightLine() {
+                applyRoute(RouteEtaSource.STRAIGHT_LINE, straightLineRoute(origin, destination))
+            }
+
+            if (routingBaseUrl.isBlank()) {
+                applyStraightLine()
+                return@launch
+            }
             when (
-                val result = directions.fetchDrivingRoute(
-                    origin = MapLatLng(originLat!!, originLng!!),
-                    destination = MapLatLng(destLat, destLng),
+                val result = router.fetchDrivingRoute(
+                    origin = origin,
+                    destination = destination,
                     waypoints = otherWaypoints,
                 )
             ) {
-                is RouteFetchResult.Ok -> {
-                    val r = result.route
-                    val dist = r.distanceMeters?.let { d ->
-                        if (d >= 1000) "%.1f km".format(d / 1000.0) else "${d}m"
-                    }
-                    val dur = r.durationSeconds?.let { s ->
-                        val m = s / 60
-                        if (m >= 60) "${m / 60}h ${m % 60}m" else "${m} min"
-                    }
-                    _state.update {
-                        it.copy(
-                            routeBusy = false,
-                            routePoints = r.points,
-                            routeLabel = listOfNotNull(
-                                r.summary,
-                                dist,
-                                dur,
-                            ).joinToString(" · ").ifBlank { "Route ready" },
-                        )
-                    }
-                }
-                is RouteFetchResult.Failed -> {
-                    _state.update {
-                        it.copy(
-                            routeBusy = false,
-                            routePoints = emptyList(),
-                            routeLabel = result.message,
-                        )
-                    }
-                }
+                is RouteFetchResult.Ok -> applyRoute(RouteEtaSource.OSRM, result.route)
+                is RouteFetchResult.Failed -> applyStraightLine()
             }
         }
     }
@@ -417,11 +481,11 @@ class JobsViewModel(
             }
     }
 
-    /** Confirm geofence complete suggestion — does not auto-complete; opens POD path. */
+    /** Confirm geofence complete suggestion — does not auto-complete; opens Complete → POD. */
     fun acknowledgeCompleteSuggestion() {
         _state.update {
             it.copy(
-                message = "Complete suggested — use POD section to finish (OTP required)",
+                message = "Complete suggested — use Complete job → signature pad (stays Active until signed)",
                 geofence = it.geofence?.copy(suggestComplete = false),
             )
         }
@@ -433,7 +497,8 @@ class JobsViewModel(
             gps: GpsBridge,
             appContext: Context,
             supportPhone: String,
-            routingBaseUrl: String,
+            routingBaseUrl: String = DirectionsRouteFetcher.DEFAULT_ROUTING_BASE_URL,
+            mapStyleUrl: String = "",
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -444,6 +509,7 @@ class JobsViewModel(
                         appContext.applicationContext,
                         supportPhone,
                         routingBaseUrl,
+                        mapStyleUrl,
                     ) as T
             }
     }

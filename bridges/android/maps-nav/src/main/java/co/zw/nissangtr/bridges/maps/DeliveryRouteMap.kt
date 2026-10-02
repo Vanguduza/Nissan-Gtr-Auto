@@ -31,12 +31,19 @@ fun DeliveryRouteMap(
     routePoints: List<MapLatLng>,
     otherStops: List<MapStop> = emptyList(),
     modifier: Modifier = Modifier,
-    height: Dp = 220.dp,
+    /** Fixed height; `null` lets [modifier] size the map (e.g. full-bleed behind a sheet). */
+    height: Dp? = 220.dp,
     @Suppress("UNUSED_PARAMETER") myLocationEnabled: Boolean = false,
+    /** Blank → keyless default style. See [KeylessMapStyles]. */
+    styleUrl: String = DEFAULT_MAP_STYLE_URL,
+    routeColor: Int = Color.rgb(200, 16, 46),
+    /** Extra camera padding in px (left, top, right, bottom), e.g. for a sheet covering the bottom. */
+    cameraPadding: IntArray = intArrayOf(64, 64, 64, 64),
 ) {
+    val sized = if (height != null) modifier.fillMaxWidth().height(height) else modifier
     if (destination == null) {
         Box(
-            modifier = modifier.fillMaxWidth().height(height),
+            modifier = sized,
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -53,10 +60,12 @@ fun DeliveryRouteMap(
         append(destination.latitude).append(',').append(destination.longitude).append('|')
         driver?.let { append(it.latitude).append(',').append(it.longitude) }
         append('|').append(routePoints.hashCode()).append('|').append(otherStops.hashCode())
+        append('|').append(routeColor).append('|').append(cameraPadding.contentHashCode())
     }
 
     KeylessMapHost(
-        modifier = modifier.fillMaxWidth().height(height),
+        modifier = sized,
+        styleUrl = styleUrl.ifBlank { DEFAULT_MAP_STYLE_URL },
         onReady = { map, _ ->
             map.uiSettings.setCompassEnabled(true)
             map.uiSettings.setRotateGesturesEnabled(false)
@@ -95,7 +104,7 @@ fun DeliveryRouteMap(
                 map.addPolyline(
                     PolylineOptions()
                         .addAll(routePoints.map { LatLng(it.latitude, it.longitude) })
-                        .color(Color.rgb(200, 16, 46))
+                        .color(routeColor)
                         .width(7f),
                 )
             }
@@ -108,7 +117,7 @@ fun DeliveryRouteMap(
             } else {
                 val bounds = LatLngBounds.Builder()
                 allPoints.forEach { bounds.include(LatLng(it.latitude, it.longitude)) }
-                map.getCameraForLatLngBounds(bounds.build(), intArrayOf(64, 64, 64, 64))?.let {
+                map.getCameraForLatLngBounds(bounds.build(), cameraPadding)?.let {
                     map.cameraPosition = it
                 }
             }

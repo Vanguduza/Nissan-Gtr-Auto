@@ -7,6 +7,9 @@ network** inside this module.
 OTP for POD remains app-layer (`generate_delivery_pod_otp` /
 `verify_delivery_pod_otp` / `submit_delivery_pod`).
 
+**Gallery / ImagePicker:** intentionally omitted — Bridge-First camera covers
+POD picture evidence; no second picker.
+
 ## Include from android-delivery
 
 ```kotlin
@@ -33,6 +36,9 @@ val photo = bridge.capturePhoto()
 // photo.localPath → upload to Storage → pass storage path to submit_delivery_pod
 ```
 
+For JVM / Fake hosts: `FakePodCameraBridge` returns a configurable local path
+(`fake://…` accepted by `FakeRpcClient.uploadPodAsset`).
+
 ## Permissions
 
 | Permission | Why |
@@ -41,7 +47,7 @@ val photo = bridge.capturePhoto()
 
 ## App responsibilities (not this bridge)
 
-1. Upload `localPath` bytes to a private Storage bucket (see Manager note: bucket may be missing).
+1. Upload `localPath` bytes to private Storage bucket `delivery-pods`.
 2. Call `submit_delivery_pod` with the **storage object path**, signature path, and OTP.
 3. Delete or retain local cache files after successful upload.
 

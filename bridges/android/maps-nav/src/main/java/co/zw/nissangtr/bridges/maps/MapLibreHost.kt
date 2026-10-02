@@ -18,6 +18,14 @@ import org.maplibre.android.maps.Style
 internal const val DEFAULT_MAP_STYLE_URL =
     "https://tiles.openfreemap.org/styles/liberty"
 
+/** Keyless OpenFreeMap styles a host app may pass as `styleUrl`. */
+object KeylessMapStyles {
+    const val STREETS = DEFAULT_MAP_STYLE_URL
+    /** Quiet light basemap — lets route lines and pins carry the colour. */
+    const val LIGHT = "https://tiles.openfreemap.org/styles/positron"
+    const val DARK = "https://tiles.openfreemap.org/styles/dark"
+}
+
 /**
  * Compose lifecycle wrapper around MapLibre Native.
  * No API key is required; the host apps only need INTERNET permission.

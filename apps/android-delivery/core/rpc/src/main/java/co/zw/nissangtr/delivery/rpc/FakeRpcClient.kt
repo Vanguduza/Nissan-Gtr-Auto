@@ -25,6 +25,37 @@ class FakeRpcClient : RpcClient {
             podPhotoPath = null,
             podSignaturePath = null,
             assigneeUserId = FAKE_DRIVER_USER_ID,
+            // H4 dual-read seed: divergent majors — display prefers *_minor (COD $45.50).
+            settlement = DeliveryJobSettlement(
+                currency = CurrencyCode.USD,
+                invoiceTotal = 1.0,
+                invoiceTotalMinor = 4550L,
+                amountPaid = 99.0,
+                amountPaidMinor = 0L,
+                amountDue = 1.0,
+                amountDueMinor = 4550L,
+            ),
+            dropoffAddressText = "12 Samora Machel Ave, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-1a",
+                    qty = 2.0,
+                    oemPartNumber = "40206-EG000",
+                    description = "Front brake pad set",
+                    currency = CurrencyCode.USD,
+                    unitPriceMinor = 1500L,
+                    lineTotalMinor = 3000L,
+                ),
+                DeliveryJobLineItem(
+                    lineId = "line-seed-1b",
+                    qty = 1.0,
+                    oemPartNumber = "15208-65F0A",
+                    description = "Oil filter",
+                    currency = CurrencyCode.USD,
+                    unitPriceMinor = 1550L,
+                    lineTotalMinor = 1550L,
+                ),
+            ),
         ),
         DeliveryJobSummary(
             id = JOB_2,
@@ -42,6 +73,71 @@ class FakeRpcClient : RpcClient {
             podPhotoPath = null,
             podSignaturePath = null,
             assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = null,
+            dropoffAddressText = "45 Borrowdale Rd, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-2a",
+                    qty = 1.0,
+                    oemPartNumber = "16546-EA000",
+                    description = "Air filter element",
+                    currency = CurrencyCode.USD,
+                ),
+            ),
+        ),
+        DeliveryJobSummary(
+            id = JOB_DONE,
+            deliveryNoteId = "00000000-0000-4000-8000-0000000000d3",
+            documentNumber = "DJ-SEED-DONE",
+            status = "completed",
+            dropoffLat = -17.8200,
+            dropoffLng = 31.0400,
+            etaAt = null,
+            etaSeconds = null,
+            notes = "Left with reception",
+            routeSequence = 3,
+            reattemptOf = null,
+            failureReasonCode = null,
+            podPhotoPath = "$JOB_DONE/photo.jpg",
+            podSignaturePath = "$JOB_DONE/signature.png",
+            assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = DeliveryJobSettlement(
+                currency = CurrencyCode.USD,
+                invoiceTotalMinor = 1200L,
+                amountPaidMinor = 1200L,
+                amountDueMinor = 0L,
+            ),
+            dropoffAddressText = "8 Leopold Takawira St, Harare",
+            lineItems = listOf(
+                DeliveryJobLineItem(
+                    lineId = "line-seed-done",
+                    qty = 4.0,
+                    oemPartNumber = "B4551-JD00A",
+                    description = "Wiper blade",
+                    currency = CurrencyCode.USD,
+                    lineTotalMinor = 1200L,
+                ),
+            ),
+        ),
+        DeliveryJobSummary(
+            id = JOB_FAILED,
+            deliveryNoteId = "00000000-0000-4000-8000-0000000000d4",
+            documentNumber = "DJ-SEED-FAIL",
+            status = "failed",
+            dropoffLat = -17.8400,
+            dropoffLng = 31.0700,
+            etaAt = null,
+            etaSeconds = null,
+            notes = "Customer absent",
+            routeSequence = 4,
+            reattemptOf = null,
+            failureReasonCode = DeliveryFailureReason.CUSTOMER_ABSENT.rpcValue,
+            podPhotoPath = null,
+            podSignaturePath = null,
+            assigneeUserId = FAKE_DRIVER_USER_ID,
+            settlement = null,
+            dropoffAddressText = "22 Enterprise Rd, Harare",
+            lineItems = emptyList(),
         ),
     )
 
@@ -118,6 +214,17 @@ class FakeRpcClient : RpcClient {
         val current = jobs[idx]
         require(current.status !in listOf("completed", "failed")) {
             "terminal delivery job cannot change status"
+        }
+        if (status == DeliveryJobStatus.COMPLETED) {
+            require(!current.podSignaturePath.isNullOrBlank()) {
+                "POD photo and signature required; use submit_delivery_pod"
+            }
+            require(!current.podPhotoPath.isNullOrBlank()) {
+                "POD photo and signature required; use submit_delivery_pod"
+            }
+        }
+        if (status == DeliveryJobStatus.FAILED) {
+            error("use fail_delivery_job for failed status (reason + optional reattempt)")
         }
         jobs[idx] = current.copy(status = status.rpcValue)
         return deliveryJobId
@@ -286,6 +393,8 @@ class FakeRpcClient : RpcClient {
         const val FAKE_DRIVER_USER_ID = "00000000-0000-4000-8000-0000000000d0"
         const val JOB_1 = "00000000-0000-4000-8000-0000000000j1"
         const val JOB_2 = "00000000-0000-4000-8000-0000000000j2"
+        const val JOB_DONE = "00000000-0000-4000-8000-0000000000j3"
+        const val JOB_FAILED = "00000000-0000-4000-8000-0000000000j4"
 
         /** Last generated OTP in Fake (always 123456). */
         const val FAKE_OTP = "123456"

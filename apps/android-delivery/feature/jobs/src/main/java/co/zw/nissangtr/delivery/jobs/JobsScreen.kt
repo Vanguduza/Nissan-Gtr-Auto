@@ -1,6 +1,5 @@
 package co.zw.nissangtr.delivery.jobs
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +25,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.bridges.location.GpsBridge
 import co.zw.nissangtr.bridges.maps.DeliveryRouteMap
-import co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher
 import co.zw.nissangtr.bridges.maps.MapLatLng
 import co.zw.nissangtr.bridges.maps.MapStop
 import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
@@ -57,6 +56,7 @@ import co.zw.nissangtr.delivery.rpc.DeliveryFailureReason
 import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.RpcClient
+import co.zw.nissangtr.delivery.rpc.formatAmountDueLabel
 import co.zw.nissangtr.delivery.tracking.TrackingUiState
 import co.zw.nissangtr.delivery.tracking.TrackingViewModel
 import co.zw.nissangtr.ui.shop.ShopCircleIconButton
@@ -104,9 +104,7 @@ fun JobsListScreen(
     }
     val filtered = remember(state.jobs, filterTab) {
         when (JobsFilterTab.entries[filterTab]) {
-            JobsFilterTab.Active -> state.jobs.filter {
-                it.status == "dispatched" || it.status == "pending"
-            }
+            JobsFilterTab.Active -> state.jobs.filter { JobStatusGate.isActive(it.status) }
             JobsFilterTab.Done -> state.jobs.filter { it.status == "completed" }
             JobsFilterTab.Failed -> state.jobs.filter { it.status == "failed" }
         }
@@ -143,7 +141,7 @@ fun JobsListScreen(
 
         ShopPresenceBanner(
             label = state.presence.displayLabel(),
-            detail = "Tap Me tab to change presence · GPS follows On duty",
+            detail = "",
             accent = state.presence.statusColor(),
             modifier = Modifier.padding(horizontal = extras.screenPadding),
         )
@@ -241,10 +239,13 @@ private fun JobOrderCard(
     distanceM: Double?,
     onOpen: () -> Unit,
 ) {
-    var expanded by remember(job.id) { mutableStateOf(false) }
     val title = job.documentNumber ?: "Job ${job.id.take(8)}"
     val subtitle = buildString {
-        job.etaAt?.let { append("ETA $it") }
+        job.dropoffAddressText?.takeIf { it.isNotBlank() }?.let { append(it) }
+        job.etaAt?.let {
+            if (isNotEmpty()) append(" · ")
+            append("ETA $it")
+        }
         if (distanceM != null) {
             if (isNotEmpty()) append(" · ")
             append("%.1f km".format(distanceM / 1000))
@@ -253,10 +254,11 @@ private fun JobOrderCard(
             if (job.dropoffLat != null && job.dropoffLng != null) {
                 append("%.4f, %.4f".format(job.dropoffLat, job.dropoffLng))
             } else {
-                append("No dropoff coords")
+                append("Tap for receipt + address")
             }
         }
     }
+    // Whole card opens job detail — no local expand that swallowed the expected navigation.
     ShopOrderBox(
         title = title,
         subtitle = subtitle,
@@ -269,20 +271,10 @@ private fun JobOrderCard(
             if (job.reattemptOf != null) {
                 ShopStatusChip(label = "REATTEMPT", background = GtrColors.Warning)
             }
-        },
-        expanded = expanded,
-        onToggleExpand = { expanded = !expanded },
-        expandedContent = {
-            job.notes?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium)
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                ShopStatusChip(label = cod, background = GtrColors.Warning)
             }
-            Text(
-                "Open stop for maps, GPS tracking, and POD",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         },
-        modifier = Modifier.animateContentSize(),
     )
 }
 
@@ -291,14 +283,36 @@ fun DeliveryRouteTab(
     state: JobsUiState,
     tracking: TrackingUiState,
     vm: JobsViewModel,
-    @Suppress("UNUSED_PARAMETER") trackingVm: TrackingViewModel,
+    trackingVm: TrackingViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val routeStops = remember(state.jobs) {
+        state.jobs
+            .filter { it.dropoffLat != null && it.dropoffLng != null }
+            .sortedBy { it.routeSequence ?: Int.MAX_VALUE }
+            .map {
+                MapStop(
+                    id = it.id,
+                    label = it.documentNumber ?: it.id.take(8),
+                    position = MapLatLng(it.dropoffLat!!, it.dropoffLng!!),
+                    sequence = it.routeSequence,
+                )
+            }
+    }
+    val driverPos = if (tracking.lastLat != null && tracking.lastLng != null) {
+        MapLatLng(tracking.lastLat!!, tracking.lastLng!!)
+    } else {
+        null
+    }
+    val mapCenter = driverPos
+        ?: routeStops.firstOrNull()?.position
+        ?: MapLatLng(-17.8292, 31.0522)
+
     ShopTabBody(modifier = modifier, scrollable = true) {
         Text("Today's route", style = MaterialTheme.typography.titleLarge)
         ShopLocationRow(
             label = "Driver position",
-            locationText = tracking.lastLatLng ?: "GPS not started — go On duty from Me",
+            locationText = tracking.lastLatLng ?: "GPS off",
             onClick = {},
         )
         ShopPresenceBanner(
@@ -310,6 +324,42 @@ fun DeliveryRouteTab(
             },
             accent = state.presence.statusColor(),
         )
+
+        ShopSectionHeader(title = "Live map", actionLabel = null)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.medium),
+        ) {
+            DeliveryRouteMap(
+                destination = routeStops.firstOrNull()?.position,
+                driver = driverPos,
+                routePoints = emptyList(),
+                otherStops = routeStops.drop(1),
+                                myLocationEnabled = tracking.tracking,
+                styleUrl = state.mapStyleUrl,
+                height = null,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (!tracking.tracking) {
+            ShopPrimaryButton(
+                label = "Start live GPS",
+                onClick = {
+                    val active = state.jobs.firstOrNull { JobStatusGate.isActive(it.status) }
+                    if (active != null) {
+                        trackingVm.startTracking(active.id)
+                        if (state.presence != DriverPresenceStatus.ON_DUTY) {
+                            vm.setPresence(DriverPresenceStatus.ON_DUTY)
+                        }
+                    }
+                },
+                enabled = state.jobs.any { JobStatusGate.isActive(it.status) },
+            )
+        }
+
         ShopOutlinedActionRow {
             ShopSecondaryButton(
                 label = "Refresh jobs",
@@ -361,7 +411,6 @@ fun DeliveryMeTab(
     vm: JobsViewModel,
     trackingVm: TrackingViewModel,
     signedInEmail: String?,
-    modeLabel: String,
     onSignOut: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -378,11 +427,6 @@ fun DeliveryMeTab(
                 signedInEmail ?: "Guest driver",
                 style = MaterialTheme.typography.headlineSmall,
             )
-            Text(
-                modeLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         ShopSectionHeader(title = "Presence", actionLabel = null)
@@ -398,7 +442,7 @@ fun DeliveryMeTab(
                         when (status) {
                             DriverPresenceStatus.ON_DUTY -> {
                                 val active = state.jobs.firstOrNull {
-                                    it.status == "dispatched" || it.status == "pending"
+                                    JobStatusGate.isActive(it.status)
                                 }
                                 if (active != null) trackingVm.startTracking(active.id)
                             }
@@ -453,8 +497,8 @@ fun DeliveryMeTab(
 }
 
 /**
- * Stop detail — Shopping-By-KMP DefaultScreenUI + sticky navigate CTA.
- * Maps (Directions polyline / multi-stop / turn-by-turn) and POD signature preserved.
+ * Stop detail — receipt copy + delivery address; Complete → signature POD; Failed → ERP.
+ * Done/failed stay readable (receipt + address) without complete actions.
  */
 @Composable
 fun JobDetailScreen(
@@ -469,6 +513,8 @@ fun JobDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val active = JobStatusGate.isActive(job.status)
+    var completeOpen by remember(job.id) { mutableStateOf(false) }
     val dest = if (job.dropoffLat != null && job.dropoffLng != null) {
         MapLatLng(job.dropoffLat!!, job.dropoffLng!!)
     } else {
@@ -483,8 +529,7 @@ fun JobDetailScreen(
         state.jobs
             .filter {
                 it.id != job.id &&
-                    it.status != "completed" &&
-                    it.status != "failed" &&
+                    JobStatusGate.isActive(it.status) &&
                     it.dropoffLat != null &&
                     it.dropoffLng != null
             }
@@ -497,6 +542,25 @@ fun JobDetailScreen(
                 )
             }
     }
+    val detailStops = remember(job, otherStops) {
+        buildList {
+            if (dest != null) {
+                add(
+                    MapStop(
+                        id = job.id,
+                        label = job.documentNumber ?: job.id.take(8),
+                        position = dest,
+                        sequence = job.routeSequence,
+                    ),
+                )
+            }
+            addAll(otherStops)
+        }
+    }
+    val receiptHeader = remember(job) { JobStatusGate.receiptHeaderLines(job) }
+    val receiptItems = remember(job) { JobStatusGate.receiptItemLines(job) }
+    val receiptNotes = remember(job) { JobStatusGate.receiptNotes(job) }
+    val addressLines = remember(job) { JobStatusGate.deliveryAddressLines(job) }
 
     LaunchedEffect(job.id, tracking.lastLat, tracking.lastLng) {
         vm.refreshRouteGuidance(tracking.lastLat, tracking.lastLng)
@@ -509,11 +573,13 @@ fun JobDetailScreen(
         scrollable = true,
         modifier = modifier,
         bottomBar = {
-            ShopProceedButtonBox(
-                totalLabel = state.routeLabel ?: "Navigate",
-                ctaLabel = "Turn-by-turn",
-                onClick = vm::openNavigation,
-            )
+            if (dest != null) {
+                ShopProceedButtonBox(
+                    totalLabel = state.routeLabel ?: "Navigate",
+                    ctaLabel = "Turn-by-turn",
+                    onClick = vm::openNavigation,
+                )
+            }
         },
     ) {
         Row(
@@ -524,8 +590,36 @@ fun JobDetailScreen(
             if (job.reattemptOf != null) {
                 ShopStatusChip(label = "REATTEMPT", background = GtrColors.Warning)
             }
+            job.settlement?.formatAmountDueLabel()?.let { cod ->
+                ShopStatusChip(label = cod, background = GtrColors.Warning)
+            }
         }
-        job.notes?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+
+        ShopSectionHeader(title = "Receipt copy", actionLabel = null)
+        ReceiptBanner(
+            title = "Document",
+            lines = receiptHeader,
+            background = GtrColors.Mist,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        ReceiptBanner(
+            title = "Items bought",
+            lines = receiptItems,
+            background = GtrColors.Mist,
+        )
+        receiptNotes?.let { notes ->
+            Spacer(modifier = Modifier.height(8.dp))
+            ReceiptBanner(
+                title = "Notes",
+                lines = listOf(notes),
+                background = GtrColors.White,
+            )
+        }
+
+        ShopSectionHeader(title = "Delivery address", actionLabel = null)
+        addressLines.forEach { line ->
+            Text(line, style = MaterialTheme.typography.bodyMedium)
+        }
         job.etaAt?.let {
             Text(
                 "ETA $it (${job.etaSeconds ?: "?"}s)",
@@ -535,6 +629,9 @@ fun JobDetailScreen(
         }
 
         ShopSectionHeader(title = "Live map", actionLabel = null)
+        val mapLat = tracking.lastLat ?: job.dropoffLat
+        val mapLng = tracking.lastLng ?: job.dropoffLng
+        val hasCoords = mapLat != null && mapLng != null
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -547,7 +644,10 @@ fun JobDetailScreen(
                 driver = driverPos,
                 routePoints = state.routePoints,
                 otherStops = otherStops,
-                myLocationEnabled = tracking.tracking,
+                                myLocationEnabled = tracking.tracking,
+                styleUrl = state.mapStyleUrl,
+                height = null,
+                modifier = Modifier.fillMaxSize(),
             )
         }
         state.routeLabel?.let {
@@ -558,111 +658,170 @@ fun JobDetailScreen(
             )
         }
         ShopSecondaryButton(
-            label = "Refresh route polyline",
+            label = "Refresh route",
             onClick = { vm.refreshRouteGuidance(tracking.lastLat, tracking.lastLng) },
             enabled = !state.routeBusy,
         )
 
-        ShopSectionHeader(title = "GPS tracking", actionLabel = null)
-        if (tracking.tracking && tracking.trackingJobId == job.id) {
-            Text(
-                "GPS on · ingested ${tracking.ingestCount} · queued ${tracking.queuedCount}",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            tracking.lastLatLng?.let {
-                Text("Last: $it", style = MaterialTheme.typography.bodySmall)
+        if (active) {
+            ShopSectionHeader(title = "GPS tracking", actionLabel = null)
+            if (tracking.tracking && tracking.trackingJobId == job.id) {
+                Text(
+                    "GPS on · ${tracking.ingestCount} pings",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                tracking.lastLatLng?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
+                ShopSecondaryButton(label = "Stop GPS", onClick = trackingVm::stopTracking)
+            } else {
+                ShopPrimaryButton(
+                    label = "Start GPS",
+                    onClick = {
+                        trackingVm.startTracking(job.id)
+                        if (state.presence != DriverPresenceStatus.ON_DUTY) {
+                            vm.setPresence(DriverPresenceStatus.ON_DUTY)
+                        }
+                    },
+                )
             }
-            ShopSecondaryButton(label = "Stop GPS tracking", onClick = trackingVm::stopTracking)
-        } else {
-            ShopPrimaryButton(
-                label = "Start always-on GPS (FGS)",
-                onClick = {
-                    trackingVm.startTracking(job.id)
-                    if (state.presence != DriverPresenceStatus.ON_DUTY) {
-                        vm.setPresence(DriverPresenceStatus.ON_DUTY)
-                    }
-                },
-                enabled = job.status == "dispatched" || job.status == "pending",
-            )
-        }
 
-        ShopSecondaryButton(
-            label = "Check geofence suggestion",
-            onClick = vm::checkGeofence,
-            enabled = !state.busy,
-        )
-        state.geofence?.let { g ->
-            ShopSectionHeader(title = "Geofence", actionLabel = null)
-            Text(
-                "Distance ${g.distanceM?.let { "%.0fm".format(it) } ?: "?"} — " +
-                    "suggest arrive=${g.suggestArrive}, complete=${g.suggestComplete}",
-                style = MaterialTheme.typography.bodySmall,
+            ShopSecondaryButton(
+                label = "Check geofence",
+                onClick = vm::checkGeofence,
+                enabled = !state.busy,
             )
-            if (g.suggestArrive) {
-                ShopSecondaryButton(label = "Confirm arrive", onClick = vm::markArrived)
+            state.geofence?.let { g ->
+                ShopSectionHeader(title = "Geofence", actionLabel = null)
+                Text(
+                    "Distance ${g.distanceM?.let { "%.0fm".format(it) } ?: "?"} — " +
+                        "arrive=${g.suggestArrive}, complete=${g.suggestComplete}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (g.suggestArrive) {
+                    ShopSecondaryButton(label = "Confirm arrive", onClick = vm::markArrived)
+                }
+                if (g.suggestComplete) {
+                    ShopSecondaryButton(
+                        label = "Acknowledge → Complete job",
+                        onClick = {
+                            vm.acknowledgeCompleteSuggestion()
+                            completeOpen = true
+                        },
+                    )
+                }
             }
-            if (g.suggestComplete) {
+
+            ShopSectionHeader(title = "Complete delivery", actionLabel = null)
+            if (!completeOpen) {
+                ShopPrimaryButton(
+                    label = "Complete job",
+                    onClick = { completeOpen = true },
+                    enabled = JobStatusGate.canOpenCompleteFlow(job),
+                )
+            } else {
+                PodSection(
+                    rpc = rpc,
+                    camera = camera,
+                    signature = signature,
+                    jobId = job.id,
+                    onCompleted = {
+                        vm.refresh()
+                        trackingVm.stopTracking()
+                        vm.selectJob(null)
+                    },
+                )
                 ShopSecondaryButton(
-                    label = "Acknowledge → POD",
-                    onClick = vm::acknowledgeCompleteSuggestion,
+                    label = "Hide POD",
+                    onClick = { completeOpen = false },
                 )
             }
-        }
 
-        if (job.status != "completed" && job.status != "failed") {
-            PodSection(
-                rpc = rpc,
-                camera = camera,
-                signature = signature,
-                jobId = job.id,
-                onCompleted = {
-                    vm.refresh()
-                    trackingVm.stopTracking()
-                    vm.selectJob(null)
-                },
+            ShopSectionHeader(title = "Mark failed", actionLabel = null)
+            DeliveryFailureReason.entries.forEach { reason ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { vm.onFailReason(reason) },
+                ) {
+                    Checkbox(
+                        checked = state.failReason == reason,
+                        onCheckedChange = { vm.onFailReason(reason) },
+                    )
+                    Text(reason.rpcValue)
+                }
+            }
+            OutlinedTextField(
+                value = state.failNotes,
+                onValueChange = vm::onFailNotes,
+                label = { Text("Fail notes") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.small,
             )
-        }
-
-        ShopSectionHeader(title = "Delivery outcome", actionLabel = null)
-        DeliveryFailureReason.entries.forEach { reason ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { vm.onFailReason(reason) },
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
-                    checked = state.failReason == reason,
-                    onCheckedChange = { vm.onFailReason(reason) },
+                    checked = state.createReattempt,
+                    onCheckedChange = vm::onCreateReattempt,
                 )
-                Text(reason.rpcValue)
+                Text("Create reattempt job")
+            }
+            ShopPrimaryButton(
+                label = "Mark job Failed",
+                onClick = vm::failSelectedJob,
+                enabled = !state.busy && JobStatusGate.canMarkFailed(job),
+            )
+            ShopDangerButton(label = "PANIC", onClick = vm::raisePanic)
+        } else {
+            Text(
+                JobStatusGate.TERMINAL_READONLY,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (job.failureReasonCode != null) {
+                Text(
+                    "Failure: ${job.failureReasonCode}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
         }
-        OutlinedTextField(
-            value = state.failNotes,
-            onValueChange = vm::onFailNotes,
-            label = { Text("Fail notes") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.small,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = state.createReattempt,
-                onCheckedChange = vm::onCreateReattempt,
-            )
-            Text("Create reattempt job")
-        }
-        ShopPrimaryButton(
-            label = "Fail delivery",
-            onClick = vm::failSelectedJob,
-            enabled = !state.busy && job.status != "completed" && job.status != "failed",
-        )
-        ShopDangerButton(label = "PANIC", onClick = vm::raisePanic)
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         tracking.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         tracking.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
+@Composable
+private fun ReceiptBanner(
+    title: String,
+    lines: List<String>,
+    background: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, GtrColors.Mist, MaterialTheme.shapes.small),
+        color = background,
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                color = GtrColors.Steel,
+            )
+            lines.forEach { line ->
+                Text(line, style = MaterialTheme.typography.bodyMedium, color = GtrColors.Steel)
+            }
+        }
     }
 }
 
@@ -692,7 +851,6 @@ private fun DriverPresenceStatus.statusColor(): Color = when (this) {
     DriverPresenceStatus.OFFLINE -> GtrColors.SilverDim
 }
 
-/** Legacy single-screen entry kept for tests / older callers. */
 @Composable
 fun JobsScreen(
     rpc: RpcClient,
@@ -700,21 +858,29 @@ fun JobsScreen(
     camera: PodCameraBridge,
     signature: PodSignatureBridge,
     supportPhone: String,
-    routingBaseUrl: String = DirectionsRouteFetcher.DEFAULT_ROUTING_BASE_URL,
     trackingVm: TrackingViewModel,
     shellTitle: String = "My jobs",
     shellSubtitle: String? = null,
     signedInEmail: String? = null,
     onSignOut: (() -> Unit)? = null,
+    routingBaseUrl: String = co.zw.nissangtr.bridges.maps.DirectionsRouteFetcher.DEFAULT_ROUTING_BASE_URL,
+    mapStyleUrl: String = "",
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val vm: JobsViewModel = viewModel(
-        factory = JobsViewModel.factory(rpc, gps, context, supportPhone, routingBaseUrl),
+        factory = JobsViewModel.factory(
+            rpc,
+            gps,
+            context,
+            supportPhone,
+            routingBaseUrl = routingBaseUrl,
+            mapStyleUrl = mapStyleUrl,
+        ),
     )
     val state by vm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
-    val selected = vm.selectedJob()
+    val selected = resolveSelectedJob(state)
     if (selected != null) {
         JobDetailScreen(
             job = selected,
@@ -737,4 +903,10 @@ fun JobsScreen(
             modifier = modifier,
         )
     }
+}
+
+/** Optional map caption — kept blank (no scaffold / OSRM nags in UI). */
+internal fun jobDetailMapCaption(state: JobsUiState): String {
+    // Prefer live route chip when present; never nag about missing OSRM_URL.
+    return state.routeLabel.orEmpty()
 }

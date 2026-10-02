@@ -11,7 +11,6 @@ import co.zw.nissangtr.bridges.podcamera.PodCameraBridge
 import co.zw.nissangtr.bridges.podsignature.PodCaptureResult
 import co.zw.nissangtr.bridges.podsignature.PodSignatureBridge
 import co.zw.nissangtr.bridges.podsignature.PodSignatureOptions
-import co.zw.nissangtr.delivery.rpc.FakeRpcClient
 import co.zw.nissangtr.delivery.rpc.RpcClient
 import co.zw.nissangtr.delivery.rpc.RpcNames
 import kotlinx.coroutines.delay
@@ -24,7 +23,9 @@ import kotlinx.coroutines.launch
 data class PodUiState(
     val jobId: String = "",
     val photoLocalPath: String? = null,
+    val photoMime: String = "image/jpeg",
     val signatureLocalPath: String? = null,
+    val signatureMime: String = "image/png",
     val otpCode: String = "",
     val notes: String = "",
     val otpGenerated: Boolean = false,
@@ -63,7 +64,9 @@ class PodViewModel(
             it.copy(
                 jobId = jobId,
                 photoLocalPath = null,
+                photoMime = "image/jpeg",
                 signatureLocalPath = null,
+                signatureMime = "image/png",
                 otpCode = "",
                 otpGenerated = false,
                 otpVerified = false,
@@ -101,7 +104,8 @@ class PodViewModel(
                     it.copy(
                         busy = false,
                         photoLocalPath = result.localPath,
-                        message = "Photo captured",
+                        photoMime = result.mimeType.ifBlank { "image/jpeg" },
+                        message = "Evidence photo captured",
                     )
                 }
             } catch (e: Exception) {
@@ -121,6 +125,7 @@ class PodViewModel(
         _state.update {
             it.copy(
                 signatureLocalPath = result.localPath,
+                signatureMime = result.mimeType.ifBlank { "image/png" },
                 message = "Signature captured",
                 error = null,
             )
@@ -147,6 +152,7 @@ class PodViewModel(
                     it.copy(
                         busy = false,
                         signatureLocalPath = result.localPath,
+                        signatureMime = result.mimeType.ifBlank { "image/png" },
                         message = "Signature captured",
                     )
                 }
@@ -165,16 +171,11 @@ class PodViewModel(
             _state.update { it.copy(busy = true, error = null) }
             try {
                 rpc.generateDeliveryPodOtp(jobId)
-                val fakeHint = if (rpc is FakeRpcClient) {
-                    " Fake stub OTP: ${FakeRpcClient.FAKE_OTP}"
-                } else {
-                    ""
-                }
                 _state.update {
                     it.copy(
                         busy = false,
                         otpGenerated = true,
-                        message = "${RpcNames.GENERATE_DELIVERY_POD_OTP} — enter code from customer.$fakeHint",
+                        message = "OTP sent — enter the customer code",
                     )
                 }
             } catch (e: Exception) {
@@ -218,16 +219,20 @@ class PodViewModel(
         val photo = s.photoLocalPath
         val sig = s.signatureLocalPath
         val otp = s.otpCode
-        if (jobId.isBlank() || photo.isNullOrBlank() || sig.isNullOrBlank() || otp.isBlank()) {
-            _state.update { it.copy(error = "Photo, signature, and OTP required") }
+        if (jobId.isBlank()) {
+            _state.update { it.copy(error = "Job required") }
             return
         }
-        if (!s.otpVerified) {
-            _state.update { it.copy(error = "Verify OTP before completing POD") }
+        val blocked = PodEvidenceGate.blockingReason(photo, sig, otp, s.otpVerified)
+        if (blocked != null) {
+            _state.update { it.copy(error = blocked) }
             return
         }
+        check(photo != null && sig != null)
         val photoKey = deliveryPodPhotoObjectKey(jobId)
         val sigKey = deliveryPodSignatureObjectKey(jobId)
+        val photoMime = s.photoMime.ifBlank { "image/jpeg" }
+        val sigMime = s.signatureMime.ifBlank { "image/png" }
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null) }
             if (!isOnline()) {
@@ -235,9 +240,9 @@ class PodViewModel(
                     QueuedPodSubmission(
                         deliveryJobId = jobId,
                         localPhotoPath = photo,
-                        photoMime = "image/jpeg",
+                        photoMime = photoMime,
                         localSignaturePath = sig,
-                        signatureMime = "image/png",
+                        signatureMime = sigMime,
                         otpCode = otp,
                         notes = s.notes.ifBlank { null },
                         photoObjectKey = photoKey,
@@ -254,8 +259,8 @@ class PodViewModel(
                 return@launch
             }
             try {
-                rpc.uploadPodAsset(photoKey, photo, "image/jpeg")
-                rpc.uploadPodAsset(sigKey, sig, "image/png")
+                rpc.uploadPodAsset(photoKey, photo, photoMime)
+                rpc.uploadPodAsset(sigKey, sig, sigMime)
                 val id = rpc.submitDeliveryPod(
                     deliveryJobId = jobId,
                     photoPath = photoKey,
@@ -276,9 +281,9 @@ class PodViewModel(
                     QueuedPodSubmission(
                         deliveryJobId = jobId,
                         localPhotoPath = photo,
-                        photoMime = "image/jpeg",
+                        photoMime = photoMime,
                         localSignaturePath = sig,
-                        signatureMime = "image/png",
+                        signatureMime = sigMime,
                         otpCode = otp,
                         notes = s.notes.ifBlank { null },
                         photoObjectKey = photoKey,
