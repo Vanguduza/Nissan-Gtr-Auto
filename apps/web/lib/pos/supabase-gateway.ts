@@ -178,20 +178,24 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     return vehicleMaster;
   }
 
-  /** The published vehicle-master id for this exact chassis + engine, or null if absent/ambiguous. */
+  /**
+   * The published vehicle-master id for this model + chassis + engine, or null if absent. The
+   * catalogue lists several build variants per chassis + engine with near-identical fitment, so the
+   * first (by id, for a stable choice) keys the R2 shard rather than refusing the search.
+   */
   async function vehicleMasterId(v: SelectedVehicle): Promise<string | null> {
     const res = await loadVehicleMaster();
     const rows = res.ok ? res.data : [];
-    const ids = new Set(
-      rows
-        .filter(
-          (r) =>
-            r.chassis_code.trim().toUpperCase() === v.chassisCode.trim().toUpperCase() &&
-            (r.engine_code ?? "").trim().toUpperCase() === v.engineCode.trim().toUpperCase(),
-        )
-        .map((r) => r.id),
-    );
-    return ids.size === 1 ? [...ids][0] : null;
+    const ids = rows
+      .filter(
+        (r) =>
+          familySlug(r.model_family) === v.modelSlug &&
+          r.chassis_code.trim().toUpperCase() === v.chassisCode.trim().toUpperCase() &&
+          (r.engine_code ?? "").trim().toUpperCase() === v.engineCode.trim().toUpperCase(),
+      )
+      .map((r) => r.id)
+      .sort();
+    return ids[0] ?? null;
   }
 
   /** Vehicle-filtered search over the full catalogue (R2 shard + shop stock); null = not available. */

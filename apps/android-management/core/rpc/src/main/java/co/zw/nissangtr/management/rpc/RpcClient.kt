@@ -139,7 +139,8 @@ interface RpcClient {
 
     /**
      * Published vehicle-master id (full catalogue) for an exact chassis + engine; null when the
-     * vehicle is absent or ambiguous. Keys the vehicle's R2 fitment shard.
+     * vehicle is absent. The catalogue lists several build variants per chassis + engine with
+     * near-identical fitment, so the first (by id, for a stable choice) keys the R2 fitment shard.
      */
     suspend fun resolveVehicleMasterId(chassisCode: String, engineCode: String): String? =
         listVehicleMaster()
@@ -148,8 +149,7 @@ interface RpcClient {
                     it.engineCode.orEmpty().equals(engineCode.trim(), ignoreCase = true)
             }
             .map { it.id }
-            .distinct()
-            .singleOrNull()
+            .minOrNull()
 
     /** Every published vehicle of the full catalogue (vehicle selector + EPC variants). */
     suspend fun listVehicleMaster(): List<VehicleMasterEntry> = emptyList()
