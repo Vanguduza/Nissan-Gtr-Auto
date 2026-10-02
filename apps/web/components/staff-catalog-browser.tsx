@@ -7,6 +7,8 @@ import {
   type DiagramImageResponse,
   type StaffPartsResponse,
 } from "@/lib/catalog-live-gateway";
+import { EpcDiagramCanvas } from "@/components/epc/epc-diagram-canvas";
+import type { CatalogDiagramHotspot } from "@/lib/catalog-hierarchy";
 import styles from "./staff-catalog-browser.module.css";
 
 type Family = {
@@ -59,7 +61,18 @@ export function StaffCatalogBrowser() {
   const [sectionId, setSectionId] = useState("");
   const [selectedDiagram, setSelectedDiagram] = useState<Diagram | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [activeOem, setActiveOem] = useState<string | null>(null);
   const [parts, setParts] = useState<StaffPartsResponse["parts"]>([]);
+  // Callout boxes travel on the part rows (fractions of the image).
+  const hotspots = useMemo<CatalogDiagramHotspot[]>(
+    () =>
+      parts.flatMap((p) => {
+        const oem = p.display_oem_number || p.normalized_oem_number;
+        if (!oem || p.bbox_x == null || p.bbox_y == null || !p.bbox_width || !p.bbox_height) return [];
+        return [{ oem, pnc_code: p.pnc_code ?? null, bbox_x: p.bbox_x, bbox_y: p.bbox_y, bbox_width: p.bbox_width, bbox_height: p.bbox_height }];
+      }),
+    [parts],
+  );
   const [state, setState] = useState<LoadState>("loading");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -283,8 +296,13 @@ export function StaffCatalogBrowser() {
               <span>R2 signed image</span>
             </div>
             {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt={selectedDiagram.name_en || selectedDiagram.title || "EPC diagram"} className={styles.diagramImage} />
+              <EpcDiagramCanvas
+                imageUrl={imageUrl}
+                title={selectedDiagram.name_en || selectedDiagram.title || undefined}
+                hotspots={hotspots}
+                activeOem={activeOem}
+                onHoverOem={setActiveOem}
+              />
             ) : (
               <div className={styles.imagePlaceholder}>Diagram image is not yet mapped into the current R2 serving manifest.</div>
             )}
@@ -302,6 +320,7 @@ export function StaffCatalogBrowser() {
               <table>
                 <thead>
                   <tr>
+                    <th>Ref</th>
                     <th>PNC</th>
                     <th>Part</th>
                     <th>Description</th>
@@ -310,7 +329,11 @@ export function StaffCatalogBrowser() {
                 </thead>
                 <tbody>
                   {parts.map((part, index) => (
-                    <tr key={`${part.normalized_oem_number ?? part.display_oem_number ?? "part"}-${index}`}>
+                    <tr
+                      key={`${part.normalized_oem_number ?? part.display_oem_number ?? "part"}-${index}`}
+                      className={activeOem && activeOem === (part.display_oem_number || part.normalized_oem_number) ? styles.activeRow : undefined}
+                    >
+                      <td>{part.callout_ref || "—"}</td>
                       <td>{part.pnc_code || "—"}</td>
                       <td>{part.display_oem_number || part.normalized_oem_number || "—"}</td>
                       <td>{part.name || part.description || part.subcategory_name || part.category_name || "Nissan catalog part"}</td>

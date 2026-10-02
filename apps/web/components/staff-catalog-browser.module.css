@@ -192,3 +192,8 @@
     flex-direction: column;
   }
 }
+
+/* Part row matching the hovered / focused diagram callout. */
+.activeRow td {
+  background: color-mix(in srgb, var(--gtr-color-brand-red) 10%, transparent);
+}

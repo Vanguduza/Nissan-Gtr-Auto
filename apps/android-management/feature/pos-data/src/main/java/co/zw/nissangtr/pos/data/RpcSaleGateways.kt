@@ -8,6 +8,7 @@ import co.zw.nissangtr.management.rpc.PosTenderLine
 import co.zw.nissangtr.management.rpc.RpcClient
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.coroutineScope
@@ -279,11 +280,19 @@ class RpcSaleGateways(private val rpc: RpcClient) {
                             pncCode = p.str("pnc_code"),
                             // The reference number printed on the diagram artwork.
                             refNo = p.str("callout_ref"),
-                            qtyRequired = null,
+                            qtyRequired = p.str("quantity"),
                         )
                     },
-                    // R2 part shards carry no callout boxes; rows are matched to the artwork by PNC.
-                    hotspots = emptyList(),
+                    // Callout boxes travel on the part rows as fractions of the image; a part may
+                    // appear at several callouts.
+                    hotspots = rows.mapNotNull { p ->
+                        val oem = (p.str("display_oem_number") ?: p.str("normalized_oem_number"))?.trim() ?: return@mapNotNull null
+                        val x = p.num("bbox_x") ?: return@mapNotNull null
+                        val y = p.num("bbox_y") ?: return@mapNotNull null
+                        val w = p.num("bbox_width") ?: return@mapNotNull null
+                        val h = p.num("bbox_height") ?: return@mapNotNull null
+                        EpcHotspot(oem, p.str("pnc_code"), x, y, w, h)
+                    },
                     missing = (img.exceptionOrNull() ?: prt.exceptionOrNull())?.let(::liveMissing),
                 )
             }
@@ -399,6 +408,8 @@ private suspend fun downloadDiagram(url: String): ByteArray = withContext(Dispat
 
 private fun JsonObject.str(key: String): String? =
     (this[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+
+private fun JsonObject.num(key: String): Double? = (this[key] as? JsonPrimitive)?.doubleOrNull
 
 private fun liveMissing(e: Throwable): EpcMissing = when {
     e is CatalogLiveException && e.publishing -> EpcMissing.Publishing

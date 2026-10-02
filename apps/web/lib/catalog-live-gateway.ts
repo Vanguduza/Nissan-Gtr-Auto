@@ -82,6 +82,13 @@ export type LiveCatalogPart = {
   chassis_code?: string | null;
   engine_code?: string | null;
   applicability?: unknown;
+  /** Quantity used on the diagram (catalogue text, e.g. "2"). */
+  quantity?: string | null;
+  /** Callout box on the diagram image, as fractions of its width / height. */
+  bbox_x?: number | null;
+  bbox_y?: number | null;
+  bbox_width?: number | null;
+  bbox_height?: number | null;
 };
 
 export type LiveCustomerCatalogItem = {

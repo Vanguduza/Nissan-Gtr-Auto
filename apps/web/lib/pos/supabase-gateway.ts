@@ -1009,7 +1009,14 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         return { ok: false, error: liveCatalogMessage(parts.reason, "Could not load the diagram.") };
       }
       const seen = new Set<string>();
-      const partRows = (parts.status === "fulfilled" ? parts.value.parts : []).flatMap((p) => {
+      const rawParts = parts.status === "fulfilled" ? parts.value.parts : [];
+      // Callout boxes (fractions of the image) travel on the part rows; one part may have several.
+      const hotspots = rawParts.flatMap((p) => {
+        const oem = (p.display_oem_number ?? p.normalized_oem_number ?? "").trim();
+        if (!oem || p.bbox_x == null || p.bbox_y == null || !p.bbox_width || !p.bbox_height) return [];
+        return [{ oem, pnc: p.pnc_code ?? null, x: p.bbox_x, y: p.bbox_y, w: p.bbox_width, h: p.bbox_height }];
+      });
+      const partRows = rawParts.flatMap((p) => {
         const oem = (p.display_oem_number ?? p.normalized_oem_number ?? "").trim();
         const key = oem.toUpperCase().replace(/[^A-Z0-9]/g, "");
         if (!oem || seen.has(key)) return [];
@@ -1028,8 +1035,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         imageUrl: image.status === "fulfilled" ? image.value.signed_url : null,
         width: null,
         height: null,
-        // R2 part shards carry no callout boxes; rows are matched to the artwork by PNC.
-        hotspots: [],
+        hotspots,
         parts: partRows,
         notice:
           image.status === "rejected"

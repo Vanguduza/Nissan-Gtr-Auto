@@ -93,6 +93,29 @@ class LiveEpcGatewayTest {
     }
 
     @Test
+    fun `callout boxes and quantities come with the part rows, one box per callout`() = runTest {
+        val rpc = Live { action, _ ->
+            when (action) {
+                "diagram-image" -> json("""{"signed_url":"https://r2.example/sig"}""")
+                else -> json(
+                    """{"parts":[
+                      {"display_oem_number":"18002-8H60B","callout_ref":"18002","quantity":"1","bbox_x":0.65,"bbox_y":0.37,"bbox_width":0.05,"bbox_height":0.02},
+                      {"display_oem_number":"01125-N6031","callout_ref":"18010A","quantity":"2","bbox_x":0.36,"bbox_y":0.54,"bbox_width":0.06,"bbox_height":0.02},
+                      {"display_oem_number":"01125-N6031","callout_ref":"18010A","bbox_x":0.70,"bbox_y":0.60,"bbox_width":0.06,"bbox_height":0.02},
+                      {"display_oem_number":"18014-8H300","callout_ref":"18014"}
+                    ]}""",
+                )
+            }
+        }
+        val d = (RpcSaleGateways(rpc).epc.diagram(model, variant, section, EpcDiagram("d-1", "Pedal", "d-1")) as PosResult.Ok).value
+        assertEquals(listOf("18002-8H60B", "01125-N6031", "18014-8H300"), d.parts.map { it.oemPartNumber })
+        assertEquals("2", d.parts[1].qtyRequired)
+        assertEquals(listOf("18002-8H60B", "01125-N6031", "01125-N6031"), d.hotspots.map { it.oemPartNumber })
+        assertEquals(0.65, d.hotspots.first().x, 1e-9)
+        assertEquals(0.36, d.hotspots[1].normalizedIn(null, null)!!.left, 1e-9)
+    }
+
+    @Test
     fun `an unpublished image still shows the parts, marked as publishing`() = runTest {
         val rpc = Live { action, _ ->
             if (action == "diagram-image") throw CatalogLiveException(409, "CATALOG_REPUBLISH_REQUIRED", "not published")
