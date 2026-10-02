@@ -108,7 +108,7 @@ fun DeliveryRouteMap(
             } else {
                 val bounds = LatLngBounds.Builder()
                 allPoints.forEach { bounds.include(LatLng(it.latitude, it.longitude)) }
-                map.getCameraForLatLngBounds(bounds.build(), arrayOf(64, 64, 64, 64))?.let {
+                map.getCameraForLatLngBounds(bounds.build(), intArrayOf(64, 64, 64, 64))?.let {
                     map.cameraPosition = it
                 }
             }

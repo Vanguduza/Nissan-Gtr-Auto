@@ -1,18 +1,29 @@
 package co.zw.nissangtr.customer.loyalty
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
-import co.zw.nissangtr.ui.shop.ShopHonestEmpty
-import co.zw.nissangtr.ui.shop.ShopSectionHeader
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumEmptyState
+import co.zw.nissangtr.customer.visual.PremiumMessageBanner
+import co.zw.nissangtr.customer.visual.PremiumMessageKind
+import co.zw.nissangtr.customer.visual.PremiumPrimaryButton
+import co.zw.nissangtr.customer.visual.PremiumScreenHeader
+import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
 
 @Composable
 fun LoyaltyWalletScreen(
@@ -22,49 +33,69 @@ fun LoyaltyWalletScreen(
     viewModel: LoyaltyViewModel = viewModel(factory = LoyaltyViewModel.factory(rpc)),
 ) {
     val state by viewModel.state.collectAsState()
-    val sharp = MaterialTheme.shapes.extraSmall
 
-    ShopDefaultScreen(
-        title = "Loyalty wallet",
-        subtitle = null,
-        onBack = onBack,
-        modifier = modifier,
-        loading = state.busy && state.balance == null,
-    ) {
-        state.balance?.let { bal ->
-            ShopSectionHeader(title = "Balance", actionLabel = null)
-            Text(
-                "%.0f points".format(bal.pointsBalance),
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                "Currency: ${bal.currency}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                "Estimated liability: ${bal.currency} %.2f".format(bal.estimatedLiability),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "Liability per point: %.4f".format(bal.liabilityPerPoint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } ?: run {
-            if (!state.busy && state.error == null) {
-                ShopHonestEmpty(
-                    title = "No loyalty account",
-                    body = "No loyalty points.",
-                )
+    Column(modifier.fillMaxSize().background(GtrPremiumColors.Background)) {
+        PremiumScreenHeader(
+            title = "GTR Rewards",
+            subtitle = "Benefits earned from eligible purchases",
+            onBack = onBack,
+        )
+        Column(
+            Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            state.balance?.let { bal ->
+                PremiumSurfaceCard {
+                    Column(Modifier.padding(vertical = 6.dp)) {
+                        Text(
+                            "YOUR POINTS",
+                            color = GtrPremiumColors.TextSecondary,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        Text(
+                            "%.0f".format(bal.pointsBalance),
+                            color = GtrPremiumColors.TextPrimary,
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.padding(top = 4.dp))
+                        Text(
+                            "Use available rewards on eligible Nissan GTR Auto purchases.",
+                            color = GtrPremiumColors.TextSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+                PremiumSurfaceCard {
+                    Column {
+                        Text(
+                            "How rewards work",
+                            color = GtrPremiumColors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Points accrue according to the active rewards programme. Eligible redemption is shown during checkout.",
+                            color = GtrPremiumColors.TextSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            } ?: run {
+                if (!state.busy && state.error == null) {
+                    PremiumEmptyState(
+                        title = "No rewards yet",
+                        body = "Eligible purchases will build your rewards balance.",
+                    )
+                }
             }
+
+            PremiumPrimaryButton(
+                text = if (state.busy) "Refreshing…" else "Refresh rewards",
+                onClick = viewModel::refresh,
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            state.error?.let { PremiumMessageBanner(it, PremiumMessageKind.Error) }
         }
-        Button(
-            onClick = viewModel::refresh,
-            enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-            shape = sharp,
-        ) { Text("Refresh") }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }

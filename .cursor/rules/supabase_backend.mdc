@@ -40,5 +40,6 @@ ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
 
 ## Storage
 - Diagram images: `catalog-diagrams` bucket (public read).
+- Vehicle artwork: `vehicle-artwork` bucket (public read; staff/admin+warehouse write). Canonical 94 WebPs in `supabase/vehicle-artwork/`; upload with `python3 scripts/upload_vehicle_artwork.py`.
 - Staff ID cards: `staff-ids` bucket (authenticated read only).
 - Payslips: `payslips` bucket (owner read only).

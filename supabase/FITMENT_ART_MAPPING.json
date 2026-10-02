@@ -1,0 +1,1568 @@
+{
+  "version": 1,
+  "source_model": "SelectedFitmentVehicle(make, model, generation, engine)",
+  "backend_impact": "none",
+  "resolution_order": [
+    "generation-specific rule",
+    "model+body-hint rule (only if body hint exists)",
+    "model-family rule",
+    "generic Nissan fallback"
+  ],
+  "normalization": {
+    "strip_make_prefixes": [
+      "nissan",
+      "datsun",
+      "infiniti"
+    ],
+    "lowercase": true,
+    "punctuation_to_spaces": true,
+    "collapse_whitespace": true,
+    "normalize_hyphens": true
+  },
+  "rules": [
+    {
+      "artwork_label": "Navara D23",
+      "asset": "assets/vehicles/nissan_navara_d23.webp",
+      "model_aliases": [
+        "navara"
+      ],
+      "generation_aliases": [
+        "d23"
+      ],
+      "priority": 420,
+      "notes": ""
+    },
+    {
+      "artwork_label": "GT-R R35",
+      "asset": "assets/vehicles/nissan_gt_r_r35.webp",
+      "model_aliases": [
+        "gt r",
+        "gtr"
+      ],
+      "generation_aliases": [
+        "r35"
+      ],
+      "priority": 400,
+      "notes": ""
+    },
+    {
+      "artwork_label": "GT-R R34",
+      "asset": "assets/vehicles/nissan_gt_r_r34.webp",
+      "model_aliases": [
+        "gt r",
+        "gtr",
+        "skyline"
+      ],
+      "generation_aliases": [
+        "r34",
+        "bnr34"
+      ],
+      "priority": 400,
+      "notes": ""
+    },
+    {
+      "artwork_label": "GT-R R33",
+      "asset": "assets/vehicles/nissan_gt_r_r33.webp",
+      "model_aliases": [
+        "gt r",
+        "gtr",
+        "skyline"
+      ],
+      "generation_aliases": [
+        "r33",
+        "bcnr33"
+      ],
+      "priority": 400,
+      "notes": ""
+    },
+    {
+      "artwork_label": "GT-R R32",
+      "asset": "assets/vehicles/nissan_gt_r_r32.webp",
+      "model_aliases": [
+        "gt r",
+        "gtr",
+        "skyline"
+      ],
+      "generation_aliases": [
+        "r32",
+        "bnr32"
+      ],
+      "priority": 400,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Navara D22",
+      "asset": "assets/vehicles/nissan_navara_d22.webp",
+      "model_aliases": [
+        "navara",
+        "hardbody",
+        "pickup"
+      ],
+      "generation_aliases": [
+        "d22"
+      ],
+      "priority": 400,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Navara D40",
+      "asset": "assets/vehicles/nissan_navara_d40.webp",
+      "model_aliases": [
+        "navara"
+      ],
+      "generation_aliases": [
+        "d40"
+      ],
+      "priority": 400,
+      "notes": ""
+    },
+    {
+      "artwork_label": "350Z",
+      "asset": "assets/vehicles/nissan_350z.webp",
+      "model_aliases": [
+        "350z"
+      ],
+      "generation_aliases": [
+        "z33"
+      ],
+      "priority": 350,
+      "notes": ""
+    },
+    {
+      "artwork_label": "370Z",
+      "asset": "assets/vehicles/nissan_370z.webp",
+      "model_aliases": [
+        "370z"
+      ],
+      "generation_aliases": [
+        "z34"
+      ],
+      "priority": 350,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Silvia S13",
+      "asset": "assets/vehicles/nissan_silvia_s13.webp",
+      "model_aliases": [
+        "silvia"
+      ],
+      "generation_aliases": [
+        "s13",
+        "ps13"
+      ],
+      "priority": 350,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Silvia S14",
+      "asset": "assets/vehicles/nissan_silvia_s14.webp",
+      "model_aliases": [
+        "silvia",
+        "200sx"
+      ],
+      "generation_aliases": [
+        "s14",
+        "cs14"
+      ],
+      "priority": 350,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Silvia S15",
+      "asset": "assets/vehicles/nissan_silvia_s15.webp",
+      "model_aliases": [
+        "silvia"
+      ],
+      "generation_aliases": [
+        "s15"
+      ],
+      "priority": 350,
+      "notes": ""
+    },
+    {
+      "artwork_label": "180SX",
+      "asset": "assets/vehicles/nissan_180sx.webp",
+      "model_aliases": [
+        "180sx"
+      ],
+      "generation_aliases": [
+        "rps13",
+        "krps13",
+        "rs13"
+      ],
+      "priority": 350,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Fairlady Z Z33",
+      "asset": "assets/vehicles/nissan_fairlady_z_z33.webp",
+      "model_aliases": [
+        "fairlady z",
+        "fairlady"
+      ],
+      "generation_aliases": [
+        "z33",
+        "hz33"
+      ],
+      "priority": 340,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Fairlady Z Z34",
+      "asset": "assets/vehicles/nissan_fairlady_z_z34.webp",
+      "model_aliases": [
+        "fairlady z",
+        "fairlady"
+      ],
+      "generation_aliases": [
+        "z34",
+        "hz34"
+      ],
+      "priority": 340,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Skyline V35",
+      "asset": "assets/vehicles/nissan_skyline_v35.webp",
+      "model_aliases": [
+        "skyline"
+      ],
+      "generation_aliases": [
+        "v35",
+        "pv35",
+        "cpv35",
+        "nv35",
+        "hv35"
+      ],
+      "priority": 320,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Skyline V36",
+      "asset": "assets/vehicles/nissan_skyline_v36.webp",
+      "model_aliases": [
+        "skyline"
+      ],
+      "generation_aliases": [
+        "v36",
+        "pv36",
+        "kv36",
+        "ckv36",
+        "nv36"
+      ],
+      "priority": 320,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Skyline V37",
+      "asset": "assets/vehicles/nissan_skyline_v37.webp",
+      "model_aliases": [
+        "skyline"
+      ],
+      "generation_aliases": [
+        "v37",
+        "hv37",
+        "hnv37",
+        "yv37",
+        "zv37"
+      ],
+      "priority": 320,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Skyline V38",
+      "asset": "assets/vehicles/nissan_skyline_v38.webp",
+      "model_aliases": [
+        "skyline"
+      ],
+      "generation_aliases": [
+        "v38"
+      ],
+      "priority": 320,
+      "notes": ""
+    },
+    {
+      "artwork_label": "X-Trail T30",
+      "asset": "assets/vehicles/nissan_x_trail_t30.webp",
+      "model_aliases": [
+        "x trail",
+        "xtrail"
+      ],
+      "generation_aliases": [
+        "t30"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "X-Trail T31",
+      "asset": "assets/vehicles/nissan_x_trail_t31.webp",
+      "model_aliases": [
+        "x trail",
+        "xtrail"
+      ],
+      "generation_aliases": [
+        "t31"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "X-Trail T32",
+      "asset": "assets/vehicles/nissan_x_trail_t32.webp",
+      "model_aliases": [
+        "x trail",
+        "xtrail"
+      ],
+      "generation_aliases": [
+        "t32",
+        "nt32",
+        "hnt32",
+        "ht32"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "X-Trail T33",
+      "asset": "assets/vehicles/nissan_x_trail_t33.webp",
+      "model_aliases": [
+        "x trail",
+        "xtrail"
+      ],
+      "generation_aliases": [
+        "t33",
+        "nt33",
+        "snt33"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Murano Z50",
+      "asset": "assets/vehicles/nissan_murano_z50.webp",
+      "model_aliases": [
+        "murano"
+      ],
+      "generation_aliases": [
+        "z50",
+        "pz50",
+        "pnz50"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Murano Z51",
+      "asset": "assets/vehicles/nissan_murano_z51.webp",
+      "model_aliases": [
+        "murano"
+      ],
+      "generation_aliases": [
+        "z51",
+        "tz51",
+        "tnz51",
+        "pnz51"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Murano Z52",
+      "asset": "assets/vehicles/nissan_murano_z52.webp",
+      "model_aliases": [
+        "murano"
+      ],
+      "generation_aliases": [
+        "z52"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Pathfinder R51",
+      "asset": "assets/vehicles/nissan_pathfinder_r51.webp",
+      "model_aliases": [
+        "pathfinder"
+      ],
+      "generation_aliases": [
+        "r51"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Pathfinder R52",
+      "asset": "assets/vehicles/nissan_pathfinder_r52.webp",
+      "model_aliases": [
+        "pathfinder"
+      ],
+      "generation_aliases": [
+        "r52"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Patrol Y60",
+      "asset": "assets/vehicles/nissan_patrol_y60.webp",
+      "model_aliases": [
+        "patrol",
+        "safari"
+      ],
+      "generation_aliases": [
+        "y60",
+        "gq"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Patrol Y61",
+      "asset": "assets/vehicles/nissan_patrol_y61.webp",
+      "model_aliases": [
+        "patrol",
+        "safari"
+      ],
+      "generation_aliases": [
+        "y61",
+        "gu"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Serena C24",
+      "asset": "assets/vehicles/nissan_serena_c24.webp",
+      "model_aliases": [
+        "serena"
+      ],
+      "generation_aliases": [
+        "c24",
+        "pc24",
+        "pnc24",
+        "tc24",
+        "tnc24"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Serena C25",
+      "asset": "assets/vehicles/nissan_serena_c25.webp",
+      "model_aliases": [
+        "serena"
+      ],
+      "generation_aliases": [
+        "c25",
+        "cc25",
+        "nc25",
+        "cnc25"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Serena C26",
+      "asset": "assets/vehicles/nissan_serena_c26.webp",
+      "model_aliases": [
+        "serena"
+      ],
+      "generation_aliases": [
+        "c26",
+        "fc26",
+        "fnc26",
+        "hc26",
+        "hnc26"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Serena C27",
+      "asset": "assets/vehicles/nissan_serena_c27.webp",
+      "model_aliases": [
+        "serena"
+      ],
+      "generation_aliases": [
+        "c27",
+        "gc27",
+        "gfc27",
+        "hfc27"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Elgrand E50",
+      "asset": "assets/vehicles/nissan_elgrand_e50.webp",
+      "model_aliases": [
+        "elgrand"
+      ],
+      "generation_aliases": [
+        "e50",
+        "ale50",
+        "alwe50",
+        "ape50",
+        "apwe50"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Elgrand E51",
+      "asset": "assets/vehicles/nissan_elgrand_e51.webp",
+      "model_aliases": [
+        "elgrand"
+      ],
+      "generation_aliases": [
+        "e51",
+        "ne51",
+        "me51",
+        "mne51"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Elgrand E52",
+      "asset": "assets/vehicles/nissan_elgrand_e52.webp",
+      "model_aliases": [
+        "elgrand"
+      ],
+      "generation_aliases": [
+        "e52",
+        "ne52",
+        "te52",
+        "tne52"
+      ],
+      "priority": 300,
+      "notes": ""
+    },
+    {
+      "artwork_label": "NP300",
+      "asset": "assets/vehicles/nissan_np300.webp",
+      "model_aliases": [
+        "np300"
+      ],
+      "generation_aliases": [],
+      "priority": 260,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Pulsar Hatch",
+      "asset": "assets/vehicles/nissan_pulsar_hatch.webp",
+      "model_aliases": [
+        "pulsar"
+      ],
+      "body_hints": [
+        "hatch",
+        "hatchback"
+      ],
+      "priority": 260
+    },
+    {
+      "artwork_label": "Tiida Hatch",
+      "asset": "assets/vehicles/nissan_tiida_hatch.webp",
+      "model_aliases": [
+        "tiida"
+      ],
+      "body_hints": [
+        "hatch",
+        "hatchback"
+      ],
+      "priority": 260
+    },
+    {
+      "artwork_label": "Versa Hatch",
+      "asset": "assets/vehicles/nissan_versa_hatch.webp",
+      "model_aliases": [
+        "versa"
+      ],
+      "body_hints": [
+        "hatch",
+        "hatchback"
+      ],
+      "priority": 260
+    },
+    {
+      "artwork_label": "Sunny Hatch",
+      "asset": "assets/vehicles/nissan_sunny_hatch.webp",
+      "model_aliases": [
+        "sunny"
+      ],
+      "body_hints": [
+        "hatch",
+        "hatchback"
+      ],
+      "priority": 260
+    },
+    {
+      "artwork_label": "Primera Wagon",
+      "asset": "assets/vehicles/nissan_primera_wagon.webp",
+      "model_aliases": [
+        "primera"
+      ],
+      "body_hints": [
+        "wagon",
+        "estate"
+      ],
+      "priority": 260
+    },
+    {
+      "artwork_label": "Frontier",
+      "asset": "assets/vehicles/nissan_frontier.webp",
+      "model_aliases": [
+        "frontier"
+      ],
+      "generation_aliases": [],
+      "priority": 250,
+      "notes": ""
+    },
+    {
+      "artwork_label": "200SX Silvia",
+      "asset": "assets/vehicles/nissan_200sx_silvia.webp",
+      "model_aliases": [
+        "200sx"
+      ],
+      "generation_aliases": [],
+      "priority": 230,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Skyline GT-R",
+      "asset": "assets/vehicles/nissan_skyline_gt_r.webp",
+      "model_aliases": [
+        "skyline gt r",
+        "skyline gtr"
+      ],
+      "generation_aliases": [],
+      "priority": 220,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Almera",
+      "asset": "assets/vehicles/nissan_almera.webp",
+      "model_aliases": [
+        "almera"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Altima",
+      "asset": "assets/vehicles/nissan_altima.webp",
+      "model_aliases": [
+        "altima"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Bluebird",
+      "asset": "assets/vehicles/nissan_bluebird.webp",
+      "model_aliases": [
+        "bluebird"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Cefiro",
+      "asset": "assets/vehicles/nissan_cefiro.webp",
+      "model_aliases": [
+        "cefiro"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Cima",
+      "asset": "assets/vehicles/nissan_cima.webp",
+      "model_aliases": [
+        "cima"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Fuga",
+      "asset": "assets/vehicles/nissan_fuga.webp",
+      "model_aliases": [
+        "fuga"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Gloria",
+      "asset": "assets/vehicles/nissan_gloria.webp",
+      "model_aliases": [
+        "gloria"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Laurel",
+      "asset": "assets/vehicles/nissan_laurel.webp",
+      "model_aliases": [
+        "laurel"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Maxima",
+      "asset": "assets/vehicles/nissan_maxima.webp",
+      "model_aliases": [
+        "maxima"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Primera",
+      "asset": "assets/vehicles/nissan_primera.webp",
+      "model_aliases": [
+        "primera"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Pulsar",
+      "asset": "assets/vehicles/nissan_pulsar.webp",
+      "model_aliases": [
+        "pulsar"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Sentra",
+      "asset": "assets/vehicles/nissan_sentra.webp",
+      "model_aliases": [
+        "sentra"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Silvia Sedan",
+      "asset": "assets/vehicles/nissan_silvia_sedan.webp",
+      "model_aliases": [
+        "silvia sedan"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Stanza",
+      "asset": "assets/vehicles/nissan_stanza.webp",
+      "model_aliases": [
+        "stanza"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Sunny",
+      "asset": "assets/vehicles/nissan_sunny.webp",
+      "model_aliases": [
+        "sunny"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Sylphy",
+      "asset": "assets/vehicles/nissan_sylphy.webp",
+      "model_aliases": [
+        "sylphy",
+        "bluebird sylphy"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Teana",
+      "asset": "assets/vehicles/nissan_teana.webp",
+      "model_aliases": [
+        "teana"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Tiida Sedan",
+      "asset": "assets/vehicles/nissan_tiida_sedan.webp",
+      "model_aliases": [
+        "tiida",
+        "tiida latio",
+        "latio"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Versa",
+      "asset": "assets/vehicles/nissan_versa.webp",
+      "model_aliases": [
+        "versa"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Vertex",
+      "asset": "assets/vehicles/nissan_vertex.webp",
+      "model_aliases": [
+        "vertex"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Avenir Sedan",
+      "asset": "assets/vehicles/nissan_avenir_sedan.webp",
+      "model_aliases": [
+        "avenir sedan"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Presea",
+      "asset": "assets/vehicles/nissan_presea.webp",
+      "model_aliases": [
+        "presea"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Cedric",
+      "asset": "assets/vehicles/nissan_cedric.webp",
+      "model_aliases": [
+        "cedric"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "March Micra",
+      "asset": "assets/vehicles/nissan_march_micra.webp",
+      "model_aliases": [
+        "march",
+        "micra"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Note",
+      "asset": "assets/vehicles/nissan_note.webp",
+      "model_aliases": [
+        "note"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Tiida Hatch",
+      "asset": "assets/vehicles/nissan_tiida_hatch.webp",
+      "model_aliases": [
+        "tiida hatch"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Pulsar Hatch",
+      "asset": "assets/vehicles/nissan_pulsar_hatch.webp",
+      "model_aliases": [
+        "pulsar hatch"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Leaf",
+      "asset": "assets/vehicles/nissan_leaf.webp",
+      "model_aliases": [
+        "leaf"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Juke",
+      "asset": "assets/vehicles/nissan_juke.webp",
+      "model_aliases": [
+        "juke"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Kicks",
+      "asset": "assets/vehicles/nissan_kicks.webp",
+      "model_aliases": [
+        "kicks"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Versa Hatch",
+      "asset": "assets/vehicles/nissan_versa_hatch.webp",
+      "model_aliases": [
+        "versa hatch"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Sunny Hatch",
+      "asset": "assets/vehicles/nissan_sunny_hatch.webp",
+      "model_aliases": [
+        "sunny hatch"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Silvia Hatch",
+      "asset": "assets/vehicles/nissan_silvia_hatch.webp",
+      "model_aliases": [
+        "silvia hatch"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Prairie Hatch",
+      "asset": "assets/vehicles/nissan_prairie_hatch.webp",
+      "model_aliases": [
+        "prairie",
+        "liberty"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Terrano",
+      "asset": "assets/vehicles/nissan_terrano.webp",
+      "model_aliases": [
+        "terrano",
+        "mistral"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Avenir Wagon",
+      "asset": "assets/vehicles/nissan_avenir_wagon.webp",
+      "model_aliases": [
+        "avenir"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Stagea",
+      "asset": "assets/vehicles/nissan_stagea.webp",
+      "model_aliases": [
+        "stagea"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Wingroad",
+      "asset": "assets/vehicles/nissan_wingroad.webp",
+      "model_aliases": [
+        "wingroad"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Primera Wagon",
+      "asset": "assets/vehicles/nissan_primera_wagon.webp",
+      "model_aliases": [
+        "primera wagon"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Expert",
+      "asset": "assets/vehicles/nissan_expert.webp",
+      "model_aliases": [
+        "expert"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "AD Wagon",
+      "asset": "assets/vehicles/nissan_ad_wagon.webp",
+      "model_aliases": [
+        "ad wagon",
+        "ad van",
+        "ad expert"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Lafesta",
+      "asset": "assets/vehicles/nissan_lafesta.webp",
+      "model_aliases": [
+        "lafesta"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Quest",
+      "asset": "assets/vehicles/nissan_quest.webp",
+      "model_aliases": [
+        "quest"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Titan",
+      "asset": "assets/vehicles/nissan_titan.webp",
+      "model_aliases": [
+        "titan"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "NV200",
+      "asset": "assets/vehicles/nissan_nv200.webp",
+      "model_aliases": [
+        "nv200"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "NV350 Caravan",
+      "asset": "assets/vehicles/nissan_nv350_caravan.webp",
+      "model_aliases": [
+        "nv350",
+        "caravan",
+        "homy"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Vanette",
+      "asset": "assets/vehicles/nissan_vanette.webp",
+      "model_aliases": [
+        "vanette"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Atlas",
+      "asset": "assets/vehicles/nissan_atlas.webp",
+      "model_aliases": [
+        "atlas",
+        "condor"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Civilian",
+      "asset": "assets/vehicles/nissan_civilian.webp",
+      "model_aliases": [
+        "civilian"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Cabstar",
+      "asset": "assets/vehicles/nissan_cabstar.webp",
+      "model_aliases": [
+        "cabstar"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Dayz",
+      "asset": "assets/vehicles/nissan_dayz.webp",
+      "model_aliases": [
+        "dayz"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Roox",
+      "asset": "assets/vehicles/nissan_roox.webp",
+      "model_aliases": [
+        "roox"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    },
+    {
+      "artwork_label": "Clipper",
+      "asset": "assets/vehicles/nissan_clipper.webp",
+      "model_aliases": [
+        "clipper"
+      ],
+      "generation_aliases": [],
+      "priority": 200,
+      "notes": ""
+    }
+  ],
+  "all_assets": [
+    {
+      "label": "Almera",
+      "asset": "assets/vehicles/nissan_almera.webp"
+    },
+    {
+      "label": "Altima",
+      "asset": "assets/vehicles/nissan_altima.webp"
+    },
+    {
+      "label": "Bluebird",
+      "asset": "assets/vehicles/nissan_bluebird.webp"
+    },
+    {
+      "label": "Cefiro",
+      "asset": "assets/vehicles/nissan_cefiro.webp"
+    },
+    {
+      "label": "Cima",
+      "asset": "assets/vehicles/nissan_cima.webp"
+    },
+    {
+      "label": "Fuga",
+      "asset": "assets/vehicles/nissan_fuga.webp"
+    },
+    {
+      "label": "Gloria",
+      "asset": "assets/vehicles/nissan_gloria.webp"
+    },
+    {
+      "label": "Laurel",
+      "asset": "assets/vehicles/nissan_laurel.webp"
+    },
+    {
+      "label": "Maxima",
+      "asset": "assets/vehicles/nissan_maxima.webp"
+    },
+    {
+      "label": "Primera",
+      "asset": "assets/vehicles/nissan_primera.webp"
+    },
+    {
+      "label": "Pulsar",
+      "asset": "assets/vehicles/nissan_pulsar.webp"
+    },
+    {
+      "label": "Sentra",
+      "asset": "assets/vehicles/nissan_sentra.webp"
+    },
+    {
+      "label": "Silvia Sedan",
+      "asset": "assets/vehicles/nissan_silvia_sedan.webp"
+    },
+    {
+      "label": "Skyline V35",
+      "asset": "assets/vehicles/nissan_skyline_v35.webp"
+    },
+    {
+      "label": "Skyline V36",
+      "asset": "assets/vehicles/nissan_skyline_v36.webp"
+    },
+    {
+      "label": "Skyline V37",
+      "asset": "assets/vehicles/nissan_skyline_v37.webp"
+    },
+    {
+      "label": "Skyline V38",
+      "asset": "assets/vehicles/nissan_skyline_v38.webp"
+    },
+    {
+      "label": "Stanza",
+      "asset": "assets/vehicles/nissan_stanza.webp"
+    },
+    {
+      "label": "Sunny",
+      "asset": "assets/vehicles/nissan_sunny.webp"
+    },
+    {
+      "label": "Sylphy",
+      "asset": "assets/vehicles/nissan_sylphy.webp"
+    },
+    {
+      "label": "Teana",
+      "asset": "assets/vehicles/nissan_teana.webp"
+    },
+    {
+      "label": "Tiida Sedan",
+      "asset": "assets/vehicles/nissan_tiida_sedan.webp"
+    },
+    {
+      "label": "Versa",
+      "asset": "assets/vehicles/nissan_versa.webp"
+    },
+    {
+      "label": "Vertex",
+      "asset": "assets/vehicles/nissan_vertex.webp"
+    },
+    {
+      "label": "200SX Silvia",
+      "asset": "assets/vehicles/nissan_200sx_silvia.webp"
+    },
+    {
+      "label": "Avenir Sedan",
+      "asset": "assets/vehicles/nissan_avenir_sedan.webp"
+    },
+    {
+      "label": "Presea",
+      "asset": "assets/vehicles/nissan_presea.webp"
+    },
+    {
+      "label": "Cedric",
+      "asset": "assets/vehicles/nissan_cedric.webp"
+    },
+    {
+      "label": "March Micra",
+      "asset": "assets/vehicles/nissan_march_micra.webp"
+    },
+    {
+      "label": "Note",
+      "asset": "assets/vehicles/nissan_note.webp"
+    },
+    {
+      "label": "Tiida Hatch",
+      "asset": "assets/vehicles/nissan_tiida_hatch.webp"
+    },
+    {
+      "label": "Pulsar Hatch",
+      "asset": "assets/vehicles/nissan_pulsar_hatch.webp"
+    },
+    {
+      "label": "Leaf",
+      "asset": "assets/vehicles/nissan_leaf.webp"
+    },
+    {
+      "label": "Juke",
+      "asset": "assets/vehicles/nissan_juke.webp"
+    },
+    {
+      "label": "Kicks",
+      "asset": "assets/vehicles/nissan_kicks.webp"
+    },
+    {
+      "label": "Versa Hatch",
+      "asset": "assets/vehicles/nissan_versa_hatch.webp"
+    },
+    {
+      "label": "Sunny Hatch",
+      "asset": "assets/vehicles/nissan_sunny_hatch.webp"
+    },
+    {
+      "label": "Silvia Hatch",
+      "asset": "assets/vehicles/nissan_silvia_hatch.webp"
+    },
+    {
+      "label": "Prairie Hatch",
+      "asset": "assets/vehicles/nissan_prairie_hatch.webp"
+    },
+    {
+      "label": "X-Trail T30",
+      "asset": "assets/vehicles/nissan_x_trail_t30.webp"
+    },
+    {
+      "label": "X-Trail T31",
+      "asset": "assets/vehicles/nissan_x_trail_t31.webp"
+    },
+    {
+      "label": "X-Trail T32",
+      "asset": "assets/vehicles/nissan_x_trail_t32.webp"
+    },
+    {
+      "label": "X-Trail T33",
+      "asset": "assets/vehicles/nissan_x_trail_t33.webp"
+    },
+    {
+      "label": "Murano Z50",
+      "asset": "assets/vehicles/nissan_murano_z50.webp"
+    },
+    {
+      "label": "Murano Z51",
+      "asset": "assets/vehicles/nissan_murano_z51.webp"
+    },
+    {
+      "label": "Murano Z52",
+      "asset": "assets/vehicles/nissan_murano_z52.webp"
+    },
+    {
+      "label": "Pathfinder R51",
+      "asset": "assets/vehicles/nissan_pathfinder_r51.webp"
+    },
+    {
+      "label": "Pathfinder R52",
+      "asset": "assets/vehicles/nissan_pathfinder_r52.webp"
+    },
+    {
+      "label": "Terrano",
+      "asset": "assets/vehicles/nissan_terrano.webp"
+    },
+    {
+      "label": "Patrol Y60",
+      "asset": "assets/vehicles/nissan_patrol_y60.webp"
+    },
+    {
+      "label": "Patrol Y61",
+      "asset": "assets/vehicles/nissan_patrol_y61.webp"
+    },
+    {
+      "label": "Avenir Wagon",
+      "asset": "assets/vehicles/nissan_avenir_wagon.webp"
+    },
+    {
+      "label": "Stagea",
+      "asset": "assets/vehicles/nissan_stagea.webp"
+    },
+    {
+      "label": "Wingroad",
+      "asset": "assets/vehicles/nissan_wingroad.webp"
+    },
+    {
+      "label": "Primera Wagon",
+      "asset": "assets/vehicles/nissan_primera_wagon.webp"
+    },
+    {
+      "label": "Expert",
+      "asset": "assets/vehicles/nissan_expert.webp"
+    },
+    {
+      "label": "AD Wagon",
+      "asset": "assets/vehicles/nissan_ad_wagon.webp"
+    },
+    {
+      "label": "GT-R R35",
+      "asset": "assets/vehicles/nissan_gt_r_r35.webp"
+    },
+    {
+      "label": "GT-R R34",
+      "asset": "assets/vehicles/nissan_gt_r_r34.webp"
+    },
+    {
+      "label": "GT-R R33",
+      "asset": "assets/vehicles/nissan_gt_r_r33.webp"
+    },
+    {
+      "label": "GT-R R32",
+      "asset": "assets/vehicles/nissan_gt_r_r32.webp"
+    },
+    {
+      "label": "Skyline GT-R",
+      "asset": "assets/vehicles/nissan_skyline_gt_r.webp"
+    },
+    {
+      "label": "370Z",
+      "asset": "assets/vehicles/nissan_370z.webp"
+    },
+    {
+      "label": "350Z",
+      "asset": "assets/vehicles/nissan_350z.webp"
+    },
+    {
+      "label": "Fairlady Z Z34",
+      "asset": "assets/vehicles/nissan_fairlady_z_z34.webp"
+    },
+    {
+      "label": "Fairlady Z Z33",
+      "asset": "assets/vehicles/nissan_fairlady_z_z33.webp"
+    },
+    {
+      "label": "Silvia S13",
+      "asset": "assets/vehicles/nissan_silvia_s13.webp"
+    },
+    {
+      "label": "Silvia S14",
+      "asset": "assets/vehicles/nissan_silvia_s14.webp"
+    },
+    {
+      "label": "Silvia S15",
+      "asset": "assets/vehicles/nissan_silvia_s15.webp"
+    },
+    {
+      "label": "180SX",
+      "asset": "assets/vehicles/nissan_180sx.webp"
+    },
+    {
+      "label": "Serena C24",
+      "asset": "assets/vehicles/nissan_serena_c24.webp"
+    },
+    {
+      "label": "Serena C25",
+      "asset": "assets/vehicles/nissan_serena_c25.webp"
+    },
+    {
+      "label": "Serena C26",
+      "asset": "assets/vehicles/nissan_serena_c26.webp"
+    },
+    {
+      "label": "Serena C27",
+      "asset": "assets/vehicles/nissan_serena_c27.webp"
+    },
+    {
+      "label": "Elgrand E50",
+      "asset": "assets/vehicles/nissan_elgrand_e50.webp"
+    },
+    {
+      "label": "Elgrand E51",
+      "asset": "assets/vehicles/nissan_elgrand_e51.webp"
+    },
+    {
+      "label": "Elgrand E52",
+      "asset": "assets/vehicles/nissan_elgrand_e52.webp"
+    },
+    {
+      "label": "Lafesta",
+      "asset": "assets/vehicles/nissan_lafesta.webp"
+    },
+    {
+      "label": "Quest",
+      "asset": "assets/vehicles/nissan_quest.webp"
+    },
+    {
+      "label": "Navara D22",
+      "asset": "assets/vehicles/nissan_navara_d22.webp"
+    },
+    {
+      "label": "Navara D40",
+      "asset": "assets/vehicles/nissan_navara_d40.webp"
+    },
+    {
+      "label": "Navara D23",
+      "asset": "assets/vehicles/nissan_navara_d23.webp"
+    },
+    {
+      "label": "Frontier",
+      "asset": "assets/vehicles/nissan_frontier.webp"
+    },
+    {
+      "label": "Titan",
+      "asset": "assets/vehicles/nissan_titan.webp"
+    },
+    {
+      "label": "NP300",
+      "asset": "assets/vehicles/nissan_np300.webp"
+    },
+    {
+      "label": "NV200",
+      "asset": "assets/vehicles/nissan_nv200.webp"
+    },
+    {
+      "label": "NV350 Caravan",
+      "asset": "assets/vehicles/nissan_nv350_caravan.webp"
+    },
+    {
+      "label": "Vanette",
+      "asset": "assets/vehicles/nissan_vanette.webp"
+    },
+    {
+      "label": "Atlas",
+      "asset": "assets/vehicles/nissan_atlas.webp"
+    },
+    {
+      "label": "Civilian",
+      "asset": "assets/vehicles/nissan_civilian.webp"
+    },
+    {
+      "label": "Cabstar",
+      "asset": "assets/vehicles/nissan_cabstar.webp"
+    },
+    {
+      "label": "Dayz",
+      "asset": "assets/vehicles/nissan_dayz.webp"
+    },
+    {
+      "label": "Roox",
+      "asset": "assets/vehicles/nissan_roox.webp"
+    },
+    {
+      "label": "Clipper",
+      "asset": "assets/vehicles/nissan_clipper.webp"
+    }
+  ],
+  "unmapped_visual_only_assets": [],
+  "fallback": {
+    "asset": null,
+    "behavior": "render generic premium Nissan silhouette; never deliberately show a different named model"
+  }
+}

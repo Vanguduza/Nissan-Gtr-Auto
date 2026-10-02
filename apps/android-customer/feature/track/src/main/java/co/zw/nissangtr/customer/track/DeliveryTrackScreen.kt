@@ -1,28 +1,41 @@
 package co.zw.nissangtr.customer.track
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.RpcClient
-import co.zw.nissangtr.customer.rpc.RpcNames
 import co.zw.nissangtr.customer.rpc.etaLabel
-import co.zw.nissangtr.ui.shop.ShopDefaultScreen
-import co.zw.nissangtr.ui.shop.ShopSectionHeader
+import co.zw.nissangtr.customer.visual.GtrPremiumColors
+import co.zw.nissangtr.customer.visual.PremiumMessageBanner
+import co.zw.nissangtr.customer.visual.PremiumMessageKind
+import co.zw.nissangtr.customer.visual.PremiumPrimaryButton
+import co.zw.nissangtr.customer.visual.PremiumScreenHeader
+import co.zw.nissangtr.customer.visual.PremiumSecondaryButton
+import co.zw.nissangtr.customer.visual.PremiumStatusChip
+import co.zw.nissangtr.customer.visual.PremiumStatusTone
+import co.zw.nissangtr.customer.visual.PremiumSurfaceCard
+import co.zw.nissangtr.customer.visual.R
 
-/**
- * Privacy-safe active delivery track: **last point + ETA only**.
- *
- * Uses [RpcNames.GET_DELIVERY_TRACK_POINT] (owner job id and/or share token).
- * No map SDK in this app — coords as text. No historical trail / Realtime GPS list.
- * Bridge-First: does not use browser/WebView geolocation.
- */
 @Composable
 fun DeliveryTrackScreen(
     rpc: RpcClient,
@@ -30,7 +43,6 @@ fun DeliveryTrackScreen(
     modifier: Modifier = Modifier,
     initialToken: String? = null,
     initialJobId: String? = null,
-    /** Bumped on each open so ViewModel does not keep a prior `ended` session. */
     sessionKey: Int = 0,
     viewModel: DeliveryTrackViewModel = viewModel(
         key = "track|$sessionKey|${initialToken.orEmpty()}|${initialJobId.orEmpty()}",
@@ -38,92 +50,126 @@ fun DeliveryTrackScreen(
     ),
 ) {
     val state by viewModel.state.collectAsState()
-    val sharp = MaterialTheme.shapes.extraSmall
 
-    ShopDefaultScreen(
-        title = "Live delivery",
-        subtitle = null,
-        onBack = onBack,
-        modifier = modifier) {
-        Text(
-            "Last known location and ETA while your order is out for delivery. " +
-                "Historical GPS trail is never shown.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(modifier.fillMaxSize().background(GtrPremiumColors.Background)) {
+        PremiumScreenHeader(
+            title = "Track Delivery",
+            subtitle = "Latest permitted location and ETA",
+            onBack = onBack,
         )
 
-        if (!state.tracking) {
-            ShopSectionHeader(title = "Start", actionLabel = null)
-            OutlinedTextField(
-                value = state.tokenDraft,
-                onValueChange = viewModel::onTokenChange,
-                label = { Text("Share token (from SMS link)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-                shape = sharp,
-            )
-            OutlinedTextField(
-                value = state.jobIdDraft,
-                onValueChange = viewModel::onJobIdChange,
-                label = { Text("Delivery job id (signed-in owner)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                enabled = !state.busy,
-                shape = sharp,
-            )
-            OutlinedButton(
-                onClick = viewModel::startFromDrafts,
-                enabled = !state.busy,
-                modifier = Modifier.fillMaxWidth(),
-                shape = sharp,
-            ) { Text("Start tracking") }
-        } else {
-            Text(
-                buildString {
-                    append(if (state.ended) "Ended" else "Tracking")
-                    state.activeJobId?.let { append(" · job=$it") }
-                    state.activeToken?.let { append(" · token=…${it.takeLast(6)}") }
-                    if (state.polling) append(" · polling ~8s")
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (!state.ended) {
-                OutlinedButton(
-                    onClick = viewModel::refreshOnce,
+        Column(
+            Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PremiumSurfaceCard {
+                Box(Modifier.fillMaxWidth().height(126.dp)) {
+                    Image(
+                        painter = painterResource(R.drawable.gtr_support_delivery_van),
+                        contentDescription = null,
+                        modifier = Modifier.align(Alignment.CenterEnd).height(120.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Column(Modifier.fillMaxWidth(.58f)) {
+                        Text(
+                            if (state.ended) "Delivery complete" else "YOUR DELIVERY",
+                            color = GtrPremiumColors.TextSecondary,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        Text(
+                            state.point?.etaLabel()?.let { "ETA $it" }
+                                ?: if (state.tracking) "Updating ETA…" else "Ready to track",
+                            color = GtrPremiumColors.TextPrimary,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        PremiumStatusChip(
+                            label = when {
+                                state.ended -> "Completed"
+                                state.tracking -> "Live"
+                                else -> "Not started"
+                            },
+                            tone = if (state.ended) PremiumStatusTone.Success else PremiumStatusTone.Premium,
+                        )
+                    }
+                }
+            }
+
+            if (!state.tracking) {
+                Text(
+                    "Use the tracking code from your delivery message.",
+                    color = GtrPremiumColors.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedTextField(
+                    value = state.tokenDraft,
+                    onValueChange = viewModel::onTokenChange,
+                    label = { Text("Tracking code") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !state.busy,
+                )
+                if (state.jobIdDraft.isNotBlank()) {
+                    // Owner-job path is preserved when the app opened tracking from an order.
+                    Text(
+                        "This order is ready to track.",
+                        color = GtrPremiumColors.TextSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                PremiumPrimaryButton(
+                    text = if (state.busy) "Starting…" else "Start tracking",
+                    onClick = viewModel::startFromDrafts,
                     enabled = !state.busy,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = sharp,
-                ) { Text("Refresh now") }
-            }
-            OutlinedButton(
-                onClick = viewModel::stopTracking,
-                modifier = Modifier.fillMaxWidth(),
-                shape = sharp,
-            ) { Text(if (state.ended) "Done" else "Stop") }
-
-            state.point?.let { p ->
-                ShopSectionHeader(title = "Live", actionLabel = null)
-                Text(
-                    if (p.status == "dispatched") "Out for delivery" else p.status,
-                    style = MaterialTheme.typography.bodyMedium,
                 )
-                Text("ETA: ${p.etaLabel() ?: "Updating…"}", style = MaterialTheme.typography.bodyMedium)
-                Text("Last update: ${p.recordedAt}", style = MaterialTheme.typography.bodySmall)
-                Text(
-                    "Coords: ${"%.5f".format(p.lat)}, ${"%.5f".format(p.lng)}",
-                    style = MaterialTheme.typography.bodyLarge,
+            } else {
+                state.point?.let { p ->
+                    PremiumSurfaceCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                if (p.status == "dispatched") "Out for delivery" else p.status,
+                                color = GtrPremiumColors.TextPrimary,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                "ETA: ${p.etaLabel() ?: "Updating…"}",
+                                color = GtrPremiumColors.TextPrimary,
+                            )
+                            Text(
+                                "Last update: ${p.recordedAt}",
+                                color = GtrPremiumColors.TextSecondary,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                "For privacy, Nissan GTR Auto shows the latest permitted location only — never a historical GPS trail.",
+                                color = GtrPremiumColors.TextSecondary,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+
+                if (!state.ended) {
+                    PremiumPrimaryButton(
+                        text = if (state.busy) "Refreshing…" else "Refresh",
+                        onClick = viewModel::refreshOnce,
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                PremiumSecondaryButton(
+                    text = if (state.ended) "Done" else "Stop tracking",
+                    onClick = viewModel::stopTracking,
+                    modifier = Modifier.fillMaxWidth(),
                 )
+                state.emptyHint?.let { PremiumMessageBanner(it, PremiumMessageKind.Info) }
             }
 
-            state.emptyHint?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium)
-            }
+            state.message?.let { PremiumMessageBanner(it, PremiumMessageKind.Success) }
+            state.error?.let { PremiumMessageBanner(it, PremiumMessageKind.Error) }
         }
-
-        state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onBack, shape = sharp) { Text("Back") }
     }
 }

@@ -37,7 +37,8 @@ dependencies {
 
     // Keyless/open-source map rendering. Pinned for deterministic production builds.
     // OpenGL artifact has the widest compatibility across our minSdk 26 fleet.
-    implementation("org.maplibre.gl:android-sdk-opengl:13.4.1")
+    // 11.x: built with a Kotlin compatible with the apps (2.0.21); 13.x needs Kotlin 2.2 metadata.
+    implementation("org.maplibre.gl:android-sdk-opengl:11.8.6")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
