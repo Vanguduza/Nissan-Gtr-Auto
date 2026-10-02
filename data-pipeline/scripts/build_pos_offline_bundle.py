@@ -39,8 +39,14 @@ import os
 import sys
 import time
 import urllib.parse
+import threading
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+
+try:  # Pooled keep-alive connections when available; plain urllib otherwise.
+    import requests
+except ImportError:  # pragma: no cover - optional dependency
+    requests = None
 from pathlib import Path
 
 FORMAT = "gtr-pos-offline/1"
@@ -181,12 +187,28 @@ class R2:
     def _path(self, key: str) -> str:
         return "/" + self.bucket + "/" + urllib.parse.quote(key)
 
+    _local = threading.local()
+
+    def _session(self):
+        if requests is None:
+            return None
+        session = getattr(self._local, "session", None)
+        if session is None:
+            session = self._local.session = requests.Session()
+        return session
+
     def get(self, key: str) -> bytes:
         """Raw stored bytes (no decompression): the bundle keeps objects exactly as served."""
         path = self._path(key)
         for attempt in range(6):
             try:
-                req = urllib.request.Request(f"https://{self.host}{path}", headers=self._sign("GET", path, {}, hashlib.sha256(b"").hexdigest()))
+                headers = self._sign("GET", path, {}, hashlib.sha256(b"").hexdigest())
+                session = self._session()
+                if session is not None:
+                    r = session.get(f"https://{self.host}{path}", headers=headers, timeout=120)
+                    r.raise_for_status()
+                    return r.content
+                req = urllib.request.Request(f"https://{self.host}{path}", headers=headers)
                 with urllib.request.urlopen(req, timeout=120) as r:
                     return r.read()
             except Exception:
@@ -235,6 +257,8 @@ def main() -> int:
     ap.add_argument("--maker", default="nissan")
     ap.add_argument("--threads", type=int, default=48)
     ap.add_argument("--limit-images", type=int, default=None, help="Testing only: cap the number of images")
+    ap.add_argument("--pack-mb", type=int, default=PACK_TARGET_BYTES // (1024 * 1024),
+                    help="Pack size; smaller packs save progress more often (a rerun resumes after the last full pack)")
     args = ap.parse_args()
 
     env = os.environ
@@ -251,7 +275,7 @@ def main() -> int:
             release["bucket_name"] or env.get("CLOUDFLARE_R2_BUCKET", ""),
         )
 
-    return build(db, make_r2, Path(args.work), args.maker, args.threads, args.limit_images)
+    return build(db, make_r2, Path(args.work), args.maker, args.threads, args.limit_images, args.pack_mb * 1024 * 1024)
 
 
 def build(db, make_r2, work: Path, maker: str = "nissan", threads: int = 48, limit_images: int | None = None,
