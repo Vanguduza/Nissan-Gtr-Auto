@@ -27,8 +27,8 @@ const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * Focus dialog: the dialog is the only interactive thing on screen. The page behind is dimmed
- * (not blurred) and inert (no clicks, no tab stops, no screen-reader access); focus moves in, is trapped,
+ * Focus dialog: the dialog is the only interactive thing on screen. The page behind is blurred,
+ * dimmed and inert (no clicks, no tab stops, no screen-reader access); focus moves in, is trapped,
  * Escape closes, and focus returns to what opened it. On phones it rises as a bottom sheet.
  */
 export function Modal({

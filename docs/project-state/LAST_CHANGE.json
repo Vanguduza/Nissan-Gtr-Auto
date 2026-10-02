@@ -1,19 +1,19 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "a7f962f360d26aad7329",
+  "change_id": "b28b22a7d21bbaa5a8be",
   "changed_files": [
     "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/common/PosDialogKit.kt",
     "apps/web/components/pos/PosDialogs.tsx",
     "apps/web/components/pos/pos.module.css"
   ],
-  "diff_sha256": "a7f962f360d26aad732930e0110a6882b2b97ea2578441e8513f2b2f16e06c5e",
+  "diff_sha256": "b28b22a7d21bbaa5a8bea023b50ccd337fce4d331f1db714c41be451b11f897d",
   "domains": [
     "management-android",
     "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-02T07:01:10.316585+00:00",
+  "recorded_at_utc": "2026-10-02T07:07:19.427356+00:00",
   "schema_version": 1,
-  "source_parent": "a181ef727f8b6b51905b9229fce9ac0e7143d969"
+  "source_parent": "862850517afe31679a91d2f64603fb41869a481b"
 }

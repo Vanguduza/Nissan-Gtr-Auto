@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -60,18 +61,18 @@ import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.design.theme.PosWindowClass
 import co.zw.nissangtr.pos.ui.R
 
-/** Count of open POS dialogs; the shell recedes while it is above zero. */
+/** Count of open POS dialogs; the shell blurs itself while it is above zero. */
 val LocalPosDialogDepth = compositionLocalOf<MutableIntState> { mutableIntStateOf(0) }
 
 @Composable
 fun rememberPosDialogDepth(): MutableIntState = remember { mutableIntStateOf(0) }
 
 /**
- * Recede the POS behind an open dialog: dimmed, never blurred (owner: dialogs have sharp edges).
- * The dialog window's own dim does the rest.
+ * Blur and dim the POS behind an open dialog. RenderEffect blur is API 31+; on older devices
+ * [Modifier.blur] is a no-op and the dialog window's own dim still separates the layers.
  */
 fun Modifier.posBehindDialog(depth: Int): Modifier =
-    if (depth > 0) this.alpha(0.92f) else this
+    if (depth > 0) this.blur(14.dp).alpha(0.92f) else this
 
 /**
  * Focus dialog: its own window, so touch, keyboard focus and TalkBack stay inside it while it is
@@ -119,9 +120,10 @@ fun PosModal(
                 Modifier
                     .then(if (sheet) Modifier.fillMaxWidth() else Modifier.padding(24.dp).widthIn(max = width).fillMaxWidth())
                     .heightIn(max = if (sheet) 720.dp else 880.dp)
-                    .posNeuRaised(cornerRadius = 22.dp)
+                    // Crisp edge (owner): a solid border, no soft shadow halo around the dialog.
                     .clip(shape)
                     .background(palette.surfaceElevated)
+                    .border(1.dp, palette.borderSubtle, shape)
                     // Swallow taps so they never reach the scrim behind the card.
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                     .semantics { paneTitle = title }
