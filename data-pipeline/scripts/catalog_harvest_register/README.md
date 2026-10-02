@@ -49,3 +49,20 @@ R2 reads need `R2_ACC`, `R2_KEY`, `R2_SEC` in the environment (read-only use).
 
 Known gaps: diagram callout boxes (hotspots) are in the harvest but not yet served; several build
 variants share one chassis + engine and are told apart only by years/region.
+
+## Follow-up (2026-10-02): look-alike merge and callout boxes
+
+Many catalogue builds shared model, chassis, engine, years and region and looked identical in
+pickers (1,349 groups, 8,574 vehicles). Builds in a group share ~79% of their diagrams (median);
+the union is ~8% larger than the largest build. Each group is now one vehicle whose shard is the
+de-duplicated union (section ids re-keyed to the kept build, so a section never lists twice).
+
+5. `merge_groups.py` — builds the merged shards (`serving/nissan/harvest-2026-09/vehicle/`).
+6. `build_dparts.py` — one shard per diagram from the harvest parts table, with callout boxes
+   (`bbox_*`, fractions of the image) and quantities. Some diagrams' hotspot coordinates are on a
+   canvas 1.5x the served image; they are detected by overflow and rescaled (4 of 5.47M boxes
+   remain out of bounds and are dropped). Spot-checked visually on X-Trail and Skyline diagrams.
+7. `r2put.py` — uploads the new shards (resumable via a done-log).
+8. `push_groups.py`, `push_dparts.py` — repoint the routing rows and drop duplicate vehicles.
+
+Result: 2,071 distinct vehicles (0 look-alike groups); diagram part lists carry callout boxes.
