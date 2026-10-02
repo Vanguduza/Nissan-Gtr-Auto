@@ -53,6 +53,18 @@ class PosReducerTest {
     }
 
     @Test
+    fun `a chassis with no engine codes completes the vehicle on the generation`() {
+        val skyline = VehicleModel("skyline", "Skyline")
+        val r33 = VehicleGeneration("ENR33", "ENR33")
+        var s = reduce(PosState(), PosIntent.PickModel(skyline)).state
+        s = reduce(s, PosIntent.PickGeneration(r33)).state
+        assertNull(s.vehicle)
+        s = reduce(s, PosEvent.EnginesLoaded(r33, emptyList())).state
+        assertEquals("Skyline ENR33", s.vehicle?.label)
+        assertEquals("", s.vehicle?.engineCode)
+    }
+
+    @Test
     fun `cascade selecting a level resets levels to its right`() {
         var s = reduce(PosState(), PosIntent.PickModel(gtr)).state
         s = reduce(s, PosEvent.GenerationsLoaded(gtr, listOf(r35))).state

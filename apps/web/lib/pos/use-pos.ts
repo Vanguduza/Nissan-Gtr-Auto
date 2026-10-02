@@ -158,7 +158,8 @@ export function usePos(gateway: PosGateway) {
 
   const vehicle: SelectedVehicle | null = useMemo(() => {
     const model = models.find((m) => m.slug === modelSlug);
-    if (!model || !chassisCode || !engineCode) return null;
+    // A catalogue vehicle listed by chassis only (no engine codes) completes on the generation.
+    if (!model || !chassisCode || (!engineCode && engines.length > 0)) return null;
     const gen = generations.find((g) => g.chassisCode === chassisCode);
     return {
       modelSlug: model.slug,
@@ -167,7 +168,7 @@ export function usePos(gateway: PosGateway) {
       chassisCode,
       engineCode,
     };
-  }, [models, modelSlug, chassisCode, engineCode, generations]);
+  }, [models, modelSlug, chassisCode, engineCode, engines, generations]);
 
   const selectModel = useCallback(
     async (slug: string) => {

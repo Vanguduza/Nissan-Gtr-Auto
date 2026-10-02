@@ -186,10 +186,11 @@ private fun reduceEvent(state: PosState, event: PosEvent): Reduction = when (eve
         Reduction(state.copy(cascade = state.cascade.copy(generations = event.generations)))
     }
 
-    is PosEvent.EnginesLoaded -> if (state.cascade.generation != event.generation) {
-        Reduction(state)
-    } else {
-        Reduction(state.copy(cascade = state.cascade.copy(engines = event.engines)))
+    is PosEvent.EnginesLoaded -> when {
+        state.cascade.generation != event.generation -> Reduction(state)
+        // Catalogue vehicles listed by chassis only (no engine code): the pick completes here.
+        event.engines.isEmpty() -> reduce(state.copy(cascade = state.cascade.copy(engines = emptyList())), PosIntent.PickEngine(""))
+        else -> Reduction(state.copy(cascade = state.cascade.copy(engines = event.engines)))
     }
 
     is PosEvent.SearchLoaded -> if (event.query != state.searchQuery.trim()) {

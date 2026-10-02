@@ -13,7 +13,7 @@ data class VehicleSelection(
     val chassisCode: String,
     val engineCode: String,
 ) {
-    val label: String get() = "$modelName $chassisCode $engineCode"
+    val label: String get() = listOf(modelName, chassisCode, engineCode).filter(String::isNotBlank).joinToString(" ")
 }
 
 /** Cascade field state. Selecting a level enables and resets the levels to its right (§8.1). */
