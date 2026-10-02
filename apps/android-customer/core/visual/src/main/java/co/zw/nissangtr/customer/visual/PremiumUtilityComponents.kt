@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -91,6 +92,7 @@ fun PremiumSurfaceCard(
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
+    if (isPosStyle) { PosStyleSurfaceCard(modifier, onClick, content); return }
     val base = modifier
         .fillMaxWidth()
     Card(
@@ -132,6 +134,7 @@ fun PremiumSecondaryButton(
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosSoftButton(text, null, onClick, modifier.height(48.dp), enabled); return }
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
@@ -266,4 +269,31 @@ fun PremiumOrderTimeline(
             }
         }
     }
+}
+
+/** Search field: Material outlined field in the illustrated style, the POS soft field in POS. */
+@Composable
+fun PremiumSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    if (isPosStyle) { PosStyleSearchField(value, onValueChange, placeholder, modifier); return }
+    androidx.compose.material3.OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth().height(52.dp),
+        placeholder = { Text(placeholder) },
+        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Search, contentDescription = null) },
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+    )
+}
+
+/** Filter chip: Material filter chip in the illustrated style, the POS pill in POS. */
+@Composable
+fun PremiumFilterChip(selected: Boolean, label: String, onClick: () -> Unit) {
+    if (isPosStyle) { PosStyleFilterChip(selected, label, onClick); return }
+    androidx.compose.material3.FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
 }

@@ -1,21 +1,28 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "debc7f689f808ccece36",
+  "change_id": "c3ea12fbe6b7affa1590",
   "changed_files": [
-    "data-pipeline/scripts/catalog_harvest_register/README.md",
-    "data-pipeline/scripts/catalog_harvest_register/build_dparts.py",
-    "data-pipeline/scripts/catalog_harvest_register/merge_groups.py",
-    "data-pipeline/scripts/catalog_harvest_register/push_dparts.py",
-    "data-pipeline/scripts/catalog_harvest_register/push_groups.py",
-    "data-pipeline/scripts/catalog_harvest_register/r2put.py"
+    "apps/android-customer/core/visual/build.gradle.kts",
+    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PosStyleComponents.kt",
+    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumComponents.kt",
+    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumTheme.kt",
+    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumTokens.kt",
+    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumUtilityComponents.kt",
+    "apps/android-customer/core/visual/src/main/res/drawable-nodpi/pos_hero_car.webp",
+    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/PremiumShopBrowse.kt",
+    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesHome_theme_home_pos_dark.png",
+    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesHome_theme_home_pos_light.png",
+    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesShop_theme_shop_pos_dark.png",
+    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesShop_theme_shop_pos_light.png",
+    "apps/android-customer/settings.gradle.kts"
   ],
-  "diff_sha256": "debc7f689f808ccece361ae9ec3e8b5b445fd4847d4555016efef8c68b70da52",
+  "diff_sha256": "c3ea12fbe6b7affa15902f8747ef0b5b71e723258701553292741b7a111650b3",
   "domains": [
-    "catalog-data"
+    "customer-android"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-02T08:34:47.123147+00:00",
+  "recorded_at_utc": "2026-10-02T09:04:14.608701+00:00",
   "schema_version": 1,
-  "source_parent": "f099a984c6865679c0c527ace24c4098429ea359"
+  "source_parent": "3321e4dca0e5ab1b3d79549cf3ddfe68e70fdd7e"
 }

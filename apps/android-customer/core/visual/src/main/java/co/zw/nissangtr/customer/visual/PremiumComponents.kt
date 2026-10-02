@@ -69,6 +69,7 @@ fun PremiumTopBar(
     onCart: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleTopBar(cartCount, onMenu, onCart, modifier); return }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -116,6 +117,7 @@ fun PremiumBottomNav(
     onSelect: (PremiumTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleBottomNav(selected, onSelect, modifier); return }
     val tabs = listOf(
         Triple(PremiumTab.Home, "Home", Icons.Filled.Home),
         Triple(PremiumTab.Shop, "Shop", Icons.Filled.Storefront),
@@ -152,6 +154,7 @@ fun PerformanceHero(
     onShopAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleHero(onShopAll, modifier); return }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -242,6 +245,7 @@ fun CollapsedVehicleCard(
     onChange: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleVehicleCard(vehicle, onChange, modifier); return }
     val artwork = VehicleArtworkResolver.resolve(vehicle)
     
     Card(
@@ -369,6 +373,7 @@ fun IllustratedCategoryRail(
     onCategory: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleCategoryRail(onCategory, modifier); return }
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -413,6 +418,7 @@ fun PremiumSectionHeader(
     onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleSectionHeader(title, action, onAction, modifier); return }
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -441,6 +447,7 @@ fun SupportCardsRow(
     onTrackOrder: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleSupportRow(onFindPart, onTrackOrder, modifier); return }
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -508,6 +515,7 @@ fun PremiumProductCard(
     onAddToCart: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStylePartCard(item, liked, imageUrl, onOpen, onLike, onAddToCart, modifier); return }
     Card(
         modifier = modifier
             .width(GtrPremiumDimens.ProductCardWidth)
@@ -630,6 +638,7 @@ fun PremiumEmptyState(
     artSize: Dp = 120.dp,
     modifier: Modifier = Modifier,
 ) {
+    if (isPosStyle) { PosStyleEmptyState(title, body, modifier); return }
     Column(
         modifier = modifier
             .fillMaxWidth()

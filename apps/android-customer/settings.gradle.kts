@@ -32,6 +32,9 @@ include(":feature:catalog")
 include(":feature:address")
 
 // Shared GTR Material3 theme (packages/ui brand-tokens.json)
+include(":pos-design")
+project(":pos-design").projectDir =
+    file("../../packages/pos-design")
 include(":android-ui")
 project(":android-ui").projectDir =
     file("../../packages/android-ui")

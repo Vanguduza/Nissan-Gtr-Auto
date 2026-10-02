@@ -22,6 +22,8 @@ android {
 dependencies {
     implementation(project(":core:rpc"))
     implementation(project(":android-ui"))
+    // POS design system (neumorphism, line icons, POS palette) for the POS customer style.
+    implementation(project(":pos-design"))
 
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")

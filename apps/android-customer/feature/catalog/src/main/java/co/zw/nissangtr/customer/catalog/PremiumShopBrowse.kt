@@ -40,6 +40,8 @@ import co.zw.nissangtr.customer.rpc.CatalogListItem
 import co.zw.nissangtr.customer.visual.CollapsedVehicleCard
 import co.zw.nissangtr.customer.visual.GtrPremiumColors
 import co.zw.nissangtr.customer.visual.PremiumEmptyState
+import co.zw.nissangtr.customer.visual.PremiumFilterChip
+import co.zw.nissangtr.customer.visual.PremiumSearchField
 import co.zw.nissangtr.customer.visual.PremiumProductCard
 import co.zw.nissangtr.customer.visual.ProductImageStorage
 import co.zw.nissangtr.customer.visual.R
@@ -118,16 +120,10 @@ fun PremiumShopBrowse(
                     vehicleSheetOpen = true
                 },
             )
-            OutlinedTextField(
+            PremiumSearchField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                placeholder = { Text("Search in-stock parts") },
-                leadingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = null)
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
+                placeholder = "Search in-stock parts",
             )
         }
 
@@ -138,18 +134,10 @@ fun PremiumShopBrowse(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item {
-                    FilterChip(
-                        selected = category == null,
-                        onClick = { category = null },
-                        label = { Text("All") },
-                    )
+                    PremiumFilterChip(selected = category == null, label = "All", onClick = { category = null })
                 }
                 rowItems(categories) { label ->
-                    FilterChip(
-                        selected = category == label,
-                        onClick = { category = label },
-                        label = { Text(label) },
-                    )
+                    PremiumFilterChip(selected = category == label, label = label, onClick = { category = label })
                 }
             }
             Spacer(Modifier.height(8.dp))
