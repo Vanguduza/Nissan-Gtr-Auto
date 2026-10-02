@@ -141,7 +141,7 @@ class PreviewLockedScreenshotTest {
                             Box(Modifier.weight(1f).fillMaxWidth()) {
                                 ExpressCatalogHome(
                                     state = sampleHomeState(),
-                                    actions = ExpressHomeActions({}, {}, {}, {}, {}, {}, deliverToLabel = "Borrowdale, Harare"),
+                                    actions = ExpressHomeActions({}, {}, {}, {}, {}),
                                     onSeeAllCategories = {},
                                     onSeeAllPopular = {},
                                     onSeeAllNewest = {},

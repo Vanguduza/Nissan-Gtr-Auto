@@ -769,7 +769,6 @@ private fun CustomerApp(
                                         tab = ShellTab.Account
                                         accountSettingsOpen = true
                                     },
-                                    onDeliveryAddress = { openAccount(ProfileDest.Addresses) },
                                     onSearch = { tab = ShellTab.Shop },
                                     onServiceKits = { openAccount(ProfileDest.Kits) },
                                 ),

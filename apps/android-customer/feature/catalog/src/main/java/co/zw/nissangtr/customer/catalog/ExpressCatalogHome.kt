@@ -36,15 +36,12 @@ data class ExpressHomeActions(
     val onWishlist: () -> Unit,
     val onAccount: () -> Unit,
     val onSettings: () -> Unit,
-    val onDeliveryAddress: () -> Unit,
     val onSearch: () -> Unit,
     val onServiceKits: () -> Unit,
-    /** Delivery address shown in the header; a prompt when none is saved. */
-    val deliverToLabel: String = "Choose address",
 )
 
 /**
- * Express home (Figma "GTR Customer — Home"): brand header with the delivery address, search and
+ * Express home (Figma "GTR Customer — Home"): brand header, search and
  * vehicle, round category buttons, then product panels and the service-kit banner on a sheet.
  * Data is the same in-stock, vehicle-scoped browse list as the illustrated home.
  */
@@ -92,11 +89,9 @@ fun ExpressCatalogHome(
     ) {
         ExpressHeader(
             vehicleLabel = vehicleLabel,
-            deliverToLabel = actions.deliverToLabel,
             onWishlist = actions.onWishlist,
             onAccount = actions.onAccount,
             onSettings = actions.onSettings,
-            onDeliveryAddress = actions.onDeliveryAddress,
             onSearch = actions.onSearch,
             onVehicle = ::openVehicle,
             onCategory = { c ->

@@ -1,37 +1,21 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "b9b644a0132b92105b47",
+  "change_id": "99b42cb4871bef2026d5",
   "changed_files": [
-    "PROJECT_CANONICAL_STATE.json",
     "apps/android-customer/app/src/main/java/co/zw/nissangtr/customer/MainActivity.kt",
-    "apps/android-customer/app/src/main/java/co/zw/nissangtr/customer/prefs/CustomerPrefs.kt",
-    "apps/android-customer/app/src/main/java/co/zw/nissangtr/customer/settings/SettingsHubScreen.kt",
     "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/ExpressComponents.kt",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumTheme.kt",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumTokens.kt",
-    "apps/android-customer/core/visual/src/main/res/drawable-nodpi/express_logo.png",
-    "apps/android-customer/core/visual/src/main/res/drawable/express_glyph_all.xml",
-    "apps/android-customer/core/visual/src/main/res/drawable/express_glyph_brakes.xml",
-    "apps/android-customer/core/visual/src/main/res/drawable/express_glyph_car.xml",
-    "apps/android-customer/core/visual/src/main/res/drawable/express_glyph_electrical.xml",
-    "apps/android-customer/core/visual/src/main/res/drawable/express_glyph_engine.xml",
-    "apps/android-customer/core/visual/src/main/res/drawable/express_glyph_service.xml",
-    "apps/android-customer/core/visual/src/main/res/drawable/express_glyph_suspension.xml",
-    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/CatalogScreen.kt",
     "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/ExpressCatalogHome.kt",
-    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/PremiumCatalogHome.kt",
     "apps/android-customer/feature/catalog/src/test/java/co/zw/nissangtr/customer/catalog/PreviewLockedScreenshotTest.kt",
     "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_expressHome_express_home_dark.png",
     "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_expressHome_express_home_light.png"
   ],
-  "diff_sha256": "b9b644a0132b92105b478650d93534c1e6e17f097fb88da5cb2081446a787a0e",
+  "diff_sha256": "99b42cb4871bef2026d51ea2f580478ba4e9c46920290ac8314254e88609d4f1",
   "domains": [
-    "customer-android",
-    "repository"
+    "customer-android"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-02T16:17:59.246840+00:00",
+  "recorded_at_utc": "2026-10-02T16:31:40.786024+00:00",
   "schema_version": 1,
-  "source_parent": "ecdce91b4c3e7aae177f9de48991ce07fec3e502"
+  "source_parent": "1a8e1af683b3c5adaa7ef57fe0c585dcc464f7e2"
 }

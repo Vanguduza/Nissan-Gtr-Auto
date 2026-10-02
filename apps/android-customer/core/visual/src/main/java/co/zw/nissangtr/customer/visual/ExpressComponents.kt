@@ -140,6 +140,23 @@ private fun Modifier.expressNeuPressed(radius: Dp): Modifier = composed {
     }
 }
 
+/**
+ * Soft raised depth for round controls on the red/black header: a dark drop to the lower right
+ * and a faint light lift to the upper left, kept subtle so the gradient shows through.
+ */
+private fun Modifier.expressNeuOnHeader(distance: Dp = 4.dp, blur: Dp = 10.dp): Modifier = drawBehind {
+    val d = distance.toPx(); val b = blur.toPx()
+    drawIntoCanvas { canvas ->
+        fun layer(color: Color, o: Float) {
+            val paint = Paint(); val fp = paint.asFrameworkPaint()
+            fp.color = color.toArgb(); fp.maskFilter = BlurMaskFilter(b, BlurMaskFilter.Blur.NORMAL)
+            canvas.drawCircle(androidx.compose.ui.geometry.Offset(size.width / 2 + o, size.height / 2 + o), size.minDimension / 2, paint)
+        }
+        layer(Color.Black.copy(alpha = 0.6f), d)
+        layer(Color.White.copy(alpha = 0.16f), -d)
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------------------------
@@ -164,17 +181,15 @@ object ExpressCategoryKeys {
 }
 
 /**
- * Brand header: badge + wishlist / account / settings, delivery chip with the delivery address,
+ * Brand header: badge + wishlist / account / settings, delivery chip,
  * search pill, the vehicle being shopped for, and the round category buttons.
  */
 @Composable
 fun ExpressHeader(
     vehicleLabel: String?,
-    deliverToLabel: String,
     onWishlist: () -> Unit,
     onAccount: () -> Unit,
     onSettings: () -> Unit,
-    onDeliveryAddress: () -> Unit,
     onSearch: () -> Unit,
     onVehicle: () -> Unit,
     onCategory: (ExpressCategory) -> Unit,
@@ -216,24 +231,6 @@ fun ExpressHeader(
                 Icon(Icons.Filled.ElectricBolt, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Delivery", color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.weight(1f))
-            Column(
-                Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onDeliveryAddress).padding(4.dp),
-                horizontalAlignment = Alignment.End,
-            ) {
-                Text("Deliver to", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelMedium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        deliverToLabel,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Icon(Icons.Filled.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                }
             }
         }
         // Search
@@ -302,12 +299,24 @@ private fun HeaderAction(icon: ImageVector, description: String, onClick: () -> 
 @Composable
 fun ExpressCategoryButton(category: ExpressCategory, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.width(72.dp).clickable(role = Role.Button, onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        val p = LocalGtrPalette.current
+        // Light theme: graphite face matching the service-kit banner; dark theme keeps the chalk face.
+        val face = if (p.isDark) {
+            Brush.linearGradient(listOf(Color.White, Color(0xFFDCE1E8)))
+        } else {
+            Brush.linearGradient(listOf(Color(0xFF2A303C), Color(0xFF12151C)))
+        }
         Box(
             Modifier
                 .size(64.dp)
-                .shadow(8.dp, CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
+                .expressNeuOnHeader()
                 .clip(CircleShape)
-                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFE2E6EC)))),
+                .background(face)
+                .border(
+                    1.dp,
+                    Brush.linearGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent, Color.Black.copy(alpha = 0.35f))),
+                    CircleShape,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Image(painterResource(category.glyph), contentDescription = null, modifier = Modifier.size(36.dp))
