@@ -3,6 +3,7 @@ package co.zw.nissangtr.pos.data
 import co.zw.nissangtr.management.rpc.CatalogLiveException
 import co.zw.nissangtr.management.rpc.FakeRpcClient
 import co.zw.nissangtr.management.rpc.RpcClient
+import co.zw.nissangtr.management.rpc.VehicleMasterEntry
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.model.EpcDiagram
 import co.zw.nissangtr.pos.domain.model.EpcMissing
@@ -36,15 +37,43 @@ class LiveEpcGatewayTest {
     private fun json(s: String) = Json.parseToJsonElement(s).jsonObject
 
     @Test
-    fun `diagram list comes from the live catalogue by slugs and carries the diagram id`() = runTest {
+    fun `diagram list comes from the live catalogue by vehicle and section id and carries the diagram id`() = runTest {
         val rpc = Live { _, _ -> json("""{"diagrams":[{"diagram_id":"d-1","title":"Cylinder head"},{"diagram_id":"d-2","name_en":"Oil pump"}]}""") }
         val r = RpcSaleGateways(rpc).epc.diagrams(model, variant, section) as PosResult.Ok
         assertEquals(listOf(EpcDiagram("d-1", "Cylinder head", "d-1"), EpcDiagram("d-2", "Oil pump", "d-2")), r.value)
         val (action, params) = rpc.calls.single()
         assertEquals("staff-diagrams", action)
-        assertEquals("patrol", params["family_slug"])
-        assertEquals("y62-vk56", params["variant_slug"])
-        assertEquals("engine", params["section_slug"])
+        assertEquals("y62-vk56", params["variant_id"])
+        assertEquals("engine", params["section_id"])
+    }
+
+    @Test
+    fun `sections come from the vehicle's R2 shard, keyed by section id`() = runTest {
+        val rpc = Live { _, _ -> json("""{"sections":[{"section_id":"s-9","section_slug":"engine","display_name":"Engine"},{"section_slug":"orphan"}]}""") }
+        val r = RpcSaleGateways(rpc).epc.sections(model, variant) as PosResult.Ok
+        assertEquals(listOf(EpcSection("s-9", "Engine")), r.value)
+        assertEquals("staff-sections" to mapOf("variant_id" to "y62-vk56"), rpc.calls.single())
+    }
+
+    @Test
+    fun `the vehicle cascade and EPC variants are built from the published vehicle master`() = runTest {
+        val master = listOf(
+            VehicleMasterEntry("VM-1", "240SX", "S13", "KA24E", 1988, 2011, "U.S.A."),
+            VehicleMasterEntry("VM-2", "240SX", "S13", "KA24D", 1991, 2011, "U.S.A."),
+            VehicleMasterEntry("VM-3", "240SX", "S14", "KA24DE", 1994, 2011, "U.S.A."),
+            VehicleMasterEntry("VM-4", "180SX", "RS13", "CA18DT", 1989, 1991, "Japan"),
+        )
+        val rpc = object : RpcClient by FakeRpcClient() {
+            override suspend fun listVehicleMaster() = master
+        }
+        val fit = RpcPosGateways(rpc).fitment
+        val models = (fit.models() as PosResult.Ok).value
+        assertEquals(listOf(VehicleModel("180sx", "180SX"), VehicleModel("240sx", "240SX")), models)
+        val gens = (fit.generations(models[1]) as PosResult.Ok).value
+        assertEquals(listOf("S13", "S14"), gens.map { it.chassisCode })
+        assertEquals(listOf("KA24E", "KA24D"), (fit.engines(models[1], gens[0]) as PosResult.Ok).value)
+        val variants = (RpcSaleGateways(rpc).epc.variants(models[1]) as PosResult.Ok).value
+        assertEquals(listOf("VM-1", "VM-2", "VM-3"), variants.map { it.slug })
     }
 
     @Test

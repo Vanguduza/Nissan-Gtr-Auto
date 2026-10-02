@@ -53,23 +53,29 @@ class RpcPosGateways(private val rpc: RpcClient) {
         }
     }
 
+    // Model → generation → engine from the published vehicle master (the vehicles the full
+    // catalogue serves), so every pick resolves to an R2-backed vehicle.
     val fitment: FitmentGateway = object : FitmentGateway {
         override suspend fun models() = call {
-            rpc.listCatalogModels(MAKER).map { VehicleModel(it.slug, it.displayName) }
+            rpc.listVehicleMaster()
+                .distinctBy { it.familySlug }
+                .map { VehicleModel(it.familySlug, it.modelFamily) }
+                .sortedBy { it.name }
         }
 
         override suspend fun generations(model: VehicleModel) = call {
-            rpc.listCatalogVariants(MAKER, model.slug)
+            rpc.listVehicleMaster()
+                .filter { it.familySlug == model.slug }
                 .groupBy { it.chassisCode }
-                .map { (chassis, variants) ->
-                    val years = variants.mapNotNull { it.yearLabel?.takeIf(String::isNotBlank) }.distinct()
+                .map { (chassis, vehicles) ->
+                    val years = vehicles.mapNotNull { it.yearLabel }.distinct()
                     VehicleGeneration(chassis, if (years.isEmpty()) chassis else "$chassis (${years.joinToString(", ")})")
                 }
         }
 
         override suspend fun engines(model: VehicleModel, generation: VehicleGeneration) = call {
-            rpc.listCatalogVariants(MAKER, model.slug)
-                .filter { it.chassisCode == generation.chassisCode }
+            rpc.listVehicleMaster()
+                .filter { it.familySlug == model.slug && it.chassisCode == generation.chassisCode }
                 .mapNotNull { it.engineCode?.takeIf(String::isNotBlank) }
                 .distinct()
         }

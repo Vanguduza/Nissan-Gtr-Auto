@@ -28,7 +28,6 @@ import {
   type DiagramImageResponse,
   type StaffPartsResponse,
 } from "@/lib/catalog-live-gateway";
-import { listVehicleMaster, type VehicleMasterRow } from "@/lib/vehicle-catalog";
 import { searchPosCatalog } from "@/lib/staff-pos";
 
 const NISSAN_MAKER_SLUG = "nissan";
@@ -61,6 +60,32 @@ function fail<T>(error: { message: string } | null | undefined, fallback: string
 }
 
 type StaffDiagramRow = { diagram_id: string; title: string | null; name_en: string | null; image_ready: boolean };
+type StaffSectionRow = { section_id: string; section_slug: string; display_name: string; diagram_count: number };
+/** A `list_customer_vehicle_master` row; id is the catalogue vehicle_id. */
+type VehicleMasterDbRow = {
+  id: string;
+  model_family: string;
+  chassis_code: string;
+  engine_code: string | null;
+  year_start: number | null;
+  year_end: number | null;
+  sales_region: string | null;
+};
+
+/** Same family key as the catalogue gateway (`staff-families`). */
+function familySlug(model: string): string {
+  return model.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function minYear(a: number | null, b: number | null): number | null {
+  return a == null ? b : b == null ? a : Math.min(a, b);
+}
+function maxYear(a: number | null, b: number | null): number | null {
+  return a == null ? b : b == null ? a : Math.max(a, b);
+}
+function yearRange(start: number | null, end: number | null): string | null {
+  if (start == null && end == null) return null;
+  return `${start ?? ""}–${end ?? ""}`;
+}
 
 /** Cashier wording for the live catalogue's fail-closed states. */
 export function liveCatalogMessage(e: unknown, fallback: string): string {
@@ -125,18 +150,36 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     return projectUrl ? `${projectUrl}/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/${p.replace(/^\//, "")}` : null;
   }
 
-  let vehicleMaster: Promise<VehicleMasterRow[] | null> | null = null;
+  // The published vehicle master (one row per vehicle the full catalogue serves). Its id is the
+  // `catalog-live-r2` vehicle_id; models, generations and engines in the cascade all come from it.
+  let vehicleMaster: Promise<PosResult<VehicleMasterDbRow[]>> | null = null;
+
+  function loadVehicleMaster(): Promise<PosResult<VehicleMasterDbRow[]>> {
+    vehicleMaster ??= (async (): Promise<PosResult<VehicleMasterDbRow[]>> => {
+      const { data, error } = await rpc(client, "list_customer_vehicle_master", {
+        p_maker: NISSAN_MAKER_SLUG,
+        p_limit: 10000,
+        p_offset: 0,
+      });
+      if (error) {
+        vehicleMaster = null;
+        return fail(error, "Could not load the vehicle list.");
+      }
+      return { ok: true, data: (data ?? []) as VehicleMasterDbRow[] };
+    })();
+    return vehicleMaster;
+  }
 
   /** The published vehicle-master id for this exact chassis + engine, or null if absent/ambiguous. */
   async function vehicleMasterId(v: SelectedVehicle): Promise<string | null> {
-    vehicleMaster ??= listVehicleMaster(client).then((r) => (r.ok ? r.data : null));
-    const rows = (await vehicleMaster) ?? [];
+    const res = await loadVehicleMaster();
+    const rows = res.ok ? res.data : [];
     const ids = new Set(
       rows
         .filter(
           (r) =>
-            r.chassisCode.trim().toUpperCase() === v.chassisCode.trim().toUpperCase() &&
-            (r.engineCode ?? "").trim().toUpperCase() === v.engineCode.trim().toUpperCase(),
+            r.chassis_code.trim().toUpperCase() === v.chassisCode.trim().toUpperCase() &&
+            (r.engine_code ?? "").trim().toUpperCase() === v.engineCode.trim().toUpperCase(),
         )
         .map((r) => r.id),
     );
@@ -350,25 +393,35 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     isPreview: false,
 
     async listModels() {
-      const { data, error } = await rpc(client, "list_catalog_models", { p_maker_slug: NISSAN_MAKER_SLUG });
-      if (error) return fail(error, "Could not load models.");
-      const rows = (data ?? []) as Array<{ slug: string; display_name: string; year_start: number | null; year_end: number | null }>;
-      return {
-        ok: true,
-        data: rows.map((r) => ({ slug: r.slug, name: r.display_name, yearStart: r.year_start, yearEnd: r.year_end })),
-      };
+      const res = await loadVehicleMaster();
+      if (!res.ok) return res;
+      const models = new Map<string, VehicleModel>();
+      for (const r of res.data) {
+        const slug = familySlug(r.model_family);
+        const m = models.get(slug);
+        models.set(slug, {
+          slug,
+          name: r.model_family,
+          yearStart: minYear(m?.yearStart ?? null, r.year_start),
+          yearEnd: maxYear(m?.yearEnd ?? null, r.year_end),
+        });
+      }
+      return { ok: true, data: [...models.values()].sort((a, b) => a.name.localeCompare(b.name)) };
     },
 
     async listVariants(modelSlug) {
-      const { data, error } = await rpc(client, "list_catalog_variants", {
-        p_maker_slug: NISSAN_MAKER_SLUG,
-        p_model_slug: modelSlug,
-      });
-      if (error) return fail(error, "Could not load generations.");
-      const rows = (data ?? []) as Array<{ slug: string; chassis_code: string; engine_code: string | null; year_label: string | null }>;
+      const res = await loadVehicleMaster();
+      if (!res.ok) return res;
       return {
         ok: true,
-        data: rows.map((r) => ({ slug: r.slug, chassisCode: r.chassis_code, engineCode: r.engine_code, yearLabel: r.year_label })),
+        data: res.data
+          .filter((r) => familySlug(r.model_family) === modelSlug)
+          .map((r) => ({
+            slug: r.id,
+            chassisCode: r.chassis_code,
+            engineCode: r.engine_code,
+            yearLabel: [yearRange(r.year_start, r.year_end), r.sales_region].filter(Boolean).join(" · ") || null,
+          })),
       };
     },
 
@@ -891,34 +944,32 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       return gateway.listVariants(modelSlug);
     },
 
-    async listEpcSections(modelSlug, variantSlug) {
-      const { data, error } = await rpc(client, "list_catalog_sections", {
-        p_maker_slug: NISSAN_MAKER_SLUG,
-        p_model_slug: modelSlug,
-        p_variant_slug: variantSlug,
-      });
-      if (error) return fail(error, "Could not load sections.");
-      return {
-        ok: true,
-        data: ((data ?? []) as Array<{ slug: string; name: string; thumbnail_url: string | null }>).map((r) => ({
-          slug: r.slug,
-          name: r.name,
-          thumbnailUrl: r.thumbnail_url,
-        })),
-      };
+    // Sections, diagram lists, parts and images come from the full catalogue through
+    // `catalog-live-r2` (vehicle routing in Supabase, shards and images in R2), never fixture rows.
+    // The variant slug is the vehicle-master id; the section slug is the catalogue section id.
+    async listEpcSections(_modelSlug, variantSlug) {
+      try {
+        const res = await catalogGatewayGet<{ sections?: StaffSectionRow[] }>(client, "staff-sections", {
+          maker: NISSAN_MAKER_SLUG,
+          variant_id: variantSlug,
+        });
+        return {
+          ok: true,
+          data: (res.sections ?? []).map((r) => ({ slug: r.section_id, name: r.display_name, thumbnailUrl: null })),
+        };
+      } catch (e) {
+        return { ok: false, error: liveCatalogMessage(e, "Could not load sections.") };
+      }
     },
 
-    // Diagram lists, parts and images come from the full catalogue through `catalog-live-r2`
-    // (hierarchy in Supabase, part shards and images in R2), never from fixture rows.
-    async listEpcDiagrams(modelSlug, variantSlug, sectionSlug) {
+    async listEpcDiagrams(_modelSlug, variantSlug, sectionSlug) {
       try {
         const rows: StaffDiagramRow[] = [];
         for (let offset = 0; ; ) {
           const page = await catalogGatewayGet<{ diagrams?: StaffDiagramRow[] }>(client, "staff-diagrams", {
             maker: NISSAN_MAKER_SLUG,
-            family_slug: modelSlug,
-            variant_slug: variantSlug,
-            section_slug: sectionSlug,
+            variant_id: variantSlug,
+            section_id: sectionSlug,
             limit: 200,
             offset,
           });

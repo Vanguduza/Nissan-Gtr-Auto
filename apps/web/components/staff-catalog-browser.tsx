@@ -159,6 +159,8 @@ export function StaffCatalogBrowser() {
           family_slug: family.family_slug,
           variant_slug: variant.variant_slug,
           section_slug: section.section_slug,
+          variant_id: variant.variant_id,
+          section_id: section.section_id,
           limit: page,
           offset,
         });

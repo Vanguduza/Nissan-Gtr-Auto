@@ -38,6 +38,34 @@ data class EpcVariant(
     val engineCode: String? = null,
 )
 
+/**
+ * One published vehicle of the full catalogue (`list_customer_vehicle_master`). [id] is the
+ * `catalog-live-r2` vehicle_id that keys its R2 shards; the cascade (model → generation → engine)
+ * and the EPC variants are built from these rows.
+ */
+data class VehicleMasterEntry(
+    val id: String,
+    val modelFamily: String,
+    val chassisCode: String,
+    val engineCode: String? = null,
+    val yearStart: Int? = null,
+    val yearEnd: Int? = null,
+    val salesRegion: String? = null,
+) {
+    /** Same family key as the catalogue gateway (`staff-families`). */
+    val familySlug: String get() = familySlugOf(modelFamily)
+
+    /** "1994–2012 · Japan", or null when neither is known. */
+    val yearLabel: String?
+        get() = listOfNotNull(
+            if (yearStart == null && yearEnd == null) null else "${yearStart ?: ""}–${yearEnd ?: ""}",
+            salesRegion?.takeIf(String::isNotBlank),
+        ).joinToString(" · ").ifEmpty { null }
+}
+
+fun familySlugOf(model: String): String =
+    model.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+
 data class EpcSection(
     val slug: String,
     val name: String,

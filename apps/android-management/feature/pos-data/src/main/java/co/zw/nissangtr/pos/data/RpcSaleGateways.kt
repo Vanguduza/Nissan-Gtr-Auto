@@ -53,7 +53,6 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.net.URL
 
-private const val EPC_MAKER = "nissan"
 
 /** Checkout, customers, back office and EPC over the typed RPC client (Phase 5). */
 class RpcSaleGateways(private val rpc: RpcClient) {
@@ -212,16 +211,27 @@ class RpcSaleGateways(private val rpc: RpcClient) {
     }
 
     val epc: EpcGateway = object : EpcGateway {
+        // Variants are published vehicles (slug = vehicle-master id). Sections, diagram lists, parts
+        // and images come from the full catalogue (`catalog-live-r2`: Supabase routing + R2 shards),
+        // never from fixture rows; unavailable content fails closed. Section slug = section id.
         override suspend fun variants(model: VehicleModel) = call {
-            rpc.listCatalogVariants(EPC_MAKER, model.slug).map { EpcVariant(it.slug, it.chassisCode, it.engineCode, it.yearLabel) }
+            rpc.listVehicleMaster()
+                .filter { it.familySlug == model.slug }
+                .map { EpcVariant(it.id, it.chassisCode, it.engineCode, it.yearLabel) }
         }
 
         override suspend fun sections(model: VehicleModel, variant: EpcVariant) = call {
-            rpc.listCatalogSections(EPC_MAKER, model.slug, variant.slug).sortedBy { it.sortOrder }.map { EpcSection(it.slug, it.name) }
+            live {
+                rpc.catalogLive("staff-sections", mapOf("variant_id" to variant.slug))["sections"]
+                    ?.jsonArray.orEmpty()
+                    .mapNotNull { it as? JsonObject }
+                    .mapNotNull { s ->
+                        val id = s.str("section_id") ?: return@mapNotNull null
+                        EpcSection(id, s.str("display_name") ?: s.str("section_slug") ?: id)
+                    }
+            }
         }
 
-        // Diagram lists, parts and images come from the full catalogue (`catalog-live-r2`: Supabase
-        // hierarchy + R2 shards), never from fixture rows; unavailable content fails closed.
         override suspend fun diagrams(model: VehicleModel, variant: EpcVariant, section: EpcSection) = call {
             live {
                 val out = mutableListOf<EpcDiagram>()
@@ -230,9 +240,8 @@ class RpcSaleGateways(private val rpc: RpcClient) {
                     val page = rpc.catalogLive(
                         "staff-diagrams",
                         mapOf(
-                            "family_slug" to model.slug,
-                            "variant_slug" to variant.slug,
-                            "section_slug" to section.slug,
+                            "variant_id" to variant.slug,
+                            "section_id" to section.slug,
                             "limit" to "200",
                             "offset" to offset.toString(),
                         ),

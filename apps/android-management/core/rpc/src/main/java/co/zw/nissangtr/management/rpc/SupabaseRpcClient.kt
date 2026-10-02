@@ -690,23 +690,27 @@ class SupabaseRpcClient(
             ?.cartId
     }
 
-    @Volatile private var vehicleMasterCache: List<VehicleMasterRpcRow>? = null
+    @Volatile private var vehicleMasterCache: List<VehicleMasterEntry>? = null
 
-    override suspend fun resolveVehicleMasterId(chassisCode: String, engineCode: String): String? {
-        val rows = vehicleMasterCache ?: client.postgrest.rpc(
+    override suspend fun listVehicleMaster(): List<VehicleMasterEntry> =
+        vehicleMasterCache ?: client.postgrest.rpc(
             "list_customer_vehicle_master",
             buildJsonObject {
                 put("p_maker", "nissan")
                 put("p_limit", 10000)
                 put("p_offset", 0)
             },
-        ).decodeList<VehicleMasterRpcRow>().also { vehicleMasterCache = it }
-        val ids = rows.filter {
-            it.chassisCode.equals(chassisCode.trim(), ignoreCase = true) &&
-                it.engineCode.orEmpty().equals(engineCode.trim(), ignoreCase = true)
-        }.map { it.id }.distinct()
-        return ids.singleOrNull()
-    }
+        ).decodeList<VehicleMasterRpcRow>().map {
+            VehicleMasterEntry(
+                id = it.id,
+                modelFamily = it.modelFamily,
+                chassisCode = it.chassisCode,
+                engineCode = it.engineCode,
+                yearStart = it.yearStart,
+                yearEnd = it.yearEnd,
+                salesRegion = it.salesRegion,
+            )
+        }.also { vehicleMasterCache = it }
 
     override suspend fun catalogLive(action: String, params: Map<String, String>): JsonObject {
         val response = try {
@@ -2962,8 +2966,12 @@ private data class PosScanSessionCartRow(
 @Serializable
 private data class VehicleMasterRpcRow(
     val id: String,
+    @SerialName("model_family") val modelFamily: String,
     @SerialName("chassis_code") val chassisCode: String,
     @SerialName("engine_code") val engineCode: String? = null,
+    @SerialName("year_start") val yearStart: Int? = null,
+    @SerialName("year_end") val yearEnd: Int? = null,
+    @SerialName("sales_region") val salesRegion: String? = null,
 )
 
 @Serializable

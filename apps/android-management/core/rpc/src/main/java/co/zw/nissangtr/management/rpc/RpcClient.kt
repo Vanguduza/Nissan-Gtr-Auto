@@ -141,7 +141,18 @@ interface RpcClient {
      * Published vehicle-master id (full catalogue) for an exact chassis + engine; null when the
      * vehicle is absent or ambiguous. Keys the vehicle's R2 fitment shard.
      */
-    suspend fun resolveVehicleMasterId(chassisCode: String, engineCode: String): String? = null
+    suspend fun resolveVehicleMasterId(chassisCode: String, engineCode: String): String? =
+        listVehicleMaster()
+            .filter {
+                it.chassisCode.equals(chassisCode.trim(), ignoreCase = true) &&
+                    it.engineCode.orEmpty().equals(engineCode.trim(), ignoreCase = true)
+            }
+            .map { it.id }
+            .distinct()
+            .singleOrNull()
+
+    /** Every published vehicle of the full catalogue (vehicle selector + EPC variants). */
+    suspend fun listVehicleMaster(): List<VehicleMasterEntry> = emptyList()
 
     suspend fun listCatalogDiagrams(
         makerSlug: String,

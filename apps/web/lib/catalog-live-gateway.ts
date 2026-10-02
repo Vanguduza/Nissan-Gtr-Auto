@@ -36,7 +36,10 @@ export async function catalogGatewayGet<T>(
   const token = data.session?.access_token;
   if (!token) throw new Error("Sign in required");
 
-  const url = new URL(`${gatewayBase()}/${route.replace(/^\/+/, "")}`);
+  const action = route.replace(/^\/+/, "");
+  // The deployed gateway reads `?action=`; older builds read the last path segment. Send both.
+  const url = new URL(`${gatewayBase()}/${action}`);
+  url.searchParams.set("action", action);
   for (const [key, value] of Object.entries(params)) {
     if (value == null || value === "") continue;
     url.searchParams.set(key, String(value));

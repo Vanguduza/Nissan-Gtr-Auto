@@ -6,8 +6,8 @@ Normal catalog browsing never requires downloading the complete encrypted Nissan
 
 ### Customer app / website
 
-1. Vehicle selector reads the published `catalog_v2` customer vehicle master from Supabase.
-2. The selected canonical `vehicle_master_id` is sent to `catalog-live-r2`.
+1. Vehicle selector reads the published vehicle master through `list_customer_vehicle_master` (rows of `catalog_r2_vehicle_master`, anon + authenticated).
+2. The selected row's `id` (the R2 scope key, `VM-…`) is sent to `catalog-live-r2` as `vehicle_id`.
 3. The gateway resolves the current immutable release in Supabase.
 4. It reads only the selected vehicle's compact `vehicle_search` / `vehicle_fitment` shard from Cloudflare R2.
 5. EPC part identities are joined to live `stock_items`, saleable stock and pricing in Supabase.
@@ -18,13 +18,22 @@ No full EPC file is downloaded to the browser or Android device.
 ### Staff / management EPC
 
 1. Staff opens `/staff/catalog`.
-2. Family → variant → section → diagram hierarchy comes from staff-authorized `catalog_v2` RPCs in Supabase.
+2. Family → variant → section → diagram hierarchy comes from `catalog-live-r2` (`staff-families` → `staff-variants` → `staff-sections` → `staff-diagrams`). Families group the vehicle master by model; a variant is one published vehicle (`variant_id` = vehicle-master id); sections and diagram lists are derived from that vehicle's `vehicle_search` shard. The POS (web and tablet) cascade uses the same vehicle master.
 3. Selecting a diagram asks `catalog-live-r2` for that diagram only.
 4. The gateway reads the corresponding `diagram_parts` shard from R2.
 5. The diagram image is returned as a short-lived signed R2 URL.
 6. Staff can inspect PNC/OEM/applicability records and the actual diagram without downloading the catalog bundle.
 
 The full encrypted bundle remains an optional offline/admin/disaster-recovery artifact only.
+
+### Gateway request shape
+
+`catalog-live-r2` reads the action from the POST body (`{ "action": "staff-sections", ... }`) or the
+`?action=` query parameter; the last path segment is accepted as a fallback for older clients.
+Parameters come from the body or the query string. R2 credentials come from Edge secrets when set,
+otherwise from Vault through `catalog_r2_runtime_config` (service role only). `health` reports
+`catalog_data_ready` / `live_browsing_ready` once all 16 published vehicles are routed and every
+serving kind exists for the current release.
 
 ## R2 serving layout
 
