@@ -32,8 +32,10 @@
     },
     "delivery-android": {
       "module": "apps/android-delivery",
-      "status": "CANONICAL_LINEAGE_MUST_BE_RESOLVED_BEFORE_RELEASE",
-      "release_blocked_until_reconciled": true
+      "status": "RECONCILED_LINEAGE",
+      "required_ancestor": "3bd799e6291b58fc2c9c070c1b59f6b57daa79dc",
+      "release_blocked_until_reconciled": false,
+      "notes": "Owner decision 2026-10-02: combine both lineages. Reconciled on ccr-8c44a0d0-msyynq by taking the delivery app from origin/main 7bab71c4 (POD evidence hardening, COD dual-read, receipt line items, job tap fix, status gate, fake bridges + tests) onto this branch's keyless maps-nav bridge (MapLibre + OpenFreeMap, OSRM routing; no Google key). Visual system afterwards rebuilt in the Slopes style (:core:design, light + dark, map-first screens with a draggable sheet); every driver feature kept."
     }
   }
 }

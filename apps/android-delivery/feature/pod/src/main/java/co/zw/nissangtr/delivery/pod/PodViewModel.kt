@@ -12,7 +12,6 @@ import co.zw.nissangtr.bridges.podsignature.PodCaptureResult
 import co.zw.nissangtr.bridges.podsignature.PodSignatureBridge
 import co.zw.nissangtr.bridges.podsignature.PodSignatureOptions
 import co.zw.nissangtr.delivery.rpc.RpcClient
-import co.zw.nissangtr.delivery.rpc.RpcNames
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -261,7 +260,7 @@ class PodViewModel(
             try {
                 rpc.uploadPodAsset(photoKey, photo, photoMime)
                 rpc.uploadPodAsset(sigKey, sig, sigMime)
-                val id = rpc.submitDeliveryPod(
+                rpc.submitDeliveryPod(
                     deliveryJobId = jobId,
                     photoPath = photoKey,
                     signaturePath = sigKey,
@@ -272,7 +271,7 @@ class PodViewModel(
                     it.copy(
                         busy = false,
                         completed = true,
-                        message = "${RpcNames.SUBMIT_DELIVERY_POD} → $id",
+                        message = "Delivered — proof of delivery uploaded",
                     )
                 }
                 flushQueue()

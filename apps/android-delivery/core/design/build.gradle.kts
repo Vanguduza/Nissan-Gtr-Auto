@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "co.zw.nissangtr.delivery.auth"
+    namespace = "co.zw.nissangtr.delivery.design"
     compileSdk = 34
     defaultConfig {
         minSdk = 26
@@ -23,15 +23,13 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:rpc"))
-    implementation(project(":core:design"))
-    implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
-    implementation(composeBom)
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
+    api(composeBom)
+    api("androidx.compose.ui:ui")
+    api("androidx.compose.material3:material3")
+    api("androidx.compose.material:material-icons-extended")
+    api("androidx.compose.foundation:foundation")
+    implementation("androidx.core:core-ktx:1.13.1")
+    debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

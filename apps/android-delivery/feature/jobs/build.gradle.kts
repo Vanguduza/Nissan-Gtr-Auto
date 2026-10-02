@@ -2,6 +2,7 @@ plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("app.cash.paparazzi")
 }
 
 android {
@@ -24,7 +25,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
-    implementation(project(":android-ui"))
+    implementation(project(":core:design"))
     implementation(project(":feature:tracking"))
     implementation(project(":feature:pod"))
     implementation(project(":location-tracker"))
@@ -44,4 +45,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation(project(":feature:auth"))
+}
+
+// Optional real-map backdrops for screenshot tests (rendered locally, never committed):
+// ./gradlew :feature:jobs:recordPaparazziDebug -PdeliveryMapDir=/path/to/pngs
+tasks.withType<Test>().configureEach {
+    systemProperty("delivery.mapDir", (project.findProperty("deliveryMapDir") as String?) ?: "")
 }

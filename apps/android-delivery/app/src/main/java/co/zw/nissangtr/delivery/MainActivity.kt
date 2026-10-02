@@ -1,25 +1,31 @@
 package co.zw.nissangtr.delivery
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -34,6 +40,11 @@ import co.zw.nissangtr.bridges.podsignature.CanvasPodSignatureBridge
 import co.zw.nissangtr.bridges.podsignature.PodSignatureBridge
 import co.zw.nissangtr.delivery.auth.AuthGate
 import co.zw.nissangtr.delivery.auth.AuthModule
+import co.zw.nissangtr.delivery.design.Slopes
+import co.zw.nissangtr.delivery.design.SlopesMode
+import co.zw.nissangtr.delivery.design.SlopesTab
+import co.zw.nissangtr.delivery.design.SlopesTabBar
+import co.zw.nissangtr.delivery.design.SlopesTheme
 import co.zw.nissangtr.delivery.jobs.DeliveryMeTab
 import co.zw.nissangtr.delivery.jobs.DeliveryRouteTab
 import co.zw.nissangtr.delivery.jobs.JobDetailScreen
@@ -47,15 +58,11 @@ import co.zw.nissangtr.delivery.rpc.RpcClientFactory
 import co.zw.nissangtr.delivery.rpc.SupabaseRpcClient
 import co.zw.nissangtr.delivery.tracking.TrackingModule
 import co.zw.nissangtr.delivery.tracking.TrackingViewModel
-import co.zw.nissangtr.ui.shop.ShopBottomBar
-import co.zw.nissangtr.ui.shop.ShopBottomTab
-import co.zw.nissangtr.ui.shop.ShopSplash
-import co.zw.nissangtr.ui.shop.ShopTheme
 
 /**
- * Driver shell — Shopping-By-KMP MainNav IA (Jobs / Route / Me) over [RpcClient].
- * Full ShopKit visual system (ShopTheme Standard + ShopBottomBar), not staff compact.
- * Hardware stays Bridge-First: GPS FGS, POD camera, POD signature, Maps nav.
+ * Driver shell — Today / Route / Account over [RpcClient], in the Slopes-style visual system
+ * (map-first screens with a draggable sheet; light, dark or follow the phone).
+ * Hardware stays Bridge-First: GPS FGS, POD camera, POD signature, maps.
  */
 class MainActivity : ComponentActivity() {
 
@@ -64,6 +71,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var signatureBridge: CanvasPodSignatureBridge
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         gpsBridge = FusedLocationGpsBridge(this, pingBuffer = GpsPingBuffer())
         cameraBridge = CameraxPodCameraBridge(this)
@@ -82,34 +90,34 @@ class MainActivity : ComponentActivity() {
         )
         val supabase = rpc as? SupabaseRpcClient
 
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
         setContent {
-            // Full ShopKit density (Standard) — same entry as customer; no compact shortcut.
-            ShopTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    var splashDone by remember { mutableStateOf(false) }
-                    if (!splashDone) {
-                        ShopSplash(
-                            brand = "Nissan GTR Auto",
-                            tagline = "Driver",
-                            onFinished = { splashDone = true },
+            var appearance by remember {
+                mutableStateOf(
+                    runCatching { SlopesMode.valueOf(prefs.getString(KEY_APPEARANCE, null) ?: "") }
+                        .getOrDefault(SlopesMode.System),
+                )
+            }
+            SlopesTheme(mode = appearance) {
+                Box(Modifier.fillMaxSize().background(Slopes.colors.background)) {
+                    AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
+                        DeliveryApp(
+                            rpc = rpc,
+                            gps = gpsBridge,
+                            camera = cameraBridge,
+                            signature = signatureBridge,
+                            signedInEmail = email,
+                            supportPhone = BuildConfig.SUPPORT_PHONE,
+                            routingBaseUrl = BuildConfig.ROUTING_BASE_URL,
+                            mapStyleUrl = BuildConfig.MAPLIBRE_STYLE_URL,
+                            appearance = appearance,
+                            onAppearanceChange = {
+                                appearance = it
+                                prefs.edit().putString(KEY_APPEARANCE, it.name).apply()
+                            },
+                            onSignOut = onSignOut,
                         )
-                    } else {
-                        AuthGate(liveRpc = live, supabase = supabase) { email, onSignOut ->
-                            DeliveryApp(
-                                rpc = rpc,
-                                gps = gpsBridge,
-                                camera = cameraBridge,
-                                signature = signatureBridge,
-                                signedInEmail = email,
-                                supportPhone = BuildConfig.SUPPORT_PHONE,
-                                routingBaseUrl = BuildConfig.ROUTING_BASE_URL,
-                                mapStyleUrl = BuildConfig.MAPLIBRE_STYLE_URL,
-                                onSignOut = onSignOut,
-                            )
-                        }
                     }
                 }
             }
@@ -128,6 +136,11 @@ class MainActivity : ComponentActivity() {
         if (::cameraBridge.isInitialized) cameraBridge.detachActivity()
         if (::signatureBridge.isInitialized) signatureBridge.detachActivity()
         super.onPause()
+    }
+
+    private companion object {
+        const val PREFS = "delivery_prefs"
+        const val KEY_APPEARANCE = "appearance"
     }
 
     @Deprecated("Deprecated in Java")
@@ -165,9 +178,9 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class DriverTab(val label: String, val icon: ImageVector) {
-    Jobs("Jobs", Icons.Filled.LocalShipping),
-    Route("Route", Icons.Filled.Map),
-    Me("Me", Icons.Filled.AccountCircle),
+    Today("Today", Icons.Filled.Today),
+    Route("Route", Icons.Filled.Route),
+    Account("Account", Icons.Filled.AccountCircle),
 }
 
 @Composable
@@ -180,6 +193,8 @@ private fun DeliveryApp(
     supportPhone: String,
     routingBaseUrl: String,
     mapStyleUrl: String,
+    appearance: SlopesMode,
+    onAppearanceChange: (SlopesMode) -> Unit,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -192,15 +207,15 @@ private fun DeliveryApp(
             gps,
             context,
             supportPhone,
-            routingBaseUrl,
-            mapStyleUrl,
+            routingBaseUrl = routingBaseUrl,
+            mapStyleUrl = mapStyleUrl,
         ),
     )
     val state by jobsVm.state.collectAsState()
     val tracking by trackingVm.state.collectAsState()
     // Derive from collected state so selectedJobId invalidates composition (not a raw VM peek).
     val selected = resolveSelectedJob(state)
-    var tab by remember { mutableStateOf(DriverTab.Jobs) }
+    var tab by rememberSaveable { mutableStateOf(DriverTab.Today) }
 
     if (selected != null) {
         BackHandler { jobsVm.selectJob(null) }
@@ -218,31 +233,20 @@ private fun DeliveryApp(
         return
     }
 
-    val bottomTabs = remember {
-        DriverTab.entries.map { ShopBottomTab(it.name, it.label, it.icon) }
-    }
-    // KMP MainNav: elevated ShopBottomBar + tab bodies (same chrome as customer 4-tab).
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            ShopBottomBar(
-                tabs = bottomTabs,
-                selectedKey = tab.name,
-                onSelect = { key -> tab = DriverTab.valueOf(key) },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            when (tab) {
-                DriverTab.Jobs -> JobsListScreen(
+    val tabs = remember { DriverTab.entries.map { SlopesTab(it.name, it.label, it.icon) } }
+    Column(Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = tab,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            label = "driver-tab",
+        ) { current ->
+            when (current) {
+                DriverTab.Today -> JobsListScreen(
                     state = state,
                     vm = jobsVm,
                     trackingVm = trackingVm,
-                    shellSubtitle = null,
+                    tracking = tracking,
                 )
                 DriverTab.Route -> DeliveryRouteTab(
                     state = state,
@@ -250,14 +254,22 @@ private fun DeliveryApp(
                     vm = jobsVm,
                     trackingVm = trackingVm,
                 )
-                DriverTab.Me -> DeliveryMeTab(
+                DriverTab.Account -> DeliveryMeTab(
                     state = state,
                     vm = jobsVm,
                     trackingVm = trackingVm,
                     signedInEmail = signedInEmail,
                     onSignOut = onSignOut,
+                    appearance = appearance,
+                    onAppearanceChange = onAppearanceChange,
+                    appVersion = "GTR Delivery ${BuildConfig.VERSION_NAME}",
                 )
             }
         }
+        SlopesTabBar(
+            tabs = tabs,
+            selectedKey = tab.name,
+            onSelect = { key -> tab = DriverTab.valueOf(key) },
+        )
     }
 }

@@ -81,7 +81,7 @@ android {
 
 dependencies {
     implementation(project(":core:rpc"))
-    implementation(project(":android-ui"))
+    implementation(project(":core:design"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:jobs"))
     implementation(project(":feature:tracking"))

@@ -21,6 +21,7 @@ ADR: [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decision
 |--------|---------|------|
 | `:app` | `co.zw.nissangtr.delivery` | Launcher + auth gate + bridge Activity attach |
 | `:core:rpc` | `…delivery.rpc` | `RpcClient` + Fake/Live + delivery RPC names |
+| `:core:design` | `…delivery.design` | Slopes-style visual system: theme (light/dark), map + draggable sheet layout, stats, grouped lists, tab bar |
 | `:feature:auth` | `…delivery.auth` | GoTrue sign-in; gate role `driver` \| `admin` |
 | `:feature:jobs` | `…delivery.jobs` | Job list/detail, presence, MapLibre live map, fail, stops, panic, geofence UI |
 | `:feature:tracking` | `…delivery.tracking` | FGS GPS via location-tracker; throttle; offline location queue; `MapLibreJobMap` |
@@ -29,6 +30,19 @@ ADR: [`docs/decisions/2026-07-25-dedicated-delivery-app.md`](../../docs/decision
 | `:pod-camera` | `…bridges.podcamera` | From `bridges/android/pod-camera` |
 | `:pod-signature` | `…bridges.podsignature` | From `bridges/android/pod-signature` |
 | `:maps-nav` | `…bridges.maps` | From `bridges/android/maps-nav` — OSRM + deprecated Google Directions/Maps fallback |
+
+## Visual style
+
+Modelled on the Slopes iOS app: each main screen is a full-bleed map with a draggable sheet
+(grabber, bold large title, tinted action tiles, number-led stats, white grouped lists on a grey
+background). Tabs: **Today** (stops by Up next / Delivered / Failed, driver status), **Route**
+(live GPS, progress timeline, stop order) and **Account** (status, appearance, shift, safety).
+A stop opens on the map with its driving route and Overview / Proof / Issue sections.
+Appearance is System / Light / Dark (Account tab); the map switches between the OpenFreeMap
+light and dark styles unless `MAPLIBRE_STYLE_URL` points at a self-hosted style.
+
+Screenshots: `./gradlew :feature:jobs:recordPaparazziDebug` (goldens use a plain grid where the
+map goes; add `-PdeliveryMapDir=<dir>` with `overview-light.png` etc. to preview over real maps).
 
 ## Features → RPCs
 

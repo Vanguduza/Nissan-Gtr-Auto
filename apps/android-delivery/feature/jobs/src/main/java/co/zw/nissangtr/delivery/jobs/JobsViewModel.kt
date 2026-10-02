@@ -19,7 +19,6 @@ import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.GeofenceSuggestion
 import co.zw.nissangtr.delivery.rpc.OptimizedStop
 import co.zw.nissangtr.delivery.rpc.RpcClient
-import co.zw.nissangtr.delivery.rpc.RpcNames
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,11 +50,21 @@ data class JobsUiState(
     val routePoints: List<MapLatLng> = emptyList(),
     val routeLabel: String? = null,
     val routeEtaSource: RouteEtaSource? = null,
+    val routeDistanceMeters: Int? = null,
+    val routeDurationSeconds: Int? = null,
     val routeBusy: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
+
+/** Driver-facing presence label. */
+fun DriverPresenceStatus.displayLabel(): String = when (this) {
+    DriverPresenceStatus.AVAILABLE -> "Available"
+    DriverPresenceStatus.ON_DUTY -> "On duty"
+    DriverPresenceStatus.BREAK -> "On break"
+    DriverPresenceStatus.OFFLINE -> "Offline"
+}
 
 /** Resolve job detail from list state — used by shell so Compose tracks [JobsUiState.selectedJobId]. */
 fun resolveSelectedJob(state: JobsUiState): DeliveryJobSummary? {
@@ -141,6 +150,8 @@ class JobsViewModel(
             routePoints = emptyList(),
             routeLabel = null,
             routeEtaSource = null,
+            routeDistanceMeters = null,
+            routeDurationSeconds = null,
             error = null,
             message = null,
         )
@@ -204,7 +215,7 @@ class JobsViewModel(
                     it.copy(
                         busy = false,
                         presence = status,
-                        message = "${RpcNames.SET_DRIVER_PRESENCE} → ${status.rpcValue}",
+                        message = "You are now ${status.displayLabel().lowercase()}",
                     )
                 }
             } catch (e: Exception) {
@@ -219,7 +230,7 @@ class JobsViewModel(
     fun markArrived() {
         _state.update {
             it.copy(
-                message = "Arrival confirmed (geofence suggestion accepted — status unchanged until POD)",
+                message = "Arrival confirmed — the job stays active until proof of delivery",
                 geofence = it.geofence?.copy(suggestArrive = false),
             )
         }
@@ -252,8 +263,9 @@ class JobsViewModel(
                     it.copy(
                         busy = false,
                         geofence = suggestion,
-                        message = "Geofence: ${suggestion.distanceM?.let { d -> "%.0fm".format(d) } ?: "n/a"} " +
-                            "arrive=${suggestion.suggestArrive} complete=${suggestion.suggestComplete}",
+                        message = suggestion.distanceM
+                            ?.let { d -> "%.0f m from the drop-off".format(d) }
+                            ?: "Distance to the drop-off unavailable",
                     )
                 }
             } catch (e: Exception) {
@@ -344,6 +356,8 @@ class JobsViewModel(
                         routeBusy = false,
                         routePoints = route.points,
                         routeEtaSource = etaSource,
+                        routeDistanceMeters = route.distanceMeters,
+                        routeDurationSeconds = route.durationSeconds,
                         routeLabel = formatRouteGuidanceLabel(
                             etaSource = etaSource,
                             summary = route.summary,
@@ -383,7 +397,7 @@ class JobsViewModel(
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null) }
             try {
-                val id = rpc.failDeliveryJob(
+                rpc.failDeliveryJob(
                     deliveryJobId = jobId,
                     reason = reason,
                     notes = notes,
@@ -392,8 +406,7 @@ class JobsViewModel(
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.FAIL_DELIVERY_JOB} → $id" +
-                            if (reattempt) " (reattempt created)" else "",
+                        message = "Marked failed" + if (reattempt) " · reattempt created" else "",
                         selectedJobId = null,
                     )
                 }
@@ -420,7 +433,7 @@ class JobsViewModel(
                     it.copy(
                         busy = false,
                         optimizedStops = stops,
-                        message = "${RpcNames.OPTIMIZE_DRIVER_STOPS} → ${stops.size} stops",
+                        message = "Route optimised · ${stops.size} stops",
                     )
                 }
                 refresh()
@@ -443,7 +456,7 @@ class JobsViewModel(
                     lat = coord.latitude
                     lng = coord.longitude
                 }
-                val id = rpc.raiseDeliveryPanic(
+                rpc.raiseDeliveryPanic(
                     deliveryJobId = _state.value.selectedJobId,
                     lat = lat,
                     lng = lng,
@@ -451,7 +464,7 @@ class JobsViewModel(
                 _state.update {
                     it.copy(
                         busy = false,
-                        message = "${RpcNames.RAISE_DELIVERY_PANIC} → $id",
+                        message = "Dispatch alerted",
                     )
                 }
                 dialSupport()
@@ -485,7 +498,7 @@ class JobsViewModel(
     fun acknowledgeCompleteSuggestion() {
         _state.update {
             it.copy(
-                message = "Complete suggested — use Complete job → signature pad (stays Active until signed)",
+                message = "You are at the drop-off — collect proof of delivery to complete",
                 geofence = it.geofence?.copy(suggestComplete = false),
             )
         }
