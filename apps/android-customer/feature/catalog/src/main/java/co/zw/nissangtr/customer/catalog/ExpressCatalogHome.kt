@@ -124,7 +124,6 @@ fun ExpressCatalogHome(
                         ExpressProductCard(
                             item = item,
                             imageUrl = ProductImageStorage.publicUrl(item.imagePath),
-                            fitsLabel = fits,
                             onOpen = { onOpenProduct(item.oem) },
                             onAdd = { onAddToCart(item) },
                         )
@@ -148,7 +147,6 @@ fun ExpressCatalogHome(
                         ExpressProductCard(
                             item = item,
                             imageUrl = ProductImageStorage.publicUrl(item.imagePath),
-                            fitsLabel = fits,
                             onOpen = { onOpenProduct(item.oem) },
                             onAdd = { onAddToCart(item) },
                         )

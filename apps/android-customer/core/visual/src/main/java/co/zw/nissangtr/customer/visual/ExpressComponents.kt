@@ -253,6 +253,7 @@ fun ExpressHeader(
         Row(
             Modifier
                 .padding(horizontal = 16.dp)
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color.White.copy(alpha = 0.10f))
                 .clickable(role = Role.Button, onClick = onVehicle)
@@ -263,9 +264,9 @@ fun ExpressHeader(
             Spacer(Modifier.width(8.dp))
             if (vehicleLabel != null) {
                 Text("Shopping for ", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodyMedium)
-                Text(vehicleLabel, color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(vehicleLabel, color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             } else {
-                Text("Choose your vehicle", color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text("Choose your vehicle", color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             }
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Filled.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(18.dp))
@@ -299,13 +300,8 @@ private fun HeaderAction(icon: ImageVector, description: String, onClick: () -> 
 @Composable
 fun ExpressCategoryButton(category: ExpressCategory, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.width(72.dp).clickable(role = Role.Button, onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        val p = LocalGtrPalette.current
-        // Light theme: graphite face matching the service-kit banner; dark theme keeps the chalk face.
-        val face = if (p.isDark) {
-            Brush.linearGradient(listOf(Color.White, Color(0xFFDCE1E8)))
-        } else {
-            Brush.linearGradient(listOf(Color(0xFF2A303C), Color(0xFF12151C)))
-        }
+        // Chalk face, lit from the upper left.
+        val face = Brush.linearGradient(listOf(Color.White, Color(0xFFDCE1E8)))
         Box(
             Modifier
                 .size(64.dp)
@@ -405,12 +401,11 @@ fun ExpressSection(
     }
 }
 
-/** Equal-size product card: photo well with a round add button, two-line name, price, fit line. */
+/** Equal-size product card: photo well with a round add button, two-line name, price, stock. */
 @Composable
 fun ExpressProductCard(
     item: CatalogListItem,
     imageUrl: String?,
-    fitsLabel: String?,
     onOpen: () -> Unit,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
@@ -472,7 +467,7 @@ fun ExpressProductCard(
             maxLines = 1,
         )
         Text(
-            listOfNotNull(fitsLabel?.let { "Fits $it" }, stockLabel(item.stock)).joinToString(" · "),
+            stockLabel(item.stock),
             color = when (item.stock) {
                 StockState.LOW -> GtrPremiumColors.Warning
                 else -> GtrPremiumColors.TextSecondary
