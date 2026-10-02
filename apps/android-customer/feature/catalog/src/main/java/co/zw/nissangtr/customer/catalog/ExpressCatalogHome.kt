@@ -22,6 +22,7 @@ import co.zw.nissangtr.customer.rpc.CatalogListItem
 import co.zw.nissangtr.customer.rpc.SelectedFitmentVehicle
 import co.zw.nissangtr.customer.visual.ExpressCategoryKeys
 import co.zw.nissangtr.customer.visual.ExpressHeader
+import co.zw.nissangtr.customer.visual.ExpressModelArt
 import co.zw.nissangtr.customer.visual.ExpressProductCard
 import co.zw.nissangtr.customer.visual.ExpressPromoBanner
 import co.zw.nissangtr.customer.visual.ExpressSection
@@ -136,6 +137,7 @@ fun ExpressCatalogHome(
                 body = "Filters, plugs and fluids, bundled",
                 cta = "Shop kits",
                 onClick = actions.onServiceKits,
+                art = ExpressModelArt.forModel(state.selectedFitment?.model),
             )
             if (newest.isNotEmpty()) {
                 ExpressSection(

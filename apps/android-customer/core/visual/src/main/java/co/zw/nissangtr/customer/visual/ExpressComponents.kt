@@ -470,7 +470,7 @@ private fun stockLabel(s: StockState): String = when (s) {
     StockState.BACKORDER -> "On order"
 }
 
-/** Dark banner with the GT-R photo fading in from the right. */
+/** Dark banner with the vehicle photo ([art], graded dark with red accents) fading in from the right. */
 @Composable
 fun ExpressPromoBanner(
     kicker: String,
@@ -479,6 +479,7 @@ fun ExpressPromoBanner(
     cta: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    @DrawableRes art: Int = R.drawable.pos_hero_car,
 ) {
     Box(
         modifier
@@ -490,7 +491,7 @@ fun ExpressPromoBanner(
             .clickable(onClick = onClick),
     ) {
         Image(
-            painterResource(R.drawable.pos_hero_car),
+            painterResource(art),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(214.dp),
