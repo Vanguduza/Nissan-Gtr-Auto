@@ -63,6 +63,8 @@ import co.zw.nissangtr.pos.ui.common.formatQty
 import co.zw.nissangtr.pos.ui.home.CardAction
 import co.zw.nissangtr.pos.ui.home.EmptyCard
 import co.zw.nissangtr.pos.ui.home.PartCard
+import co.zw.nissangtr.pos.ui.home.OfflineCatalogControl
+import co.zw.nissangtr.pos.ui.home.OfflineCatalogPhase
 import co.zw.nissangtr.pos.ui.home.PosHostActions
 import co.zw.nissangtr.pos.ui.home.SoftButton
 import java.time.LocalDate
@@ -532,6 +534,7 @@ fun SettingsScreen(state: PosState, dispatch: (PosIntent) -> Unit, host: PosHost
                 modifier = Modifier.width(140.dp),
             )
         }
+        host.offlineCatalog?.let { OfflineCatalogRow(it) }
         ListRow(stringResource(R.string.pos_scanner), stringResource(R.string.pos_scanner_hint))
         ListRow(stringResource(R.string.pos_receipts_setting), stringResource(R.string.pos_receipts_setting_hint))
         host.onKioskSettings?.let { open ->
@@ -546,6 +549,57 @@ fun SettingsScreen(state: PosState, dispatch: (PosIntent) -> Unit, host: PosHost
         }
         state.operator?.let { op ->
             PosText(stringResource(R.string.pos_signed_in_as, op.displayName, op.roleLabel), PosTheme.type.bodySecondary, palette.textMuted, modifier = Modifier.padding(top = 10.dp))
+        }
+    }
+}
+
+private fun gigabytes(bytes: Long): String =
+    if (bytes >= 1_000_000_000L) "%.1f GB".format(bytes / 1e9) else "${maxOf(1L, bytes / 1_000_000L)} MB"
+
+/** Download, pause, resume or remove the full catalogue so search, the cascade and EPC work offline. */
+@Composable
+private fun OfflineCatalogRow(c: OfflineCatalogControl) {
+    val subtitle = when (c.phase) {
+        OfflineCatalogPhase.None -> c.message ?: stringResource(R.string.pos_offline_catalog_none)
+        OfflineCatalogPhase.Downloading -> stringResource(
+            R.string.pos_offline_catalog_downloading,
+            gigabytes(c.doneBytes),
+            gigabytes(c.totalBytes),
+            (c.doneBytes * 100 / maxOf(1L, c.totalBytes)).toInt(),
+        )
+        OfflineCatalogPhase.Paused -> stringResource(
+            R.string.pos_offline_catalog_paused,
+            c.message.orEmpty(),
+            gigabytes(c.doneBytes),
+            gigabytes(c.totalBytes),
+        )
+        OfflineCatalogPhase.Ready -> stringResource(
+            R.string.pos_offline_catalog_ready,
+            c.release.orEmpty(),
+            gigabytes(c.totalBytes),
+            c.downloadedAt.orEmpty(),
+        )
+    }
+    ListRow(stringResource(R.string.pos_offline_catalog), subtitle) {
+        when (c.phase) {
+            OfflineCatalogPhase.Downloading ->
+                SoftButton(stringResource(R.string.pos_offline_catalog_pause), null, enabled = true, onClick = c.onPause, modifier = Modifier.width(120.dp))
+            else -> SoftButton(
+                stringResource(
+                    when (c.phase) {
+                        OfflineCatalogPhase.None -> R.string.pos_offline_catalog_download
+                        OfflineCatalogPhase.Paused -> R.string.pos_offline_catalog_continue
+                        else -> R.string.pos_offline_catalog_update
+                    },
+                ),
+                null,
+                enabled = true,
+                onClick = c.onDownload,
+                modifier = Modifier.width(140.dp),
+            )
+        }
+        if (c.phase == OfflineCatalogPhase.Ready || c.phase == OfflineCatalogPhase.Paused) {
+            SoftButton(stringResource(R.string.pos_offline_catalog_remove), null, enabled = true, onClick = c.onRemove, modifier = Modifier.width(120.dp))
         }
     }
 }

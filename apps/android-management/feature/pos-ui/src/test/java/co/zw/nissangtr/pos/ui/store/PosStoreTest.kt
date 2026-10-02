@@ -80,7 +80,7 @@ class PosStoreTest {
     private class FakeOutbox : OfflineSaleGateway {
         val queued = mutableListOf<CartProjection>()
         var syncs = 0
-        override suspend fun searchLocal(query: String) =
+        override suspend fun searchLocal(query: String, vehicle: VehicleSelection?) =
             PosResult.Ok(PosFixtures.bestSellers.filter { it.name.contains(query, ignoreCase = true) })
         override suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts): PosResult<OfflineQueued> {
             queued += cart

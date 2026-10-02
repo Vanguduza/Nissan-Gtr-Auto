@@ -96,6 +96,24 @@ data class PosHostActions(
     val onKioskSettings: (() -> Unit)? = null,
     /** Leave the POS for the module hub (non-kiosk builds). */
     val onExitToHub: (() -> Unit)? = null,
+    /** Settings → Offline catalogue: the downloadable full catalogue on this device. */
+    val offlineCatalog: OfflineCatalogControl? = null,
+)
+
+enum class OfflineCatalogPhase { None, Downloading, Paused, Ready }
+
+/** What the Settings row shows and does for the downloadable full catalogue (owned by the host). */
+data class OfflineCatalogControl(
+    val phase: OfflineCatalogPhase,
+    val release: String?,
+    val doneBytes: Long,
+    val totalBytes: Long,
+    /** Already formatted for the till's locale. */
+    val downloadedAt: String?,
+    val message: String?,
+    val onDownload: () -> Unit,
+    val onPause: () -> Unit,
+    val onRemove: () -> Unit,
 )
 
 /**

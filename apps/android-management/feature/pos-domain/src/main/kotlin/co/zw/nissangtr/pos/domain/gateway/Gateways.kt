@@ -124,8 +124,11 @@ interface EpcGateway {
  * replayed idempotently; refusals come back as conflicts for review, never as invented ledger rows.
  */
 interface OfflineSaleGateway {
-    /** Search the last catalogue snapshot (prices and stock as of the last sync). */
-    suspend fun searchLocal(query: String): PosResult<List<CatalogPart>>
+    /**
+     * Search the last catalogue snapshot (prices and stock as of the last sync). With [vehicle] and
+     * the offline catalogue on the device, the search is limited to parts that fit it.
+     */
+    suspend fun searchLocal(query: String, vehicle: VehicleSelection? = null): PosResult<List<CatalogPart>>
     suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts): PosResult<OfflineQueued>
     /** Replay the outbox and refresh the snapshot; call only while online. */
     suspend fun sync(): PosResult<OfflineSyncStatus>
@@ -134,7 +137,7 @@ interface OfflineSaleGateway {
     /** No outbox on this device (tests, previews): offline selling stays unavailable. */
     object None : OfflineSaleGateway {
         private val refused = PosResult.Err(PosError.OfflineRestricted(setOf("no_outbox")))
-        override suspend fun searchLocal(query: String) = refused
+        override suspend fun searchLocal(query: String, vehicle: VehicleSelection?) = refused
         override suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts) = refused
         override suspend fun sync(): PosResult<OfflineSyncStatus> = PosResult.Ok(OfflineSyncStatus(0, 0))
         override suspend fun status(): PosResult<OfflineSyncStatus> = PosResult.Ok(OfflineSyncStatus(0, 0))

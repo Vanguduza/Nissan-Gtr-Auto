@@ -4,6 +4,13 @@ import android.content.Context
 import android.provider.Settings
 import co.zw.nissangtr.management.pos.offline.InMemoryOfflinePosStore
 import co.zw.nissangtr.management.pos.offline.LocalCartLine
+import co.zw.nissangtr.management.pos.offline.LocalCatalogItem
+import co.zw.nissangtr.management.pos.offline.bundle.OfflineCatalogBundle
+import co.zw.nissangtr.management.pos.offline.bundle.OfflineStockLine
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import co.zw.nissangtr.management.pos.offline.OfflinePosRpcHolder
 import co.zw.nissangtr.management.pos.offline.OfflinePosStore
 import co.zw.nissangtr.management.pos.offline.OfflinePosSyncEngine
@@ -41,6 +48,7 @@ class PosOfflineOutbox private constructor(
     private val rpc: RpcClient,
     private val store: OfflinePosStore,
     private val engine: OfflinePosSyncEngine,
+    private val catalog: OfflineCatalogBundle?,
 ) : OfflineSaleGateway {
 
     private val prefs = context.getSharedPreferences("pos_offline_outbox", Context.MODE_PRIVATE)
@@ -55,20 +63,49 @@ class PosOfflineOutbox private constructor(
         return chosen.id
     }
 
-    override suspend fun searchLocal(query: String) = io {
+    override suspend fun searchLocal(query: String, vehicle: VehicleSelection?) = io {
         val warehouse = prefs.getString(KEY_WAREHOUSE, null)
             ?: throw OutboxRefusal(PosError.OfflineRestricted(setOf("no_snapshot")))
-        engine.searchLocal(warehouse, query.trim()).map { item ->
-            val currency = CurrencyCode(item.currency.uppercase())
-            CatalogPart(
-                stockItemId = item.stockItemId,
-                oemPartNumber = item.oemPartNumber,
-                name = item.description ?: item.oemPartNumber,
-                price = Money.ofMajor(item.unitPrice, currency),
-                saleableQty = item.saleableQty,
-                imageUrl = null,
-            )
+        val bundle = catalog?.takeIf { it.ready }
+        if (vehicle != null && bundle != null) {
+            // The downloaded full catalogue: parts that fit this vehicle and that the snapshot sells.
+            val vehicleId = bundle.vehicleMaster()
+                .filter {
+                    it.chassisCode.equals(vehicle.chassisCode, ignoreCase = true) &&
+                        it.engineCode.orEmpty().equals(vehicle.engineCode, ignoreCase = true)
+                }
+                .minOfOrNull { it.id }
+            if (vehicleId != null) {
+                val byOem = store.catalogFor(warehouse).associateBy { OfflineCatalogBundle.normalizePart(it.oemPartNumber) }
+                return@io bundle.vehicleStock(vehicleId, query.trim(), stockLines(), limit = 100)["results"]
+                    ?.jsonArray.orEmpty()
+                    .mapNotNull { (it as? JsonObject)?.get("internal_catalog_ref")?.jsonPrimitive?.contentOrNull }
+                    .mapNotNull { byOem[OfflineCatalogBundle.normalizePart(it)] }
+                    .map { it.toPart() }
+            }
         }
+        engine.searchLocal(warehouse, query.trim()).map { it.toPart() }
+    }
+
+    /** The snapshot's stocked parts by normalised part number, for the offline catalogue. */
+    fun stockLines(): Map<String, OfflineStockLine> {
+        val warehouse = prefs.getString(KEY_WAREHOUSE, null) ?: return emptyMap()
+        return store.catalogFor(warehouse).associate {
+            OfflineCatalogBundle.normalizePart(it.oemPartNumber) to
+                OfflineStockLine(it.stockItemId, it.oemPartNumber, it.description, it.unitPrice, it.saleableQty, it.currency.uppercase())
+        }
+    }
+
+    private fun LocalCatalogItem.toPart(): CatalogPart {
+        val currency = CurrencyCode(currency.uppercase())
+        return CatalogPart(
+            stockItemId = stockItemId,
+            oemPartNumber = oemPartNumber,
+            name = description ?: oemPartNumber,
+            price = Money.ofMajor(unitPrice, currency),
+            saleableQty = saleableQty,
+            imageUrl = null,
+        )
     }
 
     override suspend fun queueCashSale(cart: CartProjection, vehicle: VehicleSelection?, contacts: ReceiptContacts) = io {
@@ -146,7 +183,7 @@ class PosOfflineOutbox private constructor(
     companion object {
         private const val KEY_WAREHOUSE = "warehouse_id"
 
-        fun open(context: Context, rpc: RpcClient): PosOfflineOutbox {
+        fun open(context: Context, rpc: RpcClient, catalog: OfflineCatalogBundle? = null): PosOfflineOutbox {
             val app = context.applicationContext
             val store: OfflinePosStore = runCatching { SqlCipherOfflinePosStore.open(app) }.getOrElse { InMemoryOfflinePosStore() }
             val engine = OfflinePosSyncEngine(
@@ -154,7 +191,7 @@ class PosOfflineOutbox private constructor(
                 store = store,
                 deviceId = Settings.Secure.getString(app.contentResolver, Settings.Secure.ANDROID_ID) ?: "tablet",
             )
-            return PosOfflineOutbox(app, rpc, store, engine)
+            return PosOfflineOutbox(app, rpc, store, engine, catalog)
         }
     }
 }

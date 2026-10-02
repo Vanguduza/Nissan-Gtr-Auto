@@ -20,6 +20,10 @@ import co.zw.nissangtr.bridges.escpos.EscPosReceiptLine
 import co.zw.nissangtr.bridges.qr.CameraPermissionStatus
 import co.zw.nissangtr.bridges.qr.QrScannerBridge
 import co.zw.nissangtr.management.pos.offline.OfflinePosConnectivity
+import co.zw.nissangtr.management.pos.offline.bundle.OfflineCatalogBundle
+import co.zw.nissangtr.management.pos.offline.bundle.OfflineCatalogRpcClient
+import co.zw.nissangtr.pos.ui.home.OfflineCatalogControl
+import co.zw.nissangtr.pos.ui.home.OfflineCatalogPhase
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.pos.data.RpcPosGateways
 import co.zw.nissangtr.pos.data.RpcSaleGateways
@@ -57,11 +61,14 @@ fun PosTabletEntry(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val offlineCatalog = remember { OfflineCatalogHolder.get(context) }
     val vm: PosStoreViewModel = viewModel(
         factory = PosStoreViewModel.owning {
-            val outbox = PosOfflineOutbox.open(context, rpc)
-            val core = RpcPosGateways(rpc)
-            val sale = RpcSaleGateways(rpc)
+            val outbox = PosOfflineOutbox.open(context, rpc, offlineCatalog)
+            // Catalogue calls fall back to the downloaded full catalogue with no connection.
+            val catalogRpc = OfflineCatalogRpcClient(rpc, offlineCatalog, OfflineCatalogHolder.online::get, outbox::stockLines)
+            val core = RpcPosGateways(catalogRpc)
+            val sale = RpcSaleGateways(catalogRpc)
             PosGateways(
                 session = core.session,
                 catalog = core.catalog,
@@ -80,7 +87,10 @@ fun PosTabletEntry(
     val state by vm.store.state.collectAsState()
     // Offline restricted mode follows the device's validated connectivity (§10.12).
     LaunchedEffect(Unit) {
-        OfflinePosConnectivity.onlineFlow(context).collect { vm.store.dispatch(PosIntent.ConnectivityChanged(it)) }
+        OfflinePosConnectivity.onlineFlow(context).collect {
+            OfflineCatalogHolder.online.set(it)
+            vm.store.dispatch(PosIntent.ConnectivityChanged(it))
+        }
     }
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -89,6 +99,8 @@ fun PosTabletEntry(
             now = LocalDateTime.now()
         }
     }
+
+    val catalogStatus by offlineCatalog.status.collectAsState()
 
     fun toast(message: String) = Toast.makeText(context, message, Toast.LENGTH_LONG).show()
 
@@ -115,6 +127,11 @@ fun PosTabletEntry(
         onStaffPortal = onStaffPortal,
         onKioskSettings = onKioskSettings,
         onExitToHub = onExitToHub,
+        offlineCatalog = catalogStatus.toControl(
+            onDownload = { OfflineCatalogHolder.download(context, rpc) },
+            onPause = OfflineCatalogHolder::pause,
+            onRemove = { OfflineCatalogHolder.remove(context) },
+        ),
     )
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -147,3 +164,22 @@ private suspend fun print(
         }
     }.onFailure { toast("Receipt not printed: ${it.message ?: "printer unavailable"}. The sale is complete; print again from the receipt.") }
 }
+
+private fun OfflineCatalogBundle.Status.toControl(onDownload: () -> Unit, onPause: () -> Unit, onRemove: () -> Unit) = OfflineCatalogControl(
+    phase = when (phase) {
+        OfflineCatalogBundle.Phase.None -> OfflineCatalogPhase.None
+        OfflineCatalogBundle.Phase.Downloading -> OfflineCatalogPhase.Downloading
+        OfflineCatalogBundle.Phase.Paused -> OfflineCatalogPhase.Paused
+        OfflineCatalogBundle.Phase.Ready -> OfflineCatalogPhase.Ready
+    },
+    release = release,
+    doneBytes = doneBytes,
+    totalBytes = totalBytes,
+    downloadedAt = downloadedAtMs?.let {
+        java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(it))
+    },
+    message = message,
+    onDownload = onDownload,
+    onPause = onPause,
+    onRemove = onRemove,
+)

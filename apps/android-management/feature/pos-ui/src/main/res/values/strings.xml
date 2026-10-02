@@ -38,6 +38,16 @@
     <string name="pos_error_offline_stock">Not enough stock of %1$s in the last offline snapshot.</string>
     <string name="pos_receipt_offline">OFFLINE SALE · invoice no. issued on sync</string>
     <string name="pos_offline_sales">Offline sales</string>
+    <string name="pos_offline_catalog">Offline catalogue</string>
+    <string name="pos_offline_catalog_none">Download the whole parts catalogue (about 5 GB: every vehicle, diagram and image) so search, the vehicle picker and EPC work with no connection.</string>
+    <string name="pos_offline_catalog_downloading">Downloading: %1$s of %2$s (%3$d%%). You can keep selling.</string>
+    <string name="pos_offline_catalog_paused">%1$s %2$s of %3$s downloaded.</string>
+    <string name="pos_offline_catalog_ready">Ready: release %1$s (%2$s), downloaded %3$s. Prices and stock come from the offline sales snapshot.</string>
+    <string name="pos_offline_catalog_download">Download</string>
+    <string name="pos_offline_catalog_continue">Continue</string>
+    <string name="pos_offline_catalog_update">Update</string>
+    <string name="pos_offline_catalog_pause">Pause</string>
+    <string name="pos_offline_catalog_remove">Remove</string>
     <string name="pos_offline_sales_hint">%1$d waiting to sync · %2$d need review</string>
     <string name="pos_sync_now">Sync now</string>
     <string name="pos_companion_title">Companion phone</string>

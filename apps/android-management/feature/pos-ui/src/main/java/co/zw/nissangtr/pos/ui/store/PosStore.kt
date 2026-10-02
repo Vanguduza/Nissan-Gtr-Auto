@@ -108,7 +108,7 @@ class PosStore(
                 searchJob = scope.launch {
                     // Offline the counter searches the last catalogue snapshot (§10.12).
                     val result = if (state.value.online) gateways.catalog.search(effect.query, effect.vehicle)
-                    else gateways.offline.searchLocal(effect.query)
+                    else gateways.offline.searchLocal(effect.query, effect.vehicle)
                     result.onOk { apply(PosEvent.SearchLoaded(effect.query, it)) }
                 }
             }
