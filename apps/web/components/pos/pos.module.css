@@ -818,7 +818,7 @@
   cursor: not-allowed;
 }
 
-/* ───────── Focus dialog: the page behind is blurred, dimmed and inert ───────── */
+/* ───────── Focus dialog: the page behind is dimmed (never blurred) and inert ───────── */
 .scrollLocked,
 .scrollLocked body {
   overflow: hidden;
@@ -830,14 +830,12 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: color-mix(in srgb, var(--gtr-color-neutral-scrim) 38%, transparent);
-  -webkit-backdrop-filter: blur(10px) saturate(110%);
-  backdrop-filter: blur(10px) saturate(110%);
+  background: color-mix(in srgb, var(--gtr-color-neutral-scrim) 45%, transparent);
   animation: posScrimIn 180ms ease-out;
 }
 .modalScrim[inert] {
-  /* A dialog under another dialog recedes too. */
-  filter: blur(2px);
+  /* A dialog under another dialog recedes too (dimmed, not blurred). */
+  opacity: 0.6;
 }
 .modal {
   width: min(440px, calc(100vw - 32px));
