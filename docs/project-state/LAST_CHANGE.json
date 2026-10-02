@@ -1,28 +1,16 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "c3ea12fbe6b7affa1590",
+  "change_id": "039666e307ebed6b6417",
   "changed_files": [
-    "apps/android-customer/core/visual/build.gradle.kts",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PosStyleComponents.kt",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumComponents.kt",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumTheme.kt",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumTokens.kt",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/PremiumUtilityComponents.kt",
-    "apps/android-customer/core/visual/src/main/res/drawable-nodpi/pos_hero_car.webp",
-    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/PremiumShopBrowse.kt",
-    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesHome_theme_home_pos_dark.png",
-    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesHome_theme_home_pos_light.png",
-    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesShop_theme_shop_pos_dark.png",
-    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_themesShop_theme_shop_pos_light.png",
-    "apps/android-customer/settings.gradle.kts"
+    "data-pipeline/scripts/catalog_harvest_register/README.md"
   ],
-  "diff_sha256": "c3ea12fbe6b7affa15902f8747ef0b5b71e723258701553292741b7a111650b3",
+  "diff_sha256": "039666e307ebed6b6417416f8f345e3795e1b5d09e5ec7c3fa73a79e16a1e799",
   "domains": [
-    "customer-android"
+    "catalog-data"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-02T09:04:14.608701+00:00",
+  "recorded_at_utc": "2026-10-02T10:19:22.037317+00:00",
   "schema_version": 1,
-  "source_parent": "3321e4dca0e5ab1b3d79549cf3ddfe68e70fdd7e"
+  "source_parent": "afe1c65848cfe7f3750ddb687fdbb8f4506e7b7f"
 }

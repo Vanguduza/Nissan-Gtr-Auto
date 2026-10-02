@@ -65,4 +65,7 @@ de-duplicated union (section ids re-keyed to the kept build, so a section never 
 7. `r2put.py` — uploads the new shards (resumable via a done-log).
 8. `push_groups.py`, `push_dparts.py` — repoint the routing rows and drop duplicate vehicles.
 
-Result: 2,071 distinct vehicles (0 look-alike groups); diagram part lists carry callout boxes.
+Result: 2,071 distinct vehicles (0 look-alike groups); 216,643 diagram part lists repointed to
+per-diagram shards with callout boxes (`metadata.callout_boxes = true`). The other 3,798 diagrams
+have no parts in the harvest (illustration-only pages, row count 0). Spot-checked X-Trail T31,
+Frontier D40 and Skyline V35: every part row on the sampled diagrams has a box.
