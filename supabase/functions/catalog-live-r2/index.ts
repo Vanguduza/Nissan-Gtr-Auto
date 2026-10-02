@@ -21,7 +21,7 @@ const PAGE = 1000;
 const VEHICLE_CACHE_MS = 5 * 60 * 1000;
 let vehicleCache: { at: number; release: string; rows: Vehicle[] } | null = null;
 const ORIGINS = new Set(["https://nissangtrauto.co.zw", "https://www.nissangtrauto.co.zw", "http://localhost:3000", "http://127.0.0.1:3000"]);
-const ACTIONS = new Set(["health", "vehicle-master", "customer-stock", "customer-search", "fitment-check", "staff-families", "staff-variants", "staff-sections", "staff-diagrams", "staff-section-parts", "staff-diagram-parts", "diagram-image"]);
+const ACTIONS = new Set(["health", "vehicle-master", "customer-stock", "customer-search", "fitment-check", "staff-families", "staff-variants", "staff-sections", "staff-diagrams", "staff-section-parts", "staff-diagram-parts", "diagram-image", "offline-bundle"]);
 type Row = Record<string, unknown>;
 type ServingObject = { object_key: string; sha256: string | null; row_count: number; bytes: number; content_encoding: string | null; metadata: Record<string, unknown> | null };
 type Vehicle = { r2_scope_key: string; maker_slug: string; model: string; chassis_code: string; engine_code: string; year_start: number | null; year_end: number | null; sales_region: string | null; source_release_version: string };
@@ -311,5 +311,24 @@ Deno.serve(async (req) => {
     const signed = await getSignedUrl(r2.client, new GetObjectCommand({ Bucket: r2.bucket, Key: object.object_key }), { expiresIn: 600 });
     return reply(req, 200, { signed_url: signed, expires_in: 600, diagram_id: diagramId, sha256: object.sha256, object_key: object.object_key, full_catalog_download_required: false });
   }
-  return reply(req, 404, { error: "unknown action", actions: ["health", "vehicle-master", "customer-stock", "customer-search", "fitment-check", "staff-families", "staff-variants", "staff-sections", "staff-diagrams", "staff-section-parts", "staff-diagram-parts", "diagram-image"] });
+  // POS offline bundle (data-pipeline/scripts/build_pos_offline_bundle.py): the published manifest
+  // with a signed link per file, so a till can download the whole catalogue for offline use.
+  if (action === "offline-bundle") {
+    if (!(await isStaff())) return reply(req, 403, { error: "staff access required" });
+    const prefix = `bundles/${maker}/${release.version}/pos-offline`;
+    let manifest: { build?: string; files?: Array<{ path: string }> } & Record<string, unknown>;
+    try {
+      manifest = JSON.parse(await bodyText(r2, `${prefix}/manifest.json`));
+    } catch {
+      return reply(req, 404, { error: "offline bundle is not published for this release", status: "OFFLINE_BUNDLE_NOT_PUBLISHED", release: release.version });
+    }
+    if (!manifest.build || !Array.isArray(manifest.files)) return reply(req, 409, { error: "offline bundle manifest is invalid", status: "CATALOG_REPUBLISH_REQUIRED" });
+    const expiresIn = 6 * 60 * 60;
+    const files = await Promise.all(manifest.files.map(async (f) => ({
+      ...f,
+      url: await getSignedUrl(r2.client, new GetObjectCommand({ Bucket: r2.bucket, Key: `${prefix}/${manifest.build}/${f.path}` }), { expiresIn }),
+    })));
+    return reply(req, 200, { ...manifest, files, expires_in: expiresIn });
+  }
+  return reply(req, 404, { error: "unknown action", actions: ["health", "vehicle-master", "customer-stock", "customer-search", "fitment-check", "staff-families", "staff-variants", "staff-sections", "staff-diagrams", "staff-section-parts", "staff-diagram-parts", "diagram-image", "offline-bundle"] });
 });

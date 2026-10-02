@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { haptic, hapticsEnabled, hapticsSupported, setHapticsEnabled } from "@/lib/pos/haptics";
 import type { PosGateway } from "@/lib/pos/gateway";
+import type { OfflineCatalog } from "@/lib/pos/offline/catalog";
 import { usePos, type PosStore } from "@/lib/pos/use-pos";
 import { useWindowClass } from "@/lib/pos/window-class";
 import { CurrentSale } from "./CurrentSale";
+import { OfflineCatalogSetting } from "./OfflineCatalogSetting";
 import { GarageChooser, ManagerDialog, Modal, PaymentDialog, ReceiptView } from "./PosDialogs";
 import { PosHeader } from "./PosHeader";
 import { PosHome, PosSearchResults } from "./PosHome";
@@ -179,7 +181,19 @@ function QuoteDialog({ pos, onClose }: { pos: PosStore; onClose: () => void }) {
   );
 }
 
-function Destination({ pos, onPortal, onQuote, onCompanion }: { pos: PosStore; onPortal: () => void; onQuote: () => void; onCompanion: () => void }) {
+function Destination({
+  pos,
+  offline,
+  onPortal,
+  onQuote,
+  onCompanion,
+}: {
+  pos: PosStore;
+  offline: OfflineCatalog | null;
+  onPortal: () => void;
+  onQuote: () => void;
+  onCompanion: () => void;
+}) {
   switch (pos.destination) {
     case "home":
       return <PosHome pos={pos} />;
@@ -210,6 +224,7 @@ function Destination({ pos, onPortal, onQuote, onCompanion }: { pos: PosStore; o
               </button>
             </div>
             <HapticsSetting />
+            {offline ? <OfflineCatalogSetting catalog={offline} /> : null}
             <div className={styles.listRow}>
               <span>
                 <div className={styles.listTitle}>Companion phone</div>
@@ -245,7 +260,7 @@ function Destination({ pos, onPortal, onQuote, onCompanion }: { pos: PosStore; o
   }
 }
 
-export function PosApp({ gateway }: { gateway: PosGateway }) {
+export function PosApp({ gateway, offline = null }: { gateway: PosGateway; offline?: OfflineCatalog | null }) {
   const pos = usePos(gateway);
   const [portal, setPortal] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -270,7 +285,10 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
           ) : null}
           {!pos.online ? (
             <div className={`${styles.statusBanner} ${styles.statusOffline}`} role="status">
-              <WifiOff size={16} aria-hidden /> Offline — browsing only. Sales resume when the connection returns.
+              <WifiOff size={16} aria-hidden />{" "}
+              {offline?.ready
+                ? "Offline — searching and browsing the downloaded catalogue. Sales resume when the connection returns."
+                : "Offline — browsing only. Sales resume when the connection returns."}
             </div>
           ) : null}
           {pos.error && !pos.managerPrompt && !paying ? (
@@ -289,7 +307,7 @@ export function PosApp({ gateway }: { gateway: PosGateway }) {
               </button>
             </div>
           ) : null}
-          <Destination pos={pos} onPortal={() => setPortal(true)} onQuote={() => setQuoting(true)} onCompanion={() => setCompanionOpen(true)} />
+          <Destination pos={pos} offline={offline} onPortal={() => setPortal(true)} onQuote={() => setQuoting(true)} onCompanion={() => setCompanionOpen(true)} />
         </main>
         <CurrentSale
           pos={pos}

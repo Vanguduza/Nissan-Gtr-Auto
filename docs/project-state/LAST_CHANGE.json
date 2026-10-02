@@ -1,21 +1,30 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "99b42cb4871bef2026d5",
+  "change_id": "3672770c7d2a894d7567",
   "changed_files": [
-    "apps/android-customer/app/src/main/java/co/zw/nissangtr/customer/MainActivity.kt",
-    "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/ExpressComponents.kt",
-    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/ExpressCatalogHome.kt",
-    "apps/android-customer/feature/catalog/src/test/java/co/zw/nissangtr/customer/catalog/PreviewLockedScreenshotTest.kt",
-    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_expressHome_express_home_dark.png",
-    "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_expressHome_express_home_light.png"
+    "apps/web/components/pos/OfflineCatalogSetting.tsx",
+    "apps/web/components/pos/PosApp.tsx",
+    "apps/web/components/pos/PosEntry.tsx",
+    "apps/web/components/pos/pos.module.css",
+    "apps/web/lib/pos/offline/catalog.ts",
+    "apps/web/lib/pos/offline/format.ts",
+    "apps/web/lib/pos/offline/gateway.ts",
+    "apps/web/lib/pos/offline/storage.ts",
+    "data-pipeline/scripts/build_pos_offline_bundle.py",
+    "data-pipeline/tests/test_pos_offline_bundle.py",
+    "docs/architecture/live-r2-catalog-serving.md",
+    "supabase/functions/catalog-live-r2/index.ts"
   ],
-  "diff_sha256": "99b42cb4871bef2026d51ea2f580478ba4e9c46920290ac8314254e88609d4f1",
+  "diff_sha256": "3672770c7d2a894d7567ebfba000bd8f28f59d57f250bcf2ac8363bea93ff0e1",
   "domains": [
-    "customer-android"
+    "backend",
+    "catalog-data",
+    "documentation",
+    "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-02T16:31:40.786024+00:00",
+  "recorded_at_utc": "2026-10-02T17:01:59.363719+00:00",
   "schema_version": 1,
-  "source_parent": "1a8e1af683b3c5adaa7ef57fe0c585dcc464f7e2"
+  "source_parent": "d39e22389c8fa6d9f718b60e848d4a4d3c046e63"
 }

@@ -26,6 +26,33 @@ No full EPC file is downloaded to the browser or Android device.
 
 The full encrypted bundle remains an optional offline/admin/disaster-recovery artifact only.
 
+### POS offline catalogue bundle (owner decision 2026-10-02)
+
+Tills (web POS and the Android tablet/phone POS) can download the **complete** catalogue for
+offline use: every published vehicle's search shard, every diagram's part list and every diagram
+image (≈5 GB). Downloading is an explicit staff action in POS Settings → Offline catalogue; normal
+browsing still never requires it.
+
+- Builder: `data-pipeline/scripts/build_pos_offline_bundle.py` (resumable). It copies the current
+  release's serving objects, unchanged, into ~128 MB packs and publishes under
+  `bundles/<maker>/<release>/pos-offline/` — `<build>/pack-NNNN.bin`, `<build>/vehicles.json.gz`
+  (vehicle master + shard locations), `<build>/routes-NN.json.gz` (diagram id → part-list pages and
+  image, bucketed by FNV-1a) and, last, `manifest.json` (format `gtr-pos-offline/1`, SHA-256 and size
+  of every file).
+- Gateway: `catalog-live-r2` action `offline-bundle` (staff only) returns the manifest with a signed
+  link per file (6 h).
+- Tills download file by file, verify each SHA-256, and resume after a pause. Prices and stock are
+  not in the bundle: the web POS pulls `pull_pos_offline_snapshot` with it; the tablet uses its
+  existing offline sales snapshot.
+- Offline, the vehicle cascade, part search (vehicle rows joined to the shop's stock), EPC sections,
+  diagrams, part lists, callout boxes and images are answered on the device; online, the live
+  gateway is asked first and the device copy is the fallback. Carts and payments stay online-only on
+  the web; the tablet keeps its offline cash-sale queue.
+- Storage: web — Origin Private File System (persistent storage requested); Android — app-private
+  no-backup storage. Neither is visible to other apps or sites.
+- Web limitation: the POS page must already be open (staff sign-in is verified online at page load).
+
+
 ### Gateway request shape
 
 `catalog-live-r2` reads the action from the POST body (`{ "action": "staff-sections", ... }`) or the
