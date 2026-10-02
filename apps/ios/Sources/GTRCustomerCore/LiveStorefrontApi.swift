@@ -851,10 +851,17 @@ public final class LiveStorefrontApi: StorefrontApi {
     /// The complete customer vehicle master derived from the published full catalogue
     /// (same source as web and Android) — not the old fixture `vehicle_master` table.
     public func listVehicleMaster() async throws -> [VehicleMasterRow] {
-        let rows: [CustomerVehicleMasterRpcRow] = try await client.rpcDecodeArrayAllowEmpty(
-            "list_customer_vehicle_master",
-            body: ["p_maker": "nissan", "p_limit": 10000, "p_offset": 0]
-        )
+        // The API returns at most 1000 rows per call; the published master is larger, so page.
+        let pageSize = 1000
+        var rows: [CustomerVehicleMasterRpcRow] = []
+        while true {
+            let page: [CustomerVehicleMasterRpcRow] = try await client.rpcDecodeArrayAllowEmpty(
+                "list_customer_vehicle_master",
+                body: ["p_maker": "nissan", "p_limit": pageSize, "p_offset": rows.count]
+            )
+            rows.append(contentsOf: page)
+            if page.count < pageSize { break }
+        }
         return rows.map {
             VehicleMasterRow(
                 id: $0.id,

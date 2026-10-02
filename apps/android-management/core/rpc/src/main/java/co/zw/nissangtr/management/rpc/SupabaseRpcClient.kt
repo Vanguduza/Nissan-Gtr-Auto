@@ -692,15 +692,24 @@ class SupabaseRpcClient(
 
     @Volatile private var vehicleMasterCache: List<VehicleMasterEntry>? = null
 
+    // The API returns at most 1000 rows per call; the published master is larger, so page.
     override suspend fun listVehicleMaster(): List<VehicleMasterEntry> =
-        vehicleMasterCache ?: client.postgrest.rpc(
-            "list_customer_vehicle_master",
-            buildJsonObject {
-                put("p_maker", "nissan")
-                put("p_limit", 10000)
-                put("p_offset", 0)
-            },
-        ).decodeList<VehicleMasterRpcRow>().map {
+        vehicleMasterCache ?: buildList {
+            var offset = 0
+            while (true) {
+                val page = client.postgrest.rpc(
+                    "list_customer_vehicle_master",
+                    buildJsonObject {
+                        put("p_maker", "nissan")
+                        put("p_limit", VEHICLE_MASTER_PAGE)
+                        put("p_offset", offset)
+                    },
+                ).decodeList<VehicleMasterRpcRow>()
+                addAll(page)
+                if (page.size < VEHICLE_MASTER_PAGE) break
+                offset += page.size
+            }
+        }.map {
             VehicleMasterEntry(
                 id = it.id,
                 modelFamily = it.modelFamily,
@@ -2962,6 +2971,8 @@ private data class PosScanSessionRow(
 private data class PosScanSessionCartRow(
     @SerialName("cart_id") val cartId: String,
 )
+
+private const val VEHICLE_MASTER_PAGE = 1000
 
 @Serializable
 private data class VehicleMasterRpcRow(

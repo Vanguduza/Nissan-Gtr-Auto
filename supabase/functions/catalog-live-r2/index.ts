@@ -7,12 +7,19 @@ import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3";
 // and variants come from `catalog_r2_vehicle_master` (variant_id = vehicle-master id = R2 scope),
 // sections and diagram lists from that vehicle's `vehicle_search` shard. The action is read from
 // the POST body, `?action=`, or (older clients) the last path segment.
+//
+// A serving object may be split over several R2 pages (`metadata.pages`, read in order), and a
+// `diagram_parts` object may point at its section's shard (`metadata.filter` = "diagram_id"), in
+// which case only that diagram's rows are returned.
 
 const MAX_BYTES = 16 * 1024 * 1024;
 const REQUIRED_CORE_KINDS = ["vehicle_search", "vehicle_fitment", "section_parts", "diagram_parts"] as const;
 const REQUIRED_FULL_KINDS = [...REQUIRED_CORE_KINDS, "diagram_image"] as const;
-/** Vehicles in the published Nissan master; health is only "ready" when all are routed. */
-const EXPECTED_VEHICLES = 16;
+/** PostgREST page size (project max_rows); larger reads are paged. */
+const PAGE = 1000;
+/** The vehicle master is read on most requests; a warm instance reuses it briefly. */
+const VEHICLE_CACHE_MS = 5 * 60 * 1000;
+let vehicleCache: { at: number; release: string; rows: Vehicle[] } | null = null;
 const ORIGINS = new Set(["https://nissangtrauto.co.zw", "https://www.nissangtrauto.co.zw", "http://localhost:3000", "http://127.0.0.1:3000"]);
 const ACTIONS = new Set(["health", "vehicle-master", "customer-stock", "customer-search", "fitment-check", "staff-families", "staff-variants", "staff-sections", "staff-diagrams", "staff-section-parts", "staff-diagram-parts", "diagram-image"]);
 type Row = Record<string, unknown>;
@@ -126,9 +133,16 @@ Deno.serve(async (req) => {
     return profile?.is_staff === true || (roles?.length ?? 0) > 0;
   };
   const vehicles = async (): Promise<Vehicle[]> => {
-    const { data, error } = await admin.from("catalog_r2_vehicle_master").select("r2_scope_key,maker_slug,model,chassis_code,engine_code,year_start,year_end,sales_region,source_release_version").eq("maker_slug", maker).order("model").order("year_start").order("chassis_code").order("engine_code");
-    if (error) throw new Error("vehicle routing unavailable");
-    return (data ?? []) as Vehicle[];
+    if (vehicleCache && vehicleCache.release === release.id && Date.now() - vehicleCache.at < VEHICLE_CACHE_MS) return vehicleCache.rows;
+    const rows: Vehicle[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await admin.from("catalog_r2_vehicle_master").select("r2_scope_key,maker_slug,model,chassis_code,engine_code,year_start,year_end,sales_region,source_release_version").eq("maker_slug", maker).order("model").order("year_start").order("chassis_code").order("engine_code").order("r2_scope_key").range(from, from + PAGE - 1);
+      if (error) throw new Error("vehicle routing unavailable");
+      rows.push(...((data ?? []) as Vehicle[]));
+      if ((data ?? []).length < PAGE) break;
+    }
+    vehicleCache = { at: Date.now(), release: release.id, rows };
+    return rows;
   };
   const serving = async (kind: string, scope: string): Promise<ServingObject | null> => {
     const { data } = await admin.from("catalog_r2_serving_objects").select("object_key,sha256,row_count,bytes,content_encoding,metadata").eq("release_id", release.id).eq("maker_slug", maker).eq("object_kind", kind).eq("scope_key", scope).maybeSingle();
@@ -169,11 +183,15 @@ Deno.serve(async (req) => {
     const missingCore = REQUIRED_CORE_KINDS.filter((kind) => Number(counts[kind] ?? 0) <= 0);
     const missingFull = REQUIRED_FULL_KINDS.filter((kind) => Number(counts[kind] ?? 0) <= 0);
     const vehicleCount = (await vehicles()).length;
-    return reply(req, 200, { release: release.version, object_counts: counts, vehicle_master_count: vehicleCount, r2_serving_objects: Object.values(counts).reduce((sum, value) => sum + Number(value ?? 0), 0), missing_core_kinds: missingCore, missing_required_kinds: missingFull, r2_configured: Boolean(r2), catalog_data_ready: Boolean(r2) && vehicleCount === EXPECTED_VEHICLES && missingCore.length === 0, live_browsing_ready: Boolean(r2) && vehicleCount === EXPECTED_VEHICLES && missingFull.length === 0, diagram_images_ready: Number(counts.diagram_image ?? 0) > 0, full_catalog_download_required: false });
+    return reply(req, 200, { release: release.version, object_counts: counts, vehicle_master_count: vehicleCount, r2_serving_objects: Object.values(counts).reduce((sum, value) => sum + Number(value ?? 0), 0), missing_core_kinds: missingCore, missing_required_kinds: missingFull, r2_configured: Boolean(r2), catalog_data_ready: Boolean(r2) && vehicleCount > 0 && Number(counts.vehicle_search ?? 0) >= vehicleCount && missingCore.length === 0, live_browsing_ready: Boolean(r2) && vehicleCount > 0 && Number(counts.vehicle_search ?? 0) >= vehicleCount && missingFull.length === 0, diagram_images_ready: Number(counts.diagram_image ?? 0) > 0, full_catalog_download_required: false });
   }
   if (!r2) return reply(req, 503, { error: "R2 is not configured" });
   r2.bucket = release.bucket_name || r2.bucket;
-  const load = async (object: ServingObject) => parseRows(await bodyText(r2, object.object_key));
+  const load = async (object: ServingObject) => {
+    const pages = Array.isArray(object.metadata?.pages) ? (object.metadata.pages as unknown[]).map(String) : [object.object_key];
+    const rows = (await Promise.all(pages.map(async (key) => parseRows(await bodyText(r2, key))))).flat();
+    return rows.length > 200_000 ? rows.slice(0, 200_000) : rows;
+  };
   const vehicleRows = async (vehicleId: string) => {
     if (!(await vehicles()).some((v) => v.r2_scope_key === vehicleId)) throw new Error("vehicle is not present in the published Nissan master");
     const object = await serving("vehicle_search", vehicleId);
@@ -280,7 +298,8 @@ Deno.serve(async (req) => {
     if (!scope) return reply(req, 400, { error: `${diagram ? "diagram_id" : "section_id"} required` });
     const object = await serving(diagram ? "diagram_parts" : "section_parts", scope);
     if (!object) return reply(req, 409, { error: "R2 serving shard not published", status: "CATALOG_REPUBLISH_REQUIRED", full_catalog_download_required: false });
-    const parts = await load(object);
+    let parts = await load(object);
+    if (diagram && object.metadata?.filter === "diagram_id") parts = parts.filter((row) => String(row.diagram_id ?? "") === scope);
     return reply(req, 200, { source: "r2_live", release: release.version, row_count: parts.length, parts, full_catalog_download_required: false });
   }
   if (action === "diagram-image") {

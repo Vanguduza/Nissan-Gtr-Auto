@@ -30,6 +30,8 @@ import {
 } from "@/lib/catalog-live-gateway";
 import { searchPosCatalog } from "@/lib/staff-pos";
 
+import { VEHICLE_MASTER_PAGE } from "@/lib/vehicle-catalog";
+
 const NISSAN_MAKER_SLUG = "nissan";
 const PRODUCT_IMAGE_BUCKET = "product-images";
 
@@ -156,16 +158,22 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
 
   function loadVehicleMaster(): Promise<PosResult<VehicleMasterDbRow[]>> {
     vehicleMaster ??= (async (): Promise<PosResult<VehicleMasterDbRow[]>> => {
-      const { data, error } = await rpc(client, "list_customer_vehicle_master", {
-        p_maker: NISSAN_MAKER_SLUG,
-        p_limit: 10000,
-        p_offset: 0,
-      });
-      if (error) {
-        vehicleMaster = null;
-        return fail(error, "Could not load the vehicle list.");
+      const rows: VehicleMasterDbRow[] = [];
+      for (let offset = 0; ; offset += VEHICLE_MASTER_PAGE) {
+        const { data, error } = await rpc(client, "list_customer_vehicle_master", {
+          p_maker: NISSAN_MAKER_SLUG,
+          p_limit: VEHICLE_MASTER_PAGE,
+          p_offset: offset,
+        });
+        if (error) {
+          vehicleMaster = null;
+          return fail(error, "Could not load the vehicle list.");
+        }
+        const page = (data ?? []) as VehicleMasterDbRow[];
+        rows.push(...page);
+        if (page.length < VEHICLE_MASTER_PAGE) break;
       }
-      return { ok: true, data: (data ?? []) as VehicleMasterDbRow[] };
+      return { ok: true, data: rows };
     })();
     return vehicleMaster;
   }

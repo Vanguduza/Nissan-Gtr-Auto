@@ -148,6 +148,8 @@ export const VehicleCascade = {
   },
 };
 
+export const VEHICLE_MASTER_PAGE = 1000;
+
 type VehicleMasterRpcRow = {
   id: string;
   make: string;
@@ -169,15 +171,19 @@ export async function listVehicleMaster(
   | { ok: true; data: VehicleMasterRow[] }
   | { ok: false; error: string }
 > {
-  const { data, error } = await client.rpc("list_customer_vehicle_master", {
-    p_maker: "nissan",
-    p_limit: 10000,
-    p_offset: 0,
-  });
-
-  if (error) return { ok: false, error: error.message };
-
-  const rows = (data ?? []) as VehicleMasterRpcRow[];
+  // The API returns at most 1000 rows per call; the published master is larger, so page.
+  const rows: VehicleMasterRpcRow[] = [];
+  for (let offset = 0; ; offset += VEHICLE_MASTER_PAGE) {
+    const { data, error } = await client.rpc("list_customer_vehicle_master", {
+      p_maker: "nissan",
+      p_limit: VEHICLE_MASTER_PAGE,
+      p_offset: offset,
+    });
+    if (error) return { ok: false, error: error.message };
+    const page = (data ?? []) as VehicleMasterRpcRow[];
+    rows.push(...page);
+    if (page.length < VEHICLE_MASTER_PAGE) break;
+  }
   return {
     ok: true,
     data: rows.map((row) => ({
