@@ -16,23 +16,23 @@ enum class ThemeMode {
 class CustomerPrefs(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** Illustrated (premium dark, default), the POS counter look, or the Express quick-shop look. */
+    /** Express quick-shop look (default, owner decision 2026-10-02), Illustrated, or the POS counter look. */
     var customerStyle: CustomerStyle
         get() = when (prefs.getString(KEY_STYLE, null)) {
             CustomerStyle.Pos.name -> CustomerStyle.Pos
-            CustomerStyle.Express.name -> CustomerStyle.Express
-            else -> CustomerStyle.Illustrated
+            CustomerStyle.Illustrated.name -> CustomerStyle.Illustrated
+            else -> CustomerStyle.Express
         }
         set(value) {
             prefs.edit().putString(KEY_STYLE, value.name).apply()
         }
 
-    /** Dark by default so a first launch shows the locked illustrated dark storefront. */
+    /** Light by default so a first launch shows the Express storefront as designed. */
     var themeMode: ThemeMode
-        get() = when (prefs.getString(KEY_THEME, ThemeMode.Dark.name)) {
-            ThemeMode.Light.name -> ThemeMode.Light
+        get() = when (prefs.getString(KEY_THEME, ThemeMode.Light.name)) {
+            ThemeMode.Dark.name -> ThemeMode.Dark
             ThemeMode.System.name -> ThemeMode.System
-            else -> ThemeMode.Dark
+            else -> ThemeMode.Light
         }
         set(value) {
             prefs.edit().putString(KEY_THEME, value.name).apply()

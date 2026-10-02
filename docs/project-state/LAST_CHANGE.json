@@ -1,19 +1,22 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "7f0f137d10254d56f99f",
+  "change_id": "e253aaadacf2cf181318",
   "changed_files": [
+    "PROJECT_CANONICAL_STATE.json",
+    "apps/android-customer/app/src/main/java/co/zw/nissangtr/customer/prefs/CustomerPrefs.kt",
+    "apps/android-customer/app/src/main/java/co/zw/nissangtr/customer/settings/SettingsHubScreen.kt",
     "apps/android-customer/core/visual/src/main/java/co/zw/nissangtr/customer/visual/ExpressComponents.kt",
-    "apps/android-customer/feature/catalog/src/main/java/co/zw/nissangtr/customer/catalog/ExpressCatalogHome.kt",
     "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_expressHome_express_home_dark.png",
     "apps/android-customer/feature/catalog/src/test/snapshots/images/co.zw.nissangtr.customer.catalog_PreviewLockedScreenshotTest_expressHome_express_home_light.png"
   ],
-  "diff_sha256": "7f0f137d10254d56f99fe7dec260f0e17f47c576e14105a58911468712dfbea7",
+  "diff_sha256": "e253aaadacf2cf181318e345e8940eae4f16d44f08f6481164a18f604210f40e",
   "domains": [
-    "customer-android"
+    "customer-android",
+    "repository"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-02T17:30:26.359136+00:00",
+  "recorded_at_utc": "2026-10-02T17:46:31.189842+00:00",
   "schema_version": 1,
-  "source_parent": "72b4532f7350052cdcc8ac9e627d1bfec051e27b"
+  "source_parent": "5d637c5023fd000f72c3df6ba2f28be3654150ff"
 }

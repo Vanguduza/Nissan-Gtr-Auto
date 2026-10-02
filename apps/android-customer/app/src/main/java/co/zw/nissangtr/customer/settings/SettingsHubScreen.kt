@@ -103,6 +103,12 @@ fun SettingsHubScreen(
                         fontWeight = FontWeight.SemiBold,
                     )
                     StyleOption(
+                        title = "Express",
+                        body = "Quick-shop home with category buttons",
+                        selected = style == CustomerStyle.Express,
+                        onSelect = { onStyleChange(CustomerStyle.Express) },
+                    )
+                    StyleOption(
                         title = "Illustrated",
                         body = "Premium storefront with vehicle artwork",
                         selected = style == CustomerStyle.Illustrated,
@@ -113,12 +119,6 @@ fun SettingsHubScreen(
                         body = "Counter look with red-lined cards",
                         selected = style == CustomerStyle.Pos,
                         onSelect = { onStyleChange(CustomerStyle.Pos) },
-                    )
-                    StyleOption(
-                        title = "Express",
-                        body = "Quick-shop home with category buttons",
-                        selected = style == CustomerStyle.Express,
-                        onSelect = { onStyleChange(CustomerStyle.Express) },
                     )
                 }
             }

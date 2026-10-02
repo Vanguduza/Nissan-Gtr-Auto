@@ -35,7 +35,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -181,7 +180,7 @@ object ExpressCategoryKeys {
 }
 
 /**
- * Brand header: badge + wishlist / account / settings, delivery chip,
+ * Brand header: badge + wishlist / account / settings,
  * search pill, the vehicle being shopped for, and the round category buttons.
  */
 @Composable
@@ -217,20 +216,6 @@ fun ExpressHeader(
                 HeaderAction(Icons.Outlined.FavoriteBorder, "Wishlist", onWishlist)
                 HeaderAction(Icons.Outlined.PersonOutline, "My account", onAccount)
                 HeaderAction(Icons.Outlined.Settings, "Settings", onSettings)
-            }
-        }
-        // Delivery row
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFFC8102E))
-                    .padding(start = 10.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.ElectricBolt, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Delivery", color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             }
         }
         // Search
