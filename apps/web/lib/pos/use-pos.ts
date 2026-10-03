@@ -607,7 +607,7 @@ export function usePos(gateway: PosGateway) {
         return false;
       }
       if (promptNeedsManager && (!proof || (proof.kind === "self" && !selfApprover))) {
-        setError("A manager must approve this: scan their badge or let them sign in.");
+        setError("An approver must approve this: scan their badge or let them sign in.");
         return false;
       }
       const creds = proof?.kind === "password" ? proof.credentials : null;

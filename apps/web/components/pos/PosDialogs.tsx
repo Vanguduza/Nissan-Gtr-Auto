@@ -220,9 +220,9 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
           <ShieldCheck size={14} aria-hidden /> {detail}{" "}
           {!needsManager
             ? self
-              ? "You are signed in as a manager: this is approved under your name."
+              ? "You are signed in as an approver: this is approved under your name."
               : "Within your limit: no manager needed. The reason is recorded in the audit trail."
-            : "A manager approves: scan their ID badge, or they sign in."}
+            : "An approver (any manager, or staff with the approval role) scans their ID badge, or signs in."}
         </p>
         {reasonAction ? (
           <label className={styles.field} style={{ marginTop: 12 }}>
@@ -259,14 +259,14 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
             </div>
             {via === "badge" ? (
               <label className={styles.field} style={{ marginTop: 10 }}>
-                <span className={styles.fieldLabel}>Manager ID badge</span>
+                <span className={styles.fieldLabel}>Approver ID badge</span>
                 {/* USB / Bluetooth scanners type the badge and press Enter; never the browser camera. */}
                 <input
                   className={styles.input}
                   type="password"
                   value={badge}
                   onChange={(e) => setBadge(e.target.value)}
-                  placeholder={reasonMissing ? "Choose a reason, then scan" : "Scan the manager's badge now"}
+                  placeholder={reasonMissing ? "Choose a reason, then scan" : "Scan the approver's badge now"}
                   autoComplete="off"
                   autoFocus={!reasonAction}
                   aria-describedby="badge-hint"

@@ -382,7 +382,7 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 
 | ID | Feature | Blueprint | Phase | Status |
 |----|---------|-----------|-------|--------|
-| MGR-01 | Managers: admin role, HR grade A1/A2/B1, HR role flagged pos_manager, or assigned by an admin (`set_pos_manager_assignment`); web Settings → Managers & ID badges | 10.10 | — | partial — backend live (migration 20261003142638), checked in a rolled-back run; web on preview data |
+| MGR-01 | Approvers are employees, login optional (owner, 2026-10-03): any manager (grade A1/A2/B1, or an HR role that heads a team), an HR role flagged for approvals, or an employee an admin/HR assigns (`set_approver_assignment`); admins by role; web Settings → Approvers & ID badges | 10.10 | — | partial — backend live (migrations 20261003142638, 20261003144849), checked in rolled-back runs incl. an employee with no login approving at a cashier's till; web on preview data |
 | MGR-02 | ID badges: QR `GTRMGR1:<id>:<secret>`, hash-only storage, shown once, ID-1 printable card, expiry, revocation, managers only | 10.10 | — | partial — as MGR-01 |
 | MGR-03 | Badge approval: one call validates the badge, runs the governed action as approved by the holder, audits every outcome (approved, failed, rejected); 5 rejects in 15 min locks the operator | 10.10 | — | partial — as MGR-01 |
 | MGR-04 | Tablet/phone: once a reason is chosen the front camera opens automatically for the badge (QR bridge, `CameraLens.FRONT`); password is the fallback; web uses a USB/Bluetooth scanner (no browser camera) | 10.10, 10.18 | — | partial — tablet: reducer/store tests and screenshot; not run on a device |

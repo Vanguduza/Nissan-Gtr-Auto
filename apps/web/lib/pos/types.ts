@@ -199,21 +199,30 @@ export type ManagerProof = { kind: "password"; credentials: ManagerCredentials }
 /** Actions a scanned badge can approve (`pos_badge_approve`). */
 export type BadgeAction = "discount" | "price_override" | "void_sale" | "refund" | "cash_out" | "till_variance" | "till_handover" | "repair_paid_order";
 export type ApproverStatus = { isApprover: boolean; source: string | null };
+/**
+ * Someone who could approve: an employee (login optional) or an admin user with no employee record.
+ * Badges are issued to that holder.
+ */
 export type ManagerCandidate = {
-  userId: string;
+  holderType: "employee" | "user";
+  employeeId: string | null;
+  userId: string | null;
   fullName: string;
   employeeCode: string | null;
-  email: string | null;
-  roles: string[];
+  grade: string | null;
+  roleTitle: string | null;
+  department: string | null;
+  hasLogin: boolean;
   isApprover: boolean;
-  /** admin_role · assigned · hr_grade_or_role */
+  /** senior_grade · approval_role · department_manager · assigned · admin_role */
   source: string | null;
   assigned: boolean;
   activeBadges: number;
 };
 export type ManagerBadge = {
   badgeId: string;
-  userId: string;
+  employeeId: string | null;
+  userId: string | null;
   fullName: string;
   label: string | null;
   issuedAt: string;
@@ -225,10 +234,10 @@ export type ManagerBadge = {
   status: "active" | "revoked" | "expired";
 };
 /** A new badge; [payload] is what the card's QR carries and is never shown again. */
-export type IssuedBadge = { badgeId: string; payload: string; expiresAt: string; fullName: string; employeeCode: string | null; email: string | null };
+export type IssuedBadge = { badgeId: string; payload: string; expiresAt: string; fullName: string; employeeCode: string | null; title: string | null };
 export type ApprovalTrailRow = {
   at: string;
-  /** badge · manager_session · admin */
+  /** badge · approver_session · admin */
   method: string;
   outcome: string;
   action: string;

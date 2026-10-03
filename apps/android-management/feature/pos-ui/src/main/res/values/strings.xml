@@ -388,12 +388,12 @@
     <string name="pos_policy_action_cash_out">Cash out</string>
     <string name="pos_policy_action_till_variance">Till variance</string>
     <string name="pos_error_admin_only">Only an admin can change approval policies.</string>
-    <string name="pos_badge_scan_hint">Manager: hold your ID badge up to the front camera</string>
-    <string name="pos_badge_scan">Scan manager badge</string>
+    <string name="pos_badge_scan_hint">Approver: hold your ID badge up to the front camera</string>
+    <string name="pos_badge_scan">Scan approver badge</string>
     <string name="pos_badge_scanning">Reading badge…</string>
-    <string name="pos_badge_or_password">Use manager password instead</string>
+    <string name="pos_badge_or_password">Use approver password instead</string>
     <string name="pos_badge_use_scan">Scan badge instead</string>
-    <string name="pos_badge_hint">The front camera opens for the manager\'s ID badge once a reason is chosen.</string>
-    <string name="pos_self_approver">You are signed in as a manager: this is approved under your name.</string>
-    <string name="pos_error_camera">The camera is not available. Allow camera access, or use the manager password.</string>
+    <string name="pos_badge_hint">The front camera opens for an approver\'s ID badge (any manager, or staff with the approval role) once a reason is chosen.</string>
+    <string name="pos_self_approver">You are signed in as an approver: this is approved under your name.</string>
+    <string name="pos_error_camera">The camera is not available. Allow camera access, or use the approver password.</string>
 </resources>

@@ -1382,31 +1382,41 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     },
 
     async listManagerCandidates() {
-      const { data, error } = await rpc(client, "list_pos_manager_candidates", {});
+      const { data, error } = await rpc(client, "list_approver_candidates", {});
       if (error) return fail(error, "Could not load staff.");
+      const str = (v: unknown) => (v == null ? null : String(v));
       return {
         ok: true,
         data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
-          userId: String(r.user_id),
-          fullName: String(r.full_name ?? r.email ?? "Staff"),
-          employeeCode: (r.employee_code as string | null) ?? null,
-          email: (r.email as string | null) ?? null,
-          roles: (r.roles as string[] | null) ?? [],
+          holderType: r.holder_type === "user" ? ("user" as const) : ("employee" as const),
+          employeeId: str(r.employee_id),
+          userId: str(r.user_id),
+          fullName: String(r.full_name ?? "Staff"),
+          employeeCode: str(r.employee_code),
+          grade: str(r.grade),
+          roleTitle: str(r.role_title),
+          department: str(r.department),
+          hasLogin: r.has_login === true,
           isApprover: r.is_approver === true,
-          source: (r.source as string | null) ?? null,
+          source: str(r.source),
           assigned: r.assigned === true,
           activeBadges: num(r.active_badges),
         })),
       };
     },
 
-    async setManagerAssignment(userId, assigned, notes) {
-      const { error } = await rpc(client, "set_pos_manager_assignment", { p_user_id: userId, p_assigned: assigned, p_notes: notes });
-      return error ? fail(error, "Could not change the manager assignment.") : { ok: true, data: true };
+    async setManagerAssignment(employeeId, assigned, notes) {
+      const { error } = await rpc(client, "set_approver_assignment", { p_employee_id: employeeId, p_assigned: assigned, p_notes: notes });
+      return error ? fail(error, "Could not change the approver assignment.") : { ok: true, data: true };
     },
 
-    async issueBadge(userId, label, validDays) {
-      const { data, error } = await rpc(client, "issue_pos_manager_badge", { p_user_id: userId, p_label: label, p_valid_days: validDays });
+    async issueBadge(holder, label, validDays) {
+      const { data, error } = await rpc(client, "issue_approval_badge", {
+        p_employee_id: "employeeId" in holder ? holder.employeeId : null,
+        p_user_id: "userId" in holder ? holder.userId : null,
+        p_label: label,
+        p_valid_days: validDays,
+      });
       if (error || !data) return fail(error, "Could not issue the badge.");
       const r = data as Record<string, unknown>;
       return {
@@ -1417,24 +1427,25 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
           expiresAt: String(r.expires_at),
           fullName: String(r.full_name ?? ""),
           employeeCode: (r.employee_code as string | null) ?? null,
-          email: (r.email as string | null) ?? null,
+          title: (r.title as string | null) ?? null,
         },
       };
     },
 
     async revokeBadge(badgeId, reason) {
-      const { error } = await rpc(client, "revoke_pos_manager_badge", { p_badge_id: badgeId, p_reason: reason });
+      const { error } = await rpc(client, "revoke_approval_badge", { p_badge_id: badgeId, p_reason: reason });
       return error ? fail(error, "Could not revoke the badge.") : { ok: true, data: true };
     },
 
-    async listBadges(userId) {
-      const { data, error } = await rpc(client, "list_pos_manager_badges", { p_user_id: userId });
+    async listBadges() {
+      const { data, error } = await rpc(client, "list_approval_badges", {});
       if (error) return fail(error, "Could not load badges.");
       return {
         ok: true,
         data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
           badgeId: String(r.badge_id),
-          userId: String(r.user_id),
+          employeeId: (r.employee_id as string | null) ?? null,
+          userId: (r.user_id as string | null) ?? null,
           fullName: String(r.full_name ?? ""),
           label: (r.label as string | null) ?? null,
           issuedAt: String(r.issued_at),
@@ -1449,7 +1460,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     },
 
     async approvalTrail(limit) {
-      const { data, error } = await rpc(client, "list_pos_manager_approval_trail", { p_limit: limit });
+      const { data, error } = await rpc(client, "list_approval_trail", { p_limit: limit });
       if (error) return fail(error, "Could not load the approval trail.");
       return {
         ok: true,

@@ -132,10 +132,12 @@ export interface PosGateway {
   /** Run one governed action approved by a scanned badge; refusals come back with the manager's name when known. */
   badgeApprove(payload: string, action: BadgeAction, args: Record<string, unknown>, deviceId: string): Promise<PosResult<{ managerName: string | null }>>;
   listManagerCandidates(): Promise<PosResult<ManagerCandidate[]>>;
-  setManagerAssignment(userId: string, assigned: boolean, notes: string | null): Promise<PosResult<true>>;
-  issueBadge(userId: string, label: string | null, validDays: number): Promise<PosResult<IssuedBadge>>;
+  /** Assign or remove an employee as an approver (admin or HR). */
+  setManagerAssignment(employeeId: string, assigned: boolean, notes: string | null): Promise<PosResult<true>>;
+  /** Badge for an employee approver, or for an admin user with no employee record. */
+  issueBadge(holder: { employeeId: string } | { userId: string }, label: string | null, validDays: number): Promise<PosResult<IssuedBadge>>;
   revokeBadge(badgeId: string, reason: string): Promise<PosResult<true>>;
-  listBadges(userId: string | null): Promise<PosResult<ManagerBadge[]>>;
+  listBadges(): Promise<PosResult<ManagerBadge[]>>;
   approvalTrail(limit: number): Promise<PosResult<ApprovalTrailRow[]>>;
   listPickupOrders(query: string): Promise<PosResult<PickupOrder[]>>;
   collectOrder(orderId: string, notes: string | null): Promise<PosResult<true>>;

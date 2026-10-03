@@ -10,10 +10,13 @@ import { Modal } from "./PosDialogs";
 import { Segment } from "./PosScreens";
 import styles from "./pos.module.css";
 
+/** Why someone approves: any Nissan GT-R Auto manager, or an employee given the approval role. */
 const SOURCE_LABEL: Record<string, string> = {
-  admin_role: "Manager (admin role)",
-  assigned: "Manager (assigned)",
-  hr_grade_or_role: "Manager (HR grade / role)",
+  senior_grade: "Approver · senior grade",
+  department_manager: "Approver · heads a team",
+  approval_role: "Approver · approval role",
+  assigned: "Approver · assigned",
+  admin_role: "Approver · administrator",
 };
 const ACTION_LABEL: Record<string, string> = {
   discount: "Discount",
@@ -28,8 +31,8 @@ const ACTION_LABEL: Record<string, string> = {
   till_handover: "Till handover",
   repair_paid_order: "Repair paid order",
   paid_order_repaired: "Repair paid order",
-  assigned: "Manager assigned",
-  unassigned: "Manager unassigned",
+  assigned: "Approver assigned",
+  unassigned: "Approver removed",
   badge_issued: "Badge issued",
   badge_revoked: "Badge revoked",
 };
@@ -41,8 +44,9 @@ function when(iso: string | null): string {
 }
 
 /**
- * Managers & ID badges (staff POS admin). Who may approve POS actions, their QR ID cards, and every
- * approval made. The server enforces access: admins change, admins and finance read.
+ * Approvers & ID badges. Any employee who is a manager (senior grade, or their HR role heads a team),
+ * holds an approval role, or is assigned here approves POS actions with their QR ID card; no POS
+ * login is needed. The server enforces access: admins and HR change, finance reads.
  */
 export function ManagersScreen({ pos }: { pos: PosStore }) {
   const [tab, setTab] = useState<"managers" | "badges" | "trail">("managers");
@@ -56,7 +60,7 @@ export function ManagersScreen({ pos }: { pos: PosStore }) {
   const { gateway } = pos;
 
   const load = useCallback(async () => {
-    const [c, b, t] = await Promise.all([gateway.listManagerCandidates(), gateway.listBadges(null), gateway.approvalTrail(200)]);
+    const [c, b, t] = await Promise.all([gateway.listManagerCandidates(), gateway.listBadges(), gateway.approvalTrail(200)]);
     setError(!c.ok ? c.error : !b.ok ? b.error : !t.ok ? t.error : null);
     setCandidates(c.ok ? c.data : []);
     setBadges(b.ok ? b.data : []);
@@ -68,7 +72,7 @@ export function ManagersScreen({ pos }: { pos: PosStore }) {
 
   const run = async (res: Promise<{ ok: true } | { ok: false; error: string }>) => {
     const r = await res;
-    if (!r.ok) setError(r.error.includes("admin role") ? "Only an admin can change managers and badges." : r.error);
+    if (!r.ok) setError(/admin|HR role/i.test(r.error) ? "Only an admin or HR can change approvers and badges." : r.error);
     else setError(null);
     void load();
     return r.ok;
@@ -77,12 +81,12 @@ export function ManagersScreen({ pos }: { pos: PosStore }) {
   return (
     <section className={styles.panel}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.panelTitle}>Managers &amp; ID badges</h2>
+        <h2 className={styles.panelTitle}>Approvers &amp; ID badges</h2>
         <Segment
           label="Managers view"
           value={tab}
           options={[
-            { id: "managers", label: "Managers" },
+            { id: "managers", label: "Approvers" },
             { id: "badges", label: `Badges (${badges?.filter((b) => b.status === "active").length ?? 0})` },
             { id: "trail", label: "Approval trail" },
           ]}
@@ -90,9 +94,10 @@ export function ManagersScreen({ pos }: { pos: PosStore }) {
         />
       </div>
       <p className={styles.muted}>
-        Managers approve discounts, overrides, voids, refunds, cash out, till variances and handovers. A signed-in manager approves
-        without a prompt; at someone else&apos;s till they scan their ID badge. Badges expire, can be revoked at any time, and stop
-        working the moment their holder is no longer a manager.
+        Any Nissan GT-R Auto manager (senior grade, or an HR role that heads a team), anyone with an approval role, and anyone assigned
+        here approves discounts, overrides, voids, refunds, cash out, till variances and handovers by scanning their ID badge at the
+        till. They need no POS login. An approver who is signed in approves without a prompt. Badges expire, can be revoked at any time,
+        and stop working the moment their holder is no longer an approver.
       </p>
       {error ? <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">{error}</p> : null}
 
@@ -101,30 +106,30 @@ export function ManagersScreen({ pos }: { pos: PosStore }) {
           candidates == null ? (
             <div className={styles.emptyCard}>Loading…</div>
           ) : candidates.length === 0 ? (
-            <div className={styles.emptyCard}>No staff accounts.</div>
+            <div className={styles.emptyCard}>No employees yet. Add them in HR.</div>
           ) : (
             candidates.map((c) => (
-              <div key={c.userId} className={styles.listRow}>
+              <div key={c.employeeId ?? c.userId ?? c.fullName} className={styles.listRow}>
                 <span>
                   <div className={styles.listTitle}>
-                    {c.fullName} {c.isApprover ? <span className={styles.badge}>{SOURCE_LABEL[c.source ?? ""] ?? "Manager"}</span> : null}
+                    {c.fullName} {c.isApprover ? <span className={styles.badge}>{SOURCE_LABEL[c.source ?? ""] ?? "Approver"}</span> : null}
                   </div>
                   <div className={styles.muted}>
-                    {[c.employeeCode, c.email, c.roles.join(", ")].filter(Boolean).join(" · ")}
+                    {[c.employeeCode, c.roleTitle, c.department, c.grade, c.hasLogin ? null : "no POS login"].filter(Boolean).join(" · ")}
                     {c.activeBadges > 0 ? ` · ${c.activeBadges} active badge${c.activeBadges === 1 ? "" : "s"}` : ""}
                   </div>
                 </span>
                 <span className={styles.row}>
-                  {c.assigned ? (
-                    <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => void run(gateway.setManagerAssignment(c.userId, false, null))}>
-                      <UserMinus size={16} aria-hidden /> Unassign
+                  {c.employeeId && c.assigned ? (
+                    <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => void run(gateway.setManagerAssignment(c.employeeId!, false, null))}>
+                      <UserMinus size={16} aria-hidden /> Remove approval role
                     </button>
-                  ) : !c.isApprover ? (
-                    <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => void run(gateway.setManagerAssignment(c.userId, true, "Assigned in POS admin"))}>
-                      <UserPlus size={16} aria-hidden /> Make manager
+                  ) : c.employeeId && !c.isApprover ? (
+                    <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => void run(gateway.setManagerAssignment(c.employeeId!, true, "Assigned in approvers admin"))}>
+                      <UserPlus size={16} aria-hidden /> Give approval role
                     </button>
                   ) : null}
-                  <button type="button" className={styles.primaryButton} disabled={!c.isApprover} onClick={() => setIssuing(c)} title={c.isApprover ? undefined : "Only managers get a badge"}>
+                  <button type="button" className={styles.primaryButton} disabled={!c.isApprover} onClick={() => setIssuing(c)} title={c.isApprover ? undefined : "Only managers and approvers get a badge"}>
                     <IdCard size={16} aria-hidden /> Issue badge
                   </button>
                 </span>
@@ -185,9 +190,10 @@ export function ManagersScreen({ pos }: { pos: PosStore }) {
           candidate={issuing}
           onCancel={() => setIssuing(null)}
           onIssue={async (label, days) => {
-            const r = await gateway.issueBadge(issuing.userId, label, days);
+            const holder = issuing.employeeId ? { employeeId: issuing.employeeId } : { userId: issuing.userId ?? "" };
+            const r = await gateway.issueBadge(holder, label, days);
             if (!r.ok) {
-              setError(r.error.includes("admin role") ? "Only an admin can issue badges." : r.error);
+              setError(/admin|HR role/i.test(r.error) ? "Only an admin or HR can issue badges." : r.error);
               setIssuing(null);
               return;
             }
@@ -264,16 +270,17 @@ function IssueBadgeDialog({ candidate, onCancel, onIssue }: { candidate: Manager
 function BadgeCard({ badge, qr }: { badge: IssuedBadge; qr: string | null }) {
   return (
     <div className={styles.idCard}>
-      <div className={styles.idCardBrand}>GTR AUTO · POS MANAGER</div>
+      <div className={styles.idCardBrand}>NISSAN GT-R AUTO · AUTHORISED APPROVER</div>
       <div className={styles.idCardBody}>
         <div className={styles.idCardText}>
           <div className={styles.idCardName}>{badge.fullName}</div>
-          {badge.employeeCode ? <div>{badge.employeeCode}</div> : null}
+          {badge.title ? <div>{badge.title}</div> : null}
+          {badge.employeeCode ? <div className={styles.idCardMeta}>{badge.employeeCode}</div> : null}
           <div className={styles.idCardMeta}>Approves POS actions</div>
           <div className={styles.idCardMeta}>Valid until {new Date(badge.expiresAt).toLocaleDateString(undefined, { dateStyle: "medium" })}</div>
           <div className={styles.idCardMeta}>Card {badge.badgeId.slice(0, 8)}</div>
         </div>
-        {qr ? <img className={styles.idCardQr} src={qr} alt="Manager approval QR" /> : <div className={styles.idCardQr} />}
+        {qr ? <img className={styles.idCardQr} src={qr} alt="Approval QR" /> : <div className={styles.idCardQr} />}
       </div>
       <div className={styles.idCardFoot}>If found, return to GTR Auto. Lost cards are revoked.</div>
     </div>
@@ -288,7 +295,7 @@ function BadgeCardDialog({ badge, onClose }: { badge: IssuedBadge; onClose: () =
     setSlot(document.getElementById("pos-print-slot"));
   }, [badge.payload]);
   return (
-    <Modal title="Manager ID card" onClose={onClose}>
+    <Modal title="Approver ID card" onClose={onClose}>
       <p className={styles.muted}>
         <ShieldCheck size={14} aria-hidden /> Print this card now (ID-1 size, 85.6 × 54 mm). The QR will not be shown again; anyone holding the
         card can approve POS actions, so treat it like a key.

@@ -235,8 +235,8 @@ function Destination({
             </div>
             <div className={styles.listRow}>
               <span>
-                <div className={styles.listTitle}>Managers &amp; ID badges</div>
-                <div className={styles.muted}>Who approves POS actions, their QR ID cards, and the approval audit trail.</div>
+                <div className={styles.listTitle}>Approvers &amp; ID badges</div>
+                <div className={styles.muted}>Managers and staff with the approval role, their QR ID cards, and the approval audit trail.</div>
               </span>
               <button type="button" className={styles.primaryButton} onClick={() => pos.setDestination("managers")}>
                 Open

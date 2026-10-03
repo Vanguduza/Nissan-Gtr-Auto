@@ -88,14 +88,19 @@ const managerOk = (m: { identifier: string; password: string }) => m.identifier.
 export const PREVIEW_BADGE = "GTRMGR1:preview-manager:preview-badge-secret";
 
 export function createPreviewPosGateway(): PosGateway {
+  const emp = (id: string, fullName: string, code: string, grade: string | null, roleTitle: string | null, department: string | null, hasLogin: boolean, source: string | null): ManagerCandidate => ({
+    holderType: "employee", employeeId: id, userId: hasLogin ? id : null, fullName, employeeCode: code, grade, roleTitle, department, hasLogin,
+    isApprover: source !== null, source, assigned: false, activeBadges: 0,
+  });
   const candidates: ManagerCandidate[] = [
-    { userId: "preview-manager", fullName: "Preview manager", employeeCode: "EMP-0100", email: "manager@example.com", roles: ["admin"], isApprover: true, source: "admin_role", assigned: false, activeBadges: 0 },
-    { userId: "preview-operator", fullName: "Preview operator", employeeCode: "EMP-0001", email: "operator@example.com", roles: ["sales"], isApprover: false, source: null, assigned: false, activeBadges: 0 },
-    { userId: "op-2", fullName: "Farai Ncube", employeeCode: "EMP-0002", email: "farai@example.com", roles: ["sales"], isApprover: false, source: null, assigned: false, activeBadges: 0 },
+    emp("preview-manager", "Preview manager", "EMP-0100", "Shop & warehouse manager", "Shop manager", "Sales", true, "senior_grade"),
+    emp("emp-workshop", "Tafadzwa Dube", "EMP-0201", "Shop attendant", "Workshop head", "Workshop", false, "department_manager"),
+    emp("preview-operator", "Preview operator", "EMP-0001", "Shop attendant", "Counter sales", "Sales", true, null),
+    emp("op-2", "Farai Ncube", "EMP-0002", "Shop attendant", "Counter sales", "Sales", true, null),
   ];
   type PreviewBadge = IssuedBadge & { userId: string; label: string | null; issuedAt: string; revokedAt: string | null; revokeReason: string | null; lastUsedAt: string | null; useCount: number };
   const badges: PreviewBadge[] = [
-    { badgeId: "preview-manager", payload: PREVIEW_BADGE, expiresAt: new Date(Date.now() + 365 * 86_400_000).toISOString(), fullName: "Preview manager", employeeCode: "EMP-0100", email: "manager@example.com", userId: "preview-manager", label: "Preview card", issuedAt: new Date().toISOString(), revokedAt: null, revokeReason: null, lastUsedAt: null, useCount: 0 },
+    { badgeId: "preview-manager", payload: PREVIEW_BADGE, expiresAt: new Date(Date.now() + 365 * 86_400_000).toISOString(), fullName: "Preview manager", employeeCode: "EMP-0100", title: "Shop manager", userId: "preview-manager", label: "Preview card", issuedAt: new Date().toISOString(), revokedAt: null, revokeReason: null, lastUsedAt: null, useCount: 0 },
   ];
   const trail: ApprovalTrailRow[] = [];
   // Preview policies: discount up to 5% needs no manager, everything else does (same table as the server).
@@ -734,20 +739,23 @@ export function createPreviewPosGateway(): PosGateway {
       badge.lastUsedAt = new Date().toISOString();
       return ok({ managerName: badge.fullName });
     },
-    listManagerCandidates: () => ok(candidates.map((c) => ({ ...c, activeBadges: badges.filter((b) => b.userId === c.userId && !b.revokedAt).length }))),
-    setManagerAssignment: (userId, assigned) => {
-      const c = candidates.find((x) => x.userId === userId);
-      if (!c) return no("staff account required");
-      Object.assign(c, { assigned, isApprover: assigned || c.source === "admin_role", source: c.source === "admin_role" ? "admin_role" : assigned ? "assigned" : null });
+    listManagerCandidates: () => ok(candidates.map((c) => ({ ...c, activeBadges: badges.filter((b) => b.userId === c.employeeId && !b.revokedAt).length }))),
+    setManagerAssignment: (employeeId, assigned) => {
+      const c = candidates.find((x) => x.employeeId === employeeId);
+      if (!c) return no("active employee required");
+      const own = c.source && c.source !== "assigned" ? c.source : null;
+      Object.assign(c, { assigned, source: own ?? (assigned ? "assigned" : null) });
+      c.isApprover = c.source !== null;
       trail.unshift({ at: new Date().toISOString(), method: "admin", outcome: assigned ? "assigned" : "unassigned", action: assigned ? "assigned" : "unassigned", managerName: "Preview admin", requestedByName: c.fullName, reasonCode: null, detail: null, deviceId: null });
       return ok(true as const);
     },
-    issueBadge: (userId, label, validDays) => {
-      const c = candidates.find((x) => x.userId === userId);
-      if (!c?.isApprover) return no("only a POS manager can hold a manager badge");
+    issueBadge: (holder, label, validDays) => {
+      const key = "employeeId" in holder ? holder.employeeId : holder.userId;
+      const c = candidates.find((x) => x.employeeId === key || x.userId === key);
+      if (!c?.isApprover) return no("only a manager or an assigned approver can hold an approval badge");
       const id = `badge-${seq++}`;
-      const issued = { badgeId: id, payload: `GTRMGR1:${id}:${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`, expiresAt: new Date(Date.now() + validDays * 86_400_000).toISOString(), fullName: c.fullName, employeeCode: c.employeeCode, email: c.email };
-      badges.unshift({ ...issued, userId, label, issuedAt: new Date().toISOString(), revokedAt: null, revokeReason: null, lastUsedAt: null, useCount: 0 });
+      const issued = { badgeId: id, payload: `GTRMGR1:${id}:${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`, expiresAt: new Date(Date.now() + validDays * 86_400_000).toISOString(), fullName: c.fullName, employeeCode: c.employeeCode, title: c.roleTitle ?? c.grade };
+      badges.unshift({ ...issued, userId: key, label, issuedAt: new Date().toISOString(), revokedAt: null, revokeReason: null, lastUsedAt: null, useCount: 0 });
       trail.unshift({ at: new Date().toISOString(), method: "admin", outcome: "badge_issued", action: "badge_issued", managerName: "Preview admin", requestedByName: c.fullName, reasonCode: null, detail: label, deviceId: null });
       return ok(issued);
     },
@@ -759,12 +767,11 @@ export function createPreviewPosGateway(): PosGateway {
       trail.unshift({ at: new Date().toISOString(), method: "admin", outcome: "badge_revoked", action: "badge_revoked", managerName: "Preview admin", requestedByName: b.fullName, reasonCode: null, detail: reason, deviceId: null });
       return ok(true as const);
     },
-    listBadges: (userId) =>
+    listBadges: () =>
       ok(
         badges
-          .filter((b) => !userId || b.userId === userId)
           .map((b) => ({
-            badgeId: b.badgeId, userId: b.userId, fullName: b.fullName, label: b.label, issuedAt: b.issuedAt, expiresAt: b.expiresAt,
+            badgeId: b.badgeId, employeeId: b.userId, userId: null, fullName: b.fullName, label: b.label, issuedAt: b.issuedAt, expiresAt: b.expiresAt,
             revokedAt: b.revokedAt, revokeReason: b.revokeReason, lastUsedAt: b.lastUsedAt, useCount: b.useCount,
             status: b.revokedAt ? ("revoked" as const) : Date.parse(b.expiresAt) <= Date.now() ? ("expired" as const) : ("active" as const),
           })),
