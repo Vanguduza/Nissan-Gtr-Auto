@@ -70,7 +70,7 @@ import co.zw.nissangtr.pos.ui.home.SoftButton
 import java.time.LocalDate
 
 @Composable
-private fun ListRow(
+internal fun ListRow(
     title: String,
     subtitle: String?,
     trailing: String? = null,
@@ -101,7 +101,7 @@ private fun ListRow(
 
 /** Two panels side by side when there is room, stacked otherwise (adaptive at every width). */
 @Composable
-private fun TwoPane(first: @Composable () -> Unit, second: @Composable () -> Unit) {
+internal fun TwoPane(first: @Composable () -> Unit, second: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         if (maxWidth >= 760.dp) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {

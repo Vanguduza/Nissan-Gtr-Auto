@@ -173,6 +173,8 @@ fun PosHomeScreen(
                 onSearchChange = { dispatch(PosIntent.EditSearch(it)) },
                 onSearchSubmit = { dispatch(PosIntent.SubmitSearch) },
                 queued = state.offlineQueue.pending + state.offlineQueue.conflicts,
+                till = co.zw.nissangtr.pos.ui.sale.tillHeaderLabel(state),
+                onTill = { dispatch(PosIntent.Navigate(PosDestination.Till)) },
                 onScan = host.onScan,
             )
         },
@@ -224,6 +226,7 @@ fun PosHomeScreen(
                 PosDestination.Orders -> OrdersScreen(state, dispatch)
                 PosDestination.Returns -> ReturnsScreen(state, dispatch)
                 PosDestination.EpcBrowse -> EpcScreen(state, dispatch)
+                PosDestination.Till -> co.zw.nissangtr.pos.ui.sale.TillScreen(state, dispatch)
                 PosDestination.Settings -> SettingsScreen(state, dispatch, host)
             }
         }
@@ -245,6 +248,7 @@ fun PosHomeScreen(
     }
     if (state.paymentOpen || state.receipt != null) PaymentDialog(state, dispatch, host.onPrint)
     ApprovalDialog(state, dispatch)
+    co.zw.nissangtr.pos.ui.sale.TillDialogs(state, dispatch)
     GarageChooserDialog(state, dispatch)
     if (state.companionOpen) CompanionDialog(state, dispatch, now)
     if (state.scannerOpen) ScannerDialog(state, dispatch, host.onScan)

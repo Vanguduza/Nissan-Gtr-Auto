@@ -1,5 +1,6 @@
 package co.zw.nissangtr.management.pos
 
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,7 @@ import co.zw.nissangtr.pos.ui.home.OfflineCatalogPhase
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.pos.data.RpcPosGateways
 import co.zw.nissangtr.pos.data.RpcSaleGateways
+import co.zw.nissangtr.pos.data.RpcTillGateway
 import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.design.theme.PosWindowClass
 import co.zw.nissangtr.pos.domain.model.ReceiptPaper
@@ -81,6 +83,8 @@ fun PosTabletEntry(
                 epc = sale.epc,
                 offline = outbox,
                 companion = sale.companion,
+                // Till sessions are server-only: they talk to the live client, not the catalogue wrapper.
+                till = RpcTillGateway(rpc, Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "tablet"),
             ) to outbox::close
         },
     )

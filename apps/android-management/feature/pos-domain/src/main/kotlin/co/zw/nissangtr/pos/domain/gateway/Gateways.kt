@@ -30,6 +30,11 @@ import co.zw.nissangtr.pos.domain.model.PopularPin
 import co.zw.nissangtr.pos.domain.model.VehicleGeneration
 import co.zw.nissangtr.pos.domain.model.VehicleModel
 import co.zw.nissangtr.pos.domain.model.VehicleSelection
+import co.zw.nissangtr.pos.domain.model.DenominationCount
+import co.zw.nissangtr.pos.domain.model.HandoverOperator
+import co.zw.nissangtr.pos.domain.model.ReasonCode
+import co.zw.nissangtr.pos.domain.model.TillCloseResult
+import co.zw.nissangtr.pos.domain.model.TillSession
 import co.zw.nissangtr.pos.domain.result.PosResult
 
 /**
@@ -166,5 +171,38 @@ interface CompanionGateway {
         override suspend fun cart(cartId: String) = refused
         override suspend fun claim(pairingCode: String) = refused
         override suspend fun addFromQr(cartId: String, payload: String) = refused
+    }
+}
+
+/**
+ * Cash drawer sessions (Blueprint §10.2 Till gateway). Selling needs an open till: the cart is
+ * attached to it so the invoice's cash lands in the drawer's expected total. Cash out, variance
+ * and handover need a manager and run through [SalesGateway.approve]. This device's id is bound
+ * in the implementation.
+ */
+interface TillGateway {
+    /** The till this operator (or this device) has open or waiting on a variance; null when none. */
+    suspend fun current(): PosResult<TillSession?>
+    suspend fun open(openingFloat: Money): PosResult<TillSession>
+    suspend fun attachCart(cartId: String, sessionId: String): PosResult<Unit>
+    suspend fun reasons(action: String): PosResult<List<ReasonCode>>
+    /** Cash in only; cash leaving the drawer goes through manager approval. */
+    suspend fun cashIn(sessionId: String, amount: Money, reasonCode: String, notes: String?): PosResult<Unit>
+    /** Blind denominated count; the server returns expected, counted and variance. */
+    suspend fun close(sessionId: String, counts: List<DenominationCount>, varianceReasonCode: String?, notes: String?): PosResult<TillCloseResult>
+    suspend fun handoverOperators(): PosResult<List<HandoverOperator>>
+    suspend fun recent(): PosResult<List<TillSession>>
+
+    /** No till backend (previews, tests): selling stays ungated. */
+    object None : TillGateway {
+        private val refused = PosResult.Err(PosError.BusinessRule("till_unavailable", ""))
+        override suspend fun current(): PosResult<TillSession?> = PosResult.Ok(null)
+        override suspend fun open(openingFloat: Money) = refused
+        override suspend fun attachCart(cartId: String, sessionId: String): PosResult<Unit> = PosResult.Ok(Unit)
+        override suspend fun reasons(action: String): PosResult<List<ReasonCode>> = PosResult.Ok(emptyList())
+        override suspend fun cashIn(sessionId: String, amount: Money, reasonCode: String, notes: String?) = refused
+        override suspend fun close(sessionId: String, counts: List<DenominationCount>, varianceReasonCode: String?, notes: String?) = refused
+        override suspend fun handoverOperators(): PosResult<List<HandoverOperator>> = PosResult.Ok(emptyList())
+        override suspend fun recent(): PosResult<List<TillSession>> = PosResult.Ok(emptyList())
     }
 }

@@ -860,3 +860,39 @@ data class PosParkedCart(
     val total: Double,
     val lineCount: Int,
 )
+
+/** `pos_till_sessions` row as the till RPCs return it (amounts in major units of [currency]). */
+data class PosTillSessionRow(
+    val id: String,
+    val warehouseId: String,
+    val deviceId: String,
+    val currency: CurrencyCode,
+    val operatorUserId: String,
+    val openingFloat: Double,
+    /** `open`, `variance_pending` or `closed`. */
+    val status: String,
+    val expectedCash: Double?,
+    val countedCash: Double?,
+    val variance: Double?,
+    val varianceReasonCode: String?,
+    val openedAt: String,
+    val closedAt: String?,
+)
+
+/** `close_pos_till_session` result: the server's expected cash and variance for a blind count. */
+data class PosTillCloseResult(
+    val sessionId: String,
+    val expectedCash: Double,
+    val countedCash: Double,
+    val variance: Double,
+    val status: String,
+)
+
+/** `list_pos_approval_reasons` row. */
+data class PosApprovalReason(val code: String, val label: String, val requiresNotes: Boolean)
+
+/** `list_pos_handover_operators` row. */
+data class PosHandoverOperatorRow(val userId: String, val employeeCode: String, val fullName: String)
+
+/** One blind-count line for `submit_pos_till_denominated_close`. */
+data class PosDenominationLine(val denomination: Double, val quantity: Int)

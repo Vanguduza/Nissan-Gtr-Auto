@@ -53,6 +53,7 @@ internal fun reduceCompanionIntent(state: PosState, intent: CompanionIntent): Re
         !state.online -> offlineRefusal(state, "online_only")
         state.cart.isLocal -> offlineRefusal(state, "local_cart_online")
         state.companionPairing -> Reduction(state.copy(companionOpen = true))
+        !state.till.canSell -> tillRequired(state)
         else -> Reduction(
             state.copy(companionOpen = true, companionPairing = true, companion = null),
             listOf(CompanionEffect.Create(state.cart.serverCartId)),

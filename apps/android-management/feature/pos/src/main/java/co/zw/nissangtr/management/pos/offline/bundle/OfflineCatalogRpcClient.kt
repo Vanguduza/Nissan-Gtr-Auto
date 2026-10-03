@@ -1,5 +1,6 @@
 package co.zw.nissangtr.management.pos.offline.bundle
 
+import co.zw.nissangtr.management.rpc.ManagerApproval
 import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.management.rpc.VehicleMasterEntry
 import kotlinx.coroutines.CancellationException
@@ -20,7 +21,11 @@ class OfflineCatalogRpcClient(
     private val isOnline: () -> Boolean,
     /** The shop's stocked parts by normalised part number (the offline stock snapshot). */
     private val stock: () -> Map<String, OfflineStockLine>,
-) : RpcClient by delegate {
+) : RpcClient by delegate, ManagerApproval {
+
+    /** Manager approvals sign in on the real client; without one there is no manager session to use. */
+    override suspend fun <T> withManagerApproval(managerIdentifier: String, managerPassword: String, block: suspend () -> T): T =
+        (delegate as? ManagerApproval)?.withManagerApproval(managerIdentifier, managerPassword, block) ?: block()
 
     override suspend fun listVehicleMaster(): List<VehicleMasterEntry> =
         pick({ delegate.listVehicleMaster() }) { bundle.vehicleMaster() }

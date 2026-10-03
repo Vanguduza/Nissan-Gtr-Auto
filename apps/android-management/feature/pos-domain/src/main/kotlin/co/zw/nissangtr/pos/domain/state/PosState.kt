@@ -29,7 +29,7 @@ import co.zw.nissangtr.pos.domain.model.buildPopularRow
 
 /** Rail destinations in canonical order (Blueprint §6.1). `Reports` is forbidden (D-001). */
 enum class PosDestination {
-    Home, SearchSpares, QuickSale, Customer, Orders, Returns, EpcBrowse, Settings,
+    Home, SearchSpares, QuickSale, Customer, Orders, Returns, EpcBrowse, Till, Settings,
 }
 
 /** Transient operator feedback. [error] maps to a string resource in the UI (ARCH-10). */
@@ -43,6 +43,7 @@ enum class PosNotice {
     SaleParked, SaleResumed, QuoteCreated, QuoteSent, QuoteConverted,
     CustomerSaved, VehicleSaved, EcoCashSent, Approved, Refunded,
     OfflineSaleQueued, OfflineSynced,
+    TillOpened, CashRecorded, TillClosed, TillVariancePending, TillHandedOver,
 }
 
 data class PosState(
@@ -94,6 +95,8 @@ data class PosState(
     val scanner: ScannerLink? = null,
     val scannerOpen: Boolean = false,
     val scannerClaiming: Boolean = false,
+    /** Cash drawer session (D-016); online selling needs it open. */
+    val till: TillPanel = TillPanel(),
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

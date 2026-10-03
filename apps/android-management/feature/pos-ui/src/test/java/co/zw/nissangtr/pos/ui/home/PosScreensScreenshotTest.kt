@@ -85,6 +85,71 @@ class PosScreensScreenshotTest {
         ),
     )
 
+    private fun tillSession(status: co.zw.nissangtr.pos.domain.model.TillStatus, variance: Money? = null) = co.zw.nissangtr.pos.domain.model.TillSession(
+        "t1", "w1", CurrencyCode.USD, "u1", usd(50.0), status, variance?.let { usd(72.5) }, variance?.let { usd(70.0) }, variance, null, "2026-10-01T07:30:00Z", null,
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun tillOpen() = capture(
+        "till_open",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(
+            destination = PosDestination.Till,
+            till = co.zw.nissangtr.pos.domain.state.TillPanel(
+                enforced = true, loaded = true,
+                session = tillSession(co.zw.nissangtr.pos.domain.model.TillStatus.Open),
+                history = listOf(tillSession(co.zw.nissangtr.pos.domain.model.TillStatus.Open)),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun tillClosed() = capture(
+        "till_closed",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(
+            destination = PosDestination.Till,
+            till = co.zw.nissangtr.pos.domain.state.TillPanel(enforced = true, loaded = true, history = emptyList()),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun tillVariance() = capture(
+        "till_variance",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(
+            destination = PosDestination.Till,
+            till = co.zw.nissangtr.pos.domain.state.TillPanel(
+                enforced = true, loaded = true,
+                session = tillSession(co.zw.nissangtr.pos.domain.model.TillStatus.VariancePending, usd(-2.5)),
+                reasons = mapOf("till_variance" to listOf(
+                    co.zw.nissangtr.pos.domain.model.ReasonCode("count_error", "Count error", false),
+                    co.zw.nissangtr.pos.domain.model.ReasonCode("other", "Other", true),
+                )),
+                history = emptyList(),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun tillCount() = capture(
+        "till_count",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(
+            destination = PosDestination.Till,
+            till = co.zw.nissangtr.pos.domain.state.TillPanel(
+                enforced = true, loaded = true,
+                session = tillSession(co.zw.nissangtr.pos.domain.model.TillStatus.Open),
+                dialog = co.zw.nissangtr.pos.domain.state.TillDialog.Close,
+                history = emptyList(),
+            ),
+        ),
+    )
+
     @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
     fun returns() = capture(
         "returns",

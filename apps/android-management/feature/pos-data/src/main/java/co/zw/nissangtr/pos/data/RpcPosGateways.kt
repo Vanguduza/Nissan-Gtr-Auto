@@ -158,12 +158,7 @@ class RpcPosGateways(private val rpc: RpcClient) {
     val cart: CartGateway = object : CartGateway {
         private var warehouseId: String? = null
 
-        private suspend fun warehouse(): String = warehouseId ?: run {
-            val all = rpc.listWarehouses()
-            val chosen = all.firstOrNull { it.code.equals("MAIN", ignoreCase = true) } ?: all.firstOrNull()
-                ?: throw PosFailure(PosError.BusinessRule("no_warehouse", "No active warehouse is set up for this shop."))
-            chosen.id.also { warehouseId = it }
-        }
+        private suspend fun warehouse(): String = warehouseId ?: shopWarehouseId(rpc).also { warehouseId = it }
 
         override suspend fun open(currency: CurrencyCode) = call {
             val cartId = rpc.createPosCart(warehouseId = warehouse(), currency = currency.toRpc())
@@ -224,6 +219,14 @@ class RpcPosGateways(private val rpc: RpcClient) {
     }
 }
 
+/** The shop's selling warehouse: `MAIN`, else the first active one. Carts and tills share it. */
+internal suspend fun shopWarehouseId(rpc: RpcClient): String {
+    val all = rpc.listWarehouses()
+    val chosen = all.firstOrNull { it.code.equals("MAIN", ignoreCase = true) } ?: all.firstOrNull()
+        ?: throw PosFailure(PosError.BusinessRule("no_warehouse", "No active warehouse is set up for this shop."))
+    return chosen.id
+}
+
 /** A business outcome raised inside a gateway body; converted to [PosResult.Err] by [call]. */
 class PosFailure(val error: PosError) : RuntimeException(error.toString())
 
@@ -246,6 +249,8 @@ internal fun classify(e: Exception): PosError {
     return when {
         "timeout" in lower || "unable to resolve host" in lower || "failed to connect" in lower ->
             PosError.Transient(retryable = true, message = msg)
+        // Blind close: the count is out and the server wants a reason before it accepts it.
+        "variance reason required" in lower -> PosError.BusinessRule("variance_reason_required", "")
         "required" in lower && ("role" in lower || "approval" in lower) ->
             PosError.BusinessRule("forbidden", serverMessage(msg))
         // Stock-ledger internals (batch ids, FIFO shortfalls) are reworded, never shown raw.

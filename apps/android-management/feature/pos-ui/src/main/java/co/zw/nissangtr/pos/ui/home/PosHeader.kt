@@ -83,6 +83,9 @@ fun PosHeader(
     modifier: Modifier = Modifier,
     /** Offline outbox: sales waiting to replay plus refused replays (§10.12, D-005). */
     queued: Int = 0,
+    /** Till state for the operator block (D-016); tapping the block opens the Till screen. */
+    till: String? = null,
+    onTill: () -> Unit = {},
 ) {
     val palette = PosTheme.palette
     val windowClass = PosTheme.geometry.windowClass
@@ -90,7 +93,7 @@ fun PosHeader(
         Column(modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 VehicleButton(cascade, onPickModel, onPickGeneration, onPickEngine, onPinVehicle, Modifier.weight(1f))
-                OperatorBlock(operator, compact = true)
+                OperatorBlock(operator, compact = true, till = till, onClick = onTill)
             }
             SearchField(searchQuery, onSearchChange, onSearchSubmit, onScan, Modifier.fillMaxWidth())
             SyncStatus(online, queued)
@@ -122,7 +125,7 @@ fun PosHeader(
 
         SyncStatus(online, queued)
 
-        OperatorBlock(operator, compact = windowClass != PosWindowClass.Expanded)
+        OperatorBlock(operator, compact = windowClass != PosWindowClass.Expanded, till = till, onClick = onTill)
         ClockBlock(now)
     }
 }
@@ -259,11 +262,15 @@ private fun SearchField(
 }
 
 @Composable
-private fun OperatorBlock(operator: Operator?, compact: Boolean = false) {
+private fun OperatorBlock(operator: Operator?, compact: Boolean = false, till: String? = null, onClick: () -> Unit = {}) {
     val palette = PosTheme.palette
     val type = PosTheme.type
     if (operator == null) return
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        Modifier.clip(PosTheme.shape.sm).clickable(role = Role.Button, onClickLabel = till, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Box(
             Modifier.size(40.dp).clip(CircleShape).background(palette.navBackground),
             contentAlignment = Alignment.Center,
@@ -277,7 +284,7 @@ private fun OperatorBlock(operator: Operator?, compact: Boolean = false) {
         if (!compact) {
             Column {
                 PosText(operator.displayName, type.labelAction.copy(fontWeight = FontWeight.SemiBold), palette.textPrimary, maxLines = 1)
-                PosText(operator.roleLabel, type.labelMeta, palette.textMuted, maxLines = 1)
+                PosText(till ?: operator.roleLabel, type.labelMeta, palette.textMuted, maxLines = 1)
             }
         }
     }

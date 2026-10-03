@@ -351,6 +351,9 @@ private val ApprovalRequest.titleRes: Int
         is ApprovalRequest.PriceOverride -> R.string.pos_approve_override
         ApprovalRequest.VoidSale -> R.string.pos_approve_void
         is ApprovalRequest.Refund -> R.string.pos_approve_refund
+        is ApprovalRequest.CashOut -> R.string.pos_approve_cash_out
+        is ApprovalRequest.TillVariance -> R.string.pos_approve_till_variance
+        is ApprovalRequest.Handover -> R.string.pos_approve_handover
     }
 
 /** Manager signs in for this one action only (owner decision D4); the cashier stays signed in. */
@@ -368,6 +371,14 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                 is ApprovalRequest.PriceOverride -> stringResource(R.string.pos_approve_override_detail, request.unitPrice.toString())
                 ApprovalRequest.VoidSale -> stringResource(R.string.pos_approve_void_detail)
                 is ApprovalRequest.Refund -> stringResource(R.string.pos_approve_refund_detail, request.invoice.documentNumber ?: "", formatMoney(request.invoice.total))
+                is ApprovalRequest.CashOut -> stringResource(R.string.pos_approve_cash_out_detail, formatMoney(request.amount), request.reason.label)
+                is ApprovalRequest.TillVariance -> stringResource(
+                    R.string.pos_approve_till_variance_detail,
+                    if (request.variance.minor < 0) stringResource(R.string.pos_till_short, formatMoney(request.variance.copy(minor = -request.variance.minor)))
+                    else stringResource(R.string.pos_till_over, formatMoney(request.variance)),
+                    request.reason.label,
+                )
+                is ApprovalRequest.Handover -> stringResource(R.string.pos_approve_handover_detail, request.to.fullName)
             },
             PosTheme.type.bodyPrimary,
             palette.textSecondary,

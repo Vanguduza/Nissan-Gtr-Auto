@@ -45,7 +45,7 @@ private const val CATALOG_LIVE_FN = "catalog-live-r2"
 class SupabaseRpcClient(
     val client: SupabaseClient,
     private val projectUrl: String? = null,
-) : RpcClient {
+) : RpcClient, ManagerApproval {
 
     /** GoTrue Auth plugin — [signInWithEmail] (preferred) or [importAccessToken] fallback. */
     val auth: Auth get() = client.auth
@@ -1378,7 +1378,7 @@ class SupabaseRpcClient(
 
     fun isStaffPortalSessionActive(): Boolean = staffPortalAttendantSession != null
 
-    suspend fun <T> withManagerApproval(
+    override suspend fun <T> withManagerApproval(
         managerIdentifier: String,
         managerPassword: String,
         block: suspend () -> T,
@@ -2767,6 +2767,131 @@ class SupabaseRpcClient(
             }
         }
     }
+
+    // --- POS till sessions
+
+    override suspend fun getMyOpenPosTillSession(deviceId: String?): PosTillSessionRow? {
+        val raw = client.postgrest.rpc(
+            "get_my_open_pos_till_session",
+            buildJsonObject { if (deviceId.isNullOrBlank()) put("p_device_id", JsonNull) else put("p_device_id", deviceId) },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return (raw as? JsonObject)?.toTillRow()
+    }
+
+    override suspend fun openPosTillSession(warehouseId: String, deviceId: String, openingFloat: Double, currency: CurrencyCode): String =
+        client.postgrest.rpc(
+            "open_pos_till_session",
+            buildJsonObject {
+                put("p_warehouse_id", warehouseId)
+                put("p_device_id", deviceId)
+                put("p_opening_float", openingFloat)
+                put("p_currency", currency.rpcValue)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun attachPosCartTillSession(cartId: String, sessionId: String) {
+        client.postgrest.rpc(
+            "attach_pos_cart_till_session",
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_session_id", sessionId)
+            },
+        )
+    }
+
+    override suspend fun listPosApprovalReasons(action: String): List<PosApprovalReason> =
+        client.postgrest.rpc("list_pos_approval_reasons", buildJsonObject { put("p_action", action) })
+            .decodeAs<JsonArray>()
+            .mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                val code = o.stringOrNull("code") ?: return@mapNotNull null
+                PosApprovalReason(code, o.stringOrNull("label") ?: code, o["requires_notes"]?.jsonPrimitive?.booleanOrNull == true)
+            }
+
+    override suspend fun recordPosTillCashMovement(sessionId: String, kind: String, amount: Double, reasonCode: String, notes: String?): String =
+        client.postgrest.rpc(
+            "record_pos_till_cash_movement",
+            buildJsonObject {
+                put("p_session_id", sessionId)
+                put("p_kind", kind)
+                put("p_amount", amount)
+                put("p_reason_code", reasonCode)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun submitPosTillDenominatedClose(
+        sessionId: String,
+        lines: List<PosDenominationLine>,
+        varianceReasonCode: String?,
+        notes: String?,
+    ): PosTillCloseResult {
+        val o = client.postgrest.rpc(
+            "submit_pos_till_denominated_close",
+            buildJsonObject {
+                put("p_session_id", sessionId)
+                putJsonArray("p_denominations") {
+                    lines.forEach { l ->
+                        add(
+                            buildJsonObject {
+                                put("denomination", l.denomination)
+                                put("quantity", l.quantity)
+                            },
+                        )
+                    }
+                }
+                if (varianceReasonCode.isNullOrBlank()) put("p_variance_reason_code", JsonNull) else put("p_variance_reason_code", varianceReasonCode)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ).decodeAs<JsonObject>()
+        return PosTillCloseResult(
+            sessionId = o.stringOrNull("session_id") ?: sessionId,
+            expectedCash = o.number("expected_cash") ?: 0.0,
+            countedCash = o.number("counted_cash") ?: 0.0,
+            variance = o.number("variance") ?: 0.0,
+            status = o.stringOrNull("status") ?: "closed",
+        )
+    }
+
+    override suspend fun approvePosTillVariance(sessionId: String, reasonCode: String, notes: String?) {
+        client.postgrest.rpc(
+            "approve_pos_till_variance",
+            buildJsonObject {
+                put("p_session_id", sessionId)
+                put("p_reason_code", reasonCode)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        )
+    }
+
+    override suspend fun listPosHandoverOperators(): List<PosHandoverOperatorRow> =
+        client.postgrest.rpc("list_pos_handover_operators")
+            .decodeAs<JsonArray>()
+            .mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                val id = o.stringOrNull("user_id") ?: return@mapNotNull null
+                PosHandoverOperatorRow(id, o.stringOrNull("employee_code") ?: "", o.stringOrNull("full_name") ?: "")
+            }
+
+    override suspend fun handoverPosTillSession(sessionId: String, newOperatorUserId: String, notes: String?) {
+        client.postgrest.rpc(
+            "handover_pos_till_session",
+            buildJsonObject {
+                put("p_session_id", sessionId)
+                put("p_new_operator_user_id", newOperatorUserId)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        )
+    }
+
+    override suspend fun listPosTillSessions(limit: Int): List<PosTillSessionRow> =
+        client.postgrest.rpc(
+            "list_pos_till_sessions",
+            buildJsonObject {
+                put("p_status", JsonNull)
+                put("p_limit", limit.coerceIn(1, 200))
+            },
+        ).decodeAs<JsonArray>().mapNotNull { (it as? JsonObject)?.toTillRow() }
 }
 
 @Serializable
@@ -3446,3 +3571,25 @@ private data class PosInvoiceDocRow(@SerialName("document_number") val documentN
 
 @Serializable
 private data class PosCartCurrencyRow(val currency: String)
+
+private fun JsonObject.number(key: String): Double? =
+    this[key]?.jsonPrimitive?.let { it.doubleOrNull ?: it.contentOrNull?.toDoubleOrNull() }
+
+private fun JsonObject.toTillRow(): PosTillSessionRow? {
+    val id = stringOrNull("id") ?: return null
+    return PosTillSessionRow(
+        id = id,
+        warehouseId = stringOrNull("warehouse_id") ?: "",
+        deviceId = stringOrNull("device_id") ?: "",
+        currency = CurrencyCode.entries.find { it.rpcValue == stringOrNull("currency") } ?: CurrencyCode.USD,
+        operatorUserId = stringOrNull("operator_user_id") ?: "",
+        openingFloat = number("opening_float") ?: 0.0,
+        status = stringOrNull("status") ?: "open",
+        expectedCash = number("expected_cash"),
+        countedCash = number("counted_cash"),
+        variance = number("variance"),
+        varianceReasonCode = stringOrNull("variance_reason_code"),
+        openedAt = stringOrNull("opened_at") ?: "",
+        closedAt = stringOrNull("closed_at"),
+    )
+}

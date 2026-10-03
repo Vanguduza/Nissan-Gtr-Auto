@@ -15,7 +15,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import co.zw.nissangtr.pos.domain.model.EpcMissing
 import co.zw.nissangtr.management.rpc.CatalogLiveException
-import co.zw.nissangtr.management.rpc.SupabaseRpcClient
+import co.zw.nissangtr.management.rpc.ManagerApproval
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.gateway.CheckoutGateway
 import co.zw.nissangtr.pos.domain.gateway.CheckoutResult
@@ -196,9 +196,28 @@ class RpcSaleGateways(private val rpc: RpcClient) {
                         rpc.postPosRefund(request.invoice.id, notes)
                         null
                     }
+                    is ApprovalRequest.CashOut -> {
+                        rpc.recordPosTillCashMovement(
+                            request.sessionId,
+                            request.kind.rpcValue,
+                            request.amount.minor / 100.0,
+                            request.reason.code,
+                            listOfNotNull(request.notes, notes).joinToString(" · ").ifBlank { null },
+                        )
+                        null
+                    }
+                    is ApprovalRequest.TillVariance -> {
+                        rpc.approvePosTillVariance(request.sessionId, request.reason.code, notes)
+                        null
+                    }
+                    is ApprovalRequest.Handover -> {
+                        rpc.handoverPosTillSession(request.sessionId, request.to.userId, notes)
+                        null
+                    }
                 }
             }
-            val live = rpc as? SupabaseRpcClient
+            // The tablet wraps the live client (offline catalogue); approval must still reach it.
+            val live = rpc as? ManagerApproval
             try {
                 if (live != null) live.withManagerApproval(credentials.identifier.trim(), credentials.password, action) else action()
             } catch (e: Exception) {

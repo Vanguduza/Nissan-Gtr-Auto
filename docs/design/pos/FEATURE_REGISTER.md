@@ -61,7 +61,7 @@ passed, commit referenced) · `dropped` (owner reference required)
 | ARCH-01 | Module split `pos-design` / `pos-domain` / `pos-data` / `pos-ui` | 10.1 | 1 | done — 2026-10-01: all four modules build in `:app:compileTabletDebugKotlin`; UI in `pos-ui`, pure logic in `pos-domain` |
 | ARCH-02 | Hilt dependency injection | 10.1 | 1 | partial — Hilt plugin applied to `pos-ui`; `PosStore` is constructor-injected with `PosGateways` but no Hilt module binds them yet (Phase 5) |
 | ARCH-03 | `pos-domain` has zero Android dependency — enforced in CI | 10.1 | 1 | done — 2026-10-01: `DomainPurityTest` passes and `:feature:pos-domain:test` now runs in `android-pos.yml` |
-| ARCH-04 | Eight typed gateways replacing `RpcClient` | 10.2 | 3 | partial — Catalog, Fitment, Cart, Pin, Session gateways declared in `pos-domain`; Checkout, Tender, Till, Recovery, Quotation not yet; no `pos-data` implementations yet (Phase 5) |
+| ARCH-04 | Eight typed gateways replacing `RpcClient` | 10.2 | 3 | partial — Catalog, Fitment, Cart, Pin, Session gateways declared in `pos-domain`; Checkout, Tender, Till, Recovery, Quotation not yet; no `pos-data` implementations yet (Phase 5). **2026-10-03:** `TillGateway` declared and implemented (`RpcTillGateway`) |
 | ARCH-05 | `PosResult`; no exceptions for business outcomes | 10.2 | 3 | partial — every new gateway returns `PosResult`; legacy `PosViewModel` still throws |
 | ARCH-06 | Idempotency keys on every money- or stock-moving call | 10.2 | 3 | todo |
 | ARCH-07 | `PosStore` over pure, total reducers | 10.3 | 3 | partial — `PosStore` over pure `reduce()` covers home: cascade, search, recent, Popular Items (D1), cart add/qty/remove, pins with rollback; 17 JVM reducer tests + 6 store tests. Checkout, customer, quotes, returns not yet |
@@ -357,4 +357,15 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | CAT-03 | Web POS and tablet POS vehicle-filtered search: the vehicle's R2 fitment shard (published vehicle-master id → `customer-search` / `customer-stock`) first; Supabase fitment rows only while R2 is not serving |
 | CAT-04 | iOS: vehicle selector reads the full published vehicle master (`list_customer_vehicle_master`), vehicle parts come from the R2 shard first (same as Android). Not compiled here (no Swift toolchain). iOS customer EPC browse still uses the old diagram RPC: staff-only in the target architecture, needs an owner decision |
 | CAT-05 | Live web check against the real schema with a `catalog-live-r2` stand-in: R2 off → "full catalogue is not connected yet"; R2 serving → signed image + R2 parts + Add |
+
+## TILL — Till sessions (2026-10-03, owner request: wire the live POS operations backend; delta D-016)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| TILL-01 | Open a till with a float (USD/ZiG) bound to this device; selling (add, resume, convert quote, pair phone, pay) is refused until a till is open and takes the operator to the Till screen; every new or resumed cart is attached to the till (`attach_pos_cart_till_session`) | 10.2 | 1 | partial — web: Playwright on preview data; tablet: reducer + store tests and Roborazzi captures; neither run against the live project yet |
+| TILL-02 | Cash in (reason, notes when required) and manager-approved cash out / petty cash / bank drop / cash refund with governed reason codes (`list_pos_approval_reasons('cash_out')`) | 10.2, 10.10 | 1 | partial — as TILL-01 |
+| TILL-03 | Blind denominated close: count by note and coin, server returns expected and variance; out counts need a variance reason; a variance waits for manager approval (`approve_pos_till_variance`) | 10.2, 10.10 | 1 | partial — as TILL-01 |
+| TILL-04 | Manager-approved handover to another active sales/admin operator | 10.10 | 1 | partial — as TILL-01 |
+| TILL-05 | Header operator block shows till state and opens the Till screen; recent tills list | 6.2 | 1 | partial — as TILL-01 |
+| TILL-06 | Manager approval on the tablet always signs in as the manager, also through the offline-catalogue client wrapper (`ManagerApproval`) | 10.10 | 1 | done (code) — regression fixed 2026-10-03; was running approvals as the attendant since the offline catalogue wrapper landed |
 

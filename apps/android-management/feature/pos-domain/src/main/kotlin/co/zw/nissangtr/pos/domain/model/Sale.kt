@@ -142,6 +142,24 @@ sealed interface ApprovalRequest {
     data class PriceOverride(val lineId: String, val unitPrice: Double) : ApprovalRequest
     data object VoidSale : ApprovalRequest
     data class Refund(val invoice: InvoiceSummary) : ApprovalRequest
+
+    /** Drawer actions: they act on the till session, never on the sale. */
+    sealed interface TillAction : ApprovalRequest { val sessionId: String }
+
+    /** Cash leaving the drawer (cash out, petty cash, bank drop, cash refund). */
+    data class CashOut(
+        override val sessionId: String,
+        val kind: CashMovementKind,
+        val amount: Money,
+        val reason: ReasonCode,
+        val notes: String?,
+    ) : TillAction
+
+    /** Close a till whose blind count did not match the expected cash. */
+    data class TillVariance(override val sessionId: String, val variance: Money, val reason: ReasonCode) : TillAction
+
+    /** Give the open till to another staff member. */
+    data class Handover(override val sessionId: String, val to: HandoverOperator) : TillAction
 }
 
 // ---------------------------------------------------------------- EPC browse

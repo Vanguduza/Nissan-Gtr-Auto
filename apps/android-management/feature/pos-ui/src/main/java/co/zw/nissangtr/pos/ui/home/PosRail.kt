@@ -36,6 +36,7 @@ import co.zw.nissangtr.pos.design.icons.House
 import co.zw.nissangtr.pos.design.icons.PosIcons
 import co.zw.nissangtr.pos.design.icons.Settings
 import co.zw.nissangtr.pos.design.icons.Undo2
+import co.zw.nissangtr.pos.design.icons.Wallet
 import co.zw.nissangtr.pos.design.primitives.posFocusRing
 import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.domain.state.PosDestination
@@ -54,6 +55,7 @@ val RailItems: List<RailItem> = listOf(
     RailItem(PosDestination.Orders, R.string.pos_nav_orders, PosIcons.FileText),
     RailItem(PosDestination.Returns, R.string.pos_nav_returns, PosIcons.Undo2),
     RailItem(PosDestination.EpcBrowse, R.string.pos_nav_epc, PosIcons.BookOpen),
+    RailItem(PosDestination.Till, R.string.pos_nav_till, PosIcons.Wallet),
     RailItem(PosDestination.Settings, R.string.pos_nav_settings, PosIcons.Settings),
 )
 

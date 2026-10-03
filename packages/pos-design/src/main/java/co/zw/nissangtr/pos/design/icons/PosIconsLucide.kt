@@ -330,3 +330,42 @@ private val _ChevronUp: ImageVector by lazy {
     )
 }
 val PosIcons.ChevronUp: ImageVector get() = _ChevronUp
+
+private val _Wallet: ImageVector by lazy {
+    lucideFromPaths(
+        "Wallet",
+        "M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1",
+        "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4",
+    )
+}
+val PosIcons.Wallet: ImageVector get() = _Wallet
+
+private val _ArrowDownToLine: ImageVector by lazy {
+    lucideFromPaths(
+        "ArrowDownToLine",
+        "M12 17V3",
+        "m6 11 6 6 6-6",
+        "M19 21H5",
+    )
+}
+val PosIcons.ArrowDownToLine: ImageVector get() = _ArrowDownToLine
+
+private val _ArrowUpFromLine: ImageVector by lazy {
+    lucideFromPaths(
+        "ArrowUpFromLine",
+        "m18 9-6-6-6 6",
+        "M12 3v14",
+        "M5 21h14",
+    )
+}
+val PosIcons.ArrowUpFromLine: ImageVector get() = _ArrowUpFromLine
+
+private val _UserRoundCheck: ImageVector by lazy {
+    lucideFromPaths(
+        "UserRoundCheck",
+        "M2 21a8 8 0 0 1 13.292-6",
+        "M5 8a5 5 0 1 0 10 0a5 5 0 1 0 -10 0z",
+        "m16 19 2 2 4-4",
+    )
+}
+val PosIcons.UserRoundCheck: ImageVector get() = _UserRoundCheck

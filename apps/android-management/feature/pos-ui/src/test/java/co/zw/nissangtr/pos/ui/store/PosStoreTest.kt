@@ -118,6 +118,7 @@ class PosStoreTest {
         pins: PinGateway = FakePins(),
         outbox: OfflineSaleGateway = OfflineSaleGateway.None,
         companion: CompanionGateway = CompanionGateway.None,
+        till: co.zw.nissangtr.pos.domain.gateway.TillGateway = co.zw.nissangtr.pos.domain.gateway.TillGateway.None,
     ) = PosGateways(
         session = object : SessionGateway {
             override suspend fun operator() = PosResult.Ok(Operator("Tendai Moyo", "Sales"))
@@ -140,6 +141,7 @@ class PosStoreTest {
         epc = FakeSaleGateways.epc,
         offline = outbox,
         companion = companion,
+        till = till,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -305,5 +307,64 @@ class PosStoreTest {
         val polls = companion.polls
         advanceTimeBy(5_000)
         assertEquals(polls, companion.polls)
+    }
+
+    private class FakeTill : co.zw.nissangtr.pos.domain.gateway.TillGateway {
+        var session: co.zw.nissangtr.pos.domain.model.TillSession? = null
+        val attached = mutableListOf<Pair<String, String>>()
+        override suspend fun current() = PosResult.Ok(session)
+        override suspend fun open(openingFloat: Money): PosResult<co.zw.nissangtr.pos.domain.model.TillSession> {
+            val s = co.zw.nissangtr.pos.domain.model.TillSession(
+                "till-1", "w1", openingFloat.currency, "u1", openingFloat,
+                co.zw.nissangtr.pos.domain.model.TillStatus.Open, null, null, null, null, "2026-10-03T08:00:00Z", null,
+            )
+            session = s
+            return PosResult.Ok(s)
+        }
+        override suspend fun attachCart(cartId: String, sessionId: String): PosResult<Unit> {
+            attached += cartId to sessionId
+            return PosResult.Ok(Unit)
+        }
+        override suspend fun reasons(action: String) = PosResult.Ok(emptyList<co.zw.nissangtr.pos.domain.model.ReasonCode>())
+        override suspend fun cashIn(sessionId: String, amount: Money, reasonCode: String, notes: String?) = PosResult.Ok(Unit)
+        override suspend fun close(sessionId: String, counts: List<co.zw.nissangtr.pos.domain.model.DenominationCount>, varianceReasonCode: String?, notes: String?) =
+            PosResult.Err(PosError.BusinessRule("variance_reason_required", ""))
+        override suspend fun handoverOperators() = PosResult.Ok(emptyList<co.zw.nissangtr.pos.domain.model.HandoverOperator>())
+        override suspend fun recent() = PosResult.Ok(listOfNotNull(session))
+    }
+
+    @Test
+    fun `no open till sends the sale to the Till screen, an open till takes the cart`() = runTest {
+        val till = FakeTill()
+        val cart = FakeCart()
+        val s = store(gateways(cart = cart, till = till))
+        s.dispatch(PosIntent.Start)
+        advanceUntilIdle()
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        advanceUntilIdle()
+        assertEquals(co.zw.nissangtr.pos.domain.state.PosDestination.Till, s.state.value.destination)
+        assertEquals(0, cart.opened)
+
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TillIntent.Open(Money.ofMajor(50.0, CurrencyCode.USD)))
+        advanceUntilIdle()
+        assertTrue(s.state.value.till.isOpen)
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        advanceUntilIdle()
+        assertEquals(listOf("cart-1" to "till-1"), till.attached)
+        assertEquals(1, s.state.value.cart.lines.size)
+    }
+
+    @Test
+    fun `an out count keeps the dialog and asks for a variance reason`() = runTest {
+        val till = FakeTill()
+        val s = store(gateways(till = till))
+        s.dispatch(PosIntent.Start)
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TillIntent.Open(Money.ofMajor(50.0, CurrencyCode.USD)))
+        advanceUntilIdle()
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TillIntent.ShowDialog(co.zw.nissangtr.pos.domain.state.TillDialog.Close))
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TillIntent.Close(listOf(co.zw.nissangtr.pos.domain.model.DenominationCount(5000, 1)), null, null))
+        advanceUntilIdle()
+        assertTrue(s.state.value.till.needsVarianceReason)
+        assertEquals(co.zw.nissangtr.pos.domain.state.TillDialog.Close, s.state.value.till.dialog)
     }
 }

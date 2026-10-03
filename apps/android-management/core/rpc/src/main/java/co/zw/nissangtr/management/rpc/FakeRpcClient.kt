@@ -2098,4 +2098,81 @@ class FakeRpcClient : RpcClient {
         val dropoffLat: Double?,
         val dropoffLng: Double?,
     )
+
+    // --- POS till sessions (in memory; one operator)
+
+    private val tills = mutableListOf<PosTillSessionRow>()
+    private val tillCash = mutableMapOf<String, Double>()
+
+    private fun replaceTill(row: PosTillSessionRow) {
+        val i = tills.indexOfFirst { it.id == row.id }
+        if (i >= 0) tills[i] = row else tills.add(0, row)
+    }
+
+    override suspend fun getMyOpenPosTillSession(deviceId: String?): PosTillSessionRow? =
+        tills.firstOrNull { it.status == "open" || it.status == "variance_pending" }
+
+    override suspend fun openPosTillSession(warehouseId: String, deviceId: String, openingFloat: Double, currency: CurrencyCode): String {
+        check(getMyOpenPosTillSession(deviceId) == null) { "operator already has an open till" }
+        val id = "till-${tills.size + 1}"
+        replaceTill(
+            PosTillSessionRow(id, warehouseId, deviceId, currency, "fake-operator", openingFloat, "open",
+                null, null, null, null, java.time.OffsetDateTime.now().withNano(0).toString(), null),
+        )
+        tillCash[id] = openingFloat
+        return id
+    }
+
+    override suspend fun recordPosTillCashMovement(sessionId: String, kind: String, amount: Double, reasonCode: String, notes: String?): String {
+        require(amount > 0) { "amount must be > 0" }
+        tillCash[sessionId] = (tillCash[sessionId] ?: 0.0) + if (kind == "cash_in") amount else -amount
+        return "move-${System.nanoTime()}"
+    }
+
+    override suspend fun submitPosTillDenominatedClose(
+        sessionId: String,
+        lines: List<PosDenominationLine>,
+        varianceReasonCode: String?,
+        notes: String?,
+    ): PosTillCloseResult {
+        val row = tills.first { it.id == sessionId && it.status == "open" }
+        val counted = Math.round(lines.sumOf { it.denomination * it.quantity } * 100) / 100.0
+        val expected = Math.round((tillCash[sessionId] ?: 0.0) * 100) / 100.0
+        val variance = Math.round((counted - expected) * 100) / 100.0
+        if (kotlin.math.abs(variance) > 0.009 && varianceReasonCode.isNullOrBlank()) error("variance reason required")
+        val status = if (kotlin.math.abs(variance) > 0.009) "variance_pending" else "closed"
+        replaceTill(row.copy(status = status, expectedCash = expected, countedCash = counted, variance = variance, varianceReasonCode = varianceReasonCode))
+        return PosTillCloseResult(sessionId, expected, counted, variance, status)
+    }
+
+    override suspend fun approvePosTillVariance(sessionId: String, reasonCode: String, notes: String?) {
+        val row = tills.first { it.id == sessionId && it.status == "variance_pending" }
+        replaceTill(row.copy(status = "closed", closedAt = java.time.OffsetDateTime.now().withNano(0).toString()))
+    }
+
+    override suspend fun listPosApprovalReasons(action: String): List<PosApprovalReason> = when (action) {
+        "cash_out" -> listOf(
+            PosApprovalReason("petty_cash", "Petty cash", false),
+            PosApprovalReason("bank_drop", "Bank drop", false),
+            PosApprovalReason("other_cash_out", "Other", true),
+        )
+        "till_variance" -> listOf(
+            PosApprovalReason("count_error", "Count error", false),
+            PosApprovalReason("short_change", "Short change given", false),
+            PosApprovalReason("other_variance", "Other", true),
+        )
+        else -> emptyList()
+    }
+
+    override suspend fun listPosHandoverOperators(): List<PosHandoverOperatorRow> = listOf(
+        PosHandoverOperatorRow("fake-operator-2", "E002", "Rudo Moyo"),
+        PosHandoverOperatorRow("fake-operator-3", "E003", "Tendai Ncube"),
+    )
+
+    override suspend fun handoverPosTillSession(sessionId: String, newOperatorUserId: String, notes: String?) {
+        val row = tills.first { it.id == sessionId && it.status == "open" }
+        replaceTill(row.copy(operatorUserId = newOperatorUserId))
+    }
+
+    override suspend fun listPosTillSessions(limit: Int): List<PosTillSessionRow> = tills.take(limit)
 }

@@ -719,4 +719,42 @@ interface RpcClient {
      * Never returns the temp password.
      */
     suspend fun createHrOnboardingAuthUser(employeeId: String): HrOnboardingAuthResult
+
+    // --- POS till sessions (live `pos_operations_p0_p1`; see docs/plans/2026-10-03-pos-operations-backend-integration.md)
+
+    /** Open or variance-pending till of this operator or [deviceId]; null when none. */
+    suspend fun getMyOpenPosTillSession(deviceId: String?): PosTillSessionRow? = null
+
+    suspend fun openPosTillSession(warehouseId: String, deviceId: String, openingFloat: Double, currency: CurrencyCode): String =
+        throw UnsupportedOperationException("till sessions are not available")
+
+    /** Cart → till, so the invoice's cash counts towards the drawer. */
+    suspend fun attachPosCartTillSession(cartId: String, sessionId: String) {}
+
+    suspend fun listPosApprovalReasons(action: String): List<PosApprovalReason> = emptyList()
+
+    /** `kind` is `pos_till_cash_movement_kind`; anything but `cash_in` needs a manager session. */
+    suspend fun recordPosTillCashMovement(sessionId: String, kind: String, amount: Double, reasonCode: String, notes: String?): String =
+        throw UnsupportedOperationException("till sessions are not available")
+
+    suspend fun submitPosTillDenominatedClose(
+        sessionId: String,
+        lines: List<PosDenominationLine>,
+        varianceReasonCode: String?,
+        notes: String?,
+    ): PosTillCloseResult = throw UnsupportedOperationException("till sessions are not available")
+
+    /** Manager session only. */
+    suspend fun approvePosTillVariance(sessionId: String, reasonCode: String, notes: String?) {
+        throw UnsupportedOperationException("till sessions are not available")
+    }
+
+    suspend fun listPosHandoverOperators(): List<PosHandoverOperatorRow> = emptyList()
+
+    /** Manager session only. */
+    suspend fun handoverPosTillSession(sessionId: String, newOperatorUserId: String, notes: String?) {
+        throw UnsupportedOperationException("till sessions are not available")
+    }
+
+    suspend fun listPosTillSessions(limit: Int = 20): List<PosTillSessionRow> = emptyList()
 }

@@ -37,6 +37,10 @@ import kotlinx.coroutines.delay
 import co.zw.nissangtr.pos.domain.state.CompanionEvent
 import co.zw.nissangtr.pos.domain.state.CompanionEffect
 import co.zw.nissangtr.pos.domain.gateway.CompanionGateway
+import co.zw.nissangtr.pos.domain.gateway.TillGateway
+import co.zw.nissangtr.pos.domain.state.TillEffect
+import co.zw.nissangtr.pos.domain.state.TillEvent
+import co.zw.nissangtr.pos.domain.state.serverCartId
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -52,6 +56,7 @@ data class PosGateways(
     val epc: EpcGateway,
     val offline: OfflineSaleGateway = OfflineSaleGateway.None,
     val companion: CompanionGateway = CompanionGateway.None,
+    val till: TillGateway = TillGateway.None,
 )
 
 /**
@@ -122,6 +127,7 @@ class PosStore(
                     when (val opened = gateways.cart.open(state.value.currency)) {
                         is PosResult.Ok -> {
                             apply(PosEvent.CartUpdated(opened.value))
+                            attachToTill(opened.value.cartId)
                             state.value.vehicle?.let { gateways.cart.setVehicle(opened.value.cartId, it).onOk { } }
                             opened.value.cartId
                         }
@@ -225,7 +231,10 @@ class PosStore(
                 gateways.sales.park(effect.cartId).onOk { apply(PosSaleEvent.SaleParked) }
             }
             is PosSaleEffect.Resume -> launch {
-                gateways.sales.resume(effect.cartId).onOk { apply(PosSaleEvent.CartReplaced(it, PosNotice.SaleResumed)) }
+                gateways.sales.resume(effect.cartId).onOk {
+                    attachToTill(it.cartId)
+                    apply(PosSaleEvent.CartReplaced(it, PosNotice.SaleResumed))
+                }
             }
             PosSaleEffect.LoadOrders -> {
                 launch { gateways.sales.parked().onOk { apply(PosSaleEvent.OrdersLoaded(it, null)) } }
@@ -238,7 +247,10 @@ class PosStore(
                 gateways.sales.sendQuotation(effect.quotationId, effect.channel, effect.contact).onOk { apply(PosSaleEvent.QuoteSent) }
             }
             is PosSaleEffect.ConvertQuotation -> launch {
-                gateways.sales.convertQuotation(effect.quotationId).onOk { apply(PosSaleEvent.CartReplaced(it, PosNotice.QuoteConverted)) }
+                gateways.sales.convertQuotation(effect.quotationId).onOk {
+                    attachToTill(it.cartId)
+                    apply(PosSaleEvent.CartReplaced(it, PosNotice.QuoteConverted))
+                }
             }
             is PosSaleEffect.LoadInvoices -> launch {
                 gateways.sales.recentInvoices(effect.query.ifBlank { null }).onOk { apply(PosSaleEvent.InvoicesLoaded(effect.query, it)) }
@@ -256,6 +268,7 @@ class PosStore(
                 gateways.epc.diagram(effect.model, effect.variant, effect.section, effect.diagram).onOk { apply(PosSaleEvent.EpcDetailLoaded(it)) }
             }
             is CompanionEffect -> runCompanion(effect)
+            is TillEffect -> runTill(effect)
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
@@ -266,6 +279,7 @@ class PosStore(
                 // The reducer already released the local cart; rebuild it line by line on the server.
                 val opened = gateways.cart.open(effect.cart.currency)
                 if (opened !is PosResult.Ok) return@cartMutation opened
+                attachToTill(opened.value.cartId)
                 state.value.vehicle?.let { gateways.cart.setVehicle(opened.value.cartId, it).onOk { } }
                 var last: PosResult<CartProjection> = opened
                 for (line in effect.cart.lines) {
@@ -308,6 +322,7 @@ class PosStore(
                     is PosResult.Ok -> r.value.also { opened = it }.cartId
                     is PosResult.Err -> return@launch apply(CompanionEvent.Failed(r.error))
                 }
+                if (opened != null) attachToTill(cartId)
                 if (opened != null) state.value.vehicle?.let { gateways.cart.setVehicle(cartId, it) }
                 when (val r = gateways.companion.create(cartId)) {
                     is PosResult.Ok -> apply(CompanionEvent.Created(r.value, opened))
@@ -342,6 +357,50 @@ class PosStore(
                     }
                 }
             }
+        }
+    }
+
+    private fun runTill(effect: TillEffect) {
+        val till = gateways.till
+        when (effect) {
+            TillEffect.Load -> launch {
+                when (val r = till.current()) {
+                    is PosResult.Ok -> apply(TillEvent.Loaded(r.value, enforced = till !== TillGateway.None))
+                    is PosResult.Err -> apply(TillEvent.Failed(r.error))
+                }
+            }
+            is TillEffect.Open -> launch {
+                when (val r = till.open(effect.openingFloat)) {
+                    is PosResult.Ok -> {
+                        apply(TillEvent.Opened(r.value))
+                        // A sale started before the till was open joins it now.
+                        state.value.cart.serverCartId?.let { attachToTill(it) }
+                    }
+                    is PosResult.Err -> apply(TillEvent.Failed(r.error))
+                }
+            }
+            TillEffect.LoadHistory -> launch { till.recent().tillOk { apply(TillEvent.HistoryLoaded(it)) } }
+            is TillEffect.LoadReasons -> launch { till.reasons(effect.action).tillOk { apply(TillEvent.ReasonsLoaded(effect.action, it)) } }
+            TillEffect.LoadOperators -> launch { till.handoverOperators().tillOk { apply(TillEvent.OperatorsLoaded(it)) } }
+            is TillEffect.CashIn -> launch {
+                till.cashIn(effect.sessionId, effect.amount, effect.reasonCode, effect.notes).tillOk { apply(TillEvent.CashRecorded) }
+            }
+            is TillEffect.Close -> launch {
+                till.close(effect.sessionId, effect.counts, effect.varianceReasonCode, effect.notes).tillOk { apply(TillEvent.Closed(it)) }
+            }
+        }
+    }
+
+    /** Cash from this sale counts towards the open till (checkout needs `cart.till_session_id`). */
+    private suspend fun attachToTill(cartId: String) {
+        val session = state.value.till.session?.takeIf { state.value.till.isOpen } ?: return
+        gateways.till.attachCart(cartId, session.id).onOk { }
+    }
+
+    private inline fun <T> PosResult<T>.tillOk(action: (T) -> Unit) {
+        when (this) {
+            is PosResult.Ok -> action(value)
+            is PosResult.Err -> apply(TillEvent.Failed(error))
         }
     }
 

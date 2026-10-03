@@ -171,9 +171,11 @@ private fun offlineGuard(state: PosState, intent: PosSaleIntent): Reduction? = w
 
 private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reduction = when (intent) {
     is CompanionIntent -> reduceCompanionIntent(state, intent)
+    is TillIntent -> reduceTillIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
+        state.online && !state.till.canSell -> tillRequired(state)
         !state.online && !state.cart.isLocal -> offlineRefusal(state, "server_cart")
         !state.online && state.customer != null -> offlineRefusal(state, "walk_in_only")
         else -> Reduction(state.copy(paymentOpen = true, ecoCashReference = null))
@@ -296,7 +298,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     }
 
     is PosSaleIntent.RequestApproval -> when {
-        intent.request !is ApprovalRequest.Refund && state.cart.isEmpty -> Reduction(state)
+        intent.request !is ApprovalRequest.Refund && intent.request !is ApprovalRequest.TillAction && state.cart.isEmpty -> Reduction(state)
         intent.request is ApprovalRequest.Discount && intent.request.percent !in 0.01..100.0 ->
             Reduction(state.copy(feedback = failure(PosError.Input("discount", "percent"))))
         intent.request is ApprovalRequest.PriceOverride && intent.request.unitPrice < 0 ->
@@ -321,7 +323,9 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
 
     PosSaleIntent.Park -> if (state.cart.isEmpty) Reduction(state) else Reduction(state, listOf(PosSaleEffect.Park(state.cart.cartId)))
 
-    is PosSaleIntent.Resume -> if (!state.cart.isEmpty) {
+    is PosSaleIntent.Resume -> if (!state.till.canSell) {
+        tillRequired(state)
+    } else if (!state.cart.isEmpty) {
         Reduction(state.copy(feedback = failure(PosError.BusinessRule("cart_not_empty", ""))))
     } else {
         Reduction(state, listOf(PosSaleEffect.Resume(intent.sale.id)))
@@ -334,7 +338,9 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
 
     is PosSaleIntent.SendQuotation -> Reduction(state, listOf(PosSaleEffect.SendQuotation(intent.quotation.id, intent.channel, intent.contact)))
 
-    is PosSaleIntent.ConvertQuotation -> if (!state.cart.isEmpty) {
+    is PosSaleIntent.ConvertQuotation -> if (!state.till.canSell) {
+        tillRequired(state)
+    } else if (!state.cart.isEmpty) {
         Reduction(state.copy(feedback = failure(PosError.BusinessRule("cart_not_empty", ""))))
     } else {
         Reduction(state, listOf(PosSaleEffect.ConvertQuotation(intent.quotation.id)))
@@ -416,6 +422,7 @@ private fun validateDraft(state: PosState, draft: CustomerDraft): Reduction? = w
 
 internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = when (event) {
     is CompanionEvent -> reduceCompanionEvent(state, event)
+    is TillEvent -> reduceTillEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 
@@ -474,7 +481,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
 
     is PosSaleEvent.EcoCashSent -> Reduction(state.copy(ecoCashReference = event.reference, feedback = notice(PosNotice.EcoCashSent)))
 
-    is PosSaleEvent.Approved -> {
+    is PosSaleEvent.Approved -> if (event.request is ApprovalRequest.TillAction) tillApproved(state, event.request) else {
         val cart = event.cart ?: state.cart
         val next = state.copy(approval = null, approving = false, cart = cart, feedback = notice(
             if (event.request is ApprovalRequest.Refund) PosNotice.Refunded else PosNotice.Approved,

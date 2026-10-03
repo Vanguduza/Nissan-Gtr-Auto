@@ -23,7 +23,7 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
         state,
         // Online: replay anything queued last time and refresh the offline snapshot; offline: just count.
         listOf(
-            PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular,
+            PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, TillEffect.Load,
             if (state.online) PosSaleEffect.SyncOffline else PosSaleEffect.LoadOfflineStatus,
         ),
     )
@@ -33,6 +33,7 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
         when (intent.destination) {
             PosDestination.Orders -> listOf(PosSaleEffect.LoadOrders)
             PosDestination.Returns -> listOf(PosSaleEffect.LoadInvoices(state.invoiceQuery.trim()))
+            PosDestination.Till -> if (state.online) listOf(TillEffect.Load, TillEffect.LoadHistory) else emptyList()
             else -> emptyList()
         },
     )
@@ -94,6 +95,7 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
         } else {
             localAdd(state, intent.part)
         }
+        !state.till.canSell -> tillRequired(state)
         !intent.part.canAdd -> Reduction(
             state.copy(
                 feedback = PosFeedback.Failure(
