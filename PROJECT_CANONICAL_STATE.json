@@ -21,14 +21,17 @@
       "module": "apps/android-management/feature/pos",
       "status": "ACTIVE_RECONCILIATION_LINEAGE",
       "canonical_branch": "chatgpt/pos-reconcile-green-20260907",
-      "required_ancestor": "1e0a8b764e1335a64b454f47760f688a8781e07b",
+      "required_ancestor": "296a447afb205324f25bda55cf017aac2c63483a",
       "release_blocked_until_reconciled": false,
-      "notes": "POS release lineage must preserve locked visual benchmark plus all subsequently approved functional changes."
+      "notes": "POS release lineage must preserve locked visual benchmark plus all subsequently approved functional changes. Reconciled 2026-10-03 (owner request): the previously recorded ancestor 1e0a8b76 is on a pre-rewrite history that no remote branch contains any more. Its rewritten copy 296a447a (same message, date and patch; tree identical except one stray catalog/images HTML file) is on origin/chatgpt/pos-reconcile-green-20260907 and this branch; 2754 of the 2756 orphaned commits have patch-equivalent copies here, and the two auto-sync snapshots that differ only add files later deleted on purpose (pre-benchmark POS screens 395140f9, retired customer EPC c81a76ed, old web POS panel d15786db)."
     },
     "management-android": {
       "module": "apps/android-management",
-      "status": "CANONICAL_LINEAGE_MUST_BE_RESOLVED_BEFORE_RELEASE",
-      "release_blocked_until_reconciled": true
+      "status": "RECONCILED_LINEAGE",
+      "canonical_branch": "ccr-8c44a0d0-msyynq",
+      "required_ancestor": "296a447afb205324f25bda55cf017aac2c63483a",
+      "release_blocked_until_reconciled": false,
+      "notes": "Owner decision 2026-10-03: the management app on this branch (benchmark POS tablet/phone shell, offline outbox and catalogue, companion pairing) is canonical; the CoolMall/InvenTree management rebuild on origin/main (3f1e1be5, 1691ba81, 101667dd) is superseded. Its Android client adds no live backend calls beyond name constants; the backend it relied on is live and its source is now in supabase/live-history (hosted migration history) and supabase/functions/catalog-hierarchy-import, delivery-dispatch-cycle (deployed v1)."
     },
     "delivery-android": {
       "module": "apps/android-delivery",
