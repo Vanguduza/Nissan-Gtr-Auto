@@ -23,6 +23,8 @@ import type {
   VehicleVariant,
   Governed,
   PaymentStatus,
+  SplitSession,
+  SplitRecoveryItem,
 } from "@/lib/pos/types";
 import {
   CatalogGatewayError,
@@ -176,6 +178,51 @@ function paymentStatusFromRow(r: Record<string, unknown>): PaymentStatus {
       resolvedAt: str(e.resolved_at),
       resolution: str(e.resolution),
       createdAt: String(e.created_at ?? ""),
+    })),
+  };
+}
+
+/** `pos_split_payment_payload` → the counter's view of a part-paid sale (amounts are the server's). */
+function splitFromRow(r: Record<string, unknown>): SplitSession {
+  const str = (v: unknown) => (v == null ? null : String(v));
+  const opt = (v: unknown) => (v == null ? null : num(v));
+  return {
+    sessionId: String(r.session_id),
+    orderId: String(r.order_id),
+    status: String(r.status ?? "open") as SplitSession["status"],
+    total: num(r.total),
+    currency: asCurrency(r.currency),
+    captured: num(r.captured_amount),
+    held: num(r.held_amount),
+    pending: num(r.pending_amount),
+    locked: num(r.locked_amount),
+    balanceDue: num(r.balance_due),
+    availableToAllocate: num(r.available_to_allocate),
+    finalInvoiceId: str(r.final_invoice_id),
+    finalizationError: str(r.finalization_error),
+    reducedBasketAcceptedAt: str(r.reduced_basket_accepted_at),
+    legs: ((r.legs as Record<string, unknown>[] | null) ?? []).map((l) => ({
+      id: String(l.id),
+      sequenceNo: num(l.sequence_no),
+      tender: String(l.tender ?? ""),
+      amount: num(l.amount),
+      status: String(l.status ?? "planned") as SplitSession["legs"][number]["status"],
+      reference: str(l.external_reference),
+      providerRef: str(l.provider_ref),
+      statusDetail: str(l.status_detail),
+      appliedAmount: opt(l.applied_target_amount),
+      refundRequired: opt(l.refund_required_amount),
+    })),
+    refunds: ((r.refunds as Record<string, unknown>[] | null) ?? []).map((f) => ({
+      id: String(f.id),
+      legId: String(f.leg_id),
+      status: String(f.status ?? "review"),
+      grossAmount: num(f.gross_amount),
+      feePolicy: String(f.fee_policy ?? "manual_review"),
+      netCustomerRefund: opt(f.net_customer_refund),
+      providerRef: str(f.provider_ref),
+      failureReason: str(f.failure_reason),
+      notes: str(f.notes),
     })),
   };
 }
@@ -992,6 +1039,106 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         const { data, error } = await rpc(m, "repair_pos_paid_order", { p_order_id: orderId, p_notes: notes });
         if (error || typeof data !== "string") return fail(error, "The paid order could not be repaired.");
         return { ok: true, data };
+      });
+    },
+
+    async findSplit(orderId) {
+      const { data, error } = await rpc(client, "find_pos_split_payment", { p_order_id: orderId });
+      if (error) return fail(error, "Could not read the part payments.");
+      return { ok: true, data: data ? splitFromRow(data as Record<string, unknown>) : null };
+    },
+
+    async startSplit(orderId) {
+      const { data, error } = await rpc(client, "start_pos_split_payment", { p_order_id: orderId });
+      if (error || !data) return fail(error, "Could not start part payments.");
+      return { ok: true, data: splitFromRow(data as Record<string, unknown>) };
+    },
+
+    async getSplit(sessionId) {
+      const { data, error } = await rpc(client, "get_pos_split_payment", { p_session_id: sessionId });
+      if (error || !data) return fail(error, "Could not read the part payments.");
+      return { ok: true, data: splitFromRow(data as Record<string, unknown>) };
+    },
+
+    async addSplitLeg(sessionId, tender, amount, requestId, reference) {
+      const { data, error } = await rpc(client, "add_pos_split_payment_leg", {
+        p_session_id: sessionId,
+        p_tender: tender,
+        p_amount: roundMoney(amount),
+        p_request_id: requestId,
+        p_external_reference: reference,
+      });
+      if (error || !data) return fail(error, "The part payment was not recorded.");
+      return { ok: true, data: splitFromRow((data as Record<string, unknown>).session as Record<string, unknown>) };
+    },
+
+    async acceptReducedBasket(sessionId, items, notes) {
+      const { data, error } = await rpc(client, "accept_pos_split_affordable_items", {
+        p_session_id: sessionId,
+        p_items: items.map((i) => ({ cart_line_id: i.cartLineId, qty: i.qty })),
+        p_customer_confirmed: true,
+        p_notes: notes,
+      });
+      if (error || !data) return fail(error, "The reduced basket was not accepted.");
+      return { ok: true, data: splitFromRow(data as Record<string, unknown>) };
+    },
+
+    async cancelSplit(sessionId, reason, feePolicy) {
+      const { data, error } = await rpc(client, "request_pos_split_cancellation", { p_session_id: sessionId, p_reason: reason, p_fee_policy: feePolicy });
+      if (error || !data) return fail(error, "The part-paid sale was not cancelled.");
+      return { ok: true, data: splitFromRow(data as Record<string, unknown>) };
+    },
+
+    async retrySplitFinalization(sessionId) {
+      const { data, error } = await rpc(client, "retry_pos_split_finalization", { p_session_id: sessionId });
+      if (error || !data) return fail(error, "The sale could not be posted.");
+      return { ok: true, data: splitFromRow(data as Record<string, unknown>) };
+    },
+
+    async listSplitRecovery() {
+      const { data, error } = await rpc(client, "list_pos_split_payment_recovery", { p_limit: 100 });
+      if (error) return fail(error, "Could not load part payments to resolve.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+          sessionId: String(r.session_id),
+          orderId: String(r.order_id),
+          status: String(r.status) as SplitRecoveryItem["status"],
+          documentNumber: (r.document_number as string | null) ?? null,
+          customerName: (r.customer_name as string | null) ?? null,
+          total: num(r.total),
+          currency: asCurrency(r.currency),
+          updatedAt: String(r.updated_at ?? ""),
+          session: splitFromRow(r.payload as Record<string, unknown>),
+        })),
+      };
+    },
+
+    async splitRefundStep(refundId, step, manager) {
+      return withManagerOrSelf(manager, async (m) => {
+        const { data, error } =
+          step.kind === "approve"
+            ? await rpc(m, "approve_pos_split_refund", {
+                p_refund_id: refundId,
+                p_fee_policy: step.feePolicy,
+                p_estimated_provider_fee: 0,
+                p_estimated_transfer_fee: 0,
+                p_customer_fee: roundMoney(step.customerFee),
+                p_expected_days: 3,
+                p_notes: step.notes,
+              })
+            : step.kind === "complete"
+              ? await rpc(m, "complete_pos_split_refund", {
+                  p_refund_id: refundId,
+                  p_provider_ref: step.providerRef,
+                  p_actual_provider_fee: 0,
+                  p_actual_transfer_fee: 0,
+                  p_actual_customer_fee: null,
+                  p_notes: step.notes,
+                })
+              : await rpc(m, "fail_pos_split_refund", { p_refund_id: refundId, p_reason: step.reason });
+        if (error || !data) return fail(error, "The refund step was not recorded.");
+        return { ok: true, data: splitFromRow(data as Record<string, unknown>) };
       });
     },
 

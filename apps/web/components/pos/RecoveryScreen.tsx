@@ -3,9 +3,10 @@
 import { ArrowLeft, CircleAlert, PackageCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatMoney } from "@/lib/pos/money";
-import type { ManagerProof, PaymentStatus } from "@/lib/pos/types";
+import type { ManagerProof, PaymentStatus, SplitSession } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
+import { SplitRecoveryDetail, splitStatusLabel } from "./SplitPayment";
 
 const STATE_LABEL: Record<string, string> = {
   awaiting_payment: "Waiting for payment",
@@ -64,16 +65,40 @@ export function PickupList({ pos }: { pos: PosStore }) {
 
 /** Orders → Payments to resolve: checkouts whose money is not settled cleanly (`list_pos_payment_recovery`). */
 export function ResolveList({ pos }: { pos: PosStore }) {
-  const { refreshRecovery } = pos;
+  const { refreshRecovery, refreshSplitRecovery } = pos;
   useEffect(() => {
     void refreshRecovery();
-  }, [refreshRecovery]);
+    void refreshSplitRecovery();
+  }, [refreshRecovery, refreshSplitRecovery]);
   const list = pos.recoveryItems;
+  const splits = pos.splitRecovery;
+  // Part-paid sales appear once, with their parts and refunds (not again as a plain order).
+  const splitOrders = new Set((splits ?? []).map((s) => s.orderId));
   return (
     <>
+      {splits && splits.length > 0 ? <h3 className={styles.panelTitle} style={{ fontSize: 15 }}>Part payments</h3> : null}
+      {splits?.map((s) => (
+        <div key={s.sessionId} className={styles.listRow}>
+          <span>
+            <div className={styles.listTitle}>
+              {s.documentNumber ?? "Sale"} · {formatMoney(s.total, s.currency)} <span className={styles.badge}>{splitStatusLabel(s.status)}</span>
+            </div>
+            <div className={styles.muted}>
+              {s.customerName ?? "Walk-in"} · received {formatMoney(s.session.locked, s.currency)} · {formatMoney(s.session.balanceDue, s.currency)} due
+              {s.session.refunds.some((r) => r.status !== "settled" && r.status !== "cancelled") ? " · refund open" : ""} · {when(s.updatedAt)}
+            </div>
+          </span>
+          <button type="button" className={styles.primaryButton} onClick={() => pos.openRecovery(s.orderId)}>
+            Open
+          </button>
+        </div>
+      ))}
+      {splits && splits.length > 0 && list && list.some((r) => !splitOrders.has(r.orderId)) ? (
+        <h3 className={styles.panelTitle} style={{ fontSize: 15, marginTop: 12 }}>Single payments</h3>
+      ) : null}
       {list == null ? <div className={styles.emptyCard}>Loading…</div> : null}
-      {list?.length === 0 ? <div className={styles.emptyCard}>No payments to resolve.</div> : null}
-      {list?.map((r) => (
+      {list?.length === 0 && !splits?.length ? <div className={styles.emptyCard}>No payments to resolve.</div> : null}
+      {list?.filter((r) => !splitOrders.has(r.orderId)).map((r) => (
         <div key={r.orderId} className={styles.listRow}>
           <span>
             <div className={styles.listTitle}>
@@ -108,11 +133,13 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
   const [password, setPassword] = useState("");
   const [notes, setNotes] = useState("");
   const [badge, setBadge] = useState("");
+  const [split, setSplit] = useState<SplitSession | null>(null);
   const { gateway } = pos;
 
   const load = async () => {
     if (!orderId) return;
-    const res = await gateway.paymentStatus(orderId);
+    const [res, sp] = await Promise.all([gateway.paymentStatus(orderId), gateway.findSplit(orderId)]);
+    setSplit(sp.ok ? sp.data : null);
     if (res.ok) {
       setStatus(res.data);
       setError(null);
@@ -137,7 +164,9 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
   const inFlight = status?.state === "payment_processing";
   const capturedUnfinished = status?.state === "allocation_pending" && !status.salesInvoiceId;
   const settled = Boolean(status?.salesInvoiceId);
-  const releasable = status != null && !settled && !inFlight && (status.state === "awaiting_payment" || status.state === "payment_failed");
+  const splitHasMoney = Boolean(split && (split.locked > 0 || split.pending > 0 || split.refunds.length > 0));
+  const releasable =
+    status != null && !settled && !split && !inFlight && (status.state === "awaiting_payment" || status.state === "payment_failed");
 
   return (
     <section className={styles.panel}>
@@ -166,7 +195,18 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
             <dt>Stock held until</dt>
             <dd>{when(status.reservationExpiresAt) || "—"}</dd>
           </dl>
-          {inFlight ? (
+          {split ? (
+            <SplitRecoveryDetail
+              pos={pos}
+              session={split}
+              onChanged={(next) => {
+                if (next) setSplit(next);
+                void load();
+                void pos.refreshSplitRecovery();
+              }}
+            />
+          ) : null}
+          {inFlight && !splitHasMoney ? (
             <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">
               <CircleAlert size={16} aria-hidden /> We cannot prove whether the customer has paid. Do not take this payment again. Check again,
               or ask the customer to show the provider&apos;s confirmation.

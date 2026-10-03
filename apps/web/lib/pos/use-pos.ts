@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PosGateway, ScanSession } from "@/lib/pos/gateway";
 import { haptic } from "@/lib/pos/haptics";
+import { formatMoney, roundMoney } from "@/lib/pos/money";
 import { buildPopularRow, pinForPart } from "@/lib/pos/popular";
 import type {
   CashMovementKind,
@@ -40,6 +41,11 @@ import type {
   TenderOutcome,
   BadgeAction,
   ManagerProof,
+  RefundFeePolicy,
+  SplitRecoveryItem,
+  SplitRefundStep,
+  SplitSession,
+  SplitTender,
 } from "@/lib/pos/types";
 
 const RECENT_KEY = "gtr.pos.recentSearches";
@@ -202,6 +208,11 @@ export function usePos(gateway: PosGateway) {
   const [recoveryOrderId, setRecoveryOrderId] = useState<string | null>(null);
   const [recoveryItems, setRecoveryItems] = useState<RecoveryItem[] | null>(null);
   const [pickups, setPickups] = useState<PickupOrder[] | null>(null);
+  /** Part payments on the reserved order (staged split); amounts are always the server's. */
+  const [split, setSplit] = useState<SplitSession | null>(null);
+  /** Idempotency key of the part being taken; kept after a dropped answer so the retry cannot charge twice. */
+  const splitLegKey = useRef<string | null>(null);
+  const [splitRecovery, setSplitRecovery] = useState<SplitRecoveryItem[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [till, setTill] = useState<TillSession | null>(null);
   const [tillLoaded, setTillLoaded] = useState(false);
@@ -830,6 +841,8 @@ export function usePos(gateway: PosGateway) {
       setLastReceipt(doc);
       setReceiptOrderId(orderId);
       setCheckout(null);
+      setSplit(null);
+      splitLegKey.current = null;
       checkoutKeys.current = null;
       if (doc) haptic("success");
       setCart(null);
@@ -855,6 +868,9 @@ export function usePos(gateway: PosGateway) {
         const status = report(await gateway.paymentStatus(orderId));
         if (!status) return false;
         setCheckout({ orderId, cartId: c.id, status, attempt: null, outcome: null, message: null });
+        // A sale already part-paid on this order resumes where it stopped.
+        const found = await gateway.findSplit(orderId);
+        setSplit(found.ok ? found.data : null);
         void gateway.providerAvailability().then((r) => setProviders(r.ok ? r.data : { ecocash: "Unavailable", paynow: "Unavailable", contipay: "Unavailable" }));
         return true;
       } finally {
@@ -958,6 +974,7 @@ export function usePos(gateway: PosGateway) {
   /** The reservation ran out: the sale is unlocked with its lines intact and re-reserves next time. */
   const expireCheckout = useCallback(() => {
     setCheckout(null);
+    setSplit(null);
     checkoutKeys.current = null;
     setNotice("The payment reservation expired. The sale is unchanged; continue to payment to reserve it again.");
   }, []);
@@ -1004,6 +1021,158 @@ export function usePos(gateway: PosGateway) {
       }
     },
     [gateway, guardOnline, report, cancelCheckout, finishSale],
+  );
+
+  // Part payments (staged split, Blueprint §10.5 / §10.8). Each part is its own idempotent step; the
+  // remaining balance is always the server's. The sale posts on its own when the parts cover it.
+  const applySplit = useCallback(
+    async (session: SplitSession): Promise<ReceiptDocument | null> => {
+      setSplit(session);
+      const co = checkoutRef.current;
+      if (session.finalInvoiceId && ["settled", "refund_review", "refund_pending"].includes(session.status)) {
+        const tenders = session.legs
+          .filter((l) => (l.appliedAmount ?? l.amount) > 0 && ["captured", "allocated", "refund_review", "refund_pending"].includes(l.status))
+          .map((l) => ({ tender: l.tender as TenderLine["tender"], amount: roundMoney(l.appliedAmount ?? l.amount) }));
+        const doc = await finishSale(session.finalInvoiceId, session.orderId, tenders);
+        const owed = session.refunds.filter((r) => r.status !== "settled" && r.status !== "cancelled").reduce((a, r) => a + r.grossAmount, 0);
+        if (owed > 0) setNotice(`${formatMoney(roundMoney(owed), session.currency)} received over the new total is owed back to the customer. A manager approves the refund in Payments to resolve.`);
+        return doc;
+      }
+      if (session.status === "finalization_failed" && co) {
+        setCheckout({
+          ...co,
+          outcome: "unknown",
+          message: `Paid in full but the sale did not post${session.finalizationError ? `: ${session.finalizationError}` : ""}. Do not take any more money; resolve it from Payments to resolve.`,
+        });
+      }
+      return null;
+    },
+    [finishSale],
+  );
+
+  const startSplit = useCallback(async (): Promise<boolean> => {
+    const co = checkoutRef.current;
+    if (!co || !guardOnline()) return false;
+    setBusy(true);
+    try {
+      const session = report(await gateway.startSplit(co.orderId));
+      if (!session) return false;
+      await applySplit(session);
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }, [gateway, guardOnline, report, applySplit]);
+
+  const addSplitPart = useCallback(
+    async (tender: SplitTender, amount: number, reference: string | null): Promise<ReceiptDocument | null> => {
+      const session = split;
+      if (!session || !guardOnline()) return null;
+      splitLegKey.current ??= crypto.randomUUID();
+      setBusy(true);
+      try {
+        const res = await gateway.addSplitLeg(session.sessionId, tender, roundMoney(amount), splitLegKey.current, reference?.trim() || null);
+        if (!res.ok) {
+          // A dropped answer keeps its key (the retry returns the same part); a refusal gets a fresh one.
+          if (!/fetch|network|timeout/i.test(res.error)) splitLegKey.current = null;
+          setError(res.error);
+          return null;
+        }
+        splitLegKey.current = null;
+        haptic("success");
+        return await applySplit(res.data);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [gateway, guardOnline, split, applySplit],
+  );
+
+  /** The customer keeps only what is paid for: the server works out the reduced basket and posts it. */
+  const reduceBasket = useCallback(
+    async (items: Array<{ cartLineId: string; qty: number }>, notes: string | null): Promise<ReceiptDocument | null> => {
+      const session = split;
+      if (!session || !guardOnline()) return null;
+      setBusy(true);
+      try {
+        const next = report(await gateway.acceptReducedBasket(session.sessionId, items, notes));
+        if (!next) return null;
+        const c = cartRef.current;
+        if (c && !next.finalInvoiceId) {
+          const reloaded = report(await gateway.loadCart(c.id));
+          if (reloaded) setCart(reloaded);
+        }
+        return await applySplit(next);
+      } finally {
+        setBusy(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gateway, guardOnline, report, split, applySplit],
+  );
+
+  /** Stop a part-paid sale: the stock is released; money already taken becomes a refund for a manager. */
+  const cancelSplit = useCallback(
+    async (reason: string, feePolicy: RefundFeePolicy = "manual_review"): Promise<boolean> => {
+      const session = split;
+      if (!session) return true;
+      setBusy(true);
+      try {
+        const next = report(await gateway.cancelSplit(session.sessionId, reason, feePolicy));
+        if (!next) return false;
+        setSplit(null);
+        setCheckout(null);
+        checkoutKeys.current = null;
+        splitLegKey.current = null;
+        setNotice(
+          next.refunds.length
+            ? "Part-paid sale cancelled. The money taken is waiting for a manager to refund it in Payments to resolve."
+            : "Part payments cancelled. The sale can be edited or paid again.",
+        );
+        return true;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [gateway, report, split],
+  );
+
+  const retrySplitFinalization = useCallback(
+    async (sessionId: string): Promise<SplitSession | null> => {
+      const next = report(await gateway.retrySplitFinalization(sessionId));
+      if (!next) return null;
+      if (split?.sessionId === sessionId) await applySplit(next);
+      else if (next.status === "settled") setNotice("The sale is posted. It is now in Ready for pickup.");
+      return next;
+    },
+    [gateway, report, split, applySplit],
+  );
+
+  const refreshSplitRecovery = useCallback(async () => {
+    setSplitRecovery(report(await gateway.listSplitRecovery()) ?? []);
+  }, [gateway, report]);
+
+  /** Refund steps for captured parts: manager or finance, by badge, password, or as the signed-in approver. */
+  const splitRefundStep = useCallback(
+    async (refundId: string, step: SplitRefundStep, proof: ManagerProof): Promise<boolean> => {
+      if (proof.kind === "badge") {
+        const [action, args]: [BadgeAction, Record<string, unknown>] =
+          step.kind === "approve"
+            ? ["split_refund_approve", { refund_id: refundId, fee_policy: step.feePolicy, customer_fee: step.customerFee, notes: step.notes }]
+            : step.kind === "complete"
+              ? ["split_refund_complete", { refund_id: refundId, provider_ref: step.providerRef, notes: step.notes }]
+              : ["split_refund_fail", { refund_id: refundId, reason: step.reason }];
+        const res = await gateway.badgeApprove(proof.payload, action, args, deviceId());
+        if (!res.ok) {
+          setError(res.error);
+          return false;
+        }
+      } else if (!report(await gateway.splitRefundStep(refundId, step, proof.kind === "password" ? proof.credentials : null))) return false;
+      setNotice(step.kind === "approve" ? "Refund approved." : step.kind === "complete" ? "Refund recorded as paid to the customer." : "Refund marked as failed.");
+      void refreshSplitRecovery();
+      return true;
+    },
+    [gateway, report, refreshSplitRecovery],
   );
 
   /** An Unknown outcome goes to its dedicated screen (§10.4): it cannot be dismissed by a tap. */
@@ -1165,6 +1334,7 @@ export function usePos(gateway: PosGateway) {
     online,
     error,
     dismissError: () => setError(null),
+    showError: (message: string) => setError(message),
     reportError: (message: string) => setError(message),
     notice,
     dismissNotice: () => setNotice(null),
@@ -1241,6 +1411,15 @@ export function usePos(gateway: PosGateway) {
     pickups,
     refreshPickups,
     collectOrder,
+    split,
+    startSplit,
+    addSplitPart,
+    reduceBasket,
+    cancelSplit,
+    retrySplitFinalization,
+    splitRecovery,
+    refreshSplitRecovery,
+    splitRefundStep,
     lastReceipt,
     clearReceipt: () => {
       setLastReceipt(null);

@@ -22,6 +22,9 @@ import type {
   Governed,
   DigitalProvider,
   PaymentStatus,
+  SplitSession,
+  SplitLeg,
+  SplitRefund,
   PosCurrency,
   TenderLine,
   ApprovalTrailRow,
@@ -190,6 +193,43 @@ export function createPreviewPosGateway(): PosGateway {
     o.invoiceId = postInvoice(o.cartId, [{ tender: (o.provider ?? "ecocash") === "ecocash" ? "ecocash" : "bank", amount: o.total }]);
     Object.assign(o, { state: "paid", providerStatus: "settled", settledProvider: o.provider });
   };
+
+  // Part payments (staged split): one session per reserved order; cash / bank capture at once,
+  // store credit is held; the sale posts when captured + held covers the total.
+  type PreviewSplit = { session: SplitSession; legKeys: Map<string, string> };
+  const splits = new Map<string, PreviewSplit>();
+  const refreshSplit = (sp: PreviewSplit) => {
+    const s = sp.session;
+    const sum = (st: string[]) => roundMoney(s.legs.filter((l) => st.includes(l.status)).reduce((a, l) => a + l.amount, 0));
+    s.captured = sum(["captured", "allocated", "refund_review", "refund_pending"]);
+    s.held = sum(["held"]);
+    s.pending = sum(["pending", "unknown"]);
+    s.locked = roundMoney(s.captured + s.held);
+    s.balanceDue = Math.max(0, roundMoney(s.total - s.locked));
+    s.availableToAllocate = Math.max(0, roundMoney(s.total - s.locked - s.pending));
+    if (["settled", "cancelled", "refunded", "refund_review", "refund_pending"].includes(s.status)) return;
+    s.status = s.pending > 0 ? "leg_pending" : s.locked + 0.01 >= s.total ? "fully_committed" : s.locked > 0 ? "partially_captured" : "open";
+  };
+  const finalizeSplit = (sp: PreviewSplit) => {
+    refreshSplit(sp);
+    const s = sp.session;
+    if (s.status !== "fully_committed") return;
+    const o = orders.get(s.orderId)!;
+    let left = s.total;
+    const tenders: TenderLine[] = [];
+    for (const l of s.legs) {
+      if (l.status !== "captured" && l.status !== "held") continue;
+      const apply = Math.min(l.amount, Math.max(0, left));
+      left = roundMoney(left - apply);
+      if (apply > 0) tenders.push({ tender: l.tender as TenderLine["tender"], amount: apply });
+      l.appliedAmount = apply;
+      if (l.status === "held") l.status = "allocated";
+    }
+    s.finalInvoiceId = postInvoice(o.cartId, tenders);
+    Object.assign(o, { state: "paid", invoiceId: s.finalInvoiceId, settledProvider: tenders.length === 1 ? tenders[0]!.tender : "split_payment" });
+    s.status = s.refunds.some((r) => r.status !== "settled" && r.status !== "cancelled") ? "refund_review" : "settled";
+  };
+  const splitCopy = (sp: PreviewSplit): SplitSession => structuredClone(sp.session);
   const statusOf = (o: PreviewOrder): PaymentStatus => ({
     orderId: o.orderId,
     cartId: o.cartId,
@@ -486,6 +526,151 @@ export function createPreviewPosGateway(): PosGateway {
       Object.assign(o, { state: "paid", exception: null });
       return ok(o.invoiceId);
     },
+    findSplit: (orderId) => {
+      const sp = [...splits.values()].find((x) => x.session.orderId === orderId);
+      return ok(sp ? splitCopy(sp) : null);
+    },
+    startSplit: (orderId) => {
+      const o = orders.get(orderId);
+      if (!o || o.invoiceId || !["awaiting_payment", "payment_processing", "payment_failed"].includes(o.state)) return no("unsettled reserve-first commerce order required");
+      let sp = [...splits.values()].find((x) => x.session.orderId === orderId);
+      if (!sp) {
+        sp = {
+          session: {
+            sessionId: `split-${seq++}`, orderId, status: "open", total: o.total, currency: o.currency, captured: 0, held: 0, pending: 0, locked: 0,
+            balanceDue: o.total, availableToAllocate: o.total, finalInvoiceId: null, finalizationError: null, reducedBasketAcceptedAt: null, legs: [], refunds: [],
+          },
+          legKeys: new Map(),
+        };
+        splits.set(sp.session.sessionId, sp);
+      }
+      o.state = "payment_processing";
+      o.expiresAt = Math.max(o.expiresAt, Date.now() + 60 * 60_000);
+      refreshSplit(sp);
+      return ok(splitCopy(sp));
+    },
+    getSplit: (sessionId) => {
+      const sp = splits.get(sessionId);
+      return sp ? ok(splitCopy(sp)) : no("split payment session not found");
+    },
+    addSplitLeg: (sessionId, tender, amount, requestId, reference) => {
+      const sp = splits.get(sessionId);
+      if (!sp) return no("split payment session not found");
+      if (sp.legKeys.has(requestId)) return ok(splitCopy(sp));
+      const s = sp.session;
+      if (["settled", "refund_review", "refund_pending", "refunded", "cancelled", "finalizing"].includes(s.status)) return no(`split session does not accept new payments in status ${s.status}`);
+      refreshSplit(sp);
+      if (!(amount > 0) || amount > s.availableToAllocate + 0.01) return no(`split leg amount must be > 0 and <= available balance ${s.availableToAllocate.toFixed(2)}`);
+      if (tender === "bank" && !reference?.trim()) return no("bank split payment requires a transfer/reference number");
+      if (tender === "store_credit") {
+        const c = get(orders.get(s.orderId)!.cartId);
+        if (c.customerId !== "c-2") return no("insufficient available store credit after active POS holds");
+      }
+      const leg: SplitLeg = {
+        id: `leg-${seq++}`, sequenceNo: s.legs.length + 1, tender, amount: roundMoney(amount), status: tender === "store_credit" ? "held" : "captured",
+        reference: reference?.trim() || null, providerRef: reference?.trim() || null, statusDetail: null, appliedAmount: null, refundRequired: null,
+      };
+      s.legs.push(leg);
+      sp.legKeys.set(requestId, leg.id);
+      finalizeSplit(sp);
+      return ok(splitCopy(sp));
+    },
+    acceptReducedBasket: (sessionId, items, notes) => {
+      const sp = splits.get(sessionId);
+      if (!sp) return no("split payment session not found");
+      const s = sp.session;
+      if (!items.length) return no("at least one accepted line is required");
+      if (s.locked <= 0) return no("no locked payment is available for reduced-basket settlement");
+      const o = orders.get(s.orderId)!;
+      const c = get(o.cartId);
+      const kept: CartLine[] = [];
+      for (const it of items) {
+        const line = c.lines.find((l) => l.id === it.cartLineId);
+        if (!line || !(it.qty > 0) || it.qty > line.qty) return no(`invalid accepted quantity for cart line ${it.cartLineId}`);
+        kept.push({ ...line, qty: it.qty, lineTotal: roundMoney((line.lineTotal / line.qty) * it.qty) });
+      }
+      const newTotal = roundMoney(kept.reduce((a, l) => a + l.lineTotal, 0));
+      if (newTotal > s.locked + 0.01) return no(`accepted basket total ${newTotal.toFixed(2)} must be > 0 and <= locked payment ${s.locked.toFixed(2)}`);
+      save({ ...c, lines: kept });
+      o.total = newTotal;
+      s.total = newTotal;
+      s.reducedBasketAcceptedAt = new Date().toISOString();
+      let left = newTotal;
+      for (const l of s.legs.filter((x) => x.status === "captured")) {
+        const apply = Math.min(l.amount, Math.max(0, left));
+        left = roundMoney(left - apply);
+        l.appliedAmount = apply;
+        l.refundRequired = roundMoney(l.amount - apply);
+        if (l.refundRequired > 0.009)
+          s.refunds.push({ id: `refund-${seq++}`, legId: l.id, status: "review", grossAmount: l.refundRequired, feePolicy: "manual_review", netCustomerRefund: null, providerRef: null, failureReason: null, notes: notes ?? "Captured surplus after customer accepted reduced basket" });
+      }
+      finalizeSplit(sp);
+      return ok(splitCopy(sp));
+    },
+    cancelSplit: (sessionId, reason, feePolicy) => {
+      const sp = splits.get(sessionId);
+      if (!sp) return no("split payment session not found");
+      const s = sp.session;
+      if (s.status === "settled") return no("settled sale must use the posted invoice return/refund workflow");
+      for (const l of s.legs) {
+        if (["planned", "failed", "held"].includes(l.status)) l.status = "cancelled";
+        if (l.status === "captured") {
+          s.refunds.push({ id: `refund-${seq++}`, legId: l.id, status: "review", grossAmount: l.amount, feePolicy, netCustomerRefund: null, providerRef: null, failureReason: null, notes: reason });
+          l.status = "refund_review";
+        }
+      }
+      orders.get(s.orderId)!.state = "cancelled";
+      s.status = s.legs.some((l) => l.status === "refund_review") ? "refund_review" : "cancelled";
+      refreshSplit(sp);
+      return ok(splitCopy(sp));
+    },
+    retrySplitFinalization: (sessionId) => {
+      const sp = splits.get(sessionId);
+      if (!sp) return no("split payment session not found");
+      if (sp.session.status !== "finalization_failed" && sp.session.status !== "fully_committed") return no(`only a fully paid split sale that did not post can be retried (status ${sp.session.status})`);
+      sp.session.status = "fully_committed";
+      finalizeSplit(sp);
+      return ok(splitCopy(sp));
+    },
+    listSplitRecovery: () =>
+      ok(
+        [...splits.values()]
+          .filter((sp) => ["partially_captured", "leg_pending", "fully_committed", "finalization_failed", "refund_review", "refund_pending"].includes(sp.session.status))
+          .map((sp) => {
+            const o = orders.get(sp.session.orderId)!;
+            const c = carts.get(o.cartId);
+            return {
+              sessionId: sp.session.sessionId, orderId: o.orderId, status: sp.session.status, documentNumber: null, customerName: c?.customerName ?? null,
+              total: sp.session.total, currency: sp.session.currency, updatedAt: new Date().toISOString(), session: splitCopy(sp),
+            };
+          }),
+      ),
+    splitRefundStep: (refundId, step, manager) => {
+      if (manager && !managerOk(manager)) return no("Manager sign-in failed.");
+      const sp = [...splits.values()].find((x) => x.session.refunds.some((r) => r.id === refundId));
+      if (!sp) return no("split refund request not found");
+      const s = sp.session;
+      const r: SplitRefund = s.refunds.find((x) => x.id === refundId)!;
+      const leg = s.legs.find((l) => l.id === r.legId);
+      if (step.kind === "approve") {
+        if (r.status !== "review" && r.status !== "failed") return no("review/failed refund request required");
+        if (step.customerFee > 0 && step.feePolicy !== "customer_bears") return no("customer fee deduction requires customer_bears policy");
+        Object.assign(r, { status: "pending", feePolicy: step.feePolicy, netCustomerRefund: roundMoney(r.grossAmount - step.customerFee) });
+        if (leg) leg.status = "refund_pending";
+        s.status = "refund_pending";
+      } else if (step.kind === "complete") {
+        if (!["pending", "review", "failed"].includes(r.status)) return no(`refund cannot settle in status ${r.status}`);
+        Object.assign(r, { status: "settled", providerRef: step.providerRef || null });
+        if (leg) leg.status = (leg.appliedAmount ?? 0) > 0 ? "allocated" : "refunded";
+        const open = s.refunds.some((x) => x.status !== "settled" && x.status !== "cancelled");
+        s.status = open ? "refund_pending" : s.finalInvoiceId ? "settled" : "refunded";
+      } else {
+        Object.assign(r, { status: "failed", failureReason: step.reason });
+        if (leg) Object.assign(leg, { status: "refund_review", statusDetail: step.reason });
+        s.status = "refund_review";
+      }
+      return ok(splitCopy(sp));
+    },
     listPickupOrders: (query) =>
       ok(
         [...orders.values()]
@@ -728,6 +913,12 @@ export function createPreviewPosGateway(): PosGateway {
           case "till_variance": return gateway.approveTillVariance(a.session_id, String(a.reason_code), g.notes, m);
           case "till_handover": return gateway.handoverTill(a.session_id, a.new_operator_user_id, g.notes, m);
           case "repair_paid_order": return gateway.repairPaidOrder(a.order_id, g.notes, m);
+          case "split_refund_approve":
+            return gateway.splitRefundStep(a.refund_id, { kind: "approve", feePolicy: (a.fee_policy as never) ?? "business_absorbs", customerFee: Number(a.customer_fee ?? 0), notes: g.notes }, m);
+          case "split_refund_complete":
+            return gateway.splitRefundStep(a.refund_id, { kind: "complete", providerRef: String(a.provider_ref ?? ""), notes: g.notes }, m);
+          case "split_refund_fail":
+            return gateway.splitRefundStep(a.refund_id, { kind: "fail", reason: String(a.reason ?? "") }, m);
         }
       })();
       trail.unshift({

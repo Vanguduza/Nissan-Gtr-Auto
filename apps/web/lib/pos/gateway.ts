@@ -45,6 +45,11 @@ import type {
   IssuedBadge,
   ManagerBadge,
   ManagerCandidate,
+  RefundFeePolicy,
+  SplitRecoveryItem,
+  SplitRefundStep,
+  SplitSession,
+  SplitTender,
 } from "@/lib/pos/types";
 
 /**
@@ -125,6 +130,22 @@ export interface PosGateway {
   listPaymentRecovery(): Promise<PosResult<RecoveryItem[]>>;
   /** Paid at the provider but not finalised: finalise and apply the receipt. Manager or finance. */
   repairPaidOrder(orderId: string, notes: string | null, manager: ManagerCredentials | null): Promise<PosResult<string>>;
+
+  // Part payments (staged split): money is taken part by part against the reserved order; the sale
+  // posts when the parts cover it. [requestId] is the idempotency key of one part.
+  findSplit(orderId: string): Promise<PosResult<SplitSession | null>>;
+  startSplit(orderId: string): Promise<PosResult<SplitSession>>;
+  getSplit(sessionId: string): Promise<PosResult<SplitSession>>;
+  addSplitLeg(sessionId: string, tender: SplitTender, amount: number, requestId: string, reference: string | null): Promise<PosResult<SplitSession>>;
+  /** The customer takes fewer items for what is already paid; the server works out the new total. */
+  acceptReducedBasket(sessionId: string, items: Array<{ cartLineId: string; qty: number }>, notes: string | null): Promise<PosResult<SplitSession>>;
+  /** Cancels the part-paid sale; captured parts become refunds for a manager to settle. */
+  cancelSplit(sessionId: string, reason: string, feePolicy: RefundFeePolicy): Promise<PosResult<SplitSession>>;
+  /** Fully paid but the invoice did not post: post it again once the cause is fixed. */
+  retrySplitFinalization(sessionId: string): Promise<PosResult<SplitSession>>;
+  listSplitRecovery(): Promise<PosResult<SplitRecoveryItem[]>>;
+  /** Manager or finance: password sign-in for this step, or the signed-in approver when null. */
+  splitRefundStep(refundId: string, step: SplitRefundStep, manager: ManagerCredentials | null): Promise<PosResult<SplitSession>>;
 
   // Manager approval by ID badge, manager assignment, badges and the approval audit trail.
   /** Is the signed-in user a POS manager (then no approval prompt is needed)? */

@@ -172,6 +172,94 @@ export type PickupOrder = {
   settledProvider: string | null;
   updatedAt: string;
 };
+// ───────── Part payments (staged split, Blueprint §10.5 / §10.8) ─────────
+/** Tenders a part payment can take at the counter (`add_pos_split_payment_leg`). */
+export type SplitTender = "cash" | "bank" | "store_credit";
+export type SplitLegStatus =
+  | "planned"
+  | "held"
+  | "pending"
+  | "captured"
+  | "failed"
+  | "unknown"
+  | "allocated"
+  | "refund_review"
+  | "refund_pending"
+  | "refunded"
+  | "cancelled";
+export type SplitSessionStatus =
+  | "open"
+  | "partially_captured"
+  | "leg_pending"
+  | "fully_committed"
+  | "finalizing"
+  | "settled"
+  | "finalization_failed"
+  | "refund_review"
+  | "refund_pending"
+  | "refunded"
+  | "cancelled";
+export type SplitLeg = {
+  id: string;
+  sequenceNo: number;
+  tender: string;
+  amount: number;
+  status: SplitLegStatus;
+  reference: string | null;
+  providerRef: string | null;
+  statusDetail: string | null;
+  appliedAmount: number | null;
+  refundRequired: number | null;
+};
+export type RefundFeePolicy = "business_absorbs" | "customer_bears" | "manual_review";
+export type SplitRefund = {
+  id: string;
+  legId: string;
+  status: "review" | "pending" | "settled" | "failed" | "cancelled" | string;
+  grossAmount: number;
+  feePolicy: RefundFeePolicy | string;
+  netCustomerRefund: number | null;
+  providerRef: string | null;
+  failureReason: string | null;
+  notes: string | null;
+};
+/** `pos_split_payment_payload`: every amount is the server's, never worked out at the counter. */
+export type SplitSession = {
+  sessionId: string;
+  orderId: string;
+  status: SplitSessionStatus;
+  total: number;
+  currency: PosCurrency;
+  captured: number;
+  held: number;
+  pending: number;
+  locked: number;
+  balanceDue: number;
+  availableToAllocate: number;
+  finalInvoiceId: string | null;
+  finalizationError: string | null;
+  reducedBasketAcceptedAt: string | null;
+  legs: SplitLeg[];
+  refunds: SplitRefund[];
+};
+/** `list_pos_split_payment_recovery` row. */
+export type SplitRecoveryItem = {
+  sessionId: string;
+  orderId: string;
+  status: SplitSessionStatus;
+  documentNumber: string | null;
+  customerName: string | null;
+  total: number;
+  currency: PosCurrency;
+  updatedAt: string;
+  session: SplitSession;
+};
+/** Refund steps for captured part payments: manager or finance (or an approver badge). */
+export type SplitRefundStep =
+  | { kind: "approve"; feePolicy: RefundFeePolicy; customerFee: number; notes: string | null }
+  | { kind: "complete"; providerRef: string; notes: string | null }
+  | { kind: "fail"; reason: string };
+
 export type ReceiptContacts = { email: string | null; whatsappE164: string | null; phoneE164: string | null };
 export type ReceiptLine = { name: string; oemPartNumber: string; qty: number; unitPrice: number; lineTotal: number };
 export type ReceiptDocument = {
@@ -197,7 +285,18 @@ export type ManagerCredentials = { identifier: string; password: string };
  */
 export type ManagerProof = { kind: "password"; credentials: ManagerCredentials } | { kind: "badge"; payload: string } | { kind: "self" };
 /** Actions a scanned badge can approve (`pos_badge_approve`). */
-export type BadgeAction = "discount" | "price_override" | "void_sale" | "refund" | "cash_out" | "till_variance" | "till_handover" | "repair_paid_order";
+export type BadgeAction =
+  | "discount"
+  | "price_override"
+  | "void_sale"
+  | "refund"
+  | "cash_out"
+  | "till_variance"
+  | "till_handover"
+  | "repair_paid_order"
+  | "split_refund_approve"
+  | "split_refund_complete"
+  | "split_refund_fail";
 export type ApproverStatus = { isApprover: boolean; source: string | null };
 /**
  * Someone who could approve: an employee (login optional) or an admin user with no employee record.

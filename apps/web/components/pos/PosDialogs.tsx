@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, Building2, Car, CircleAlert, KeyRound, Lock, PackageCheck, Plus, Printer, RefreshCw, ScanLine, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
+import { Banknote, Building2, Car, CircleAlert, KeyRound, Layers, Lock, PackageCheck, Plus, Printer, RefreshCw, ScanLine, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
@@ -9,6 +9,7 @@ import { webReceiptRows } from "@/lib/pos/receipt";
 import type { ContipayMethod, DigitalProvider, ManagerProof, ManualTender, ManualTenderLine, PaynowMethod, ReasonCode, ReceiptDocument } from "@/lib/pos/types";
 import { reasonActionFor, type PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
+import { SplitPanel } from "./SplitPayment";
 
 /** Open dialog layers, oldest first. Everything beneath the top layer is inert. */
 const layers: HTMLElement[] = [];
@@ -345,7 +346,7 @@ const MANUAL_TENDERS: Array<{ id: ManualTender; label: string }> = [
   { id: "store_credit", label: "Store credit" },
 ];
 
-type PayMode = "manual" | DigitalProvider | "account";
+type PayMode = "manual" | DigitalProvider | "account" | "parts";
 
 const PAYNOW_METHODS: Array<{ id: PaynowMethod; label: string }> = [
   { id: "ecocash", label: "EcoCash" },
@@ -494,7 +495,16 @@ export function PaymentDialog({
   }
 
   const inFlight = Boolean(co?.attempt) && !co?.outcome;
+  const split = pos.split;
+  // Money already received on a part-paid sale: going back would need a refund, so it is a deliberate cancel.
+  const splitLocked = Boolean(split && (split.locked > 0 || split.pending > 0));
+  const choosing = Boolean(co) && !inFlight && co?.outcome !== "unknown" && !split;
   const back = async () => {
+    if (split) {
+      if (splitLocked) return;
+      if (await pos.cancelSplit("Operator returned to the sale")) onClose();
+      return;
+    }
     if (await pos.cancelCheckout()) onClose();
   };
   const hold = remainingLabel(co?.status.reservationExpiresAt ?? null, now);
@@ -510,12 +520,13 @@ export function PaymentDialog({
     { id: "paynow", label: "Paynow", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("paynow") },
     { id: "contipay", label: "ContiPay", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("contipay") },
     { id: "account", label: "On account", icon: <Building2 size={16} aria-hidden />, reason: registered ? null : "Choose a registered customer with credit first." },
+    { id: "parts", label: "Pay in parts", icon: <Layers size={16} aria-hidden />, reason: pos.online ? null : "Needs a connection." },
   ];
 
   return (
-    <Modal title="Payment" onClose={() => void back()} dismissible={!inFlight && co?.outcome !== "unknown"} wide>
+    <Modal title="Payment" onClose={() => void back()} dismissible={!inFlight && co?.outcome !== "unknown" && !splitLocked} wide>
       <div className={styles.dueRow}>
-        <span>Amount due</span>
+        <span>{split ? "Sale total" : "Amount due"}</span>
         <strong style={{ fontSize: 22 }}>{co ? formatMoney(due, currency) : "Reserving…"}</strong>
       </div>
       {co ? (
@@ -541,7 +552,7 @@ export function PaymentDialog({
         </div>
       ) : null}
 
-      {co && !inFlight && co.outcome !== "unknown" ? (
+      {choosing ? (
         <div className={styles.tenderGrid} role="radiogroup" aria-label="Payment method">
           {options.map((o) => (
             <button
@@ -591,7 +602,7 @@ export function PaymentDialog({
         </div>
       ) : null}
 
-      {co && !inFlight && co.outcome !== "unknown" && mode === "manual" ? (
+      {choosing && mode === "manual" ? (
         <>
           {tenders.map((t, i) => (
             <div key={i} className={styles.tenderRow}>
@@ -633,7 +644,7 @@ export function PaymentDialog({
         </>
       ) : null}
 
-      {co && !inFlight && co.outcome !== "unknown" && (mode === "ecocash" || mode === "paynow" || mode === "contipay") ? (
+      {choosing && (mode === "ecocash" || mode === "paynow" || mode === "contipay") ? (
         <div className={styles.formGrid}>
           {mode !== "ecocash" ? (
             <label className={styles.field}>
@@ -654,13 +665,23 @@ export function PaymentDialog({
         </div>
       ) : null}
 
-      {co && !inFlight && co.outcome !== "unknown" && mode === "account" ? (
+      {choosing && mode === "parts" ? (
+        <p className={styles.muted} style={{ marginTop: 12 }}>
+          Take the {formatMoney(due, currency)} in parts — for example some cash now and the rest by card, or store credit plus cash. Each part
+          is recorded as it is taken; the sale posts when the parts cover it. If the customer cannot pay the rest, you can finish with only
+          the items already paid for.
+        </p>
+      ) : null}
+
+      {co && split && !inFlight ? <SplitPanel pos={pos} onCancelled={onClose} /> : null}
+
+      {choosing && mode === "account" ? (
         <p className={styles.muted} style={{ marginTop: 12 }}>
           Charge {formatMoney(due, currency)} to {pos.cart?.customerName}&apos;s account. The server checks the credit limit, any credit hold and the account currency.
         </p>
       ) : null}
 
-      {co && !inFlight && co.outcome !== "unknown" ? (
+      {choosing ? (
         <div className={styles.formGrid}>
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Receipt email (optional)</span>
@@ -675,20 +696,23 @@ export function PaymentDialog({
 
       {pos.error ? <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">{pos.error}</p> : null}
       <div className={styles.rowEnd}>
-        <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} disabled={inFlight || pos.busy || co?.outcome === "unknown"} onClick={() => void back()}>
+        <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} disabled={inFlight || pos.busy || co?.outcome === "unknown" || splitLocked}
+          title={splitLocked ? "Money has been received on this sale. Use Cancel part payments to stop it." : undefined}
+          onClick={() => void back()}
+        >
           Back to sale
         </button>
-        {co && !inFlight && co.outcome !== "unknown" && mode === "manual" ? (
+        {choosing && mode === "manual" ? (
           <button
             type="button"
             className={styles.primaryButton}
             disabled={pos.busy || remaining !== 0 || tenders.some((t) => !(t.amount > 0)) || (change != null && change < 0)}
             onClick={() => void pos.payManual(tenders.map((t) => ({ ...t, amount: roundMoney(t.amount) })), contacts)}
           >
-            {co.outcome === "error" || co.outcome === null ? "Take payment" : "Retry payment"} · {formatMoney(due, currency)}
+            {!co?.outcome || co.outcome === "error" ? "Take payment" : "Retry payment"} · {formatMoney(due, currency)}
           </button>
         ) : null}
-        {co && !inFlight && co.outcome !== "unknown" && (mode === "ecocash" || mode === "paynow" || mode === "contipay") ? (
+        {choosing && (mode === "ecocash" || mode === "paynow" || mode === "contipay") ? (
           <button
             type="button"
             className={styles.primaryButton}
@@ -700,9 +724,14 @@ export function PaymentDialog({
             {mode === "ecocash" ? "Send PIN request" : "Create payment page"} · {formatMoney(due, currency)}
           </button>
         ) : null}
-        {co && !inFlight && co.outcome !== "unknown" && mode === "account" ? (
+        {choosing && mode === "account" ? (
           <button type="button" className={styles.primaryButton} disabled={pos.busy} onClick={() => void pos.payOnAccount(contacts)}>
             Charge to account · {formatMoney(due, currency)}
+          </button>
+        ) : null}
+        {choosing && mode === "parts" ? (
+          <button type="button" className={styles.primaryButton} disabled={pos.busy} onClick={() => void pos.startSplit()}>
+            <Layers size={16} aria-hidden /> Start part payments
           </button>
         ) : null}
       </div>

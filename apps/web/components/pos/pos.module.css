@@ -1614,3 +1614,56 @@
   font-size: 2mm;
   color: #9aa0aa;
 }
+
+/* Part payments (staged split) */
+.panelInset {
+  padding: 14px;
+  border-radius: var(--gtr-radius-sm);
+  background: var(--gtr-color-neutral-canvas);
+  box-shadow: var(--gtr-neu-pressed);
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pos-red);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pos-ink);
+}
+.checkRow input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--pos-red);
+}
+.dangerButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border: 2px solid var(--gtr-color-status-error);
+  border-radius: var(--gtr-radius-sm);
+  background: var(--gtr-color-neutral-surface);
+  color: var(--gtr-color-status-error);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dangerButton:disabled,
+.linkButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
