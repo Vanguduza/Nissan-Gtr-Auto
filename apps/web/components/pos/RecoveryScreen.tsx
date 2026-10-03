@@ -3,7 +3,7 @@
 import { ArrowLeft, CircleAlert, PackageCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatMoney } from "@/lib/pos/money";
-import type { PaymentStatus } from "@/lib/pos/types";
+import type { ManagerProof, PaymentStatus } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 
@@ -107,6 +107,7 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [notes, setNotes] = useState("");
+  const [badge, setBadge] = useState("");
   const { gateway } = pos;
 
   const load = async () => {
@@ -197,7 +198,14 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  if (await pos.repairPaidOrder(status.orderId, notes.trim() || null, { identifier, password })) {
+                  const proof: ManagerProof = pos.selfApprover
+                    ? { kind: "self" }
+                    : badge.trim()
+                      ? { kind: "badge", payload: badge.trim() }
+                      : { kind: "password", credentials: { identifier, password } };
+                  const ok = await pos.repairPaidOrder(status.orderId, notes.trim() || null, proof);
+                  setBadge("");
+                  if (ok) {
                     setRepairing(false);
                     setPassword("");
                     void load();
@@ -206,8 +214,14 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
               >
                 <p className={styles.muted}>
                   <ShieldCheck size={14} aria-hidden /> The customer&apos;s money arrived but the sale did not finish. Repair posts the sale
-                  against that money. A manager or finance user signs in for this one action.
+                  against that money. {pos.selfApprover ? "You are signed in as a manager." : "Scan a manager's badge, or a manager or finance user signs in."}
                 </p>
+                {pos.selfApprover ? null : (
+                <>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Manager ID badge (scan)</span>
+                  <input className={styles.input} type="password" value={badge} onChange={(e) => setBadge(e.target.value)} autoComplete="off" autoFocus />
+                </label>
                 <div className={styles.formGrid}>
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Manager emp# / email / phone</span>
@@ -218,6 +232,8 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
                     <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
                   </label>
                 </div>
+                </>
+                )}
                 <label className={styles.field} style={{ marginTop: 12 }}>
                   <span className={styles.fieldLabel}>Notes (optional)</span>
                   <input className={styles.input} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -226,7 +242,7 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
                   <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => setRepairing(false)}>
                     Cancel
                   </button>
-                  <button type="submit" className={styles.primaryButton} disabled={pos.busy || !identifier.trim() || !password}>
+                  <button type="submit" className={styles.primaryButton} disabled={pos.busy || (!pos.selfApprover && !badge.trim() && (!identifier.trim() || !password))}>
                     Repair paid order
                   </button>
                 </div>

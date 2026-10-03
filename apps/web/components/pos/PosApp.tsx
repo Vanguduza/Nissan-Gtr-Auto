@@ -18,6 +18,7 @@ import { PosRail } from "./PosRail";
 import { CustomerScreen, EpcScreen, OrdersScreen, QuickSaleScreen, ReturnsScreen } from "./PosScreens";
 import { TillScreen } from "./TillScreen";
 import { RecoveryScreen } from "./RecoveryScreen";
+import { ManagersScreen } from "./ManagersScreen";
 import styles from "./pos.module.css";
 
 function StaffPortalDialog({ gateway, onClose }: { gateway: PosGateway; onClose: () => void }) {
@@ -216,6 +217,8 @@ function Destination({
       return <TillScreen pos={pos} />;
     case "recovery":
       return <RecoveryScreen pos={pos} />;
+    case "managers":
+      return <ManagersScreen pos={pos} />;
     case "settings":
       return (
         <section className={styles.panel}>
@@ -227,6 +230,15 @@ function Destination({
                 <div className={styles.muted}>Management features open after you confirm your password.</div>
               </span>
               <button type="button" className={styles.primaryButton} onClick={onPortal}>
+                Open
+              </button>
+            </div>
+            <div className={styles.listRow}>
+              <span>
+                <div className={styles.listTitle}>Managers &amp; ID badges</div>
+                <div className={styles.muted}>Who approves POS actions, their QR ID cards, and the approval audit trail.</div>
+              </span>
+              <button type="button" className={styles.primaryButton} onClick={() => pos.setDestination("managers")}>
                 Open
               </button>
             </div>
@@ -340,6 +352,7 @@ export function PosApp({ gateway, offline = null }: { gateway: PosGateway; offli
       {quoting ? <QuoteDialog pos={pos} onClose={() => setQuoting(false)} /> : null}
       {companionOpen ? <CompanionDialog pos={pos} onClose={() => setCompanionOpen(false)} /> : null}
       {portal ? <StaffPortalDialog gateway={gateway} onClose={() => setPortal(false)} /> : null}
+      <div id="pos-print-slot" className={styles.printOnly} aria-hidden />
       <div id="pos-layers" />
     </div>
   );

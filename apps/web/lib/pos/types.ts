@@ -191,6 +191,53 @@ export type ReceiptDocument = {
 
 // ───────── Manager approval ─────────
 export type ManagerCredentials = { identifier: string; password: string };
+/**
+ * How a manager approves one action: their password (isolated sign-in), their scanned ID badge,
+ * or nothing extra because the signed-in user is a manager.
+ */
+export type ManagerProof = { kind: "password"; credentials: ManagerCredentials } | { kind: "badge"; payload: string } | { kind: "self" };
+/** Actions a scanned badge can approve (`pos_badge_approve`). */
+export type BadgeAction = "discount" | "price_override" | "void_sale" | "refund" | "cash_out" | "till_variance" | "till_handover" | "repair_paid_order";
+export type ApproverStatus = { isApprover: boolean; source: string | null };
+export type ManagerCandidate = {
+  userId: string;
+  fullName: string;
+  employeeCode: string | null;
+  email: string | null;
+  roles: string[];
+  isApprover: boolean;
+  /** admin_role · assigned · hr_grade_or_role */
+  source: string | null;
+  assigned: boolean;
+  activeBadges: number;
+};
+export type ManagerBadge = {
+  badgeId: string;
+  userId: string;
+  fullName: string;
+  label: string | null;
+  issuedAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  revokeReason: string | null;
+  lastUsedAt: string | null;
+  useCount: number;
+  status: "active" | "revoked" | "expired";
+};
+/** A new badge; [payload] is what the card's QR carries and is never shown again. */
+export type IssuedBadge = { badgeId: string; payload: string; expiresAt: string; fullName: string; employeeCode: string | null; email: string | null };
+export type ApprovalTrailRow = {
+  at: string;
+  /** badge · manager_session · admin */
+  method: string;
+  outcome: string;
+  action: string;
+  managerName: string | null;
+  requestedByName: string | null;
+  reasonCode: string | null;
+  detail: string | null;
+  deviceId: string | null;
+};
 
 // ───────── Orders + returns ─────────
 export type QuotationStatus = "draft" | "issued" | "sent" | "converted" | "cancelled" | "expired";

@@ -24,6 +24,9 @@ import type {
   PaymentStatus,
   PosCurrency,
   TenderLine,
+  ApprovalTrailRow,
+  IssuedBadge,
+  ManagerCandidate,
 } from "@/lib/pos/types";
 
 /**
@@ -81,7 +84,20 @@ const ok = <T,>(data: T): Promise<PosResult<T>> => Promise.resolve({ ok: true, d
 const no = <T,>(error: string): Promise<PosResult<T>> => Promise.resolve({ ok: false, error });
 const managerOk = (m: { identifier: string; password: string }) => m.identifier.trim() === "manager" && m.password === "preview";
 
+/** The preview manager's badge (what a USB scanner types when it reads the printed preview card). */
+export const PREVIEW_BADGE = "GTRMGR1:preview-manager:preview-badge-secret";
+
 export function createPreviewPosGateway(): PosGateway {
+  const candidates: ManagerCandidate[] = [
+    { userId: "preview-manager", fullName: "Preview manager", employeeCode: "EMP-0100", email: "manager@example.com", roles: ["admin"], isApprover: true, source: "admin_role", assigned: false, activeBadges: 0 },
+    { userId: "preview-operator", fullName: "Preview operator", employeeCode: "EMP-0001", email: "operator@example.com", roles: ["sales"], isApprover: false, source: null, assigned: false, activeBadges: 0 },
+    { userId: "op-2", fullName: "Farai Ncube", employeeCode: "EMP-0002", email: "farai@example.com", roles: ["sales"], isApprover: false, source: null, assigned: false, activeBadges: 0 },
+  ];
+  type PreviewBadge = IssuedBadge & { userId: string; label: string | null; issuedAt: string; revokedAt: string | null; revokeReason: string | null; lastUsedAt: string | null; useCount: number };
+  const badges: PreviewBadge[] = [
+    { badgeId: "preview-manager", payload: PREVIEW_BADGE, expiresAt: new Date(Date.now() + 365 * 86_400_000).toISOString(), fullName: "Preview manager", employeeCode: "EMP-0100", email: "manager@example.com", userId: "preview-manager", label: "Preview card", issuedAt: new Date().toISOString(), revokedAt: null, revokeReason: null, lastUsedAt: null, useCount: 0 },
+  ];
+  const trail: ApprovalTrailRow[] = [];
   // Preview policies: discount up to 5% needs no manager, everything else does (same table as the server).
   const policies: ApprovalPolicy[] = [
     "cash_out", "core_return", "discount_percent", "price_override_delta_percent", "refund_full_invoice",
@@ -458,7 +474,7 @@ export function createPreviewPosGateway(): PosGateway {
           }),
       ),
     repairPaidOrder: (orderId, _notes, manager) => {
-      if (!managerOk(manager)) return no("Manager sign-in failed.");
+      if (!manager || !managerOk(manager)) return no("manager or finance approval required");
       const o = orders.get(orderId);
       if (!o || o.state !== "allocation_pending" || o.invoiceId) return no("paid-but-unfinalized commerce order required");
       o.invoiceId = postInvoice(o.cartId, [{ tender: "ecocash", amount: o.total }]);
@@ -658,7 +674,7 @@ export function createPreviewPosGateway(): PosGateway {
       return ok({ sessionId, expectedCash: expected, countedCash: counted, variance, status: pending ? ("variance_pending" as const) : ("closed" as const) });
     },
     approveTillVariance: (sessionId, reasonCode, _notes, manager) => {
-      if (!managerOk(manager)) return no("Manager sign-in failed.");
+      if (!manager || !managerOk(manager)) return no("variance approval requires a POS manager");
       const t = tills.find((x) => x.id === sessionId);
       if (!t || t.status !== "variance_pending") return no("variance-pending till session required");
       Object.assign(t, { status: "closed", varianceReasonCode: reasonCode, closedAt: new Date().toISOString() });
@@ -670,7 +686,7 @@ export function createPreviewPosGateway(): PosGateway {
         { userId: "op-2", employeeCode: "EMP-0002", fullName: "Farai Ncube", roles: ["sales"] },
       ]),
     handoverTill: (sessionId, newOperatorUserId, _notes, manager) => {
-      if (!managerOk(manager)) return no("Manager sign-in failed.");
+      if (!manager || !managerOk(manager)) return no("POS manager approval required");
       const t = tills.find((x) => x.id === sessionId);
       if (!t || t.status !== "open") return no("open till session required");
       if (newOperatorUserId === t.operatorUserId) return no("different operator required");
@@ -678,6 +694,82 @@ export function createPreviewPosGateway(): PosGateway {
       return ok(true as const);
     },
     listTillSessions: (status) => ok(tills.filter((t) => !status || t.status === status)),
+
+    // Badges: the preview manager carries PREVIEW_BADGE; new ones are kept in memory. The preview
+    // operator is not a manager, so every governed action asks for approval.
+    approverStatus: () => ok({ isApprover: false, source: null }),
+    badgeApprove: async (payload, action, args) => {
+      const now = Date.now();
+      const badge = badges.find((b) => b.payload === payload.trim());
+      const reject = (error: string) => {
+        trail.unshift({ at: new Date().toISOString(), method: "badge", outcome: "rejected", action, managerName: null, requestedByName: "Preview operator", reasonCode: null, detail: error, deviceId: null });
+        return no<{ managerName: string | null }>(error);
+      };
+      if (trail.filter((t) => t.outcome === "rejected" && now - Date.parse(t.at) < 15 * 60_000).length >= 5)
+        return no("too many rejected badge scans; try again in 15 minutes or ask the manager to sign in");
+      if (!badge) return reject("badge not recognised");
+      if (badge.revokedAt) return reject("badge revoked");
+      if (Date.parse(badge.expiresAt) <= now) return reject("badge expired");
+      const m = { identifier: "manager", password: "preview" };
+      const a = args as Record<string, never>;
+      const g = { reasonCode: String(a.reason_code ?? ""), notes: (a.notes as string | null) ?? null, manager: m };
+      const res = await (async () => {
+        switch (action) {
+          case "discount": return gateway.applyDiscount(a.cart_id, Number(a.percent), g);
+          case "price_override": return gateway.overrideLinePrice(String(a.cart_id ?? ""), a.line_id, Number(a.unit_price), g);
+          case "void_sale": return gateway.voidCart(a.cart_id, g);
+          case "refund": return gateway.refundInvoice(a.invoice_id, g);
+          case "cash_out": return gateway.recordCashMovement(a.session_id, a.kind, Number(a.amount), String(a.reason_code), g.notes, m);
+          case "till_variance": return gateway.approveTillVariance(a.session_id, String(a.reason_code), g.notes, m);
+          case "till_handover": return gateway.handoverTill(a.session_id, a.new_operator_user_id, g.notes, m);
+          case "repair_paid_order": return gateway.repairPaidOrder(a.order_id, g.notes, m);
+        }
+      })();
+      trail.unshift({
+        at: new Date().toISOString(), method: "badge", outcome: res.ok ? "approved" : "failed", action, managerName: badge.fullName,
+        requestedByName: "Preview operator", reasonCode: (a.reason_code as string | null) ?? null, detail: res.ok ? null : res.error, deviceId: "preview",
+      });
+      if (!res.ok) return no(res.error);
+      badge.useCount += 1;
+      badge.lastUsedAt = new Date().toISOString();
+      return ok({ managerName: badge.fullName });
+    },
+    listManagerCandidates: () => ok(candidates.map((c) => ({ ...c, activeBadges: badges.filter((b) => b.userId === c.userId && !b.revokedAt).length }))),
+    setManagerAssignment: (userId, assigned) => {
+      const c = candidates.find((x) => x.userId === userId);
+      if (!c) return no("staff account required");
+      Object.assign(c, { assigned, isApprover: assigned || c.source === "admin_role", source: c.source === "admin_role" ? "admin_role" : assigned ? "assigned" : null });
+      trail.unshift({ at: new Date().toISOString(), method: "admin", outcome: assigned ? "assigned" : "unassigned", action: assigned ? "assigned" : "unassigned", managerName: "Preview admin", requestedByName: c.fullName, reasonCode: null, detail: null, deviceId: null });
+      return ok(true as const);
+    },
+    issueBadge: (userId, label, validDays) => {
+      const c = candidates.find((x) => x.userId === userId);
+      if (!c?.isApprover) return no("only a POS manager can hold a manager badge");
+      const id = `badge-${seq++}`;
+      const issued = { badgeId: id, payload: `GTRMGR1:${id}:${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`, expiresAt: new Date(Date.now() + validDays * 86_400_000).toISOString(), fullName: c.fullName, employeeCode: c.employeeCode, email: c.email };
+      badges.unshift({ ...issued, userId, label, issuedAt: new Date().toISOString(), revokedAt: null, revokeReason: null, lastUsedAt: null, useCount: 0 });
+      trail.unshift({ at: new Date().toISOString(), method: "admin", outcome: "badge_issued", action: "badge_issued", managerName: "Preview admin", requestedByName: c.fullName, reasonCode: null, detail: label, deviceId: null });
+      return ok(issued);
+    },
+    revokeBadge: (badgeId, reason) => {
+      const b = badges.find((x) => x.badgeId === badgeId && !x.revokedAt);
+      if (!b) return no("active badge not found");
+      if (!reason.trim()) return no("revocation reason required");
+      Object.assign(b, { revokedAt: new Date().toISOString(), revokeReason: reason });
+      trail.unshift({ at: new Date().toISOString(), method: "admin", outcome: "badge_revoked", action: "badge_revoked", managerName: "Preview admin", requestedByName: b.fullName, reasonCode: null, detail: reason, deviceId: null });
+      return ok(true as const);
+    },
+    listBadges: (userId) =>
+      ok(
+        badges
+          .filter((b) => !userId || b.userId === userId)
+          .map((b) => ({
+            badgeId: b.badgeId, userId: b.userId, fullName: b.fullName, label: b.label, issuedAt: b.issuedAt, expiresAt: b.expiresAt,
+            revokedAt: b.revokedAt, revokeReason: b.revokeReason, lastUsedAt: b.lastUsedAt, useCount: b.useCount,
+            status: b.revokedAt ? ("revoked" as const) : Date.parse(b.expiresAt) <= Date.now() ? ("expired" as const) : ("active" as const),
+          })),
+      ),
+    approvalTrail: (limit) => ok(trail.slice(0, limit)),
     operatorLabel: () => Promise.resolve("Preview operator"),
     reauthenticate: (password) => (password ? ok(true as const) : no("Password required.")),
   };

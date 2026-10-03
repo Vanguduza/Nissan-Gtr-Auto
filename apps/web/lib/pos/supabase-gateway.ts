@@ -388,6 +388,11 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     }
   }
 
+  /** A manager's isolated session, or the signed-in user's own when they are the manager. */
+  function withManagerOrSelf<T>(manager: ManagerCredentials | null, action: (c: SupabaseClient) => Promise<PosResult<T>>): Promise<PosResult<T>> {
+    return manager ? asManager(manager, action) : action(client);
+  }
+
   /** Governed action: the manager's isolated session when policy needs one, else the cashier's. */
   function governed<T>(g: Governed, action: (c: SupabaseClient) => Promise<PosResult<T>>): Promise<PosResult<T>> {
     return g.manager ? asManager(g.manager, action) : action(client);
@@ -983,7 +988,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     },
 
     async repairPaidOrder(orderId, notes, manager) {
-      return asManager(manager, async (m) => {
+      return withManagerOrSelf(manager, async (m) => {
         const { data, error } = await rpc(m, "repair_pos_paid_order", { p_order_id: orderId, p_notes: notes });
         if (error || typeof data !== "string") return fail(error, "The paid order could not be repaired.");
         return { ok: true, data };
@@ -1330,7 +1335,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     },
 
     async approveTillVariance(sessionId, reasonCode, notes, manager) {
-      return asManager(manager, async (m) => {
+      return withManagerOrSelf(manager, async (m) => {
         const { error } = await rpc(m, "approve_pos_till_variance", { p_session_id: sessionId, p_reason_code: reasonCode, p_notes: notes });
         return error ? fail(error, "Variance approval refused.") : { ok: true, data: true };
       });
@@ -1351,7 +1356,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     },
 
     async handoverTill(sessionId, newOperatorUserId, notes, manager) {
-      return asManager(manager, async (m) => {
+      return withManagerOrSelf(manager, async (m) => {
         const { error } = await rpc(m, "handover_pos_till_session", {
           p_session_id: sessionId,
           p_new_operator_user_id: newOperatorUserId,
@@ -1359,6 +1364,107 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         });
         return error ? fail(error, "Handover refused.") : { ok: true, data: true };
       });
+    },
+
+    async approverStatus() {
+      const { data, error } = await rpc(client, "get_my_pos_approver_status", {});
+      if (error || !data) return { ok: true, data: { isApprover: false, source: null } };
+      const r = data as Record<string, unknown>;
+      return { ok: true, data: { isApprover: r.is_approver === true, source: (r.source as string | null) ?? null } };
+    },
+
+    async badgeApprove(payload, action, args, deviceId) {
+      const { data, error } = await rpc(client, "pos_badge_approve", { p_badge: payload.trim(), p_action: action, p_args: args, p_device_id: deviceId });
+      if (error || !data) return fail(error, "Badge approval failed.");
+      const r = data as Record<string, unknown>;
+      if (r.ok !== true) return { ok: false, error: operatorMessage(String(r.error ?? ""), "Badge approval refused.") };
+      return { ok: true, data: { managerName: (r.manager_name as string | null) ?? null } };
+    },
+
+    async listManagerCandidates() {
+      const { data, error } = await rpc(client, "list_pos_manager_candidates", {});
+      if (error) return fail(error, "Could not load staff.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+          userId: String(r.user_id),
+          fullName: String(r.full_name ?? r.email ?? "Staff"),
+          employeeCode: (r.employee_code as string | null) ?? null,
+          email: (r.email as string | null) ?? null,
+          roles: (r.roles as string[] | null) ?? [],
+          isApprover: r.is_approver === true,
+          source: (r.source as string | null) ?? null,
+          assigned: r.assigned === true,
+          activeBadges: num(r.active_badges),
+        })),
+      };
+    },
+
+    async setManagerAssignment(userId, assigned, notes) {
+      const { error } = await rpc(client, "set_pos_manager_assignment", { p_user_id: userId, p_assigned: assigned, p_notes: notes });
+      return error ? fail(error, "Could not change the manager assignment.") : { ok: true, data: true };
+    },
+
+    async issueBadge(userId, label, validDays) {
+      const { data, error } = await rpc(client, "issue_pos_manager_badge", { p_user_id: userId, p_label: label, p_valid_days: validDays });
+      if (error || !data) return fail(error, "Could not issue the badge.");
+      const r = data as Record<string, unknown>;
+      return {
+        ok: true,
+        data: {
+          badgeId: String(r.badge_id),
+          payload: String(r.payload),
+          expiresAt: String(r.expires_at),
+          fullName: String(r.full_name ?? ""),
+          employeeCode: (r.employee_code as string | null) ?? null,
+          email: (r.email as string | null) ?? null,
+        },
+      };
+    },
+
+    async revokeBadge(badgeId, reason) {
+      const { error } = await rpc(client, "revoke_pos_manager_badge", { p_badge_id: badgeId, p_reason: reason });
+      return error ? fail(error, "Could not revoke the badge.") : { ok: true, data: true };
+    },
+
+    async listBadges(userId) {
+      const { data, error } = await rpc(client, "list_pos_manager_badges", { p_user_id: userId });
+      if (error) return fail(error, "Could not load badges.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+          badgeId: String(r.badge_id),
+          userId: String(r.user_id),
+          fullName: String(r.full_name ?? ""),
+          label: (r.label as string | null) ?? null,
+          issuedAt: String(r.issued_at),
+          expiresAt: String(r.expires_at),
+          revokedAt: (r.revoked_at as string | null) ?? null,
+          revokeReason: (r.revoke_reason as string | null) ?? null,
+          lastUsedAt: (r.last_used_at as string | null) ?? null,
+          useCount: num(r.use_count),
+          status: r.status === "revoked" || r.status === "expired" ? r.status : "active",
+        })),
+      };
+    },
+
+    async approvalTrail(limit) {
+      const { data, error } = await rpc(client, "list_pos_manager_approval_trail", { p_limit: limit });
+      if (error) return fail(error, "Could not load the approval trail.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+          at: String(r.at),
+          method: String(r.method),
+          outcome: String(r.outcome),
+          action: String(r.action),
+          managerName: (r.manager_name as string | null) ?? null,
+          requestedByName: (r.requested_by_name as string | null) ?? null,
+          reasonCode: (r.reason_code as string | null) ?? null,
+          detail: (r.detail as string | null) ?? null,
+          deviceId: (r.device_id as string | null) ?? null,
+        })),
+      };
     },
 
     async listTillSessions(status) {

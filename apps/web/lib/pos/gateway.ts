@@ -39,6 +39,12 @@ import type {
   ProviderAvailability,
   ProviderStart,
   RecoveryItem,
+  ApprovalTrailRow,
+  ApproverStatus,
+  BadgeAction,
+  IssuedBadge,
+  ManagerBadge,
+  ManagerCandidate,
 } from "@/lib/pos/types";
 
 /**
@@ -118,7 +124,19 @@ export interface PosGateway {
   // Payment recovery (dedicated screen) and counter pickup
   listPaymentRecovery(): Promise<PosResult<RecoveryItem[]>>;
   /** Paid at the provider but not finalised: finalise and apply the receipt. Manager or finance. */
-  repairPaidOrder(orderId: string, notes: string | null, manager: ManagerCredentials): Promise<PosResult<string>>;
+  repairPaidOrder(orderId: string, notes: string | null, manager: ManagerCredentials | null): Promise<PosResult<string>>;
+
+  // Manager approval by ID badge, manager assignment, badges and the approval audit trail.
+  /** Is the signed-in user a POS manager (then no approval prompt is needed)? */
+  approverStatus(): Promise<PosResult<ApproverStatus>>;
+  /** Run one governed action approved by a scanned badge; refusals come back with the manager's name when known. */
+  badgeApprove(payload: string, action: BadgeAction, args: Record<string, unknown>, deviceId: string): Promise<PosResult<{ managerName: string | null }>>;
+  listManagerCandidates(): Promise<PosResult<ManagerCandidate[]>>;
+  setManagerAssignment(userId: string, assigned: boolean, notes: string | null): Promise<PosResult<true>>;
+  issueBadge(userId: string, label: string | null, validDays: number): Promise<PosResult<IssuedBadge>>;
+  revokeBadge(badgeId: string, reason: string): Promise<PosResult<true>>;
+  listBadges(userId: string | null): Promise<PosResult<ManagerBadge[]>>;
+  approvalTrail(limit: number): Promise<PosResult<ApprovalTrailRow[]>>;
   listPickupOrders(query: string): Promise<PosResult<PickupOrder[]>>;
   collectOrder(orderId: string, notes: string | null): Promise<PosResult<true>>;
 
@@ -157,9 +175,9 @@ export interface PosGateway {
     manager: ManagerCredentials | null,
   ): Promise<PosResult<true>>;
   closeTill(sessionId: string, counts: DenominationCount[], varianceReasonCode: string | null, notes: string | null): Promise<PosResult<TillCloseResult>>;
-  approveTillVariance(sessionId: string, reasonCode: string, notes: string | null, manager: ManagerCredentials): Promise<PosResult<true>>;
+  approveTillVariance(sessionId: string, reasonCode: string, notes: string | null, manager: ManagerCredentials | null): Promise<PosResult<true>>;
   listHandoverOperators(): Promise<PosResult<HandoverOperator[]>>;
-  handoverTill(sessionId: string, newOperatorUserId: string, notes: string | null, manager: ManagerCredentials): Promise<PosResult<true>>;
+  handoverTill(sessionId: string, newOperatorUserId: string, notes: string | null, manager: ManagerCredentials | null): Promise<PosResult<true>>;
   listTillSessions(status: TillSession["status"] | null): Promise<PosResult<TillSession[]>>;
 
   operatorLabel(): Promise<string>;

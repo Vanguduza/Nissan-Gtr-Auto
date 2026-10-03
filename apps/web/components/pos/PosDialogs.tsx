@@ -1,12 +1,12 @@
 "use client";
 
-import { Banknote, Building2, Car, CircleAlert, Lock, PackageCheck, Plus, Printer, RefreshCw, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
+import { Banknote, Building2, Car, CircleAlert, KeyRound, Lock, PackageCheck, Plus, Printer, RefreshCw, ScanLine, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
 import { THERMAL_COLUMNS, thermalLines } from "@gtr/shared";
 import { webReceiptRows } from "@/lib/pos/receipt";
-import type { ContipayMethod, DigitalProvider, ManualTender, ManualTenderLine, PaynowMethod, ReasonCode, ReceiptDocument } from "@/lib/pos/types";
+import type { ContipayMethod, DigitalProvider, ManagerProof, ManualTender, ManualTenderLine, PaynowMethod, ReasonCode, ReceiptDocument } from "@/lib/pos/types";
 import { reasonActionFor, type PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 
@@ -165,12 +165,15 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
   const prompt = pos.managerPrompt;
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [badge, setBadge] = useState("");
+  const [via, setVia] = useState<"badge" | "password">("badge");
   const [notes, setNotes] = useState("");
   const [reasons, setReasons] = useState<ReasonCode[]>([]);
   const [reasonCode, setReasonCode] = useState("");
   const reasonAction = prompt ? reasonActionFor(prompt) : null;
   useEffect(() => {
     setReasonCode("");
+    setBadge("");
     if (!reasonAction) {
       setReasons([]);
       return;
@@ -181,40 +184,50 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
   const detail = promptDetail(prompt, pos);
   const chosen = reasons.find((r) => r.code === reasonCode) ?? null;
   const reasonMissing = Boolean(reasonAction) && (!reasonCode || Boolean(chosen?.requiresNotes && !notes.trim()));
-  // Policy (`pos_action_requires_manager`) decides; drawer actions always need a manager.
+  // Policy (`pos_action_requires_manager`) decides; a signed-in manager approves as themselves.
   const needsManager = pos.promptNeedsManager;
+  const self = pos.selfApprover;
+  const proofReady = !needsManager || (via === "badge" ? badge.trim().length > 0 : Boolean(identifier.trim() && password));
+  const submit = async () => {
+    if (reasonMissing) {
+      pos.reportError(chosen?.requiresNotes && !notes.trim() ? "This reason needs a note." : "Choose a reason first.");
+      setBadge("");
+      return;
+    }
+    const proof: ManagerProof | null = !needsManager
+      ? self
+        ? { kind: "self" }
+        : null
+      : via === "badge"
+        ? { kind: "badge", payload: badge.trim() }
+        : { kind: "password", credentials: { identifier, password } };
+    const ok = await pos.confirmManager(proof, notes.trim() || null, reasonCode || null);
+    setBadge("");
+    if (ok) {
+      setPassword("");
+      setNotes("");
+    }
+  };
   return (
     <Modal title={PROMPT_TITLE[prompt.kind]} onClose={pos.cancelManager}>
       <form
-        onSubmit={async (e) => {
+        onSubmit={(e) => {
           e.preventDefault();
-          const ok = await pos.confirmManager(needsManager ? { identifier, password } : null, notes.trim() || null, reasonCode || null);
-          if (ok) {
-            setPassword("");
-            setNotes("");
-          }
+          void submit();
         }}
       >
         <p className={styles.muted}>
           <ShieldCheck size={14} aria-hidden /> {detail}{" "}
-          {needsManager ? "An admin or shop manager must approve." : "Within your limit: no manager needed. The reason is recorded in the audit trail."}
+          {!needsManager
+            ? self
+              ? "You are signed in as a manager: this is approved under your name."
+              : "Within your limit: no manager needed. The reason is recorded in the audit trail."
+            : "A manager approves: scan their ID badge, or they sign in."}
         </p>
-        {needsManager ? (
-          <div className={styles.formGrid}>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Manager emp# / email / phone</span>
-              <input className={styles.input} value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="off" autoFocus />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Manager password</span>
-              <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
-            </label>
-          </div>
-        ) : null}
         {reasonAction ? (
           <label className={styles.field} style={{ marginTop: 12 }}>
             <span className={styles.fieldLabel}>Reason</span>
-            <select className={styles.input} value={reasonCode} onChange={(e) => setReasonCode(e.target.value)}>
+            <select className={styles.input} value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} autoFocus>
               <option value="">Choose a reason</option>
               {reasons.map((r) => (
                 <option key={r.code} value={r.code}>
@@ -226,20 +239,62 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
         ) : null}
         <label className={styles.field} style={{ marginTop: 12 }}>
           <span className={styles.fieldLabel}>
-            {reasonAction ? (chosen?.requiresNotes ? "Notes (required for this reason)" : "Notes (optional)") : "Reason (recorded in the audit trail)"}
+            {reasonAction ? (chosen?.requiresNotes ? "Notes (required for this reason)" : "Notes (optional)") : "Notes (recorded in the audit trail)"}
           </span>
           <input className={styles.input} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </label>
+        {needsManager ? (
+          <>
+            <div className={styles.segment} role="group" aria-label="How the manager approves" style={{ marginTop: 14 }}>
+              {(
+                [
+                  ["badge", "Scan badge"],
+                  ["password", "Manager password"],
+                ] as const
+              ).map(([id, label]) => (
+                <button key={id} type="button" className={`${styles.segmentItem} ${via === id ? styles.segmentActive : ""}`} onClick={() => setVia(id)}>
+                  {id === "badge" ? <ScanLine size={14} aria-hidden /> : <KeyRound size={14} aria-hidden />} {label}
+                </button>
+              ))}
+            </div>
+            {via === "badge" ? (
+              <label className={styles.field} style={{ marginTop: 10 }}>
+                <span className={styles.fieldLabel}>Manager ID badge</span>
+                {/* USB / Bluetooth scanners type the badge and press Enter; never the browser camera. */}
+                <input
+                  className={styles.input}
+                  type="password"
+                  value={badge}
+                  onChange={(e) => setBadge(e.target.value)}
+                  placeholder={reasonMissing ? "Choose a reason, then scan" : "Scan the manager's badge now"}
+                  autoComplete="off"
+                  autoFocus={!reasonAction}
+                  aria-describedby="badge-hint"
+                />
+                <span id="badge-hint" className={styles.muted}>
+                  Hold the badge QR under the counter scanner. On the tablet the front camera reads it.
+                </span>
+              </label>
+            ) : (
+              <div className={styles.formGrid}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Manager emp# / email / phone</span>
+                  <input className={styles.input} value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="off" />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Manager password</span>
+                  <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
+                </label>
+              </div>
+            )}
+          </>
+        ) : null}
         {pos.error ? <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">{pos.error}</p> : null}
         <div className={styles.rowEnd}>
           <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={pos.cancelManager}>
             Cancel
           </button>
-          <button
-            type="submit"
-            className={styles.primaryButton}
-            disabled={pos.busy || (needsManager && (!identifier.trim() || !password)) || reasonMissing}
-          >
+          <button type="submit" className={styles.primaryButton} disabled={pos.busy || !proofReady || reasonMissing}>
             {needsManager ? "Approve" : "Confirm"}
           </button>
         </div>

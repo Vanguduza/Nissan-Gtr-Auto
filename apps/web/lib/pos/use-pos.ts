@@ -38,6 +38,8 @@ import type {
   ProviderAvailability,
   RecoveryItem,
   TenderOutcome,
+  BadgeAction,
+  ManagerProof,
 } from "@/lib/pos/types";
 
 const RECENT_KEY = "gtr.pos.recentSearches";
@@ -81,6 +83,32 @@ export type CheckoutSession = {
   message: string | null;
 };
 
+/** The `pos_badge_approve` action and arguments for a prompt (same fields the governed RPCs take). */
+function badgeRequestFor(
+  prompt: ManagerPrompt,
+  cart: PosCart | null,
+  till: TillSession | null,
+  reasonCode: string | null,
+  notes: string | null,
+): { action: BadgeAction; args: Record<string, unknown> } | null {
+  switch (prompt.kind) {
+    case "discount":
+      return cart ? { action: "discount", args: { cart_id: cart.id, percent: prompt.percent, reason_code: reasonCode, notes } } : null;
+    case "override":
+      return cart ? { action: "price_override", args: { cart_id: cart.id, line_id: prompt.lineId, unit_price: prompt.unitPrice, reason_code: reasonCode, notes } } : null;
+    case "void":
+      return cart ? { action: "void_sale", args: { cart_id: cart.id, reason_code: reasonCode, notes } } : null;
+    case "refund":
+      return { action: "refund", args: { invoice_id: prompt.invoiceId, reason_code: reasonCode, notes } };
+    case "cashOut":
+      return till ? { action: "cash_out", args: { session_id: till.id, kind: prompt.movement, amount: prompt.amount, reason_code: prompt.reasonCode, notes } } : null;
+    case "tillVariance":
+      return { action: "till_variance", args: { session_id: prompt.sessionId, reason_code: reasonCode, notes } };
+    case "handover":
+      return { action: "till_handover", args: { session_id: prompt.sessionId, new_operator_user_id: prompt.userId, notes } };
+  }
+}
+
 /** How long a digital attempt may stay unanswered before it is treated as Unknown (§10.7). */
 const PROVIDER_WAIT_MS = 3 * 60_000;
 
@@ -109,6 +137,7 @@ export type PosDestination =
   | "epc"
   | "till"
   | "recovery"
+  | "managers"
   | "settings";
 
 function readRecent(): string[] {
@@ -157,6 +186,8 @@ export function usePos(gateway: PosGateway) {
   const [managerPrompt, setManagerPrompt] = useState<ManagerPrompt | null>(null);
   /** Whether the open prompt needs a manager (policy `pos_action_requires_manager`); true until known. */
   const [promptNeedsManager, setPromptNeedsManager] = useState(true);
+  /** The signed-in user is a POS manager: approvals are theirs, with no prompt for a badge or password. */
+  const [selfApprover, setSelfApprover] = useState(false);
   const [discount, setDiscount] = useState<{ cartId: string; percent: number; amount: number } | null>(null);
   const [garageChoices, setGarageChoices] = useState<GarageVehicle[] | null>(null);
   const [lastReceipt, setLastReceipt] = useState<ReceiptDocument | null>(null);
@@ -205,6 +236,7 @@ export function usePos(gateway: PosGateway) {
     window.addEventListener("offline", off);
     void (async () => {
       setOperator(await gateway.operatorLabel());
+      void gateway.approverStatus().then((r) => setSelfApprover(r.ok && r.data.isApprover));
       const mine = await gateway.getMyTill(deviceId());
       setTill(report(mine) ?? null);
       setTillLoaded(true);
@@ -538,9 +570,14 @@ export function usePos(gateway: PosGateway) {
     async (prompt: ManagerPrompt) => {
       if (!guardOnline()) return;
       if ((prompt.kind === "void" || prompt.kind === "discount" || prompt.kind === "override") && !guardEditable()) return;
-      // Governed sale actions ask the policy first; drawer actions always need a manager on the server.
+      // A signed-in manager approves under their own name: no badge or password needed.
       setPromptNeedsManager(true);
       setManagerPrompt(prompt);
+      if (selfApprover) {
+        setPromptNeedsManager(false);
+        return;
+      }
+      // Governed sale actions ask the policy first; drawer actions always need a manager on the server.
       const action = reasonActionFor(prompt);
       if (!action || action === "till_variance") return;
       let value = 0;
@@ -552,80 +589,108 @@ export function usePos(gateway: PosGateway) {
       const res = await gateway.requiresManager(action, value);
       setPromptNeedsManager(res.ok ? res.data : true);
     },
-    [guardOnline, guardEditable, gateway],
+    [guardOnline, guardEditable, gateway, selfApprover],
   );
 
+  /**
+   * Approve the open prompt. [proof] is a scanned badge, a manager's password for this one action,
+   * or "self" when the signed-in user is a manager; within policy no proof is needed at all.
+   */
   const confirmManager = useCallback(
-    async (manager: ManagerCredentials | null, notes: string | null, reasonCode: string | null = null): Promise<boolean> => {
+    async (proof: ManagerProof | null, notes: string | null, reasonCode: string | null = null): Promise<boolean> => {
       const prompt = managerPrompt;
       const c = cartRef.current;
       if (!prompt) return false;
       const governedKind = prompt.kind === "void" || prompt.kind === "discount" || prompt.kind === "override" || prompt.kind === "refund";
-      if (governedKind && !reasonCode) {
+      if ((governedKind || prompt.kind === "tillVariance") && !reasonCode) {
         setError("Choose a reason.");
         return false;
       }
-      if (!manager && (promptNeedsManager || !governedKind)) {
-        setError("A manager must sign in to approve this.");
+      if (promptNeedsManager && (!proof || (proof.kind === "self" && !selfApprover))) {
+        setError("A manager must approve this: scan their badge or let them sign in.");
         return false;
       }
-      const g: Governed = { reasonCode: reasonCode ?? "", notes, manager: promptNeedsManager ? manager : null };
-      const by = g.manager ? " with manager approval" : "";
+      const creds = proof?.kind === "password" ? proof.credentials : null;
+      const t = tillRef.current;
       setBusy(true);
       try {
-        if (prompt.kind === "cashOut") {
-          const t = tillRef.current;
-          if (!t) return false;
-          if (!manager || !report(await gateway.recordCashMovement(t.id, prompt.movement, prompt.amount, prompt.reasonCode, notes, manager))) return false;
-          setNotice(`${prompt.label} of ${prompt.amount.toFixed(2)} recorded with manager approval.`);
-        } else if (prompt.kind === "tillVariance") {
-          if (!reasonCode) {
-            setError("Choose a reason for the variance.");
+        let by = "";
+        if (proof?.kind === "badge") {
+          // One server call validates the badge, runs the action as approved by its holder, and audits it.
+          const req = badgeRequestFor(prompt, c, t, reasonCode, notes);
+          if (!req) return false;
+          const res = await gateway.badgeApprove(proof.payload, req.action, req.args, deviceId());
+          if (!res.ok) {
+            setError(res.error);
             return false;
           }
-          if (!manager || !report(await gateway.approveTillVariance(prompt.sessionId, reasonCode, notes, manager))) return false;
+          by = `, approved by ${res.data.managerName ?? "manager badge"}`;
+          if ((prompt.kind === "discount" || prompt.kind === "override") && c) {
+            const before = c.lines.reduce((sum, l) => sum + l.lineTotal, 0);
+            const next = report(await gateway.loadCart(c.id));
+            if (next) {
+              setCart(next);
+              if (prompt.kind === "discount") {
+                const after = next.lines.reduce((sum, l) => sum + l.lineTotal, 0);
+                setDiscount({ cartId: next.id, percent: prompt.percent, amount: Math.max(0, before - after) + (discount?.cartId === next.id ? discount.amount : 0) });
+              }
+            }
+          }
+        } else {
+          const g: Governed = { reasonCode: reasonCode ?? "", notes, manager: creds };
+          by = creds ? " with manager approval" : selfApprover && promptNeedsManager ? " under your manager sign-in" : "";
+          if (prompt.kind === "cashOut") {
+            if (!t || !report(await gateway.recordCashMovement(t.id, prompt.movement, prompt.amount, prompt.reasonCode, notes, creds))) return false;
+          } else if (prompt.kind === "tillVariance") {
+            if (!report(await gateway.approveTillVariance(prompt.sessionId, reasonCode ?? "", notes, creds))) return false;
+          } else if (prompt.kind === "handover") {
+            if (!report(await gateway.handoverTill(prompt.sessionId, prompt.userId, notes, creds))) return false;
+          } else if (prompt.kind === "void") {
+            if (!c) return false;
+            const res = await gateway.voidCart(c.id, g);
+            if (!res.ok) return Boolean(report(res));
+          } else if (prompt.kind === "discount") {
+            if (!c) return false;
+            const before = c.lines.reduce((sum, l) => sum + l.lineTotal, 0);
+            const next = report(await gateway.applyDiscount(c.id, prompt.percent, g));
+            if (!next) return false;
+            const after = next.lines.reduce((sum, l) => sum + l.lineTotal, 0);
+            setCart(next);
+            setDiscount({ cartId: next.id, percent: prompt.percent, amount: Math.max(0, before - after) + (discount?.cartId === next.id ? discount.amount : 0) });
+          } else if (prompt.kind === "override") {
+            if (!c) return false;
+            const next = report(await gateway.overrideLinePrice(c.id, prompt.lineId, prompt.unitPrice, g));
+            if (!next) return false;
+            setCart(next);
+          } else if (!report(await gateway.refundInvoice(prompt.invoiceId, g))) {
+            return false;
+          }
+        }
+        setError(null);
+        // What the operator sees afterwards, whichever way it was approved.
+        if (prompt.kind === "cashOut") setNotice(`${prompt.label} of ${prompt.amount.toFixed(2)} recorded${by}.`);
+        else if (prompt.kind === "tillVariance") {
           setTill(null);
-          setNotice("Cash variance approved. The till is closed.");
+          setNotice(`Cash variance approved${by}. The till is closed.`);
           void refreshTillHistory();
         } else if (prompt.kind === "handover") {
-          if (!manager || !report(await gateway.handoverTill(prompt.sessionId, prompt.userId, notes, manager))) return false;
           setTill(null);
           setCart(null);
-          setNotice(`Till handed over to ${prompt.name}. They continue on their own sign-in.`);
+          setNotice(`Till handed over to ${prompt.name}${by}. They continue on their own sign-in.`);
         } else if (prompt.kind === "void") {
-          if (!c) return false;
-          const res = await gateway.voidCart(c.id, g);
-          if (!res.ok) return Boolean(report(res));
           setCart(null);
           setDiscount(null);
           setNotice(`Sale voided${by}.`);
-        } else if (prompt.kind === "discount") {
-          if (!c) return false;
-          const before = c.lines.reduce((s, l) => s + l.lineTotal, 0);
-          const next = report(await gateway.applyDiscount(c.id, prompt.percent, g));
-          if (!next) return false;
-          const after = next.lines.reduce((s, l) => s + l.lineTotal, 0);
-          setCart(next);
-          setDiscount({ cartId: next.id, percent: prompt.percent, amount: Math.max(0, before - after) + (discount?.cartId === next.id ? discount.amount : 0) });
-          setNotice(`${prompt.percent}% discount applied${by}.`);
-        } else if (prompt.kind === "override") {
-          if (!c) return false;
-          const next = report(await gateway.overrideLinePrice(c.id, prompt.lineId, prompt.unitPrice, g));
-          if (!next) return false;
-          setCart(next);
-          setNotice(`Price for ${prompt.lineName} overridden${by}.`);
-        } else {
-          const refundId = report(await gateway.refundInvoice(prompt.invoiceId, g));
-          if (!refundId) return false;
-          setNotice(`Refund posted for ${prompt.documentNumber ?? "the sale"} (${refundId}).`);
-        }
+        } else if (prompt.kind === "discount") setNotice(`${prompt.percent}% discount applied${by}.`);
+        else if (prompt.kind === "override") setNotice(`Price for ${prompt.lineName} overridden${by}.`);
+        else setNotice(`Refund posted for ${prompt.documentNumber ?? "the sale"}${by}.`);
         setManagerPrompt(null);
         return true;
       } finally {
         setBusy(false);
       }
     },
-    [managerPrompt, promptNeedsManager, gateway, report, discount, refreshTillHistory],
+    [managerPrompt, promptNeedsManager, selfApprover, gateway, report, discount, refreshTillHistory],
   );
 
   // Till (cash drawer)
@@ -654,7 +719,7 @@ export function usePos(gateway: PosGateway) {
       const t = tillRef.current;
       if (!t || t.status !== "open" || !guardOnline()) return false;
       if (movement !== "cash_in") {
-        setPromptNeedsManager(true);
+        setPromptNeedsManager(!selfApprover);
         setManagerPrompt({ kind: "cashOut", movement, amount, reasonCode, label });
         return true;
       }
@@ -662,7 +727,7 @@ export function usePos(gateway: PosGateway) {
       setNotice(`Cash in of ${amount.toFixed(2)} recorded.`);
       return true;
     },
-    [gateway, guardOnline, report],
+    [gateway, guardOnline, report, selfApprover],
   );
 
   /** Blind count: the operator never sees the expected cash before submitting. */
@@ -968,8 +1033,14 @@ export function usePos(gateway: PosGateway) {
   );
 
   const repairPaidOrder = useCallback(
-    async (orderId: string, notes: string | null, manager: ManagerCredentials): Promise<boolean> => {
-      if (!report(await gateway.repairPaidOrder(orderId, notes, manager))) return false;
+    async (orderId: string, notes: string | null, proof: ManagerProof): Promise<boolean> => {
+      if (proof.kind === "badge") {
+        const res = await gateway.badgeApprove(proof.payload, "repair_paid_order", { order_id: orderId, notes }, deviceId());
+        if (!res.ok) {
+          setError(res.error);
+          return false;
+        }
+      } else if (!report(await gateway.repairPaidOrder(orderId, notes, proof.kind === "password" ? proof.credentials : null))) return false;
       setNotice("Paid order repaired: the sale is finalised and the payment applied.");
       void refreshRecovery();
       return true;
@@ -1094,6 +1165,7 @@ export function usePos(gateway: PosGateway) {
     online,
     error,
     dismissError: () => setError(null),
+    reportError: (message: string) => setError(message),
     notice,
     dismissNotice: () => setNotice(null),
     busy,
@@ -1140,6 +1212,7 @@ export function usePos(gateway: PosGateway) {
     // manager
     managerPrompt,
     promptNeedsManager,
+    selfApprover,
     requestManager,
     cancelManager: () => setManagerPrompt(null),
     confirmManager,

@@ -1556,3 +1556,61 @@
   font-weight: 600;
   overflow-wrap: anywhere;
 }
+
+/* ───────── Manager ID card (ID-1, 85.6 × 54 mm) ───────── */
+.idCard {
+  width: 85.6mm;
+  height: 54mm;
+  box-sizing: border-box;
+  padding: 3mm 3.5mm;
+  border-radius: 3mm;
+  background: #111317;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+  overflow: hidden;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.idCardBrand {
+  font-size: 2.6mm;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #e5203a;
+}
+.idCardBody {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  min-height: 0;
+}
+.idCardText {
+  flex: 1;
+  min-width: 0;
+  font-size: 2.8mm;
+  line-height: 1.35;
+}
+.idCardName {
+  font-size: 3.8mm;
+  font-weight: 800;
+  margin-bottom: 1mm;
+  overflow-wrap: anywhere;
+}
+.idCardMeta {
+  color: #c9ccd3;
+  font-size: 2.4mm;
+}
+.idCardQr {
+  width: 30mm;
+  height: 30mm;
+  background: #ffffff;
+  border-radius: 1.5mm;
+  padding: 1mm;
+  box-sizing: border-box;
+}
+.idCardFoot {
+  font-size: 2mm;
+  color: #9aa0aa;
+}
