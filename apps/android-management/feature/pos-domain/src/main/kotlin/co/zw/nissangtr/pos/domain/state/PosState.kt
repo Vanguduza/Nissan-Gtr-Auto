@@ -44,6 +44,7 @@ enum class PosNotice {
     CustomerSaved, VehicleSaved, EcoCashSent, Approved, Refunded,
     OfflineSaleQueued, OfflineSynced,
     TillOpened, CashRecorded, TillClosed, TillVariancePending, TillHandedOver,
+    PolicySaved,
 }
 
 data class PosState(
@@ -78,6 +79,12 @@ data class PosState(
     val receipt: Receipt? = null,
     val approval: ApprovalRequest? = null,
     val approving: Boolean = false,
+    /** Reasons for the open approval; null while loading. Empty for drawer actions (chosen before). */
+    val approvalReasons: List<co.zw.nissangtr.pos.domain.model.ReasonCode>? = null,
+    /** Policy decision for the open approval; true until known (fail closed). */
+    val approvalNeedsManager: Boolean = true,
+    /** Approval policies (Settings); null until loaded. */
+    val policies: List<co.zw.nissangtr.pos.domain.model.ApprovalPolicy>? = null,
     val parked: List<ParkedSale>? = null,
     val quotations: List<Quotation>? = null,
     val invoiceQuery: String = "",

@@ -211,4 +211,17 @@ export type CashMovementKind = "cash_in" | "cash_out" | "petty_cash" | "bank_dro
 export type DenominationCount = { denomination: number; quantity: number };
 /** Configured reason for a governed action (`pos_approval_reason_codes`). */
 export type ReasonCode = { code: string; label: string; requiresNotes: boolean };
+/**
+ * `pos_approval_policies` row: when an action needs a manager, and whether it needs a reason.
+ * [thresholdValue] is the action's own unit (percent for discount and price override).
+ */
+export type ApprovalPolicy = {
+  action: string;
+  thresholdValue: number;
+  alwaysRequireManager: boolean;
+  reasonRequired: boolean;
+  updatedAt: string | null;
+};
+/** A governed action: the configured reason and, when policy asks for one, the manager who approved. */
+export type Governed = { reasonCode: string; notes: string | null; manager: ManagerCredentials | null };
 export type HandoverOperator = { userId: string; employeeCode: string; fullName: string; roles: string[] };

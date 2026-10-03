@@ -277,7 +277,7 @@ export function QuickSaleScreen({ pos, onQuote }: { pos: PosStore; onQuote: () =
 
       <section className={styles.panel}>
         <h2 className={styles.panelTitle}>Sale actions</h2>
-        <p className={styles.muted}>Discounts, price overrides and voids need an admin or shop manager.</p>
+        <p className={styles.muted}>Discounts, price overrides and voids need a reason. A manager signs in when the shop's approval policy asks for one.</p>
         <div className={styles.formGrid}>
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Discount %</span>

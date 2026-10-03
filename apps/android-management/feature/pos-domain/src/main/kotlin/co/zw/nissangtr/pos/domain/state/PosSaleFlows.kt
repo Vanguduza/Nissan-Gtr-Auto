@@ -48,7 +48,15 @@ sealed interface PosSaleIntent : PosIntent {
 
     data class RequestApproval(val request: ApprovalRequest) : PosSaleIntent
     data object CancelApproval : PosSaleIntent
-    data class SubmitApproval(val credentials: ManagerCredentials) : PosSaleIntent
+    /**
+     * [credentials] null when the policy does not ask for a manager. [notes] default to the ones typed
+     * with the manager sign-in.
+     */
+    data class SubmitApproval(
+        val credentials: ManagerCredentials?,
+        val reason: co.zw.nissangtr.pos.domain.model.ReasonCode? = null,
+        val notes: String? = null,
+    ) : PosSaleIntent
 
     data object Park : PosSaleIntent
     data class Resume(val sale: ParkedSale) : PosSaleIntent
@@ -120,7 +128,13 @@ sealed interface PosSaleEffect : PosEffect {
     data class LoadGarage(val customerId: String) : PosSaleEffect
     data class AttachCustomer(val cartId: String, val customerId: String?) : PosSaleEffect
     data class SaveToGarage(val customerId: String, val vehicle: VehicleSelection, val primary: Boolean) : PosSaleEffect
-    data class Approve(val credentials: ManagerCredentials, val request: ApprovalRequest, val cartId: String) : PosSaleEffect
+    data class Approve(
+        val credentials: ManagerCredentials?,
+        val request: ApprovalRequest,
+        val cartId: String,
+        val reason: co.zw.nissangtr.pos.domain.model.ReasonCode? = null,
+        val notes: String? = null,
+    ) : PosSaleEffect
     data class Park(val cartId: String) : PosSaleEffect
     data class Resume(val cartId: String) : PosSaleEffect
     data object LoadOrders : PosSaleEffect
@@ -172,6 +186,7 @@ private fun offlineGuard(state: PosState, intent: PosSaleIntent): Reduction? = w
 private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reduction = when (intent) {
     is CompanionIntent -> reduceCompanionIntent(state, intent)
     is TillIntent -> reduceTillIntent(state, intent)
+    is GovernanceIntent -> reduceGovernanceIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
@@ -303,20 +318,37 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
             Reduction(state.copy(feedback = failure(PosError.Input("discount", "percent"))))
         intent.request is ApprovalRequest.PriceOverride && intent.request.unitPrice < 0 ->
             Reduction(state.copy(feedback = failure(PosError.Input("price", "unit_price"))))
-        else -> Reduction(state.copy(approval = intent.request))
+        else -> openApproval(state, intent.request)
     }
 
-    PosSaleIntent.CancelApproval -> Reduction(state.copy(approval = if (state.approving) state.approval else null))
+    PosSaleIntent.CancelApproval -> if (state.approving) Reduction(state)
+    else Reduction(state.copy(approval = null, approvalReasons = null, approvalNeedsManager = true))
 
     is PosSaleIntent.SubmitApproval -> {
         val request = state.approval
+        val creds = intent.credentials
+        val reasons = state.approvalReasons.orEmpty()
+        val notes = (intent.notes ?: creds?.notes)?.trim()?.ifBlank { null }
         when {
             request == null || state.approving -> Reduction(state)
-            intent.credentials.identifier.isBlank() || intent.credentials.password.isEmpty() ->
+            // Governed sale actions record a configured reason (drawer actions chose theirs already).
+            request !is ApprovalRequest.TillAction && reasons.isNotEmpty() && (intent.reason == null || reasons.none { it.code == intent.reason.code }) ->
+                Reduction(state.copy(feedback = failure(PosError.Input("reason", "required"))))
+            intent.reason?.requiresNotes == true && notes == null ->
+                Reduction(state.copy(feedback = failure(PosError.Input("notes", "required"))))
+            state.approvalNeedsManager && (creds == null || creds.identifier.isBlank() || creds.password.isEmpty()) ->
                 Reduction(state.copy(feedback = failure(PosError.Input("manager", "credentials"))))
             else -> Reduction(
-                state.copy(approving = true),
-                listOf(PosSaleEffect.Approve(intent.credentials, request, state.cart.cartId)),
+                state.copy(approving = true, feedback = null),
+                listOf(
+                    PosSaleEffect.Approve(
+                        credentials = creds.takeIf { state.approvalNeedsManager },
+                        request = request,
+                        cartId = state.cart.cartId,
+                        reason = intent.reason,
+                        notes = notes,
+                    ),
+                ),
             )
         }
     }
@@ -423,6 +455,7 @@ private fun validateDraft(state: PosState, draft: CustomerDraft): Reduction? = w
 internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = when (event) {
     is CompanionEvent -> reduceCompanionEvent(state, event)
     is TillEvent -> reduceTillEvent(state, event)
+    is GovernanceEvent -> reduceGovernanceEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 
@@ -483,7 +516,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
 
     is PosSaleEvent.Approved -> if (event.request is ApprovalRequest.TillAction) tillApproved(state, event.request) else {
         val cart = event.cart ?: state.cart
-        val next = state.copy(approval = null, approving = false, cart = cart, feedback = notice(
+        val next = state.copy(approval = null, approving = false, approvalReasons = null, approvalNeedsManager = true, cart = cart, feedback = notice(
             if (event.request is ApprovalRequest.Refund) PosNotice.Refunded else PosNotice.Approved,
         ))
         if (event.request is ApprovalRequest.Refund) Reduction(next, listOf(PosSaleEffect.LoadInvoices(state.invoiceQuery.trim())))

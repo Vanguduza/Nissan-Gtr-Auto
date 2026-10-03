@@ -2768,6 +2768,76 @@ class SupabaseRpcClient(
         }
     }
 
+    // --- POS governance
+
+    private suspend fun governed(fn: String, build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =
+        client.postgrest.rpc(fn, buildJsonObject(build)).decodeAs<String>()
+
+    override suspend fun applyPosCartDiscountGoverned(cartId: String, discountPercent: Double, reasonCode: String, notes: String?): String =
+        governed("apply_pos_cart_discount_governed") {
+            put("p_cart_id", cartId)
+            put("p_discount_percent", discountPercent)
+            put("p_reason_code", reasonCode)
+            if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+        }
+
+    override suspend fun applyPosLinePriceOverrideGoverned(lineId: String, unitPrice: Double, reasonCode: String, notes: String?): String =
+        governed("apply_pos_line_price_override_governed") {
+            put("p_line_id", lineId)
+            put("p_unit_price", unitPrice)
+            put("p_reason_code", reasonCode)
+            if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+        }
+
+    override suspend fun voidPosCartGoverned(cartId: String, reasonCode: String, notes: String?): String =
+        governed("void_pos_cart_governed") {
+            put("p_cart_id", cartId)
+            put("p_reason_code", reasonCode)
+            if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+        }
+
+    override suspend fun postPosRefundGoverned(invoiceId: String, reasonCode: String, notes: String?): String =
+        governed("post_pos_refund_governed") {
+            put("p_invoice_id", invoiceId)
+            put("p_reason_code", reasonCode)
+            if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+        }
+
+    override suspend fun posActionRequiresManager(action: String, value: Double): Boolean =
+        client.postgrest.rpc(
+            "pos_action_requires_manager",
+            buildJsonObject {
+                put("p_action", action)
+                put("p_value", value)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>().let { (it as? JsonPrimitive)?.booleanOrNull != false }
+
+    override suspend fun listPosApprovalPolicies(): List<PosApprovalPolicy> =
+        client.postgrest.rpc("list_pos_approval_policies")
+            .decodeAs<JsonArray>()
+            .mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                PosApprovalPolicy(
+                    action = o.stringOrNull("action") ?: return@mapNotNull null,
+                    thresholdValue = o.number("threshold_value") ?: 0.0,
+                    alwaysRequireManager = o["always_require_manager"]?.jsonPrimitive?.booleanOrNull == true,
+                    reasonRequired = o["reason_required"]?.jsonPrimitive?.booleanOrNull != false,
+                    updatedAt = o.stringOrNull("updated_at"),
+                )
+            }
+
+    override suspend fun setPosApprovalPolicy(action: String, thresholdValue: Double, alwaysRequireManager: Boolean, reasonRequired: Boolean) {
+        client.postgrest.rpc(
+            "set_pos_approval_policy",
+            buildJsonObject {
+                put("p_action", action)
+                put("p_threshold_value", thresholdValue)
+                put("p_always_require_manager", alwaysRequireManager)
+                put("p_reason_required", reasonRequired)
+            },
+        )
+    }
+
     // --- POS till sessions
 
     override suspend fun getMyOpenPosTillSession(deviceId: String?): PosTillSessionRow? {

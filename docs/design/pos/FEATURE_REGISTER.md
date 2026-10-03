@@ -369,3 +369,12 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | TILL-05 | Header operator block shows till state and opens the Till screen; recent tills list | 6.2 | 1 | partial — as TILL-01 |
 | TILL-06 | Manager approval on the tablet always signs in as the manager, also through the offline-catalogue client wrapper (`ManagerApproval`) | 10.10 | 1 | done (code) — regression fixed 2026-10-03; was running approvals as the attendant since the offline catalogue wrapper landed |
 
+## GOV — Governed actions and approval policies (2026-10-03, phase 2)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| GOV-01 | Discount, price override, void and refund run through the `*_governed` RPCs with a configured reason (`list_pos_approval_reasons`); reasons that need notes cannot be submitted without them | 10.10 | 2 | partial — web: Playwright on preview data; tablet: reducer tests and Roborazzi captures; not yet run against the live project |
+| GOV-02 | The approval policy (`pos_action_requires_manager`, value = discount % or price change %) decides whether a manager signs in; within policy the cashier confirms with a reason only; an unreadable policy asks for a manager (fail closed) | 10.10 | 2 | partial — as GOV-01 |
+| GOV-03 | Settings → Approval policies: everyone sees the rules; admins edit threshold, always-manager and reason-required (`set_pos_approval_policy`, admin-only on the server); cash out and till variance stay manager-only | 10.10 | 2 | partial — as GOV-01 |
+| GOV-04 | Web manager approval ends only its own session (`signOut({ scope: "local" })`), never the manager's sessions on other devices | 10.10 | 2 | done (code) — was global sign-out before 2026-10-03 |
+

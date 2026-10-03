@@ -38,6 +38,9 @@ import co.zw.nissangtr.pos.domain.state.CompanionEvent
 import co.zw.nissangtr.pos.domain.state.CompanionEffect
 import co.zw.nissangtr.pos.domain.gateway.CompanionGateway
 import co.zw.nissangtr.pos.domain.gateway.TillGateway
+import co.zw.nissangtr.pos.domain.gateway.GovernanceGateway
+import co.zw.nissangtr.pos.domain.state.GovernanceEffect
+import co.zw.nissangtr.pos.domain.state.GovernanceEvent
 import co.zw.nissangtr.pos.domain.state.TillEffect
 import co.zw.nissangtr.pos.domain.state.TillEvent
 import co.zw.nissangtr.pos.domain.state.serverCartId
@@ -57,6 +60,7 @@ data class PosGateways(
     val offline: OfflineSaleGateway = OfflineSaleGateway.None,
     val companion: CompanionGateway = CompanionGateway.None,
     val till: TillGateway = TillGateway.None,
+    val governance: GovernanceGateway = GovernanceGateway.None,
 )
 
 /**
@@ -222,7 +226,7 @@ class PosStore(
                 gateways.customers.saveToGarage(effect.customerId, effect.vehicle, effect.primary).onOk { apply(PosSaleEvent.VehicleSaved) }
             }
             is PosSaleEffect.Approve -> launch {
-                when (val r = gateways.sales.approve(effect.credentials, effect.request, effect.cartId)) {
+                when (val r = gateways.sales.approve(effect.credentials, effect.request, effect.cartId, effect.reason, effect.notes)) {
                     is PosResult.Ok -> apply(PosSaleEvent.Approved(effect.request, r.value))
                     is PosResult.Err -> apply(PosSaleEvent.ApprovalFailed(r.error))
                 }
@@ -269,6 +273,7 @@ class PosStore(
             }
             is CompanionEffect -> runCompanion(effect)
             is TillEffect -> runTill(effect)
+            is GovernanceEffect -> runGovernance(effect)
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
@@ -387,6 +392,29 @@ class PosStore(
             }
             is TillEffect.Close -> launch {
                 till.close(effect.sessionId, effect.counts, effect.varianceReasonCode, effect.notes).tillOk { apply(TillEvent.Closed(it)) }
+            }
+        }
+    }
+
+    private fun runGovernance(effect: GovernanceEffect) {
+        val g = gateways.governance
+        when (effect) {
+            is GovernanceEffect.LoadContext -> launch {
+                val reasons = (g.reasons(effect.action) as? PosResult.Ok)?.value.orEmpty()
+                val needsManager = (g.requiresManager(effect.action, effect.value) as? PosResult.Ok)?.value ?: true
+                apply(GovernanceEvent.ContextLoaded(effect.request, reasons, needsManager))
+            }
+            GovernanceEffect.LoadPolicies -> launch {
+                when (val r = g.policies()) {
+                    is PosResult.Ok -> apply(GovernanceEvent.PoliciesLoaded(r.value))
+                    is PosResult.Err -> apply(GovernanceEvent.Failed(r.error))
+                }
+            }
+            is GovernanceEffect.SavePolicy -> launch {
+                when (val r = g.setPolicy(effect.policy)) {
+                    is PosResult.Ok -> apply(GovernanceEvent.PolicySaved)
+                    is PosResult.Err -> apply(GovernanceEvent.Failed(r.error))
+                }
             }
         }
     }

@@ -757,4 +757,28 @@ interface RpcClient {
     }
 
     suspend fun listPosTillSessions(limit: Int = 20): List<PosTillSessionRow> = emptyList()
+
+    // --- POS governance (`*_governed`: configured reason always; manager when the policy says so)
+
+    suspend fun applyPosCartDiscountGoverned(cartId: String, discountPercent: Double, reasonCode: String, notes: String?): String =
+        applyPosCartDiscount(cartId, discountPercent, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    suspend fun applyPosLinePriceOverrideGoverned(lineId: String, unitPrice: Double, reasonCode: String, notes: String?): String =
+        applyPosLinePriceOverride(lineId, unitPrice, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    suspend fun voidPosCartGoverned(cartId: String, reasonCode: String, notes: String?): String =
+        voidPosCart(cartId, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    suspend fun postPosRefundGoverned(invoiceId: String, reasonCode: String, notes: String?): String =
+        postPosRefund(invoiceId, listOfNotNull(reasonCode, notes).joinToString(" · "))
+
+    /** `pos_action_requires_manager`; true (fail closed) when there is no policy backend. */
+    suspend fun posActionRequiresManager(action: String, value: Double): Boolean = true
+
+    suspend fun listPosApprovalPolicies(): List<PosApprovalPolicy> = emptyList()
+
+    /** Admin only (server-enforced). */
+    suspend fun setPosApprovalPolicy(action: String, thresholdValue: Double, alwaysRequireManager: Boolean, reasonRequired: Boolean) {
+        throw UnsupportedOperationException("approval policies are not available")
+    }
 }

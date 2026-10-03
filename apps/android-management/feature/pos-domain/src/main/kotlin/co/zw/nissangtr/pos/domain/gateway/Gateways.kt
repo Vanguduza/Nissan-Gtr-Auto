@@ -33,6 +33,7 @@ import co.zw.nissangtr.pos.domain.model.VehicleSelection
 import co.zw.nissangtr.pos.domain.model.DenominationCount
 import co.zw.nissangtr.pos.domain.model.HandoverOperator
 import co.zw.nissangtr.pos.domain.model.ReasonCode
+import co.zw.nissangtr.pos.domain.model.ApprovalPolicy
 import co.zw.nissangtr.pos.domain.model.TillCloseResult
 import co.zw.nissangtr.pos.domain.model.TillSession
 import co.zw.nissangtr.pos.domain.result.PosResult
@@ -111,7 +112,36 @@ interface SalesGateway {
      * Runs [request] with a manager's own sign-in for this one action; the cashier's session is
      * never replaced. Returns the refreshed cart when the action changed it.
      */
-    suspend fun approve(credentials: ManagerCredentials, request: ApprovalRequest, cartId: String): PosResult<CartProjection?>
+    suspend fun approve(
+        credentials: ManagerCredentials?,
+        request: ApprovalRequest,
+        cartId: String,
+        reason: ReasonCode? = null,
+        notes: String? = null,
+    ): PosResult<CartProjection?>
+}
+
+/**
+ * Approval policies and reason codes (`pos_approval_policies`, `pos_approval_reason_codes`). The
+ * policy decides whether a governed sale action needs a manager; a configured reason is always
+ * recorded with it.
+ */
+interface GovernanceGateway {
+    /** `pos_action_requires_manager`; [value] is the action's measure (percent). Fails closed. */
+    suspend fun requiresManager(action: String, value: Double): PosResult<Boolean>
+    suspend fun reasons(action: String): PosResult<List<ReasonCode>>
+    suspend fun policies(): PosResult<List<ApprovalPolicy>>
+    /** Admin only (server-enforced). */
+    suspend fun setPolicy(policy: ApprovalPolicy): PosResult<Unit>
+
+    /** No policy backend (previews, tests): every action asks a manager, no reason list. */
+    object None : GovernanceGateway {
+        override suspend fun requiresManager(action: String, value: Double): PosResult<Boolean> = PosResult.Ok(true)
+        override suspend fun reasons(action: String): PosResult<List<ReasonCode>> = PosResult.Ok(emptyList())
+        override suspend fun policies(): PosResult<List<ApprovalPolicy>> = PosResult.Ok(emptyList())
+        override suspend fun setPolicy(policy: ApprovalPolicy): PosResult<Unit> =
+            PosResult.Err(PosError.BusinessRule("policies_unavailable", ""))
+    }
 }
 
 interface EpcGateway {

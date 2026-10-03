@@ -134,21 +134,20 @@ internal fun reduceTillIntent(state: PosState, intent: TillIntent): Reduction {
             intent.amount.minor <= 0 -> Reduction(state.copy(feedback = PosFeedback.Failure(PosError.Input("amount", "positive"))))
             intent.reason.requiresNotes && intent.notes.isNullOrBlank() ->
                 Reduction(state.copy(feedback = PosFeedback.Failure(PosError.Input("notes", "required"))))
-            else -> Reduction(
-                state.withTill { copy(dialog = null) }.copy(
-                    approval = ApprovalRequest.CashOut(
-                        session.id,
-                        CashMovementKind.forCashOutReason(intent.reason.code),
-                        intent.amount,
-                        intent.reason,
-                        intent.notes?.trim()?.ifBlank { null },
-                    ),
+            else -> openApproval(
+                state.withTill { copy(dialog = null) },
+                ApprovalRequest.CashOut(
+                    session.id,
+                    CashMovementKind.forCashOutReason(intent.reason.code),
+                    intent.amount,
+                    intent.reason,
+                    intent.notes?.trim()?.ifBlank { null },
                 ),
             )
         }
 
         is TillIntent.Handover -> if (session == null || !state.till.isOpen) Reduction(state)
-        else Reduction(state.withTill { copy(dialog = null) }.copy(approval = ApprovalRequest.Handover(session.id, intent.to)))
+        else openApproval(state.withTill { copy(dialog = null) }, ApprovalRequest.Handover(session.id, intent.to))
 
         is TillIntent.Close -> when {
             session == null || !state.till.isOpen || state.till.busy -> Reduction(state)
@@ -173,7 +172,7 @@ internal fun reduceTillIntent(state: PosState, intent: TillIntent): Reduction {
             val pending = session?.takeIf { it.status == TillStatus.VariancePending }
             val variance = state.till.closeResult?.variance ?: pending?.variance
             if (pending == null || variance == null) Reduction(state)
-            else Reduction(state.copy(approval = ApprovalRequest.TillVariance(pending.id, variance, intent.reason)))
+            else openApproval(state, ApprovalRequest.TillVariance(pending.id, variance, intent.reason))
         }
 
         TillIntent.DismissCloseResult -> Reduction(state.withTill { copy(closeResult = null) })
@@ -236,7 +235,7 @@ internal fun tillApproved(state: PosState, request: ApprovalRequest.TillAction):
         is ApprovalRequest.Handover -> PosNotice.TillHandedOver
     }
     return Reduction(
-        state.copy(approval = null, approving = false, feedback = PosFeedback.Notice(notice))
+        state.copy(approval = null, approving = false, approvalReasons = null, approvalNeedsManager = true, feedback = PosFeedback.Notice(notice))
             .withTill { copy(closeResult = if (request is ApprovalRequest.TillVariance) null else closeResult) },
         listOf(TillEffect.Load, TillEffect.LoadHistory),
     )

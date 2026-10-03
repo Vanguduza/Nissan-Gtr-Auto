@@ -28,6 +28,8 @@ import type {
   SelectedVehicle,
   VehicleModel,
   VehicleVariant,
+  ApprovalPolicy,
+  Governed,
 } from "@/lib/pos/types";
 
 /**
@@ -59,12 +61,16 @@ export interface PosGateway {
   setLineQty(cartId: string, lineId: string, qty: number): Promise<PosResult<PosCart>>;
   removeLine(cartId: string, lineId: string): Promise<PosResult<PosCart>>;
   setCartVehicle(cartId: string, vehicle: SelectedVehicle | null): Promise<PosResult<PosCart>>;
-  /** Void needs an approver (`is_pos_approver`) — runs on the manager's isolated session. */
-  voidCart(cartId: string, manager: ManagerCredentials, notes: string | null): Promise<PosResult<true>>;
-
-  // Manager-gated pricing
-  applyDiscount(cartId: string, percent: number, manager: ManagerCredentials, notes: string | null): Promise<PosResult<PosCart>>;
-  overrideLinePrice(cartId: string, lineId: string, unitPrice: number, manager: ManagerCredentials, notes: string | null): Promise<PosResult<PosCart>>;
+  // Governed actions (`*_governed`): a configured reason always; the manager's isolated session when
+  // `pos_action_requires_manager` says so, otherwise the cashier's own.
+  voidCart(cartId: string, g: Governed): Promise<PosResult<true>>;
+  applyDiscount(cartId: string, percent: number, g: Governed): Promise<PosResult<PosCart>>;
+  overrideLinePrice(cartId: string, lineId: string, unitPrice: number, g: Governed): Promise<PosResult<PosCart>>;
+  /** Policy check before asking for a manager; [value] is the action's measure (percent). */
+  requiresManager(action: string, value: number): Promise<PosResult<boolean>>;
+  listApprovalPolicies(): Promise<PosResult<ApprovalPolicy[]>>;
+  /** Admin only (server-enforced). */
+  setApprovalPolicy(policy: Omit<ApprovalPolicy, "updatedAt">): Promise<PosResult<true>>;
 
   // Customers
   searchCustomers(query: string): Promise<PosResult<PosCustomer[]>>;
@@ -96,7 +102,7 @@ export interface PosGateway {
 
   // Returns
   listRecentInvoices(query: string): Promise<PosResult<RecentInvoice[]>>;
-  refundInvoice(invoiceId: string, manager: ManagerCredentials, notes: string | null): Promise<PosResult<string>>;
+  refundInvoice(invoiceId: string, g: Governed): Promise<PosResult<string>>;
 
   // EPC Browse (Nissan only — make is never chosen)
   listEpcVariants(modelSlug: string): Promise<PosResult<VehicleVariant[]>>;

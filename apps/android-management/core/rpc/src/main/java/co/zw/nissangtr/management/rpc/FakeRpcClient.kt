@@ -2156,6 +2156,28 @@ class FakeRpcClient : RpcClient {
             PosApprovalReason("bank_drop", "Bank drop", false),
             PosApprovalReason("other_cash_out", "Other", true),
         )
+        "discount_percent" -> listOf(
+            PosApprovalReason("customer_retention", "Customer retention", false),
+            PosApprovalReason("price_match", "Price match", false),
+            PosApprovalReason("damaged_packaging", "Damaged packaging", false),
+        )
+        "price_override_delta_percent" -> listOf(
+            PosApprovalReason("supplier_price", "Supplier price change", false),
+            PosApprovalReason("advertised_price", "Advertised price", false),
+            PosApprovalReason("data_correction", "Price data correction", false),
+        )
+        "void_cart" -> listOf(
+            PosApprovalReason("customer_cancelled", "Customer cancelled", false),
+            PosApprovalReason("duplicate_cart", "Duplicate sale", false),
+            PosApprovalReason("pricing_error", "Pricing error", true),
+            PosApprovalReason("operator_error", "Operator error", true),
+        )
+        "refund_full_invoice" -> listOf(
+            PosApprovalReason("wrong_part", "Wrong part", false),
+            PosApprovalReason("customer_changed_mind", "Customer changed mind", false),
+            PosApprovalReason("defective", "Defective", false),
+            PosApprovalReason("manager_exception", "Manager exception", true),
+        )
         "till_variance" -> listOf(
             PosApprovalReason("count_error", "Count error", false),
             PosApprovalReason("short_change", "Short change given", false),
@@ -2175,4 +2197,23 @@ class FakeRpcClient : RpcClient {
     }
 
     override suspend fun listPosTillSessions(limit: Int): List<PosTillSessionRow> = tills.take(limit)
+
+    // --- POS approval policies (in memory; same actions as the server)
+
+    private val approvalPolicies = mutableListOf(
+        "cash_out", "core_return", "discount_percent", "price_override_delta_percent", "refund_full_invoice",
+        "return_post", "till_variance", "void_cart", "warranty_decision",
+    ).map { PosApprovalPolicy(it, 0.0, alwaysRequireManager = true, reasonRequired = true, updatedAt = null) }.toMutableList()
+
+    override suspend fun posActionRequiresManager(action: String, value: Double): Boolean =
+        approvalPolicies.firstOrNull { it.action == action }?.let { it.alwaysRequireManager || value > it.thresholdValue } ?: true
+
+    override suspend fun listPosApprovalPolicies(): List<PosApprovalPolicy> = approvalPolicies.toList()
+
+    override suspend fun setPosApprovalPolicy(action: String, thresholdValue: Double, alwaysRequireManager: Boolean, reasonRequired: Boolean) {
+        require(thresholdValue >= 0) { "threshold must be >= 0" }
+        val row = PosApprovalPolicy(action, thresholdValue, alwaysRequireManager, reasonRequired, java.time.OffsetDateTime.now().toString())
+        val i = approvalPolicies.indexOfFirst { it.action == action }
+        if (i >= 0) approvalPolicies[i] = row else approvalPolicies += row
+    }
 }

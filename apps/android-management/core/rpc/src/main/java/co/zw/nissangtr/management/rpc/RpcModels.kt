@@ -896,3 +896,12 @@ data class PosHandoverOperatorRow(val userId: String, val employeeCode: String, 
 
 /** One blind-count line for `submit_pos_till_denominated_close`. */
 data class PosDenominationLine(val denomination: Double, val quantity: Int)
+
+/** `pos_approval_policies` row; [thresholdValue] is in the action's own unit (percent for discount/override). */
+data class PosApprovalPolicy(
+    val action: String,
+    val thresholdValue: Double,
+    val alwaysRequireManager: Boolean,
+    val reasonRequired: Boolean,
+    val updatedAt: String?,
+)

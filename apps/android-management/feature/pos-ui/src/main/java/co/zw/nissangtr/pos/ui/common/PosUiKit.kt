@@ -102,6 +102,7 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.TillClosed -> stringResource(R.string.pos_notice_till_closed)
         PosNotice.TillVariancePending -> stringResource(R.string.pos_notice_till_variance)
         PosNotice.TillHandedOver -> stringResource(R.string.pos_notice_till_handed_over)
+        PosNotice.PolicySaved -> stringResource(R.string.pos_notice_policy_saved)
     }
     is PosFeedback.Failure -> errorText(feedback.error)
 }

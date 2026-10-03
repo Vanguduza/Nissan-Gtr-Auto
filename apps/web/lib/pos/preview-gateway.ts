@@ -18,6 +18,8 @@ import type {
   TillSession,
   VehicleModel,
   VehicleVariant,
+  ApprovalPolicy,
+  Governed,
 } from "@/lib/pos/types";
 
 /**
@@ -76,6 +78,25 @@ const no = <T,>(error: string): Promise<PosResult<T>> => Promise.resolve({ ok: f
 const managerOk = (m: { identifier: string; password: string }) => m.identifier.trim() === "manager" && m.password === "preview";
 
 export function createPreviewPosGateway(): PosGateway {
+  // Preview policies: discount up to 5% needs no manager, everything else does (same table as the server).
+  const policies: ApprovalPolicy[] = [
+    "cash_out", "core_return", "discount_percent", "price_override_delta_percent", "refund_full_invoice",
+    "return_post", "till_variance", "void_cart", "warranty_decision",
+  ].map((action) => ({
+    action,
+    thresholdValue: action === "discount_percent" ? 5 : 0,
+    alwaysRequireManager: action !== "discount_percent",
+    reasonRequired: true,
+    updatedAt: null,
+  }));
+  /** Same order as the governed RPCs: reason first, then the manager when policy asks for one. */
+  const governedRefusal = (action: string, g: Governed, value = 0): string | null => {
+    if (!g.reasonCode.trim()) return `valid active reason code required for ${action}`;
+    if (g.manager && !managerOk(g.manager)) return "Manager sign-in failed.";
+    const p = policies.find((x) => x.action === action);
+    if (!g.manager && (!p || p.alwaysRequireManager || value > p.thresholdValue)) return "POS manager approval required";
+    return null;
+  };
   let pins: PopularPin[] = [];
   const hidden = new Set<string>();
   let seq = 1;
@@ -196,13 +217,15 @@ export function createPreviewPosGateway(): PosGateway {
         : c.vehicles;
       return ok(save({ ...c, vehicle, vehicles }));
     },
-    voidCart: (cartId, manager) => {
-      if (!managerOk(manager)) return no("Manager sign-in failed.");
+    voidCart: (cartId, g) => {
+      const refused = governedRefusal("void_cart", g);
+      if (refused) return no(refused);
       carts.delete(cartId);
       return ok(true as const);
     },
-    applyDiscount: (cartId, percent, manager) => {
-      if (!managerOk(manager)) return no("Manager sign-in failed.");
+    applyDiscount: (cartId, percent, g) => {
+      const refused = governedRefusal("discount_percent", g, percent);
+      if (refused) return no(refused);
       const c = get(cartId);
       const lines = c.lines.map((l) => {
         const unit = roundMoney(l.unitPrice * (1 - percent / 100));
@@ -210,8 +233,9 @@ export function createPreviewPosGateway(): PosGateway {
       });
       return ok(save({ ...c, lines }));
     },
-    overrideLinePrice: (cartId, lineId, unitPrice, manager) => {
-      if (!managerOk(manager)) return no("Manager sign-in failed.");
+    overrideLinePrice: (cartId, lineId, unitPrice, g) => {
+      const refused = governedRefusal("price_override_delta_percent", g);
+      if (refused) return no(refused);
       const c = get(cartId);
       const lines = c.lines.map((l) => (l.id === lineId ? { ...l, unitPrice, lineTotal: roundMoney(unitPrice * l.qty) } : l));
       return ok(save({ ...c, lines }));
@@ -317,8 +341,9 @@ export function createPreviewPosGateway(): PosGateway {
       const q = query.trim().toLowerCase();
       return ok(recent.filter((r) => !q || `${r.documentNumber} ${r.customerName ?? ""}`.toLowerCase().includes(q)));
     },
-    refundInvoice: (invoiceId, manager) => {
-      if (!managerOk(manager)) return no("Manager sign-in failed.");
+    refundInvoice: (invoiceId, g) => {
+      const refused = governedRefusal("refund_full_invoice", g);
+      if (refused) return no(refused);
       const i = recent.findIndex((r) => r.id === invoiceId);
       if (i < 0) return no("Invoice not found.");
       recent.splice(i, 1);
@@ -358,6 +383,19 @@ export function createPreviewPosGateway(): PosGateway {
       save({ ...c, tillSessionId: sessionId });
       return ok(true as const);
     },
+    requiresManager: (action, value) => {
+      const p = policies.find((x) => x.action === action);
+      return ok(!p || p.alwaysRequireManager || value > p.thresholdValue);
+    },
+    listApprovalPolicies: () => ok(policies.map((p) => ({ ...p }))),
+    setApprovalPolicy: (p) => {
+      if (p.thresholdValue < 0) return no("threshold must be >= 0");
+      const i = policies.findIndex((x) => x.action === p.action);
+      const row = { ...p, updatedAt: new Date().toISOString() };
+      if (i >= 0) policies[i] = row;
+      else policies.push(row);
+      return ok(true as const);
+    },
     listReasons: (action) =>
       ok(
         (
@@ -366,6 +404,28 @@ export function createPreviewPosGateway(): PosGateway {
               { code: "count_error", label: "Count error", requiresNotes: false },
               { code: "cash_movement_missing", label: "Cash movement not recorded", requiresNotes: false },
               { code: "investigation", label: "Needs investigation", requiresNotes: false },
+            ],
+            discount_percent: [
+              { code: "customer_retention", label: "Customer retention", requiresNotes: false },
+              { code: "price_match", label: "Price match", requiresNotes: false },
+              { code: "damaged_packaging", label: "Damaged packaging", requiresNotes: false },
+            ],
+            price_override_delta_percent: [
+              { code: "supplier_price", label: "Supplier price change", requiresNotes: false },
+              { code: "advertised_price", label: "Advertised price", requiresNotes: false },
+              { code: "data_correction", label: "Price data correction", requiresNotes: false },
+            ],
+            void_cart: [
+              { code: "customer_cancelled", label: "Customer cancelled", requiresNotes: false },
+              { code: "duplicate_cart", label: "Duplicate sale", requiresNotes: false },
+              { code: "pricing_error", label: "Pricing error", requiresNotes: true },
+              { code: "operator_error", label: "Operator error", requiresNotes: true },
+            ],
+            refund_full_invoice: [
+              { code: "wrong_part", label: "Wrong part", requiresNotes: false },
+              { code: "customer_changed_mind", label: "Customer changed mind", requiresNotes: false },
+              { code: "defective", label: "Defective", requiresNotes: false },
+              { code: "manager_exception", label: "Manager exception", requiresNotes: true },
             ],
             cash_out: [
               { code: "petty_cash", label: "Petty cash", requiresNotes: false },

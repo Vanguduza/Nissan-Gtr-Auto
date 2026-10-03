@@ -28,6 +28,7 @@ import type {
   VehicleGeneration,
   VehicleModel,
   VehicleVariant,
+  Governed,
 } from "@/lib/pos/types";
 
 const RECENT_KEY = "gtr.pos.recentSearches";
@@ -43,9 +44,22 @@ export type ManagerPrompt =
   | { kind: "tillVariance"; sessionId: string; variance: number | null }
   | { kind: "handover"; sessionId: string; userId: string; name: string };
 
-/** The configured reason list a prompt needs the manager to choose from, if any. */
+/** The configured reason list (`pos_approval_reason_codes.action`) a prompt chooses from, if any. */
 export function reasonActionFor(prompt: ManagerPrompt): string | null {
-  return prompt.kind === "tillVariance" ? "till_variance" : null;
+  switch (prompt.kind) {
+    case "tillVariance":
+      return "till_variance";
+    case "void":
+      return "void_cart";
+    case "discount":
+      return "discount_percent";
+    case "override":
+      return "price_override_delta_percent";
+    case "refund":
+      return "refund_full_invoice";
+    default:
+      return null;
+  }
 }
 
 const DEVICE_KEY = "gtr.pos.deviceId";
@@ -118,6 +132,8 @@ export function usePos(gateway: PosGateway) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [setup, setSetup] = useState<SaleSetup>({ warehouseId: null, currency: "USD", fulfillmentMode: "immediate" });
   const [managerPrompt, setManagerPrompt] = useState<ManagerPrompt | null>(null);
+  /** Whether the open prompt needs a manager (policy `pos_action_requires_manager`); true until known. */
+  const [promptNeedsManager, setPromptNeedsManager] = useState(true);
   const [discount, setDiscount] = useState<{ cartId: string; percent: number; amount: number } | null>(null);
   const [garageChoices, setGarageChoices] = useState<GarageVehicle[] | null>(null);
   const [lastReceipt, setLastReceipt] = useState<ReceiptDocument | null>(null);
@@ -477,61 +493,87 @@ export function usePos(gateway: PosGateway) {
   }, [gateway, report]);
 
   // Manager-gated actions
-  const requestManager = useCallback((prompt: ManagerPrompt) => {
-    if (!guardOnline()) return;
-    setManagerPrompt(prompt);
-  }, [guardOnline]);
+  const requestManager = useCallback(
+    async (prompt: ManagerPrompt) => {
+      if (!guardOnline()) return;
+      // Governed sale actions ask the policy first; drawer actions always need a manager on the server.
+      setPromptNeedsManager(true);
+      setManagerPrompt(prompt);
+      const action = reasonActionFor(prompt);
+      if (!action || action === "till_variance") return;
+      let value = 0;
+      if (prompt.kind === "discount") value = prompt.percent;
+      if (prompt.kind === "override") {
+        const before = cartRef.current?.lines.find((l) => l.id === prompt.lineId)?.unitPrice ?? 0;
+        value = before === 0 ? (prompt.unitPrice === 0 ? 0 : 100) : (Math.abs(prompt.unitPrice - before) / before) * 100;
+      }
+      const res = await gateway.requiresManager(action, value);
+      setPromptNeedsManager(res.ok ? res.data : true);
+    },
+    [guardOnline, gateway],
+  );
 
   const confirmManager = useCallback(
-    async (manager: ManagerCredentials, notes: string | null, reasonCode: string | null = null): Promise<boolean> => {
+    async (manager: ManagerCredentials | null, notes: string | null, reasonCode: string | null = null): Promise<boolean> => {
       const prompt = managerPrompt;
       const c = cartRef.current;
       if (!prompt) return false;
+      const governedKind = prompt.kind === "void" || prompt.kind === "discount" || prompt.kind === "override" || prompt.kind === "refund";
+      if (governedKind && !reasonCode) {
+        setError("Choose a reason.");
+        return false;
+      }
+      if (!manager && (promptNeedsManager || !governedKind)) {
+        setError("A manager must sign in to approve this.");
+        return false;
+      }
+      const g: Governed = { reasonCode: reasonCode ?? "", notes, manager: promptNeedsManager ? manager : null };
+      const by = g.manager ? " with manager approval" : "";
       setBusy(true);
       try {
         if (prompt.kind === "cashOut") {
           const t = tillRef.current;
           if (!t) return false;
-          if (!report(await gateway.recordCashMovement(t.id, prompt.movement, prompt.amount, prompt.reasonCode, notes, manager))) return false;
+          if (!manager || !report(await gateway.recordCashMovement(t.id, prompt.movement, prompt.amount, prompt.reasonCode, notes, manager))) return false;
           setNotice(`${prompt.label} of ${prompt.amount.toFixed(2)} recorded with manager approval.`);
         } else if (prompt.kind === "tillVariance") {
           if (!reasonCode) {
             setError("Choose a reason for the variance.");
             return false;
           }
-          if (!report(await gateway.approveTillVariance(prompt.sessionId, reasonCode, notes, manager))) return false;
+          if (!manager || !report(await gateway.approveTillVariance(prompt.sessionId, reasonCode, notes, manager))) return false;
           setTill(null);
           setNotice("Cash variance approved. The till is closed.");
           void refreshTillHistory();
         } else if (prompt.kind === "handover") {
-          if (!report(await gateway.handoverTill(prompt.sessionId, prompt.userId, notes, manager))) return false;
+          if (!manager || !report(await gateway.handoverTill(prompt.sessionId, prompt.userId, notes, manager))) return false;
           setTill(null);
           setCart(null);
           setNotice(`Till handed over to ${prompt.name}. They continue on their own sign-in.`);
         } else if (prompt.kind === "void") {
           if (!c) return false;
-          const res = await gateway.voidCart(c.id, manager, notes);
+          const res = await gateway.voidCart(c.id, g);
           if (!res.ok) return Boolean(report(res));
           setCart(null);
           setDiscount(null);
-          setNotice("Sale voided with manager approval.");
+          setNotice(`Sale voided${by}.`);
         } else if (prompt.kind === "discount") {
           if (!c) return false;
           const before = c.lines.reduce((s, l) => s + l.lineTotal, 0);
-          const next = report(await gateway.applyDiscount(c.id, prompt.percent, manager, notes));
+          const next = report(await gateway.applyDiscount(c.id, prompt.percent, g));
           if (!next) return false;
           const after = next.lines.reduce((s, l) => s + l.lineTotal, 0);
           setCart(next);
           setDiscount({ cartId: next.id, percent: prompt.percent, amount: Math.max(0, before - after) + (discount?.cartId === next.id ? discount.amount : 0) });
-          setNotice(`${prompt.percent}% discount applied with manager approval.`);
+          setNotice(`${prompt.percent}% discount applied${by}.`);
         } else if (prompt.kind === "override") {
           if (!c) return false;
-          const next = report(await gateway.overrideLinePrice(c.id, prompt.lineId, prompt.unitPrice, manager, notes));
+          const next = report(await gateway.overrideLinePrice(c.id, prompt.lineId, prompt.unitPrice, g));
           if (!next) return false;
           setCart(next);
-          setNotice(`Price for ${prompt.lineName} overridden with manager approval.`);
+          setNotice(`Price for ${prompt.lineName} overridden${by}.`);
         } else {
-          const refundId = report(await gateway.refundInvoice(prompt.invoiceId, manager, notes));
+          const refundId = report(await gateway.refundInvoice(prompt.invoiceId, g));
           if (!refundId) return false;
           setNotice(`Refund posted for ${prompt.documentNumber ?? "the sale"} (${refundId}).`);
         }
@@ -541,7 +583,7 @@ export function usePos(gateway: PosGateway) {
         setBusy(false);
       }
     },
-    [managerPrompt, gateway, report, discount, refreshTillHistory],
+    [managerPrompt, promptNeedsManager, gateway, report, discount, refreshTillHistory],
   );
 
   // Till (cash drawer)
@@ -570,6 +612,7 @@ export function usePos(gateway: PosGateway) {
       const t = tillRef.current;
       if (!t || t.status !== "open" || !guardOnline()) return false;
       if (movement !== "cash_in") {
+        setPromptNeedsManager(true);
         setManagerPrompt({ kind: "cashOut", movement, amount, reasonCode, label });
         return true;
       }
@@ -849,6 +892,7 @@ export function usePos(gateway: PosGateway) {
     changeSetup,
     // manager
     managerPrompt,
+    promptNeedsManager,
     requestManager,
     cancelManager: () => setManagerPrompt(null),
     confirmManager,

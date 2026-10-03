@@ -10,6 +10,7 @@ import { usePos, type PosStore } from "@/lib/pos/use-pos";
 import { useWindowClass } from "@/lib/pos/window-class";
 import { CurrentSale } from "./CurrentSale";
 import { OfflineCatalogSetting } from "./OfflineCatalogSetting";
+import { ApprovalPolicySetting } from "./ApprovalPolicySetting";
 import { GarageChooser, ManagerDialog, Modal, PaymentDialog, ReceiptView } from "./PosDialogs";
 import { PosHeader } from "./PosHeader";
 import { PosHome, PosSearchResults } from "./PosHome";
@@ -228,6 +229,7 @@ function Destination({
             </div>
             <HapticsSetting />
             {offline ? <OfflineCatalogSetting catalog={offline} /> : null}
+            <ApprovalPolicySetting gateway={pos.gateway} />
             <div className={styles.listRow}>
               <span>
                 <div className={styles.listTitle}>Companion phone</div>

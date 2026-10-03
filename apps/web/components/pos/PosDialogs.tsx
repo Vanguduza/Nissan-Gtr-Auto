@@ -126,9 +126,9 @@ export function Modal({
 
 const PROMPT_TITLE = {
   void: "Void sale",
-  discount: "Approve discount",
-  override: "Approve price override",
-  refund: "Approve refund",
+  discount: "Discount",
+  override: "Price override",
+  refund: "Refund",
   cashOut: "Approve cash out",
   tillVariance: "Approve cash variance",
   handover: "Approve till handover",
@@ -176,12 +176,14 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
   const detail = promptDetail(prompt, pos);
   const chosen = reasons.find((r) => r.code === reasonCode) ?? null;
   const reasonMissing = Boolean(reasonAction) && (!reasonCode || Boolean(chosen?.requiresNotes && !notes.trim()));
+  // Policy (`pos_action_requires_manager`) decides; drawer actions always need a manager.
+  const needsManager = pos.promptNeedsManager;
   return (
     <Modal title={PROMPT_TITLE[prompt.kind]} onClose={pos.cancelManager}>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          const ok = await pos.confirmManager({ identifier, password }, notes.trim() || null, reasonCode || null);
+          const ok = await pos.confirmManager(needsManager ? { identifier, password } : null, notes.trim() || null, reasonCode || null);
           if (ok) {
             setPassword("");
             setNotes("");
@@ -189,18 +191,21 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
         }}
       >
         <p className={styles.muted}>
-          <ShieldCheck size={14} aria-hidden /> {detail} An admin or shop manager must approve.
+          <ShieldCheck size={14} aria-hidden /> {detail}{" "}
+          {needsManager ? "An admin or shop manager must approve." : "Within your limit: no manager needed. The reason is recorded in the audit trail."}
         </p>
-        <div className={styles.formGrid}>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Manager emp# / email / phone</span>
-            <input className={styles.input} value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="off" autoFocus />
-          </label>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Manager password</span>
-            <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
-          </label>
-        </div>
+        {needsManager ? (
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Manager emp# / email / phone</span>
+              <input className={styles.input} value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="off" autoFocus />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Manager password</span>
+              <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
+            </label>
+          </div>
+        ) : null}
         {reasonAction ? (
           <label className={styles.field} style={{ marginTop: 12 }}>
             <span className={styles.fieldLabel}>Reason</span>
@@ -225,8 +230,12 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
           <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={pos.cancelManager}>
             Cancel
           </button>
-          <button type="submit" className={styles.primaryButton} disabled={pos.busy || !identifier.trim() || !password || reasonMissing}>
-            Approve
+          <button
+            type="submit"
+            className={styles.primaryButton}
+            disabled={pos.busy || (needsManager && (!identifier.trim() || !password)) || reasonMissing}
+          >
+            {needsManager ? "Approve" : "Confirm"}
           </button>
         </div>
       </form>

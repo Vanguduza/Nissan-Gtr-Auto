@@ -151,6 +151,38 @@ class PosScreensScreenshotTest {
     )
 
     @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun discountWithinPolicy() = capture(
+        "approval_within_policy",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            destination = PosDestination.QuickSale,
+            approval = co.zw.nissangtr.pos.domain.model.ApprovalRequest.Discount(3.0),
+            approvalNeedsManager = false,
+            approvalReasons = listOf(
+                co.zw.nissangtr.pos.domain.model.ReasonCode("customer_retention", "Customer retention", false),
+                co.zw.nissangtr.pos.domain.model.ReasonCode("price_match", "Price match", false),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun voidNeedsManager() = capture(
+        "approval_manager",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            destination = PosDestination.QuickSale,
+            approval = co.zw.nissangtr.pos.domain.model.ApprovalRequest.VoidSale,
+            approvalNeedsManager = true,
+            approvalReasons = listOf(
+                co.zw.nissangtr.pos.domain.model.ReasonCode("customer_cancelled", "Customer cancelled", false),
+                co.zw.nissangtr.pos.domain.model.ReasonCode("pricing_error", "Pricing error", true),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
     fun returns() = capture(
         "returns",
         1280.dp,

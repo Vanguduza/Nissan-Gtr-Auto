@@ -504,6 +504,7 @@ fun SettingsScreen(state: PosState, dispatch: (PosIntent) -> Unit, host: PosHost
                 onSelect = { dispatch(PosSaleIntent.SetHaptics(it)) },
             )
         }
+        ApprovalPoliciesRow(state, dispatch)
         ListRow(stringResource(R.string.pos_companion_title), stringResource(R.string.pos_companion_settings_hint)) {
             SoftButton(
                 stringResource(if (state.companion?.live == true) R.string.pos_companion_live else R.string.pos_companion_pair),

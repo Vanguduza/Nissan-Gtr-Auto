@@ -21,6 +21,7 @@ import type {
   TillSession,
   VehicleModel,
   VehicleVariant,
+  Governed,
 } from "@/lib/pos/types";
 import {
   CatalogGatewayError,
@@ -352,8 +353,14 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     try {
       return await action(managerClient);
     } finally {
-      await managerClient.auth.signOut();
+      // Local scope: end this approval's session only, never the manager's sessions on other devices.
+      await managerClient.auth.signOut({ scope: "local" });
     }
+  }
+
+  /** Governed action: the manager's isolated session when policy needs one, else the cashier's. */
+  function governed<T>(g: Governed, action: (c: SupabaseClient) => Promise<PosResult<T>>): Promise<PosResult<T>> {
+    return g.manager ? asManager(g.manager, action) : action(client);
   }
 
   async function readCart(cartId: string): Promise<PosResult<PosCart>> {
@@ -670,35 +677,69 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       return readCart(cartId);
     },
 
-    async voidCart(cartId, manager, notes) {
-      return asManager(manager, async (m) => {
-        const { error } = await rpc(m, "void_pos_cart", { p_cart_id: cartId, p_notes: notes });
+    async voidCart(cartId, g) {
+      return governed(g, async (c) => {
+        const { error } = await rpc(c, "void_pos_cart_governed", { p_cart_id: cartId, p_reason_code: g.reasonCode, p_notes: g.notes });
         return error ? fail(error, "Could not void the sale.") : { ok: true, data: true };
       });
     },
 
-    async applyDiscount(cartId, percent, manager, notes) {
-      const res = await asManager(manager, async (m) => {
-        const { error } = await rpc(m, "apply_pos_cart_discount", {
+    async applyDiscount(cartId, percent, g) {
+      const res = await governed(g, async (c) => {
+        const { error } = await rpc(c, "apply_pos_cart_discount_governed", {
           p_cart_id: cartId,
           p_discount_percent: percent,
-          p_notes: notes,
+          p_reason_code: g.reasonCode,
+          p_notes: g.notes,
         });
         return error ? fail<true>(error, "Discount refused.") : { ok: true, data: true as const };
       });
       return res.ok ? readCart(cartId) : res;
     },
 
-    async overrideLinePrice(cartId, lineId, unitPrice, manager, notes) {
-      const res = await asManager(manager, async (m) => {
-        const { error } = await rpc(m, "apply_pos_line_price_override", {
+    async overrideLinePrice(cartId, lineId, unitPrice, g) {
+      const res = await governed(g, async (c) => {
+        const { error } = await rpc(c, "apply_pos_line_price_override_governed", {
           p_line_id: lineId,
           p_unit_price: unitPrice,
-          p_notes: notes,
+          p_reason_code: g.reasonCode,
+          p_notes: g.notes,
         });
         return error ? fail<true>(error, "Price override refused.") : { ok: true, data: true as const };
       });
       return res.ok ? readCart(cartId) : res;
+    },
+
+    async requiresManager(action, value) {
+      const { data, error } = await rpc(client, "pos_action_requires_manager", { p_action: action, p_value: value });
+      // Fail closed: if the policy cannot be read, ask for a manager.
+      if (error) return { ok: true, data: true };
+      return { ok: true, data: data !== false };
+    },
+
+    async listApprovalPolicies() {
+      const { data, error } = await rpc(client, "list_pos_approval_policies", {});
+      if (error) return fail(error, "Could not load approval policies.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+          action: String(r.action),
+          thresholdValue: num(r.threshold_value),
+          alwaysRequireManager: r.always_require_manager === true,
+          reasonRequired: r.reason_required !== false,
+          updatedAt: (r.updated_at as string | null) ?? null,
+        })),
+      };
+    },
+
+    async setApprovalPolicy(p) {
+      const { error } = await rpc(client, "set_pos_approval_policy", {
+        p_action: p.action,
+        p_threshold_value: p.thresholdValue,
+        p_always_require_manager: p.alwaysRequireManager,
+        p_reason_required: p.reasonRequired,
+      });
+      return error ? fail(error, "Could not save the policy.") : { ok: true, data: true };
     },
 
     async searchCustomers(query) {
@@ -966,9 +1007,9 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       };
     },
 
-    async refundInvoice(invoiceId, manager, notes) {
-      return asManager(manager, async (m) => {
-        const { data, error } = await rpc(m, "post_pos_refund", { p_invoice_id: invoiceId, p_notes: notes });
+    async refundInvoice(invoiceId, g) {
+      return governed(g, async (c) => {
+        const { data, error } = await rpc(c, "post_pos_refund_governed", { p_invoice_id: invoiceId, p_reason_code: g.reasonCode, p_notes: g.notes });
         if (error || typeof data !== "string") return fail(error, "Refund refused.");
         return { ok: true, data };
       });

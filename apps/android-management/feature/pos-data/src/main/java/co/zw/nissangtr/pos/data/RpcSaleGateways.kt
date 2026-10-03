@@ -40,6 +40,7 @@ import co.zw.nissangtr.pos.domain.model.EpcVariant
 import co.zw.nissangtr.pos.domain.model.GarageVehicle
 import co.zw.nissangtr.pos.domain.model.InvoiceSummary
 import co.zw.nissangtr.pos.domain.model.ManagerCredentials
+import co.zw.nissangtr.pos.domain.model.ReasonCode
 import co.zw.nissangtr.pos.domain.model.Money
 import co.zw.nissangtr.pos.domain.model.ParkedSale
 import co.zw.nissangtr.pos.domain.model.QuoteChannel
@@ -176,24 +177,32 @@ class RpcSaleGateways(private val rpc: RpcClient) {
             rpc.listPosRecentInvoices(query.blankToNull(), 50).map { it.toDomain() }
         }
 
-        override suspend fun approve(credentials: ManagerCredentials, request: ApprovalRequest, cartId: String) = call {
-            val notes = credentials.notes.blankToNull()
+        override suspend fun approve(
+            credentials: ManagerCredentials?,
+            request: ApprovalRequest,
+            cartId: String,
+            reason: ReasonCode?,
+            notes: String?,
+        ) = call {
+            val notes = (notes ?: credentials?.notes).blankToNull()
+            // Governed sale actions (`*_governed`) record the configured reason; the server refuses a missing one.
+            val code = reason?.code.orEmpty()
             val action: suspend () -> CartProjection? = {
                 when (request) {
                     is ApprovalRequest.Discount -> {
-                        rpc.applyPosCartDiscount(cartId, request.percent, notes)
+                        rpc.applyPosCartDiscountGoverned(cartId, request.percent, code, notes)
                         projectionOf(cartId)
                     }
                     is ApprovalRequest.PriceOverride -> {
-                        rpc.applyPosLinePriceOverride(request.lineId, request.unitPrice, notes)
+                        rpc.applyPosLinePriceOverrideGoverned(request.lineId, request.unitPrice, code, notes)
                         projectionOf(cartId)
                     }
                     ApprovalRequest.VoidSale -> {
-                        rpc.voidPosCart(cartId, notes)
+                        rpc.voidPosCartGoverned(cartId, code, notes)
                         CartProjection.empty(CurrencyCode.USD)
                     }
                     is ApprovalRequest.Refund -> {
-                        rpc.postPosRefund(request.invoice.id, notes)
+                        rpc.postPosRefundGoverned(request.invoice.id, code, notes)
                         null
                     }
                     is ApprovalRequest.CashOut -> {
@@ -219,10 +228,15 @@ class RpcSaleGateways(private val rpc: RpcClient) {
             // The tablet wraps the live client (offline catalogue); approval must still reach it.
             val live = rpc as? ManagerApproval
             try {
-                if (live != null) live.withManagerApproval(credentials.identifier.trim(), credentials.password, action) else action()
+                when {
+                    // Policy allows the cashier: runs on their own session.
+                    credentials == null -> action()
+                    live != null -> live.withManagerApproval(credentials.identifier.trim(), credentials.password, action)
+                    else -> action()
+                }
             } catch (e: Exception) {
                 // A failed manager sign-in must read as a sign-in problem, not a server fault.
-                if (e.message.orEmpty().contains("invalid", ignoreCase = true) || e.message.orEmpty().contains("credentials", ignoreCase = true)) {
+                if (credentials != null && (e.message.orEmpty().contains("invalid login", ignoreCase = true) || e.message.orEmpty().contains("credentials", ignoreCase = true))) {
                     throw PosFailure(PosError.BusinessRule("manager_sign_in", "Manager sign-in failed."))
                 }
                 throw e

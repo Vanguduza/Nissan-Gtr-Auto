@@ -2,6 +2,8 @@ package co.zw.nissangtr.pos.ui.sale
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -356,14 +358,28 @@ private val ApprovalRequest.titleRes: Int
         is ApprovalRequest.Handover -> R.string.pos_approve_handover
     }
 
-/** Manager signs in for this one action only (owner decision D4); the cashier stays signed in. */
+/**
+ * Governed action (§10.10). Sale actions choose a configured reason; the approval policy decides
+ * whether a manager signs in for this one action (owner decision D4: the cashier stays signed in).
+ * Drawer actions chose their reason before and always need a manager.
+ */
 @Composable
 fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
     val request = state.approval ?: return
     var id by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
+    var reasonCode by rememberSaveable(request) { mutableStateOf<String?>(null) }
     val palette = PosTheme.palette
+    val governed = request !is ApprovalRequest.TillAction
+    val reasons = state.approvalReasons
+    val reason = reasons?.firstOrNull { it.code == reasonCode }
+    val needsManager = state.approvalNeedsManager
+    val loading = governed && reasons == null
+    val ready = !state.approving && !loading &&
+        (!governed || reasons.isNullOrEmpty() || reason != null) &&
+        (reason?.requiresNotes != true || notes.isNotBlank()) &&
+        (!needsManager || (id.isNotBlank() && password.isNotEmpty()))
     PosModal(stringResource(request.titleRes), onDismiss = { dispatch(PosSaleIntent.CancelApproval) }, dismissible = !state.approving) {
         PosText(
             when (request) {
@@ -384,23 +400,67 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
             palette.textSecondary,
         )
         Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PosIcon(PosIcons.ShieldCheck, tint = palette.textMuted, size = 16.dp)
-            PosText(stringResource(R.string.pos_manager_hint), PosTheme.type.bodySecondary, palette.textMuted)
+        if (governed) {
+            PosText(stringResource(R.string.pos_till_reason), PosTheme.type.labelMeta.copy(fontWeight = FontWeight.SemiBold), palette.textMuted)
+            Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
+                when {
+                    reasons == null -> PosText(stringResource(R.string.pos_loading), PosTheme.type.bodySecondary, palette.textMuted)
+                    reasons.isEmpty() -> PosText(stringResource(R.string.pos_till_no_reasons), PosTheme.type.bodySecondary, palette.textMuted)
+                    else -> reasons.forEach { r ->
+                        ListRow(
+                            title = r.label,
+                            subtitle = if (r.requiresNotes) stringResource(R.string.pos_till_reason_needs_notes) else null,
+                            selected = r.code == reasonCode,
+                            onClick = { reasonCode = r.code },
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
         }
-        Spacer(Modifier.height(12.dp))
-        PosField(stringResource(R.string.pos_manager_id), id, { id = it })
-        Spacer(Modifier.height(10.dp))
-        PosField(stringResource(R.string.pos_manager_password), password, { password = it }, keyboard = KeyboardType.Password, password = true)
-        Spacer(Modifier.height(10.dp))
-        PosField(stringResource(R.string.pos_notes_optional), notes, { notes = it })
+        if (!loading) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PosIcon(PosIcons.ShieldCheck, tint = palette.textMuted, size = 16.dp)
+                PosText(
+                    stringResource(if (needsManager) R.string.pos_manager_hint else R.string.pos_within_limit),
+                    PosTheme.type.bodySecondary,
+                    palette.textMuted,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+        if (needsManager) {
+            PosField(stringResource(R.string.pos_manager_id), id, { id = it })
+            Spacer(Modifier.height(10.dp))
+            PosField(stringResource(R.string.pos_manager_password), password, { password = it }, keyboard = KeyboardType.Password, password = true)
+            Spacer(Modifier.height(10.dp))
+        }
+        PosField(
+            stringResource(if (reason?.requiresNotes == true) R.string.pos_till_notes_required else R.string.pos_notes_optional),
+            notes,
+            { notes = it },
+        )
         state.feedback?.let { PosText(feedbackText(it), PosTheme.type.bodyPrimary, palette.error, modifier = Modifier.padding(top = 10.dp)) }
         PosRowEnd {
             SoftButton(stringResource(R.string.pos_cancel), null, enabled = !state.approving, onClick = { dispatch(PosSaleIntent.CancelApproval) }, modifier = Modifier.widthIn(max = 140.dp))
             PosPrimaryButton(
-                stringResource(if (state.approving) R.string.pos_approving else R.string.pos_approve),
-                enabled = !state.approving && id.isNotBlank() && password.isNotEmpty(),
-                onClick = { dispatch(PosSaleIntent.SubmitApproval(ManagerCredentials(id, password, notes.ifBlank { null }))) },
+                stringResource(
+                    when {
+                        state.approving -> R.string.pos_approving
+                        needsManager -> R.string.pos_approve
+                        else -> R.string.pos_confirm
+                    },
+                ),
+                enabled = ready,
+                onClick = {
+                    dispatch(
+                        PosSaleIntent.SubmitApproval(
+                            credentials = if (needsManager) ManagerCredentials(id, password, null) else null,
+                            reason = reason,
+                            notes = notes.ifBlank { null },
+                        ),
+                    )
+                },
             )
         }
     }
