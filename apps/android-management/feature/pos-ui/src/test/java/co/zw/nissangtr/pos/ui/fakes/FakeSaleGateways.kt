@@ -65,7 +65,7 @@ object FakeSaleGateways {
         override suspend fun sendQuotation(quotationId: String, channel: QuoteChannel, contact: String?) = PosResult.Ok(Unit)
         override suspend fun convertQuotation(quotationId: String) = PosResult.Ok(PosFixtures.cart)
         override suspend fun recentInvoices(query: String?) = PosResult.Ok(listOf(InvoiceSummary("inv-9", "INV-000099", "Rudo Chikwanha", Money.ofMajor(96.0, CurrencyCode.USD), "2026-09-30T15:20:00", "GT-R R35 VR38DETT")))
-        override suspend fun approve(credentials: ManagerCredentials?, request: ApprovalRequest, cartId: String, reason: co.zw.nissangtr.pos.domain.model.ReasonCode?, notes: String?): PosResult<CartProjection?> =
+        override suspend fun approve(credentials: ManagerCredentials?, request: ApprovalRequest, cartId: String, reason: co.zw.nissangtr.pos.domain.model.ReasonCode?, notes: String?, badge: String?): PosResult<CartProjection?> =
             PosResult.Ok(if (request is ApprovalRequest.VoidSale) CartProjection.empty(CurrencyCode.USD) else null)
     }
 

@@ -2,6 +2,8 @@ package co.zw.nissangtr.pos.ui.sale
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
+import co.zw.nissangtr.pos.design.icons.ScanBarcode
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.horizontalScroll
@@ -375,11 +377,23 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
     val reasons = state.approvalReasons
     val reason = reasons?.firstOrNull { it.code == reasonCode }
     val needsManager = state.approvalNeedsManager
+    var usePassword by rememberSaveable(request) { mutableStateOf(false) }
     val loading = governed && reasons == null
-    val ready = !state.approving && !loading &&
-        (!governed || reasons.isNullOrEmpty() || reason != null) &&
-        (reason?.requiresNotes != true || notes.isNotBlank()) &&
-        (!needsManager || (id.isNotBlank() && password.isNotEmpty()))
+    // Reason (and its note) come first; the badge or password then approves exactly that.
+    val reasonReady = !loading && (!governed || reasons.isNullOrEmpty() || reason != null) && (reason?.requiresNotes != true || notes.isNotBlank())
+    val ready = !state.approving && reasonReady && (!needsManager || (usePassword && id.isNotBlank() && password.isNotEmpty()))
+    // Automatic badge read: once the reason is set, the front camera opens for the manager's badge
+    // (once per reason; a reason that needs a note waits for the Scan button after the note).
+    var autoScannedFor by rememberSaveable(request) { mutableStateOf<String?>(null) }
+    val scanKey = reason?.code ?: "drawer"
+    LaunchedEffect(request, scanKey, needsManager, usePassword, reasonReady) {
+        if (needsManager && !usePassword && reasonReady && reason?.requiresNotes != true && autoScannedFor != scanKey &&
+            !state.badgeScanning && !state.approving
+        ) {
+            autoScannedFor = scanKey
+            dispatch(co.zw.nissangtr.pos.domain.state.GovernanceIntent.ScanBadge(reason, notes.ifBlank { null }))
+        }
+    }
     PosModal(stringResource(request.titleRes), onDismiss = { dispatch(PosSaleIntent.CancelApproval) }, dismissible = !state.approving) {
         PosText(
             when (request) {
@@ -422,28 +436,47 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PosIcon(PosIcons.ShieldCheck, tint = palette.textMuted, size = 16.dp)
                 PosText(
-                    stringResource(if (needsManager) R.string.pos_manager_hint else R.string.pos_within_limit),
+                    stringResource(
+                        when {
+                            needsManager && !usePassword -> R.string.pos_badge_hint
+                            needsManager -> R.string.pos_manager_hint
+                            state.selfApprover -> R.string.pos_self_approver
+                            else -> R.string.pos_within_limit
+                        },
+                    ),
                     PosTheme.type.bodySecondary,
                     palette.textMuted,
                 )
             }
             Spacer(Modifier.height(12.dp))
         }
-        if (needsManager) {
-            PosField(stringResource(R.string.pos_manager_id), id, { id = it })
-            Spacer(Modifier.height(10.dp))
-            PosField(stringResource(R.string.pos_manager_password), password, { password = it }, keyboard = KeyboardType.Password, password = true)
-            Spacer(Modifier.height(10.dp))
-        }
         PosField(
             stringResource(if (reason?.requiresNotes == true) R.string.pos_till_notes_required else R.string.pos_notes_optional),
             notes,
             { notes = it },
         )
+        Spacer(Modifier.height(10.dp))
+        if (needsManager && usePassword) {
+            PosField(stringResource(R.string.pos_manager_id), id, { id = it })
+            Spacer(Modifier.height(10.dp))
+            PosField(stringResource(R.string.pos_manager_password), password, { password = it }, keyboard = KeyboardType.Password, password = true)
+            Spacer(Modifier.height(6.dp))
+            SoftButton(stringResource(R.string.pos_badge_use_scan), PosIcons.ScanBarcode, enabled = !state.approving, onClick = { usePassword = false })
+        } else if (needsManager) {
+            PosPrimaryButton(
+                stringResource(if (state.badgeScanning || state.approving) R.string.pos_badge_scanning else R.string.pos_badge_scan),
+                enabled = reasonReady && !state.badgeScanning && !state.approving,
+                icon = PosIcons.ScanBarcode,
+                onClick = { dispatch(co.zw.nissangtr.pos.domain.state.GovernanceIntent.ScanBadge(reason, notes.ifBlank { null })) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(6.dp))
+            SoftButton(stringResource(R.string.pos_badge_or_password), null, enabled = !state.badgeScanning && !state.approving, onClick = { usePassword = true })
+        }
         state.feedback?.let { PosText(feedbackText(it), PosTheme.type.bodyPrimary, palette.error, modifier = Modifier.padding(top = 10.dp)) }
         PosRowEnd {
             SoftButton(stringResource(R.string.pos_cancel), null, enabled = !state.approving, onClick = { dispatch(PosSaleIntent.CancelApproval) }, modifier = Modifier.widthIn(max = 140.dp))
-            PosPrimaryButton(
+            if (!needsManager || usePassword) PosPrimaryButton(
                 stringResource(
                     when {
                         state.approving -> R.string.pos_approving
@@ -455,7 +488,7 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                 onClick = {
                     dispatch(
                         PosSaleIntent.SubmitApproval(
-                            credentials = if (needsManager) ManagerCredentials(id, password, null) else null,
+                            credentials = if (needsManager && usePassword) ManagerCredentials(id, password, null) else null,
                             reason = reason,
                             notes = notes.ifBlank { null },
                         ),

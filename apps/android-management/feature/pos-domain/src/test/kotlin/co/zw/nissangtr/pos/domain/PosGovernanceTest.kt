@@ -109,4 +109,45 @@ class PosGovernanceTest {
         val saved = reduce(PosState(), GovernanceEvent.PolicySaved)
         assertEquals(GovernanceEffect.LoadPolicies, saved.effects.single())
     }
+
+    @Test
+    fun `a signed-in manager is never asked for a badge or password`() {
+        val manager = reduce(selling, GovernanceEvent.SelfLoaded(true)).state
+        val asked = reduce(manager, PosSaleIntent.RequestApproval(ApprovalRequest.VoidSale)).state
+        assertFalse(asked.approvalNeedsManager)
+        // The policy answer cannot turn it back on.
+        val loaded = reduce(asked, GovernanceEvent.ContextLoaded(ApprovalRequest.VoidSale, listOf(pricing), needsManager = true)).state
+        assertFalse(loaded.approvalNeedsManager)
+        val approve = reduce(loaded, PosSaleIntent.SubmitApproval(null, pricing, "shelf")).effects.single() as PosSaleEffect.Approve
+        assertNull(approve.credentials)
+        assertNull(approve.badge)
+    }
+
+    @Test
+    fun `a scanned badge submits the open approval with it`() {
+        val asked = reduce(selling, PosSaleIntent.RequestApproval(ApprovalRequest.VoidSale)).state
+        val ready = reduce(asked, GovernanceEvent.ContextLoaded(ApprovalRequest.VoidSale, listOf(pricing), needsManager = true)).state
+        val scanning = reduce(ready, GovernanceIntent.ScanBadge(pricing, "shelf"))
+        assertTrue(scanning.state.badgeScanning)
+        assertEquals(GovernanceEffect.ScanBadge(pricing, "shelf"), scanning.effects.single())
+        // A second tap while the camera is open does nothing.
+        assertTrue(reduce(scanning.state, GovernanceIntent.ScanBadge(pricing, "shelf")).effects.isEmpty())
+
+        val read = reduce(scanning.state, GovernanceEvent.BadgeScanned("GTRMGR1:b:secret", pricing, "shelf"))
+        assertFalse(read.state.badgeScanning)
+        assertTrue(read.state.approving)
+        val approve = read.effects.single() as PosSaleEffect.Approve
+        assertEquals("GTRMGR1:b:secret", approve.badge)
+        assertNull(approve.credentials)
+    }
+
+    @Test
+    fun `closing the camera leaves the approval open`() {
+        val asked = reduce(selling, PosSaleIntent.RequestApproval(ApprovalRequest.VoidSale)).state
+        val scanning = reduce(asked, GovernanceIntent.ScanBadge(null, null)).state
+        val closed = reduce(scanning, GovernanceEvent.BadgeScanned(null, null, null))
+        assertTrue(closed.effects.isEmpty())
+        assertEquals(ApprovalRequest.VoidSale, closed.state.approval)
+        assertFalse(closed.state.badgeScanning)
+    }
 }

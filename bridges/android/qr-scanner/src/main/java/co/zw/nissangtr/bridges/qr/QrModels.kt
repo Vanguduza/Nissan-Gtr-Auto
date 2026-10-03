@@ -24,6 +24,9 @@ data class InventoryQrFields(
     val valuation: InventoryQrValuation,
 )
 
+/** Which camera reads the code: the back one for stickers, the front one for a badge held up to a tablet. */
+enum class CameraLens { BACK, FRONT }
+
 /** Result of a native camera decode (raw string + device timestamp). */
 data class QrScanResult(
     /** Full decoded string (expect `gtr://part/…` for inventory stickers). */
@@ -41,6 +44,12 @@ interface QrScannerBridge {
     suspend fun requestCameraPermission(): CameraPermissionStatus
     /** Start native preview; resolve on first successful decode. */
     suspend fun scanOnce(): QrScanResult
+
+    /**
+     * Same as [scanOnce] with a chosen camera and an on-screen hint (e.g. a manager badge read by
+     * the tablet's front camera). Falls back to the other camera when the device has only one.
+     */
+    suspend fun scanOnce(lens: CameraLens, hint: String? = null): QrScanResult = scanOnce()
     /** Abort an in-flight [scanOnce] without resolving a value. */
     suspend fun cancel()
 }

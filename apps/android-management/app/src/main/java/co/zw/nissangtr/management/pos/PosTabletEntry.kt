@@ -29,6 +29,10 @@ import co.zw.nissangtr.management.rpc.RpcClient
 import co.zw.nissangtr.pos.data.RpcPosGateways
 import co.zw.nissangtr.pos.data.RpcSaleGateways
 import co.zw.nissangtr.pos.data.RpcTillGateway
+import co.zw.nissangtr.pos.domain.error.PosError
+import co.zw.nissangtr.pos.domain.result.PosResult
+import co.zw.nissangtr.pos.domain.gateway.BadgeScanner
+import co.zw.nissangtr.bridges.qr.CameraLens
 import co.zw.nissangtr.pos.data.RpcGovernanceGateway
 import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.design.theme.PosWindowClass
@@ -71,7 +75,8 @@ fun PosTabletEntry(
             // Catalogue calls fall back to the downloaded full catalogue with no connection.
             val catalogRpc = OfflineCatalogRpcClient(rpc, offlineCatalog, OfflineCatalogHolder.online::get, outbox::stockLines)
             val core = RpcPosGateways(catalogRpc)
-            val sale = RpcSaleGateways(catalogRpc)
+            val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "tablet"
+            val sale = RpcSaleGateways(catalogRpc, deviceId)
             PosGateways(
                 session = core.session,
                 catalog = core.catalog,
@@ -85,8 +90,25 @@ fun PosTabletEntry(
                 offline = outbox,
                 companion = sale.companion,
                 // Till sessions are server-only: they talk to the live client, not the catalogue wrapper.
-                till = RpcTillGateway(rpc, Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "tablet"),
+                till = RpcTillGateway(rpc, deviceId),
                 governance = RpcGovernanceGateway(rpc),
+                // Manager ID badges are read with the front camera, facing whoever stands at the counter.
+                badgeScanner = BadgeScanner {
+                    try {
+                        if (qr.getCameraPermissionStatus() != CameraPermissionStatus.GRANTED &&
+                            qr.requestCameraPermission() != CameraPermissionStatus.GRANTED
+                        ) {
+                            return@BadgeScanner PosResult.Err(PosError.HardwareUnavailable("camera"))
+                        }
+                        PosResult.Ok(qr.scanOnce(CameraLens.FRONT, context.getString(co.zw.nissangtr.pos.ui.R.string.pos_badge_scan_hint)).rawValue)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        PosResult.Ok(null)
+                    } catch (e: SecurityException) {
+                        PosResult.Err(PosError.HardwareUnavailable("camera"))
+                    } catch (e: Exception) {
+                        PosResult.Err(PosError.HardwareUnavailable("camera"))
+                    }
+                },
             ) to outbox::close
         },
     )

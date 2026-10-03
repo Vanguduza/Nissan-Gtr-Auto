@@ -23,7 +23,7 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
         state,
         // Online: replay anything queued last time and refresh the offline snapshot; offline: just count.
         listOf(
-            PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, TillEffect.Load,
+            PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, TillEffect.Load, GovernanceEffect.LoadSelf,
             if (state.online) PosSaleEffect.SyncOffline else PosSaleEffect.LoadOfflineStatus,
         ),
     )

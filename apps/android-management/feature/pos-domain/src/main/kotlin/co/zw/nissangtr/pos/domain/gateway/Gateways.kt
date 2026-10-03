@@ -118,7 +118,22 @@ interface SalesGateway {
         cartId: String,
         reason: ReasonCode? = null,
         notes: String? = null,
+        /** A scanned manager badge (`GTRMGR1:…`) instead of [credentials]: one server call approves and audits. */
+        badge: String? = null,
     ): PosResult<CartProjection?>
+}
+
+/**
+ * Reads a manager's ID badge QR. On the tablet this is the front camera through the QR bridge
+ * (Bridge-First); [scan] returns null when the operator cancels.
+ */
+fun interface BadgeScanner {
+    suspend fun scan(): PosResult<String?>
+
+    companion object {
+        /** No camera (tests, previews): badge approval is unavailable, password still works. */
+        val None = BadgeScanner { PosResult.Err(PosError.HardwareUnavailable("camera")) }
+    }
 }
 
 /**
@@ -133,6 +148,8 @@ interface GovernanceGateway {
     suspend fun policies(): PosResult<List<ApprovalPolicy>>
     /** Admin only (server-enforced). */
     suspend fun setPolicy(policy: ApprovalPolicy): PosResult<Unit>
+    /** The signed-in user is a POS manager: their own approvals need no prompt. */
+    suspend fun selfApprover(): PosResult<Boolean> = PosResult.Ok(false)
 
     /** No policy backend (previews, tests): every action asks a manager, no reason list. */
     object None : GovernanceGateway {

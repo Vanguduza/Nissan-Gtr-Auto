@@ -126,7 +126,7 @@ fun errorText(error: PosError): String = when (error) {
         else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)
     }
     is PosError.PaymentUnknown -> stringResource(R.string.pos_error_payment_unknown)
-    is PosError.HardwareUnavailable -> stringResource(R.string.pos_error_hardware, error.device)
+    is PosError.HardwareUnavailable -> if (error.device == "camera") stringResource(R.string.pos_error_camera) else stringResource(R.string.pos_error_hardware, error.device)
     is PosError.OfflineRestricted -> stringResource(
         when {
             "server_cart" in error.blocked -> R.string.pos_error_offline_server_cart

@@ -781,4 +781,19 @@ interface RpcClient {
     suspend fun setPosApprovalPolicy(action: String, thresholdValue: Double, alwaysRequireManager: Boolean, reasonRequired: Boolean) {
         throw UnsupportedOperationException("approval policies are not available")
     }
+
+    // --- POS manager badges (`pos_badge_approve`, `get_my_pos_approver_status`)
+
+    /** The signed-in user is a POS manager: approvals need no badge or password. */
+    suspend fun myPosApproverStatus(): Boolean = false
+
+    /**
+     * Run one governed action approved by a scanned manager badge. Returns the outcome object
+     * `{ok, manager_name, result | error}`; a refused badge is `ok=false`, not an exception.
+     */
+    suspend fun posBadgeApprove(badge: String, action: String, args: Map<String, Any?>, deviceId: String?): PosBadgeApproval =
+        PosBadgeApproval(false, null, "manager badges need the live backend")
 }
+
+/** Outcome of [RpcClient.posBadgeApprove]. */
+data class PosBadgeApproval(val ok: Boolean, val managerName: String?, val error: String?)

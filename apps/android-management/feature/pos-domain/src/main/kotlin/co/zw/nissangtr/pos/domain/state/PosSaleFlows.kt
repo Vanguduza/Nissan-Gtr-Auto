@@ -56,6 +56,8 @@ sealed interface PosSaleIntent : PosIntent {
         val credentials: ManagerCredentials?,
         val reason: co.zw.nissangtr.pos.domain.model.ReasonCode? = null,
         val notes: String? = null,
+        /** A scanned manager badge in place of [credentials]. */
+        val badge: String? = null,
     ) : PosSaleIntent
 
     data object Park : PosSaleIntent
@@ -134,6 +136,7 @@ sealed interface PosSaleEffect : PosEffect {
         val cartId: String,
         val reason: co.zw.nissangtr.pos.domain.model.ReasonCode? = null,
         val notes: String? = null,
+        val badge: String? = null,
     ) : PosSaleEffect
     data class Park(val cartId: String) : PosSaleEffect
     data class Resume(val cartId: String) : PosSaleEffect
@@ -336,17 +339,18 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
                 Reduction(state.copy(feedback = failure(PosError.Input("reason", "required"))))
             intent.reason?.requiresNotes == true && notes == null ->
                 Reduction(state.copy(feedback = failure(PosError.Input("notes", "required"))))
-            state.approvalNeedsManager && (creds == null || creds.identifier.isBlank() || creds.password.isEmpty()) ->
+            state.approvalNeedsManager && intent.badge.isNullOrBlank() && (creds == null || creds.identifier.isBlank() || creds.password.isEmpty()) ->
                 Reduction(state.copy(feedback = failure(PosError.Input("manager", "credentials"))))
             else -> Reduction(
                 state.copy(approving = true, feedback = null),
                 listOf(
                     PosSaleEffect.Approve(
-                        credentials = creds.takeIf { state.approvalNeedsManager },
+                        credentials = creds.takeIf { state.approvalNeedsManager && intent.badge.isNullOrBlank() },
                         request = request,
                         cartId = state.cart.cartId,
                         reason = intent.reason,
                         notes = notes,
+                        badge = intent.badge?.trim()?.takeIf { state.approvalNeedsManager && it.isNotEmpty() },
                     ),
                 ),
             )

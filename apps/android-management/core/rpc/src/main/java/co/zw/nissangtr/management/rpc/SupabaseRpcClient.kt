@@ -2768,6 +2768,43 @@ class SupabaseRpcClient(
         }
     }
 
+    // --- POS manager badges
+
+    override suspend fun myPosApproverStatus(): Boolean =
+        runCatching {
+            (client.postgrest.rpc("get_my_pos_approver_status").decodeAs<kotlinx.serialization.json.JsonElement>() as? JsonObject)
+                ?.get("is_approver")?.jsonPrimitive?.booleanOrNull == true
+        }.getOrDefault(false)
+
+    override suspend fun posBadgeApprove(badge: String, action: String, args: Map<String, Any?>, deviceId: String?): PosBadgeApproval {
+        val o = client.postgrest.rpc(
+            "pos_badge_approve",
+            buildJsonObject {
+                put("p_badge", badge.trim())
+                put("p_action", action)
+                put(
+                    "p_args",
+                    buildJsonObject {
+                        args.forEach { (k, v) ->
+                            when (v) {
+                                null -> put(k, JsonNull)
+                                is Number -> put(k, v)
+                                is Boolean -> put(k, v)
+                                else -> put(k, v.toString())
+                            }
+                        }
+                    },
+                )
+                if (deviceId.isNullOrBlank()) put("p_device_id", JsonNull) else put("p_device_id", deviceId)
+            },
+        ).decodeAs<JsonObject>()
+        return PosBadgeApproval(
+            ok = o["ok"]?.jsonPrimitive?.booleanOrNull == true,
+            managerName = o.stringOrNull("manager_name"),
+            error = o.stringOrNull("error"),
+        )
+    }
+
     // --- POS governance
 
     private suspend fun governed(fn: String, build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =

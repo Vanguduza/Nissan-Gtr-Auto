@@ -83,6 +83,10 @@ data class PosState(
     val approvalReasons: List<co.zw.nissangtr.pos.domain.model.ReasonCode>? = null,
     /** Policy decision for the open approval; true until known (fail closed). */
     val approvalNeedsManager: Boolean = true,
+    /** The signed-in operator is a POS manager: approvals are theirs, no badge or password asked. */
+    val selfApprover: Boolean = false,
+    /** The front camera is reading a manager badge. */
+    val badgeScanning: Boolean = false,
     /** Approval policies (Settings); null until loaded. */
     val policies: List<co.zw.nissangtr.pos.domain.model.ApprovalPolicy>? = null,
     val parked: List<ParkedSale>? = null,

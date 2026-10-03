@@ -2049,6 +2049,9 @@ class FakeRpcClient : RpcClient {
     }
 
     companion object {
+        /** What the demo manager's printed badge QR carries (fake backend only). */
+        const val FAKE_MANAGER_BADGE: String = "GTRMGR1:fake-manager:demo-badge"
+
         const val FAKE_STAFF_USER_ID = "00000000-0000-4000-8000-0000000000a1"
         const val FAKE_CUSTOMER_USER_ID = "00000000-0000-4000-8000-0000000000c1"
         const val FAKE_CUSTOMER_ID = "00000000-0000-4000-8000-0000000000c2"
@@ -2216,4 +2219,25 @@ class FakeRpcClient : RpcClient {
         val i = approvalPolicies.indexOfFirst { it.action == action }
         if (i >= 0) approvalPolicies[i] = row else approvalPolicies += row
     }
+
+    // --- POS manager badges (fake: the demo manager's card)
+
+    override suspend fun posBadgeApprove(badge: String, action: String, args: Map<String, Any?>, deviceId: String?): PosBadgeApproval {
+        if (badge.trim() != FAKE_MANAGER_BADGE) return PosBadgeApproval(false, null, "badge not recognised")
+        return runCatching {
+            val notes = args["notes"]?.toString()
+            when (action) {
+                "discount" -> applyPosCartDiscount(args["cart_id"].toString(), args["percent"].toString().toDouble(), notes)
+                "price_override" -> applyPosLinePriceOverride(args["line_id"].toString(), args["unit_price"].toString().toDouble(), notes)
+                "void_sale" -> voidPosCart(args["cart_id"].toString(), notes)
+                "refund" -> postPosRefund(args["invoice_id"].toString(), notes)
+                "cash_out" -> recordPosTillCashMovement(args["session_id"].toString(), args["kind"].toString(), args["amount"].toString().toDouble(), args["reason_code"].toString(), notes)
+                "till_variance" -> approvePosTillVariance(args["session_id"].toString(), args["reason_code"].toString(), notes)
+                "till_handover" -> handoverPosTillSession(args["session_id"].toString(), args["new_operator_user_id"].toString(), notes)
+                else -> error("unknown action $action")
+            }
+            PosBadgeApproval(true, "Demo manager", null)
+        }.getOrElse { PosBadgeApproval(false, "Demo manager", it.message) }
+    }
+
 }

@@ -57,7 +57,11 @@ import java.net.URL
 
 
 /** Checkout, customers, back office and EPC over the typed RPC client (Phase 5). */
-class RpcSaleGateways(private val rpc: RpcClient) {
+class RpcSaleGateways(
+    private val rpc: RpcClient,
+    /** This counter device, recorded on badge approvals in the audit trail. */
+    private val deviceId: String? = null,
+) {
 
     val checkout: CheckoutGateway = object : CheckoutGateway {
         override suspend fun checkout(cartId: String, tenders: List<TenderLine>, contacts: ReceiptContacts) = call {
@@ -183,8 +187,10 @@ class RpcSaleGateways(private val rpc: RpcClient) {
             cartId: String,
             reason: ReasonCode?,
             notes: String?,
+            badge: String?,
         ) = call {
             val notes = (notes ?: credentials?.notes).blankToNull()
+            if (!badge.isNullOrBlank()) return@call approveWithBadge(badge, request, cartId, reason, notes)
             // Governed sale actions (`*_governed`) record the configured reason; the server refuses a missing one.
             val code = reason?.code.orEmpty()
             val action: suspend () -> CartProjection? = {
@@ -241,6 +247,33 @@ class RpcSaleGateways(private val rpc: RpcClient) {
                 }
                 throw e
             }
+        }
+    }
+
+    /** One server call validates the badge, runs the action as approved by its holder, and audits it. */
+    private suspend fun approveWithBadge(badge: String, request: ApprovalRequest, cartId: String, reason: ReasonCode?, notes: String?): CartProjection? {
+        val code = reason?.code
+        val (action, args) = when (request) {
+            is ApprovalRequest.Discount -> "discount" to mapOf("cart_id" to cartId, "percent" to request.percent, "reason_code" to code, "notes" to notes)
+            is ApprovalRequest.PriceOverride -> "price_override" to mapOf("line_id" to request.lineId, "unit_price" to request.unitPrice, "reason_code" to code, "notes" to notes)
+            ApprovalRequest.VoidSale -> "void_sale" to mapOf("cart_id" to cartId, "reason_code" to code, "notes" to notes)
+            is ApprovalRequest.Refund -> "refund" to mapOf("invoice_id" to request.invoice.id, "reason_code" to code, "notes" to notes)
+            is ApprovalRequest.CashOut -> "cash_out" to mapOf(
+                "session_id" to request.sessionId,
+                "kind" to request.kind.rpcValue,
+                "amount" to request.amount.minor / 100.0,
+                "reason_code" to request.reason.code,
+                "notes" to listOfNotNull(request.notes, notes).joinToString(" · ").ifBlank { null },
+            )
+            is ApprovalRequest.TillVariance -> "till_variance" to mapOf("session_id" to request.sessionId, "reason_code" to request.reason.code, "notes" to notes)
+            is ApprovalRequest.Handover -> "till_handover" to mapOf("session_id" to request.sessionId, "new_operator_user_id" to request.to.userId, "notes" to notes)
+        }
+        val outcome = rpc.posBadgeApprove(badge, action, args, deviceId)
+        if (!outcome.ok) throw PosFailure(PosError.BusinessRule("badge", outcome.error ?: "Badge approval refused."))
+        return when (request) {
+            is ApprovalRequest.Discount, is ApprovalRequest.PriceOverride -> projectionOf(cartId)
+            ApprovalRequest.VoidSale -> CartProjection.empty(CurrencyCode.USD)
+            else -> null
         }
     }
 

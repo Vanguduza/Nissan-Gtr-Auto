@@ -61,6 +61,8 @@ data class PosGateways(
     val companion: CompanionGateway = CompanionGateway.None,
     val till: TillGateway = TillGateway.None,
     val governance: GovernanceGateway = GovernanceGateway.None,
+    /** Front-camera reader for manager ID badges (QR bridge). */
+    val badgeScanner: co.zw.nissangtr.pos.domain.gateway.BadgeScanner = co.zw.nissangtr.pos.domain.gateway.BadgeScanner.None,
 )
 
 /**
@@ -226,7 +228,7 @@ class PosStore(
                 gateways.customers.saveToGarage(effect.customerId, effect.vehicle, effect.primary).onOk { apply(PosSaleEvent.VehicleSaved) }
             }
             is PosSaleEffect.Approve -> launch {
-                when (val r = gateways.sales.approve(effect.credentials, effect.request, effect.cartId, effect.reason, effect.notes)) {
+                when (val r = gateways.sales.approve(effect.credentials, effect.request, effect.cartId, effect.reason, effect.notes, effect.badge)) {
                     is PosResult.Ok -> apply(PosSaleEvent.Approved(effect.request, r.value))
                     is PosResult.Err -> apply(PosSaleEvent.ApprovalFailed(r.error))
                 }
@@ -408,6 +410,15 @@ class PosStore(
                 when (val r = g.policies()) {
                     is PosResult.Ok -> apply(GovernanceEvent.PoliciesLoaded(r.value))
                     is PosResult.Err -> apply(GovernanceEvent.Failed(r.error))
+                }
+            }
+            GovernanceEffect.LoadSelf -> launch {
+                (g.selfApprover() as? PosResult.Ok)?.let { apply(GovernanceEvent.SelfLoaded(it.value)) }
+            }
+            is GovernanceEffect.ScanBadge -> launch {
+                when (val r = gateways.badgeScanner.scan()) {
+                    is PosResult.Ok -> apply(GovernanceEvent.BadgeScanned(r.value, effect.reason, effect.notes))
+                    is PosResult.Err -> apply(GovernanceEvent.BadgeScanFailed(r.error))
                 }
             }
             is GovernanceEffect.SavePolicy -> launch {

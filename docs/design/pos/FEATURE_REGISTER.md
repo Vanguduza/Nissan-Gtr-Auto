@@ -378,3 +378,14 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | GOV-03 | Settings → Approval policies: everyone sees the rules; admins edit threshold, always-manager and reason-required (`set_pos_approval_policy`, admin-only on the server); cash out and till variance stay manager-only | 10.10 | 2 | partial — as GOV-01 |
 | GOV-04 | Web manager approval ends only its own session (`signOut({ scope: "local" })`), never the manager's sessions on other devices | 10.10 | 2 | done (code) — was global sign-out before 2026-10-03 |
 
+## MGR — Manager approval by ID badge (2026-10-03, owner request)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| MGR-01 | Managers: admin role, HR grade A1/A2/B1, HR role flagged pos_manager, or assigned by an admin (`set_pos_manager_assignment`); web Settings → Managers & ID badges | 10.10 | — | partial — backend live (migration 20261003142638), checked in a rolled-back run; web on preview data |
+| MGR-02 | ID badges: QR `GTRMGR1:<id>:<secret>`, hash-only storage, shown once, ID-1 printable card, expiry, revocation, managers only | 10.10 | — | partial — as MGR-01 |
+| MGR-03 | Badge approval: one call validates the badge, runs the governed action as approved by the holder, audits every outcome (approved, failed, rejected); 5 rejects in 15 min locks the operator | 10.10 | — | partial — as MGR-01 |
+| MGR-04 | Tablet/phone: once a reason is chosen the front camera opens automatically for the badge (QR bridge, `CameraLens.FRONT`); password is the fallback; web uses a USB/Bluetooth scanner (no browser camera) | 10.10, 10.18 | — | partial — tablet: reducer/store tests and screenshot; not run on a device |
+| MGR-05 | A signed-in manager approves with no badge or password prompt (`get_my_pos_approver_status`) | 10.10 | — | partial — as MGR-01 |
+| MGR-06 | Approval audit trail: badge approvals, manager-session approvals and admin changes, append-only, admins and finance only | 10.10 | — | partial — as MGR-01 |
+

@@ -23,6 +23,8 @@ class RpcGovernanceGateway(private val rpc: RpcClient) : GovernanceGateway {
         rpc.listPosApprovalPolicies().map { ApprovalPolicy(it.action, it.thresholdValue, it.alwaysRequireManager, it.reasonRequired) }
     }
 
+    override suspend fun selfApprover() = call { rpc.myPosApproverStatus() }
+
     override suspend fun setPolicy(policy: ApprovalPolicy) = call {
         rpc.setPosApprovalPolicy(policy.action, policy.thresholdValue, policy.alwaysRequireManager, policy.reasonRequired)
     }

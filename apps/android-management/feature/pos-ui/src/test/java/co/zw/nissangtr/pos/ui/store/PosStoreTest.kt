@@ -119,6 +119,8 @@ class PosStoreTest {
         outbox: OfflineSaleGateway = OfflineSaleGateway.None,
         companion: CompanionGateway = CompanionGateway.None,
         till: co.zw.nissangtr.pos.domain.gateway.TillGateway = co.zw.nissangtr.pos.domain.gateway.TillGateway.None,
+        sales: co.zw.nissangtr.pos.domain.gateway.SalesGateway = FakeSaleGateways.sales,
+        badgeScanner: co.zw.nissangtr.pos.domain.gateway.BadgeScanner = co.zw.nissangtr.pos.domain.gateway.BadgeScanner.None,
     ) = PosGateways(
         session = object : SessionGateway {
             override suspend fun operator() = PosResult.Ok(Operator("Tendai Moyo", "Sales"))
@@ -137,11 +139,12 @@ class PosStoreTest {
         pins = pins,
         checkout = FakeSaleGateways.checkout,
         customers = FakeSaleGateways.customers,
-        sales = FakeSaleGateways.sales,
+        sales = sales,
         epc = FakeSaleGateways.epc,
         offline = outbox,
         companion = companion,
         till = till,
+        badgeScanner = badgeScanner,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -366,5 +369,48 @@ class PosStoreTest {
         advanceUntilIdle()
         assertTrue(s.state.value.till.needsVarianceReason)
         assertEquals(co.zw.nissangtr.pos.domain.state.TillDialog.Close, s.state.value.till.dialog)
+    }
+
+    @Test
+    fun `the front camera reads the manager badge and the approval carries it`() = runTest {
+        var usedBadge: String? = null
+        var usedCredentials: co.zw.nissangtr.pos.domain.model.ManagerCredentials? = null
+        val sales = object : co.zw.nissangtr.pos.domain.gateway.SalesGateway by FakeSaleGateways.sales {
+            override suspend fun approve(
+                credentials: co.zw.nissangtr.pos.domain.model.ManagerCredentials?,
+                request: co.zw.nissangtr.pos.domain.model.ApprovalRequest,
+                cartId: String,
+                reason: co.zw.nissangtr.pos.domain.model.ReasonCode?,
+                notes: String?,
+                badge: String?,
+            ): PosResult<CartProjection?> {
+                usedBadge = badge
+                usedCredentials = credentials
+                return PosResult.Ok(CartProjection.empty(CurrencyCode.USD))
+            }
+        }
+        val s = store(gateways(sales = sales, badgeScanner = { PosResult.Ok("GTRMGR1:b1:secret") }))
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        advanceUntilIdle()
+        s.dispatch(PosSaleIntent.RequestApproval(co.zw.nissangtr.pos.domain.model.ApprovalRequest.VoidSale))
+        advanceUntilIdle()
+        assertTrue(s.state.value.approvalNeedsManager)
+        s.dispatch(co.zw.nissangtr.pos.domain.state.GovernanceIntent.ScanBadge(null, null))
+        advanceUntilIdle()
+        assertEquals("GTRMGR1:b1:secret", usedBadge)
+        assertEquals(null, usedCredentials)
+        assertEquals(null, s.state.value.approval)
+    }
+
+    @Test
+    fun `no camera keeps the approval open with a reason to use the password`() = runTest {
+        val s = store(gateways())
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        advanceUntilIdle()
+        s.dispatch(PosSaleIntent.RequestApproval(co.zw.nissangtr.pos.domain.model.ApprovalRequest.VoidSale))
+        s.dispatch(co.zw.nissangtr.pos.domain.state.GovernanceIntent.ScanBadge(null, null))
+        advanceUntilIdle()
+        assertTrue(s.state.value.approval != null)
+        assertTrue((s.state.value.feedback as PosFeedback.Failure).error is PosError.HardwareUnavailable)
     }
 }
