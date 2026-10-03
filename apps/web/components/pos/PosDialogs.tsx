@@ -6,8 +6,8 @@ import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
 import { THERMAL_COLUMNS, thermalLines } from "@gtr/shared";
 import { webReceiptRows } from "@/lib/pos/receipt";
-import type { ReceiptDocument, Tender, TenderLine } from "@/lib/pos/types";
-import type { PosStore } from "@/lib/pos/use-pos";
+import type { ReasonCode, ReceiptDocument, Tender, TenderLine } from "@/lib/pos/types";
+import { reasonActionFor, type PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 
 /** Open dialog layers, oldest first. Everything beneath the top layer is inert. */
@@ -129,7 +129,31 @@ const PROMPT_TITLE = {
   discount: "Approve discount",
   override: "Approve price override",
   refund: "Approve refund",
+  cashOut: "Approve cash out",
+  tillVariance: "Approve cash variance",
+  handover: "Approve till handover",
 } as const;
+
+function promptDetail(prompt: NonNullable<PosStore["managerPrompt"]>, pos: PosStore): string {
+  switch (prompt.kind) {
+    case "void":
+      return "All lines on this sale will be voided.";
+    case "discount":
+      return `${prompt.percent}% off every non-core line.`;
+    case "override":
+      return `${prompt.lineName}: new unit price ${formatMoney(prompt.unitPrice, pos.currency)}.`;
+    case "refund":
+      return `Refund ${prompt.documentNumber ?? "this sale"} through the finance refund pipeline.`;
+    case "cashOut":
+      return `${prompt.label}: ${formatMoney(prompt.amount, pos.till?.currency ?? pos.currency)} out of the till.`;
+    case "tillVariance":
+      return prompt.variance == null
+        ? "The counted cash does not match the till. Approving closes the till with the variance recorded."
+        : `The till is ${formatMoney(Math.abs(prompt.variance), pos.till?.currency ?? pos.currency)} ${prompt.variance < 0 ? "short" : "over"}. Approving closes the till with the variance recorded.`;
+    case "handover":
+      return `Hand this till to ${prompt.name}. The current operator stops selling on it.`;
+  }
+}
 
 /** Manager approval — an approver signs in on an isolated session for this one action (D4). */
 export function ManagerDialog({ pos }: { pos: PosStore }) {
@@ -137,21 +161,27 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [notes, setNotes] = useState("");
+  const [reasons, setReasons] = useState<ReasonCode[]>([]);
+  const [reasonCode, setReasonCode] = useState("");
+  const reasonAction = prompt ? reasonActionFor(prompt) : null;
+  useEffect(() => {
+    setReasonCode("");
+    if (!reasonAction) {
+      setReasons([]);
+      return;
+    }
+    void pos.gateway.listReasons(reasonAction).then((r) => setReasons(r.ok ? r.data : []));
+  }, [reasonAction, pos.gateway]);
   if (!prompt) return null;
-  const detail =
-    prompt.kind === "void"
-      ? "All lines on this sale will be voided."
-      : prompt.kind === "discount"
-        ? `${prompt.percent}% off every non-core line.`
-        : prompt.kind === "override"
-          ? `${prompt.lineName}: new unit price ${formatMoney(prompt.unitPrice, pos.currency)}.`
-          : `Refund ${prompt.documentNumber ?? "this sale"} through the finance refund pipeline.`;
+  const detail = promptDetail(prompt, pos);
+  const chosen = reasons.find((r) => r.code === reasonCode) ?? null;
+  const reasonMissing = Boolean(reasonAction) && (!reasonCode || Boolean(chosen?.requiresNotes && !notes.trim()));
   return (
     <Modal title={PROMPT_TITLE[prompt.kind]} onClose={pos.cancelManager}>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          const ok = await pos.confirmManager({ identifier, password }, notes.trim() || null);
+          const ok = await pos.confirmManager({ identifier, password }, notes.trim() || null, reasonCode || null);
           if (ok) {
             setPassword("");
             setNotes("");
@@ -171,8 +201,23 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
             <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
           </label>
         </div>
+        {reasonAction ? (
+          <label className={styles.field} style={{ marginTop: 12 }}>
+            <span className={styles.fieldLabel}>Reason</span>
+            <select className={styles.input} value={reasonCode} onChange={(e) => setReasonCode(e.target.value)}>
+              <option value="">Choose a reason</option>
+              {reasons.map((r) => (
+                <option key={r.code} value={r.code}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className={styles.field} style={{ marginTop: 12 }}>
-          <span className={styles.fieldLabel}>Reason (recorded in the audit trail)</span>
+          <span className={styles.fieldLabel}>
+            {reasonAction ? (chosen?.requiresNotes ? "Notes (required for this reason)" : "Notes (optional)") : "Reason (recorded in the audit trail)"}
+          </span>
           <input className={styles.input} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </label>
         {pos.error ? <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">{pos.error}</p> : null}
@@ -180,7 +225,7 @@ export function ManagerDialog({ pos }: { pos: PosStore }) {
           <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={pos.cancelManager}>
             Cancel
           </button>
-          <button type="submit" className={styles.primaryButton} disabled={pos.busy || !identifier.trim() || !password}>
+          <button type="submit" className={styles.primaryButton} disabled={pos.busy || !identifier.trim() || !password || reasonMissing}>
             Approve
           </button>
         </div>

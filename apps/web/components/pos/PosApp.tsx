@@ -15,6 +15,7 @@ import { PosHeader } from "./PosHeader";
 import { PosHome, PosSearchResults } from "./PosHome";
 import { PosRail } from "./PosRail";
 import { CustomerScreen, EpcScreen, OrdersScreen, QuickSaleScreen, ReturnsScreen } from "./PosScreens";
+import { TillScreen } from "./TillScreen";
 import styles from "./pos.module.css";
 
 function StaffPortalDialog({ gateway, onClose }: { gateway: PosGateway; onClose: () => void }) {
@@ -209,6 +210,8 @@ function Destination({
       return <ReturnsScreen pos={pos} />;
     case "epc":
       return <EpcScreen pos={pos} />;
+    case "till":
+      return <TillScreen pos={pos} />;
     case "settings":
       return (
         <section className={styles.panel}>

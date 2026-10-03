@@ -128,6 +128,13 @@ function VehicleButton({ pos, sheet }: { pos: PosStore; sheet: boolean }) {
   );
 }
 
+/** Till state under the operator name: the drawer is part of who is selling. */
+function tillLabel(pos: PosStore): string {
+  if (!pos.tillLoaded) return "POS";
+  if (!pos.till) return "Till closed";
+  return pos.till.status === "open" ? `Till open · ${pos.till.currency}` : "Till variance pending";
+}
+
 /**
  * Header: vehicle cascade (zone 1, replaces the taxonomy line — delta D-002; Make never shown —
  * D2), search with scanner input (keyboard-wedge / companion only — web delta W-002), operator, clock.
@@ -178,15 +185,21 @@ export function PosHeader({ pos, windowClass, onScan }: { pos: PosStore; windowC
         </button>
       </form>
 
-      <div className={`${styles.operator} ${windowClass === "compact" ? styles.operatorCompact : ""}`}>
+      <button
+        type="button"
+        className={`${styles.operator} ${windowClass === "compact" ? styles.operatorCompact : ""}`}
+        style={{ border: 0, background: "transparent", font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left" }}
+        onClick={() => pos.setDestination("till")}
+        aria-label={`${pos.operator}, ${tillLabel(pos)}. Open the till screen.`}
+      >
         <span className={styles.avatar} aria-hidden>
           {initials(pos.operator)}
         </span>
         <span>
           <div className={styles.operatorName}>{pos.operator}</div>
-          <div className={styles.operatorSub}>POS</div>
+          <div className={styles.operatorSub}>{tillLabel(pos)}</div>
         </span>
-      </div>
+      </button>
 
       {windowClass === "compact" ? null : <div className={styles.clock} aria-live="off">
         <div className={styles.clockDate}>

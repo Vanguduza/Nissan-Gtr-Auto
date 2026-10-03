@@ -29,7 +29,7 @@ const EMPTY_CUSTOMER: CustomerInput = {
   whatsappE164: null,
 };
 
-function Segment<T extends string>({
+export function Segment<T extends string>({
   value,
   options,
   onChange,

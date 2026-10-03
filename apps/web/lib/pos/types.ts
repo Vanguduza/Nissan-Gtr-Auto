@@ -75,6 +75,8 @@ export type PosCart = {
   vehicle: SelectedVehicle | null;
   /** Every vehicle shopped for in this sale (multi-vehicle context). */
   vehicles: SelectedVehicle[];
+  /** Till session the sale is rung through (required before reserve-first payment). */
+  tillSessionId: string | null;
 };
 
 export type PosResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -179,3 +181,34 @@ export type EpcDiagram = {
   /** Why parts or the image are missing (e.g. not yet published to the live catalogue). */
   notice?: string | null;
 };
+
+// ───────── Till sessions (cash drawer) ─────────
+export type TillStatus = "open" | "variance_pending" | "closed";
+export type TillSession = {
+  id: string;
+  deviceId: string;
+  warehouseId: string;
+  currency: PosCurrency;
+  operatorUserId: string;
+  openingFloat: number;
+  status: TillStatus;
+  /** Known only once the till is closed (blind count). */
+  expectedCash: number | null;
+  countedCash: number | null;
+  variance: number | null;
+  varianceReasonCode: string | null;
+  openedAt: string;
+  closedAt: string | null;
+};
+export type TillCloseResult = {
+  sessionId: string;
+  expectedCash: number;
+  countedCash: number;
+  variance: number;
+  status: "closed" | "variance_pending";
+};
+export type CashMovementKind = "cash_in" | "cash_out" | "petty_cash" | "bank_drop" | "cash_refund";
+export type DenominationCount = { denomination: number; quantity: number };
+/** Configured reason for a governed action (`pos_approval_reason_codes`). */
+export type ReasonCode = { code: string; label: string; requiresNotes: boolean };
+export type HandoverOperator = { userId: string; employeeCode: string; fullName: string; roles: string[] };

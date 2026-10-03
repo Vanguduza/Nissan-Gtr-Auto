@@ -5,7 +5,12 @@ import type { PosGateway, ScanSession } from "@/lib/pos/gateway";
 import { haptic } from "@/lib/pos/haptics";
 import { buildPopularRow, pinForPart } from "@/lib/pos/popular";
 import type {
+  CashMovementKind,
   CustomerInput,
+  DenominationCount,
+  HandoverOperator,
+  TillCloseResult,
+  TillSession,
   GarageVehicle,
   ManagerCredentials,
   PosCustomer,
@@ -28,12 +33,35 @@ import type {
 const RECENT_KEY = "gtr.pos.recentSearches";
 const RECENT_MAX = 8;
 
-/** Actions that need an approver (`is_pos_approver`): discount, price override, void, refund. */
+/** Actions that need an approver (`is_pos_approver`). [reasonAction] asks the manager for a configured reason. */
 export type ManagerPrompt =
   | { kind: "void" }
   | { kind: "discount"; percent: number }
   | { kind: "override"; lineId: string; lineName: string; unitPrice: number }
-  | { kind: "refund"; invoiceId: string; documentNumber: string | null };
+  | { kind: "refund"; invoiceId: string; documentNumber: string | null }
+  | { kind: "cashOut"; movement: CashMovementKind; amount: number; reasonCode: string; label: string }
+  | { kind: "tillVariance"; sessionId: string; variance: number | null }
+  | { kind: "handover"; sessionId: string; userId: string; name: string };
+
+/** The configured reason list a prompt needs the manager to choose from, if any. */
+export function reasonActionFor(prompt: ManagerPrompt): string | null {
+  return prompt.kind === "tillVariance" ? "till_variance" : null;
+}
+
+const DEVICE_KEY = "gtr.pos.deviceId";
+
+/** Stable id for this browser as a till device (one open till per device). */
+function deviceId(): string {
+  try {
+    const existing = window.localStorage.getItem(DEVICE_KEY);
+    if (existing) return existing;
+    const id = `web-${crypto.randomUUID()}`;
+    window.localStorage.setItem(DEVICE_KEY, id);
+    return id;
+  } catch {
+    return "web-unpersisted";
+  }
+}
 
 export type PosDestination =
   | "home"
@@ -43,6 +71,7 @@ export type PosDestination =
   | "orders"
   | "returns"
   | "epc"
+  | "till"
   | "settings";
 
 function readRecent(): string[] {
@@ -93,6 +122,11 @@ export function usePos(gateway: PosGateway) {
   const [garageChoices, setGarageChoices] = useState<GarageVehicle[] | null>(null);
   const [lastReceipt, setLastReceipt] = useState<ReceiptDocument | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [till, setTill] = useState<TillSession | null>(null);
+  const [tillLoaded, setTillLoaded] = useState(false);
+  const [tillHistory, setTillHistory] = useState<TillSession[]>([]);
+  const tillRef = useRef<TillSession | null>(null);
+  tillRef.current = till;
   const currency: PosCurrency = cart?.currency ?? setup.currency;
   const cartRef = useRef<PosCart | null>(null);
   cartRef.current = cart;
@@ -121,6 +155,9 @@ export function usePos(gateway: PosGateway) {
     window.addEventListener("offline", off);
     void (async () => {
       setOperator(await gateway.operatorLabel());
+      const mine = await gateway.getMyTill(deviceId());
+      setTill(report(mine) ?? null);
+      setTillLoaded(true);
       const [m, p, b, h] = await Promise.all([
         gateway.listModels(),
         gateway.listPins(),
@@ -302,9 +339,16 @@ export function usePos(gateway: PosGateway) {
   // Current Sale
   const ensureCart = useCallback(async (): Promise<PosCart | null> => {
     if (cartRef.current) return cartRef.current;
-    const opened = report(await gateway.openCart(setup));
+    const t = tillRef.current;
+    if (!t || t.status !== "open") {
+      setError(t?.status === "variance_pending" ? "The till is waiting for a manager to approve its cash variance." : "Open the till before starting a sale.");
+      setDestination("till");
+      return null;
+    }
+    const opened = report(await gateway.openCart({ ...setup, warehouseId: t.warehouseId, currency: t.currency }));
     if (!opened) return null;
     let next = opened;
+    if (report(await gateway.attachCartToTill(opened.id, t.id))) next = { ...next, tillSessionId: t.id };
     if (vehicle) next = report(await gateway.setCartVehicle(opened.id, vehicle)) ?? opened;
     setCart(next);
     return next;
@@ -423,6 +467,15 @@ export function usePos(gateway: PosGateway) {
     [],
   );
 
+  // Till refresh (used by manager approvals below)
+  const refreshTill = useCallback(async () => {
+    setTill(report(await gateway.getMyTill(deviceId())) ?? null);
+  }, [gateway, report]);
+
+  const refreshTillHistory = useCallback(async () => {
+    setTillHistory(report(await gateway.listTillSessions(null)) ?? []);
+  }, [gateway, report]);
+
   // Manager-gated actions
   const requestManager = useCallback((prompt: ManagerPrompt) => {
     if (!guardOnline()) return;
@@ -430,13 +483,32 @@ export function usePos(gateway: PosGateway) {
   }, [guardOnline]);
 
   const confirmManager = useCallback(
-    async (manager: ManagerCredentials, notes: string | null): Promise<boolean> => {
+    async (manager: ManagerCredentials, notes: string | null, reasonCode: string | null = null): Promise<boolean> => {
       const prompt = managerPrompt;
       const c = cartRef.current;
       if (!prompt) return false;
       setBusy(true);
       try {
-        if (prompt.kind === "void") {
+        if (prompt.kind === "cashOut") {
+          const t = tillRef.current;
+          if (!t) return false;
+          if (!report(await gateway.recordCashMovement(t.id, prompt.movement, prompt.amount, prompt.reasonCode, notes, manager))) return false;
+          setNotice(`${prompt.label} of ${prompt.amount.toFixed(2)} recorded with manager approval.`);
+        } else if (prompt.kind === "tillVariance") {
+          if (!reasonCode) {
+            setError("Choose a reason for the variance.");
+            return false;
+          }
+          if (!report(await gateway.approveTillVariance(prompt.sessionId, reasonCode, notes, manager))) return false;
+          setTill(null);
+          setNotice("Cash variance approved. The till is closed.");
+          void refreshTillHistory();
+        } else if (prompt.kind === "handover") {
+          if (!report(await gateway.handoverTill(prompt.sessionId, prompt.userId, notes, manager))) return false;
+          setTill(null);
+          setCart(null);
+          setNotice(`Till handed over to ${prompt.name}. They continue on their own sign-in.`);
+        } else if (prompt.kind === "void") {
           if (!c) return false;
           const res = await gateway.voidCart(c.id, manager, notes);
           if (!res.ok) return Boolean(report(res));
@@ -469,8 +541,76 @@ export function usePos(gateway: PosGateway) {
         setBusy(false);
       }
     },
-    [managerPrompt, gateway, report, discount],
+    [managerPrompt, gateway, report, discount, refreshTillHistory],
   );
+
+  // Till (cash drawer)
+  const openTill = useCallback(
+    async (warehouseId: string, openingFloat: number, tillCurrency: PosCurrency): Promise<boolean> => {
+      if (!guardOnline()) return false;
+      setBusy(true);
+      try {
+        const opened = report(await gateway.openTill(warehouseId, deviceId(), openingFloat, tillCurrency));
+        if (!opened) return false;
+        setTill(opened);
+        setSetup((cur) => ({ ...cur, warehouseId: opened.warehouseId, currency: opened.currency }));
+        setNotice(`Till opened with a float of ${opened.openingFloat.toFixed(2)} ${opened.currency}.`);
+        void refreshTillHistory();
+        return true;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [gateway, guardOnline, report, refreshTillHistory],
+  );
+
+  /** Cash in is the operator's own; every cash-out kind goes to a manager first. */
+  const cashMovement = useCallback(
+    async (movement: CashMovementKind, amount: number, reasonCode: string, label: string, notes: string | null): Promise<boolean> => {
+      const t = tillRef.current;
+      if (!t || t.status !== "open" || !guardOnline()) return false;
+      if (movement !== "cash_in") {
+        setManagerPrompt({ kind: "cashOut", movement, amount, reasonCode, label });
+        return true;
+      }
+      if (!report(await gateway.recordCashMovement(t.id, movement, amount, reasonCode, notes, null))) return false;
+      setNotice(`Cash in of ${amount.toFixed(2)} recorded.`);
+      return true;
+    },
+    [gateway, guardOnline, report],
+  );
+
+  /** Blind count: the operator never sees the expected cash before submitting. */
+  const closeTill = useCallback(
+    async (counts: DenominationCount[], varianceReasonCode: string | null, notes: string | null): Promise<TillCloseResult | "needs_reason" | null> => {
+      const t = tillRef.current;
+      if (!t || !guardOnline()) return null;
+      if (cartRef.current && cartRef.current.lines.length > 0) {
+        setError("Finish, park or void the current sale before closing the till.");
+        return null;
+      }
+      setBusy(true);
+      try {
+        const res = await gateway.closeTill(t.id, counts, varianceReasonCode, notes);
+        if (!res.ok && /variance reason required/i.test(res.error)) return "needs_reason";
+        const result = report(res);
+        if (!result) return null;
+        if (result.status === "closed") {
+          setTill(null);
+          setCart(null);
+        } else {
+          setTill({ ...t, status: "variance_pending", countedCash: result.countedCash, expectedCash: result.expectedCash, variance: result.variance });
+        }
+        void refreshTillHistory();
+        return result;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [gateway, guardOnline, report, refreshTillHistory],
+  );
+
+  const loadHandoverOperators = useCallback(async (): Promise<HandoverOperator[]> => report(await gateway.listHandoverOperators()) ?? [], [gateway, report]);
 
   // Customer + garage (0 → manual cascade, 1 → auto-select, many → chooser)
   const applyVehicle = useCallback(
@@ -723,6 +863,16 @@ export function usePos(gateway: PosGateway) {
     requestEcocash,
     lastReceipt,
     clearReceipt: () => setLastReceipt(null),
+    // till
+    till,
+    tillLoaded,
+    tillHistory,
+    refreshTill,
+    refreshTillHistory,
+    openTill,
+    cashMovement,
+    closeTill,
+    loadHandoverOperators,
     // orders
     parkCurrent,
     resume,

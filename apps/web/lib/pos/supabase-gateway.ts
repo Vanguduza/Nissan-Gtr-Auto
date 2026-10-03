@@ -18,6 +18,7 @@ import type {
   PosPart,
   PosResult,
   SelectedVehicle,
+  TillSession,
   VehicleModel,
   VehicleVariant,
 } from "@/lib/pos/types";
@@ -125,6 +126,26 @@ function customerFromRow(r: Record<string, unknown>): PosCustomer {
     email: (r.email as string | null) ?? null,
     phoneE164: (r.phone_e164 as string | null) ?? null,
     whatsappE164: (r.whatsapp_e164 as string | null) ?? null,
+  };
+}
+
+function tillFromRow(r: Record<string, unknown>): TillSession {
+  const opt = (v: unknown) => (v == null ? null : num(v));
+  const status = r.status === "variance_pending" || r.status === "closed" ? r.status : "open";
+  return {
+    id: String(r.id),
+    deviceId: String(r.device_id ?? ""),
+    warehouseId: String(r.warehouse_id ?? ""),
+    currency: asCurrency(r.currency),
+    operatorUserId: String(r.operator_user_id ?? ""),
+    openingFloat: num(r.opening_float),
+    status,
+    expectedCash: opt(r.expected_cash),
+    countedCash: opt(r.counted_cash),
+    variance: opt(r.variance),
+    varianceReasonCode: (r.variance_reason_code as string | null) ?? null,
+    openedAt: String(r.opened_at ?? ""),
+    closedAt: (r.closed_at as string | null) ?? null,
   };
 }
 
@@ -397,6 +418,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         customerName,
         vehicle,
         vehicles: vehicles.length ? vehicles : vehicle ? [vehicle] : [],
+        tillSessionId: typeof c.till_session_id === "string" ? c.till_session_id : null,
       },
     };
   }
@@ -1045,6 +1067,116 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
               : null,
       };
       return { ok: true, data: diagram };
+    },
+
+    async getMyTill(deviceId) {
+      const { data, error } = await rpc(client, "get_my_open_pos_till_session", { p_device_id: deviceId });
+      if (error) return fail(error, "Could not check the till.");
+      return { ok: true, data: data ? tillFromRow(data as Record<string, unknown>) : null };
+    },
+
+    async openTill(warehouseId, deviceId, openingFloat, currency) {
+      const { data, error } = await rpc(client, "open_pos_till_session", {
+        p_warehouse_id: warehouseId,
+        p_device_id: deviceId,
+        p_opening_float: roundMoney(openingFloat),
+        p_currency: currency,
+      });
+      if (error || typeof data !== "string") return fail(error, "Could not open the till.");
+      const mine = await gateway.getMyTill(deviceId);
+      if (!mine.ok) return mine;
+      return mine.data ? { ok: true, data: mine.data } : { ok: false, error: "The till opened but could not be read back." };
+    },
+
+    async attachCartToTill(cartId, sessionId) {
+      const { error } = await rpc(client, "attach_pos_cart_till_session", { p_cart_id: cartId, p_session_id: sessionId });
+      return error ? fail(error, "Could not ring this sale through the till.") : { ok: true, data: true };
+    },
+
+    async listReasons(action) {
+      const { data, error } = await rpc(client, "list_pos_approval_reasons", { p_action: action });
+      if (error) return fail(error, "Could not load reasons.");
+      return {
+        ok: true,
+        data: ((data ?? []) as Array<{ code: string; label: string; requires_notes: boolean }>).map((r) => ({
+          code: r.code,
+          label: r.label,
+          requiresNotes: Boolean(r.requires_notes),
+        })),
+      };
+    },
+
+    async recordCashMovement(sessionId, kind, amount, reasonCode, notes, manager) {
+      const run = async (c: SupabaseClient): Promise<PosResult<true>> => {
+        const { error } = await rpc(c, "record_pos_till_cash_movement", {
+          p_session_id: sessionId,
+          p_kind: kind,
+          p_amount: roundMoney(amount),
+          p_reason_code: reasonCode,
+          p_notes: notes,
+        });
+        return error ? fail(error, "Cash movement refused.") : { ok: true, data: true };
+      };
+      return manager ? asManager(manager, run) : run(client);
+    },
+
+    async closeTill(sessionId, counts, varianceReasonCode, notes) {
+      const { data, error } = await rpc(client, "submit_pos_till_denominated_close", {
+        p_session_id: sessionId,
+        p_denominations: counts.filter((c) => c.quantity > 0).map((c) => ({ denomination: c.denomination, quantity: c.quantity })),
+        p_variance_reason_code: varianceReasonCode,
+        p_notes: notes,
+      });
+      if (error || !data) return fail(error, "Could not close the till.");
+      const r = data as Record<string, unknown>;
+      return {
+        ok: true,
+        data: {
+          sessionId: String(r.session_id ?? sessionId),
+          expectedCash: num(r.expected_cash),
+          countedCash: num(r.counted_cash),
+          variance: num(r.variance),
+          status: r.status === "variance_pending" ? "variance_pending" : "closed",
+        },
+      };
+    },
+
+    async approveTillVariance(sessionId, reasonCode, notes, manager) {
+      return asManager(manager, async (m) => {
+        const { error } = await rpc(m, "approve_pos_till_variance", { p_session_id: sessionId, p_reason_code: reasonCode, p_notes: notes });
+        return error ? fail(error, "Variance approval refused.") : { ok: true, data: true };
+      });
+    },
+
+    async listHandoverOperators() {
+      const { data, error } = await rpc(client, "list_pos_handover_operators");
+      if (error) return fail(error, "Could not load operators.");
+      return {
+        ok: true,
+        data: ((data ?? []) as Array<{ user_id: string; employee_code: string | null; full_name: string | null; roles: string[] | null }>).map((r) => ({
+          userId: r.user_id,
+          employeeCode: r.employee_code ?? "",
+          fullName: r.full_name ?? r.employee_code ?? "Staff",
+          roles: r.roles ?? [],
+        })),
+      };
+    },
+
+    async handoverTill(sessionId, newOperatorUserId, notes, manager) {
+      return asManager(manager, async (m) => {
+        const { error } = await rpc(m, "handover_pos_till_session", {
+          p_session_id: sessionId,
+          p_new_operator_user_id: newOperatorUserId,
+          p_notes: notes,
+        });
+        return error ? fail(error, "Handover refused.") : { ok: true, data: true };
+      });
+    },
+
+    async listTillSessions(status) {
+      const { data, error } = await rpc(client, "list_pos_till_sessions", { p_status: status, p_limit: 30 });
+      if (error) return fail(error, "Could not load till sessions.");
+      return { ok: true, data: ((data ?? []) as Record<string, unknown>[]).map(tillFromRow) };
     },
 
     async operatorLabel() {

@@ -1,5 +1,11 @@
 import type {
+  CashMovementKind,
   CustomerInput,
+  DenominationCount,
+  HandoverOperator,
+  ReasonCode,
+  TillCloseResult,
+  TillSession,
   EpcDiagram,
   EpcDiagramRef,
   EpcSection,
@@ -97,6 +103,27 @@ export interface PosGateway {
   listEpcSections(modelSlug: string, variantSlug: string): Promise<PosResult<EpcSection[]>>;
   listEpcDiagrams(modelSlug: string, variantSlug: string, sectionSlug: string): Promise<PosResult<EpcDiagramRef[]>>;
   getEpcDiagram(modelSlug: string, variantSlug: string, sectionSlug: string, diagram: EpcDiagramRef): Promise<PosResult<EpcDiagram>>;
+
+  // Till (cash drawer) — one open till per device and per operator; blind close count.
+  getMyTill(deviceId: string): Promise<PosResult<TillSession | null>>;
+  openTill(warehouseId: string, deviceId: string, openingFloat: number, currency: PosCurrency): Promise<PosResult<TillSession>>;
+  attachCartToTill(cartId: string, sessionId: string): Promise<PosResult<true>>;
+  /** Reasons for a governed action (`till_variance`, `cash_out`, `void_cart`, …). */
+  listReasons(action: string): Promise<PosResult<ReasonCode[]>>;
+  /** Cash in runs as the operator; every cash-out kind needs a manager. */
+  recordCashMovement(
+    sessionId: string,
+    kind: CashMovementKind,
+    amount: number,
+    reasonCode: string,
+    notes: string | null,
+    manager: ManagerCredentials | null,
+  ): Promise<PosResult<true>>;
+  closeTill(sessionId: string, counts: DenominationCount[], varianceReasonCode: string | null, notes: string | null): Promise<PosResult<TillCloseResult>>;
+  approveTillVariance(sessionId: string, reasonCode: string, notes: string | null, manager: ManagerCredentials): Promise<PosResult<true>>;
+  listHandoverOperators(): Promise<PosResult<HandoverOperator[]>>;
+  handoverTill(sessionId: string, newOperatorUserId: string, notes: string | null, manager: ManagerCredentials): Promise<PosResult<true>>;
+  listTillSessions(status: TillSession["status"] | null): Promise<PosResult<TillSession[]>>;
 
   operatorLabel(): Promise<string>;
   /** Staff portal second login (owner decision D4): re-enter the password before management opens. */

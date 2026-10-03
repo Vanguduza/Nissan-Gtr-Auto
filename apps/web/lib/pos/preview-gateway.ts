@@ -11,9 +11,11 @@ import type {
   PosPart,
   PosResult,
   Quotation,
-  RecentInvoice,
+  ReasonCode,
   ReceiptDocument,
+  RecentInvoice,
   SelectedVehicle,
+  TillSession,
   VehicleModel,
   VehicleVariant,
 } from "@/lib/pos/types";
@@ -90,8 +92,13 @@ export function createPreviewPosGateway(): PosGateway {
     customerName: null,
     vehicle: null,
     vehicles: [],
+    tillSessionId: null,
   });
   const carts = new Map<string, PosCart>();
+  // Till: one preview drawer; cash sales and movements feed its expected cash.
+  const tills: TillSession[] = [];
+  let tillCash = 0;
+  const openTillOf = () => tills.find((t) => t.status !== "closed") ?? null;
   const customers: PosCustomer[] = [
     { id: "c-1", kind: "individual", displayName: "Tendai Moyo", businessName: null, email: "tendai@example.com", phoneE164: "+263771000001", whatsappE164: "+263771000001" },
     { id: "c-2", kind: "business", displayName: "Rumbi Chari", businessName: "Harare Fleet Services", email: "fleet@example.com", phoneE164: "+263242000002", whatsappE164: null },
@@ -245,6 +252,7 @@ export function createPreviewPosGateway(): PosGateway {
       if (c.lines.length === 0) return no("The sale is empty.");
       if (Math.abs(paid - due) > 0.004) return no(`Tenders ${paid.toFixed(2)} must equal the balance ${due.toFixed(2)}.`);
       const id = `inv-${seq++}`;
+      if (c.tillSessionId) tillCash += tenders.filter((t) => t.tender === "cash").reduce((s, t) => s + t.amount, 0);
       const vehicleLabel = c.vehicle ? `${c.vehicle.modelName} ${c.vehicle.chassisCode} ${c.vehicle.engineCode}` : null;
       invoices.set(id, {
         invoiceId: id,
@@ -322,6 +330,100 @@ export function createPreviewPosGateway(): PosGateway {
     listEpcDiagrams: () => ok([{ id: "preview-front-brake", slug: "front-brake", title: "Front brake", imageUrl: null }]),
     getEpcDiagram: () => ok(DIAGRAM),
 
+    getMyTill: () => ok(openTillOf()),
+    openTill: (warehouseId, deviceId, openingFloat, currency) => {
+      if (openTillOf()) return no("device or operator already has an open till session");
+      if (!(openingFloat >= 0)) return no("opening_float must be >= 0");
+      const t: TillSession = {
+        id: `till-${seq++}`,
+        deviceId,
+        warehouseId,
+        currency,
+        operatorUserId: "preview-operator",
+        openingFloat: roundMoney(openingFloat),
+        status: "open",
+        expectedCash: null,
+        countedCash: null,
+        variance: null,
+        varianceReasonCode: null,
+        openedAt: new Date().toISOString(),
+        closedAt: null,
+      };
+      tills.unshift(t);
+      tillCash = t.openingFloat;
+      return ok(t);
+    },
+    attachCartToTill: (cartId, sessionId) => {
+      const c = get(cartId);
+      save({ ...c, tillSessionId: sessionId });
+      return ok(true as const);
+    },
+    listReasons: (action) =>
+      ok(
+        (
+          {
+            till_variance: [
+              { code: "count_error", label: "Count error", requiresNotes: false },
+              { code: "cash_movement_missing", label: "Cash movement not recorded", requiresNotes: false },
+              { code: "investigation", label: "Needs investigation", requiresNotes: false },
+            ],
+            cash_out: [
+              { code: "petty_cash", label: "Petty cash", requiresNotes: false },
+              { code: "bank_drop", label: "Bank drop", requiresNotes: false },
+              { code: "customer_refund", label: "Customer refund", requiresNotes: false },
+            ],
+          } as Record<string, ReasonCode[]>
+        )[action] ?? [],
+      ),
+    recordCashMovement: (sessionId, kind, amount, reasonCode, _notes, manager) => {
+      const t = tills.find((x) => x.id === sessionId);
+      if (!t || t.status !== "open") return no("open till session required");
+      if (kind !== "cash_in" && (!manager || !managerOk(manager))) return no("manager approval required for cash-out movement");
+      if (!(amount > 0)) return no("amount must be > 0");
+      if (!reasonCode.trim()) return no("reason_code required");
+      tillCash += kind === "cash_in" ? amount : -amount;
+      return ok(true as const);
+    },
+    closeTill: (sessionId, counts, reason) => {
+      const t = tills.find((x) => x.id === sessionId);
+      if (!t || t.status !== "open") return no("open operator till session required");
+      if (counts.length === 0) return no("denomination count required");
+      const counted = roundMoney(counts.reduce((s, c) => s + c.denomination * c.quantity, 0));
+      const expected = roundMoney(tillCash);
+      const variance = roundMoney(counted - expected);
+      if (Math.abs(variance) > 0.009 && !reason) return no("variance reason required");
+      const pending = Math.abs(variance) > 0.009;
+      Object.assign(t, {
+        expectedCash: expected,
+        countedCash: counted,
+        variance,
+        varianceReasonCode: reason,
+        status: pending ? "variance_pending" : "closed",
+        closedAt: pending ? null : new Date().toISOString(),
+      });
+      return ok({ sessionId, expectedCash: expected, countedCash: counted, variance, status: pending ? ("variance_pending" as const) : ("closed" as const) });
+    },
+    approveTillVariance: (sessionId, reasonCode, _notes, manager) => {
+      if (!managerOk(manager)) return no("Manager sign-in failed.");
+      const t = tills.find((x) => x.id === sessionId);
+      if (!t || t.status !== "variance_pending") return no("variance-pending till session required");
+      Object.assign(t, { status: "closed", varianceReasonCode: reasonCode, closedAt: new Date().toISOString() });
+      return ok(true as const);
+    },
+    listHandoverOperators: () =>
+      ok([
+        { userId: "preview-operator", employeeCode: "EMP-0001", fullName: "Preview operator", roles: ["sales"] },
+        { userId: "op-2", employeeCode: "EMP-0002", fullName: "Farai Ncube", roles: ["sales"] },
+      ]),
+    handoverTill: (sessionId, newOperatorUserId, _notes, manager) => {
+      if (!managerOk(manager)) return no("Manager sign-in failed.");
+      const t = tills.find((x) => x.id === sessionId);
+      if (!t || t.status !== "open") return no("open till session required");
+      if (newOperatorUserId === t.operatorUserId) return no("different operator required");
+      t.operatorUserId = newOperatorUserId;
+      return ok(true as const);
+    },
+    listTillSessions: (status) => ok(tills.filter((t) => !status || t.status === status)),
     operatorLabel: () => Promise.resolve("Preview operator"),
     reauthenticate: (password) => (password ? ok(true as const) : no("Password required.")),
   };

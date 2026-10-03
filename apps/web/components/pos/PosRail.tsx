@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   Undo2,
   User,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { PosDestination } from "@/lib/pos/use-pos";
@@ -24,6 +25,7 @@ const NAV: Array<{ id: PosDestination; label: string; icon: LucideIcon }> = [
   { id: "orders", label: "Orders", icon: FileText },
   { id: "returns", label: "Returns", icon: Undo2 },
   { id: "epc", label: "EPC Browse", icon: BookOpen },
+  { id: "till", label: "Till", icon: Wallet },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -37,7 +39,7 @@ export function PosRail({
   windowClass: WindowClass;
 }) {
   if (windowClass === "compact") {
-    // Compact: the same eight destinations as a bottom navigation bar (blueprint §9).
+    // Compact: the same destinations as a bottom navigation bar (blueprint §9).
     return (
       <nav className={styles.bottomNav} aria-label="POS">
         {NAV.map(({ id, label, icon: Icon }) => (
