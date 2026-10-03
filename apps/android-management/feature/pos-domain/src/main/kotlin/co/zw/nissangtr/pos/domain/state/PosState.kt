@@ -49,6 +49,7 @@ enum class PosNotice {
     PolicySaved,
     ReservationExpired, ReservationReleased, Collected,
     SplitCancelled, SplitCancelledRefund, SplitRefundOwed, SplitRefundRecorded,
+    TerminalPaired, TerminalReversed, TerminalFinished,
 }
 
 data class PosState(
@@ -133,6 +134,17 @@ data class PosState(
     val splitRecovery: List<co.zw.nissangtr.pos.domain.model.SplitRecoveryItem>? = null,
     /** Part payments of the order open on the recovery screen, if it has any. */
     val recoverySplit: co.zw.nissangtr.pos.domain.model.SplitSession? = null,
+    /** Card machine for this tablet (Settings) and whether it can take payments; null until loaded. */
+    val terminalSetup: co.zw.nissangtr.pos.domain.model.TerminalSetup? = null,
+    /** The card-machine attempt of the sale being paid. */
+    val terminalAttempt: co.zw.nissangtr.pos.domain.model.TerminalAttempt? = null,
+    val terminalBusy: Boolean = false,
+    val terminalPairing: Boolean = false,
+    /** Key of a start whose answer was lost: starting again returns the same attempt (no second charge). */
+    val terminalKey: String? = null,
+    val terminalRecovery: List<co.zw.nissangtr.pos.domain.model.TerminalRecoveryItem>? = null,
+    /** The card-machine attempt opened on the recovery screen. */
+    val recoveryTerminal: co.zw.nissangtr.pos.domain.model.TerminalAttempt? = null,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

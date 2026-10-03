@@ -59,7 +59,8 @@ petty cash requests, kits creation, product pages, payroll funding.
 | 2 Governance (+ approver ID badges) | done | done (front-camera badge scan) |
 | 3 Reserve-first checkout | done | done: reserve on Pay, sale locked, cash/card/store-credit settlement with a kept key, EcoCash/Paynow/ContiPay with a QR for hosted pages and a 3-minute Unknown cut-off, on account, recovery screen with approver repair and release, pickup list and receipt hand-over |
 | 4 Split payments | done: Pay in parts (cash, card/bank, store credit), reduced basket, cancel with refunds, recovery with manager refund steps and retry posting | done (same, plus front-camera badge for refund steps) |
-| 5–8 | todo | todo |
+| 5 Card terminals | card-machine option shown disabled with the reason (a browser cannot sign terminal results), recovery "Finish the sale" for approved charges, admin Card machines editor | done: card machine as a tender and as a split part through the new `bridges/android/card-terminal` bridge (Android intent to the acquirer app, Keystore-signed evidence), lost answer → Unknown → ask the machine again, charged-not-posted → finish or reverse, Settings → choose and pair (admin) |
+| 6–8 | todo | todo |
 
 Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
 answer 503; both clients show those tenders disabled with "Not set up for this shop yet."
@@ -71,3 +72,8 @@ did not post (20261003160304). Known gaps: EcoCash, Paynow and ContiPay cannot t
 (the deployed initiate functions only start whole-order payments), and the hosted project has no
 FIFO stock batches, so in a rolled-back dry run a fully paid split sale could not post
 ("insufficient FIFO batch qty") — it lands in Payments to resolve until stock is received properly.
+
+Phase 5 notes: no card machine is set up on the hosted project yet (`pos_card_terminals` is empty)
+and no acquirer app has been tested; the adapter follows `upsert_pos_card_terminal`'s allowed keys
+and the deployed `card-terminal-result` evidence format (canonical JSON checked byte-for-byte in a
+unit test). Card-machine refunds of posted sales belong to returns (phase 6).

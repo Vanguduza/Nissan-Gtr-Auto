@@ -23,6 +23,8 @@ import type {
   DigitalProvider,
   PaymentStatus,
   SplitSession,
+  CardTerminal,
+  TerminalRecoveryItem,
   SplitLeg,
   SplitRefund,
   PosCurrency,
@@ -230,6 +232,14 @@ export function createPreviewPosGateway(): PosGateway {
     s.status = s.refunds.some((r) => r.status !== "settled" && r.status !== "cancelled") ? "refund_review" : "settled";
   };
   const splitCopy = (sp: PreviewSplit): SplitSession => structuredClone(sp.session);
+
+  // Card machines: one demo machine; one approved-but-unposted payment to finish from recovery.
+  const terminals: CardTerminal[] = [
+    { id: "term-1", code: "CT-01", label: "Counter card machine", acquirerName: "Demo bank", externalTerminalId: "T00001", config: { package_name: "zw.co.demo.pos", purchase_action: "zw.co.demo.PURCHASE" }, warehouseId: null, deviceId: null, isActive: true },
+  ];
+  const terminalRecovery: TerminalRecoveryItem[] = [
+    { attemptId: "att-demo", operation: "purchase", status: "approved", terminalLabel: "Counter card machine", orderId: null, amount: 42, currency: "USD", transactionId: "TX-4411", cardLast4: "4242", message: "Sale did not post", updatedAt: new Date().toISOString() },
+  ];
   const statusOf = (o: PreviewOrder): PaymentStatus => ({
     orderId: o.orderId,
     cartId: o.cartId,
@@ -670,6 +680,25 @@ export function createPreviewPosGateway(): PosGateway {
         s.status = "refund_review";
       }
       return ok(splitCopy(sp));
+    },
+    listCardTerminals: () => ok(terminals.filter((t) => t.isActive)),
+    saveCardTerminal: (t) => {
+      if (!t.code.trim() || !t.label.trim()) return no("terminal code and label required");
+      if (!t.config.package_name?.trim() || !t.config.purchase_action?.trim()) return no("android intent terminal requires package_name and purchase_action");
+      const existing = terminals.find((x) => x.code === t.code.trim());
+      const id = existing?.id ?? t.id ?? `term-${crypto.randomUUID().slice(0, 8)}`;
+      const row = { ...t, id, code: t.code.trim(), label: t.label.trim() };
+      if (existing) Object.assign(existing, row);
+      else terminals.push(row);
+      return ok(id);
+    },
+    listTerminalRecovery: () => ok(terminalRecovery.filter((r) => r.status !== "settled")),
+    finishTerminalPayment: (attemptId) => {
+      const r = terminalRecovery.find((x) => x.attemptId === attemptId);
+      if (!r) return no("card terminal attempt not found");
+      if (r.status !== "approved") return no("terminal approval required before finalization");
+      r.status = "settled";
+      return ok({ status: "settled", error: null });
     },
     listPickupOrders: (query) =>
       ok(

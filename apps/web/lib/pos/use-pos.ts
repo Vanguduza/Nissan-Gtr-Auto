@@ -46,6 +46,7 @@ import type {
   SplitRefundStep,
   SplitSession,
   SplitTender,
+  TerminalRecoveryItem,
 } from "@/lib/pos/types";
 
 const RECENT_KEY = "gtr.pos.recentSearches";
@@ -213,6 +214,8 @@ export function usePos(gateway: PosGateway) {
   /** Idempotency key of the part being taken; kept after a dropped answer so the retry cannot charge twice. */
   const splitLegKey = useRef<string | null>(null);
   const [splitRecovery, setSplitRecovery] = useState<SplitRecoveryItem[] | null>(null);
+  /** Card-machine payments that need someone (charged but not posted, or no answer). */
+  const [terminalRecovery, setTerminalRecovery] = useState<TerminalRecoveryItem[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [till, setTill] = useState<TillSession | null>(null);
   const [tillLoaded, setTillLoaded] = useState(false);
@@ -1175,6 +1178,24 @@ export function usePos(gateway: PosGateway) {
     [gateway, report, refreshSplitRecovery],
   );
 
+  const refreshTerminalRecovery = useCallback(async () => {
+    setTerminalRecovery(report(await gateway.listTerminalRecovery()) ?? []);
+  }, [gateway, report]);
+
+  /** Charged on the card machine but not posted: post the sale against that charge (never charge again). */
+  const finishTerminalPayment = useCallback(
+    async (attemptId: string): Promise<boolean> => {
+      if (!guardOnline()) return false;
+      const res = report(await gateway.finishTerminalPayment(attemptId));
+      if (!res) return false;
+      if (res.status === "settled") setNotice("Card payment applied: the sale is posted.");
+      else setError(`The card was charged but the sale still did not post${res.error ? `: ${res.error}` : ""}. Reverse it on the paired tablet or fix the cause and try again.`);
+      void refreshTerminalRecovery();
+      return res.status === "settled";
+    },
+    [gateway, guardOnline, report, refreshTerminalRecovery],
+  );
+
   /** An Unknown outcome goes to its dedicated screen (§10.4): it cannot be dismissed by a tap. */
   const openRecovery = useCallback((orderId: string | null) => {
     setRecoveryOrderId(orderId);
@@ -1420,6 +1441,9 @@ export function usePos(gateway: PosGateway) {
     splitRecovery,
     refreshSplitRecovery,
     splitRefundStep,
+    terminalRecovery,
+    refreshTerminalRecovery,
+    finishTerminalPayment,
     lastReceipt,
     clearReceipt: () => {
       setLastReceipt(null);

@@ -22,6 +22,8 @@ import co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway
 import co.zw.nissangtr.pos.domain.state.CheckoutEffect
 import co.zw.nissangtr.pos.domain.state.CheckoutEvent
 import co.zw.nissangtr.pos.domain.state.SplitEffect
+import co.zw.nissangtr.pos.domain.state.TerminalEffect
+import co.zw.nissangtr.pos.domain.state.TerminalEvent
 import co.zw.nissangtr.pos.domain.state.SplitEvent
 import co.zw.nissangtr.pos.domain.gateway.SplitPaymentGateway
 import co.zw.nissangtr.pos.domain.model.SplitTender
@@ -77,6 +79,8 @@ data class PosGateways(
     val reserve: ReserveCheckoutGateway = ReserveCheckoutGateway.None,
     /** Part payments (staged split) on the reserved order. */
     val split: SplitPaymentGateway = SplitPaymentGateway.None,
+    /** Card machine (ECR) through the card-terminal bridge. */
+    val terminal: co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway = co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway.None,
 )
 
 /**
@@ -298,6 +302,7 @@ class PosStore(
             is GovernanceEffect -> runGovernance(effect)
             is CheckoutEffect -> runCheckout(effect)
             is SplitEffect -> runSplit(effect)
+            is TerminalEffect -> runTerminal(effect)
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
@@ -666,6 +671,94 @@ class PosStore(
                         receipt(cart, invoiceId, gateways.reserve.documentNumber(invoiceId), tenders, null, effect.customerName, effect.vehicleLabel, effect.operatorName),
                     )
                     if (s.owedBack.minor > 0) apply(SplitEvent.RefundOwed(s.owedBack))
+                }
+            }
+        }
+    }
+
+    private fun runTerminal(effect: TerminalEffect) {
+        val t = gateways.terminal
+        when (effect) {
+            TerminalEffect.LoadSetup -> launch {
+                // No machine set up is not an error at start-up: the card option just says why.
+                val setup = (t.setup() as? PosResult.Ok)?.value ?: co.zw.nissangtr.pos.domain.model.TerminalSetup(emptyList(), null, appInstalled = false, paired = false)
+                apply(TerminalEvent.SetupLoaded(setup))
+            }
+            is TerminalEffect.Select -> launch {
+                when (val r = t.select(effect.terminalId)) {
+                    is PosResult.Ok -> apply(TerminalEvent.SetupLoaded(r.value))
+                    is PosResult.Err -> apply(TerminalEvent.Failed(r.error))
+                }
+            }
+            is TerminalEffect.Pair -> launch {
+                when (val r = t.pair(effect.terminalId, effect.admin)) {
+                    is PosResult.Ok -> apply(TerminalEvent.Paired(r.value))
+                    is PosResult.Err -> apply(TerminalEvent.Failed(r.error))
+                }
+            }
+            is TerminalEffect.Purchase -> launch {
+                val key = effect.requestId ?: newKey()
+                when (val r = t.beginPurchase(effect.orderId, effect.terminalId, key)) {
+                    is PosResult.Ok -> apply(TerminalEvent.Started(r.value))
+                    is PosResult.Err -> apply(TerminalEvent.Failed(r.error, key, network = r.error is PosError.Transient))
+                }
+            }
+            is TerminalEffect.SplitPart -> launch {
+                val key = effect.requestId ?: newKey()
+                when (val r = t.beginSplitPart(effect.sessionId, effect.amount, effect.terminalId, key)) {
+                    is PosResult.Ok -> apply(TerminalEvent.Started(r.value))
+                    is PosResult.Err -> apply(TerminalEvent.Failed(r.error, key, network = r.error is PosError.Transient))
+                }
+            }
+            is TerminalEffect.Run -> launch {
+                when (val r = t.run(effect.attempt, effect.statusOnly)) {
+                    is PosResult.Ok -> apply(if (r.value.operation == "reversal") TerminalEvent.Reversed(r.value) else TerminalEvent.Answered(r.value))
+                    is PosResult.Err -> {
+                        // The machine may have charged even though its answer was not recorded: Unknown, never a retry.
+                        apply(TerminalEvent.Failed(r.error))
+                        if (effect.attempt.operation != "reversal") {
+                            apply(TerminalEvent.Answered(effect.attempt.copy(status = "unknown")))
+                        }
+                    }
+                }
+            }
+            is TerminalEffect.Finalize -> launch {
+                when (val r = t.finalize(effect.attemptId)) {
+                    is PosResult.Ok -> apply(TerminalEvent.Finalized(r.value))
+                    is PosResult.Err -> {
+                        val a = (t.attempt(effect.attemptId) as? PosResult.Ok)?.value
+                        if (a != null) apply(TerminalEvent.Finalized(a.copy(finalizationError = (r.error as? PosError.BusinessRule)?.detail)))
+                        else apply(TerminalEvent.Failed(r.error))
+                    }
+                }
+            }
+            is TerminalEffect.Reverse -> launch {
+                when (val begun = t.beginReversal(effect.purchaseAttemptId, newKey())) {
+                    is PosResult.Ok -> when (val ran = t.run(begun.value)) {
+                        is PosResult.Ok -> apply(TerminalEvent.Reversed(ran.value))
+                        is PosResult.Err -> apply(TerminalEvent.Reversed(begun.value.copy(status = "unknown")))
+                    }
+                    is PosResult.Err -> apply(TerminalEvent.Failed(begun.error))
+                }
+            }
+            is TerminalEffect.LoadAttempt -> launch {
+                when (val r = t.attempt(effect.attemptId)) {
+                    is PosResult.Ok -> apply(TerminalEvent.AttemptLoaded(r.value))
+                    is PosResult.Err -> apply(TerminalEvent.Failed(r.error))
+                }
+            }
+            TerminalEffect.LoadRecovery -> launch {
+                (t.recovery() as? PosResult.Ok)?.let { apply(TerminalEvent.RecoveryLoaded(it.value)) }
+            }
+            is TerminalEffect.Receipt -> {
+                val cart = state.value.cart
+                launch {
+                    val a = effect.attempt
+                    val invoiceId = a.invoiceId ?: return@launch
+                    finish(
+                        a.orderId,
+                        receipt(cart, invoiceId, gateways.reserve.documentNumber(invoiceId), listOf(TenderLine(Tender.Bank, a.amount)), null, effect.customerName, effect.vehicleLabel, effect.operatorName),
+                    )
                 }
             }
         }

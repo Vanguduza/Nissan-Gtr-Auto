@@ -126,6 +126,7 @@ class PosStoreTest {
         badgeScanner: co.zw.nissangtr.pos.domain.gateway.BadgeScanner = co.zw.nissangtr.pos.domain.gateway.BadgeScanner.None,
         reserve: co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway = co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway.None,
         split: co.zw.nissangtr.pos.domain.gateway.SplitPaymentGateway = co.zw.nissangtr.pos.domain.gateway.SplitPaymentGateway.None,
+        terminal: co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway = co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway.None,
     ) = PosGateways(
         session = object : SessionGateway {
             override suspend fun operator() = PosResult.Ok(Operator("Tendai Moyo", "Sales"))
@@ -152,6 +153,7 @@ class PosStoreTest {
         badgeScanner = badgeScanner,
         reserve = reserve,
         split = split,
+        terminal = terminal,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -589,5 +591,68 @@ class PosStoreTest {
         assertEquals(reserve.total.minor, receipt.tenders.sumOf { it.amount.minor })
         assertNull(s.state.value.split)
         assertNull(s.state.value.checkout)
+    }
+
+    /** Card machine stand-in: [answer] is what the machine reports; finalize posts the sale. */
+    private class FakeTerminal(val reserve: FakeReserve, var answer: String = "approved", var runFails: Boolean = false) : co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway {
+        val machine = co.zw.nissangtr.pos.domain.model.CardTerminal("t1", "Counter machine", "Bank", mapOf("package_name" to "p", "purchase_action" to "a"))
+        val begun = mutableListOf<String>()
+        var finalized = 0
+        private fun a(status: String) = co.zw.nissangtr.pos.domain.model.TerminalAttempt("a1", "purchase", status, reserve.total, "Counter machine", "4242", "VISA", "T1", null, "o1", null, if (status == "settled") "inv-ct" else null, null)
+        override suspend fun setup() = PosResult.Ok(co.zw.nissangtr.pos.domain.model.TerminalSetup(listOf(machine), machine, appInstalled = true, paired = true))
+        override suspend fun select(terminalId: String) = setup()
+        override suspend fun pair(terminalId: String, admin: co.zw.nissangtr.pos.domain.model.ManagerCredentials?) = setup()
+        override suspend fun beginPurchase(orderId: String, terminalId: String, requestId: String): PosResult<co.zw.nissangtr.pos.domain.model.TerminalAttempt> { begun += requestId; return PosResult.Ok(a("initiated")) }
+        override suspend fun beginSplitPart(sessionId: String, amount: Money, terminalId: String, requestId: String) = PosResult.Ok(a("initiated"))
+        override suspend fun run(attempt: co.zw.nissangtr.pos.domain.model.TerminalAttempt, statusOnly: Boolean): PosResult<co.zw.nissangtr.pos.domain.model.TerminalAttempt> =
+            if (runFails && !statusOnly) PosResult.Err(co.zw.nissangtr.pos.domain.error.PosError.Transient(true)) else PosResult.Ok(a(answer))
+        override suspend fun finalize(attemptId: String): PosResult<co.zw.nissangtr.pos.domain.model.TerminalAttempt> { finalized++; return PosResult.Ok(a("settled")) }
+        override suspend fun beginReversal(purchaseAttemptId: String, requestId: String) = PosResult.Ok(a("initiated").copy(operation = "reversal"))
+        override suspend fun attempt(attemptId: String) = PosResult.Ok(a(answer))
+        override suspend fun recovery() = PosResult.Ok(emptyList<co.zw.nissangtr.pos.domain.model.TerminalRecoveryItem>())
+    }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.cardSale(terminal: FakeTerminal, reserve: FakeReserve): PosStore {
+        val s = store(gateways(reserve = reserve, terminal = terminal))
+        s.dispatch(PosIntent.Start)
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        runCurrent()
+        reserve.total = s.state.value.cart.total
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.OpenPayment)
+        runCurrent()
+        return s
+    }
+
+    @Test
+    fun `a card machine approval posts the sale once and prints a card receipt`() = runTest {
+        val reserve = FakeReserve()
+        val terminal = FakeTerminal(reserve)
+        val s = cardSale(terminal, reserve)
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TerminalIntent.Pay)
+        advanceUntilIdle()
+        assertEquals(1, terminal.begun.size)
+        assertEquals(1, terminal.finalized)
+        val receipt = s.state.value.receipt!!
+        assertEquals(co.zw.nissangtr.pos.domain.model.Tender.Bank, receipt.tenders.single().tender)
+        assertNull(s.state.value.checkout)
+    }
+
+    @Test
+    fun `a lost card machine answer is Unknown and is resolved by asking the machine again`() = runTest {
+        val reserve = FakeReserve()
+        val terminal = FakeTerminal(reserve, runFails = true)
+        val s = cardSale(terminal, reserve)
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TerminalIntent.Pay)
+        runCurrent()
+        assertEquals(co.zw.nissangtr.pos.domain.model.TenderOutcome.Unknown, s.state.value.checkout?.outcome)
+        assertEquals(0, terminal.finalized)
+        // Paying again is blocked; checking on the machine finds the approval and posts the sale.
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TerminalIntent.Pay)
+        runCurrent()
+        assertEquals(1, terminal.begun.size)
+        s.dispatch(co.zw.nissangtr.pos.domain.state.TerminalIntent.CheckOnMachine(s.state.value.terminalAttempt!!))
+        advanceUntilIdle()
+        assertEquals(1, terminal.finalized)
+        assertTrue(s.state.value.receipt != null)
     }
 }

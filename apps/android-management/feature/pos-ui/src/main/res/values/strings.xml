@@ -547,4 +547,38 @@
     <string name="pos_approve_split_refund_paid">Record a refund as paid</string>
     <string name="pos_approve_split_refund_failed">Mark a refund as failed</string>
     <string name="pos_approve_split_refund_detail">Refund of %1$s from a part payment. Your approval is recorded.</string>
+
+    <!-- Card machine (ECR, Blueprint §10.7) -->
+    <string name="pos_ct_machine">Card machine</string>
+    <string name="pos_ct_title">Card machine</string>
+    <string name="pos_ct_not_set">Choose this tablet\'s card machine in Settings.</string>
+    <string name="pos_ct_app_missing">The card machine app is not installed on this tablet.</string>
+    <string name="pos_ct_not_paired">An admin must pair this tablet with the card machine (Settings).</string>
+    <string name="pos_ct_none_set_up">No card machine is set up for this shop yet.</string>
+    <string name="pos_ct_ready">Ready: %1$s</string>
+    <string name="pos_ct_refresh">Refresh</string>
+    <string name="pos_ct_pair">Pair this tablet</string>
+    <string name="pos_ct_pair_again">Pair again</string>
+    <string name="pos_ct_pair_hint">Pairing lets %1$s\'s answers be trusted: this tablet signs every result with its own key. An admin signs in for this once (leave blank if you are an admin).</string>
+    <string name="pos_ct_admin_id">Admin emp# / email</string>
+    <string name="pos_ct_admin_password">Admin password</string>
+    <string name="pos_ct_explain">The customer pays on %1$s: insert, tap or swipe the card and enter the PIN on the machine. Card details never come to this tablet.</string>
+    <string name="pos_ct_charge">Charge %1$s on the card machine</string>
+    <string name="pos_ct_follow_machine">Follow %1$s</string>
+    <string name="pos_ct_follow_hint">The customer pays on the machine. The sale finishes on its own when the machine answers. Do not take another payment meanwhile.</string>
+    <string name="pos_ct_check_machine">Check on the card machine</string>
+    <string name="pos_ct_outcome_unknown">The card machine\'s answer did not arrive. Do not charge again: check on the machine first.</string>
+    <string name="pos_ct_outcome_unposted">The card was charged but the sale did not post. Do not charge again: finish it or reverse it from Payments to resolve.</string>
+    <string name="pos_ct_unposted_detail">The card was charged but the sale did not post: %1$s</string>
+    <string name="pos_ct_recovery_heading">Card machine</string>
+    <string name="pos_ct_status_charged_unposted">Charged, sale not posted</string>
+    <string name="pos_ct_status_unknown">Answer not received</string>
+    <string name="pos_ct_status_settled">Done</string>
+    <string name="pos_ct_status_reversed">Reversed</string>
+    <string name="pos_ct_status_other">Needs attention</string>
+    <string name="pos_ct_finish">Finish the sale</string>
+    <string name="pos_ct_reverse">Give the money back on the machine</string>
+    <string name="pos_notice_ct_paired">This tablet is paired with the card machine.</string>
+    <string name="pos_notice_ct_reversed">Reversed on the card machine: the customer was not charged.</string>
+    <string name="pos_notice_ct_finished">Card payment applied: the sale is posted.</string>
 </resources>

@@ -54,6 +54,8 @@ import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosSaleIntent
 import co.zw.nissangtr.pos.domain.state.PosState
 import co.zw.nissangtr.pos.domain.state.SplitIntent
+import co.zw.nissangtr.pos.domain.state.TerminalIntent
+import co.zw.nissangtr.pos.domain.state.terminalReason
 import co.zw.nissangtr.pos.ui.R
 import co.zw.nissangtr.pos.ui.common.PosField
 import co.zw.nissangtr.pos.ui.common.PosModal
@@ -68,7 +70,7 @@ import co.zw.nissangtr.pos.ui.home.EmptyCard
 import co.zw.nissangtr.pos.ui.home.SoftButton
 
 /** What the operator chose on the reserved payment screen. */
-private enum class Method { Manual, EcoCash, Paynow, ContiPay, Account, Parts }
+private enum class Method { Manual, Card, EcoCash, Paynow, ContiPay, Account, Parts }
 
 private val Method.provider: DigitalProvider?
     get() = when (this) {
@@ -146,6 +148,11 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
 
         if (co != null) {
             OutcomeBanner(co.outcome, co.message, co.status, onResolve = { dispatch(CheckoutIntent.OpenRecovery(co.orderId)) })
+            val terminalAttempt = state.terminalAttempt
+            if (terminalAttempt != null && state.terminalBusy && co.outcome == null) TerminalWaiting(terminalAttempt)
+            if (terminalAttempt != null && co.outcome == TenderOutcome.Unknown && co.message == "terminal_unknown") {
+                PosRowEnd { TerminalCheckButton(state, terminalAttempt, dispatch) }
+            }
             co.attempt?.takeIf { co.inFlight }?.let { attempt ->
                 Spacer(Modifier.height(12.dp))
                 ProviderWaiting(
@@ -158,7 +165,8 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
         }
 
         // While money is moving (or its result is unknown) the only actions are to wait, check or resolve.
-        val choosing = split == null && (co == null || !(co.inFlight || outcome == TenderOutcome.Unknown || outcome == TenderOutcome.Approved))
+        val machineRunning = state.terminalBusy && state.terminalAttempt != null
+        val choosing = split == null && !machineRunning && (co == null || !(co.inFlight || outcome == TenderOutcome.Unknown || outcome == TenderOutcome.Approved))
         var reason: String? = null
         if (split != null && co != null && outcome != TenderOutcome.Approved) SplitPanel(state, split, dispatch)
         if (choosing) {
@@ -170,6 +178,7 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
         val needsCustomer = stringResource(R.string.pos_co_account_needs_customer)
         val cards = listOf(
             Triple(Method.Manual, stringResource(R.string.pos_co_counter_tenders), if (!state.online) offline else null),
+            Triple(Method.Card, stringResource(R.string.pos_ct_machine), terminalReasonText(state.terminalReason())),
             Triple(Method.EcoCash, stringResource(R.string.pos_tender_ecocash), providerReason(state, DigitalProvider.EcoCash, offline, checking)),
             Triple(Method.Paynow, stringResource(R.string.pos_tender_paynow), providerReason(state, DigitalProvider.Paynow, offline, checking)),
             Triple(Method.ContiPay, stringResource(R.string.pos_tender_contipay), providerReason(state, DigitalProvider.ContiPay, offline, checking)),
@@ -206,6 +215,11 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                 }
             }
             Method.Parts -> PosText(stringResource(R.string.pos_split_explain, formatMoney(total)), type.bodySecondary, palette.textSecondary)
+            Method.Card -> PosText(
+                stringResource(R.string.pos_ct_explain, state.terminalSetup?.selected?.label ?: stringResource(R.string.pos_ct_machine)),
+                type.bodySecondary,
+                palette.textSecondary,
+            )
             Method.Account -> {
                 val customer = state.customer
                 PosText(
@@ -268,6 +282,11 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                     label = stringResource(R.string.pos_co_charge_account),
                     enabled = !locked && reason == null,
                     onClick = { dispatch(CheckoutIntent.PayOnAccount(contacts)) },
+                )
+                Method.Card -> PosPrimaryButton(
+                    label = stringResource(R.string.pos_ct_charge, formatMoney(total)),
+                    enabled = !locked && reason == null && !state.terminalBusy,
+                    onClick = { dispatch(TerminalIntent.Pay) },
                 )
                 Method.Parts -> PosPrimaryButton(
                     label = stringResource(R.string.pos_split_start),
@@ -410,6 +429,8 @@ private fun OutcomeBanner(outcome: TenderOutcome?, message: String?, status: Pay
         TenderOutcome.Unknown -> stringResource(
             when {
                 message == "split_unposted" -> R.string.pos_split_unposted
+                message == "terminal_unknown" -> R.string.pos_ct_outcome_unknown
+                message == "terminal_unposted" -> R.string.pos_ct_outcome_unposted
                 status.capturedUnfinished -> R.string.pos_co_outcome_captured
                 else -> R.string.pos_co_outcome_unknown
             },
@@ -489,11 +510,12 @@ fun RecoveryScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
             // Part-paid sales once, with their parts and refunds (not again as a plain order).
             val splits = state.splitRecovery.orEmpty()
             SplitRecoveryRows(splits, onOpen = { dispatch(CheckoutIntent.OpenRecovery(it)) })
+            TerminalRecoverySection(state, null, dispatch)
             val splitOrders = splits.map { it.session.orderId }.toSet()
             val items = state.recoveryItems?.filterNot { it.orderId in splitOrders }
             when {
                 items == null -> EmptyCard(stringResource(R.string.pos_loading))
-                items.isEmpty() && splits.isEmpty() -> EmptyCard(stringResource(R.string.pos_recovery_none))
+                items.isEmpty() && splits.isEmpty() && state.terminalRecovery.isNullOrEmpty() -> EmptyCard(stringResource(R.string.pos_recovery_none))
                 else -> items.forEach { item ->
                     ListRow(
                         title = humanState(item.state),
@@ -555,6 +577,7 @@ fun RecoveryScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
             }
         }
         state.recoverySplit?.let { SplitRecoveryDetail(state, it, dispatch) }
+        TerminalRecoverySection(state, orderId, dispatch)
         state.feedback?.let { PosText(feedbackText(it), PosTheme.type.bodyPrimary, palette.error, modifier = Modifier.padding(top = 8.dp)) }
         PosRowEnd {
             SoftButton(stringResource(R.string.pos_recovery_back), null, enabled = true, onClick = { dispatch(CheckoutIntent.OpenRecovery(null)) }, modifier = Modifier.widthIn(max = 180.dp))

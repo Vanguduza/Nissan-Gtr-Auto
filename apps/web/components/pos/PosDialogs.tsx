@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, Building2, Car, CircleAlert, KeyRound, Layers, Lock, PackageCheck, Plus, Printer, RefreshCw, ScanLine, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
+import { Banknote, Building2, Car, CircleAlert, CreditCard, KeyRound, Layers, Lock, PackageCheck, Plus, Printer, RefreshCw, ScanLine, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
@@ -346,7 +346,7 @@ const MANUAL_TENDERS: Array<{ id: ManualTender; label: string }> = [
   { id: "store_credit", label: "Store credit" },
 ];
 
-type PayMode = "manual" | DigitalProvider | "account" | "parts";
+type PayMode = "manual" | DigitalProvider | "account" | "parts" | "terminal";
 
 const PAYNOW_METHODS: Array<{ id: PaynowMethod; label: string }> = [
   { id: "ecocash", label: "EcoCash" },
@@ -516,6 +516,8 @@ export function PaymentDialog({
   };
   const options: Array<{ id: PayMode; label: string; icon: ReactNode; reason: string | null }> = [
     { id: "manual", label: "Cash · card · store credit", icon: <Banknote size={16} aria-hidden />, reason: null },
+    // Card machines answer to the paired counter tablet, which signs their results; a browser cannot.
+    { id: "terminal", label: "Card machine", icon: <CreditCard size={16} aria-hidden />, reason: "Use the counter tablet paired with the card machine." },
     { id: "ecocash", label: "EcoCash", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("ecocash") },
     { id: "paynow", label: "Paynow", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("paynow") },
     { id: "contipay", label: "ContiPay", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("contipay") },

@@ -2898,6 +2898,128 @@ class SupabaseRpcClient(
             )
         }
 
+    // --- POS card terminals (ECR)
+
+    private fun stringMap(e: JsonElement?): Map<String, String?> =
+        (e as? JsonObject)?.mapValues { (_, v) -> (v as? JsonPrimitive)?.takeIf { it.isString || it !is JsonNull }?.contentOrNull } ?: emptyMap()
+
+    private fun attemptFrom(o: JsonObject): PosTerminalAttempt {
+        val t = o["terminal"] as? JsonObject
+        return PosTerminalAttempt(
+            attemptId = o.stringOrNull("attempt_id") ?: error("card terminal attempt missing"),
+            operation = o.stringOrNull("operation") ?: "purchase",
+            status = o.stringOrNull("status") ?: "initiated",
+            terminalId = o.stringOrNull("terminal_id"),
+            terminalLabel = t?.stringOrNull("label"),
+            adapterKey = t?.stringOrNull("adapter_key"),
+            adapterConfig = stringMap(t?.get("adapter_config")),
+            amount = o.number("amount") ?: 0.0,
+            currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+            externalRef = o.stringOrNull("external_ref"),
+            transactionId = o.stringOrNull("terminal_transaction_id"),
+            rrn = o.stringOrNull("rrn"),
+            authorizationCode = o.stringOrNull("authorization_code"),
+            cardLast4 = o.stringOrNull("card_last4"),
+            cardScheme = o.stringOrNull("card_scheme"),
+            responseMessage = o.stringOrNull("response_message"),
+            orderId = o.stringOrNull("commerce_order_id") ?: o.stringOrNull("order_id"),
+            splitLegId = o.stringOrNull("split_leg_id"),
+            invoiceId = o.stringOrNull("invoice_id"),
+            finalizationError = o.stringOrNull("finalization_error") ?: o.stringOrNull("error"),
+        )
+    }
+
+    private suspend fun attemptRpc(fn: String, args: JsonObject): PosTerminalAttempt =
+        attemptFrom(client.postgrest.rpc(fn, args).decodeAs<JsonObject>())
+
+    override suspend fun listPosCardTerminals(warehouseId: String?, deviceId: String?): List<PosCardTerminalRow> =
+        client.postgrest.rpc(
+            "list_pos_card_terminals",
+            buildJsonObject {
+                if (warehouseId == null) put("p_warehouse_id", JsonNull) else put("p_warehouse_id", warehouseId)
+                if (deviceId == null) put("p_device_id", JsonNull) else put("p_device_id", deviceId)
+            },
+        ).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosCardTerminalRow(
+                id = o.stringOrNull("id") ?: return@mapNotNull null,
+                code = o.stringOrNull("code") ?: "",
+                label = o.stringOrNull("label") ?: "",
+                acquirerName = o.stringOrNull("acquirer_name"),
+                adapterKey = o.stringOrNull("adapter_key") ?: "",
+                adapterConfig = stringMap(o["adapter_config"]),
+                warehouseId = o.stringOrNull("warehouse_id"),
+                deviceId = o.stringOrNull("device_id"),
+            )
+        }
+
+    override suspend fun beginPosCardTerminalPurchase(orderId: String, terminalId: String, requestId: String) = attemptRpc(
+        "begin_pos_card_terminal_purchase",
+        buildJsonObject { put("p_order_id", orderId); put("p_terminal_id", terminalId); put("p_request_id", requestId) },
+    )
+
+    override suspend fun beginPosSplitCardTerminalLeg(legId: String, terminalId: String, requestId: String) = attemptRpc(
+        "begin_pos_split_card_terminal_leg",
+        buildJsonObject { put("p_leg_id", legId); put("p_terminal_id", terminalId); put("p_request_id", requestId) },
+    )
+
+    override suspend fun getPosCardTerminalAttempt(attemptId: String) =
+        attemptRpc("get_pos_card_terminal_attempt", buildJsonObject { put("p_attempt_id", attemptId) })
+
+    override suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): PosTerminalAttempt {
+        val body = buildJsonObject {
+            put("payload", Json.parseToJsonElement(payloadJson))
+            put("signature_base64", signatureBase64)
+        }
+        val text = try {
+            client.functions.invoke("card-terminal-result") { setBody(body) }.bodyAsText()
+        } catch (e: io.github.jan.supabase.exceptions.RestException) {
+            val o = runCatching { Json.parseToJsonElement(e.error) as? JsonObject }.getOrNull()
+            throw IllegalStateException(o?.stringOrNull("error") ?: e.error)
+        }
+        val o = Json.parseToJsonElement(text) as? JsonObject ?: error("The card machine answer was not recorded.")
+        return attemptFrom(o["attempt"] as? JsonObject ?: error(o.stringOrNull("error") ?: "The card machine answer was not recorded."))
+    }
+
+    override suspend fun finalizePosCardTerminalPurchase(attemptId: String) =
+        attemptRpc("finalize_pos_card_terminal_purchase", buildJsonObject { put("p_attempt_id", attemptId) })
+
+    override suspend fun beginPosCardTerminalReversal(purchaseAttemptId: String, requestId: String) = attemptRpc(
+        "begin_pos_card_terminal_reversal",
+        buildJsonObject { put("p_purchase_attempt_id", purchaseAttemptId); put("p_request_id", requestId) },
+    )
+
+    override suspend fun listPosCardTerminalRecovery(): List<PosTerminalRecoveryRow> =
+        client.postgrest.rpc("list_pos_card_terminal_recovery", buildJsonObject { put("p_limit", 100) }).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosTerminalRecoveryRow(
+                attemptId = o.stringOrNull("id") ?: return@mapNotNull null,
+                operation = o.stringOrNull("operation") ?: "",
+                status = o.stringOrNull("status") ?: "",
+                terminalLabel = o.stringOrNull("terminal_label"),
+                orderId = o.stringOrNull("commerce_order_id"),
+                amount = o.number("amount") ?: 0.0,
+                currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+                externalRef = o.stringOrNull("external_ref"),
+                transactionId = o.stringOrNull("terminal_transaction_id"),
+                cardLast4 = o.stringOrNull("card_last4"),
+                responseMessage = o.stringOrNull("response_message"),
+                finalizationError = o.stringOrNull("finalization_error"),
+                updatedAt = o.stringOrNull("updated_at") ?: "",
+            )
+        }
+
+    override suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String): String =
+        client.postgrest.rpc(
+            "register_pos_card_terminal_device_key",
+            buildJsonObject {
+                put("p_terminal_id", terminalId)
+                put("p_device_id", deviceId)
+                put("p_public_key_spki_base64", publicKeySpkiBase64)
+                put("p_key_sha256", keySha256)
+            },
+        ).decodeAs<String>()
+
     // --- POS part payments (staged split)
 
     private fun splitFrom(o: JsonObject): PosSplitSession = PosSplitSession(

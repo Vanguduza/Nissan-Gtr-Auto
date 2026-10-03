@@ -45,6 +45,9 @@ include(":benchmark")
 // Bridge-First — consume only; impl lives under bridges/
 // location-tracker intentionally NOT included — driver GPS producer is
 // apps/android-delivery only. Management is staff view/subscribe.
+include(":card-terminal")
+project(":card-terminal").projectDir =
+    file("../../bridges/android/card-terminal")
 include(":qr-scanner")
 project(":qr-scanner").projectDir =
     file("../../bridges/android/qr-scanner")

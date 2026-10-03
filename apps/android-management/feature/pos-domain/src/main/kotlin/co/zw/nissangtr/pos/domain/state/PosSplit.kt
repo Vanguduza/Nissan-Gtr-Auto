@@ -70,7 +70,8 @@ internal fun reduceSplitIntent(state: PosState, intent: SplitIntent): Reduction 
         }
 
         is SplitIntent.AddPart -> when {
-            sp == null || state.splitBusy || !sp.open -> Reduction(state)
+            // A card part runs on the card machine (TerminalIntent.PayPart), never as a plain part.
+            sp == null || state.splitBusy || !sp.open || intent.tender == SplitTender.CardTerminal -> Reduction(state)
             !state.online -> offlineRefusal(state, "online_only")
             intent.amount.minor <= 0 || intent.amount.minor > sp.availableToAllocate.minor -> failWith(state, PosError.Input("amount", "split_part"))
             intent.tender == SplitTender.Bank && intent.reference.isNullOrBlank() -> failWith(state, PosError.Input("reference", "required"))

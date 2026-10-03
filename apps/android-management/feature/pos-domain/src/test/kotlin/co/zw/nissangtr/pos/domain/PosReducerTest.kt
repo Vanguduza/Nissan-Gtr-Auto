@@ -41,7 +41,7 @@ class PosReducerTest {
     fun `start loads operator, models, popular row and syncs the offline outbox`() {
         val r = reduce(PosState(), PosIntent.Start)
         assertEquals(
-            listOf(PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, co.zw.nissangtr.pos.domain.state.TillEffect.Load, co.zw.nissangtr.pos.domain.state.GovernanceEffect.LoadSelf, co.zw.nissangtr.pos.domain.state.CheckoutEffect.Init, co.zw.nissangtr.pos.domain.state.PosSaleEffect.SyncOffline),
+            listOf(PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, co.zw.nissangtr.pos.domain.state.TillEffect.Load, co.zw.nissangtr.pos.domain.state.GovernanceEffect.LoadSelf, co.zw.nissangtr.pos.domain.state.CheckoutEffect.Init, co.zw.nissangtr.pos.domain.state.TerminalEffect.LoadSetup, co.zw.nissangtr.pos.domain.state.PosSaleEffect.SyncOffline),
             r.effects,
         )
     }

@@ -194,6 +194,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     is GovernanceIntent -> reduceGovernanceIntent(state, intent)
     is CheckoutIntent -> reduceCheckoutIntent(state, intent)
     is SplitIntent -> reduceSplitIntent(state, intent)
+    is TerminalIntent -> reduceTerminalIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
@@ -471,6 +472,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     is GovernanceEvent -> reduceGovernanceEvent(state, event)
     is CheckoutEvent -> reduceCheckoutEvent(state, event)
     is SplitEvent -> reduceSplitEvent(state, event)
+    is TerminalEvent -> reduceTerminalEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 
@@ -504,6 +506,9 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
             split = null,
             splitBusy = false,
             splitPartKey = null,
+            terminalAttempt = null,
+            terminalBusy = false,
+            terminalKey = null,
             cart = CartProjection.empty(state.currency),
             feedback = null,
         ),

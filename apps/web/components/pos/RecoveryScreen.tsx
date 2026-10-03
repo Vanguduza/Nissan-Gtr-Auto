@@ -7,6 +7,7 @@ import type { ManagerProof, PaymentStatus, SplitSession } from "@/lib/pos/types"
 import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 import { SplitRecoveryDetail, splitStatusLabel } from "./SplitPayment";
+import { TerminalRecoveryList } from "./CardTerminalPanels";
 
 const STATE_LABEL: Record<string, string> = {
   awaiting_payment: "Waiting for payment",
@@ -98,7 +99,8 @@ export function ResolveList({ pos }: { pos: PosStore }) {
         <h3 className={styles.panelTitle} style={{ fontSize: 15, marginTop: 12 }}>Single payments</h3>
       ) : null}
       {list == null ? <div className={styles.emptyCard}>Loading…</div> : null}
-      {list?.length === 0 && !splits?.length ? <div className={styles.emptyCard}>No payments to resolve.</div> : null}
+      <TerminalRecoveryList pos={pos} orderId={null} />
+      {list?.length === 0 && !splits?.length && !pos.terminalRecovery?.length ? <div className={styles.emptyCard}>No payments to resolve.</div> : null}
       {list?.filter((r) => !splitOrders.has(r.orderId)).map((r) => (
         <div key={r.orderId} className={styles.listRow}>
           <span>
@@ -207,6 +209,7 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
               }}
             />
           ) : null}
+          <TerminalRecoveryList pos={pos} orderId={status.orderId} />
           {inFlight && !splitHasMoney ? (
             <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">
               <CircleAlert size={16} aria-hidden /> We cannot prove whether the customer has paid. Do not take this payment again. Check again,

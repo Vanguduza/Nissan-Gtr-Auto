@@ -1010,3 +1010,57 @@ data class PosSplitRecoveryRow(
     val updatedAt: String,
     val session: PosSplitSession,
 )
+
+/** `list_pos_card_terminals` row. [adapterConfig] holds only intent/extra names (no secrets). */
+data class PosCardTerminalRow(
+    val id: String,
+    val code: String,
+    val label: String,
+    val acquirerName: String?,
+    val adapterKey: String,
+    val adapterConfig: Map<String, String?>,
+    val warehouseId: String?,
+    val deviceId: String?,
+)
+
+/** `pos_card_terminal_attempt_payload` (or the finalize "recovery_required" answer). */
+data class PosTerminalAttempt(
+    val attemptId: String,
+    val operation: String,
+    /** initiated, approved, declined, cancelled, unknown, failed, settled, reversed — or recovery_required. */
+    val status: String,
+    val terminalId: String?,
+    val terminalLabel: String?,
+    val adapterKey: String?,
+    val adapterConfig: Map<String, String?>,
+    val amount: Double,
+    val currency: CurrencyCode,
+    val externalRef: String?,
+    val transactionId: String?,
+    val rrn: String?,
+    val authorizationCode: String?,
+    val cardLast4: String?,
+    val cardScheme: String?,
+    val responseMessage: String?,
+    val orderId: String?,
+    val splitLegId: String?,
+    val invoiceId: String?,
+    val finalizationError: String?,
+)
+
+/** `list_pos_card_terminal_recovery` row. */
+data class PosTerminalRecoveryRow(
+    val attemptId: String,
+    val operation: String,
+    val status: String,
+    val terminalLabel: String?,
+    val orderId: String?,
+    val amount: Double,
+    val currency: CurrencyCode,
+    val externalRef: String?,
+    val transactionId: String?,
+    val cardLast4: String?,
+    val responseMessage: String?,
+    val finalizationError: String?,
+    val updatedAt: String,
+)

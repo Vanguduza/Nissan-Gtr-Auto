@@ -121,6 +121,7 @@ dependencies {
     implementation(project(":feature:credit"))
     implementation(project(":feature:fleet"))
     implementation(project(":qr-scanner"))
+    implementation(project(":card-terminal"))
     implementation(project(":escpos-printer"))
     implementation(project(":biometric-photo"))
 

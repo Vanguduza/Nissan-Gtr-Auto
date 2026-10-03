@@ -14,7 +14,7 @@ const TENDER_LABEL: Record<string, string> = {
   ecocash: "EcoCash",
   paynow: "Paynow",
   contipay: "ContiPay",
-  card_terminal: "Card terminal",
+  card_terminal: "Card machine",
 };
 export const tenderLabel = (t: string) => TENDER_LABEL[t] ?? t.replace(/_/g, " ");
 
@@ -184,6 +184,10 @@ export function SplitPanel({ pos, onCancelled }: { pos: PosStore; onCancelled: (
                 <span className={styles.muted}>{pos.providers?.[p] ?? "Not available for part payments yet: take it as the whole payment."}</span>
               </button>
             ))}
+            <button type="button" role="radio" aria-checked={false} className={styles.tenderCard} disabled>
+              <span className={styles.listTitle}>Card machine</span>
+              <span className={styles.muted}>Use the counter tablet paired with the card machine.</span>
+            </button>
           </div>
           <div className={styles.formGrid}>
             <label className={styles.field}>

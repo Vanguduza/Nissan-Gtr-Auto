@@ -25,6 +25,8 @@ import type {
   PaymentStatus,
   SplitSession,
   SplitRecoveryItem,
+  CardTerminal,
+  TerminalRecoveryItem,
 } from "@/lib/pos/types";
 import {
   CatalogGatewayError,
@@ -1140,6 +1142,76 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         if (error || !data) return fail(error, "The refund step was not recorded.");
         return { ok: true, data: splitFromRow(data as Record<string, unknown>) };
       });
+    },
+
+    async listCardTerminals() {
+      const { data, error } = await rpc(client, "list_pos_card_terminals", { p_warehouse_id: null, p_device_id: null });
+      if (error) return fail(error, "Could not load the card machines.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map(
+          (r): CardTerminal => ({
+            id: String(r.id),
+            code: String(r.code ?? ""),
+            label: String(r.label ?? ""),
+            acquirerName: (r.acquirer_name as string | null) ?? null,
+            externalTerminalId: (r.external_terminal_id as string | null) ?? null,
+            config: (r.adapter_config as CardTerminal["config"] | null) ?? {},
+            warehouseId: (r.warehouse_id as string | null) ?? null,
+            deviceId: (r.device_id as string | null) ?? null,
+            isActive: r.is_active !== false,
+          }),
+        ),
+      };
+    },
+
+    async saveCardTerminal(t) {
+      // Only the keys the server allows, and no blanks: it refuses anything else.
+      const config = Object.fromEntries(Object.entries(t.config).filter(([, v]) => typeof v === "string" && v.trim() !== "").map(([k, v]) => [k, v!.trim()]));
+      const { data, error } = await rpc(client, "upsert_pos_card_terminal", {
+        p_id: t.id,
+        p_code: t.code.trim(),
+        p_label: t.label.trim(),
+        p_acquirer_name: t.acquirerName?.trim() || null,
+        p_external_terminal_id: t.externalTerminalId?.trim() || null,
+        p_adapter_key: "android_intent_v1",
+        p_adapter_config: config,
+        p_warehouse_id: t.warehouseId,
+        p_device_id: t.deviceId?.trim() || null,
+        p_is_active: t.isActive,
+      });
+      if (error || typeof data !== "string") return fail(error, "The card machine was not saved.");
+      return { ok: true, data };
+    },
+
+    async listTerminalRecovery() {
+      const { data, error } = await rpc(client, "list_pos_card_terminal_recovery", { p_limit: 100 });
+      if (error) return fail(error, "Could not load card-machine payments to resolve.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map(
+          (r): TerminalRecoveryItem => ({
+            attemptId: String(r.id),
+            operation: String(r.operation ?? ""),
+            status: String(r.status ?? ""),
+            terminalLabel: (r.terminal_label as string | null) ?? null,
+            orderId: (r.commerce_order_id as string | null) ?? null,
+            amount: num(r.amount),
+            currency: asCurrency(r.currency),
+            transactionId: (r.terminal_transaction_id as string | null) ?? null,
+            cardLast4: (r.card_last4 as string | null) ?? null,
+            message: ((r.finalization_error ?? r.response_message) as string | null) ?? null,
+            updatedAt: String(r.updated_at ?? ""),
+          }),
+        ),
+      };
+    },
+
+    async finishTerminalPayment(attemptId) {
+      const { data, error } = await rpc(client, "finalize_pos_card_terminal_purchase", { p_attempt_id: attemptId });
+      if (error || !data) return fail(error, "The card payment could not be applied.");
+      const r = data as Record<string, unknown>;
+      return { ok: true, data: { status: String(r.status ?? ""), error: ((r.error ?? r.finalization_error) as string | null) ?? null } };
     },
 
     async listPickupOrders(query) {

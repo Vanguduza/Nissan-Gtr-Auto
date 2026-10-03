@@ -42,6 +42,9 @@ import co.zw.nissangtr.pos.domain.model.RefundFeePolicy
 import co.zw.nissangtr.pos.domain.model.SplitRecoveryItem
 import co.zw.nissangtr.pos.domain.model.SplitSession
 import co.zw.nissangtr.pos.domain.model.SplitTender
+import co.zw.nissangtr.pos.domain.model.TerminalAttempt
+import co.zw.nissangtr.pos.domain.model.TerminalRecoveryItem
+import co.zw.nissangtr.pos.domain.model.TerminalSetup
 import co.zw.nissangtr.pos.domain.model.ProviderStart
 import co.zw.nissangtr.pos.domain.model.RecoveryItem
 import co.zw.nissangtr.pos.domain.model.TillCloseResult
@@ -331,5 +334,41 @@ interface SplitPaymentGateway {
         override suspend fun retryFinalization(sessionId: String) = refused
         override suspend fun recovery(): PosResult<List<SplitRecoveryItem>> = PosResult.Ok(emptyList())
         override suspend fun cart(cartId: String): PosResult<CartProjection> = refused
+    }
+}
+
+/**
+ * Card machines (ECR). The data layer runs the terminal through its bridge, signs the answer with
+ * this device's paired key and records it; the domain only sees attempts and outcomes.
+ */
+interface CardTerminalGateway {
+    val enabled: Boolean get() = true
+    suspend fun setup(): PosResult<TerminalSetup>
+    suspend fun select(terminalId: String): PosResult<TerminalSetup>
+    /** Admin pairs this device with the selected machine (password sign-in for this one action). */
+    suspend fun pair(terminalId: String, admin: ManagerCredentials?): PosResult<TerminalSetup>
+    suspend fun beginPurchase(orderId: String, terminalId: String, requestId: String): PosResult<TerminalAttempt>
+    /** Adds a card part to the split payment and starts it on the machine. */
+    suspend fun beginSplitPart(sessionId: String, amount: Money, terminalId: String, requestId: String): PosResult<TerminalAttempt>
+    /** Runs [attempt] on the machine (or asks the machine for its status) and records the signed answer. */
+    suspend fun run(attempt: TerminalAttempt, statusOnly: Boolean = false): PosResult<TerminalAttempt>
+    suspend fun finalize(attemptId: String): PosResult<TerminalAttempt>
+    suspend fun beginReversal(purchaseAttemptId: String, requestId: String): PosResult<TerminalAttempt>
+    suspend fun attempt(attemptId: String): PosResult<TerminalAttempt>
+    suspend fun recovery(): PosResult<List<TerminalRecoveryItem>>
+
+    object None : CardTerminalGateway {
+        override val enabled = false
+        private val refused = PosResult.Err(PosError.BusinessRule("terminal_unavailable", ""))
+        override suspend fun setup(): PosResult<TerminalSetup> = PosResult.Ok(TerminalSetup(emptyList(), null, appInstalled = false, paired = false))
+        override suspend fun select(terminalId: String) = refused
+        override suspend fun pair(terminalId: String, admin: ManagerCredentials?) = refused
+        override suspend fun beginPurchase(orderId: String, terminalId: String, requestId: String) = refused
+        override suspend fun beginSplitPart(sessionId: String, amount: Money, terminalId: String, requestId: String) = refused
+        override suspend fun run(attempt: TerminalAttempt, statusOnly: Boolean) = refused
+        override suspend fun finalize(attemptId: String) = refused
+        override suspend fun beginReversal(purchaseAttemptId: String, requestId: String) = refused
+        override suspend fun attempt(attemptId: String) = refused
+        override suspend fun recovery(): PosResult<List<TerminalRecoveryItem>> = PosResult.Ok(emptyList())
     }
 }

@@ -5,6 +5,8 @@ enum class SplitTender(val rpcValue: String, val receipt: Tender) {
     Cash("cash", Tender.Cash),
     Bank("bank", Tender.Bank),
     StoreCredit("store_credit", Tender.StoreCredit),
+    /** Taken on the card machine (`TerminalIntent.PayPart`); printed as card on the receipt. */
+    CardTerminal("card_terminal", Tender.Bank),
 }
 
 /** Who carries provider / transfer fees on a refund of a captured part. */

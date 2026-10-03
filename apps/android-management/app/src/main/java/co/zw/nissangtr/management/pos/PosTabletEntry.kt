@@ -96,6 +96,16 @@ fun PosTabletEntry(
                 reserve = co.zw.nissangtr.pos.data.RpcReserveCheckoutGateway(rpc),
                 // Part payments (staged split) on the reserved order.
                 split = co.zw.nissangtr.pos.data.RpcSplitPaymentGateway(rpc),
+                // Card machine (ECR): the acquirer's app via the card-terminal bridge; a simulated machine
+                // only when this build runs on the in-memory demo backend.
+                terminal = RpcCardTerminalGateway(
+                    rpc = rpc,
+                    bridge = if (rpc is co.zw.nissangtr.management.rpc.FakeRpcClient) co.zw.nissangtr.bridges.terminal.SimulatedCardTerminalBridge()
+                    else co.zw.nissangtr.bridges.terminal.IntentCardTerminalBridge(context).also { b -> (context as? android.app.Activity)?.let(b::attachActivity) },
+                    key = { co.zw.nissangtr.bridges.terminal.TerminalDeviceKey() },
+                    deviceId = deviceId,
+                    prefs = context.getSharedPreferences("pos_card_terminal", android.content.Context.MODE_PRIVATE),
+                ),
                 // Manager ID badges are read with the front camera, facing whoever stands at the counter.
                 badgeScanner = BadgeScanner {
                     try {

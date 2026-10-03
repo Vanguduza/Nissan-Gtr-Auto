@@ -152,7 +152,7 @@ class PosSplitTest {
     @Test
     fun `recovery loads part payments with the order`() {
         val r = reduce(PosState(), CheckoutIntent.OpenRecovery("o1"))
-        assertEquals(listOf(CheckoutEffect.LoadRecoveryStatus("o1"), SplitEffect.LoadRecoverySession("o1")), r.effects)
+        assertEquals(listOf(CheckoutEffect.LoadRecoveryStatus("o1"), SplitEffect.LoadRecoverySession("o1"), co.zw.nissangtr.pos.domain.state.TerminalEffect.LoadRecovery), r.effects)
         val all = reduce(PosState(), CheckoutIntent.OpenRecovery(null))
         assertTrue(SplitEffect.LoadRecovery in all.effects)
         val loaded = reduce(r.state, SplitEvent.RecoverySessionLoaded("o1", session(30.0, "partially_captured"))).state

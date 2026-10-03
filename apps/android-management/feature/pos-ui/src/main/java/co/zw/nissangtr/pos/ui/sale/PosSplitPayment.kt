@@ -44,6 +44,7 @@ import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosSaleIntent
 import co.zw.nissangtr.pos.domain.state.PosState
 import co.zw.nissangtr.pos.domain.state.SplitIntent
+import co.zw.nissangtr.pos.domain.state.terminalReason
 import co.zw.nissangtr.pos.ui.R
 import co.zw.nissangtr.pos.ui.common.PosField
 import co.zw.nissangtr.pos.ui.common.PosPrimaryButton
@@ -65,6 +66,7 @@ private fun tenderName(raw: String): String = when (raw) {
     "ecocash" -> stringResource(R.string.pos_tender_ecocash)
     "paynow" -> stringResource(R.string.pos_tender_paynow)
     "contipay" -> stringResource(R.string.pos_tender_contipay)
+    "card_terminal" -> stringResource(R.string.pos_ct_machine)
     else -> humanState(raw)
 }
 
@@ -187,6 +189,7 @@ internal fun SplitPanel(state: PosState, session: SplitSession, dispatch: (PosIn
     Spacer(Modifier.height(6.dp))
     SplitLegs(session)
 
+    if (state.terminalBusy && state.terminalAttempt?.splitLegId != null) TerminalWaiting(state.terminalAttempt)
     if (!session.open) return
 
     when (mode) {
@@ -203,6 +206,7 @@ internal fun SplitPanel(state: PosState, session: SplitSession, dispatch: (PosIn
                     Triple(SplitTender.Cash, tenderName("cash"), null),
                     Triple(SplitTender.Bank, tenderName("bank"), null),
                     Triple(SplitTender.StoreCredit, tenderName("store_credit"), if (state.customer == null) noCustomer else null),
+                    Triple(SplitTender.CardTerminal, tenderName("card_terminal"), terminalReasonText(state.terminalReason())),
                 ),
                 disabled = listOf(tenderName("ecocash"), tenderName("paynow"), tenderName("contipay")).map { it to (notForParts) },
                 selected = tender,
@@ -226,16 +230,20 @@ internal fun SplitPanel(state: PosState, session: SplitSession, dispatch: (PosIn
                             modifier = m,
                         )
                     }
-                    SplitTender.StoreCredit -> Unit
+                    SplitTender.StoreCredit, SplitTender.CardTerminal -> Unit
                 }
             }
             val canTake = !state.splitBusy && value != null && value.minor > 0 && value.minor <= session.availableToAllocate.minor &&
-                (tender != SplitTender.Bank || reference.isNotBlank()) && (tender != SplitTender.StoreCredit || state.customer != null)
+                (tender != SplitTender.Bank || reference.isNotBlank()) && (tender != SplitTender.StoreCredit || state.customer != null) &&
+                (tender != SplitTender.CardTerminal || (state.terminalReason() == null && !state.terminalBusy))
             val take: @Composable (Modifier) -> Unit = { m ->
                 PosPrimaryButton(
                     label = if (state.splitBusy) stringResource(R.string.pos_completing) else stringResource(R.string.pos_split_take, value?.let { formatMoney(it) } ?: ""),
                     enabled = canTake,
-                    onClick = { dispatch(SplitIntent.AddPart(tender, value!!, reference.ifBlank { null })) },
+                    onClick = {
+                        if (tender == SplitTender.CardTerminal) dispatch(co.zw.nissangtr.pos.domain.state.TerminalIntent.PayPart(value!!))
+                        else dispatch(SplitIntent.AddPart(tender, value!!, reference.ifBlank { null }))
+                    },
                     modifier = m,
                 )
             }
@@ -254,7 +262,7 @@ internal fun SplitPanel(state: PosState, session: SplitSession, dispatch: (PosIn
                     Column {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
                             amountField(Modifier.weight(1f))
-                            if (tender == SplitTender.StoreCredit) Spacer(Modifier.weight(1f)) else detailField(Modifier.weight(1f))
+                            if (tender == SplitTender.StoreCredit || tender == SplitTender.CardTerminal) Spacer(Modifier.weight(1f)) else detailField(Modifier.weight(1f))
                         }
                         PosRowEnd {
                             if (session.received.minor > 0) {

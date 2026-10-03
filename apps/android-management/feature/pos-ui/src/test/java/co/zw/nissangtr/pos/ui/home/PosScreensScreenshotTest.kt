@@ -502,4 +502,62 @@ class PosScreensScreenshotTest {
             ),
         ),
     )
+
+    // ------------------------------------------------------------ card machine (§10.7)
+
+    private val machine = co.zw.nissangtr.pos.domain.model.CardTerminal("t1", "Counter card machine", "CBZ", mapOf("package_name" to "zw.co.cbz.pos"))
+    private val machineReady = co.zw.nissangtr.pos.domain.model.TerminalSetup(listOf(machine), machine, appInstalled = true, paired = true)
+    private val machineAttempt = co.zw.nissangtr.pos.domain.model.TerminalAttempt(
+        "a1", "purchase", "initiated", sale.cart.total, "Counter card machine", null, null, null, null, status().orderId, null, null, null,
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun cardMachineWaiting() = capture(
+        "card_machine_waiting",
+        1280.dp,
+        800.dp,
+        reserved(st = status("payment_processing")).let {
+            it.copy(terminalSetup = machineReady, terminalAttempt = machineAttempt, terminalBusy = true, checkout = it.checkout!!.copy(busy = true))
+        },
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun cardMachineUnknown() = capture(
+        "card_machine_unknown",
+        1280.dp,
+        800.dp,
+        reserved(st = status("payment_processing")).let {
+            it.copy(
+                terminalSetup = machineReady,
+                terminalAttempt = machineAttempt.copy(status = "unknown"),
+                checkout = it.checkout!!.copy(outcome = co.zw.nissangtr.pos.domain.model.TenderOutcome.Unknown, message = "terminal_unknown"),
+            )
+        },
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun cardMachineRecovery() = capture(
+        "card_machine_recovery",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            reserveCheckout = true,
+            destination = PosDestination.Recovery,
+            terminalSetup = machineReady,
+            terminalRecovery = listOf(
+                co.zw.nissangtr.pos.domain.model.TerminalRecoveryItem("a1", "purchase", "approved", "Counter card machine", "o1", usd(147.5), "TX-88231", "4242", "insufficient FIFO batch qty", "2026-10-01T07:44:00Z"),
+                co.zw.nissangtr.pos.domain.model.TerminalRecoveryItem("a2", "purchase", "unknown", "Counter card machine", "o2", usd(62.5), null, null, null, "2026-10-01T07:31:00Z"),
+            ),
+            splitRecovery = emptyList(),
+            recoveryItems = emptyList(),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun settingsCardMachine() = capture(
+        "settings_card_machine",
+        1280.dp,
+        800.dp,
+        sale.copy(destination = PosDestination.Settings, terminalSetup = machineReady.copy(paired = false)),
+    )
 }

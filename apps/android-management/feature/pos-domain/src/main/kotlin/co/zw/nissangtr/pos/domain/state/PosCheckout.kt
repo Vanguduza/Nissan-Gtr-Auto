@@ -150,19 +150,19 @@ internal fun closeReservedPayment(state: PosState): Reduction {
 private fun PosState.withSession(transform: CheckoutSession.() -> CheckoutSession) = copy(checkout = checkout?.transform())
 
 private fun expire(state: PosState) = Reduction(
-    state.copy(checkout = null, split = null, paymentOpen = false, reserving = false, feedback = PosFeedback.Notice(PosNotice.ReservationExpired)),
+    state.copy(checkout = null, split = null, terminalAttempt = null, paymentOpen = false, reserving = false, feedback = PosFeedback.Notice(PosNotice.ReservationExpired)),
 )
 
 /** One order: its status and any part payments; the list: single and part payments to resolve. */
 private fun recoveryLoads(orderId: String?): List<PosSaleEffect> =
-    if (orderId != null) listOf(CheckoutEffect.LoadRecoveryStatus(orderId), SplitEffect.LoadRecoverySession(orderId))
-    else listOf(CheckoutEffect.LoadRecovery, SplitEffect.LoadRecovery)
+    if (orderId != null) listOf(CheckoutEffect.LoadRecoveryStatus(orderId), SplitEffect.LoadRecoverySession(orderId), TerminalEffect.LoadRecovery)
+    else listOf(CheckoutEffect.LoadRecovery, SplitEffect.LoadRecovery, TerminalEffect.LoadRecovery)
 
 internal fun reduceCheckoutIntent(state: PosState, intent: CheckoutIntent): Reduction {
     val co = state.checkout
     return when (intent) {
         is CheckoutIntent.PayManual -> when {
-            co == null || state.split != null || co.busy || co.inFlight || co.outcome == TenderOutcome.Unknown -> Reduction(state)
+            co == null || state.split != null || state.terminalAttempt?.unresolved == true || co.busy || co.inFlight || co.outcome == TenderOutcome.Unknown -> Reduction(state)
             !state.online -> offlineRefusal(state, "online_only")
             intent.tenders.isEmpty() || intent.tenders.any { !it.tender.manual || it.amount.minor <= 0 } ->
                 fail(state, PosError.Input("tender", "amount"))
@@ -218,6 +218,7 @@ internal fun reduceCheckoutIntent(state: PosState, intent: CheckoutIntent): Redu
                 recoveryOrderId = intent.orderId,
                 recoveryStatus = null,
                 recoverySplit = null,
+                recoveryTerminal = null,
                 paymentOpen = if (intent.orderId != null && intent.orderId == co?.orderId) false else state.paymentOpen,
             ),
             recoveryLoads(intent.orderId),
@@ -282,7 +283,7 @@ internal fun reduceCheckoutEvent(state: PosState, event: CheckoutEvent): Reducti
 
     is CheckoutEvent.Polled -> reducePolled(state, event)
 
-    CheckoutEvent.Cancelled -> Reduction(state.copy(checkout = null, split = null, paymentOpen = false, reserving = false, paying = false))
+    CheckoutEvent.Cancelled -> Reduction(state.copy(checkout = null, split = null, terminalAttempt = null, paymentOpen = false, reserving = false, paying = false))
 
     is CheckoutEvent.CancelFailed -> Reduction(state.withSession { copy(busy = false) }.copy(feedback = PosFeedback.Failure(event.error)))
 

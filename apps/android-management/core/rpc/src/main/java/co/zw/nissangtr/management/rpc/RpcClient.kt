@@ -870,6 +870,39 @@ interface RpcClient {
 
     suspend fun failPosSplitRefund(refundId: String, reason: String): PosSplitSession =
         throw UnsupportedOperationException("part payments need the live backend")
+
+    // --- POS card terminals (ECR, adapter android_intent_v1): money is taken on the acquirer's terminal app,
+    // its answer is signed by this paired device and recorded by the `card-terminal-result` function.
+
+    suspend fun listPosCardTerminals(warehouseId: String?, deviceId: String?): List<PosCardTerminalRow> = emptyList()
+
+    suspend fun beginPosCardTerminalPurchase(orderId: String, terminalId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** A planned `card_terminal` part of a split payment. */
+    suspend fun beginPosSplitCardTerminalLeg(legId: String, terminalId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    suspend fun getPosCardTerminalAttempt(attemptId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Posts signed evidence (`gtr-card-terminal-evidence-v1`); [payloadJson] is the canonical JSON that was signed. */
+    suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Approved → posts the sale (or the split part). May answer status `recovery_required` with an error. */
+    suspend fun finalizePosCardTerminalPurchase(attemptId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Undo an approved purchase that could not be posted (operator who took it, or a manager). */
+    suspend fun beginPosCardTerminalReversal(purchaseAttemptId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    suspend fun listPosCardTerminalRecovery(): List<PosTerminalRecoveryRow> = emptyList()
+
+    /** Admin: pair this device with a terminal by registering its evidence public key. */
+    suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String): String =
+        throw UnsupportedOperationException("card terminals need the live backend")
 }
 
 /** Outcome of [RpcClient.posBadgeApprove]. */

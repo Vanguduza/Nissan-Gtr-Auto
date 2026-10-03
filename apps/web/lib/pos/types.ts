@@ -260,6 +260,58 @@ export type SplitRefundStep =
   | { kind: "complete"; providerRef: string; notes: string | null }
   | { kind: "fail"; reason: string };
 
+// ───────── Card machines (ECR, adapter android_intent_v1) ─────────
+/** `adapter_config` keys an admin may set: intent actions and extra names only — never secrets. */
+export type CardTerminalConfig = Partial<
+  Record<
+    | "package_name"
+    | "purchase_action"
+    | "refund_action"
+    | "status_action"
+    | "reversal_action"
+    | "amount_minor_key"
+    | "currency_key"
+    | "reference_key"
+    | "operation_key"
+    | "original_transaction_id_key"
+    | "result_status_key"
+    | "result_transaction_id_key"
+    | "result_rrn_key"
+    | "result_auth_code_key"
+    | "result_last4_key"
+    | "result_scheme_key"
+    | "result_response_code_key"
+    | "result_response_message_key",
+    string
+  >
+>;
+export type CardTerminal = {
+  id: string;
+  code: string;
+  label: string;
+  acquirerName: string | null;
+  externalTerminalId: string | null;
+  config: CardTerminalConfig;
+  warehouseId: string | null;
+  deviceId: string | null;
+  isActive: boolean;
+};
+export type CardTerminalInput = Omit<CardTerminal, "id"> & { id: string | null };
+/** `list_pos_card_terminal_recovery` row: a card-machine payment that needs someone. */
+export type TerminalRecoveryItem = {
+  attemptId: string;
+  operation: string;
+  status: string;
+  terminalLabel: string | null;
+  orderId: string | null;
+  amount: number;
+  currency: PosCurrency;
+  transactionId: string | null;
+  cardLast4: string | null;
+  message: string | null;
+  updatedAt: string;
+};
+
 export type ReceiptContacts = { email: string | null; whatsappE164: string | null; phoneE164: string | null };
 export type ReceiptLine = { name: string; oemPartNumber: string; qty: number; unitPrice: number; lineTotal: number };
 export type ReceiptDocument = {

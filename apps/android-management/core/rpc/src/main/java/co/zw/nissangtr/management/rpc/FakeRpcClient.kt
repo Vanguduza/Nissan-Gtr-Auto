@@ -2494,4 +2494,103 @@ class FakeRpcClient : RpcClient {
     }
 
     override suspend fun failPosSplitRefund(refundId: String, reason: String) = refundStep(refundId) { _, r -> r.copy(status = "failed", failureReason = reason) }
+
+    // Card terminal (demo): one simulated card machine; results are trusted as sent (no device signature here).
+    private val fakeTerminal = PosCardTerminalRow(
+        "term-demo", "DEMO-1", "Demo card machine", "Demo bank", "android_intent_v1",
+        mapOf("package_name" to "co.zw.nissangtr.demo.terminal", "purchase_action" to "co.zw.nissangtr.demo.PURCHASE",
+            "reversal_action" to "co.zw.nissangtr.demo.REVERSAL", "status_action" to "co.zw.nissangtr.demo.STATUS"),
+        null, null,
+    )
+    private val fakeAttempts = mutableMapOf<String, PosTerminalAttempt>()
+    private val fakeAttemptKeys = mutableMapOf<String, String>()
+
+    override suspend fun listPosCardTerminals(warehouseId: String?, deviceId: String?) = listOf(fakeTerminal)
+
+    private fun newAttempt(requestId: String, operation: String, orderId: String?, legId: String?, amount: Double): PosTerminalAttempt {
+        fakeAttemptKeys[requestId]?.let { return fakeAttempts.getValue(it) }
+        val id = "att-${UUID.randomUUID().toString().take(8)}"
+        val a = PosTerminalAttempt(
+            id, operation, "initiated", fakeTerminal.id, fakeTerminal.label, fakeTerminal.adapterKey, fakeTerminal.adapterConfig,
+            amount, CurrencyCode.USD, "GTR-CT-${requestId.replace("-", "").take(12)}", null, null, null, null, null, null, orderId, legId, null, null,
+        )
+        fakeAttempts[id] = a; fakeAttemptKeys[requestId] = id
+        return a
+    }
+
+    override suspend fun beginPosCardTerminalPurchase(orderId: String, terminalId: String, requestId: String): PosTerminalAttempt {
+        val o = fakeOrders[orderId] ?: error("unsettled commerce order required")
+        check(o.invoiceId == null) { "unsettled commerce order required" }
+        o.state = "payment_processing"
+        return newAttempt(requestId, "purchase", orderId, null, o.total)
+    }
+
+    override suspend fun beginPosSplitCardTerminalLeg(legId: String, terminalId: String, requestId: String): PosTerminalAttempt {
+        val sp = fakeSplits.values.firstOrNull { s -> s.legs.any { it.id == legId } } ?: error("planned card-terminal split leg required")
+        val leg = sp.legs.first { it.id == legId }
+        check(leg.status == "planned") { "planned card-terminal split leg required" }
+        sp.legs.replaceAll { if (it.id == legId) it.copy(status = "pending") else it }
+        return newAttempt(requestId, "purchase", sp.orderId, legId, leg.amount)
+    }
+
+    override suspend fun getPosCardTerminalAttempt(attemptId: String) = fakeAttempts[attemptId] ?: error("card terminal attempt not found")
+
+    override suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): PosTerminalAttempt {
+        val p = kotlinx.serialization.json.Json.parseToJsonElement(payloadJson) as kotlinx.serialization.json.JsonObject
+        fun f(k: String) = (p[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content
+        val id = f("attempt_id") ?: error("attempt_id required")
+        val a = fakeAttempts[id] ?: error("card terminal attempt not found")
+        if (a.status == "settled" || a.status == "reversed") return a
+        val outcome = f("outcome") ?: error("invalid terminal outcome")
+        check(!(a.status == "approved" && outcome != "approved")) { "approved terminal result cannot be downgraded; reverse or finalize it" }
+        var next = a.copy(status = outcome, transactionId = f("terminal_transaction_id"), rrn = f("rrn"), authorizationCode = f("authorization_code"),
+            cardLast4 = f("card_last4"), cardScheme = f("card_scheme"), responseMessage = f("response_message"))
+        if (a.operation == "reversal" && outcome == "approved") {
+            a.orderId?.let { oid -> fakeAttempts.values.firstOrNull { it.orderId == oid && it.operation == "purchase" && it.status == "approved" } }
+                ?.let { fakeAttempts[it.attemptId] = it.copy(status = "reversed") }
+            next = next.copy(status = "settled")
+        }
+        if (a.operation == "purchase" && a.splitLegId == null && outcome in setOf("declined", "cancelled", "failed")) {
+            a.orderId?.let { fakeOrders[it]?.state = "payment_failed" }
+        }
+        if (a.splitLegId != null && outcome in setOf("declined", "cancelled", "failed")) {
+            fakeSplits.values.forEach { s -> s.legs.replaceAll { if (it.id == a.splitLegId) it.copy(status = "failed") else it } }
+        }
+        fakeAttempts[id] = next
+        return next
+    }
+
+    override suspend fun finalizePosCardTerminalPurchase(attemptId: String): PosTerminalAttempt {
+        val a = fakeAttempts[attemptId] ?: error("card terminal attempt not found")
+        if (a.status == "settled") return a
+        check(a.status == "approved") { "terminal approval required before finalization" }
+        val settled = if (a.splitLegId != null) {
+            val sp = fakeSplits.values.first { s -> s.legs.any { it.id == a.splitLegId } }
+            sp.legs.replaceAll { if (it.id == a.splitLegId) it.copy(status = "captured", externalReference = a.transactionId) else it }
+            val v = sp.finalize()
+            a.copy(status = "settled", invoiceId = v.finalInvoiceId)
+        } else {
+            val o = fakeOrders[a.orderId] ?: error("order not found")
+            val invoice = checkoutPosCartWithTenders(o.cartId, listOf(PosTenderLine("card_terminal", o.total))).invoiceId
+            o.state = "paid"; o.invoiceId = invoice
+            a.copy(status = "settled", invoiceId = invoice)
+        }
+        fakeAttempts[attemptId] = settled
+        return settled
+    }
+
+    override suspend fun beginPosCardTerminalReversal(purchaseAttemptId: String, requestId: String): PosTerminalAttempt {
+        val p = fakeAttempts[purchaseAttemptId] ?: error("approved, unfinalized purchase attempt required for reversal")
+        check(p.operation == "purchase" && p.status == "approved") { "approved, unfinalized purchase attempt required for reversal" }
+        return newAttempt(requestId, "reversal", p.orderId, null, p.amount)
+    }
+
+    override suspend fun listPosCardTerminalRecovery(): List<PosTerminalRecoveryRow> =
+        fakeAttempts.values.filter { it.status in setOf("initiated", "approved", "unknown") || it.finalizationError != null }.map {
+            PosTerminalRecoveryRow(it.attemptId, it.operation, it.status, it.terminalLabel, it.orderId, it.amount, it.currency, it.externalRef,
+                it.transactionId, it.cardLast4, it.responseMessage, it.finalizationError, java.time.Instant.now().toString())
+        }
+
+    override suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String) =
+        "key-${keySha256.take(8)}"
 }

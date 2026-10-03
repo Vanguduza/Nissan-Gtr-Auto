@@ -50,6 +50,9 @@ import type {
   SplitRefundStep,
   SplitSession,
   SplitTender,
+  CardTerminal,
+  CardTerminalInput,
+  TerminalRecoveryItem,
 } from "@/lib/pos/types";
 
 /**
@@ -146,6 +149,15 @@ export interface PosGateway {
   listSplitRecovery(): Promise<PosResult<SplitRecoveryItem[]>>;
   /** Manager or finance: password sign-in for this step, or the signed-in approver when null. */
   splitRefundStep(refundId: string, step: SplitRefundStep, manager: ManagerCredentials | null): Promise<PosResult<SplitSession>>;
+
+  // Card machines (ECR). Charging needs the counter tablet paired with the machine (its answers are
+  // signed on the device); the browser lists, sets up (admin) and finishes approved card payments.
+  listCardTerminals(): Promise<PosResult<CardTerminal[]>>;
+  /** Admin: add or change a card machine (`upsert_pos_card_terminal`). */
+  saveCardTerminal(t: CardTerminalInput): Promise<PosResult<string>>;
+  listTerminalRecovery(): Promise<PosResult<TerminalRecoveryItem[]>>;
+  /** Approved on the machine but not posted: post the sale against that charge. */
+  finishTerminalPayment(attemptId: string): Promise<PosResult<{ status: string; error: string | null }>>;
 
   // Manager approval by ID badge, manager assignment, badges and the approval audit trail.
   /** Is the signed-in user a POS manager (then no approval prompt is needed)? */
