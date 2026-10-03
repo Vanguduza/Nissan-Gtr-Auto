@@ -30,7 +30,7 @@ The full encrypted bundle remains an optional offline/admin/disaster-recovery ar
 
 Tills (web POS and the Android tablet/phone POS) can download the **complete** catalogue for
 offline use: every published vehicle's search shard, every diagram's part list and every diagram
-image (≈5 GB). Downloading is an explicit staff action in POS Settings → Offline catalogue; normal
+image (≈7 GB). Downloading is an explicit staff action in POS Settings → Offline catalogue; normal
 browsing still never requires it.
 
 - Builder: `data-pipeline/scripts/build_pos_offline_bundle.py` (resumable). It copies the current

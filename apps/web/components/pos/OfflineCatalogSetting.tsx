@@ -16,7 +16,7 @@ function when(iso: string | null): string {
 }
 
 /**
- * Settings row for the downloadable full catalogue: download (≈5 GB, resumable), progress, pause,
+ * Settings row for the downloadable full catalogue: download (≈7 GB, resumable), progress, pause,
  * refresh stock and prices, remove. With it, search, the vehicle cascade and EPC diagrams work with
  * no connection.
  */
@@ -45,7 +45,7 @@ export function OfflineCatalogSetting({ catalog }: { catalog: OfflineCatalog }) 
   let detail: string;
   switch (s.state) {
     case "none":
-      detail = "Download the whole parts catalogue (about 5 GB, every vehicle, diagram and image) so search and EPC work with no connection.";
+      detail = "Download the whole parts catalogue (about 7 GB, every vehicle, diagram and image) so search and EPC work with no connection.";
       break;
     case "downloading":
       detail = `Downloading ${s.release}: ${gb(s.doneBytes)} of ${gb(s.totalBytes)} (${Math.floor((s.doneBytes / Math.max(1, s.totalBytes)) * 100)}%). You can keep selling.`;

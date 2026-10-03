@@ -1,16 +1,20 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "d60687f6fc70a5708ef2",
+  "change_id": "522a9909c03bb9402dc2",
   "changed_files": [
-    "data-pipeline/scripts/build_pos_offline_bundle.py"
+    "apps/android-management/feature/pos-ui/src/main/res/values/strings.xml",
+    "apps/web/components/pos/OfflineCatalogSetting.tsx",
+    "docs/architecture/live-r2-catalog-serving.md"
   ],
-  "diff_sha256": "d60687f6fc70a5708ef21b4ca87f5fd5b146da954a58818c796af499270ddb68",
+  "diff_sha256": "522a9909c03bb9402dc2cb25cd68dd6ebc52886d604b9ba1e8b075cc756e3d56",
   "domains": [
-    "catalog-data"
+    "documentation",
+    "management-android",
+    "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-02T20:34:00.567982+00:00",
+  "recorded_at_utc": "2026-10-03T04:21:39.704112+00:00",
   "schema_version": 1,
-  "source_parent": "ba07b0b6ec8ec8862ab480b11241e7642e4e7fb6"
+  "source_parent": "d2857955a9d71c1be920c3a8770417b743e2b5f3"
 }
