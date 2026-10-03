@@ -18,6 +18,7 @@ import type {
   VehicleVariant,
 } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
+import { PickupList, ResolveList } from "./RecoveryScreen";
 import styles from "./pos.module.css";
 
 const EMPTY_CUSTOMER: CustomerInput = {
@@ -341,7 +342,7 @@ export function QuickSaleScreen({ pos, onQuote }: { pos: PosStore; onQuote: () =
 
 // ───────── Orders: parked sales + quotations ─────────
 export function OrdersScreen({ pos }: { pos: PosStore }) {
-  const [tab, setTab] = useState<"parked" | "quotes">("parked");
+  const [tab, setTab] = useState<"parked" | "quotes" | "pickup" | "resolve">("parked");
   const [parked, setParked] = useState<ParkedCart[]>([]);
   const [quotes, setQuotes] = useState<Quotation[]>([]);
   const [sending, setSending] = useState<{ id: string; channel: "email" | "sms" | "whatsapp"; contact: string } | null>(null);
@@ -366,12 +367,18 @@ export function OrdersScreen({ pos }: { pos: PosStore }) {
           options={[
             { id: "parked", label: `Parked (${parked.length})` },
             { id: "quotes", label: `Quotations (${quotes.length})` },
+            { id: "pickup", label: "Ready for pickup" },
+            { id: "resolve", label: "Payments to resolve" },
           ]}
           onChange={setTab}
         />
       </div>
       <div className={styles.list}>
-        {tab === "parked" ? (
+        {tab === "pickup" ? (
+          <PickupList pos={pos} />
+        ) : tab === "resolve" ? (
+          <ResolveList pos={pos} />
+        ) : tab === "parked" ? (
           parked.length === 0 ? (
             <div className={styles.emptyCard}>No parked sales.</div>
           ) : (

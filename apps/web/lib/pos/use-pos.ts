@@ -29,6 +29,15 @@ import type {
   VehicleModel,
   VehicleVariant,
   Governed,
+  ContipayMethod,
+  DigitalProvider,
+  ManualTenderLine,
+  PaymentStatus,
+  PaynowMethod,
+  PickupOrder,
+  ProviderAvailability,
+  RecoveryItem,
+  TenderOutcome,
 } from "@/lib/pos/types";
 
 const RECENT_KEY = "gtr.pos.recentSearches";
@@ -62,6 +71,19 @@ export function reasonActionFor(prompt: ManagerPrompt): string | null {
   }
 }
 
+/** A reserved checkout: the server's order and the digital attempt in flight, if any. */
+export type CheckoutSession = {
+  orderId: string;
+  cartId: string;
+  status: PaymentStatus;
+  attempt: { provider: DigitalProvider; intentId: string; checkoutUrl: string | null; startedAt: number } | null;
+  outcome: TenderOutcome | null;
+  message: string | null;
+};
+
+/** How long a digital attempt may stay unanswered before it is treated as Unknown (§10.7). */
+const PROVIDER_WAIT_MS = 3 * 60_000;
+
 const DEVICE_KEY = "gtr.pos.deviceId";
 
 /** Stable id for this browser as a till device (one open till per device). */
@@ -86,6 +108,7 @@ export type PosDestination =
   | "returns"
   | "epc"
   | "till"
+  | "recovery"
   | "settings";
 
 function readRecent(): string[] {
@@ -137,6 +160,17 @@ export function usePos(gateway: PosGateway) {
   const [discount, setDiscount] = useState<{ cartId: string; percent: number; amount: number } | null>(null);
   const [garageChoices, setGarageChoices] = useState<GarageVehicle[] | null>(null);
   const [lastReceipt, setLastReceipt] = useState<ReceiptDocument | null>(null);
+  /** The reserved order behind the last receipt, for "handed over" (counter pickup). */
+  const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<CheckoutSession | null>(null);
+  const checkoutRef = useRef<CheckoutSession | null>(null);
+  checkoutRef.current = checkout;
+  /** Idempotency keys for the current cart's checkout attempt (Blueprint §10.2). */
+  const checkoutKeys = useRef<{ cartId: string; requestId: string; paymentRequestId: string } | null>(null);
+  const [providers, setProviders] = useState<ProviderAvailability | null>(null);
+  const [recoveryOrderId, setRecoveryOrderId] = useState<string | null>(null);
+  const [recoveryItems, setRecoveryItems] = useState<RecoveryItem[] | null>(null);
+  const [pickups, setPickups] = useState<PickupOrder[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [till, setTill] = useState<TillSession | null>(null);
   const [tillLoaded, setTillLoaded] = useState(false);
@@ -422,9 +456,16 @@ export function usePos(gateway: PosGateway) {
     return false;
   }, [online]);
 
+  /** Only an unreserved sale can change (§10.5): a reserved one is released first by cancelling payment. */
+  const guardEditable = useCallback(() => {
+    if (!checkoutRef.current) return true;
+    setError("This sale is reserved for payment. Go back to the sale from the payment screen to change it.");
+    return false;
+  }, []);
+
   const addPart = useCallback(
     async (part: PosPart) => {
-      if (!guardOnline()) return;
+      if (!guardOnline() || !guardEditable()) return;
       if (!part.price) {
         setError(`${part.oemPartNumber} has no price — it cannot be sold until it is priced.`);
         return;
@@ -444,29 +485,29 @@ export function usePos(gateway: PosGateway) {
       }
       setBusy(false);
     },
-    [guardOnline, ensureCart, gateway, report],
+    [guardOnline, guardEditable, ensureCart, gateway, report],
   );
 
   const setLineQty = useCallback(
     async (lineId: string, qty: number) => {
       const c = cartRef.current;
-      if (!c || !guardOnline()) return;
+      if (!c || !guardOnline() || !guardEditable()) return;
       haptic("tap");
       const next = report(await gateway.setLineQty(c.id, lineId, qty));
       if (next) setCart(next);
     },
-    [gateway, guardOnline, report],
+    [gateway, guardOnline, guardEditable, report],
   );
 
   const removeLine = useCallback(
     async (lineId: string) => {
       const c = cartRef.current;
-      if (!c || !guardOnline()) return;
+      if (!c || !guardOnline() || !guardEditable()) return;
       haptic("select");
       const next = report(await gateway.removeLine(c.id, lineId));
       if (next) setCart(next);
     },
-    [gateway, guardOnline, report],
+    [gateway, guardOnline, guardEditable, report],
   );
 
   /** Quick Sale setup applies to the next sale; it is locked once parts are on the sale. */
@@ -496,6 +537,7 @@ export function usePos(gateway: PosGateway) {
   const requestManager = useCallback(
     async (prompt: ManagerPrompt) => {
       if (!guardOnline()) return;
+      if ((prompt.kind === "void" || prompt.kind === "discount" || prompt.kind === "override") && !guardEditable()) return;
       // Governed sale actions ask the policy first; drawer actions always need a manager on the server.
       setPromptNeedsManager(true);
       setManagerPrompt(prompt);
@@ -510,7 +552,7 @@ export function usePos(gateway: PosGateway) {
       const res = await gateway.requiresManager(action, value);
       setPromptNeedsManager(res.ok ? res.data : true);
     },
-    [guardOnline, gateway],
+    [guardOnline, guardEditable, gateway],
   );
 
   const confirmManager = useCallback(
@@ -714,47 +756,252 @@ export function usePos(gateway: PosGateway) {
     }
   }, [gateway, report, vehicle]);
 
-  // Payment
-  const checkout = useCallback(
-    async (tenders: TenderLine[], contacts: ReceiptContacts): Promise<ReceiptDocument | null> => {
+  // Payment — reserve-first (Blueprint §10.5–10.7). Opening payment reserves the stock and locks the
+  // sale; money is taken against that order; only `cancelCheckout` (or expiry) unlocks it.
+  const finishSale = useCallback(
+    async (invoiceId: string, orderId: string | null, tenders: TenderLine[]): Promise<ReceiptDocument | null> => {
+      const receipt = report(await gateway.loadReceipt(invoiceId));
+      const doc = receipt ? { ...receipt, tenders: receipt.tenders.length ? receipt.tenders : tenders, operator } : null;
+      setLastReceipt(doc);
+      setReceiptOrderId(orderId);
+      setCheckout(null);
+      checkoutKeys.current = null;
+      if (doc) haptic("success");
+      setCart(null);
+      setDiscount(null);
+      return doc;
+    },
+    [gateway, report, operator],
+  );
+
+  /** Reserve the sale for payment (idempotent per cart attempt) and read the server's order. */
+  const beginCheckout = useCallback(
+    async (contacts: ReceiptContacts): Promise<boolean> => {
       const c = cartRef.current;
-      if (!c || !guardOnline()) return null;
+      if (!c || c.lines.length === 0 || !guardOnline()) return false;
+      if (checkoutRef.current && checkoutRef.current.cartId === c.id) return true;
+      if (!checkoutKeys.current || checkoutKeys.current.cartId !== c.id) {
+        checkoutKeys.current = { cartId: c.id, requestId: crypto.randomUUID(), paymentRequestId: crypto.randomUUID() };
+      }
       setBusy(true);
       try {
-        const invoiceId = report(await gateway.checkout(c.id, tenders, contacts));
-        if (!invoiceId) return null;
-        const receipt = report(await gateway.loadReceipt(invoiceId));
-        const doc = receipt ? { ...receipt, tenders: receipt.tenders.length ? receipt.tenders : tenders, operator } : null;
-        setLastReceipt(doc);
-        if (doc) haptic("success");
-        setCart(null);
-        setDiscount(null);
-        return doc;
+        const orderId = report(await gateway.prepareCheckout(c.id, checkoutKeys.current.requestId, contacts));
+        if (!orderId) return false;
+        const status = report(await gateway.paymentStatus(orderId));
+        if (!status) return false;
+        setCheckout({ orderId, cartId: c.id, status, attempt: null, outcome: null, message: null });
+        void gateway.providerAvailability().then((r) => setProviders(r.ok ? r.data : { ecocash: "Unavailable", paynow: "Unavailable", contipay: "Unavailable" }));
+        return true;
       } finally {
         setBusy(false);
       }
     },
-    [gateway, guardOnline, report, operator],
+    [gateway, guardOnline, report],
   );
 
-  const requestEcocash = useCallback(
-    async (receipt: ReceiptDocument, msisdn: string) => {
-      const id = report(await gateway.requestEcocash(receipt.invoiceId, msisdn, receipt.total, receipt.currency, cartRef.current?.customerId ?? null));
-      if (id) setNotice(`EcoCash request sent to ${msisdn}. The customer approves it with their PIN.`);
+  /** Cash, card/bank, store credit: one idempotent settlement; a dropped answer is retried with the same key. */
+  const payManual = useCallback(
+    async (tenders: ManualTenderLine[], contacts: ReceiptContacts): Promise<ReceiptDocument | null> => {
+      const co = checkoutRef.current;
+      const keys = checkoutKeys.current;
+      if (!co || !keys || !guardOnline()) return null;
+      setBusy(true);
+      try {
+        // Same request id: refreshes the receipt contacts on the reserved order, nothing else.
+        if (!report(await gateway.prepareCheckout(co.cartId, keys.requestId, contacts))) return null;
+        const res = await gateway.settleTenders(co.orderId, keys.paymentRequestId, tenders);
+        if (res.ok) return await finishSale(res.data.invoiceId, co.orderId, tenders);
+        // Business refusals are definite: a fresh key for the next attempt. A network failure is not.
+        const network = /fetch|network|timeout|failed to fetch/i.test(res.error);
+        if (!network) keys.paymentRequestId = crypto.randomUUID();
+        setCheckout({ ...co, outcome: network ? "unknown" : "error", message: network ? "The payment answer did not arrive. Retry safely: it cannot be taken twice." : res.error });
+        if (/reservation expired/i.test(res.error)) expireCheckout();
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gateway, guardOnline, report, finishSale],
+  );
+
+  /** Start a digital payment; the order is watched until the provider settles or fails it. */
+  const payProvider = useCallback(
+    async (provider: DigitalProvider, params: { msisdn?: string; method?: PaynowMethod | ContipayMethod }, contacts: ReceiptContacts) => {
+      const co = checkoutRef.current;
+      const keys = checkoutKeys.current;
+      if (!co || !keys || !guardOnline()) return;
+      setBusy(true);
+      try {
+        if (!report(await gateway.prepareCheckout(co.cartId, keys.requestId, contacts))) return;
+        const returnUrl = `${window.location.origin}/staff/pos`;
+        const res = await gateway.startProvider(co.orderId, provider, { ...params, returnUrl });
+        if (!res.ok) {
+          setCheckout({ ...co, outcome: "error", message: res.error });
+          return;
+        }
+        setCheckout({ ...co, attempt: { provider, intentId: res.data.intentId, checkoutUrl: res.data.checkoutUrl, startedAt: Date.now() }, outcome: null, message: res.data.message });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [gateway, guardOnline, report],
+  );
+
+  /** Re-read the order: maps the provider's answer to exactly one outcome (§10.7). */
+  const refreshCheckout = useCallback(async () => {
+    const co = checkoutRef.current;
+    if (!co) return;
+    const res = await gateway.paymentStatus(co.orderId);
+    if (!res.ok) return;
+    const st = res.data;
+    if (st.salesInvoiceId && (st.state === "paid" || st.state === "allocation_pending" || st.state === "dispatch_ready")) {
+      setCheckout({ ...co, status: st, outcome: "approved" });
+      await finishSale(st.salesInvoiceId, co.orderId, [{ tender: st.settledProvider === "ecocash" ? "ecocash" : "bank", amount: st.total }]);
+      return;
+    }
+    if (st.state === "allocation_pending" && !st.salesInvoiceId) {
+      // Money captured, sale not finalised: never charge again — resolve from recovery.
+      setCheckout({ ...co, status: st, outcome: "unknown", message: "The money arrived but the sale did not finish. Resolve it from Payments to resolve." });
+      return;
+    }
+    if (st.state === "payment_failed" && co.attempt) {
+      const cancelled = /cancel/i.test(`${st.providerStatus} ${st.providerFailure}`);
+      setCheckout({ ...co, status: st, attempt: null, outcome: cancelled ? "cancelled" : "declined", message: st.providerFailure ?? "The payment was declined." });
+      return;
+    }
+    if (st.state === "payment_expired" || st.state === "cancelled") {
+      expireCheckout();
+      return;
+    }
+    // Still waiting: past the window the outcome is Unknown — block a second charge and go to recovery.
+    if (co.attempt && Date.now() - co.attempt.startedAt > PROVIDER_WAIT_MS) {
+      setCheckout({ ...co, status: st, outcome: "unknown", message: "No answer from the provider. Do not take this payment again until it is resolved." });
+      return;
+    }
+    setCheckout({ ...co, status: st });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateway, finishSale]);
+
+  // Watch a digital attempt every 3 s while the payment screen is open.
+  useEffect(() => {
+    if (!checkout?.attempt || checkout.outcome) return;
+    const t = window.setInterval(() => void refreshCheckout(), 3_000);
+    return () => window.clearInterval(t);
+  }, [checkout?.attempt, checkout?.outcome, refreshCheckout]);
+
+  /** The reservation ran out: the sale is unlocked with its lines intact and re-reserves next time. */
+  const expireCheckout = useCallback(() => {
+    setCheckout(null);
+    checkoutKeys.current = null;
+    setNotice("The payment reservation expired. The sale is unchanged; continue to payment to reserve it again.");
+  }, []);
+
+  useEffect(() => {
+    const at = checkout?.status.reservationExpiresAt ? Date.parse(checkout.status.reservationExpiresAt) : NaN;
+    if (!Number.isFinite(at) || checkout?.attempt) return;
+    const t = window.setTimeout(() => void refreshCheckout().then(() => {
+      if (checkoutRef.current && Date.parse(checkoutRef.current.status.reservationExpiresAt ?? "") <= Date.now()) expireCheckout();
+    }), Math.max(0, at - Date.now()) + 500);
+    return () => window.clearTimeout(t);
+  }, [checkout?.status.reservationExpiresAt, checkout?.attempt, refreshCheckout, expireCheckout]);
+
+  /** Back to the sale: releases the stock and unlocks editing (refused while money is in flight). */
+  const cancelCheckout = useCallback(
+    async (reason = "Operator returned to the sale"): Promise<boolean> => {
+      const co = checkoutRef.current;
+      if (!co) return true;
+      setBusy(true);
+      try {
+        if (!report(await gateway.cancelCheckout(co.orderId, reason))) return false;
+        setCheckout(null);
+        checkoutKeys.current = null;
+        return true;
+      } finally {
+        setBusy(false);
+      }
     },
     [gateway, report],
+  );
+
+  /** On account: the server's credit checks decide; the reservation is released first. */
+  const payOnAccount = useCallback(
+    async (contacts: ReceiptContacts): Promise<ReceiptDocument | null> => {
+      const c = cartRef.current;
+      if (!c || !guardOnline()) return null;
+      if (checkoutRef.current && !(await cancelCheckout("Switched to account credit"))) return null;
+      setBusy(true);
+      try {
+        const invoiceId = report(await gateway.checkoutOnAccount(c.id, contacts));
+        return invoiceId ? await finishSale(invoiceId, null, []) : null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [gateway, guardOnline, report, cancelCheckout, finishSale],
+  );
+
+  /** An Unknown outcome goes to its dedicated screen (§10.4): it cannot be dismissed by a tap. */
+  const openRecovery = useCallback((orderId: string | null) => {
+    setRecoveryOrderId(orderId);
+    setDestination("recovery");
+  }, []);
+
+  const refreshRecovery = useCallback(async () => {
+    setRecoveryItems(report(await gateway.listPaymentRecovery()) ?? []);
+  }, [gateway, report]);
+
+  const refreshPickups = useCallback(async (q = "") => {
+    setPickups(report(await gateway.listPickupOrders(q)) ?? []);
+  }, [gateway, report]);
+
+  const collectOrder = useCallback(
+    async (orderId: string, notes: string | null = null): Promise<boolean> => {
+      if (!guardOnline()) return false;
+      if (!report(await gateway.collectOrder(orderId, notes))) return false;
+      setNotice("Marked as collected.");
+      setReceiptOrderId((cur) => (cur === orderId ? null : cur));
+      void refreshPickups();
+      return true;
+    },
+    [gateway, guardOnline, report, refreshPickups],
+  );
+
+  const repairPaidOrder = useCallback(
+    async (orderId: string, notes: string | null, manager: ManagerCredentials): Promise<boolean> => {
+      if (!report(await gateway.repairPaidOrder(orderId, notes, manager))) return false;
+      setNotice("Paid order repaired: the sale is finalised and the payment applied.");
+      void refreshRecovery();
+      return true;
+    },
+    [gateway, report, refreshRecovery],
+  );
+
+  /** Cancel a stuck order from recovery: allowed only while no money is in flight (server-checked). */
+  const releaseOrder = useCallback(
+    async (orderId: string, reason: string): Promise<boolean> => {
+      if (!report(await gateway.cancelCheckout(orderId, reason))) return false;
+      if (checkoutRef.current?.orderId === orderId) {
+        setCheckout(null);
+        checkoutKeys.current = null;
+      }
+      setNotice("Reservation released. The sale can be edited or paid again.");
+      void refreshRecovery();
+      return true;
+    },
+    [gateway, report, refreshRecovery],
   );
 
   // Orders
   const parkCurrent = useCallback(async () => {
     const c = cartRef.current;
-    if (!c || c.lines.length === 0 || !guardOnline()) return;
+    if (!c || c.lines.length === 0 || !guardOnline() || !guardEditable()) return;
     if (report(await gateway.parkCart(c.id))) {
       setCart(null);
       setDiscount(null);
       setNotice("Sale parked. Resume it from Orders.");
     }
-  }, [gateway, guardOnline, report]);
+  }, [gateway, guardOnline, guardEditable, report]);
 
   const resume = useCallback(
     async (cartId: string) => {
@@ -904,9 +1151,28 @@ export function usePos(gateway: PosGateway) {
     addVehicleToGarage,
     // payment
     checkout,
-    requestEcocash,
+    beginCheckout,
+    payManual,
+    payProvider,
+    refreshCheckout,
+    cancelCheckout,
+    payOnAccount,
+    providers,
+    receiptOrderId,
+    openRecovery,
+    recoveryOrderId,
+    recoveryItems,
+    refreshRecovery,
+    repairPaidOrder,
+    releaseOrder,
+    pickups,
+    refreshPickups,
+    collectOrder,
     lastReceipt,
-    clearReceipt: () => setLastReceipt(null),
+    clearReceipt: () => {
+      setLastReceipt(null);
+      setReceiptOrderId(null);
+    },
     // till
     till,
     tillLoaded,

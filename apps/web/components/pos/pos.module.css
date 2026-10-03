@@ -1505,3 +1505,54 @@
   margin-top: 8px;
   accent-color: var(--pos-accent, #c8102e);
 }
+
+/* ───────── Payment methods (§10.7: unavailable tenders stay visible, disabled with a reason) ───────── */
+.tenderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.tenderCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--gtr-radius-sm);
+  background: var(--gtr-color-neutral-surface);
+  box-shadow: var(--gtr-neu-raised);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tenderCard:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: var(--gtr-neu-pressed);
+}
+.tenderCardActive {
+  outline: 2px solid var(--pos-red);
+}
+.tenderCard:focus-visible {
+  outline: 2px solid var(--pos-red);
+  outline-offset: 2px;
+}
+
+/* ───────── Payment recovery ───────── */
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 14px 0 0;
+  font-size: 13px;
+}
+.facts dt {
+  color: var(--gtr-color-neutral-ink-muted, #6b7280);
+}
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

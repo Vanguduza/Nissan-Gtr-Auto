@@ -30,6 +30,15 @@ import type {
   VehicleVariant,
   ApprovalPolicy,
   Governed,
+  ContipayMethod,
+  DigitalProvider,
+  ManualTenderLine,
+  PaymentStatus,
+  PaynowMethod,
+  PickupOrder,
+  ProviderAvailability,
+  ProviderStart,
+  RecoveryItem,
 } from "@/lib/pos/types";
 
 /**
@@ -87,9 +96,31 @@ export interface PosGateway {
   watchCompanion(cartId: string, sessionId: string, onCart: () => void, onStatus: (status: string) => void): () => void;
 
   // Payment
-  checkout(cartId: string, tenders: TenderLine[], contacts: ReceiptContacts): Promise<PosResult<string>>;
+  // Reserve-first checkout (Blueprint §10.6): reserve stock and lock the sale, then take money against
+  // the reserved order. [requestId] / [paymentRequestId] are idempotency keys: a retry returns the same result.
+  prepareCheckout(cartId: string, requestId: string, contacts: ReceiptContacts): Promise<PosResult<string>>;
+  paymentStatus(orderId: string): Promise<PosResult<PaymentStatus>>;
+  /** Cash, card/bank and store credit; must equal the order total. */
+  settleTenders(orderId: string, paymentRequestId: string, tenders: ManualTenderLine[]): Promise<PosResult<{ invoiceId: string; state: string }>>;
+  /** Which digital providers this shop has set up (a provider without keys answers 503). */
+  providerAvailability(): Promise<PosResult<ProviderAvailability>>;
+  startProvider(
+    orderId: string,
+    provider: DigitalProvider,
+    params: { msisdn?: string; method?: PaynowMethod | ContipayMethod; returnUrl?: string },
+  ): Promise<PosResult<ProviderStart>>;
+  /** Releases the reservation and unlocks the sale; refused while money is in flight. */
+  cancelCheckout(orderId: string, reason: string): Promise<PosResult<true>>;
+  /** On-account sale for a registered customer with credit (server checks limit, hold, currency). */
+  checkoutOnAccount(cartId: string, contacts: ReceiptContacts): Promise<PosResult<string>>;
   loadReceipt(invoiceId: string): Promise<PosResult<ReceiptDocument>>;
-  requestEcocash(invoiceId: string, msisdn: string, amount: number, currency: PosCurrency, customerId: string | null): Promise<PosResult<string>>;
+
+  // Payment recovery (dedicated screen) and counter pickup
+  listPaymentRecovery(): Promise<PosResult<RecoveryItem[]>>;
+  /** Paid at the provider but not finalised: finalise and apply the receipt. Manager or finance. */
+  repairPaidOrder(orderId: string, notes: string | null, manager: ManagerCredentials): Promise<PosResult<string>>;
+  listPickupOrders(query: string): Promise<PosResult<PickupOrder[]>>;
+  collectOrder(orderId: string, notes: string | null): Promise<PosResult<true>>;
 
   // Orders
   parkCart(cartId: string): Promise<PosResult<true>>;

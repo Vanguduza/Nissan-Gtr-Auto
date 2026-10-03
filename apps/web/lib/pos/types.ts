@@ -113,6 +113,65 @@ export type GarageVehicle = {
 /** `public.payment_tender` values usable at the counter (ContiPay/Paynow are online PSP flows). */
 export type Tender = "cash" | "bank" | "ecocash" | "store_credit";
 export type TenderLine = { tender: Tender; amount: number };
+/** Tenders the counter settles itself (`settle_pos_commerce_tenders`); digital money goes through a provider. */
+export type ManualTender = "cash" | "bank" | "store_credit";
+export type ManualTenderLine = { tender: ManualTender; amount: number };
+/** Digital providers: the customer pays on their phone; the provider's webhook settles the order. */
+export type DigitalProvider = "ecocash" | "paynow" | "contipay";
+/** Paynow and ContiPay payment methods (`paynow_method`, `contipay_method`). */
+export type PaynowMethod = "ecocash" | "onemoney" | "innbucks" | "visa";
+export type ContipayMethod = "ecocash" | "visa" | "zimswitch";
+/** Blueprint §10.7: every attempt ends as exactly one of these. */
+export type TenderOutcome = "approved" | "declined" | "cancelled" | "error" | "unknown";
+export type PaymentException = { id: string; provider: string | null; code: string; detail: string | null; resolvedAt: string | null; resolution: string | null; createdAt: string };
+/** `get_pos_payment_status`: the server's view of a reserved checkout (`commerce_orders`). */
+export type PaymentStatus = {
+  orderId: string;
+  cartId: string | null;
+  state: string;
+  total: number;
+  currency: PosCurrency;
+  reservationExpiresAt: string | null;
+  activeProvider: string | null;
+  activeIntentId: string | null;
+  providerStatus: string | null;
+  providerFailure: string | null;
+  settledProvider: string | null;
+  settledProviderRef: string | null;
+  salesInvoiceId: string | null;
+  paymentException: string | null;
+  exceptions: PaymentException[];
+};
+/** A started provider attempt; [checkoutUrl] is the hosted page the customer opens (Paynow / ContiPay). */
+export type ProviderStart = { intentId: string; checkoutUrl: string | null; message: string | null };
+/** Why a digital provider cannot be offered right now; null when it can. */
+export type ProviderAvailability = Record<DigitalProvider, string | null>;
+/** `list_pos_payment_recovery` row: a checkout whose money is not settled cleanly. */
+export type RecoveryItem = {
+  orderId: string;
+  state: string;
+  total: number;
+  currency: PosCurrency;
+  activeProvider: string | null;
+  settledProvider: string | null;
+  salesInvoiceId: string | null;
+  paymentException: string | null;
+  reservationExpiresAt: string | null;
+  updatedAt: string;
+  openExceptions: number;
+};
+/** `list_pos_pickup_orders` row: paid (or on account), waiting for the customer to collect. */
+export type PickupOrder = {
+  orderId: string;
+  documentNumber: string | null;
+  customerName: string | null;
+  state: string;
+  total: number;
+  currency: PosCurrency;
+  salesInvoiceId: string | null;
+  settledProvider: string | null;
+  updatedAt: string;
+};
 export type ReceiptContacts = { email: string | null; whatsappE164: string | null; phoneE164: string | null };
 export type ReceiptLine = { name: string; oemPartNumber: string; qty: number; unitPrice: number; lineTotal: number };
 export type ReceiptDocument = {

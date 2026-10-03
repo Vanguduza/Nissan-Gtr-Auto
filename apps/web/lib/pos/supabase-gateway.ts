@@ -22,6 +22,7 @@ import type {
   VehicleModel,
   VehicleVariant,
   Governed,
+  PaymentStatus,
 } from "@/lib/pos/types";
 import {
   CatalogGatewayError,
@@ -147,6 +148,35 @@ function tillFromRow(r: Record<string, unknown>): TillSession {
     varianceReasonCode: (r.variance_reason_code as string | null) ?? null,
     openedAt: String(r.opened_at ?? ""),
     closedAt: (r.closed_at as string | null) ?? null,
+  };
+}
+
+function paymentStatusFromRow(r: Record<string, unknown>): PaymentStatus {
+  const str = (v: unknown) => (v == null ? null : String(v));
+  return {
+    orderId: String(r.order_id),
+    cartId: str(r.cart_id),
+    state: String(r.state ?? ""),
+    total: num(r.total),
+    currency: asCurrency(r.currency),
+    reservationExpiresAt: str(r.reservation_expires_at),
+    activeProvider: str(r.active_provider),
+    activeIntentId: str(r.active_intent_id),
+    providerStatus: str(r.provider_status),
+    providerFailure: str(r.provider_failure),
+    settledProvider: str(r.settled_provider),
+    settledProviderRef: str(r.settled_provider_ref),
+    salesInvoiceId: str(r.sales_invoice_id),
+    paymentException: str(r.payment_exception),
+    exceptions: ((r.exceptions as Record<string, unknown>[] | null) ?? []).map((e) => ({
+      id: String(e.id),
+      provider: str(e.provider),
+      code: String(e.code ?? ""),
+      detail: str(e.detail),
+      resolvedAt: str(e.resolved_at),
+      resolution: str(e.resolution),
+      createdAt: String(e.created_at ?? ""),
+    })),
   };
 }
 
@@ -840,16 +870,148 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       };
     },
 
-    async checkout(cartId, tenders, contacts) {
-      const { data, error } = await rpc(client, "checkout_pos_cart_with_tenders", {
+    async prepareCheckout(cartId, requestId, contacts) {
+      const { data, error } = await rpc(client, "prepare_pos_commerce_checkout_v2", {
         p_cart_id: cartId,
-        p_tenders: tenders.map((t) => ({ tender: t.tender satisfies Tender, amount: roundMoney(t.amount) })),
+        p_checkout_request_id: requestId,
+        p_reservation_ttl: "20 minutes",
         p_receipt_email: contacts.email,
         p_receipt_whatsapp_e164: contacts.whatsappE164,
         p_receipt_phone_e164: contacts.phoneE164,
       });
-      if (error || typeof data !== "string") return fail(error, "Checkout failed.");
+      if (error || typeof data !== "string") return fail(error, "Could not reserve the sale for payment.");
       return { ok: true, data };
+    },
+
+    async paymentStatus(orderId) {
+      const { data, error } = await rpc(client, "get_pos_payment_status", { p_order_id: orderId });
+      if (error || !data) return fail(error, "Could not read the payment status.");
+      return { ok: true, data: paymentStatusFromRow(data as Record<string, unknown>) };
+    },
+
+    async settleTenders(orderId, paymentRequestId, tenders) {
+      const { data, error } = await rpc(client, "settle_pos_commerce_tenders", {
+        p_order_id: orderId,
+        p_payment_request_id: paymentRequestId,
+        p_tenders: tenders.map((t) => ({ tender: t.tender, amount: roundMoney(t.amount) })),
+      });
+      if (error || !data) return fail(error, "Payment was not recorded.");
+      const r = data as Record<string, unknown>;
+      return { ok: true, data: { invoiceId: String(r.invoice_id), state: String(r.state ?? "paid") } };
+    },
+
+    async providerAvailability() {
+      // A provider without keys answers 503 before it reads the body, so an empty probe is harmless.
+      const probe = async (fn: string): Promise<string | null> => {
+        const { error } = await client.functions.invoke(fn, { body: {} });
+        const status = (error as { context?: Response } | null)?.context?.status;
+        if (status === 503) return "Not set up for this shop yet.";
+        if (status === 401) return "Sign in again to use this provider.";
+        if (error && status == null) return "Provider unreachable.";
+        return null;
+      };
+      const [ecocash, paynow, contipay] = await Promise.all([probe("ecocash-initiate"), probe("paynow-initiate"), probe("contipay-initiate")]);
+      return { ok: true, data: { ecocash, paynow, contipay } };
+    },
+
+    async startProvider(orderId, provider, params) {
+      const body: Record<string, unknown> = { pos_commerce_order_id: orderId, channel: "pos", metadata: { source: "web_pos" } };
+      if (provider === "ecocash") body.payer_msisdn = params.msisdn;
+      else {
+        body.method = params.method;
+        body.return_url = params.returnUrl;
+        body.cancel_url = params.returnUrl;
+        if (params.msisdn) {
+          body.phone = params.msisdn;
+          body.authphone = params.msisdn;
+        }
+      }
+      const { data, error } = await client.functions.invoke(`${provider}-initiate`, { body });
+      let payload = data as Record<string, unknown> | null;
+      if (error) {
+        const ctx = (error as { context?: Response }).context;
+        payload = ctx ? ((await ctx.json().catch(() => null)) as Record<string, unknown> | null) : null;
+        // The intent exists even when the provider call failed: the server tracks it; recovery can see it.
+        if (!payload?.intent_id) return { ok: false, error: operatorMessage(String(payload?.error ?? error.message), "The payment request was not sent.") };
+      }
+      if (!payload || typeof payload.intent_id !== "string") return { ok: false, error: "The payment request was not sent." };
+      return {
+        ok: true,
+        data: {
+          intentId: payload.intent_id,
+          checkoutUrl: typeof payload.checkout_url === "string" ? payload.checkout_url : null,
+          message: typeof payload.message === "string" ? payload.message : typeof payload.error === "string" ? payload.error : null,
+        },
+      };
+    },
+
+    async cancelCheckout(orderId, reason) {
+      const { error } = await rpc(client, "cancel_pos_commerce_checkout", { p_order_id: orderId, p_reason: reason });
+      return error ? fail(error, "Could not cancel the payment.") : { ok: true, data: true };
+    },
+
+    async checkoutOnAccount(cartId, contacts) {
+      const { data, error } = await rpc(client, "checkout_pos_cart_on_account", {
+        p_cart_id: cartId,
+        p_receipt_email: contacts.email,
+        p_receipt_whatsapp_e164: contacts.whatsappE164,
+        p_receipt_phone_e164: contacts.phoneE164,
+      });
+      if (error || typeof data !== "string") return fail(error, "On-account sale refused.");
+      return { ok: true, data };
+    },
+
+    async listPaymentRecovery() {
+      const { data, error } = await rpc(client, "list_pos_payment_recovery", { p_limit: 100 });
+      if (error) return fail(error, "Could not load payments to resolve.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+          orderId: String(r.order_id),
+          state: String(r.state),
+          total: num(r.total),
+          currency: asCurrency(r.currency),
+          activeProvider: (r.active_provider as string | null) ?? null,
+          settledProvider: (r.settled_provider as string | null) ?? null,
+          salesInvoiceId: (r.sales_invoice_id as string | null) ?? null,
+          paymentException: (r.payment_exception as string | null) ?? null,
+          reservationExpiresAt: (r.reservation_expires_at as string | null) ?? null,
+          updatedAt: String(r.updated_at ?? ""),
+          openExceptions: num(r.open_exception_count),
+        })),
+      };
+    },
+
+    async repairPaidOrder(orderId, notes, manager) {
+      return asManager(manager, async (m) => {
+        const { data, error } = await rpc(m, "repair_pos_paid_order", { p_order_id: orderId, p_notes: notes });
+        if (error || typeof data !== "string") return fail(error, "The paid order could not be repaired.");
+        return { ok: true, data };
+      });
+    },
+
+    async listPickupOrders(query) {
+      const { data, error } = await rpc(client, "list_pos_pickup_orders", { p_query: query.trim() || null, p_limit: 100 });
+      if (error) return fail(error, "Could not load pickups.");
+      return {
+        ok: true,
+        data: ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+          orderId: String(r.order_id),
+          documentNumber: (r.document_number as string | null) ?? null,
+          customerName: (r.customer_name as string | null) ?? null,
+          state: String(r.state),
+          total: num(r.total),
+          currency: asCurrency(r.currency),
+          salesInvoiceId: (r.sales_invoice_id as string | null) ?? null,
+          settledProvider: (r.settled_provider as string | null) ?? null,
+          updatedAt: String(r.updated_at ?? ""),
+        })),
+      };
+    },
+
+    async collectOrder(orderId, notes) {
+      const { error } = await rpc(client, "collect_pos_commerce_order", { p_order_id: orderId, p_notes: notes });
+      return error ? fail(error, "Could not mark the order collected.") : { ok: true, data: true };
     },
 
     async loadReceipt(invoiceId) {
@@ -898,21 +1060,6 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
           operator: "",
         },
       };
-    },
-
-    async requestEcocash(invoiceId, msisdn, amount, currency, customerId) {
-      const { data, error } = await rpc(client, "create_ecocash_intent", {
-        p_external_ref: `POS-${invoiceId}-${Date.now()}`,
-        p_payer_msisdn: msisdn,
-        p_amount: roundMoney(amount),
-        p_currency: currency,
-        p_payer_mode: "pos_entered",
-        p_channel: "web",
-        p_customer_id: customerId,
-        p_sales_invoice_id: invoiceId,
-      });
-      if (error || typeof data !== "string") return fail(error, "EcoCash request failed.");
-      return { ok: true, data };
     },
 
     async parkCart(cartId) {

@@ -1,12 +1,12 @@
 "use client";
 
-import { Banknote, Car, Plus, Printer, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
+import { Banknote, Building2, Car, CircleAlert, Lock, PackageCheck, Plus, Printer, RefreshCw, ShieldCheck, Smartphone, Trash2, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
 import { THERMAL_COLUMNS, thermalLines } from "@gtr/shared";
 import { webReceiptRows } from "@/lib/pos/receipt";
-import type { ReasonCode, ReceiptDocument, Tender, TenderLine } from "@/lib/pos/types";
+import type { ContipayMethod, DigitalProvider, ManualTender, ManualTenderLine, PaynowMethod, ReasonCode, ReceiptDocument } from "@/lib/pos/types";
 import { reasonActionFor, type PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 
@@ -37,18 +37,21 @@ export function Modal({
   onClose,
   wide,
   sheet,
+  dismissible = true,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  /** False while something must be answered first (money in flight): no close button, Escape or scrim. */
+  dismissible?: boolean;
   /** Bottom sheet on every size (cart, vehicle picker on phones). Dialogs become sheets on Compact anyway. */
   sheet?: boolean;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  closeRef.current = dismissible ? onClose : () => undefined;
   const [mounted, setMounted] = useState(false);
   const titleId = useId();
 
@@ -101,7 +104,7 @@ export function Modal({
   if (!mounted) return null;
   return createPortal(
     <div ref={layerRef} className={`${styles.modalScrim} ${sheet ? styles.modalScrimSheet : ""}`} role="presentation" onMouseDown={(e) => {
-      if (e.target === e.currentTarget) onClose();
+      if (e.target === e.currentTarget && dismissible) onClose();
     }}>
       <div
         ref={dialogRef}
@@ -113,9 +116,11 @@ export function Modal({
       >
         <div className={styles.modalHead}>
           <h2 id={titleId} className={styles.panelTitle}>{title}</h2>
-          <button type="button" className={styles.iconButton} aria-label="Close" onClick={onClose}>
-            <X size={18} aria-hidden />
-          </button>
+          {dismissible ? (
+            <button type="button" className={styles.iconButton} aria-label="Close" onClick={onClose}>
+              <X size={18} aria-hidden />
+            </button>
+          ) : null}
         </div>
         {children}
       </div>
@@ -279,12 +284,32 @@ export function GarageChooser({ pos }: { pos: PosStore }) {
   );
 }
 
-const TENDERS: Array<{ id: Tender; label: string }> = [
+const MANUAL_TENDERS: Array<{ id: ManualTender; label: string }> = [
   { id: "cash", label: "Cash" },
   { id: "bank", label: "Card / bank" },
-  { id: "ecocash", label: "EcoCash" },
   { id: "store_credit", label: "Store credit" },
 ];
+
+type PayMode = "manual" | DigitalProvider | "account";
+
+const PAYNOW_METHODS: Array<{ id: PaynowMethod; label: string }> = [
+  { id: "ecocash", label: "EcoCash" },
+  { id: "onemoney", label: "OneMoney" },
+  { id: "innbucks", label: "InnBucks" },
+  { id: "visa", label: "Visa / Mastercard" },
+];
+const CONTIPAY_METHODS: Array<{ id: ContipayMethod; label: string }> = [
+  { id: "ecocash", label: "EcoCash" },
+  { id: "visa", label: "Visa / Mastercard" },
+  { id: "zimswitch", label: "ZimSwitch" },
+];
+
+function remainingLabel(expiresAt: string | null, now: number): string | null {
+  const at = expiresAt ? Date.parse(expiresAt) : NaN;
+  if (!Number.isFinite(at)) return null;
+  const s = Math.max(0, Math.round((at - now) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 /** Shared counter-receipt format v1: exactly the text the tablet prints (42 columns on 80 mm, 80 on A4). */
 export function ReceiptView({ receipt, paper }: { receipt: ReceiptDocument; paper: "80mm" | "A4" }) {
@@ -303,8 +328,9 @@ export function ReceiptView({ receipt, paper }: { receipt: ReceiptDocument; pape
 }
 
 /**
- * Payment surface. Tenders must equal the balance exactly (`settle_invoice_tenders`); cash change
- * is computed from the amount handed over and is not posted.
+ * Payment (Blueprint §10.5–10.7). Opening it reserves the sale: stock is held and the sale is locked
+ * until it is paid, the operator goes back to the sale, or the hold expires. The amount due is the
+ * server's. Every tender is shown; one that cannot be used now is disabled with its reason.
  */
 export function PaymentDialog({
   pos,
@@ -317,30 +343,49 @@ export function PaymentDialog({
   paper: "80mm" | "A4";
   setPaper: (p: "80mm" | "A4") => void;
 }) {
-  const due = roundMoney(pos.subtotal);
-  const currency = pos.currency;
-  const [tenders, setTenders] = useState<TenderLine[]>([{ tender: "cash", amount: due }]);
+  const co = pos.checkout;
+  const receipt = pos.lastReceipt;
+  const due = co ? roundMoney(co.status.total) : roundMoney(pos.subtotal);
+  const currency = co?.status.currency ?? pos.currency;
+  const [mode, setMode] = useState<PayMode>("manual");
+  const [tenders, setTenders] = useState<ManualTenderLine[]>([{ tender: "cash", amount: due }]);
   const [cashGiven, setCashGiven] = useState("");
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [msisdn, setMsisdn] = useState("");
-  const receipt = pos.lastReceipt;
+  const [method, setMethod] = useState<string>("ecocash");
+  const [now, setNow] = useState(() => Date.now());
+  const contacts = { email: email.trim() || null, whatsappE164: whatsapp.trim() || null, phoneE164: null };
 
-  const paid = roundMoney(tenders.reduce((s, t) => s + (Number.isFinite(t.amount) ? t.amount : 0), 0));
+  // Reserve on open (idempotent); keep the first tender at the server's total once it is known.
+  useEffect(() => {
+    if (!receipt && !co) void pos.beginCheckout(contacts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (co) setTenders((cur) => (cur.length === 1 ? [{ ...cur[0]!, amount: roundMoney(co.status.total) }] : cur));
+  }, [co?.status.total]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const paid = roundMoney(tenders.reduce((sum, t) => sum + (Number.isFinite(t.amount) ? t.amount : 0), 0));
   const remaining = roundMoney(due - paid);
-  const cashTender = tenders.filter((t) => t.tender === "cash").reduce((s, t) => s + t.amount, 0);
+  const cashTender = tenders.filter((t) => t.tender === "cash").reduce((sum, t) => sum + t.amount, 0);
   const change = useMemo(() => {
     const given = Number(cashGiven);
     return Number.isFinite(given) && given > 0 ? roundMoney(given - cashTender) : null;
   }, [cashGiven, cashTender]);
-
-  const update = (i: number, patch: Partial<TenderLine>) =>
-    setTenders((cur) => cur.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
+  const update = (i: number, patch: Partial<ManualTenderLine>) => setTenders((cur) => cur.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
 
   if (receipt) {
-    const usedEcocash = receipt.tenders.some((t) => t.tender === "ecocash");
+    const close = () => {
+      pos.clearReceipt();
+      onClose();
+    };
     return (
-      <Modal title={`Sale complete · ${receipt.documentNumber ?? ""}`} onClose={() => { pos.clearReceipt(); onClose(); }} wide>
+      <Modal title={`Sale complete · ${receipt.documentNumber ?? ""}`} onClose={close} wide>
         <div className={styles.receiptToolbar}>
           <div className={styles.segment} role="group" aria-label="Paper">
             {(["80mm", "A4"] as const).map((p) => (
@@ -366,109 +411,245 @@ export function PaymentDialog({
         <div className={styles.receiptPreview}>
           <ReceiptView receipt={receipt} paper={paper} />
         </div>
-        {usedEcocash ? (
-          <div className={styles.row} style={{ marginTop: 14 }}>
-            <label className={styles.field} style={{ flex: 1 }}>
-              <span className={styles.fieldLabel}>Customer EcoCash number</span>
-              <input className={styles.input} value={msisdn} onChange={(e) => setMsisdn(e.target.value)} placeholder="+26377…" inputMode="tel" />
-            </label>
-            <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} style={{ alignSelf: "flex-end" }} disabled={!msisdn.trim()} onClick={() => void pos.requestEcocash(receipt, msisdn.trim())}>
-              <Smartphone size={16} aria-hidden /> Send EcoCash request
-            </button>
-          </div>
-        ) : null}
         <div className={styles.rowEnd}>
-          <button type="button" className={styles.primaryButton} onClick={() => { pos.clearReceipt(); onClose(); }}>
-            New sale
-          </button>
+          {pos.receiptOrderId ? (
+            <>
+              <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={close}>
+                Customer collects later
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                disabled={pos.busy}
+                onClick={async () => {
+                  if (await pos.collectOrder(pos.receiptOrderId!)) close();
+                }}
+              >
+                <PackageCheck size={16} aria-hidden /> Handed over · New sale
+              </button>
+            </>
+          ) : (
+            <button type="button" className={styles.primaryButton} onClick={close}>
+              New sale
+            </button>
+          )}
         </div>
       </Modal>
     );
   }
 
+  const inFlight = Boolean(co?.attempt) && !co?.outcome;
+  const back = async () => {
+    if (await pos.cancelCheckout()) onClose();
+  };
+  const hold = remainingLabel(co?.status.reservationExpiresAt ?? null, now);
+  const registered = Boolean(pos.cart?.customerId) && pos.cart?.customerName !== "POS Walk-in";
+  const providerReason = (p: DigitalProvider): string | null => {
+    if (!pos.online) return "Needs a connection.";
+    if (!pos.providers) return "Checking…";
+    return pos.providers[p];
+  };
+  const options: Array<{ id: PayMode; label: string; icon: ReactNode; reason: string | null }> = [
+    { id: "manual", label: "Cash · card · store credit", icon: <Banknote size={16} aria-hidden />, reason: null },
+    { id: "ecocash", label: "EcoCash", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("ecocash") },
+    { id: "paynow", label: "Paynow", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("paynow") },
+    { id: "contipay", label: "ContiPay", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("contipay") },
+    { id: "account", label: "On account", icon: <Building2 size={16} aria-hidden />, reason: registered ? null : "Choose a registered customer with credit first." },
+  ];
+
   return (
-    <Modal title="Payment" onClose={onClose} wide>
+    <Modal title="Payment" onClose={() => void back()} dismissible={!inFlight && co?.outcome !== "unknown"} wide>
       <div className={styles.dueRow}>
         <span>Amount due</span>
-        <strong style={{ fontSize: 22 }}>{formatMoney(due, currency)}</strong>
+        <strong style={{ fontSize: 22 }}>{co ? formatMoney(due, currency) : "Reserving…"}</strong>
       </div>
-      {tenders.map((t, i) => (
-        <div key={i} className={styles.tenderRow}>
-          <select className={styles.input} value={t.tender} onChange={(e) => update(i, { tender: e.target.value as Tender })} aria-label="Tender">
-            {TENDERS.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.label}
-              </option>
-            ))}
-          </select>
-          <input
-            className={styles.input}
-            type="number"
-            min={0}
-            step="0.01"
-            value={Number.isFinite(t.amount) ? t.amount : ""}
-            onChange={(e) => update(i, { amount: Number(e.target.value) })}
-            aria-label="Amount"
-          />
-          <button type="button" className={styles.iconButton} aria-label="Remove tender" disabled={tenders.length === 1} onClick={() => setTenders((cur) => cur.filter((_, idx) => idx !== i))}>
-            <Trash2 size={16} aria-hidden />
+      {co ? (
+        <p className={styles.muted} style={{ marginTop: 6 }}>
+          <Lock size={12} aria-hidden /> Stock is held for this sale{hold ? ` for ${hold}` : ""}. The sale cannot change while you take payment.
+        </p>
+      ) : null}
+
+      {co?.outcome === "unknown" ? (
+        <div className={`${styles.statusBanner} ${styles.statusError}`} role="alert" style={{ marginTop: 12 }}>
+          <CircleAlert size={16} aria-hidden />
+          <span>{co.message ?? "We cannot prove whether the money moved. Do not take this payment again."}</span>
+          <button
+            type="button"
+            className={`${styles.primaryButton} ${styles.statusDismiss}`}
+            onClick={() => {
+              pos.openRecovery(co.orderId);
+              onClose();
+            }}
+          >
+            Resolve payment
           </button>
         </div>
-      ))}
-      <div className={styles.row} style={{ marginTop: 10 }}>
-        <button
-          type="button"
-          className={`${styles.softButton} ${styles.inlineButton}`}
-          onClick={() => setTenders((cur) => [...cur, { tender: "bank", amount: Math.max(0, remaining) }])}
-        >
-          <Plus size={16} aria-hidden /> Split payment
-        </button>
-        <span className={remaining === 0 ? styles.stockIn : styles.stockOut}>
-          {remaining === 0 ? "Balanced" : remaining > 0 ? `${formatMoney(remaining, currency)} still to allocate` : `${formatMoney(-remaining, currency)} over the balance`}
-        </span>
-      </div>
-      {cashTender > 0 ? (
-        <div className={styles.formGrid}>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>
-              <Banknote size={12} aria-hidden /> Cash handed over
-            </span>
-            <input className={styles.input} type="number" min={0} step="0.01" value={cashGiven} onChange={(e) => setCashGiven(e.target.value)} />
-          </label>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Change due</span>
-            <strong style={{ fontSize: 20, lineHeight: "42px" }}>{change == null ? "—" : formatMoney(Math.max(0, change), currency)}</strong>
-          </div>
+      ) : null}
+
+      {co && !inFlight && co.outcome !== "unknown" ? (
+        <div className={styles.tenderGrid} role="radiogroup" aria-label="Payment method">
+          {options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={mode === o.id}
+              className={`${styles.tenderCard} ${mode === o.id ? styles.tenderCardActive : ""}`}
+              disabled={Boolean(o.reason)}
+              onClick={() => setMode(o.id)}
+            >
+              <span className={styles.listTitle}>
+                {o.icon} {o.label}
+              </span>
+              {o.reason ? <span className={styles.muted}>{o.reason}</span> : null}
+            </button>
+          ))}
         </div>
       ) : null}
-      <div className={styles.formGrid}>
-        <label className={styles.field}>
-          <span className={styles.fieldLabel}>Receipt email (optional)</span>
-          <input className={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </label>
-        <label className={styles.field}>
-          <span className={styles.fieldLabel}>Receipt WhatsApp (optional)</span>
-          <input className={styles.input} inputMode="tel" placeholder="+26377…" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
-        </label>
-      </div>
+
+      {co && co.outcome && co.outcome !== "unknown" && co.message ? (
+        <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert" style={{ marginTop: 12 }}>
+          {co.outcome === "declined" ? "Declined: " : co.outcome === "cancelled" ? "Cancelled: " : ""}
+          {co.message}
+        </p>
+      ) : null}
+
+      {co && inFlight && co.attempt ? (
+        <div className={styles.dueRow} role="status" style={{ flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+          <strong>
+            Waiting for {co.attempt.provider === "ecocash" ? "the customer to approve on their phone" : "the customer to pay"} ·{" "}
+            {Math.floor((now - co.attempt.startedAt) / 1000)} s
+          </strong>
+          {co.message ? <span className={styles.muted}>{co.message}</span> : null}
+          {co.attempt.checkoutUrl ? (
+            <span className={styles.muted}>
+              Payment page for the customer:{" "}
+              <a href={co.attempt.checkoutUrl} target="_blank" rel="noreferrer">
+                {co.attempt.checkoutUrl}
+              </a>
+            </span>
+          ) : null}
+          <span className={styles.muted}>The sale completes on its own when the provider confirms. Do not take another payment meanwhile.</span>
+          <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => void pos.refreshCheckout()}>
+            <RefreshCw size={14} aria-hidden /> Check now
+          </button>
+        </div>
+      ) : null}
+
+      {co && !inFlight && co.outcome !== "unknown" && mode === "manual" ? (
+        <>
+          {tenders.map((t, i) => (
+            <div key={i} className={styles.tenderRow}>
+              <select className={styles.input} value={t.tender} onChange={(e) => update(i, { tender: e.target.value as ManualTender })} aria-label="Tender">
+                {MANUAL_TENDERS.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.label}
+                  </option>
+                ))}
+              </select>
+              <input className={styles.input} type="number" min={0} step="0.01" value={Number.isFinite(t.amount) ? t.amount : ""} onChange={(e) => update(i, { amount: Number(e.target.value) })} aria-label="Amount" />
+              <button type="button" className={styles.iconButton} aria-label="Remove tender" disabled={tenders.length === 1} onClick={() => setTenders((cur) => cur.filter((_, idx) => idx !== i))}>
+                <Trash2 size={16} aria-hidden />
+              </button>
+            </div>
+          ))}
+          <div className={styles.row} style={{ marginTop: 10 }}>
+            <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => setTenders((cur) => [...cur, { tender: "bank", amount: Math.max(0, remaining) }])}>
+              <Plus size={16} aria-hidden /> Split payment
+            </button>
+            <span className={remaining === 0 ? styles.stockIn : styles.stockOut}>
+              {remaining === 0 ? "Balanced" : remaining > 0 ? `${formatMoney(remaining, currency)} still to allocate` : `${formatMoney(-remaining, currency)} over the balance`}
+            </span>
+          </div>
+          {cashTender > 0 ? (
+            <div className={styles.formGrid}>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  <Banknote size={12} aria-hidden /> Cash handed over
+                </span>
+                <input className={styles.input} type="number" min={0} step="0.01" value={cashGiven} onChange={(e) => setCashGiven(e.target.value)} />
+              </label>
+              <div className={styles.field}>
+                <span className={styles.fieldLabel}>Change due</span>
+                <strong style={{ fontSize: 20, lineHeight: "42px" }}>{change == null ? "—" : formatMoney(Math.max(0, change), currency)}</strong>
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+
+      {co && !inFlight && co.outcome !== "unknown" && (mode === "ecocash" || mode === "paynow" || mode === "contipay") ? (
+        <div className={styles.formGrid}>
+          {mode !== "ecocash" ? (
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Method</span>
+              <select className={styles.input} value={method} onChange={(e) => setMethod(e.target.value)}>
+                {(mode === "paynow" ? PAYNOW_METHODS : CONTIPAY_METHODS).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>{mode === "ecocash" ? "Customer EcoCash number" : mode === "contipay" ? "Customer phone" : "Customer phone (optional)"}</span>
+            <input className={styles.input} value={msisdn} onChange={(e) => setMsisdn(e.target.value)} placeholder="0771 234 567" inputMode="tel" />
+          </label>
+        </div>
+      ) : null}
+
+      {co && !inFlight && co.outcome !== "unknown" && mode === "account" ? (
+        <p className={styles.muted} style={{ marginTop: 12 }}>
+          Charge {formatMoney(due, currency)} to {pos.cart?.customerName}&apos;s account. The server checks the credit limit, any credit hold and the account currency.
+        </p>
+      ) : null}
+
+      {co && !inFlight && co.outcome !== "unknown" ? (
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Receipt email (optional)</span>
+            <input className={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Receipt WhatsApp (optional)</span>
+            <input className={styles.input} inputMode="tel" placeholder="+26377…" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+          </label>
+        </div>
+      ) : null}
+
       {pos.error ? <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">{pos.error}</p> : null}
       <div className={styles.rowEnd}>
-        <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={onClose}>
+        <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} disabled={inFlight || pos.busy || co?.outcome === "unknown"} onClick={() => void back()}>
           Back to sale
         </button>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          disabled={pos.busy || remaining !== 0 || tenders.some((t) => !(t.amount > 0)) || (change != null && change < 0)}
-          onClick={() =>
-            void pos.checkout(
-              tenders.map((t) => ({ ...t, amount: roundMoney(t.amount) })),
-              { email: email.trim() || null, whatsappE164: whatsapp.trim() || null, phoneE164: null },
-            )
-          }
-        >
-          Complete sale · {formatMoney(due, currency)}
-        </button>
+        {co && !inFlight && co.outcome !== "unknown" && mode === "manual" ? (
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={pos.busy || remaining !== 0 || tenders.some((t) => !(t.amount > 0)) || (change != null && change < 0)}
+            onClick={() => void pos.payManual(tenders.map((t) => ({ ...t, amount: roundMoney(t.amount) })), contacts)}
+          >
+            {co.outcome === "error" || co.outcome === null ? "Take payment" : "Retry payment"} · {formatMoney(due, currency)}
+          </button>
+        ) : null}
+        {co && !inFlight && co.outcome !== "unknown" && (mode === "ecocash" || mode === "paynow" || mode === "contipay") ? (
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={pos.busy || ((mode === "ecocash" || mode === "contipay") && !msisdn.trim())}
+            onClick={() =>
+              void pos.payProvider(mode, { msisdn: msisdn.trim() || undefined, method: mode === "ecocash" ? undefined : (method as PaynowMethod | ContipayMethod) }, contacts)
+            }
+          >
+            {mode === "ecocash" ? "Send PIN request" : "Create payment page"} · {formatMoney(due, currency)}
+          </button>
+        ) : null}
+        {co && !inFlight && co.outcome !== "unknown" && mode === "account" ? (
+          <button type="button" className={styles.primaryButton} disabled={pos.busy} onClick={() => void pos.payOnAccount(contacts)}>
+            Charge to account · {formatMoney(due, currency)}
+          </button>
+        ) : null}
       </div>
     </Modal>
   );

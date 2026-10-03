@@ -20,6 +20,10 @@ import type {
   VehicleVariant,
   ApprovalPolicy,
   Governed,
+  DigitalProvider,
+  PaymentStatus,
+  PosCurrency,
+  TenderLine,
 } from "@/lib/pos/types";
 
 /**
@@ -131,6 +135,82 @@ export function createPreviewPosGateway(): PosGateway {
   const quoteLines = new Map<string, CartLine[]>();
   const invoices = new Map<string, ReceiptDocument>();
   const recent: RecentInvoice[] = [];
+
+  // Reserve-first checkout: one order per cart attempt, settled by manual tenders or a preview provider.
+  type PreviewOrder = {
+    orderId: string;
+    cartId: string;
+    requestId: string;
+    state: string;
+    total: number;
+    currency: PosCurrency;
+    expiresAt: number;
+    provider: DigitalProvider | null;
+    intentId: string | null;
+    providerStatus: string | null;
+    providerFailure: string | null;
+    resolveAt: number;
+    outcome?: "settled" | "failed";
+    invoiceId: string | null;
+    settledProvider: string | null;
+    exception: string | null;
+  };
+  const orders = new Map<string, PreviewOrder>();
+  const settlements = new Map<string, { invoiceId: string; state: string }>();
+  const isLive = (o: PreviewOrder) =>
+    (o.state === "awaiting_payment" || o.state === "payment_processing" || o.state === "payment_failed") && o.expiresAt > Date.now();
+  /** The provider's webhook, simulated: settles or fails the order once its time comes. */
+  const tickProvider = (o: PreviewOrder) => {
+    if (o.state !== "payment_processing" || Date.now() < o.resolveAt) return;
+    if (o.outcome === "failed") {
+      Object.assign(o, { state: "payment_failed", providerStatus: "failed", providerFailure: "Insufficient funds in the wallet." });
+      return;
+    }
+    o.invoiceId = postInvoice(o.cartId, [{ tender: (o.provider ?? "ecocash") === "ecocash" ? "ecocash" : "bank", amount: o.total }]);
+    Object.assign(o, { state: "paid", providerStatus: "settled", settledProvider: o.provider });
+  };
+  const statusOf = (o: PreviewOrder): PaymentStatus => ({
+    orderId: o.orderId,
+    cartId: o.cartId,
+    state: o.state,
+    total: o.total,
+    currency: o.currency,
+    reservationExpiresAt: new Date(o.expiresAt).toISOString(),
+    activeProvider: o.provider,
+    activeIntentId: o.intentId,
+    providerStatus: o.providerStatus,
+    providerFailure: o.providerFailure,
+    settledProvider: o.settledProvider,
+    settledProviderRef: o.invoiceId ? `PREVIEW-${o.orderId}` : null,
+    salesInvoiceId: o.invoiceId,
+    paymentException: o.exception,
+    exceptions: [],
+  });
+  /** Post the cart as an invoice (same shape the server returns); cash feeds the open till. */
+  const postInvoice = (cartId: string, tenders: TenderLine[]): string => {
+    const c = get(cartId);
+    const due = total(c);
+    const id = `inv-${seq++}`;
+    if (c.tillSessionId) tillCash += tenders.filter((t) => t.tender === "cash").reduce((sum, t) => sum + t.amount, 0);
+    const vehicleLabel = c.vehicle ? `${c.vehicle.modelName} ${c.vehicle.chassisCode} ${c.vehicle.engineCode}` : null;
+    invoices.set(id, {
+      invoiceId: id,
+      documentNumber: nextDoc("INV"),
+      postedAt: new Date().toISOString(),
+      currency: c.currency,
+      customerName: c.customerName,
+      lines: c.lines.map((l) => ({ name: l.name, oemPartNumber: l.oemPartNumber, qty: l.qty, unitPrice: l.unitPrice, lineTotal: l.lineTotal })),
+      subtotal: due,
+      total: due,
+      amountPaid: roundMoney(tenders.reduce((sum, t) => sum + t.amount, 0)),
+      tenders,
+      vehicleLabel,
+      operator: "",
+    });
+    recent.unshift({ id, documentNumber: invoices.get(id)?.documentNumber ?? null, customerName: c.customerName, total: due, currency: c.currency, postedAt: new Date().toISOString(), vehicleLabel });
+    carts.delete(cartId);
+    return id;
+  };
 
   const save = (c: PosCart) => {
     carts.set(c.id, c);
@@ -269,38 +349,152 @@ export function createPreviewPosGateway(): PosGateway {
       return ok(true as const);
     },
 
-    checkout: (cartId, tenders) => {
+    prepareCheckout: (cartId, requestId) => {
       const c = get(cartId);
-      const due = total(c);
-      const paid = roundMoney(tenders.reduce((s, t) => s + t.amount, 0));
-      if (c.lines.length === 0) return no("The sale is empty.");
-      if (Math.abs(paid - due) > 0.004) return no(`Tenders ${paid.toFixed(2)} must equal the balance ${due.toFixed(2)}.`);
-      const id = `inv-${seq++}`;
-      if (c.tillSessionId) tillCash += tenders.filter((t) => t.tender === "cash").reduce((s, t) => s + t.amount, 0);
-      const vehicleLabel = c.vehicle ? `${c.vehicle.modelName} ${c.vehicle.chassisCode} ${c.vehicle.engineCode}` : null;
-      invoices.set(id, {
-        invoiceId: id,
-        documentNumber: nextDoc("INV"),
-        postedAt: new Date().toISOString(),
+      if (c.lines.length === 0) return no("cart has no lines");
+      if (!c.tillSessionId) return no("open till session required before payment");
+      const existing = [...orders.values()].find((o) => o.cartId === cartId && (o.requestId === requestId || isLive(o)));
+      if (existing && isLive(existing)) return ok(existing.orderId);
+      const o: PreviewOrder = {
+        orderId: `order-${seq++}`,
+        cartId,
+        requestId,
+        state: "awaiting_payment",
+        total: total(c),
         currency: c.currency,
-        customerName: c.customerName,
-        lines: c.lines.map((l) => ({ name: l.name, oemPartNumber: l.oemPartNumber, qty: l.qty, unitPrice: l.unitPrice, lineTotal: l.lineTotal })),
-        subtotal: due,
-        total: due,
-        amountPaid: paid,
-        tenders,
-        vehicleLabel,
-        operator: "",
+        expiresAt: Date.now() + 20 * 60_000,
+        provider: null,
+        intentId: null,
+        providerStatus: null,
+        providerFailure: null,
+        resolveAt: 0,
+        invoiceId: null,
+        settledProvider: null,
+        exception: null,
+      };
+      orders.set(o.orderId, o);
+      return ok(o.orderId);
+    },
+    paymentStatus: (orderId) => {
+      const o = orders.get(orderId);
+      if (!o) return no("commerce order not found");
+      tickProvider(o);
+      return ok(statusOf(o));
+    },
+    settleTenders: (orderId, paymentRequestId, tenders) => {
+      const o = orders.get(orderId);
+      if (!o) return no("commerce order not found");
+      const done = settlements.get(paymentRequestId);
+      if (done) return ok(done);
+      if (o.expiresAt <= Date.now()) return no("commerce reservation expired");
+      if (o.state !== "awaiting_payment" && o.state !== "payment_failed") return no(`manual tenders cannot settle order in state ${o.state}`);
+      const paid = roundMoney(tenders.reduce((sum, t) => sum + t.amount, 0));
+      if (Math.abs(paid - o.total) > 0.01) return no(`manual tenders sum ${paid.toFixed(2)} must equal order total ${o.total.toFixed(2)}`);
+      const invoiceId = postInvoice(o.cartId, tenders);
+      Object.assign(o, { state: "paid", invoiceId, settledProvider: new Set(tenders.map((t) => t.tender)).size === 1 ? tenders[0]!.tender : "manual_split" });
+      const result = { invoiceId, state: "paid" };
+      settlements.set(paymentRequestId, result);
+      return ok(result);
+    },
+    // Preview providers: EcoCash approves after a few seconds (a number ending 0 declines, 9 never
+    // answers, to exercise recovery); Paynow gives a hosted page; ContiPay is not set up.
+    providerAvailability: () => ok({ ecocash: null, paynow: null, contipay: "Not set up for this shop yet." }),
+    startProvider: (orderId, provider, params) => {
+      const o = orders.get(orderId);
+      if (!o) return no("commerce order not found");
+      if (o.expiresAt <= Date.now()) return no("commerce reservation expired");
+      if (o.state === "payment_processing" && o.provider !== provider) return no("another payment provider is already processing");
+      if (provider === "contipay") return no("CONTIPAY_API_KEY / CONTIPAY_MERCHANT_ID required");
+      const digits = (params.msisdn ?? "").replace(/\D/g, "");
+      if (provider === "ecocash" && !/^(263|0)7\d{8}$/.test(digits)) return no("payer_msisdn must normalize to 263XXXXXXXXX");
+      Object.assign(o, {
+        state: "payment_processing",
+        provider,
+        intentId: `intent-${seq++}`,
+        providerStatus: "pending",
+        providerFailure: null,
+        resolveAt: digits.endsWith("9") ? Number.POSITIVE_INFINITY : Date.now() + 5_000,
+        outcome: digits.endsWith("0") ? "failed" : "settled",
       });
-      recent.unshift({ id, documentNumber: invoices.get(id)?.documentNumber ?? null, customerName: c.customerName, total: due, currency: c.currency, postedAt: new Date().toISOString(), vehicleLabel });
-      carts.delete(cartId);
-      return ok(id);
+      return ok({
+        intentId: o.intentId!,
+        checkoutUrl: provider === "paynow" ? `https://www.paynow.co.zw/payment/preview/${o.intentId}` : null,
+        message: provider === "ecocash" ? `PIN request sent to ${params.msisdn}.` : null,
+      });
+    },
+    cancelCheckout: (orderId) => {
+      const o = orders.get(orderId);
+      if (!o) return no("commerce order not found");
+      if (o.state === "payment_processing") return no("payment is in flight; resolve it from recovery");
+      if (o.invoiceId) return no("order already settled");
+      o.state = "cancelled";
+      return ok(true as const);
+    },
+    checkoutOnAccount: (cartId) => {
+      const c = get(cartId);
+      if (!c.customerId) return no("registered customer required for on-account checkout");
+      if (c.customerId !== "c-2") return no("customer has no approved credit limit");
+      return ok(postInvoice(cartId, []));
+    },
+    listPaymentRecovery: () =>
+      ok(
+        [...orders.values()]
+          .filter((o) => o.state === "payment_processing" || o.state === "payment_failed" || o.state === "allocation_pending" || o.exception)
+          .map((o) => {
+            tickProvider(o);
+            return {
+              orderId: o.orderId,
+              state: o.state,
+              total: o.total,
+              currency: o.currency,
+              activeProvider: o.provider,
+              settledProvider: o.settledProvider,
+              salesInvoiceId: o.invoiceId,
+              paymentException: o.exception,
+              reservationExpiresAt: new Date(o.expiresAt).toISOString(),
+              updatedAt: new Date().toISOString(),
+              openExceptions: o.exception ? 1 : 0,
+            };
+          }),
+      ),
+    repairPaidOrder: (orderId, _notes, manager) => {
+      if (!managerOk(manager)) return no("Manager sign-in failed.");
+      const o = orders.get(orderId);
+      if (!o || o.state !== "allocation_pending" || o.invoiceId) return no("paid-but-unfinalized commerce order required");
+      o.invoiceId = postInvoice(o.cartId, [{ tender: "ecocash", amount: o.total }]);
+      Object.assign(o, { state: "paid", exception: null });
+      return ok(o.invoiceId);
+    },
+    listPickupOrders: (query) =>
+      ok(
+        [...orders.values()]
+          .filter((o) => (o.state === "paid" || o.state === "account_invoiced") && o.invoiceId)
+          .map((o) => {
+            const inv = invoices.get(o.invoiceId!);
+            return {
+              orderId: o.orderId,
+              documentNumber: inv?.documentNumber ?? null,
+              customerName: inv?.customerName ?? null,
+              state: o.state,
+              total: o.total,
+              currency: o.currency,
+              salesInvoiceId: o.invoiceId,
+              settledProvider: o.settledProvider,
+              updatedAt: new Date().toISOString(),
+            };
+          })
+          .filter((p) => !query.trim() || `${p.documentNumber} ${p.customerName}`.toLowerCase().includes(query.trim().toLowerCase())),
+      ),
+    collectOrder: (orderId) => {
+      const o = orders.get(orderId);
+      if (!o || (o.state !== "paid" && o.state !== "account_invoiced")) return no("eligible pickup order required");
+      o.state = "delivered";
+      return ok(true as const);
     },
     loadReceipt: (invoiceId) => {
       const r = invoices.get(invoiceId);
       return r ? ok(r) : no("Invoice not found.");
     },
-    requestEcocash: (invoiceId, msisdn) => (msisdn.trim() ? ok(`ecocash-${invoiceId}`) : no("Enter the customer's EcoCash number.")),
 
     parkCart: (cartId) => {
       const c = get(cartId);
