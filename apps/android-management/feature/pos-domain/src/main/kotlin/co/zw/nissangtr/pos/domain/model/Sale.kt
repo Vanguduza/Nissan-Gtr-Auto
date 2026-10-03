@@ -6,7 +6,15 @@ enum class Tender(val rpcValue: String) {
     Bank("bank"),
     EcoCash("ecocash"),
     StoreCredit("store_credit"),
+    /** Receipt only: settled by the provider's webhook against a reserved order. */
+    Paynow("paynow"),
+    ContiPay("contipay"),
+    /** Receipt only: charged to the customer's account (`checkout_pos_cart_on_account`). */
+    OnAccount("account"),
 }
+
+/** Tenders the one-step checkout dialog offers (the others come from reserve-first checkout). */
+val Tender.counter: Boolean get() = this == Tender.Cash || this == Tender.Bank || this == Tender.EcoCash || this == Tender.StoreCredit
 
 data class TenderLine(val tender: Tender, val amount: Money)
 
@@ -142,6 +150,9 @@ sealed interface ApprovalRequest {
     data class PriceOverride(val lineId: String, val unitPrice: Double) : ApprovalRequest
     data object VoidSale : ApprovalRequest
     data class Refund(val invoice: InvoiceSummary) : ApprovalRequest
+
+    /** Paid at the provider but the sale did not finish: post it against that money (recovery). */
+    data class RepairPaidOrder(val orderId: String) : ApprovalRequest
 
     /** Drawer actions: they act on the till session, never on the sale. */
     sealed interface TillAction : ApprovalRequest { val sessionId: String }

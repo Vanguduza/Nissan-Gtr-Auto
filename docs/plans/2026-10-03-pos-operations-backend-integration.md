@@ -50,3 +50,15 @@ petty cash requests, kits creation, product pages, payroll funding.
 - `Unknown` terminal/provider outcome blocks a duplicate charge and routes to the recovery screen (§10.7, §10.11).
 - The frontend never computes remaining balance or the reduced basket (§10.5, §10.8).
 - Fake providers only in test/preview source sets (§10.10).
+
+## Progress
+
+| Phase | Web POS | Tablet / phone POS |
+|---|---|---|
+| 1 Till | done | done |
+| 2 Governance (+ approver ID badges) | done | done (front-camera badge scan) |
+| 3 Reserve-first checkout | done | done: reserve on Pay, sale locked, cash/card/store-credit settlement with a kept key, EcoCash/Paynow/ContiPay with a QR for hosted pages and a 3-minute Unknown cut-off, on account, recovery screen with approver repair and release, pickup list and receipt hand-over |
+| 4–8 | todo | todo |
+
+Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
+answer 503; both clients show those tenders disabled with "Not set up for this shop yet."

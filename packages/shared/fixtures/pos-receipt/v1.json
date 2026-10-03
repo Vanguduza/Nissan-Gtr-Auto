@@ -20,7 +20,10 @@
       "cash": "Cash",
       "bank": "Card / bank",
       "ecocash": "EcoCash",
-      "store_credit": "Store credit"
+      "store_credit": "Store credit",
+      "paynow": "Paynow",
+      "contipay": "ContiPay",
+      "account": "On account"
     }
   },
   "cases": [

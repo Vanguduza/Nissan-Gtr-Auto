@@ -59,6 +59,7 @@ import android.content.res.Resources
 import co.zw.nissangtr.pos.domain.model.ReceiptContacts
 import co.zw.nissangtr.pos.domain.model.ReceiptPaper
 import co.zw.nissangtr.pos.domain.model.Tender
+import co.zw.nissangtr.pos.domain.model.counter
 import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosSaleIntent
@@ -94,6 +95,9 @@ private fun tenderLabel(t: Tender): String = stringResource(
         Tender.Bank -> R.string.pos_tender_bank
         Tender.EcoCash -> R.string.pos_tender_ecocash
         Tender.StoreCredit -> R.string.pos_tender_store_credit
+        Tender.Paynow -> R.string.pos_tender_paynow
+        Tender.ContiPay -> R.string.pos_tender_contipay
+        Tender.OnAccount -> R.string.pos_tender_account
     },
 )
 
@@ -105,7 +109,18 @@ private fun tenderLabel(t: Tender): String = stringResource(
 fun PaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit, onPrint: (List<ReceiptLine>, ReceiptPaper) -> Unit) {
     val receipt = state.receipt
     if (receipt != null) {
-        ReceiptDialog(receipt, onPrint = onPrint, onNewSale = { dispatch(PosSaleIntent.NewSale) })
+        val orderId = state.receiptOrderId
+        ReceiptDialog(
+            receipt,
+            onPrint = onPrint,
+            onNewSale = { dispatch(PosSaleIntent.NewSale) },
+            // Reserved sales record the hand-over: now (and start the next sale) or when the customer returns.
+            onHandedOver = orderId?.let { id -> { dispatch(co.zw.nissangtr.pos.domain.state.CheckoutIntent.Collect(id, newSale = true)) } },
+        )
+        return
+    }
+    if (state.reserveCheckout && (state.checkout != null || state.reserving)) {
+        ReservedPaymentDialog(state, dispatch)
         return
     }
     val total = state.cart.total
@@ -150,7 +165,7 @@ fun PaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit, onPrint: (List
                 tenders.forEachIndexed { i, t ->
                     val chooser: @Composable () -> Unit = {
                         PosSegmented(
-                            options = if (state.online) Tender.entries else listOf(Tender.Cash),
+                            options = if (state.online) Tender.entries.filter { it.counter } else listOf(Tender.Cash),
                             selected = t.tender,
                             label = { tenderLabel(it) },
                             onSelect = { t.tender = it },
@@ -263,7 +278,12 @@ fun PaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit, onPrint: (List
 }
 
 @Composable
-private fun ReceiptDialog(receipt: Receipt, onPrint: (List<ReceiptLine>, ReceiptPaper) -> Unit, onNewSale: () -> Unit) {
+private fun ReceiptDialog(
+    receipt: Receipt,
+    onPrint: (List<ReceiptLine>, ReceiptPaper) -> Unit,
+    onNewSale: () -> Unit,
+    onHandedOver: (() -> Unit)? = null,
+) {
     var paper by rememberSaveable { mutableStateOf(ReceiptPaper.Thermal80) }
     val lines = receiptLines(receipt)
     PosModal(
@@ -286,7 +306,12 @@ private fun ReceiptDialog(receipt: Receipt, onPrint: (List<ReceiptLine>, Receipt
             ReceiptPreview(receipt, paper)
         }
         PosRowEnd {
-            PosPrimaryButton(stringResource(R.string.pos_new_sale), enabled = true, onClick = onNewSale)
+            if (onHandedOver != null) {
+                SoftButton(stringResource(R.string.pos_co_collect_later), null, enabled = true, onClick = onNewSale, modifier = Modifier.widthIn(max = 240.dp))
+                PosPrimaryButton(stringResource(R.string.pos_co_handed_over), enabled = true, onClick = onHandedOver)
+            } else {
+                PosPrimaryButton(stringResource(R.string.pos_new_sale), enabled = true, onClick = onNewSale)
+            }
         }
     }
 }
@@ -339,6 +364,9 @@ fun receiptLabels(res: Resources): ReceiptLabels = ReceiptLabels(
         Tender.Bank to res.getString(R.string.pos_tender_bank),
         Tender.EcoCash to res.getString(R.string.pos_tender_ecocash),
         Tender.StoreCredit to res.getString(R.string.pos_tender_store_credit),
+        Tender.Paynow to res.getString(R.string.pos_tender_paynow),
+        Tender.ContiPay to res.getString(R.string.pos_tender_contipay),
+        Tender.OnAccount to res.getString(R.string.pos_tender_account),
     ),
 )
 
@@ -358,6 +386,7 @@ private val ApprovalRequest.titleRes: Int
         is ApprovalRequest.CashOut -> R.string.pos_approve_cash_out
         is ApprovalRequest.TillVariance -> R.string.pos_approve_till_variance
         is ApprovalRequest.Handover -> R.string.pos_approve_handover
+        is ApprovalRequest.RepairPaidOrder -> R.string.pos_approve_repair
     }
 
 /**
@@ -409,6 +438,7 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                     request.reason.label,
                 )
                 is ApprovalRequest.Handover -> stringResource(R.string.pos_approve_handover_detail, request.to.fullName)
+                is ApprovalRequest.RepairPaidOrder -> stringResource(R.string.pos_approve_repair_detail, request.orderId.take(8))
             },
             PosTheme.type.bodyPrimary,
             palette.textSecondary,

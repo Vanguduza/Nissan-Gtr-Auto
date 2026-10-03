@@ -11,7 +11,7 @@ export const RECEIPT_FORMAT_VERSION = 1;
 export const THERMAL_COLUMNS = 42;
 
 export type ReceiptCurrency = "USD" | "ZIG";
-export type ReceiptTender = "cash" | "bank" | "ecocash" | "store_credit";
+export type ReceiptTender = "cash" | "bank" | "ecocash" | "store_credit" | "paynow" | "contipay" | "account";
 
 export type ReceiptInput = {
   invoiceId: string;
@@ -64,7 +64,7 @@ export const RECEIPT_LABELS_EN: ReceiptLabels = {
   change: "Change due",
   offline: "OFFLINE SALE · invoice no. issued on sync",
   thanks: "Thank you for your business.",
-  tenders: { cash: "Cash", bank: "Card / bank", ecocash: "EcoCash", store_credit: "Store credit" },
+  tenders: { cash: "Cash", bank: "Card / bank", ecocash: "EcoCash", store_credit: "Store credit", paynow: "Paynow", contipay: "ContiPay", account: "On account" },
 };
 
 export type ReceiptRow = { left: string; right: string; strong: boolean };

@@ -34,6 +34,12 @@ import co.zw.nissangtr.pos.domain.model.DenominationCount
 import co.zw.nissangtr.pos.domain.model.HandoverOperator
 import co.zw.nissangtr.pos.domain.model.ReasonCode
 import co.zw.nissangtr.pos.domain.model.ApprovalPolicy
+import co.zw.nissangtr.pos.domain.model.DigitalProvider
+import co.zw.nissangtr.pos.domain.model.PaymentStatus
+import co.zw.nissangtr.pos.domain.model.PickupOrder
+import co.zw.nissangtr.pos.domain.model.ProviderMethod
+import co.zw.nissangtr.pos.domain.model.ProviderStart
+import co.zw.nissangtr.pos.domain.model.RecoveryItem
 import co.zw.nissangtr.pos.domain.model.TillCloseResult
 import co.zw.nissangtr.pos.domain.model.TillSession
 import co.zw.nissangtr.pos.domain.result.PosResult
@@ -251,5 +257,47 @@ interface TillGateway {
         override suspend fun close(sessionId: String, counts: List<DenominationCount>, varianceReasonCode: String?, notes: String?) = refused
         override suspend fun handoverOperators(): PosResult<List<HandoverOperator>> = PosResult.Ok(emptyList())
         override suspend fun recent(): PosResult<List<TillSession>> = PosResult.Ok(emptyList())
+    }
+}
+
+/**
+ * Reserve-first checkout (Blueprint §10.6): reserve stock and lock the sale, then take money against
+ * the reserved order. [requestId] and [paymentRequestId] are idempotency keys: a retry returns the
+ * same order or the same settlement.
+ */
+interface ReserveCheckoutGateway {
+    /** False on devices without the backend (tests, previews): the counter keeps the one-step checkout. */
+    val enabled: Boolean get() = true
+    suspend fun prepare(cartId: String, requestId: String, contacts: ReceiptContacts): PosResult<String>
+    suspend fun status(orderId: String): PosResult<PaymentStatus>
+    /** Cash, card/bank, store credit; must equal the order total. Idempotent on [paymentRequestId]. */
+    suspend fun settle(orderId: String, paymentRequestId: String, tenders: List<TenderLine>): PosResult<CheckoutResult>
+    /** Why each provider cannot be offered now (null = available). */
+    suspend fun providerAvailability(): PosResult<Map<DigitalProvider, String?>>
+    suspend fun startProvider(orderId: String, provider: DigitalProvider, msisdn: String?, method: ProviderMethod?): PosResult<ProviderStart>
+    /** Releases the reservation and unlocks the sale; refused while money is in flight. */
+    suspend fun cancel(orderId: String, reason: String): PosResult<Unit>
+    /** On account for a registered customer with credit; the server checks limit, hold and currency. */
+    suspend fun onAccount(cartId: String, contacts: ReceiptContacts): PosResult<CheckoutResult>
+    /** Invoice number for a sale the provider settled (receipt). */
+    suspend fun documentNumber(invoiceId: String): String?
+    suspend fun recovery(): PosResult<List<RecoveryItem>>
+    suspend fun pickups(query: String?): PosResult<List<PickupOrder>>
+    suspend fun collect(orderId: String): PosResult<Unit>
+
+    object None : ReserveCheckoutGateway {
+        override val enabled = false
+        private val refused = PosResult.Err(PosError.BusinessRule("reserve_unavailable", ""))
+        override suspend fun prepare(cartId: String, requestId: String, contacts: ReceiptContacts) = refused
+        override suspend fun status(orderId: String) = refused
+        override suspend fun settle(orderId: String, paymentRequestId: String, tenders: List<TenderLine>) = refused
+        override suspend fun providerAvailability(): PosResult<Map<DigitalProvider, String?>> = PosResult.Ok(emptyMap())
+        override suspend fun startProvider(orderId: String, provider: DigitalProvider, msisdn: String?, method: ProviderMethod?) = refused
+        override suspend fun cancel(orderId: String, reason: String): PosResult<Unit> = PosResult.Ok(Unit)
+        override suspend fun onAccount(cartId: String, contacts: ReceiptContacts) = refused
+        override suspend fun documentNumber(invoiceId: String): String? = null
+        override suspend fun recovery(): PosResult<List<RecoveryItem>> = PosResult.Ok(emptyList())
+        override suspend fun pickups(query: String?): PosResult<List<PickupOrder>> = PosResult.Ok(emptyList())
+        override suspend fun collect(orderId: String) = refused
     }
 }

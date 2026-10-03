@@ -15,6 +15,12 @@ import co.zw.nissangtr.pos.domain.model.CartProjection
 import co.zw.nissangtr.pos.domain.model.Money
 import co.zw.nissangtr.pos.domain.model.Receipt
 import co.zw.nissangtr.pos.domain.model.Tender
+import co.zw.nissangtr.pos.domain.model.TenderLine
+import co.zw.nissangtr.pos.domain.model.DigitalProvider
+import co.zw.nissangtr.pos.domain.error.PosError
+import co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway
+import co.zw.nissangtr.pos.domain.state.CheckoutEffect
+import co.zw.nissangtr.pos.domain.state.CheckoutEvent
 import co.zw.nissangtr.pos.domain.result.PosResult
 import co.zw.nissangtr.pos.domain.state.PosEffect
 import co.zw.nissangtr.pos.domain.state.PosEvent
@@ -63,6 +69,8 @@ data class PosGateways(
     val governance: GovernanceGateway = GovernanceGateway.None,
     /** Front-camera reader for manager ID badges (QR bridge). */
     val badgeScanner: co.zw.nissangtr.pos.domain.gateway.BadgeScanner = co.zw.nissangtr.pos.domain.gateway.BadgeScanner.None,
+    /** Reserve-first checkout (§10.6); [ReserveCheckoutGateway.None] keeps the one-step checkout. */
+    val reserve: ReserveCheckoutGateway = ReserveCheckoutGateway.None,
 )
 
 /**
@@ -77,6 +85,11 @@ class PosStore(
     private val clock: () -> String = { java.time.OffsetDateTime.now().withNano(0).toString() },
     /** Companion poll interval (Realtime is web-only; the till polls the session and cart). */
     private val companionPollMs: Long = 3_000,
+    /** Reserved-order poll interval while payment is open (provider answer, expiry). */
+    private val checkoutPollMs: Long = 3_000,
+    private val nowMs: () -> Long = System::currentTimeMillis,
+    /** Idempotency keys for reservations and settlements (§10.6). */
+    private val newKey: () -> String = { java.util.UUID.randomUUID().toString() },
 ) {
     private val _state = MutableStateFlow(initial)
     val state: StateFlow<PosState> = _state.asStateFlow()
@@ -85,6 +98,7 @@ class PosStore(
     private val cartLock = Mutex()
     private var searchJob: Job? = null
     private var companionJob: Job? = null
+    private var checkoutJob: Job? = null
 
     fun dispatch(intent: PosIntent) = apply(intent)
 
@@ -276,6 +290,7 @@ class PosStore(
             is CompanionEffect -> runCompanion(effect)
             is TillEffect -> runTill(effect)
             is GovernanceEffect -> runGovernance(effect)
+            is CheckoutEffect -> runCheckout(effect)
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
@@ -425,6 +440,166 @@ class PosStore(
                 when (val r = g.setPolicy(effect.policy)) {
                     is PosResult.Ok -> apply(GovernanceEvent.PolicySaved)
                     is PosResult.Err -> apply(GovernanceEvent.Failed(r.error))
+                }
+            }
+        }
+    }
+
+    private fun receipt(
+        cart: CartProjection,
+        invoiceId: String,
+        documentNumber: String?,
+        tenders: List<TenderLine>,
+        cashGiven: Money?,
+        customerName: String?,
+        vehicleLabel: String?,
+        operatorName: String?,
+    ): Receipt {
+        val change = cashGiven?.let { given ->
+            val cash = tenders.filter { it.tender == Tender.Cash }.sumOf { it.amount.minor }
+            Money((given.minor - cash).coerceAtLeast(0), given.currency)
+        }
+        return Receipt(
+            invoiceId = invoiceId,
+            documentNumber = documentNumber,
+            lines = cart.lines,
+            subtotal = cart.subtotal,
+            discount = cart.discount,
+            total = cart.total,
+            tenders = tenders,
+            cashGiven = cashGiven,
+            change = change,
+            customerName = customerName,
+            vehicleLabel = vehicleLabel,
+            operatorName = operatorName,
+            issuedAtIso = clock(),
+        )
+    }
+
+    private fun finish(orderId: String?, receipt: Receipt) {
+        apply(CheckoutEvent.Finished(orderId))
+        apply(PosSaleEvent.CheckoutDone(receipt))
+    }
+
+    private fun runCheckout(effect: CheckoutEffect) {
+        val r = gateways.reserve
+        // The sale on screen when the effect was issued: the receipt lists exactly what was reserved.
+        val cart = state.value.cart
+        when (effect) {
+            CheckoutEffect.Init -> apply(CheckoutEvent.Enabled(r.enabled))
+            is CheckoutEffect.Prepare -> launch {
+                // The reservation needs the sale on this operator's open till.
+                attachToTill(effect.cartId)
+                val requestId = effect.requestId ?: newKey()
+                val prepared = r.prepare(effect.cartId, requestId, effect.contacts)
+                if (prepared is PosResult.Err) return@launch apply(CheckoutEvent.PrepareFailed(prepared.error))
+                val orderId = (prepared as PosResult.Ok).value
+                when (val st = r.status(orderId)) {
+                    is PosResult.Ok -> apply(CheckoutEvent.Prepared(orderId, effect.cartId, requestId, st.value))
+                    is PosResult.Err -> {
+                        // Never leave stock held for an order the till cannot show.
+                        r.cancel(orderId, "Status unavailable after reservation")
+                        apply(CheckoutEvent.PrepareFailed(st.error))
+                    }
+                }
+            }
+            CheckoutEffect.LoadProviders -> launch {
+                (r.providerAvailability() as? PosResult.Ok)?.let { apply(CheckoutEvent.ProvidersLoaded(it.value)) }
+            }
+            is CheckoutEffect.Watch -> {
+                checkoutJob?.cancel()
+                checkoutJob = scope.launch {
+                    while (state.value.checkout?.orderId == effect.orderId) {
+                        val st = (r.status(effect.orderId) as? PosResult.Ok)?.value
+                        if (st != null) {
+                            val now = nowMs()
+                            val expires = st.reservationExpiresAtIso?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
+                            apply(CheckoutEvent.Polled(st, now, reservationExpired = expires != null && expires <= now))
+                        }
+                        delay(checkoutPollMs)
+                    }
+                }
+            }
+            is CheckoutEffect.Settle -> launch {
+                val key = effect.session.paymentRequestId ?: newKey()
+                when (val res = r.settle(effect.session.orderId, key, effect.tenders)) {
+                    is PosResult.Ok -> finish(
+                        effect.session.orderId,
+                        receipt(cart, res.value.invoiceId, res.value.documentNumber, effect.tenders, effect.cashGiven, effect.customerName, effect.vehicleLabel, effect.operatorName),
+                    )
+                    is PosResult.Err -> apply(CheckoutEvent.SettleFailed(res.error, key, network = res.error is PosError.Transient))
+                }
+            }
+            is CheckoutEffect.StartProvider -> launch {
+                when (val res = r.startProvider(effect.session.orderId, effect.provider, effect.msisdn, effect.method)) {
+                    is PosResult.Ok -> apply(CheckoutEvent.ProviderStarted(effect.provider, res.value, nowMs()))
+                    is PosResult.Err -> apply(CheckoutEvent.ProviderFailed(res.error))
+                }
+            }
+            is CheckoutEffect.FinishProvider -> launch {
+                val tender = when (effect.provider) {
+                    DigitalProvider.Paynow.rpcValue -> Tender.Paynow
+                    DigitalProvider.ContiPay.rpcValue -> Tender.ContiPay
+                    else -> Tender.EcoCash
+                }
+                finish(
+                    effect.orderId,
+                    receipt(cart, effect.invoiceId, r.documentNumber(effect.invoiceId), listOf(TenderLine(tender, effect.total)), null, effect.customerName, effect.vehicleLabel, effect.operatorName),
+                )
+            }
+            is CheckoutEffect.Cancel -> launch {
+                when (val res = r.cancel(effect.orderId, effect.reason)) {
+                    is PosResult.Ok -> if (state.value.checkout?.orderId == effect.orderId) apply(CheckoutEvent.Cancelled)
+                    is PosResult.Err -> if (state.value.checkout?.orderId == effect.orderId) apply(CheckoutEvent.CancelFailed(res.error))
+                }
+            }
+            is CheckoutEffect.OnAccount -> launch {
+                // On account posts the cart directly; release the reservation first so stock is not held twice.
+                val reserved = effect.reservedOrderId
+                if (reserved != null) {
+                    val released = r.cancel(reserved, "Charged to account")
+                    if (released is PosResult.Err) return@launch apply(CheckoutEvent.Failed(released.error))
+                }
+                when (val res = r.onAccount(effect.cartId, effect.contacts)) {
+                    is PosResult.Ok -> finish(
+                        null,
+                        receipt(cart, res.value.invoiceId, res.value.documentNumber, listOf(TenderLine(Tender.OnAccount, cart.total)), null, effect.customerName, effect.vehicleLabel, effect.operatorName),
+                    )
+                    is PosResult.Err -> {
+                        // The reservation is gone: the sale is editable again; say why the account refused.
+                        if (effect.reservedOrderId != null) apply(CheckoutEvent.Cancelled)
+                        apply(CheckoutEvent.Failed(res.error))
+                    }
+                }
+            }
+            CheckoutEffect.LoadRecovery -> launch {
+                when (val res = r.recovery()) {
+                    is PosResult.Ok -> apply(CheckoutEvent.RecoveryLoaded(res.value))
+                    is PosResult.Err -> apply(CheckoutEvent.Failed(res.error))
+                }
+            }
+            is CheckoutEffect.LoadRecoveryStatus -> launch {
+                when (val res = r.status(effect.orderId)) {
+                    is PosResult.Ok -> apply(CheckoutEvent.RecoveryStatusLoaded(res.value))
+                    is PosResult.Err -> apply(CheckoutEvent.Failed(res.error))
+                }
+            }
+            is CheckoutEffect.Release -> launch {
+                when (val res = r.cancel(effect.orderId, "Released from payment recovery")) {
+                    is PosResult.Ok -> apply(CheckoutEvent.Released(effect.orderId))
+                    is PosResult.Err -> apply(CheckoutEvent.Failed(res.error))
+                }
+            }
+            is CheckoutEffect.LoadPickups -> launch {
+                when (val res = r.pickups(effect.query)) {
+                    is PosResult.Ok -> apply(CheckoutEvent.PickupsLoaded(res.value))
+                    is PosResult.Err -> apply(CheckoutEvent.Failed(res.error))
+                }
+            }
+            is CheckoutEffect.Collect -> launch {
+                when (val res = r.collect(effect.orderId)) {
+                    is PosResult.Ok -> apply(CheckoutEvent.Collected(effect.orderId, effect.newSale))
+                    is PosResult.Err -> apply(CheckoutEvent.Failed(res.error))
                 }
             }
         }

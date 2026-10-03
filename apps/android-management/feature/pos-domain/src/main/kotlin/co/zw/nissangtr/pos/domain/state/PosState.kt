@@ -30,6 +30,8 @@ import co.zw.nissangtr.pos.domain.model.buildPopularRow
 /** Rail destinations in canonical order (Blueprint §6.1). `Reports` is forbidden (D-001). */
 enum class PosDestination {
     Home, SearchSpares, QuickSale, Customer, Orders, Returns, EpcBrowse, Till, Settings,
+    /** Payment recovery (§10.7): opened from an Unknown outcome or Orders, never on the rail. */
+    Recovery,
 }
 
 /** Transient operator feedback. [error] maps to a string resource in the UI (ARCH-10). */
@@ -45,6 +47,7 @@ enum class PosNotice {
     OfflineSaleQueued, OfflineSynced,
     TillOpened, CashRecorded, TillClosed, TillVariancePending, TillHandedOver,
     PolicySaved,
+    ReservationExpired, ReservationReleased, Collected,
 }
 
 data class PosState(
@@ -108,6 +111,19 @@ data class PosState(
     val scannerClaiming: Boolean = false,
     /** Cash drawer session (D-016); online selling needs it open. */
     val till: TillPanel = TillPanel(),
+    /** Reserve-first checkout (§10.6) is wired for this build; otherwise payment posts directly. */
+    val reserveCheckout: Boolean = false,
+    /** The reserved order while payment is open; the sale is locked while it exists (§10.5). */
+    val checkout: CheckoutSession? = null,
+    val reserving: Boolean = false,
+    /** Digital providers and why each is unavailable (null reason = available); null until probed. */
+    val providers: Map<co.zw.nissangtr.pos.domain.model.DigitalProvider, String?>? = null,
+    /** Order behind the receipt on screen, for "Customer collects later" / "Handed over". */
+    val receiptOrderId: String? = null,
+    val recoveryItems: List<co.zw.nissangtr.pos.domain.model.RecoveryItem>? = null,
+    val recoveryOrderId: String? = null,
+    val recoveryStatus: co.zw.nissangtr.pos.domain.model.PaymentStatus? = null,
+    val pickups: List<co.zw.nissangtr.pos.domain.model.PickupOrder>? = null,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

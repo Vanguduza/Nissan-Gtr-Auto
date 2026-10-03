@@ -2,6 +2,8 @@ package co.zw.nissangtr.pos.domain.state
 
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
+import co.zw.nissangtr.pos.domain.model.choosesReason
+import co.zw.nissangtr.pos.domain.model.editsSale
 import co.zw.nissangtr.pos.domain.model.CartProjection
 import co.zw.nissangtr.pos.domain.model.CatalogPart
 import co.zw.nissangtr.pos.domain.model.Customer
@@ -190,16 +192,19 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     is CompanionIntent -> reduceCompanionIntent(state, intent)
     is TillIntent -> reduceTillIntent(state, intent)
     is GovernanceIntent -> reduceGovernanceIntent(state, intent)
+    is CheckoutIntent -> reduceCheckoutIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
         state.online && !state.till.canSell -> tillRequired(state)
+        state.reserveCheckout && state.online && !state.cart.isLocal -> openReservedPayment(state)
         !state.online && !state.cart.isLocal -> offlineRefusal(state, "server_cart")
         !state.online && state.customer != null -> offlineRefusal(state, "walk_in_only")
         else -> Reduction(state.copy(paymentOpen = true, ecoCashReference = null))
     }
 
-    PosSaleIntent.ClosePayment -> Reduction(state.copy(paymentOpen = state.paying, receipt = null))
+    PosSaleIntent.ClosePayment -> if (state.checkout != null || state.reserving) closeReservedPayment(state)
+    else Reduction(state.copy(paymentOpen = state.paying, receipt = null, receiptOrderId = null))
 
     is PosSaleIntent.Checkout -> {
         val paid = intent.tenders.sumOf { it.amount.minor }
@@ -255,6 +260,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     PosSaleIntent.NewSale -> Reduction(
         state.copy(
             receipt = null,
+            receiptOrderId = null,
             paymentOpen = false,
             customer = null,
             garage = emptyList(),
@@ -316,7 +322,9 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     }
 
     is PosSaleIntent.RequestApproval -> when {
-        intent.request !is ApprovalRequest.Refund && intent.request !is ApprovalRequest.TillAction && state.cart.isEmpty -> Reduction(state)
+        intent.request.editsSale && state.cart.isEmpty -> Reduction(state)
+        // A sale reserved for payment cannot change (§10.5): go back to the sale first.
+        intent.request.editsSale && state.checkout != null -> checkoutLocked(state)
         intent.request is ApprovalRequest.Discount && intent.request.percent !in 0.01..100.0 ->
             Reduction(state.copy(feedback = failure(PosError.Input("discount", "percent"))))
         intent.request is ApprovalRequest.PriceOverride && intent.request.unitPrice < 0 ->
@@ -335,7 +343,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
         when {
             request == null || state.approving -> Reduction(state)
             // Governed sale actions record a configured reason (drawer actions chose theirs already).
-            request !is ApprovalRequest.TillAction && reasons.isNotEmpty() && (intent.reason == null || reasons.none { it.code == intent.reason.code }) ->
+            request.choosesReason && reasons.isNotEmpty() && (intent.reason == null || reasons.none { it.code == intent.reason.code }) ->
                 Reduction(state.copy(feedback = failure(PosError.Input("reason", "required"))))
             intent.reason?.requiresNotes == true && notes == null ->
                 Reduction(state.copy(feedback = failure(PosError.Input("notes", "required"))))
@@ -460,6 +468,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     is CompanionEvent -> reduceCompanionEvent(state, event)
     is TillEvent -> reduceTillEvent(state, event)
     is GovernanceEvent -> reduceGovernanceEvent(state, event)
+    is CheckoutEvent -> reduceCheckoutEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 
@@ -488,6 +497,8 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
         state.copy(
             paying = false,
             receipt = event.receipt,
+            checkout = null,
+            reserving = false,
             cart = CartProjection.empty(state.currency),
             feedback = null,
         ),
@@ -523,8 +534,11 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
         val next = state.copy(approval = null, approving = false, approvalReasons = null, approvalNeedsManager = true, cart = cart, feedback = notice(
             if (event.request is ApprovalRequest.Refund) PosNotice.Refunded else PosNotice.Approved,
         ))
-        if (event.request is ApprovalRequest.Refund) Reduction(next, listOf(PosSaleEffect.LoadInvoices(state.invoiceQuery.trim())))
-        else Reduction(next)
+        when (event.request) {
+            is ApprovalRequest.Refund -> Reduction(next, listOf(PosSaleEffect.LoadInvoices(state.invoiceQuery.trim())))
+            is ApprovalRequest.RepairPaidOrder -> Reduction(next, listOf(CheckoutEffect.LoadRecoveryStatus(event.request.orderId), CheckoutEffect.LoadRecovery))
+            else -> Reduction(next)
+        }
     }
 
     is PosSaleEvent.ApprovalFailed -> Reduction(state.copy(approving = false, feedback = failure(event.error)))

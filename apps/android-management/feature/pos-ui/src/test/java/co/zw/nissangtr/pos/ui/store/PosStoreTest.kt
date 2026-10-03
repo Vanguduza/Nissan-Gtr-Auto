@@ -37,6 +37,9 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -121,6 +124,7 @@ class PosStoreTest {
         till: co.zw.nissangtr.pos.domain.gateway.TillGateway = co.zw.nissangtr.pos.domain.gateway.TillGateway.None,
         sales: co.zw.nissangtr.pos.domain.gateway.SalesGateway = FakeSaleGateways.sales,
         badgeScanner: co.zw.nissangtr.pos.domain.gateway.BadgeScanner = co.zw.nissangtr.pos.domain.gateway.BadgeScanner.None,
+        reserve: co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway = co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway.None,
     ) = PosGateways(
         session = object : SessionGateway {
             override suspend fun operator() = PosResult.Ok(Operator("Tendai Moyo", "Sales"))
@@ -145,6 +149,7 @@ class PosStoreTest {
         companion = companion,
         till = till,
         badgeScanner = badgeScanner,
+        reserve = reserve,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -412,5 +417,107 @@ class PosStoreTest {
         advanceUntilIdle()
         assertTrue(s.state.value.approval != null)
         assertTrue((s.state.value.feedback as PosFeedback.Failure).error is PosError.HardwareUnavailable)
+    }
+
+    /** Server stand-in for reserve-first checkout: one order, settled by the counter or the provider. */
+    private class FakeReserve : co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway {
+        var state = "awaiting_payment"
+        var invoice: String? = null
+        val prepared = mutableListOf<String>()
+        val settled = mutableListOf<String>()
+        val cancelled = mutableListOf<String>()
+        var total = Money.zero(CurrencyCode.USD)
+        private fun st() = co.zw.nissangtr.pos.domain.model.PaymentStatus("o1", state, total, "2099-01-01T00:00:00Z", null, null, null, null, null, invoice, null)
+        override suspend fun prepare(cartId: String, requestId: String, contacts: co.zw.nissangtr.pos.domain.model.ReceiptContacts): PosResult<String> {
+            prepared += requestId
+            return PosResult.Ok("o1")
+        }
+        override suspend fun status(orderId: String) = PosResult.Ok(st())
+        override suspend fun settle(orderId: String, paymentRequestId: String, tenders: List<co.zw.nissangtr.pos.domain.model.TenderLine>): PosResult<co.zw.nissangtr.pos.domain.gateway.CheckoutResult> {
+            settled += paymentRequestId
+            state = "paid"; invoice = "inv-9"
+            return PosResult.Ok(co.zw.nissangtr.pos.domain.gateway.CheckoutResult("inv-9", "INV-9"))
+        }
+        override suspend fun providerAvailability() = PosResult.Ok(co.zw.nissangtr.pos.domain.model.DigitalProvider.entries.associateWith { null as String? })
+        override suspend fun startProvider(orderId: String, provider: co.zw.nissangtr.pos.domain.model.DigitalProvider, msisdn: String?, method: co.zw.nissangtr.pos.domain.model.ProviderMethod?) =
+            PosResult.Ok(co.zw.nissangtr.pos.domain.model.ProviderStart("i1", null, null)).also { state = "payment_processing" }
+        override suspend fun cancel(orderId: String, reason: String): PosResult<Unit> { cancelled += orderId; return PosResult.Ok(Unit) }
+        override suspend fun onAccount(cartId: String, contacts: co.zw.nissangtr.pos.domain.model.ReceiptContacts) =
+            PosResult.Ok(co.zw.nissangtr.pos.domain.gateway.CheckoutResult("inv-a", "INV-A"))
+        override suspend fun documentNumber(invoiceId: String) = "INV-P"
+        override suspend fun recovery() = PosResult.Ok(emptyList<co.zw.nissangtr.pos.domain.model.RecoveryItem>())
+        override suspend fun pickups(query: String?) = PosResult.Ok(emptyList<co.zw.nissangtr.pos.domain.model.PickupOrder>())
+        override suspend fun collect(orderId: String) = PosResult.Ok(Unit)
+    }
+
+    @Test
+    fun `reserve first, settle once with a key, then the receipt from the reserved sale`() = runTest {
+        val reserve = FakeReserve()
+        val s = store(gateways(reserve = reserve))
+        s.dispatch(PosIntent.Start)
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        runCurrent()
+        reserve.total = s.state.value.cart.total
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.OpenPayment)
+        runCurrent()
+        assertEquals(1, reserve.prepared.size)
+        assertEquals("o1", s.state.value.checkout?.orderId)
+        // The reserved sale is locked.
+        s.dispatch(PosIntent.AddPart(PosFixtures.brakePads))
+        runCurrent()
+        assertEquals(1, s.state.value.cart.lines.size)
+
+        s.dispatch(co.zw.nissangtr.pos.domain.state.CheckoutIntent.PayManual(
+            listOf(co.zw.nissangtr.pos.domain.model.TenderLine(co.zw.nissangtr.pos.domain.model.Tender.Cash, reserve.total)), null,
+            co.zw.nissangtr.pos.domain.model.ReceiptContacts(null, null),
+        ))
+        advanceUntilIdle()
+        assertEquals(1, reserve.settled.size)
+        val receipt = s.state.value.receipt!!
+        assertEquals("INV-9", receipt.documentNumber)
+        assertEquals(1, receipt.lines.size)
+        assertEquals("o1", s.state.value.receiptOrderId)
+        assertNull(s.state.value.checkout)
+    }
+
+    @Test
+    fun `a provider payment settles from the poll and never twice`() = runTest {
+        val reserve = FakeReserve()
+        val s = store(gateways(reserve = reserve))
+        s.dispatch(PosIntent.Start)
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        runCurrent()
+        reserve.total = s.state.value.cart.total
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.OpenPayment)
+        runCurrent()
+        s.dispatch(co.zw.nissangtr.pos.domain.state.CheckoutIntent.PayProvider(
+            co.zw.nissangtr.pos.domain.model.DigitalProvider.EcoCash, "0771234567", null, co.zw.nissangtr.pos.domain.model.ReceiptContacts(null, null),
+        ))
+        runCurrent()
+        assertTrue(s.state.value.checkout!!.inFlight)
+        // The webhook settles the order; the next poll finishes the sale.
+        reserve.state = "paid"; reserve.invoice = "inv-p"
+        advanceUntilIdle()
+        val receipt = s.state.value.receipt!!
+        assertEquals("INV-P", receipt.documentNumber)
+        assertEquals(co.zw.nissangtr.pos.domain.model.Tender.EcoCash, receipt.tenders.single().tender)
+        assertTrue(reserve.settled.isEmpty())
+        assertNull(s.state.value.checkout)
+    }
+
+    @Test
+    fun `going back to the sale releases the reservation`() = runTest {
+        val reserve = FakeReserve()
+        val s = store(gateways(reserve = reserve))
+        s.dispatch(PosIntent.Start)
+        s.dispatch(PosIntent.AddPart(PosFixtures.oilFilter))
+        runCurrent()
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.OpenPayment)
+        runCurrent()
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.ClosePayment)
+        advanceUntilIdle()
+        assertEquals(listOf("o1"), reserve.cancelled)
+        assertNull(s.state.value.checkout)
+        assertFalse(s.state.value.paymentOpen)
     }
 }

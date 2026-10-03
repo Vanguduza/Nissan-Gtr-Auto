@@ -2240,4 +2240,111 @@ class FakeRpcClient : RpcClient {
         }.getOrElse { PosBadgeApproval(false, "Demo manager", it.message) }
     }
 
+
+    // --- POS reserve-first checkout (in memory). EcoCash approves after a few seconds; a number
+    // ending 0 is declined and one ending 9 never answers (recovery); ContiPay is not set up.
+
+    private data class FakeOrder(
+        val orderId: String,
+        val cartId: String,
+        var state: String,
+        val total: Double,
+        val currency: CurrencyCode,
+        val expiresAt: Long,
+        var provider: String? = null,
+        var intentId: String? = null,
+        var providerStatus: String? = null,
+        var providerFailure: String? = null,
+        var resolveAt: Long = 0,
+        var declines: Boolean = false,
+        var invoiceId: String? = null,
+    )
+    private val fakeOrders = mutableMapOf<String, FakeOrder>()
+    private val fakeSettlements = mutableMapOf<String, String>()
+
+    private fun FakeOrder.tick() {
+        if (state != "payment_processing" || System.currentTimeMillis() < resolveAt) return
+        if (declines) {
+            state = "payment_failed"; providerStatus = "failed"; providerFailure = "Insufficient funds in the wallet."
+        } else {
+            state = "paid"; providerStatus = "settled"
+            invoiceId = "inv-${orderId.takeLast(6)}"
+        }
+    }
+
+    override suspend fun preparePosCommerceCheckout(cartId: String, checkoutRequestId: String, receiptEmail: String?, receiptWhatsappE164: String?): String {
+        fakeOrders.values.firstOrNull { it.cartId == cartId && it.state in setOf("awaiting_payment", "payment_processing", "payment_failed") && it.expiresAt > System.currentTimeMillis() }
+            ?.let { return it.orderId }
+        val lines = cartLines[cartId].orEmpty()
+        require(lines.isNotEmpty()) { "cart has no lines" }
+        val id = "order-${UUID.randomUUID().toString().take(8)}"
+        fakeOrders[id] = FakeOrder(id, cartId, "awaiting_payment", lines.sumOf { it.lineTotal }, CurrencyCode.USD, System.currentTimeMillis() + 20 * 60_000)
+        return id
+    }
+
+    override suspend fun posPaymentStatus(orderId: String): PosPaymentStatus {
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        o.tick()
+        return PosPaymentStatus(
+            o.orderId, o.cartId, o.state, o.total, o.currency, java.time.Instant.ofEpochMilli(o.expiresAt).toString(),
+            o.provider, o.intentId, o.providerStatus, o.providerFailure, o.provider.takeIf { o.invoiceId != null }, null, o.invoiceId, null, emptyList(),
+        )
+    }
+
+    override suspend fun settlePosCommerceTenders(orderId: String, paymentRequestId: String, tenders: List<PosTenderLine>): String {
+        fakeSettlements[paymentRequestId]?.let { return it }
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        check(o.state == "awaiting_payment" || o.state == "payment_failed") { "manual tenders cannot settle order in state ${o.state}" }
+        check(kotlin.math.abs(tenders.sumOf { it.amount } - o.total) < 0.01) { "manual tenders must equal order total" }
+        val invoice = checkoutPosCartWithTenders(o.cartId, tenders).invoiceId
+        o.state = "paid"; o.invoiceId = invoice
+        fakeSettlements[paymentRequestId] = invoice
+        return invoice
+    }
+
+    override suspend fun posProviderAvailability(provider: String): String? =
+        if (provider == "contipay") "Not set up for this shop yet." else null
+
+    override suspend fun startPosProviderPayment(orderId: String, provider: String, msisdn: String?, method: String?, returnUrl: String): PosProviderStart {
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        check(provider != "contipay") { "CONTIPAY_API_KEY / CONTIPAY_MERCHANT_ID required" }
+        val digits = msisdn.orEmpty().filter { it.isDigit() }
+        if (provider == "ecocash") require(Regex("^(263|0)7\\d{8}$").matches(digits)) { "payer_msisdn must normalize to 263XXXXXXXXX" }
+        o.state = "payment_processing"; o.provider = provider; o.intentId = "intent-${UUID.randomUUID().toString().take(6)}"
+        o.providerStatus = "pending"; o.providerFailure = null; o.declines = digits.endsWith("0")
+        o.resolveAt = if (digits.endsWith("9")) Long.MAX_VALUE else System.currentTimeMillis() + 5_000
+        return PosProviderStart(o.intentId!!, if (provider == "paynow") "https://www.paynow.co.zw/payment/demo/${o.intentId}" else null,
+            if (provider == "ecocash") "PIN request sent to $msisdn." else null)
+    }
+
+    override suspend fun cancelPosCommerceCheckout(orderId: String, reason: String) {
+        val o = fakeOrders[orderId] ?: error("commerce order not found")
+        check(o.state != "payment_processing") { "payment is in flight; resolve it from recovery" }
+        check(o.invoiceId == null) { "order already settled" }
+        o.state = "cancelled"
+    }
+
+    override suspend fun checkoutPosCartOnAccount(cartId: String, receiptEmail: String?, receiptWhatsappE164: String?): String {
+        checkNotNull(cartCustomers[cartId]) { "registered customer required for on-account checkout" }
+        val lines = cartLines[cartId].orEmpty()
+        return checkoutPosCartWithTenders(cartId, listOf(PosTenderLine("bank", lines.sumOf { it.lineTotal }))).invoiceId
+    }
+
+    override suspend fun listPosPaymentRecovery(): List<PosRecoveryRow> =
+        fakeOrders.values.onEach { it.tick() }.filter { it.state in setOf("payment_processing", "payment_failed", "allocation_pending") }.map {
+            PosRecoveryRow(it.orderId, it.state, it.total, it.currency, it.provider, null, it.invoiceId, null, java.time.Instant.now().toString(), 0)
+        }
+
+    override suspend fun repairPosPaidOrder(orderId: String, notes: String?): String = error("paid-but-unfinalized commerce order required")
+
+    override suspend fun listPosPickupOrders(query: String?): List<PosPickupRow> =
+        fakeOrders.values.onEach { it.tick() }.filter { it.state == "paid" && it.invoiceId != null }.map {
+            PosPickupRow(it.orderId, it.invoiceId, null, it.state, it.total, it.currency, it.invoiceId, it.provider, java.time.Instant.now().toString())
+        }
+
+    override suspend fun collectPosCommerceOrder(orderId: String, notes: String?) {
+        val o = fakeOrders[orderId] ?: error("eligible pickup order required")
+        check(o.state == "paid") { "eligible pickup order required" }
+        o.state = "delivered"
+    }
 }

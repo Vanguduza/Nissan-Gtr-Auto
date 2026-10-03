@@ -358,6 +358,10 @@ fun OrdersScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
             }
         },
     )
+    if (state.reserveCheckout) {
+        Spacer(Modifier.height(16.dp))
+        PickupPanel(state, dispatch)
+    }
     sending?.let { id ->
         state.quotations?.firstOrNull { it.id == id }?.let { q -> SendQuoteDialog(q, onDismiss = { sending = null }, onSend = { ch, contact ->
             sending = null

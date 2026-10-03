@@ -16,14 +16,22 @@ fun reduce(state: PosState, msg: PosMsg): Reduction = companionFollowsCart(
     },
 )
 
-private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (intent) {
+private fun reduceIntent(state: PosState, intent: PosIntent): Reduction =
+    if (state.checkout != null && intent.editsReservedSale()) checkoutLocked(state) else reduceIntentUnlocked(state, intent)
+
+/** Changes a reserved sale cannot take (§10.5): lines, parking and the customer. */
+private fun PosIntent.editsReservedSale(): Boolean = this is PosIntent.AddPart || this is PosIntent.SetQuantity ||
+    this is PosIntent.RemoveLine || this == PosSaleIntent.Park || this is PosSaleIntent.SelectCustomer ||
+    this == PosSaleIntent.ClearCustomer || this is PosSaleIntent.Resume || this is PosSaleIntent.ConvertQuotation
+
+private fun reduceIntentUnlocked(state: PosState, intent: PosIntent): Reduction = when (intent) {
     is PosSaleIntent -> reduceSaleIntent(state, intent)
 
     PosIntent.Start -> Reduction(
         state,
         // Online: replay anything queued last time and refresh the offline snapshot; offline: just count.
         listOf(
-            PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, TillEffect.Load, GovernanceEffect.LoadSelf,
+            PosEffect.LoadOperator, PosEffect.LoadModels, PosEffect.LoadPopular, TillEffect.Load, GovernanceEffect.LoadSelf, CheckoutEffect.Init,
             if (state.online) PosSaleEffect.SyncOffline else PosSaleEffect.LoadOfflineStatus,
         ),
     )
@@ -31,7 +39,7 @@ private fun reduceIntent(state: PosState, intent: PosIntent): Reduction = when (
     is PosIntent.Navigate -> Reduction(
         state.copy(destination = intent.destination),
         when (intent.destination) {
-            PosDestination.Orders -> listOf(PosSaleEffect.LoadOrders)
+            PosDestination.Orders -> listOfNotNull(PosSaleEffect.LoadOrders, CheckoutEffect.LoadPickups(null).takeIf { state.reserveCheckout && state.online })
             PosDestination.Returns -> listOf(PosSaleEffect.LoadInvoices(state.invoiceQuery.trim()))
             PosDestination.Till -> if (state.online) listOf(TillEffect.Load, TillEffect.LoadHistory) else emptyList()
             else -> emptyList()

@@ -103,6 +103,9 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.TillVariancePending -> stringResource(R.string.pos_notice_till_variance)
         PosNotice.TillHandedOver -> stringResource(R.string.pos_notice_till_handed_over)
         PosNotice.PolicySaved -> stringResource(R.string.pos_notice_policy_saved)
+        PosNotice.ReservationExpired -> stringResource(R.string.pos_notice_reservation_expired)
+        PosNotice.ReservationReleased -> stringResource(R.string.pos_notice_reservation_released)
+        PosNotice.Collected -> stringResource(R.string.pos_notice_collected)
     }
     is PosFeedback.Failure -> errorText(feedback.error)
 }
@@ -123,6 +126,10 @@ fun errorText(error: PosError): String = when (error) {
         "out_of_stock" -> stringResource(R.string.pos_error_out_of_stock, error.detail)
         "insufficient_stock" -> stringResource(R.string.pos_error_insufficient_stock)
         "till_required" -> stringResource(R.string.pos_error_till_required)
+        "cart_reserved" -> stringResource(R.string.pos_co_locked)
+        "account_customer_required" -> stringResource(R.string.pos_co_account_needs_customer)
+        "provider_unavailable" -> error.detail.ifBlank { stringResource(R.string.pos_error_rule) }
+        "reserve_unavailable" -> stringResource(R.string.pos_co_reserve_unavailable)
         else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)
     }
     is PosError.PaymentUnknown -> stringResource(R.string.pos_error_payment_unknown)

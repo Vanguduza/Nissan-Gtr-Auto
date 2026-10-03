@@ -142,21 +142,21 @@ passed, commit referenced) · `dropped` (owner reference required)
 | CART-08 | Zero-value discount row stays visible | 6.5 | 4 | partial — discount row always rendered, US$ 0.00 included |
 | CART-09 | Clear cart behind confirmation naming the verb | 5.9 | 6 | todo |
 | CART-10 | Park and resume sale | 12 | 6 | todo |
-| CART-11 | Locked-for-checkout state; cart not editable when reserved | 10.5 | 8 | todo |
+| CART-11 | Locked-for-checkout state; cart not editable when reserved | 10.5 | 8 | partial — web and tablet: lines, customer, park, resume and governed edits refused while a reservation exists; back to sale releases it (reducer + store tests) |
 | CART-12 | Cart recomposition isolated from catalogue — verified by test | 10.15 | 6 | todo |
 
 ## PAY — Checkout and payment
 
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
-| PAY-01 | Reserve-first sequence | 10.6 | 8 | partial — reserve-first commerce checkout landed on the canonical lineage (`9033801f`, `20260905105502_commerce_reservation_expiry_cron_v1.sql`); verify it against the §10.6 contract for POS |
-| PAY-02 | Reservation TTL and designed expiry behaviour | 10.6 | 8 | partial — expiry cron exists on the canonical lineage; POS-designed expiry UX not built |
-| PAY-03 | Tender capability model; blocked tenders disabled with reason | 10.7 | 8 | todo |
+| PAY-01 | Reserve-first sequence | 10.6 | 8 | partial — web and tablet reserve on Pay (`prepare_pos_commerce_checkout` with a request key), settle against the order (`settle_pos_commerce_tenders`, key kept after a dropped answer) or through the provider webhook; not yet run end to end on a device against the hosted backend |
+| PAY-02 | Reservation TTL and designed expiry behaviour | 10.6 | 8 | partial — web and tablet show "Stock held until" and close payment with a notice when the hold expires |
+| PAY-03 | Tender capability model; blocked tenders disabled with reason | 10.7 | 8 | partial — web and tablet tender cards: providers probed (503 → not set up), offline, on account without a customer |
 | PAY-04 | Adapters — cash, swipe terminal, EcoCash, Paynow, ContiPay | 10.7 | 8 | todo |
-| PAY-05 | Five normalised terminal outcomes | 10.7 | 8 | todo |
+| PAY-05 | Five normalised terminal outcomes | 10.7 | 8 | partial — provider attempts (web and tablet); card terminals in phase 5 |
 | PAY-06 | Split tender legs; remaining balance always from backend | 10.5 | 8 | todo |
-| PAY-07 | `Unknown` opens recovery and blocks duplicate charge | 10.7, 10.11 | 8 | todo |
-| PAY-08 | Recovery as a dedicated screen on both form factors | 10.4 | 8 | todo |
+| PAY-07 | `Unknown` opens recovery and blocks duplicate charge | 10.7, 10.11 | 8 | partial — web and tablet: no answer in 3 minutes or money captured without a sale → Unknown; every tender and back-to-sale blocked; "Resolve payment" |
+| PAY-08 | Recovery as a dedicated screen on both form factors | 10.4 | 8 | partial — web and tablet recovery screen: order status, exceptions, approver repair (badge, password or signed-in approver), release; list of payments to resolve |
 | PAY-09 | Reduced basket after partial payment | 10.8 | 8 | todo |
 | PAY-10 | Change due for cash tender | 6.6.1 | 8 | todo |
 | PAY-11 | Manager reauth — discount, void, refund, price override | L2 | 8 | todo |

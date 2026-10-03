@@ -229,6 +229,10 @@ class RpcSaleGateways(
                         rpc.handoverPosTillSession(request.sessionId, request.to.userId, notes)
                         null
                     }
+                    is ApprovalRequest.RepairPaidOrder -> {
+                        rpc.repairPosPaidOrder(request.orderId, notes)
+                        null
+                    }
                 }
             }
             // The tablet wraps the live client (offline catalogue); approval must still reach it.
@@ -267,6 +271,7 @@ class RpcSaleGateways(
             )
             is ApprovalRequest.TillVariance -> "till_variance" to mapOf("session_id" to request.sessionId, "reason_code" to request.reason.code, "notes" to notes)
             is ApprovalRequest.Handover -> "till_handover" to mapOf("session_id" to request.sessionId, "new_operator_user_id" to request.to.userId, "notes" to notes)
+            is ApprovalRequest.RepairPaidOrder -> "repair_paid_order" to mapOf("order_id" to request.orderId, "notes" to notes)
         }
         val outcome = rpc.posBadgeApprove(badge, action, args, deviceId)
         if (!outcome.ok) throw PosFailure(PosError.BusinessRule("badge", outcome.error ?: "Badge approval refused."))

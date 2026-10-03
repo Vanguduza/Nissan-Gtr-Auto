@@ -339,4 +339,132 @@ class PosScreensScreenshotTest {
         915.dp,
         sale.copy(destination = PosDestination.Customer, customerResults = listOf(FakeSaleGateways.customer), customer = FakeSaleGateways.customer, garage = FakeSaleGateways.garage),
     )
+
+    // ------------------------------------------------------------ reserve-first checkout (§10.6–10.7)
+
+    private fun status(state: String = "awaiting_payment", invoice: String? = null) = co.zw.nissangtr.pos.domain.model.PaymentStatus(
+        orderId = "7d1c2a90-0000-4000-8000-000000000001", state = state, total = sale.cart.total,
+        reservationExpiresAtIso = "2026-10-01T07:57:00Z", activeProvider = null, providerStatus = null, providerFailure = null,
+        settledProvider = null, reference = null, salesInvoiceId = invoice, paymentException = null,
+    )
+
+    private fun reserved(
+        outcome: co.zw.nissangtr.pos.domain.model.TenderOutcome? = null,
+        attempt: co.zw.nissangtr.pos.domain.model.ProviderAttempt? = null,
+        st: co.zw.nissangtr.pos.domain.model.PaymentStatus = status(),
+    ) = sale.copy(
+        reserveCheckout = true,
+        paymentOpen = true,
+        providers = mapOf(
+            co.zw.nissangtr.pos.domain.model.DigitalProvider.EcoCash to null,
+            co.zw.nissangtr.pos.domain.model.DigitalProvider.Paynow to null,
+            co.zw.nissangtr.pos.domain.model.DigitalProvider.ContiPay to "Not set up for this shop yet.",
+        ),
+        checkout = co.zw.nissangtr.pos.domain.state.CheckoutSession(
+            orderId = st.orderId, cartId = sale.cart.cartId, requestId = "req-1", status = st, attempt = attempt, outcome = outcome,
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun reservedPayment() = capture("reserved_payment", 1280.dp, 800.dp, reserved())
+
+    @Test @Config(qualifiers = "w400dp-h860dp-port-mdpi")
+    fun reservedPaymentPhone() = capture("reserved_payment_phone", 400.dp, 860.dp, reserved())
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun reservedProviderWaiting() = capture(
+        "reserved_provider_waiting",
+        1280.dp,
+        800.dp,
+        reserved(
+            attempt = co.zw.nissangtr.pos.domain.model.ProviderAttempt(
+                co.zw.nissangtr.pos.domain.model.DigitalProvider.Paynow, "intent-1", "https://www.paynow.co.zw/payment/confirm/abc123", 0,
+            ),
+            st = status("payment_processing"),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun reservedUnknown() = capture(
+        "reserved_unknown",
+        1280.dp,
+        800.dp,
+        reserved(outcome = co.zw.nissangtr.pos.domain.model.TenderOutcome.Unknown, st = status("allocation_pending")),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun reservedDeclined() = capture(
+        "reserved_declined",
+        1280.dp,
+        800.dp,
+        reserved(outcome = co.zw.nissangtr.pos.domain.model.TenderOutcome.Declined).let {
+            it.copy(checkout = it.checkout!!.copy(message = "Insufficient funds"))
+        },
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun recoveryOrder() = capture(
+        "recovery_order",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            reserveCheckout = true,
+            destination = PosDestination.Recovery,
+            recoveryOrderId = status().orderId,
+            recoveryStatus = status("allocation_pending").copy(
+                settledProvider = "ecocash",
+                reference = "MP261001.0742.A12345",
+                exceptions = listOf(co.zw.nissangtr.pos.domain.model.PaymentExceptionInfo("allocation_failed", "Stock moved before allocation", null, null, "2026-10-01T07:44:00Z")),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun recoveryList() = capture(
+        "recovery_list",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            reserveCheckout = true,
+            destination = PosDestination.Recovery,
+            recoveryItems = listOf(
+                co.zw.nissangtr.pos.domain.model.RecoveryItem("o1", "allocation_pending", usd(184.0), "ecocash", null, "2026-10-01T07:44:00Z", 1),
+                co.zw.nissangtr.pos.domain.model.RecoveryItem("o2", "payment_processing", usd(62.5), "paynow", null, "2026-10-01T07:31:00Z", 0),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun ordersPickup() = capture(
+        "orders_pickup",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            reserveCheckout = true,
+            destination = PosDestination.Orders,
+            parked = emptyList(),
+            quotations = emptyList(),
+            pickups = listOf(
+                co.zw.nissangtr.pos.domain.model.PickupOrder("o3", "INV-2026-000412", "Tendai Moyo", "dispatch_ready", usd(240.0), "cash", "2026-10-01T07:20:00Z"),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun receiptHandover() = capture(
+        "receipt_handover",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            reserveCheckout = true,
+            receiptOrderId = "o3",
+            receipt = co.zw.nissangtr.pos.domain.model.Receipt(
+                invoiceId = "inv-1", documentNumber = "INV-2026-000413", lines = sale.cart.lines, subtotal = sale.cart.subtotal,
+                discount = sale.cart.discount, total = sale.cart.total,
+                tenders = listOf(co.zw.nissangtr.pos.domain.model.TenderLine(co.zw.nissangtr.pos.domain.model.Tender.Paynow, sale.cart.total)),
+                cashGiven = null, change = null, customerName = null, vehicleLabel = null, operatorName = "Rudo",
+                issuedAtIso = "2026-10-01T07:45:00+02:00",
+            ),
+        ),
+    )
 }

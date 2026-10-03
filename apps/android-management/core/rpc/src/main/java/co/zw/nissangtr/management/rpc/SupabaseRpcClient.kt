@@ -2768,6 +2768,176 @@ class SupabaseRpcClient(
         }
     }
 
+    // --- POS reserve-first checkout
+
+    override suspend fun preparePosCommerceCheckout(cartId: String, checkoutRequestId: String, receiptEmail: String?, receiptWhatsappE164: String?): String =
+        client.postgrest.rpc(
+            "prepare_pos_commerce_checkout_v2",
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_checkout_request_id", checkoutRequestId)
+                put("p_reservation_ttl", "20 minutes")
+                if (receiptEmail.isNullOrBlank()) put("p_receipt_email", JsonNull) else put("p_receipt_email", receiptEmail)
+                if (receiptWhatsappE164.isNullOrBlank()) put("p_receipt_whatsapp_e164", JsonNull) else put("p_receipt_whatsapp_e164", receiptWhatsappE164)
+                put("p_receipt_phone_e164", JsonNull)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun posPaymentStatus(orderId: String): PosPaymentStatus {
+        val o = client.postgrest.rpc("get_pos_payment_status", buildJsonObject { put("p_order_id", orderId) }).decodeAs<JsonObject>()
+        return PosPaymentStatus(
+            orderId = o.stringOrNull("order_id") ?: orderId,
+            cartId = o.stringOrNull("cart_id"),
+            state = o.stringOrNull("state") ?: "",
+            total = o.number("total") ?: 0.0,
+            currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+            reservationExpiresAt = o.stringOrNull("reservation_expires_at"),
+            activeProvider = o.stringOrNull("active_provider"),
+            activeIntentId = o.stringOrNull("active_intent_id"),
+            providerStatus = o.stringOrNull("provider_status"),
+            providerFailure = o.stringOrNull("provider_failure"),
+            settledProvider = o.stringOrNull("settled_provider"),
+            settledProviderRef = o.stringOrNull("settled_provider_ref"),
+            salesInvoiceId = o.stringOrNull("sales_invoice_id"),
+            paymentException = o.stringOrNull("payment_exception"),
+            exceptions = (o["exceptions"] as? JsonArray).orEmpty().mapNotNull { e ->
+                val x = e as? JsonObject ?: return@mapNotNull null
+                PosPaymentExceptionRow(x.stringOrNull("code") ?: "", x.stringOrNull("detail"), x.stringOrNull("resolved_at"), x.stringOrNull("resolution"), x.stringOrNull("created_at") ?: "")
+            },
+        )
+    }
+
+    override suspend fun settlePosCommerceTenders(orderId: String, paymentRequestId: String, tenders: List<PosTenderLine>): String {
+        val o = client.postgrest.rpc(
+            "settle_pos_commerce_tenders",
+            buildJsonObject {
+                put("p_order_id", orderId)
+                put("p_payment_request_id", paymentRequestId)
+                putJsonArray("p_tenders") {
+                    tenders.forEach { t -> add(buildJsonObject { put("tender", t.tender); put("amount", t.amount) }) }
+                }
+            },
+        ).decodeAs<JsonObject>()
+        return o.stringOrNull("invoice_id") ?: error("payment was not recorded")
+    }
+
+    override suspend fun posProviderAvailability(provider: String): String? = try {
+        // A provider without keys answers 503 before it reads the body, so an empty probe is harmless.
+        client.functions.invoke("$provider-initiate") { setBody(buildJsonObject { }) }
+        null
+    } catch (e: io.github.jan.supabase.exceptions.RestException) {
+        when (e.statusCode) {
+            503 -> "Not set up for this shop yet."
+            401 -> "Sign in again to use this provider."
+            else -> null // 400: configured, it just wants a real request
+        }
+    } catch (e: Exception) {
+        "Provider unreachable."
+    }
+
+    override suspend fun startPosProviderPayment(orderId: String, provider: String, msisdn: String?, method: String?, returnUrl: String): PosProviderStart {
+        val body = buildJsonObject {
+            put("pos_commerce_order_id", orderId)
+            put("channel", "pos")
+            put("metadata", buildJsonObject { put("source", "tablet_pos") })
+            if (provider == "ecocash") {
+                put("payer_msisdn", msisdn ?: "")
+            } else {
+                put("method", method ?: "ecocash")
+                put("return_url", returnUrl)
+                put("cancel_url", returnUrl)
+                if (!msisdn.isNullOrBlank()) {
+                    put("phone", msisdn)
+                    put("authphone", msisdn)
+                }
+            }
+        }
+        val text = try {
+            client.functions.invoke("$provider-initiate") { setBody(body) }.bodyAsText()
+        } catch (e: io.github.jan.supabase.exceptions.RestException) {
+            // The intent may exist even when the provider call failed; the order tracks it for recovery.
+            val o = runCatching { Json.parseToJsonElement(e.error) as? JsonObject }.getOrNull()
+            o?.stringOrNull("intent_id")?.let { return PosProviderStart(it, null, o.stringOrNull("error")) }
+            throw IllegalStateException(o?.stringOrNull("error") ?: e.error)
+        }
+        val o = Json.parseToJsonElement(text) as? JsonObject ?: error("The payment request was not sent.")
+        val intent = o.stringOrNull("intent_id") ?: error(o.stringOrNull("error") ?: "The payment request was not sent.")
+        return PosProviderStart(intent, o.stringOrNull("checkout_url"), o.stringOrNull("message"))
+    }
+
+    override suspend fun cancelPosCommerceCheckout(orderId: String, reason: String) {
+        client.postgrest.rpc("cancel_pos_commerce_checkout", buildJsonObject { put("p_order_id", orderId); put("p_reason", reason) })
+    }
+
+    override suspend fun checkoutPosCartOnAccount(cartId: String, receiptEmail: String?, receiptWhatsappE164: String?): String =
+        client.postgrest.rpc(
+            "checkout_pos_cart_on_account",
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                if (receiptEmail.isNullOrBlank()) put("p_receipt_email", JsonNull) else put("p_receipt_email", receiptEmail)
+                if (receiptWhatsappE164.isNullOrBlank()) put("p_receipt_whatsapp_e164", JsonNull) else put("p_receipt_whatsapp_e164", receiptWhatsappE164)
+                put("p_receipt_phone_e164", JsonNull)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun listPosPaymentRecovery(): List<PosRecoveryRow> =
+        client.postgrest.rpc("list_pos_payment_recovery", buildJsonObject { put("p_limit", 100) }).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosRecoveryRow(
+                orderId = o.stringOrNull("order_id") ?: return@mapNotNull null,
+                state = o.stringOrNull("state") ?: "",
+                total = o.number("total") ?: 0.0,
+                currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+                activeProvider = o.stringOrNull("active_provider"),
+                settledProvider = o.stringOrNull("settled_provider"),
+                salesInvoiceId = o.stringOrNull("sales_invoice_id"),
+                paymentException = o.stringOrNull("payment_exception"),
+                updatedAt = o.stringOrNull("updated_at") ?: "",
+                openExceptions = (o.number("open_exception_count") ?: 0.0).toInt(),
+            )
+        }
+
+    override suspend fun repairPosPaidOrder(orderId: String, notes: String?): String =
+        client.postgrest.rpc(
+            "repair_pos_paid_order",
+            buildJsonObject {
+                put("p_order_id", orderId)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun listPosPickupOrders(query: String?): List<PosPickupRow> =
+        client.postgrest.rpc(
+            "list_pos_pickup_orders",
+            buildJsonObject {
+                if (query.isNullOrBlank()) put("p_query", JsonNull) else put("p_query", query)
+                put("p_limit", 100)
+            },
+        ).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosPickupRow(
+                orderId = o.stringOrNull("order_id") ?: return@mapNotNull null,
+                documentNumber = o.stringOrNull("document_number"),
+                customerName = o.stringOrNull("customer_name"),
+                state = o.stringOrNull("state") ?: "",
+                total = o.number("total") ?: 0.0,
+                currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+                salesInvoiceId = o.stringOrNull("sales_invoice_id"),
+                settledProvider = o.stringOrNull("settled_provider"),
+                updatedAt = o.stringOrNull("updated_at") ?: "",
+            )
+        }
+
+    override suspend fun collectPosCommerceOrder(orderId: String, notes: String?) {
+        client.postgrest.rpc(
+            "collect_pos_commerce_order",
+            buildJsonObject {
+                put("p_order_id", orderId)
+                if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        )
+    }
+
     // --- POS manager badges
 
     override suspend fun myPosApproverStatus(): Boolean =

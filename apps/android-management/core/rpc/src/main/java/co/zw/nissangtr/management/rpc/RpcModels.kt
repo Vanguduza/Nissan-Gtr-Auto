@@ -905,3 +905,54 @@ data class PosApprovalPolicy(
     val reasonRequired: Boolean,
     val updatedAt: String?,
 )
+
+/** `get_pos_payment_status`: the server's view of a reserved checkout (`commerce_orders`). */
+data class PosPaymentStatus(
+    val orderId: String,
+    val cartId: String?,
+    val state: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val reservationExpiresAt: String?,
+    val activeProvider: String?,
+    val activeIntentId: String?,
+    val providerStatus: String?,
+    val providerFailure: String?,
+    val settledProvider: String?,
+    val settledProviderRef: String?,
+    val salesInvoiceId: String?,
+    val paymentException: String?,
+    val exceptions: List<PosPaymentExceptionRow>,
+)
+
+data class PosPaymentExceptionRow(val code: String, val detail: String?, val resolvedAt: String?, val resolution: String?, val createdAt: String)
+
+/** A started provider attempt; [checkoutUrl] is the hosted page the customer opens (Paynow / ContiPay). */
+data class PosProviderStart(val intentId: String, val checkoutUrl: String?, val message: String?)
+
+/** `list_pos_payment_recovery` row. */
+data class PosRecoveryRow(
+    val orderId: String,
+    val state: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val activeProvider: String?,
+    val settledProvider: String?,
+    val salesInvoiceId: String?,
+    val paymentException: String?,
+    val updatedAt: String,
+    val openExceptions: Int,
+)
+
+/** `list_pos_pickup_orders` row. */
+data class PosPickupRow(
+    val orderId: String,
+    val documentNumber: String?,
+    val customerName: String?,
+    val state: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val salesInvoiceId: String?,
+    val settledProvider: String?,
+    val updatedAt: String,
+)

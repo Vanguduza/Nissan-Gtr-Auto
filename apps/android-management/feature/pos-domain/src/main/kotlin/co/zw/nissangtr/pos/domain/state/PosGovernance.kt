@@ -4,6 +4,7 @@ import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.model.ApprovalPolicy
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.ReasonCode
+import co.zw.nissangtr.pos.domain.model.choosesReason
 import co.zw.nissangtr.pos.domain.model.policyAction
 import kotlin.math.abs
 
@@ -44,7 +45,7 @@ sealed interface GovernanceEffect : PosSaleEffect {
 internal fun openApproval(state: PosState, request: ApprovalRequest): Reduction {
     // A signed-in manager approves as themselves: no badge or password is asked for.
     val next = state.copy(approval = request, approvalReasons = null, approvalNeedsManager = !state.selfApprover, badgeScanning = false)
-    if (request is ApprovalRequest.TillAction) return Reduction(next.copy(approvalReasons = emptyList()))
+    if (!request.choosesReason) return Reduction(next.copy(approvalReasons = emptyList()))
     val value = when (request) {
         is ApprovalRequest.Discount -> request.percent
         is ApprovalRequest.PriceOverride -> {

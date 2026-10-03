@@ -21,7 +21,12 @@ val ApprovalRequest.policyAction: String
         is ApprovalRequest.CashOut -> ReasonAction.CASH_OUT
         is ApprovalRequest.TillVariance -> ReasonAction.TILL_VARIANCE
         is ApprovalRequest.Handover -> "till_handover"
+        is ApprovalRequest.RepairPaidOrder -> "repair_paid_order"
     }
+
+/** Governed sale actions pick a configured reason; drawer and recovery approvals do not. */
+val ApprovalRequest.choosesReason: Boolean
+    get() = this !is ApprovalRequest.TillAction && this !is ApprovalRequest.RepairPaidOrder
 
 /** Drawer actions always need a manager on the server, whatever the policy table says. */
 val ApprovalPolicy.managerFixed: Boolean
@@ -30,3 +35,7 @@ val ApprovalPolicy.managerFixed: Boolean
 /** Whether the threshold means anything for this action (it carries a percent). */
 val ApprovalPolicy.hasThreshold: Boolean
     get() = action == "discount_percent" || action == "price_override_delta_percent"
+
+/** Actions that change the open sale: refused while it is reserved for payment. */
+val ApprovalRequest.editsSale: Boolean
+    get() = this is ApprovalRequest.Discount || this is ApprovalRequest.PriceOverride || this == ApprovalRequest.VoidSale

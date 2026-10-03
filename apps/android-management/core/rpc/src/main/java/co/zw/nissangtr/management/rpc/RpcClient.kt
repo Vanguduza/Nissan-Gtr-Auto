@@ -793,6 +793,47 @@ interface RpcClient {
      */
     suspend fun posBadgeApprove(badge: String, action: String, args: Map<String, Any?>, deviceId: String?): PosBadgeApproval =
         PosBadgeApproval(false, null, "manager badges need the live backend")
+
+    // --- POS reserve-first checkout (Blueprint §10.6): reserve, then take money against the order
+
+    suspend fun preparePosCommerceCheckout(
+        cartId: String,
+        checkoutRequestId: String,
+        receiptEmail: String?,
+        receiptWhatsappE164: String?,
+    ): String = throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+
+    suspend fun posPaymentStatus(orderId: String): PosPaymentStatus = throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+
+    /** Cash, bank, store credit; returns the invoice id. Idempotent on [paymentRequestId]. */
+    suspend fun settlePosCommerceTenders(orderId: String, paymentRequestId: String, tenders: List<PosTenderLine>): String =
+        throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+
+    /** Null when the provider can be offered, else why not (a provider without keys answers 503). */
+    suspend fun posProviderAvailability(provider: String): String? = "Not available"
+
+    suspend fun startPosProviderPayment(orderId: String, provider: String, msisdn: String?, method: String?, returnUrl: String): PosProviderStart =
+        throw UnsupportedOperationException("provider payments need the live backend")
+
+    suspend fun cancelPosCommerceCheckout(orderId: String, reason: String) {
+        throw UnsupportedOperationException("reserve-first checkout needs the live backend")
+    }
+
+    /** On account (server checks credit limit, hold and currency); returns the invoice id. */
+    suspend fun checkoutPosCartOnAccount(cartId: String, receiptEmail: String?, receiptWhatsappE164: String?): String =
+        throw UnsupportedOperationException("on-account checkout needs the live backend")
+
+    suspend fun listPosPaymentRecovery(): List<PosRecoveryRow> = emptyList()
+
+    /** Approver session only (manager, finance, or badge). */
+    suspend fun repairPosPaidOrder(orderId: String, notes: String?): String =
+        throw UnsupportedOperationException("payment recovery needs the live backend")
+
+    suspend fun listPosPickupOrders(query: String?): List<PosPickupRow> = emptyList()
+
+    suspend fun collectPosCommerceOrder(orderId: String, notes: String?) {
+        throw UnsupportedOperationException("pickup needs the live backend")
+    }
 }
 
 /** Outcome of [RpcClient.posBadgeApprove]. */

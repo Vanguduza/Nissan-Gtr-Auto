@@ -228,6 +228,7 @@ fun PosHomeScreen(
                 PosDestination.EpcBrowse -> EpcScreen(state, dispatch)
                 PosDestination.Till -> co.zw.nissangtr.pos.ui.sale.TillScreen(state, dispatch)
                 PosDestination.Settings -> SettingsScreen(state, dispatch, host)
+                PosDestination.Recovery -> co.zw.nissangtr.pos.ui.sale.RecoveryScreen(state, dispatch)
             }
         }
         if (cartAsSheet) {
