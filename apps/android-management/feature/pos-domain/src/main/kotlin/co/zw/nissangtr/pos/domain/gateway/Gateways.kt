@@ -38,6 +38,10 @@ import co.zw.nissangtr.pos.domain.model.DigitalProvider
 import co.zw.nissangtr.pos.domain.model.PaymentStatus
 import co.zw.nissangtr.pos.domain.model.PickupOrder
 import co.zw.nissangtr.pos.domain.model.ProviderMethod
+import co.zw.nissangtr.pos.domain.model.RefundFeePolicy
+import co.zw.nissangtr.pos.domain.model.SplitRecoveryItem
+import co.zw.nissangtr.pos.domain.model.SplitSession
+import co.zw.nissangtr.pos.domain.model.SplitTender
 import co.zw.nissangtr.pos.domain.model.ProviderStart
 import co.zw.nissangtr.pos.domain.model.RecoveryItem
 import co.zw.nissangtr.pos.domain.model.TillCloseResult
@@ -299,5 +303,33 @@ interface ReserveCheckoutGateway {
         override suspend fun recovery(): PosResult<List<RecoveryItem>> = PosResult.Ok(emptyList())
         override suspend fun pickups(query: String?): PosResult<List<PickupOrder>> = PosResult.Ok(emptyList())
         override suspend fun collect(orderId: String) = refused
+    }
+}
+
+/** Part payments (staged split) on a reserved order. Refund steps go through `SalesGateway.approve`. */
+interface SplitPaymentGateway {
+    val enabled: Boolean get() = true
+    suspend fun find(orderId: String): PosResult<SplitSession?>
+    suspend fun start(orderId: String): PosResult<SplitSession>
+    suspend fun addPart(sessionId: String, tender: SplitTender, amount: Money, requestId: String, reference: String?): PosResult<SplitSession>
+    /** The customer keeps only [items] (cart line id → qty); the server computes the total and posts. */
+    suspend fun reduceBasket(sessionId: String, items: List<Pair<String, Double>>, notes: String?): PosResult<SplitSession>
+    suspend fun cancel(sessionId: String, reason: String, feePolicy: RefundFeePolicy): PosResult<SplitSession>
+    suspend fun retryFinalization(sessionId: String): PosResult<SplitSession>
+    suspend fun recovery(): PosResult<List<SplitRecoveryItem>>
+    /** The sale as posted (a reduced basket changes its lines on the server). */
+    suspend fun cart(cartId: String): PosResult<CartProjection>
+
+    object None : SplitPaymentGateway {
+        override val enabled = false
+        private val refused = PosResult.Err(PosError.BusinessRule("split_unavailable", ""))
+        override suspend fun find(orderId: String): PosResult<SplitSession?> = PosResult.Ok(null)
+        override suspend fun start(orderId: String) = refused
+        override suspend fun addPart(sessionId: String, tender: SplitTender, amount: Money, requestId: String, reference: String?) = refused
+        override suspend fun reduceBasket(sessionId: String, items: List<Pair<String, Double>>, notes: String?) = refused
+        override suspend fun cancel(sessionId: String, reason: String, feePolicy: RefundFeePolicy) = refused
+        override suspend fun retryFinalization(sessionId: String) = refused
+        override suspend fun recovery(): PosResult<List<SplitRecoveryItem>> = PosResult.Ok(emptyList())
+        override suspend fun cart(cartId: String): PosResult<CartProjection> = refused
     }
 }

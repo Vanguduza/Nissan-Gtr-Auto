@@ -94,6 +94,8 @@ fun PosTabletEntry(
                 governance = RpcGovernanceGateway(rpc),
                 // Reserve-first checkout (§10.6): online sales reserve stock, then take money against the order.
                 reserve = co.zw.nissangtr.pos.data.RpcReserveCheckoutGateway(rpc),
+                // Part payments (staged split) on the reserved order.
+                split = co.zw.nissangtr.pos.data.RpcSplitPaymentGateway(rpc),
                 // Manager ID badges are read with the front camera, facing whoever stands at the counter.
                 badgeScanner = BadgeScanner {
                     try {

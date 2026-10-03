@@ -58,7 +58,16 @@ petty cash requests, kits creation, product pages, payroll funding.
 | 1 Till | done | done |
 | 2 Governance (+ approver ID badges) | done | done (front-camera badge scan) |
 | 3 Reserve-first checkout | done | done: reserve on Pay, sale locked, cash/card/store-credit settlement with a kept key, EcoCash/Paynow/ContiPay with a QR for hosted pages and a 3-minute Unknown cut-off, on account, recovery screen with approver repair and release, pickup list and receipt hand-over |
-| 4–8 | todo | todo |
+| 4 Split payments | done: Pay in parts (cash, card/bank, store credit), reduced basket, cancel with refunds, recovery with manager refund steps and retry posting | done (same, plus front-camera badge for refund steps) |
+| 5–8 | todo | todo |
 
 Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
 answer 503; both clients show those tenders disabled with "Not set up for this shop yet."
+
+Phase 4 backend additions (applied to the hosted project): `pos_badge_approve` accepts
+`split_refund_approve` / `split_refund_complete` / `split_refund_fail`
+(20261003160108), and `retry_pos_split_finalization` re-posts a fully paid split sale whose invoice
+did not post (20261003160304). Known gaps: EcoCash, Paynow and ContiPay cannot take a part yet
+(the deployed initiate functions only start whole-order payments), and the hosted project has no
+FIFO stock batches, so in a rolled-back dry run a fully paid split sale could not post
+("insufficient FIFO batch qty") — it lands in Payments to resolve until stock is received properly.

@@ -125,6 +125,7 @@ class PosStoreTest {
         sales: co.zw.nissangtr.pos.domain.gateway.SalesGateway = FakeSaleGateways.sales,
         badgeScanner: co.zw.nissangtr.pos.domain.gateway.BadgeScanner = co.zw.nissangtr.pos.domain.gateway.BadgeScanner.None,
         reserve: co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway = co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway.None,
+        split: co.zw.nissangtr.pos.domain.gateway.SplitPaymentGateway = co.zw.nissangtr.pos.domain.gateway.SplitPaymentGateway.None,
     ) = PosGateways(
         session = object : SessionGateway {
             override suspend fun operator() = PosResult.Ok(Operator("Tendai Moyo", "Sales"))
@@ -150,6 +151,7 @@ class PosStoreTest {
         till = till,
         badgeScanner = badgeScanner,
         reserve = reserve,
+        split = split,
     )
 
     private fun TestScope.store(g: PosGateways) = PosStore(TestScope(UnconfinedTestDispatcher(testScheduler)), g)
@@ -519,5 +521,73 @@ class PosStoreTest {
         assertEquals(listOf("o1"), reserve.cancelled)
         assertNull(s.state.value.checkout)
         assertFalse(s.state.value.paymentOpen)
+    }
+
+    /** Server stand-in for part payments: parts captured at once; posts when they cover the total. */
+    private class FakeSplit(val reserve: FakeReserve) : co.zw.nissangtr.pos.domain.gateway.SplitPaymentGateway {
+        val keys = mutableListOf<String>()
+        var legs = listOf<co.zw.nissangtr.pos.domain.model.SplitLeg>()
+        var failNextWithNetwork = false
+        private fun usd(minor: Long) = Money(minor, CurrencyCode.USD)
+        fun view(status: String? = null): co.zw.nissangtr.pos.domain.model.SplitSession {
+            val received = legs.sumOf { it.amount.minor }
+            val total = reserve.total.minor
+            val posted = received >= total && total > 0
+            return co.zw.nissangtr.pos.domain.model.SplitSession(
+                "s1", "o1", status ?: if (posted) "settled" else if (received > 0) "partially_captured" else "open",
+                usd(total), usd(received), usd(0), usd((total - received).coerceAtLeast(0)), usd((total - received).coerceAtLeast(0)),
+                if (posted && status == null) "inv-split" else null, null, legs, emptyList(),
+            )
+        }
+        override suspend fun find(orderId: String) = PosResult.Ok(null)
+        override suspend fun start(orderId: String) = PosResult.Ok(view())
+        override suspend fun addPart(sessionId: String, tender: co.zw.nissangtr.pos.domain.model.SplitTender, amount: Money, requestId: String, reference: String?): PosResult<co.zw.nissangtr.pos.domain.model.SplitSession> {
+            keys += requestId
+            if (failNextWithNetwork) { failNextWithNetwork = false; return PosResult.Err(co.zw.nissangtr.pos.domain.error.PosError.Transient(true)) }
+            if (keys.count { it == requestId } == 1 || legs.none { it.id == requestId }) {
+                legs = legs.filterNot { it.id == requestId } + co.zw.nissangtr.pos.domain.model.SplitLeg(requestId, legs.size + 1, tender.rpcValue, amount, "captured", reference, null, amount, null)
+            }
+            return PosResult.Ok(view())
+        }
+        override suspend fun reduceBasket(sessionId: String, items: List<Pair<String, Double>>, notes: String?) = PosResult.Ok(view())
+        override suspend fun cancel(sessionId: String, reason: String, feePolicy: co.zw.nissangtr.pos.domain.model.RefundFeePolicy) = PosResult.Ok(view("cancelled"))
+        override suspend fun retryFinalization(sessionId: String) = PosResult.Ok(view())
+        override suspend fun recovery() = PosResult.Ok(emptyList<co.zw.nissangtr.pos.domain.model.SplitRecoveryItem>())
+        override suspend fun cart(cartId: String) = PosResult.Err(co.zw.nissangtr.pos.domain.error.PosError.Transient(true))
+    }
+
+    @Test
+    fun `part payments post the sale when the parts cover it, and a lost answer reuses its key`() = runTest {
+        val reserve = FakeReserve()
+        val split = FakeSplit(reserve)
+        val s = store(gateways(reserve = reserve, split = split))
+        s.dispatch(PosIntent.Start)
+        s.dispatch(PosIntent.AddPart(PosFixtures.brakePads))
+        runCurrent()
+        reserve.total = s.state.value.cart.total
+        s.dispatch(co.zw.nissangtr.pos.domain.state.PosSaleIntent.OpenPayment)
+        runCurrent()
+        s.dispatch(co.zw.nissangtr.pos.domain.state.SplitIntent.Start)
+        runCurrent()
+        assertEquals("s1", s.state.value.split?.sessionId)
+
+        split.failNextWithNetwork = true
+        s.dispatch(co.zw.nissangtr.pos.domain.state.SplitIntent.AddPart(co.zw.nissangtr.pos.domain.model.SplitTender.Cash, Money(2000, CurrencyCode.USD), null))
+        runCurrent()
+        val lost = s.state.value.splitPartKey
+        assertEquals(split.keys.single(), lost)
+        s.dispatch(co.zw.nissangtr.pos.domain.state.SplitIntent.AddPart(co.zw.nissangtr.pos.domain.model.SplitTender.Cash, Money(2000, CurrencyCode.USD), null))
+        runCurrent()
+        assertEquals(listOf(lost, lost), split.keys)
+        assertEquals(2000L, s.state.value.split?.received?.minor)
+
+        val rest = s.state.value.split!!.availableToAllocate
+        s.dispatch(co.zw.nissangtr.pos.domain.state.SplitIntent.AddPart(co.zw.nissangtr.pos.domain.model.SplitTender.Bank, rest, "SLIP-1"))
+        advanceUntilIdle()
+        val receipt = s.state.value.receipt!!
+        assertEquals(listOf(co.zw.nissangtr.pos.domain.model.Tender.Cash, co.zw.nissangtr.pos.domain.model.Tender.Bank), receipt.tenders.map { it.tender })
+        assertEquals(reserve.total.minor, receipt.tenders.sumOf { it.amount.minor })
+        assertNull(s.state.value.split)
+        assertNull(s.state.value.checkout)
     }
 }

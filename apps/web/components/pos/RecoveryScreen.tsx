@@ -84,7 +84,8 @@ export function ResolveList({ pos }: { pos: PosStore }) {
               {s.documentNumber ?? "Sale"} · {formatMoney(s.total, s.currency)} <span className={styles.badge}>{splitStatusLabel(s.status)}</span>
             </div>
             <div className={styles.muted}>
-              {s.customerName ?? "Walk-in"} · received {formatMoney(s.session.locked, s.currency)} · {formatMoney(s.session.balanceDue, s.currency)} due
+              {s.customerName ?? "Walk-in"} · received {formatMoney(s.session.locked, s.currency)}
+              {["open", "partially_captured", "leg_pending"].includes(s.status) ? ` · ${formatMoney(s.session.balanceDue, s.currency)} due` : ""}
               {s.session.refunds.some((r) => r.status !== "settled" && r.status !== "cancelled") ? " · refund open" : ""} · {when(s.updatedAt)}
             </div>
           </span>

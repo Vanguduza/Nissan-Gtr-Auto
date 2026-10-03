@@ -22,11 +22,12 @@ val ApprovalRequest.policyAction: String
         is ApprovalRequest.TillVariance -> ReasonAction.TILL_VARIANCE
         is ApprovalRequest.Handover -> "till_handover"
         is ApprovalRequest.RepairPaidOrder -> "repair_paid_order"
+        is ApprovalRequest.SplitRefund -> "split_refund"
     }
 
 /** Governed sale actions pick a configured reason; drawer and recovery approvals do not. */
 val ApprovalRequest.choosesReason: Boolean
-    get() = this !is ApprovalRequest.TillAction && this !is ApprovalRequest.RepairPaidOrder
+    get() = this !is ApprovalRequest.TillAction && this !is ApprovalRequest.RepairPaidOrder && this !is ApprovalRequest.SplitRefund
 
 /** Drawer actions always need a manager on the server, whatever the policy table says. */
 val ApprovalPolicy.managerFixed: Boolean

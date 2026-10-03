@@ -53,6 +53,7 @@ import co.zw.nissangtr.pos.domain.state.CheckoutIntent
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosSaleIntent
 import co.zw.nissangtr.pos.domain.state.PosState
+import co.zw.nissangtr.pos.domain.state.SplitIntent
 import co.zw.nissangtr.pos.ui.R
 import co.zw.nissangtr.pos.ui.common.PosField
 import co.zw.nissangtr.pos.ui.common.PosModal
@@ -67,7 +68,7 @@ import co.zw.nissangtr.pos.ui.home.EmptyCard
 import co.zw.nissangtr.pos.ui.home.SoftButton
 
 /** What the operator chose on the reserved payment screen. */
-private enum class Method { Manual, EcoCash, Paynow, ContiPay, Account }
+private enum class Method { Manual, EcoCash, Paynow, ContiPay, Account, Parts }
 
 private val Method.provider: DigitalProvider?
     get() = when (this) {
@@ -117,8 +118,10 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
     val contacts = ReceiptContacts(email.ifBlank { null }, whatsapp.ifBlank { null })
 
     val outcome = co?.outcome
+    val split = state.split
     val locked = co == null || co.busy || co.inFlight || outcome == TenderOutcome.Unknown || outcome == TenderOutcome.Approved
-    val canGoBack = co == null || !(co.busy || co.inFlight || outcome == TenderOutcome.Unknown)
+    // Money received on a part-paid sale cannot be undone by going back (that is Cancel part payments).
+    val canGoBack = (co == null || !(co.busy || co.inFlight || outcome == TenderOutcome.Unknown)) && split?.hasMoney != true && !state.splitBusy
 
     PosModal(
         title = stringResource(R.string.pos_payment_title),
@@ -131,7 +134,7 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                PosText(stringResource(R.string.pos_amount_due), type.bodyPrimary, palette.textSecondary)
+                PosText(stringResource(if (split != null) R.string.pos_split_sale_total else R.string.pos_amount_due), type.bodyPrimary, palette.textSecondary)
                 val held = when {
                     co == null -> stringResource(R.string.pos_co_reserving)
                     else -> clockTime(co.status.reservationExpiresAtIso)?.let { stringResource(R.string.pos_co_held_until, it) }
@@ -155,8 +158,9 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
         }
 
         // While money is moving (or its result is unknown) the only actions are to wait, check or resolve.
-        val choosing = co == null || !(co.inFlight || outcome == TenderOutcome.Unknown || outcome == TenderOutcome.Approved)
+        val choosing = split == null && (co == null || !(co.inFlight || outcome == TenderOutcome.Unknown || outcome == TenderOutcome.Approved))
         var reason: String? = null
+        if (split != null && co != null && outcome != TenderOutcome.Approved) SplitPanel(state, split, dispatch)
         if (choosing) {
         Spacer(Modifier.height(12.dp))
         PosText(stringResource(R.string.pos_co_choose_method), type.labelMeta.copy(fontWeight = FontWeight.SemiBold), palette.textMuted)
@@ -174,6 +178,7 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                 state.customer == null -> needsCustomer
                 else -> null
             }),
+            Triple(Method.Parts, stringResource(R.string.pos_split_pay_in_parts), if (!state.online) offline else null),
         )
         TenderCards(cards, selected = method, enabled = !locked, onSelect = { method = it })
 
@@ -200,6 +205,7 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                     )
                 }
             }
+            Method.Parts -> PosText(stringResource(R.string.pos_split_explain, formatMoney(total)), type.bodySecondary, palette.textSecondary)
             Method.Account -> {
                 val customer = state.customer
                 PosText(
@@ -263,6 +269,11 @@ fun ReservedPaymentDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                     enabled = !locked && reason == null,
                     onClick = { dispatch(CheckoutIntent.PayOnAccount(contacts)) },
                 )
+                Method.Parts -> PosPrimaryButton(
+                    label = stringResource(R.string.pos_split_start),
+                    enabled = !locked && reason == null && !state.splitBusy,
+                    onClick = { dispatch(SplitIntent.Start) },
+                )
             }
         }
     }
@@ -287,7 +298,7 @@ private fun providerLabel(p: DigitalProvider): String = stringResource(
 private fun TenderCards(cards: List<Triple<Method, String, String?>>, selected: Method, enabled: Boolean, onSelect: (Method) -> Unit) {
     val palette = PosTheme.palette
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val perRow = if (maxWidth < 520.dp) 2 else 5
+        val perRow = if (maxWidth < 520.dp) 2 else 3
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             cards.chunked(perRow).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -396,7 +407,13 @@ private fun OutcomeBanner(outcome: TenderOutcome?, message: String?, status: Pay
         TenderOutcome.Declined -> (message?.let { stringResource(R.string.pos_co_outcome_declined, it) } ?: stringResource(R.string.pos_co_outcome_declined_plain)) to palette.error
         TenderOutcome.Cancelled -> stringResource(R.string.pos_co_outcome_cancelled) to palette.textSecondary
         TenderOutcome.Error -> stringResource(R.string.pos_co_outcome_error) to palette.error
-        TenderOutcome.Unknown -> stringResource(if (status.capturedUnfinished) R.string.pos_co_outcome_captured else R.string.pos_co_outcome_unknown) to palette.error
+        TenderOutcome.Unknown -> stringResource(
+            when {
+                message == "split_unposted" -> R.string.pos_split_unposted
+                status.capturedUnfinished -> R.string.pos_co_outcome_captured
+                else -> R.string.pos_co_outcome_unknown
+            },
+        ) to palette.error
     }
     Spacer(Modifier.height(12.dp))
     Row(
@@ -469,10 +486,14 @@ fun RecoveryScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                 SoftButton(stringResource(R.string.pos_recovery_refresh), null, enabled = state.online, onClick = { dispatch(CheckoutIntent.RefreshRecovery) }, modifier = Modifier.widthIn(max = 180.dp))
             }
-            val items = state.recoveryItems
+            // Part-paid sales once, with their parts and refunds (not again as a plain order).
+            val splits = state.splitRecovery.orEmpty()
+            SplitRecoveryRows(splits, onOpen = { dispatch(CheckoutIntent.OpenRecovery(it)) })
+            val splitOrders = splits.map { it.session.orderId }.toSet()
+            val items = state.recoveryItems?.filterNot { it.orderId in splitOrders }
             when {
                 items == null -> EmptyCard(stringResource(R.string.pos_loading))
-                items.isEmpty() -> EmptyCard(stringResource(R.string.pos_recovery_none))
+                items.isEmpty() && splits.isEmpty() -> EmptyCard(stringResource(R.string.pos_recovery_none))
                 else -> items.forEach { item ->
                     ListRow(
                         title = humanState(item.state),
@@ -529,14 +550,18 @@ fun RecoveryScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
                 st.inFlight -> R.string.pos_recovery_in_flight
                 else -> R.string.pos_recovery_releasable
             }
-            PosText(stringResource(guidance), PosTheme.type.bodyPrimary, if (st.capturedUnfinished) palette.error else palette.textSecondary)
+            if (state.recoverySplit == null) {
+                PosText(stringResource(guidance), PosTheme.type.bodyPrimary, if (st.capturedUnfinished) palette.error else palette.textSecondary)
+            }
         }
+        state.recoverySplit?.let { SplitRecoveryDetail(state, it, dispatch) }
         state.feedback?.let { PosText(feedbackText(it), PosTheme.type.bodyPrimary, palette.error, modifier = Modifier.padding(top = 8.dp)) }
         PosRowEnd {
             SoftButton(stringResource(R.string.pos_recovery_back), null, enabled = true, onClick = { dispatch(CheckoutIntent.OpenRecovery(null)) }, modifier = Modifier.widthIn(max = 180.dp))
             SoftButton(stringResource(R.string.pos_recovery_refresh), null, enabled = state.online, onClick = { dispatch(CheckoutIntent.RefreshRecovery) }, modifier = Modifier.widthIn(max = 180.dp))
             when {
-                st == null || st.settled -> Unit
+                // Part-paid sales are resolved through their own actions above (post again, refunds, cancel).
+                st == null || st.settled || state.recoverySplit != null -> Unit
                 st.capturedUnfinished -> PosPrimaryButton(
                     stringResource(R.string.pos_recovery_repair),
                     enabled = state.online && !state.approving,

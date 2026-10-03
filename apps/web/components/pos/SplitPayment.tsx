@@ -75,10 +75,14 @@ export function SplitSummary({ session }: { session: SplitSession }) {
           <dd>{formatMoney(session.pending, session.currency)}</dd>
         </>
       ) : null}
-      <dt>Still due</dt>
-      <dd>
-        <strong>{formatMoney(session.balanceDue, session.currency)}</strong>
-      </dd>
+      {["open", "partially_captured", "leg_pending"].includes(session.status) ? (
+        <>
+          <dt>Still due</dt>
+          <dd>
+            <strong>{formatMoney(session.balanceDue, session.currency)}</strong>
+          </dd>
+        </>
+      ) : null}
     </dl>
   );
 }
@@ -547,7 +551,11 @@ export function SplitRecoveryDetail({ pos, session, onChanged }: { pos: PosStore
         <span>
           <Layers size={14} aria-hidden /> Part payments · {splitStatusLabel(session.status)}
         </span>
-        <strong>{formatMoney(session.balanceDue, session.currency)} due</strong>
+        <strong>
+          {["open", "partially_captured", "leg_pending"].includes(session.status)
+            ? `${formatMoney(session.balanceDue, session.currency)} due`
+            : `${formatMoney(session.locked, session.currency)} received`}
+        </strong>
       </div>
       <SplitSummary session={session} />
       <SplitLegs session={session} />

@@ -193,6 +193,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     is TillIntent -> reduceTillIntent(state, intent)
     is GovernanceIntent -> reduceGovernanceIntent(state, intent)
     is CheckoutIntent -> reduceCheckoutIntent(state, intent)
+    is SplitIntent -> reduceSplitIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
@@ -469,6 +470,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     is TillEvent -> reduceTillEvent(state, event)
     is GovernanceEvent -> reduceGovernanceEvent(state, event)
     is CheckoutEvent -> reduceCheckoutEvent(state, event)
+    is SplitEvent -> reduceSplitEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 
@@ -499,6 +501,9 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
             receipt = event.receipt,
             checkout = null,
             reserving = false,
+            split = null,
+            splitBusy = false,
+            splitPartKey = null,
             cart = CartProjection.empty(state.currency),
             feedback = null,
         ),
@@ -537,6 +542,10 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
         when (event.request) {
             is ApprovalRequest.Refund -> Reduction(next, listOf(PosSaleEffect.LoadInvoices(state.invoiceQuery.trim())))
             is ApprovalRequest.RepairPaidOrder -> Reduction(next, listOf(CheckoutEffect.LoadRecoveryStatus(event.request.orderId), CheckoutEffect.LoadRecovery))
+            is ApprovalRequest.SplitRefund -> Reduction(
+                next.copy(feedback = notice(PosNotice.SplitRefundRecorded)),
+                listOf(SplitEffect.LoadRecoverySession(event.request.orderId), SplitEffect.LoadRecovery),
+            )
             else -> Reduction(next)
         }
     }

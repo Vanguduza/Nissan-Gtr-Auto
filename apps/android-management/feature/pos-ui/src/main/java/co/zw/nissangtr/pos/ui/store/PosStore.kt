@@ -21,6 +21,10 @@ import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.gateway.ReserveCheckoutGateway
 import co.zw.nissangtr.pos.domain.state.CheckoutEffect
 import co.zw.nissangtr.pos.domain.state.CheckoutEvent
+import co.zw.nissangtr.pos.domain.state.SplitEffect
+import co.zw.nissangtr.pos.domain.state.SplitEvent
+import co.zw.nissangtr.pos.domain.gateway.SplitPaymentGateway
+import co.zw.nissangtr.pos.domain.model.SplitTender
 import co.zw.nissangtr.pos.domain.result.PosResult
 import co.zw.nissangtr.pos.domain.state.PosEffect
 import co.zw.nissangtr.pos.domain.state.PosEvent
@@ -71,6 +75,8 @@ data class PosGateways(
     val badgeScanner: co.zw.nissangtr.pos.domain.gateway.BadgeScanner = co.zw.nissangtr.pos.domain.gateway.BadgeScanner.None,
     /** Reserve-first checkout (§10.6); [ReserveCheckoutGateway.None] keeps the one-step checkout. */
     val reserve: ReserveCheckoutGateway = ReserveCheckoutGateway.None,
+    /** Part payments (staged split) on the reserved order. */
+    val split: SplitPaymentGateway = SplitPaymentGateway.None,
 )
 
 /**
@@ -291,6 +297,7 @@ class PosStore(
             is TillEffect -> runTill(effect)
             is GovernanceEffect -> runGovernance(effect)
             is CheckoutEffect -> runCheckout(effect)
+            is SplitEffect -> runSplit(effect)
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
@@ -603,6 +610,70 @@ class PosStore(
                 }
             }
         }
+    }
+
+    private fun runSplit(effect: SplitEffect) {
+        val g = gateways.split
+        when (effect) {
+            is SplitEffect.Find -> launch { (g.find(effect.orderId) as? PosResult.Ok)?.let { apply(SplitEvent.Loaded(it.value)) } }
+            is SplitEffect.Start -> launch { splitResult(g.start(effect.orderId)) }
+            is SplitEffect.AddPart -> launch {
+                val key = effect.requestId ?: newKey()
+                when (val r = g.addPart(effect.sessionId, effect.tender, effect.amount, key, effect.reference)) {
+                    is PosResult.Ok -> apply(SplitEvent.Loaded(r.value))
+                    is PosResult.Err -> apply(SplitEvent.PartFailed(r.error, key, network = r.error is PosError.Transient))
+                }
+            }
+            is SplitEffect.ReduceBasket -> launch {
+                when (val r = g.reduceBasket(effect.sessionId, effect.items, effect.notes)) {
+                    is PosResult.Ok -> {
+                        // The server changed the sale's lines: show (and later print) what was kept.
+                        state.value.cart.serverCartId?.let { id -> (g.cart(id) as? PosResult.Ok)?.let { apply(PosEvent.CartUpdated(it.value)) } }
+                        apply(SplitEvent.Loaded(r.value))
+                    }
+                    is PosResult.Err -> apply(SplitEvent.Failed(r.error))
+                }
+            }
+            is SplitEffect.Cancel -> launch {
+                when (val r = g.cancel(effect.sessionId, effect.reason, effect.feePolicy)) {
+                    is PosResult.Ok -> apply(SplitEvent.Cancelled(r.value))
+                    is PosResult.Err -> apply(SplitEvent.Failed(r.error))
+                }
+            }
+            is SplitEffect.Retry -> launch { splitResult(g.retryFinalization(effect.sessionId)) }
+            SplitEffect.LoadRecovery -> launch {
+                when (val r = g.recovery()) {
+                    is PosResult.Ok -> apply(SplitEvent.RecoveryLoaded(r.value))
+                    is PosResult.Err -> apply(SplitEvent.Failed(r.error))
+                }
+            }
+            is SplitEffect.LoadRecoverySession -> launch {
+                (g.find(effect.orderId) as? PosResult.Ok)?.let { apply(SplitEvent.RecoverySessionLoaded(effect.orderId, it.value)) }
+            }
+            is SplitEffect.Finish -> {
+                val cart = state.value.cart
+                launch {
+                    val s = effect.session
+                    val invoiceId = s.finalInvoiceId ?: return@launch
+                    // Each part as applied to the invoice; anything over the total is a refund, not a tender.
+                    val tenders = s.legs.mapNotNull { l ->
+                        val amount = l.applied ?: l.amount
+                        val tender = SplitTender.entries.firstOrNull { it.rpcValue == l.tender }?.receipt ?: return@mapNotNull null
+                        TenderLine(tender, amount).takeIf { amount.minor > 0 && l.status in setOf("captured", "allocated", "refund_review", "refund_pending") }
+                    }
+                    finish(
+                        s.orderId,
+                        receipt(cart, invoiceId, gateways.reserve.documentNumber(invoiceId), tenders, null, effect.customerName, effect.vehicleLabel, effect.operatorName),
+                    )
+                    if (s.owedBack.minor > 0) apply(SplitEvent.RefundOwed(s.owedBack))
+                }
+            }
+        }
+    }
+
+    private fun splitResult(r: PosResult<co.zw.nissangtr.pos.domain.model.SplitSession>) = when (r) {
+        is PosResult.Ok -> apply(SplitEvent.Loaded(r.value))
+        is PosResult.Err -> apply(SplitEvent.Failed(r.error))
     }
 
     /** Cash from this sale counts towards the open till (checkout needs `cart.till_session_id`). */

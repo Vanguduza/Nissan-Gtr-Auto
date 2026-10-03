@@ -20,6 +20,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -2896,6 +2897,136 @@ class SupabaseRpcClient(
                 openExceptions = (o.number("open_exception_count") ?: 0.0).toInt(),
             )
         }
+
+    // --- POS part payments (staged split)
+
+    private fun splitFrom(o: JsonObject): PosSplitSession = PosSplitSession(
+        sessionId = o.stringOrNull("session_id") ?: error("split session missing"),
+        orderId = o.stringOrNull("order_id") ?: "",
+        status = o.stringOrNull("status") ?: "open",
+        total = o.number("total") ?: 0.0,
+        currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+        captured = o.number("captured_amount") ?: 0.0,
+        held = o.number("held_amount") ?: 0.0,
+        pending = o.number("pending_amount") ?: 0.0,
+        locked = o.number("locked_amount") ?: 0.0,
+        balanceDue = o.number("balance_due") ?: 0.0,
+        availableToAllocate = o.number("available_to_allocate") ?: 0.0,
+        finalInvoiceId = o.stringOrNull("final_invoice_id"),
+        finalizationError = o.stringOrNull("finalization_error"),
+        legs = (o["legs"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val l = e as? JsonObject ?: return@mapNotNull null
+            PosSplitLegRow(
+                id = l.stringOrNull("id") ?: return@mapNotNull null,
+                sequenceNo = (l.number("sequence_no") ?: 0.0).toInt(),
+                tender = l.stringOrNull("tender") ?: "",
+                amount = l.number("amount") ?: 0.0,
+                status = l.stringOrNull("status") ?: "planned",
+                externalReference = l.stringOrNull("external_reference"),
+                providerRef = l.stringOrNull("provider_ref"),
+                statusDetail = l.stringOrNull("status_detail"),
+                appliedAmount = l.number("applied_target_amount"),
+                refundRequired = l.number("refund_required_amount"),
+            )
+        },
+        refunds = (o["refunds"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val r = e as? JsonObject ?: return@mapNotNull null
+            PosSplitRefundRow(
+                id = r.stringOrNull("id") ?: return@mapNotNull null,
+                legId = r.stringOrNull("leg_id") ?: "",
+                status = r.stringOrNull("status") ?: "review",
+                grossAmount = r.number("gross_amount") ?: 0.0,
+                feePolicy = r.stringOrNull("fee_policy") ?: "manual_review",
+                netCustomerRefund = r.number("net_customer_refund"),
+                providerRef = r.stringOrNull("provider_ref"),
+                failureReason = r.stringOrNull("failure_reason"),
+                notes = r.stringOrNull("notes"),
+            )
+        },
+    )
+
+    private suspend fun splitRpc(fn: String, args: JsonObject): PosSplitSession =
+        splitFrom(client.postgrest.rpc(fn, args).decodeAs<JsonObject>())
+
+    override suspend fun findPosSplitPayment(orderId: String): PosSplitSession? {
+        val e = client.postgrest.rpc("find_pos_split_payment", buildJsonObject { put("p_order_id", orderId) }).decodeAs<JsonElement>()
+        return (e as? JsonObject)?.let(::splitFrom)
+    }
+
+    override suspend fun startPosSplitPayment(orderId: String) = splitRpc("start_pos_split_payment", buildJsonObject { put("p_order_id", orderId) })
+
+    override suspend fun getPosSplitPayment(sessionId: String) = splitRpc("get_pos_split_payment", buildJsonObject { put("p_session_id", sessionId) })
+
+    override suspend fun addPosSplitPaymentLeg(sessionId: String, tender: String, amount: Double, requestId: String, externalReference: String?): PosSplitSession {
+        val o = client.postgrest.rpc(
+            "add_pos_split_payment_leg",
+            buildJsonObject {
+                put("p_session_id", sessionId)
+                put("p_tender", tender)
+                put("p_amount", amount)
+                put("p_request_id", requestId)
+                if (externalReference.isNullOrBlank()) put("p_external_reference", JsonNull) else put("p_external_reference", externalReference)
+            },
+        ).decodeAs<JsonObject>()
+        return splitFrom(o["session"] as? JsonObject ?: error("part payment was not recorded"))
+    }
+
+    override suspend fun acceptPosSplitAffordableItems(sessionId: String, items: List<Pair<String, Double>>, notes: String?) = splitRpc(
+        "accept_pos_split_affordable_items",
+        buildJsonObject {
+            put("p_session_id", sessionId)
+            putJsonArray("p_items") { items.forEach { (line, qty) -> add(buildJsonObject { put("cart_line_id", line); put("qty", qty) }) } }
+            put("p_customer_confirmed", true)
+            if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+        },
+    )
+
+    override suspend fun requestPosSplitCancellation(sessionId: String, reason: String, feePolicy: String) = splitRpc(
+        "request_pos_split_cancellation",
+        buildJsonObject { put("p_session_id", sessionId); put("p_reason", reason); put("p_fee_policy", feePolicy) },
+    )
+
+    override suspend fun retryPosSplitFinalization(sessionId: String) =
+        splitRpc("retry_pos_split_finalization", buildJsonObject { put("p_session_id", sessionId) })
+
+    override suspend fun listPosSplitPaymentRecovery(): List<PosSplitRecoveryRow> =
+        client.postgrest.rpc("list_pos_split_payment_recovery", buildJsonObject { put("p_limit", 100) }).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosSplitRecoveryRow(
+                documentNumber = o.stringOrNull("document_number"),
+                customerName = o.stringOrNull("customer_name"),
+                updatedAt = o.stringOrNull("updated_at") ?: "",
+                session = splitFrom(o["payload"] as? JsonObject ?: return@mapNotNull null),
+            )
+        }
+
+    override suspend fun approvePosSplitRefund(refundId: String, feePolicy: String, customerFee: Double, notes: String?) = splitRpc(
+        "approve_pos_split_refund",
+        buildJsonObject {
+            put("p_refund_id", refundId)
+            put("p_fee_policy", feePolicy)
+            put("p_estimated_provider_fee", 0)
+            put("p_estimated_transfer_fee", 0)
+            put("p_customer_fee", customerFee)
+            put("p_expected_days", 3)
+            if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+        },
+    )
+
+    override suspend fun completePosSplitRefund(refundId: String, providerRef: String, notes: String?) = splitRpc(
+        "complete_pos_split_refund",
+        buildJsonObject {
+            put("p_refund_id", refundId)
+            put("p_provider_ref", providerRef)
+            put("p_actual_provider_fee", 0)
+            put("p_actual_transfer_fee", 0)
+            put("p_actual_customer_fee", JsonNull)
+            if (notes.isNullOrBlank()) put("p_notes", JsonNull) else put("p_notes", notes)
+        },
+    )
+
+    override suspend fun failPosSplitRefund(refundId: String, reason: String) =
+        splitRpc("fail_pos_split_refund", buildJsonObject { put("p_refund_id", refundId); put("p_reason", reason) })
 
     override suspend fun repairPosPaidOrder(orderId: String, notes: String?): String =
         client.postgrest.rpc(

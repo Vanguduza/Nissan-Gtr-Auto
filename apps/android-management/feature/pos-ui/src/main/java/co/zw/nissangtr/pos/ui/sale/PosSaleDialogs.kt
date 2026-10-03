@@ -387,6 +387,11 @@ private val ApprovalRequest.titleRes: Int
         is ApprovalRequest.TillVariance -> R.string.pos_approve_till_variance
         is ApprovalRequest.Handover -> R.string.pos_approve_handover
         is ApprovalRequest.RepairPaidOrder -> R.string.pos_approve_repair
+        is ApprovalRequest.SplitRefund -> when (step) {
+            is co.zw.nissangtr.pos.domain.model.SplitRefundStep.Approve -> R.string.pos_approve_split_refund
+            is co.zw.nissangtr.pos.domain.model.SplitRefundStep.Complete -> R.string.pos_approve_split_refund_paid
+            is co.zw.nissangtr.pos.domain.model.SplitRefundStep.Fail -> R.string.pos_approve_split_refund_failed
+        }
     }
 
 /**
@@ -439,6 +444,7 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                 )
                 is ApprovalRequest.Handover -> stringResource(R.string.pos_approve_handover_detail, request.to.fullName)
                 is ApprovalRequest.RepairPaidOrder -> stringResource(R.string.pos_approve_repair_detail, request.orderId.take(8))
+                is ApprovalRequest.SplitRefund -> stringResource(R.string.pos_approve_split_refund_detail, formatMoney(request.amount))
             },
             PosTheme.type.bodyPrimary,
             palette.textSecondary,

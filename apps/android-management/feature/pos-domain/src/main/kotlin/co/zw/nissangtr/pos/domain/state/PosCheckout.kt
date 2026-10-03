@@ -10,6 +10,7 @@ import co.zw.nissangtr.pos.domain.model.ProviderMethod
 import co.zw.nissangtr.pos.domain.model.ProviderStart
 import co.zw.nissangtr.pos.domain.model.ReceiptContacts
 import co.zw.nissangtr.pos.domain.model.RecoveryItem
+import co.zw.nissangtr.pos.domain.model.RefundFeePolicy
 import co.zw.nissangtr.pos.domain.model.TenderLine
 import co.zw.nissangtr.pos.domain.model.TenderOutcome
 import co.zw.nissangtr.pos.domain.model.manual
@@ -128,6 +129,15 @@ internal fun openReservedPayment(state: PosState): Reduction = when {
 /** Close the payment screen: back to the sale releases the stock; never while money is in flight. */
 internal fun closeReservedPayment(state: PosState): Reduction {
     val co = state.checkout ?: return Reduction(state.copy(paymentOpen = false, reserving = false))
+    val sp = state.split
+    if (sp != null) {
+        // Money received cannot be undone by going back: that is Cancel part payments (refunds).
+        return if (sp.hasMoney || state.splitBusy || !sp.cancellable) Reduction(state)
+        else Reduction(
+            state.copy(splitBusy = true),
+            listOf(SplitEffect.Cancel(sp.sessionId, "Operator returned to the sale", RefundFeePolicy.ManualReview, fromRecovery = false)),
+        )
+    }
     return when {
         co.inFlight || co.outcome == TenderOutcome.Unknown || co.busy -> Reduction(state)
         else -> Reduction(
@@ -140,14 +150,19 @@ internal fun closeReservedPayment(state: PosState): Reduction {
 private fun PosState.withSession(transform: CheckoutSession.() -> CheckoutSession) = copy(checkout = checkout?.transform())
 
 private fun expire(state: PosState) = Reduction(
-    state.copy(checkout = null, paymentOpen = false, reserving = false, feedback = PosFeedback.Notice(PosNotice.ReservationExpired)),
+    state.copy(checkout = null, split = null, paymentOpen = false, reserving = false, feedback = PosFeedback.Notice(PosNotice.ReservationExpired)),
 )
+
+/** One order: its status and any part payments; the list: single and part payments to resolve. */
+private fun recoveryLoads(orderId: String?): List<PosSaleEffect> =
+    if (orderId != null) listOf(CheckoutEffect.LoadRecoveryStatus(orderId), SplitEffect.LoadRecoverySession(orderId))
+    else listOf(CheckoutEffect.LoadRecovery, SplitEffect.LoadRecovery)
 
 internal fun reduceCheckoutIntent(state: PosState, intent: CheckoutIntent): Reduction {
     val co = state.checkout
     return when (intent) {
         is CheckoutIntent.PayManual -> when {
-            co == null || co.busy || co.inFlight || co.outcome == TenderOutcome.Unknown -> Reduction(state)
+            co == null || state.split != null || co.busy || co.inFlight || co.outcome == TenderOutcome.Unknown -> Reduction(state)
             !state.online -> offlineRefusal(state, "online_only")
             intent.tenders.isEmpty() || intent.tenders.any { !it.tender.manual || it.amount.minor <= 0 } ->
                 fail(state, PosError.Input("tender", "amount"))
@@ -166,7 +181,7 @@ internal fun reduceCheckoutIntent(state: PosState, intent: CheckoutIntent): Redu
         is CheckoutIntent.PayProvider -> {
             val reason = state.providers?.get(intent.provider)
             when {
-                co == null || co.busy || co.inFlight || co.outcome == TenderOutcome.Unknown -> Reduction(state)
+                co == null || state.split != null || co.busy || co.inFlight || co.outcome == TenderOutcome.Unknown -> Reduction(state)
                 !state.online -> offlineRefusal(state, "online_only")
                 reason != null -> fail(state, PosError.BusinessRule("provider_unavailable", reason))
                 intent.provider == DigitalProvider.EcoCash && intent.msisdn.orEmpty().count { it.isDigit() } < 9 -> fail(state, PosError.Input("phone", "msisdn"))
@@ -179,7 +194,7 @@ internal fun reduceCheckoutIntent(state: PosState, intent: CheckoutIntent): Redu
         }
 
         is CheckoutIntent.PayOnAccount -> when {
-            co?.inFlight == true || co?.busy == true || co?.outcome == TenderOutcome.Unknown -> Reduction(state)
+            state.split != null || co?.inFlight == true || co?.busy == true || co?.outcome == TenderOutcome.Unknown -> Reduction(state)
             !state.online -> offlineRefusal(state, "online_only")
             state.customer == null -> fail(state, PosError.BusinessRule("account_customer_required", ""))
             else -> Reduction(
@@ -202,15 +217,13 @@ internal fun reduceCheckoutIntent(state: PosState, intent: CheckoutIntent): Redu
                 destination = PosDestination.Recovery,
                 recoveryOrderId = intent.orderId,
                 recoveryStatus = null,
+                recoverySplit = null,
                 paymentOpen = if (intent.orderId != null && intent.orderId == co?.orderId) false else state.paymentOpen,
             ),
-            listOf(intent.orderId?.let { CheckoutEffect.LoadRecoveryStatus(it) } ?: CheckoutEffect.LoadRecovery),
+            recoveryLoads(intent.orderId),
         )
 
-        CheckoutIntent.RefreshRecovery -> Reduction(
-            state,
-            listOf(state.recoveryOrderId?.let { CheckoutEffect.LoadRecoveryStatus(it) } ?: CheckoutEffect.LoadRecovery),
-        )
+        CheckoutIntent.RefreshRecovery -> Reduction(state, recoveryLoads(state.recoveryOrderId))
 
         is CheckoutIntent.Release -> if (!state.online) offlineRefusal(state, "online_only")
         else Reduction(state, listOf(CheckoutEffect.Release(intent.orderId)))
@@ -230,8 +243,9 @@ internal fun reduceCheckoutEvent(state: PosState, event: CheckoutEvent): Reducti
         Reduction(state, listOf(CheckoutEffect.Cancel(event.orderId, "Payment closed before the reservation answered")))
     } else {
         Reduction(
-            state.copy(reserving = false, checkout = CheckoutSession(event.orderId, event.cartId, event.requestId, event.status)),
-            listOf(CheckoutEffect.LoadProviders, CheckoutEffect.Watch(event.orderId)),
+            state.copy(reserving = false, checkout = CheckoutSession(event.orderId, event.cartId, event.requestId, event.status), split = null),
+            // A sale already part-paid on this order resumes where it stopped.
+            listOf(CheckoutEffect.LoadProviders, CheckoutEffect.Watch(event.orderId), SplitEffect.Find(event.orderId)),
         )
     }
 
@@ -268,7 +282,7 @@ internal fun reduceCheckoutEvent(state: PosState, event: CheckoutEvent): Reducti
 
     is CheckoutEvent.Polled -> reducePolled(state, event)
 
-    CheckoutEvent.Cancelled -> Reduction(state.copy(checkout = null, paymentOpen = false, reserving = false, paying = false))
+    CheckoutEvent.Cancelled -> Reduction(state.copy(checkout = null, split = null, paymentOpen = false, reserving = false, paying = false))
 
     is CheckoutEvent.CancelFailed -> Reduction(state.withSession { copy(busy = false) }.copy(feedback = PosFeedback.Failure(event.error)))
 

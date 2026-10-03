@@ -154,6 +154,9 @@ sealed interface ApprovalRequest {
     /** Paid at the provider but the sale did not finish: post it against that money (recovery). */
     data class RepairPaidOrder(val orderId: String) : ApprovalRequest
 
+    /** A refund of a captured part payment (manager or finance). */
+    data class SplitRefund(val orderId: String, val refundId: String, val amount: Money, val step: SplitRefundStep) : ApprovalRequest
+
     /** Drawer actions: they act on the till session, never on the sale. */
     sealed interface TillAction : ApprovalRequest { val sessionId: String }
 

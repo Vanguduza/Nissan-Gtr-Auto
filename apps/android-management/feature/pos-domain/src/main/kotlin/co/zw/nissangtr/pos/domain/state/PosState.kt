@@ -48,6 +48,7 @@ enum class PosNotice {
     TillOpened, CashRecorded, TillClosed, TillVariancePending, TillHandedOver,
     PolicySaved,
     ReservationExpired, ReservationReleased, Collected,
+    SplitCancelled, SplitCancelledRefund, SplitRefundOwed, SplitRefundRecorded,
 }
 
 data class PosState(
@@ -124,6 +125,14 @@ data class PosState(
     val recoveryOrderId: String? = null,
     val recoveryStatus: co.zw.nissangtr.pos.domain.model.PaymentStatus? = null,
     val pickups: List<co.zw.nissangtr.pos.domain.model.PickupOrder>? = null,
+    /** Part payments on the reserved order (staged split); null when paying in one go. */
+    val split: co.zw.nissangtr.pos.domain.model.SplitSession? = null,
+    val splitBusy: Boolean = false,
+    /** Key of a part whose answer was lost: the retry reuses it so the part cannot be taken twice. */
+    val splitPartKey: String? = null,
+    val splitRecovery: List<co.zw.nissangtr.pos.domain.model.SplitRecoveryItem>? = null,
+    /** Part payments of the order open on the recovery screen, if it has any. */
+    val recoverySplit: co.zw.nissangtr.pos.domain.model.SplitSession? = null,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

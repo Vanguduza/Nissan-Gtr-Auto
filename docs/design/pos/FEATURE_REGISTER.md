@@ -154,10 +154,10 @@ passed, commit referenced) · `dropped` (owner reference required)
 | PAY-03 | Tender capability model; blocked tenders disabled with reason | 10.7 | 8 | partial — web and tablet tender cards: providers probed (503 → not set up), offline, on account without a customer |
 | PAY-04 | Adapters — cash, swipe terminal, EcoCash, Paynow, ContiPay | 10.7 | 8 | todo |
 | PAY-05 | Five normalised terminal outcomes | 10.7 | 8 | partial — provider attempts (web and tablet); card terminals in phase 5 |
-| PAY-06 | Split tender legs; remaining balance always from backend | 10.5 | 8 | todo |
+| PAY-06 | Split tender legs; remaining balance always from backend | 10.5 | 8 | partial — web and tablet "Pay in parts" (`*_pos_split_*`): cash, card/bank (reference required) and store credit parts, each an idempotent step whose header is the server's balance; the sale posts when the parts cover it. Provider parts stay disabled with the reason (the deployed initiate functions do not start split legs); card-terminal parts come with phase 5 |
 | PAY-07 | `Unknown` opens recovery and blocks duplicate charge | 10.7, 10.11 | 8 | partial — web and tablet: no answer in 3 minutes or money captured without a sale → Unknown; every tender and back-to-sale blocked; "Resolve payment" |
 | PAY-08 | Recovery as a dedicated screen on both form factors | 10.4 | 8 | partial — web and tablet recovery screen: order status, exceptions, approver repair (badge, password or signed-in approver), release; list of payments to resolve |
-| PAY-09 | Reduced basket after partial payment | 10.8 | 8 | todo |
+| PAY-09 | Reduced basket after partial payment | 10.8 | 8 | partial — web and tablet: from the part-paid state only, the operator picks what the customer keeps, the customer's consent is required, the server computes the total (`accept_pos_split_affordable_items`) and any surplus becomes a refund for a manager |
 | PAY-10 | Change due for cash tender | 6.6.1 | 8 | todo |
 | PAY-11 | Manager reauth — discount, void, refund, price override | L2 | 8 | todo |
 | PAY-12 | Refunds post through the finance pipeline | L3 | 8 | todo |

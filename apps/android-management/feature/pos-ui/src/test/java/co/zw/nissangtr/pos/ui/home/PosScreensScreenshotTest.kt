@@ -467,4 +467,39 @@ class PosScreensScreenshotTest {
             ),
         ),
     )
+
+    // ------------------------------------------------------------ part payments (§10.5, §10.8)
+
+    private fun splitSession(received: Double, status: String = "partially_captured", refunds: List<co.zw.nissangtr.pos.domain.model.SplitRefund> = emptyList()) =
+        co.zw.nissangtr.pos.domain.model.SplitSession(
+            sessionId = "s1", orderId = status().orderId, status = status, total = sale.cart.total, received = usd(received), pending = usd(0.0),
+            balanceDue = usd(sale.cart.total.minor / 100.0 - received), availableToAllocate = usd(sale.cart.total.minor / 100.0 - received),
+            finalInvoiceId = null, finalizationError = null,
+            legs = listOf(co.zw.nissangtr.pos.domain.model.SplitLeg("leg1", 1, "cash", usd(received), if (refunds.isEmpty()) "captured" else "refund_review", null, null, null, null)),
+            refunds = refunds,
+        )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun splitPartPaid() = capture("split_part_paid", 1280.dp, 800.dp, reserved(st = status("payment_processing")).copy(split = splitSession(50.0)))
+
+    @Test @Config(qualifiers = "w400dp-h860dp-port-mdpi")
+    fun splitPartPaidPhone() = capture("split_part_paid_phone", 400.dp, 860.dp, reserved(st = status("payment_processing")).copy(split = splitSession(50.0)))
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun splitRecoveryRefund() = capture(
+        "split_recovery_refund",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            reserveCheckout = true,
+            destination = PosDestination.Recovery,
+            recoveryOrderId = status().orderId,
+            recoveryStatus = status("cancelled"),
+            recoverySplit = splitSession(
+                50.0,
+                status = "refund_review",
+                refunds = listOf(co.zw.nissangtr.pos.domain.model.SplitRefund("r1", "leg1", "review", usd(50.0), "manual_review", null, null, null, "Customer changed their mind")),
+            ),
+        ),
+    )
 }

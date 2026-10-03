@@ -956,3 +956,57 @@ data class PosPickupRow(
     val settledProvider: String?,
     val updatedAt: String,
 )
+
+/** `pos_split_payment_payload` leg. */
+data class PosSplitLegRow(
+    val id: String,
+    val sequenceNo: Int,
+    val tender: String,
+    val amount: Double,
+    val status: String,
+    val externalReference: String?,
+    val providerRef: String?,
+    val statusDetail: String?,
+    val appliedAmount: Double?,
+    val refundRequired: Double?,
+)
+
+/** `pos_split_payment_payload` refund request. */
+data class PosSplitRefundRow(
+    val id: String,
+    val legId: String,
+    val status: String,
+    val grossAmount: Double,
+    val feePolicy: String,
+    val netCustomerRefund: Double?,
+    val providerRef: String?,
+    val failureReason: String?,
+    val notes: String?,
+)
+
+/** `pos_split_payment_payload`: every amount is the server's. */
+data class PosSplitSession(
+    val sessionId: String,
+    val orderId: String,
+    val status: String,
+    val total: Double,
+    val currency: CurrencyCode,
+    val captured: Double,
+    val held: Double,
+    val pending: Double,
+    val locked: Double,
+    val balanceDue: Double,
+    val availableToAllocate: Double,
+    val finalInvoiceId: String?,
+    val finalizationError: String?,
+    val legs: List<PosSplitLegRow>,
+    val refunds: List<PosSplitRefundRow>,
+)
+
+/** `list_pos_split_payment_recovery` row. */
+data class PosSplitRecoveryRow(
+    val documentNumber: String?,
+    val customerName: String?,
+    val updatedAt: String,
+    val session: PosSplitSession,
+)

@@ -2248,9 +2248,9 @@ class FakeRpcClient : RpcClient {
         val orderId: String,
         val cartId: String,
         var state: String,
-        val total: Double,
+        var total: Double,
         val currency: CurrencyCode,
-        val expiresAt: Long,
+        var expiresAt: Long,
         var provider: String? = null,
         var intentId: String? = null,
         var providerStatus: String? = null,
@@ -2347,4 +2347,151 @@ class FakeRpcClient : RpcClient {
         check(o.state == "paid") { "eligible pickup order required" }
         o.state = "delivered"
     }
+
+    // Part payments: one session per order; cash/bank captured at once (bank needs a reference),
+    // store credit held for the registered customer; the sale posts when the parts cover it.
+    private class FakeSplit(val id: String, val orderId: String) {
+        var status = "open"
+        val legs = mutableListOf<PosSplitLegRow>()
+        val refunds = mutableListOf<PosSplitRefundRow>()
+        var invoiceId: String? = null
+        val keys = mutableSetOf<String>()
+    }
+    private val fakeSplits = mutableMapOf<String, FakeSplit>()
+
+    private fun FakeSplit.view(): PosSplitSession {
+        val o = fakeOrders.getValue(orderId)
+        fun sum(vararg st: String) = legs.filter { it.status in st }.sumOf { it.amount }
+        val captured = sum("captured", "allocated", "refund_review", "refund_pending")
+        val held = sum("held")
+        val locked = captured + held
+        if (status !in setOf("settled", "cancelled", "refunded", "refund_review", "refund_pending")) {
+            status = if (locked + 0.01 >= o.total) "fully_committed" else if (locked > 0) "partially_captured" else "open"
+        }
+        val due = (o.total - locked).coerceAtLeast(0.0)
+        return PosSplitSession(id, orderId, status, o.total, o.currency, captured, held, 0.0, locked, due, due, invoiceId, null, legs.toList(), refunds.toList())
+    }
+
+    private suspend fun FakeSplit.finalize(): PosSplitSession {
+        val v = view()
+        if (v.status != "fully_committed") return v
+        val o = fakeOrders.getValue(orderId)
+        var left = o.total
+        val tenders = mutableListOf<PosTenderLine>()
+        legs.replaceAll { l ->
+            if (l.status != "captured" && l.status != "held") return@replaceAll l
+            val apply = minOf(l.amount, left.coerceAtLeast(0.0)); left -= apply
+            if (apply > 0) tenders += PosTenderLine(l.tender, apply)
+            l.copy(status = if (l.status == "held") "allocated" else l.status, appliedAmount = apply)
+        }
+        invoiceId = checkoutPosCartWithTenders(o.cartId, tenders).invoiceId
+        o.state = "paid"; o.invoiceId = invoiceId
+        status = if (refunds.any { it.status != "settled" && it.status != "cancelled" }) "refund_review" else "settled"
+        return view()
+    }
+
+    override suspend fun findPosSplitPayment(orderId: String): PosSplitSession? = fakeSplits.values.firstOrNull { it.orderId == orderId }?.view()
+
+    override suspend fun startPosSplitPayment(orderId: String): PosSplitSession {
+        val o = fakeOrders[orderId] ?: error("unsettled reserve-first commerce order required")
+        check(o.invoiceId == null && o.state in setOf("awaiting_payment", "payment_processing", "payment_failed")) { "unsettled reserve-first commerce order required" }
+        val sp = fakeSplits.values.firstOrNull { it.orderId == orderId } ?: FakeSplit("split-${UUID.randomUUID().toString().take(8)}", orderId).also { fakeSplits[it.id] = it }
+        o.state = "payment_processing"; o.expiresAt = maxOf(o.expiresAt, System.currentTimeMillis() + 60 * 60_000)
+        return sp.view()
+    }
+
+    override suspend fun getPosSplitPayment(sessionId: String): PosSplitSession = (fakeSplits[sessionId] ?: error("split payment session not found")).view()
+
+    override suspend fun addPosSplitPaymentLeg(sessionId: String, tender: String, amount: Double, requestId: String, externalReference: String?): PosSplitSession {
+        val sp = fakeSplits[sessionId] ?: error("split payment session not found")
+        if (requestId in sp.keys) return sp.view()
+        val v = sp.view()
+        check(v.status !in setOf("settled", "refund_review", "refund_pending", "refunded", "cancelled")) { "split session does not accept new payments in status ${v.status}" }
+        require(amount > 0 && amount <= v.availableToAllocate + 0.01) { "split leg amount must be > 0 and <= available balance ${"%.2f".format(v.availableToAllocate)}" }
+        require(tender != "bank" || !externalReference.isNullOrBlank()) { "bank split payment requires a transfer/reference number" }
+        if (tender == "store_credit") checkNotNull(cartCustomers[fakeOrders.getValue(sp.orderId).cartId]) { "insufficient available store credit after active POS holds" }
+        sp.keys += requestId
+        sp.legs += PosSplitLegRow("leg-${UUID.randomUUID().toString().take(6)}", sp.legs.size + 1, tender, amount,
+            if (tender == "store_credit") "held" else "captured", externalReference, externalReference, null, null, null)
+        return sp.finalize()
+    }
+
+    override suspend fun acceptPosSplitAffordableItems(sessionId: String, items: List<Pair<String, Double>>, notes: String?): PosSplitSession {
+        val sp = fakeSplits[sessionId] ?: error("split payment session not found")
+        val v = sp.view()
+        check(v.locked > 0) { "no locked payment is available for reduced-basket settlement" }
+        val o = fakeOrders.getValue(sp.orderId)
+        val lines = cartLines[o.cartId] ?: error("current operator cart required")
+        val kept = items.map { (id, qty) ->
+            val l = lines.firstOrNull { it.id == id } ?: error("invalid accepted quantity for cart line $id")
+            require(qty > 0 && qty <= l.qty) { "invalid accepted quantity for cart line $id" }
+            l.copy(qty = qty, lineTotal = l.lineTotal / l.qty * qty)
+        }
+        val total = kept.sumOf { it.lineTotal }
+        check(total <= v.locked + 0.01) { "accepted basket total ${"%.2f".format(total)} must be > 0 and <= locked payment ${"%.2f".format(v.locked)}" }
+        lines.clear(); lines.addAll(kept)
+        o.total = total
+        var left = total
+        sp.legs.replaceAll { l ->
+            if (l.status != "captured") return@replaceAll l
+            val apply = minOf(l.amount, left.coerceAtLeast(0.0)); left -= apply
+            val refund = l.amount - apply
+            if (refund > 0.009) sp.refunds += PosSplitRefundRow("refund-${UUID.randomUUID().toString().take(6)}", l.id, "review", refund, "manual_review", null, null, null,
+                notes ?: "Captured surplus after customer accepted reduced basket")
+            l.copy(appliedAmount = apply, refundRequired = refund)
+        }
+        return sp.finalize()
+    }
+
+    override suspend fun requestPosSplitCancellation(sessionId: String, reason: String, feePolicy: String): PosSplitSession {
+        val sp = fakeSplits[sessionId] ?: error("split payment session not found")
+        check(sp.status != "settled") { "settled sale must use the posted invoice return/refund workflow" }
+        sp.legs.replaceAll { l ->
+            when (l.status) {
+                "planned", "failed", "held" -> l.copy(status = "cancelled")
+                "captured" -> {
+                    sp.refunds += PosSplitRefundRow("refund-${UUID.randomUUID().toString().take(6)}", l.id, "review", l.amount, feePolicy, null, null, null, reason)
+                    l.copy(status = "refund_review")
+                }
+                else -> l
+            }
+        }
+        fakeOrders.getValue(sp.orderId).state = "cancelled"
+        sp.status = if (sp.legs.any { it.status == "refund_review" }) "refund_review" else "cancelled"
+        return sp.view()
+    }
+
+    override suspend fun retryPosSplitFinalization(sessionId: String): PosSplitSession = (fakeSplits[sessionId] ?: error("split payment session not found")).finalize()
+
+    override suspend fun listPosSplitPaymentRecovery(): List<PosSplitRecoveryRow> = fakeSplits.values.map { it.view() }
+        .filter { it.status in setOf("partially_captured", "fully_committed", "finalization_failed", "refund_review", "refund_pending") }
+        .map { PosSplitRecoveryRow(null, null, java.time.Instant.now().toString(), it) }
+
+    private fun refundStep(refundId: String, change: (FakeSplit, PosSplitRefundRow) -> PosSplitRefundRow): PosSplitSession {
+        val sp = fakeSplits.values.firstOrNull { s -> s.refunds.any { it.id == refundId } } ?: error("split refund request not found")
+        val i = sp.refunds.indexOfFirst { it.id == refundId }
+        sp.refunds[i] = change(sp, sp.refunds[i])
+        val open = sp.refunds.any { it.status != "settled" && it.status != "cancelled" }
+        sp.status = when {
+            sp.refunds[i].status == "failed" -> "refund_review"
+            sp.refunds[i].status == "pending" -> "refund_pending"
+            open -> "refund_pending"
+            sp.invoiceId != null -> "settled"
+            else -> "refunded"
+        }
+        return sp.view()
+    }
+
+    override suspend fun approvePosSplitRefund(refundId: String, feePolicy: String, customerFee: Double, notes: String?) = refundStep(refundId) { _, r ->
+        check(r.status == "review" || r.status == "failed") { "review/failed refund request required" }
+        require(customerFee == 0.0 || feePolicy == "customer_bears") { "customer fee deduction requires customer_bears policy" }
+        r.copy(status = "pending", feePolicy = feePolicy, netCustomerRefund = r.grossAmount - customerFee)
+    }
+
+    override suspend fun completePosSplitRefund(refundId: String, providerRef: String, notes: String?) = refundStep(refundId) { _, r ->
+        check(r.status in setOf("pending", "review", "failed")) { "refund cannot settle in status ${r.status}" }
+        r.copy(status = "settled", providerRef = providerRef)
+    }
+
+    override suspend fun failPosSplitRefund(refundId: String, reason: String) = refundStep(refundId) { _, r -> r.copy(status = "failed", failureReason = reason) }
 }

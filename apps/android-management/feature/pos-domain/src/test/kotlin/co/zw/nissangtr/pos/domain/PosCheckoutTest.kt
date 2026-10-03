@@ -47,7 +47,7 @@ class PosCheckoutTest {
         assertEquals(CheckoutEffect.Prepare("cart-1", null, none), opening.effects.single())
         assertTrue(opening.state.reserving)
         val r = reduce(opening.state, CheckoutEvent.Prepared("o1", "cart-1", "req-1", status()))
-        assertEquals(listOf(CheckoutEffect.LoadProviders, CheckoutEffect.Watch("o1")), r.effects)
+        assertEquals(listOf(CheckoutEffect.LoadProviders, CheckoutEffect.Watch("o1"), co.zw.nissangtr.pos.domain.state.SplitEffect.Find("o1")), r.effects)
         return r.state
     }
 
@@ -151,7 +151,7 @@ class PosCheckoutTest {
         val recovery = reduce(captured, CheckoutIntent.OpenRecovery("o1"))
         assertEquals(PosDestination.Recovery, recovery.state.destination)
         assertFalse(recovery.state.paymentOpen)
-        assertEquals(CheckoutEffect.LoadRecoveryStatus("o1"), recovery.effects.single())
+        assertEquals(CheckoutEffect.LoadRecoveryStatus("o1"), recovery.effects.first())
     }
 
     @Test

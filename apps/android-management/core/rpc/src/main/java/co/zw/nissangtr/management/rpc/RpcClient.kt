@@ -834,6 +834,42 @@ interface RpcClient {
     suspend fun collectPosCommerceOrder(orderId: String, notes: String?) {
         throw UnsupportedOperationException("pickup needs the live backend")
     }
+
+    // --- POS part payments (staged split, Blueprint §10.5 / §10.8): money taken part by part on the reserved order
+
+    suspend fun findPosSplitPayment(orderId: String): PosSplitSession? = null
+
+    suspend fun startPosSplitPayment(orderId: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun getPosSplitPayment(sessionId: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    /** Cash and bank are received at once (bank needs a reference); store credit is held. Idempotent on [requestId]. */
+    suspend fun addPosSplitPaymentLeg(sessionId: String, tender: String, amount: Double, requestId: String, externalReference: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    /** The customer keeps only [items] (cart line id → qty); the server computes the total and posts. */
+    suspend fun acceptPosSplitAffordableItems(sessionId: String, items: List<Pair<String, Double>>, notes: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun requestPosSplitCancellation(sessionId: String, reason: String, feePolicy: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun retryPosSplitFinalization(sessionId: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun listPosSplitPaymentRecovery(): List<PosSplitRecoveryRow> = emptyList()
+
+    /** Manager or finance (or a badge grant). */
+    suspend fun approvePosSplitRefund(refundId: String, feePolicy: String, customerFee: Double, notes: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun completePosSplitRefund(refundId: String, providerRef: String, notes: String?): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
+
+    suspend fun failPosSplitRefund(refundId: String, reason: String): PosSplitSession =
+        throw UnsupportedOperationException("part payments need the live backend")
 }
 
 /** Outcome of [RpcClient.posBadgeApprove]. */

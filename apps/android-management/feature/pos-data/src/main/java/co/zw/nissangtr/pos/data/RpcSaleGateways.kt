@@ -24,6 +24,7 @@ import co.zw.nissangtr.pos.domain.gateway.CustomerGateway
 import co.zw.nissangtr.pos.domain.gateway.EpcGateway
 import co.zw.nissangtr.pos.domain.gateway.SalesGateway
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
+import co.zw.nissangtr.pos.domain.model.SplitRefundStep
 import co.zw.nissangtr.pos.domain.model.CartProjection
 import co.zw.nissangtr.pos.domain.model.CompanionSession
 import co.zw.nissangtr.pos.domain.model.CompanionStatus
@@ -233,6 +234,16 @@ class RpcSaleGateways(
                         rpc.repairPosPaidOrder(request.orderId, notes)
                         null
                     }
+                    is ApprovalRequest.SplitRefund -> {
+                        when (val step = request.step) {
+                            is SplitRefundStep.Approve -> rpc.approvePosSplitRefund(
+                                request.refundId, step.feePolicy.rpcValue, (step.customerFee?.minor ?: 0) / 100.0, step.notes ?: notes,
+                            )
+                            is SplitRefundStep.Complete -> rpc.completePosSplitRefund(request.refundId, step.providerRef, step.notes ?: notes)
+                            is SplitRefundStep.Fail -> rpc.failPosSplitRefund(request.refundId, step.reason)
+                        }
+                        null
+                    }
                 }
             }
             // The tablet wraps the live client (offline catalogue); approval must still reach it.
@@ -272,6 +283,16 @@ class RpcSaleGateways(
             is ApprovalRequest.TillVariance -> "till_variance" to mapOf("session_id" to request.sessionId, "reason_code" to request.reason.code, "notes" to notes)
             is ApprovalRequest.Handover -> "till_handover" to mapOf("session_id" to request.sessionId, "new_operator_user_id" to request.to.userId, "notes" to notes)
             is ApprovalRequest.RepairPaidOrder -> "repair_paid_order" to mapOf("order_id" to request.orderId, "notes" to notes)
+            is ApprovalRequest.SplitRefund -> when (val step = request.step) {
+                is SplitRefundStep.Approve -> "split_refund_approve" to mapOf(
+                    "refund_id" to request.refundId,
+                    "fee_policy" to step.feePolicy.rpcValue,
+                    "customer_fee" to (step.customerFee?.minor ?: 0) / 100.0,
+                    "notes" to (step.notes ?: notes),
+                )
+                is SplitRefundStep.Complete -> "split_refund_complete" to mapOf("refund_id" to request.refundId, "provider_ref" to step.providerRef, "notes" to (step.notes ?: notes))
+                is SplitRefundStep.Fail -> "split_refund_fail" to mapOf("refund_id" to request.refundId, "reason" to step.reason)
+            }
         }
         val outcome = rpc.posBadgeApprove(badge, action, args, deviceId)
         if (!outcome.ok) throw PosFailure(PosError.BusinessRule("badge", outcome.error ?: "Badge approval refused."))
