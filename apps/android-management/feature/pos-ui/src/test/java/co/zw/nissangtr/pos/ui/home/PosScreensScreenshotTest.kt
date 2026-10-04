@@ -47,10 +47,15 @@ class PosScreensScreenshotTest {
     private fun usd(v: Double) = Money.ofMajor(v, CurrencyCode.USD)
     private val sale = PosFixtures.homeWithSale
 
-    private fun capture(name: String, width: Dp, height: Dp, state: PosState) {
+    private fun capture(name: String, width: Dp, height: Dp, state: PosState, catalog: OfflineCatalogControl? = null) {
         compose.setContent {
             PosTheme(windowClass = PosWindowClass.derive(width, height)) {
-                PosHomeScreen(state = state, now = now, dispatch = {}, host = PosHostActions(onScan = {}, onPrint = { _, _ -> }, onStaffPortal = {}, onKioskSettings = {}))
+                PosHomeScreen(
+                    state = state,
+                    now = now,
+                    dispatch = {},
+                    host = PosHostActions(onScan = {}, onPrint = { _, _ -> }, onStaffPortal = {}, onKioskSettings = {}, offlineCatalog = catalog),
+                )
             }
         }
         compose.waitForIdle()
@@ -357,6 +362,28 @@ class PosScreensScreenshotTest {
         1280.dp,
         800.dp,
         PosFixtures.homeEmpty.copy(destination = PosDestination.Settings, offlineQueue = co.zw.nissangtr.pos.domain.model.OfflineSyncStatus(2, 1)),
+    )
+
+    /** An update downloading into staging while the current release stays in use, with one kept to go back to. */
+    @Test @Config(qualifiers = "w1280dp-h1500dp-port-mdpi")
+    fun settingsCatalogueUpdate() = capture(
+        "settings_catalog_update",
+        1280.dp,
+        1500.dp,
+        PosFixtures.homeEmpty.copy(destination = PosDestination.Settings),
+        OfflineCatalogControl(
+            phase = OfflineCatalogPhase.Paused,
+            release = "2026-10-04",
+            doneBytes = 2_400_000_000L,
+            totalBytes = 7_100_000_000L,
+            downloadedAt = null,
+            message = "Download paused.",
+            onDownload = {},
+            onPause = {},
+            onRemove = {},
+            activeRelease = "2026-10-02",
+            previousRelease = "2026-09-20",
+        ),
     )
 
     private val pairing = co.zw.nissangtr.pos.domain.model.CompanionSession(

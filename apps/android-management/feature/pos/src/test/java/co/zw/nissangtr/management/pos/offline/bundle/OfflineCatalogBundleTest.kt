@@ -224,5 +224,114 @@ class OfflineCatalogBundleTest {
         assertTrue(File(tmp.root, "bundle").listFiles().isNullOrEmpty())
     }
 
+    /** A second build: the same files plus one new one, served from its own folder. */
+    private fun secondBuild(): Pair<File, JsonObject> {
+        val dir2 = tmp.newFolder("fixture-2")
+        fixture.listFiles()!!.forEach { it.copyTo(File(dir2, it.name)) }
+        val extra = "new in build two".toByteArray()
+        File(dir2, "extra.txt").writeBytes(extra)
+        val sha = java.security.MessageDigest.getInstance("SHA-256").digest(extra).joinToString("") { "%02x".format(it) }
+        val files = signed()["files"]!!.jsonArray + JsonObject(
+            mapOf("path" to JsonPrimitive("extra.txt"), "bytes" to JsonPrimitive(extra.size), "sha256" to JsonPrimitive(sha), "url" to JsonPrimitive("fixture://extra.txt")),
+        )
+        return dir2 to JsonObject(signed() + mapOf("build" to JsonPrimitive("build-two"), "release" to JsonPrimitive("release-two"), "files" to JsonArray(files)))
+    }
+
+    @Test
+    fun updateIsStagedWhileTheCurrentBuildStaysInUse() = runBlocking {
+        val first = downloaded()
+        val (dir2, manifest2) = secondBuild()
+        val http2 = FakeHttp(dir2).apply { cutOnce = "extra.txt" to 4 }
+        val bundle = OfflineCatalogBundle(File(tmp.root, "bundle"), http2).apply { init() }
+        assertTrue(first.ready)
+        try {
+            bundle.download { manifest2 }
+            fail("expected the dropped connection to stop the update")
+        } catch (_: IOException) {
+        }
+        val paused = bundle.status.value
+        assertEquals(OfflineCatalogBundle.Phase.Paused, paused.phase)
+        assertEquals("release-two", paused.release)
+        assertEquals("the old build is still in use", "test-release", paused.activeRelease)
+        assertTrue(bundle.ready)
+        assertEquals(listOf("VM-gtr-1", "VM-nav-1"), bundle.vehicleMaster().map { it.id })
+        assertEquals("unchanged files are linked, not downloaded", listOf("extra.txt" to 0L), http2.requests)
+
+        http2.requests.clear()
+        bundle.download { manifest2 }
+        val ready = bundle.status.value
+        assertEquals(OfflineCatalogBundle.Phase.Ready, ready.phase)
+        assertEquals("release-two", ready.activeRelease)
+        assertEquals("test-release", ready.previousRelease)
+        assertEquals(listOf("extra.txt" to 4L), http2.requests)
+        assertTrue("verified files are read-only", File(tmp.root, "bundle/builds/build-two/vehicles.json.gz").toPath().let {
+            java.nio.file.Files.exists(it) && java.nio.file.attribute.PosixFilePermission.OWNER_WRITE !in java.nio.file.Files.getPosixFilePermissions(it)
+        })
+        assertEquals(listOf("VM-gtr-1", "VM-nav-1"), bundle.vehicleMaster().map { it.id })
+
+        // Back to the previous build, and the switch survives a restart.
+        bundle.rollback()
+        assertEquals("test-release", bundle.status.value.activeRelease)
+        assertEquals("release-two", bundle.status.value.previousRelease)
+        val reopened = OfflineCatalogBundle(File(tmp.root, "bundle"), http2).apply { init() }
+        assertEquals("test-release", reopened.status.value.activeRelease)
+        assertEquals("release-two", reopened.status.value.previousRelease)
+        assertTrue(reopened.ready)
+    }
+
+    @Test
+    fun damagedActiveBuildFallsBackToThePreviousAtStartup() = runBlocking {
+        downloaded()
+        val (dir2, manifest2) = secondBuild()
+        OfflineCatalogBundle(File(tmp.root, "bundle"), FakeHttp(dir2)).apply { init(); download { manifest2 } }
+        // Only build two has this file (the others are shared with build one through hard links).
+        val damaged = File(tmp.root, "bundle/builds/build-two/extra.txt")
+        damaged.setWritable(true)
+        damaged.writeBytes(ByteArray(3))
+        val reopened = OfflineCatalogBundle(File(tmp.root, "bundle"), FakeHttp(dir2)).apply { init() }
+        val st = reopened.status.value
+        assertTrue(reopened.ready)
+        assertEquals("test-release", st.activeRelease)
+        assertNull(st.previousRelease)
+        assertTrue(st.message!!.contains("damaged"))
+        assertEquals(listOf("VM-gtr-1", "VM-nav-1"), reopened.vehicleMaster().map { it.id })
+    }
+
+    @Test
+    fun rollbackWithoutAPreviousBuildIsRefused() = runBlocking {
+        val bundle = downloaded()
+        try {
+            bundle.rollback()
+            fail("nothing to go back to")
+        } catch (_: IOException) {
+        }
+        assertTrue(bundle.ready)
+    }
+
+    @Test
+    fun aBuildDownloadedBeforeStagingIsKept() = runBlocking {
+        // Old layout: the files and a complete state.json straight in the folder.
+        val dir = tmp.newFolder("bundle")
+        fixture.listFiles()!!.filter { it.name != "manifest.json" }.forEach { it.copyTo(File(dir, it.name)) }
+        val files = manifest["files"]!!.jsonArray
+        val state = JsonObject(
+            mapOf(
+                "release" to JsonPrimitive("test-release"),
+                "build" to manifest["build"]!!,
+                "route_buckets" to manifest["route_buckets"]!!,
+                "total_bytes" to manifest["total_bytes"]!!,
+                "files" to files,
+                "done" to JsonArray(files.map { it.jsonObject["path"]!! }),
+                "complete" to JsonPrimitive(true),
+            ),
+        )
+        File(dir, "state.json").writeText(state.toString())
+        val bundle = OfflineCatalogBundle(dir, FakeHttp(fixture)).apply { init() }
+        assertTrue(bundle.ready)
+        assertEquals("test-release", bundle.status.value.activeRelease)
+        assertEquals(listOf("VM-gtr-1", "VM-nav-1"), bundle.vehicleMaster().map { it.id })
+        assertTrue(File(dir, "catalog.json").exists())
+    }
+
     private fun ByteArray.endsWith(suffix: ByteArray) = size >= suffix.size && copyOfRange(size - suffix.size, size).contentEquals(suffix)
 }

@@ -182,6 +182,7 @@ fun PosTabletEntry(
             onDownload = { OfflineCatalogHolder.download(context, rpc) },
             onPause = OfflineCatalogHolder::pause,
             onRemove = { OfflineCatalogHolder.remove(context) },
+            onRollback = { OfflineCatalogHolder.rollback(context) },
         ),
     )
 
@@ -216,7 +217,7 @@ private suspend fun print(
     }.onFailure { toast("Receipt not printed: ${it.message ?: "printer unavailable"}. The sale is complete; print again from the receipt.") }
 }
 
-private fun OfflineCatalogBundle.Status.toControl(onDownload: () -> Unit, onPause: () -> Unit, onRemove: () -> Unit) = OfflineCatalogControl(
+private fun OfflineCatalogBundle.Status.toControl(onDownload: () -> Unit, onPause: () -> Unit, onRemove: () -> Unit, onRollback: () -> Unit) = OfflineCatalogControl(
     phase = when (phase) {
         OfflineCatalogBundle.Phase.None -> OfflineCatalogPhase.None
         OfflineCatalogBundle.Phase.Downloading -> OfflineCatalogPhase.Downloading
@@ -233,4 +234,7 @@ private fun OfflineCatalogBundle.Status.toControl(onDownload: () -> Unit, onPaus
     onDownload = onDownload,
     onPause = onPause,
     onRemove = onRemove,
+    activeRelease = activeRelease,
+    previousRelease = previousRelease,
+    onRollback = onRollback,
 )

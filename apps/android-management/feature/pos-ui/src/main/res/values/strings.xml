@@ -48,6 +48,9 @@
     <string name="pos_offline_catalog_update">Update</string>
     <string name="pos_offline_catalog_pause">Pause</string>
     <string name="pos_offline_catalog_remove">Remove</string>
+    <string name="pos_offline_catalog_in_use">Release %1$s stays in use until the update is downloaded and checked.</string>
+    <string name="pos_offline_catalog_previous">Release %1$s is kept to go back to.</string>
+    <string name="pos_offline_catalog_rollback">Use previous</string>
     <string name="pos_offline_sales_hint">%1$d waiting to sync · %2$d need review</string>
     <string name="pos_sync_now">Sync now</string>
     <string name="pos_companion_title">Companion phone</string>

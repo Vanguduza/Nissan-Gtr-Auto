@@ -12,6 +12,14 @@ export interface BundleStorage {
   remove(name: string): Promise<void>;
   /** Deletes every file of the bundle. */
   clear(): Promise<void>;
+  /** The file as a stream (to copy without holding it in memory); null when absent. */
+  stream(name: string): Promise<ReadableStream<Uint8Array> | null>;
+  /** A folder inside this one (created on first write). */
+  sub(name: string): BundleStorage;
+  /** Deletes a folder and everything in it. */
+  removeDir(name: string): Promise<void>;
+  /** The folders directly inside this one. */
+  dirs(): Promise<string[]>;
 }
 
 const DIR = "gtr-pos-offline-catalog";
@@ -28,9 +36,35 @@ export function opfsSupported(): boolean {
 export class OpfsBundleStorage implements BundleStorage {
   private dir: Promise<FileSystemDirectoryHandle> | null = null;
 
+  /** [path]: folder names from the bundle root (empty for the root itself). */
+  constructor(private readonly path: string[] = []) {}
+
   private root(): Promise<FileSystemDirectoryHandle> {
-    this.dir ??= navigator.storage.getDirectory().then((r) => r.getDirectoryHandle(DIR, { create: true }));
+    this.dir ??= this.path.reduce<Promise<FileSystemDirectoryHandle>>(
+      (parent, name) => parent.then((d) => d.getDirectoryHandle(name, { create: true })),
+      navigator.storage.getDirectory().then((r) => r.getDirectoryHandle(DIR, { create: true })),
+    );
     return this.dir;
+  }
+
+  sub(name: string): BundleStorage {
+    return new OpfsBundleStorage([...this.path, name]);
+  }
+
+  async removeDir(name: string): Promise<void> {
+    await (await this.root()).removeEntry(name, { recursive: true }).catch(() => undefined);
+  }
+
+  async dirs(): Promise<string[]> {
+    const out: string[] = [];
+    const root = (await this.root()) as FileSystemDirectoryHandle & { entries(): AsyncIterable<[string, FileSystemHandle]> };
+    for await (const [name, handle] of root.entries()) if (handle.kind === "directory") out.push(name);
+    return out;
+  }
+
+  async stream(name: string): Promise<ReadableStream<Uint8Array> | null> {
+    const file = await (await this.handle(name))?.getFile();
+    return file ? (file.stream() as ReadableStream<Uint8Array>) : null;
   }
 
   private async handle(name: string, create = false): Promise<FileSystemFileHandle | null> {
@@ -84,14 +118,49 @@ export class OpfsBundleStorage implements BundleStorage {
   }
 
   async clear(): Promise<void> {
-    const root = await navigator.storage.getDirectory();
-    await root.removeEntry(DIR, { recursive: true }).catch(() => undefined);
+    if (this.path.length === 0) {
+      const root = await navigator.storage.getDirectory();
+      await root.removeEntry(DIR, { recursive: true }).catch(() => undefined);
+    } else {
+      const parent = await new OpfsBundleStorage(this.path.slice(0, -1)).root();
+      await parent.removeEntry(this.path[this.path.length - 1], { recursive: true }).catch(() => undefined);
+    }
     this.dir = null;
   }
 }
 
 export class MemoryBundleStorage implements BundleStorage {
   readonly files = new Map<string, Uint8Array>();
+  readonly folders = new Map<string, MemoryBundleStorage>();
+
+  sub(name: string): BundleStorage {
+    let f = this.folders.get(name);
+    if (!f) {
+      f = new MemoryBundleStorage();
+      this.folders.set(name, f);
+    }
+    return f;
+  }
+
+  async removeDir(name: string): Promise<void> {
+    this.folders.delete(name);
+  }
+
+  async dirs(): Promise<string[]> {
+    return [...this.folders.keys()];
+  }
+
+  async stream(name: string): Promise<ReadableStream<Uint8Array> | null> {
+    const f = this.files.get(name);
+    if (!f) return null;
+    const copy = f.slice();
+    return new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(copy);
+        c.close();
+      },
+    });
+  }
 
   async write(name: string, body: ReadableStream<Uint8Array> | Uint8Array, onBytes?: (written: number) => void): Promise<void> {
     if (body instanceof Uint8Array) {
@@ -134,5 +203,6 @@ export class MemoryBundleStorage implements BundleStorage {
 
   async clear(): Promise<void> {
     this.files.clear();
+    this.folders.clear();
   }
 }

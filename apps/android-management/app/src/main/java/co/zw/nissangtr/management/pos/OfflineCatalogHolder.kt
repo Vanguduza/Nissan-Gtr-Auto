@@ -47,6 +47,14 @@ object OfflineCatalogHolder {
         job?.cancel()
     }
 
+    /** Back to the build in use before the last update (refused while an update downloads). */
+    @Synchronized
+    fun rollback(context: Context) {
+        if (job?.isActive == true) return
+        val b = get(context)
+        scope.launch { runCatching { b.rollback() } }
+    }
+
     @Synchronized
     fun remove(context: Context) {
         job?.cancel()

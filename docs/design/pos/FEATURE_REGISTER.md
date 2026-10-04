@@ -184,14 +184,14 @@ passed, commit referenced) · `dropped` (owner reference required)
 | ID | Feature | § | Phase | Status |
 |---|---|---|---|---|
 | CAT-01 | Package manifest with version, counts, size | 10.9 | 5 | todo |
-| CAT-02 | Checksum verified **before** activation | 10.9 | 5 | todo |
+| CAT-02 | Checksum verified **before** activation | 10.9 | 5 | done — every file SHA-256 checked on download; activation refuses a build with a missing file (tablet unit tests, browser run on OPFS) |
 | CAT-03 | Resumable, cancellable, metered-aware download | 10.9 | 5 | todo |
-| CAT-04 | Staging location; never written over the active database | 10.9 | 5 | todo |
-| CAT-05 | Atomic activation | 10.9 | 5 | todo |
-| CAT-06 | Rollback to the previous version | 10.9 | 5 | todo |
-| CAT-07 | Startup integrity check with fallback and report | 10.9 | 5 | todo |
+| CAT-04 | Staging location; never written over the active database | 10.9 | 5 | done — `builds/<build>` folders; the active build keeps serving during an update |
+| CAT-05 | Atomic activation | 10.9 | 5 | done — one pointer write (`catalog.json`): rename on the tablet, OPFS writer close in the browser |
+| CAT-06 | Rollback to the previous version | 10.9 | 5 | done — Settings → Use previous (tablet and web) |
+| CAT-07 | Startup integrity check with fallback and report | 10.9 | 5 | done — file sizes checked at start-up; damaged active → previous, with a notice in Settings |
 | CAT-08 | SQLCipher at rest, passphrase wrapped by Keystore | 10.9, 10.10 | 5 | todo |
-| CAT-09 | Read-only in production | 10.9 | 5 | todo |
+| CAT-09 | Read-only in production | 10.9 | 5 | partial — tablet files made read-only after verification; the browser only ever reads the active build |
 
 ## HW — Hardware bridges
 

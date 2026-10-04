@@ -20,9 +20,18 @@ they apply.
 
 ## Deviation found in already-shipped work
 
-The offline catalogue bundle (2026-10-02) clears the previous build before downloading a new one;
+The offline catalogue bundle (2026-10-02) cleared the previous build before downloading a new one;
 blueprint §10.9 requires staging, verification, atomic activation and keeping the previous version.
-To fix in the bundle clients.
+**Fixed 2026-10-04 in both clients:**
+- Each build lives in its own folder, and a pointer file (`catalog.json`) names the active and previous builds.
+- An update downloads into staging while the current build stays in use. Each file is SHA-256 checked and resumable.
+- Activation is one atomic pointer write: a rename on the tablet, the atomic writer close on OPFS. The replaced build is kept, and "Use previous" goes back to it.
+- At start-up the active build's file sizes are checked. A damaged build falls back to the previous one with a notice.
+- Unchanged files are hard-linked on the tablet and copied on the device in the browser, so they are not downloaded again.
+- At most two builds are stored, because starting an update drops the older previous one.
+- Tablet files are made read-only once verified.
+- Builds downloaded under the old layout are kept and migrate in place.
+- On the tablet, a file shared by two builds through a hard link is one file, so damage to it hits both builds; the start-up check then asks for a fresh download.
 
 ## Function → app map
 

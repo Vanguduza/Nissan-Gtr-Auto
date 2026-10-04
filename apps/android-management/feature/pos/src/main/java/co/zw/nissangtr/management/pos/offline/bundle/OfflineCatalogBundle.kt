@@ -36,24 +36,40 @@ import java.util.zip.GZIPInputStream
 
 /**
  * The complete catalogue on this tablet (format `gtr-pos-offline/1`, built by
- * `data-pipeline/scripts/build_pos_offline_bundle.py`): downloaded file by file into app-private
- * storage, each file resumed where it stopped and checked against its SHA-256 before it counts, then
- * read to answer the same questions as `catalog-live-r2` with no connection.
+ * `data-pipeline/scripts/build_pos_offline_bundle.py`), read to answer the same questions as
+ * `catalog-live-r2` with no connection.
+ *
+ * Updates follow blueprint §10.9: a new build is downloaded into its own staging folder while the
+ * current one stays in use; every file is checked against its SHA-256 (and resumed where it stopped);
+ * only a fully verified build is activated, by one atomic rename of the pointer file; the build it
+ * replaces is kept so staff can go back to it. Verified files are made read-only. Files unchanged
+ * since the active build are hard-linked instead of downloaded again. At most two builds are on disk:
+ * starting a new update drops the older previous one.
+ *
+ * Layout: `catalog.json` (`{"active": build, "previous": build}`) and `builds/<build>/` holding the
+ * build's files and its `state.json`.
  */
 class OfflineCatalogBundle(
     private val dir: File,
     private val http: BundleHttp = UrlConnectionBundleHttp,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    /** None: nothing on the device. Ready: a build in use, no update pending. Downloading / Paused: an update is staged. */
     enum class Phase { None, Downloading, Paused, Ready }
 
     data class Status(
         val phase: Phase,
+        /** The staged release while downloading or paused; otherwise the active one. */
         val release: String? = null,
         val doneBytes: Long = 0,
         val totalBytes: Long = 0,
         val downloadedAtMs: Long? = null,
         val message: String? = null,
+        /** The release in use (also while an update downloads). */
+        val activeRelease: String? = null,
+        val activeDownloadedAtMs: Long? = null,
+        /** The release kept to go back to. */
+        val previousRelease: String? = null,
     )
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -61,7 +77,10 @@ class OfflineCatalogBundle(
     private val _status = MutableStateFlow(Status(Phase.None))
     val status: StateFlow<Status> = _status.asStateFlow()
 
-    private var saved: Saved? = null
+    @Volatile private var active: Saved? = null
+    private var previous: Saved? = null
+    private var staging: Saved? = null
+    private var downloading = false
     private var vehicles: VehiclesFile? = null
     private val rowsCache = object : LinkedHashMap<String, List<JsonObject>>(8, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<JsonObject>>?) = size > 4
@@ -70,10 +89,12 @@ class OfflineCatalogBundle(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, JsonObject>?) = size > 8
     }
 
-    val ready: Boolean get() = saved?.complete == true
+    /** A verified build is in use. */
+    val ready: Boolean get() = active?.complete == true
 
     private data class FileEntry(val path: String, val bytes: Long, val sha256: String)
     private data class Saved(
+        val dir: File,
         val release: String,
         val build: String,
         val routeBuckets: Int,
@@ -87,19 +108,49 @@ class OfflineCatalogBundle(
     private data class VehiclesFile(val vehicles: List<VehicleMasterEntry>, val shards: Map<String, List<Loc>>)
     private data class Loc(val pack: Int, val offset: Long, val length: Int)
 
-    /** Loads what is already on the device. */
+    private val buildsDir get() = File(dir, "builds")
+    private fun buildDir(build: String) = File(buildsDir, build.replace(Regex("[^A-Za-z0-9._-]"), "_"))
+
+    /** Loads what is on the device and checks the active build; a damaged one falls back to the previous. */
     suspend fun init() = withContext(Dispatchers.IO) {
         lock.withLock {
-            saved = readState()
-            publish(null)
+            migrateLegacyLayout()
+            val pointer = readPointer()
+            var a = pointer.first?.let { readState(buildDir(it)) }?.takeIf { it.complete }
+            var p = pointer.second?.let { readState(buildDir(it)) }?.takeIf { it.complete }
+            var message: String? = null
+            if (a != null && !intact(a)) {
+                message = if (p != null && intact(p)) {
+                    "Offline catalogue release ${a.release} was damaged on this device; release ${p.release} is in use again."
+                } else {
+                    "Offline catalogue release ${a.release} was damaged on this device. Download it again."
+                }
+                deleteBuild(a)
+                a = p?.takeIf(::intact)
+                p = null
+                writePointer(a?.build, null)
+            } else if (p != null && !intact(p)) {
+                deleteBuild(p)
+                p = null
+                writePointer(a?.build, null)
+            }
+            active = a
+            previous = p
+            staging = buildsDir.listFiles().orEmpty()
+                .filter { it.isDirectory && it != a?.dir && it != p?.dir }
+                .mapNotNull { readState(it) }
+                .firstOrNull { !it.complete }
+            clearCaches()
+            publish(message)
         }
     }
 
     // ------------------------------------------------------------------------------- download
 
     /**
-     * Downloads (or finishes) the published bundle. [fetchManifest] returns the signed manifest
-     * (`catalog-live-r2` `offline-bundle`); it is asked again when the signed links expire.
+     * Downloads (or finishes) the published bundle into staging and activates it once every file is
+     * verified. [fetchManifest] returns the signed manifest (`catalog-live-r2` `offline-bundle`); it is
+     * asked again when the signed links expire.
      */
     suspend fun download(fetchManifest: suspend () -> JsonObject) = withContext(Dispatchers.IO) {
         lock.withLock {
@@ -107,30 +158,17 @@ class OfflineCatalogBundle(
                 var manifest = fetchManifest()
                 require(manifest.str("format") == FORMAT) { "This offline catalogue needs a newer version of the POS." }
                 val build = manifest.str("build") ?: error("The offline catalogue manifest has no build.")
-                val current = saved
-                val state = if (current != null && current.build == build) {
-                    current
-                } else {
-                    // A new build replaces the old one completely.
-                    dir.deleteRecursively()
-                    dir.mkdirs()
-                    clearCaches()
-                    Saved(
-                        release = manifest.str("release").orEmpty(),
-                        build = build,
-                        routeBuckets = manifest["route_buckets"]?.jsonPrimitive?.intOrNull ?: 64,
-                        totalBytes = manifest["total_bytes"]?.jsonPrimitive?.longOrNull ?: 0L,
-                        files = manifest.files().map { FileEntry(it.str("path")!!, it.long("bytes"), it.str("sha256")!!) },
-                        done = mutableSetOf(),
-                        complete = false,
-                        downloadedAtMs = null,
-                    ).also { saved = it; writeState(it) }
+                if (active?.build == build) {
+                    publish(null)
+                    return@withLock
                 }
-                if (!state.complete) {
-                    _status.value = Status(Phase.Downloading, state.release, state.files.filter { it.path in state.done }.sumOf { it.bytes }, state.totalBytes)
-                    for (file in state.files) {
-                        if (file.path in state.done) continue
-                        currentCoroutineContext().ensureActive()
+                val state = stage(manifest, build)
+                downloading = true
+                publish(null)
+                for (file in state.files) {
+                    if (file.path in state.done) continue
+                    currentCoroutineContext().ensureActive()
+                    if (!reuseFromActive(file, state)) {
                         val url = manifest.urlFor(file.path) ?: fetchManifest().also { manifest = it }.urlFor(file.path)
                             ?: error("No download link for ${file.path}.")
                         try {
@@ -141,27 +179,106 @@ class OfflineCatalogBundle(
                             manifest = fetchManifest()
                             fetchFile(file, manifest.urlFor(file.path) ?: throw e, state, currentCoroutineContext())
                         }
-                        state.done += file.path
-                        writeState(state)
                     }
-                    state.complete = true
-                    state.downloadedAtMs = clock()
+                    state.done += file.path
                     writeState(state)
                 }
+                activate(state)
+                downloading = false
                 publish(null)
             } catch (e: CancellationException) {
+                downloading = false
                 publish("Download paused.")
                 throw e
             } catch (e: Exception) {
+                downloading = false
                 publish(e.message ?: "Download failed.")
                 throw e
             }
         }
     }
 
+    /** The staging build for [build]: resumed when it is the one already staged, else started fresh. */
+    private fun stage(manifest: JsonObject, build: String): Saved {
+        staging?.takeIf { it.build == build }?.let { return it }
+        // One update at a time, and at most two builds on disk: drop any other staging and the old previous.
+        staging?.let(::deleteBuild)
+        staging = null
+        if (previous?.build != build) {
+            previous?.let(::deleteBuild)
+            previous = null
+            writePointer(active?.build, null)
+        }
+        val target = buildDir(build)
+        val existing = readState(target)
+        if (existing != null && existing.build == build) return existing.also { staging = it }
+        target.deleteRecursively()
+        target.mkdirs()
+        return Saved(
+            dir = target,
+            release = manifest.str("release").orEmpty(),
+            build = build,
+            routeBuckets = manifest["route_buckets"]?.jsonPrimitive?.intOrNull ?: 64,
+            totalBytes = manifest["total_bytes"]?.jsonPrimitive?.longOrNull ?: 0L,
+            files = manifest.files().map { FileEntry(it.str("path")!!, it.long("bytes"), it.str("sha256")!!) },
+            done = mutableSetOf(),
+            complete = false,
+            downloadedAtMs = null,
+        ).also { staging = it; writeState(it) }
+    }
+
+    /** A file the active build already has with the same checksum is linked, not downloaded. */
+    private fun reuseFromActive(file: FileEntry, state: Saved): Boolean {
+        val a = active ?: return false
+        val same = a.files.firstOrNull { it.path == file.path && it.sha256 == file.sha256 && it.bytes == file.bytes } ?: return false
+        val source = File(a.dir, same.path)
+        if (source.length() != file.bytes) return false
+        val target = File(state.dir, file.path)
+        target.delete()
+        return runCatching { java.nio.file.Files.createLink(target.toPath(), source.toPath()); true }.getOrDefault(false)
+    }
+
+    /** Every file present with its verified size → the pointer moves in one rename; the old build becomes previous. */
+    private fun activate(state: Saved) {
+        for (f in state.files) {
+            val file = File(state.dir, f.path)
+            if (f.path !in state.done || file.length() != f.bytes) throw IOException("${f.path} is missing from the new catalogue. Continue the download.")
+            file.setReadOnly()
+        }
+        state.complete = true
+        state.downloadedAtMs = clock()
+        writeState(state)
+        val old = active
+        writePointer(state.build, old?.build)
+        previous = old
+        active = state
+        staging = null
+        clearCaches()
+    }
+
+    /** Goes back to the build that was in use before the last update; the current one becomes previous. */
+    suspend fun rollback() = withContext(Dispatchers.IO) {
+        lock.withLock {
+            val p = previous ?: throw IOException("There is no previous offline catalogue on this device.")
+            if (!intact(p)) {
+                deleteBuild(p)
+                previous = null
+                writePointer(active?.build, null)
+                publish("The previous offline catalogue was damaged and has been removed.")
+                throw IOException("The previous offline catalogue was damaged.")
+            }
+            val current = active
+            writePointer(p.build, current?.build)
+            active = p
+            previous = current
+            clearCaches()
+            publish(null)
+        }
+    }
+
     private fun fetchFile(file: FileEntry, url: String, state: Saved, job: kotlin.coroutines.CoroutineContext) {
-        val target = File(dir, file.path)
-        val part = File(dir, file.path + ".part")
+        val target = File(state.dir, file.path)
+        val part = File(state.dir, file.path + ".part")
         val doneBefore = state.files.filter { it.path in state.done }.sumOf { it.bytes }
         var have = if (part.exists()) part.length() else 0L
         if (have > file.bytes) {
@@ -187,7 +304,7 @@ class OfflineCatalogBundle(
                         have += n
                         if (have - lastPublished > 2 * 1024 * 1024) {
                             lastPublished = have
-                            _status.value = Status(Phase.Downloading, state.release, doneBefore + have, state.totalBytes)
+                            _status.value = _status.value.copy(phase = Phase.Downloading, doneBytes = doneBefore + have)
                         }
                         job.ensureActive()
                     }
@@ -198,47 +315,103 @@ class OfflineCatalogBundle(
             part.delete()
             throw IOException("${file.path} arrived damaged. Continue the download to fetch it again.")
         }
+        target.delete()
         if (!part.renameTo(target)) throw IOException("Could not store ${file.path}.")
-        _status.value = Status(Phase.Downloading, state.release, doneBefore + file.bytes, state.totalBytes)
+        _status.value = _status.value.copy(phase = Phase.Downloading, doneBytes = doneBefore + file.bytes)
     }
 
-    /** Deletes the offline catalogue from this device. */
+    /** Deletes the offline catalogue (every build) from this device. */
     suspend fun remove() = withContext(Dispatchers.IO) {
         lock.withLock {
-            dir.deleteRecursively()
-            saved = null
+            dir.listFiles().orEmpty().forEach { it.deleteRecursively() }
+            active = null
+            previous = null
+            staging = null
             clearCaches()
             publish(null)
         }
     }
 
     private fun publish(message: String?) {
-        val s = saved
+        val a = active
+        val st = staging
+        val base = Status(
+            phase = Phase.None,
+            message = message,
+            activeRelease = a?.release,
+            activeDownloadedAtMs = a?.downloadedAtMs,
+            previousRelease = previous?.release,
+        )
         _status.value = when {
-            s == null -> Status(Phase.None, message = message)
-            s.complete -> Status(Phase.Ready, s.release, s.totalBytes, s.totalBytes, s.downloadedAtMs)
-            else -> Status(
-                Phase.Paused,
-                s.release,
-                s.files.filter { it.path in s.done }.sumOf { it.bytes },
-                s.totalBytes,
-                message = message ?: "Download paused. Continue to finish it.",
+            st != null -> base.copy(
+                phase = if (downloading) Phase.Downloading else Phase.Paused,
+                release = st.release,
+                doneBytes = st.files.filter { it.path in st.done }.sumOf { it.bytes },
+                totalBytes = st.totalBytes,
+                message = if (downloading) message else message ?: "Download paused. Continue to finish it.",
             )
+            a != null -> base.copy(phase = Phase.Ready, release = a.release, doneBytes = a.totalBytes, totalBytes = a.totalBytes, downloadedAtMs = a.downloadedAtMs)
+            else -> base
         }
     }
 
     private fun clearCaches() {
         vehicles = null
-        rowsCache.clear()
-        routesCache.clear()
+        synchronized(rowsCache) { rowsCache.clear() }
+        synchronized(routesCache) { routesCache.clear() }
     }
 
-    private fun readState(): Saved? {
-        val f = File(dir, STATE)
+    /** Cheap startup check: every file present with its recorded size (checksums were verified on download). */
+    private fun intact(s: Saved): Boolean = s.files.all { File(s.dir, it.path).length() == it.bytes }
+
+    private fun deleteBuild(s: Saved) {
+        s.dir.listFiles().orEmpty().forEach { it.setWritable(true) }
+        s.dir.deleteRecursively()
+    }
+
+    private fun readPointer(): Pair<String?, String?> {
+        val f = File(dir, POINTER)
+        if (!f.exists()) return null to null
+        return runCatching {
+            val o = json.parseToJsonElement(f.readText()).jsonObject
+            o.str("active") to o.str("previous")
+        }.getOrDefault(null to null)
+    }
+
+    /** Atomic: the new pointer is written beside the old one and renamed over it. */
+    private fun writePointer(activeBuild: String?, previousBuild: String?) {
+        dir.mkdirs()
+        val body = buildJsonObject {
+            put("active", activeBuild?.let(::JsonPrimitive) ?: JsonNull)
+            put("previous", previousBuild?.let(::JsonPrimitive) ?: JsonNull)
+        }
+        val tmp = File(dir, "$POINTER.tmp")
+        tmp.writeText(body.toString())
+        if (!tmp.renameTo(File(dir, POINTER))) throw IOException("Could not switch the offline catalogue.")
+    }
+
+    /** Builds downloaded before staging existed kept their files directly in [dir]: move them into `builds/`. */
+    private fun migrateLegacyLayout() {
+        val legacy = File(dir, STATE)
+        if (!legacy.exists() || File(dir, POINTER).exists()) return
+        val build = runCatching { json.parseToJsonElement(legacy.readText()).jsonObject.str("build") }.getOrNull()
+        if (build == null) {
+            dir.listFiles().orEmpty().forEach { it.deleteRecursively() }
+            return
+        }
+        val target = buildDir(build).apply { mkdirs() }
+        dir.listFiles().orEmpty().filter { it.name != "builds" }.forEach { it.renameTo(File(target, it.name)) }
+        val s = readState(target)
+        writePointer(s?.takeIf { it.complete }?.build, null)
+    }
+
+    private fun readState(buildDir: File): Saved? {
+        val f = File(buildDir, STATE)
         if (!f.exists()) return null
         return runCatching {
             val o = json.parseToJsonElement(f.readText()).jsonObject
             Saved(
+                dir = buildDir,
                 release = o.str("release").orEmpty(),
                 build = o.str("build")!!,
                 routeBuckets = o["route_buckets"]!!.jsonPrimitive.intOrNull!!,
@@ -252,7 +425,7 @@ class OfflineCatalogBundle(
     }
 
     private fun writeState(s: Saved) {
-        dir.mkdirs()
+        s.dir.mkdirs()
         val body = buildJsonObject {
             put("release", s.release)
             put("build", s.build)
@@ -265,18 +438,18 @@ class OfflineCatalogBundle(
             put("complete", s.complete)
             s.downloadedAtMs?.let { put("downloaded_at_ms", it) }
         }
-        val tmp = File(dir, "$STATE.tmp")
+        val tmp = File(s.dir, "$STATE.tmp")
         tmp.writeText(body.toString())
-        if (!tmp.renameTo(File(dir, STATE))) throw IOException("Could not save the offline catalogue state.")
+        if (!tmp.renameTo(File(s.dir, STATE))) throw IOException("Could not save the offline catalogue state.")
     }
 
     // ---------------------------------------------------------------------------------- read
 
-    private fun requireReady(): Saved = saved?.takeIf { it.complete }
+    private fun requireReady(): Saved = active?.takeIf { it.complete }
         ?: throw IOException("The offline catalogue is not downloaded on this device.")
 
     private fun read(loc: Loc): ByteArray {
-        RandomAccessFile(File(dir, packPath(loc.pack)), "r").use { raf ->
+        RandomAccessFile(File(requireReady().dir, packPath(loc.pack)), "r").use { raf ->
             val out = ByteArray(loc.length)
             raf.seek(loc.offset)
             raf.readFully(out)
@@ -289,8 +462,7 @@ class OfflineCatalogBundle(
     }
 
     private fun vehiclesFile(): VehiclesFile = vehicles ?: synchronized(this) {
-        requireReady()
-        val o = json.parseToJsonElement(gunzipText(File(dir, "vehicles.json.gz").readBytes())).jsonObject
+        val o = json.parseToJsonElement(gunzipText(File(requireReady().dir, "vehicles.json.gz").readBytes())).jsonObject
         VehiclesFile(
             vehicles = o["vehicles"]!!.jsonArray.map { it.jsonObject }.map { v ->
                 VehicleMasterEntry(
@@ -313,9 +485,10 @@ class OfflineCatalogBundle(
     }
 
     private fun route(diagramId: String): JsonObject? {
-        val path = "routes-%02d.json.gz".format(Integer.remainderUnsigned(fnv1a32(diagramId), requireReady().routeBuckets))
+        val build = requireReady()
+        val path = "routes-%02d.json.gz".format(Integer.remainderUnsigned(fnv1a32(diagramId), build.routeBuckets))
         val table = synchronized(routesCache) {
-            routesCache[path] ?: json.parseToJsonElement(gunzipText(File(dir, path).readBytes())).jsonObject.also { routesCache[path] = it }
+            routesCache[path] ?: json.parseToJsonElement(gunzipText(File(build.dir, path).readBytes())).jsonObject.also { routesCache[path] = it }
         }
         return table[diagramId] as? JsonObject
     }
@@ -392,7 +565,7 @@ class OfflineCatalogBundle(
     /** `diagram-image`: the image extracted to a local file, offered as a `file:` URL. */
     fun diagramImage(diagramId: String): JsonObject {
         val loc = route(diagramId)?.get("i")?.toLoc() ?: throw IOException("No diagram image in the offline catalogue for this diagram.")
-        val images = File(dir, "images").apply { mkdirs() }
+        val images = File(requireReady().dir, "images").apply { mkdirs() }
         val file = File(images, diagramId.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".png")
         if (!file.exists() || file.length() != loc.length.toLong()) {
             val tmp = File(images, file.name + ".tmp")
@@ -451,6 +624,7 @@ class OfflineCatalogBundle(
     companion object {
         const val FORMAT = "gtr-pos-offline/1"
         private const val STATE = "state.json"
+        private const val POINTER = "catalog.json"
 
         fun packPath(index: Int) = "pack-%04d.bin".format(index)
 

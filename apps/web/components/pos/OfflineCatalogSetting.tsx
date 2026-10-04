@@ -45,7 +45,8 @@ export function OfflineCatalogSetting({ catalog }: { catalog: OfflineCatalog }) 
   let detail: string;
   switch (s.state) {
     case "none":
-      detail = "Download the whole parts catalogue (about 7 GB, every vehicle, diagram and image) so search and EPC work with no connection.";
+      detail = s.message ? `${s.message} ` : "";
+      detail += "Download the whole parts catalogue (about 7 GB, every vehicle, diagram and image) so search and EPC work with no connection.";
       break;
     case "downloading":
       detail = `Downloading ${s.release}: ${gb(s.doneBytes)} of ${gb(s.totalBytes)} (${Math.floor((s.doneBytes / Math.max(1, s.totalBytes)) * 100)}%). You can keep selling.`;
@@ -55,8 +56,13 @@ export function OfflineCatalogSetting({ catalog }: { catalog: OfflineCatalog }) 
       break;
     case "ready":
       detail = `Ready: release ${s.release} (${gb(s.totalBytes)}), downloaded ${when(s.downloadedAt)}. Stock and prices for ${s.stockCount} parts, updated ${when(s.stockPulledAt)}.`;
+      if (s.notice) detail = `${s.notice} ${detail}`;
       break;
   }
+  if ((s.state === "downloading" || s.state === "paused") && s.activeRelease) {
+    detail += ` Release ${s.activeRelease} stays in use until the update is downloaded and checked.`;
+  }
+  if (s.previousRelease) detail += ` Release ${s.previousRelease} is kept to go back to.`;
 
   return (
     <div className={styles.listRow}>
@@ -88,6 +94,17 @@ export function OfflineCatalogSetting({ catalog }: { catalog: OfflineCatalog }) 
         {s.state === "ready" ? (
           <button type="button" className={styles.segmentItem} onClick={() => run(() => catalog.refreshStock())}>
             Refresh prices
+          </button>
+        ) : null}
+        {s.previousRelease && s.state !== "downloading" ? (
+          <button
+            type="button"
+            className={styles.segmentItem}
+            onClick={() => {
+              if (window.confirm(`Go back to offline catalogue release ${s.previousRelease}?`)) run(() => catalog.rollback());
+            }}
+          >
+            Use previous
           </button>
         ) : null}
         {s.state !== "none" && s.state !== "downloading" ? (

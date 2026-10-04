@@ -116,6 +116,11 @@ data class OfflineCatalogControl(
     val onDownload: () -> Unit,
     val onPause: () -> Unit,
     val onRemove: () -> Unit,
+    /** The release in use while an update downloads (it stays in use until the new one is verified). */
+    val activeRelease: String? = null,
+    /** The release kept to go back to, if any. */
+    val previousRelease: String? = null,
+    val onRollback: () -> Unit = {},
 )
 
 /**

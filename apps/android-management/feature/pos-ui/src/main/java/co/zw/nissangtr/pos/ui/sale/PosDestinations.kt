@@ -76,6 +76,7 @@ internal fun ListRow(
     trailing: String? = null,
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,
+    subtitleLines: Int = 2,
     actions: @Composable () -> Unit = {},
 ) {
     val palette = PosTheme.palette
@@ -92,7 +93,7 @@ internal fun ListRow(
     ) {
         Column(Modifier.weight(1f)) {
             PosText(title, PosTheme.type.labelAction.copy(fontWeight = FontWeight.SemiBold), palette.textPrimary, maxLines = 1)
-            subtitle?.let { PosText(it, PosTheme.type.bodySecondary, palette.textMuted, maxLines = 2) }
+            subtitle?.let { PosText(it, PosTheme.type.bodySecondary, palette.textMuted, maxLines = subtitleLines) }
         }
         trailing?.let { PosText(it, PosTheme.type.numericPrice, palette.textPrimary, maxLines = 1) }
         actions()
@@ -560,7 +561,11 @@ private fun OfflineCatalogRow(c: OfflineCatalogControl) {
             c.downloadedAt.orEmpty(),
         )
     }
-    ListRow(stringResource(R.string.pos_offline_catalog), subtitle) {
+    val inUse = c.activeRelease?.takeIf { c.phase == OfflineCatalogPhase.Downloading || c.phase == OfflineCatalogPhase.Paused }
+        ?.let { stringResource(R.string.pos_offline_catalog_in_use, it) }
+    val previous = c.previousRelease?.let { stringResource(R.string.pos_offline_catalog_previous, it) }
+    val notice = c.message?.takeIf { c.phase == OfflineCatalogPhase.Ready }
+    ListRow(stringResource(R.string.pos_offline_catalog), listOfNotNull(subtitle, inUse, notice, previous).joinToString(" "), subtitleLines = 5) {
         when (c.phase) {
             OfflineCatalogPhase.Downloading ->
                 SoftButton(stringResource(R.string.pos_offline_catalog_pause), null, enabled = true, onClick = c.onPause, modifier = Modifier.width(120.dp))
@@ -577,6 +582,9 @@ private fun OfflineCatalogRow(c: OfflineCatalogControl) {
                 onClick = c.onDownload,
                 modifier = Modifier.width(140.dp),
             )
+        }
+        if (c.previousRelease != null && c.phase != OfflineCatalogPhase.Downloading) {
+            SoftButton(stringResource(R.string.pos_offline_catalog_rollback), null, enabled = true, onClick = c.onRollback, modifier = Modifier.width(140.dp))
         }
         if (c.phase == OfflineCatalogPhase.Ready || c.phase == OfflineCatalogPhase.Paused) {
             SoftButton(stringResource(R.string.pos_offline_catalog_remove), null, enabled = true, onClick = c.onRemove, modifier = Modifier.width(120.dp))
