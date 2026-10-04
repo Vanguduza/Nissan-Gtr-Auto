@@ -15,6 +15,13 @@ import type {
   PosCustomer,
   Quotation,
   RecentInvoice,
+  CoreReturn,
+  InvoiceDetail,
+  ReturnCaseDraft,
+  StockAvailability,
+  WarrantyClaim,
+  WarrantyDecision,
+  WarrantySerial,
   ReceiptContacts,
   ReceiptDocument,
   SaleSetup,
@@ -187,6 +194,23 @@ export interface PosGateway {
   // Returns
   listRecentInvoices(query: string): Promise<PosResult<RecentInvoice[]>>;
   refundInvoice(invoiceId: string, g: Governed): Promise<PosResult<string>>;
+  /** Lines of a posted sale with what can still be returned (core charges listed separately). */
+  getInvoiceDetail(invoiceId: string): Promise<PosResult<InvoiceDetail>>;
+  /** Sales staff draft the return; it does nothing until a manager posts it. */
+  createReturnCase(draft: ReturnCaseDraft): Promise<PosResult<string>>;
+  /** Manager: post the drafted return (credit note, refund, store credit, replacement or warranty). */
+  postReturnCase(caseId: string, manager: ManagerCredentials | null): Promise<PosResult<true>>;
+  /** Manager: take back an old core and give back its core charge. */
+  postCoreReturn(input: CoreReturn, manager: ManagerCredentials | null): Promise<PosResult<true>>;
+  openWarrantyClaim(invoiceId: string, invoiceLineId: string, serialId: string | null, notes: string | null): Promise<PosResult<string>>;
+  findWarrantySerial(serial: string): Promise<PosResult<WarrantySerial[]>>;
+  listWarrantyClaims(query: string, status: string | null): Promise<PosResult<WarrantyClaim[]>>;
+  /** Manager: approve (replacement / credit note / return only) or reject an open claim. */
+  decideWarrantyClaim(claim: WarrantyClaim, decision: WarrantyDecision, manager: ManagerCredentials | null): Promise<PosResult<true>>;
+  closeWarrantyClaim(claimId: string): Promise<PosResult<true>>;
+
+  // Stock
+  listStockAvailability(stockItemId: string): Promise<PosResult<StockAvailability[]>>;
 
   // EPC Browse (Nissan only — make is never chosen)
   listEpcVariants(modelSlug: string): Promise<PosResult<VehicleVariant[]>>;

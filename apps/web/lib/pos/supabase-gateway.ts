@@ -27,7 +27,11 @@ import type {
   SplitRecoveryItem,
   CardTerminal,
   TerminalRecoveryItem,
+  InvoiceDetail,
+  WarrantyClaim,
+  WarrantyStatus,
 } from "@/lib/pos/types";
+import { replacementJson, warrantyApproveArgs } from "@/lib/pos/returns";
 import {
   CatalogGatewayError,
   catalogGatewayGet,
@@ -242,6 +246,26 @@ type PartMeta = {
   saleableQty: number;
   imageUrl: string | null;
 };
+
+function warrantyFromRow(r: Record<string, unknown>): WarrantyClaim {
+  return {
+    id: String(r.id),
+    documentNumber: (r.document_number as string | null) ?? null,
+    status: String(r.status) as WarrantyStatus,
+    resolution: (r.resolution as string | null) ?? null,
+    invoiceId: (r.sales_invoice_id as string | null) ?? null,
+    invoiceNumber: (r.invoice_number as string | null) ?? null,
+    stockItemId: (r.stock_item_id as string | null) ?? null,
+    partNumber: (r.oem_part_number as string | null) ?? null,
+    serialNumber: (r.serial_number as string | null) ?? null,
+    notes: (r.notes as string | null) ?? null,
+    rejectReason: (r.reject_reason as string | null) ?? null,
+    creditNoteId: (r.credit_note_id as string | null) ?? null,
+    createdAt: String(r.created_at),
+    decidedAt: (r.decided_at as string | null) ?? null,
+    closedAt: (r.closed_at as string | null) ?? null,
+  };
+}
 
 export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -1384,6 +1408,139 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         if (error || typeof data !== "string") return fail(error, "Refund refused.");
         return { ok: true, data };
       });
+    },
+
+    async getInvoiceDetail(invoiceId) {
+      const { data, error } = await rpc(client, "get_pos_invoice_detail", { p_invoice_id: invoiceId });
+      if (error || !data) return fail(error, "Could not load the sale.");
+      const d = data as Record<string, unknown>;
+      const detail: InvoiceDetail = {
+        id: String(d.id),
+        documentNumber: (d.document_number as string | null) ?? null,
+        customerId: (d.customer_id as string | null) ?? null,
+        currency: asCurrency(d.currency),
+        total: num(d.total),
+        amountPaid: num(d.amount_paid),
+        postedAt: (d.posted_at as string | null) ?? null,
+        tillSessionId: (d.till_session_id as string | null) ?? null,
+        lines: ((d.lines ?? []) as Record<string, unknown>[]).map((l) => ({
+          id: String(l.id),
+          stockItemId: String(l.stock_item_id),
+          partNumber: String(l.oem_part_number ?? ""),
+          description: (l.description as string | null) ?? null,
+          uomId: String(l.uom_id),
+          qty: num(l.qty),
+          unitPrice: num(l.unit_price),
+          lineTotal: num(l.line_total),
+          isCore: Boolean(l.is_core_charge),
+          returnableQty: num(l.returnable_qty),
+        })),
+      };
+      return { ok: true, data: detail };
+    },
+
+    async createReturnCase(d) {
+      const { data, error } = await rpc(client, "create_pos_return_case", {
+        p_invoice_id: d.invoiceId,
+        p_resolution: d.resolution,
+        p_reason_code: d.reasonCode,
+        p_lines: d.lines.map((l) => ({ invoice_line_id: l.invoiceLineId, qty: l.qty, condition: l.condition })),
+        p_notes: d.notes,
+        p_replacement_lines: d.replacementLines ? replacementJson(d.replacementLines) : null,
+        p_till_session_id: d.tillSessionId,
+      });
+      if (error || typeof data !== "string") return fail(error, "Could not start the return.");
+      return { ok: true, data };
+    },
+
+    async postReturnCase(caseId, manager) {
+      return governed({ reasonCode: "", notes: null, manager }, async (c) => {
+        const { error } = await rpc(c, "post_pos_return_case", { p_return_case_id: caseId });
+        if (error) return fail(error, "The return was not posted.");
+        return { ok: true, data: true as const };
+      });
+    },
+
+    async postCoreReturn(r, manager) {
+      return governed({ reasonCode: r.reasonCode, notes: r.notes, manager }, async (c) => {
+        const { error } = await rpc(c, "post_pos_core_return", {
+          p_invoice_id: r.invoiceId,
+          p_source_core_line_id: r.coreLineId,
+          p_qty: r.qty,
+          p_resolution: r.resolution,
+          p_reason_code: r.reasonCode,
+          p_till_session_id: r.tillSessionId,
+          p_notes: r.notes,
+        });
+        if (error) return fail(error, "The core return was not posted.");
+        return { ok: true, data: true as const };
+      });
+    },
+
+    async openWarrantyClaim(invoiceId, invoiceLineId, serialId, notes) {
+      const { data, error } = await rpc(client, "open_pos_warranty_claim", {
+        p_sales_invoice_id: invoiceId,
+        p_invoice_line_id: invoiceLineId,
+        p_stock_serial_id: serialId,
+        p_notes: notes,
+      });
+      if (error || typeof data !== "string") return fail(error, "Could not open the warranty claim.");
+      return { ok: true, data };
+    },
+
+    async findWarrantySerial(serial) {
+      const { data, error } = await rpc(client, "find_pos_warranty_serial", { p_serial_number: serial.trim() });
+      if (error) return fail(error, "Could not look up the serial number.");
+      return {
+        ok: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+          id: String(r.id),
+          serialNumber: String(r.serial_number),
+          stockItemId: String(r.stock_item_id),
+          partNumber: (r.oem_part_number as string | null) ?? null,
+          status: String(r.status ?? ""),
+        })),
+      };
+    },
+
+    async listWarrantyClaims(query, status) {
+      const { data, error } = await rpc(client, "list_pos_warranty_claims", { p_query: query.trim() || null, p_status: status, p_limit: 100 });
+      if (error) return fail(error, "Could not load warranty claims.");
+      return { ok: true, data: ((data ?? []) as Record<string, unknown>[]).map(warrantyFromRow) };
+    },
+
+    async decideWarrantyClaim(claim, decision, manager) {
+      return governed({ reasonCode: "", notes: null, manager }, async (c) => {
+        const { error } =
+          decision.kind === "reject"
+            ? await rpc(c, "reject_pos_warranty_claim", { p_claim_id: claim.id, p_reason: decision.reason })
+            : await rpc(c, "approve_pos_warranty_claim", warrantyApproveArgs(claim, decision, "p_"));
+        if (error) return fail(error, "The warranty decision was not saved.");
+        return { ok: true, data: true as const };
+      });
+    },
+
+    async closeWarrantyClaim(claimId) {
+      const { error } = await rpc(client, "close_warranty_claim", { p_claim_id: claimId });
+      if (error) return fail(error, "Could not close the claim.");
+      return { ok: true, data: true };
+    },
+
+    async listStockAvailability(stockItemId) {
+      const { data, error } = await rpc(client, "list_pos_stock_availability", { p_stock_item_id: stockItemId });
+      if (error) return fail(error, "Could not load stock by branch.");
+      return {
+        ok: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+          warehouseId: String(r.warehouse_id),
+          code: String(r.warehouse_code ?? ""),
+          name: String(r.warehouse_name ?? ""),
+          onHand: num(r.on_hand),
+          reserved: num(r.reserved),
+          available: num(r.available),
+          incoming: num(r.transfer_incoming),
+        })),
+      };
     },
 
     async listEpcVariants(modelSlug) {

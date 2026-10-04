@@ -120,6 +120,7 @@ export function PosHome({ pos }: { pos: PosStore }) {
                   onAdd={() => void pos.addPart(item.part)}
                   onPin={() => void pos.pinPart(item.part)}
                   onRemove={() => void pos.removePopular(item)}
+                  onStock={() => pos.showStock(item.part)}
                 />
               ) : (
                 item.pin.kind !== "part" ? (
@@ -145,6 +146,7 @@ export function PosHome({ pos }: { pos: PosStore }) {
                       addLabel={live ? "Add" : "Find"}
                       onAdd={() => (live ? void pos.addPart(live) : void pos.runSearch(item.pin.searchQuery))}
                       onRemove={() => void pos.removePopular(item)}
+                      onStock={live ? () => pos.showStock(live) : undefined}
                     />
                   );
                 })()
@@ -201,6 +203,7 @@ export function PosSearchResults({ pos }: { pos: PosStore }) {
               disabled={pos.busy}
               onAdd={() => void pos.addPart(part)}
               onPin={() => void pos.pinPart(part)}
+              onStock={() => pos.showStock(part)}
             />
           ))}
         </div>

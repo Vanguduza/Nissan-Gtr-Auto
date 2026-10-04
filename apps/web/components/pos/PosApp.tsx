@@ -16,7 +16,9 @@ import { GarageChooser, ManagerDialog, Modal, PaymentDialog, ReceiptView } from 
 import { PosHeader } from "./PosHeader";
 import { PosHome, PosSearchResults } from "./PosHome";
 import { PosRail } from "./PosRail";
-import { CustomerScreen, EpcScreen, OrdersScreen, QuickSaleScreen, ReturnsScreen } from "./PosScreens";
+import { CustomerScreen, EpcScreen, OrdersScreen, QuickSaleScreen } from "./PosScreens";
+import { ReturnsScreen } from "./ReturnsScreen";
+import { StockDialog } from "./StockDialog";
 import { TillScreen } from "./TillScreen";
 import { RecoveryScreen } from "./RecoveryScreen";
 import { ManagersScreen } from "./ManagersScreen";
@@ -350,6 +352,7 @@ export function PosApp({ gateway, offline = null }: { gateway: PosGateway; offli
         </div>
       ) : null}
       <ManagerDialog pos={pos} />
+      <StockDialog pos={pos} />
       <GarageChooser pos={pos} />
       {quoting ? <QuoteDialog pos={pos} onClose={() => setQuoting(false)} /> : null}
       {companionOpen ? <CompanionDialog pos={pos} onClose={() => setCompanionOpen(false)} /> : null}

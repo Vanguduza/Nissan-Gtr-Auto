@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Building2, Car, FileText, Pause, Pin, Play, Search, Send, Undo2, User } from "lucide-react";
+import { ArrowLeft, Building2, Car, FileText, Pause, Pin, Play, Search, Send, User } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { epcBox, sameOem } from "@/lib/pos/epc";
 import { formatMoney } from "@/lib/pos/money";
@@ -14,7 +14,6 @@ import type {
   ParkedCart,
   PosCustomer,
   Quotation,
-  RecentInvoice,
   VehicleVariant,
 } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
@@ -461,55 +460,6 @@ export function OrdersScreen({ pos }: { pos: PosStore }) {
             </div>
           ))
         )}
-      </div>
-    </section>
-  );
-}
-
-// ───────── Returns ─────────
-export function ReturnsScreen({ pos }: { pos: PosStore }) {
-  const [query, setQuery] = useState("");
-  const [rows, setRows] = useState<RecentInvoice[]>([]);
-  const load = useCallback(async () => {
-    const res = await pos.gateway.listRecentInvoices(query);
-    if (res.ok) setRows(res.data);
-  }, [pos.gateway, query]);
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pos.notice]);
-  return (
-    <section className={styles.panel}>
-      <h2 className={styles.panelTitle}>Returns</h2>
-      <p className={styles.muted}>Refunds post through the finance refund pipeline and need an admin or shop manager.</p>
-      <form
-        className={styles.row}
-        style={{ marginTop: 12 }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void load();
-        }}
-      >
-        <input className={styles.input} style={{ flex: 1 }} placeholder="Invoice number or customer" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search sales" />
-        <button type="submit" className={`${styles.softButton} ${styles.inlineButton}`}>
-          <Search size={16} aria-hidden /> Search
-        </button>
-      </form>
-      <div className={styles.list}>
-        {rows.length === 0 ? <div className={styles.emptyCard}>No completed sales found.</div> : null}
-        {rows.map((r) => (
-          <div key={r.id} className={styles.listRow}>
-            <span>
-              <div className={styles.listTitle}>{r.documentNumber ?? r.id}</div>
-              <div className={styles.muted}>
-                {[r.customerName ?? "Walk-in", formatMoney(r.total, r.currency), r.vehicleLabel, when(r.postedAt)].filter(Boolean).join(" · ")}
-              </div>
-            </span>
-            <button type="button" className={styles.primaryButton} onClick={() => pos.requestManager({ kind: "refund", invoiceId: r.id, documentNumber: r.documentNumber })}>
-              <Undo2 size={16} aria-hidden /> Refund
-            </button>
-          </div>
-        ))}
       </div>
     </section>
   );

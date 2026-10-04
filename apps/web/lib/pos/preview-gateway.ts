@@ -32,6 +32,11 @@ import type {
   ApprovalTrailRow,
   IssuedBadge,
   ManagerCandidate,
+  InvoiceDetail,
+  ManagerCredentials,
+  InvoiceDetailLine,
+  StockAvailability,
+  WarrantyClaim,
 } from "@/lib/pos/types";
 
 /**
@@ -161,6 +166,35 @@ export function createPreviewPosGateway(): PosGateway {
   const quoteLines = new Map<string, CartLine[]>();
   const invoices = new Map<string, ReceiptDocument>();
   const recent: RecentInvoice[] = [];
+  // Returns: lines of posted sales, drafted cases, core returns and warranty claims (same rules as the server).
+  const invoiceLines = new Map<string, { customerId: string | null; tillSessionId: string | null; total: number; currency: PosCurrency; lines: InvoiceDetailLine[] }>();
+  const returnCases = new Map<string, { invoiceId: string; resolution: string; lines: { lineId: string; qty: number }[]; posted: boolean }>();
+  const coreReturned = new Map<string, number>();
+  const claims: (WarrantyClaim & { lineId: string })[] = [];
+  {
+    const seedId = "inv-seed-1";
+    recent.push({ id: seedId, documentNumber: "INV-PREVIEW-0901", customerName: "Tendai Moyo", total: 205, currency: "USD", postedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(), vehicleLabel: "Navara D40 YD25DDTi" });
+    invoiceLines.set(seedId, {
+      customerId: "c-1", tillSessionId: null, total: 205, currency: "USD",
+      lines: [
+        { id: "l-seed-1", stockItemId: "si-pads", partNumber: "D1060-EB70A", description: "Front brake pad set", uomId: "uom-ea", qty: 2, unitPrice: 45, lineTotal: 90, isCore: false, returnableQty: 2 },
+        { id: "l-seed-2", stockItemId: "si-alt", partNumber: "23100-EB300", description: "Alternator (exchange)", uomId: "uom-ea", qty: 1, unitPrice: 85, lineTotal: 85, isCore: false, returnableQty: 1 },
+        { id: "l-seed-3", stockItemId: "si-alt", partNumber: "23100-EB300", description: "Alternator core charge", uomId: "uom-ea", qty: 1, unitPrice: 30, lineTotal: 30, isCore: true, returnableQty: 1 },
+      ],
+    });
+    claims.push({
+      id: "wc-seed-1", lineId: "l-seed-2", documentNumber: "WAR-PREVIEW-0001", status: "open", resolution: null, invoiceId: seedId, invoiceNumber: "INV-PREVIEW-0901",
+      stockItemId: "si-alt", partNumber: "23100-EB300", serialNumber: "ALT-77821", notes: "No charge output after 2 weeks", rejectReason: null, creditNoteId: null,
+      createdAt: new Date(Date.now() - 86_400_000).toISOString(), decidedAt: null, closedAt: null,
+    });
+  }
+  const returnable = (invoiceId: string, line: InvoiceDetailLine): number => {
+    if (line.isCore) return Math.max(0, line.qty - (coreReturned.get(line.id) ?? 0));
+    let back = 0;
+    for (const rc of returnCases.values()) if (rc.invoiceId === invoiceId && rc.posted) for (const l of rc.lines) if (l.lineId === line.id) back += l.qty;
+    return Math.max(0, line.qty - back);
+  };
+  const approverRefusal = (m: ManagerCredentials | null): string | null => (m && !managerOk(m) ? "Manager sign-in failed." : !m ? "POS manager approval required" : null);
 
   // Reserve-first checkout: one order per cart attempt, settled by manual tenders or a preview provider.
   type PreviewOrder = {
@@ -277,6 +311,10 @@ export function createPreviewPosGateway(): PosGateway {
       tenders,
       vehicleLabel,
       operator: "",
+    });
+    invoiceLines.set(id, {
+      customerId: c.customerId, tillSessionId: c.tillSessionId ?? null, total: due, currency: c.currency,
+      lines: c.lines.map((l) => ({ id: `${id}-${l.id}`, stockItemId: l.stockItemId, partNumber: l.oemPartNumber, description: l.name, uomId: "uom-ea", qty: l.qty, unitPrice: l.unitPrice, lineTotal: l.lineTotal, isCore: false, returnableQty: l.qty })),
     });
     recent.unshift({ id, documentNumber: invoices.get(id)?.documentNumber ?? null, customerName: c.customerName, total: due, currency: c.currency, postedAt: new Date().toISOString(), vehicleLabel });
     carts.delete(cartId);
@@ -778,6 +816,129 @@ export function createPreviewPosGateway(): PosGateway {
       recent.splice(i, 1);
       return ok(nextDoc("RET"));
     },
+    getInvoiceDetail: (invoiceId) => {
+      const inv = invoiceLines.get(invoiceId);
+      const r = recent.find((x) => x.id === invoiceId);
+      if (!inv || !r) return no("posted invoice not found");
+      const detail: InvoiceDetail = {
+        id: invoiceId, documentNumber: r.documentNumber, customerId: inv.customerId, currency: inv.currency, total: inv.total, amountPaid: inv.total,
+        postedAt: r.postedAt, tillSessionId: inv.tillSessionId,
+        lines: [...inv.lines].sort((a, b) => Number(a.isCore) - Number(b.isCore)).map((l) => ({ ...l, returnableQty: returnable(invoiceId, l) })),
+      };
+      return ok(detail);
+    },
+    createReturnCase: (d) => {
+      const inv = invoiceLines.get(d.invoiceId);
+      if (!inv) return no("posted source invoice required");
+      if (!d.reasonCode.trim()) return no("return reason required");
+      if (d.lines.length === 0) return no("at least one return line required");
+      if (d.resolution === "store_credit" && !inv.customerId) return no("store credit requires named customer");
+      if (d.resolution === "replacement" && !d.replacementLines?.length) return no("replacement lines required");
+      for (const l of d.lines) {
+        const line = inv.lines.find((x) => x.id === l.invoiceLineId);
+        if (!line || line.isCore) return no("return line must be a non-core line from source invoice");
+        if (l.qty <= 0) return no("return qty must be > 0");
+        if (l.qty > returnable(d.invoiceId, line)) return no(`return qty ${l.qty} exceeds remaining returnable qty ${returnable(d.invoiceId, line)}`);
+      }
+      const id = `rc-${seq++}`;
+      returnCases.set(id, { invoiceId: d.invoiceId, resolution: d.resolution, lines: d.lines.map((l) => ({ lineId: l.invoiceLineId, qty: l.qty })), posted: false });
+      return ok(id);
+    },
+    postReturnCase: (caseId, manager) => {
+      const refused = approverRefusal(manager);
+      if (refused) return no(refused);
+      const rc = returnCases.get(caseId);
+      if (!rc || rc.posted) return no("draft return case required");
+      const inv = invoiceLines.get(rc.invoiceId);
+      if (!inv) return no("posted source invoice required");
+      if ((rc.resolution === "credit_note" || rc.resolution === "store_credit") && !inv.customerId) return no(`${rc.resolution.replace("_", " ")} requires named customer`);
+      if (rc.resolution === "cash_refund" && !inv.tillSessionId && !openTillOf()) return no("cash refund requires active till session");
+      if (rc.resolution === "warranty") {
+        if (rc.lines.length !== 1) return no("warranty submission supports one claimed item per case");
+        const line = inv.lines.find((l) => l.id === rc.lines[0].lineId);
+        claims.unshift({
+          id: `wc-${seq++}`, lineId: rc.lines[0].lineId, documentNumber: nextDoc("WAR"), status: "open", resolution: null, invoiceId: rc.invoiceId,
+          invoiceNumber: recent.find((r) => r.id === rc.invoiceId)?.documentNumber ?? null, stockItemId: line?.stockItemId ?? null, partNumber: line?.partNumber ?? null,
+          serialNumber: null, notes: null, rejectReason: null, creditNoteId: null, createdAt: new Date().toISOString(), decidedAt: null, closedAt: null,
+        });
+      }
+      if (rc.resolution === "cash_refund") {
+        const amount = rc.lines.reduce((sum, l) => sum + (inv.lines.find((x) => x.id === l.lineId)?.unitPrice ?? 0) * l.qty, 0);
+        tillCash -= amount;
+      }
+      rc.posted = true;
+      return ok(true as const);
+    },
+    postCoreReturn: (r, manager) => {
+      const refused = approverRefusal(manager);
+      if (refused) return no(refused);
+      const inv = invoiceLines.get(r.invoiceId);
+      const line = inv?.lines.find((l) => l.id === r.coreLineId && l.isCore);
+      if (!inv || !line) return no("core-charge invoice line required");
+      if (r.qty <= 0) return no("core return qty must be > 0");
+      if (r.qty > returnable(r.invoiceId, line)) return no("core return qty exceeds remaining eligible core qty");
+      if (!r.reasonCode.trim()) return no("core return reason required");
+      if (r.resolution !== "cash_refund" && !inv.customerId) return no(`${r.resolution.replace("_", " ")} requires named customer`);
+      if (r.resolution === "cash_refund") tillCash -= roundMoney(r.qty * line.unitPrice);
+      coreReturned.set(line.id, (coreReturned.get(line.id) ?? 0) + r.qty);
+      return ok(true as const);
+    },
+    openWarrantyClaim: (invoiceId, invoiceLineId, serialId, notes) => {
+      const inv = invoiceLines.get(invoiceId);
+      const line = inv?.lines.find((l) => l.id === invoiceLineId && !l.isCore);
+      if (!line) return no("non-core source invoice line required");
+      const id = `wc-${seq++}`;
+      claims.unshift({
+        id, lineId: line.id, documentNumber: nextDoc("WAR"), status: "open", resolution: null, invoiceId, invoiceNumber: recent.find((r) => r.id === invoiceId)?.documentNumber ?? null,
+        stockItemId: line.stockItemId, partNumber: line.partNumber, serialNumber: serialId ? "ALT-77821" : null, notes, rejectReason: null, creditNoteId: null,
+        createdAt: new Date().toISOString(), decidedAt: null, closedAt: null,
+      });
+      return ok(id);
+    },
+    findWarrantySerial: (serial) =>
+      ok(serial.trim().toUpperCase() === "ALT-77821" ? [{ id: "ser-1", serialNumber: "ALT-77821", stockItemId: "si-alt", partNumber: "23100-EB300", status: "sold" }] : []),
+    listWarrantyClaims: (query, status) => {
+      const q = query.trim().toLowerCase();
+      return ok(
+        claims
+          .filter((c) => (!status || c.status === status) && (!q || `${c.documentNumber} ${c.invoiceNumber} ${c.partNumber} ${c.serialNumber}`.toLowerCase().includes(q)))
+          .map(({ lineId: _line, ...c }) => c),
+      );
+    },
+    decideWarrantyClaim: (claim, decision, manager) => {
+      const refused = approverRefusal(manager);
+      if (refused) return no(refused);
+      const c = claims.find((x) => x.id === claim.id);
+      if (!c || c.status !== "open") return no("open warranty claim required");
+      if (decision.kind === "reject") {
+        if (!decision.reason.trim()) return no("reject reason required");
+        Object.assign(c, { status: "rejected", resolution: "reject_only", rejectReason: decision.reason.trim(), decidedAt: new Date().toISOString() });
+        return ok(true as const);
+      }
+      if (decision.resolution === "replacement" && !decision.replacement?.length) return no("replacement lines required");
+      if (decision.resolution === "credit_note") {
+        const inv = c.invoiceId ? invoiceLines.get(c.invoiceId) : undefined;
+        if (!inv?.customerId) return no("credit note requires named customer");
+        c.creditNoteId = `cn-${seq++}`;
+      }
+      Object.assign(c, { status: "approved", resolution: decision.resolution, decidedAt: new Date().toISOString() });
+      return ok(true as const);
+    },
+    closeWarrantyClaim: (claimId) => {
+      const c = claims.find((x) => x.id === claimId);
+      if (!c || (c.status !== "approved" && c.status !== "rejected")) return no("decided warranty claim required");
+      Object.assign(c, { status: "closed", closedAt: new Date().toISOString() });
+      return ok(true as const);
+    },
+    listStockAvailability: (stockItemId) => {
+      const seed = [...stockItemId].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+      const rows: StockAvailability[] = [
+        { warehouseId: "wh-main", code: "MAIN", name: "Harare main", onHand: (seed % 9) + 2, reserved: seed % 2, available: 0, incoming: 0 },
+        { warehouseId: "wh-byo", code: "BYO", name: "Bulawayo branch", onHand: seed % 4, reserved: 0, available: 0, incoming: seed % 3 === 0 ? 2 : 0 },
+        { warehouseId: "wh-mut", code: "MUT", name: "Mutare branch", onHand: 0, reserved: 0, available: 0, incoming: 0 },
+      ].map((r) => ({ ...r, available: Math.max(0, r.onHand - r.reserved) }));
+      return ok(rows);
+    },
 
     listEpcVariants: (slug) => ok(VARIANTS[slug] ?? []),
     listEpcSections: () => ok([{ slug: "brakes", name: "Brakes", thumbnailUrl: null }, { slug: "suspension", name: "Front suspension", thumbnailUrl: null }]),
@@ -854,6 +1015,16 @@ export function createPreviewPosGateway(): PosGateway {
               { code: "wrong_part", label: "Wrong part", requiresNotes: false },
               { code: "customer_changed_mind", label: "Customer changed mind", requiresNotes: false },
               { code: "defective", label: "Defective", requiresNotes: false },
+              { code: "manager_exception", label: "Manager exception", requiresNotes: true },
+            ],
+            return_post: [
+              { code: "wrong_part", label: "Wrong part", requiresNotes: false },
+              { code: "customer_changed_mind", label: "Customer changed mind", requiresNotes: false },
+              { code: "defective", label: "Defective", requiresNotes: false },
+              { code: "fitment_issue", label: "Does not fit", requiresNotes: false },
+            ],
+            core_return: [
+              { code: "eligible_core", label: "Eligible core", requiresNotes: false },
               { code: "manager_exception", label: "Manager exception", requiresNotes: true },
             ],
             cash_out: [
@@ -948,6 +1119,25 @@ export function createPreviewPosGateway(): PosGateway {
             return gateway.splitRefundStep(a.refund_id, { kind: "complete", providerRef: String(a.provider_ref ?? ""), notes: g.notes }, m);
           case "split_refund_fail":
             return gateway.splitRefundStep(a.refund_id, { kind: "fail", reason: String(a.reason ?? "") }, m);
+          case "return_post":
+            return gateway.postReturnCase(a.return_case_id, m);
+          case "core_return":
+            return gateway.postCoreReturn({ invoiceId: a.invoice_id, coreLineId: a.core_line_id, qty: Number(a.qty), resolution: a.resolution, reasonCode: String(a.reason_code ?? ""), tillSessionId: a.till_session_id ?? null, notes: g.notes }, m);
+          case "warranty_approve":
+          case "warranty_reject": {
+            const claim = claims.find((c) => c.id === a.claim_id);
+            if (!claim) return no<true>("open warranty claim required");
+            const rep = a.replacement_lines as unknown as { stock_item_id: string; uom_id: string; qty: number }[] | undefined;
+            return gateway.decideWarrantyClaim(
+              claim,
+              action === "warranty_reject"
+                ? { kind: "reject", reason: String(a.reason ?? "") }
+                : { kind: "approve", resolution: a.resolution, qty: Number((a.lines as unknown as { qty: number }[] | undefined)?.[0]?.qty ?? 1), replacement: rep ? rep.map((r) => ({ stockItemId: r.stock_item_id, uomId: r.uom_id, qty: Number(r.qty) })) : null },
+              m,
+            );
+          }
+          default:
+            return no<true>(`badge action ${action} is not available`);
         }
       })();
       trail.unshift({

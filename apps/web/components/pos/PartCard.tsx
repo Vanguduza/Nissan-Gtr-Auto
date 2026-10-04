@@ -33,6 +33,7 @@ export function PartCard({
   onAdd,
   onPin,
   onRemove,
+  onStock,
 }: {
   part: PosPart;
   pinned: boolean;
@@ -43,6 +44,8 @@ export function PartCard({
   onAdd: () => void;
   onPin?: () => void;
   onRemove?: () => void;
+  /** Stock of this part at every branch (on hand, reserved, available, on the way). */
+  onStock?: () => void;
 }) {
   const [menu, setMenu] = useState(false);
   const pressTimer = useRef<number | null>(null);
@@ -122,9 +125,24 @@ export function PartCard({
           {part.price ? formatMoney(part.price.amount, part.price.currency) : addLabel === "Find" ? "" : "Needs price"}
         </span>
         {part.saleableQty != null ? (
-          <span className={part.saleableQty > 0 ? styles.stockIn : styles.stockOut}>
-            {part.saleableQty > 0 ? `${part.saleableQty} in stock` : "Out of stock"}
-          </span>
+          onStock && part.stockItemId ? (
+            <button
+              type="button"
+              className={`${styles.textLink} ${part.saleableQty > 0 ? styles.stockIn : styles.stockOut}`}
+              style={{ padding: 0, textDecoration: "underline dotted" }}
+              aria-label={`Stock by branch for ${part.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStock();
+              }}
+            >
+              {part.saleableQty > 0 ? `${part.saleableQty} in stock` : "Out of stock · branches"}
+            </button>
+          ) : (
+            <span className={part.saleableQty > 0 ? styles.stockIn : styles.stockOut}>
+              {part.saleableQty > 0 ? `${part.saleableQty} in stock` : "Out of stock"}
+            </span>
+          )
         ) : null}
       </div>
       <button type="button" className={styles.softButton} disabled={disabled || !actionable} onClick={onAdd}>

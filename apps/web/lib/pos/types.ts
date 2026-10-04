@@ -348,7 +348,11 @@ export type BadgeAction =
   | "repair_paid_order"
   | "split_refund_approve"
   | "split_refund_complete"
-  | "split_refund_fail";
+  | "split_refund_fail"
+  | "return_post"
+  | "core_return"
+  | "warranty_approve"
+  | "warranty_reject";
 export type ApproverStatus = { isApprover: boolean; source: string | null };
 /**
  * Someone who could approve: an employee (login optional) or an admin user with no employee record.
@@ -421,6 +425,88 @@ export type RecentInvoice = {
   currency: PosCurrency;
   postedAt: string | null;
   vehicleLabel: string | null;
+};
+
+/** A posted sale's lines with what can still come back (`get_pos_invoice_detail`); core charges separate. */
+export type InvoiceDetailLine = {
+  id: string;
+  stockItemId: string;
+  partNumber: string;
+  description: string | null;
+  uomId: string;
+  qty: number;
+  unitPrice: number;
+  lineTotal: number;
+  isCore: boolean;
+  returnableQty: number;
+};
+export type InvoiceDetail = {
+  id: string;
+  documentNumber: string | null;
+  customerId: string | null;
+  currency: PosCurrency;
+  total: number;
+  amountPaid: number;
+  postedAt: string | null;
+  tillSessionId: string | null;
+  lines: InvoiceDetailLine[];
+};
+export type ReturnResolution = "credit_note" | "cash_refund" | "store_credit" | "replacement" | "warranty";
+export type ReturnCondition = "sealed" | "unopened" | "opened" | "damaged" | "defective";
+/** Replacement stock handed over (same part by default); serial only for serialised parts. */
+export type ReplacementLine = { stockItemId: string; uomId: string; qty: number; replacementSerialId?: string | null };
+/** A return case a sales person drafts (`create_pos_return_case`); a manager posts it. */
+export type ReturnCaseDraft = {
+  invoiceId: string;
+  resolution: ReturnResolution;
+  reasonCode: string;
+  notes: string | null;
+  lines: { invoiceLineId: string; qty: number; condition: ReturnCondition }[];
+  replacementLines: ReplacementLine[] | null;
+  tillSessionId: string | null;
+};
+export type CoreReturnResolution = "cash_refund" | "account_credit" | "store_credit";
+export type CoreReturn = {
+  invoiceId: string;
+  coreLineId: string;
+  qty: number;
+  resolution: CoreReturnResolution;
+  reasonCode: string;
+  tillSessionId: string | null;
+  notes: string | null;
+};
+export type WarrantyStatus = "open" | "approved" | "rejected" | "closed";
+export type WarrantyClaim = {
+  id: string;
+  documentNumber: string | null;
+  status: WarrantyStatus;
+  resolution: string | null;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+  stockItemId: string | null;
+  partNumber: string | null;
+  serialNumber: string | null;
+  notes: string | null;
+  rejectReason: string | null;
+  creditNoteId: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  closedAt: string | null;
+};
+export type WarrantySerial = { id: string; serialNumber: string; stockItemId: string; partNumber: string | null; status: string };
+/** A manager's warranty decision. Credit note lines are valued at the sold price on the server. */
+export type WarrantyDecision =
+  | { kind: "approve"; resolution: "replacement" | "credit_note" | "return_only"; qty: number; replacement: ReplacementLine[] | null }
+  | { kind: "reject"; reason: string };
+/** Stock of one part per warehouse (`list_pos_stock_availability`). */
+export type StockAvailability = {
+  warehouseId: string;
+  code: string;
+  name: string;
+  onHand: number;
+  reserved: number;
+  available: number;
+  incoming: number;
 };
 
 // ───────── EPC ─────────

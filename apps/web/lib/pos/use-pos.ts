@@ -47,6 +47,7 @@ import type {
   SplitSession,
   SplitTender,
   TerminalRecoveryItem,
+  PosResult,
 } from "@/lib/pos/types";
 
 const RECENT_KEY = "gtr.pos.recentSearches";
@@ -1156,6 +1157,36 @@ export function usePos(gateway: PosGateway) {
   }, [gateway, report]);
 
   /** Refund steps for captured parts: manager or finance, by badge, password, or as the signed-in approver. */
+  /**
+   * One manager-gated step outside the sale (post a return, a core return, a warranty decision). A
+   * scanned badge runs it on the server as approved by its holder; otherwise the manager's password
+   * for this one call, or the signed-in approver.
+   */
+  /** The part whose stock by branch is on screen (`list_pos_stock_availability`). */
+  const [stockPart, setStockPart] = useState<PosPart | null>(null);
+
+  const runApproved = useCallback(
+    async (
+      proof: ManagerProof | null,
+      badge: { action: BadgeAction; args: Record<string, unknown> },
+      direct: (manager: ManagerCredentials | null) => Promise<PosResult<unknown>>,
+    ): Promise<boolean> => {
+      if (!guardOnline()) return false;
+      const p = selfApprover ? ({ kind: "self" } as const) : proof;
+      if (!p || (p.kind === "self" && !selfApprover)) {
+        setError("An approver must approve this: scan their badge or enter their password.");
+        return false;
+      }
+      if (p.kind === "badge") {
+        const res = await gateway.badgeApprove(p.payload, badge.action, badge.args, deviceId());
+        if (!res.ok) setError(res.error);
+        return res.ok;
+      }
+      return report(await direct(p.kind === "password" ? p.credentials : null)) !== null;
+    },
+    [gateway, guardOnline, report, selfApprover],
+  );
+
   const splitRefundStep = useCallback(
     async (refundId: string, step: SplitRefundStep, proof: ManagerProof): Promise<boolean> => {
       if (proof.kind === "badge") {
@@ -1359,6 +1390,7 @@ export function usePos(gateway: PosGateway) {
     reportError: (message: string) => setError(message),
     notice,
     dismissNotice: () => setNotice(null),
+    showNotice: (message: string) => setNotice(message),
     busy,
     // vehicle
     models,
@@ -1407,6 +1439,11 @@ export function usePos(gateway: PosGateway) {
     requestManager,
     cancelManager: () => setManagerPrompt(null),
     confirmManager,
+    runApproved,
+    stockPart,
+    showStock: (part: PosPart) => setStockPart(part),
+    closeStock: () => setStockPart(null),
+    deviceId,
     // customer
     selectCustomer,
     saveCustomer,
