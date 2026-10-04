@@ -15,6 +15,9 @@ import type {
   PosCustomer,
   Quotation,
   RecentInvoice,
+  FulfillmentInput,
+  FulfillmentRequest,
+  FulfillmentStep,
   CoreReturn,
   InvoiceDetail,
   ReturnCaseDraft,
@@ -211,6 +214,12 @@ export interface PosGateway {
 
   // Stock
   listStockAvailability(stockItemId: string): Promise<PosResult<StockAvailability[]>>;
+
+  // Fulfilment: holds, other-branch pickup, branch transfers and back-orders
+  createFulfillment(input: FulfillmentInput): Promise<PosResult<string>>;
+  listFulfillment(query: string, status: string | null): Promise<PosResult<FulfillmentRequest[]>>;
+  /** approve: warehouse staff send a branch transfer; ready / collect / cancel: sales staff. */
+  fulfillmentStep(requestId: string, step: FulfillmentStep, notes: string | null): Promise<PosResult<true>>;
 
   // EPC Browse (Nissan only — make is never chosen)
   listEpcVariants(modelSlug: string): Promise<PosResult<VehicleVariant[]>>;

@@ -509,6 +509,44 @@ export type StockAvailability = {
   incoming: number;
 };
 
+/** Getting a part to the customer when it is not on this shelf (`pos_fulfillment_requests`). */
+export type FulfillmentKind = "customer_collection" | "alternate_pickup" | "branch_transfer" | "backorder";
+export type FulfillmentStatus = "requested" | "reserved" | "awaiting_transfer_approval" | "ready" | "collected" | "cancelled" | "rejected";
+export type FulfillmentRequest = {
+  id: string;
+  documentNumber: string | null;
+  kind: FulfillmentKind;
+  status: FulfillmentStatus;
+  stockItemId: string;
+  partNumber: string;
+  description: string | null;
+  qty: number;
+  sourceWarehouseId: string | null;
+  sourceName: string | null;
+  destinationWarehouseId: string | null;
+  destinationName: string | null;
+  customerId: string | null;
+  cartId: string | null;
+  invoiceId: string | null;
+  expiresAt: string | null;
+  readyAt: string | null;
+  collectedAt: string | null;
+  createdAt: string;
+};
+export type FulfillmentInput = {
+  kind: FulfillmentKind;
+  stockItemId: string;
+  qty: number;
+  sourceWarehouseId: string | null;
+  destinationWarehouseId: string | null;
+  customerId: string | null;
+  /** The sale it is for: when that sale posts, the hold becomes ready with its invoice. */
+  cartId: string | null;
+  notes: string | null;
+  holdMinutes: number;
+};
+export type FulfillmentStep = "approve" | "ready" | "collect" | "cancel";
+
 // ───────── EPC ─────────
 export type EpcSection = { slug: string; name: string; thumbnailUrl: string | null };
 /** [id] is the full-catalogue diagram id that keys its R2 part shard and image. */

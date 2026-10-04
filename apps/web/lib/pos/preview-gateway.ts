@@ -33,6 +33,7 @@ import type {
   IssuedBadge,
   ManagerCandidate,
   InvoiceDetail,
+  FulfillmentRequest,
   ManagerCredentials,
   InvoiceDetailLine,
   StockAvailability,
@@ -194,6 +195,15 @@ export function createPreviewPosGateway(): PosGateway {
     for (const rc of returnCases.values()) if (rc.invoiceId === invoiceId && rc.posted) for (const l of rc.lines) if (l.lineId === line.id) back += l.qty;
     return Math.max(0, line.qty - back);
   };
+  // Fulfilment: holds for collection, other-branch pickup, branch transfers and back-orders.
+  const BRANCH: Record<string, string> = { "wh-main": "Harare main", "wh-byo": "Bulawayo branch", "wh-mut": "Mutare branch" };
+  const fulfillment: FulfillmentRequest[] = [];
+  /** A posted sale makes its holds ready, with the invoice (server trigger `sync_pos_fulfillment_invoice`). */
+  const holdsReadyFor = (cartId: string, invoiceId: string) => {
+    for (const f of fulfillment)
+      if (f.cartId === cartId && f.status === "reserved" && (f.kind === "customer_collection" || f.kind === "alternate_pickup"))
+        Object.assign(f, { status: "ready", invoiceId, readyAt: new Date().toISOString(), expiresAt: null });
+  };
   const approverRefusal = (m: ManagerCredentials | null): string | null => (m && !managerOk(m) ? "Manager sign-in failed." : !m ? "POS manager approval required" : null);
 
   // Reserve-first checkout: one order per cart attempt, settled by manual tenders or a preview provider.
@@ -312,6 +322,7 @@ export function createPreviewPosGateway(): PosGateway {
       vehicleLabel,
       operator: "",
     });
+    holdsReadyFor(cartId, id);
     invoiceLines.set(id, {
       customerId: c.customerId, tillSessionId: c.tillSessionId ?? null, total: due, currency: c.currency,
       lines: c.lines.map((l) => ({ id: `${id}-${l.id}`, stockItemId: l.stockItemId, partNumber: l.oemPartNumber, description: l.name, uomId: "uom-ea", qty: l.qty, unitPrice: l.unitPrice, lineTotal: l.lineTotal, isCore: false, returnableQty: l.qty })),
@@ -929,6 +940,53 @@ export function createPreviewPosGateway(): PosGateway {
       if (!c || (c.status !== "approved" && c.status !== "rejected")) return no("decided warranty claim required");
       Object.assign(c, { status: "closed", closedAt: new Date().toISOString() });
       return ok(true as const);
+    },
+    createFulfillment: (f) => {
+      if (f.qty <= 0) return no("qty must be > 0");
+      if (f.kind === "branch_transfer" && (!f.sourceWarehouseId || !f.destinationWarehouseId || f.sourceWarehouseId === f.destinationWarehouseId))
+        return no("branch transfer requires distinct source and destination warehouses");
+      if ((f.kind === "alternate_pickup" || f.kind === "customer_collection") && !f.sourceWarehouseId) return no("source warehouse required for stock hold");
+      const part = PARTS.find((p) => p.stockItemId === f.stockItemId);
+      const id = `pfr-${seq++}`;
+      fulfillment.unshift({
+        id, documentNumber: nextDoc("PFR"), kind: f.kind, status: f.kind === "backorder" ? "requested" : "reserved", stockItemId: f.stockItemId,
+        partNumber: part?.oemPartNumber ?? f.stockItemId, description: part?.name ?? null, qty: f.qty,
+        sourceWarehouseId: f.sourceWarehouseId, sourceName: f.sourceWarehouseId ? BRANCH[f.sourceWarehouseId] ?? f.sourceWarehouseId : null,
+        destinationWarehouseId: f.destinationWarehouseId, destinationName: f.destinationWarehouseId ? BRANCH[f.destinationWarehouseId] ?? f.destinationWarehouseId : null,
+        customerId: f.customerId, cartId: f.cartId, invoiceId: null,
+        expiresAt: f.kind === "backorder" ? null : new Date(Date.now() + f.holdMinutes * 60_000).toISOString(), readyAt: null, collectedAt: null, createdAt: new Date().toISOString(),
+      });
+      return ok(id);
+    },
+    listFulfillment: (query, status) => {
+      const q = query.trim().toLowerCase();
+      return ok(fulfillment.filter((f) => (!status || f.status === status) && (!q || `${f.documentNumber} ${f.partNumber} ${f.description ?? ""}`.toLowerCase().includes(q))).map((f) => ({ ...f })));
+    },
+    fulfillmentStep: (requestId, step) => {
+      const f = fulfillment.find((x) => x.id === requestId);
+      if (!f) return no("fulfillment request not found");
+      const now = new Date().toISOString();
+      switch (step) {
+        case "approve":
+          if (f.kind !== "branch_transfer" || f.status !== "reserved") return no("reserved branch-transfer request required");
+          // Preview: the warehouse posts the transfer at once, which makes it ready.
+          Object.assign(f, { status: "ready", readyAt: now, expiresAt: null });
+          return ok(true as const);
+        case "ready":
+          if (!["requested", "reserved"].includes(f.status) || f.kind === "branch_transfer") return no("request cannot be marked ready");
+          Object.assign(f, { status: "ready", readyAt: now });
+          return ok(true as const);
+        case "collect":
+          if (f.status !== "ready") return no("ready fulfillment request required");
+          if (!f.invoiceId && f.kind !== "branch_transfer") return no("sale/invoice must be linked before customer collection");
+          Object.assign(f, { status: "collected", collectedAt: now });
+          return ok(true as const);
+        case "cancel":
+          if (["collected", "cancelled", "rejected"].includes(f.status)) return no("active fulfillment request required");
+          if (f.status === "awaiting_transfer_approval") return no("warehouse transfer already submitted; reject/cancel via warehouse control");
+          Object.assign(f, { status: "cancelled" });
+          return ok(true as const);
+      }
     },
     listStockAvailability: (stockItemId) => {
       const seed = [...stockItemId].reduce((a, ch) => a + ch.charCodeAt(0), 0);

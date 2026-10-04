@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { StockAvailability } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
+import { FulfillmentActions } from "./FulfillmentPanels";
 import { Modal } from "./PosDialogs";
 import styles from "./pos.module.css";
 
@@ -68,6 +69,7 @@ export function StockDialog({ pos }: { pos: PosStore }) {
           </tbody>
         </table>
       ) : null}
+      {rows && rows.length > 0 && pos.online ? <FulfillmentActions pos={pos} part={part} rows={rows} here={here} /> : null}
     </Modal>
   );
 }

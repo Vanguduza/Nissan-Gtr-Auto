@@ -30,6 +30,7 @@ import type {
   InvoiceDetail,
   WarrantyClaim,
   WarrantyStatus,
+  FulfillmentRequest,
 } from "@/lib/pos/types";
 import { replacementJson, warrantyApproveArgs } from "@/lib/pos/returns";
 import {
@@ -1523,6 +1524,64 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
     async closeWarrantyClaim(claimId) {
       const { error } = await rpc(client, "close_warranty_claim", { p_claim_id: claimId });
       if (error) return fail(error, "Could not close the claim.");
+      return { ok: true, data: true };
+    },
+
+    async createFulfillment(f) {
+      // Requests are in the part's stock unit.
+      const { data: item, error: itemError } = await client.from("stock_items").select("base_uom_id").eq("id", f.stockItemId).maybeSingle();
+      const uom = (item as { base_uom_id: string | null } | null)?.base_uom_id;
+      if (itemError || !uom) return fail(itemError, "This part has no stock unit set up.");
+      const { data, error } = await rpc(client, "create_pos_fulfillment_request", {
+        p_kind: f.kind,
+        p_stock_item_id: f.stockItemId,
+        p_uom_id: uom,
+        p_qty: f.qty,
+        p_source_warehouse_id: f.sourceWarehouseId,
+        p_destination_warehouse_id: f.destinationWarehouseId,
+        p_customer_id: f.customerId,
+        p_cart_id: f.cartId,
+        p_invoice_id: null,
+        p_notes: f.notes,
+        p_hold_minutes: f.holdMinutes,
+      });
+      if (error || typeof data !== "string") return fail(error, "Could not hold the part.");
+      return { ok: true, data };
+    },
+
+    async listFulfillment(query, status) {
+      const { data, error } = await rpc(client, "list_pos_fulfillment_requests", { p_query: query.trim() || null, p_status: status, p_limit: 100 });
+      if (error) return fail(error, "Could not load collections and transfers.");
+      return {
+        ok: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+          id: String(r.id),
+          documentNumber: (r.document_number as string | null) ?? null,
+          kind: String(r.kind) as FulfillmentRequest["kind"],
+          status: String(r.status) as FulfillmentRequest["status"],
+          stockItemId: String(r.stock_item_id),
+          partNumber: String(r.oem_part_number ?? ""),
+          description: (r.description as string | null) ?? null,
+          qty: num(r.qty),
+          sourceWarehouseId: (r.source_warehouse_id as string | null) ?? null,
+          sourceName: (r.source_warehouse_name as string | null) ?? null,
+          destinationWarehouseId: (r.destination_warehouse_id as string | null) ?? null,
+          destinationName: (r.destination_warehouse_name as string | null) ?? null,
+          customerId: (r.customer_id as string | null) ?? null,
+          cartId: (r.cart_id as string | null) ?? null,
+          invoiceId: (r.invoice_id as string | null) ?? null,
+          expiresAt: (r.expires_at as string | null) ?? null,
+          readyAt: (r.ready_at as string | null) ?? null,
+          collectedAt: (r.collected_at as string | null) ?? null,
+          createdAt: String(r.created_at),
+        })),
+      };
+    },
+
+    async fulfillmentStep(requestId, step, notes) {
+      const fn = { approve: "approve_pos_fulfillment_request", ready: "mark_pos_fulfillment_ready", collect: "collect_pos_fulfillment_request", cancel: "cancel_pos_fulfillment_request" }[step];
+      const { error } = await rpc(client, fn, { p_request_id: requestId, p_notes: notes });
+      if (error) return fail(error, "That step was refused.");
       return { ok: true, data: true };
     },
 
