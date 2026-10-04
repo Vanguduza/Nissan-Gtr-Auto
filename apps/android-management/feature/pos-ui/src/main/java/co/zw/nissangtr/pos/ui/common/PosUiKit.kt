@@ -131,6 +131,9 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.TransferReceived -> stringResource(R.string.pos_notice_transfer_received)
         PosNotice.HandedOver -> stringResource(R.string.pos_notice_handed_over)
         PosNotice.FulfillmentReleased -> stringResource(R.string.pos_notice_fulfillment_released)
+        PosNotice.LetterIssued -> stringResource(R.string.pos_notice_letter_issued)
+        PosNotice.SignatureSaved -> stringResource(R.string.pos_notice_signature_saved)
+        PosNotice.ProfileSaved -> stringResource(R.string.pos_notice_profile_saved)
     }
     is PosFeedback.Failure -> errorText(feedback.error)
 }
@@ -170,6 +173,7 @@ fun errorText(error: PosError): String = when (error) {
         "fulfillment_no_sale" -> stringResource(R.string.pos_ff_err_no_sale)
         "fulfillment_not_in_sale" -> stringResource(R.string.pos_ff_err_not_in_sale)
         "fulfillment_branch" -> stringResource(R.string.pos_ff_err_branch)
+        "letter_needs_signature" -> stringResource(R.string.pos_letter_err_signature)
         "card_refund_declined", "card_refund_cancelled", "card_refund_failed" ->
             stringResource(R.string.pos_rt_err_card_refund, error.detail.ifBlank { error.rule.removePrefix("card_refund_") })
         else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)

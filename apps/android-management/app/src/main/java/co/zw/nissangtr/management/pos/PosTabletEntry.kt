@@ -98,6 +98,7 @@ fun PosTabletEntry(
                 split = co.zw.nissangtr.pos.data.RpcSplitPaymentGateway(rpc),
                 returns = co.zw.nissangtr.pos.data.RpcReturnsGateway(rpc),
                 fulfillment = co.zw.nissangtr.pos.data.RpcFulfillmentGateway(rpc),
+                letters = co.zw.nissangtr.pos.data.RpcLettersGateway(rpc),
                 // Card machine (ECR): the acquirer's app via the card-terminal bridge; a simulated machine
                 // only when this build runs on the in-memory demo backend.
                 terminal = RpcCardTerminalGateway(
@@ -168,6 +169,12 @@ fun PosTabletEntry(
             }
         },
         onPrint = { lines, paper -> scope.launch { print(lines, paper, printer, documentPrinter, ::toast) } },
+        onPrintSignedDocument = { job, lines, signature, signer ->
+            scope.launch {
+                runCatching { (documentPrinter ?: error("No document printer on this device.")).printSignedDocument(job, lines, signature, signer) }
+                    .onFailure { toast("Letter not printed: ${it.message ?: "printer unavailable"}.") }
+            }
+        },
         onStaffPortal = onStaffPortal,
         onKioskSettings = onKioskSettings,
         onExitToHub = onExitToHub,

@@ -182,7 +182,8 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
 private fun offlineGuard(state: PosState, intent: PosSaleIntent): Reduction? = when (intent) {
     is PosSaleIntent.RequestApproval, is PosSaleIntent.SubmitApproval -> offlineRefusal(state, "manager_approval")
     ReturnsIntent.Close, ReturnsIntent.HideStock -> null
-    is ReturnsIntent, is FulfillmentIntent -> offlineRefusal(state, "online_only")
+    LetterIntent.Close -> null
+    is ReturnsIntent, is FulfillmentIntent, is LetterIntent -> offlineRefusal(state, "online_only")
     is PosSaleIntent.SelectCustomer, is PosSaleIntent.CreateCustomer -> offlineRefusal(state, "walk_in_only")
     PosSaleIntent.Park, is PosSaleIntent.Resume, is PosSaleIntent.CreateQuotation,
     is PosSaleIntent.SendQuotation, is PosSaleIntent.ConvertQuotation, PosSaleIntent.LoadOrders,
@@ -199,6 +200,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     is TerminalIntent -> reduceTerminalIntent(state, intent)
     is ReturnsIntent -> reduceReturnsIntent(state, intent)
     is FulfillmentIntent -> reduceFulfillmentIntent(state, intent)
+    is LetterIntent -> reduceLetterIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
@@ -479,6 +481,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     is TerminalEvent -> reduceTerminalEvent(state, event)
     is ReturnsEvent -> reduceReturnsEvent(state, event)
     is FulfillmentEvent -> reduceFulfillmentEvent(state, event)
+    is LetterEvent -> reduceLetterEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 

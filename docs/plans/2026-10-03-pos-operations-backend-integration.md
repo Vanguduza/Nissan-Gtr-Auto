@@ -62,6 +62,7 @@ petty cash requests, kits creation, product pages, payroll funding.
 | 5 Card terminals | card-machine option shown disabled with the reason (a browser cannot sign terminal results), recovery "Finish the sale" for approved charges, admin Card machines editor | done: card machine as a tender and as a split part through the new `bridges/android/card-terminal` bridge (Android intent to the acquirer app, Keystore-signed evidence), lost answer → Unknown → ask the machine again, charged-not-posted → finish or reverse, Settings → choose and pair (admin) |
 | 6 Returns & warranty | done: Returns opens the posted sale (lines, what can still come back, core charges); return by line with condition → cash refund, credit to account, store credit, swap for the same part or send for warranty; staff draft, approver posts (badge, password or own sign-in) and a failed post reuses the draft; old cores; warranty claims (serial check, decide replace / credit / take back / reject, close); refund whole sale only while nothing came back; stock by branch from part cards | done (same, plus card-machine refund of a whole card sale: approver starts it, the machine pays back, approver posts it) |
 | 7 Fulfilment | done: Stock by branch → hold here for collection, collect at another branch, bring it here (branch transfer), back-order; a hold goes with the current sale and turns ready with its invoice when paid; Orders → Collections & transfers with send transfer (warehouse staff), mark a back-order ready, handed over / received here, release (never for a paid hold) | done (same) |
+| 8 Letters | done: Payment letter block on recovery for a provider payment, a card-machine attempt and a split refund (letters issued, Issue letter for a signed-in manager / finance / admin → printable A4 with the issuer's signature); Settings → My signature (draw or upload) and Business details on documents (admin) | done (same; signature drawn on screen, letter printed through the document printer bridge with the signature image) |
 | 6–8 | todo | todo |
 
 Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
@@ -97,4 +98,13 @@ Known backend gap: a back-order never gets an invoice linked, so `collect_pos_fu
 refuses it; the counter sells the arrived part on a normal sale and releases the request. Checked in a
 rolled-back run (back-order created → ready → released; a hold refused for lack of stock, as the hosted
 project has no stock levels). Sending a transfer is warehouse staff only (`_require_warehouse_staff`).
+
+Phase 8 notes: `payment_resolution_letters` and `business_document_profile` are behind RLS with no
+table policies; migration 20261004060207 adds read-only `list_payment_resolution_letters` and
+`get_business_document_profile` (checked in a rolled-back run). Signatures live in the private
+`staff-signatures` bucket under the signer's own folder (storage policies): the web uploads with the
+Storage client, the tablet with Storage REST and the user's own token (no service key on devices).
+A letter shows the signature image only to users the bucket lets read it (the signer, admin, finance);
+others see "signature on file" with its hash. The A4 printer bridge gained `printSignedDocument`
+(Bridge-First). Letters are issued by the signed-in user only (no badge path: the signature is theirs).
 

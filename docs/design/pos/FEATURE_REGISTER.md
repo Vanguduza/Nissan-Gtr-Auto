@@ -409,3 +409,12 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | FUL-02 | A hold turns ready with its invoice when the sale is paid; a transfer when the warehouse posts it (server triggers) | 10 | 7 | partial — as FUL-01 |
 | FUL-03 | Orders → Collections & transfers: status filter, send transfer (warehouse staff), mark a back-order ready, handed over / received here, release; a paid hold is never just released | 10 | 7 | partial — as FUL-01; back-order hand-over is a backend gap (no invoice link) |
 
+## LTR — Payment letters, signature, business details (2026-10-04, phase 8)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| LTR-01 | Recovery: Payment letter block per provider payment, card-machine attempt and split refund; letters already issued; Issue letter (signed-in manager / finance / admin) opens the letter (`create_payment_resolution_letter`, `get_payment_resolution_letter_render_data`, `list_payment_resolution_letters`) | 10.7, 10.11 | 8 | partial — web preview flow incl. print preview; tablet reducer tests and screenshot; no live letter issued (needs a manager with a signature) |
+| LTR-02 | Printable A4 letter: business header, payment as observed, references, card details, note, the issuer's signature and name/title/code | 10.7 | 8 | partial — web print (A4 @page, dialogs hidden in print); tablet through `DocumentPrinterBridge.printSignedDocument` |
+| LTR-03 | Settings → My signature: draw (web canvas / tablet touch) or upload (web); private per-user storage, sha256 registered (`register_my_manager_signature`) | 10.10 | 8 | partial — as LTR-01 |
+| LTR-04 | Settings → Business details on documents (admin, `set_business_document_profile`; read via `get_business_document_profile`) | — | 8 | partial — as LTR-01; read checked live |
+

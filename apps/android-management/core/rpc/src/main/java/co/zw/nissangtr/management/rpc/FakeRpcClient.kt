@@ -2774,6 +2774,59 @@ class FakeRpcClient : RpcClient {
         return settled
     }
 
+    // --- Payment letters (in memory; the demo manager signs)
+
+    private var fakeProfile = BusinessProfileRow("Nissan GTR Auto", "Nissan GTR Auto", "nissangtrauto.co.zw", "Harare", "Zimbabwe", null, null, null, null, null)
+    private var fakeSignature: ByteArray? = null
+    private val fakeLetters = mutableListOf<PaymentLetterDocument>()
+    private val fakeLetterSource = mutableMapOf<String, Pair<String, String>>()
+
+    override suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> =
+        fakeLetters.map { it.row }.filter { r -> fakeLetterSource[r.id]?.let { (k, id) -> (sourceKind == null || k == sourceKind) && (sourceId == null || id == sourceId) } ?: false }
+
+    override suspend fun createPaymentLetter(sourceKind: String, sourceId: String, notes: String?): String {
+        checkNotNull(fakeSignature) { "manager profile signature required before issuing a payment-resolution letter" }
+        val attempt = fakeAttempts[sourceId]
+        val id = "letter-${UUID.randomUUID().toString().take(8)}"
+        val row = PaymentLetterRow(
+            id, "PDL-${fakeLetters.size + 1}", sourceKind, if (attempt != null) "card_terminal" else sourceKind, attempt?.status ?: "unknown",
+            attempt?.amount ?: 0.0, CurrencyCode.USD, null, null, "Demo manager", "Shop manager", java.time.Instant.now().toString(),
+        )
+        fakeLetters.add(
+            0,
+            PaymentLetterDocument(
+                row,
+                mapOf(
+                    "external_reference" to attempt?.externalRef, "terminal_transaction_id" to attempt?.transactionId, "card_last4" to attempt?.cardLast4,
+                    "card_scheme" to attempt?.cardScheme, "failure_detail" to (attempt?.finalizationError ?: attempt?.responseMessage),
+                    "manager_employee_code" to "E001", "issue_notes" to notes,
+                ),
+                fakeProfile, fakeSignature, "demo",
+            ),
+        )
+        fakeLetterSource[id] = sourceKind to sourceId
+        return id
+    }
+
+    override suspend fun getPaymentLetter(letterId: String): PaymentLetterDocument =
+        fakeLetters.firstOrNull { it.row.id == letterId }?.copy(business = fakeProfile) ?: error("payment-resolution letter not found")
+
+    override suspend fun getMyManagerSignature() = ManagerSignatureRow("Demo manager", "E001", fakeSignature != null, null, fakeSignature)
+
+    override suspend fun saveMyManagerSignature(png: ByteArray): ManagerSignatureRow {
+        require(png.isNotEmpty()) { "valid PNG/JPEG signature and sha256 required" }
+        fakeSignature = png
+        return getMyManagerSignature()
+    }
+
+    override suspend fun getBusinessDocumentProfile() = fakeProfile
+
+    override suspend fun setBusinessDocumentProfile(profile: BusinessProfileRow): BusinessProfileRow {
+        check(profile.legalName.isNotBlank() && profile.tradingName.isNotBlank() && profile.domain.isNotBlank()) { "legal name, trading name and domain required" }
+        fakeProfile = profile
+        return fakeProfile
+    }
+
     // --- POS fulfilment (in memory, same rules as the server)
 
     private val fakeFulfillment = mutableListOf<PosFulfillmentRow>()

@@ -180,6 +180,8 @@ internal fun TerminalRecoverySection(state: PosState, orderId: String?, dispatch
             item.attemptId, item.operation, item.status, item.amount, item.terminalLabel, item.cardLast4, null,
             item.transactionId, item.message, item.orderId, null, null, null,
         )
+        // On one order's recovery: a signed letter of what the card machine reported.
+        if (orderId != null) LettersBlock(state, co.zw.nissangtr.pos.domain.model.LetterSource.cardTerminal(item.attemptId), dispatch)
         if (charged || unknown) {
             PosRowEnd {
                 if (unknown) TerminalCheckButton(state, attempt, dispatch)

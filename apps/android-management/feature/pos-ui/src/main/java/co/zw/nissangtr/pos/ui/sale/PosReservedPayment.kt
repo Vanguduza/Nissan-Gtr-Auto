@@ -578,6 +578,7 @@ fun RecoveryScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
         }
         state.recoverySplit?.let { SplitRecoveryDetail(state, it, dispatch) }
         TerminalRecoverySection(state, orderId, dispatch)
+        st?.let { co.zw.nissangtr.pos.domain.model.LetterSource.provider(it.activeProvider, it.activeIntentId) }?.let { LettersBlock(state, it, dispatch) }
         state.feedback?.let { PosText(feedbackText(it), PosTheme.type.bodyPrimary, palette.error, modifier = Modifier.padding(top = 8.dp)) }
         PosRowEnd {
             SoftButton(stringResource(R.string.pos_recovery_back), null, enabled = true, onClick = { dispatch(CheckoutIntent.OpenRecovery(null)) }, modifier = Modifier.widthIn(max = 180.dp))

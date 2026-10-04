@@ -1,5 +1,7 @@
 package co.zw.nissangtr.pos.ui.store
 
+import co.zw.nissangtr.pos.domain.state.LetterEffect
+import co.zw.nissangtr.pos.domain.state.LetterEvent
 import co.zw.nissangtr.pos.domain.state.FulfillmentEffect
 import co.zw.nissangtr.pos.domain.state.FulfillmentEvent
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
@@ -91,6 +93,8 @@ data class PosGateways(
     val returns: co.zw.nissangtr.pos.domain.gateway.ReturnsGateway = co.zw.nissangtr.pos.domain.gateway.ReturnsGateway.None,
     /** Holds, other-branch pickup, branch transfers and back-orders. */
     val fulfillment: co.zw.nissangtr.pos.domain.gateway.FulfillmentGateway = co.zw.nissangtr.pos.domain.gateway.FulfillmentGateway.None,
+    /** Payment letters, the signer's signature and the business details. */
+    val letters: co.zw.nissangtr.pos.domain.gateway.LettersGateway = co.zw.nissangtr.pos.domain.gateway.LettersGateway.None,
 )
 
 /**
@@ -314,6 +318,33 @@ class PosStore(
             is SplitEffect -> runSplit(effect)
             is TerminalEffect -> runTerminal(effect)
             is ReturnsEffect -> runReturns(effect)
+            is LetterEffect -> launch {
+                val g = gateways.letters
+                when (effect) {
+                    is LetterEffect.Load -> (g.list(effect.source) as? PosResult.Ok)?.let { apply(LetterEvent.Loaded(effect.source, it.value)) }
+                    is LetterEffect.Issue -> when (val r = g.issue(effect.source, effect.notes)) {
+                        is PosResult.Ok -> apply(LetterEvent.Issued(effect.source, r.value))
+                        is PosResult.Err -> apply(LetterEvent.Failed(r.error))
+                    }
+                    is LetterEffect.Open -> when (val r = g.letter(effect.letterId)) {
+                        is PosResult.Ok -> apply(LetterEvent.Opened(r.value))
+                        is PosResult.Err -> apply(LetterEvent.Failed(r.error))
+                    }
+                    // Not a manager, or no employee profile: the settings rows explain instead of failing.
+                    LetterEffect.LoadSettings -> {
+                        apply(LetterEvent.SignatureLoaded((g.mySignature() as? PosResult.Ok)?.value, saved = false))
+                        apply(LetterEvent.ProfileLoaded((g.profile() as? PosResult.Ok)?.value, saved = false))
+                    }
+                    is LetterEffect.SaveSignature -> when (val r = g.saveSignature(effect.png)) {
+                        is PosResult.Ok -> apply(LetterEvent.SignatureLoaded(r.value, saved = true))
+                        is PosResult.Err -> apply(LetterEvent.Failed(r.error))
+                    }
+                    is LetterEffect.SaveProfile -> when (val r = g.saveProfile(effect.profile)) {
+                        is PosResult.Ok -> apply(LetterEvent.ProfileLoaded(r.value, saved = true))
+                        is PosResult.Err -> apply(LetterEvent.Failed(r.error))
+                    }
+                }
+            }
             is FulfillmentEffect -> launch {
                 val f = gateways.fulfillment
                 when (effect) {

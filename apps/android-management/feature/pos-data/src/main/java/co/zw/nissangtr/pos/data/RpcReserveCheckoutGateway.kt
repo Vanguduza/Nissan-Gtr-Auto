@@ -119,4 +119,5 @@ private fun PosPaymentStatus.toDomain() = PaymentStatus(
     salesInvoiceId = salesInvoiceId,
     paymentException = paymentException,
     exceptions = exceptions.map { PaymentExceptionInfo(it.code, it.detail, it.resolvedAt, it.resolution, it.createdAt) },
+    activeIntentId = activeIntentId,
 )

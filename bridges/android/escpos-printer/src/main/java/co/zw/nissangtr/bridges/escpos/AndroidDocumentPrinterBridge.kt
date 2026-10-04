@@ -3,7 +3,10 @@ package co.zw.nissangtr.bridges.escpos
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
@@ -26,6 +29,14 @@ interface DocumentPrinterBridge {
     fun attachActivity(activity: Activity)
     fun detachActivity()
     fun printTextDocument(jobName: String, lines: List<String>)
+
+    /**
+     * A one-page signed document (payment letter): [lines] then the [signature] image (PNG/JPEG
+     * bytes) above the [signatureLines] (name, title). A missing image prints the lines alone.
+     */
+    fun printSignedDocument(jobName: String, lines: List<String>, signature: ByteArray?, signatureLines: List<String>) =
+        printTextDocument(jobName, lines + listOf("", "") + signatureLines)
+
     fun openPrintServiceSettings()
 }
 
@@ -48,6 +59,19 @@ class AndroidDocumentPrinterBridge(context: Context) : DocumentPrinterBridge {
         manager.print(jobName, TextA4Adapter(activity, jobName, lines), attrs)
     }
 
+    override fun printSignedDocument(jobName: String, lines: List<String>, signature: ByteArray?, signatureLines: List<String>) {
+        require(lines.isNotEmpty()) { "document lines required" }
+        val activity = activityRef?.get() ?: error("printer activity not attached")
+        val manager = activity.getSystemService(Context.PRINT_SERVICE) as PrintManager
+        val image = signature?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+        val attrs = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+            .build()
+        manager.print(jobName, TextA4Adapter(activity, jobName, lines, image, signatureLines), attrs)
+    }
+
     override fun openPrintServiceSettings() {
         val activity = activityRef?.get() ?: error("printer activity not attached")
         activity.startActivity(Intent(Settings.ACTION_PRINT_SETTINGS))
@@ -58,6 +82,9 @@ private class TextA4Adapter(
     private val context: Context,
     private val jobName: String,
     private val lines: List<String>,
+    /** Drawn after the last line, above [signatureLines] (signed documents only). */
+    private val signature: Bitmap? = null,
+    private val signatureLines: List<String> = emptyList(),
 ) : PrintDocumentAdapter() {
     private var attrs: PrintAttributes = PrintAttributes.Builder()
         .setMediaSize(PrintAttributes.MediaSize.ISO_A4).build()
@@ -102,6 +129,22 @@ private class TextA4Adapter(
                 for (i in start until end) {
                     page.canvas.drawText(lines[i].take(120), 48f, y, paint)
                     y += 14f
+                }
+                if (pageIndex == totalPages - 1 && (signature != null || signatureLines.isNotEmpty())) {
+                    y += 18f
+                    signature?.let { bmp ->
+                        // Signature at most 220 × 64 pt, aspect kept.
+                        val scale = minOf(220f / bmp.width, 64f / bmp.height)
+                        val dst = RectF(48f, y, 48f + bmp.width * scale, y + bmp.height * scale)
+                        page.canvas.drawBitmap(bmp, null, dst, Paint(Paint.FILTER_BITMAP_FLAG))
+                        y += bmp.height * scale + 4f
+                    }
+                    page.canvas.drawLine(48f, y, 268f, y, paint)
+                    y += 14f
+                    signatureLines.forEach { line ->
+                        page.canvas.drawText(line.take(120), 48f, y, paint)
+                        y += 14f
+                    }
                 }
                 doc.finishPage(page)
             }

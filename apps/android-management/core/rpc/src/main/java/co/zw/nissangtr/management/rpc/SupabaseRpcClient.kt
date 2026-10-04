@@ -3278,6 +3278,154 @@ class SupabaseRpcClient(
         client.postgrest.rpc(fn, buildJsonObject { put("p_request_id", requestId); if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes) })
     }
 
+    // --- Payment resolution letters, manager signature, business document profile
+
+    private fun letterRow(o: JsonObject) = PaymentLetterRow(
+        id = o.stringOrNull("id") ?: error("letter id missing"),
+        documentNumber = o.stringOrNull("document_number"),
+        sourceKind = o.stringOrNull("source_kind").orEmpty(),
+        provider = o.stringOrNull("provider"),
+        observedStatus = o.stringOrNull("observed_status"),
+        amount = o.number("amount") ?: 0.0,
+        currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+        customerName = o.stringOrNull("customer_name"),
+        invoiceNumber = o.stringOrNull("invoice_document_number"),
+        managerName = o.stringOrNull("manager_name"),
+        managerTitle = o.stringOrNull("manager_title"),
+        issuedAt = o.stringOrNull("issued_at").orEmpty(),
+    )
+
+    private fun profileRow(o: JsonObject) = BusinessProfileRow(
+        legalName = o.stringOrNull("legal_name").orEmpty(),
+        tradingName = o.stringOrNull("trading_name").orEmpty(),
+        domain = o.stringOrNull("domain").orEmpty(),
+        city = o.stringOrNull("city"),
+        country = o.stringOrNull("country"),
+        addressLine1 = o.stringOrNull("address_line1"),
+        addressLine2 = o.stringOrNull("address_line2"),
+        phoneE164 = o.stringOrNull("phone_e164"),
+        email = o.stringOrNull("email"),
+        registrationNumber = o.stringOrNull("registration_number"),
+    )
+
+    /** Storage REST with the signed-in user's own token (storage policies decide; no service key here). */
+    private suspend fun storageRequest(method: String, path: String, body: ByteArray? = null, contentType: String? = null): ByteArray =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val base = projectUrl ?: error("Supabase URL is not configured.")
+            val token = auth.currentAccessTokenOrNull() ?: error("Sign in again.")
+            val conn = (java.net.URL("$base/storage/v1/$path").openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = method
+                connectTimeout = 15_000
+                readTimeout = 30_000
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("apikey", client.supabaseKey)
+                if (contentType != null) setRequestProperty("Content-Type", contentType)
+                if (body != null) {
+                    doOutput = true
+                    setRequestProperty("x-upsert", "true")
+                    outputStream.use { it.write(body) }
+                }
+            }
+            try {
+                val code = conn.responseCode
+                val bytes = (if (code in 200..299) conn.inputStream else conn.errorStream)?.use { it.readBytes() } ?: ByteArray(0)
+                if (code !in 200..299) error("Storage refused ($code): ${bytes.decodeToString().take(200)}")
+                bytes
+            } finally {
+                conn.disconnect()
+            }
+        }
+
+    private suspend fun downloadPrivate(bucket: String, path: String): ByteArray? =
+        runCatching { storageRequest("GET", "object/authenticated/$bucket/$path") }.getOrNull()
+
+    override suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> =
+        client.postgrest.rpc(
+            "list_payment_resolution_letters",
+            buildJsonObject {
+                if (sourceKind == null) put("p_source_kind", JsonNull) else put("p_source_kind", sourceKind)
+                if (sourceId == null) put("p_source_id", JsonNull) else put("p_source_id", sourceId)
+                put("p_query", JsonNull)
+                put("p_limit", 50)
+            },
+        ).decodeAs<JsonArray>().mapNotNull { (it as? JsonObject)?.let(::letterRow) }
+
+    override suspend fun createPaymentLetter(sourceKind: String, sourceId: String, notes: String?): String =
+        client.postgrest.rpc(
+            "create_payment_resolution_letter",
+            buildJsonObject {
+                put("p_source_kind", sourceKind)
+                put("p_source_id", sourceId)
+                if (notes == null) put("p_issue_notes", JsonNull) else put("p_issue_notes", notes)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun getPaymentLetter(letterId: String): PaymentLetterDocument {
+        val o = client.postgrest.rpc("get_payment_resolution_letter_render_data", buildJsonObject { put("p_letter_id", letterId) }).decodeAs<JsonObject>()
+        val l = o["letter"] as? JsonObject ?: error("letter missing")
+        val fields = listOf(
+            "external_reference", "provider_reference", "terminal_transaction_id", "rrn", "authorization_code",
+            "card_last4", "card_scheme", "failure_detail", "manager_employee_code", "issue_notes",
+        ).associateWith { l.stringOrNull(it) }
+        val path = l.stringOrNull("signature_storage_path")
+        return PaymentLetterDocument(
+            row = letterRow(l),
+            fields = fields,
+            business = (o["business"] as? JsonObject)?.let(::profileRow),
+            signature = path?.let { downloadPrivate(l.stringOrNull("signature_storage_bucket") ?: "staff-signatures", it) },
+            signatureSha256 = l.stringOrNull("signature_sha256"),
+        )
+    }
+
+    override suspend fun getMyManagerSignature(): ManagerSignatureRow {
+        val o = client.postgrest.rpc("get_my_manager_signature").decodeAs<JsonObject>()
+        val path = o.stringOrNull("signature_path")
+        return ManagerSignatureRow(
+            fullName = o.stringOrNull("full_name").orEmpty(),
+            employeeCode = o.stringOrNull("employee_code"),
+            hasSignature = o["has_signature"]?.jsonPrimitive?.booleanOrNull == true,
+            capturedAt = o.stringOrNull("signature_captured_at"),
+            image = path?.let { downloadPrivate(o.stringOrNull("signature_bucket") ?: "staff-signatures", it) },
+        )
+    }
+
+    override suspend fun saveMyManagerSignature(png: ByteArray): ManagerSignatureRow {
+        require(png.size in 1..(2 * 1024 * 1024)) { "The signature image must be under 2 MB." }
+        val uid = auth.currentSessionOrNull()?.user?.id ?: error("Sign in again.")
+        val sha = java.security.MessageDigest.getInstance("SHA-256").digest(png).joinToString("") { "%02x".format(it) }
+        // Own folder only (storage policy); a new file per signature keeps old letters' signatures intact.
+        val path = "$uid/signature-${sha.take(16)}.png"
+        storageRequest("POST", "object/staff-signatures/$path", png, "image/png")
+        client.postgrest.rpc(
+            "register_my_manager_signature",
+            buildJsonObject { put("p_storage_path", path); put("p_mime_type", "image/png"); put("p_sha256", sha) },
+        )
+        return getMyManagerSignature()
+    }
+
+    override suspend fun getBusinessDocumentProfile(): BusinessProfileRow =
+        profileRow(client.postgrest.rpc("get_business_document_profile").decodeAs<JsonObject>())
+
+    override suspend fun setBusinessDocumentProfile(profile: BusinessProfileRow): BusinessProfileRow =
+        profileRow(
+            client.postgrest.rpc(
+                "set_business_document_profile",
+                buildJsonObject {
+                    put("p_legal_name", profile.legalName)
+                    put("p_trading_name", profile.tradingName)
+                    put("p_domain", profile.domain)
+                    fun opt(k: String, v: String?) = if (v.isNullOrBlank()) put(k, JsonNull) else put(k, v.trim())
+                    opt("p_city", profile.city)
+                    opt("p_country", profile.country)
+                    opt("p_address_line1", profile.addressLine1)
+                    opt("p_address_line2", profile.addressLine2)
+                    opt("p_phone_e164", profile.phoneE164)
+                    opt("p_email", profile.email)
+                    opt("p_registration_number", profile.registrationNumber)
+                },
+            ).decodeAs<JsonObject>(),
+        )
+
     // --- POS part payments (staged split)
 
     private fun splitFrom(o: JsonObject): PosSplitSession = PosSplitSession(

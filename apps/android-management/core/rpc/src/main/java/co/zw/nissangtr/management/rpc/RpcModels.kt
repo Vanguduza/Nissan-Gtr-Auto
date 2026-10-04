@@ -1154,3 +1154,44 @@ data class PosFulfillmentRow(
     val collectedAt: String?,
     val createdAt: String,
 )
+
+// --- Payment resolution letters, manager signature, business document profile (phase 8)
+
+data class PaymentLetterRow(
+    val id: String,
+    val documentNumber: String?,
+    val sourceKind: String,
+    val provider: String?,
+    val observedStatus: String?,
+    val amount: Double,
+    val currency: CurrencyCode,
+    val customerName: String?,
+    val invoiceNumber: String?,
+    val managerName: String?,
+    val managerTitle: String?,
+    val issuedAt: String,
+)
+
+/** A letter as printed: its frozen fields, the business header and the signature image bytes (if readable). */
+data class PaymentLetterDocument(
+    val row: PaymentLetterRow,
+    val fields: Map<String, String?>,
+    val business: BusinessProfileRow?,
+    val signature: ByteArray?,
+    val signatureSha256: String?,
+)
+
+data class BusinessProfileRow(
+    val legalName: String,
+    val tradingName: String,
+    val domain: String,
+    val city: String?,
+    val country: String?,
+    val addressLine1: String?,
+    val addressLine2: String?,
+    val phoneE164: String?,
+    val email: String?,
+    val registrationNumber: String?,
+)
+
+data class ManagerSignatureRow(val fullName: String, val employeeCode: String?, val hasSignature: Boolean, val capturedAt: String?, val image: ByteArray?)

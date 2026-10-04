@@ -39,6 +39,11 @@ import co.zw.nissangtr.pos.domain.model.PaymentStatus
 import co.zw.nissangtr.pos.domain.model.PickupOrder
 import co.zw.nissangtr.pos.domain.model.ProviderMethod
 import co.zw.nissangtr.pos.domain.model.RefundFeePolicy
+import co.zw.nissangtr.pos.domain.model.BusinessProfile
+import co.zw.nissangtr.pos.domain.model.MySignature
+import co.zw.nissangtr.pos.domain.model.PaymentLetter
+import co.zw.nissangtr.pos.domain.model.PaymentLetterSummary
+import co.zw.nissangtr.pos.domain.model.LetterSource
 import co.zw.nissangtr.pos.domain.model.FulfillmentStep
 import co.zw.nissangtr.pos.domain.model.FulfillmentRequest
 import co.zw.nissangtr.pos.domain.model.FulfillmentDraft
@@ -424,5 +429,28 @@ interface FulfillmentGateway {
         override suspend fun create(draft: FulfillmentDraft): PosResult<String> = refused
         override suspend fun list(query: String?, status: String?): PosResult<List<FulfillmentRequest>> = PosResult.Ok(emptyList())
         override suspend fun step(requestId: String, step: FulfillmentStep): PosResult<Unit> = refused
+    }
+}
+
+/** Payment letters, the signed-in manager's signature and the business details printed on documents. */
+interface LettersGateway {
+    suspend fun list(source: LetterSource): PosResult<List<PaymentLetterSummary>>
+    suspend fun issue(source: LetterSource, notes: String?): PosResult<String>
+    suspend fun letter(letterId: String): PosResult<PaymentLetter>
+    suspend fun mySignature(): PosResult<MySignature>
+    /** PNG bytes drawn on the tablet. */
+    suspend fun saveSignature(png: ByteArray): PosResult<MySignature>
+    suspend fun profile(): PosResult<BusinessProfile>
+    suspend fun saveProfile(profile: BusinessProfile): PosResult<BusinessProfile>
+
+    object None : LettersGateway {
+        private val refused = PosResult.Err(PosError.BusinessRule("letters_unavailable", ""))
+        override suspend fun list(source: LetterSource): PosResult<List<PaymentLetterSummary>> = PosResult.Ok(emptyList())
+        override suspend fun issue(source: LetterSource, notes: String?): PosResult<String> = refused
+        override suspend fun letter(letterId: String): PosResult<PaymentLetter> = refused
+        override suspend fun mySignature(): PosResult<MySignature> = refused
+        override suspend fun saveSignature(png: ByteArray): PosResult<MySignature> = refused
+        override suspend fun profile(): PosResult<BusinessProfile> = refused
+        override suspend fun saveProfile(profile: BusinessProfile): PosResult<BusinessProfile> = refused
     }
 }

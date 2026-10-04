@@ -34,6 +34,8 @@ data class PaymentStatus(
     val salesInvoiceId: String?,
     val paymentException: String?,
     val exceptions: List<PaymentExceptionInfo> = emptyList(),
+    /** The provider payment in flight (a payment letter can be issued about it). */
+    val activeIntentId: String? = null,
 ) {
     val settled: Boolean get() = salesInvoiceId != null && state in setOf("paid", "allocation_pending", "dispatch_ready", "delivered", "account_invoiced")
     /** Money captured but the sale did not finish: never charge again; repair from recovery. */

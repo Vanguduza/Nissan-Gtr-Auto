@@ -482,6 +482,8 @@ fun SettingsScreen(state: PosState, dispatch: (PosIntent) -> Unit, host: PosHost
         }
         ApprovalPoliciesRow(state, dispatch)
         CardMachineSettingsRow(state, dispatch)
+        SignatureSettingsRow(state, dispatch)
+        BusinessProfileSettingsRow(state, dispatch)
         ListRow(stringResource(R.string.pos_companion_title), stringResource(R.string.pos_companion_settings_hint)) {
             SoftButton(
                 stringResource(if (state.companion?.live == true) R.string.pos_companion_live else R.string.pos_companion_pair),

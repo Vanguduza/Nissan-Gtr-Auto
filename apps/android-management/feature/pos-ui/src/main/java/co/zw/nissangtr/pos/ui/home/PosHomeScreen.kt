@@ -98,6 +98,8 @@ data class PosHostActions(
     val onExitToHub: (() -> Unit)? = null,
     /** Settings → Offline catalogue: the downloadable full catalogue on this device. */
     val offlineCatalog: OfflineCatalogControl? = null,
+    /** A signed A4 document (payment letter): job name, lines, signature image, lines under the signature. */
+    val onPrintSignedDocument: co.zw.nissangtr.pos.ui.sale.SignedDocumentPrinter? = null,
 )
 
 enum class OfflineCatalogPhase { None, Downloading, Paused, Ready }
@@ -251,6 +253,7 @@ fun PosHomeScreen(
     if (state.paymentOpen || state.receipt != null) PaymentDialog(state, dispatch, host.onPrint)
     ApprovalDialog(state, dispatch)
     co.zw.nissangtr.pos.ui.sale.StockByBranchDialog(state, dispatch)
+    co.zw.nissangtr.pos.ui.sale.LetterDialog(state, dispatch, host.onPrintSignedDocument)
     co.zw.nissangtr.pos.ui.sale.TillDialogs(state, dispatch)
     GarageChooserDialog(state, dispatch)
     if (state.companionOpen) CompanionDialog(state, dispatch, now)

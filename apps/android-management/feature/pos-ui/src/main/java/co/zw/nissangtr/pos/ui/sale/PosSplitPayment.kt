@@ -556,4 +556,6 @@ private fun RefundRow(state: PosState, session: SplitSession, refund: SplitRefun
             }
         }
     }
+    // A signed record of this refund's status for the customer or their bank.
+    LettersBlock(state, co.zw.nissangtr.pos.domain.model.LetterSource.splitRefund(refund.id), dispatch)
 }

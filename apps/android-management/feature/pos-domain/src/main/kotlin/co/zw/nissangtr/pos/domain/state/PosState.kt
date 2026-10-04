@@ -52,6 +52,7 @@ enum class PosNotice {
     TerminalPaired, TerminalReversed, TerminalFinished,
     ReturnPosted, ReturnCashOut, ReturnSwap, ReturnWarranty, CoreReturned, ClaimOpened, ClaimDecided, ClaimClosed, CardRefunded,
     HeldHere, HeldElsewhere, TransferRequested, Backordered, TransferSent, FulfillmentReady, TransferReceived, HandedOver, FulfillmentReleased,
+    LetterIssued, SignatureSaved, ProfileSaved,
 }
 
 data class PosState(
@@ -170,6 +171,13 @@ data class PosState(
     val fulfillmentStatus: String? = null,
     val fulfillmentQuery: String = "",
     val fulfillmentBusy: Boolean = false,
+    // Payment letters (phase 8)
+    /** [co.zw.nissangtr.pos.domain.model.LetterSource.key] → letters issued for that payment. */
+    val letters: Map<String, List<co.zw.nissangtr.pos.domain.model.PaymentLetterSummary>> = emptyMap(),
+    val openLetter: co.zw.nissangtr.pos.domain.model.PaymentLetter? = null,
+    val mySignature: co.zw.nissangtr.pos.domain.model.MySignature? = null,
+    val businessProfile: co.zw.nissangtr.pos.domain.model.BusinessProfile? = null,
+    val lettersBusy: Boolean = false,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

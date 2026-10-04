@@ -274,6 +274,23 @@ class PosScreensScreenshotTest {
         ),
     )
 
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun paymentLetter() = capture(
+        "payment_letter",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(
+            openLetter = co.zw.nissangtr.pos.domain.model.PaymentLetter(
+                co.zw.nissangtr.pos.domain.model.PaymentLetterSummary(
+                    "L1", "PDL-00007", "card_terminal", "unknown", usd(147.5), "Rudo Chikwanha", "INV-000099", "Tendai Moyo", "Shop manager", "2026-10-04T09:12:00",
+                ),
+                "GTR-CT-41ab", null, "TXN-88213", "421309", "A1B2C3", "4421", "VISA", "No answer from the card machine", "EMP-0100", "Customer asked for proof for their bank",
+                co.zw.nissangtr.pos.domain.model.BusinessProfile("Nissan GTR Auto", "Nissan GTR Auto", "nissangtrauto.co.zw", "Harare", "Zimbabwe", null, null, null, null, null),
+                null, "9f2c1d0e4b5a",
+            ),
+        ),
+    )
+
     private fun epcState(): PosState {
         val detail = FakeSaleGateways.brakeDiagram
         return PosFixtures.homeEmpty.copy(

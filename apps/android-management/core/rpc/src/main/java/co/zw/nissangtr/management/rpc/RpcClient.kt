@@ -981,6 +981,30 @@ interface RpcClient {
     suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {
         throw UnsupportedOperationException("fulfilment needs the live backend")
     }
+
+    // --- Payment resolution letters (manager / finance / admin, signed with the issuer's own signature)
+
+    suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> = emptyList()
+
+    suspend fun createPaymentLetter(sourceKind: String, sourceId: String, notes: String?): String =
+        throw UnsupportedOperationException("payment letters need the live backend")
+
+    suspend fun getPaymentLetter(letterId: String): PaymentLetterDocument =
+        throw UnsupportedOperationException("payment letters need the live backend")
+
+    suspend fun getMyManagerSignature(): ManagerSignatureRow =
+        throw UnsupportedOperationException("signatures need the live backend")
+
+    /** Uploads to the private `staff-signatures` bucket under the user's own folder, then registers it. */
+    suspend fun saveMyManagerSignature(png: ByteArray): ManagerSignatureRow =
+        throw UnsupportedOperationException("signatures need the live backend")
+
+    suspend fun getBusinessDocumentProfile(): BusinessProfileRow =
+        throw UnsupportedOperationException("business details need the live backend")
+
+    /** Admin only (server-enforced). */
+    suspend fun setBusinessDocumentProfile(profile: BusinessProfileRow): BusinessProfileRow =
+        throw UnsupportedOperationException("business details need the live backend")
 }
 
 /**
