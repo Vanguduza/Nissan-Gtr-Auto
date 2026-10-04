@@ -26,4 +26,6 @@ class RpcFulfillmentGateway(private val rpc: RpcClient) : FulfillmentGateway {
     }
 
     override suspend fun step(requestId: String, step: FulfillmentStep) = call { rpc.posFulfillmentStep(requestId, step.rpcValue, null) }
+
+    override suspend fun attachToSale(requestId: String, cartId: String) = call { rpc.attachPosFulfillmentToCart(requestId, cartId) }
 }

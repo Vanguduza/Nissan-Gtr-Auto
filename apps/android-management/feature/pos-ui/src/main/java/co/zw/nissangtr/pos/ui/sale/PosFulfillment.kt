@@ -33,6 +33,8 @@ import co.zw.nissangtr.pos.domain.model.FulfillmentDraft
 import co.zw.nissangtr.pos.domain.model.FulfillmentKind
 import co.zw.nissangtr.pos.domain.model.FulfillmentRequest
 import co.zw.nissangtr.pos.domain.model.FulfillmentStep
+import co.zw.nissangtr.pos.domain.model.sellable
+import co.zw.nissangtr.pos.domain.state.backorderOnSale
 import co.zw.nissangtr.pos.domain.state.FulfillmentIntent
 import co.zw.nissangtr.pos.domain.state.PosIntent
 import co.zw.nissangtr.pos.domain.state.PosState
@@ -183,12 +185,16 @@ private fun FulfillmentRow(state: PosState, f: FulfillmentRequest, dispatch: (Po
             kindLabel(f.kind),
             statusLabel(f.status),
             route,
-            if (f.status == "ready" && f.invoiceId == null && f.kind != FulfillmentKind.BranchTransfer && f.kind != FulfillmentKind.Backorder) stringResource(R.string.pos_ff_not_paid) else null,
-            if (f.status == "ready" && f.kind == FulfillmentKind.Backorder) stringResource(R.string.pos_ff_arrived_hint) else null,
+            if (f.status == "ready" && f.invoiceId == null && f.kind != FulfillmentKind.BranchTransfer) stringResource(R.string.pos_ff_not_paid) else null,
+            if (f.sellable && state.backorderOnSale(f)) stringResource(R.string.pos_ff_on_this_sale) else null,
         ).joinToString(" · "),
     ) {
         val enabled = state.online && !state.fulfillmentBusy
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // An arrived back-order is sold on the current sale; once that sale is paid it is handed over here.
+            if (f.sellable && !state.backorderOnSale(f)) {
+                PosPrimaryButton(stringResource(R.string.pos_ff_add_to_sale), enabled = enabled && state.sellingBackorder == null, onClick = { dispatch(FulfillmentIntent.Sell(f)) }, modifier = Modifier.width(170.dp))
+            }
             f.steps.forEach { step ->
                 val label = stringResource(
                     when (step) {

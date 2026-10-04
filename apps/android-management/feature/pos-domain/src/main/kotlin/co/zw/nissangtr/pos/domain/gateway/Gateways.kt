@@ -423,12 +423,15 @@ interface FulfillmentGateway {
     suspend fun create(draft: FulfillmentDraft): PosResult<String>
     suspend fun list(query: String?, status: String?): PosResult<List<FulfillmentRequest>>
     suspend fun step(requestId: String, step: FulfillmentStep): PosResult<Unit>
+    /** An arrived back-order sold on this sale (`attach_pos_fulfillment_to_cart`). */
+    suspend fun attachToSale(requestId: String, cartId: String): PosResult<Unit>
 
     object None : FulfillmentGateway {
         private val refused = PosResult.Err(PosError.BusinessRule("fulfillment_unavailable", ""))
         override suspend fun create(draft: FulfillmentDraft): PosResult<String> = refused
         override suspend fun list(query: String?, status: String?): PosResult<List<FulfillmentRequest>> = PosResult.Ok(emptyList())
         override suspend fun step(requestId: String, step: FulfillmentStep): PosResult<Unit> = refused
+        override suspend fun attachToSale(requestId: String, cartId: String): PosResult<Unit> = refused
     }
 }
 

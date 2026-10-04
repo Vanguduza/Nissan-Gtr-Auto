@@ -9,11 +9,13 @@ import co.zw.nissangtr.pos.domain.model.VehicleSelection
  * Pure, total reducer (Blueprint §10.3, ARCH-07): same state + message ⇒ same reduction.
  * No I/O here; gateway work is returned as [PosEffect]s.
  */
-fun reduce(state: PosState, msg: PosMsg): Reduction = companionFollowsCart(
-    when (msg) {
-        is PosIntent -> reduceIntent(state, msg)
-        is PosEvent -> reduceEvent(state, msg)
-    },
+fun reduce(state: PosState, msg: PosMsg): Reduction = backorderFollowsCart(
+    companionFollowsCart(
+        when (msg) {
+            is PosIntent -> reduceIntent(state, msg)
+            is PosEvent -> reduceEvent(state, msg)
+        },
+    ),
 )
 
 private fun reduceIntent(state: PosState, intent: PosIntent): Reduction =

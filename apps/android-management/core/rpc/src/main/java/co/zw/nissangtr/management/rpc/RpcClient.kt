@@ -982,6 +982,11 @@ interface RpcClient {
         throw UnsupportedOperationException("fulfilment needs the live backend")
     }
 
+    /** An arrived back-order sold on [cartId]: it gets the sale's invoice when the sale posts. */
+    suspend fun attachPosFulfillmentToCart(requestId: String, cartId: String) {
+        throw UnsupportedOperationException("fulfilment needs the live backend")
+    }
+
     // --- Payment resolution letters (manager / finance / admin, signed with the issuer's own signature)
 
     suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> = emptyList()

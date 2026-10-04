@@ -253,11 +253,11 @@ class PosScreensScreenshotTest {
         ),
     )
 
-    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    @Test @Config(qualifiers = "w1280dp-h1400dp-port-mdpi")
     fun collectionsAndTransfers() = capture(
         "orders_fulfillment",
         1280.dp,
-        800.dp,
+        1400.dp,
         PosFixtures.homeEmpty.copy(
             destination = PosDestination.Orders,
             parked = emptyList(),
@@ -274,6 +274,16 @@ class PosScreensScreenshotTest {
                 co.zw.nissangtr.pos.domain.model.FulfillmentRequest(
                     "r3", "PFR-00010", co.zw.nissangtr.pos.domain.model.FulfillmentKind.Backorder, "requested", "si", "23100-EB300", "Alternator", 1.0,
                     null, "Harare main", null, null, null, "",
+                ),
+                // Arrived: sell it on the current sale.
+                co.zw.nissangtr.pos.domain.model.FulfillmentRequest(
+                    "r4", "PFR-00009", co.zw.nissangtr.pos.domain.model.FulfillmentKind.Backorder, "ready", "si-4", "27277-4M400", "Cabin air filter", 2.0,
+                    null, "Harare main", null, null, null, "",
+                ),
+                // Sold and paid: hand it over.
+                co.zw.nissangtr.pos.domain.model.FulfillmentRequest(
+                    "r5", "PFR-00008", co.zw.nissangtr.pos.domain.model.FulfillmentKind.Backorder, "ready", "si-5", "16546-JF00A", "Air filter", 1.0,
+                    null, "Harare main", "cart-7", "inv-7", null, "",
                 ),
             ),
         ),

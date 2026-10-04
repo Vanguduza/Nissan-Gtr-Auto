@@ -1742,6 +1742,12 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       return { ok: true, data: true };
     },
 
+    async attachFulfillmentToSale(requestId, cartId) {
+      const { error } = await rpc(client, "attach_pos_fulfillment_to_cart", { p_request_id: requestId, p_cart_id: cartId });
+      if (error) return fail(error, "The back-order was not added to the sale.");
+      return { ok: true, data: true };
+    },
+
     async listStockAvailability(stockItemId) {
       const { data, error } = await rpc(client, "list_pos_stock_availability", { p_stock_item_id: stockItemId });
       if (error) return fail(error, "Could not load stock by branch.");

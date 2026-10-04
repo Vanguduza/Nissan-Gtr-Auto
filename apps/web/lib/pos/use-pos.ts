@@ -6,6 +6,7 @@ import { haptic } from "@/lib/pos/haptics";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
 import { buildPopularRow, pinForPart } from "@/lib/pos/popular";
 import type {
+  FulfillmentRequest,
   CashMovementKind,
   CustomerInput,
   DenominationCount,
@@ -533,6 +534,39 @@ export function usePos(gateway: PosGateway) {
       setBusy(false);
     },
     [guardOnline, guardEditable, ensureCart, gateway, report],
+  );
+
+  /** An arrived back-order: put the part on the current sale and tie the request to it (handed over once paid). */
+  const sellBackorder = useCallback(
+    async (f: FulfillmentRequest): Promise<boolean> => {
+      if (!guardOnline() || !guardEditable()) return false;
+      setBusy(true);
+      try {
+        const found = await gateway.searchParts(f.partNumber, null);
+        const part = found.ok ? found.data.find((p) => p.stockItemId === f.stockItemId) : undefined;
+        if (!part?.price) {
+          setError(`${f.partNumber} could not be found with a price to sell.`);
+          return false;
+        }
+        const c = await ensureCart();
+        if (!c) return false;
+        let next = report(await gateway.addPart(c.id, part, 1));
+        if (!next) return false;
+        const line = next.lines.find((l) => l.stockItemId === f.stockItemId);
+        if (line && line.qty < f.qty) next = report(await gateway.setLineQty(c.id, line.id, f.qty)) ?? next;
+        setCart(next);
+        const tied = await gateway.attachFulfillmentToSale(f.id, c.id);
+        if (!tied.ok) {
+          setError(tied.error);
+          return false;
+        }
+        setNotice(`${f.documentNumber ?? "Back-order"} is on this sale. Take payment, then hand it over from Collections.`);
+        return true;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [guardOnline, guardEditable, gateway, ensureCart, report],
   );
 
   const setLineQty = useCallback(
@@ -1427,6 +1461,7 @@ export function usePos(gateway: PosGateway) {
     subtotal,
     discountAmount,
     addPart,
+    sellBackorder,
     setLineQty,
     removeLine,
     warehouses,

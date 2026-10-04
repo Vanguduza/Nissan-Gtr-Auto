@@ -173,6 +173,10 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
     void load();
   };
 
+  /** The back-order is tied to the open sale and its part is on it. */
+  const onThisSale = (f: FulfillmentRequest) =>
+    !!f.cartId && f.cartId === pos.cart?.id && pos.cart.lines.some((l) => l.stockItemId === f.stockItemId);
+
   const route = (f: FulfillmentRequest) =>
     f.kind === "branch_transfer" ? `${f.sourceName ?? "?"} → ${f.destinationName ?? "?"}` : f.kind === "backorder" ? f.destinationName : f.sourceName;
 
@@ -227,8 +231,26 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
                   Mark ready
                 </button>
               ) : null}
-              {f.status === "ready" && f.kind === "backorder" ? <span className={styles.muted}>Arrived: sell it on a sale, then release this request.</span> : null}
-              {f.status === "ready" && f.kind !== "backorder" ? (
+              {/* An arrived back-order is sold on the current sale; once that sale is paid it is handed over here. */}
+              {f.status === "ready" && f.kind === "backorder" && !f.invoiceId && onThisSale(f) ? (
+                <span className={styles.muted}>On this sale: take payment, then hand it over.</span>
+              ) : null}
+              {f.status === "ready" && f.kind === "backorder" && !f.invoiceId && !onThisSale(f) ? (
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  disabled={busy !== null || !pos.online}
+                  onClick={async () => {
+                    setBusy(f.id + "sell");
+                    const done = await pos.sellBackorder(f);
+                    setBusy(null);
+                    if (done) void load();
+                  }}
+                >
+                  Add to sale
+                </button>
+              ) : null}
+              {f.status === "ready" && (f.kind !== "backorder" || f.invoiceId) ? (
                 <button
                   type="button"
                   className={styles.primaryButton}

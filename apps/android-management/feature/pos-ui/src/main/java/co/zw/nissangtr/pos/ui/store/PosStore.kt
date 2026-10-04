@@ -360,6 +360,14 @@ class PosStore(
                         is PosResult.Ok -> apply(FulfillmentEvent.Stepped(effect.step, effect.kind))
                         is PosResult.Err -> apply(FulfillmentEvent.Failed(r.error))
                     }
+                    is FulfillmentEffect.FindPart -> when (val r = gateways.catalog.search(effect.request.oemPartNumber, null)) {
+                        is PosResult.Ok -> apply(FulfillmentEvent.PartFound(effect.request, r.value.firstOrNull { it.stockItemId == effect.request.stockItemId }))
+                        is PosResult.Err -> apply(FulfillmentEvent.Failed(r.error))
+                    }
+                    is FulfillmentEffect.Attach -> when (val r = f.attachToSale(effect.request.id, effect.cartId)) {
+                        is PosResult.Ok -> apply(FulfillmentEvent.Attached(effect.request))
+                        is PosResult.Err -> apply(FulfillmentEvent.Failed(r.error))
+                    }
                 }
             }
             is PosSaleEffect.QueueOfflineSale -> launch {

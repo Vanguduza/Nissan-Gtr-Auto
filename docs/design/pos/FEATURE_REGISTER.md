@@ -407,7 +407,7 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 |----|---------|-----------|-------|--------|
 | FUL-01 | From Stock by branch: hold here for collection, collect at another branch, bring it here (branch transfer), back-order (`create_pos_fulfillment_request`); a hold needs the part in the current sale and goes with it | 9, 10 | 7 | partial — web preview flow and tablet reducer tests/screenshots; hosted project has no stock levels, so a live hold is refused for stock |
 | FUL-02 | A hold turns ready with its invoice when the sale is paid; a transfer when the warehouse posts it (server triggers) | 10 | 7 | partial — as FUL-01 |
-| FUL-03 | Orders → Collections & transfers: status filter, send transfer (warehouse staff), mark a back-order ready, handed over / received here, release; a paid hold is never just released | 10 | 7 | partial — as FUL-01; back-order hand-over is a backend gap (no invoice link) |
+| FUL-03 | Orders → Collections & transfers: status filter, send transfer (warehouse staff), mark a back-order ready, handed over / received here, release; a paid hold is never just released | 10 | 7 | partial — as FUL-01; arrived back-orders: Add to sale → paid → Handed over (migration 20261004144350) |
 
 ## LTR — Payment letters, signature, business details (2026-10-04, phase 8)
 

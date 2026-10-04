@@ -410,6 +410,7 @@ class FakeRpcClient : RpcClient {
                 customerId = UUID.nameUUIDFromBytes("cust:${email ?: wa}".toByteArray()).toString()
             }
         }
+        val sold = cartLines[cartId].orEmpty().map { it.stockItemId }.toSet()
         openCarts.remove(cartId)
         cartLines.remove(cartId)
         cartCustomers.remove(cartId)
@@ -418,6 +419,9 @@ class FakeRpcClient : RpcClient {
         fakeFulfillment.replaceAll {
             if (it.cartId == cartId && it.status == "reserved" && it.kind in setOf("customer_collection", "alternate_pickup")) {
                 it.copy(status = "ready", invoiceId = invoiceId, readyAt = java.time.Instant.now().toString(), expiresAt = null)
+            } else if (it.cartId == cartId && it.kind == "backorder" && it.invoiceId == null && it.status in setOf("requested", "ready") && it.stockItemId in sold) {
+                // A back-order sold on this sale gets its invoice when the part is on it.
+                it.copy(status = "ready", invoiceId = invoiceId, readyAt = it.readyAt ?: java.time.Instant.now().toString())
             } else it
         }
         return CheckoutPosResult(
@@ -2864,6 +2868,14 @@ class FakeRpcClient : RpcClient {
     override suspend fun listPosFulfillmentRequests(query: String?, status: String?): List<PosFulfillmentRow> {
         val q = query?.trim()?.lowercase().orEmpty()
         return fakeFulfillment.filter { (status == null || it.status == status) && (q.isBlank() || "${it.documentNumber} ${it.oemPartNumber}".lowercase().contains(q)) }
+    }
+
+    override suspend fun attachPosFulfillmentToCart(requestId: String, cartId: String) {
+        val i = fakeFulfillment.indexOfFirst { it.id == requestId }
+        val f = fakeFulfillment.getOrNull(i)
+        check(f != null && f.kind == "backorder" && f.status in setOf("requested", "ready") && f.invoiceId == null) { "an open back-order without a sale is required" }
+        check(cartId in openCarts) { "open sale required" }
+        fakeFulfillment[i] = f.copy(cartId = cartId)
     }
 
     override suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {

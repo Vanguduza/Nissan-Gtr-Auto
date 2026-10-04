@@ -3,6 +3,7 @@ package co.zw.nissangtr.pos.domain
 import co.zw.nissangtr.pos.domain.error.PosError
 import co.zw.nissangtr.pos.domain.model.CartLine
 import co.zw.nissangtr.pos.domain.model.CartProjection
+import co.zw.nissangtr.pos.domain.model.CatalogPart
 import co.zw.nissangtr.pos.domain.model.CurrencyCode
 import co.zw.nissangtr.pos.domain.model.FulfillmentDraft
 import co.zw.nissangtr.pos.domain.model.FulfillmentKind
@@ -14,9 +15,14 @@ import co.zw.nissangtr.pos.domain.state.FulfillmentEvent
 import co.zw.nissangtr.pos.domain.state.FulfillmentIntent
 import co.zw.nissangtr.pos.domain.state.PosFeedback
 import co.zw.nissangtr.pos.domain.state.PosNotice
+import co.zw.nissangtr.pos.domain.state.PosEffect
+import co.zw.nissangtr.pos.domain.state.PosEvent
 import co.zw.nissangtr.pos.domain.state.PosState
+import co.zw.nissangtr.pos.domain.state.backorderOnSale
 import co.zw.nissangtr.pos.domain.state.reduce
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -64,5 +70,60 @@ class PosFulfillmentTest {
         val r = reduce(withSale.copy(fulfillmentBusy = true), FulfillmentEvent.Created(FulfillmentKind.BranchTransfer))
         assertEquals(PosFeedback.Notice(PosNotice.TransferRequested), r.state.feedback)
         assertTrue(r.effects.single() is FulfillmentEffect.Load)
+    }
+
+    // --- An arrived back-order sold on the current sale, then handed over
+
+    private val arrived = req(FulfillmentKind.Backorder, "ready").copy(cartId = null, qty = 3.0)
+
+    @Test fun arrivedBackorderIsSoldThenHandedOver() {
+        // Not handed over before its sale has posted; once it has, hand over (never just release).
+        assertEquals(listOf(FulfillmentStep.Release), arrived.steps)
+        assertEquals(listOf(FulfillmentStep.HandOver), arrived.copy(invoiceId = "inv").steps)
+
+        // A sale with something else on it: the back-ordered part is not there yet.
+        val other = CartLine("l9", "si-9", "OEM-9", "Wiper", 1.0, usd(5.0), usd(5.0), false, null)
+        val sale = PosState(cart = CartProjection("cart-1", CurrencyCode.USD, listOf(other), usd(5.0), usd(0.0), usd(5.0)))
+        val find = reduce(sale, FulfillmentIntent.Sell(arrived))
+        assertEquals(FulfillmentEffect.FindPart(arrived), find.effects.single())
+
+        // The part goes through the normal add; the request waits for it to be on the server sale.
+        val part = CatalogPart("si-1", "OEM-1", "Oil filter", usd(12.5), 5.0, null)
+        val found = reduce(find.state, FulfillmentEvent.PartFound(arrived, part))
+        assertEquals(arrived, found.state.sellingBackorder)
+        assertTrue(found.effects.any { it is PosEffect.AddToCart })
+
+        assertTrue(found.effects.none { it is FulfillmentEffect.Attach })
+        // The part is on the server sale now: the request is tied to it.
+        val tie = reduce(found.state, PosEvent.CartUpdated(sale.cart.copy(lines = listOf(other, line))))
+        assertNull(tie.state.sellingBackorder)
+        assertEquals(FulfillmentEffect.Attach(arrived, "cart-1"), tie.effects.single { it is FulfillmentEffect.Attach })
+
+        // Tied: the whole back-ordered quantity goes on the sale, and the row says so.
+        val attached = reduce(tie.state.copy(fulfillment = listOf(arrived)), FulfillmentEvent.Attached(arrived))
+        assertEquals(PosFeedback.Notice(PosNotice.BackorderOnSale), attached.state.feedback)
+        assertTrue(attached.effects.any { it is PosEffect.SetQuantity && it.qty == 3.0 })
+        assertTrue(attached.state.backorderOnSale(attached.state.fulfillment!!.single()))
+    }
+
+    @Test fun backorderNotYetArrivedOrAlreadySoldIsNotOffered() {
+        assertTrue(reduce(withSale, FulfillmentIntent.Sell(req(FulfillmentKind.Backorder, "requested"))).effects.isEmpty())
+        assertTrue(reduce(withSale, FulfillmentIntent.Sell(arrived.copy(invoiceId = "inv"))).effects.isEmpty())
+        assertTrue(reduce(withSale, FulfillmentIntent.Sell(req(FulfillmentKind.CustomerCollection, "ready"))).effects.isEmpty())
+    }
+
+    @Test fun partThatCannotBeFoundOrSoldDropsTheBackorder() {
+        val missing = reduce(withSale.copy(fulfillmentBusy = true), FulfillmentEvent.PartFound(arrived, null))
+        assertTrue(missing.state.feedback is PosFeedback.Failure)
+        assertFalse(missing.state.fulfillmentBusy)
+        val unpriced = reduce(withSale, FulfillmentEvent.PartFound(arrived, CatalogPart("si-1", "OEM-1", "Oil filter", null, 5.0, null)))
+        assertNull("a refused add never ties the request", unpriced.state.sellingBackorder)
+        assertTrue(unpriced.effects.none { it is FulfillmentEffect.Attach })
+    }
+
+    @Test fun offlineCannotSellABackorder() {
+        val r = reduce(withSale.copy(online = false), FulfillmentIntent.Sell(arrived))
+        assertTrue(r.effects.isEmpty())
+        assertTrue((r.state.feedback as PosFeedback.Failure).error is PosError.OfflineRestricted)
     }
 }

@@ -3267,6 +3267,10 @@ class SupabaseRpcClient(
             )
         }
 
+    override suspend fun attachPosFulfillmentToCart(requestId: String, cartId: String) {
+        client.postgrest.rpc("attach_pos_fulfillment_to_cart", buildJsonObject { put("p_request_id", requestId); put("p_cart_id", cartId) })
+    }
+
     override suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {
         val fn = when (step) {
             "approve" -> "approve_pos_fulfillment_request"

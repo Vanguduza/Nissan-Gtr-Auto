@@ -51,7 +51,7 @@ enum class PosNotice {
     SplitCancelled, SplitCancelledRefund, SplitRefundOwed, SplitRefundRecorded,
     TerminalPaired, TerminalReversed, TerminalFinished,
     ReturnPosted, ReturnCashOut, ReturnSwap, ReturnWarranty, CoreReturned, ClaimOpened, ClaimDecided, ClaimClosed, CardRefunded,
-    HeldHere, HeldElsewhere, TransferRequested, Backordered, TransferSent, FulfillmentReady, TransferReceived, HandedOver, FulfillmentReleased,
+    HeldHere, HeldElsewhere, TransferRequested, Backordered, TransferSent, FulfillmentReady, TransferReceived, HandedOver, FulfillmentReleased, BackorderOnSale,
     LetterIssued, SignatureSaved, ProfileSaved,
 }
 
@@ -171,6 +171,8 @@ data class PosState(
     val fulfillmentStatus: String? = null,
     val fulfillmentQuery: String = "",
     val fulfillmentBusy: Boolean = false,
+    /** An arrived back-order whose part is being put on the current sale; tied to the sale once it is there. */
+    val sellingBackorder: co.zw.nissangtr.pos.domain.model.FulfillmentRequest? = null,
     // Payment letters (phase 8)
     /** [co.zw.nissangtr.pos.domain.model.LetterSource.key] → letters issued for that payment. */
     val letters: Map<String, List<co.zw.nissangtr.pos.domain.model.PaymentLetterSummary>> = emptyMap(),

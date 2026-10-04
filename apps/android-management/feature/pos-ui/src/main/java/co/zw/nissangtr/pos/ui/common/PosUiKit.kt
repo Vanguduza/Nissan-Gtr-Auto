@@ -131,6 +131,7 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.TransferReceived -> stringResource(R.string.pos_notice_transfer_received)
         PosNotice.HandedOver -> stringResource(R.string.pos_notice_handed_over)
         PosNotice.FulfillmentReleased -> stringResource(R.string.pos_notice_fulfillment_released)
+        PosNotice.BackorderOnSale -> stringResource(R.string.pos_notice_backorder_on_sale)
         PosNotice.LetterIssued -> stringResource(R.string.pos_notice_letter_issued)
         PosNotice.SignatureSaved -> stringResource(R.string.pos_notice_signature_saved)
         PosNotice.ProfileSaved -> stringResource(R.string.pos_notice_profile_saved)

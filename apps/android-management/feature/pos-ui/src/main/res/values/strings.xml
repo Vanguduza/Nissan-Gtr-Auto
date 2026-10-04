@@ -746,7 +746,9 @@
     <string name="pos_ff_st_cancelled">Released</string>
     <string name="pos_ff_st_rejected">Rejected by the warehouse</string>
     <string name="pos_ff_not_paid">not paid yet</string>
-    <string name="pos_ff_arrived_hint">Arrived: sell it on a sale, then release this request.</string>
+    <string name="pos_ff_add_to_sale">Add to sale</string>
+    <string name="pos_ff_on_this_sale">On this sale: take payment, then hand it over</string>
+    <string name="pos_notice_backorder_on_sale">The back-order is on this sale. Take payment, then hand it over from Collections.</string>
     <string name="pos_ff_send">Send transfer</string>
     <string name="pos_ff_mark_ready">Mark ready</string>
     <string name="pos_ff_handed_over">Handed over</string>

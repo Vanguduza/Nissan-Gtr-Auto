@@ -206,6 +206,11 @@ export function createPreviewPosGateway(): PosGateway {
     for (const f of fulfillment)
       if (f.cartId === cartId && f.status === "reserved" && (f.kind === "customer_collection" || f.kind === "alternate_pickup"))
         Object.assign(f, { status: "ready", invoiceId, readyAt: new Date().toISOString(), expiresAt: null });
+    // A back-order sold on this sale gets the invoice when the part is on it.
+    const sold = new Set(get(cartId).lines.map((l) => l.stockItemId));
+    for (const f of fulfillment)
+      if (f.cartId === cartId && f.kind === "backorder" && !f.invoiceId && (f.status === "requested" || f.status === "ready") && sold.has(f.stockItemId))
+        Object.assign(f, { status: "ready", invoiceId, readyAt: f.readyAt ?? new Date().toISOString() });
   };
   // Payment letters: the preview manager signs; the signature lives only in this page as a data URL.
   let profile: BusinessProfile = {
@@ -1043,6 +1048,12 @@ export function createPreviewPosGateway(): PosGateway {
           Object.assign(f, { status: "cancelled" });
           return ok(true as const);
       }
+    },
+    attachFulfillmentToSale: (requestId, cartId) => {
+      const f = fulfillment.find((x) => x.id === requestId);
+      if (!f || f.kind !== "backorder" || !["requested", "ready"].includes(f.status) || f.invoiceId) return no("an open back-order without a sale is required");
+      f.cartId = cartId;
+      return ok(true as const);
     },
     listStockAvailability: (stockItemId) => {
       const seed = [...stockItemId].reduce((a, ch) => a + ch.charCodeAt(0), 0);

@@ -108,8 +108,12 @@ so returns were exercised on preview data (web) and the fake client (tablet) onl
 Phase 7 notes: holds become ready through `sync_pos_fulfillment_invoice` when their cart's sale posts,
 transfers through `sync_pos_fulfillment_transfer` when the warehouse posts the stock transfer, so the
 counter never marks a hold ready by hand (that would skip the invoice link and block collection).
-Known backend gap: a back-order never gets an invoice linked, so `collect_pos_fulfillment_request`
-refuses it; the counter sells the arrived part on a normal sale and releases the request. Checked in a
+Back-orders (fixed 2026-10-04, migration 20261004144350): an arrived back-order has "Add to sale"
+(`attach_pos_fulfillment_to_cart`), which puts the part on the current sale and ties the request to it.
+When that sale's invoice posts with the part on it, the trigger links the invoice (a back-order for a
+part not on the invoice is left alone), and the request is handed over like a hold. Checked in a
+rolled-back run (refused before the sale, linked after posting, refused until paid, collected once
+paid), in the web preview end to end, and in tablet reducer tests and a screenshot. Checked in a
 rolled-back run (back-order created → ready → released; a hold refused for lack of stock, as the hosted
 project has no stock levels). Sending a transfer is warehouse staff only (`_require_warehouse_staff`).
 
