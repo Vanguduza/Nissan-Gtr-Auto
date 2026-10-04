@@ -45,6 +45,7 @@ import co.zw.nissangtr.pos.design.icons.Smartphone
 import co.zw.nissangtr.pos.design.icons.Trash2
 import co.zw.nissangtr.pos.design.theme.PosTheme
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
+import co.zw.nissangtr.pos.domain.model.returnsFlow
 import co.zw.nissangtr.pos.domain.model.GarageVehicle
 import co.zw.nissangtr.pos.domain.model.ManagerCredentials
 import co.zw.nissangtr.pos.domain.model.Money
@@ -392,6 +393,11 @@ private val ApprovalRequest.titleRes: Int
             is co.zw.nissangtr.pos.domain.model.SplitRefundStep.Complete -> R.string.pos_approve_split_refund_paid
             is co.zw.nissangtr.pos.domain.model.SplitRefundStep.Fail -> R.string.pos_approve_split_refund_failed
         }
+        is ApprovalRequest.ReturnPost -> R.string.pos_approve_return
+        is ApprovalRequest.CoreReturn -> R.string.pos_approve_core
+        is ApprovalRequest.WarrantyDecide -> R.string.pos_approve_warranty
+        is ApprovalRequest.CardRefund -> R.string.pos_approve_card_refund
+        is ApprovalRequest.CardRefundFinish -> R.string.pos_approve_card_refund_finish
     }
 
 /**
@@ -407,7 +413,7 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
     var notes by rememberSaveable { mutableStateOf("") }
     var reasonCode by rememberSaveable(request) { mutableStateOf<String?>(null) }
     val palette = PosTheme.palette
-    val governed = request !is ApprovalRequest.TillAction
+    val governed = request !is ApprovalRequest.TillAction && !request.returnsFlow
     val reasons = state.approvalReasons
     val reason = reasons?.firstOrNull { it.code == reasonCode }
     val needsManager = state.approvalNeedsManager
@@ -445,6 +451,26 @@ fun ApprovalDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                 is ApprovalRequest.Handover -> stringResource(R.string.pos_approve_handover_detail, request.to.fullName)
                 is ApprovalRequest.RepairPaidOrder -> stringResource(R.string.pos_approve_repair_detail, request.orderId.take(8))
                 is ApprovalRequest.SplitRefund -> stringResource(R.string.pos_approve_split_refund_detail, formatMoney(request.amount))
+                is ApprovalRequest.ReturnPost -> stringResource(
+                    R.string.pos_approve_return_detail,
+                    request.documentNumber.orEmpty(),
+                    formatMoney(request.amount),
+                    stringResource(returnResolutionLabel(request.resolution)),
+                )
+                is ApprovalRequest.CoreReturn -> stringResource(R.string.pos_approve_core_detail, request.documentNumber.orEmpty(), formatMoney(request.amount))
+                is ApprovalRequest.WarrantyDecide -> stringResource(
+                    R.string.pos_approve_warranty_detail,
+                    request.claim.documentNumber.orEmpty(),
+                    request.claim.oemPartNumber.orEmpty(),
+                    when (val d = request.decision) {
+                        is co.zw.nissangtr.pos.domain.model.WarrantyDecision.Reject -> stringResource(R.string.pos_wc_rejected_because, d.reason)
+                        is co.zw.nissangtr.pos.domain.model.WarrantyDecision.Replace -> stringResource(R.string.pos_wc_replace)
+                        is co.zw.nissangtr.pos.domain.model.WarrantyDecision.Credit -> stringResource(R.string.pos_wc_credit)
+                        co.zw.nissangtr.pos.domain.model.WarrantyDecision.TakeBack -> stringResource(R.string.pos_wc_takeback)
+                    },
+                )
+                is ApprovalRequest.CardRefund -> stringResource(R.string.pos_approve_card_refund_detail, formatMoney(request.amount), request.documentNumber.orEmpty())
+                is ApprovalRequest.CardRefundFinish -> stringResource(R.string.pos_approve_card_refund_finish_detail, formatMoney(request.amount))
             },
             PosTheme.type.bodyPrimary,
             palette.textSecondary,

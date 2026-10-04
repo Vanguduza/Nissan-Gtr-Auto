@@ -213,6 +213,7 @@ fun PosHomeScreen(
                         onUnpin = { dispatch(PosIntent.Unpin(it)) },
                         onHide = { dispatch(PosIntent.HideBestSeller(it)) },
                         onActivate = { dispatch(PosIntent.ActivatePin(it)) },
+                        onStock = { dispatch(co.zw.nissangtr.pos.domain.state.ReturnsIntent.ShowStock(it)) },
                     )
                     PosRecentSearches(
                         recent = state.recentSearches,
@@ -249,6 +250,7 @@ fun PosHomeScreen(
     }
     if (state.paymentOpen || state.receipt != null) PaymentDialog(state, dispatch, host.onPrint)
     ApprovalDialog(state, dispatch)
+    co.zw.nissangtr.pos.ui.sale.StockByBranchDialog(state, dispatch)
     co.zw.nissangtr.pos.ui.sale.TillDialogs(state, dispatch)
     GarageChooserDialog(state, dispatch)
     if (state.companionOpen) CompanionDialog(state, dispatch, now)
@@ -317,6 +319,8 @@ private fun SearchResults(state: PosState, dispatch: (PosIntent) -> Unit) {
                                     if (pinned) PosIcons.PinOff else PosIcons.Pin,
                                     if (pinned) R.string.pos_unpin else R.string.pos_pin,
                                 ) { dispatch(if (pinned) PosIntent.Unpin(pin) else PosIntent.Pin(pin)) },
+                            ) + listOfNotNull(
+                                part.stockItemId?.let { CardAction(PosIcons.Package, R.string.pos_stock_title) { dispatch(co.zw.nissangtr.pos.domain.state.ReturnsIntent.ShowStock(part)) } },
                             ),
                         )
                     }

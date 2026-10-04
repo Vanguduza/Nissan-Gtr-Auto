@@ -116,6 +116,9 @@ class RpcCardTerminalGateway(
                 if (config.statusAction == null) error("This card machine cannot be asked again. Check its last-transaction screen and ask a manager to resolve it.")
                 bridge.run(TerminalRequest(config, TerminalOperation.Status, raw.amountMinor(), raw.currency.rpcValue.uppercase(), raw.externalRef ?: raw.attemptId, raw.transactionId))
             }
+            raw.operation == "refund" -> bridge.run(
+                TerminalRequest(config, TerminalOperation.Refund, raw.amountMinor(), raw.currency.rpcValue.uppercase(), raw.externalRef ?: raw.attemptId),
+            )
             raw.operation == "reversal" -> bridge.run(
                 TerminalRequest(config, TerminalOperation.Reversal, raw.amountMinor(), raw.currency.rpcValue.uppercase(), raw.externalRef ?: raw.attemptId, reversalOf[raw.attemptId]),
             )
@@ -136,6 +139,21 @@ class RpcCardTerminalGateway(
         val reversal = rpc.beginPosCardTerminalReversal(purchaseAttemptId, requestId)
         reversalOf[reversal.attemptId] = purchase.transactionId
         reversal.toDomain()
+    }
+
+    override suspend fun beginRefund(invoiceId: String, terminalId: String, requestId: String, credentials: ManagerCredentials?, badge: String?) = call {
+        val begin: suspend () -> PosTerminalAttempt = { rpc.beginPosCardTerminalRefund(invoiceId, terminalId, requestId) }
+        val live = rpc as? ManagerApproval
+        when {
+            // One server call checks the badge and starts the refund as approved by its holder.
+            !badge.isNullOrBlank() -> {
+                val r = rpc.posBadgeApprove(badge, "card_refund_begin", mapOf("invoice_id" to invoiceId, "terminal_id" to terminalId, "request_id" to requestId), deviceId)
+                if (!r.ok) throw TerminalRefused(r.error ?: "Badge approval refused.")
+                rpc.getPosCardTerminalAttempt(r.attemptId ?: throw TerminalRefused("The card refund did not start.")).toDomain()
+            }
+            credentials != null && live != null -> live.withManagerApproval(credentials.identifier.trim(), credentials.password, begin).toDomain()
+            else -> begin().toDomain()
+        }
     }
 
     override suspend fun attempt(attemptId: String) = call { rpc.getPosCardTerminalAttempt(attemptId).toDomain() }
@@ -173,3 +191,6 @@ class RpcCardTerminalGateway(
         const val KEY_PAIRED_PREFIX = "pos.card_terminal.paired."
     }
 }
+
+/** A refusal with the server's or the badge check's own words. */
+private class TerminalRefused(message: String) : Exception(message)

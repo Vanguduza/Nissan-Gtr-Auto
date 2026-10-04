@@ -903,7 +903,64 @@ interface RpcClient {
     /** Admin: pair this device with a terminal by registering its evidence public key. */
     suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String): String =
         throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Card refund of a whole sale paid in full on a card machine (manager or finance; badge `card_refund_begin`). */
+    suspend fun beginPosCardTerminalRefund(invoiceId: String, terminalId: String, requestId: String): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    /** Approved refund on the machine → posts the finance refund (manager or finance; badge `card_refund_finish`). */
+    suspend fun finalizePosCardTerminalRefund(attemptId: String, notes: String?): PosTerminalAttempt =
+        throw UnsupportedOperationException("card terminals need the live backend")
+
+    // --- POS returns, cores, warranty and stock by branch (Blueprint §10, phase 6). Sales staff prepare;
+    // posting and warranty decisions need an approver (own sign-in, password for one call, or badge).
+
+    suspend fun getPosInvoiceDetail(invoiceId: String): PosInvoiceDetail =
+        throw UnsupportedOperationException("returns need the live backend")
+
+    /** Draft return case; [resolution] credit_note | cash_refund | store_credit | replacement | warranty. */
+    suspend fun createPosReturnCase(
+        invoiceId: String,
+        resolution: String,
+        reasonCode: String,
+        lines: List<PosReturnLineInput>,
+        notes: String?,
+        replacementLines: List<PosReplacementLineInput>?,
+        tillSessionId: String?,
+    ): String = throw UnsupportedOperationException("returns need the live backend")
+
+    suspend fun postPosReturnCase(returnCaseId: String) {
+        throw UnsupportedOperationException("returns need the live backend")
+    }
+
+    /** [resolution] cash_refund | account_credit | store_credit. */
+    suspend fun postPosCoreReturn(invoiceId: String, coreLineId: String, qty: Double, resolution: String, reasonCode: String, tillSessionId: String?, notes: String?) {
+        throw UnsupportedOperationException("returns need the live backend")
+    }
+
+    suspend fun openPosWarrantyClaim(invoiceId: String, invoiceLineId: String, serialId: String?, notes: String?): String =
+        throw UnsupportedOperationException("warranty needs the live backend")
+
+    suspend fun findPosWarrantySerial(serialNumber: String): List<PosWarrantySerialRow> = emptyList()
+
+    suspend fun listPosWarrantyClaims(query: String?, status: String?): List<PosWarrantyClaimRow> = emptyList()
+
+    /** [resolution] replacement | credit_note | return_only; credit lines `{stock_item_id, qty}` are valued at the sold price. */
+    suspend fun approvePosWarrantyClaim(claimId: String, resolution: String, creditLines: List<Pair<String, Double>>?, replacementLines: List<PosReplacementLineInput>?) {
+        throw UnsupportedOperationException("warranty needs the live backend")
+    }
+
+    suspend fun rejectPosWarrantyClaim(claimId: String, reason: String) {
+        throw UnsupportedOperationException("warranty needs the live backend")
+    }
+
+    suspend fun closeWarrantyClaim(claimId: String) {
+        throw UnsupportedOperationException("warranty needs the live backend")
+    }
+
+    suspend fun listPosStockAvailability(stockItemId: String): List<PosStockAvailabilityRow> = emptyList()
 }
 
 /** Outcome of [RpcClient.posBadgeApprove]. */
-data class PosBadgeApproval(val ok: Boolean, val managerName: String?, val error: String?)
+/** [attemptId] is the card-machine attempt a badge started (`card_refund_begin`), when the action returns one. */
+data class PosBadgeApproval(val ok: Boolean, val managerName: String?, val error: String?, val attemptId: String? = null)

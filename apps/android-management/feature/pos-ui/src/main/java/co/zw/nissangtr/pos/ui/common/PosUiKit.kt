@@ -113,6 +113,15 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.TerminalPaired -> stringResource(R.string.pos_notice_ct_paired)
         PosNotice.TerminalReversed -> stringResource(R.string.pos_notice_ct_reversed)
         PosNotice.TerminalFinished -> stringResource(R.string.pos_notice_ct_finished)
+        PosNotice.ReturnPosted -> stringResource(R.string.pos_notice_return_posted)
+        PosNotice.ReturnCashOut -> stringResource(R.string.pos_notice_return_cash_out)
+        PosNotice.ReturnSwap -> stringResource(R.string.pos_notice_return_swap)
+        PosNotice.ReturnWarranty -> stringResource(R.string.pos_notice_return_warranty)
+        PosNotice.CoreReturned -> stringResource(R.string.pos_notice_core_returned)
+        PosNotice.ClaimOpened -> stringResource(R.string.pos_notice_claim_opened)
+        PosNotice.ClaimDecided -> stringResource(R.string.pos_notice_claim_decided)
+        PosNotice.ClaimClosed -> stringResource(R.string.pos_notice_claim_closed)
+        PosNotice.CardRefunded -> stringResource(R.string.pos_notice_card_refunded)
     }
     is PosFeedback.Failure -> errorText(feedback.error)
 }
@@ -144,6 +153,13 @@ fun errorText(error: PosError): String = when (error) {
         "terminal_not_paired" -> stringResource(R.string.pos_ct_not_paired)
         "terminal_loading", "terminal_unavailable" -> stringResource(R.string.pos_ct_none_set_up)
         "terminal_unposted" -> stringResource(R.string.pos_ct_unposted_detail, error.detail)
+        "return_named_customer" -> stringResource(R.string.pos_rt_err_named_customer)
+        "return_till_closed" -> stringResource(R.string.pos_rt_err_till_closed)
+        "return_nothing_paid" -> stringResource(R.string.pos_rt_err_nothing_paid)
+        "return_one_part" -> stringResource(R.string.pos_rt_err_one_part)
+        "return_partly_returned" -> stringResource(R.string.pos_rt_err_partly_returned)
+        "card_refund_declined", "card_refund_cancelled", "card_refund_failed" ->
+            stringResource(R.string.pos_rt_err_card_refund, error.detail.ifBlank { error.rule.removePrefix("card_refund_") })
         else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)
     }
     is PosError.PaymentUnknown -> stringResource(R.string.pos_error_payment_unknown)

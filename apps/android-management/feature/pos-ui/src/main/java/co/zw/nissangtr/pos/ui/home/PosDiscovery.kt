@@ -224,6 +224,8 @@ fun PosPopularRow(
     onHide: (CatalogPart) -> Unit,
     onActivate: (PopularPin) -> Unit,
     modifier: Modifier = Modifier,
+    /** Stock of a part at every branch. */
+    onStock: (CatalogPart) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -261,6 +263,8 @@ fun PosPopularRow(
                                             if (isPinned(pin)) onUnpin(pin) else onPin(pin)
                                         },
                                         CardAction(PosIcons.Trash2, R.string.pos_remove_popular) { onHide(item.part) },
+                                    ) + listOfNotNull(
+                                        item.part.stockItemId?.let { CardAction(PosIcons.Package, R.string.pos_stock_title) { onStock(item.part) } },
                                     ),
                                 )
                             }

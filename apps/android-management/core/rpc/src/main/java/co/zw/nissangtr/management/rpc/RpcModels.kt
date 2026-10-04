@@ -1064,3 +1064,67 @@ data class PosTerminalRecoveryRow(
     val finalizationError: String?,
     val updatedAt: String,
 )
+
+// --- POS returns, cores, warranty and stock by branch (Blueprint §10, phase 6)
+
+/** A posted sale with what can still come back per line (`get_pos_invoice_detail`); core charges flagged. */
+data class PosInvoiceDetail(
+    val id: String,
+    val documentNumber: String?,
+    val customerId: String?,
+    val currency: CurrencyCode,
+    val total: Double,
+    val amountPaid: Double,
+    val postedAt: String?,
+    val tillSessionId: String?,
+    val lines: List<PosInvoiceDetailLine>,
+)
+
+data class PosInvoiceDetailLine(
+    val id: String,
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String?,
+    val uomId: String,
+    val qty: Double,
+    val unitPrice: Double,
+    val lineTotal: Double,
+    val isCoreCharge: Boolean,
+    val returnableQty: Double,
+)
+
+/** `{invoice_line_id, qty, condition}` for `create_pos_return_case`. */
+data class PosReturnLineInput(val invoiceLineId: String, val qty: Double, val condition: String)
+
+/** `{stock_item_id, uom_id, qty, replacement_serial_id?}`: replacement stock handed over. */
+data class PosReplacementLineInput(val stockItemId: String, val uomId: String, val qty: Double, val serialId: String? = null)
+
+data class PosWarrantyClaimRow(
+    val id: String,
+    val documentNumber: String?,
+    val status: String,
+    val resolution: String?,
+    val salesInvoiceId: String?,
+    val invoiceNumber: String?,
+    val stockItemId: String?,
+    val oemPartNumber: String?,
+    val serialNumber: String?,
+    val notes: String?,
+    val rejectReason: String?,
+    val creditNoteId: String?,
+    val createdAt: String,
+    val decidedAt: String?,
+    val closedAt: String?,
+)
+
+data class PosWarrantySerialRow(val id: String, val serialNumber: String, val stockItemId: String, val oemPartNumber: String?, val status: String)
+
+data class PosStockAvailabilityRow(
+    val warehouseId: String,
+    val warehouseCode: String,
+    val warehouseName: String,
+    val onHand: Double,
+    val reserved: Double,
+    val available: Double,
+    val transferIncoming: Double,
+)

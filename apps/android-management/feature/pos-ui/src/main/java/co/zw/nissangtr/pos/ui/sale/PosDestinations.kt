@@ -405,36 +405,6 @@ private fun SendQuoteDialog(quote: Quotation, onDismiss: () -> Unit, onSend: (Qu
     }
 }
 
-// ---------------------------------------------------------------- Returns
-
-@Composable
-fun ReturnsScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
-    var query by rememberSaveable { mutableStateOf(state.invoiceQuery) }
-    LaunchedEffect(query) {
-        kotlinx.coroutines.delay(300)
-        if (query != state.invoiceQuery) dispatch(PosSaleIntent.LoadInvoices(query))
-    }
-    PosPanel(stringResource(R.string.pos_returns_title)) {
-        PosField(stringResource(R.string.pos_invoice_search), query, { query = it }, placeholder = stringResource(R.string.pos_invoice_search_hint))
-        Spacer(Modifier.height(8.dp))
-        val invoices = state.invoices
-        when {
-            invoices == null -> EmptyCard(stringResource(R.string.pos_loading))
-            invoices.isEmpty() -> EmptyCard(stringResource(R.string.pos_no_invoices))
-            else -> invoices.forEach { inv ->
-                ListRow(
-                    title = inv.documentNumber ?: inv.id.take(8),
-                    subtitle = listOfNotNull(inv.customerName, inv.vehicleLabel, inv.postedAt?.take(16)?.replace('T', ' ')).joinToString(" · ").ifBlank { null },
-                    trailing = formatMoney(inv.total),
-                ) {
-                    SoftButton(stringResource(R.string.pos_refund), null, enabled = true, onClick = { dispatch(PosSaleIntent.RequestApproval(ApprovalRequest.Refund(inv))) }, modifier = Modifier.width(120.dp))
-                }
-            }
-        }
-        PosText(stringResource(R.string.pos_refund_hint), PosTheme.type.bodySecondary, PosTheme.palette.textMuted, modifier = Modifier.padding(top = 8.dp))
-    }
-}
-
 // ---------------------------------------------------------------- EPC Browse
 
 @OptIn(ExperimentalLayoutApi::class)

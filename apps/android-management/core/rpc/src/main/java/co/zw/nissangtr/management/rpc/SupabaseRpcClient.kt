@@ -3020,6 +3020,188 @@ class SupabaseRpcClient(
             },
         ).decodeAs<String>()
 
+    override suspend fun beginPosCardTerminalRefund(invoiceId: String, terminalId: String, requestId: String) = attemptRpc(
+        "begin_pos_card_terminal_refund",
+        buildJsonObject { put("p_invoice_id", invoiceId); put("p_terminal_id", terminalId); put("p_request_id", requestId) },
+    )
+
+    override suspend fun finalizePosCardTerminalRefund(attemptId: String, notes: String?) = attemptRpc(
+        "finalize_pos_card_terminal_refund",
+        buildJsonObject { put("p_attempt_id", attemptId); if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes) },
+    )
+
+    // --- POS returns, cores, warranty and stock by branch
+
+    override suspend fun getPosInvoiceDetail(invoiceId: String): PosInvoiceDetail {
+        val o = client.postgrest.rpc("get_pos_invoice_detail", buildJsonObject { put("p_invoice_id", invoiceId) }).decodeAs<JsonObject>()
+        return PosInvoiceDetail(
+            id = o.stringOrNull("id") ?: invoiceId,
+            documentNumber = o.stringOrNull("document_number"),
+            customerId = o.stringOrNull("customer_id"),
+            currency = CurrencyCode.entries.find { it.rpcValue == o.stringOrNull("currency") } ?: CurrencyCode.USD,
+            total = o.number("total") ?: 0.0,
+            amountPaid = o.number("amount_paid") ?: 0.0,
+            postedAt = o.stringOrNull("posted_at"),
+            tillSessionId = o.stringOrNull("till_session_id"),
+            lines = (o["lines"] as? JsonArray).orEmpty().mapNotNull { e ->
+                val l = e as? JsonObject ?: return@mapNotNull null
+                PosInvoiceDetailLine(
+                    id = l.stringOrNull("id") ?: return@mapNotNull null,
+                    stockItemId = l.stringOrNull("stock_item_id") ?: return@mapNotNull null,
+                    oemPartNumber = l.stringOrNull("oem_part_number").orEmpty(),
+                    description = l.stringOrNull("description"),
+                    uomId = l.stringOrNull("uom_id").orEmpty(),
+                    qty = l.number("qty") ?: 0.0,
+                    unitPrice = l.number("unit_price") ?: 0.0,
+                    lineTotal = l.number("line_total") ?: 0.0,
+                    isCoreCharge = l["is_core_charge"]?.jsonPrimitive?.booleanOrNull == true,
+                    returnableQty = l.number("returnable_qty") ?: 0.0,
+                )
+            },
+        )
+    }
+
+    private fun List<PosReplacementLineInput>.toReplacementJson(): JsonArray = buildJsonArray {
+        forEach { r ->
+            add(
+                buildJsonObject {
+                    put("stock_item_id", r.stockItemId)
+                    put("uom_id", r.uomId)
+                    put("qty", r.qty)
+                    // A missing serial is left out, never sent as null.
+                    r.serialId?.let { put("replacement_serial_id", it) }
+                },
+            )
+        }
+    }
+
+    override suspend fun createPosReturnCase(
+        invoiceId: String,
+        resolution: String,
+        reasonCode: String,
+        lines: List<PosReturnLineInput>,
+        notes: String?,
+        replacementLines: List<PosReplacementLineInput>?,
+        tillSessionId: String?,
+    ): String = client.postgrest.rpc(
+        "create_pos_return_case",
+        buildJsonObject {
+            put("p_invoice_id", invoiceId)
+            put("p_resolution", resolution)
+            put("p_reason_code", reasonCode)
+            put("p_lines", buildJsonArray { lines.forEach { l -> add(buildJsonObject { put("invoice_line_id", l.invoiceLineId); put("qty", l.qty); put("condition", l.condition) }) } })
+            if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+            if (replacementLines == null) put("p_replacement_lines", JsonNull) else put("p_replacement_lines", replacementLines.toReplacementJson())
+            if (tillSessionId == null) put("p_till_session_id", JsonNull) else put("p_till_session_id", tillSessionId)
+        },
+    ).decodeAs<String>()
+
+    override suspend fun postPosReturnCase(returnCaseId: String) {
+        client.postgrest.rpc("post_pos_return_case", buildJsonObject { put("p_return_case_id", returnCaseId) })
+    }
+
+    override suspend fun postPosCoreReturn(invoiceId: String, coreLineId: String, qty: Double, resolution: String, reasonCode: String, tillSessionId: String?, notes: String?) {
+        client.postgrest.rpc(
+            "post_pos_core_return",
+            buildJsonObject {
+                put("p_invoice_id", invoiceId)
+                put("p_source_core_line_id", coreLineId)
+                put("p_qty", qty)
+                put("p_resolution", resolution)
+                put("p_reason_code", reasonCode)
+                if (tillSessionId == null) put("p_till_session_id", JsonNull) else put("p_till_session_id", tillSessionId)
+                if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        )
+    }
+
+    override suspend fun openPosWarrantyClaim(invoiceId: String, invoiceLineId: String, serialId: String?, notes: String?): String =
+        client.postgrest.rpc(
+            "open_pos_warranty_claim",
+            buildJsonObject {
+                put("p_sales_invoice_id", invoiceId)
+                put("p_invoice_line_id", invoiceLineId)
+                if (serialId == null) put("p_stock_serial_id", JsonNull) else put("p_stock_serial_id", serialId)
+                if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun findPosWarrantySerial(serialNumber: String): List<PosWarrantySerialRow> =
+        client.postgrest.rpc("find_pos_warranty_serial", buildJsonObject { put("p_serial_number", serialNumber.trim()) }).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosWarrantySerialRow(
+                id = o.stringOrNull("id") ?: return@mapNotNull null,
+                serialNumber = o.stringOrNull("serial_number").orEmpty(),
+                stockItemId = o.stringOrNull("stock_item_id").orEmpty(),
+                oemPartNumber = o.stringOrNull("oem_part_number"),
+                status = o.stringOrNull("status").orEmpty(),
+            )
+        }
+
+    override suspend fun listPosWarrantyClaims(query: String?, status: String?): List<PosWarrantyClaimRow> =
+        client.postgrest.rpc(
+            "list_pos_warranty_claims",
+            buildJsonObject {
+                if (query.isNullOrBlank()) put("p_query", JsonNull) else put("p_query", query.trim())
+                if (status == null) put("p_status", JsonNull) else put("p_status", status)
+                put("p_limit", 100)
+            },
+        ).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosWarrantyClaimRow(
+                id = o.stringOrNull("id") ?: return@mapNotNull null,
+                documentNumber = o.stringOrNull("document_number"),
+                status = o.stringOrNull("status").orEmpty(),
+                resolution = o.stringOrNull("resolution"),
+                salesInvoiceId = o.stringOrNull("sales_invoice_id"),
+                invoiceNumber = o.stringOrNull("invoice_number"),
+                stockItemId = o.stringOrNull("stock_item_id"),
+                oemPartNumber = o.stringOrNull("oem_part_number"),
+                serialNumber = o.stringOrNull("serial_number"),
+                notes = o.stringOrNull("notes"),
+                rejectReason = o.stringOrNull("reject_reason"),
+                creditNoteId = o.stringOrNull("credit_note_id"),
+                createdAt = o.stringOrNull("created_at").orEmpty(),
+                decidedAt = o.stringOrNull("decided_at"),
+                closedAt = o.stringOrNull("closed_at"),
+            )
+        }
+
+    override suspend fun approvePosWarrantyClaim(claimId: String, resolution: String, creditLines: List<Pair<String, Double>>?, replacementLines: List<PosReplacementLineInput>?) {
+        client.postgrest.rpc(
+            "approve_pos_warranty_claim",
+            buildJsonObject {
+                put("p_claim_id", claimId)
+                put("p_resolution", resolution)
+                if (creditLines == null) put("p_lines", JsonNull)
+                else put("p_lines", buildJsonArray { creditLines.forEach { (item, qty) -> add(buildJsonObject { put("stock_item_id", item); put("qty", qty) }) } })
+                if (replacementLines == null) put("p_replacement_lines", JsonNull) else put("p_replacement_lines", replacementLines.toReplacementJson())
+            },
+        )
+    }
+
+    override suspend fun rejectPosWarrantyClaim(claimId: String, reason: String) {
+        client.postgrest.rpc("reject_pos_warranty_claim", buildJsonObject { put("p_claim_id", claimId); put("p_reason", reason) })
+    }
+
+    override suspend fun closeWarrantyClaim(claimId: String) {
+        client.postgrest.rpc("close_warranty_claim", buildJsonObject { put("p_claim_id", claimId) })
+    }
+
+    override suspend fun listPosStockAvailability(stockItemId: String): List<PosStockAvailabilityRow> =
+        client.postgrest.rpc("list_pos_stock_availability", buildJsonObject { put("p_stock_item_id", stockItemId) }).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosStockAvailabilityRow(
+                warehouseId = o.stringOrNull("warehouse_id") ?: return@mapNotNull null,
+                warehouseCode = o.stringOrNull("warehouse_code").orEmpty(),
+                warehouseName = o.stringOrNull("warehouse_name").orEmpty(),
+                onHand = o.number("on_hand") ?: 0.0,
+                reserved = o.number("reserved") ?: 0.0,
+                available = o.number("available") ?: 0.0,
+                transferIncoming = o.number("transfer_incoming") ?: 0.0,
+            )
+        }
+
     // --- POS part payments (staged split)
 
     private fun splitFrom(o: JsonObject): PosSplitSession = PosSplitSession(
@@ -3208,14 +3390,7 @@ class SupabaseRpcClient(
                 put(
                     "p_args",
                     buildJsonObject {
-                        args.forEach { (k, v) ->
-                            when (v) {
-                                null -> put(k, JsonNull)
-                                is Number -> put(k, v)
-                                is Boolean -> put(k, v)
-                                else -> put(k, v.toString())
-                            }
-                        }
+                        args.forEach { (k, v) -> put(k, badgeArg(v)) }
                     },
                 )
                 if (deviceId.isNullOrBlank()) put("p_device_id", JsonNull) else put("p_device_id", deviceId)
@@ -3225,6 +3400,7 @@ class SupabaseRpcClient(
             ok = o["ok"]?.jsonPrimitive?.booleanOrNull == true,
             managerName = o.stringOrNull("manager_name"),
             error = o.stringOrNull("error"),
+            attemptId = (o["result"] as? JsonObject)?.stringOrNull("attempt_id"),
         )
     }
 
@@ -3985,6 +4161,17 @@ private data class HrRoleRow(
     @SerialName("grade_id") val gradeId: String? = null,
 ) {
     fun toOption() = HrRoleOption(id = id, title = title, department = department, gradeId = gradeId)
+}
+
+/** Badge arguments may nest (warranty lines, replacement lines): lists and maps become JSON arrays and objects. */
+private fun badgeArg(v: Any?): JsonElement = when (v) {
+    null -> JsonNull
+    is JsonElement -> v
+    is Number -> JsonPrimitive(v)
+    is Boolean -> JsonPrimitive(v)
+    is List<*> -> JsonArray(v.map(::badgeArg))
+    is Map<*, *> -> JsonObject(v.entries.associate { (k, x) -> k.toString() to badgeArg(x) })
+    else -> JsonPrimitive(v.toString())
 }
 
 private fun JsonObject.stringOrNull(key: String): String? =

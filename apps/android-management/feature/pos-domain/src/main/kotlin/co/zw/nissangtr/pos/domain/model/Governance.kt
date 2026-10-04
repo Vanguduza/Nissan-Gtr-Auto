@@ -23,11 +23,20 @@ val ApprovalRequest.policyAction: String
         is ApprovalRequest.Handover -> "till_handover"
         is ApprovalRequest.RepairPaidOrder -> "repair_paid_order"
         is ApprovalRequest.SplitRefund -> "split_refund"
+        is ApprovalRequest.ReturnPost -> "return_post"
+        is ApprovalRequest.CoreReturn -> "core_return"
+        is ApprovalRequest.WarrantyDecide -> "warranty_decision"
+        is ApprovalRequest.CardRefund, is ApprovalRequest.CardRefundFinish -> "refund_full_invoice"
     }
 
 /** Governed sale actions pick a configured reason; drawer and recovery approvals do not. */
 val ApprovalRequest.choosesReason: Boolean
-    get() = this !is ApprovalRequest.TillAction && this !is ApprovalRequest.RepairPaidOrder && this !is ApprovalRequest.SplitRefund
+    get() = this !is ApprovalRequest.TillAction && this !is ApprovalRequest.RepairPaidOrder && this !is ApprovalRequest.SplitRefund && !returnsFlow
+
+/** Returns, cores, warranty and card refunds chose their reason (if any) before asking an approver. */
+val ApprovalRequest.returnsFlow: Boolean
+    get() = this is ApprovalRequest.ReturnPost || this is ApprovalRequest.CoreReturn || this is ApprovalRequest.WarrantyDecide ||
+        this is ApprovalRequest.CardRefund || this is ApprovalRequest.CardRefundFinish
 
 /** Drawer actions always need a manager on the server, whatever the policy table says. */
 val ApprovalPolicy.managerFixed: Boolean

@@ -96,6 +96,7 @@ fun PosTabletEntry(
                 reserve = co.zw.nissangtr.pos.data.RpcReserveCheckoutGateway(rpc),
                 // Part payments (staged split) on the reserved order.
                 split = co.zw.nissangtr.pos.data.RpcSplitPaymentGateway(rpc),
+                returns = co.zw.nissangtr.pos.data.RpcReturnsGateway(rpc),
                 // Card machine (ECR): the acquirer's app via the card-terminal bridge; a simulated machine
                 // only when this build runs on the in-memory demo backend.
                 terminal = RpcCardTerminalGateway(

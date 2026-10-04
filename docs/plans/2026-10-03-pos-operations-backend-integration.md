@@ -60,6 +60,7 @@ petty cash requests, kits creation, product pages, payroll funding.
 | 3 Reserve-first checkout | done | done: reserve on Pay, sale locked, cash/card/store-credit settlement with a kept key, EcoCash/Paynow/ContiPay with a QR for hosted pages and a 3-minute Unknown cut-off, on account, recovery screen with approver repair and release, pickup list and receipt hand-over |
 | 4 Split payments | done: Pay in parts (cash, card/bank, store credit), reduced basket, cancel with refunds, recovery with manager refund steps and retry posting | done (same, plus front-camera badge for refund steps) |
 | 5 Card terminals | card-machine option shown disabled with the reason (a browser cannot sign terminal results), recovery "Finish the sale" for approved charges, admin Card machines editor | done: card machine as a tender and as a split part through the new `bridges/android/card-terminal` bridge (Android intent to the acquirer app, Keystore-signed evidence), lost answer → Unknown → ask the machine again, charged-not-posted → finish or reverse, Settings → choose and pair (admin) |
+| 6 Returns & warranty | done: Returns opens the posted sale (lines, what can still come back, core charges); return by line with condition → cash refund, credit to account, store credit, swap for the same part or send for warranty; staff draft, approver posts (badge, password or own sign-in) and a failed post reuses the draft; old cores; warranty claims (serial check, decide replace / credit / take back / reject, close); refund whole sale only while nothing came back; stock by branch from part cards | done (same, plus card-machine refund of a whole card sale: approver starts it, the machine pays back, approver posts it) |
 | 6–8 | todo | todo |
 
 Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
@@ -77,3 +78,13 @@ Phase 5 notes: no card machine is set up on the hosted project yet (`pos_card_te
 and no acquirer app has been tested; the adapter follows `upsert_pos_card_terminal`'s allowed keys
 and the deployed `card-terminal-result` evidence format (canonical JSON checked byte-for-byte in a
 unit test). Card-machine refunds of posted sales belong to returns (phase 6).
+
+Phase 6 notes: the live `post_return_credit_note` had been replaced by a stub that always raises
+(20260905131924), so `post_pos_return_case` (credit note, cash refund, store credit) and the warranty
+credit note always failed. Migration 20261004003342 adds `private._post_pos_credit_note`: a credit
+note tied to source invoice lines (source price pro rata of the line total, stock to quarantine at the
+line's cost basis, COGS reversed at that basis, remaining quantity checked against every posted credit
+note) and caps cash / store-credit refunds at what was paid on the sale. Checked in a rolled-back run
+(1 of 2 lines at 90 → credit 45, customer balance −45, over-return refused). Badge actions for
+returns, cores, warranty and card refunds: 20261004002855. The hosted project has no posted invoices,
+so returns were exercised on preview data (web) and the fake client (tablet) only.

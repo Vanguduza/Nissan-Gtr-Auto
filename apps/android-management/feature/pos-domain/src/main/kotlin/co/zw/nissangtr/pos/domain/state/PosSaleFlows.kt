@@ -181,6 +181,8 @@ internal fun reduceSaleIntent(state: PosState, intent: PosSaleIntent): Reduction
 /** Offline restricted mode (§10.12): what needs a live connection is refused with its reason up front. */
 private fun offlineGuard(state: PosState, intent: PosSaleIntent): Reduction? = when (intent) {
     is PosSaleIntent.RequestApproval, is PosSaleIntent.SubmitApproval -> offlineRefusal(state, "manager_approval")
+    ReturnsIntent.Close, ReturnsIntent.HideStock -> null
+    is ReturnsIntent -> offlineRefusal(state, "online_only")
     is PosSaleIntent.SelectCustomer, is PosSaleIntent.CreateCustomer -> offlineRefusal(state, "walk_in_only")
     PosSaleIntent.Park, is PosSaleIntent.Resume, is PosSaleIntent.CreateQuotation,
     is PosSaleIntent.SendQuotation, is PosSaleIntent.ConvertQuotation, PosSaleIntent.LoadOrders,
@@ -195,6 +197,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     is CheckoutIntent -> reduceCheckoutIntent(state, intent)
     is SplitIntent -> reduceSplitIntent(state, intent)
     is TerminalIntent -> reduceTerminalIntent(state, intent)
+    is ReturnsIntent -> reduceReturnsIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
@@ -473,6 +476,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     is CheckoutEvent -> reduceCheckoutEvent(state, event)
     is SplitEvent -> reduceSplitEvent(state, event)
     is TerminalEvent -> reduceTerminalEvent(state, event)
+    is ReturnsEvent -> reduceReturnsEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 
@@ -550,6 +554,21 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
             is ApprovalRequest.SplitRefund -> Reduction(
                 next.copy(feedback = notice(PosNotice.SplitRefundRecorded)),
                 listOf(SplitEffect.LoadRecoverySession(event.request.orderId), SplitEffect.LoadRecovery),
+            )
+            is ApprovalRequest.ReturnPost -> Reduction(
+                next.copy(returnDraft = null, feedback = notice(returnPostedNotice(event.request.resolution))),
+                returnsReload(next),
+            )
+            is ApprovalRequest.CoreReturn -> Reduction(next.copy(feedback = notice(PosNotice.CoreReturned)), returnsReload(next))
+            is ApprovalRequest.WarrantyDecide -> Reduction(
+                next.copy(feedback = notice(PosNotice.ClaimDecided)),
+                listOf(ReturnsEffect.LoadClaims(next.warrantyStatus, next.warrantyQuery.ifBlank { null })),
+            )
+            // Started: the machine runs next (the store reports CardRefundRan); nothing to announce yet.
+            is ApprovalRequest.CardRefund -> Reduction(next.copy(feedback = null))
+            is ApprovalRequest.CardRefundFinish -> Reduction(
+                next.copy(feedback = notice(PosNotice.CardRefunded)),
+                returnsReload(next) + TerminalEffect.LoadRecovery,
             )
             else -> Reduction(next)
         }

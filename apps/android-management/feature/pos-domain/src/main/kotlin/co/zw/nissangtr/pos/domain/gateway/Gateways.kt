@@ -39,6 +39,11 @@ import co.zw.nissangtr.pos.domain.model.PaymentStatus
 import co.zw.nissangtr.pos.domain.model.PickupOrder
 import co.zw.nissangtr.pos.domain.model.ProviderMethod
 import co.zw.nissangtr.pos.domain.model.RefundFeePolicy
+import co.zw.nissangtr.pos.domain.model.BranchStock
+import co.zw.nissangtr.pos.domain.model.WarrantyClaim
+import co.zw.nissangtr.pos.domain.model.WarrantySerial
+import co.zw.nissangtr.pos.domain.model.ReturnDraft
+import co.zw.nissangtr.pos.domain.model.InvoiceDetail
 import co.zw.nissangtr.pos.domain.model.SplitRecoveryItem
 import co.zw.nissangtr.pos.domain.model.SplitSession
 import co.zw.nissangtr.pos.domain.model.SplitTender
@@ -354,6 +359,12 @@ interface CardTerminalGateway {
     suspend fun run(attempt: TerminalAttempt, statusOnly: Boolean = false): PosResult<TerminalAttempt>
     suspend fun finalize(attemptId: String): PosResult<TerminalAttempt>
     suspend fun beginReversal(purchaseAttemptId: String, requestId: String): PosResult<TerminalAttempt>
+    /**
+     * Card refund of a whole sale paid in full on a card machine: an approver starts it (own sign-in,
+     * [credentials] for this one call, or a scanned [badge]); the machine then gives the money back.
+     */
+    suspend fun beginRefund(invoiceId: String, terminalId: String, requestId: String, credentials: ManagerCredentials?, badge: String?): PosResult<TerminalAttempt> =
+        PosResult.Err(PosError.BusinessRule("terminal_unavailable", ""))
     suspend fun attempt(attemptId: String): PosResult<TerminalAttempt>
     suspend fun recovery(): PosResult<List<TerminalRecoveryItem>>
 
@@ -370,5 +381,31 @@ interface CardTerminalGateway {
         override suspend fun beginReversal(purchaseAttemptId: String, requestId: String) = refused
         override suspend fun attempt(attemptId: String) = refused
         override suspend fun recovery(): PosResult<List<TerminalRecoveryItem>> = PosResult.Ok(emptyList())
+    }
+}
+
+/**
+ * Returns, old cores, warranty claims and stock by branch (phase 6). Posting a return or core and
+ * deciding a claim go through `SalesGateway.approve`; everything here runs as the signed-in user.
+ */
+interface ReturnsGateway {
+    suspend fun invoice(invoiceId: String): PosResult<InvoiceDetail>
+    /** Drafts the case (sales staff); returns its id for the approver to post. */
+    suspend fun draft(draft: ReturnDraft, replacement: Boolean): PosResult<String>
+    suspend fun openClaim(invoiceId: String, invoiceLineId: String, serialId: String?, notes: String?): PosResult<String>
+    suspend fun findSerial(serial: String): PosResult<List<WarrantySerial>>
+    suspend fun claims(query: String?, status: String?): PosResult<List<WarrantyClaim>>
+    suspend fun closeClaim(claimId: String): PosResult<Unit>
+    suspend fun stock(stockItemId: String): PosResult<List<BranchStock>>
+
+    object None : ReturnsGateway {
+        private val refused = PosResult.Err(PosError.BusinessRule("returns_unavailable", ""))
+        override suspend fun invoice(invoiceId: String): PosResult<InvoiceDetail> = refused
+        override suspend fun draft(draft: ReturnDraft, replacement: Boolean): PosResult<String> = refused
+        override suspend fun openClaim(invoiceId: String, invoiceLineId: String, serialId: String?, notes: String?): PosResult<String> = refused
+        override suspend fun findSerial(serial: String): PosResult<List<WarrantySerial>> = PosResult.Ok(emptyList())
+        override suspend fun claims(query: String?, status: String?): PosResult<List<WarrantyClaim>> = PosResult.Ok(emptyList())
+        override suspend fun closeClaim(claimId: String): PosResult<Unit> = refused
+        override suspend fun stock(stockItemId: String): PosResult<List<BranchStock>> = PosResult.Ok(emptyList())
     }
 }

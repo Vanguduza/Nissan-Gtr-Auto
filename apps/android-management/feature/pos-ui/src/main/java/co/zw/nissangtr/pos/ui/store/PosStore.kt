@@ -1,5 +1,9 @@
 package co.zw.nissangtr.pos.ui.store
 
+import co.zw.nissangtr.pos.domain.model.ApprovalRequest
+import co.zw.nissangtr.pos.domain.model.ReturnResolution
+import co.zw.nissangtr.pos.domain.state.ReturnsEvent
+import co.zw.nissangtr.pos.domain.state.ReturnsEffect
 import co.zw.nissangtr.pos.domain.gateway.CartGateway
 import co.zw.nissangtr.pos.domain.gateway.CheckoutGateway
 import co.zw.nissangtr.pos.domain.gateway.CustomerGateway
@@ -81,6 +85,8 @@ data class PosGateways(
     val split: SplitPaymentGateway = SplitPaymentGateway.None,
     /** Card machine (ECR) through the card-terminal bridge. */
     val terminal: co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway = co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway.None,
+    /** Returns, old cores, warranty claims and stock by branch. */
+    val returns: co.zw.nissangtr.pos.domain.gateway.ReturnsGateway = co.zw.nissangtr.pos.domain.gateway.ReturnsGateway.None,
 )
 
 /**
@@ -251,7 +257,7 @@ class PosStore(
             is PosSaleEffect.SaveToGarage -> launch {
                 gateways.customers.saveToGarage(effect.customerId, effect.vehicle, effect.primary).onOk { apply(PosSaleEvent.VehicleSaved) }
             }
-            is PosSaleEffect.Approve -> launch {
+            is PosSaleEffect.Approve -> if (effect.request is ApprovalRequest.CardRefund) runCardRefund(effect) else launch {
                 when (val r = gateways.sales.approve(effect.credentials, effect.request, effect.cartId, effect.reason, effect.notes, effect.badge)) {
                     is PosResult.Ok -> apply(PosSaleEvent.Approved(effect.request, r.value))
                     is PosResult.Err -> apply(PosSaleEvent.ApprovalFailed(r.error))
@@ -303,6 +309,7 @@ class PosStore(
             is CheckoutEffect -> runCheckout(effect)
             is SplitEffect -> runSplit(effect)
             is TerminalEffect -> runTerminal(effect)
+            is ReturnsEffect -> runReturns(effect)
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))
@@ -671,6 +678,80 @@ class PosStore(
                         receipt(cart, invoiceId, gateways.reserve.documentNumber(invoiceId), tenders, null, effect.customerName, effect.vehicleLabel, effect.operatorName),
                     )
                     if (s.owedBack.minor > 0) apply(SplitEvent.RefundOwed(s.owedBack))
+                }
+            }
+        }
+    }
+
+    /**
+     * Card refund of a whole card-machine sale: the approver starts it (badge, password or own sign-in),
+     * the machine gives the money back, then an approver posts it (CardRefundFinish).
+     */
+    private fun runCardRefund(effect: PosSaleEffect.Approve) {
+        val request = effect.request as ApprovalRequest.CardRefund
+        val t = gateways.terminal
+        launch {
+            when (val begun = t.beginRefund(request.invoiceId, request.terminalId, request.requestId ?: newKey(), effect.credentials, effect.badge)) {
+                is PosResult.Ok -> {
+                    apply(PosSaleEvent.Approved(request, null))
+                    apply(ReturnsEvent.CardRefundStarted(begun.value))
+                    when (val ran = t.run(begun.value)) {
+                        is PosResult.Ok -> apply(ReturnsEvent.CardRefundRan(ran.value))
+                        // The machine may have paid out even though its answer was not recorded: Unknown, never a retry.
+                        is PosResult.Err -> apply(ReturnsEvent.CardRefundRan(begun.value.copy(status = "unknown")))
+                    }
+                }
+                is PosResult.Err -> apply(PosSaleEvent.ApprovalFailed(begun.error))
+            }
+        }
+    }
+
+    private fun runReturns(effect: ReturnsEffect) {
+        val r = gateways.returns
+        when (effect) {
+            is ReturnsEffect.LoadInvoice -> launch {
+                when (val res = r.invoice(effect.invoiceId)) {
+                    is PosResult.Ok -> apply(ReturnsEvent.Loaded(res.value))
+                    is PosResult.Err -> apply(ReturnsEvent.Failed(res.error))
+                }
+            }
+            is ReturnsEffect.Draft -> launch {
+                when (val res = r.draft(effect.draft, replacement = effect.draft.resolution == ReturnResolution.Replacement)) {
+                    is PosResult.Ok -> apply(ReturnsEvent.Drafted(effect.key, res.value, effect.draft, effect.amount))
+                    is PosResult.Err -> apply(ReturnsEvent.Failed(res.error))
+                }
+            }
+            is ReturnsEffect.FindSerial -> launch {
+                when (val res = r.findSerial(effect.serial)) {
+                    is PosResult.Ok -> apply(ReturnsEvent.SerialChecked(effect.serial, res.value))
+                    is PosResult.Err -> apply(ReturnsEvent.Failed(res.error))
+                }
+            }
+            is ReturnsEffect.OpenClaim -> launch {
+                when (val res = r.openClaim(effect.invoiceId, effect.invoiceLineId, effect.serialId, effect.notes)) {
+                    is PosResult.Ok -> apply(ReturnsEvent.ClaimOpened)
+                    is PosResult.Err -> apply(ReturnsEvent.Failed(res.error))
+                }
+            }
+            is ReturnsEffect.LoadClaims -> launch {
+                when (val res = r.claims(effect.query, effect.status)) {
+                    is PosResult.Ok -> apply(ReturnsEvent.ClaimsLoaded(res.value))
+                    is PosResult.Err -> apply(ReturnsEvent.Failed(res.error))
+                }
+            }
+            is ReturnsEffect.CloseClaim -> launch {
+                when (val res = r.closeClaim(effect.claimId)) {
+                    is PosResult.Ok -> apply(ReturnsEvent.ClaimClosed)
+                    is PosResult.Err -> apply(ReturnsEvent.Failed(res.error))
+                }
+            }
+            is ReturnsEffect.LoadReasons -> effect.actions.forEach { action ->
+                launch { (gateways.governance.reasons(action) as? PosResult.Ok)?.let { apply(ReturnsEvent.ReasonsLoaded(action, it.value)) } }
+            }
+            is ReturnsEffect.LoadStock -> launch {
+                when (val res = r.stock(effect.stockItemId)) {
+                    is PosResult.Ok -> apply(ReturnsEvent.StockLoaded(effect.stockItemId, res.value))
+                    is PosResult.Err -> apply(ReturnsEvent.Failed(res.error))
                 }
             }
         }

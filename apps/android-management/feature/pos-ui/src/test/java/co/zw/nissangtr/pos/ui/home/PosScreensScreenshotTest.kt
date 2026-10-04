@@ -193,6 +193,61 @@ class PosScreensScreenshotTest {
         ),
     )
 
+    private val returnSale = InvoiceSummary("i9", "INV-000099", "Rudo Chikwanha", usd(110.0), "2026-09-30T15:20:00", "GT-R R35 VR38DETT")
+    private fun returnState() = PosFixtures.homeEmpty.copy(
+        destination = PosDestination.Returns,
+        returnSale = returnSale,
+        returnInvoice = co.zw.nissangtr.pos.domain.model.InvoiceDetail(
+            "i9", "INV-000099", "c1", usd(110.0), usd(110.0), "2026-09-30T15:20:00", "till-1",
+            listOf(
+                co.zw.nissangtr.pos.domain.model.InvoiceLine("l1", "si", "D1060-JF00A", "Front brake pad set", "ea", 2.0, usd(45.0), usd(90.0), false, 2.0),
+                co.zw.nissangtr.pos.domain.model.InvoiceLine("l2", "si", "D1060-JF00A", "Caliper core charge", "ea", 1.0, usd(20.0), usd(20.0), true, 1.0),
+            ),
+        ),
+        returnReasons = mapOf(
+            "return_post" to listOf(
+                co.zw.nissangtr.pos.domain.model.ReasonCode("wrong_part", "Wrong part", false),
+                co.zw.nissangtr.pos.domain.model.ReasonCode("defective", "Defective", false),
+            ),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun returnSale() = capture("return_sale", 1280.dp, 800.dp, returnState())
+
+    @Test @Config(qualifiers = "w400dp-h860dp-port-mdpi")
+    fun returnSalePhone() = capture("return_sale_phone", 400.dp, 860.dp, returnState())
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun warrantyDecision() = capture(
+        "warranty_approval",
+        1280.dp,
+        800.dp,
+        returnState().copy(
+            approval = ApprovalRequest.WarrantyDecide(
+                co.zw.nissangtr.pos.domain.model.WarrantyClaim(
+                    "wc", "WAR-00001", "open", null, "i9", "INV-000099", "si", "D1060-JF00A", "PAD-SN-0042", "Squeal after a week", null, "2026-10-01T09:00:00", null,
+                ),
+                co.zw.nissangtr.pos.domain.model.WarrantyDecision.Replace(1.0, "ea"),
+            ),
+            approvalReasons = emptyList(),
+        ),
+    )
+
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun stockByBranch() = capture(
+        "stock_by_branch",
+        1280.dp,
+        800.dp,
+        sale.copy(
+            stockPart = co.zw.nissangtr.pos.domain.model.CatalogPart("si", "15208-65F0A", "Oil filter", usd(9.5), 10.0, null),
+            branchStock = listOf(
+                co.zw.nissangtr.pos.domain.model.BranchStock("w1", "MAIN", "Harare main", 10.0, 1.0, 9.0, 0.0),
+                co.zw.nissangtr.pos.domain.model.BranchStock("w2", "BYO", "Bulawayo branch", 0.0, 0.0, 0.0, 4.0),
+            ),
+        ),
+    )
+
     private fun epcState(): PosState {
         val detail = FakeSaleGateways.brakeDiagram
         return PosFixtures.homeEmpty.copy(

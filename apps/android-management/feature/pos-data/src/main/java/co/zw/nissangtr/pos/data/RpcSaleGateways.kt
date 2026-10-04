@@ -25,6 +25,9 @@ import co.zw.nissangtr.pos.domain.gateway.EpcGateway
 import co.zw.nissangtr.pos.domain.gateway.SalesGateway
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.SplitRefundStep
+import co.zw.nissangtr.pos.domain.model.WarrantyDecision
+import co.zw.nissangtr.pos.domain.model.rpcResolution
+import co.zw.nissangtr.management.rpc.PosReplacementLineInput
 import co.zw.nissangtr.pos.domain.model.CartProjection
 import co.zw.nissangtr.pos.domain.model.CompanionSession
 import co.zw.nissangtr.pos.domain.model.CompanionStatus
@@ -244,6 +247,33 @@ class RpcSaleGateways(
                         }
                         null
                     }
+                    is ApprovalRequest.ReturnPost -> {
+                        rpc.postPosReturnCase(request.caseId)
+                        null
+                    }
+                    is ApprovalRequest.CoreReturn -> {
+                        val i = request.input
+                        rpc.postPosCoreReturn(i.invoiceId, i.coreLineId, i.qty, i.resolution.rpcValue, i.reasonCode, i.tillSessionId, i.notes ?: notes)
+                        null
+                    }
+                    is ApprovalRequest.WarrantyDecide -> {
+                        when (val d = request.decision) {
+                            is WarrantyDecision.Reject -> rpc.rejectPosWarrantyClaim(request.claim.id, d.reason.trim())
+                            else -> rpc.approvePosWarrantyClaim(
+                                request.claim.id,
+                                d.rpcResolution,
+                                (d as? WarrantyDecision.Credit)?.let { c -> request.claim.stockItemId?.let { listOf(it to c.qty) } },
+                                (d as? WarrantyDecision.Replace)?.let { r -> request.claim.stockItemId?.let { listOf(PosReplacementLineInput(it, r.uomId ?: soldUom(request.claim), r.qty)) } },
+                            )
+                        }
+                        null
+                    }
+                    is ApprovalRequest.CardRefundFinish -> {
+                        rpc.finalizePosCardTerminalRefund(request.attemptId, notes)
+                        null
+                    }
+                    // Started through the card-machine gateway (it returns the attempt to run).
+                    is ApprovalRequest.CardRefund -> throw PosFailure(PosError.BusinessRule("terminal_unavailable", ""))
                 }
             }
             // The tablet wraps the live client (offline catalogue); approval must still reach it.
@@ -263,6 +293,13 @@ class RpcSaleGateways(
                 throw e
             }
         }
+    }
+
+    /** The stock unit the claimed part was sold in (a replacement goes out in the same unit). */
+    private suspend fun soldUom(claim: co.zw.nissangtr.pos.domain.model.WarrantyClaim): String {
+        val invoiceId = claim.invoiceId ?: throw PosFailure(PosError.BusinessRule("warranty_no_sale", ""))
+        return rpc.getPosInvoiceDetail(invoiceId).lines.firstOrNull { !it.isCoreCharge && it.stockItemId == claim.stockItemId }?.uomId
+            ?: throw PosFailure(PosError.BusinessRule("warranty_no_sale", ""))
     }
 
     /** One server call validates the badge, runs the action as approved by its holder, and audits it. */
@@ -293,6 +330,26 @@ class RpcSaleGateways(
                 is SplitRefundStep.Complete -> "split_refund_complete" to mapOf("refund_id" to request.refundId, "provider_ref" to step.providerRef, "notes" to (step.notes ?: notes))
                 is SplitRefundStep.Fail -> "split_refund_fail" to mapOf("refund_id" to request.refundId, "reason" to step.reason)
             }
+            is ApprovalRequest.ReturnPost -> "return_post" to mapOf("return_case_id" to request.caseId)
+            is ApprovalRequest.CoreReturn -> request.input.let { i ->
+                "core_return" to mapOf(
+                    "invoice_id" to i.invoiceId, "core_line_id" to i.coreLineId, "qty" to i.qty, "resolution" to i.resolution.rpcValue,
+                    "reason_code" to i.reasonCode, "till_session_id" to i.tillSessionId, "notes" to (i.notes ?: notes),
+                )
+            }
+            is ApprovalRequest.WarrantyDecide -> when (val d = request.decision) {
+                is WarrantyDecision.Reject -> "warranty_reject" to mapOf("claim_id" to request.claim.id, "reason" to d.reason.trim())
+                else -> "warranty_approve" to buildMap<String, Any?> {
+                    put("claim_id", request.claim.id)
+                    put("resolution", d.rpcResolution)
+                    // Keys the decision does not need are left out, never sent as null.
+                    val item = request.claim.stockItemId
+                    if (d is WarrantyDecision.Credit && item != null) put("lines", listOf(mapOf("stock_item_id" to item, "qty" to d.qty)))
+                    if (d is WarrantyDecision.Replace && item != null) put("replacement_lines", listOf(mapOf("stock_item_id" to item, "uom_id" to (d.uomId ?: soldUom(request.claim)), "qty" to d.qty)))
+                }
+            }
+            is ApprovalRequest.CardRefundFinish -> "card_refund_finish" to mapOf("attempt_id" to request.attemptId, "notes" to notes)
+            is ApprovalRequest.CardRefund -> throw PosFailure(PosError.BusinessRule("terminal_unavailable", ""))
         }
         val outcome = rpc.posBadgeApprove(badge, action, args, deviceId)
         if (!outcome.ok) throw PosFailure(PosError.BusinessRule("badge", outcome.error ?: "Badge approval refused."))

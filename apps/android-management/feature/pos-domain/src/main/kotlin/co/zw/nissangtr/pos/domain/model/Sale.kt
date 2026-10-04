@@ -157,6 +157,21 @@ sealed interface ApprovalRequest {
     /** A refund of a captured part payment (manager or finance). */
     data class SplitRefund(val orderId: String, val refundId: String, val amount: Money, val step: SplitRefundStep) : ApprovalRequest
 
+    /** Post a drafted return (`return_post`); the reason was chosen with the return. */
+    data class ReturnPost(val caseId: String, val invoiceId: String, val documentNumber: String?, val resolution: ReturnResolution, val amount: Money) : ApprovalRequest
+
+    /** Take back an old core and give its charge back (`core_return`). */
+    data class CoreReturn(val input: CoreReturnInput, val documentNumber: String?, val amount: Money) : ApprovalRequest
+
+    /** Decide an open warranty claim (`warranty_approve` / `warranty_reject`). */
+    data class WarrantyDecide(val claim: WarrantyClaim, val decision: WarrantyDecision) : ApprovalRequest
+
+    /** Start a card refund of a whole card-machine sale (`card_refund_begin`); the machine runs next. */
+    data class CardRefund(val invoiceId: String, val documentNumber: String?, val amount: Money, val terminalId: String, val requestId: String? = null) : ApprovalRequest
+
+    /** The machine gave the money back: post the refund (`card_refund_finish`). */
+    data class CardRefundFinish(val attemptId: String, val amount: Money) : ApprovalRequest
+
     /** Drawer actions: they act on the till session, never on the sale. */
     sealed interface TillAction : ApprovalRequest { val sessionId: String }
 

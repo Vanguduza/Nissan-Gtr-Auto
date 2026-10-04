@@ -50,6 +50,7 @@ enum class PosNotice {
     ReservationExpired, ReservationReleased, Collected,
     SplitCancelled, SplitCancelledRefund, SplitRefundOwed, SplitRefundRecorded,
     TerminalPaired, TerminalReversed, TerminalFinished,
+    ReturnPosted, ReturnCashOut, ReturnSwap, ReturnWarranty, CoreReturned, ClaimOpened, ClaimDecided, ClaimClosed, CardRefunded,
 }
 
 data class PosState(
@@ -145,6 +146,24 @@ data class PosState(
     val terminalRecovery: List<co.zw.nissangtr.pos.domain.model.TerminalRecoveryItem>? = null,
     /** The card-machine attempt opened on the recovery screen. */
     val recoveryTerminal: co.zw.nissangtr.pos.domain.model.TerminalAttempt? = null,
+    // Returns, cores, warranty and stock by branch (phase 6)
+    /** The sale opened on Returns and its lines with what can still come back. */
+    val returnSale: InvoiceSummary? = null,
+    val returnInvoice: co.zw.nissangtr.pos.domain.model.InvoiceDetail? = null,
+    val returnsBusy: Boolean = false,
+    /** A drafted return not posted yet (what was drafted → case id): posting again reuses it. */
+    val returnDraft: Pair<String, String>? = null,
+    val serialLookup: SerialLookup? = null,
+    /** `return_post` / `core_return` → configured reasons. */
+    val returnReasons: Map<String, List<co.zw.nissangtr.pos.domain.model.ReasonCode>> = emptyMap(),
+    val warrantyClaims: List<co.zw.nissangtr.pos.domain.model.WarrantyClaim>? = null,
+    val warrantyStatus: String? = "open",
+    val warrantyQuery: String = "",
+    /** The part whose stock by branch is on screen. */
+    val stockPart: co.zw.nissangtr.pos.domain.model.CatalogPart? = null,
+    val branchStock: List<co.zw.nissangtr.pos.domain.model.BranchStock>? = null,
+    /** A card refund running on the machine (approved to start, not answered yet). */
+    val cardRefund: co.zw.nissangtr.pos.domain.model.TerminalAttempt? = null,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

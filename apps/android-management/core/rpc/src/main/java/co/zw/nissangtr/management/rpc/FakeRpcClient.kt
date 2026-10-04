@@ -2181,6 +2181,16 @@ class FakeRpcClient : RpcClient {
             PosApprovalReason("defective", "Defective", false),
             PosApprovalReason("manager_exception", "Manager exception", true),
         )
+        "return_post" -> listOf(
+            PosApprovalReason("wrong_part", "Wrong part", false),
+            PosApprovalReason("customer_changed_mind", "Customer changed mind", false),
+            PosApprovalReason("defective", "Defective", false),
+            PosApprovalReason("fitment_issue", "Does not fit", false),
+        )
+        "core_return" -> listOf(
+            PosApprovalReason("eligible_core", "Eligible core", false),
+            PosApprovalReason("manager_exception", "Manager exception", true),
+        )
         "till_variance" -> listOf(
             PosApprovalReason("count_error", "Count error", false),
             PosApprovalReason("short_change", "Short change given", false),
@@ -2234,6 +2244,25 @@ class FakeRpcClient : RpcClient {
                 "cash_out" -> recordPosTillCashMovement(args["session_id"].toString(), args["kind"].toString(), args["amount"].toString().toDouble(), args["reason_code"].toString(), notes)
                 "till_variance" -> approvePosTillVariance(args["session_id"].toString(), args["reason_code"].toString(), notes)
                 "till_handover" -> handoverPosTillSession(args["session_id"].toString(), args["new_operator_user_id"].toString(), notes)
+                "return_post" -> postPosReturnCase(args["return_case_id"].toString())
+                "core_return" -> postPosCoreReturn(
+                    args["invoice_id"].toString(), args["core_line_id"].toString(), args["qty"].toString().toDouble(), args["resolution"].toString(),
+                    args["reason_code"].toString(), args["till_session_id"]?.toString(), notes,
+                )
+                "warranty_approve" -> approvePosWarrantyClaim(
+                    args["claim_id"].toString(),
+                    args["resolution"].toString(),
+                    (args["lines"] as? List<*>)?.map { l -> (l as Map<*, *>).let { it["stock_item_id"].toString() to it["qty"].toString().toDouble() } },
+                    (args["replacement_lines"] as? List<*>)?.map { l ->
+                        (l as Map<*, *>).let { PosReplacementLineInput(it["stock_item_id"].toString(), it["uom_id"].toString(), it["qty"].toString().toDouble()) }
+                    },
+                )
+                "warranty_reject" -> rejectPosWarrantyClaim(args["claim_id"].toString(), args["reason"].toString())
+                "card_refund_begin" -> return PosBadgeApproval(
+                    true, "Demo manager", null,
+                    beginPosCardTerminalRefund(args["invoice_id"].toString(), args["terminal_id"].toString(), args["request_id"].toString()).attemptId,
+                )
+                "card_refund_finish" -> finalizePosCardTerminalRefund(args["attempt_id"].toString(), notes)
                 else -> error("unknown action $action")
             }
             PosBadgeApproval(true, "Demo manager", null)
@@ -2590,6 +2619,153 @@ class FakeRpcClient : RpcClient {
             PosTerminalRecoveryRow(it.attemptId, it.operation, it.status, it.terminalLabel, it.orderId, it.amount, it.currency, it.externalRef,
                 it.transactionId, it.cardLast4, it.responseMessage, it.finalizationError, java.time.Instant.now().toString())
         }
+
+    // --- POS returns, cores, warranty and stock (in memory, same rules as the server)
+
+    private val fakeInvoiceId = "00000000-0000-4000-8000-0000000000i1"
+    private val fakeInvoiceLines = mutableListOf(
+        PosInvoiceDetailLine("line-fake-pad", "item-fake-pad", "FAKE-PAD-001", "Front brake pad set", "uom-ea", 2.0, 45.0, 90.0, false, 2.0),
+        PosInvoiceDetailLine("line-fake-core", "item-fake-pad", "FAKE-PAD-001", "Brake caliper core charge", "uom-ea", 1.0, 20.0, 20.0, true, 1.0),
+    )
+    private data class FakeReturnCase(val invoiceId: String, val resolution: String, val lines: List<PosReturnLineInput>, var posted: Boolean = false)
+    private val fakeReturnCases = linkedMapOf<String, FakeReturnCase>()
+    private val fakeCoreBack = mutableMapOf<String, Double>()
+    private val fakeClaims = mutableListOf(
+        PosWarrantyClaimRow(
+            "wc-fake-1", "WAR-00001", "open", null, fakeInvoiceId, "SINV-00001", "item-fake-pad", "FAKE-PAD-001", "PAD-SN-0042",
+            "Squeal after one week", null, null, "2026-09-08T09:00:00Z", null, null,
+        ),
+    )
+    private val fakeRefundInvoice = mutableMapOf<String, String>()
+
+    private fun fakeReturnable(line: PosInvoiceDetailLine): Double =
+        if (line.isCoreCharge) (line.qty - (fakeCoreBack[line.id] ?: 0.0)).coerceAtLeast(0.0)
+        else (line.qty - fakeReturnCases.values.filter { it.posted }.flatMap { it.lines }.filter { it.invoiceLineId == line.id }.sumOf { it.qty }).coerceAtLeast(0.0)
+
+    override suspend fun getPosInvoiceDetail(invoiceId: String): PosInvoiceDetail {
+        check(invoiceId == fakeInvoiceId) { "posted invoice not found" }
+        return PosInvoiceDetail(
+            fakeInvoiceId, "SINV-00001", "cust-fake-1", CurrencyCode.USD, 110.0, 110.0, "2026-09-07T06:00:00Z", null,
+            fakeInvoiceLines.sortedBy { it.isCoreCharge }.map { it.copy(returnableQty = fakeReturnable(it)) },
+        )
+    }
+
+    override suspend fun createPosReturnCase(
+        invoiceId: String,
+        resolution: String,
+        reasonCode: String,
+        lines: List<PosReturnLineInput>,
+        notes: String?,
+        replacementLines: List<PosReplacementLineInput>?,
+        tillSessionId: String?,
+    ): String {
+        check(invoiceId == fakeInvoiceId) { "posted source invoice required" }
+        check(reasonCode.isNotBlank()) { "return reason required" }
+        check(lines.isNotEmpty()) { "at least one return line required" }
+        check(resolution != "replacement" || !replacementLines.isNullOrEmpty()) { "replacement lines required" }
+        lines.forEach { l ->
+            val line = fakeInvoiceLines.firstOrNull { it.id == l.invoiceLineId && !it.isCoreCharge } ?: error("return line must be a non-core line from source invoice")
+            check(l.qty > 0) { "return qty must be > 0" }
+            check(l.qty <= fakeReturnable(line)) { "return qty ${l.qty} exceeds remaining returnable qty ${fakeReturnable(line)}" }
+        }
+        val id = "rc-${UUID.randomUUID().toString().take(8)}"
+        fakeReturnCases[id] = FakeReturnCase(invoiceId, resolution, lines)
+        return id
+    }
+
+    override suspend fun postPosReturnCase(returnCaseId: String) {
+        val c = fakeReturnCases[returnCaseId] ?: error("draft return case required")
+        check(!c.posted) { "draft return case required" }
+        if (c.resolution == "warranty") {
+            check(c.lines.size == 1) { "warranty submission supports one claimed item per case" }
+            fakeClaims.add(0, PosWarrantyClaimRow("wc-${UUID.randomUUID().toString().take(8)}", "WAR-${fakeClaims.size + 1}", "open", null, c.invoiceId, "SINV-00001",
+                "item-fake-pad", "FAKE-PAD-001", null, null, null, null, java.time.Instant.now().toString(), null, null))
+        }
+        c.posted = true
+    }
+
+    override suspend fun postPosCoreReturn(invoiceId: String, coreLineId: String, qty: Double, resolution: String, reasonCode: String, tillSessionId: String?, notes: String?) {
+        val line = fakeInvoiceLines.firstOrNull { it.id == coreLineId && it.isCoreCharge } ?: error("core-charge invoice line required")
+        check(qty > 0) { "core return qty must be > 0" }
+        check(qty <= fakeReturnable(line)) { "core return qty exceeds remaining eligible core qty" }
+        check(reasonCode.isNotBlank()) { "core return reason required" }
+        fakeCoreBack[line.id] = (fakeCoreBack[line.id] ?: 0.0) + qty
+    }
+
+    override suspend fun openPosWarrantyClaim(invoiceId: String, invoiceLineId: String, serialId: String?, notes: String?): String {
+        val line = fakeInvoiceLines.firstOrNull { it.id == invoiceLineId && !it.isCoreCharge } ?: error("non-core source invoice line required")
+        val id = "wc-${UUID.randomUUID().toString().take(8)}"
+        fakeClaims.add(0, PosWarrantyClaimRow(id, "WAR-${fakeClaims.size + 1}", "open", null, invoiceId, "SINV-00001", line.stockItemId, line.oemPartNumber,
+            if (serialId != null) "PAD-SN-0042" else null, notes, null, null, java.time.Instant.now().toString(), null, null))
+        return id
+    }
+
+    override suspend fun findPosWarrantySerial(serialNumber: String): List<PosWarrantySerialRow> =
+        if (serialNumber.trim().equals("PAD-SN-0042", ignoreCase = true)) listOf(PosWarrantySerialRow("ser-fake-1", "PAD-SN-0042", "item-fake-pad", "FAKE-PAD-001", "sold")) else emptyList()
+
+    override suspend fun listPosWarrantyClaims(query: String?, status: String?): List<PosWarrantyClaimRow> {
+        val q = query?.trim()?.lowercase().orEmpty()
+        return fakeClaims.filter { c ->
+            (status == null || c.status == status) &&
+                (q.isBlank() || listOf(c.documentNumber, c.invoiceNumber, c.oemPartNumber, c.serialNumber).any { it.orEmpty().lowercase().contains(q) })
+        }
+    }
+
+    private fun updateClaim(claimId: String, f: (PosWarrantyClaimRow) -> PosWarrantyClaimRow) {
+        val i = fakeClaims.indexOfFirst { it.id == claimId }
+        check(i >= 0) { "warranty claim not found" }
+        fakeClaims[i] = f(fakeClaims[i])
+    }
+
+    override suspend fun approvePosWarrantyClaim(claimId: String, resolution: String, creditLines: List<Pair<String, Double>>?, replacementLines: List<PosReplacementLineInput>?) {
+        check(fakeClaims.firstOrNull { it.id == claimId }?.status == "open") { "open warranty claim required" }
+        check(resolution in setOf("replacement", "credit_note", "return_only")) { "invalid warranty approval resolution" }
+        check(resolution != "replacement" || !replacementLines.isNullOrEmpty()) { "replacement lines required" }
+        updateClaim(claimId) {
+            it.copy(status = "approved", resolution = resolution, creditNoteId = if (resolution == "credit_note") "cn-fake" else null, decidedAt = java.time.Instant.now().toString())
+        }
+    }
+
+    override suspend fun rejectPosWarrantyClaim(claimId: String, reason: String) {
+        check(fakeClaims.firstOrNull { it.id == claimId }?.status == "open") { "open warranty claim required" }
+        check(reason.isNotBlank()) { "reject reason required" }
+        updateClaim(claimId) { it.copy(status = "rejected", resolution = "reject_only", rejectReason = reason.trim(), decidedAt = java.time.Instant.now().toString()) }
+    }
+
+    override suspend fun closeWarrantyClaim(claimId: String) {
+        check(fakeClaims.firstOrNull { it.id == claimId }?.status in setOf("approved", "rejected")) { "decided warranty claim required" }
+        updateClaim(claimId) { it.copy(status = "closed", closedAt = java.time.Instant.now().toString()) }
+    }
+
+    override suspend fun listPosStockAvailability(stockItemId: String): List<PosStockAvailabilityRow> {
+        val seed = stockItemId.sumOf { it.code }
+        return listOf(
+            PosStockAvailabilityRow("wh-main", "MAIN", "Harare main", (seed % 9 + 2).toDouble(), (seed % 2).toDouble(), 0.0, 0.0),
+            PosStockAvailabilityRow("wh-byo", "BYO", "Bulawayo branch", (seed % 4).toDouble(), 0.0, 0.0, if (seed % 3 == 0) 2.0 else 0.0),
+            PosStockAvailabilityRow("wh-mut", "MUT", "Mutare branch", 0.0, 0.0, 0.0, 0.0),
+        ).map { it.copy(available = (it.onHand - it.reserved).coerceAtLeast(0.0)) }
+    }
+
+    override suspend fun beginPosCardTerminalRefund(invoiceId: String, terminalId: String, requestId: String): PosTerminalAttempt {
+        fakeAttemptKeys[requestId]?.let { return fakeAttempts.getValue(it) }
+        val purchase = fakeAttempts.values.firstOrNull { it.operation == "purchase" && it.status == "settled" && it.invoiceId == invoiceId }
+            ?: error("invoice was not fully settled through a card terminal")
+        check(fakeAttempts.values.none { it.operation == "refund" && fakeRefundInvoice[it.attemptId] == invoiceId && it.status in setOf("initiated", "approved", "unknown", "settled") }) {
+            "an existing card terminal refund must be reconciled before another refund"
+        }
+        val a = newAttempt(requestId, "refund", purchase.orderId, null, purchase.amount)
+        fakeRefundInvoice[a.attemptId] = invoiceId
+        return a
+    }
+
+    override suspend fun finalizePosCardTerminalRefund(attemptId: String, notes: String?): PosTerminalAttempt {
+        val a = fakeAttempts[attemptId] ?: error("card terminal attempt not found")
+        if (a.status == "settled") return a
+        check(a.operation == "refund" && a.status == "approved") { "approved card terminal refund required" }
+        val settled = a.copy(status = "settled", invoiceId = fakeRefundInvoice[attemptId])
+        fakeAttempts[attemptId] = settled
+        return settled
+    }
 
     override suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String) =
         "key-${keySha256.take(8)}"

@@ -331,7 +331,7 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | TAB-04 | Manager approval for discount, price override, void, refund (manager signs in for that action only) | D4, 10.x | 8 | partial — uses existing `withManagerApproval`; tests with fakes |
 | TAB-05 | Customer search/create/edit, attach to sale, garage (0/1/many), save vehicle to garage | 9.3 | 6 | partial — screens + reducer tests |
 | TAB-06 | Orders: parked sales (resume) and quotations (create, send, convert) | 9.3 | 6 | partial |
-| TAB-07 | Returns: recent invoices, manager-approved refund | 9.3 | 8 | partial |
+| TAB-07 | Returns: recent invoices, manager-approved refund | 9.3 | 8 | partial — superseded by RET-01…RET-07 (return by line, cores, warranty, card refund) |
 | TAB-08 | EPC Browse drill-down (model → variant → section → diagram → parts, pin, find) | 9.3 | 5 | done (code) — diagram image with numbered callouts synced to the parts list, Add puts the stocked OEM in the cart; pixel or fraction boxes resolved by one rule shared with web (`lib/epc-box.ts`); fixture art matches seeded boxes; screenshots `tablet-epc*`; web checked in Chromium at 1536/1024/390 |
 | TAB-09 | Focus dialogs: own window, page behind dimmed and (API 31+) blurred, back/outside dismiss, bottom sheet on phones | 5.6 | 4 | done (code) — screenshot `tablet-payment_dialog`; blur itself needs a device to observe |
 | TAB-10 | Medium (icon rail, vehicle dialog, sale bar + cart sheet below 900 dp) and Compact (bottom navigation, stacked header, identity-strip hero, sale bar + sheet) | 3.5, 8.4, 9 | 7 | partial — rendered at 1024×768, 800×1280, 412×915, 360×800 |
@@ -388,4 +388,16 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | MGR-04 | Tablet/phone: once a reason is chosen the front camera opens automatically for the badge (QR bridge, `CameraLens.FRONT`); password is the fallback; web uses a USB/Bluetooth scanner (no browser camera) | 10.10, 10.18 | — | partial — tablet: reducer/store tests and screenshot; not run on a device |
 | MGR-05 | A signed-in manager approves with no badge or password prompt (`get_my_pos_approver_status`) | 10.10 | — | partial — as MGR-01 |
 | MGR-06 | Approval audit trail: badge approvals, manager-session approvals and admin changes, append-only, admins and finance only | 10.10 | — | partial — as MGR-01 |
+
+## RET — Returns, cores, warranty and stock by branch (2026-10-04, phase 6)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| RET-01 | Returns opens the posted sale with what can still come back per line; core charges listed separately (`get_pos_invoice_detail`) | 10 | 6 | partial — web on preview data, tablet on the fake client and screenshots; hosted project has no posted invoices |
+| RET-02 | Return by line with condition → cash refund (till), credit to account, store credit, swap for the same part, or warranty; outcomes that cannot apply are shown disabled with the reason; staff draft (`create_pos_return_case`), approver posts (`post_pos_return_case`, badge `return_post`); a failed post reuses the draft | 10, 10.10 | 6 | partial — as RET-01; backend credit-note path fixed (20261004003342) and checked in a rolled-back run |
+| RET-03 | Old cores: take back and give the core charge back as cash, account credit or store credit (`post_pos_core_return`, badge `core_return`) | 10 | 6 | partial — as RET-01 |
+| RET-04 | Warranty: open a claim from the sale (serial checked against the part), list by status, decide replace / credit / take back / reject (approver), close | 10 | 6 | partial — as RET-01 |
+| RET-05 | Refund whole sale (`post_pos_refund_governed`) only while nothing from the sale was returned | 10.10 | 6 | partial — as RET-01 |
+| RET-06 | Tablet: card-machine refund of a whole card sale — approver starts it (`begin_pos_card_terminal_refund`, badge `card_refund_begin`), the machine pays back (Refund operation, signed evidence), approver posts it (`finalize_pos_card_terminal_refund`); no clear answer → Unknown, recovery | 10.7, 10.11 | 6 | partial — reducer tests; no card machine set up on the hosted project |
+| RET-07 | Stock by branch from part cards: on hand, held, free, on the way (`list_pos_stock_availability`) | 9 | 6 | partial — web preview and tablet screenshot |
 
