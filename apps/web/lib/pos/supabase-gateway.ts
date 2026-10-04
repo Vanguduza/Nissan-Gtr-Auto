@@ -1742,6 +1742,13 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       return { ok: true, data: true };
     },
 
+    async customerSuspension(customerId) {
+      const { data, error } = await rpc(client, "get_customer_suspension", { p_customer_id: customerId });
+      if (error) return fail(error, "Could not check the customer's account.");
+      const o = data as Record<string, unknown> | null;
+      return { ok: true, data: o ? { reason: String(o.reason ?? ""), owing: num(o.owing) } : null };
+    },
+
     async attachFulfillmentToSale(requestId, cartId) {
       const { error } = await rpc(client, "attach_pos_fulfillment_to_cart", { p_request_id: requestId, p_cart_id: cartId });
       if (error) return fail(error, "The back-order was not added to the sale.");

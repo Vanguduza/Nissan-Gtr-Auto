@@ -76,4 +76,19 @@ class CartPayOnDeliveryScreenshotTest {
         assertNotNull(rpc.getCustomerOrder(invoice))
         assertEquals(null, rpc.getOpenCart())
     }
+
+    @Test
+    fun suspendedAccountCannotPayOnDelivery() {
+        val rpc = dispatchCart().apply { fakeSuspension = co.zw.nissangtr.customer.rpc.AccountSuspension("Failed to settle", 120.0) }
+        val vm = CartViewModel(rpc).apply { onDeliveryPaymentChange(DeliveryPaymentMethod.CASH_ON_DELIVERY) }
+        assertEquals("pay on delivery is not offered", DeliveryPaymentMethod.PREPAY, vm.state.value.deliveryPayment)
+        assertNotNull(vm.state.value.suspension)
+        paparazzi.snapshot(name = "cart_suspended") {
+            PremiumCustomerTheme(style = CustomerStyle.Express, darkTheme = false) {
+                Box(Modifier.fillMaxSize().background(GtrPremiumColors.Background)) {
+                    CartScreen(rpc = rpc, onBack = {}, onPay = {}, onManageOrders = {}, viewModel = vm)
+                }
+            }
+        }
+    }
 }

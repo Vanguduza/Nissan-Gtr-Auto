@@ -430,3 +430,12 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | COD-06 | Customer app + web shop: "Pay on delivery" (cash / card / either) for nationwide delivery → `checkout_customer_cart_v2`; pay-now reserves via `prepare_customer_checkout`; disabled with the reason for click & collect; USD only | 10.5 | other apps | partial — live server path checked in a rolled-back run; app screenshot + fake tests; web typechecked |
 | COD-07 | Staff web Settings → Card machines: "Drivers can take card on delivery" (`set_pos_card_terminal_delivery_enabled`) and the driver phone ID | 10.7 | other apps | partial — web preview flow |
 | COD-08 | Part settlement: customer paid part and cannot pay the rest → leave the balance on account; automatic within the trade credit limit, otherwise a dispatcher decides in Staff → Logistics → Balances on account while the driver waits (`delivery_balance_approvals`) | 10.7 | other apps | partial — server checked in rolled-back runs (pending → refused/approved, automatic within limit, own request refused); driver tests and screenshots; web page typechecked only |
+
+## SUS — Customer suspension for failing to settle (2026-10-04)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| SUS-01 | Automatic suspension: balance on account unpaid 7 days, invoice unpaid 30 days, 2 refused/absent pay-on-delivery deliveries in 90 days; daily sweep + check on use + on failed delivery | 10.10 | other apps | done — server, rolled-back run |
+| SUS-02 | While suspended: no pay on delivery, balance on account, sales on account, holds or back-orders; upfront payment and settling debt allowed | 10.10 | other apps | done — server; web shop / customer app / web POS show the reason; tablet and driver show the server message |
+| SUS-03 | Lift only with manager consent (POS approver or admin) and a reason; accepted debts waived from the rules; manual suspend by admin / finance / manager | 10.10 | other apps | partial — server checked; Staff → Customer credit page typechecked only (no staff sign-in here) |
+

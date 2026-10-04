@@ -159,3 +159,48 @@ refused). `list_pos_card_terminals` did not return `allow_delivery`; migration 2
 it so the admin sees the setting (callers read columns by name). The web shop flow is typechecked
 only (no customer sign-in in this environment); the customer app has a screenshot and fake-backend
 tests.
+
+## Customer suspension for failing to settle (2026-10-04, migration 20261004175556)
+
+Owner decisions: suspend on any of three rules, block all credit (pay on delivery included), and only a
+manager may lift.
+
+**Automatic triggers.** Any one of these suspends the customer:
+- a balance left on account at delivery is unpaid after 7 days;
+- an invoice is unpaid 30 days after it was issued;
+- 2 pay-on-delivery deliveries are refused or the customer is absent within 90 days.
+
+**When the rules are checked:**
+- daily (pg_cron `customer-suspension-sweep-v1`, 02:10);
+- when a delivery fails;
+- at the moment the customer tries to use credit.
+
+**Blocked while suspended.** The server refuses each of these, through triggers or in the function:
+- every pay-on-delivery purchase: choosing it on a cart or placing the order (`pos_carts.delivery_payment_method`);
+- leaving a balance on account at the door (`delivery_balance_approvals`);
+- counter sales on account (`checkout_pos_cart_on_account`);
+- holds and back-orders for the customer (`pos_fulfillment_requests`).
+
+Paying upfront and paying what they owe still work.
+
+**Lifting** (`lift_customer_suspension`):
+- only a POS approver (manager) or admin may lift, and a reason is required;
+- everything the customer owed at that moment is waived from the automatic rules, so it does not re-suspend for those debts;
+- new overdue debts suspend again.
+
+Admin, finance or a manager may also suspend by hand (`suspend_customer`). Every suspension and lift keeps who, when, why and what it was for.
+
+**Clients:**
+- Staff → CRM → Customer credit lists suspensions (with what they were for and what is owed), lets a manager lift one and lets staff suspend by hand.
+- The web shop and the customer app show Pay on delivery disabled with the reason.
+- The web POS shows On account disabled with the reason.
+- The driver app and the tablet show the server's refusal message.
+
+**Checked** in a rolled-back run:
+- a fresh pay-on-delivery order is allowed;
+- an invoice 30+ days overdue suspends: pay on delivery is refused and upfront checkout is allowed;
+- a back-order is refused while suspended;
+- lifting is refused for a non-manager and without a reason;
+- a manager lifts, the waived debt does not re-suspend, and a new overdue debt does;
+- 1 refused delivery does not suspend, 2 do.
+

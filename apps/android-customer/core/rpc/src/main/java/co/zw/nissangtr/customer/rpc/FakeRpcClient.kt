@@ -605,12 +605,18 @@ class FakeRpcClient : RpcClient {
 
     private var fakeDeliveryPayment = DeliveryPaymentMethod.PREPAY
 
+    /** Demo / tests: set to see the suspended checkout. */
+    var fakeSuspension: AccountSuspension? = null
+
+    override suspend fun getMyAccountSuspension(): AccountSuspension? = fakeSuspension
+
     override suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String {
         val cart = openCart
         require(cart != null && cart.id == cartId && cart.status == "open") { "open cart required" }
         require(cart.fulfillmentMode == FulfillmentMode.DISPATCH || method == DeliveryPaymentMethod.PREPAY) {
             "pay-on-delivery is available only for dispatch orders"
         }
+        check(method == DeliveryPaymentMethod.PREPAY || fakeSuspension == null) { "customer account suspended" }
         fakeDeliveryPayment = method
         return cartId
     }

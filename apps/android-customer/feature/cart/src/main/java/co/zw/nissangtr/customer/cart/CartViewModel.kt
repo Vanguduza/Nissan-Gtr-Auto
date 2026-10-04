@@ -26,6 +26,8 @@ data class CartUiState(
     val deliveryPayment: DeliveryPaymentMethod = DeliveryPaymentMethod.PREPAY,
     /** Invoice of an order placed to be paid on delivery (no online payment step). */
     val placedOnDeliveryId: String? = null,
+    /** Suspended for failing to settle: pay on delivery is not offered. */
+    val suspension: co.zw.nissangtr.customer.rpc.AccountSuspension? = null,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
@@ -59,7 +61,7 @@ class CartViewModel(
     /** Pay on delivery exists only for nationwide delivery; the cart remembers the choice. */
     fun onDeliveryPaymentChange(v: DeliveryPaymentMethod) {
         val s = _state.value
-        if (v != DeliveryPaymentMethod.PREPAY && s.fulfillmentMode != FulfillmentMode.DISPATCH) return
+        if (v != DeliveryPaymentMethod.PREPAY && (s.fulfillmentMode != FulfillmentMode.DISPATCH || s.suspension != null)) return
         _state.update {
             it.copy(
                 deliveryPayment = v,
@@ -83,6 +85,7 @@ class CartViewModel(
                 val rate = rpc.fetchZigExchangeRate()
                 val cart = rpc.getOpenCart()
                 val addresses = runCatching { rpc.listOwnAddresses() }.getOrDefault(emptyList())
+                val suspension = runCatching { rpc.getMyAccountSuspension() }.getOrNull()
                 val defaultId = addresses.firstOrNull { it.isDefault }?.id
                     ?: addresses.firstOrNull()?.id
                 _state.update {
@@ -92,6 +95,8 @@ class CartViewModel(
                         cart = cart,
                         addresses = addresses,
                         selectedAddressId = it.selectedAddressId ?: defaultId,
+                        suspension = suspension,
+                        deliveryPayment = if (suspension != null) DeliveryPaymentMethod.PREPAY else it.deliveryPayment,
                         currency = cart?.currency ?: it.currency,
                         fulfillmentMode = cart?.fulfillmentMode ?: it.fulfillmentMode,
                     )

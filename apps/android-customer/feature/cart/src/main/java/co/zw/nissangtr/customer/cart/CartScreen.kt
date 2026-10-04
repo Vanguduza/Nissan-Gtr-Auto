@@ -251,11 +251,19 @@ fun CartScreen(
                     FilterChip(
                         selected = onDelivery,
                         onClick = { viewModel.onDeliveryPaymentChange(DeliveryPaymentMethod.CASH_OR_CARD_ON_DELIVERY) },
-                        enabled = !state.busy && dispatch,
+                        enabled = !state.busy && dispatch && state.suspension == null,
                         label = { Text("Pay on delivery") },
                     )
                 }
-                if (!dispatch) {
+                if (state.suspension != null) {
+                    Text(
+                        "Pay on delivery is not available: your account is suspended until what you owe " +
+                            "(USD %.2f) is settled. Pay online now instead.".format(state.suspension?.owingUsd ?: 0.0),
+                        color = GtrPremiumColors.TextSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                } else if (!dispatch) {
                     Text(
                         "Pay on delivery is only for nationwide delivery.",
                         color = GtrPremiumColors.TextSecondary,

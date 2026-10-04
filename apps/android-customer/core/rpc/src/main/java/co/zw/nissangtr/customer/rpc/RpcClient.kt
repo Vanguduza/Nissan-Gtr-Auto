@@ -125,6 +125,9 @@ interface RpcClient {
     suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String =
         throw UnsupportedOperationException("pay on delivery is not available here")
 
+    /** Null unless the account is suspended for failing to settle (then pay on delivery is refused). */
+    suspend fun getMyAccountSuspension(): AccountSuspension? = null
+
     /** Places a pay-on-delivery order (`checkout_customer_cart_v2`); returns the invoice id. */
     suspend fun checkoutCustomerCartOnDelivery(cartId: String, method: DeliveryPaymentMethod): String =
         throw UnsupportedOperationException("pay on delivery is not available here")

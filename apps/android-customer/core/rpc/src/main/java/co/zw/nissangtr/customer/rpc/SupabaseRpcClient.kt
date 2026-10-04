@@ -310,6 +310,13 @@ class SupabaseRpcClient(
             },
         ).decodeAs<String>()
 
+    override suspend fun getMyAccountSuspension(): AccountSuspension? {
+        val e = client.postgrest.rpc("get_my_account_suspension").decodeAs<kotlinx.serialization.json.JsonElement>()
+        val o = e as? kotlinx.serialization.json.JsonObject ?: return null
+        val p = { k: String -> (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content }
+        return AccountSuspension(p("reason").orEmpty(), p("owing")?.toDoubleOrNull() ?: 0.0)
+    }
+
     override suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String =
         client.postgrest.rpc(
             RpcNames.SET_CUSTOMER_CART_DELIVERY_PAYMENT_METHOD,

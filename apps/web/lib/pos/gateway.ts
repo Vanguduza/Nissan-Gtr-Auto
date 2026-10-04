@@ -236,6 +236,8 @@ export interface PosGateway {
   listFulfillment(query: string, status: string | null): Promise<PosResult<FulfillmentRequest[]>>;
   /** approve: warehouse staff send a branch transfer; ready / collect / cancel: sales staff. */
   fulfillmentStep(requestId: string, step: FulfillmentStep, notes: string | null): Promise<PosResult<true>>;
+  /** The customer's suspension for failing to settle, if any (credit, holds and back-orders are then refused). */
+  customerSuspension(customerId: string): Promise<PosResult<{ reason: string; owing: number } | null>>;
   /** An arrived back-order sold on this sale: when the sale posts, the request gets its invoice and can be handed over. */
   attachFulfillmentToSale(requestId: string, cartId: string): Promise<PosResult<true>>;
 

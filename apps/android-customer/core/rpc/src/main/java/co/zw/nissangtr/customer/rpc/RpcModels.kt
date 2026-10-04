@@ -20,6 +20,9 @@ enum class DeliveryPaymentMethod(val rpcValue: String) {
     CASH_OR_CARD_ON_DELIVERY("cash_or_card_on_delivery"),
 }
 
+/** The signed-in customer's suspension for failing to settle (`get_my_account_suspension`). */
+data class AccountSuspension(val reason: String, val owingUsd: Double)
+
 /** Mirrors `public.contipay_method` (subset used by storefront). */
 enum class ContipayMethod(val rpcValue: String) {
     ECOCASH("ecocash"),

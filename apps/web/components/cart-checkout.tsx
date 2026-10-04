@@ -20,6 +20,7 @@ import {
   formatMoney,
   getCustomerOrder,
   fulfillmentLabel,
+  getMyAccountSuspension,
   loadCartLines,
   loadOpenCart,
   loadOwnCustomer,
@@ -77,6 +78,7 @@ export function CartCheckout() {
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
   const [onDelivery, setOnDelivery] = useState<OnDeliveryMethod>("cash_or_card_on_delivery");
+  const [suspension, setSuspension] = useState<{ reason: string; owing: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -98,6 +100,9 @@ export function CartCheckout() {
 
     const rate = await fetchZigExchangeRate(client);
     setZigRate(rate);
+
+    const suspended = await getMyAccountSuspension(client);
+    setSuspension(suspended.ok ? suspended.data : null);
 
     const cart = await loadOpenCart(client);
     if (!cart.ok) {
@@ -152,7 +157,7 @@ export function CartCheckout() {
 
   const effectiveFulfillment: Fulfillment =
     status.kind === "ready" && status.cart ? status.cart.fulfillment_mode : fulfillment;
-  const onDeliveryAllowed = effectiveFulfillment === "dispatch";
+  const onDeliveryAllowed = effectiveFulfillment === "dispatch" && !suspension;
 
   // Pay on delivery exists only for dispatch; switching to collection drops it.
   useEffect(() => {
@@ -227,7 +232,7 @@ export function CartCheckout() {
 
     if (tender === "delivery") {
       if (!onDeliveryAllowed) {
-        setMessage("Pay on delivery is only for nationwide dispatch.");
+        setMessage(suspension ? "Pay on delivery is not available while your account is suspended." : "Pay on delivery is only for nationwide dispatch.");
         setBusy(false);
         return;
       }
@@ -657,9 +662,11 @@ export function CartCheckout() {
             <span>
               <strong>Pay on delivery</strong>
               <span className={styles.muted}>
-                {onDeliveryAllowed
-                  ? "Cash or card to the driver at your door"
-                  : "Only for nationwide dispatch — this order is click & collect"}
+                {suspension
+                  ? `Not available: your account is suspended until what you owe (${formatMoney(suspension.owing, "USD")}) is settled. Pay online now instead.`
+                  : onDeliveryAllowed
+                    ? "Cash or card to the driver at your door"
+                    : "Only for nationwide dispatch — this order is click & collect"}
               </span>
             </span>
           </label>

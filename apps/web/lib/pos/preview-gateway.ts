@@ -1049,6 +1049,7 @@ export function createPreviewPosGateway(): PosGateway {
           return ok(true as const);
       }
     },
+    customerSuspension: () => ok(null),
     attachFulfillmentToSale: (requestId, cartId) => {
       const f = fulfillment.find((x) => x.id === requestId);
       if (!f || f.kind !== "backorder" || !["requested", "ready"].includes(f.status) || f.invoiceId) return no("an open back-order without a sale is required");

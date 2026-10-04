@@ -509,6 +509,20 @@ export function PaymentDialog({
   };
   const hold = remainingLabel(co?.status.reservationExpiresAt ?? null, now);
   const registered = Boolean(pos.cart?.customerId) && pos.cart?.customerName !== "POS Walk-in";
+  // A customer suspended for failing to settle cannot buy on account (the server refuses it too).
+  const [suspension, setSuspension] = useState<{ reason: string; owing: number } | null>(null);
+  const customerId = registered ? pos.cart?.customerId ?? null : null;
+  useEffect(() => {
+    setSuspension(null);
+    if (!customerId || !pos.online) return;
+    let live = true;
+    void pos.gateway.customerSuspension(customerId).then((r) => {
+      if (live && r.ok) setSuspension(r.data);
+    });
+    return () => {
+      live = false;
+    };
+  }, [customerId, pos.gateway, pos.online]);
   const providerReason = (p: DigitalProvider): string | null => {
     if (!pos.online) return "Needs a connection.";
     if (!pos.providers) return "Checking…";
@@ -521,7 +535,11 @@ export function PaymentDialog({
     { id: "ecocash", label: "EcoCash", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("ecocash") },
     { id: "paynow", label: "Paynow", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("paynow") },
     { id: "contipay", label: "ContiPay", icon: <Smartphone size={16} aria-hidden />, reason: providerReason("contipay") },
-    { id: "account", label: "On account", icon: <Building2 size={16} aria-hidden />, reason: registered ? null : "Choose a registered customer with credit first." },
+    { id: "account", label: "On account", icon: <Building2 size={16} aria-hidden />, reason: !registered
+        ? "Choose a registered customer with credit first."
+        : suspension
+          ? `Account suspended (${suspension.reason}); owing ${formatMoney(suspension.owing, currency)}. Take payment now, or a manager lifts it in Customer credit.`
+          : null },
     { id: "parts", label: "Pay in parts", icon: <Layers size={16} aria-hidden />, reason: pos.online ? null : "Needs a connection." },
   ];
 

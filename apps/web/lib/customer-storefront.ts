@@ -389,6 +389,17 @@ export async function checkoutCustomerCart(
   return { ok: true, data };
 }
 
+/** The signed-in customer's suspension for failing to settle, or null (pay on delivery is then refused). */
+export async function getMyAccountSuspension(
+  client: SupabaseClient,
+): Promise<StorefrontResult<{ reason: string; owing: number } | null>> {
+  const { data, error } = await storefrontRpc(client, "get_my_account_suspension", {});
+  if (error) return { ok: false, error: error.message };
+  if (!data || typeof data !== "object") return { ok: true, data: null };
+  const o = data as Record<string, unknown>;
+  return { ok: true, data: { reason: String(o.reason ?? ""), owing: Number(o.owing ?? 0) } };
+}
+
 /** Saves the pay-on-delivery choice on the cart (the server refuses it for click & collect). */
 export async function setCartDeliveryPaymentMethod(
   client: SupabaseClient,
