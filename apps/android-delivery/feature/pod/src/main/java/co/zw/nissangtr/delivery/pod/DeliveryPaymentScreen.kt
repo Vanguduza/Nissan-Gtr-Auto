@@ -158,6 +158,18 @@ fun DeliveryPaymentContent(
             } else {
                 CardSetup(state, amount, ctx.currency, onSelectTerminal, onReloadTerminals, onPair, onCharge)
             }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                if (ctx.amountPaid > 0) {
+                    "Customer can't pay the rest? Call dispatch: they can complete it with the balance on account. " +
+                        "Otherwise report an issue (Refused) and bring the parts back; what was paid stays on the invoice."
+                } else {
+                    "Customer can't pay? Report an issue (Refused) and bring the parts back. Dispatch can arrange a new attempt."
+                },
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                color = c.secondaryLabel,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
         }
 
         state.message?.let {

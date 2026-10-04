@@ -1,31 +1,23 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "69a4184280aaf55f16f7",
+  "change_id": "71c8c9ca4f20feea9e88",
   "changed_files": [
-    "apps/android-management/app/src/main/java/co/zw/nissangtr/management/pos/OfflineCatalogHolder.kt",
-    "apps/android-management/app/src/main/java/co/zw/nissangtr/management/pos/PosTabletEntry.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/home/PosHomeScreen.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/sale/PosDestinations.kt",
-    "apps/android-management/feature/pos-ui/src/main/res/values/strings.xml",
-    "apps/android-management/feature/pos-ui/src/test/java/co/zw/nissangtr/pos/ui/home/PosScreensScreenshotTest.kt",
-    "apps/android-management/feature/pos/src/main/java/co/zw/nissangtr/management/pos/offline/bundle/OfflineCatalogBundle.kt",
-    "apps/android-management/feature/pos/src/test/java/co/zw/nissangtr/management/pos/offline/bundle/OfflineCatalogBundleTest.kt",
-    "apps/web/components/pos/OfflineCatalogSetting.tsx",
-    "apps/web/lib/pos/offline/catalog.ts",
-    "apps/web/lib/pos/offline/storage.ts",
+    "apps/android-delivery/feature/jobs/src/test/snapshots/images/co.zw.nissangtr.delivery.jobs_DeliveryScreensScreenshotTest_stop_pay_card_dark.png",
+    "apps/android-delivery/feature/jobs/src/test/snapshots/images/co.zw.nissangtr.delivery.jobs_DeliveryScreensScreenshotTest_stop_pay_cash_light.png",
+    "apps/android-delivery/feature/pod/src/main/java/co/zw/nissangtr/delivery/pod/DeliveryPaymentScreen.kt",
     "docs/design/pos/FEATURE_REGISTER.md",
-    "docs/plans/2026-10-03-pos-operations-backend-integration.md"
+    "docs/plans/2026-10-03-pos-operations-backend-integration.md",
+    "supabase/migrations/20261004144000_pod_requires_delivery_payment.sql"
   ],
-  "diff_sha256": "69a4184280aaf55f16f73e21310529f3ed2168d1fe0630f460ead5b1574c1e67",
+  "diff_sha256": "71c8c9ca4f20feea9e88a14b621def764b7cec67fb17f3d0cbab00230423a232",
   "domains": [
-    "documentation",
-    "management-android",
-    "pos-android",
-    "web"
+    "backend",
+    "delivery-android",
+    "documentation"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-04T13:15:24.800821+00:00",
+  "recorded_at_utc": "2026-10-04T14:42:13.113697+00:00",
   "schema_version": 1,
-  "source_parent": "306e6f970477a3401899e93dcd89026d78e8bf69"
+  "source_parent": "91d8799724b759664b71b5876d77841fbc1f8af3"
 }

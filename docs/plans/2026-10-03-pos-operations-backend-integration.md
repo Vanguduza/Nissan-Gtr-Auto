@@ -122,9 +122,22 @@ A letter shows the signature image only to users the bucket lets read it (the si
 others see "signature on file" with its hash. The A4 printer bridge gained `printSignedDocument`
 (Bridge-First). Letters are issued by the signed-in user only (no badge path: the signature is theirs).
 
-Driver COD notes: `submit_delivery_pod` does not check payment, so the driver app holds "Complete
-delivery" while a cash/card-on-delivery invoice has a balance or a card charge is unresolved
-(backend gap: the server should refuse it too). A stop whose payment context cannot be loaded
+Driver COD notes: the driver app holds "Complete delivery" while a cash/card-on-delivery invoice has
+a balance or a card charge is unresolved, and since migration 20261004144000 `submit_delivery_pod`
+refuses the driver too (dispatch / warehouse / admin can still complete; the balance then stays open
+on the invoice). Checked in rolled-back runs: unpaid and part-paid refused, paid passes, unresolved
+card charge refused, back office passes.
+
+How COD works at the door:
+1. The driver opens Proof of delivery. The Payment step shows the balance due, which comes from the server.
+2. The driver collects cash, card or both. Each payment posts against the invoice immediately.
+3. With the balance at zero, the driver does the photo, signature and customer code, then completes.
+
+What happens otherwise:
+- **Customer can't pay:** Report an issue → Refused (`fail_delivery_job`), and the parts come back. A re-attempt is optional.
+- **Part-paid, the rest not possible:** dispatch completes from the back office, and the rest stays owed on account.
+- **Delivery fails after a payment:** the money stays on the invoice. It counts toward the re-attempt or is refunded through returns.
+- **Connection:** payment needs a connection at the door, like the customer-code check already does. A stop whose payment context cannot be loaded
 shows a warning but is not held, so a proof can still queue offline; a stop without an invoice
 shows no payment section. A card machine must be assigned by an admin to the phone's device id
 (shown in the app) before the driver can pair; the fake backend uses the simulated machine
