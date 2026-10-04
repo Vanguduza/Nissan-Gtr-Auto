@@ -490,6 +490,27 @@ class FakeRpcClient : RpcClient {
         return a.copy(status = "settled").also { fakeCardAttempts[attemptId] = it }
     }
 
+    private val fakeBalance = mutableMapOf<String, DeliveryBalanceApproval>()
+
+    /** Demo rule: up to USD 30 left on account is covered by the customer's credit; more waits for dispatch. */
+    override suspend fun requestDeliveryBalanceOnAccount(deliveryJobId: String, reason: String): DeliveryBalanceApproval {
+        check(reason.isNotBlank()) { "say why the customer cannot pay the rest" }
+        val ctx = getDeliveryPaymentContext(deliveryJobId) ?: error("assigned dispatched driver job required")
+        check(ctx.amountDue > 0.004) { "nothing is owed on this delivery" }
+        fakeBalance[deliveryJobId]?.takeIf { it.approved && ctx.amountDue <= it.amount + 0.01 }?.let { return it }
+        val auto = ctx.amountDue <= 30.0
+        return DeliveryBalanceApproval(
+            "bal-${deliveryJobId.takeLast(4)}", if (auto) "auto_approved" else "pending", if (auto) "credit_limit" else "back_office",
+            ctx.amountDue, ctx.currency, reason, null, null,
+        ).also { fakeBalance[deliveryJobId] = it }
+    }
+
+    /** A pending request is approved by "dispatch" the next time the driver checks. */
+    override suspend fun getDeliveryBalanceApproval(deliveryJobId: String): DeliveryBalanceApproval? {
+        val b = fakeBalance[deliveryJobId] ?: return null
+        return if (b.status == "pending") b.copy(status = "approved", decidedByName = "Dispatch (demo)").also { fakeBalance[deliveryJobId] = it } else b
+    }
+
     override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
         fakeCardAttempts.values.lastOrNull { fakeCardJob[it.attemptId] == deliveryJobId && (it.status in setOf("initiated", "approved", "unknown") || it.finalizationError != null) }
 }

@@ -284,6 +284,11 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         label: "Panic inbox",
         roles: ["admin", "warehouse", "dispatcher"],
       },
+      {
+        href: "/staff/logistics/balances",
+        label: "Balances on account",
+        roles: ["admin", "dispatcher"],
+      },
     ],
   },
   {
@@ -523,6 +528,12 @@ export function pathAccessFor(pathname: string): PathAccess {
     path.startsWith("/staff/crm/reviews/")
   ) {
     return { kind: "roles", roles: ["admin", "sales"] };
+  }
+  if (
+    path === "/staff/logistics/balances" ||
+    path.startsWith("/staff/logistics/balances/")
+  ) {
+    return { kind: "roles", roles: ["admin", "dispatcher"] };
   }
   if (
     path === "/staff/logistics/tracking" ||

@@ -139,7 +139,10 @@ How COD works at the door:
 
 What happens otherwise:
 - **Customer can't pay:** Report an issue → Refused (`fail_delivery_job`), and the parts come back. A re-attempt is optional.
-- **Part-paid, the rest not possible:** dispatch completes from the back office, and the rest stays owed on account.
+- **Part-paid, the rest not possible (part settlement, migrations 20261004164444 / 20261004164943):** the driver taps "Customer can't pay the rest?", gives a reason, and asks to leave the balance on account (`request_delivery_balance_on_account`).
+  - It is approved at once when the customer's trade account is not on hold and what they owe, this invoice included, fits their credit limit.
+  - Otherwise it waits in Staff → Logistics → Balances on account, where a dispatcher or admin leaves it on account or refuses with a note (`decide_delivery_balance_on_account`). Finance and POS approvers may also decide through the server.
+  - The driver's screen updates when they decide. An approval lets `submit_delivery_pod` complete with that balance (or a smaller one) open on the invoice; every request is kept with who asked, why, and who decided.
 - **Delivery fails after a payment:** the money stays on the invoice. It counts toward the re-attempt or is refunded through returns.
 - **Connection:** payment needs a connection at the door, like the customer-code check already does. A stop whose payment context cannot be loaded
 shows a warning but is not held, so a proof can still queue offline; a stop without an invoice

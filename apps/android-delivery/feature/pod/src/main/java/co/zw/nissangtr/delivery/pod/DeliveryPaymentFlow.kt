@@ -6,6 +6,7 @@ import co.zw.nissangtr.bridges.terminal.TerminalEvidence
 import co.zw.nissangtr.bridges.terminal.TerminalOperation
 import co.zw.nissangtr.bridges.terminal.TerminalRequest
 import co.zw.nissangtr.bridges.terminal.TerminalResult
+import co.zw.nissangtr.delivery.rpc.DeliveryBalanceApproval
 import co.zw.nissangtr.delivery.rpc.DeliveryCardAttempt
 import co.zw.nissangtr.delivery.rpc.DeliveryCardTerminal
 import co.zw.nissangtr.delivery.rpc.DeliveryCashReceipt
@@ -31,9 +32,15 @@ object CodGate {
     fun isUnresolved(attempt: DeliveryCardAttempt?): Boolean =
         attempt != null && (attempt.status in UNRESOLVED || attempt.finalizationError != null) && attempt.status != "settled"
 
+    /** The unpaid balance may stay on account: approved, and the balance has not grown since. */
+    fun balanceOnAccount(ctx: DeliveryPaymentContext?, approval: DeliveryBalanceApproval?): Boolean =
+        ctx != null && approval != null && approval.approved && ctx.amountDue <= approval.amount + 0.01
+
     /** Why delivery can't be completed yet, or null when payment allows it. */
-    fun blockingReason(ctx: DeliveryPaymentContext?, attempt: DeliveryCardAttempt?): String? = when {
+    fun blockingReason(ctx: DeliveryPaymentContext?, attempt: DeliveryCardAttempt?, approval: DeliveryBalanceApproval? = null): String? = when {
         isUnresolved(attempt) -> "Finish the card payment above before completing."
+        isDue(ctx) && balanceOnAccount(ctx, approval) -> null
+        isDue(ctx) && approval?.status == "pending" -> "Waiting for dispatch to approve the balance on account."
         isDue(ctx) -> "Collect ${money(ctx!!.amountDue, ctx.currency)} before completing."
         else -> null
     }
@@ -83,6 +90,11 @@ class DeliveryPaymentFlow(
     suspend fun context(jobId: String): DeliveryPaymentContext? = rpc.getDeliveryPaymentContext(jobId)
 
     suspend fun recovery(jobId: String): DeliveryCardAttempt? = rpc.getDeliveryCardRecovery(jobId)
+
+    suspend fun balanceApproval(jobId: String): DeliveryBalanceApproval? = rpc.getDeliveryBalanceApproval(jobId)
+
+    suspend fun requestBalanceOnAccount(jobId: String, reason: String): DeliveryBalanceApproval =
+        rpc.requestDeliveryBalanceOnAccount(jobId, reason.trim())
 
     suspend fun collectCash(jobId: String, amount: Double, requestId: String, notes: String?): DeliveryCashReceipt =
         rpc.collectDeliveryCash(jobId, amount, requestId, notes?.trim()?.takeIf { it.isNotEmpty() })

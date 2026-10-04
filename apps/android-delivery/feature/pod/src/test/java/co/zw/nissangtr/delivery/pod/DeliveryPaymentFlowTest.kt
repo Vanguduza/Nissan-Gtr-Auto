@@ -102,4 +102,47 @@ class DeliveryPaymentFlowTest {
         assertNull(CodGate.parseAmount("0", 45.5))
         assertNull(CodGate.parseAmount("abc", 45.5))
     }
+
+    @Test
+    fun partPaidBalanceWithinCreditIsLeftOnAccountAtOnce() = runBlocking {
+        flow.collectCash(job, 20.0, "cash-part", null)
+        val ctx = flow.context(job)!!
+        assertEquals("Collect USD 25.50 before completing.", CodGate.blockingReason(ctx, null, null))
+        val a = flow.requestBalanceOnAccount(job, "  paid what they had  ")
+        assertEquals("auto_approved", a.status)
+        assertEquals("credit_limit", a.basis)
+        assertEquals("paid what they had", a.reason)
+        assertTrue(CodGate.balanceOnAccount(ctx, a))
+        assertNull(CodGate.blockingReason(ctx, null, a))
+        // An unresolved card charge still holds completion.
+        val unknown = DeliveryCardAttemptFixtures.unknown
+        assertNotNull(CodGate.blockingReason(ctx, unknown, a))
+    }
+
+    @Test
+    fun largerBalanceWaitsForDispatch() = runBlocking {
+        val ctx = flow.context(job)!!
+        val a = flow.requestBalanceOnAccount(job, "short of cash")
+        assertEquals("pending", a.status)
+        assertEquals("Waiting for dispatch to approve the balance on account.", CodGate.blockingReason(ctx, null, a))
+        val decided = flow.balanceApproval(job)!!
+        assertEquals("approved", decided.status)
+        assertNull(CodGate.blockingReason(ctx, null, decided))
+        // An approval only covers the balance it was for.
+        assertFalse(CodGate.balanceOnAccount(ctx.copy(amountDue = ctx.amountDue + 5), decided))
+    }
+
+    @Test
+    fun aReasonIsRequired() = runBlocking {
+        try {
+            flow.requestBalanceOnAccount(job, " ")
+            fail("a reason is required")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message!!.contains("why"))
+        }
+    }
+}
+
+private object DeliveryCardAttemptFixtures {
+    val unknown = co.zw.nissangtr.delivery.rpc.DeliveryCardAttempt("a", "unknown", 1.0, "USD", null, null, emptyMap(), null, null, null, null)
 }

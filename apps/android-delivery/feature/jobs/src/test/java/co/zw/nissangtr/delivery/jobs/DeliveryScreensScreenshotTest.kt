@@ -120,6 +120,14 @@ class DeliveryScreensScreenshotTest {
             ),
         )
     }
+    private val partPaid by lazy { payState.copy(context = payState.context!!.copy(amountPaid = 20.0, amountDue = 25.5), amount = "25.50") }
+    private fun balance(status: String, basis: String) =
+        co.zw.nissangtr.delivery.rpc.DeliveryBalanceApproval("b1", status, basis, 25.5, "USD", "Paid what they had", "Rudo M.".takeIf { status == "approved" }, null)
+    @Test fun stop_pay_on_account_ask_light() = shot(SlopesMode.Light) {
+        Pay(partPaid.copy(onAccountOpen = true, onAccountReason = "Paid what they had, will settle at the branch"))
+    }
+    @Test fun stop_pay_on_account_waiting_dark() = shot(SlopesMode.Dark) { Pay(partPaid.copy(approval = balance("pending", "back_office"))) }
+    @Test fun stop_pay_on_account_approved_light() = shot(SlopesMode.Light) { Pay(partPaid.copy(approval = balance("approved", "back_office"))) }
     @Test fun stop_issue_dark() = shot(SlopesMode.Dark) { Detail("detail", popup = StopPopup.Issue) }
     @Test fun today_status_light() = shot(SlopesMode.Light) {
         Shell("Today", "overview") { vm, tvm -> JobsListScreen(baseState, vm, tvm, tracking = tracking) }

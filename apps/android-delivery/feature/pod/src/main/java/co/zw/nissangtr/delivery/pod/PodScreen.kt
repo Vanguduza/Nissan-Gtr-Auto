@@ -126,6 +126,10 @@ fun PodSection(
             onCharge = payVm::chargeCard,
             onAskAgain = payVm::askAgain,
             onFinish = payVm::finishCard,
+            onOpenOnAccount = payVm::openOnAccount,
+            onOnAccountReasonChange = payVm::onOnAccountReasonChange,
+            onRequestOnAccount = payVm::requestOnAccount,
+            onCheckDecision = payVm::checkDecision,
         )
         PodSectionContent(
             state = state,

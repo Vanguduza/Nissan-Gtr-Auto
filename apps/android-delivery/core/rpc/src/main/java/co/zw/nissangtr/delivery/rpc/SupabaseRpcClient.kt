@@ -541,6 +541,26 @@ class SupabaseRpcClient(
     override suspend fun finalizeDeliveryCardPayment(attemptId: String) =
         attemptFrom(rpcObject("finalize_delivery_card_terminal_payment", buildJsonObject { put("p_attempt_id", attemptId) }) ?: error("The card payment was not posted."))
 
+    private fun balanceFrom(o: kotlinx.serialization.json.JsonObject) = DeliveryBalanceApproval(
+        id = o.str("id").orEmpty(),
+        status = o.str("status") ?: "pending",
+        basis = o.str("basis") ?: "back_office",
+        amount = o.num("amount") ?: 0.0,
+        currency = o.str("currency") ?: "USD",
+        reason = o.str("reason").orEmpty(),
+        decidedByName = o.str("decided_by_name"),
+        decisionNote = o.str("decision_note"),
+    )
+
+    override suspend fun requestDeliveryBalanceOnAccount(deliveryJobId: String, reason: String) =
+        balanceFrom(
+            rpcObject("request_delivery_balance_on_account", buildJsonObject { put("p_delivery_job_id", deliveryJobId); put("p_reason", reason) })
+                ?: error("The request was not sent."),
+        )
+
+    override suspend fun getDeliveryBalanceApproval(deliveryJobId: String): DeliveryBalanceApproval? =
+        rpcObject("get_delivery_balance_approval", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })?.let(::balanceFrom)
+
     override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
         rpcObject("get_delivery_card_terminal_recovery", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })?.let(::attemptFrom)
 

@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Payments
@@ -54,6 +56,10 @@ fun DeliveryPaymentContent(
     onAskAgain: () -> Unit,
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenOnAccount: (Boolean) -> Unit = {},
+    onOnAccountReasonChange: (String) -> Unit = {},
+    onRequestOnAccount: () -> Unit = {},
+    onCheckDecision: () -> Unit = {},
 ) {
     val c = Slopes.colors
     val ctx = state.context
@@ -110,6 +116,17 @@ fun DeliveryPaymentContent(
         if (CodGate.isUnresolved(attempt)) {
             CardRecovery(state, attempt!!, onAskAgain, onFinish)
         } else if (ctx.amountDue > 0.004) {
+            if (state.balanceOnAccount) {
+                val a = state.approval!!
+                Spacer(Modifier.height(12.dp))
+                SlopesBanner(
+                    "${CodGate.money(ctx.amountDue, ctx.currency)} stays on the customer's account" +
+                        (if (a.basis == "credit_limit") " (within their credit limit)." else " (approved by ${a.decidedByName ?: "dispatch"}).") +
+                        " Finish the proof to complete; take more payment only if they offer it.",
+                    tone = SlopesTone.Success,
+                    icon = Icons.Filled.CheckCircle,
+                )
+            }
             if (ctx.mayCollectCash && ctx.mayCollectCard) {
                 Spacer(Modifier.height(12.dp))
                 SlopesSegmented(
@@ -158,18 +175,8 @@ fun DeliveryPaymentContent(
             } else {
                 CardSetup(state, amount, ctx.currency, onSelectTerminal, onReloadTerminals, onPair, onCharge)
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                if (ctx.amountPaid > 0) {
-                    "Customer can't pay the rest? Call dispatch: they can complete it with the balance on account. " +
-                        "Otherwise report an issue (Refused) and bring the parts back; what was paid stays on the invoice."
-                } else {
-                    "Customer can't pay? Report an issue (Refused) and bring the parts back. Dispatch can arrange a new attempt."
-                },
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                color = c.secondaryLabel,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
+            Spacer(Modifier.height(14.dp))
+            BalanceOnAccount(state, onOpenOnAccount, onOnAccountReasonChange, onRequestOnAccount, onCheckDecision)
         }
 
         state.message?.let {
@@ -309,4 +316,86 @@ private fun methodLabel(method: String): String = when (method) {
     "cash_or_card_on_delivery" -> "Cash or card on delivery"
     "prepay" -> "Prepaid / on account"
     else -> method.replace('_', ' ')
+}
+
+/**
+ * The customer cannot pay the rest: leave it on their account. Approved at once on a trade account
+ * with room under its limit; otherwise dispatch decides while the driver waits.
+ */
+@Composable
+private fun BalanceOnAccount(
+    state: DeliveryPaymentUiState,
+    onOpen: (Boolean) -> Unit,
+    onReason: (String) -> Unit,
+    onRequest: () -> Unit,
+    onCheck: () -> Unit,
+) {
+    val c = Slopes.colors
+    val ctx = state.context ?: return
+    val a = state.approval
+    when {
+        state.balanceOnAccount -> Unit
+        a?.status == "pending" -> {
+            SlopesBanner(
+                "Waiting for dispatch to approve leaving ${CodGate.money(a.amount, a.currency)} on account. This updates by itself.",
+                tone = SlopesTone.Warning,
+                icon = Icons.Filled.HourglassTop,
+                action = if (state.busy) null else "Check now",
+                onAction = onCheck,
+            )
+        }
+        state.onAccountOpen -> {
+            Text(
+                "Leave ${CodGate.money(ctx.amountDue, ctx.currency)} on the customer's account",
+                style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+                color = c.label,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(Modifier.height(8.dp))
+            SlopesTextField(
+                value = state.onAccountReason,
+                onValueChange = onReason,
+                label = "Why can't they pay the rest?",
+                placeholder = "e.g. paid what they had, will settle at the branch",
+                singleLine = false,
+                enabled = !state.busy,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SlopesTintedButton("Cancel", { onOpen(false) }, enabled = !state.busy, modifier = Modifier.weight(1f))
+                SlopesPrimaryButton(
+                    state.busyLabel ?: "Ask to leave on account",
+                    onRequest,
+                    enabled = !state.busy && state.onAccountReason.isNotBlank(),
+                    modifier = Modifier.weight(1.4f),
+                )
+            }
+            Text(
+                "Approved straight away if their trade account has room; otherwise dispatch decides.",
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                color = c.secondaryLabel,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
+            )
+        }
+        else -> {
+            if (a?.status == "refused") {
+                SlopesBanner("Dispatch refused leaving the balance on account: ${a.decisionNote ?: "no reason given"}.", tone = SlopesTone.Danger, icon = Icons.Filled.ReportProblem)
+                Spacer(Modifier.height(10.dp))
+            }
+            SlopesTintedButton(
+                "Customer can't pay the rest?",
+                { onOpen(true) },
+                enabled = !state.busy,
+                icon = Icons.Filled.AccountBalanceWallet,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Text(
+                "Leave the balance on their account, or report an issue (Refused) and bring the parts back.",
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                color = c.secondaryLabel,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
+            )
+        }
+    }
 }

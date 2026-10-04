@@ -139,6 +139,22 @@ data class DeliveryPaymentContext(
     val mayCollectCard: Boolean,
 )
 
+/** Leaving an unpaid balance on account (`delivery_balance_approvals`). */
+data class DeliveryBalanceApproval(
+    val id: String,
+    /** pending | auto_approved | approved | refused | cancelled */
+    val status: String,
+    /** credit_limit (approved by the customer's trade account) | back_office (dispatch decides) */
+    val basis: String,
+    val amount: Double,
+    val currency: String,
+    val reason: String,
+    val decidedByName: String?,
+    val decisionNote: String?,
+) {
+    val approved: Boolean get() = status == "auto_approved" || status == "approved"
+}
+
 data class DeliveryCashReceipt(val collectionId: String, val amount: Double, val currency: String, val balanceDue: Double?)
 
 data class DeliveryCardTerminal(

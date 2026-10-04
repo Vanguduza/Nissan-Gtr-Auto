@@ -37,12 +37,17 @@ data class DeliveryPaymentUiState(
     val appInstalled: Boolean = false,
     /** The card attempt in progress or awaiting recovery. */
     val attempt: DeliveryCardAttempt? = null,
+    /** The latest request to leave the unpaid balance on account. */
+    val approval: co.zw.nissangtr.delivery.rpc.DeliveryBalanceApproval? = null,
+    val onAccountOpen: Boolean = false,
+    val onAccountReason: String = "",
     val busyLabel: String? = null,
     val message: String? = null,
     val error: String? = null,
 ) {
     val busy: Boolean get() = loading || busyLabel != null
-    val blockingReason: String? get() = CodGate.blockingReason(context, attempt)
+    val blockingReason: String? get() = CodGate.blockingReason(context, attempt, approval)
+    val balanceOnAccount: Boolean get() = CodGate.balanceOnAccount(context, approval)
     val selectedTerminal: DeliveryCardTerminal? get() = terminals.firstOrNull { it.id == selectedTerminalId }
 }
 
@@ -68,11 +73,13 @@ class DeliveryPaymentViewModel(private val flow: DeliveryPaymentFlow) : ViewMode
             try {
                 val ctx = flow.context(jobId)
                 val recovery = if (CodGate.collects(ctx)) runCatching { flow.recovery(jobId) }.getOrNull() else null
+                val approval = if (CodGate.collects(ctx)) runCatching { flow.balanceApproval(jobId) }.getOrNull() else null
                 _state.update {
                     it.copy(
                         loading = false,
                         context = ctx,
                         attempt = recovery ?: it.attempt?.takeIf(CodGate::isUnresolved),
+                        approval = approval,
                         method = when {
                             ctx?.mayCollectCash == false && ctx.mayCollectCard -> CodMethod.Card
                             ctx?.mayCollectCard == false -> CodMethod.Cash
@@ -82,6 +89,7 @@ class DeliveryPaymentViewModel(private val flow: DeliveryPaymentFlow) : ViewMode
                     )
                 }
                 if (_state.value.method == CodMethod.Card) loadTerminals()
+                if (approval?.status == "pending") waitForDecision()
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, contextError = e.message ?: "Could not check payment for this stop.") }
             }
@@ -103,6 +111,62 @@ class DeliveryPaymentViewModel(private val flow: DeliveryPaymentFlow) : ViewMode
     }
 
     fun onCashNotesChange(v: String) = _state.update { it.copy(cashNotes = v.take(200)) }
+
+    fun openOnAccount(open: Boolean) = _state.update { it.copy(onAccountOpen = open, error = null) }
+
+    fun onOnAccountReasonChange(v: String) = _state.update { it.copy(onAccountReason = v.take(300)) }
+
+    private var waiting: kotlinx.coroutines.Job? = null
+
+    /** The customer cannot pay the rest: approved at once on a trade account with room, else dispatch decides. */
+    fun requestOnAccount() {
+        val s = _state.value
+        if (s.onAccountReason.isBlank()) return _state.update { it.copy(error = "Say why the customer cannot pay the rest.") }
+        run("Asking to leave the balance on account…") {
+            val a = flow.requestBalanceOnAccount(s.jobId, s.onAccountReason)
+            _state.update {
+                it.copy(
+                    approval = a,
+                    onAccountOpen = false,
+                    message = when (a.status) {
+                        "auto_approved" -> "Approved on the customer's account. Finish the proof to complete."
+                        "pending" -> "Sent to dispatch. Wait here; this updates when they decide."
+                        else -> null
+                    },
+                )
+            }
+            if (a.status == "pending") waitForDecision()
+        }
+    }
+
+    /** Checks every 10 seconds while dispatch decides (stops when this stop closes). */
+    private fun waitForDecision() {
+        waiting?.cancel()
+        waiting = viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(10_000)
+                val a = runCatching { flow.balanceApproval(_state.value.jobId) }.getOrNull() ?: continue
+                if (a.status == "pending") continue
+                _state.update {
+                    it.copy(
+                        approval = a,
+                        message = if (a.approved) "Dispatch approved leaving ${CodGate.money(a.amount, a.currency)} on account." else null,
+                        error = if (a.status == "refused") "Dispatch refused: ${a.decisionNote ?: "no reason given"}. Collect the balance or report an issue." else null,
+                    )
+                }
+                break
+            }
+        }
+    }
+
+    /** Ask now instead of waiting for the next check. */
+    fun checkDecision() {
+        run("Checking with dispatch…") {
+            val a = flow.balanceApproval(_state.value.jobId)
+            _state.update { it.copy(approval = a) }
+            if (a?.status == "refused") _state.update { it.copy(error = "Dispatch refused: ${a.decisionNote ?: "no reason given"}.") }
+        }
+    }
 
     fun collectCash() {
         val s = _state.value

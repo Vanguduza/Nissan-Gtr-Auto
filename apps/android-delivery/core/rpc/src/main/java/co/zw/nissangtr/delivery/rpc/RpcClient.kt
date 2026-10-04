@@ -129,6 +129,12 @@ interface RpcClient {
     suspend fun finalizeDeliveryCardPayment(attemptId: String): DeliveryCardAttempt =
         throw UnsupportedOperationException("card on delivery needs the live backend")
 
+    /** The customer cannot pay the rest: leave it on account (credit check, else dispatch decides). */
+    suspend fun requestDeliveryBalanceOnAccount(deliveryJobId: String, reason: String): DeliveryBalanceApproval =
+        throw UnsupportedOperationException("needs the live backend")
+
+    suspend fun getDeliveryBalanceApproval(deliveryJobId: String): DeliveryBalanceApproval? = null
+
     /** The unresolved card attempt of this delivery, if any (no answer, or charged but not posted). */
     suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? = null
 }
