@@ -411,4 +411,85 @@ class FakeRpcClient : RpcClient {
             return 2 * r * kotlin.math.asin(kotlin.math.sqrt(a))
         }
     }
+
+    // --- Cash and card on delivery (in memory, same rules as the server)
+
+    private val fakePaid = mutableMapOf<String, Double>()
+    private val fakeCashKeys = mutableMapOf<String, DeliveryCashReceipt>()
+    private val fakeCardAttempts = linkedMapOf<String, DeliveryCardAttempt>()
+    private val fakeCardKeys = mutableMapOf<String, String>()
+    private val fakeCardJob = mutableMapOf<String, String>()
+    private val fakeTerminal = DeliveryCardTerminal(
+        "term-fake-1", "Demo swipe machine", "Demo bank", "android_intent_v1",
+        mapOf("package_name" to "zw.demo.pos", "purchase_action" to "zw.demo.pos.PURCHASE", "status_action" to "zw.demo.pos.STATUS"),
+        null,
+    )
+
+    override suspend fun getDeliveryPaymentContext(deliveryJobId: String): DeliveryPaymentContext? {
+        val job = jobs.firstOrNull { it.id == deliveryJobId } ?: return null
+        val s = job.settlement
+        val total = (s?.invoiceTotalMinor ?: 0L) / 100.0
+        val paid = (s?.amountPaidMinor ?: 0L) / 100.0 + (fakePaid[deliveryJobId] ?: 0.0)
+        val method = if (s != null && total > 0.0) "cash_or_card_on_delivery" else "prepay"
+        return DeliveryPaymentContext(
+            deliveryJobId, "inv-${job.deliveryNoteId.takeLast(4)}", job.documentNumber, "wh-main", s?.currency?.rpcValue ?: "USD",
+            total, paid, maxOf(0.0, Math.round((total - paid) * 100) / 100.0), method,
+            mayCollectCash = method != "prepay", mayCollectCard = method != "prepay",
+        )
+    }
+
+    override suspend fun collectDeliveryCash(deliveryJobId: String, amount: Double, requestId: String, notes: String?): DeliveryCashReceipt {
+        fakeCashKeys[requestId]?.let { return it }
+        val ctx = getDeliveryPaymentContext(deliveryJobId) ?: error("assigned dispatched driver job required")
+        check(ctx.mayCollectCash) { "this delivery is not authorized for cash collection" }
+        check(ctx.amountDue > 0) { "invoice has no balance due" }
+        check(amount > 0 && amount <= ctx.amountDue + 0.01) { "cash amount must be >0 and <= delivery balance ${ctx.amountDue}" }
+        fakePaid[deliveryJobId] = (fakePaid[deliveryJobId] ?: 0.0) + amount
+        val r = DeliveryCashReceipt("cash-${requestId.take(8)}", amount, ctx.currency, maxOf(0.0, ctx.amountDue - amount))
+        fakeCashKeys[requestId] = r
+        return r
+    }
+
+    override suspend fun listDeliveryCardTerminals(warehouseId: String?, deviceId: String) = listOf(fakeTerminal.copy(deviceId = deviceId))
+
+    override suspend fun registerDeliveryCardDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String) = "key-${keySha256.take(8)}"
+
+    override suspend fun beginDeliveryCardPayment(deliveryJobId: String, terminalId: String, deviceId: String, amount: Double, requestId: String): DeliveryCardAttempt {
+        fakeCardKeys[requestId]?.let { return fakeCardAttempts.getValue(it) }
+        val ctx = getDeliveryPaymentContext(deliveryJobId) ?: error("assigned dispatched driver job required")
+        check(ctx.mayCollectCard) { "this delivery is not authorized for card collection" }
+        check(amount > 0 && amount <= ctx.amountDue + 0.01) { "card amount must be >0 and <= delivery balance ${ctx.amountDue}" }
+        check(fakeCardAttempts.values.none { fakeCardJob[it.attemptId] == deliveryJobId && it.status in setOf("initiated", "approved", "unknown") }) {
+            "reconcile the unresolved delivery card payment before charging again"
+        }
+        val id = "datt-${requestId.take(8)}"
+        val a = DeliveryCardAttempt(id, "initiated", amount, ctx.currency, "GTR-DCT-${requestId.take(12)}", fakeTerminal.label, fakeTerminal.adapterConfig, null, null, null, null)
+        fakeCardAttempts[id] = a; fakeCardKeys[requestId] = id; fakeCardJob[id] = deliveryJobId
+        return a
+    }
+
+    override suspend fun getDeliveryCardAttempt(attemptId: String) = fakeCardAttempts[attemptId] ?: error("card terminal attempt not found")
+
+    /** The fake reads the outcome from the payload the bridge produced (simulated machine). */
+    override suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): DeliveryCardAttempt {
+        val id = Regex("\"attempt_id\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1) ?: error("attempt id missing")
+        val outcome = Regex("\"outcome\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1) ?: "unknown"
+        val txn = Regex("\"terminal_transaction_id\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1)
+        val last4 = Regex("\"card_last4\":\"([^\"]+)\"").find(payloadJson)?.groupValues?.get(1)
+        val a = getDeliveryCardAttempt(id).copy(status = outcome, transactionId = txn, cardLast4 = last4)
+        fakeCardAttempts[id] = a
+        return a
+    }
+
+    override suspend fun finalizeDeliveryCardPayment(attemptId: String): DeliveryCardAttempt {
+        val a = getDeliveryCardAttempt(attemptId)
+        if (a.status == "settled") return a
+        check(a.status == "approved") { "approved delivery card purchase required" }
+        val job = fakeCardJob.getValue(attemptId)
+        fakePaid[job] = (fakePaid[job] ?: 0.0) + a.amount
+        return a.copy(status = "settled").also { fakeCardAttempts[attemptId] = it }
+    }
+
+    override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
+        fakeCardAttempts.values.lastOrNull { fakeCardJob[it.attemptId] == deliveryJobId && (it.status in setOf("initiated", "approved", "unknown") || it.finalizationError != null) }
 }

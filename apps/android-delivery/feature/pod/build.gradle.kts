@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":core:design"))
     implementation(project(":pod-camera"))
     implementation(project(":pod-signature"))
+    implementation(project(":card-terminal"))
     implementation("androidx.core:core-ktx:1.13.1")
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

@@ -418,3 +418,12 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | LTR-03 | Settings → My signature: draw (web canvas / tablet touch) or upload (web); private per-user storage, sha256 registered (`register_my_manager_signature`) | 10.10 | 8 | partial — as LTR-01 |
 | LTR-04 | Settings → Business details on documents (admin, `set_business_document_profile`; read via `get_business_document_profile`) | — | 8 | partial — as LTR-01; read checked live |
 
+## COD — Cash and card on delivery, driver app (2026-10-04)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| COD-01 | Stop → Proof of delivery → Payment: amount due, method and paid-so-far from `get_delivery_job_payment_context`; nothing shown for stops without an invoice | 10.7 | other apps | partial — unit tests and screenshots on the fake backend |
+| COD-02 | Cash received (part or full, optional note), idempotent on a kept request id (`collect_delivery_cash`) | 10.7 | other apps | partial — as COD-01 |
+| COD-03 | Card on delivery: machine assigned to this phone (`list_delivery_card_terminals`), pair with the Keystore key (`register_delivery_card_terminal_device_key`), charge (`begin_delivery_card_terminal_payment` → bridge → signed `card-terminal-result` → `finalize_delivery_card_terminal_payment`) | 10.7, 10.11 | other apps | partial — as COD-01; no machine assigned on the hosted project |
+| COD-04 | Unknown answer or charged-not-posted → recovery (`get_delivery_card_terminal_recovery`): ask the machine again or post it; never a second charge | 10.7, 10.11 | other apps | partial — as COD-01 |
+| COD-05 | "Complete delivery" held with the reason while money is due or a card charge is unresolved | 10.7 | other apps | partial — client-side only (server gap) |

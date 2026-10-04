@@ -7,6 +7,8 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -14,6 +16,8 @@ import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -405,6 +409,141 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    // --- Cash and card on delivery
+
+    private fun kotlinx.serialization.json.JsonObject.str(k: String): String? =
+        (this[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it !is JsonNull }?.content
+    private fun kotlinx.serialization.json.JsonObject.num(k: String): Double? = str(k)?.toDoubleOrNull()
+    private fun kotlinx.serialization.json.JsonObject.bool(k: String): Boolean = str(k) == "true"
+    private fun stringMap(e: kotlinx.serialization.json.JsonElement?): Map<String, String?> =
+        (e as? kotlinx.serialization.json.JsonObject)?.mapValues { (_, v) -> (v as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it !is JsonNull }?.content } ?: emptyMap()
+
+    private fun attemptFrom(o: kotlinx.serialization.json.JsonObject): DeliveryCardAttempt {
+        val t = o["terminal"] as? kotlinx.serialization.json.JsonObject
+        return DeliveryCardAttempt(
+            attemptId = o.str("attempt_id") ?: error("card attempt missing"),
+            status = o.str("status") ?: "initiated",
+            amount = o.num("amount") ?: 0.0,
+            currency = o.str("currency") ?: "USD",
+            externalRef = o.str("external_ref"),
+            terminalLabel = t?.str("label"),
+            adapterConfig = stringMap(t?.get("adapter_config")),
+            transactionId = o.str("terminal_transaction_id"),
+            cardLast4 = o.str("card_last4"),
+            responseMessage = o.str("response_message"),
+            finalizationError = o.str("finalization_error") ?: o.str("error"),
+        )
+    }
+
+    private suspend fun rpcObject(fn: String, args: kotlinx.serialization.json.JsonObject): kotlinx.serialization.json.JsonObject? =
+        client.postgrest.rpc(fn, args).decodeAs<kotlinx.serialization.json.JsonElement>() as? kotlinx.serialization.json.JsonObject
+
+    override suspend fun getDeliveryPaymentContext(deliveryJobId: String): DeliveryPaymentContext? {
+        val o = try {
+            rpcObject("get_delivery_job_payment_context", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })
+        } catch (e: Exception) {
+            // A stop without an invoice (e.g. a transfer) has nothing to collect.
+            if (e.message?.contains("delivery invoice not found") == true) return null
+            throw e
+        } ?: return null
+        return DeliveryPaymentContext(
+            deliveryJobId = o.str("delivery_job_id") ?: deliveryJobId,
+            invoiceId = o.str("sales_invoice_id").orEmpty(),
+            documentNumber = o.str("document_number"),
+            warehouseId = o.str("warehouse_id"),
+            currency = o.str("currency") ?: "USD",
+            invoiceTotal = o.num("invoice_total") ?: 0.0,
+            amountPaid = o.num("amount_paid") ?: 0.0,
+            amountDue = o.num("amount_due") ?: 0.0,
+            method = o.str("delivery_payment_method") ?: "prepay",
+            mayCollectCash = o.bool("may_collect_cash"),
+            mayCollectCard = o.bool("may_collect_card"),
+        )
+    }
+
+    override suspend fun collectDeliveryCash(deliveryJobId: String, amount: Double, requestId: String, notes: String?): DeliveryCashReceipt {
+        val o = rpcObject(
+            "collect_delivery_cash",
+            buildJsonObject {
+                put("p_delivery_job_id", deliveryJobId)
+                put("p_amount", amount)
+                put("p_request_id", requestId)
+                if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+            },
+        ) ?: error("The cash was not recorded.")
+        return DeliveryCashReceipt(o.str("collection_id").orEmpty(), o.num("amount") ?: amount, o.str("currency") ?: "USD", o.num("balance_due"))
+    }
+
+    override suspend fun listDeliveryCardTerminals(warehouseId: String?, deviceId: String): List<DeliveryCardTerminal> {
+        val e = client.postgrest.rpc(
+            "list_delivery_card_terminals",
+            buildJsonObject {
+                if (warehouseId == null) put("p_warehouse_id", JsonNull) else put("p_warehouse_id", warehouseId)
+                put("p_device_id", deviceId)
+            },
+        ).decodeAs<kotlinx.serialization.json.JsonElement>()
+        return (e as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { x ->
+            val o = x as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            DeliveryCardTerminal(
+                id = o.str("id") ?: return@mapNotNull null,
+                label = o.str("label") ?: o.str("code").orEmpty(),
+                acquirer = o.str("acquirer_name"),
+                adapterKey = o.str("adapter_key"),
+                adapterConfig = stringMap(o["adapter_config"]),
+                deviceId = o.str("device_id"),
+            )
+        }
+    }
+
+    override suspend fun registerDeliveryCardDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String): String =
+        client.postgrest.rpc(
+            "register_delivery_card_terminal_device_key",
+            buildJsonObject {
+                put("p_terminal_id", terminalId)
+                put("p_device_id", deviceId)
+                put("p_public_key_spki_base64", publicKeySpkiBase64)
+                put("p_key_sha256", keySha256)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun beginDeliveryCardPayment(deliveryJobId: String, terminalId: String, deviceId: String, amount: Double, requestId: String) =
+        attemptFrom(
+            rpcObject(
+                "begin_delivery_card_terminal_payment",
+                buildJsonObject {
+                    put("p_delivery_job_id", deliveryJobId)
+                    put("p_terminal_id", terminalId)
+                    put("p_device_id", deviceId)
+                    put("p_amount", amount)
+                    put("p_request_id", requestId)
+                },
+            ) ?: error("The card payment did not start."),
+        )
+
+    override suspend fun getDeliveryCardAttempt(attemptId: String) =
+        attemptFrom(rpcObject("get_pos_card_terminal_attempt", buildJsonObject { put("p_attempt_id", attemptId) }) ?: error("card attempt not found"))
+
+    override suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): DeliveryCardAttempt {
+        val body = buildJsonObject {
+            put("payload", kotlinx.serialization.json.Json.parseToJsonElement(payloadJson))
+            put("signature_base64", signatureBase64)
+        }
+        val text = try {
+            client.functions.invoke("card-terminal-result") { setBody(body) }.bodyAsText()
+        } catch (e: io.github.jan.supabase.exceptions.RestException) {
+            val o = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(e.error) as? kotlinx.serialization.json.JsonObject }.getOrNull()
+            throw IllegalStateException(o?.str("error") ?: e.error)
+        }
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonObject ?: error("The card machine answer was not recorded.")
+        return attemptFrom(o["attempt"] as? kotlinx.serialization.json.JsonObject ?: error(o.str("error") ?: "The card machine answer was not recorded."))
+    }
+
+    override suspend fun finalizeDeliveryCardPayment(attemptId: String) =
+        attemptFrom(rpcObject("finalize_delivery_card_terminal_payment", buildJsonObject { put("p_attempt_id", attemptId) }) ?: error("The card payment was not posted."))
+
+    override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
+        rpcObject("get_delivery_card_terminal_recovery", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })?.let(::attemptFrom)
+
     companion object {
         private val JOB_COLUMNS = Columns.list(
             "id",
@@ -431,6 +570,7 @@ class SupabaseRpcClient(
             ) {
                 install(Auth)
                 install(Postgrest)
+                install(Functions)
                 install(Storage)
             }
             return SupabaseRpcClient(client)

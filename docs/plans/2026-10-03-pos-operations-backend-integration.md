@@ -63,7 +63,12 @@ petty cash requests, kits creation, product pages, payroll funding.
 | 6 Returns & warranty | done: Returns opens the posted sale (lines, what can still come back, core charges); return by line with condition → cash refund, credit to account, store credit, swap for the same part or send for warranty; staff draft, approver posts (badge, password or own sign-in) and a failed post reuses the draft; old cores; warranty claims (serial check, decide replace / credit / take back / reject, close); refund whole sale only while nothing came back; stock by branch from part cards | done (same, plus card-machine refund of a whole card sale: approver starts it, the machine pays back, approver posts it) |
 | 7 Fulfilment | done: Stock by branch → hold here for collection, collect at another branch, bring it here (branch transfer), back-order; a hold goes with the current sale and turns ready with its invoice when paid; Orders → Collections & transfers with send transfer (warehouse staff), mark a back-order ready, handed over / received here, release (never for a paid hold) | done (same) |
 | 8 Letters | done: Payment letter block on recovery for a provider payment, a card-machine attempt and a split refund (letters issued, Issue letter for a signed-in manager / finance / admin → printable A4 with the issuer's signature); Settings → My signature (draw or upload) and Business details on documents (admin) | done (same; signature drawn on screen, letter printed through the document printer bridge with the signature image) |
-| 6–8 | todo | todo |
+
+| Other app | Area | Status |
+|---|---|---|
+| Driver app (`apps/android-delivery`) | COD: cash and card on delivery | done: Payment section above the proof steps (amount due from the server, cash with an optional note, card through the `bridges/android/card-terminal` bridge with the phone's Keystore key, pair with the phone ID an admin assigned, part payments, unknown answer → ask the machine again, charged-not-posted → post it); "Complete delivery" held while money is due |
+| Customer app + web shop | Checkout v2 delivery payment method | todo |
+| Staff web | POS admin (policies, terminals, profile) | todo |
 
 Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
 answer 503; both clients show those tenders disabled with "Not set up for this shop yet."
@@ -108,3 +113,12 @@ A letter shows the signature image only to users the bucket lets read it (the si
 others see "signature on file" with its hash. The A4 printer bridge gained `printSignedDocument`
 (Bridge-First). Letters are issued by the signed-in user only (no badge path: the signature is theirs).
 
+Driver COD notes: `submit_delivery_pod` does not check payment, so the driver app holds "Complete
+delivery" while a cash/card-on-delivery invoice has a balance or a card charge is unresolved
+(backend gap: the server should refuse it too). A stop whose payment context cannot be loaded
+shows a warning but is not held, so a proof can still queue offline; a stop without an invoice
+shows no payment section. A card machine must be assigned by an admin to the phone's device id
+(shown in the app) before the driver can pair; the fake backend uses the simulated machine
+(.99 declines, .98 gives no answer) and never the live one. Checked with unit tests on the fake
+backend (cash idempotency, card settle, unknown → ask again, decline, prepaid) and screenshots;
+no live card machine or COD invoice exists on the hosted project yet.

@@ -120,3 +120,48 @@ data class DriverPresenceSnapshot(
     val lastLat: Double?,
     val lastLng: Double?,
 )
+
+// --- Cash and card on delivery (`get_delivery_job_payment_context`, `collect_delivery_cash`,
+// `*_delivery_card_terminal_*`). The invoice balance is always the server's.
+
+data class DeliveryPaymentContext(
+    val deliveryJobId: String,
+    val invoiceId: String,
+    val documentNumber: String?,
+    val warehouseId: String?,
+    val currency: String,
+    val invoiceTotal: Double,
+    val amountPaid: Double,
+    val amountDue: Double,
+    /** prepay | cash_on_delivery | card_on_delivery | cash_or_card_on_delivery */
+    val method: String,
+    val mayCollectCash: Boolean,
+    val mayCollectCard: Boolean,
+)
+
+data class DeliveryCashReceipt(val collectionId: String, val amount: Double, val currency: String, val balanceDue: Double?)
+
+data class DeliveryCardTerminal(
+    val id: String,
+    val label: String,
+    val acquirer: String?,
+    val adapterKey: String?,
+    val adapterConfig: Map<String, String?>,
+    val deviceId: String?,
+)
+
+/** A card-machine attempt as the server sees it (`pos_card_terminal_attempt_payload`). */
+data class DeliveryCardAttempt(
+    val attemptId: String,
+    /** initiated, approved, declined, cancelled, unknown, failed, settled — or recovery_required. */
+    val status: String,
+    val amount: Double,
+    val currency: String,
+    val externalRef: String?,
+    val terminalLabel: String?,
+    val adapterConfig: Map<String, String?>,
+    val transactionId: String?,
+    val cardLast4: String?,
+    val responseMessage: String?,
+    val finalizationError: String?,
+)

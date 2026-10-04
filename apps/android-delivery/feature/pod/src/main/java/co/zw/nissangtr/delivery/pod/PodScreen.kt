@@ -60,11 +60,15 @@ import co.zw.nissangtr.delivery.design.SlopesTextField
 import co.zw.nissangtr.delivery.design.SlopesTimeline
 import co.zw.nissangtr.delivery.design.SlopesTintedButton
 import co.zw.nissangtr.delivery.design.SlopesTone
+import co.zw.nissangtr.bridges.terminal.IntentCardTerminalBridge
+import co.zw.nissangtr.bridges.terminal.SimulatedCardTerminalBridge
+import co.zw.nissangtr.delivery.rpc.FakeRpcClient
 import co.zw.nissangtr.delivery.rpc.RpcClient
 import java.io.File
 
 /**
- * Proof of delivery inside the stop sheet: photo → signature → customer code → complete.
+ * Proof of delivery inside the stop sheet: payment (cash / card on delivery, when due) → photo →
+ * signature → customer code → complete.
  * Touch signature (inline Canvas + full-screen [PodSignatureCaptureActivity]) → PNG → Storage →
  * [submit_delivery_pod]. Bridge-First camera/signature only; no ZIMRA.
  */
@@ -83,45 +87,82 @@ fun PodSection(
         factory = PodViewModel.factory(rpc, camera, signature, context),
     )
     val state by vm.state.collectAsState()
+    // Card machine through the bridge only; the fake backend gets the demo machine, never the live one.
+    val cardBridge = remember(rpc) {
+        if (rpc is FakeRpcClient) {
+            SimulatedCardTerminalBridge()
+        } else {
+            IntentCardTerminalBridge(context).also { b -> context.findActivity()?.let(b::attachActivity) }
+        }
+    }
+    val payVm: DeliveryPaymentViewModel = viewModel(
+        key = "pay-$jobId",
+        factory = DeliveryPaymentViewModel.factory(context, rpc, cardBridge),
+    )
+    val pay by payVm.state.collectAsState()
     val padState = rememberComposeSignaturePadState()
     val density = LocalDensity.current
 
     LaunchedEffect(jobId) {
         vm.bindJob(jobId)
+        payVm.bindJob(jobId)
         padState.clear()
     }
     LaunchedEffect(state.completed) {
         if (state.completed) onCompleted()
     }
 
-    PodSectionContent(
-        state = state,
-        padState = padState,
-        modifier = modifier,
-        onCapturePhoto = vm::capturePhoto,
-        onConfirmSignature = {
-            if (padState.hasInk) {
-                val strokePx = with(density) { SignaturePadView.DEFAULT_STROKE_DP.dp.toPx() }
-                val result = padState.toPngFile(
-                    outDir = File(context.cacheDir, "pod-signatures"),
-                    strokeWidthPx = strokePx,
-                )
-                vm.acceptSignature(result)
+    Column(modifier.fillMaxWidth()) {
+        DeliveryPaymentContent(
+            state = pay,
+            onRetry = payVm::refresh,
+            onMethod = payVm::selectMethod,
+            onAmountChange = payVm::onAmountChange,
+            onCashNotesChange = payVm::onCashNotesChange,
+            onCollectCash = payVm::collectCash,
+            onSelectTerminal = payVm::selectTerminal,
+            onReloadTerminals = payVm::loadTerminals,
+            onPair = payVm::pair,
+            onCharge = payVm::chargeCard,
+            onAskAgain = payVm::askAgain,
+            onFinish = payVm::finishCard,
+        )
+        PodSectionContent(
+            state = state,
+            padState = padState,
+            paymentDone = if (CodGate.collects(pay.context)) pay.blockingReason == null else null,
+            paymentBlock = pay.blockingReason,
+            onCapturePhoto = vm::capturePhoto,
+            onConfirmSignature = {
+                if (padState.hasInk) {
+                    val strokePx = with(density) { SignaturePadView.DEFAULT_STROKE_DP.dp.toPx() }
+                    val result = padState.toPngFile(
+                        outDir = File(context.cacheDir, "pod-signatures"),
+                        strokeWidthPx = strokePx,
+                    )
+                    vm.acceptSignature(result)
+                    padState.clear()
+                }
+            },
+            onFullScreenSignature = vm::captureSignatureFullscreen,
+            onResign = {
+                vm.clearSignature()
                 padState.clear()
-            }
-        },
-        onFullScreenSignature = vm::captureSignatureFullscreen,
-        onResign = {
-            vm.clearSignature()
-            padState.clear()
-        },
-        onSendCode = vm::generateOtp,
-        onCodeChange = vm::onOtpChange,
-        onVerifyCode = vm::verifyOtp,
-        onNotesChange = vm::onNotesChange,
-        onSubmit = vm::submitPod,
-        onFlushQueue = vm::flushNow,
-    )
+            },
+            onSendCode = vm::generateOtp,
+            onCodeChange = vm::onOtpChange,
+            onVerifyCode = vm::verifyOtp,
+            onNotesChange = vm::onNotesChange,
+            onSubmit = { vm.submitPod(paymentBlock = pay.blockingReason) },
+            onFlushQueue = vm::flushNow,
+        )
+    }
+}
+
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /** Stateless proof-of-delivery body (rendered by [PodSection]; also used by screenshot tests). */
@@ -140,6 +181,10 @@ fun PodSectionContent(
     onSubmit: () -> Unit,
     onFlushQueue: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Null: nothing to collect on this stop; false: payment still due. */
+    paymentDone: Boolean? = null,
+    /** Why payment holds completion (shown on the button), or null. */
+    paymentBlock: String? = null,
 ) {
     val c = Slopes.colors
     val podReady = PodEvidenceGate.canSubmit(
@@ -147,8 +192,10 @@ fun PodSectionContent(
         state.signatureLocalPath,
         state.otpCode,
         state.otpVerified,
-    )
-    val steps = listOf(
+    ) && paymentBlock == null
+    val steps = listOfNotNull(
+        paymentDone?.let { "Paid" to it },
+    ) + listOf(
         "Photo" to (state.photoLocalPath != null),
         "Signature" to (state.signatureLocalPath != null),
         "Code" to state.otpVerified,
@@ -157,6 +204,7 @@ fun PodSectionContent(
     val nextStep = steps.indexOfFirst { !it.second }
 
     Column(modifier.fillMaxWidth()) {
+        if (paymentDone != null) Spacer(Modifier.height(20.dp))
         SlopesTimeline(
             segments = steps.mapIndexed { i, (label, done) ->
                 SlopesSegment(
@@ -312,6 +360,7 @@ fun PodSectionContent(
         SlopesPrimaryButton(
             label = when {
                 state.busy -> "Completing…"
+                paymentBlock != null -> paymentBlock
                 podReady -> "Complete delivery"
                 else -> "Finish the steps above to complete"
             },

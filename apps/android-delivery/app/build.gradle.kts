@@ -90,6 +90,7 @@ dependencies {
     implementation(project(":pod-camera"))
     implementation(project(":pod-signature"))
     implementation(project(":maps-nav"))
+    implementation(project(":card-terminal"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

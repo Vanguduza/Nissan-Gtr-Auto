@@ -38,3 +38,6 @@ project(":pod-signature").projectDir =
 include(":maps-nav")
 project(":maps-nav").projectDir =
     file("../../bridges/android/maps-nav")
+include(":card-terminal")
+project(":card-terminal").projectDir =
+    file("../../bridges/android/card-terminal")

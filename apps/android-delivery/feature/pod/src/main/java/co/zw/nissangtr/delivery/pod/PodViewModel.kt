@@ -212,7 +212,12 @@ class PodViewModel(
         }
     }
 
-    fun submitPod() {
+    /** [paymentBlock]: cash / card still due on this stop (the server does not check payment). */
+    fun submitPod(paymentBlock: String? = null) {
+        if (paymentBlock != null) {
+            _state.update { it.copy(error = paymentBlock) }
+            return
+        }
         val s = _state.value
         val jobId = s.jobId
         val photo = s.photoLocalPath

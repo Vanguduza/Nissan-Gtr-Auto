@@ -101,4 +101,34 @@ interface RpcClient {
         deliveryJobId: String,
         ttl: String? = null,
     ): String
+
+    // --- Cash and card on delivery. Only the assigned driver of a dispatched job; idempotent on request ids.
+
+    suspend fun getDeliveryPaymentContext(deliveryJobId: String): DeliveryPaymentContext? = null
+
+    suspend fun collectDeliveryCash(deliveryJobId: String, amount: Double, requestId: String, notes: String?): DeliveryCashReceipt =
+        throw UnsupportedOperationException("cash on delivery needs the live backend")
+
+    suspend fun listDeliveryCardTerminals(warehouseId: String?, deviceId: String): List<DeliveryCardTerminal> = emptyList()
+
+    /** Pairs this phone with a machine an admin assigned to [deviceId] (evidence public key). */
+    suspend fun registerDeliveryCardDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String): String =
+        throw UnsupportedOperationException("card on delivery needs the live backend")
+
+    suspend fun beginDeliveryCardPayment(deliveryJobId: String, terminalId: String, deviceId: String, amount: Double, requestId: String): DeliveryCardAttempt =
+        throw UnsupportedOperationException("card on delivery needs the live backend")
+
+    suspend fun getDeliveryCardAttempt(attemptId: String): DeliveryCardAttempt =
+        throw UnsupportedOperationException("card on delivery needs the live backend")
+
+    /** Signed machine answer (`card-terminal-result`); [payloadJson] is the canonical JSON that was signed. */
+    suspend fun submitCardTerminalEvidence(payloadJson: String, signatureBase64: String): DeliveryCardAttempt =
+        throw UnsupportedOperationException("card on delivery needs the live backend")
+
+    /** Approved on the machine → posts the payment against the delivery invoice. */
+    suspend fun finalizeDeliveryCardPayment(attemptId: String): DeliveryCardAttempt =
+        throw UnsupportedOperationException("card on delivery needs the live backend")
+
+    /** The unresolved card attempt of this delivery, if any (no answer, or charged but not posted). */
+    suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? = null
 }

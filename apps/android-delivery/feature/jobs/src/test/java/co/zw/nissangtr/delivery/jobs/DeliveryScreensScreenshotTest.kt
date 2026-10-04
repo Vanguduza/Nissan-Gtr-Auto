@@ -39,7 +39,11 @@ import co.zw.nissangtr.delivery.design.SlopesSheetFrame
 import co.zw.nissangtr.delivery.design.SlopesTab
 import co.zw.nissangtr.delivery.design.SlopesTabBar
 import co.zw.nissangtr.delivery.design.SlopesTheme
+import co.zw.nissangtr.delivery.pod.CodMethod
+import co.zw.nissangtr.delivery.pod.DeliveryPaymentContent
+import co.zw.nissangtr.delivery.pod.DeliveryPaymentUiState
 import co.zw.nissangtr.delivery.pod.PodSectionContent
+import co.zw.nissangtr.delivery.rpc.DeliveryCardAttempt
 import co.zw.nissangtr.delivery.pod.PodUiState
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.FakeRpcClient
@@ -104,6 +108,18 @@ class DeliveryScreensScreenshotTest {
     @Test fun stop_light() = shot(SlopesMode.Light) { Detail("detail", popup = null) }
     @Test fun stop_dark() = shot(SlopesMode.Dark) { Detail("detail", popup = null) }
     @Test fun stop_proof_light() = shot(SlopesMode.Light) { Detail("detail", popup = StopPopup.Proof) }
+    @Test fun stop_pay_cash_light() = shot(SlopesMode.Light) { Pay(payState) }
+    @Test fun stop_pay_card_dark() = shot(SlopesMode.Dark) {
+        Pay(payState.copy(method = CodMethod.Card, terminals = terminals, terminalsLoaded = true, selectedTerminalId = terminals.first().id, appInstalled = true, paired = false))
+    }
+    @Test fun stop_pay_recovery_light() = shot(SlopesMode.Light) {
+        Pay(
+            payState.copy(
+                method = CodMethod.Card,
+                attempt = DeliveryCardAttempt("att-1", "unknown", 45.50, "USD", "GTR-DCT-7F3A2C", "Demo swipe machine", emptyMap(), null, null, null, null),
+            ),
+        )
+    }
     @Test fun stop_issue_dark() = shot(SlopesMode.Dark) { Detail("detail", popup = StopPopup.Issue) }
     @Test fun today_status_light() = shot(SlopesMode.Light) {
         Shell("Today", "overview") { vm, tvm -> JobsListScreen(baseState, vm, tvm, tracking = tracking) }
@@ -188,6 +204,40 @@ class DeliveryScreensScreenshotTest {
             }
             StopPopup.Issue -> Popup("Report an issue", job.documentNumber, 0.9f) { StopIssueContent(job, detailState, vm) }
             null -> Unit
+        }
+    }
+
+    private val payState = DeliveryPaymentUiState(
+        jobId = FakeRpcClient.JOB_1,
+        context = runBlocking { rpc.getDeliveryPaymentContext(FakeRpcClient.JOB_1) },
+        amount = "45.50",
+        deviceId = "a1b2c3d4e5f60718",
+    )
+    private val terminals = runBlocking { rpc.listDeliveryCardTerminals(null, "a1b2c3d4e5f60718") }
+
+    /** Payment above the proof steps; "Complete delivery" stays held while money is due. */
+    @Composable
+    private fun Pay(state: DeliveryPaymentUiState) {
+        val job = jobs.first { it.id == FakeRpcClient.JOB_1 }
+        Detail("detail", popup = null)
+        Popup("Proof of delivery", job.documentNumber, 0.9f) {
+            DeliveryPaymentContent(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            PodSectionContent(
+                state = PodUiState(jobId = job.id),
+                padState = rememberComposeSignaturePadState(),
+                onCapturePhoto = {},
+                onConfirmSignature = {},
+                onFullScreenSignature = {},
+                onResign = {},
+                onSendCode = {},
+                onCodeChange = {},
+                onVerifyCode = {},
+                onNotesChange = {},
+                onSubmit = {},
+                onFlushQueue = {},
+                paymentDone = state.blockingReason == null,
+                paymentBlock = state.blockingReason,
+            )
         }
     }
 
