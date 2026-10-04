@@ -362,6 +362,8 @@ fun OrdersScreen(state: PosState, dispatch: (PosIntent) -> Unit) {
         Spacer(Modifier.height(16.dp))
         PickupPanel(state, dispatch)
     }
+    Spacer(Modifier.height(16.dp))
+    FulfillmentPanel(state, dispatch)
     sending?.let { id ->
         state.quotations?.firstOrNull { it.id == id }?.let { q -> SendQuoteDialog(q, onDismiss = { sending = null }, onSend = { ch, contact ->
             sending = null

@@ -122,6 +122,15 @@ fun feedbackText(feedback: PosFeedback): String = when (feedback) {
         PosNotice.ClaimDecided -> stringResource(R.string.pos_notice_claim_decided)
         PosNotice.ClaimClosed -> stringResource(R.string.pos_notice_claim_closed)
         PosNotice.CardRefunded -> stringResource(R.string.pos_notice_card_refunded)
+        PosNotice.HeldHere -> stringResource(R.string.pos_notice_held_here)
+        PosNotice.HeldElsewhere -> stringResource(R.string.pos_notice_held_elsewhere)
+        PosNotice.TransferRequested -> stringResource(R.string.pos_notice_transfer_requested)
+        PosNotice.Backordered -> stringResource(R.string.pos_notice_backordered)
+        PosNotice.TransferSent -> stringResource(R.string.pos_notice_transfer_sent)
+        PosNotice.FulfillmentReady -> stringResource(R.string.pos_notice_fulfillment_ready)
+        PosNotice.TransferReceived -> stringResource(R.string.pos_notice_transfer_received)
+        PosNotice.HandedOver -> stringResource(R.string.pos_notice_handed_over)
+        PosNotice.FulfillmentReleased -> stringResource(R.string.pos_notice_fulfillment_released)
     }
     is PosFeedback.Failure -> errorText(feedback.error)
 }
@@ -158,6 +167,9 @@ fun errorText(error: PosError): String = when (error) {
         "return_nothing_paid" -> stringResource(R.string.pos_rt_err_nothing_paid)
         "return_one_part" -> stringResource(R.string.pos_rt_err_one_part)
         "return_partly_returned" -> stringResource(R.string.pos_rt_err_partly_returned)
+        "fulfillment_no_sale" -> stringResource(R.string.pos_ff_err_no_sale)
+        "fulfillment_not_in_sale" -> stringResource(R.string.pos_ff_err_not_in_sale)
+        "fulfillment_branch" -> stringResource(R.string.pos_ff_err_branch)
         "card_refund_declined", "card_refund_cancelled", "card_refund_failed" ->
             stringResource(R.string.pos_rt_err_card_refund, error.detail.ifBlank { error.rule.removePrefix("card_refund_") })
         else -> if (error.detail.isNotBlank()) stringResource(R.string.pos_error_rule_detail, error.detail) else stringResource(R.string.pos_error_rule)

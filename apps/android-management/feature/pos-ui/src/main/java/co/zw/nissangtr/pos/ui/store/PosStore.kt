@@ -1,5 +1,7 @@
 package co.zw.nissangtr.pos.ui.store
 
+import co.zw.nissangtr.pos.domain.state.FulfillmentEffect
+import co.zw.nissangtr.pos.domain.state.FulfillmentEvent
 import co.zw.nissangtr.pos.domain.model.ApprovalRequest
 import co.zw.nissangtr.pos.domain.model.ReturnResolution
 import co.zw.nissangtr.pos.domain.state.ReturnsEvent
@@ -87,6 +89,8 @@ data class PosGateways(
     val terminal: co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway = co.zw.nissangtr.pos.domain.gateway.CardTerminalGateway.None,
     /** Returns, old cores, warranty claims and stock by branch. */
     val returns: co.zw.nissangtr.pos.domain.gateway.ReturnsGateway = co.zw.nissangtr.pos.domain.gateway.ReturnsGateway.None,
+    /** Holds, other-branch pickup, branch transfers and back-orders. */
+    val fulfillment: co.zw.nissangtr.pos.domain.gateway.FulfillmentGateway = co.zw.nissangtr.pos.domain.gateway.FulfillmentGateway.None,
 )
 
 /**
@@ -310,6 +314,23 @@ class PosStore(
             is SplitEffect -> runSplit(effect)
             is TerminalEffect -> runTerminal(effect)
             is ReturnsEffect -> runReturns(effect)
+            is FulfillmentEffect -> launch {
+                val f = gateways.fulfillment
+                when (effect) {
+                    is FulfillmentEffect.Create -> when (val r = f.create(effect.draft)) {
+                        is PosResult.Ok -> apply(FulfillmentEvent.Created(effect.draft.kind))
+                        is PosResult.Err -> apply(FulfillmentEvent.Failed(r.error))
+                    }
+                    is FulfillmentEffect.Load -> when (val r = f.list(effect.query, effect.status)) {
+                        is PosResult.Ok -> apply(FulfillmentEvent.Loaded(r.value))
+                        is PosResult.Err -> apply(FulfillmentEvent.Failed(r.error))
+                    }
+                    is FulfillmentEffect.Step -> when (val r = f.step(effect.requestId, effect.step)) {
+                        is PosResult.Ok -> apply(FulfillmentEvent.Stepped(effect.step, effect.kind))
+                        is PosResult.Err -> apply(FulfillmentEvent.Failed(r.error))
+                    }
+                }
+            }
             is PosSaleEffect.QueueOfflineSale -> launch {
                 when (val r = gateways.offline.queueCashSale(effect.cart, effect.vehicle, effect.contacts)) {
                     is PosResult.Ok -> apply(PosSaleEvent.OfflineSaleQueued(effect, r.value))

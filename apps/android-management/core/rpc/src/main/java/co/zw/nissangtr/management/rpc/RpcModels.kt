@@ -1128,3 +1128,29 @@ data class PosStockAvailabilityRow(
     val available: Double,
     val transferIncoming: Double,
 )
+
+// --- POS fulfilment (phase 7): holds, other-branch pickup, branch transfers, back-orders
+
+data class PosFulfillmentRow(
+    val id: String,
+    val documentNumber: String?,
+    /** customer_collection | alternate_pickup | branch_transfer | backorder */
+    val kind: String,
+    /** requested | reserved | awaiting_transfer_approval | ready | collected | cancelled | rejected */
+    val status: String,
+    val stockItemId: String,
+    val oemPartNumber: String,
+    val description: String?,
+    val qty: Double,
+    val sourceWarehouseId: String?,
+    val sourceWarehouseName: String?,
+    val destinationWarehouseId: String?,
+    val destinationWarehouseName: String?,
+    val customerId: String?,
+    val cartId: String?,
+    val invoiceId: String?,
+    val expiresAt: String?,
+    val readyAt: String?,
+    val collectedAt: String?,
+    val createdAt: String,
+)

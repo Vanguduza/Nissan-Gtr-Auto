@@ -39,6 +39,9 @@ import co.zw.nissangtr.pos.domain.model.PaymentStatus
 import co.zw.nissangtr.pos.domain.model.PickupOrder
 import co.zw.nissangtr.pos.domain.model.ProviderMethod
 import co.zw.nissangtr.pos.domain.model.RefundFeePolicy
+import co.zw.nissangtr.pos.domain.model.FulfillmentStep
+import co.zw.nissangtr.pos.domain.model.FulfillmentRequest
+import co.zw.nissangtr.pos.domain.model.FulfillmentDraft
 import co.zw.nissangtr.pos.domain.model.BranchStock
 import co.zw.nissangtr.pos.domain.model.WarrantyClaim
 import co.zw.nissangtr.pos.domain.model.WarrantySerial
@@ -407,5 +410,19 @@ interface ReturnsGateway {
         override suspend fun claims(query: String?, status: String?): PosResult<List<WarrantyClaim>> = PosResult.Ok(emptyList())
         override suspend fun closeClaim(claimId: String): PosResult<Unit> = refused
         override suspend fun stock(stockItemId: String): PosResult<List<BranchStock>> = PosResult.Ok(emptyList())
+    }
+}
+
+/** Holds, other-branch pickup, branch transfers and back-orders (phase 7). */
+interface FulfillmentGateway {
+    suspend fun create(draft: FulfillmentDraft): PosResult<String>
+    suspend fun list(query: String?, status: String?): PosResult<List<FulfillmentRequest>>
+    suspend fun step(requestId: String, step: FulfillmentStep): PosResult<Unit>
+
+    object None : FulfillmentGateway {
+        private val refused = PosResult.Err(PosError.BusinessRule("fulfillment_unavailable", ""))
+        override suspend fun create(draft: FulfillmentDraft): PosResult<String> = refused
+        override suspend fun list(query: String?, status: String?): PosResult<List<FulfillmentRequest>> = PosResult.Ok(emptyList())
+        override suspend fun step(requestId: String, step: FulfillmentStep): PosResult<Unit> = refused
     }
 }

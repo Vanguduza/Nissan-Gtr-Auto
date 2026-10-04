@@ -632,6 +632,7 @@ fun StockByBranchDialog(state: PosState, dispatch: (PosIntent) -> Unit) {
                         freeInStock = r.available > 0,
                     )
                 }
+                FulfillmentActions(state, part, rows, dispatch)
             }
         }
     }

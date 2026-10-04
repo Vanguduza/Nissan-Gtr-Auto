@@ -413,8 +413,15 @@ class FakeRpcClient : RpcClient {
         openCarts.remove(cartId)
         cartLines.remove(cartId)
         cartCustomers.remove(cartId)
+        val invoiceId = UUID.randomUUID().toString()
+        // A posted sale makes its holds ready with the invoice (server trigger `sync_pos_fulfillment_invoice`).
+        fakeFulfillment.replaceAll {
+            if (it.cartId == cartId && it.status == "reserved" && it.kind in setOf("customer_collection", "alternate_pickup")) {
+                it.copy(status = "ready", invoiceId = invoiceId, readyAt = java.time.Instant.now().toString(), expiresAt = null)
+            } else it
+        }
         return CheckoutPosResult(
-            invoiceId = UUID.randomUUID().toString(),
+            invoiceId = invoiceId,
             customerId = customerId,
             receiptEmail = email,
             receiptWhatsappE164 = wa,
@@ -2765,6 +2772,67 @@ class FakeRpcClient : RpcClient {
         val settled = a.copy(status = "settled", invoiceId = fakeRefundInvoice[attemptId])
         fakeAttempts[attemptId] = settled
         return settled
+    }
+
+    // --- POS fulfilment (in memory, same rules as the server)
+
+    private val fakeFulfillment = mutableListOf<PosFulfillmentRow>()
+    private val fakeBranches = mapOf("wh-main" to "Harare main", "wh-byo" to "Bulawayo branch", "wh-mut" to "Mutare branch")
+
+    override suspend fun createPosFulfillmentRequest(
+        kind: String,
+        stockItemId: String,
+        qty: Double,
+        sourceWarehouseId: String?,
+        destinationWarehouseId: String?,
+        customerId: String?,
+        cartId: String?,
+        notes: String?,
+        holdMinutes: Int,
+    ): String {
+        check(qty > 0) { "qty must be > 0" }
+        check(kind != "branch_transfer" || (sourceWarehouseId != null && destinationWarehouseId != null && sourceWarehouseId != destinationWarehouseId)) {
+            "branch transfer requires distinct source and destination warehouses"
+        }
+        check(kind !in setOf("alternate_pickup", "customer_collection") || sourceWarehouseId != null) { "source warehouse required for stock hold" }
+        val id = "pfr-${UUID.randomUUID().toString().take(8)}"
+        fakeFulfillment.add(
+            0,
+            PosFulfillmentRow(
+                id, "PFR-${fakeFulfillment.size + 1}", kind, if (kind == "backorder") "requested" else "reserved", stockItemId, "FAKE-PAD-001", "Front brake pad set", qty,
+                sourceWarehouseId, sourceWarehouseId?.let { fakeBranches[it] ?: it }, destinationWarehouseId, destinationWarehouseId?.let { fakeBranches[it] ?: it },
+                customerId, cartId, null, if (kind == "backorder") null else java.time.Instant.now().plusSeconds(holdMinutes * 60L).toString(), null, null,
+                java.time.Instant.now().toString(),
+            ),
+        )
+        return id
+    }
+
+    override suspend fun listPosFulfillmentRequests(query: String?, status: String?): List<PosFulfillmentRow> {
+        val q = query?.trim()?.lowercase().orEmpty()
+        return fakeFulfillment.filter { (status == null || it.status == status) && (q.isBlank() || "${it.documentNumber} ${it.oemPartNumber}".lowercase().contains(q)) }
+    }
+
+    override suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {
+        val i = fakeFulfillment.indexOfFirst { it.id == requestId }
+        check(i >= 0) { "fulfillment request not found" }
+        val f = fakeFulfillment[i]
+        val now = java.time.Instant.now().toString()
+        fakeFulfillment[i] = when (step) {
+            // The fake warehouse posts the transfer at once, which makes it ready.
+            "approve" -> { check(f.kind == "branch_transfer" && f.status == "reserved") { "reserved branch-transfer request required" }; f.copy(status = "ready", readyAt = now) }
+            "ready" -> { check(f.status in setOf("requested", "reserved") && f.kind != "branch_transfer") { "request cannot be marked ready" }; f.copy(status = "ready", readyAt = now) }
+            "collect" -> {
+                check(f.status == "ready") { "ready fulfillment request required" }
+                check(f.invoiceId != null || f.kind == "branch_transfer") { "sale/invoice must be linked before customer collection" }
+                f.copy(status = "collected", collectedAt = now)
+            }
+            "cancel" -> {
+                check(f.status !in setOf("collected", "cancelled", "rejected")) { "active fulfillment request required" }
+                f.copy(status = "cancelled")
+            }
+            else -> error("unknown fulfilment step $step")
+        }
     }
 
     override suspend fun registerPosCardTerminalDeviceKey(terminalId: String, deviceId: String, publicKeySpkiBase64: String, keySha256: String) =

@@ -3202,6 +3202,82 @@ class SupabaseRpcClient(
             )
         }
 
+    override suspend fun createPosFulfillmentRequest(
+        kind: String,
+        stockItemId: String,
+        qty: Double,
+        sourceWarehouseId: String?,
+        destinationWarehouseId: String?,
+        customerId: String?,
+        cartId: String?,
+        notes: String?,
+        holdMinutes: Int,
+    ): String {
+        // Requests are in the part's stock unit.
+        val item = client.postgrest.from("stock_items").select(Columns.list("base_uom_id")) { filter { eq("id", stockItemId) } }.decodeList<JsonObject>().firstOrNull()
+        val uom = item?.stringOrNull("base_uom_id") ?: error("This part has no stock unit set up.")
+        return client.postgrest.rpc(
+            "create_pos_fulfillment_request",
+            buildJsonObject {
+                put("p_kind", kind)
+                put("p_stock_item_id", stockItemId)
+                put("p_uom_id", uom)
+                put("p_qty", qty)
+                if (sourceWarehouseId == null) put("p_source_warehouse_id", JsonNull) else put("p_source_warehouse_id", sourceWarehouseId)
+                if (destinationWarehouseId == null) put("p_destination_warehouse_id", JsonNull) else put("p_destination_warehouse_id", destinationWarehouseId)
+                if (customerId == null) put("p_customer_id", JsonNull) else put("p_customer_id", customerId)
+                if (cartId == null) put("p_cart_id", JsonNull) else put("p_cart_id", cartId)
+                put("p_invoice_id", JsonNull)
+                if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+                put("p_hold_minutes", holdMinutes)
+            },
+        ).decodeAs<String>()
+    }
+
+    override suspend fun listPosFulfillmentRequests(query: String?, status: String?): List<PosFulfillmentRow> =
+        client.postgrest.rpc(
+            "list_pos_fulfillment_requests",
+            buildJsonObject {
+                if (query.isNullOrBlank()) put("p_query", JsonNull) else put("p_query", query.trim())
+                if (status == null) put("p_status", JsonNull) else put("p_status", status)
+                put("p_limit", 100)
+            },
+        ).decodeAs<JsonArray>().mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            PosFulfillmentRow(
+                id = o.stringOrNull("id") ?: return@mapNotNull null,
+                documentNumber = o.stringOrNull("document_number"),
+                kind = o.stringOrNull("kind").orEmpty(),
+                status = o.stringOrNull("status").orEmpty(),
+                stockItemId = o.stringOrNull("stock_item_id").orEmpty(),
+                oemPartNumber = o.stringOrNull("oem_part_number").orEmpty(),
+                description = o.stringOrNull("description"),
+                qty = o.number("qty") ?: 0.0,
+                sourceWarehouseId = o.stringOrNull("source_warehouse_id"),
+                sourceWarehouseName = o.stringOrNull("source_warehouse_name"),
+                destinationWarehouseId = o.stringOrNull("destination_warehouse_id"),
+                destinationWarehouseName = o.stringOrNull("destination_warehouse_name"),
+                customerId = o.stringOrNull("customer_id"),
+                cartId = o.stringOrNull("cart_id"),
+                invoiceId = o.stringOrNull("invoice_id"),
+                expiresAt = o.stringOrNull("expires_at"),
+                readyAt = o.stringOrNull("ready_at"),
+                collectedAt = o.stringOrNull("collected_at"),
+                createdAt = o.stringOrNull("created_at").orEmpty(),
+            )
+        }
+
+    override suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {
+        val fn = when (step) {
+            "approve" -> "approve_pos_fulfillment_request"
+            "ready" -> "mark_pos_fulfillment_ready"
+            "collect" -> "collect_pos_fulfillment_request"
+            "cancel" -> "cancel_pos_fulfillment_request"
+            else -> error("unknown fulfilment step $step")
+        }
+        client.postgrest.rpc(fn, buildJsonObject { put("p_request_id", requestId); if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes) })
+    }
+
     // --- POS part payments (staged split)
 
     private fun splitFrom(o: JsonObject): PosSplitSession = PosSplitSession(

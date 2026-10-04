@@ -61,6 +61,7 @@ petty cash requests, kits creation, product pages, payroll funding.
 | 4 Split payments | done: Pay in parts (cash, card/bank, store credit), reduced basket, cancel with refunds, recovery with manager refund steps and retry posting | done (same, plus front-camera badge for refund steps) |
 | 5 Card terminals | card-machine option shown disabled with the reason (a browser cannot sign terminal results), recovery "Finish the sale" for approved charges, admin Card machines editor | done: card machine as a tender and as a split part through the new `bridges/android/card-terminal` bridge (Android intent to the acquirer app, Keystore-signed evidence), lost answer → Unknown → ask the machine again, charged-not-posted → finish or reverse, Settings → choose and pair (admin) |
 | 6 Returns & warranty | done: Returns opens the posted sale (lines, what can still come back, core charges); return by line with condition → cash refund, credit to account, store credit, swap for the same part or send for warranty; staff draft, approver posts (badge, password or own sign-in) and a failed post reuses the draft; old cores; warranty claims (serial check, decide replace / credit / take back / reject, close); refund whole sale only while nothing came back; stock by branch from part cards | done (same, plus card-machine refund of a whole card sale: approver starts it, the machine pays back, approver posts it) |
+| 7 Fulfilment | done: Stock by branch → hold here for collection, collect at another branch, bring it here (branch transfer), back-order; a hold goes with the current sale and turns ready with its invoice when paid; Orders → Collections & transfers with send transfer (warehouse staff), mark a back-order ready, handed over / received here, release (never for a paid hold) | done (same) |
 | 6–8 | todo | todo |
 
 Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
@@ -88,3 +89,12 @@ note) and caps cash / store-credit refunds at what was paid on the sale. Checked
 (1 of 2 lines at 90 → credit 45, customer balance −45, over-return refused). Badge actions for
 returns, cores, warranty and card refunds: 20261004002855. The hosted project has no posted invoices,
 so returns were exercised on preview data (web) and the fake client (tablet) only.
+
+Phase 7 notes: holds become ready through `sync_pos_fulfillment_invoice` when their cart's sale posts,
+transfers through `sync_pos_fulfillment_transfer` when the warehouse posts the stock transfer, so the
+counter never marks a hold ready by hand (that would skip the invoice link and block collection).
+Known backend gap: a back-order never gets an invoice linked, so `collect_pos_fulfillment_request`
+refuses it; the counter sells the arrived part on a normal sale and releases the request. Checked in a
+rolled-back run (back-order created → ready → released; a hold refused for lack of stock, as the hosted
+project has no stock levels). Sending a transfer is warehouse staff only (`_require_warehouse_staff`).
+

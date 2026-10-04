@@ -959,8 +959,32 @@ interface RpcClient {
     }
 
     suspend fun listPosStockAvailability(stockItemId: String): List<PosStockAvailabilityRow> = emptyList()
+
+    // --- POS fulfilment (phase 7). Requests are in the part's stock unit; a hold with a cart becomes
+    // ready with its invoice when that sale posts, a transfer when the warehouse posts it.
+
+    suspend fun createPosFulfillmentRequest(
+        kind: String,
+        stockItemId: String,
+        qty: Double,
+        sourceWarehouseId: String?,
+        destinationWarehouseId: String?,
+        customerId: String?,
+        cartId: String?,
+        notes: String?,
+        holdMinutes: Int,
+    ): String = throw UnsupportedOperationException("fulfilment needs the live backend")
+
+    suspend fun listPosFulfillmentRequests(query: String?, status: String?): List<PosFulfillmentRow> = emptyList()
+
+    /** [step] approve (warehouse staff) | ready | collect | cancel. */
+    suspend fun posFulfillmentStep(requestId: String, step: String, notes: String?) {
+        throw UnsupportedOperationException("fulfilment needs the live backend")
+    }
 }
 
-/** Outcome of [RpcClient.posBadgeApprove]. */
-/** [attemptId] is the card-machine attempt a badge started (`card_refund_begin`), when the action returns one. */
+/**
+ * Outcome of [RpcClient.posBadgeApprove]. [attemptId] is the card-machine attempt a badge started
+ * (`card_refund_begin`), when the action returns one.
+ */
 data class PosBadgeApproval(val ok: Boolean, val managerName: String?, val error: String?, val attemptId: String? = null)

@@ -51,6 +51,7 @@ enum class PosNotice {
     SplitCancelled, SplitCancelledRefund, SplitRefundOwed, SplitRefundRecorded,
     TerminalPaired, TerminalReversed, TerminalFinished,
     ReturnPosted, ReturnCashOut, ReturnSwap, ReturnWarranty, CoreReturned, ClaimOpened, ClaimDecided, ClaimClosed, CardRefunded,
+    HeldHere, HeldElsewhere, TransferRequested, Backordered, TransferSent, FulfillmentReady, TransferReceived, HandedOver, FulfillmentReleased,
 }
 
 data class PosState(
@@ -164,6 +165,11 @@ data class PosState(
     val branchStock: List<co.zw.nissangtr.pos.domain.model.BranchStock>? = null,
     /** A card refund running on the machine (approved to start, not answered yet). */
     val cardRefund: co.zw.nissangtr.pos.domain.model.TerminalAttempt? = null,
+    // Fulfilment (phase 7)
+    val fulfillment: List<co.zw.nissangtr.pos.domain.model.FulfillmentRequest>? = null,
+    val fulfillmentStatus: String? = null,
+    val fulfillmentQuery: String = "",
+    val fulfillmentBusy: Boolean = false,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

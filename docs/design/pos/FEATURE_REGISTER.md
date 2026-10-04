@@ -401,3 +401,11 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | RET-06 | Tablet: card-machine refund of a whole card sale — approver starts it (`begin_pos_card_terminal_refund`, badge `card_refund_begin`), the machine pays back (Refund operation, signed evidence), approver posts it (`finalize_pos_card_terminal_refund`); no clear answer → Unknown, recovery | 10.7, 10.11 | 6 | partial — reducer tests; no card machine set up on the hosted project |
 | RET-07 | Stock by branch from part cards: on hand, held, free, on the way (`list_pos_stock_availability`) | 9 | 6 | partial — web preview and tablet screenshot |
 
+## FUL — Fulfilment (2026-10-04, phase 7)
+
+| ID | Feature | Blueprint | Phase | Status |
+|----|---------|-----------|-------|--------|
+| FUL-01 | From Stock by branch: hold here for collection, collect at another branch, bring it here (branch transfer), back-order (`create_pos_fulfillment_request`); a hold needs the part in the current sale and goes with it | 9, 10 | 7 | partial — web preview flow and tablet reducer tests/screenshots; hosted project has no stock levels, so a live hold is refused for stock |
+| FUL-02 | A hold turns ready with its invoice when the sale is paid; a transfer when the warehouse posts it (server triggers) | 10 | 7 | partial — as FUL-01 |
+| FUL-03 | Orders → Collections & transfers: status filter, send transfer (warehouse staff), mark a back-order ready, handed over / received here, release; a paid hold is never just released | 10 | 7 | partial — as FUL-01; back-order hand-over is a backend gap (no invoice link) |
+

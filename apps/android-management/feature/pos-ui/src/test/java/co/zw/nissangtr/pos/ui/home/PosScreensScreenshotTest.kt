@@ -248,6 +248,32 @@ class PosScreensScreenshotTest {
         ),
     )
 
+    @Test @Config(qualifiers = "w1280dp-h800dp-land-mdpi")
+    fun collectionsAndTransfers() = capture(
+        "orders_fulfillment",
+        1280.dp,
+        800.dp,
+        PosFixtures.homeEmpty.copy(
+            destination = PosDestination.Orders,
+            parked = emptyList(),
+            quotations = emptyList(),
+            fulfillment = listOf(
+                co.zw.nissangtr.pos.domain.model.FulfillmentRequest(
+                    "r1", "PFR-00012", co.zw.nissangtr.pos.domain.model.FulfillmentKind.BranchTransfer, "reserved", "si", "15208-65F0A", "Oil filter", 2.0,
+                    "Bulawayo branch", "Harare main", null, null, null, "",
+                ),
+                co.zw.nissangtr.pos.domain.model.FulfillmentRequest(
+                    "r2", "PFR-00011", co.zw.nissangtr.pos.domain.model.FulfillmentKind.CustomerCollection, "ready", "si", "D1060-JF00A", "Front brake pad set", 1.0,
+                    "Harare main", null, "cart-1", "inv-1", null, "",
+                ),
+                co.zw.nissangtr.pos.domain.model.FulfillmentRequest(
+                    "r3", "PFR-00010", co.zw.nissangtr.pos.domain.model.FulfillmentKind.Backorder, "requested", "si", "23100-EB300", "Alternator", 1.0,
+                    null, "Harare main", null, null, null, "",
+                ),
+            ),
+        ),
+    )
+
     private fun epcState(): PosState {
         val detail = FakeSaleGateways.brakeDiagram
         return PosFixtures.homeEmpty.copy(
