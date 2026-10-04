@@ -1481,6 +1481,10 @@
   .printOnly {
     display: block;
   }
+  /* Dialogs live outside the app shell: only the print slot reaches paper. */
+  .modalScrim {
+    display: none !important;
+  }
 }
 
 

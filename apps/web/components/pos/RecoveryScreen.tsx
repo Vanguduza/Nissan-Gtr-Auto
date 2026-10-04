@@ -8,6 +8,7 @@ import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 import { SplitRecoveryDetail, splitStatusLabel } from "./SplitPayment";
 import { TerminalRecoveryList } from "./CardTerminalPanels";
+import { PaymentLetters } from "./PaymentLetters";
 
 const STATE_LABEL: Record<string, string> = {
   awaiting_payment: "Waiting for payment",
@@ -210,6 +211,9 @@ export function RecoveryScreen({ pos }: { pos: PosStore }) {
             />
           ) : null}
           <TerminalRecoveryList pos={pos} orderId={status.orderId} />
+          {status.activeIntentId && (status.activeProvider === "ecocash" || status.activeProvider === "paynow" || status.activeProvider === "contipay") ? (
+            <PaymentLetters pos={pos} kind={status.activeProvider} sourceId={status.activeIntentId} />
+          ) : null}
           {inFlight && !splitHasMoney ? (
             <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">
               <CircleAlert size={16} aria-hidden /> We cannot prove whether the customer has paid. Do not take this payment again. Check again,

@@ -547,6 +547,54 @@ export type FulfillmentInput = {
 };
 export type FulfillmentStep = "approve" | "ready" | "collect" | "cancel";
 
+/** A payment a resolution letter can be about (`payment_resolution_source_kind`). */
+export type LetterSourceKind = "card_terminal" | "ecocash" | "paynow" | "contipay" | "split_leg" | "split_refund";
+export type PaymentLetterSummary = {
+  id: string;
+  documentNumber: string | null;
+  sourceKind: LetterSourceKind;
+  provider: string | null;
+  observedStatus: string | null;
+  amount: number;
+  currency: PosCurrency;
+  customerName: string | null;
+  invoiceNumber: string | null;
+  managerName: string | null;
+  managerTitle: string | null;
+  issuedAt: string;
+};
+/** Name and contact details printed on staff documents (`business_document_profile`). */
+export type BusinessProfile = {
+  legalName: string;
+  tradingName: string;
+  domain: string;
+  city: string | null;
+  country: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  phone: string | null;
+  email: string | null;
+  registrationNumber: string | null;
+};
+/** Everything a printed letter shows: the letter's own frozen copy and the business profile. */
+export type PaymentLetter = PaymentLetterSummary & {
+  externalReference: string | null;
+  providerReference: string | null;
+  terminalTransactionId: string | null;
+  rrn: string | null;
+  authorizationCode: string | null;
+  cardLast4: string | null;
+  cardScheme: string | null;
+  failureDetail: string | null;
+  managerEmployeeCode: string | null;
+  issueNotes: string | null;
+  signatureSha256: string | null;
+  /** Short-lived link to the signature image; null when this user may not read it. */
+  signatureUrl: string | null;
+  business: BusinessProfile | null;
+};
+export type MySignature = { fullName: string; employeeCode: string | null; hasSignature: boolean; capturedAt: string | null; imageUrl: string | null };
+
 // ───────── EPC ─────────
 export type EpcSection = { slug: string; name: string; thumbnailUrl: string | null };
 /** [id] is the full-catalogue diagram id that keys its R2 part shard and image. */

@@ -34,6 +34,9 @@ import type {
   ManagerCandidate,
   InvoiceDetail,
   FulfillmentRequest,
+  BusinessProfile,
+  MySignature,
+  PaymentLetter,
   ManagerCredentials,
   InvoiceDetailLine,
   StockAvailability,
@@ -204,6 +207,13 @@ export function createPreviewPosGateway(): PosGateway {
       if (f.cartId === cartId && f.status === "reserved" && (f.kind === "customer_collection" || f.kind === "alternate_pickup"))
         Object.assign(f, { status: "ready", invoiceId, readyAt: new Date().toISOString(), expiresAt: null });
   };
+  // Payment letters: the preview manager signs; the signature lives only in this page as a data URL.
+  let profile: BusinessProfile = {
+    legalName: "Nissan GTR Auto", tradingName: "Nissan GTR Auto", domain: "nissangtrauto.co.zw", city: "Harare", country: "Zimbabwe",
+    addressLine1: null, addressLine2: null, phone: null, email: null, registrationNumber: null,
+  };
+  let signature: MySignature = { fullName: "Preview manager", employeeCode: "EMP-0100", hasSignature: false, capturedAt: null, imageUrl: null };
+  const letters: PaymentLetter[] = [];
   const approverRefusal = (m: ManagerCredentials | null): string | null => (m && !managerOk(m) ? "Manager sign-in failed." : !m ? "POS manager approval required" : null);
 
   // Reserve-first checkout: one order per cart attempt, settled by manual tenders or a preview provider.
@@ -940,6 +950,52 @@ export function createPreviewPosGateway(): PosGateway {
       if (!c || (c.status !== "approved" && c.status !== "rejected")) return no("decided warranty claim required");
       Object.assign(c, { status: "closed", closedAt: new Date().toISOString() });
       return ok(true as const);
+    },
+    listLetters: (kind, sourceId, query) => {
+      const q = query.trim().toLowerCase();
+      return ok(
+        letters
+          .filter((l) => (!kind || l.sourceKind === kind) && (!sourceId || l.id.endsWith(`:${sourceId}`)) && (!q || `${l.documentNumber} ${l.invoiceNumber ?? ""} ${l.customerName ?? ""}`.toLowerCase().includes(q)))
+          .map(({ id, documentNumber, sourceKind, provider, observedStatus, amount, currency, customerName, invoiceNumber, managerName, managerTitle, issuedAt }) => ({
+            id, documentNumber, sourceKind, provider, observedStatus, amount, currency, customerName, invoiceNumber, managerName, managerTitle, issuedAt,
+          })),
+      );
+    },
+    issueLetter: (kind, sourceId, notes) => {
+      if (!signature.hasSignature) return no("Add your signature in Settings → My signature first.");
+      const id = `letter-${seq++}:${sourceId}`;
+      const order = [...orders.values()].find((o) => o.intentId === sourceId || o.orderId === sourceId);
+      letters.unshift({
+        id, documentNumber: nextDoc("PDL"), sourceKind: kind, provider: kind === "card_terminal" ? "card_terminal" : order?.provider ?? kind,
+        observedStatus: order?.providerStatus ?? order?.state ?? "unknown", amount: order?.total ?? 0, currency: order?.currency ?? "USD",
+        customerName: null, invoiceNumber: order?.invoiceId ? invoices.get(order.invoiceId)?.documentNumber ?? null : null,
+        managerName: signature.fullName, managerTitle: "Shop manager", issuedAt: new Date().toISOString(),
+        externalReference: order ? `PREVIEW-${order.orderId}` : null, providerReference: order?.intentId ?? null, terminalTransactionId: null, rrn: null,
+        authorizationCode: null, cardLast4: null, cardScheme: null, failureDetail: order?.providerFailure ?? null, managerEmployeeCode: signature.employeeCode,
+        issueNotes: notes, signatureSha256: "preview", signatureUrl: signature.imageUrl, business: profile,
+      });
+      return ok(id);
+    },
+    getLetter: (letterId) => {
+      const l = letters.find((x) => x.id === letterId);
+      return l ? ok({ ...l, business: profile }) : no("payment-resolution letter not found");
+    },
+    getMySignature: () => ok({ ...signature }),
+    saveMySignature: async (image) => {
+      if (image.type !== "image/png" && image.type !== "image/jpeg") return no("Use a PNG or JPEG image.");
+      const url = await new Promise<string>((resolve) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.readAsDataURL(image);
+      });
+      signature = { ...signature, hasSignature: true, capturedAt: new Date().toISOString(), imageUrl: url };
+      return ok({ ...signature });
+    },
+    getBusinessProfile: () => ok({ ...profile }),
+    setBusinessProfile: (p) => {
+      if (!p.legalName.trim() || !p.tradingName.trim() || !p.domain.trim()) return no("Legal name, trading name and web domain are required.");
+      profile = { ...p };
+      return ok({ ...profile });
     },
     createFulfillment: (f) => {
       if (f.qty <= 0) return no("qty must be > 0");

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
 import type { ManagerProof, RefundFeePolicy, SplitLeg, SplitRefund, SplitSession, SplitTender } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
+import { PaymentLetters } from "./PaymentLetters";
 import styles from "./pos.module.css";
 
 const TENDER_LABEL: Record<string, string> = {
@@ -542,6 +543,8 @@ function RefundRow({ pos, session, refund, onChanged }: { pos: PosStore; session
           </div>
         </div>
       ) : null}
+      {/* A signed record of this refund's status for the customer or their bank. */}
+      <PaymentLetters pos={pos} kind="split_refund" sourceId={refund.id} />
     </div>
   );
 }

@@ -31,6 +31,10 @@ import type {
   WarrantyClaim,
   WarrantyStatus,
   FulfillmentRequest,
+  BusinessProfile,
+  LetterSourceKind,
+  MySignature,
+  PaymentLetterSummary,
 } from "@/lib/pos/types";
 import { replacementJson, warrantyApproveArgs } from "@/lib/pos/returns";
 import {
@@ -266,6 +270,45 @@ function warrantyFromRow(r: Record<string, unknown>): WarrantyClaim {
     decidedAt: (r.decided_at as string | null) ?? null,
     closedAt: (r.closed_at as string | null) ?? null,
   };
+}
+
+const str = (v: unknown): string | null => (v == null || v === "" ? null : String(v));
+
+function letterSummaryFromRow(r: Record<string, unknown>): PaymentLetterSummary {
+  return {
+    id: String(r.id),
+    documentNumber: str(r.document_number),
+    sourceKind: String(r.source_kind) as LetterSourceKind,
+    provider: str(r.provider),
+    observedStatus: str(r.observed_status),
+    amount: num(r.amount),
+    currency: asCurrency(r.currency),
+    customerName: str(r.customer_name),
+    invoiceNumber: str(r.invoice_document_number),
+    managerName: str(r.manager_name),
+    managerTitle: str(r.manager_title),
+    issuedAt: String(r.issued_at),
+  };
+}
+
+function profileFromRow(b: Record<string, unknown>): BusinessProfile {
+  return {
+    legalName: String(b.legal_name ?? ""),
+    tradingName: String(b.trading_name ?? ""),
+    domain: String(b.domain ?? ""),
+    city: str(b.city),
+    country: str(b.country),
+    addressLine1: str(b.address_line1),
+    addressLine2: str(b.address_line2),
+    phone: str(b.phone_e164),
+    email: str(b.email),
+    registrationNumber: str(b.registration_number),
+  };
+}
+
+async function sha256Hex(data: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
@@ -1525,6 +1568,116 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       const { error } = await rpc(client, "close_warranty_claim", { p_claim_id: claimId });
       if (error) return fail(error, "Could not close the claim.");
       return { ok: true, data: true };
+    },
+
+    async listLetters(sourceKind, sourceId, query) {
+      const { data, error } = await rpc(client, "list_payment_resolution_letters", {
+        p_source_kind: sourceKind,
+        p_source_id: sourceId,
+        p_query: query.trim() || null,
+        p_limit: 50,
+      });
+      if (error) return fail(error, "Could not load payment letters.");
+      return { ok: true, data: ((data ?? []) as Record<string, unknown>[]).map(letterSummaryFromRow) };
+    },
+
+    async issueLetter(sourceKind, sourceId, notes) {
+      const { data, error } = await rpc(client, "create_payment_resolution_letter", { p_source_kind: sourceKind, p_source_id: sourceId, p_issue_notes: notes });
+      if (error || typeof data !== "string") {
+        if (error && /signature required/i.test(error.message)) return { ok: false, error: "Add your signature in Settings → My signature first." };
+        return fail(error, "The letter was not issued.");
+      }
+      return { ok: true, data };
+    },
+
+    async getLetter(letterId) {
+      const { data, error } = await rpc(client, "get_payment_resolution_letter_render_data", { p_letter_id: letterId });
+      if (error || !data) return fail(error, "Could not load the letter.");
+      const d = data as { letter: Record<string, unknown>; business: Record<string, unknown> | null };
+      const l = d.letter;
+      let signatureUrl: string | null = null;
+      if (l.signature_storage_path) {
+        const signed = await client.storage.from(String(l.signature_storage_bucket ?? "staff-signatures")).createSignedUrl(String(l.signature_storage_path), 600);
+        signatureUrl = signed.data?.signedUrl ?? null;
+      }
+      return {
+        ok: true,
+        data: {
+          ...letterSummaryFromRow(l),
+          externalReference: str(l.external_reference),
+          providerReference: str(l.provider_reference),
+          terminalTransactionId: str(l.terminal_transaction_id),
+          rrn: str(l.rrn),
+          authorizationCode: str(l.authorization_code),
+          cardLast4: str(l.card_last4),
+          cardScheme: str(l.card_scheme),
+          failureDetail: str(l.failure_detail),
+          managerEmployeeCode: str(l.manager_employee_code),
+          issueNotes: str(l.issue_notes),
+          signatureSha256: str(l.signature_sha256),
+          signatureUrl,
+          business: d.business ? profileFromRow(d.business) : null,
+        },
+      };
+    },
+
+    async getMySignature() {
+      const { data, error } = await rpc(client, "get_my_manager_signature");
+      if (error || !data) return fail(error, "Could not load your signature.");
+      const d = data as Record<string, unknown>;
+      let imageUrl: string | null = null;
+      if (d.signature_path) {
+        const signed = await client.storage.from(String(d.signature_bucket ?? "staff-signatures")).createSignedUrl(String(d.signature_path), 600);
+        imageUrl = signed.data?.signedUrl ?? null;
+      }
+      const sig: MySignature = {
+        fullName: String(d.full_name ?? ""),
+        employeeCode: str(d.employee_code),
+        hasSignature: Boolean(d.has_signature),
+        capturedAt: str(d.signature_captured_at),
+        imageUrl,
+      };
+      return { ok: true, data: sig };
+    },
+
+    async saveMySignature(image) {
+      if (image.type !== "image/png" && image.type !== "image/jpeg") return { ok: false, error: "Use a PNG or JPEG image." };
+      if (image.size > 2 * 1024 * 1024) return { ok: false, error: "The signature image must be under 2 MB." };
+      const { data: auth } = await client.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) return { ok: false, error: "Sign in again to save your signature." };
+      const bytes = await image.arrayBuffer();
+      const hash = await sha256Hex(bytes);
+      // Own folder only (storage policy); a new file per signature keeps old letters' signatures intact.
+      const path = `${uid}/signature-${hash.slice(0, 16)}.${image.type === "image/png" ? "png" : "jpg"}`;
+      const up = await client.storage.from("staff-signatures").upload(path, image, { contentType: image.type, upsert: true });
+      if (up.error) return fail(up.error, "The signature was not uploaded.");
+      const { error } = await rpc(client, "register_my_manager_signature", { p_storage_path: path, p_mime_type: image.type, p_sha256: hash });
+      if (error) return fail(error, "The signature was not saved.");
+      return this.getMySignature();
+    },
+
+    async getBusinessProfile() {
+      const { data, error } = await rpc(client, "get_business_document_profile");
+      if (error || !data) return fail(error, "Could not load the business details.");
+      return { ok: true, data: profileFromRow(data as Record<string, unknown>) };
+    },
+
+    async setBusinessProfile(p) {
+      const { data, error } = await rpc(client, "set_business_document_profile", {
+        p_legal_name: p.legalName,
+        p_trading_name: p.tradingName,
+        p_domain: p.domain,
+        p_city: p.city,
+        p_country: p.country,
+        p_address_line1: p.addressLine1,
+        p_address_line2: p.addressLine2,
+        p_phone_e164: p.phone,
+        p_email: p.email,
+        p_registration_number: p.registrationNumber,
+      });
+      if (error || !data) return fail(error, "The business details were not saved.");
+      return { ok: true, data: profileFromRow(data as Record<string, unknown>) };
     },
 
     async createFulfillment(f) {

@@ -12,6 +12,7 @@ import { CurrentSale } from "./CurrentSale";
 import { OfflineCatalogSetting } from "./OfflineCatalogSetting";
 import { ApprovalPolicySetting } from "./ApprovalPolicySetting";
 import { CardMachinesSetting } from "./CardTerminalPanels";
+import { BusinessProfileSetting, SignatureSetting } from "./PaymentLetters";
 import { GarageChooser, ManagerDialog, Modal, PaymentDialog, ReceiptView } from "./PosDialogs";
 import { PosHeader } from "./PosHeader";
 import { PosHome, PosSearchResults } from "./PosHome";
@@ -249,6 +250,8 @@ function Destination({
             {offline ? <OfflineCatalogSetting catalog={offline} /> : null}
             <ApprovalPolicySetting gateway={pos.gateway} />
             <CardMachinesSetting gateway={pos.gateway} />
+            <SignatureSetting pos={pos} />
+            <BusinessProfileSetting pos={pos} />
             <div className={styles.listRow}>
               <span>
                 <div className={styles.listTitle}>Companion phone</div>

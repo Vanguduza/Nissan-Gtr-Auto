@@ -1,12 +1,13 @@
 "use client";
 
 import { CreditCard } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import type { PosGateway } from "@/lib/pos/gateway";
 import { formatMoney } from "@/lib/pos/money";
 import type { CardTerminal, CardTerminalConfig, CardTerminalInput, Warehouse } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import { Modal } from "./PosDialogs";
+import { PaymentLetters } from "./PaymentLetters";
 import styles from "./pos.module.css";
 
 const STATUS: Record<string, string> = {
@@ -40,7 +41,8 @@ export function TerminalRecoveryList({ pos, orderId }: { pos: PosStore; orderId:
       {list.map((t) => {
         const charged = t.operation === "purchase" && (t.status === "approved" || t.status === "recovery_required");
         return (
-          <div key={t.attemptId} className={styles.listRow}>
+          <Fragment key={t.attemptId}>
+          <div className={styles.listRow}>
             <span>
               <div className={styles.listTitle}>
                 {formatMoney(t.amount, t.currency)} <span className={styles.badge}>{STATUS[t.status] ?? t.status.replace(/_/g, " ")}</span>
@@ -56,6 +58,9 @@ export function TerminalRecoveryList({ pos, orderId }: { pos: PosStore; orderId:
               </button>
             ) : null}
           </div>
+          {/* On one order's recovery: a signed letter of what the card machine reported. */}
+          {orderId ? <PaymentLetters pos={pos} kind="card_terminal" sourceId={t.attemptId} /> : null}
+          </Fragment>
         );
       })}
     </>

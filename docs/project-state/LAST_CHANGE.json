@@ -1,37 +1,27 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "7bb60c96f2dc0fa5f858",
+  "change_id": "02d7f61dc88acb846307",
   "changed_files": [
-    "apps/android-management/app/src/main/java/co/zw/nissangtr/management/pos/PosTabletEntry.kt",
-    "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/FakeRpcClient.kt",
-    "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/RpcClient.kt",
-    "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/RpcModels.kt",
-    "apps/android-management/core/rpc/src/main/java/co/zw/nissangtr/management/rpc/SupabaseRpcClient.kt",
-    "apps/android-management/feature/pos-data/src/main/java/co/zw/nissangtr/pos/data/RpcFulfillmentGateway.kt",
-    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/gateway/Gateways.kt",
-    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/model/Fulfillment.kt",
-    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/state/PosFulfillment.kt",
-    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/state/PosSaleFlows.kt",
-    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/state/PosState.kt",
-    "apps/android-management/feature/pos-domain/src/test/kotlin/co/zw/nissangtr/pos/domain/PosFulfillmentTest.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/common/PosUiKit.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/sale/PosDestinations.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/sale/PosFulfillment.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/sale/PosReturnsScreen.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/store/PosStore.kt",
-    "apps/android-management/feature/pos-ui/src/main/res/values/strings.xml",
-    "apps/android-management/feature/pos-ui/src/test/java/co/zw/nissangtr/pos/ui/home/PosScreensScreenshotTest.kt",
-    "docs/design/pos/FEATURE_REGISTER.md",
-    "docs/plans/2026-10-03-pos-operations-backend-integration.md"
+    "apps/web/components/pos/CardTerminalPanels.tsx",
+    "apps/web/components/pos/PaymentLetters.tsx",
+    "apps/web/components/pos/PosApp.tsx",
+    "apps/web/components/pos/RecoveryScreen.tsx",
+    "apps/web/components/pos/SplitPayment.tsx",
+    "apps/web/components/pos/pos.module.css",
+    "apps/web/lib/pos/gateway.ts",
+    "apps/web/lib/pos/preview-gateway.ts",
+    "apps/web/lib/pos/supabase-gateway.ts",
+    "apps/web/lib/pos/types.ts",
+    "supabase/migrations/20261004060207_payment_letters_list_and_profile.sql"
   ],
-  "diff_sha256": "7bb60c96f2dc0fa5f858f68c069cd68a78c4e8c56dc4148bbef34be923732306",
+  "diff_sha256": "02d7f61dc88acb846307b77ad67f2d50cbb08baa5849fd0419bc45ac9d57b0b5",
   "domains": [
-    "documentation",
-    "management-android"
+    "backend",
+    "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-04T05:59:40.483855+00:00",
+  "recorded_at_utc": "2026-10-04T06:07:15.615111+00:00",
   "schema_version": 1,
-  "source_parent": "6e859ca16fabe5508aad0623b3621618b0180c1c"
+  "source_parent": "a1a950e141e60f88cd3cccec82860fe5993b79be"
 }

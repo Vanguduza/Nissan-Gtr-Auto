@@ -15,6 +15,11 @@ import type {
   PosCustomer,
   Quotation,
   RecentInvoice,
+  BusinessProfile,
+  LetterSourceKind,
+  MySignature,
+  PaymentLetter,
+  PaymentLetterSummary,
   FulfillmentInput,
   FulfillmentRequest,
   FulfillmentStep,
@@ -214,6 +219,17 @@ export interface PosGateway {
 
   // Stock
   listStockAvailability(stockItemId: string): Promise<PosResult<StockAvailability[]>>;
+
+  // Payment resolution letters (manager / finance / admin, signed with the issuer's own signature)
+  listLetters(sourceKind: LetterSourceKind | null, sourceId: string | null, query: string): Promise<PosResult<PaymentLetterSummary[]>>;
+  issueLetter(sourceKind: LetterSourceKind, sourceId: string, notes: string | null): Promise<PosResult<string>>;
+  getLetter(letterId: string): Promise<PosResult<PaymentLetter>>;
+  getMySignature(): Promise<PosResult<MySignature>>;
+  /** PNG or JPEG; stored privately under the signed-in user's own folder, then registered with its hash. */
+  saveMySignature(image: Blob): Promise<PosResult<MySignature>>;
+  getBusinessProfile(): Promise<PosResult<BusinessProfile>>;
+  /** Admin only (server-enforced). */
+  setBusinessProfile(profile: BusinessProfile): Promise<PosResult<BusinessProfile>>;
 
   // Fulfilment: holds, other-branch pickup, branch transfers and back-orders
   createFulfillment(input: FulfillmentInput): Promise<PosResult<string>>;
