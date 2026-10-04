@@ -603,6 +603,24 @@ class FakeRpcClient : RpcClient {
         return invId
     }
 
+    private var fakeDeliveryPayment = DeliveryPaymentMethod.PREPAY
+
+    override suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String {
+        val cart = openCart
+        require(cart != null && cart.id == cartId && cart.status == "open") { "open cart required" }
+        require(cart.fulfillmentMode == FulfillmentMode.DISPATCH || method == DeliveryPaymentMethod.PREPAY) {
+            "pay-on-delivery is available only for dispatch orders"
+        }
+        fakeDeliveryPayment = method
+        return cartId
+    }
+
+    override suspend fun checkoutCustomerCartOnDelivery(cartId: String, method: DeliveryPaymentMethod): String {
+        require(method != DeliveryPaymentMethod.PREPAY) { "choose cash or card on delivery" }
+        setCustomerCartDeliveryPaymentMethod(cartId, method)
+        return checkoutCustomerCart(cartId)
+    }
+
     override suspend fun getOpenCart(): CartSummary? =
         openCart?.takeIf { it.status == "open" }
 

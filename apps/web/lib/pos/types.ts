@@ -295,6 +295,8 @@ export type CardTerminal = {
   warehouseId: string | null;
   deviceId: string | null;
   isActive: boolean;
+  /** Drivers may take card on delivery with it (`set_pos_card_terminal_delivery_enabled`). */
+  allowDelivery: boolean;
 };
 export type CardTerminalInput = Omit<CardTerminal, "id"> & { id: string | null };
 /** `list_pos_card_terminal_recovery` row: a card-machine payment that needs someone. */

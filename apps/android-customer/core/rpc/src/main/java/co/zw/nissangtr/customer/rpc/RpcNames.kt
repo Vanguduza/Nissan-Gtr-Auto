@@ -19,6 +19,13 @@ object RpcNames {
     const val CREATE_CUSTOMER_CART = "create_customer_cart"
     const val ADD_CUSTOMER_CART_LINE = "add_customer_cart_line"
     const val CHECKOUT_CUSTOMER_CART = "checkout_customer_cart"
+
+    /** Reserve-first checkout: holds stock while the customer pays online. */
+    const val PREPARE_CUSTOMER_CHECKOUT = "prepare_customer_checkout"
+    const val SET_CUSTOMER_CART_DELIVERY_PAYMENT_METHOD = "set_customer_cart_delivery_payment_method"
+
+    /** Pay on delivery: invoices now; the driver collects at the door. */
+    const val CHECKOUT_CUSTOMER_CART_V2 = "checkout_customer_cart_v2"
     const val GET_CUSTOMER_ORDER = "get_customer_order"
 
     /** Official daily ZiG rate (ZiG per 1 USD) — mirrors web `fetchZigExchangeRate`. */

@@ -289,7 +289,7 @@ export function createPreviewPosGateway(): PosGateway {
 
   // Card machines: one demo machine; one approved-but-unposted payment to finish from recovery.
   const terminals: CardTerminal[] = [
-    { id: "term-1", code: "CT-01", label: "Counter card machine", acquirerName: "Demo bank", externalTerminalId: "T00001", config: { package_name: "zw.co.demo.pos", purchase_action: "zw.co.demo.PURCHASE" }, warehouseId: null, deviceId: null, isActive: true },
+    { id: "term-1", code: "CT-01", label: "Counter card machine", acquirerName: "Demo bank", externalTerminalId: "T00001", config: { package_name: "zw.co.demo.pos", purchase_action: "zw.co.demo.PURCHASE" }, warehouseId: null, deviceId: null, isActive: true, allowDelivery: false },
   ];
   const terminalRecovery: TerminalRecoveryItem[] = [
     { attemptId: "att-demo", operation: "purchase", status: "approved", terminalLabel: "Counter card machine", orderId: null, amount: 42, currency: "USD", transactionId: "TX-4411", cardLast4: "4242", message: "Sale did not post", updatedAt: new Date().toISOString() },

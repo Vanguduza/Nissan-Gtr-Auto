@@ -1228,6 +1228,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
             warehouseId: (r.warehouse_id as string | null) ?? null,
             deviceId: (r.device_id as string | null) ?? null,
             isActive: r.is_active !== false,
+            allowDelivery: r.allow_delivery === true,
           }),
         ),
       };
@@ -1249,6 +1250,9 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
         p_is_active: t.isActive,
       });
       if (error || typeof data !== "string") return fail(error, "The card machine was not saved.");
+      // Delivery use is a separate admin switch on the server.
+      const delivery = await rpc(client, "set_pos_card_terminal_delivery_enabled", { p_terminal_id: data, p_enabled: t.allowDelivery });
+      if (delivery.error) return fail(delivery.error, "The card machine was saved, but its delivery setting was not.");
       return { ok: true, data };
     },
 

@@ -10,6 +10,7 @@ import {
 } from "@/components/icons";
 import {
   checkoutCustomerCart,
+  checkoutCustomerCartOnDelivery,
   checkoutRequestIdForCart,
   createCustomerContipayIntent,
   createCustomerEcocashIntent,
@@ -23,9 +24,11 @@ import {
   loadOpenCart,
   loadOwnCustomer,
   requireSession,
+  setCartDeliveryPaymentMethod,
   type CartLineRow,
   type CartRow,
   type CustomerRow,
+  type DeliveryPaymentMethod,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/app/(storefront)/page.module.css";
@@ -42,7 +45,14 @@ function CartTitle() {
 }
 
 type Fulfillment = "immediate" | "dispatch";
-type Tender = "cash" | "contipay" | "paynow" | "ecocash";
+type Tender = "cash" | "contipay" | "paynow" | "ecocash" | "delivery";
+type OnDeliveryMethod = Exclude<DeliveryPaymentMethod, "prepay">;
+
+const ON_DELIVERY_OPTIONS: { method: OnDeliveryMethod; title: string; hint: string }[] = [
+  { method: "cash_or_card_on_delivery", title: "Cash or card", hint: "Decide at the door" },
+  { method: "cash_on_delivery", title: "Cash", hint: "Have the exact USD amount ready" },
+  { method: "card_on_delivery", title: "Card", hint: "The driver brings a swipe machine" },
+];
 type SettleCurrency = "USD" | "ZIG";
 type EcoCashMode = "saved" | "other";
 
@@ -66,6 +76,7 @@ export function CartCheckout() {
   const [tender, setTender] = useState<Tender>("cash");
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
+  const [onDelivery, setOnDelivery] = useState<OnDeliveryMethod>("cash_or_card_on_delivery");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -102,6 +113,12 @@ export function CartCheckout() {
 
     if (cart.data) {
       setFulfillment(cart.data.fulfillment_mode);
+      // Column newer than the generated types: the cart remembers a pay-on-delivery choice.
+      const saved = (cart.data as unknown as { delivery_payment_method?: string }).delivery_payment_method;
+      if (saved && saved !== "prepay" && cart.data.fulfillment_mode === "dispatch") {
+        setTender("delivery");
+        setOnDelivery(saved as OnDeliveryMethod);
+      }
       const lines = await loadCartLines(client, cart.data.id);
       if (!lines.ok) {
         setStatus({ kind: "error", message: lines.error });
@@ -132,6 +149,39 @@ export function CartCheckout() {
     if (status.kind !== "ready") return 0;
     return status.lines.reduce((sum, line) => sum + Number(line.line_total), 0);
   }, [status]);
+
+  const effectiveFulfillment: Fulfillment =
+    status.kind === "ready" && status.cart ? status.cart.fulfillment_mode : fulfillment;
+  const onDeliveryAllowed = effectiveFulfillment === "dispatch";
+
+  // Pay on delivery exists only for dispatch; switching to collection drops it.
+  useEffect(() => {
+    if (!onDeliveryAllowed && tender === "delivery") setTender("cash");
+  }, [onDeliveryAllowed, tender]);
+  useEffect(() => {
+    if (tender === "delivery") setSettleCurrency("USD");
+  }, [tender]);
+
+  async function chooseOnDelivery(method: OnDeliveryMethod) {
+    setOnDelivery(method);
+    setTender("delivery");
+    const cartId = status.kind === "ready" ? status.cart?.id : null;
+    const client = createWebClient();
+    if (!cartId || !client) return;
+    const saved = await setCartDeliveryPaymentMethod(client, cartId, method);
+    if (!saved.ok) setMessage(saved.error);
+  }
+
+  async function chooseTender(next: Tender) {
+    const leavingDelivery = tender === "delivery" && next !== "delivery";
+    setTender(next);
+    const cartId = status.kind === "ready" ? status.cart?.id : null;
+    const client = createWebClient();
+    if (leavingDelivery && cartId && client) {
+      const saved = await setCartDeliveryPaymentMethod(client, cartId, "prepay");
+      if (!saved.ok) setMessage(saved.error);
+    }
+  }
 
   const zigTotal = useMemo(
     () => (zigRate == null ? null : Math.round(totalUsd * zigRate * 100) / 100),
@@ -172,6 +222,24 @@ export function CartCheckout() {
     if (!linesResult.data.length) {
       setMessage("Add a part before checkout.");
       setBusy(false);
+      return;
+    }
+
+    if (tender === "delivery") {
+      if (!onDeliveryAllowed) {
+        setMessage("Pay on delivery is only for nationwide dispatch.");
+        setBusy(false);
+        return;
+      }
+      // Invoiced now; the driver collects the balance at the door (no online payment step).
+      const placed = await checkoutCustomerCartOnDelivery(client, cartId, onDelivery);
+      setBusy(false);
+      if (!placed.ok) {
+        setMessage(placed.error);
+        return;
+      }
+      setMessage("Order placed. Pay the driver when it arrives.");
+      router.push(`/account/orders/${placed.data}`);
       return;
     }
 
@@ -501,12 +569,14 @@ export function CartCheckout() {
                 name="settle"
                 checked={settleCurrency === "ZIG"}
                 onChange={() => setSettleCurrency("ZIG")}
-                disabled={zigRate == null}
+                disabled={zigRate == null || tender === "delivery"}
               />
               <span>
                 <strong>ZiG</strong>
                 <span className={styles.muted}>
-                  {zigRate != null && zigTotal != null
+                  {tender === "delivery"
+                    ? "Pay on delivery is collected in USD"
+                    : zigRate != null && zigTotal != null
                     ? `≈ ${formatMoney(zigTotal, "ZIG")} @ ${zigRate} ZiG per USD (today's rate)`
                     : "Unavailable until Finance publishes a verified exchange rate"}
                 </span>
@@ -526,7 +596,7 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "cash"}
-              onChange={() => setTender("cash")}
+              onChange={() => void chooseTender("cash")}
             />
             <span>
               <strong>Cash / bank</strong>
@@ -540,7 +610,7 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "contipay"}
-              onChange={() => setTender("contipay")}
+              onChange={() => void chooseTender("contipay")}
             />
             <span>
               <strong>ContiPay</strong>
@@ -552,7 +622,7 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "paynow"}
-              onChange={() => setTender("paynow")}
+              onChange={() => void chooseTender("paynow")}
             />
             <span>
               <strong>Paynow</strong>
@@ -564,7 +634,7 @@ export function CartCheckout() {
               type="radio"
               name="tender"
               checked={tender === "ecocash"}
-              onChange={() => setTender("ecocash")}
+              onChange={() => void chooseTender("ecocash")}
             />
             <span>
               <strong>EcoCash direct</strong>
@@ -573,7 +643,45 @@ export function CartCheckout() {
               </span>
             </span>
           </label>
+          <label
+            className={styles.fulfillCard}
+            style={onDeliveryAllowed ? undefined : { opacity: 0.6 }}
+          >
+            <input
+              type="radio"
+              name="tender"
+              checked={tender === "delivery"}
+              disabled={!onDeliveryAllowed}
+              onChange={() => void chooseOnDelivery(onDelivery)}
+            />
+            <span>
+              <strong>Pay on delivery</strong>
+              <span className={styles.muted}>
+                {onDeliveryAllowed
+                  ? "Cash or card to the driver at your door"
+                  : "Only for nationwide dispatch — this order is click & collect"}
+              </span>
+            </span>
+          </label>
         </div>
+        {tender === "delivery" ? (
+          <div className={styles.fulfillOptions} style={{ marginTop: "0.75rem" }}>
+            {ON_DELIVERY_OPTIONS.map((o) => (
+              <label key={o.method} className={styles.fulfillCard}>
+                <input
+                  type="radio"
+                  name="onDelivery"
+                  checked={onDelivery === o.method}
+                  onChange={() => void chooseOnDelivery(o.method)}
+                />
+                <span>
+                  <strong>{o.title}</strong>
+                  <span className={styles.muted}>{o.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : null}
         {tender === "ecocash" ? (
           <div className={styles.fulfillOptions} style={{ marginTop: "0.75rem" }}>
             <label className={styles.fulfillCard}>
@@ -621,7 +729,7 @@ export function CartCheckout() {
           disabled={busy || lines.length === 0}
           onClick={() => void onCheckout()}
         >
-          {busy ? "Checking out…" : "Checkout"}
+          {busy ? "Checking out…" : tender === "delivery" ? "Place order — pay on delivery" : "Checkout"}
         </button>
         <Link href="/search" className={styles.button} style={{ background: "var(--gtr-steel)" }}>
           Continue shopping

@@ -12,6 +12,14 @@ enum class FulfillmentMode(val rpcValue: String) {
     DISPATCH("dispatch"),
 }
 
+/** Mirrors `public.delivery_payment_method`: pay-on-delivery is for dispatch orders only. */
+enum class DeliveryPaymentMethod(val rpcValue: String) {
+    PREPAY("prepay"),
+    CASH_ON_DELIVERY("cash_on_delivery"),
+    CARD_ON_DELIVERY("card_on_delivery"),
+    CASH_OR_CARD_ON_DELIVERY("cash_or_card_on_delivery"),
+}
+
 /** Mirrors `public.contipay_method` (subset used by storefront). */
 enum class ContipayMethod(val rpcValue: String) {
     ECOCASH("ecocash"),

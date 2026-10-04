@@ -8,6 +8,7 @@ import {
   createCustomerEcocashIntent,
   createCustomerPaynowIntent,
   formatMoney,
+  deliveryPaymentLabel,
   fulfillmentLabel,
   getCustomerOrder,
   requireSession,
@@ -163,6 +164,20 @@ export function OrderDetail({ orderRef }: { orderRef: string }) {
           ? ` · open ${formatMoney(order.amount_open, order.currency)}`
           : " · paid"}
       </p>
+      {order.delivery_payment_method !== "prepay" ? (
+        <p className={styles.muted}>
+          {deliveryPaymentLabel(order.delivery_payment_method)}
+          {order.amount_open > 0
+            ? ` — have ${formatMoney(order.amount_open, order.currency)} ready for the driver${
+                order.delivery_payment_method === "cash_on_delivery"
+                  ? " in cash"
+                  : order.delivery_payment_method === "card_on_delivery"
+                    ? " on card (the driver brings a swipe machine)"
+                    : ", in cash or on card"
+              }. You can also pay online below before it arrives.`
+            : " — paid."}
+        </p>
+      ) : null}
       {order.reservation_expires_at && order.amount_open > 0 ? (
         <p className={styles.muted}>
           Stock is reserved until {new Date(order.reservation_expires_at).toLocaleString()}.

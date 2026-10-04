@@ -100,6 +100,7 @@ const blank = (): CardTerminalInput => ({
   warehouseId: null,
   deviceId: null,
   isActive: true,
+  allowDelivery: false,
 });
 
 /**
@@ -194,7 +195,7 @@ export function CardMachinesSetting({ gateway }: { gateway: PosGateway }) {
                   </select>
                 </label>
                 <label className={styles.field}>
-                  <span className={styles.fieldLabel}>Only on tablet (device id, optional)</span>
+                  <span className={styles.fieldLabel}>Only on device (tablet or driver phone id, optional)</span>
                   <input className={styles.input} value={editing.deviceId ?? ""} onChange={(e) => set({ deviceId: e.target.value })} />
                 </label>
               </div>
@@ -225,6 +226,10 @@ export function CardMachinesSetting({ gateway }: { gateway: PosGateway }) {
               <label className={styles.checkRow}>
                 <input type="checkbox" checked={editing.isActive} onChange={(e) => set({ isActive: e.target.checked })} /> In use
               </label>
+              <label className={styles.checkRow}>
+                <input type="checkbox" checked={editing.allowDelivery} onChange={(e) => set({ allowDelivery: e.target.checked })} /> Drivers can take card on
+                delivery with it (set the driver&apos;s phone ID above; the driver app shows it)
+              </label>
               {error ? <p className={`${styles.statusBanner} ${styles.statusError}`} role="alert">{error}</p> : null}
               <div className={styles.rowEnd}>
                 <button type="button" className={`${styles.softButton} ${styles.inlineButton}`} onClick={() => setEditing(null)}>
@@ -247,7 +252,11 @@ export function CardMachinesSetting({ gateway }: { gateway: PosGateway }) {
                       <div className={styles.listTitle}>
                         {t.label} <span className={styles.badge}>{t.code}</span>
                       </div>
-                      <div className={styles.muted}>{[t.acquirerName, t.externalTerminalId, t.config.package_name].filter(Boolean).join(" · ")}</div>
+                      <div className={styles.muted}>
+                        {[t.acquirerName, t.externalTerminalId, t.config.package_name, t.allowDelivery ? "deliveries" : null, t.deviceId ? `device ${t.deviceId}` : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
                     </span>
                     <button
                       type="button"
@@ -263,7 +272,7 @@ export function CardMachinesSetting({ gateway }: { gateway: PosGateway }) {
                 ))}
               </div>
               <p className={styles.muted}>
-                After adding a machine, pair each counter tablet with it from the tablet&apos;s Settings → Card machine (an admin signs in once).
+                After adding a machine, pair each counter tablet with it from the tablet&apos;s Settings → Card machine (an admin signs in once). A driver pairs from Proof of delivery → Payment in the driver app once the machine is set for deliveries.
               </p>
               <div className={styles.rowEnd}>
                 <button

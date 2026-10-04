@@ -67,8 +67,8 @@ petty cash requests, kits creation, product pages, payroll funding.
 | Other app | Area | Status |
 |---|---|---|
 | Driver app (`apps/android-delivery`) | COD: cash and card on delivery | done: Payment section above the proof steps (amount due from the server, cash with an optional note, card through the `bridges/android/card-terminal` bridge with the phone's Keystore key, pair with the phone ID an admin assigned, part payments, unknown answer → ask the machine again, charged-not-posted → post it); "Complete delivery" held while money is due |
-| Customer app + web shop | Checkout v2 delivery payment method | todo |
-| Staff web | POS admin (policies, terminals, profile) | todo |
+| Customer app + web shop | Checkout v2 delivery payment method | done: for nationwide delivery the customer picks "Pay on delivery" (cash, card or either; USD only) and the order is invoiced straight away (`set_customer_cart_delivery_payment_method` → `checkout_customer_cart_v2`) with no online payment step; otherwise checkout reserves stock and pays online (`prepare_customer_checkout`, 20 minutes); click & collect shows pay on delivery disabled with the reason; order page says what to have ready for the driver |
+| Staff web | POS admin | done: approval policies, card machines, till sessions and business details were already in Settings; card machines gained "Drivers can take card on delivery" (`set_pos_card_terminal_delivery_enabled`) and the driver phone ID |
 
 Live backend note (2026-10-03): EcoCash, Paynow and ContiPay have no keys, so their initiate functions
 answer 503; both clients show those tenders disabled with "Not set up for this shop yet."
@@ -122,3 +122,11 @@ shows no payment section. A card machine must be assigned by an admin to the pho
 (.99 declines, .98 gives no answer) and never the live one. Checked with unit tests on the fake
 backend (cash idempotency, card settle, unknown → ask again, decline, prepaid) and screenshots;
 no live card machine or COD invoice exists on the hosted project yet.
+
+Checkout v2 / admin notes: `checkout_customer_cart_v2` posts the invoice immediately (no stock
+reservation step), as the backend designs pay-on-delivery; checked in a rolled-back run as a customer
+(dispatch cart → invoice posted, method `cash_or_card_on_delivery`, nothing paid; click & collect
+refused). `list_pos_card_terminals` did not return `allow_delivery`; migration 20261004113923 appends
+it so the admin sees the setting (callers read columns by name). The web shop flow is typechecked
+only (no customer sign-in in this environment); the customer app has a screenshot and fake-backend
+tests.

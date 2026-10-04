@@ -77,7 +77,33 @@ export type CustomerOrder = {
   delivery_note_status: string | null;
   /** Non-terminal job id for live track via get_delivery_track_point. */
   active_delivery_job_id: string | null;
+  /** How the balance is paid: online first (`prepay`) or to the driver at the door. */
+  delivery_payment_method: DeliveryPaymentMethod;
 };
+
+/** `delivery_payment_method`: pay-on-delivery is only for dispatch orders. */
+export type DeliveryPaymentMethod =
+  | "prepay"
+  | "cash_on_delivery"
+  | "card_on_delivery"
+  | "cash_or_card_on_delivery";
+
+export function deliveryPaymentLabel(method: DeliveryPaymentMethod): string {
+  switch (method) {
+    case "cash_on_delivery":
+      return "Cash on delivery";
+    case "card_on_delivery":
+      return "Card on delivery";
+    case "cash_or_card_on_delivery":
+      return "Cash or card on delivery";
+    default:
+      return "Pay online before dispatch";
+  }
+}
+
+function parseDeliveryPaymentMethod(v: unknown): DeliveryPaymentMethod {
+  return v === "cash_on_delivery" || v === "card_on_delivery" || v === "cash_or_card_on_delivery" ? v : "prepay";
+}
 
 export type CustomerOrderListItem = Pick<
   CustomerOrder,
@@ -346,9 +372,11 @@ export async function checkoutCustomerCart(
   cartId: string,
   checkoutRequestId: string,
 ): Promise<StorefrontResult<string>> {
-  const { data, error } = await storefrontRpc(client, "checkout_customer_cart", {
+  // Reserve-first: stock is held for 20 minutes while the customer pays online.
+  const { data, error } = await storefrontRpc(client, "prepare_customer_checkout", {
     p_cart_id: cartId,
     p_checkout_request_id: checkoutRequestId,
+    p_reservation_ttl: "20 minutes",
   });
   if (error) return { ok: false, error: error.message };
   if (typeof data !== "string" || !data) {
@@ -356,6 +384,45 @@ export async function checkoutCustomerCart(
   }
   // The server has atomically locked the cart and created the reservation.
   // Clearing browser cart state is safe only after that response is received.
+  writeStoredCartId(null);
+  clearCheckoutRequestId(cartId);
+  return { ok: true, data };
+}
+
+/** Saves the pay-on-delivery choice on the cart (the server refuses it for click & collect). */
+export async function setCartDeliveryPaymentMethod(
+  client: SupabaseClient,
+  cartId: string,
+  method: DeliveryPaymentMethod,
+): Promise<StorefrontResult<string>> {
+  const { error } = await storefrontRpc(client, "set_customer_cart_delivery_payment_method", {
+    p_cart_id: cartId,
+    p_method: method,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: cartId };
+}
+
+/**
+ * Pay on delivery: the order is invoiced now and the driver collects the balance at the door
+ * (`checkout_customer_cart_v2`). Returns the invoice id. A second click fails safely because the
+ * cart is no longer open.
+ */
+export async function checkoutCustomerCartOnDelivery(
+  client: SupabaseClient,
+  cartId: string,
+  method: Exclude<DeliveryPaymentMethod, "prepay">,
+): Promise<StorefrontResult<string>> {
+  const saved = await setCartDeliveryPaymentMethod(client, cartId, method);
+  if (!saved.ok) return saved;
+  const { data, error } = await storefrontRpc(client, "checkout_customer_cart_v2", {
+    p_cart_id: cartId,
+    p_delivery_payment_method: method,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (typeof data !== "string" || !data) {
+    return { ok: false, error: "Checkout returned no invoice id." };
+  }
   writeStoredCartId(null);
   clearCheckoutRequestId(cartId);
   return { ok: true, data };
@@ -410,6 +477,7 @@ function parseInvoiceCustomerOrder(
       typeof o.active_delivery_job_id === "string"
         ? o.active_delivery_job_id
         : null,
+    delivery_payment_method: parseDeliveryPaymentMethod(o.delivery_payment_method),
   };
 }
 
@@ -467,6 +535,7 @@ function commerceOrderAsCustomerOrder(row: CommerceOrderRow): CustomerOrder {
     pick_list_status: null,
     delivery_note_status: null,
     active_delivery_job_id: null,
+    delivery_payment_method: "prepay",
   };
 }
 

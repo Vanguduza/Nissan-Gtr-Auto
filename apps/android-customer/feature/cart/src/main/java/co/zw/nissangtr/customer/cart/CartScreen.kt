@@ -47,6 +47,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import co.zw.nissangtr.customer.rpc.CartLineSummary
 import co.zw.nissangtr.customer.rpc.CatalogProduct
 import co.zw.nissangtr.customer.rpc.CurrencyCode
+import co.zw.nissangtr.customer.rpc.DeliveryPaymentMethod
 import co.zw.nissangtr.customer.rpc.FulfillmentMode
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.visual.GtrPremiumColors
@@ -117,7 +118,7 @@ fun CartScreen(
             },
         )
 
-        if (!hasLines && state.lastInvoiceId == null) {
+        if (!hasLines && state.lastInvoiceId == null && state.placedOnDeliveryId == null) {
             Box(
                 Modifier.fillMaxSize().padding(24.dp),
                 contentAlignment = Alignment.Center,
@@ -221,13 +222,74 @@ fun CartScreen(
                     FilterChip(
                         selected = state.currency == CurrencyCode.ZIG,
                         onClick = { viewModel.onCurrencyChange(CurrencyCode.ZIG) },
-                        enabled = !state.busy,
+                        enabled = !state.busy && state.deliveryPayment == DeliveryPaymentMethod.PREPAY,
                         label = { Text("ZiG") },
+                    )
+                }
+                if (state.deliveryPayment != DeliveryPaymentMethod.PREPAY) {
+                    Text(
+                        "Pay on delivery is collected in USD.",
+                        color = GtrPremiumColors.TextSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
 
             item {
+                Spacer(Modifier.height(10.dp))
+                PremiumSectionHeader(title = "When will you pay?")
+                val dispatch = state.fulfillmentMode == FulfillmentMode.DISPATCH
+                val onDelivery = state.deliveryPayment != DeliveryPaymentMethod.PREPAY
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = !onDelivery,
+                        onClick = { viewModel.onDeliveryPaymentChange(DeliveryPaymentMethod.PREPAY) },
+                        enabled = !state.busy,
+                        label = { Text("Pay now online") },
+                    )
+                    FilterChip(
+                        selected = onDelivery,
+                        onClick = { viewModel.onDeliveryPaymentChange(DeliveryPaymentMethod.CASH_OR_CARD_ON_DELIVERY) },
+                        enabled = !state.busy && dispatch,
+                        label = { Text("Pay on delivery") },
+                    )
+                }
+                if (!dispatch) {
+                    Text(
+                        "Pay on delivery is only for nationwide delivery.",
+                        color = GtrPremiumColors.TextSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                } else if (onDelivery) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 6.dp),
+                    ) {
+                        listOf(
+                            DeliveryPaymentMethod.CASH_OR_CARD_ON_DELIVERY to "Cash or card",
+                            DeliveryPaymentMethod.CASH_ON_DELIVERY to "Cash",
+                            DeliveryPaymentMethod.CARD_ON_DELIVERY to "Card",
+                        ).forEach { (method, label) ->
+                            FilterChip(
+                                selected = state.deliveryPayment == method,
+                                onClick = { viewModel.onDeliveryPaymentChange(method) },
+                                enabled = !state.busy,
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                    Text(
+                        CartViewModel.deliveryPaymentHint(state.deliveryPayment),
+                        color = GtrPremiumColors.TextSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+
+            if (state.deliveryPayment == DeliveryPaymentMethod.PREPAY) item {
                 Spacer(Modifier.height(10.dp))
                 PremiumSectionHeader(title = "Payment method")
                 ShopPaymentMethodList(
@@ -244,6 +306,9 @@ fun CartScreen(
 
             state.error?.let { item { PremiumMessageBanner(it, PremiumMessageKind.Error) } }
             state.message?.let { item { PremiumMessageBanner(it, PremiumMessageKind.Success) } }
+            if (state.placedOnDeliveryId != null && onManageOrders != null) {
+                item { PremiumPrimaryButton("View my orders", onManageOrders, modifier = Modifier.fillMaxWidth()) }
+            }
 
             item { Spacer(Modifier.height(24.dp)) }
         }
@@ -270,6 +335,7 @@ fun CartScreen(
                         text = when {
                             state.busy -> "Working…"
                             state.lastInvoiceId != null -> "Continue to secure payment"
+                            state.deliveryPayment != DeliveryPaymentMethod.PREPAY -> "Place order — pay on delivery"
                             else -> "Checkout"
                         },
                         onClick = {

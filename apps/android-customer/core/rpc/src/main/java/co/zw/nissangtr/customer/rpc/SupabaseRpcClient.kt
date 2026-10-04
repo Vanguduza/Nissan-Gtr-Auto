@@ -298,11 +298,38 @@ class SupabaseRpcClient(
         ).decodeAs<String>()
     }
 
+    // Reserve-first, keyed on the cart id: a retry returns the same order (same as the
+    // one-argument `checkout_customer_cart`).
     override suspend fun checkoutCustomerCart(cartId: String): String =
         client.postgrest.rpc(
-            RpcNames.CHECKOUT_CUSTOMER_CART,
-            buildJsonObject { put("p_cart_id", cartId) },
+            RpcNames.PREPARE_CUSTOMER_CHECKOUT,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_checkout_request_id", cartId)
+                put("p_reservation_ttl", "20 minutes")
+            },
         ).decodeAs<String>()
+
+    override suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String =
+        client.postgrest.rpc(
+            RpcNames.SET_CUSTOMER_CART_DELIVERY_PAYMENT_METHOD,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_method", method.rpcValue)
+            },
+        ).decodeAs<String>()
+
+    override suspend fun checkoutCustomerCartOnDelivery(cartId: String, method: DeliveryPaymentMethod): String {
+        require(method != DeliveryPaymentMethod.PREPAY) { "choose cash or card on delivery" }
+        setCustomerCartDeliveryPaymentMethod(cartId, method)
+        return client.postgrest.rpc(
+            RpcNames.CHECKOUT_CUSTOMER_CART_V2,
+            buildJsonObject {
+                put("p_cart_id", cartId)
+                put("p_delivery_payment_method", method.rpcValue)
+            },
+        ).decodeAs<String>()
+    }
 
     override suspend fun getOpenCart(): CartSummary? {
         val cart = client.from("pos_carts")
