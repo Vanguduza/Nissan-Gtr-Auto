@@ -1038,3 +1038,60 @@
   color: var(--gtr-white);
   background: var(--gtr-red);
 }
+
+/* Daily dashboard: headline numbers as tiles, sections as a responsive grid. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.tile {
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--staff-border);
+  border-radius: var(--staff-radius-sm);
+  background: var(--gtr-white);
+  box-shadow: var(--staff-shadow-sm);
+}
+
+.tileLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gtr-steel);
+  opacity: 0.7;
+}
+
+.tileValue {
+  margin-top: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--gtr-steel);
+  font-variant-numeric: tabular-nums;
+}
+
+.tileSub {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--gtr-steel);
+  opacity: 0.65;
+}
+
+.tileAlert {
+  border-color: var(--gtr-red);
+}
+
+.dashGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0 1.5rem;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

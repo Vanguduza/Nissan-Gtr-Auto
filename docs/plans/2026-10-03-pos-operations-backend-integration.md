@@ -303,3 +303,17 @@ writes one `staff_ops_notifications` row per person per item that waited too lon
 minutes, others 4 hours); shown under "Waiting too long" with Dismiss. The nav shows a count badge
 (red when something is urgent), refreshed every minute; the page refreshes every 30 s and raises a
 desktop notification for new urgent items when allowed.
+
+## Daily dashboard (2026-10-07, migration 20261007211743)
+
+Staff → Today (admin, finance, or a POS manager; sales staff without manager rights are refused by
+the server). `get_daily_dashboard(date, branch)` returns one Harare business day, per currency
+(never added across currencies): net sales, returns, gross margin from invoice cost basis, average
+sale, change on the same weekday last week, sales by channel (counter / delivery / online collected),
+money taken by tender, sold-but-unpaid, sales by hour, best sellers, tills (float, expected,
+counted, difference), deliveries (sent, delivered, failed, on the road, waiting for a driver), cash
+collected at the door, cash still with drivers, customer debt (and over 30 days), suspensions, stock
+at or below its reorder point, back-orders waiting, and decisions waiting (links to Approvals).
+A return counts at the branch of the original sale (credit notes post to quarantine). The page
+picks a day and a branch, refreshes every 2 minutes for today, and draws sales by hour as a
+single-series bar chart (colour validated against the panel; hover tooltip; table view).

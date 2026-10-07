@@ -90,3 +90,8 @@ json.dump({'users': U, 'customers': C, 'warehouses': WH}, open('ids.json', 'w'),
 print('staff', len(STAFF), 'customers', len(C))
 print(sql("select w.code, count(*) items, sum(sl.quantity) units from stock_levels sl join warehouses w on w.id=sl.warehouse_id group by 1"))
 print(sql("select count(*) batches from stock_batches"))
+
+# Reorder points, so the daily dashboard shows parts to reorder (simulation only).
+sql("""update stock_items si set reorder_point = 30, reorder_qty = 40
+       where si.id in (select stock_item_id from stock_levels where warehouse_id=%s order by quantity limit 3)
+         and si.reorder_point is null""", (MAIN,))

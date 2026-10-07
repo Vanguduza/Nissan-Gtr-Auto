@@ -1,29 +1,27 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "245754af226f7c67a22a",
+  "change_id": "67fd339432066ed14658",
   "changed_files": [
-    "apps/web/app/(staff)/staff/approvals/page.tsx",
+    "apps/web/app/(staff)/staff/dashboard/page.tsx",
     "apps/web/components/account.module.css",
-    "apps/web/components/icons.tsx",
-    "apps/web/components/staff-approvals-panel.tsx",
-    "apps/web/components/staff-driver-cash-panel.tsx",
-    "apps/web/components/staff-nav.tsx",
-    "apps/web/lib/staff-approvals.ts",
+    "apps/web/components/staff-dashboard-panel.tsx",
+    "apps/web/components/staff-hourly-sales-chart.tsx",
     "apps/web/lib/staff-auth.ts",
-    "apps/web/lib/use-approvals-count.ts",
+    "apps/web/lib/staff-dashboard.ts",
     "docs/design/pos/FEATURE_REGISTER.md",
     "docs/plans/2026-10-03-pos-operations-backend-integration.md",
-    "supabase/migrations/20261007210919_approvals_inbox.sql"
+    "supabase/migrations/20261007211743_daily_dashboard.sql",
+    "supabase/sim/seed.py"
   ],
-  "diff_sha256": "245754af226f7c67a22a7e822e91cc86e9e5788f092693566e464d084a3a3b4f",
+  "diff_sha256": "67fd339432066ed14658ab3362ce319a1c43f6c7ff76ecdc357b56c2bbd6ed6f",
   "domains": [
     "backend",
     "documentation",
     "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-07T21:15:23.200829+00:00",
+  "recorded_at_utc": "2026-10-07T21:21:11.267785+00:00",
   "schema_version": 1,
-  "source_parent": "73fb2569c9375e73e36859c2895bf5f21c7c674a"
+  "source_parent": "7c97f51d6c92f24eb79cd8a83fe1ebf388913c72"
 }
