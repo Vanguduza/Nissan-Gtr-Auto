@@ -258,3 +258,17 @@ suspension after two refused pay-on-delivery orders, manager-only lift, ordering
 - Fixed: the driver app checks the code and then submits, but the submit re-checked it and failed
   ("no active POD OTP for job") because the code was already used — drivers could not complete a
   delivery from the app. A code already verified for the job is now accepted.
+
+## Card machines (2026-10-07, migration 20261007210014)
+
+`supabase/sim/e2e_card.py` found that card payments could not work at all in production:
+
+- Pairing a till tablet or driver phone failed (`digest()` called unqualified under an empty
+  search_path) — no device could ever be paired.
+- A counter card charge failed at the start: the order's provider `card_terminal` was not allowed by
+  `commerce_orders_active_payment_provider_check`.
+
+Both fixed on hosted. After the fix every card path passes (approved, declined, forged or tampered
+answers refused, no answer → recovery → approved, card at the door). The `card-terminal-result`
+Edge Function was deployed but never committed; its source is now in
+`supabase/functions/card-terminal-result/index.ts`, recovered from the deployed bundle.

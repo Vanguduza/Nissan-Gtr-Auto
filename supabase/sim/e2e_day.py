@@ -4,7 +4,7 @@ refusals that suspend a customer, a manager lifting it, and closing the till.
 Every step prints OK or FAIL; the run continues so one report shows every finding.
 """
 import json, uuid
-from sim import sql, as_user, as_service, val, auth_user, RpcError
+from sim import sql, as_user, as_service, val, auth_user, free_item, RpcError
 
 ids = json.load(open('ids.json'))
 U, C, W = ids['users'], ids['customers'], ids['warehouses']
@@ -43,7 +43,7 @@ def stock_item(min_qty=3):
 
 cashier, manager, dispatch, d1 = U['cashier'], U['manager'], U['dispatch'], U['driver1']
 drawer = {'cash': 100.0}  # what the cashier expects to count at close
-item = stock_item()
+item = free_item(MAIN)
 
 # --- Open the till ---------------------------------------------------------------------------
 sql("update pos_till_sessions set status='closed' where status<>'closed' and opened_by=%s", (cashier,))

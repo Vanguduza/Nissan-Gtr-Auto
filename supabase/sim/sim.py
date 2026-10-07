@@ -61,3 +61,14 @@ def auth_user(email, full_name, phone=None):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(req, timeout=30) as r:
         return json.loads(r.read())['id']
+
+
+def free_item(warehouse_id, need=3):
+    """The non-serial item with the most stock not held by open reservations at [warehouse_id]."""
+    return sql("""select si.id, si.base_uom_id uom,
+                         sl.quantity - coalesce((select sum(r.reserved_qty - coalesce(r.consumed_qty,0)) from inventory_reservations r
+                                                 where r.stock_item_id=si.id and r.warehouse_id=sl.warehouse_id
+                                                   and r.state in ('active','allocated')),0) free
+                  from stock_levels sl join stock_items si on si.id=sl.stock_item_id
+                  where sl.warehouse_id=%s and not si.requires_serial
+                  order by free desc limit 1""", (warehouse_id,), one=True)
