@@ -317,3 +317,33 @@ at or below its reorder point, back-orders waiting, and decisions waiting (links
 A return counts at the branch of the original sale (credit notes post to quarantine). The page
 picks a day and a branch, refreshes every 2 minutes for today, and draws sales by hour as a
 single-series bar chart (colour validated against the panel; hover tooltip; table view).
+
+## Exception reports (2026-10-08, migration 20261007221807)
+
+Staff → Exceptions (admin, finance, POS managers) runs `get_exception_report(from, to, branch)` over
+at most 93 days, built only from what is already recorded: voided sales, parts removed after ringing
+up, discounts and price cuts (with the value given away), paid orders repaired by hand, returns
+(flagging cash refunds within an hour of the sale), till and driver cash over/short, declined /
+cancelled / unanswered card charges, sales below cost, counter sales after hours (before 07:00 or
+from 19:00 Harare), failed deliveries, balances left on account by a dispatcher, and stock count
+differences (flagging counts posted by one person under the two-person limit). Each item has a
+severity, the person (the sale's cashier for POS actions, which managers perform under their own
+sign-in), the approving manager, the amount in its own currency and a link; "By kind" and "By person"
+filter the list and show patterns.
+
+## Restocking suggestions (2026-10-08, migration 20261007222543)
+
+Staff → Restock (admin, finance, warehouse, POS managers) runs `get_restock_suggestions(branch, sales
+days 28, lead days 14, safety days 7, cover days 28)`. Per part and branch: sales speed, free stock,
+stock on its way (submitted/approved purchase orders and incoming transfers) less outgoing transfers
+and back-orders waiting; reorder point = the part's own, else daily sales × (preferred supplier's lead
+time or the default + safety days). At or under it, top up to the reorder point + the cover days of
+sales: from another branch's spare stock first (free stock above its own reorder point and cover), the
+rest bought from the preferred supplier at its last quoted cost (else the last receipt cost). Draft
+orders are shown ("already in a draft order") but not counted as on their way. Urgency: out (none
+free or customers waiting), runs out before a delivery could arrive, or low. Also lists stock not sold
+in 90 days with its value.
+
+The page ticks the urgent rows, and creates the transfers (`create_stock_transfer`, approved by the
+receiving branch) and draft purchase orders per supplier and branch (`create_purchase_order`;
+procurement reviews and approves). Reorder points are per part, not per branch (stock_items).

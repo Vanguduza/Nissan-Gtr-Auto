@@ -64,6 +64,18 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
   },
   {
     kind: "link",
+    href: "/staff/exceptions",
+    label: "Exceptions",
+    roles: ["admin", "finance", "sales"],
+  },
+  {
+    kind: "link",
+    href: "/staff/restock",
+    label: "Restock",
+    roles: ["admin", "finance", "warehouse", "sales"],
+  },
+  {
+    kind: "link",
     href: "/staff/approvals",
     label: "Approvals",
     roles: ["admin", "finance", "sales", "dispatcher", "warehouse"],
@@ -524,6 +536,12 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path === "/staff/dashboard") {
     // The server also requires a POS manager (approver) for sales staff.
     return { kind: "roles", roles: ["admin", "finance", "sales"] };
+  }
+  if (path === "/staff/exceptions") {
+    return { kind: "roles", roles: ["admin", "finance", "sales"] };
+  }
+  if (path === "/staff/restock") {
+    return { kind: "roles", roles: ["admin", "finance", "warehouse", "sales"] };
   }
   if (path === "/staff/approvals") {
     return { kind: "roles", roles: ["admin", "finance", "sales", "dispatcher", "warehouse"] };

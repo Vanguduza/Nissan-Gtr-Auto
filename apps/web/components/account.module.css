@@ -1095,3 +1095,17 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* A button that reads as a link (filters inside tables). */
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--gtr-steel);
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

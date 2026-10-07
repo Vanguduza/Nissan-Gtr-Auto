@@ -44,6 +44,8 @@ export {
   Bell,
   Inbox,
   LayoutDashboard,
+  ShieldAlert,
+  PackagePlus,
   PackageSearch,
   PackageCheck,
   ChevronDown,

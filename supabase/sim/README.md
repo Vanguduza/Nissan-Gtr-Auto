@@ -12,6 +12,8 @@ would stay in the books. They target a **local** Supabase stack (`supabase start
 | `e2e_day.py` | A trading day: till opens with a float → cash and split sales → short payment refused → sale on account (and refusals over the limit / with no credit) → cash refund, store credit and credit note returns posted by a manager → two refused pay-on-delivery orders suspend a new online customer → cashier cannot lift it, manager can → the customer can order again → till closes with no variance. |
 | `e2e_card.py` | Card payments: admin pairs the till tablet; counter charge approved (signed answer, replay changes nothing, same machine transaction refused on another sale), declined, forged/tampered answers refused, no answer → recovery → approved; driver pairs phone, card-only order refuses cash, card at the door settles the invoice. `card.py` signs like the device and verifies like the `card-terminal-result` Edge Function (needs `pip install cryptography`). |
 | `e2e_backorder.py` | A part Harare does not have: back-order → cannot be marked ready before it arrives → supplier delivers → marked ready holds it for the customer (another customer cannot buy it) → customer pays → handed over. Transfer from Bulawayo for a customer: two-person transfer, held on arrival, sold, then handed over (not before paying). |
+| `e2e_exceptions.py` | Manager voids a sale, cashier removes a rung-up part, manager gives a discount and cuts a price, warehouse posts a short stock count; the exception report must show each against the cashier with the approving manager. |
+| `e2e_restock.py` | The fastest seller at Harare gets a supplier (simulation only): the suggestion uses its 10-day lead time and cost, suggests moving spare stock from Bulawayo and buying the rest; a draft order is shown but not counted; once the order is submitted and the transfer made, the suggestion is gone. Cashiers are refused. |
 | `e2e_handin.py` | Driver hands in the cash → second hand-in refused → cashier counts it short (reason required) → cashier and driver cannot sign it off → manager signs off. |
 
 ```bash
@@ -20,6 +22,8 @@ python3 seed.py
 python3 e2e_day.py
 python3 e2e_card.py
 python3 e2e_backorder.py
+python3 e2e_exceptions.py
+python3 e2e_restock.py
 python3 e2e_cod.py && python3 e2e_handin.py
 ```
 
