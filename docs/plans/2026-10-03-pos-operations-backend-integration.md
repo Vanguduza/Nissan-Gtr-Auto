@@ -226,3 +226,23 @@ nested aggregates (failed on first call) and could drop open hand-ins past the r
 
 Finding for later: `generate_delivery_pod_otp` returns the code to the caller, so a driver can read
 the code meant for the customer. It should be sent to the customer only.
+
+## Trading-day run on simulated data (2026-10-07, migration 20261007204736)
+
+`supabase/sim/e2e_day.py` runs a full day with users who hold only their real roles (cashier =
+sales, manager = sales + dispatcher + approver). Earlier hosted checks used a test user holding
+every role, which hid three production bugs, now fixed on hosted:
+
+1. **Cashiers could not finish a counter sale.** Reserve-first checkout
+   (`settle_pos_commerce_tenders` → `finalize_commerce_order` → `checkout_pos_cart`) posted the
+   sale journal without entering the sales-checkout accounting context, so `create_journal_draft`
+   demanded finance/admin. Only admin/finance staff could sell.
+2. **Every POS sale on account failed**: `checkout_pos_cart_on_account` emits
+   `pos_credit_sale_authorized`, which was never registered in `sms_event_catalog`.
+3. **Managers could not post approved returns** (cash refund, store credit, credit note): the credit
+   note journal and `issue_store_credit` demanded finance/admin. `post_pos_return_case` now enters
+   the accounting context after its own manager check; `issue_store_credit` honours it. Clients
+   cannot enter that context themselves (no EXECUTE on the enter function).
+
+After the fix every step passes: drawer expected = counted (USD 242.50), all 82 journals balance,
+suspension after two refused pay-on-delivery orders, manager-only lift, ordering again afterwards.
