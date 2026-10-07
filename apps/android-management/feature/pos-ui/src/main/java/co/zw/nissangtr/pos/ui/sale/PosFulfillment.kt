@@ -185,7 +185,7 @@ private fun FulfillmentRow(state: PosState, f: FulfillmentRequest, dispatch: (Po
             kindLabel(f.kind),
             statusLabel(f.status),
             route,
-            if (f.status == "ready" && f.invoiceId == null && f.kind != FulfillmentKind.BranchTransfer) stringResource(R.string.pos_ff_not_paid) else null,
+            if (f.status == "ready" && f.invoiceId == null && (f.kind != FulfillmentKind.BranchTransfer || f.customerId != null)) stringResource(R.string.pos_ff_not_paid) else null,
             if (f.sellable && state.backorderOnSale(f)) stringResource(R.string.pos_ff_on_this_sale) else null,
         ).joinToString(" · "),
     ) {

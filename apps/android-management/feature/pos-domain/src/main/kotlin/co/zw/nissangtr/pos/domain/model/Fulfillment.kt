@@ -37,6 +37,8 @@ data class FulfillmentRequest(
     val invoiceId: String?,
     val expiresAt: String?,
     val createdAt: String,
+    /** Set when the part is for a named customer (they must buy it before it is handed over). */
+    val customerId: String? = null,
 ) {
     val active: Boolean get() = status !in setOf("collected", "cancelled", "rejected")
 
@@ -47,14 +49,19 @@ data class FulfillmentRequest(
             // Holds become ready when their sale is paid (the invoice links then); only a back-order is marked ready by hand.
             if (kind == FulfillmentKind.Backorder && status == "requested") add(FulfillmentStep.MarkReady)
             // A back-order is handed over like a hold once the sale it was sold on has posted.
-            if (status == "ready" && (invoiceId != null || kind == FulfillmentKind.BranchTransfer)) add(FulfillmentStep.HandOver)
+            if (status == "ready" && (invoiceId != null || (kind == FulfillmentKind.BranchTransfer && customerId == null))) add(FulfillmentStep.HandOver)
             // A paid hold is handed over (or returned), never just released.
             if (active && status != "awaiting_transfer_approval" && !(status == "ready" && invoiceId != null)) add(FulfillmentStep.Release)
         }
 }
 
-/** An arrived back-order not yet sold: the counter puts the part on the current sale ("Add to sale"). */
-val FulfillmentRequest.sellable: Boolean get() = kind == FulfillmentKind.Backorder && status == "ready" && invoiceId == null
+/**
+ * Arrived and held for the customer, not yet sold: a back-order, or a transfer made for a customer.
+ * The counter puts the part on the current sale ("Add to sale"); it is handed over once paid.
+ */
+val FulfillmentRequest.sellable: Boolean
+    get() = status == "ready" && invoiceId == null &&
+        (kind == FulfillmentKind.Backorder || (kind == FulfillmentKind.BranchTransfer && customerId != null))
 
 data class FulfillmentDraft(
     val kind: FulfillmentKind,

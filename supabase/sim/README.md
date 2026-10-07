@@ -11,6 +11,7 @@ would stay in the books. They target a **local** Supabase stack (`supabase start
 | `e2e_cod.py` | Customer checks out paying on delivery → warehouse picks → dispatcher assigns and dispatches → proof of delivery is refused while money is due → driver collects in two parts → proof of delivery with the customer's code. |
 | `e2e_day.py` | A trading day: till opens with a float → cash and split sales → short payment refused → sale on account (and refusals over the limit / with no credit) → cash refund, store credit and credit note returns posted by a manager → two refused pay-on-delivery orders suspend a new online customer → cashier cannot lift it, manager can → the customer can order again → till closes with no variance. |
 | `e2e_card.py` | Card payments: admin pairs the till tablet; counter charge approved (signed answer, replay changes nothing, same machine transaction refused on another sale), declined, forged/tampered answers refused, no answer → recovery → approved; driver pairs phone, card-only order refuses cash, card at the door settles the invoice. `card.py` signs like the device and verifies like the `card-terminal-result` Edge Function (needs `pip install cryptography`). |
+| `e2e_backorder.py` | A part Harare does not have: back-order → cannot be marked ready before it arrives → supplier delivers → marked ready holds it for the customer (another customer cannot buy it) → customer pays → handed over. Transfer from Bulawayo for a customer: two-person transfer, held on arrival, sold, then handed over (not before paying). |
 | `e2e_handin.py` | Driver hands in the cash → second hand-in refused → cashier counts it short (reason required) → cashier and driver cannot sign it off → manager signs off. |
 
 ```bash
@@ -18,6 +19,7 @@ cd supabase/sim
 python3 seed.py
 python3 e2e_day.py
 python3 e2e_card.py
+python3 e2e_backorder.py
 python3 e2e_cod.py && python3 e2e_handin.py
 ```
 

@@ -174,6 +174,10 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
   };
 
   /** The back-order is tied to the open sale and its part is on it. */
+  /** Arrived and waiting for this customer to buy it: a back-order, or a transfer made for a customer. */
+  const sellable = (f: FulfillmentRequest) =>
+    f.status === "ready" && !f.invoiceId && (f.kind === "backorder" || (f.kind === "branch_transfer" && !!f.customerId));
+
   const onThisSale = (f: FulfillmentRequest) =>
     !!f.cartId && f.cartId === pos.cart?.id && pos.cart.lines.some((l) => l.stockItemId === f.stockItemId);
 
@@ -227,15 +231,15 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
               ) : null}
               {/* Holds become ready when their sale is paid (the invoice links then); only a back-order is marked ready by hand. */}
               {f.kind === "backorder" && f.status === "requested" ? (
-                <button type="button" className={styles.softButton} disabled={busy !== null || !pos.online} onClick={() => void step(f, "ready", "Marked ready for collection.")}>
+                <button type="button" className={styles.softButton} disabled={busy !== null || !pos.online} onClick={() => void step(f, "ready", "Marked ready: the part is held for this customer for 14 days.")}>
                   Mark ready
                 </button>
               ) : null}
-              {/* An arrived back-order is sold on the current sale; once that sale is paid it is handed over here. */}
-              {f.status === "ready" && f.kind === "backorder" && !f.invoiceId && onThisSale(f) ? (
+              {/* An arrived back-order (or transfer for a customer) is held for them, sold on the current sale, then handed over once paid. */}
+              {sellable(f) && onThisSale(f) ? (
                 <span className={styles.muted}>On this sale: take payment, then hand it over.</span>
               ) : null}
-              {f.status === "ready" && f.kind === "backorder" && !f.invoiceId && !onThisSale(f) ? (
+              {sellable(f) && !onThisSale(f) ? (
                 <button
                   type="button"
                   className={styles.primaryButton}
@@ -250,7 +254,7 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
                   Add to sale
                 </button>
               ) : null}
-              {f.status === "ready" && (f.kind !== "backorder" || f.invoiceId) ? (
+              {f.status === "ready" && !sellable(f) ? (
                 <button
                   type="button"
                   className={styles.primaryButton}

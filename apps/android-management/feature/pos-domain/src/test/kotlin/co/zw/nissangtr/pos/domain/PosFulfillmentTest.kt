@@ -10,6 +10,7 @@ import co.zw.nissangtr.pos.domain.model.FulfillmentKind
 import co.zw.nissangtr.pos.domain.model.FulfillmentRequest
 import co.zw.nissangtr.pos.domain.model.FulfillmentStep
 import co.zw.nissangtr.pos.domain.model.Money
+import co.zw.nissangtr.pos.domain.model.sellable
 import co.zw.nissangtr.pos.domain.state.FulfillmentEffect
 import co.zw.nissangtr.pos.domain.state.FulfillmentEvent
 import co.zw.nissangtr.pos.domain.state.FulfillmentIntent
@@ -35,6 +36,19 @@ class PosFulfillmentTest {
 
     private fun req(kind: FulfillmentKind, status: String, invoice: String? = null) =
         FulfillmentRequest("r", "PFR-1", kind, status, "si-1", "OEM-1", null, 1.0, "A", "B", "cart-1", invoice, null, "")
+
+    @Test fun transferForACustomerIsSoldBeforeHandOver() {
+        val forCustomer = req(FulfillmentKind.BranchTransfer, "ready").copy(customerId = "cust-1")
+        assertTrue(forCustomer.sellable)
+        assertFalse(FulfillmentStep.HandOver in forCustomer.steps)
+        val paid = forCustomer.copy(invoiceId = "inv-1")
+        assertFalse(paid.sellable)
+        assertTrue(FulfillmentStep.HandOver in paid.steps)
+        // A stock move between branches (no customer) is just received.
+        val restock = req(FulfillmentKind.BranchTransfer, "ready")
+        assertFalse(restock.sellable)
+        assertTrue(FulfillmentStep.HandOver in restock.steps)
+    }
 
     @Test fun holdGoesWithTheCurrentSale() {
         val r = reduce(withSale, FulfillmentIntent.Create(hold()))

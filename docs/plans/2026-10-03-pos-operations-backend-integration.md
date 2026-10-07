@@ -272,3 +272,18 @@ Both fixed on hosted. After the fix every card path passes (approved, declined, 
 answers refused, no answer → recovery → approved, card at the door). The `card-terminal-result`
 Edge Function was deployed but never committed; its source is now in
 `supabase/functions/card-terminal-result/index.ts`, recovered from the deployed bundle.
+
+## Back-orders and transfers for a customer (2026-10-07, migration 20261007210323)
+
+`supabase/sim/e2e_backorder.py` found:
+
+- A back-order could be marked ready before the part arrived, and "ready" held nothing: another
+  customer could buy the arrived part, after which the waiting customer's own sale failed for stock.
+- A transfer made for a customer was not held on arrival, could not be put on the customer's sale,
+  and could be handed over without being paid for (the part stayed in stock, unpaid).
+
+Now: ready needs the part in the branch and holds it for the customer for 14 days (a transfer for
+a customer is held when it arrives); checkout counts the customer's own hold as available to their
+sale; the paid invoice links the request and releases the hold; a transfer for a customer is
+handed over only once paid. Web and tablet show "Add to sale" for arrived transfers too.
+Back-orders are paid when the part arrives (no deposits yet).

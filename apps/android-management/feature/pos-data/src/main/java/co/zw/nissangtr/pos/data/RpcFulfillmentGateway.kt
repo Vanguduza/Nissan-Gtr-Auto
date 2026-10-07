@@ -20,7 +20,7 @@ class RpcFulfillmentGateway(private val rpc: RpcClient) : FulfillmentGateway {
         rpc.listPosFulfillmentRequests(query, status).map {
             FulfillmentRequest(
                 it.id, it.documentNumber, FulfillmentKind.of(it.kind), it.status, it.stockItemId, it.oemPartNumber, it.description, it.qty,
-                it.sourceWarehouseName, it.destinationWarehouseName, it.cartId, it.invoiceId, it.expiresAt, it.createdAt,
+                it.sourceWarehouseName, it.destinationWarehouseName, it.cartId, it.invoiceId, it.expiresAt, it.createdAt, it.customerId,
             )
         }
     }
