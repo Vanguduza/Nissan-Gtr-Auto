@@ -128,6 +128,35 @@ class DeliveryScreensScreenshotTest {
     }
     @Test fun stop_pay_on_account_waiting_dark() = shot(SlopesMode.Dark) { Pay(partPaid.copy(approval = balance("pending", "back_office"))) }
     @Test fun stop_pay_on_account_approved_light() = shot(SlopesMode.Light) { Pay(partPaid.copy(approval = balance("approved", "back_office"))) }
+    private val cashHeld by lazy {
+        co.zw.nissangtr.delivery.rpc.DriverCash(
+            listOf(
+                co.zw.nissangtr.delivery.rpc.DriverCashHolding(
+                    "USD", 125.5, 2, "2026-10-05T08:12:00Z",
+                    listOf(
+                        co.zw.nissangtr.delivery.rpc.DriverCashCollection("c1", 80.0, null, "DJ-00041", "SINV-00310"),
+                        co.zw.nissangtr.delivery.rpc.DriverCashCollection("c2", 45.5, null, "DJ-00044", "SINV-00316"),
+                    ),
+                ),
+            ),
+            listOf(co.zw.nissangtr.delivery.rpc.DriverCashHandin("h1", "DCH-00012", "approved", "USD", 350.0, 350.0, 345.0, -5.0, 14, null, "Rudo M.", "driver_short")),
+        )
+    }
+    @Test fun account_cash_light() = shot(SlopesMode.Light) {
+        Shell("Account", null) { vm, tvm -> DeliveryMeTab(baseState.copy(driverCash = cashHeld), vm, tvm, "tatenda.driver@nissangtrauto.co.zw", {}, appearance = SlopesMode.Light) }
+        Popup("Cash to hand in", "Cash collected on delivery goes to the cashier", 0.85f) {
+            DriverCashContent(cashHeld, busy = false, error = null, onHandIn = { _, _, _ -> }, now = java.time.Instant.parse("2026-10-05T11:20:00Z"))
+        }
+    }
+    @Test fun account_cash_waiting_dark() = shot(SlopesMode.Dark) {
+        Shell("Account", null) { vm, tvm -> DeliveryMeTab(baseState.copy(driverCash = cashHeld), vm, tvm, "tatenda.driver@nissangtrauto.co.zw", {}, appearance = SlopesMode.Dark) }
+        Popup("Cash to hand in", "Cash collected on delivery goes to the cashier", 0.6f) {
+            DriverCashContent(
+                cashHeld.copy(holding = emptyList(), handins = listOf(cashHeld.handins.first().copy(id = "h2", documentNumber = "DCH-00013", status = "submitted", receivedAmount = null, variance = null)) + cashHeld.handins),
+                busy = false, error = null, onHandIn = { _, _, _ -> },
+            )
+        }
+    }
     @Test fun stop_issue_dark() = shot(SlopesMode.Dark) { Detail("detail", popup = StopPopup.Issue) }
     @Test fun today_status_light() = shot(SlopesMode.Light) {
         Shell("Today", "overview") { vm, tvm -> JobsListScreen(baseState, vm, tvm, tracking = tracking) }

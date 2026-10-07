@@ -18,6 +18,7 @@ import co.zw.nissangtr.delivery.rpc.DeliveryJobSummary
 import co.zw.nissangtr.delivery.rpc.DriverPresenceStatus
 import co.zw.nissangtr.delivery.rpc.GeofenceSuggestion
 import co.zw.nissangtr.delivery.rpc.OptimizedStop
+import co.zw.nissangtr.delivery.rpc.DriverCash
 import co.zw.nissangtr.delivery.rpc.RpcClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +57,10 @@ data class JobsUiState(
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
+    /** Cash on delivery the driver still holds, and their recent hand-ins (null until loaded). */
+    val driverCash: DriverCash? = null,
+    val cashBusy: Boolean = false,
+    val cashError: String? = null,
 )
 
 /** Driver-facing presence label. */
@@ -170,6 +175,7 @@ class JobsViewModel(
             try {
                 val jobs = rpc.listMyDeliveryJobs()
                 _state.update { it.copy(busy = false, jobs = jobs) }
+                loadDriverCash()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "refresh failed")
@@ -415,6 +421,44 @@ class JobsViewModel(
                 _state.update {
                     it.copy(busy = false, error = e.message ?: "fail job failed")
                 }
+            }
+        }
+    }
+
+    /** Cash still held and recent hand-ins; a failure keeps what was shown. */
+    fun loadDriverCash() {
+        viewModelScope.launch {
+            try {
+                val cash = rpc.getMyDriverCash()
+                _state.update { it.copy(driverCash = cash, cashError = null) }
+            } catch (e: Exception) {
+                _state.update { it.copy(cashError = e.message ?: "Could not load your cash") }
+            }
+        }
+    }
+
+    /** Hands in all cash held in [currency]; [declaredText] is what the driver counted. */
+    fun handInCash(currency: String, declaredText: String, notes: String) {
+        if (_state.value.driverCash?.holding?.none { it.currency == currency } != false) return
+        val declared = DriverCashGate.parseDeclared(declaredText)
+        if (declared == null) {
+            _state.update { it.copy(cashError = "Enter the amount you counted") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(cashBusy = true, cashError = null) }
+            try {
+                val h = rpc.submitDriverCashHandin(currency, declared, notes.trim().ifEmpty { null })
+                val cash = rpc.getMyDriverCash()
+                _state.update {
+                    it.copy(
+                        cashBusy = false,
+                        driverCash = cash,
+                        message = "Handed in ${DriverCashGate.money(h.declaredAmount, h.currency)} (${h.documentNumber ?: "hand-in"}). Wait for the cashier to count it.",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(cashBusy = false, cashError = e.message ?: "The hand-in was not recorded") }
             }
         }
     }

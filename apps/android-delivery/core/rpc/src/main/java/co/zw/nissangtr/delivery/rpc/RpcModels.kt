@@ -155,6 +155,38 @@ data class DeliveryBalanceApproval(
     val approved: Boolean get() = status == "auto_approved" || status == "approved"
 }
 
+/** Cash collected on delivery that the driver has not handed in yet, in one currency. */
+data class DriverCashHolding(
+    val currency: String,
+    val amount: Double,
+    val count: Int,
+    val oldestAt: String?,
+    val collections: List<DriverCashCollection>,
+)
+
+data class DriverCashCollection(val id: String, val amount: Double, val collectedAt: String?, val jobNumber: String?, val invoiceNumber: String?)
+
+data class DriverCashHandin(
+    val id: String,
+    val documentNumber: String?,
+    /** submitted | received | variance_pending | approved */
+    val status: String,
+    val currency: String,
+    val expectedAmount: Double,
+    val declaredAmount: Double,
+    val receivedAmount: Double?,
+    val variance: Double?,
+    val collectionCount: Int,
+    val submittedAt: String?,
+    val receivedByName: String?,
+    val reasonCode: String?,
+)
+
+data class DriverCash(val holding: List<DriverCashHolding>, val handins: List<DriverCashHandin>) {
+    /** A hand-in still waiting for someone to count it, per currency. */
+    fun waiting(currency: String): DriverCashHandin? = handins.firstOrNull { it.currency == currency && it.status == "submitted" }
+}
+
 data class DeliveryCashReceipt(val collectionId: String, val amount: Double, val currency: String, val balanceDue: Double?)
 
 data class DeliveryCardTerminal(

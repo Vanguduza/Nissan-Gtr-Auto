@@ -204,3 +204,25 @@ Admin, finance or a manager may also suspend by hand (`suspend_customer`). Every
 - a manager lifts, the waived debt does not re-suspend, and a new overdue debt does;
 - 1 refused delivery does not suspend, 2 do.
 
+
+## Driver cash hand-in (2026-10-05, migration 20261005023019)
+
+Cash collected on delivery was posted against the invoice but nothing tracked it from the driver's
+pocket to the branch. Now:
+
+- **Driver app → Account → Cash to hand in**: amount held per currency, how long, each collection;
+  the driver counts and hands it in (note optional). While a hand-in waits to be counted, another
+  in the same currency is refused.
+- **Staff → Logistics → Driver cash** (admin, finance, sales, dispatcher): who still holds cash and
+  since when (over 24 h is flagged), hand-ins to count, and differences. A count that differs from
+  what was collected needs a reason (`driver_cash_variance` codes) and a manager sign-off by someone
+  other than whoever counted; the driver cannot count or approve their own.
+- No journal entry: collections already posted. A difference is recorded for recovery, not posted.
+
+Tested end-to-end on the local replica with simulated users (customer checks out pay-on-delivery →
+warehouse picks → dispatcher assigns and dispatches → driver collects in two parts → proof of
+delivery with code → hand-in → short count → manager sign-off). Found and fixed: `list_driver_cash`
+nested aggregates (failed on first call) and could drop open hand-ins past the row limit.
+
+Finding for later: `generate_delivery_pod_otp` returns the code to the caller, so a driver can read
+the code meant for the customer. It should be sent to the customer only.

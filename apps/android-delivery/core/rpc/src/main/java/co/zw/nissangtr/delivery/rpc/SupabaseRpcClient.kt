@@ -564,6 +564,53 @@ class SupabaseRpcClient(
     override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
         rpcObject("get_delivery_card_terminal_recovery", buildJsonObject { put("p_delivery_job_id", deliveryJobId) })?.let(::attemptFrom)
 
+    private fun handinFrom(o: kotlinx.serialization.json.JsonObject) = DriverCashHandin(
+        id = o.str("id").orEmpty(),
+        documentNumber = o.str("document_number"),
+        status = o.str("status") ?: "submitted",
+        currency = o.str("currency") ?: "USD",
+        expectedAmount = o.num("expected_amount") ?: 0.0,
+        declaredAmount = o.num("declared_amount") ?: 0.0,
+        receivedAmount = o.num("received_amount"),
+        variance = o.num("variance"),
+        collectionCount = o.num("collection_count")?.toInt() ?: 0,
+        submittedAt = o.str("submitted_at"),
+        receivedByName = o.str("received_by_name"),
+        reasonCode = o.str("reason_code"),
+    )
+
+    override suspend fun getMyDriverCash(): DriverCash {
+        val o = rpcObject("get_my_driver_cash", buildJsonObject { }) ?: return DriverCash(emptyList(), emptyList())
+        fun list(k: String) = (o[k] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { it as? kotlinx.serialization.json.JsonObject }
+        return DriverCash(
+            holding = list("holding").map { h ->
+                DriverCashHolding(
+                    currency = h.str("currency") ?: "USD",
+                    amount = h.num("amount") ?: 0.0,
+                    count = h.num("count")?.toInt() ?: 0,
+                    oldestAt = h.str("oldest_at"),
+                    collections = (h["collections"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { c ->
+                        val x = c as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                        DriverCashCollection(x.str("id").orEmpty(), x.num("amount") ?: 0.0, x.str("collected_at"), x.str("job_number"), x.str("invoice_number"))
+                    },
+                )
+            },
+            handins = list("handins").map(::handinFrom),
+        )
+    }
+
+    override suspend fun submitDriverCashHandin(currency: String, declaredAmount: Double, notes: String?) =
+        handinFrom(
+            rpcObject(
+                "submit_driver_cash_handin",
+                buildJsonObject {
+                    put("p_currency", currency)
+                    put("p_declared_amount", declaredAmount)
+                    if (notes == null) put("p_notes", JsonNull) else put("p_notes", notes)
+                },
+            ) ?: error("The hand-in was not recorded."),
+        )
+
     companion object {
         private val JOB_COLUMNS = Columns.list(
             "id",

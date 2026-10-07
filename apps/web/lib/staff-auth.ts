@@ -289,6 +289,11 @@ export const STAFF_NAV_TREE: StaffNavEntry[] = [
         label: "Balances on account",
         roles: ["admin", "dispatcher"],
       },
+      {
+        href: "/staff/logistics/driver-cash",
+        label: "Driver cash",
+        roles: ["admin", "finance", "sales", "dispatcher"],
+      },
     ],
   },
   {
@@ -528,6 +533,12 @@ export function pathAccessFor(pathname: string): PathAccess {
     path.startsWith("/staff/crm/reviews/")
   ) {
     return { kind: "roles", roles: ["admin", "sales"] };
+  }
+  if (
+    path === "/staff/logistics/driver-cash" ||
+    path.startsWith("/staff/logistics/driver-cash/")
+  ) {
+    return { kind: "roles", roles: ["admin", "finance", "sales", "dispatcher"] };
   }
   if (
     path === "/staff/logistics/balances" ||

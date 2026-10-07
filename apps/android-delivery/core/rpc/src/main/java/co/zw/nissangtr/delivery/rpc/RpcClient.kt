@@ -137,4 +137,12 @@ interface RpcClient {
 
     /** The unresolved card attempt of this delivery, if any (no answer, or charged but not posted). */
     suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? = null
+
+    // --- Cash the driver collected and hands in at the branch.
+
+    suspend fun getMyDriverCash(): DriverCash = DriverCash(emptyList(), emptyList())
+
+    /** Hands in everything collected in [currency] so far; [declaredAmount] is the driver's own count. */
+    suspend fun submitDriverCashHandin(currency: String, declaredAmount: Double, notes: String?): DriverCashHandin =
+        throw UnsupportedOperationException("needs the live backend")
 }

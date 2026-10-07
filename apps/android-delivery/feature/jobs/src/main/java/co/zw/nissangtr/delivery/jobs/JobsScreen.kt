@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ReportProblem
@@ -528,6 +529,7 @@ fun DeliveryMeTab(
     val c = Slopes.colors
     var statusOpen by rememberSaveable { mutableStateOf(false) }
     var appearanceOpen by rememberSaveable { mutableStateOf(false) }
+    var cashOpen by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier
             .fillMaxSize()
@@ -578,6 +580,15 @@ fun DeliveryMeTab(
 
         SlopesSectionHeader("Shift")
         SlopesGroup {
+            SlopesRow(
+                "Cash to hand in",
+                leading = { SlopesIconBadge(Icons.Filled.Payments) },
+                trailing = { ValueText(DriverCashGate.summary(state.driverCash)) },
+                onClick = {
+                    vm.loadDriverCash()
+                    cashOpen = true
+                },
+            )
             SlopesRow("Refresh my jobs", leading = { SlopesIconBadge(Icons.Filled.Refresh) }, onClick = vm::refresh)
             SlopesRow(
                 "Optimise today's route",
@@ -628,6 +639,11 @@ fun DeliveryMeTab(
                 applyPresence(s, state, vm, trackingVm)
                 statusOpen = false
             }
+        }
+    }
+    if (cashOpen) {
+        SlopesModalSheet(title = "Cash to hand in", subtitle = "Cash collected on delivery goes to the cashier", onDismiss = { cashOpen = false }) {
+            DriverCashContent(state.driverCash, state.cashBusy, state.cashError, vm::handInCash)
         }
     }
     if (appearanceOpen) {

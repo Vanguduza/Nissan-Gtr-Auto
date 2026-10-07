@@ -447,6 +447,7 @@ class FakeRpcClient : RpcClient {
         fakePaid[deliveryJobId] = (fakePaid[deliveryJobId] ?: 0.0) + amount
         val r = DeliveryCashReceipt("cash-${requestId.take(8)}", amount, ctx.currency, maxOf(0.0, ctx.amountDue - amount))
         fakeCashKeys[requestId] = r
+        fakeCashHeld += DriverCashCollection(r.collectionId, amount, "2026-10-05T10:00:00Z", jobs.firstOrNull { it.id == deliveryJobId }?.documentNumber, ctx.documentNumber)
         return r
     }
 
@@ -513,4 +514,32 @@ class FakeRpcClient : RpcClient {
 
     override suspend fun getDeliveryCardRecovery(deliveryJobId: String): DeliveryCardAttempt? =
         fakeCardAttempts.values.lastOrNull { fakeCardJob[it.attemptId] == deliveryJobId && (it.status in setOf("initiated", "approved", "unknown") || it.finalizationError != null) }
+
+    /** Demo: two earlier stops' cash is still with the driver. */
+    private val fakeCashHeld = mutableListOf(
+        DriverCashCollection("col-1", 80.0, "2026-10-05T08:12:00Z", "DJ-00041", "SINV-00310"),
+        DriverCashCollection("col-2", 45.5, "2026-10-05T09:40:00Z", "DJ-00044", "SINV-00316"),
+    )
+    private val fakeHandins = mutableListOf<DriverCashHandin>()
+
+    override suspend fun getMyDriverCash(): DriverCash = DriverCash(
+        holding = if (fakeCashHeld.isEmpty()) emptyList() else listOf(
+            DriverCashHolding("USD", Math.round(fakeCashHeld.sumOf { it.amount } * 100) / 100.0, fakeCashHeld.size, fakeCashHeld.first().collectedAt, fakeCashHeld.toList()),
+        ),
+        handins = fakeHandins.reversed(),
+    )
+
+    override suspend fun submitDriverCashHandin(currency: String, declaredAmount: Double, notes: String?): DriverCashHandin {
+        check(declaredAmount >= 0) { "declared amount must be >= 0" }
+        check(fakeHandins.none { it.currency == currency && it.status == "submitted" }) { "your last $currency hand-in is still waiting to be received" }
+        check(fakeCashHeld.isNotEmpty()) { "no $currency cash to hand in" }
+        val expected = Math.round(fakeCashHeld.sumOf { it.amount } * 100) / 100.0
+        val h = DriverCashHandin(
+            "dch-${fakeHandins.size + 1}", "DCH-%05d".format(fakeHandins.size + 1), "submitted", currency, expected, declaredAmount,
+            null, null, fakeCashHeld.size, "2026-10-05T12:00:00Z", null, null,
+        )
+        fakeCashHeld.clear()
+        fakeHandins += h
+        return h
+    }
 }
