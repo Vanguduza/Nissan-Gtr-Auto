@@ -42,6 +42,8 @@ export {
   ShieldCheck,
   BarChart3,
   Bell,
+  Inbox,
+  LayoutDashboard,
   PackageSearch,
   PackageCheck,
   ChevronDown,

@@ -57,6 +57,12 @@ export type StaffNavEntry =
 export const STAFF_NAV_TREE: StaffNavEntry[] = [
   { kind: "link", href: "/staff", label: "Hub", exact: true, roles: "any" },
   {
+    kind: "link",
+    href: "/staff/approvals",
+    label: "Approvals",
+    roles: ["admin", "finance", "sales", "dispatcher", "warehouse"],
+  },
+  {
     kind: "module",
     id: "pos",
     label: "POS",
@@ -509,6 +515,9 @@ export function pathAccessFor(pathname: string): PathAccess {
   if (path === "/staff/forbidden") return { kind: "forbidden_page" };
   if (path === "/staff") return { kind: "any" };
   if (path === "/staff/change-password") return { kind: "any" };
+  if (path === "/staff/approvals") {
+    return { kind: "roles", roles: ["admin", "finance", "sales", "dispatcher", "warehouse"] };
+  }
 
   if (path === "/staff/pos" || path.startsWith("/staff/pos/")) {
     return { kind: "roles", roles: ["admin", "warehouse", "sales"] };

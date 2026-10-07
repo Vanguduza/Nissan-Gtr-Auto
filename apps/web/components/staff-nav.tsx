@@ -10,6 +10,8 @@ import {
   Bell,
   ChevronDown,
   ClipboardList,
+  Inbox,
+  LayoutDashboard,
   iconSizeSm,
   iconStroke,
   LayoutGrid,
@@ -28,6 +30,7 @@ import {
   type LucideIcon,
 } from "@/components/icons";
 import { useStaffAuth } from "@/components/staff-auth-context";
+import { useApprovalsCount } from "@/lib/use-approvals-count";
 import {
   filterNavTreeForModuleAccess,
   isStaffNavLeafActive,
@@ -64,6 +67,8 @@ const staffNavIcons: Record<string, LucideIcon> = {
   "/staff/logistics/panic": Siren,
   "/staff/logistics/balances": Banknote,
   "/staff/logistics/driver-cash": Banknote,
+  "/staff/approvals": Inbox,
+  "/staff/dashboard": LayoutDashboard,
   "/staff/fleet": Car,
   "/staff/hr": Users,
   "/staff/warranty": ShieldCheck,
@@ -124,6 +129,7 @@ function StaffNavInner({ current }: { current: string }) {
   }, [entries, pathname, searchTab]);
 
   const [openIds, setOpenIds] = useState<Set<string>>(initiallyOpen);
+  const approvals = useApprovalsCount(Boolean(ctx));
 
   useEffect(() => {
     setOpenIds((prev) => {
@@ -164,6 +170,24 @@ function StaffNavInner({ current }: { current: string }) {
                     />
                   ) : null}
                   {entry.label}
+                  {entry.href === "/staff/approvals" && approvals.total > 0 ? (
+                    <span
+                      aria-label={`${approvals.total} waiting${approvals.urgent ? `, ${approvals.urgent} urgent` : ""}`}
+                      style={{
+                        marginLeft: "auto",
+                        minWidth: 20,
+                        padding: "0 6px",
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        textAlign: "center",
+                        color: "var(--gtr-white)",
+                        background: approvals.urgent ? "var(--gtr-red)" : "var(--gtr-steel)",
+                      }}
+                    >
+                      {approvals.total}
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             );

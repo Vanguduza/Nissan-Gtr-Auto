@@ -14,6 +14,7 @@ import {
   type DriverCashHandin,
   type VarianceReason,
 } from "@/lib/staff-driver-cash";
+import { waitedFor } from "@/lib/staff-approvals";
 import { createWebClient } from "@/lib/supabase";
 
 type Boot =
@@ -170,7 +171,7 @@ export function StaffDriverCashPanel() {
                 <br />
                 <span className={overdue ? undefined : styles.muted} role={overdue ? "alert" : undefined}>
                   {h.count} collection{h.count === 1 ? "" : "s"} not handed in
-                  {hours != null ? ` · oldest ${hours} h ago` : ""}
+                  {h.oldestAt ? ` · oldest ${waitedFor(h.oldestAt)} ago` : ""}
                   {overdue ? " — overdue, ask the driver to hand it in" : ""}
                 </span>
               </li>

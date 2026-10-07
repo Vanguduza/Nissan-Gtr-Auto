@@ -1,27 +1,29 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "9623864bd4fae148f6c2",
+  "change_id": "245754af226f7c67a22a",
   "changed_files": [
-    "apps/android-management/feature/pos-data/src/main/java/co/zw/nissangtr/pos/data/RpcFulfillmentGateway.kt",
-    "apps/android-management/feature/pos-domain/src/main/kotlin/co/zw/nissangtr/pos/domain/model/Fulfillment.kt",
-    "apps/android-management/feature/pos-domain/src/test/kotlin/co/zw/nissangtr/pos/domain/PosFulfillmentTest.kt",
-    "apps/android-management/feature/pos-ui/src/main/java/co/zw/nissangtr/pos/ui/sale/PosFulfillment.kt",
-    "apps/web/components/pos/FulfillmentPanels.tsx",
+    "apps/web/app/(staff)/staff/approvals/page.tsx",
+    "apps/web/components/account.module.css",
+    "apps/web/components/icons.tsx",
+    "apps/web/components/staff-approvals-panel.tsx",
+    "apps/web/components/staff-driver-cash-panel.tsx",
+    "apps/web/components/staff-nav.tsx",
+    "apps/web/lib/staff-approvals.ts",
+    "apps/web/lib/staff-auth.ts",
+    "apps/web/lib/use-approvals-count.ts",
+    "docs/design/pos/FEATURE_REGISTER.md",
     "docs/plans/2026-10-03-pos-operations-backend-integration.md",
-    "supabase/migrations/20261007210323_fulfillment_customer_holds.sql",
-    "supabase/sim/README.md",
-    "supabase/sim/e2e_backorder.py"
+    "supabase/migrations/20261007210919_approvals_inbox.sql"
   ],
-  "diff_sha256": "9623864bd4fae148f6c22a4deff7951950facfa6232096b33db5267dc3fd7918",
+  "diff_sha256": "245754af226f7c67a22a7e822e91cc86e9e5788f092693566e464d084a3a3b4f",
   "domains": [
     "backend",
     "documentation",
-    "management-android",
     "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-07T21:06:43.481590+00:00",
+  "recorded_at_utc": "2026-10-07T21:15:23.200829+00:00",
   "schema_version": 1,
-  "source_parent": "d31ae6d7a5f2d4c20282b9e76d374df652926937"
+  "source_parent": "73fb2569c9375e73e36859c2895bf5f21c7c674a"
 }

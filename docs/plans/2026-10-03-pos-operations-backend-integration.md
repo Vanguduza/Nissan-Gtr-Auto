@@ -287,3 +287,19 @@ a customer is held when it arrives); checkout counts the customer's own hold as 
 sale; the paid invoice links the request and releases the hold; a transfer for a customer is
 handed over only once paid. Web and tablet show "Add to sale" for arrived transfers too.
 Back-orders are paid when the part arrives (no deposits yet).
+
+## Approvals inbox with alerts (2026-10-07, migration 20261007210919)
+
+Staff → Approvals (admin, finance, sales, dispatcher, warehouse) lists everything the signed-in
+person may decide, computed live from the source tables by `list_my_approvals()`: balances on
+account (driver at the door, urgent), card payments to reconcile (urgent), driver cash to count,
+driver cash differences, till differences, returns, part-payment refunds, warranty claims,
+requisitions, transfers to send and transfers to receive. Each links to the screen where it is
+decided; the same rules as the deciding function apply (e.g. not your own till, not a cash count you
+made, not a transfer you started).
+
+Alerts: `private.sweep_approval_alerts()` (pg_cron `approval-alerts-sweep-v1`, every 5 minutes)
+writes one `staff_ops_notifications` row per person per item that waited too long (urgent 10
+minutes, others 4 hours); shown under "Waiting too long" with Dismiss. The nav shows a count badge
+(red when something is urgent), refreshed every minute; the page refreshes every 30 s and raises a
+desktop notification for new urgent items when allowed.
