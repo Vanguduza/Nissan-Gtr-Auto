@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.zw.nissangtr.customer.rpc.CustomerOrder
+import co.zw.nissangtr.customer.rpc.DeliveryCode
 import co.zw.nissangtr.customer.rpc.InvoiceSummary
 import co.zw.nissangtr.customer.rpc.RpcClient
 import co.zw.nissangtr.customer.rpc.RpcNames
@@ -16,6 +17,8 @@ import kotlinx.coroutines.launch
 data class OrdersUiState(
     val invoices: List<InvoiceSummary> = emptyList(),
     val selected: CustomerOrder? = null,
+    /** Code for the selected order's delivery, when it is on the way. */
+    val deliveryCode: DeliveryCode? = null,
     val busy: Boolean = false,
     val message: String? = null,
     val error: String? = null,
@@ -48,10 +51,14 @@ class OrdersViewModel(
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 val order = rpc.getCustomerOrder(invoiceId)
+                val code = order.activeDeliveryJobId?.let { job ->
+                    runCatching { rpc.getMyDeliveryCodes() }.getOrDefault(emptyList()).firstOrNull { it.deliveryJobId == job }
+                }
                 _state.update {
                     it.copy(
                         busy = false,
                         selected = order,
+                        deliveryCode = code,
                         message = "${RpcNames.GET_CUSTOMER_ORDER} → ${order.documentNumber ?: order.invoiceId}",
                     )
                 }

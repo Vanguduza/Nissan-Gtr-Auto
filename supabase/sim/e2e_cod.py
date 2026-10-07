@@ -31,8 +31,16 @@ step('dispatch assigns driver1', lambda: as_user(U['dispatch'], "select assign_d
 for st in ('dispatched',):
     step('dispatch marks ' + st, lambda: as_user(U['dispatch'], "select update_delivery_job_status(%s,%s::delivery_job_status)", (job, st)))
 step('payment context', lambda: val(d1, "select get_delivery_job_payment_context(%s)", (job,)))
-otp = step('driver sends customer the code', lambda: val(d1, "select generate_delivery_pod_otp(%s,null)", (job,)))
-code = otp.get('code') if isinstance(otp, dict) else otp
+shown = val(d1, "select generate_delivery_pod_otp(%s,null)", (job,))
+print('OK  ' if shown is None else 'FAIL', 'driver sends the code but cannot see it ->', shown)
+mine = step('customer reads the code in their order', lambda: val(cust, "select get_my_delivery_codes()"))
+code = next(c['code'] for c in mine if c['delivery_job_id'] == job)
+refused_wrong = None
+try:
+    as_user(d1, "select verify_delivery_pod_otp(%s,'000000')", (job,)); print('FAIL wrong code accepted')
+except RpcError as e:
+    print('OK   wrong code refused ->', e)
+step('driver checks the code the customer gives', lambda: val(d1, "select verify_delivery_pod_otp(%s,%s)", (job, code)))
 try:
     as_user(d1, "select submit_delivery_pod(%s,%s||'/photo.jpg',%s||'/signature.png',%s,'x')", (job, job, job, code)); print('FAIL POD accepted while unpaid')
 except RpcError as e:

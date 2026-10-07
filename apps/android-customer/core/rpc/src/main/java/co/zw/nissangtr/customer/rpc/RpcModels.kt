@@ -23,6 +23,9 @@ enum class DeliveryPaymentMethod(val rpcValue: String) {
 /** The signed-in customer's suspension for failing to settle (`get_my_account_suspension`). */
 data class AccountSuspension(val reason: String, val owingUsd: Double)
 
+/** The code the customer gives the driver at the door (also sent by SMS). Only the customer sees it. */
+data class DeliveryCode(val deliveryJobId: String, val invoiceId: String, val code: String, val expiresAt: String)
+
 /** Mirrors `public.contipay_method` (subset used by storefront). */
 enum class ContipayMethod(val rpcValue: String) {
     ECOCASH("ecocash"),

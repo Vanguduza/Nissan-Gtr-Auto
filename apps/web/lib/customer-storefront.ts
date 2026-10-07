@@ -400,6 +400,23 @@ export async function getMyAccountSuspension(
   return { ok: true, data: { reason: String(o.reason ?? ""), owing: Number(o.owing ?? 0) } };
 }
 
+/** A delivery on its way and the code the customer gives the driver once they have their parts. */
+export type DeliveryCode = { deliveryJobId: string; invoiceId: string; code: string; expiresAt: string };
+
+export async function getMyDeliveryCodes(client: SupabaseClient): Promise<StorefrontResult<DeliveryCode[]>> {
+  const { data, error } = await storefrontRpc(client, "get_my_delivery_codes", {});
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      deliveryJobId: String(r.delivery_job_id),
+      invoiceId: String(r.sales_invoice_id),
+      code: String(r.code),
+      expiresAt: String(r.expires_at),
+    })),
+  };
+}
+
 /** Saves the pay-on-delivery choice on the cart (the server refuses it for click & collect). */
 export async function setCartDeliveryPaymentMethod(
   client: SupabaseClient,

@@ -110,6 +110,9 @@ fun OrdersScreen(
                                     activeIndex = statusIndex(order.status),
                                 )
 
+                                state.deliveryCode?.let { c ->
+                                    DeliveryCodeCard(c.code)
+                                }
                                 order.activeDeliveryJobId?.let { jobId ->
                                     PremiumPrimaryButton(
                                         text = "Track delivery",
@@ -176,6 +179,24 @@ private fun PremiumInvoiceCard(
             }
             PremiumStatusChip(invoice.status, statusTone(invoice.status))
         }
+    }
+}
+
+/** The code the driver asks for: shown big, with when to give it. */
+@Composable
+internal fun DeliveryCodeCard(code: String) {
+    Column(Modifier.fillMaxWidth()) {
+        Text("Delivery code", color = GtrPremiumColors.TextSecondary, style = MaterialTheme.typography.labelMedium)
+        Text(
+            code.chunked(3).joinToString(" "),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "Give it to the driver only once you have checked your parts.",
+            color = GtrPremiumColors.TextSecondary,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

@@ -174,7 +174,7 @@ class PodViewModel(
                     it.copy(
                         busy = false,
                         otpGenerated = true,
-                        message = "OTP sent — enter the customer code",
+                        message = "Code sent to the customer by SMS and on their order page — ask them for it",
                     )
                 }
             } catch (e: Exception) {

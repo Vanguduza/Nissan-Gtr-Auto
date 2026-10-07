@@ -610,6 +610,9 @@ class FakeRpcClient : RpcClient {
 
     override suspend fun getMyAccountSuspension(): AccountSuspension? = fakeSuspension
 
+    override suspend fun getMyDeliveryCodes(): List<DeliveryCode> =
+        listOf(DeliveryCode(SEED_ACTIVE_JOB_ID, "inv-seed", "482913", "2026-10-08T12:15:00Z"))
+
     override suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String {
         val cart = openCart
         require(cart != null && cart.id == cartId && cart.status == "open") { "open cart required" }

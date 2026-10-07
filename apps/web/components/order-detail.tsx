@@ -11,8 +11,10 @@ import {
   deliveryPaymentLabel,
   fulfillmentLabel,
   getCustomerOrder,
+  getMyDeliveryCodes,
   requireSession,
   type CustomerOrder,
+  type DeliveryCode,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
 import styles from "@/components/account.module.css";
@@ -22,7 +24,7 @@ type Status =
   | { kind: "loading" }
   | { kind: "auth" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; order: CustomerOrder };
+  | { kind: "ready"; order: CustomerOrder; code: DeliveryCode | null };
 
 export function OrderDetail({ orderRef }: { orderRef: string }) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
@@ -52,7 +54,11 @@ export function OrderDetail({ orderRef }: { orderRef: string }) {
       setStatus({ kind: "error", message: order.error });
       return;
     }
-    setStatus({ kind: "ready", order: order.data });
+    // Code the driver asks for at the door (also sent by SMS); only shown to this customer.
+    const codes = order.data.active_delivery_job_id ? await getMyDeliveryCodes(client) : null;
+    const code =
+      codes?.ok ? (codes.data.find((c) => c.deliveryJobId === order.data.active_delivery_job_id) ?? null) : null;
+    setStatus({ kind: "ready", order: order.data, code });
   }, [orderRef]);
 
   useEffect(() => {
@@ -117,7 +123,7 @@ export function OrderDetail({ orderRef }: { orderRef: string }) {
     );
   }
 
-  const { order } = status;
+  const { order, code } = status;
   const steps = [
     { label: "Order received", done: true },
     {
@@ -176,6 +182,16 @@ export function OrderDetail({ orderRef }: { orderRef: string }) {
                     : ", in cash or on card"
               }. You can also pay online below before it arrives.`
             : " — paid."}
+        </p>
+      ) : null}
+      {code ? (
+        <p className={styles.lede} role="status">
+          Delivery code: <strong style={{ fontSize: "1.4em", letterSpacing: "0.15em" }}>{code.code}</strong>
+          <br />
+          <span className={styles.muted}>
+            Give it to the driver only once you have checked your parts. Valid until{" "}
+            {new Date(code.expiresAt).toLocaleTimeString()}; the driver can send a new one.
+          </span>
         </p>
       ) : null}
       {order.reservation_expires_at && order.amount_open > 0 ? (

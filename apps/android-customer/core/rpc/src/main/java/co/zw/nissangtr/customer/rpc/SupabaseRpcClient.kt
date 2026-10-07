@@ -317,6 +317,15 @@ class SupabaseRpcClient(
         return AccountSuspension(p("reason").orEmpty(), p("owing")?.toDoubleOrNull() ?: 0.0)
     }
 
+    override suspend fun getMyDeliveryCodes(): List<DeliveryCode> {
+        val e = client.postgrest.rpc("get_my_delivery_codes").decodeAs<kotlinx.serialization.json.JsonElement>()
+        return (e as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { x ->
+            val o = x as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val p = { k: String -> (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content }
+            DeliveryCode(p("delivery_job_id") ?: return@mapNotNull null, p("sales_invoice_id").orEmpty(), p("code") ?: return@mapNotNull null, p("expires_at").orEmpty())
+        }
+    }
+
     override suspend fun setCustomerCartDeliveryPaymentMethod(cartId: String, method: DeliveryPaymentMethod): String =
         client.postgrest.rpc(
             RpcNames.SET_CUSTOMER_CART_DELIVERY_PAYMENT_METHOD,

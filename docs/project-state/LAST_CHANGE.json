@@ -1,20 +1,31 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "a634306aa44affa2748f",
+  "change_id": "bf4d8deb171b08f1d954",
   "changed_files": [
+    "apps/android-customer/core/rpc/src/main/java/co/zw/nissangtr/customer/rpc/FakeRpcClient.kt",
+    "apps/android-customer/core/rpc/src/main/java/co/zw/nissangtr/customer/rpc/RpcClient.kt",
+    "apps/android-customer/core/rpc/src/main/java/co/zw/nissangtr/customer/rpc/RpcModels.kt",
+    "apps/android-customer/core/rpc/src/main/java/co/zw/nissangtr/customer/rpc/SupabaseRpcClient.kt",
+    "apps/android-customer/feature/orders/src/main/java/co/zw/nissangtr/customer/orders/OrdersScreen.kt",
+    "apps/android-customer/feature/orders/src/main/java/co/zw/nissangtr/customer/orders/OrdersViewModel.kt",
+    "apps/android-delivery/feature/pod/src/main/java/co/zw/nissangtr/delivery/pod/PodViewModel.kt",
+    "apps/web/components/order-detail.tsx",
+    "apps/web/lib/customer-storefront.ts",
     "docs/plans/2026-10-03-pos-operations-backend-integration.md",
-    "supabase/migrations/20261007204736_pos_cashier_checkout_and_credit_event.sql",
-    "supabase/sim/README.md",
-    "supabase/sim/e2e_day.py"
+    "supabase/migrations/20261007205401_pod_code_customer_only.sql",
+    "supabase/sim/e2e_cod.py"
   ],
-  "diff_sha256": "a634306aa44affa2748f7fcb997b1d6baa6f348b1f6c44fd3d09b607608afe8b",
+  "diff_sha256": "bf4d8deb171b08f1d954f31aa300a2ae3a04283f4dd3c2cbf1048e89bb25e37c",
   "domains": [
     "backend",
-    "documentation"
+    "customer-android",
+    "delivery-android",
+    "documentation",
+    "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-07T20:47:52.353118+00:00",
+  "recorded_at_utc": "2026-10-07T20:56:45.118691+00:00",
   "schema_version": 1,
-  "source_parent": "6437ad7f6d7d1d48d445a117d5f3057e57911d6a"
+  "source_parent": "60433a0cfac4dadf69f3274fd101ddd844ceed11"
 }

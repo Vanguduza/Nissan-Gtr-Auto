@@ -246,3 +246,15 @@ every role, which hid three production bugs, now fixed on hosted:
 
 After the fix every step passes: drawer expected = counted (USD 242.50), all 82 journals balance,
 suspension after two refused pay-on-delivery orders, manager-only lift, ordering again afterwards.
+
+## Proof-of-delivery code (2026-10-07, migration 20261007205401)
+
+- The code is no longer returned to the driver (they could complete a delivery without the
+  customer). Back office (dispatcher / warehouse / admin) still gets it to read to a customer with no
+  account or no SMS.
+- The customer sees the current code on their web order page and in the customer app
+  (`get_my_delivery_codes`), besides the SMS. It is kept in `private.delivery_pod_codes`, readable
+  only through that function, and cleared when the delivery completes.
+- Fixed: the driver app checks the code and then submits, but the submit re-checked it and failed
+  ("no active POD OTP for job") because the code was already used — drivers could not complete a
+  delivery from the app. A code already verified for the job is now accepted.
