@@ -46,7 +46,12 @@ export function StaffSuspensionsPanel() {
     if (res.ok) {
       setRows(res.data);
       setError(null);
-    } else setError(res.error);
+    } else
+      setError(
+        /manager, finance or admin/i.test(res.error)
+          ? "Suspended customers are shown to managers, finance and admin. At the till, picking the customer tells you if they are suspended."
+          : res.error,
+      );
   }, [show]);
 
   useEffect(() => {

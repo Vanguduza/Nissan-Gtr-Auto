@@ -55,3 +55,5 @@ data-pipeline/.venv/
 # Server-only canonical staff bootstrap secrets
 .canonical-staff.env
 
+supabase/sim/ci/supabase/.temp/
+supabase/sim/ci/supabase/.branches/

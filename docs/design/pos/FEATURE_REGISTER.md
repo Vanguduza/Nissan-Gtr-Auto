@@ -453,4 +453,7 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | ALR-01 | Phone alerts chosen by each person: urgent approvals texted after 10 min (once), SMS or WhatsApp with SMS fallback | 10.x | other apps | done — e2e_alerts.py on the replica (once, only to opted-in deciders); worker redeployed and boots; no live send (gateway secrets not set here) |
 | ALR-02 | 07:00 summary of yesterday per recipient's own access, by text and in-app | 10.x | other apps | done — e2e_alerts.py (manager gets it, cashier does not, no repeats); cron scheduled on hosted |
 | APR-03 | Approvals on the POS tablet: header pill with count, same list as web, opens the tablet screen that decides it | 10.x | POS | done — domain tests; tablet compiled |
+| ACC-01 | Suspensions readable by managers / finance / admin only; lookups have no side effects | 10.10 | all | done — role-rule test (warehouse and cashier refused, lookups create nothing); e2e_day.py |
+| ACC-02 | Today / Exceptions / Restock hidden from non-manager sales staff (nav and page gate) | 10.x | other apps | done — checked in the browser as simulated cashier and manager |
+| DEV-01 | Edge Functions served on the local simulation stack (`ci/functions.sh`) | — | all | partial — boots locally; imports need network to jsr.io / npm (not reachable from this sandbox's Docker) |
 

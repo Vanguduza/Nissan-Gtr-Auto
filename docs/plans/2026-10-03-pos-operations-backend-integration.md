@@ -399,3 +399,19 @@ be written by signed-out visitors. Both now have RLS and no client grants.
 - **Approvals on the tablet**: a header pill ("3 to approve", red when urgent) appears while something
   waits for the signed-in operator; it opens the same list as the web. Till differences, returns, card
   and split payments, and transfers open their tablet screen; the rest say to decide on the web.
+
+## Access tightening (2026-10-08, migration 20261008041100)
+
+- **Suspensions** are read by managers (POS approvers), finance and admin only (table policy and
+  `list_customer_suspensions`); the counter still checks the customer in front of it
+  (`get_customer_suspension`, any staff).
+- **Looking up a suspension changes nothing**: `get_customer_suspension` / `get_my_account_suspension`
+  now report an active suspension or one that is "due" under the rules, without recording it. It is
+  recorded where it is enforced (checkout and on-account via `assert_customer_not_suspended`, refused
+  deliveries, the nightly sweep). The role-rule test checks both.
+- **Nav**: Today, Exceptions and Restock are hidden from sales staff who are not POS managers (the
+  server refuses them anyway); `loadStaffContext` reads `is_pos_approver`, and the page gate uses the
+  same rule. Checked in the browser as the simulated cashier and manager.
+- **Edge Functions locally**: `supabase/sim/ci/functions.sh` serves all functions against the
+  simulation stack (stub mode for message workers). They boot here; this sandbox's Docker cannot reach
+  jsr.io / npm, so requests were not exercised end to end in this session.

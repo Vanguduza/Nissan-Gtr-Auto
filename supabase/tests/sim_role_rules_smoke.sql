@@ -135,6 +135,27 @@ BEGIN
   RAISE NOTICE 'ok  signed-out visitors cannot call staff or money functions';
 END $$;
 
+-- 7. Suspensions: only managers, finance and admin read the list; looking one up changes nothing.
+DO $$
+DECLARE v_before bigint := (SELECT count(*) FROM public.customer_suspensions); v_seen bigint; c uuid;
+BEGIN
+  PERFORM pg_temp.as_user('warehouse@sim.gtr');
+  PERFORM pg_temp.refused('warehouse lists suspensions', $q$ SELECT public.list_customer_suspensions(NULL, 10) $q$, 'manager');
+  SELECT count(*) INTO v_seen FROM public.customer_suspensions;
+  IF v_seen <> 0 THEN RAISE EXCEPTION 'RULE warehouse reads % suspensions directly', v_seen; END IF;
+  PERFORM pg_temp.as_admin();
+  PERFORM pg_temp.as_user('cashier@sim.gtr');
+  PERFORM pg_temp.refused('cashier lists suspensions', $q$ SELECT public.list_customer_suspensions(NULL, 10) $q$, 'manager');
+  PERFORM pg_temp.as_admin();
+  FOR c IN SELECT id FROM public.customers LOOP
+    PERFORM pg_temp.as_user('cashier@sim.gtr');
+    PERFORM public.get_customer_suspension(c);  -- the counter checks the customer in front of it
+    PERFORM pg_temp.as_admin();
+  END LOOP;
+  IF (SELECT count(*) FROM public.customer_suspensions) <> v_before THEN RAISE EXCEPTION 'RULE looking up a suspension created one'; END IF;
+  RAISE NOTICE 'ok  suspensions: list for managers only; lookups change nothing';
+END $$;
+
 -- 6. Every table has row level security.
 DO $$
 DECLARE v text[];

@@ -56,3 +56,13 @@ Refresh the snapshot when the migration list after `VERSION` gets long: dump the
 `pg_dump --schema-only --no-owner -n public -n private -n rebuild_internal`, change
 `CREATE SCHEMA` to `CREATE SCHEMA IF NOT EXISTS`, drop `ALTER DEFAULT PRIVILEGES` lines, gzip
 with `gzip -n`, and set `VERSION` to the newest migration it contains.
+
+## Edge Functions on the local stack
+
+`bash supabase/sim/ci/functions.sh` serves every function in `supabase/functions` (linked into the
+CI project as `ci/supabase/functions`) against the simulation stack, e.g.
+`POST http://127.0.0.1:56421/functions/v1/process-sms-outbox` with the stack's service key drains the
+outbox in stub mode (nothing is really sent). The web app's staff sign-in uses the `auth-otp` function,
+so with functions served the real login page works against simulated users. Needs Docker and network
+access to jsr.io and npm (the functions import from there).
+

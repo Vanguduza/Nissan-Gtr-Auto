@@ -113,7 +113,7 @@ function StaffNavInner({ current }: { current: string }) {
   const searchTab = searchParams?.get("tab") ?? null;
 
   const entries: StaffNavEntry[] = useMemo(() => {
-    if (ctx) return filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess);
+    if (ctx) return filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess, ctx.isApprover);
     return STAFF_NAV_TREE.filter(
       (e) => e.kind === "link" && e.roles === "any",
     );
@@ -301,7 +301,7 @@ function StaffNavStatic({ current }: { current: string }) {
   const ctx = useStaffAuth();
   const pathname = navHrefParts(current).pathname;
   const entries = ctx
-    ? filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess)
+    ? filterNavTreeForModuleAccess(ctx.roles, ctx.moduleAccess, ctx.isApprover)
     : STAFF_NAV_TREE.filter((e) => e.kind === "link" && e.roles === "any");
 
   return (
