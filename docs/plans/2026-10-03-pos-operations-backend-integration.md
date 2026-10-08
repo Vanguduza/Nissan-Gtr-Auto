@@ -415,3 +415,17 @@ be written by signed-out visitors. Both now have RLS and no client grants.
 - **Edge Functions locally**: `supabase/sim/ci/functions.sh` serves all functions against the
   simulation stack (stub mode for message workers). They boot here; this sandbox's Docker cannot reach
   jsr.io / npm, so requests were not exercised end to end in this session.
+
+## Stock decisions (2026-10-08, migration 20261008041645)
+
+- **Reorder points per branch** (`stock_reorder_points`, `set_branch_reorder_point`): override the part's
+  own; set or cleared from each Restock row ("Reorder point here").
+- **Lost demand** (`lost_demand`, `record_lost_demand`): POS → Stock by branch shows "Customer wanted it"
+  when none is free here. It counts in the sales speed, and a part only ever asked for still appears.
+- **Lead time actually seen**: median days from purchase order submitted to goods received over the last
+  year (this part, else the supplier), before the supplier's quoted days; Restock shows which was used.
+- **Slow stock actions**: move it to the branch that sells it (quantity = that branch's cover-period
+  sales, capped at what is free) or mark it down 10/20/30% by age (`markdown_stock_item`, managers /
+  finance / admin, every price list, logged in `price_changes`).
+- `e2e_restock.py` covers all four (reorder point set and cleared, six asked-for units restocked, 21 and
+  25 day deliveries giving 23 days, markdown 80 → 56 logged, move to Harare).

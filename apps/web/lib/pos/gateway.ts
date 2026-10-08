@@ -249,6 +249,8 @@ export interface PosGateway {
     reference: string | null;
   }): Promise<PosResult<FulfillmentDeposit>>;
   listFulfillmentDeposits(requestId: string): Promise<PosResult<FulfillmentDeposit[]>>;
+  /** A customer wanted [qty] of a part this branch did not have (restock counts it as demand). */
+  recordLostDemand(stockItemId: string, warehouseId: string, qty: number, note: string | null): Promise<PosResult<true>>;
   /** Manager, after the request is cancelled; cash leaves through [tillSessionId]. */
   refundFulfillmentDeposit(depositId: string, tillSessionId: string | null, notes: string): Promise<PosResult<FulfillmentDeposit>>;
   /** The customer's suspension for failing to settle, if any (credit, holds and back-orders are then refused). */

@@ -1073,6 +1073,7 @@ export function createPreviewPosGateway(): PosGateway {
       deposits.push(d);
       return ok({ ...d });
     },
+    recordLostDemand: (_stockItemId, _warehouseId, qty) => (qty > 0 && qty <= 1000 ? ok(true as const) : no("quantity must be between 1 and 1000")),
     listFulfillmentDeposits: (requestId) => ok(deposits.filter((d) => d.requestId === requestId).map((d) => ({ ...d }))),
     refundFulfillmentDeposit: (depositId, tillSessionId, notes) => {
       const d = deposits.find((x) => x.id === depositId);

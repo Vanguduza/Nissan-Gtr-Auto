@@ -1770,6 +1770,12 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       return { ok: true, data: depositFrom(data as Record<string, unknown>) };
     },
 
+    async recordLostDemand(stockItemId, warehouseId, qty, note) {
+      const { error } = await rpc(client, "record_lost_demand", { p_stock_item_id: stockItemId, p_warehouse_id: warehouseId, p_qty: qty, p_note: note });
+      if (error) return fail(error, "Could not record it.");
+      return { ok: true, data: true };
+    },
+
     async listFulfillmentDeposits(requestId) {
       const { data, error } = await rpc(client, "list_pos_fulfillment_deposits", { p_request_id: requestId });
       if (error) return fail(error, "Could not load deposits.");

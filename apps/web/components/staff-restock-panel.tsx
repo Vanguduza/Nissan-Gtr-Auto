@@ -6,9 +6,13 @@ import styles from "@/components/account.module.css";
 import { money } from "@/lib/staff-dashboard";
 import { loadSuppliers } from "@/lib/rfq-portal";
 import {
+  LEAD_SOURCE_LABEL,
   URGENCY_LABEL,
   createPurchaseOrderDraft,
   getRestockPlan,
+  markdownStockItem,
+  setBranchReorderPoint,
+  type SlowStock,
   requireSession,
   type RestockPlan,
   type RestockSettings,
@@ -40,6 +44,8 @@ export function StaffRestockPanel() {
   const [supplierFor, setSupplierFor] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  /** The row whose branch reorder point is being edited, and the typed values. */
+  const [ropEdit, setRopEdit] = useState<{ key: string; point: string; qty: string } | null>(null);
 
   const refresh = useCallback(async () => {
     const client = createWebClient();
@@ -113,6 +119,51 @@ export function StaffRestockPanel() {
     setBusy(false);
     setMessage(`Transfers created, waiting for the receiving branch to approve: ${done.join("; ")}.`);
     await refresh();
+  }
+
+  async function saveReorderPoint(s: RestockSuggestion, clear: boolean) {
+    const client = createWebClient();
+    if (!client || !ropEdit) return;
+    const point = clear ? null : Number(ropEdit.point.replace(",", "."));
+    const qty = clear || !ropEdit.qty.trim() ? null : Number(ropEdit.qty.replace(",", "."));
+    if (!clear && (point == null || !Number.isFinite(point) || point < 0)) return setMessage("Enter a reorder point of 0 or more.");
+    if (qty != null && (!Number.isFinite(qty) || qty <= 0)) return setMessage("Reorder quantity must be more than 0, or left empty.");
+    setBusy(true);
+    const r = await setBranchReorderPoint(client, s.stockItemId, s.warehouseId, point, qty);
+    setBusy(false);
+    if (!r.ok) return setMessage(r.error);
+    setRopEdit(null);
+    setMessage(clear ? `${s.oemPartNumber} at ${s.warehouse} is back to the part's rule.` : `${s.oemPartNumber} at ${s.warehouse} now reorders at ${point}.`);
+    await refresh();
+  }
+
+  async function moveSlow(x: SlowStock) {
+    const client = createWebClient();
+    if (!client || !x.moveTo || !x.moveQty) return;
+    setBusy(true);
+    setMessage(null);
+    const r = await createStockTransfer(client, {
+      fromWarehouseId: x.warehouseId,
+      toWarehouseId: x.moveTo.warehouseId,
+      notes: "Slow stock: moved to the branch that sells it",
+      lines: [{ stock_item_id: x.stockItemId, uom_id: x.uomId, qty: x.moveQty }],
+    });
+    setBusy(false);
+    setMessage(r.ok ? `Transfer of ${x.moveQty} ${x.oemPartNumber} from ${x.warehouse} to ${x.moveTo.warehouse} created; ${x.moveTo.warehouse} approves it on arrival.` : r.error);
+    if (r.ok) await refresh();
+  }
+
+  async function markDown(x: SlowStock) {
+    const client = createWebClient();
+    if (!client || !x.markdownPct) return;
+    const reason = x.lastSoldAt ? `Not sold since ${new Date(x.lastSoldAt).toLocaleDateString()}` : "Never sold";
+    if (!window.confirm(`Lower every price of ${x.oemPartNumber} by ${x.markdownPct}%? (${reason})`)) return;
+    setBusy(true);
+    setMessage(null);
+    const r = await markdownStockItem(client, x.stockItemId, x.markdownPct, reason);
+    setBusy(false);
+    setMessage(r.ok ? `${x.oemPartNumber} marked down ${x.markdownPct}%: ${r.data.map((p) => `${p.priceList} ${p.old.toFixed(2)} → ${p.new.toFixed(2)}`).join(", ")}.` : /manager/i.test(r.error) ? "Only a manager, finance or admin can mark prices down." : r.error);
+    if (r.ok) await refresh();
   }
 
   async function createOrders() {
@@ -263,11 +314,52 @@ export function StaffRestockPanel() {
                         <br />
                         <span className={styles.muted}>
                           {s.oemPartNumber} · {s.warehouse} · reorder at {fmt(s.reorderPoint)}
-                          {s.reorderPointSource === "from_sales" ? "*" : ""}
+                          {s.reorderPointSource === "from_sales" ? "*" : s.reorderPointSource === "branch" ? " (this branch's)" : ""}
+                          {s.lost ? ` · ${fmt(s.lost)} asked for and not had` : ""}
+                          {s.buyQty > 0 ? ` · lead ${s.leadDays} days (${LEAD_SOURCE_LABEL[s.leadSource]}${s.leadSamples ? `, ${s.leadSamples} orders` : ""})` : ""}
                           {s.onOrder || s.transferIn ? ` · on its way ${fmt(s.onOrder + s.transferIn)}` : ""}
                           {s.backordered ? ` · ${fmt(s.backordered)} back-ordered` : ""}
                           {s.inDraft ? ` · ${fmt(s.inDraft)} already in a draft order` : ""}
-                        </span>
+                        </span>{" "}
+                        <button
+                          type="button"
+                          className={styles.linkButton}
+                          aria-expanded={ropEdit?.key === k}
+                          onClick={() =>
+                            setRopEdit(ropEdit?.key === k ? null : { key: k, point: String(s.reorderPoint), qty: s.reorderQty != null ? String(s.reorderQty) : "" })
+                          }
+                        >
+                          Reorder point here
+                        </button>
+                        {ropEdit?.key === k ? (
+                          <span className={styles.formActions} style={{ marginTop: 4 }}>
+                            <input
+                              className={styles.input}
+                              style={{ width: 90 }}
+                              inputMode="decimal"
+                              aria-label={`Reorder point for ${s.oemPartNumber} at ${s.warehouse}`}
+                              value={ropEdit.point}
+                              onChange={(e) => setRopEdit({ ...ropEdit, point: e.target.value })}
+                            />
+                            <input
+                              className={styles.input}
+                              style={{ width: 90 }}
+                              inputMode="decimal"
+                              placeholder="Order qty"
+                              aria-label={`Order quantity for ${s.oemPartNumber} at ${s.warehouse}`}
+                              value={ropEdit.qty}
+                              onChange={(e) => setRopEdit({ ...ropEdit, qty: e.target.value })}
+                            />
+                            <button type="button" className={styles.btn} disabled={busy} onClick={() => void saveReorderPoint(s, false)}>
+                              Save for {s.warehouse}
+                            </button>
+                            {s.reorderPointSource === "branch" ? (
+                              <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void saveReorderPoint(s, true)}>
+                                Clear
+                              </button>
+                            ) : null}
+                          </span>
+                        ) : null}
                       </td>
                       <td className={styles.num}>{fmt(s.available)}</td>
                       <td className={styles.num}>{s.daily ? fmt(s.daily) : "—"}</td>
@@ -348,6 +440,14 @@ export function StaffRestockPanel() {
         <>
           <h2 className={styles.sectionTitle}>Not selling (nothing sold in 90 days)</h2>
           <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Part · branch</th>
+                <th className={styles.num}>On hand</th>
+                <th className={styles.num}>Value</th>
+                <th>What to do</th>
+              </tr>
+            </thead>
             <tbody>
               {plan.slowStock.map((x) => (
                 <tr key={x.stockItemId + x.warehouse}>
@@ -361,6 +461,25 @@ export function StaffRestockPanel() {
                   </td>
                   <td className={styles.num}>{fmt(x.onHand)}</td>
                   <td className={styles.num}>{x.currency ? money(x.value, x.currency) : ""}</td>
+                  <td>
+                    {x.moveTo && x.moveQty ? (
+                      <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void moveSlow(x)}>
+                        Move {fmt(x.moveQty)} to {x.moveTo.warehouse}
+                      </button>
+                    ) : x.markdownPct ? (
+                      <button type="button" className={styles.btnGhost} disabled={busy} onClick={() => void markDown(x)}>
+                        Mark down {x.markdownPct}%
+                      </button>
+                    ) : null}
+                    {x.moveTo ? (
+                      <>
+                        <br />
+                        <span className={styles.muted}>
+                          {x.moveTo.warehouse} sold {fmt(x.moveTo.sold)} in {plan.settings.salesDays} days
+                        </span>
+                      </>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

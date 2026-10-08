@@ -28,6 +28,7 @@ export function StockDialog({ pos }: { pos: PosStore }) {
   }, [pos.gateway, part?.stockItemId]);
   if (!part) return null;
   const here = pos.setup?.warehouseId ?? null;
+  const noneHere = rows != null && !rows.some((r) => r.warehouseId === here && r.available > 0);
   return (
     <Modal title="Stock by branch" onClose={pos.closeStock}>
       <p className={styles.muted}>
@@ -70,6 +71,40 @@ export function StockDialog({ pos }: { pos: PosStore }) {
         </table>
       ) : null}
       {rows && rows.length > 0 && pos.online ? <FulfillmentActions pos={pos} part={part} rows={rows} here={here} /> : null}
+      {noneHere && here && pos.online ? <LostDemand pos={pos} stockItemId={part.stockItemId} warehouseId={here} /> : null}
     </Modal>
   );
 }
+
+/** None free here: note that a customer wanted it, so restocking counts the demand the till never saw. */
+function LostDemand({ pos, stockItemId, warehouseId }: { pos: PosStore; stockItemId: string; warehouseId: string }) {
+  const [qty, setQty] = useState("1");
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (done) return <p className={styles.muted}>Noted: restocking counts it.</p>;
+  return (
+    <form
+      className={styles.row}
+      style={{ gap: 8, marginTop: 12, flexWrap: "wrap" }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const n = Number(qty);
+        if (!Number.isFinite(n) || n <= 0) return pos.showError("Enter how many the customer wanted.");
+        setBusy(true);
+        const res = await pos.gateway.recordLostDemand(stockItemId, warehouseId, n, "customer wanted it, none free here");
+        setBusy(false);
+        if (!res.ok) return pos.showError(res.error);
+        setDone(true);
+      }}
+    >
+      <span className={styles.muted} style={{ flex: "1 1 220px" }}>
+        None free here. If the customer leaves without it, note it so this part is restocked:
+      </span>
+      <input className={styles.input} style={{ width: 80 }} inputMode="numeric" aria-label="How many the customer wanted" value={qty} onChange={(e) => setQty(e.target.value)} />
+      <button type="submit" className={styles.softButton} disabled={busy}>
+        Customer wanted it
+      </button>
+    </form>
+  );
+}
+

@@ -456,4 +456,6 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | ACC-01 | Suspensions readable by managers / finance / admin only; lookups have no side effects | 10.10 | all | done — role-rule test (warehouse and cashier refused, lookups create nothing); e2e_day.py |
 | ACC-02 | Today / Exceptions / Restock hidden from non-manager sales staff (nav and page gate) | 10.x | other apps | done — checked in the browser as simulated cashier and manager |
 | DEV-01 | Edge Functions served on the local simulation stack (`ci/functions.sh`) | — | all | partial — boots locally; imports need network to jsr.io / npm (not reachable from this sandbox's Docker) |
+| RST-02 | Per-branch reorder points; lost demand from the counter counted in restock; lead times from received orders | 10.x | other apps / POS | done — e2e_restock.py; Restock page screenshotted; POS typechecked |
+| RST-03 | Slow stock: move to the branch that sells it, or audited markdown | 10.x | other apps | done — e2e_restock.py (markdown logged, move suggested); screenshotted |
 
