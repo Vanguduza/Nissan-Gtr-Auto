@@ -5,6 +5,7 @@ import styles from "@/components/account.module.css";
 import { searchCustomers, type CustomerOption } from "@/lib/staff-credit";
 import { liftSuspension, listSuspensions, suspendCustomer, type CustomerSuspension } from "@/lib/staff-suspensions";
 import { createWebClient } from "@/lib/supabase";
+import { owedText } from "@/lib/money-owed";
 
 const RULE: Record<string, string> = {
   on_account_overdue: "Balance left on account at delivery, unpaid after 7 days",
@@ -152,7 +153,7 @@ export function StaffSuspensionsPanel() {
               {" · "}
               <span>{s.status === "active" ? "Suspended" : "Lifted"}</span>
               {" · owing "}
-              {money(s.owing)}
+              {owedText(s.owed)}
               <br />
               <span className={styles.muted}>
                 {s.reason} · {s.source === "automatic" ? "automatic" : `by ${s.suspendedByName ?? "staff"}`} · {day(s.suspendedAt)}

@@ -106,6 +106,14 @@ fun DriverCashContent(
             }
         }
     }
+    cash.owed.forEach { o ->
+        SlopesBanner(
+            "You owe ${DriverCashGate.money(o.amount, o.currency)} from a short hand-in. Pay it back at the counter.",
+            icon = Icons.Filled.Payments,
+            tone = SlopesTone.Danger,
+        )
+        Spacer(Modifier.height(10.dp))
+    }
     error?.let {
         SlopesBanner(it, icon = Icons.Filled.ReportProblem, tone = SlopesTone.Danger)
         Spacer(Modifier.height(10.dp))

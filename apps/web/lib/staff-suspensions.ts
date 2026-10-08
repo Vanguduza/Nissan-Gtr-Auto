@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@gtr/supabase-client";
+import { owedFrom, type Owed } from "@/lib/money-owed";
 import type { StorefrontResult } from "@/lib/customer-storefront";
 
 /** What a suspension was for (`customer_suspension_findings`). */
@@ -25,7 +26,8 @@ export type CustomerSuspension = {
   liftedByName: string | null;
   liftedAt: string | null;
   liftReason: string | null;
-  owing: number;
+  /** What the customer owes, per currency. */
+  owed: Owed;
 };
 
 function rpc(client: SupabaseClient, fn: string, args: Record<string, unknown>) {
@@ -56,7 +58,7 @@ function fromRow(r: Record<string, unknown>): CustomerSuspension {
     liftedByName: str(r.lifted_by_name),
     liftedAt: str(r.lifted_at),
     liftReason: str(r.lift_reason),
-    owing: Number(r.owing ?? 0),
+    owed: owedFrom(r),
   };
 }
 

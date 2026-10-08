@@ -596,6 +596,7 @@ class SupabaseRpcClient(
                 )
             },
             handins = list("handins").map(::handinFrom),
+            owed = list("owed").map { DriverCashOwed(it.str("currency") ?: "USD", it.num("amount") ?: 0.0) },
         )
     }
 

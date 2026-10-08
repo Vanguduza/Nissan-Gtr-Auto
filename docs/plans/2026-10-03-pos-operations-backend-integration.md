@@ -347,3 +347,36 @@ in 90 days with its value.
 The page ticks the urgent rows, and creates the transfers (`create_stock_transfer`, approved by the
 receiving branch) and draft purchase orders per supplier and branch (`create_purchase_order`;
 procurement reviews and approves). Reorder points are per part, not per branch (stock_items).
+
+## Regression checks in CI (2026-10-08, migration 20261008032826)
+
+`.github/workflows/simulation.yml` runs `supabase/sim/ci/run.sh` on every pull request touching
+`supabase/`: a throwaway stack from a schema snapshot plus newer migrations, simulated seed, every
+`e2e_*.py` scenario, then `supabase/tests/sim_role_rules_smoke.sql` (one role per person). The rule
+test found two tables without row level security on hosted; `catalog_r2_release_inventory_work` could
+be written by signed-out visitors. Both now have RLS and no client grants.
+
+## Money: driver shortages, currencies, deposits, card refunds (2026-10-08)
+
+- **Driver cash differences post to the ledger** (20261008035043). On approval: short and owed by the
+  driver (reason driver short / under investigation) Dr 1250 Staff receivables / Cr 1120; other
+  shortages Dr 5310 Cash over / short; overs Cr 5310. What the driver owes is repaid at the counter
+  (`record_driver_cash_recovery`, Dr 1120 / Cr 1250, not by the driver) or written off by a different
+  manager (`write_off_driver_cash_shortage`, Dr 5310 / Cr 1250, reason required). ZiG journals use the
+  collections' own rates. Staff → Driver cash lists what each driver owes with both actions; the driver
+  app shows "You owe …".
+- **No sums across currencies** (20261008035045). `private.customer_exposure` gives unpaid balances per
+  currency and a total in the account currency at each invoice's own rate (NULL if a rate is missing:
+  credit checks then refuse or go to the back office). Used by on-account checkout, delivery balance on
+  account and suspension "owing"; web and customer app show each currency ("USD 95.00 + ZIG 95.00").
+- **Back-order deposits** (20261008035048). `take_pos_fulfillment_deposit`: cash (into the open till
+  as a pay-in), bank or EcoCash (reference required); Dr tender / Cr 2200 and issued as the customer's
+  store credit, which the cashier takes as Store credit at the sale. `refund_pos_fulfillment_deposit`:
+  manager, only once the request is cancelled, refused if the credit was already spent; cash leaves
+  the manager's till. POS → Collections & transfers shows the deposit held, Take deposit and Give
+  deposit back. `list_pos_fulfillment_requests` is now staff-only (customers could call it).
+- **Card refunds could never be finalised** (20261008035050): finalising called the disabled
+  `post_finance_refund`. A card refund now posts a credit note for the whole sale (parts to
+  quarantine, cost reversed) with Dr 4110 / Cr 1170 card clearing. A sale already partly returned is
+  refused at the start. Card voids (machine reversal before the sale is finalised) and refunds are now
+  in `e2e_card.py`.

@@ -4,6 +4,7 @@ import { Banknote, Building2, Car, CircleAlert, CreditCard, KeyRound, Layers, Lo
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { formatMoney, roundMoney } from "@/lib/pos/money";
+import { owedText, type Owed } from "@/lib/money-owed";
 import { THERMAL_COLUMNS, thermalLines } from "@gtr/shared";
 import { webReceiptRows } from "@/lib/pos/receipt";
 import type { ContipayMethod, DigitalProvider, ManagerProof, ManualTender, ManualTenderLine, PaynowMethod, ReasonCode, ReceiptDocument } from "@/lib/pos/types";
@@ -510,7 +511,7 @@ export function PaymentDialog({
   const hold = remainingLabel(co?.status.reservationExpiresAt ?? null, now);
   const registered = Boolean(pos.cart?.customerId) && pos.cart?.customerName !== "POS Walk-in";
   // A customer suspended for failing to settle cannot buy on account (the server refuses it too).
-  const [suspension, setSuspension] = useState<{ reason: string; owing: number } | null>(null);
+  const [suspension, setSuspension] = useState<{ reason: string; owed: Owed } | null>(null);
   const customerId = registered ? pos.cart?.customerId ?? null : null;
   useEffect(() => {
     setSuspension(null);
@@ -538,7 +539,7 @@ export function PaymentDialog({
     { id: "account", label: "On account", icon: <Building2 size={16} aria-hidden />, reason: !registered
         ? "Choose a registered customer with credit first."
         : suspension
-          ? `Account suspended (${suspension.reason}); owing ${formatMoney(suspension.owing, currency)}. Take payment now, or a manager lifts it in Customer credit.`
+          ? `Account suspended (${suspension.reason}); owing ${owedText(suspension.owed)}. Take payment now, or a manager lifts it in Customer credit.`
           : null },
     { id: "parts", label: "Pay in parts", icon: <Layers size={16} aria-hidden />, reason: pos.online ? null : "Needs a connection." },
   ];

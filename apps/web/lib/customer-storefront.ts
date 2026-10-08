@@ -1,4 +1,5 @@
 import type { Database, SupabaseClient } from "@gtr/supabase-client";
+import { owedFrom, type Owed } from "@/lib/money-owed";
 import { publicSiteUrl } from "@/lib/site-url";
 
 type Currency = Database["public"]["Enums"]["currency_code"];
@@ -392,12 +393,12 @@ export async function checkoutCustomerCart(
 /** The signed-in customer's suspension for failing to settle, or null (pay on delivery is then refused). */
 export async function getMyAccountSuspension(
   client: SupabaseClient,
-): Promise<StorefrontResult<{ reason: string; owing: number } | null>> {
+): Promise<StorefrontResult<{ reason: string; owed: Owed } | null>> {
   const { data, error } = await storefrontRpc(client, "get_my_account_suspension", {});
   if (error) return { ok: false, error: error.message };
   if (!data || typeof data !== "object") return { ok: true, data: null };
   const o = data as Record<string, unknown>;
-  return { ok: true, data: { reason: String(o.reason ?? ""), owing: Number(o.owing ?? 0) } };
+  return { ok: true, data: { reason: String(o.reason ?? ""), owed: owedFrom(o) } };
 }
 
 /** A delivery on its way and the code the customer gives the driver once they have their parts. */

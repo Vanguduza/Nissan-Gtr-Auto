@@ -32,6 +32,7 @@ import {
   type DeliveryPaymentMethod,
 } from "@/lib/customer-storefront";
 import { createWebClient } from "@/lib/supabase";
+import { owedText, type Owed } from "@/lib/money-owed";
 import styles from "@/app/(storefront)/page.module.css";
 
 function CartTitle() {
@@ -78,7 +79,7 @@ export function CartCheckout() {
   const [ecocashMode, setEcocashMode] = useState<EcoCashMode>("saved");
   const [ecocashOther, setEcocashOther] = useState("");
   const [onDelivery, setOnDelivery] = useState<OnDeliveryMethod>("cash_or_card_on_delivery");
-  const [suspension, setSuspension] = useState<{ reason: string; owing: number } | null>(null);
+  const [suspension, setSuspension] = useState<{ reason: string; owed: Owed } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -663,7 +664,7 @@ export function CartCheckout() {
               <strong>Pay on delivery</strong>
               <span className={styles.muted}>
                 {suspension
-                  ? `Not available: your account is suspended until what you owe (${formatMoney(suspension.owing, "USD")}) is settled. Pay online now instead.`
+                  ? `Not available: your account is suspended until what you owe (${owedText(suspension.owed)}) is settled. Pay online now instead.`
                   : onDeliveryAllowed
                     ? "Cash or card to the driver at your door"
                     : "Only for nationwide dispatch — this order is click & collect"}

@@ -21,7 +21,13 @@ enum class DeliveryPaymentMethod(val rpcValue: String) {
 }
 
 /** The signed-in customer's suspension for failing to settle (`get_my_account_suspension`). */
-data class AccountSuspension(val reason: String, val owingUsd: Double)
+data class AccountSuspension(val reason: String, val owed: List<OwedAmount>) {
+    /** "USD 95.00 + ZIG 2400.00": each currency on its own, never added together. */
+    val owedText: String
+        get() = if (owed.isEmpty()) "nothing" else owed.joinToString(" + ") { "%s %.2f".format(it.currency, it.amount) }
+}
+
+data class OwedAmount(val currency: String, val amount: Double)
 
 /** The code the customer gives the driver at the door (also sent by SMS). Only the customer sees it. */
 data class DeliveryCode(val deliveryJobId: String, val invoiceId: String, val code: String, val expiresAt: String)

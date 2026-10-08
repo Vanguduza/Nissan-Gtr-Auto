@@ -35,9 +35,27 @@ export type DriverCashHandin = {
   receivedAt: string | null;
   approvedByName: string | null;
   approvedAt: string | null;
+  /** Journal that moved an approved difference out of cash. */
+  journalNumber: string | null;
+  /** A shortage the driver owes (reason driver short / under investigation), and how it was settled. */
+  owedAmount: number;
+  recoveredAmount: number;
+  writtenOffAmount: number;
+  outstandingAmount: number;
+  recoveries: DriverCashRecovery[];
 };
 
-export type DriverCashBoard = { holding: DriverCashHolding[]; handins: DriverCashHandin[] };
+export type DriverCashRecovery = {
+  /** cash = paid back by the driver; write_off = written off by a manager */
+  kind: "cash" | "write_off";
+  amount: number;
+  notes: string | null;
+  createdAt: string;
+  recordedByName: string | null;
+  journalNumber: string | null;
+};
+
+export type DriverCashBoard = { holding: DriverCashHolding[]; owed: DriverCashHandin[]; handins: DriverCashHandin[] };
 
 export type VarianceReason = { code: string; label: string };
 
@@ -73,13 +91,26 @@ function handinFrom(r: Record<string, unknown>): DriverCashHandin {
     receivedAt: str(r.received_at),
     approvedByName: str(r.approved_by_name),
     approvedAt: str(r.approved_at),
+    journalNumber: str(r.journal_number),
+    owedAmount: num(r.owed_amount),
+    recoveredAmount: num(r.recovered_amount),
+    writtenOffAmount: num(r.written_off_amount),
+    outstandingAmount: num(r.outstanding_amount),
+    recoveries: ((r.recoveries as Record<string, unknown>[] | null) ?? []).map((x) => ({
+      kind: x.kind === "write_off" ? "write_off" : "cash",
+      amount: num(x.amount),
+      notes: str(x.notes),
+      createdAt: String(x.created_at ?? ""),
+      recordedByName: str(x.recorded_by_name),
+      journalNumber: str(x.journal_number),
+    })),
   };
 }
 
 export async function listDriverCash(client: SupabaseClient, status: string | null): Promise<StorefrontResult<DriverCashBoard>> {
   const { data, error } = await rpc(client, "list_driver_cash", { p_status: status, p_limit: 100 });
   if (error) return { ok: false, error: error.message };
-  const o = (data ?? {}) as { holding?: Record<string, unknown>[]; handins?: Record<string, unknown>[] };
+  const o = (data ?? {}) as { holding?: Record<string, unknown>[]; owed?: Record<string, unknown>[]; handins?: Record<string, unknown>[] };
   return {
     ok: true,
     data: {
@@ -91,6 +122,7 @@ export async function listDriverCash(client: SupabaseClient, status: string | nu
         count: num(h.count),
         oldestAt: str(h.oldest_at),
       })),
+      owed: (o.owed ?? []).map(handinFrom),
       handins: (o.handins ?? []).map(handinFrom),
     },
   };
@@ -129,6 +161,42 @@ export async function approveDriverCashVariance(
 ): Promise<StorefrontResult<DriverCashHandin>> {
   const { data, error } = await rpc(client, "approve_driver_cash_variance", {
     p_handin_id: handinId,
+    p_reason_code: reasonCode,
+    p_notes: notes?.trim() || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: handinFrom(data as Record<string, unknown>) };
+}
+
+export async function listWriteOffReasons(client: SupabaseClient): Promise<StorefrontResult<VarianceReason[]>> {
+  const { data, error } = await rpc(client, "list_pos_approval_reasons", { p_action: "driver_cash_write_off" });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: ((data ?? []) as { code: string; label: string }[]).map((r) => ({ code: r.code, label: r.label })) };
+}
+
+/** The driver pays back (part of) a shortage in cash; someone other than the driver takes it. */
+export async function recordDriverCashRecovery(
+  client: SupabaseClient,
+  handinId: string,
+  amount: number,
+  notes: string | null,
+): Promise<StorefrontResult<DriverCashHandin>> {
+  const { data, error } = await rpc(client, "record_driver_cash_recovery", { p_handin_id: handinId, p_amount: amount, p_notes: notes?.trim() || null });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: handinFrom(data as Record<string, unknown>) };
+}
+
+/** A manager (not the one who approved the shortage) writes off what cannot be recovered. */
+export async function writeOffDriverCashShortage(
+  client: SupabaseClient,
+  handinId: string,
+  amount: number,
+  reasonCode: string,
+  notes: string | null,
+): Promise<StorefrontResult<DriverCashHandin>> {
+  const { data, error } = await rpc(client, "write_off_driver_cash_shortage", {
+    p_handin_id: handinId,
+    p_amount: amount,
     p_reason_code: reasonCode,
     p_notes: notes?.trim() || null,
   });

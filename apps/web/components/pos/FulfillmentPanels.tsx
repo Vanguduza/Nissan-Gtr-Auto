@@ -2,7 +2,7 @@
 
 import { ArrowRightLeft, PackageCheck, Search, Store, Truck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { FulfillmentInput, FulfillmentKind, FulfillmentRequest, FulfillmentStep, PosPart, StockAvailability } from "@/lib/pos/types";
+import type { DepositTender, FulfillmentInput, FulfillmentKind, FulfillmentRequest, FulfillmentStep, PosPart, StockAvailability } from "@/lib/pos/types";
 import type { PosStore } from "@/lib/pos/use-pos";
 import styles from "./pos.module.css";
 
@@ -153,6 +153,9 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<FulfillmentRequest[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  /** The request whose deposit form is open, and what is typed in it. */
+  const [deposit, setDeposit] = useState<{ id: string; amount: string; tender: DepositTender; reference: string } | null>(null);
+  const [refund, setRefund] = useState<{ id: string; notes: string } | null>(null);
   const load = useCallback(async () => {
     const res = await pos.gateway.listFulfillment(query, status);
     if (res.ok) setRows(res.data);
@@ -170,6 +173,50 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
     setBusy(null);
     if (!res.ok) return pos.showError(s === "approve" && /warehouse/i.test(res.error) ? "Only warehouse staff can send a branch transfer." : res.error);
     pos.showNotice(done);
+    void load();
+  };
+
+  const heldText = (f: FulfillmentRequest) =>
+    f.depositsHeld.length ? `deposit ${f.depositsHeld.map((d) => `${d.currency} ${d.amount.toFixed(2)}`).join(" + ")} held` : null;
+
+  const takeDeposit = async (f: FulfillmentRequest) => {
+    if (!deposit) return;
+    const amount = Number(deposit.amount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) return pos.showError("Enter the deposit amount.");
+    setBusy(f.id + "deposit");
+    const res = await pos.gateway.takeFulfillmentDeposit({
+      requestId: f.id,
+      amount,
+      currency: pos.till?.currency ?? pos.currency,
+      tender: deposit.tender,
+      tillSessionId: deposit.tender === "cash" ? pos.till?.id ?? null : null,
+      reference: deposit.tender === "cash" ? null : deposit.reference,
+    });
+    setBusy(null);
+    if (!res.ok) return pos.showError(res.error);
+    setDeposit(null);
+    pos.showNotice(`Deposit ${res.data.documentNumber} of ${res.data.currency} ${res.data.amount.toFixed(2)} taken. It is the customer's store credit: take it as Store credit when they pay for the part.`);
+    void load();
+  };
+
+  const refundDeposits = async (f: FulfillmentRequest) => {
+    if (!refund?.notes.trim()) return pos.showError("Say why the deposit is given back.");
+    setBusy(f.id + "refund");
+    const list = await pos.gateway.listFulfillmentDeposits(f.id);
+    if (!list.ok) {
+      setBusy(null);
+      return pos.showError(list.error);
+    }
+    for (const d of list.data.filter((x) => x.status === "held")) {
+      const res = await pos.gateway.refundFulfillmentDeposit(d.id, d.tender === "cash" ? pos.till?.id ?? null : null, refund.notes);
+      if (!res.ok) {
+        setBusy(null);
+        return pos.showError(/manager/i.test(res.error) ? "Only a manager can give a deposit back." : res.error);
+      }
+    }
+    setBusy(null);
+    setRefund(null);
+    pos.showNotice("Deposit given back. Cash deposits came out of this till; bank and EcoCash deposits are paid back by finance.");
     void load();
   };
 
@@ -218,7 +265,7 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
                 {f.documentNumber ?? f.id} · {f.description ?? f.partNumber} × {f.qty}
               </div>
               <div className={styles.muted}>
-                {[KIND_LABEL[f.kind], STATUS_LABEL[f.status], route(f), f.status === "reserved" && f.expiresAt ? `held until ${when(f.expiresAt)}` : null, f.status === "ready" && !f.invoiceId && f.kind !== "branch_transfer" ? "not paid yet" : null]
+                {[KIND_LABEL[f.kind], STATUS_LABEL[f.status], route(f), f.status === "reserved" && f.expiresAt ? `held until ${when(f.expiresAt)}` : null, f.status === "ready" && !f.invoiceId && f.kind !== "branch_transfer" ? "not paid yet" : null, heldText(f)]
                   .filter(Boolean)
                   .join(" · ")}
               </div>
@@ -265,6 +312,29 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
                   {f.kind === "branch_transfer" ? "Received here" : "Handed over"}
                 </button>
               ) : null}
+              {/* A deposit is part payment for a part still to come: only before the sale, and only for a named customer. */}
+              {active && !f.invoiceId && f.customerId && (f.kind === "backorder" || f.kind === "branch_transfer") ? (
+                <button
+                  type="button"
+                  className={styles.softButton}
+                  disabled={busy !== null || !pos.online}
+                  aria-expanded={deposit?.id === f.id}
+                  onClick={() => setDeposit(deposit?.id === f.id ? null : { id: f.id, amount: "", tender: "cash", reference: "" })}
+                >
+                  Take deposit
+                </button>
+              ) : null}
+              {["cancelled", "rejected"].includes(f.status) && f.depositsHeld.length ? (
+                <button
+                  type="button"
+                  className={styles.softButton}
+                  disabled={busy !== null || !pos.online}
+                  aria-expanded={refund?.id === f.id}
+                  onClick={() => setRefund(refund?.id === f.id ? null : { id: f.id, notes: "" })}
+                >
+                  Give deposit back
+                </button>
+              ) : null}
               {/* A paid hold is handed over (or returned through Returns), never just released. */}
               {active && f.status !== "awaiting_transfer_approval" && !(f.status === "ready" && f.invoiceId) ? (
                 <button type="button" className={styles.linkButton} disabled={busy !== null || !pos.online} onClick={() => void step(f, "cancel", "Released.")}>
@@ -272,6 +342,73 @@ export function FulfillmentList({ pos }: { pos: PosStore }) {
                 </button>
               ) : null}
             </span>
+            {deposit?.id === f.id ? (
+              <form
+                className={styles.row}
+                style={{ flexBasis: "100%", gap: 8, flexWrap: "wrap" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void takeDeposit(f);
+                }}
+              >
+                <input
+                  className={styles.input}
+                  style={{ flex: "0 1 140px" }}
+                  inputMode="decimal"
+                  placeholder={`Amount (${pos.till?.currency ?? pos.currency})`}
+                  aria-label="Deposit amount"
+                  value={deposit.amount}
+                  onChange={(e) => setDeposit({ ...deposit, amount: e.target.value })}
+                />
+                <select
+                  className={styles.input}
+                  style={{ flex: "0 1 160px" }}
+                  aria-label="Paid by"
+                  value={deposit.tender}
+                  onChange={(e) => setDeposit({ ...deposit, tender: e.target.value as DepositTender })}
+                >
+                  <option value="cash">Cash (this till)</option>
+                  <option value="bank">Bank transfer</option>
+                  <option value="ecocash">EcoCash</option>
+                </select>
+                {deposit.tender !== "cash" ? (
+                  <input
+                    className={styles.input}
+                    style={{ flex: "1 1 180px" }}
+                    placeholder="Payment reference"
+                    aria-label="Payment reference"
+                    value={deposit.reference}
+                    onChange={(e) => setDeposit({ ...deposit, reference: e.target.value })}
+                  />
+                ) : null}
+                <button type="submit" className={styles.primaryButton} disabled={busy !== null || (deposit.tender === "cash" && !pos.till)}>
+                  Take deposit
+                </button>
+                {deposit.tender === "cash" && !pos.till ? <span className={styles.muted}>Open the till to take cash.</span> : null}
+              </form>
+            ) : null}
+            {refund?.id === f.id ? (
+              <form
+                className={styles.row}
+                style={{ flexBasis: "100%", gap: 8, flexWrap: "wrap" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void refundDeposits(f);
+                }}
+              >
+                <input
+                  className={styles.input}
+                  style={{ flex: "1 1 240px" }}
+                  placeholder="Why the deposit is given back"
+                  aria-label="Reason for giving the deposit back"
+                  value={refund.notes}
+                  onChange={(e) => setRefund({ ...refund, notes: e.target.value })}
+                />
+                <button type="submit" className={styles.primaryButton} disabled={busy !== null}>
+                  Give back {heldText(f)?.replace("deposit ", "").replace(" held", "")}
+                </button>
+              </form>
+            ) : null}
           </div>
         );
       })}

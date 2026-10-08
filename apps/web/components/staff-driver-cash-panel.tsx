@@ -8,7 +8,10 @@ import {
   hoursHeld,
   listDriverCash,
   listVarianceReasons,
+  listWriteOffReasons,
   receiveDriverCash,
+  recordDriverCashRecovery,
+  writeOffDriverCashShortage,
   requireSession,
   type DriverCashBoard,
   type DriverCashHandin,
@@ -21,7 +24,7 @@ type Boot =
   | { kind: "loading" }
   | { kind: "auth" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; board: DriverCashBoard; reasons: VarianceReason[] };
+  | { kind: "ready"; board: DriverCashBoard; reasons: VarianceReason[]; writeOffReasons: VarianceReason[] };
 
 const FILTERS: { label: string; value: string | null }[] = [
   { label: "To count", value: "submitted" },
@@ -44,6 +47,7 @@ function money(amount: number, currency: string) {
 }
 
 type Draft = { counted: string; reason: string; notes: string };
+type OwedDraft = { amount: string; reason: string; notes: string };
 
 /**
  * Driver cash: what each driver still holds from cash-on-delivery (and for how long), hand-ins to
@@ -53,6 +57,7 @@ export function StaffDriverCashPanel() {
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [status, setStatus] = useState<string | null>("submitted");
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [owedDrafts, setOwedDrafts] = useState<Record<string, OwedDraft>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -67,12 +72,12 @@ export function StaffDriverCashPanel() {
       setBoot({ kind: "auth" });
       return;
     }
-    const [res, reasons] = await Promise.all([listDriverCash(client, status), listVarianceReasons(client)]);
+    const [res, reasons, writeOff] = await Promise.all([listDriverCash(client, status), listVarianceReasons(client), listWriteOffReasons(client)]);
     if (!res.ok) {
       setBoot({ kind: "error", message: res.error });
       return;
     }
-    setBoot({ kind: "ready", board: res.data, reasons: reasons.ok ? reasons.data : [] });
+    setBoot({ kind: "ready", board: res.data, reasons: reasons.ok ? reasons.data : [], writeOffReasons: writeOff.ok ? writeOff.data : [] });
   }, [status]);
 
   useEffect(() => {
@@ -113,6 +118,46 @@ export function StaffDriverCashPanel() {
     await refresh();
   }
 
+  const owedDraft = (h: DriverCashHandin): OwedDraft => owedDrafts[h.id] ?? { amount: h.outstandingAmount.toFixed(2), reason: "", notes: "" };
+  const setOwedDraft = (h: DriverCashHandin, patch: Partial<OwedDraft>) =>
+    setOwedDrafts((d) => ({ ...d, [h.id]: { ...owedDraft(h), ...patch } }));
+
+  async function settleOwed(h: DriverCashHandin, how: "repay" | "write_off") {
+    const client = createWebClient();
+    if (!client) return;
+    const d = owedDraft(h);
+    const amount = Number(d.amount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0 || amount > h.outstandingAmount + 0.001) {
+      setMessage(`Enter an amount up to ${money(h.outstandingAmount, h.currency)}.`);
+      return;
+    }
+    if (how === "write_off" && !d.reason) {
+      setMessage("Pick a reason for the write-off.");
+      return;
+    }
+    setBusyId(h.id);
+    setMessage(null);
+    const res =
+      how === "repay"
+        ? await recordDriverCashRecovery(client, h.id, amount, d.notes)
+        : await writeOffDriverCashShortage(client, h.id, amount, d.reason, d.notes);
+    setBusyId(null);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setOwedDrafts((all) => {
+      const next = { ...all };
+      delete next[h.id];
+      return next;
+    });
+    setMessage(
+      `${how === "repay" ? "Repayment of" : "Wrote off"} ${money(amount, h.currency)} on ${h.documentNumber ?? "the hand-in"}. ` +
+        (res.data.outstandingAmount > 0.009 ? `${money(res.data.outstandingAmount, h.currency)} still owed.` : "Nothing left owing."),
+    );
+    await refresh();
+  }
+
   async function approve(h: DriverCashHandin) {
     const client = createWebClient();
     if (!client) return;
@@ -125,7 +170,10 @@ export function StaffDriverCashPanel() {
       setMessage(res.error);
       return;
     }
-    setMessage(`Difference of ${money(h.variance ?? 0, h.currency)} signed off.`);
+    setMessage(
+      `Difference of ${money(h.variance ?? 0, h.currency)} signed off and posted${res.data.journalNumber ? ` (${res.data.journalNumber})` : ""}.` +
+        (res.data.outstandingAmount > 0.009 ? ` ${h.driverName ?? "The driver"} now owes ${money(res.data.outstandingAmount, h.currency)}.` : ""),
+    );
     await refresh();
   }
 
@@ -148,7 +196,7 @@ export function StaffDriverCashPanel() {
     );
   }
 
-  const { board, reasons } = boot;
+  const { board, reasons, writeOffReasons } = boot;
   const reasonLabel = (code: string | null) => reasons.find((r) => r.code === code)?.label ?? code;
 
   return (
@@ -174,6 +222,76 @@ export function StaffDriverCashPanel() {
                   {h.oldestAt ? ` · oldest ${waitedFor(h.oldestAt)} ago` : ""}
                   {overdue ? " — overdue, ask the driver to hand it in" : ""}
                 </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <h2 className={styles.sectionTitle}>Owed by drivers</h2>
+      {board.owed.length === 0 ? (
+        <p className={styles.muted} role="status">
+          No driver owes a shortage.
+        </p>
+      ) : (
+        <ul className={styles.list}>
+          {board.owed.map((h) => {
+            const d = owedDraft(h);
+            return (
+              <li key={h.id}>
+                <strong>
+                  {h.driverName ?? "Driver"} owes {money(h.outstandingAmount, h.currency)}
+                </strong>
+                <br />
+                <span className={styles.muted}>
+                  {[
+                    `${h.documentNumber ?? "Hand-in"} short ${money(h.owedAmount, h.currency)}`,
+                    h.journalNumber ? `posted ${h.journalNumber}` : null,
+                    h.recoveredAmount > 0 ? `repaid ${money(h.recoveredAmount, h.currency)}` : null,
+                    h.writtenOffAmount > 0 ? `written off ${money(h.writtenOffAmount, h.currency)}` : null,
+                    h.approvedByName ? `signed off by ${h.approvedByName}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                <div className={styles.formActions} style={{ marginTop: "0.45rem", flexWrap: "wrap" }}>
+                  <input
+                    className={styles.input}
+                    style={{ flex: "0 1 140px" }}
+                    inputMode="decimal"
+                    aria-label={`Amount for ${h.documentNumber ?? "hand-in"}`}
+                    value={d.amount}
+                    onChange={(e) => setOwedDraft(h, { amount: e.target.value })}
+                  />
+                  <input
+                    className={styles.input}
+                    style={{ flex: "1 1 200px" }}
+                    placeholder="Note"
+                    aria-label={`Note for ${h.documentNumber ?? "hand-in"}`}
+                    value={d.notes}
+                    onChange={(e) => setOwedDraft(h, { notes: e.target.value })}
+                  />
+                  <button type="button" className={styles.btn} disabled={busyId === h.id} onClick={() => void settleOwed(h, "repay")}>
+                    Driver paid back
+                  </button>
+                  <select
+                    className={styles.input}
+                    style={{ flex: "1 1 180px" }}
+                    aria-label={`Write-off reason for ${h.documentNumber ?? "hand-in"}`}
+                    value={d.reason}
+                    onChange={(e) => setOwedDraft(h, { reason: e.target.value })}
+                  >
+                    <option value="">Write-off reason…</option>
+                    {writeOffReasons.map((r) => (
+                      <option key={r.code} value={r.code}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" className={styles.btnGhost} disabled={busyId === h.id} onClick={() => void settleOwed(h, "write_off")}>
+                    Write off (manager)
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -309,6 +427,8 @@ export function StaffDriverCashPanel() {
                         h.receivedByName ? `Counted by ${h.receivedByName}` : null,
                         h.approvedByName ? `signed off by ${h.approvedByName}` : null,
                         h.reasonCode ? reasonLabel(h.reasonCode) : null,
+                        h.journalNumber ? `posted ${h.journalNumber}` : null,
+                        h.owedAmount > 0 ? `driver owes ${money(h.outstandingAmount, h.currency)} of ${money(h.owedAmount, h.currency)}` : null,
                         h.approverNotes,
                       ]
                         .filter(Boolean)

@@ -182,7 +182,14 @@ data class DriverCashHandin(
     val reasonCode: String?,
 )
 
-data class DriverCash(val holding: List<DriverCashHolding>, val handins: List<DriverCashHandin>) {
+/** A signed-off shortage the driver still owes (paid back at the counter or written off by a manager). */
+data class DriverCashOwed(val currency: String, val amount: Double)
+
+data class DriverCash(
+    val holding: List<DriverCashHolding>,
+    val handins: List<DriverCashHandin>,
+    val owed: List<DriverCashOwed> = emptyList(),
+) {
     /** A hand-in still waiting for someone to count it, per currency. */
     fun waiting(currency: String): DriverCashHandin? = handins.firstOrNull { it.currency == currency && it.status == "submitted" }
 }

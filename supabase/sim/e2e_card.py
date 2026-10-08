@@ -1,5 +1,6 @@
-"""Card payments: at the counter (approved, declined, no answer then recovered, forged answer refused)
-and at the door (driver's paired phone and machine)."""
+"""Card payments: at the counter (approved, declined, no answer then recovered, forged answer refused),
+voided on the machine before the sale is finished, refunded to the card by a manager, and at the door
+(driver's paired phone and machine)."""
 import json, uuid
 from sim import sql, as_user, val, free_item, RpcError
 from card import Device, edge_card_terminal_result
@@ -110,6 +111,43 @@ refused('a new charge while one has no answer', lambda: begin(o2))
 p, sig = tablet.answer(a3, 'approved', txn='TX-1003-'+RUN, rrn='RRN1003', last4='4242')
 step('asking the machine again: it was approved', lambda: edge_card_terminal_result(cashier, p, sig))
 step('sale finalised after recovery', lambda: val(cashier, "select finalize_pos_card_terminal_purchase(%s)", (a3,)))
+
+# Void: an approved charge the cashier cancels before the sale is finalised (machine reversal)
+o4 = order()
+a4 = step('fourth card charge starts', lambda: begin(o4))
+p, sig = tablet.answer(a4, 'approved', txn='TX-1004-'+RUN, rrn='RRN1004', last4='4242')
+step('machine approves', lambda: edge_card_terminal_result(cashier, p, sig))
+rv = step('cashier voids it on the machine before finishing the sale', lambda: val(
+    cashier, "select begin_pos_card_terminal_reversal(%s,%s)", (a4, str(uuid.uuid4())))['attempt_id'])
+p, sig = tablet.answer(rv, 'approved', txn='TX-1004R-'+RUN, rrn='RRN1004R')
+step('machine confirms the void', lambda: edge_card_terminal_result(cashier, p, sig))
+refused('voided charge cannot be finalised into a sale', lambda: val(cashier, "select finalize_pos_card_terminal_purchase(%s)", (a4,)))
+step('no payment recorded for the voided charge', lambda: expect(sql(
+    "select payment_entry_id from pos_card_terminal_attempts where id=%s", (a4,), one=True)['payment_entry_id'] is None, 'payment recorded'))
+refused('a settled sale cannot be voided (refund instead)', lambda: val(cashier, "select begin_pos_card_terminal_reversal(%s,%s)", (a1, str(uuid.uuid4()))))
+
+# Refund: the first sale is refunded to the card by a manager
+inv1 = str(sql("select sales_invoice_id from commerce_orders where id=%s", (o1,), one=True)['sales_invoice_id'])
+refused('cashier refunds to a card', lambda: val(cashier, "select begin_pos_card_terminal_refund(%s,%s,%s)", (inv1, term['SIM-CT-01'], str(uuid.uuid4()))), expect='manager')
+req = str(uuid.uuid4())
+rf = step('manager starts a card refund for the whole sale', lambda: val(
+    manager, "select begin_pos_card_terminal_refund(%s,%s,%s)", (inv1, term['SIM-CT-01'], req))['attempt_id'])
+step('asking again with the same request gives the same refund', lambda: expect(val(
+    manager, "select begin_pos_card_terminal_refund(%s,%s,%s)", (inv1, term['SIM-CT-01'], req))['attempt_id'] == rf, 'new refund'))
+refused('a second refund while one is open', lambda: val(manager, "select begin_pos_card_terminal_refund(%s,%s,%s)", (inv1, term['SIM-CT-01'], str(uuid.uuid4()))))
+refused('finalised before the machine answers', lambda: val(manager, "select finalize_pos_card_terminal_refund(%s,null)", (rf,)), expect='approval')
+p, sig = tablet.answer(rf, 'approved', txn='TX-1001RF-'+RUN, rrn='RRN1001RF', last4='4242')
+step('machine approves the refund', lambda: edge_card_terminal_result(manager, p, sig))
+refused('cashier finalises the refund', lambda: val(cashier, "select finalize_pos_card_terminal_refund(%s,null)", (rf,)), expect='manager')
+step('manager finalises the refund', lambda: expect(val(manager, "select finalize_pos_card_terminal_refund(%s,'customer returned part')", (rf,))['status'] == 'settled', 'not settled'))
+step('credit note for the whole sale, money back through card clearing (Dr 4110 / Cr 1170)', lambda: (lambda rows: expect(
+    {r['account_code']: (float(r['debit']), float(r['credit'])) for r in rows if r['account_code'] in ('4110', '1170')} ==
+    {'4110': (float(rows[0]['total']), 0.0), '1170': (0.0, float(rows[0]['total']))}, rows) and rows[0]['document_number'])(sql(
+    """select cn.document_number, cn.total, l.account_code, l.debit, l.credit from pos_card_terminal_attempts a
+       join sales_invoices cn on cn.id=a.credit_note_id join journal_entry_lines l on l.journal_entry_id=cn.journal_entry_id where a.id=%s""", (rf,))))
+step('the part went back into stock (quarantine)', lambda: expect(sql(
+    "select count(*) n from sales_invoice_lines l join pos_card_terminal_attempts a on a.credit_note_id=l.invoice_id where a.id=%s and l.issues_stock", (rf,), one=True)['n'] >= 1, 'no stock line'))
+refused('refunding the same sale again', lambda: val(manager, "select begin_pos_card_terminal_refund(%s,%s,%s)", (inv1, term['SIM-CT-01'], str(uuid.uuid4()))), expect='already')
 
 # Card at the door
 phone = Device('sim-driver1-phone')

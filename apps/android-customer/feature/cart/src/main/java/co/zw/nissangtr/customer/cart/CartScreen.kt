@@ -258,7 +258,7 @@ fun CartScreen(
                 if (state.suspension != null) {
                     Text(
                         "Pay on delivery is not available: your account is suspended until what you owe " +
-                            "(USD %.2f) is settled. Pay online now instead.".format(state.suspension?.owingUsd ?: 0.0),
+                            "(${state.suspension?.owedText}) is settled. Pay online now instead.",
                         color = GtrPremiumColors.TextSecondary,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp),

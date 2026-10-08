@@ -314,7 +314,13 @@ class SupabaseRpcClient(
         val e = client.postgrest.rpc("get_my_account_suspension").decodeAs<kotlinx.serialization.json.JsonElement>()
         val o = e as? kotlinx.serialization.json.JsonObject ?: return null
         val p = { k: String -> (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content }
-        return AccountSuspension(p("reason").orEmpty(), p("owing")?.toDoubleOrNull() ?: 0.0)
+        val owed = (o["owing_by_currency"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { x ->
+            val r = x as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val currency = (r["currency"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
+            val amount = (r["amount"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toDoubleOrNull() ?: return@mapNotNull null
+            OwedAmount(currency, amount)
+        }
+        return AccountSuspension(p("reason").orEmpty(), owed)
     }
 
     override suspend fun getMyDeliveryCodes(): List<DeliveryCode> {

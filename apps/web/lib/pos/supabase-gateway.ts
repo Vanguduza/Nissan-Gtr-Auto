@@ -1,6 +1,7 @@
 import { createEphemeralClient, type SupabaseClient } from "@gtr/supabase-client";
 import type { PosGateway } from "@/lib/pos/gateway";
 import { roundMoney } from "@/lib/pos/money";
+import { owedFrom } from "@/lib/money-owed";
 import type {
   CartLine,
   CustomerInput,
@@ -31,6 +32,7 @@ import type {
   WarrantyClaim,
   WarrantyStatus,
   FulfillmentRequest,
+  FulfillmentDeposit,
   BusinessProfile,
   LetterSourceKind,
   MySignature,
@@ -47,6 +49,25 @@ import {
 import { searchPosCatalog } from "@/lib/staff-pos";
 
 import { VEHICLE_MASTER_PAGE } from "@/lib/vehicle-catalog";
+
+function depositFrom(r: Record<string, unknown>): FulfillmentDeposit {
+  const s = (v: unknown) => (typeof v === "string" && v ? v : null);
+  return {
+    id: String(r.id),
+    documentNumber: String(r.document_number ?? ""),
+    requestId: String(r.request_id ?? ""),
+    amount: Number(r.amount ?? 0),
+    currency: String(r.currency ?? "USD"),
+    tender: (String(r.tender ?? "cash") as FulfillmentDeposit["tender"]),
+    reference: s(r.reference),
+    status: r.status === "refunded" ? "refunded" : "held",
+    journalNumber: s(r.journal_number),
+    takenByName: s(r.taken_by_name),
+    createdAt: String(r.created_at ?? ""),
+    refundedByName: s(r.refunded_by_name),
+    refundedAt: s(r.refunded_at),
+  };
+}
 
 const NISSAN_MAKER_SLUG = "nissan";
 const PRODUCT_IMAGE_BUCKET = "product-images";
@@ -1731,8 +1752,34 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
           readyAt: (r.ready_at as string | null) ?? null,
           collectedAt: (r.collected_at as string | null) ?? null,
           createdAt: String(r.created_at),
+          depositsHeld: ((r.deposits_held as Record<string, unknown>[] | null) ?? []).map((d) => ({ currency: String(d.currency), amount: num(d.amount) })),
         })),
       };
+    },
+
+    async takeFulfillmentDeposit(input) {
+      const { data, error } = await rpc(client, "take_pos_fulfillment_deposit", {
+        p_request_id: input.requestId,
+        p_amount: input.amount,
+        p_currency: input.currency,
+        p_tender: input.tender,
+        p_till_session_id: input.tillSessionId,
+        p_reference: input.reference?.trim() || null,
+      });
+      if (error) return fail(error, "The deposit was not taken.");
+      return { ok: true, data: depositFrom(data as Record<string, unknown>) };
+    },
+
+    async listFulfillmentDeposits(requestId) {
+      const { data, error } = await rpc(client, "list_pos_fulfillment_deposits", { p_request_id: requestId });
+      if (error) return fail(error, "Could not load deposits.");
+      return { ok: true, data: ((data ?? []) as Record<string, unknown>[]).map(depositFrom) };
+    },
+
+    async refundFulfillmentDeposit(depositId, tillSessionId, notes) {
+      const { data, error } = await rpc(client, "refund_pos_fulfillment_deposit", { p_deposit_id: depositId, p_till_session_id: tillSessionId, p_notes: notes });
+      if (error) return fail(error, "The deposit was not refunded.");
+      return { ok: true, data: depositFrom(data as Record<string, unknown>) };
     },
 
     async fulfillmentStep(requestId, step, notes) {
@@ -1746,7 +1793,7 @@ export function createSupabasePosGateway(client: SupabaseClient): PosGateway {
       const { data, error } = await rpc(client, "get_customer_suspension", { p_customer_id: customerId });
       if (error) return fail(error, "Could not check the customer's account.");
       const o = data as Record<string, unknown> | null;
-      return { ok: true, data: o ? { reason: String(o.reason ?? ""), owing: num(o.owing) } : null };
+      return { ok: true, data: o ? { reason: String(o.reason ?? ""), owed: owedFrom(o) } : null };
     },
 
     async attachFulfillmentToSale(requestId, cartId) {

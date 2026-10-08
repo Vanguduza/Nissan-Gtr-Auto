@@ -534,7 +534,26 @@ export type FulfillmentRequest = {
   readyAt: string | null;
   collectedAt: string | null;
   createdAt: string;
+  /** Deposits still held for the customer on this request, per currency. */
+  depositsHeld: { currency: string; amount: number }[];
 };
+/** Part payment taken when ordering; held as the customer's store credit until the sale or a refund. */
+export type FulfillmentDeposit = {
+  id: string;
+  documentNumber: string;
+  requestId: string;
+  amount: number;
+  currency: string;
+  tender: DepositTender;
+  reference: string | null;
+  status: "held" | "refunded";
+  journalNumber: string | null;
+  takenByName: string | null;
+  createdAt: string;
+  refundedByName: string | null;
+  refundedAt: string | null;
+};
+export type DepositTender = "cash" | "bank" | "ecocash";
 export type FulfillmentInput = {
   kind: FulfillmentKind;
   stockItemId: string;

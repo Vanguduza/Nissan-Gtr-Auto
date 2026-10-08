@@ -79,7 +79,7 @@ class CartPayOnDeliveryScreenshotTest {
 
     @Test
     fun suspendedAccountCannotPayOnDelivery() {
-        val rpc = dispatchCart().apply { fakeSuspension = co.zw.nissangtr.customer.rpc.AccountSuspension("Failed to settle", 120.0) }
+        val rpc = dispatchCart().apply { fakeSuspension = co.zw.nissangtr.customer.rpc.AccountSuspension("Failed to settle", listOf(co.zw.nissangtr.customer.rpc.OwedAmount("USD", 120.0))) }
         val vm = CartViewModel(rpc).apply { onDeliveryPaymentChange(DeliveryPaymentMethod.CASH_ON_DELIVERY) }
         assertEquals("pay on delivery is not offered", DeliveryPaymentMethod.PREPAY, vm.state.value.deliveryPayment)
         assertNotNull(vm.state.value.suspension)

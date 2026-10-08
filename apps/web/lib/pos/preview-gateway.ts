@@ -34,6 +34,7 @@ import type {
   ManagerCandidate,
   InvoiceDetail,
   FulfillmentRequest,
+  FulfillmentDeposit,
   BusinessProfile,
   MySignature,
   PaymentLetter,
@@ -201,6 +202,14 @@ export function createPreviewPosGateway(): PosGateway {
   // Fulfilment: holds for collection, other-branch pickup, branch transfers and back-orders.
   const BRANCH: Record<string, string> = { "wh-main": "Harare main", "wh-byo": "Bulawayo branch", "wh-mut": "Mutare branch" };
   const fulfillment: FulfillmentRequest[] = [];
+  const deposits: FulfillmentDeposit[] = [];
+  const held = (requestId: string) =>
+    deposits.filter((d) => d.requestId === requestId && d.status === "held").reduce<{ currency: string; amount: number }[]>((acc, d) => {
+      const row = acc.find((x) => x.currency === d.currency);
+      if (row) row.amount += d.amount;
+      else acc.push({ currency: d.currency, amount: d.amount });
+      return acc;
+    }, []);
   /** A posted sale makes its holds ready, with the invoice (server trigger `sync_pos_fulfillment_invoice`). */
   const holdsReadyFor = (cartId: string, invoiceId: string) => {
     for (const f of fulfillment)
@@ -1015,13 +1024,13 @@ export function createPreviewPosGateway(): PosGateway {
         sourceWarehouseId: f.sourceWarehouseId, sourceName: f.sourceWarehouseId ? BRANCH[f.sourceWarehouseId] ?? f.sourceWarehouseId : null,
         destinationWarehouseId: f.destinationWarehouseId, destinationName: f.destinationWarehouseId ? BRANCH[f.destinationWarehouseId] ?? f.destinationWarehouseId : null,
         customerId: f.customerId, cartId: f.cartId, invoiceId: null,
-        expiresAt: f.kind === "backorder" ? null : new Date(Date.now() + f.holdMinutes * 60_000).toISOString(), readyAt: null, collectedAt: null, createdAt: new Date().toISOString(),
+        expiresAt: f.kind === "backorder" ? null : new Date(Date.now() + f.holdMinutes * 60_000).toISOString(), readyAt: null, collectedAt: null, createdAt: new Date().toISOString(), depositsHeld: [],
       });
       return ok(id);
     },
     listFulfillment: (query, status) => {
       const q = query.trim().toLowerCase();
-      return ok(fulfillment.filter((f) => (!status || f.status === status) && (!q || `${f.documentNumber} ${f.partNumber} ${f.description ?? ""}`.toLowerCase().includes(q))).map((f) => ({ ...f })));
+      return ok(fulfillment.filter((f) => (!status || f.status === status) && (!q || `${f.documentNumber} ${f.partNumber} ${f.description ?? ""}`.toLowerCase().includes(q))).map((f) => ({ ...f, depositsHeld: held(f.id) })));
     },
     fulfillmentStep: (requestId, step) => {
       const f = fulfillment.find((x) => x.id === requestId);
@@ -1048,6 +1057,32 @@ export function createPreviewPosGateway(): PosGateway {
           Object.assign(f, { status: "cancelled" });
           return ok(true as const);
       }
+    },
+    takeFulfillmentDeposit: (input) => {
+      const f = fulfillment.find((x) => x.id === input.requestId);
+      if (!f || ["collected", "cancelled", "rejected"].includes(f.status)) return no("open back-order or transfer required");
+      if (!f.customerId) return no("a deposit needs a registered customer on the request");
+      if (!(input.amount > 0)) return no("deposit must be more than 0");
+      if (input.tender === "cash" && !input.tillSessionId) return no("open till required for a cash deposit");
+      if (input.tender !== "cash" && !input.reference?.trim()) return no(`payment reference required for a ${input.tender} deposit`);
+      const d: FulfillmentDeposit = {
+        id: `dep-${seq++}`, documentNumber: nextDoc("DEP"), requestId: f.id, amount: input.amount, currency: input.currency, tender: input.tender,
+        reference: input.reference?.trim() || null, status: "held", journalNumber: nextDoc("JV"), takenByName: "Preview cashier",
+        createdAt: new Date().toISOString(), refundedByName: null, refundedAt: null,
+      };
+      deposits.push(d);
+      return ok({ ...d });
+    },
+    listFulfillmentDeposits: (requestId) => ok(deposits.filter((d) => d.requestId === requestId).map((d) => ({ ...d }))),
+    refundFulfillmentDeposit: (depositId, tillSessionId, notes) => {
+      const d = deposits.find((x) => x.id === depositId);
+      if (!d || d.status !== "held") return no("deposit held for the customer required");
+      const f = fulfillment.find((x) => x.id === d.requestId);
+      if (!f || !["cancelled", "rejected"].includes(f.status)) return no(`cancel ${f?.documentNumber ?? "the request"} before refunding its deposit`);
+      if (!notes.trim()) return no("say why the deposit is refunded");
+      if (d.tender === "cash" && !tillSessionId) return no("open till required to pay a cash refund");
+      Object.assign(d, { status: "refunded", refundedByName: "Preview manager", refundedAt: new Date().toISOString() });
+      return ok({ ...d });
     },
     customerSuspension: () => ok(null),
     attachFulfillmentToSale: (requestId, cartId) => {
