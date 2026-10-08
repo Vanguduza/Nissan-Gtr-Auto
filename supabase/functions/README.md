@@ -374,3 +374,38 @@ Caller JWT (staff or customer). Creates intent via RPC, then:
 **ContiPay initiate** also needs `phone` (or `metadata.phone` / `metadata.cell`) on the request body for redirect acquire.
 
 Algorithms live in `_shared/payment_edge.ts` (Paynow SHA512 per [Paynow docs](https://developers.paynow.co.zw/docs/paynow/generating_hash/); ContiPay Basic Auth PUT per [contipay-js-client](https://github.com/njzw/contipay-js-client)).
+
+## Payroll schedules (`process-payroll-schedules`)
+
+Cron worker (`x-worker-secret`): runs `run_due_payroll_schedules`, which funds submitted **gross**
+payroll from cash (5200 → 2150 → cash), and uploads a branded PDF payslip per line. No PAYE, NSSA or
+other statutory deductions; manual deductions only. Body: `{ "as_of"?: ISO time, "skip_pdf"?: bool }`.
+
+## Payment resolution letters (`render-payment-resolution-letter`)
+
+Signed-in manager posts `{ letter_id }`. Facts come from `get_payment_resolution_letter_render_data`
+(runs as the caller, so RLS decides who may print). The manager's registered signature is loaded
+from private storage and its SHA-256 checked before it is drawn. The PDF is archived in the
+`payment-resolution-letters` bucket with its hash and returned as an attachment.
+
+## Offline catalogue (`catalog-offline-release`)
+
+Staff device posts `{ device_public_key_spki_b64, app_flavor: "phone" | "tablet" }`. Returns the
+current release's metadata, a 6-hour signed R2 URL for the encrypted SQLite file, and the content
+key wrapped with the device's RSA-OAEP key. Revoked devices are refused; each grant is recorded.
+
+## Deployed functions not in this folder
+
+Checked against the hosted project on 2026-10-08 (48 deployed). These are deployed but
+deliberately not committed:
+
+| Function | Why |
+|----------|-----|
+| `canonical-staff-bootstrap-once`, `catalog-live-r2-smoke-once`, `catalog-r2-hotspot-promote-once`, `catalog-r2-hotspot-recovery-once`, `catalog-r2-image-ingest-once`, `catalog-r2-row-export-once`, `catalog-r2-vault-receiver-once`, `cutover-r2-bridge-v2`, `cutover-r2-env-presence-once`, `cutover-r2-health-probe-once`, `cutover-r2-import-v2`, `cutover-r2-manifest-hash-import`, `cutover-r2-manifest-ingest-once`, `cutover-r2-recover-page-v2`, `production-r2-health-once`, `rebuild-db-runner` | Retired: each only answers `410 Gone`. Safe to delete from the project. |
+| `catalog-r2-hotspot-publish-once` | One-off diagram hotspot publisher. Its bundled manifest names the catalogue source, which must not be stored here. Its job is done (hotspots are served by `catalog-live-r2`), so delete it from the project. |
+
+To recheck: list `GET /v1/projects/{ref}/functions` with the Management API and compare the slugs
+with this folder. To recover a deployed function's code, download
+`GET /v1/projects/{ref}/functions/{slug}/body` (an ESZIP v2 bundle). The function's own modules are
+stored with type annotations removed, so put the types back and compare the type-stripped result
+with the bundle before committing.

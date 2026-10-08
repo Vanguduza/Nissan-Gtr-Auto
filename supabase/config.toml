@@ -167,3 +167,7 @@ verify_jwt = false
 
 [functions.auth-send-sms-hook]
 verify_jwt = false
+
+# Cron worker: due hr_payslip_schedules → fund gross payroll + PDF (x-worker-secret)
+[functions.process-payroll-schedules]
+verify_jwt = true

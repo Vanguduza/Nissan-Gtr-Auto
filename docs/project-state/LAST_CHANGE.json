@@ -1,31 +1,21 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "65e1c3c708f47f2e8472",
+  "change_id": "9085971932fdd7d27be2",
   "changed_files": [
-    ".github/workflows/simulation.yml",
-    "supabase/migrations/20261008032826_close_two_gaps.sql",
-    "supabase/sim/README.md",
-    "supabase/sim/ci/rules.sh",
-    "supabase/sim/ci/run.sh",
-    "supabase/sim/ci/supabase/.branches/_current_branch",
-    "supabase/sim/ci/supabase/.temp/cli-latest",
-    "supabase/sim/ci/supabase/config.toml",
-    "supabase/sim/e2e_restock.py",
-    "supabase/sim/sim.py",
-    "supabase/sim/snapshot/VERSION",
-    "supabase/sim/snapshot/managed_schemas.sql",
-    "supabase/sim/snapshot/reference.sql",
-    "supabase/sim/snapshot/schema.sql.gz",
-    "supabase/tests/sim_role_rules_smoke.sql"
+    "supabase/config.toml",
+    "supabase/functions/README.md",
+    "supabase/functions/_shared/branded_docs_pdf.ts",
+    "supabase/functions/catalog-offline-release/index.ts",
+    "supabase/functions/process-payroll-schedules/index.ts",
+    "supabase/functions/render-payment-resolution-letter/index.ts"
   ],
-  "diff_sha256": "65e1c3c708f47f2e847279c565af0d98f08484e9a90e5fde7f1434c8538b5717",
+  "diff_sha256": "9085971932fdd7d27be2515481669e9eb7f488a82afc32cf9bb30d464ca992bb",
   "domains": [
-    "backend",
-    "ci"
+    "backend"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-08T03:30:29.580875+00:00",
+  "recorded_at_utc": "2026-10-08T03:36:52.230469+00:00",
   "schema_version": 1,
-  "source_parent": "1f6523dfbe1af32a072e3e279f120023d51b0e10"
+  "source_parent": "b18d89f931b0815a871a9f1d804dd39636072598"
 }
