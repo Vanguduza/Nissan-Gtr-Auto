@@ -29,3 +29,28 @@ python3 e2e_cod.py && python3 e2e_handin.py
 
 Each line prints `OK` or `FAIL` with the server's message. `e2e_cod.py` writes proof-of-delivery
 storage rows directly in place of the app's photo upload.
+
+## Continuous integration (`.github/workflows/simulation.yml`)
+
+Every pull request that touches `supabase/` runs `ci/run.sh` on a throwaway stack (project
+`gtr-sim-ci`, API 56421, database 56422, so it never collides with a developer's replica):
+
+1. Load `snapshot/schema.sql.gz` (schema-only dump of `public`, `private`, `rebuild_internal`),
+   `snapshot/managed_schemas.sql` (storage policies, the new-user trigger) and
+   `snapshot/reference.sql` (chart of accounts, number series, approval policies, branches,
+   price lists, stock items and other set-up tables; no customer or ledger data).
+2. Apply every migration newer than `snapshot/VERSION`, so a new migration is tested before
+   it reaches hosted.
+3. Seed, run every `e2e_*.py` scenario (any `FAIL`, finding or traceback fails the build), then
+   `ci/rules.sh`, which runs `supabase/tests/sim_role_rules_smoke.sql`: one person per role
+   (a cashier can sell but not void, a driver never sees the customer's delivery code, nobody
+   approves their own count, signed-out visitors cannot call money functions, every table has
+   row level security).
+
+Run it locally with `bash supabase/sim/ci/run.sh`. The scripts read `SIM_DB_URL`, `SIM_API_URL`
+and `SIM_SERVICE_KEY` and refuse a database that is not on localhost.
+
+Refresh the snapshot when the migration list after `VERSION` gets long: dump the replica with
+`pg_dump --schema-only --no-owner -n public -n private -n rebuild_internal`, change
+`CREATE SCHEMA` to `CREATE SCHEMA IF NOT EXISTS`, drop `ALTER DEFAULT PRIVILEGES` lines, gzip
+with `gzip -n`, and set `VERSION` to the newest migration it contains.

@@ -1,10 +1,13 @@
 """Helpers for the local replica: Auth users, and calling database functions as a given user."""
-import json, urllib.request, psycopg2, psycopg2.extras
+import json, os, urllib.request, psycopg2, psycopg2.extras
 
-DB = 'postgresql://postgres:postgres@127.0.0.1:55422/postgres'
-API = 'http://127.0.0.1:55421'
+# Local stack only (see README). CI points these at its own stack.
+DB = os.environ.get('SIM_DB_URL', 'postgresql://postgres:postgres@127.0.0.1:55422/postgres')
+API = os.environ.get('SIM_API_URL', 'http://127.0.0.1:55421')
 # Public local-development key printed by `supabase start` (not a secret).
-SERVICE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
+SERVICE = os.environ.get('SIM_SERVICE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU')
+if '127.0.0.1' not in DB and 'localhost' not in DB:
+    raise SystemExit('simulation refuses a non-local database: the ledger is append-only')
 PASSWORD = 'Sim-Passw0rd!'
 
 conn = psycopg2.connect(DB)

@@ -33,12 +33,24 @@ def harare(p, item):
     return next((s for s in p['suggestions'] if s['stock_item_id'] == item and s['warehouse_id'] == MAIN), None)
 
 
-# The fastest seller at Harare over the last 28 days.
-top = sql("""select l.stock_item_id id, sum(l.qty_base) sold from sales_invoice_lines l join sales_invoices i on i.id=l.invoice_id
-             where i.warehouse_id=%s and i.status='posted' and i.doc_type='invoice' and i.posted_at > now()-interval '28 days'
-             group by 1 order by 2 desc limit 1""", (MAIN,), one=True)
-item = str(top['id'])
-print('     fastest seller sold', top['sold'], 'in 28 days')
+# A part of its own (simulation setup): 12 spare in Bulawayo, 23 at Harare of which 20 sell today.
+RUN = uuid.uuid4().hex[:6].upper()
+uom = sql("select base_uom_id from stock_items where base_uom_id is not null limit 1", one=True)['base_uom_id']
+item = str(sql("insert into stock_items(oem_part_number, description, base_uom_id) values (%s, 'Simulated fast seller', %s) returning id",
+               (f'SIM-FAST-{RUN}', uom), one=True)['id'])
+sql("insert into price_list_items(price_list_id, stock_item_id, unit_price) select id, %s, 45 from price_lists where code='RETAIL'", (item,))
+for wh, qty in ((BYO, 12), (MAIN, 23)):
+    val(warehouse, "select post_stock_receipt(%s,'Simulated supplier delivery',%s::jsonb)",
+        (wh, json.dumps([{'stock_item_id': item, 'uom_id': str(uom), 'qty': qty, 'unit_cost': 30, 'currency': 'USD'}])))
+sql("update pos_till_sessions set status='closed' where status<>'closed' and opened_by=%s", (cashier,))
+till = val(cashier, "select open_pos_till_session(%s,'sim-restock-tablet',20,'USD')", (MAIN,))
+cart = val(cashier, "select create_pos_cart(%s,null,'USD','immediate')", (MAIN,))
+as_user(cashier, "select add_cart_line(%s,%s,%s,20)", (cart, item, uom))
+as_user(cashier, "select attach_pos_cart_till_session(%s,%s)", (cart, till))
+order = val(cashier, "select prepare_pos_commerce_checkout_v2(%s,%s,'20 minutes',null,null,null)", (cart, str(uuid.uuid4())))
+total = float(val(cashier, "select get_pos_payment_status(%s)", (order,))['total'])
+val(cashier, "select settle_pos_commerce_tenders(%s,%s,%s::jsonb)", (order, str(uuid.uuid4()), json.dumps([{'tender': 'cash', 'amount': total}])))
+print('     sold 20 at Harare; 3 left, 12 in Bulawayo')
 
 # A supplier for it (simulation setup).
 sup = sql("select id from suppliers where code='SIM-SUP'", one=True)
