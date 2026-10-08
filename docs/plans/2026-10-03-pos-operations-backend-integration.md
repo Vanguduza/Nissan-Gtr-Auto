@@ -440,3 +440,28 @@ be written by signed-out visitors. Both now have RLS and no client grants.
 - **Accessibility**: axe-core (WCAG 2.1 A/AA) on Today, Exceptions, Restock, Approvals and Driver cash:
   the only failures were colour contrast of muted text and table headers (3.97–4.32:1); both darkened in
   the shared staff styles, and all five pages now report no violations.
+
+## Supabase advisor pass (2026-10-08, migration 20261008091102)
+
+Advisor before → after: security 684 → 500 findings, performance 668 → 593 (unused-index count rose
+only because the new foreign-key indexes have no usage statistics yet).
+- **Fixed, a real hole**: `catalog_r2_presign_list` / `_list_after` / `_list_page` / `_prefixes` /
+  `_get` read the R2 keys from Vault and signed URLs for the private catalogue bucket with no caller
+  check, so anyone (signed out included) could list and download it. Now service-role only, as are the
+  build-token functions (`catalog_r2_presign_batch`, `catalog_seed_vehicle_master`). Checked on hosted
+  over REST as a signed-out visitor: refused; storefront rails, vehicle list and the staff-login
+  pre-check still work. The role-rule test now guards it.
+- ERROR `security_definer_view` (`v_master_stock`): security invoker. 72 more functions that already
+  refused signed-out callers (staff, finance, POS, customer helpers) can no longer be called by them.
+- `function_search_path_mutable` (97) and `auth_rls_initplan` (74 policies): all fixed;
+  `unindexed_foreign_keys` (235): indexed.
+- Left on purpose: 22 functions signed-out visitors need (RLS / storage policy helpers, storefront
+  catalogue and prices, delivery tracking by token, staff-login pre-checks); 449 signed-in RPCs (the
+  API; each checks its caller); 28 tables with RLS and no policy (server-only); 84 multiple-permissive-
+  policy warnings (merging could change who sees what). Leaked-password protection (HaveIBeenPwned)
+  needs the Pro plan: the API refused it on this plan.
+- 17 deployed functions deleted (16 retired 410 stubs, and the one-off hotspot publisher whose bundle
+  carried catalogue-source data); every deployed function now has source in the repo.
+- Browser / screenshot checks of the last UI that was only compiled: POS deposit taken, shown, refunded
+  after release; "Customer wanted it" recorded (POS preview); tablet approvals pill and list rendered
+  (Roborazzi), tapping a till difference opens the Till.

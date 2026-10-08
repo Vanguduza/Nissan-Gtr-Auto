@@ -396,13 +396,10 @@ key wrapped with the device's RSA-OAEP key. Revoked devices are refused; each gr
 
 ## Deployed functions not in this folder
 
-Checked against the hosted project on 2026-10-08 (48 deployed). These are deployed but
-deliberately not committed:
-
-| Function | Why |
-|----------|-----|
-| `canonical-staff-bootstrap-once`, `catalog-live-r2-smoke-once`, `catalog-r2-hotspot-promote-once`, `catalog-r2-hotspot-recovery-once`, `catalog-r2-image-ingest-once`, `catalog-r2-row-export-once`, `catalog-r2-vault-receiver-once`, `cutover-r2-bridge-v2`, `cutover-r2-env-presence-once`, `cutover-r2-health-probe-once`, `cutover-r2-import-v2`, `cutover-r2-manifest-hash-import`, `cutover-r2-manifest-ingest-once`, `cutover-r2-recover-page-v2`, `production-r2-health-once`, `rebuild-db-runner` | Retired: each only answers `410 Gone`. Safe to delete from the project. |
-| `catalog-r2-hotspot-publish-once` | One-off diagram hotspot publisher. Its bundled manifest names the catalogue source, which must not be stored here. Its job is done (hotspots are served by `catalog-live-r2`), so delete it from the project. |
+None. On 2026-10-08 the 16 retired functions (each only answered `410 Gone`) and the one-off
+`catalog-r2-hotspot-publish-once` (its bundle carried catalogue-source data, which must not be stored
+here; hotspots are served by `catalog-live-r2`) were deleted from the project. Every deployed function
+now has its source in this folder.
 
 To recheck: list `GET /v1/projects/{ref}/functions` with the Management API and compare the slugs
 with this folder. To recover a deployed function's code, download

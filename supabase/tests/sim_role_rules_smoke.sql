@@ -128,10 +128,14 @@ BEGIN
     'public.submit_driver_cash_handin(public.currency_code,numeric,text)', 'public.receive_driver_cash_handin(uuid,numeric,text,text)',
     'public.list_my_approvals()', 'public.get_daily_dashboard(date,uuid)', 'public.get_exception_report(date,date,uuid)',
     'public.get_restock_suggestions(uuid,integer,integer,integer,integer)', 'public.get_my_delivery_codes()',
-    'public.generate_delivery_pod_otp(uuid,interval)', 'public.lift_customer_suspension(uuid,text)'] LOOP
+    'public.generate_delivery_pod_otp(uuid,interval)', 'public.lift_customer_suspension(uuid,text)',
+    'public.catalog_r2_presign_list(text,integer)', 'public.catalog_r2_presign_get(text,integer)', 'public.set_customer_credit(uuid,numeric,boolean)'] LOOP
     IF has_function_privilege('anon', f, 'execute') THEN bad := bad || f; END IF;
   END LOOP;
   IF array_length(bad, 1) > 0 THEN RAISE EXCEPTION 'RULE anon can execute: %', bad; END IF;
+  -- Signed catalogue-bucket URLs are for the server only, not even signed-in users.
+  IF has_function_privilege('authenticated', 'public.catalog_r2_presign_list(text,integer)', 'execute') THEN
+    RAISE EXCEPTION 'RULE signed-in users can list the private catalogue bucket'; END IF;
   RAISE NOTICE 'ok  signed-out visitors cannot call staff or money functions';
 END $$;
 
