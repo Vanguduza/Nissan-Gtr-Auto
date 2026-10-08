@@ -100,3 +100,9 @@ button {
     animation: none;
   }
 }
+
+/* Printing a staff report (e.g. Staff → Today → Print end-of-day report): page content only. */
+@media print {
+  [data-noprint] { display: none !important; }
+  body { background: #fff !important; }
+}

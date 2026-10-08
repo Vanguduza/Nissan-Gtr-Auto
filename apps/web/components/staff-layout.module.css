@@ -110,3 +110,12 @@
     opacity: 0.18;
   }
 }
+
+@media print {
+  .staffCanvas,
+  .staffCanvasInner {
+    background: #fff !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+}

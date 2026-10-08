@@ -34,6 +34,10 @@ export type TillRow = {
   approved: boolean;
   openedAt: string;
   closedAt: string | null;
+  varianceReason: string | null;
+  approvedByName: string | null;
+  /** Pay-ins, pay-outs, bank drops and cash refunds during the day. */
+  movements: { kind: string; amount: number; reason: string | null; notes: string | null; by: string | null; at: string | null }[];
 };
 export type LowStock = { oemPartNumber: string; description: string | null; warehouse: string; onHand: number; reorderPoint: number; reorderQty: number | null };
 
@@ -123,6 +127,9 @@ export async function getDailyDashboard(
         approved: Boolean(r.approved),
         openedAt: String(r.opened_at ?? ""),
         closedAt: s(r.closed_at),
+        varianceReason: s(r.variance_reason),
+        approvedByName: s(r.approved_by_name),
+        movements: rows(r.movements).map((m) => ({ kind: String(m.kind ?? ""), amount: n(m.amount), reason: s(m.reason), notes: s(m.notes), by: s(m.by), at: s(m.at) })),
       })),
       deliveries: {
         dispatched: n(del.dispatched),

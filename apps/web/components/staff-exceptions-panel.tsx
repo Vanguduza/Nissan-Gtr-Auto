@@ -7,6 +7,7 @@ import { harareToday, money } from "@/lib/staff-dashboard";
 import { EXCEPTION_LABEL, getExceptionReport, requireSession, type ExceptionReport } from "@/lib/staff-exceptions";
 import { listWarehouses, type WarehouseOption } from "@/lib/staff-warehouse";
 import { createWebClient } from "@/lib/supabase";
+import { downloadCsv, toCsv } from "@/lib/csv";
 
 type Boot =
   | { kind: "loading" }
@@ -65,7 +66,7 @@ export function StaffExceptionsPanel() {
   }, [boot, kind, person]);
 
   const filters = (
-    <div className={styles.formActions} role="group" aria-label="Period and branch" style={{ flexWrap: "wrap" }}>
+    <div className={styles.formActions} role="group" aria-label="Period and branch" style={{ flexWrap: "wrap" }} data-noprint>
       <label className={styles.muted}>
         From{" "}
         <input type="date" className={styles.input} value={from} max={to} onChange={(e) => setFrom(e.target.value || from)} />
@@ -81,6 +82,29 @@ export function StaffExceptionsPanel() {
           </option>
         ))}
       </select>
+      {boot.kind === "ready" ? (
+        <>
+          <button
+            type="button"
+            className={styles.btnGhost}
+            disabled={shown.length === 0}
+            onClick={() =>
+              downloadCsv(
+                `exceptions-${from}-to-${to}.csv`,
+                toCsv(
+                  ["When", "Kind", "Severity", "Person", "Approved by", "Branch", "Currency", "Amount", "Detail"],
+                  shown.map((i) => [i.at, EXCEPTION_LABEL[i.kind] ?? i.kind, i.severity, i.person, i.approvedBy, i.warehouse, i.currency, i.amount, i.detail]),
+                ),
+              )
+            }
+          >
+            Download CSV ({shown.length})
+          </button>
+          <button type="button" className={styles.btnGhost} onClick={() => window.print()}>
+            Print
+          </button>
+        </>
+      ) : null}
     </div>
   );
 

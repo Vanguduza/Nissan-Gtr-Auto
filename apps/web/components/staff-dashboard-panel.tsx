@@ -42,6 +42,15 @@ function Tile({ label, value, sub, alert, href }: { label: string; value: string
   );
 }
 
+/** Till corrections during the day (pos_till_cash_movements.kind). */
+const MOVEMENT_LABEL: Record<string, string> = {
+  cash_in: "Paid in",
+  cash_out: "Paid out",
+  petty_cash: "Petty cash",
+  bank_drop: "Bank drop",
+  cash_refund: "Cash refund",
+};
+
 /**
  * The day at a glance for a manager: sales and margin, money taken by tender, what is still owed,
  * tills, deliveries, driver cash, stock to reorder and decisions waiting. Pick a day and a branch;
@@ -89,7 +98,7 @@ export function StaffDashboardPanel() {
   }, [refresh, date]);
 
   const filters = (
-    <div className={styles.formActions} role="group" aria-label="Day and branch" style={{ flexWrap: "wrap" }}>
+    <div className={styles.formActions} role="group" aria-label="Day and branch" style={{ flexWrap: "wrap" }} data-noprint>
       <input
         type="date"
         className={styles.input}
@@ -112,6 +121,9 @@ export function StaffDashboardPanel() {
           Today
         </button>
       ) : null}
+      <button type="button" className={styles.btnGhost} onClick={() => window.print()}>
+        Print end-of-day report
+      </button>
     </div>
   );
 
@@ -353,7 +365,7 @@ export function StaffDashboardPanel() {
               </tr>
             </thead>
             <tbody>
-              {d.tills.map((t) => (
+              {d.tills.map((t) => [
                 <tr key={t.id}>
                   <td>
                     {t.cashier ?? "—"}
@@ -364,9 +376,36 @@ export function StaffDashboardPanel() {
                   <td className={styles.num}>{money(t.openingFloat, t.currency)}</td>
                   <td className={styles.num}>{t.expectedCash != null ? money(t.expectedCash, t.currency) : "—"}</td>
                   <td className={styles.num}>{t.countedCash != null ? money(t.countedCash, t.currency) : "—"}</td>
-                  <td className={styles.num}>{t.variance != null ? money(t.variance, t.currency) : "—"}</td>
-                </tr>
-              ))}
+                  <td className={styles.num}>
+                    {t.variance != null ? money(t.variance, t.currency) : "—"}
+                    {t.varianceReason ? (
+                      <>
+                        <br />
+                        <span className={styles.muted}>
+                          {t.varianceReason.replace(/_/g, " ")}
+                          {t.approvedByName ? ` · signed off by ${t.approvedByName}` : ""}
+                        </span>
+                      </>
+                    ) : null}
+                  </td>
+                </tr>,
+                t.movements.length > 0 ? (
+                  <tr key={t.id + ":moves"}>
+                    <td colSpan={6} style={{ paddingTop: 0 }}>
+                      <span className={styles.muted}>Corrections: </span>
+                      {t.movements.map((m, i) => (
+                        <span key={i} className={styles.muted}>
+                          {i ? " · " : ""}
+                          {MOVEMENT_LABEL[m.kind] ?? m.kind} {money(m.amount, t.currency)}
+                          {m.notes ? ` (${m.notes})` : m.reason ? ` (${m.reason.replace(/_/g, " ")})` : ""}
+                          {m.by ? ` by ${m.by}` : ""}
+                          {m.at ? ` at ${new Date(m.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                ) : null,
+              ])}
             </tbody>
           </table>
         </div>

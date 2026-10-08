@@ -458,4 +458,7 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | DEV-01 | Edge Functions served on the local simulation stack (`ci/functions.sh`) | — | all | partial — boots locally; imports need network to jsr.io / npm (not reachable from this sandbox's Docker) |
 | RST-02 | Per-branch reorder points; lost demand from the counter counted in restock; lead times from received orders | 10.x | other apps / POS | done — e2e_restock.py; Restock page screenshotted; POS typechecked |
 | RST-03 | Slow stock: move to the branch that sells it, or audited markdown | 10.x | other apps | done — e2e_restock.py (markdown logged, move suggested); screenshotted |
+| DSH-02 | Till corrections (cash movements, difference reason and approver) on the daily dashboard; printable end-of-day report | 10.x | other apps | done — checked against the simulated movements; print layout rendered |
+| EXP-01 | CSV export and print for Exceptions and Restock | 10.x | other apps | done — typechecked; formula-safe CSV |
+| A11Y-01 | Accessibility pass on Today, Exceptions, Restock, Approvals, Driver cash | — | other apps | done — axe-core WCAG 2.1 AA: 0 violations after contrast fix |
 

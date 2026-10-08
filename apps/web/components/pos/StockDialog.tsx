@@ -71,7 +71,7 @@ export function StockDialog({ pos }: { pos: PosStore }) {
         </table>
       ) : null}
       {rows && rows.length > 0 && pos.online ? <FulfillmentActions pos={pos} part={part} rows={rows} here={here} /> : null}
-      {noneHere && here && pos.online ? <LostDemand pos={pos} stockItemId={part.stockItemId} warehouseId={here} /> : null}
+      {noneHere && here && part.stockItemId && pos.online ? <LostDemand pos={pos} stockItemId={part.stockItemId} warehouseId={here} /> : null}
     </Modal>
   );
 }

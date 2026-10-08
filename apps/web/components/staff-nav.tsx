@@ -153,7 +153,7 @@ function StaffNavInner({ current }: { current: string }) {
   }
 
   return (
-    <nav className={styles.nav} aria-label="Staff">
+    <nav className={styles.nav} aria-label="Staff" data-noprint>
       <p className={styles.navTitle}>Staff</p>
       <ul className={styles.navList}>
         {entries.map((entry) => {
@@ -305,7 +305,7 @@ function StaffNavStatic({ current }: { current: string }) {
     : STAFF_NAV_TREE.filter((e) => e.kind === "link" && e.roles === "any");
 
   return (
-    <nav className={styles.nav} aria-label="Staff">
+    <nav className={styles.nav} aria-label="Staff" data-noprint>
       <p className={styles.navTitle}>Staff</p>
       <ul className={styles.navList}>
         {entries.map((entry) => {

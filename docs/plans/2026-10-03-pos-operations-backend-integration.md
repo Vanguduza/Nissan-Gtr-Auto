@@ -429,3 +429,14 @@ be written by signed-out visitors. Both now have RLS and no client grants.
   finance / admin, every price list, logged in `price_changes`).
 - `e2e_restock.py` covers all four (reorder point set and cleared, six asked-for units restocked, 21 and
   25 day deliveries giving 23 days, markdown 80 → 56 logged, move to Harare).
+
+## Polish (2026-10-08, migration 20261008081253)
+
+- **Till corrections on Staff → Today**: each till lists its pay-ins, pay-outs, bank drops and cash
+  refunds (amount, reason or note, who, when), and a signed-off difference shows its reason and manager.
+- **Exports**: Exceptions (the filtered rows) and Restock (suggestions; slow stock) download as CSV
+  (UTF-8 with BOM for Excel; cells starting with = + - @ are kept as text). Today, Exceptions and Restock
+  print cleanly (nav, filters and buttons hidden; content full width) — "Print end-of-day report" on Today.
+- **Accessibility**: axe-core (WCAG 2.1 A/AA) on Today, Exceptions, Restock, Approvals and Driver cash:
+  the only failures were colour contrast of muted text and table headers (3.97–4.32:1); both darkened in
+  the shared staff styles, and all five pages now report no violations.

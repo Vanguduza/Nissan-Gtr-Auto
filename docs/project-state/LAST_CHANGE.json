@@ -1,27 +1,31 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "0a7f5d9626e0ad5c8169",
+  "change_id": "997df42d4050cf778339",
   "changed_files": [
+    "apps/web/app/globals.css",
+    "apps/web/components/account.module.css",
     "apps/web/components/pos/StockDialog.tsx",
+    "apps/web/components/staff-chrome.tsx",
+    "apps/web/components/staff-dashboard-panel.tsx",
+    "apps/web/components/staff-exceptions-panel.tsx",
+    "apps/web/components/staff-layout.module.css",
+    "apps/web/components/staff-nav.tsx",
     "apps/web/components/staff-restock-panel.tsx",
-    "apps/web/lib/pos/gateway.ts",
-    "apps/web/lib/pos/preview-gateway.ts",
-    "apps/web/lib/pos/supabase-gateway.ts",
-    "apps/web/lib/staff-restock.ts",
+    "apps/web/lib/csv.ts",
+    "apps/web/lib/staff-dashboard.ts",
     "docs/design/pos/FEATURE_REGISTER.md",
     "docs/plans/2026-10-03-pos-operations-backend-integration.md",
-    "supabase/migrations/20261008041645_stock_decisions.sql",
-    "supabase/sim/e2e_restock.py"
+    "supabase/migrations/20261008081253_dashboard_till_corrections.sql"
   ],
-  "diff_sha256": "0a7f5d9626e0ad5c8169339b81c904b424b5adafd6699fac56e89e9e264ee211",
+  "diff_sha256": "997df42d4050cf7783390c8833a660f2f15209c93162bf69979b7c8e7b4ea326",
   "domains": [
     "backend",
     "documentation",
     "web"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-08T04:16:58.807579+00:00",
+  "recorded_at_utc": "2026-10-08T08:13:13.768819+00:00",
   "schema_version": 1,
-  "source_parent": "81315a8fd104b3b76d6595df3e89c910fa15c808"
+  "source_parent": "6422d37519d778f97db3eb1128357f433b9f0ca4"
 }

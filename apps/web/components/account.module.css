@@ -515,7 +515,8 @@
 }
 
 .muted {
-  color: rgba(18, 21, 28, 0.55);
+  /* 0.68: at least 4.5:1 on white and on the striped table rows (WCAG AA). */
+  color: rgba(18, 21, 28, 0.68);
   font-size: 0.92rem;
 }
 
@@ -907,7 +908,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: rgba(18, 21, 28, 0.58);
+  color: rgba(18, 21, 28, 0.7);
   background: color-mix(in srgb, var(--gtr-steel) 5%, white);
   border-bottom: 1px solid rgba(18, 21, 28, 0.1);
   white-space: nowrap;
@@ -1108,4 +1109,18 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
+}
+
+/* Printing a staff report: the page content at full width, no card chrome (nav and filters are data-noprint). */
+@media print {
+  .shell {
+    display: block !important;
+  }
+  .panel {
+    width: auto !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    background: #fff !important;
+  }
 }

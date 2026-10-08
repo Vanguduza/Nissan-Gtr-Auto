@@ -20,6 +20,7 @@ import {
 } from "@/lib/staff-restock";
 import { createStockTransfer, listWarehouses, type WarehouseOption } from "@/lib/staff-warehouse";
 import { createWebClient } from "@/lib/supabase";
+import { downloadCsv, toCsv } from "@/lib/csv";
 
 type Boot =
   | { kind: "loading" }
@@ -414,12 +415,34 @@ export function StaffRestockPanel() {
             Orders top up to the reorder point plus {plan.settings.coverDays} days of sales.
           </p>
 
-          <div className={styles.formActions} style={{ flexWrap: "wrap", marginTop: "0.75rem" }}>
+          <div className={styles.formActions} style={{ flexWrap: "wrap", marginTop: "0.75rem" }} data-noprint>
             <button type="button" className={styles.btn} disabled={busy || transferGroups.length === 0} onClick={() => void createTransfers()}>
               Create {transferGroups.length || ""} transfer{transferGroups.length === 1 ? "" : "s"}
             </button>
             <button type="button" className={styles.btn} disabled={busy || buyRows.length === 0} onClick={() => void createOrders()}>
               Draft purchase orders ({buyRows.length} part{buyRows.length === 1 ? "" : "s"})
+            </button>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => {
+                const day = new Date().toISOString().slice(0, 10);
+                downloadCsv(
+                  `restock-${day}.csv`,
+                  toCsv(
+                    ["Part", "Description", "Branch", "Urgency", "Free", "Sells per day", "Lost demand", "Days left", "Reorder point", "Reorder point from", "Move in", "Move from", "Buy", "Supplier", "Lead days", "Lead from", "Unit cost", "Currency"],
+                    plan.suggestions.map((x) => [
+                      x.oemPartNumber, x.description, x.warehouse, URGENCY_LABEL[x.urgency], x.available, x.daily, x.lost, x.daysOfCover, x.reorderPoint,
+                      x.reorderPointSource, x.transferQty, x.transferFrom?.warehouse, x.buyQty, x.supplier, x.leadDays, x.leadSource, x.unitCost, x.costCurrency,
+                    ]),
+                  ),
+                );
+              }}
+            >
+              Download CSV
+            </button>
+            <button type="button" className={styles.btnGhost} onClick={() => window.print()}>
+              Print
             </button>
             {suppliers.length === 0 ? (
               <span className={styles.muted}>
@@ -439,6 +462,23 @@ export function StaffRestockPanel() {
       {plan.slowStock.length > 0 ? (
         <>
           <h2 className={styles.sectionTitle}>Not selling (nothing sold in 90 days)</h2>
+          <p data-noprint>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() =>
+                downloadCsv(
+                  `slow-stock-${new Date().toISOString().slice(0, 10)}.csv`,
+                  toCsv(
+                    ["Part", "Description", "Branch", "On hand", "Value", "Currency", "Last sold", "Move to", "Move qty", "Suggested markdown %"],
+                    plan.slowStock.map((x) => [x.oemPartNumber, x.description, x.warehouse, x.onHand, x.value, x.currency, x.lastSoldAt, x.moveTo?.warehouse, x.moveQty, x.markdownPct]),
+                  ),
+                )
+              }
+            >
+              Download slow stock CSV
+            </button>
+          </p>
           <table className={styles.table}>
             <thead>
               <tr>
