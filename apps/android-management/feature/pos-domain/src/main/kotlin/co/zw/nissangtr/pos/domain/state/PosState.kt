@@ -180,6 +180,9 @@ data class PosState(
     val mySignature: co.zw.nissangtr.pos.domain.model.MySignature? = null,
     val businessProfile: co.zw.nissangtr.pos.domain.model.BusinessProfile? = null,
     val lettersBusy: Boolean = false,
+    /** Decisions waiting for the signed-in person, urgent first (refreshed while signed in). */
+    val approvals: List<co.zw.nissangtr.pos.domain.model.WaitingApproval> = emptyList(),
+    val approvalsOpen: Boolean = false,
 ) {
     val popularRow: List<PopularRowItem>
         get() = buildPopularRow(pins, bestSellers, hiddenBestSellers)

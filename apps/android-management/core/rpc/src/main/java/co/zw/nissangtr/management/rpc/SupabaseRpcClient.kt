@@ -3343,6 +3343,23 @@ class SupabaseRpcClient(
     private suspend fun downloadPrivate(bucket: String, path: String): ByteArray? =
         runCatching { storageRequest("GET", "object/authenticated/$bucket/$path") }.getOrNull()
 
+    override suspend fun listMyApprovals(): List<WaitingApprovalRow> {
+        val o = client.postgrest.rpc("list_my_approvals").decodeAs<JsonObject>()
+        return ((o["items"] as? JsonArray) ?: JsonArray(emptyList())).mapNotNull { e ->
+            val x = e as? JsonObject ?: return@mapNotNull null
+            WaitingApprovalRow(
+                kind = x.stringOrNull("kind") ?: return@mapNotNull null,
+                ref = x.stringOrNull("ref") ?: return@mapNotNull null,
+                title = x.stringOrNull("title").orEmpty(),
+                detail = x.stringOrNull("detail"),
+                urgent = x.stringOrNull("urgent") == "true",
+                waitingSince = x.stringOrNull("waiting_since"),
+                amount = x.stringOrNull("amount")?.toDoubleOrNull(),
+                currency = x.stringOrNull("currency"),
+            )
+        }
+    }
+
     override suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> =
         client.postgrest.rpc(
             "list_payment_resolution_letters",

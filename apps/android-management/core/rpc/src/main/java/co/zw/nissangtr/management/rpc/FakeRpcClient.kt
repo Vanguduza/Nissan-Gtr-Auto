@@ -2778,6 +2778,14 @@ class FakeRpcClient : RpcClient {
         return settled
     }
 
+    // --- Approvals (demo: one urgent card payment, one till difference, one web-only requisition)
+
+    override suspend fun listMyApprovals(): List<WaitingApprovalRow> = listOf(
+        WaitingApprovalRow("card_unresolved", "demo-card", "Card payment to reconcile", "Machine gave no answer at Counter 1", true, "2026-10-08T06:50:00Z", 42.0, "USD"),
+        WaitingApprovalRow("till_variance", "demo-till", "Till difference: Rudo", "Counted USD 5.00 short", false, "2026-10-08T06:10:00Z", -5.0, "USD"),
+        WaitingApprovalRow("requisition", "demo-req", "Requisition: shop supplies", "Waiting for your approval", false, "2026-10-07T15:00:00Z", 120.0, "USD"),
+    )
+
     // --- Payment letters (in memory; the demo manager signs)
 
     private var fakeProfile = BusinessProfileRow("Nissan GTR Auto", "Nissan GTR Auto", "nissangtrauto.co.zw", "Harare", "Zimbabwe", null, null, null, null, null)

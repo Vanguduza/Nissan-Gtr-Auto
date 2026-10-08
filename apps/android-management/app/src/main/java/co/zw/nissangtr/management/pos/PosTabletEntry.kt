@@ -99,6 +99,7 @@ fun PosTabletEntry(
                 returns = co.zw.nissangtr.pos.data.RpcReturnsGateway(rpc),
                 fulfillment = co.zw.nissangtr.pos.data.RpcFulfillmentGateway(rpc),
                 letters = co.zw.nissangtr.pos.data.RpcLettersGateway(rpc),
+                approvals = co.zw.nissangtr.pos.data.RpcApprovalsGateway(rpc),
                 // Card machine (ECR): the acquirer's app via the card-terminal bridge; a simulated machine
                 // only when this build runs on the in-memory demo backend.
                 terminal = RpcCardTerminalGateway(

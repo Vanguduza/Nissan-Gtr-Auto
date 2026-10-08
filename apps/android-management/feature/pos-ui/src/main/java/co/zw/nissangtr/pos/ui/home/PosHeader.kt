@@ -86,6 +86,8 @@ fun PosHeader(
     /** Till state for the operator block (D-016); tapping the block opens the Till screen. */
     till: String? = null,
     onTill: () -> Unit = {},
+    /** Approvals pill (shown only while something waits for the operator). */
+    approvals: @Composable () -> Unit = {},
 ) {
     val palette = PosTheme.palette
     val windowClass = PosTheme.geometry.windowClass
@@ -93,6 +95,7 @@ fun PosHeader(
         Column(modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 VehicleButton(cascade, onPickModel, onPickGeneration, onPickEngine, onPinVehicle, Modifier.weight(1f))
+                approvals()
                 OperatorBlock(operator, compact = true, till = till, onClick = onTill)
             }
             SearchField(searchQuery, onSearchChange, onSearchSubmit, onScan, Modifier.fillMaxWidth())
@@ -125,6 +128,7 @@ fun PosHeader(
 
         SyncStatus(online, queued)
 
+        approvals()
         OperatorBlock(operator, compact = windowClass != PosWindowClass.Expanded, till = till, onClick = onTill)
         ClockBlock(now)
     }

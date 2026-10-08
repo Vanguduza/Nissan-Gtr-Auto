@@ -380,3 +380,22 @@ be written by signed-out visitors. Both now have RLS and no client grants.
   quarantine, cost reversed) with Dr 4110 / Cr 1170 card clearing. A sale already partly returned is
   refused at the start. Card voids (machine reversal before the sale is finalised) and refunds are now
   in `e2e_card.py`.
+
+## Alerts away from the screen (2026-10-08, migration 20261008035943)
+
+- **Phone alerts, chosen by each person** (Staff → Approvals → Alerts on your phone): phone number,
+  SMS or WhatsApp, urgent approvals, and (managers / finance / admin) the 07:00 summary. Stored in
+  `staff_alert_settings` (own row only; `get_my_alert_settings` / `set_my_alert_settings`).
+- **Urgent approvals by text**: the 5-minute approvals sweep now also texts an urgent item that has
+  waited 10 minutes to each person it waits on who asked for it, once per item and person.
+- **07:00 summary** (`morning-summary-v1`, 05:00 UTC): yesterday's sales per currency, unpaid, till
+  differences, driver cash still held, failed deliveries, reorder count and approvals waiting — built by
+  running `get_daily_dashboard` as each recipient, so role limits apply — by text and as an in-app
+  notice linking to that day on Staff → Today.
+- `sms_outbox.channel` picks WhatsApp; `process-sms-outbox` (redeployed) sends it through WhatsApp
+  Cloud when configured and falls back to SMS (e.g. outside WhatsApp's 24-hour window, where only
+  approved templates are allowed). Nothing is sent until `SMS_GATEWAY_API_KEY` and/or the WhatsApp
+  Cloud secrets are set on the project and the worker is scheduled.
+- **Approvals on the tablet**: a header pill ("3 to approve", red when urgent) appears while something
+  waits for the signed-in operator; it opens the same list as the web. Till differences, returns, card
+  and split payments, and transfers open their tablet screen; the rest say to decide on the web.

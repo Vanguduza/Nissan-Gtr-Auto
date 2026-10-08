@@ -803,4 +803,16 @@
     <string name="pos_bp_email">Email</string>
     <string name="pos_bp_admin_only">Printed at the top of payment letters. Only an admin can save changes.</string>
     <string name="pos_bp_save">Save details</string>
+    <string name="pos_approvals_title">Waiting for you</string>
+    <string name="pos_approvals_none">Nothing is waiting for your decision.</string>
+    <string name="pos_approvals_urgent">Urgent</string>
+    <string name="pos_approvals_on_web">decide on the web: Staff → Approvals</string>
+    <string name="pos_approvals_tap_to_open">tap to open</string>
+    <string name="pos_approvals_waited_min">waiting %1$d min</string>
+    <string name="pos_approvals_waited_h">waiting %1$d h</string>
+    <string name="pos_approvals_waited_d">waiting %1$d days</string>
+    <plurals name="pos_approvals_waiting">
+        <item quantity="one">%1$d to approve</item>
+        <item quantity="other">%1$d to approve</item>
+    </plurals>
 </resources>

@@ -62,6 +62,7 @@ import co.zw.nissangtr.pos.domain.model.ProviderStart
 import co.zw.nissangtr.pos.domain.model.RecoveryItem
 import co.zw.nissangtr.pos.domain.model.TillCloseResult
 import co.zw.nissangtr.pos.domain.model.TillSession
+import co.zw.nissangtr.pos.domain.model.WaitingApproval
 import co.zw.nissangtr.pos.domain.result.PosResult
 
 /**
@@ -455,5 +456,14 @@ interface LettersGateway {
         override suspend fun saveSignature(png: ByteArray): PosResult<MySignature> = refused
         override suspend fun profile(): PosResult<BusinessProfile> = refused
         override suspend fun saveProfile(profile: BusinessProfile): PosResult<BusinessProfile> = refused
+    }
+}
+
+/** Decisions waiting for the signed-in person (the web Approvals inbox). */
+interface ApprovalsGateway {
+    suspend fun waiting(): PosResult<List<WaitingApproval>>
+
+    object None : ApprovalsGateway {
+        override suspend fun waiting(): PosResult<List<WaitingApproval>> = PosResult.Ok(emptyList())
     }
 }

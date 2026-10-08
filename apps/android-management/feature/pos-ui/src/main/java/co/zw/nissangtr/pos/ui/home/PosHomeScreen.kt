@@ -183,6 +183,7 @@ fun PosHomeScreen(
                 till = co.zw.nissangtr.pos.ui.sale.tillHeaderLabel(state),
                 onTill = { dispatch(PosIntent.Navigate(PosDestination.Till)) },
                 onScan = host.onScan,
+                approvals = { co.zw.nissangtr.pos.ui.sale.ApprovalsHeaderButton(state.approvals) { dispatch(co.zw.nissangtr.pos.domain.state.ApprovalsIntent.Open) } },
             )
         },
         cartPane = if (cartAsSheet) null else cartPane,
@@ -259,6 +260,14 @@ fun PosHomeScreen(
     ApprovalDialog(state, dispatch)
     co.zw.nissangtr.pos.ui.sale.StockByBranchDialog(state, dispatch)
     co.zw.nissangtr.pos.ui.sale.LetterDialog(state, dispatch, host.onPrintSignedDocument)
+    co.zw.nissangtr.pos.ui.sale.ApprovalsDialog(state, dispatch)
+    // Approvals waiting for the signed-in operator: refreshed every minute while online.
+    LaunchedEffect(state.operator, state.online) {
+        while (state.operator != null && state.online) {
+            dispatch(co.zw.nissangtr.pos.domain.state.ApprovalsIntent.Load)
+            kotlinx.coroutines.delay(60_000)
+        }
+    }
     co.zw.nissangtr.pos.ui.sale.TillDialogs(state, dispatch)
     GarageChooserDialog(state, dispatch)
     if (state.companionOpen) CompanionDialog(state, dispatch, now)

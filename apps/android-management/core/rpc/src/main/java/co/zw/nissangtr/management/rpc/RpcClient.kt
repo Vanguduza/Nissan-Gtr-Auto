@@ -987,6 +987,10 @@ interface RpcClient {
         throw UnsupportedOperationException("fulfilment needs the live backend")
     }
 
+    // --- Approvals inbox (the same list as the web Approvals page)
+
+    suspend fun listMyApprovals(): List<WaitingApprovalRow> = emptyList()
+
     // --- Payment resolution letters (manager / finance / admin, signed with the issuer's own signature)
 
     suspend fun listPaymentLetters(sourceKind: String?, sourceId: String?): List<PaymentLetterRow> = emptyList()

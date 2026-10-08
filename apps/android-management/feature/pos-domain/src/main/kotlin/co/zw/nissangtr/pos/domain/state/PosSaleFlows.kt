@@ -183,6 +183,9 @@ private fun offlineGuard(state: PosState, intent: PosSaleIntent): Reduction? = w
     is PosSaleIntent.RequestApproval, is PosSaleIntent.SubmitApproval -> offlineRefusal(state, "manager_approval")
     ReturnsIntent.Close, ReturnsIntent.HideStock -> null
     LetterIntent.Close -> null
+    // Offline: keep the last list; nothing to refresh until the connection is back.
+    ApprovalsIntent.Load -> Reduction(state)
+    ApprovalsIntent.Open, ApprovalsIntent.Close -> null
     is ReturnsIntent, is FulfillmentIntent, is LetterIntent -> offlineRefusal(state, "online_only")
     is PosSaleIntent.SelectCustomer, is PosSaleIntent.CreateCustomer -> offlineRefusal(state, "walk_in_only")
     PosSaleIntent.Park, is PosSaleIntent.Resume, is PosSaleIntent.CreateQuotation,
@@ -201,6 +204,7 @@ private fun reduceSaleIntentAny(state: PosState, intent: PosSaleIntent): Reducti
     is ReturnsIntent -> reduceReturnsIntent(state, intent)
     is FulfillmentIntent -> reduceFulfillmentIntent(state, intent)
     is LetterIntent -> reduceLetterIntent(state, intent)
+    is ApprovalsIntent -> reduceApprovalsIntent(state, intent)
 
     PosSaleIntent.OpenPayment -> when {
         state.cart.isEmpty -> Reduction(state)
@@ -482,6 +486,7 @@ internal fun reduceSaleEvent(state: PosState, event: PosSaleEvent): Reduction = 
     is ReturnsEvent -> reduceReturnsEvent(state, event)
     is FulfillmentEvent -> reduceFulfillmentEvent(state, event)
     is LetterEvent -> reduceLetterEvent(state, event)
+    is ApprovalsEvent -> reduceApprovalsEvent(state, event)
 
     is PosSaleEvent.CustomersLoaded -> Reduction(state.copy(customerResults = event.customers, customerSearching = false))
 

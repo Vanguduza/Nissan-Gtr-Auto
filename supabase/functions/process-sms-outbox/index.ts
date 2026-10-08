@@ -1,5 +1,8 @@
 /**
  * Drain manager sms_outbox via real SMS gateway (or local stub).
+ * Rows with channel = 'whatsapp' (staff who chose WhatsApp) go by WhatsApp Cloud when it is
+ * configured, falling back to SMS if WhatsApp is not configured or refuses the message (for
+ * example outside the 24-hour customer-service window).
  *
  * AuthZ: x-worker-secret ↔ WORKER_SHARED_SECRET.
  * When SMS_GATEWAY_API_KEY present: claim → send → complete (never stub:true on failure).
@@ -15,12 +18,14 @@ import {
   jsonOk,
 } from "../_shared/channel_env.ts";
 import { getSmsGatewayConfig, sendSms } from "../_shared/sms_gateway.ts";
+import { getWhatsAppCloudConfig, sendWhatsAppText } from "../_shared/whatsapp_cloud.ts";
 
 type SmsOutboxRow = {
   id: string;
   phone_e164: string;
   body: string;
   event_code: string;
+  channel?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -32,8 +37,9 @@ Deno.serve(async (req) => {
     const limit = Math.min(100, Math.max(1, Number(body.limit ?? 50) || 50));
     const localStub = allowLocalChannelStub();
     const smsCfg = getSmsGatewayConfig();
+    const waCfg = getWhatsAppCloudConfig();
 
-    if (!smsCfg) {
+    if (!smsCfg && !waCfg) {
       if (!localStub) {
         return jsonErr(
           "SMS_GATEWAY_API_KEY unset — refuse (set WORKER_ALLOW_UNVERIFIED_LOCAL=1 with WORKER_SHARED_SECRET unset for local stub only)",
@@ -74,7 +80,19 @@ Deno.serve(async (req) => {
 
     for (const row of list) {
       try {
-        const result = await sendSms(smsCfg, row.phone_e164, row.body);
+        let result: { messageId: string | null };
+        if (row.channel === "whatsapp" && waCfg) {
+          try {
+            result = await sendWhatsAppText(waCfg, row.phone_e164, row.body);
+          } catch (waErr) {
+            if (!smsCfg) throw waErr;
+            result = await sendSms(smsCfg, row.phone_e164, row.body);
+          }
+        } else if (smsCfg) {
+          result = await sendSms(smsCfg, row.phone_e164, row.body);
+        } else {
+          throw new Error("SMS gateway not configured for an SMS message");
+        }
         await supabase.rpc("complete_sms_outbox", {
           p_id: row.id,
           p_success: true,

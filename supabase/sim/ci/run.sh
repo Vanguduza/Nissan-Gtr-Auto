@@ -44,7 +44,7 @@ export SIM_DB_URL="$DB" SIM_API_URL="$API_URL" SIM_SERVICE_KEY="$SERVICE_ROLE_KE
 rm -f ids.json
 python3 seed.py
 status=0
-for s in e2e_day e2e_cod e2e_handin e2e_card e2e_backorder e2e_exceptions e2e_restock; do
+for s in e2e_day e2e_cod e2e_handin e2e_card e2e_backorder e2e_exceptions e2e_restock e2e_alerts; do
   echo "---- $s"
   if ! out="$(python3 "$s.py" 2>&1)"; then status=1; fi
   echo "$out"

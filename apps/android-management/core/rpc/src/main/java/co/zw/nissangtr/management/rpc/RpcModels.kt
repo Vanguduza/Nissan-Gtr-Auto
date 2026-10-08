@@ -1195,3 +1195,15 @@ data class BusinessProfileRow(
 )
 
 data class ManagerSignatureRow(val fullName: String, val employeeCode: String?, val hasSignature: Boolean, val capturedAt: String?, val image: ByteArray?)
+
+/** One decision waiting for the signed-in person (`list_my_approvals` → items). */
+data class WaitingApprovalRow(
+    val kind: String,
+    val ref: String,
+    val title: String,
+    val detail: String?,
+    val urgent: Boolean,
+    val waitingSince: String?,
+    val amount: Double?,
+    val currency: String?,
+)

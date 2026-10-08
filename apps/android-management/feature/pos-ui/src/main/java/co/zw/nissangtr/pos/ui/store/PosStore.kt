@@ -95,6 +95,8 @@ data class PosGateways(
     val fulfillment: co.zw.nissangtr.pos.domain.gateway.FulfillmentGateway = co.zw.nissangtr.pos.domain.gateway.FulfillmentGateway.None,
     /** Payment letters, the signer's signature and the business details. */
     val letters: co.zw.nissangtr.pos.domain.gateway.LettersGateway = co.zw.nissangtr.pos.domain.gateway.LettersGateway.None,
+    /** Decisions waiting for the signed-in person. */
+    val approvals: co.zw.nissangtr.pos.domain.gateway.ApprovalsGateway = co.zw.nissangtr.pos.domain.gateway.ApprovalsGateway.None,
 )
 
 /**
@@ -318,6 +320,10 @@ class PosStore(
             is SplitEffect -> runSplit(effect)
             is TerminalEffect -> runTerminal(effect)
             is ReturnsEffect -> runReturns(effect)
+            // A failed refresh keeps the last list (the count stays as it was).
+            is co.zw.nissangtr.pos.domain.state.ApprovalsEffect -> launch {
+                (gateways.approvals.waiting() as? PosResult.Ok)?.let { apply(co.zw.nissangtr.pos.domain.state.ApprovalsEvent.Loaded(it.value)) }
+            }
             is LetterEffect -> launch {
                 val g = gateways.letters
                 when (effect) {

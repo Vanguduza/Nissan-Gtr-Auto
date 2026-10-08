@@ -14,6 +14,7 @@ would stay in the books. They target a **local** Supabase stack (`supabase start
 | `e2e_backorder.py` | A part Harare does not have: back-order → cannot be marked ready before it arrives → supplier delivers → marked ready holds it for the customer (another customer cannot buy it) → customer pays → handed over. Transfer from Bulawayo for a customer: two-person transfer, held on arrival, sold, then handed over (not before paying). Deposits: cash deposit into the till and store credit (Dr 1120 / Cr 2200), used at the sale; refunded by a manager after cancellation; refused once spent. |
 | `e2e_exceptions.py` | Manager voids a sale, cashier removes a rung-up part, manager gives a discount and cuts a price, warehouse posts a short stock count; the exception report must show each against the cashier with the approving manager. |
 | `e2e_restock.py` | The fastest seller at Harare gets a supplier (simulation only): the suggestion uses its 10-day lead time and cost, suggests moving spare stock from Bulawayo and buying the rest; a draft order is shown but not counted; once the order is submitted and the transfer made, the suggestion is gone. Cashiers are refused. |
+| `e2e_alerts.py` | Phone alerts: staff choose their own (bad numbers refused); an urgent transfer for a waiting customer is texted to the warehouse by WhatsApp only after 10 minutes and only once; the 07:00 summary reaches the manager (not the cashier, who may not see the dashboard), once per day, also in the app. |
 | `e2e_handin.py` | Driver hands in the cash → second hand-in refused → cashier counts it short (reason required) → cashier and driver cannot sign it off → manager signs off and it posts (Dr 1250 / Cr 1120) → the driver owes it → repays part at the counter → another manager writes off the rest. |
 
 ```bash
@@ -24,6 +25,7 @@ python3 e2e_card.py
 python3 e2e_backorder.py
 python3 e2e_exceptions.py
 python3 e2e_restock.py
+python3 e2e_alerts.py
 python3 e2e_cod.py && python3 e2e_handin.py
 ```
 

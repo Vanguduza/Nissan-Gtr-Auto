@@ -1,5 +1,6 @@
 import { StaffNav } from "@/components/staff-nav";
 import { StaffApprovalsPanel } from "@/components/staff-approvals-panel";
+import { StaffPhoneAlerts } from "@/components/staff-phone-alerts";
 import { Inbox, iconSizeMd, iconStroke } from "@/components/icons";
 import styles from "@/components/account.module.css";
 
@@ -23,6 +24,7 @@ export default function StaffApprovalsPage() {
         </header>
         <div className={styles.pageBody}>
           <StaffApprovalsPanel />
+          <StaffPhoneAlerts />
         </div>
       </div>
     </div>

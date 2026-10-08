@@ -450,4 +450,7 @@ added for owner decisions D1 and D4 (`docs/decisions/2026-10-01-pos-owner-decisi
 | CUR-01 | Owing, credit and suspension checks never add USD to ZiG: per-currency balances, converted at each invoice's own rate | 10.x | all | done — conversion checked on the replica; e2e_day.py |
 | DEP-01 | Back-order / transfer deposits: cash, bank or EcoCash; held as store credit and used at the sale; refunded by a manager after cancellation, refused once spent | 10.x | POS | done — e2e_backorder.py (till, journals, store credit, refusals); web POS typechecked |
 | CRD-06 | Card refunds finalise (credit note, Dr 4110 / Cr 1170); voids before the sale is finished | 10.x | POS | done — fixed after e2e_card.py found finalising always failed |
+| ALR-01 | Phone alerts chosen by each person: urgent approvals texted after 10 min (once), SMS or WhatsApp with SMS fallback | 10.x | other apps | done — e2e_alerts.py on the replica (once, only to opted-in deciders); worker redeployed and boots; no live send (gateway secrets not set here) |
+| ALR-02 | 07:00 summary of yesterday per recipient's own access, by text and in-app | 10.x | other apps | done — e2e_alerts.py (manager gets it, cashier does not, no repeats); cron scheduled on hosted |
+| APR-03 | Approvals on the POS tablet: header pill with count, same list as web, opens the tablet screen that decides it | 10.x | POS | done — domain tests; tablet compiled |
 

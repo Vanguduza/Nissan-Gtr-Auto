@@ -51,6 +51,12 @@ export function StaffDashboardPanel() {
   const [boot, setBoot] = useState<Boot>({ kind: "loading" });
   const [date, setDate] = useState(harareToday());
   const [warehouseId, setWarehouseId] = useState<string>("");
+
+  // A link to a given day (e.g. the 07:00 summary notice: ?date=YYYY-MM-DD) opens that day.
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get("date");
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= harareToday()) setDate(d);
+  }, []);
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
 
   const refresh = useCallback(async () => {
