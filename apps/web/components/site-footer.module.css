@@ -9,7 +9,7 @@
 }
 
 .trustInner {
-  width: min(1120px, 100%);
+  width: min(var(--gtr-shop-max), 100%);
   margin-inline: auto;
   padding: 1.25rem clamp(0.85rem, 3vw, 1.5rem);
   display: grid;
@@ -37,7 +37,7 @@
 }
 
 .bottomInner {
-  width: min(1120px, 100%);
+  width: min(var(--gtr-shop-max), 100%);
   margin-inline: auto;
   padding: 1rem clamp(0.85rem, 3vw, 1.5rem);
   display: flex;

@@ -45,12 +45,15 @@ export type CatalogProduct = {
   replaces: string[];
   specs: string[];
   fitments: CatalogFitmentLine[];
-  alternatives: { oem: string; name: string }[];
+  alternatives: { id: string; oem: string; name: string }[];
   /** Storage diagram when `part_fitment.diagram_path` is set. */
   diagram: CatalogDiagram | null;
 };
 
 export type CatalogListItem = {
+  /** stock_items.id — customer links use this, never the part number. */
+  id?: string;
+  /** Used for background lookups only; never rendered on customer pages. */
   oem: string;
   name: string;
   stock: StockState;
@@ -80,7 +83,16 @@ export type CatalogListOpts = {
   /** Inclusive USD bounds — applied client-side after price join. */
   minUsd?: number | null;
   maxUsd?: number | null;
+  /** Free-text search: matches the product name or (in the background) the part number. */
+  query?: string | null;
 };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Customer product link — by stock item id so part numbers never reach the address bar. */
+export function partHref(item: { id?: string | null; oem?: string | null }): string {
+  return `/parts/${encodeURIComponent(item.id || item.oem || "")}`;
+}
 
 /** Strip PartSouq / Megazip vehicle noise from EPC assembly labels for display. */
 export function normalizeDisplayCategory(
@@ -171,22 +183,23 @@ export async function loadCatalogProduct(
   | { ok: true; data: CatalogProduct }
   | { ok: false; error: string; missing?: boolean }
 > {
-  const oem = decodeOem(oemParam);
-  if (!oem) {
-    return { ok: false, error: "Missing OEM.", missing: true };
+  const ref = decodeOem(oemParam);
+  if (!ref) {
+    return { ok: false, error: "Missing part.", missing: true };
   }
 
-  const { data: item, error: itemErr } = await client
+  // Customer pages address products by stock item id; a legacy part-number link still resolves.
+  const base = client
     .from("stock_items")
-    .select("id, oem_part_number, description, reorder_point")
-    .ilike("oem_part_number", oem)
-    .maybeSingle();
+    .select("id, oem_part_number, description, reorder_point");
+  const { data: item, error: itemErr } = await (UUID_RE.test(ref)
+    ? base.eq("id", ref)
+    : base.ilike("oem_part_number", ref)
+  ).maybeSingle();
 
   if (itemErr) return { ok: false, error: itemErr.message };
   if (!item) {
-    // Fitment-only OEM (catalog hit without inventory row) — still show PDP shell.
-    const fitOnly = await loadFitmentOnlyProduct(client, oem);
-    if (fitOnly.ok) return fitOnly;
+    // Catalogue-only parts (no stock row) have no customer page: the EPC is staff-only.
     return { ok: false, error: "Part not found.", missing: true };
   }
 
@@ -272,7 +285,7 @@ export async function loadCatalogProduct(
     data: {
       id: item.id,
       oem: item.oem_part_number,
-      name: item.description?.trim() || item.oem_part_number,
+      name: item.description?.trim() || "Nissan part",
       brand: "Nissan OE",
       category,
       usd: priced.usd,
@@ -283,64 +296,6 @@ export async function loadCatalogProduct(
       stock: stockStateFromQty(saleableQty, item.reorder_point),
       coreCharge: price.data.coreCharge,
       replaces,
-      specs,
-      fitments: fitments.data,
-      alternatives: alts,
-      diagram: diagram.data,
-    },
-  };
-}
-
-async function loadFitmentOnlyProduct(
-  client: SupabaseClient,
-  oem: string,
-): Promise<
-  | { ok: true; data: CatalogProduct }
-  | { ok: false; error: string; missing?: boolean }
-> {
-  const fitments = await loadFitmentLines(client, oem);
-  if (!fitments.ok) return fitments;
-  if (fitments.data.length === 0) {
-    return { ok: false, error: "Part not found.", missing: true };
-  }
-
-  const { data: xrefs } = await client
-    .from("oe_cross_refs")
-    .select("oe_number")
-    .ilike("oem_part_number", oem);
-
-  const primary = fitments.data[0];
-  const specs: string[] = [];
-  if (primary.pnc_code) specs.push(`PNC ${primary.pnc_code}`);
-  if (primary.chassis_code) specs.push(`Chassis ${primary.chassis_code}`);
-  if (primary.engine_code) specs.push(`Engine ${primary.engine_code}`);
-
-  const alts = await loadAlternatives(client, oem, primary.pnc_code);
-  const diagram = await loadOemCatalogDiagram(client, oem);
-  if (!diagram.ok) return { ok: false, error: diagram.error };
-
-  return {
-    ok: true,
-    data: {
-      id: oem,
-      oem,
-      name:
-        primary.subcategory_name?.trim() ||
-        (primary.category_name &&
-        primary.category_name.toLowerCase() !== "uncategorized"
-          ? primary.category_name
-          : null) ||
-        oem,
-      brand: "Nissan OE",
-      category: pickDisplayCategory([
-        primary.category_name,
-        primary.subcategory_name,
-      ]),
-      usd: null,
-      zig: null,
-      stock: "counter_only",
-      coreCharge: 0,
-      replaces: (xrefs ?? []).map((x) => x.oe_number),
       specs,
       fitments: fitments.data,
       alternatives: alts,
@@ -509,7 +464,7 @@ async function loadAlternatives(
   client: SupabaseClient,
   oem: string,
   pnc: string | null,
-): Promise<{ oem: string; name: string }[]> {
+): Promise<{ id: string; oem: string; name: string }[]> {
   if (!pnc) return [];
 
   const { data } = await client
@@ -527,16 +482,14 @@ async function loadAlternatives(
 
   const { data: items } = await client
     .from("stock_items")
-    .select("oem_part_number, description")
+    .select("id, oem_part_number, description")
     .in("oem_part_number", oems);
 
-  const byOem = new Map(
-    (items ?? []).map((i) => [i.oem_part_number, i.description]),
-  );
-
-  return oems.map((o) => ({
-    oem: o,
-    name: byOem.get(o)?.trim() || o,
+  // Only stocked alternatives, linked by stock id and named (never by number).
+  return (items ?? []).map((i) => ({
+    id: i.id,
+    oem: i.oem_part_number,
+    name: i.description?.trim() || "Nissan part",
   }));
 }
 
@@ -614,6 +567,13 @@ export async function listCatalogProducts(
 
   if (oemFilter) {
     query = query.in("oem_part_number", oemFilter);
+  }
+  const text = opts.query?.trim().replace(/[%,()]/g, " ").trim();
+  if (text) {
+    const compact = text.replace(/[\s-]/g, "");
+    query = query.or(
+      `description.ilike.%${text}%,oem_part_number.ilike.%${compact}%`,
+    );
   }
 
   const { data: items, error } = await query;
@@ -725,8 +685,9 @@ export async function listCatalogProducts(
     const qty = qtyByItem.get(item.id) ?? 0;
 
     return {
+      id: item.id,
       oem: item.oem_part_number,
-      name: item.description?.trim() || item.oem_part_number,
+      name: item.description?.trim() || "Nissan part",
       stock: stockStateFromQty(qty, item.reorder_point),
       usd: priced.usd,
       zig,
@@ -891,6 +852,8 @@ type HomeRailRpcRow = {
   discount_kind: string;
   discount_value: number;
   discount_description: string | null;
+  /** Present once migration 20261010090000 is applied. */
+  stock_item_id?: string | null;
 };
 
 function mapHomeRailRow(row: HomeRailRpcRow): CatalogListItem {
@@ -918,9 +881,12 @@ function mapHomeRailRow(row: HomeRailRpcRow): CatalogListItem {
         ? priced.usd * rate
         : null;
 
+  const title = row.catalog_title?.trim();
   return {
+    id: row.stock_item_id ?? undefined,
     oem: row.oem_part_number,
-    name: row.catalog_title?.trim() || row.oem_part_number,
+    // Older RPC fell back to the part number as title; never show it.
+    name: title && title !== row.oem_part_number ? title : "Nissan part",
     stock: stockStateFromQty(qty, row.reorder_point),
     usd: priced.usd,
     zig,
@@ -998,6 +964,105 @@ export async function listHomeMerchRails(
     newest: newest.data,
     categories: movers.categories,
   };
+}
+
+export type HomeCarouselItem = {
+  id: string;
+  name: string;
+  caption: string | null;
+  imageUrl: string | null;
+  usd: number | null;
+  zig: number | null;
+  stock: StockState;
+  discountDescription: string | null;
+};
+
+type HomeCarouselRpcRow = {
+  stock_item_id: string;
+  title: string;
+  caption: string | null;
+  image_path: string | null;
+  unit_price: number;
+  currency: "USD" | "ZIG";
+  qty_saleable: number;
+  discount_kind: string;
+  discount_value: number;
+  discount_description: string | null;
+};
+
+/**
+ * Home hero carousel — items curated in CRM → Product pages
+ * (`list_storefront_home_carousel`). Falls back to the featured rail when
+ * nothing is curated yet or the migration is not applied. Never carries
+ * part numbers.
+ */
+export async function listHomeCarousel(
+  client: SupabaseClient,
+  limit = 6,
+): Promise<{ ok: true; data: HomeCarouselItem[]; curated: boolean } | { ok: false; error: string }> {
+  const rpc = await (
+    client as unknown as {
+      rpc: (
+        fn: string,
+        args?: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    }
+  ).rpc("list_storefront_home_carousel", { p_limit: limit });
+
+  if (!rpc.error && Array.isArray(rpc.data) && rpc.data.length > 0) {
+    const rate = zigExchangeRate();
+    const data = (rpc.data as HomeCarouselRpcRow[]).map((row) => {
+      const discount =
+        row.discount_kind && row.discount_kind !== "none"
+          ? {
+              kind: row.discount_kind as "percent" | "amount",
+              value: Number(row.discount_value),
+              description: row.discount_description,
+            }
+          : null;
+      const priced = applyShopDiscount(
+        row.currency === "ZIG" ? null : Number(row.unit_price),
+        discount,
+      );
+      return {
+        id: row.stock_item_id,
+        name: row.title?.trim() || "Nissan part",
+        caption: row.caption,
+        imageUrl: row.image_path
+          ? productImagePublicUrl(client, row.image_path)
+          : null,
+        usd: priced.usd,
+        zig:
+          row.currency === "ZIG"
+            ? Number(row.unit_price)
+            : priced.usd != null && rate != null
+              ? priced.usd * rate
+              : null,
+        stock: stockStateFromQty(Number(row.qty_saleable ?? 0), null),
+        discountDescription: discount?.description ?? null,
+      };
+    });
+    return { ok: true, data, curated: true };
+  }
+
+  const rails = await listHomeMerchRails(client, limit);
+  if (!rails.ok) {
+    return { ok: false, error: rpc.error?.message ?? rails.error };
+  }
+  const data = rails.featured
+    .filter((item): item is CatalogListItem & { id: string } => Boolean(item.id))
+    .slice(0, limit)
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      caption: item.discountDescription ?? null,
+      imageUrl: null,
+      usd: item.usd,
+      zig: item.zig,
+      stock: item.stock,
+      discountDescription: item.discountDescription ?? null,
+    }));
+  return { ok: true, data, curated: false };
 }
 
 async function loadPricesForItems(

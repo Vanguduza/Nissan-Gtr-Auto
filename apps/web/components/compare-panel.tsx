@@ -12,8 +12,8 @@ import {
 } from "@/lib/customer-compare";
 import { MAX_COMPARE, readCompareOems } from "@/lib/compare-selection";
 import {
-  fitmentLabel,
   loadCatalogProduct,
+  partHref,
   type CatalogProduct,
 } from "@/lib/catalog-product";
 import { requireSession } from "@/lib/customer-storefront";
@@ -32,22 +32,7 @@ type MatrixRow = {
 };
 
 function buildMatrix(products: CatalogProduct[]): MatrixRow[] {
-  const fitmentSummary = (p: CatalogProduct) => {
-    const labels = [
-      ...new Set(
-        p.fitments.map(fitmentLabel).filter((label) => label.length > 0),
-      ),
-    ];
-    if (!labels.length) return "—";
-    return labels.slice(0, 3).join("; ") + (labels.length > 3 ? "…" : "");
-  };
-
   return [
-    {
-      key: "oem",
-      label: "OEM",
-      values: products.map((p) => p.oem),
-    },
     {
       key: "name",
       label: "Name",
@@ -83,32 +68,13 @@ function buildMatrix(products: CatalogProduct[]): MatrixRow[] {
       ),
     },
     {
-      key: "fitments",
-      label: "Fitments",
-      values: products.map((p) => fitmentSummary(p)),
-    },
-    {
-      key: "specs",
-      label: "Specs",
-      values: products.map((p) =>
-        p.specs.length ? p.specs.slice(0, 4).join("; ") : "—",
-      ),
-    },
-    {
-      key: "oe",
-      label: "OE cross-refs",
-      values: products.map((p) =>
-        p.replaces.length ? p.replaces.slice(0, 4).join(", ") : "—",
-      ),
-    },
-    {
       key: "alts",
       label: "Alternatives",
       values: products.map((p) =>
         p.alternatives.length
           ? p.alternatives
               .slice(0, 3)
-              .map((a) => a.oem)
+              .map((a) => a.name)
               .join(", ")
           : "—",
       ),
@@ -261,7 +227,7 @@ export function ComparePanel() {
                     align="left"
                     style={{ padding: "0.35rem 0.5rem", minWidth: "9rem" }}
                   >
-                    <code>{p.oem}</code>
+                    {p.name}
                   </th>
                 ))}
               </tr>
@@ -296,8 +262,7 @@ export function ComparePanel() {
       <div className={styles.cardGrid}>
         {status.products.map((p) => (
           <div key={p.id} className={styles.card}>
-            <span className={styles.cardLabel}>{p.oem}</span>
-            <span className={styles.cardBlurb}>{p.name}</span>
+            <span className={styles.cardLabel}>{p.name}</span>
             <StockBadge state={p.stock} />
             {p.usd != null ? (
               <PriceDual usd={p.usd} zig={p.zig} />
@@ -311,11 +276,8 @@ export function ComparePanel() {
             ) : null}
             <span className={styles.muted}>
               {p.category ?? "Uncategorized"}
-              {p.fitments.length
-                ? ` · ${p.fitments.length} fitment${p.fitments.length === 1 ? "" : "s"}`
-                : ""}
             </span>
-            <Link href={`/parts/${encodeURIComponent(p.oem)}`} className={styles.btn}>
+            <Link href={partHref(p)} className={styles.btn}>
               Open
             </Link>{" "}
             <button

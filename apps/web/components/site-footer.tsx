@@ -24,7 +24,6 @@ export function SiteFooter() {
         <div className={styles.bottomInner}>
           <p className={styles.mark}>Nissan GTR Auto · nissangtrauto.co.zw</p>
           <nav className={styles.links} aria-label="Footer">
-            <Link href="/catalog">EPC catalog</Link>
             <Link href="/shop">Shop stock</Link>
             <Link href="/account">My Account</Link>
             <Link href="/account/garage">My Garage</Link>

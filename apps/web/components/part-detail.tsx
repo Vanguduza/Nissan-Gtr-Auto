@@ -1,23 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AddToCartButton } from "@/components/add-to-cart-button";
-import { CatalogCanvasStub } from "@/components/catalog-canvas-stub";
 import { PriceDual } from "@/components/price-dual";
 import { StockBadge } from "@/components/stock-badge";
 import { ChatEntryLink } from "@/components/chat-entry-link";
 import { WhatsAppCta } from "@/components/whatsapp-cta";
 import { Heart, Images, Star, iconSizeMd, iconStroke } from "@/components/icons";
 import {
-  fitmentLabel,
   loadCatalogProduct,
+  partHref,
+  type CatalogFitmentLine,
   type CatalogProduct,
 } from "@/lib/catalog-product";
 import {
-  catalogPath,
-  loadEpcContext,
-} from "@/lib/catalog-hierarchy";
+  garageLabel,
+  listGarageVehicles,
+  type GarageVehicleRow,
+} from "@/lib/customer-storefront";
 import {
   addOemToCompareTray,
   removeOemFromCompareTray,
@@ -47,13 +49,36 @@ type Status =
   | { kind: "missing" }
   | { kind: "ready"; product: CatalogProduct };
 
-export function PartDetail({
-  oem,
-  fromEpc = false,
-}: {
-  oem: string;
-  fromEpc?: boolean;
-}) {
+type VehicleFit = { label: string; fits: boolean | null } | null;
+
+const norm = (v: string | null | undefined) =>
+  (v ?? "").replace(/[\s-]/g, "").toUpperCase();
+
+/**
+ * Catalogue fitment stays in the background (owner decision 2026-10-10):
+ * customers only see whether the part fits their primary garage vehicle.
+ */
+function primaryVehicleFit(
+  vehicles: GarageVehicleRow[],
+  fitments: CatalogFitmentLine[],
+): VehicleFit {
+  const v = vehicles.find((row) => row.is_primary) ?? vehicles[0];
+  if (!v) return null;
+  const label = garageLabel(v);
+  const chassis = norm(v.generation);
+  if (!chassis || fitments.length === 0) return { label, fits: null };
+  const engine = norm(v.engine);
+  const fits = fitments.some(
+    (f) =>
+      norm(f.chassis_code) === chassis &&
+      (!engine || !f.engine_code || norm(f.engine_code) === engine),
+  );
+  return { label, fits };
+}
+
+/** `ref` is the stock item id (customer links) or a legacy part-number URL. */
+export function PartDetail({ oem: ref }: { oem: string }) {
+  const router = useRouter();
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [onWishlist, setOnWishlist] = useState(false);
   const [inCompare, setInCompare] = useState(false);
@@ -68,24 +93,8 @@ export function PartDetail({
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewPhoto, setReviewPhoto] = useState<File | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
-  const [galleryTab, setGalleryTab] = useState<"diagram" | "photo">("diagram");
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [descOpen, setDescOpen] = useState(false);
-  const [epcBackHref, setEpcBackHref] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!fromEpc) {
-      const ctx = loadEpcContext();
-      if (ctx?.section) {
-        setEpcBackHref(catalogPath(ctx));
-        return;
-      }
-      setEpcBackHref(null);
-      return;
-    }
-    const ctx = loadEpcContext();
-    setEpcBackHref(ctx?.section ? catalogPath(ctx) : "/catalog");
-  }, [fromEpc, oem]);
+  const [vehicleFit, setVehicleFit] = useState<VehicleFit>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,9 +102,8 @@ export function PartDetail({
     async function run() {
       setStatus({ kind: "loading" });
       setActionMsg(null);
-      setGalleryTab("diagram");
       setPhotoUrls([]);
-      setDescOpen(false);
+      setVehicleFit(null);
       const client = createWebClient();
       if (!client) {
         if (!cancelled) {
@@ -113,7 +121,7 @@ export function PartDetail({
         return;
       }
 
-      const result = await loadCatalogProduct(client, oem);
+      const result = await loadCatalogProduct(client, ref);
       if (cancelled) return;
 
       if (!result.ok) {
@@ -127,26 +135,26 @@ export function PartDetail({
 
       setStatus({ kind: "ready", product: result.data });
       setInCompare(isOemInCompare(result.data.oem));
+      // Legacy part-number URLs move to the opaque id so the number never shows.
+      const canonical = partHref({ id: result.data.id, oem: result.data.oem });
+      if (result.data.id && canonical !== partHref({ oem: ref })) {
+        router.replace(canonical);
+      }
 
-      const [wish, approved, stats, photos] = await Promise.all([
+      const [wish, approved, stats, photos, garage] = await Promise.all([
         isOemOnWishlist(client, result.data.oem),
         listApprovedReviewsForOem(client, result.data.oem),
         getProductReviewStats(client, { oem: result.data.oem }),
         listApprovedReviewPhotoUrlsForOem(client, result.data.oem),
+        listGarageVehicles(client),
       ]);
       if (cancelled) return;
       if (wish.ok) setOnWishlist(wish.data);
       if (approved.ok) setReviews(approved.data);
       if (stats.ok) setReviewStats(stats.data);
-      if (photos.ok) {
-        setPhotoUrls(photos.data);
-        const staffPhotos = result.data.productImages ?? [];
-        if (
-          !result.data.diagram &&
-          (staffPhotos.length > 0 || photos.data.length > 0)
-        ) {
-          setGalleryTab("photo");
-        }
+      if (photos.ok) setPhotoUrls(photos.data);
+      if (garage.ok) {
+        setVehicleFit(primaryVehicleFit(garage.data, result.data.fitments));
       }
     }
 
@@ -154,7 +162,7 @@ export function PartDetail({
     return () => {
       cancelled = true;
     };
-  }, [oem]);
+  }, [ref, router]);
 
   const toggleWishlist = useCallback(async (productOem: string) => {
     setWishBusy(true);
@@ -265,20 +273,20 @@ export function PartDetail({
           </div>
         </div>
         <div className={styles.info}>
-          <p className={styles.muted}>Loading part {oem}…</p>
+          <p className={styles.muted}>Loading part…</p>
         </div>
       </article>
     );
   }
 
   if (status.kind === "auth") {
-    const next = `/parts/${encodeURIComponent(oem)}`;
+    const next = `/parts/${encodeURIComponent(ref)}`;
     return (
       <article className={styles.wrap}>
         <div className={styles.info}>
           <h1 className={styles.title}>Sign in to view part</h1>
           <p className={styles.muted}>
-            Catalog and inventory details require a signed-in account.
+            Pricing and stock details require a signed-in account.
           </p>
           <Link href={`/login?next=${encodeURIComponent(next)}`} className={styles.add}>
             Sign in
@@ -310,7 +318,8 @@ export function PartDetail({
         <div className={styles.info}>
           <h1 className={styles.title}>Part not found</h1>
           <p className={styles.muted}>
-            No inventory or fitment row for OEM <code>{oem}</code>.
+            This part is not in stock right now. Ask the counter or browse the
+            shop.
           </p>
           <div className={styles.actions}>
             <Link href="/search" className={styles.add}>
@@ -327,33 +336,12 @@ export function PartDetail({
 
   const p = status.product;
   const productPhotos = p.productImages ?? [];
-  const hasDiagram = Boolean(p.diagram?.publicUrl);
   const hasProductPhotos = productPhotos.length > 0;
-  const hasReviewPhotos = photoUrls.length > 0;
-  const hasPhotos = hasProductPhotos || hasReviewPhotos;
-  const showGalleryTabs = hasDiagram && hasPhotos;
+  const hasPhotos = hasProductPhotos || photoUrls.length > 0;
   const displayPhotos = hasProductPhotos ? productPhotos : photoUrls;
   const photoHint = hasProductPhotos
     ? "Product photos"
     : "Approved customer review photos";
-  const fitmentSummary =
-    p.fitments.length === 0
-      ? null
-      : [
-          ...new Set(
-            p.fitments.map(fitmentLabel).filter((label) => label.length > 0),
-          ),
-        ].slice(0, 6);
-
-  const descriptionBits = [
-    p.category ? `Category: ${p.category}` : null,
-    ...p.specs,
-    p.replaces.length
-      ? `Also replaces: ${p.replaces.slice(0, 4).join(", ")}`
-      : null,
-  ].filter(Boolean) as string[];
-
-  const descPreview = descriptionBits.slice(0, 2).join(" · ");
   const ratingAvg =
     reviewStats && reviewStats.review_count > 0
       ? Number(reviewStats.avg_rating)
@@ -361,24 +349,15 @@ export function PartDetail({
 
   return (
     <article className={styles.wrap}>
-      {epcBackHref ? (
-        <p className={styles.muted} style={{ marginBottom: "0.75rem" }}>
-          <Link href={epcBackHref} className={styles.wish}>
-            ← Back to diagram
-          </Link>
-        </p>
-      ) : null}
       <div className={styles.galleryCol}>
         <div className={styles.gallery} aria-label="Product media">
-          {hasDiagram && (!hasPhotos || galleryTab === "diagram") ? (
-            <CatalogCanvasStub diagram={p.diagram} oem={p.oem} />
-          ) : hasPhotos ? (
+          {hasPhotos ? (
             <div className={styles.photoGallery}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className={styles.photoHero}
                 src={displayPhotos[0]}
-                alt={`Photo for ${p.oem}`}
+                alt={p.name}
               />
               {displayPhotos.length > 1 ? (
                 <div className={styles.photoThumbs}>
@@ -398,40 +377,10 @@ export function PartDetail({
           ) : (
             <div className={styles.photo}>
               <Images size={28} strokeWidth={iconStroke} aria-hidden />
-              <span>No diagram or photo yet</span>
-              <span className={styles.photoHint}>
-                EPC diagram from catalog when seeded; product photos from staff
-                Product pages.
-              </span>
+              <span>Photo coming soon</span>
             </div>
           )}
         </div>
-        {showGalleryTabs ? (
-          <div className={styles.thumbs} role="tablist" aria-label="Gallery">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={galleryTab === "diagram"}
-              className={
-                galleryTab === "diagram" ? styles.thumbActive : styles.thumb
-              }
-              onClick={() => setGalleryTab("diagram")}
-            >
-              Diagram
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={galleryTab === "photo"}
-              className={
-                galleryTab === "photo" ? styles.thumbActive : styles.thumb
-              }
-              onClick={() => setGalleryTab("photo")}
-            >
-              Photo
-            </button>
-          </div>
-        ) : null}
       </div>
       <div className={styles.info}>
         <div className={styles.titleRow}>
@@ -455,9 +404,6 @@ export function PartDetail({
             />
           </button>
         </div>
-        <p className={styles.oem}>
-          OEM <code>{p.oem}</code>
-        </p>
         <div className={styles.ratingRow}>
           {ratingAvg != null ? (
             <>
@@ -509,50 +455,33 @@ export function PartDetail({
           </p>
         ) : null}
         <div className={styles.fitment}>
-          {fitmentSummary && fitmentSummary.length > 0 ? (
-            <>
-              <p>
-                Fitment: <strong>{fitmentSummary[0]}</strong>
-                {fitmentSummary.length > 1
-                  ? ` (+${fitmentSummary.length - 1} more)`
-                  : null}
-              </p>
-              {fitmentSummary.length > 1 ? (
-                <ul>
-                  {fitmentSummary.slice(1).map((label) => (
-                    <li key={label}>{label}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </>
+          {vehicleFit == null ? (
+            <p className={styles.muted}>
+              <Link href="/account/garage">Add your vehicle</Link> to check
+              fitment before you buy.
+            </p>
+          ) : vehicleFit.fits === true ? (
+            <p>
+              Fits your <strong>{vehicleFit.label}</strong>
+            </p>
+          ) : vehicleFit.fits === false ? (
+            <p>
+              Not listed for your <strong>{vehicleFit.label}</strong> — ask the
+              counter to confirm.
+            </p>
           ) : (
             <p className={styles.muted}>
-              No fitment vehicles listed for this OEM yet.
+              Ask the counter to confirm fitment for your{" "}
+              <strong>{vehicleFit.label}</strong>.
             </p>
           )}
         </div>
-        <section className={styles.descBlock}>
-          <h2 className={styles.descTitle}>Description</h2>
-          {descriptionBits.length === 0 ? (
-            <p className={styles.muted}>No description on this part row yet.</p>
-          ) : (
-            <>
-              <p className={descOpen ? undefined : styles.descClamped}>
-                {descOpen ? descriptionBits.join(" · ") : descPreview || descriptionBits[0]}
-              </p>
-              {descriptionBits.length > 2 || (descPreview?.length ?? 0) > 120 ? (
-                <button
-                  type="button"
-                  className={styles.descToggle}
-                  onClick={() => setDescOpen((o) => !o)}
-                  aria-expanded={descOpen}
-                >
-                  {descOpen ? "Show less" : "Read more"}
-                </button>
-              ) : null}
-            </>
-          )}
-        </section>
+        {p.category ? (
+          <section className={styles.descBlock}>
+            <h2 className={styles.descTitle}>Description</h2>
+            <p>{p.category}</p>
+          </section>
+        ) : null}
         <div className={styles.stickyBar}>
           <AddToCartButton oem={p.oem} />
           <button
@@ -574,8 +503,8 @@ export function PartDetail({
           <Link href="/account/compare" className={styles.wish}>
             View compare
           </Link>
-          <WhatsAppCta oem={p.oem} />
-          <ChatEntryLink oem={p.oem} />
+          <WhatsAppCta product={p.name} />
+          <ChatEntryLink product={p.name} />
         </div>
         {actionMsg ? (
           <p className={styles.muted} role="status">
@@ -583,45 +512,17 @@ export function PartDetail({
           </p>
         ) : null}
         <section className={styles.block}>
-          <h2>Specs</h2>
-          {p.specs.length ? (
-            <ul>
-              {p.specs.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className={styles.muted}>No specs listed on this part row.</p>
-          )}
-        </section>
-        <section className={styles.block}>
-          <h2>OE cross-refs</h2>
-          {p.replaces.length ? (
-            <ul>
-              {p.replaces.map((r) => (
-                <li key={r}>
-                  Also replaces <code>{r}</code>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={styles.muted}>No alternate OE numbers listed.</p>
-          )}
-        </section>
-        <section className={styles.block}>
           <h2>Alternatives</h2>
           {p.alternatives.length ? (
             <ul className={styles.alts}>
               {p.alternatives.map((a) => (
                 <li key={a.oem}>
-                  <Link href={`/parts/${encodeURIComponent(a.oem)}`}>
-                    {a.oem} — {a.name}
-                  </Link>
+                  <Link href={partHref(a)}>{a.name}</Link>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className={styles.muted}>No same-PNC alternatives found.</p>
+            <p className={styles.muted}>No alternatives in stock.</p>
           )}
         </section>
         <section className={styles.block}>

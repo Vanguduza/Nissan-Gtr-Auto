@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HomeMerch } from "@/components/home-merch";
-import { StorefrontHero } from "@/components/hero";
+import { HomeShowcaseCarousel } from "@/components/home-showcase-carousel";
 import {
   ArrowRight,
   Car,
@@ -38,7 +38,7 @@ function SectionHeading({
 export default function HomePage() {
   return (
     <>
-      <StorefrontHero />
+      <HomeShowcaseCarousel />
       <HomeMerch />
 
       <section className={styles.section} aria-labelledby="kits-heading">
@@ -55,8 +55,9 @@ export default function HomePage() {
             <ArrowRight size={iconSizeMd} strokeWidth={iconStroke} aria-hidden />
           </Link>
           <p className={styles.muted} style={{ marginTop: "0.75rem" }}>
-            <Car size={14} strokeWidth={iconStroke} aria-hidden /> Fitment stays
-            scoped from My Garage when a vehicle is selected.
+            <Car size={14} strokeWidth={iconStroke} aria-hidden />{" "}
+            <Link href="/vehicle">Select your vehicle</Link> and the shop shows
+            parts that fit.
           </p>
         </div>
       </section>

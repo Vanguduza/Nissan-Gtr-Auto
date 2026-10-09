@@ -16,7 +16,9 @@
   --gtr-usd: #0b6e4f;
   --gtr-zig: #b45309;
   --gtr-hover: 150ms ease-out;
-  --gtr-shop-max: 1120px;
+  /* Storefront content spans the window; only a small responsive side gutter remains. */
+  --gtr-gutter: clamp(1rem, 2.5vw, 2.5rem);
+  --gtr-shop-max: calc(100% - 2 * var(--gtr-gutter));
   /* Prefer next/font variables; fall back if not injected */
   --font-display: var(--font-display-loaded), "Arial Narrow", "Helvetica Neue",
     sans-serif;

@@ -195,3 +195,60 @@ export async function deleteStaffProductImage(
     .remove([image.storage_path.replace(/^product-images\//, "")]);
   return { ok: true };
 }
+
+export type StaffHomeCarouselEntry = {
+  stock_item_id: string;
+  rank: number;
+  caption: string | null;
+  title: string;
+};
+
+/** Items currently curated for the storefront home carousel, in display order. */
+export async function listStaffHomeCarousel(
+  client: SupabaseClient,
+): Promise<
+  { ok: true; data: StaffHomeCarouselEntry[] } | { ok: false; error: string }
+> {
+  const db = client as unknown as {
+    from: (t: string) => ReturnType<SupabaseClient["from"]>;
+  };
+  const { data, error } = await db
+    .from("stock_item_shop_merch")
+    .select(
+      "stock_item_id, home_carousel_rank, home_carousel_caption, stock_items ( description )",
+    )
+    .not("home_carousel_rank", "is", null)
+    .order("home_carousel_rank", { ascending: true });
+  if (error) return { ok: false, error: error.message };
+  const rows = (
+    (data ?? []) as unknown as Array<{
+      stock_item_id: string;
+      home_carousel_rank: number;
+      home_carousel_caption: string | null;
+      stock_items: { description: string | null } | { description: string | null }[] | null;
+    }>
+  ).map((r) => {
+    const item = Array.isArray(r.stock_items) ? r.stock_items[0] : r.stock_items;
+    return {
+      stock_item_id: r.stock_item_id,
+      rank: Number(r.home_carousel_rank),
+      caption: r.home_carousel_caption,
+      title: item?.description?.trim() || "Untitled item",
+    };
+  });
+  return { ok: true, data: rows };
+}
+
+/** Put an item in the home carousel at `rank` (1–12), or remove it with `null`. */
+export async function setStaffHomeCarousel(
+  client: SupabaseClient,
+  input: { stockItemId: string; rank: number | null; caption: string | null },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await asRpc(client).rpc("set_storefront_home_carousel", {
+    p_stock_item_id: input.stockItemId,
+    p_rank: input.rank,
+    p_caption: input.caption,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { partHref } from "@/lib/catalog-product";
 import { useCallback, useEffect, useState } from "react";
 import {
   formatMoney,
@@ -208,7 +209,7 @@ export function B2bPricePanel() {
           <ul className={styles.simpleList}>
             {status.sample.map((row) => (
               <li key={row.stock_item_id}>
-                <Link href={`/parts/${encodeURIComponent(row.oem)}`}>
+                <Link href={partHref({ id: row.stock_item_id, oem: row.oem })}>
                   {row.name}
                 </Link>
                 {" — "}

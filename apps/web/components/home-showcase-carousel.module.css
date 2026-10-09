@@ -1,0 +1,343 @@
+/* Home hero carousel: centre card, smaller tilted side cards, player bar. */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 90% at 85% 20%, rgba(200, 16, 46, 0.28), transparent 55%),
+    linear-gradient(120deg, #0a0c11 0%, var(--gtr-steel-lift) 52%, var(--gtr-steel) 100%);
+  padding: clamp(1.25rem, 4vw, 2.5rem) 0;
+}
+
+.container {
+  width: min(var(--gtr-shop-max), 100%);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  perspective: 1400px;
+  transform-style: preserve-3d;
+}
+
+.radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cards {
+  position: relative;
+  width: 100%;
+  height: clamp(220px, 38vw, 440px);
+  margin-bottom: 1.25rem;
+}
+
+.card {
+  position: absolute;
+  inset: 0;
+  width: min(56%, 680px);
+  height: 100%;
+  margin: auto;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--gtr-steel-lift);
+  transition:
+    transform 0.45s ease,
+    opacity 0.45s ease,
+    box-shadow 0.45s ease;
+}
+
+.card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.active {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  z-index: 2;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+}
+
+.prev {
+  transform: translateX(-42%) scale(0.8) rotateY(14deg);
+  opacity: 0.45;
+  z-index: 1;
+}
+
+.next {
+  transform: translateX(42%) scale(0.8) rotateY(-14deg);
+  opacity: 0.45;
+  z-index: 1;
+}
+
+.hidden {
+  transform: scale(0.6);
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.card:focus-visible {
+  outline: 3px solid var(--gtr-red);
+  outline-offset: 3px;
+}
+
+.fallback {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  width: 100%;
+  height: 100%;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  color: var(--gtr-white);
+  background:
+    radial-gradient(ellipse 80% 70% at 80% 10%, rgba(200, 16, 46, 0.55), transparent 60%),
+    linear-gradient(150deg, var(--gtr-steel-lift), #0a0c11);
+}
+
+.fallbackMark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gtr-silver);
+  font-size: 0.85rem;
+}
+
+.fallbackName {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  line-height: 1.15;
+}
+
+.player {
+  width: min(560px, 100%);
+  background: var(--gtr-white);
+  color: var(--gtr-steel);
+  border-radius: 10px;
+  padding: 0.9rem 0.85rem 0.75rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.upperPart {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.7rem;
+  min-height: 2.6rem;
+}
+
+.playIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--gtr-red);
+  color: var(--gtr-red-ink);
+  cursor: pointer;
+  transition: background var(--gtr-hover);
+}
+
+.playIcon:hover {
+  background: var(--gtr-red-hover);
+}
+
+.infoArea {
+  flex: 1;
+  min-width: 0;
+}
+
+.songInfo {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.title {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subLine {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.subtitle {
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--gtr-silver-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.time {
+  margin-left: auto;
+  flex: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.progressBar {
+  height: 3px;
+  width: 100%;
+  background: var(--gtr-mist);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--gtr-red);
+  border-radius: 6px;
+  transform-origin: left center;
+  animation-name: fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.progressPaused {
+  animation-play-state: paused;
+}
+
+@keyframes fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.dot,
+.dotActive {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--gtr-silver);
+  transition: background var(--gtr-hover), width var(--gtr-hover);
+}
+
+.dotActive {
+  width: 1.25rem;
+  border-radius: 999px;
+  background: var(--gtr-red);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.placeholder {
+  width: 100%;
+  padding: clamp(1.5rem, 5vw, 3rem) 0;
+  color: var(--gtr-white);
+}
+
+.kicker {
+  margin: 0 0 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gtr-silver);
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.65rem, 3.4vw, 2.35rem);
+  line-height: 1.12;
+}
+
+.note {
+  margin: 0.75rem 0 0;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.cta,
+.ctaGhost {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cta {
+  background: var(--gtr-red);
+  color: var(--gtr-red-ink);
+}
+
+.ctaGhost {
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: var(--gtr-white);
+}
+
+@media (max-width: 640px) {
+  .card {
+    width: 74%;
+  }
+
+  .prev {
+    transform: translateX(-30%) scale(0.78) rotateY(12deg);
+  }
+
+  .next {
+    transform: translateX(30%) scale(0.78) rotateY(-12deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .dot,
+  .dotActive {
+    transition: none;
+  }
+
+  .progress {
+    animation: none;
+    transform: scaleX(1);
+  }
+}

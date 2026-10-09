@@ -20,11 +20,6 @@ import {
   VehicleCascade,
   type VehicleMasterRow,
 } from "@/lib/vehicle-catalog";
-import {
-  catalogPath,
-  lookupVariantByChassis,
-  saveEpcContext,
-} from "@/lib/catalog-hierarchy";
 import { createWebClient } from "@/lib/supabase";
 import accountStyles from "@/components/account.module.css";
 import cascadeStyles from "@/components/vehicle-selector.module.css";
@@ -121,7 +116,7 @@ export function GaragePanel() {
       const resolved = VehicleCascade.resolveVin(rows, vinTrim);
       if (!resolved) {
         setFormError(
-          "VIN not found in live catalog. Only prefixes present in vehicle_master are identifiable.",
+          "We couldn't identify that VIN. Please pick your vehicle from the lists instead.",
         );
         setBusy(false);
         return;
@@ -133,7 +128,7 @@ export function GaragePanel() {
       vin = vinTrim;
     } else {
       if (!form.maker || !form.model || !form.generation) {
-        setFormError("Select maker, model, and generation from the catalog.");
+        setFormError("Select maker, model, and generation.");
         setBusy(false);
         return;
       }
@@ -144,7 +139,7 @@ export function GaragePanel() {
         form.generation,
       );
       if (engines.length > 0 && !form.engine) {
-        setFormError("Select an engine from the catalog.");
+        setFormError("Select an engine.");
         setBusy(false);
         return;
       }
@@ -156,7 +151,7 @@ export function GaragePanel() {
         rows,
       );
       if (!selected) {
-        setFormError("Selection not found in live catalog.");
+        setFormError("That vehicle isn't available. Please check your selection.");
         setBusy(false);
         return;
       }
@@ -281,11 +276,8 @@ export function GaragePanel() {
                   Remove
                 </button>
                 <Link href="/vehicle" className={accountStyles.btnGhost}>
-                  Browse by vehicle
+                  Shop for this vehicle
                 </Link>
-                {v.generation ? (
-                  <GarageEpcLink chassis={v.generation} />
-                ) : null}
               </div>
             </li>
           ))
@@ -313,7 +305,7 @@ export function GaragePanel() {
         </p>
         {catalogError ? (
           <p className={cascadeStyles.error} role="alert">
-            Catalog unavailable: {catalogError}
+            Vehicle list unavailable right now. Please try again shortly.
           </p>
         ) : null}
         <VehicleCascadeFields
@@ -359,32 +351,5 @@ export function GaragePanel() {
         Service reminders stay deferred until the marketing channel is live.
       </p>
     </>
-  );
-}
-
-function GarageEpcLink({ chassis }: { chassis: string }) {
-  const [href, setHref] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      const client = createWebClient();
-      if (!client) return;
-      const ctx = await lookupVariantByChassis(client, chassis);
-      if (cancelled || !ctx) return;
-      saveEpcContext(ctx);
-      setHref(catalogPath(ctx));
-    }
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [chassis]);
-
-  if (!href) return null;
-  return (
-    <Link href={href} className={accountStyles.btnGhost}>
-      Browse EPC diagrams
-    </Link>
   );
 }

@@ -12,7 +12,7 @@
 }
 
 .band {
-  width: min(1120px, 100%);
+  width: min(var(--gtr-shop-max), 100%);
   margin-inline: auto;
   padding-inline: clamp(0.85rem, 3vw, 1.5rem);
 }
@@ -197,13 +197,13 @@
 }
 
 .page {
-  width: min(1120px, 100%);
+  width: min(var(--gtr-shop-max), 100%);
   margin-inline: auto;
   padding: 1.75rem clamp(0.85rem, 3vw, 1.5rem) 3rem;
 }
 
 .bandPad {
-  width: min(var(--gtr-shop-max, 1120px), 100%);
+  width: min(var(--gtr-shop-max), 100%);
   margin-inline: auto;
   padding: 1.75rem clamp(0.85rem, 3vw, 1.5rem) 3rem;
 }
@@ -396,4 +396,22 @@
   .catGrid {
     grid-template-columns: 1fr;
   }
+}
+
+.searchForm {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  max-width: 40rem;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--gtr-silver);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--gtr-white);
+  color: inherit;
 }

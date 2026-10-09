@@ -23,9 +23,8 @@ import styles from "./site-menu.module.css";
 
 const primaryLinks = [
   { href: "/", label: "Home", Icon: LayoutGrid },
-  { href: "/catalog", label: "Parts catalog (EPC)", Icon: Car },
   { href: "/shop", label: "Shop stock", Icon: LayoutGrid },
-  { href: "/search", label: "Advanced search", Icon: Search },
+  { href: "/search", label: "Search parts", Icon: Search },
   { href: "/kits", label: "Service kits", Icon: Package },
   { href: "/vehicle", label: "Select vehicle", Icon: Car },
   { href: "/account/garage", label: "My Garage", Icon: Car },

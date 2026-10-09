@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { partHref } from "@/lib/catalog-product";
 import { useCallback, useEffect, useState } from "react";
 import styles from "@/components/account.module.css";
 import {
@@ -162,19 +163,19 @@ export function WishlistPanel() {
         {status.items.map((item) => {
           const oem =
             item.stock_items?.oem_part_number ?? item.stock_item_id.slice(0, 8);
-          const name = item.stock_items?.description?.trim() || oem;
+          const name = item.stock_items?.description?.trim() || "Nissan part";
           return (
             <li key={item.id}>
               <strong>{name}</strong>
               <br />
               <span className={styles.muted}>
-                OEM <code>{oem}</code> · saved{" "}
+                Saved{" "}
                 {new Date(item.created_at).toLocaleDateString()}
                 {item.notify_when_in_stock ? " · notify on restock" : ""}
               </span>
               <br />
               <Link
-                href={`/parts/${encodeURIComponent(oem)}`}
+                href={partHref({ id: item.stock_item_id, oem })}
                 className={styles.btn}
               >
                 Open
