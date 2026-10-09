@@ -32,7 +32,8 @@ jobs:
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: .
-          framework: dockerfile,docker_compose,github_actions,kubernetes,terraform
+          # docker_compose is not a Checkov framework (it aborted the run); compose files have no IaC checks.
+          framework: dockerfile,github_actions,kubernetes,terraform
           soft_fail: false
           soft_fail_on: LOW,MEDIUM
           hard_fail_on: HIGH,CRITICAL

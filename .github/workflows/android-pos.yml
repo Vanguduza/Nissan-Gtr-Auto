@@ -22,6 +22,9 @@ concurrency:
   group: android-pos-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   tablet-pos:
     name: Tablet POS build + unit tests
