@@ -57,3 +57,6 @@ data-pipeline/.venv/
 
 supabase/sim/ci/supabase/.temp/
 supabase/sim/ci/supabase/.branches/
+
+# Kotlin Gradle plugin build cache
+.kotlin/

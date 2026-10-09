@@ -1,21 +1,16 @@
 {
   "actor": "unknown",
   "branch_at_record": "ccr-8c44a0d0-msyynq",
-  "change_id": "c55fb8337191541dcbad",
+  "change_id": "aca4bd56c529d8cc37ab",
   "changed_files": [
-    ".github/workflows/project-truth-autolog.yml",
-    "PROJECT_TRUTH_PROTOCOL.md",
-    "scripts/install-project-truth-hooks.ps1",
-    "scripts/install-project-truth-hooks.sh",
-    "scripts/project_truth_local.py"
+    ".gitignore"
   ],
-  "diff_sha256": "c55fb8337191541dcbad5e1c6a1a948d75a0d9dd84ba00eaab7297da943a1f04",
+  "diff_sha256": "aca4bd56c529d8cc37ab58b38dc00d7c8f754cf0b7d836f2c7279303d02fa0a6",
   "domains": [
-    "ci",
     "repository"
   ],
   "intent": "automatic-file-level-record",
-  "recorded_at_utc": "2026-10-09T06:30:29.058146+00:00",
+  "recorded_at_utc": "2026-10-09T06:31:30.987677+00:00",
   "schema_version": 1,
-  "source_parent": "fc254ce2bfd16106756ba894e57a0c832a3a9e1f"
+  "source_parent": "ca5ac26a7538e376b5f4a966a681c7bd5389249b"
 }
